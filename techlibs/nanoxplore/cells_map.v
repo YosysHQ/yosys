@@ -52,18 +52,22 @@ module aldff(input D, C, L, AD, output Q);
 endmodule
 
 module \$_SDFF_PP0_ (input D, C, R, output Q);
+  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b0), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b0), .R(R), .O(Q));
 endmodule
 
 module \$_SDFF_PP1_ (input D, C, R, output Q);
+  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b0), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(1'b1)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b0), .R(R), .O(Q));
 endmodule
 
 module \$_SDFF_NP0_ (input D, C, R, output Q);
+  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b1), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b0), .R(R), .O(Q));
 endmodule
 
 module \$_SDFF_NP1_ (input D, C, R, output Q);
+  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b1), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(1'b1)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b0), .R(R), .O(Q));
 endmodule
 
