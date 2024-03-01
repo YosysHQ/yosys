@@ -33,3 +33,9 @@ always @(posedge clock, posedge async_reset)
 	else O <= I;
 
 endmodule
+
+module NX_CY(input A1, A2, A3, A4, B1, B2, B3, B4, (* abc9_carry *) input CI, output S1, S2, S3, S4, (* abc9_carry *) output CO);
+parameter add_carry = 0;
+
+assign {CO, S4, S3, S2, S1} = {A4, A3, A2, A1} + {B4, B3, B2, B1} + CI;
+endmodule
