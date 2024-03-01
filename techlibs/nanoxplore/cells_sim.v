@@ -1,3 +1,4 @@
+(* abc9_lut=1 *)
 module NX_LUT(input I1, I2, I3, I4, output O);
 
 parameter lut_table = 16'h0000;
