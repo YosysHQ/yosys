@@ -229,9 +229,10 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_ffram"))
 		{
-			run("opt -fast -mux_undef -undriven -fine");
+			//run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
-			run("opt -undriven -fine -mux_undef");
+			run("opt -full");
+			//run("opt -undriven -fine -mux_undef");
 		}
 
 		if (check_label("map_gates"))
