@@ -88,8 +88,8 @@ struct SynthPass : public ScriptPass {
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
-		log("    -inject filename\n");
-		log("        inject rules from the given file to complement the default\n");
+		log("    -extra-map filename\n");
+		log("        source extra rules from the given file to complement the default\n");
 		log("        mapping library in the `techmap` step. this option can be\n");
 		log("        repeated.\n");
 		log("\n");
@@ -101,7 +101,7 @@ struct SynthPass : public ScriptPass {
 	string top_module, fsm_opts, memory_opts, abc;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth;
 	int lut;
-	std::vector<std::string> techmap_inject;
+	std::vector<std::string> techmap_maps;
 
 	void clear_flags() override
 	{
@@ -119,7 +119,7 @@ struct SynthPass : public ScriptPass {
 		flowmap = false;
 		booth = false;
 		abc = "abc";
-		techmap_inject.clear();
+		techmap_maps.clear();
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -197,8 +197,8 @@ struct SynthPass : public ScriptPass {
 				memory_opts += " -no-rw-check";
 				continue;
 			}
-			if (args[argidx] == "-inject" && argidx + 1 < args.size()) {
-				techmap_inject.push_back(args[++argidx]);
+			if (args[argidx] == "-extra-map" && argidx + 1 < args.size()) {
+				techmap_maps.push_back(args[++argidx]);
 				continue;
 			}
 			break;
@@ -275,9 +275,9 @@ struct SynthPass : public ScriptPass {
 				run("techmap -map +/techmap.v -map <inject>", "  (if -inject)");
 			} else {
 				std::string techmap_opts;
-				if (!techmap_inject.empty())
+				if (!techmap_maps.empty())
 					techmap_opts += " -map +/techmap.v";
-				for (auto fn : techmap_inject)
+				for (auto fn : techmap_maps)
 					techmap_opts += stringf(" -map %s", fn.c_str());
 				run("techmap" + techmap_opts);
 			}
