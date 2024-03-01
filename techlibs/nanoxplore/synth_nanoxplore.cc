@@ -73,6 +73,18 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nocy\n");
 		log("        do not map adders to CY cells\n");
 		log("\n");
+		log("    -nolutram\n");
+		log("        do not use LUT RAM cells in output netlist\n");
+		log("\n");
+		log("    -nobram\n");
+		log("        do not use block RAM cells in output netlist\n");
+		log("\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to NX_DSP cells\n");
+		log("\n");
+		log("    -noiopad\n");
+		log("        do not instantiate IO buffers\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -80,7 +92,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy;
+	bool flatten, abc9, nocy, nolutram, nobram, nodsp, noiopad;
 
 	void clear_flags() override
 	{
@@ -90,6 +102,10 @@ struct SynthNanoXplorePass : public ScriptPass
 		flatten = true;
 		abc9 = false;
 		nocy = false;
+		nolutram = false;
+		nobram = false;
+		nodsp = false;
+		noiopad = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -136,12 +152,28 @@ struct SynthNanoXplorePass : public ScriptPass
 				nocy = true;
 				continue;
 			}
+			if (args[argidx] == "-nolutram") {
+				nolutram = true;
+				continue;
+			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (family.empty()) {
-			log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
+			//log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
 			family = "ultra";
 		}
 
@@ -190,8 +222,9 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("map_ram"))
-		{
+		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
+			run("memory_libmap -lib +/nanoxplore/drams.txt");
+			run("techmap -map +/nanoxplore/cells_map.v t:$__NX_XRFB_32x36_ t:$__NX_XRFB_64x18_");
 		}
 
 		if (check_label("map_ffram"))
