@@ -160,7 +160,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v");
+			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
