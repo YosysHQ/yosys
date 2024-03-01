@@ -1762,11 +1762,17 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_SHIFTX:       type_name = ID($shiftx); }
 	if (0) { case AST_SHIFT:        type_name = ID($shift); }
 		{
+			int right_width;
+			bool right_signed;
+			children[1]->detectSignWidth(right_width, right_signed);
+			// for ordinary shift operators, the right operand is always treated as an unsigned number,
+			// while the special cells $shift and $shiftx can shift both to the left (negative) and right (positive)
+			if (type != AST_SHIFT && type != AST_SHIFTX)
+				right_signed = false;
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
-			// for $shift and $shiftx, the second operand can be negative
-			RTLIL::SigSpec right = children[1]->genRTLIL(-1, type == AST_SHIFT || type == AST_SHIFTX);
+			RTLIL::SigSpec right = children[1]->genRTLIL(right_width, right_signed);
 			int width = width_hint > 0 ? width_hint : left.size();
 			is_signed = children[0]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
