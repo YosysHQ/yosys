@@ -32930,31 +32930,31 @@ module NX_XRFB_2R_1W(WCK, WE, WEA, I, AO, BO, WA, ARA, BRA);
     parameter wck_edge = 1'b0;
 endmodule
 
-(* blackbox *)
-module NX_XRFB_32x36(WCK, WE, WEA, I, O, RA, WA);
-    input [35:0] I;
-    output [35:0] O;
-    input [4:0] RA;
-    input [4:0] WA;
-    input WCK;
-    input WE;
-    input WEA;
-    parameter mem_ctxt = "";
-    parameter wck_edge = 1'b0;
-endmodule
-
-(* blackbox *)
-module NX_XRFB_64x18(WCK, WE, WEA, I, O, RA, WA);
-    input [17:0] I;
-    output [17:0] O;
-    input [5:0] RA;
-    input [5:0] WA;
-    input WCK;
-    input WE;
-    input WEA;
-    parameter mem_ctxt = "";
-    parameter wck_edge = 1'b0;
-endmodule
+//(* blackbox *)
+//module NX_XRFB_32x36(WCK, WE, WEA, I, O, RA, WA);
+//    input [35:0] I;
+//    output [35:0] O;
+//    input [4:0] RA;
+//    input [4:0] WA;
+//    input WCK;
+//    input WE;
+//    input WEA;
+//    parameter mem_ctxt = "";
+//    parameter wck_edge = 1'b0;
+//endmodule
+//
+//(* blackbox *)
+//module NX_XRFB_64x18(WCK, WE, WEA, I, O, RA, WA);
+//    input [17:0] I;
+//    output [17:0] O;
+//    input [5:0] RA;
+//    input [5:0] WA;
+//    input WCK;
+//    input WE;
+//    input WEA;
+//    parameter mem_ctxt = "";
+//    parameter wck_edge = 1'b0;
+//endmodule
 
 (* blackbox *)
 module SMACC24x18_1DSP(clk, rst, A, B, Z);

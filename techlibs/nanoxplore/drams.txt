@@ -1,0 +1,27 @@
+ram distributed $__NX_XRFB_64x18_ {
+    abits 6;
+    width 18;
+    cost 10;
+    init no_undef;
+    prune_rom;
+
+    port sw "W" {
+        clock anyedge;
+    }
+    port ar "R" {
+    }
+}
+
+ram distributed $__NX_XRFB_32x36_ {
+    abits 5;
+    width 36;
+    cost 10;
+    init no_undef;
+    prune_rom;
+
+    port sw "W" {
+        clock anyedge;
+    }
+    port ar "R" {
+    }
+}

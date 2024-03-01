@@ -1,0 +1,8 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+synth_nanoxplore -noiopad
+cd lutram_1w1r
+select -assert-count 1 t:NX_XRFB_64x18
+select -assert-count 8 t:NX_DFF
+select -assert-none t:NX_XRFB_64x18 t:NX_DFF %% t:* %D
+
