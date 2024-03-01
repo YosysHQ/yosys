@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2024 Hannah Ravensloft <lofty@yosyshq.com> 
+ *  Copyright (C) 2024 Miodrag Milanovic <micko@yosyshq.com> 
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -45,6 +46,15 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    -family <family>\n");
+		log("        run synthesis for the specified NanoXplore architecture\n");
+		log("        generate the synthesis netlist for the specified family.\n");
+		log("        supported values:\n");
+		log("        - medium: NG-Medium\n");
+		log("        - large: NG-Large\n");
+		log("        - ultra: NG-Ultra\n");
+		log("        - u300: NG-Ultra300\n");
+		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -60,21 +70,26 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
+		log("    -nocy\n");
+		log("        do not map adders to CY cells\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, json_file;
-	bool flatten, abc9;
+	string top_opt, json_file, family;
+	bool flatten, abc9, nocy;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		json_file = "";
+		family = "";
 		flatten = true;
 		abc9 = false;
+		nocy = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -87,6 +102,10 @@ struct SynthNanoXplorePass : public ScriptPass
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if ((args[argidx] == "-family" || args[argidx] == "-arch") && argidx+1 < args.size()) {
+				family = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-json" && argidx+1 < args.size()) {
@@ -113,9 +132,18 @@ struct SynthNanoXplorePass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-nocy") {
+				nocy = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (family.empty()) {
+			log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
+			family = "ultra";
+		}
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -175,13 +203,15 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_gates"))
 		{
-			run("techmap");
+			if (nocy)
+				run("techmap");
+			else
+				run("techmap -map +/techmap.v -map +/nanoxplore/arith_map.v");
 			run("opt -fast");
 		}
 
 		if (check_label("map_ffs"))
 		{
-			run("techmap");
 			run("dfflegalize -cell $_DFF_?P?_ 0 -cell $_ALDFF_?P_ 0 -cell $_SDFF_?P?_ 0");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
