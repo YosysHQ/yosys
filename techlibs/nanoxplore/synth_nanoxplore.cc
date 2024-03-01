@@ -82,8 +82,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nodsp\n");
 		log("        do not map multipliers to NX_DSP cells\n");
 		log("\n");
-		log("    -noiopad\n");
-		log("        do not instantiate IO buffers\n");
+		log("    -iopad\n");
+		log("       insert IO buffers\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -92,7 +92,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, nolutram, nobram, nodsp, noiopad;
+	bool flatten, abc9, nocy, nolutram, nobram, nodsp, iopad;
 
 	void clear_flags() override
 	{
@@ -105,7 +105,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		nolutram = false;
 		nobram = false;
 		nodsp = false;
-		noiopad = false;
+		iopad = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -164,8 +164,8 @@ struct SynthNanoXplorePass : public ScriptPass
 				nodsp = true;
 				continue;
 			}
-			if (args[argidx] == "-noiopad") {
-				noiopad = true;
+			if (args[argidx] == "-iopad") {
+				iopad = true;
 				continue;
 			}
 			break;
@@ -240,6 +240,12 @@ struct SynthNanoXplorePass : public ScriptPass
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/nanoxplore/arith_map.v");
+			if (help_mode || iopad) {
+				run("iopadmap -bits -outpad $__BEYOND_OBUF I:PAD -inpad $__BEYOND_IBUF O:PAD A:top", "(only if '-iopad')");
+				run("techmap -map +/nanoxplore/io_map.v");
+				run("attrmvcp -attr src -attr LOC t:NX_IOB_O n:*");
+				run("attrmvcp -attr src -attr LOC -driven t:NX_IOB_I n:*");
+			}
 			run("opt -fast");
 		}
 
