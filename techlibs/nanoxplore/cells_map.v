@@ -10,19 +10,20 @@ module \$lut (A, Y);
 
   generate
     if (WIDTH == 1) begin
-      localparam [15:0] INIT = {{8{LUT[1]}}, {8{LUT[0]}}};
+      localparam [15:0] INIT = {{2{LUT[1:0]}}, {2{LUT[1:0]}}, {2{LUT[1:0]}}, {2{LUT[1:0]}},
+                                {2{LUT[1:0]}}, {2{LUT[1:0]}}, {2{LUT[1:0]}}, {2{LUT[1:0]}}};
       NX_LUT #(.lut_table(INIT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I1(1'b0), .I2(1'b0), .I3(1'b0), .I4(A[0]));
+        .I1(A[0]), .I2(1'b0), .I3(1'b0), .I4(1'b0));
     end else
     if (WIDTH == 2) begin
-      localparam [15:0] INIT = {{4{LUT[3]}}, {4{LUT[2]}}, {4{LUT[1]}}, {4{LUT[0]}}};
+      localparam [15:0] INIT = {{4{LUT[3:0]}}, {4{LUT[3:0]}}, {4{LUT[3:0]}}, {4{LUT[3:0]}}};
       NX_LUT #(.lut_table(INIT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I1(1'b0), .I2(1'b0), .I3(A[0]), .I4(A[1]));
+        .I1(A[0]), .I2(A[1]), .I3(1'b0), .I4(1'b0), );
     end else
     if (WIDTH == 3) begin
-      localparam [15:0] INIT = {{2{LUT[7]}}, {2{LUT[6]}}, {2{LUT[5]}}, {2{LUT[4]}}, {2{LUT[3]}}, {2{LUT[2]}}, {2{LUT[1]}}, {2{LUT[0]}}};
+      localparam [15:0] INIT = {{8{LUT[7:0]}}, {8{LUT[7:0]}}};
       NX_LUT #(.lut_table(INIT)) _TECHMAP_REPLACE_ (.O(Y),
-        .I1(1'b0), .I2(A[0]), .I3(A[1]), .I4(A[2]));
+        .I1(A[0]), .I2(A[1]), .I3(A[2]), .I4(1'b0));
     end else
     if (WIDTH == 4) begin
       NX_LUT #(.lut_table(LUT)) _TECHMAP_REPLACE_ (.O(Y),
