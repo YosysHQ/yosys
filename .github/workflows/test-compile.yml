@@ -28,9 +28,8 @@ jobs:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
-      CC: ${{ matrix.compiler }}
-      CXX: ${{ matrix.compiler }}
       CXXSTD: ${{ matrix.cpp_std }}
+      CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
     strategy:
       matrix:
         os:
@@ -77,29 +76,10 @@ jobs:
         run: |
           brew install bison flex gawk libffi pkg-config bash
 
-      - name: Setup GCC
-        if: startsWith(matrix.compiler, 'gcc')
-        shell: bash
-        run: |
-          CXX=${CC/#gcc/g++}
-          sudo apt-add-repository ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install $CC $CXX
-          echo "CXX=$CXX" >> $GITHUB_ENV
-          echo "CXXFLAGS=-Wp,-D_GLIBCXX_ASSERTIONS" >> $GITHUB_ENV
-
-      - name: Setup Clang
-        if: startsWith(matrix.compiler, 'clang') && (matrix.compiler != 'clang')
-        shell: bash
-        run: |
-          wget https://apt.llvm.org/llvm-snapshot.gpg.key
-          sudo apt-key add llvm-snapshot.gpg.key
-          rm llvm-snapshot.gpg.key
-          sudo apt-add-repository "deb https://apt.llvm.org/${{ matrix.os_name }}/ llvm-toolchain-${{ matrix.os_name }} main"
-          sudo apt-get update
-          CXX=${CC/#clang/clang++}
-          sudo apt-get install $CC $CXX
-          echo "CXX=$CXX" >> $GITHUB_ENV
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
 
       - name: Linux runtime environment
         if: runner.os == 'Linux'
