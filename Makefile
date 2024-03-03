@@ -267,7 +267,7 @@ CXX = emcc
 CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8 -Wno-c++11-narrowing"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
-EMCC_LINKFLAGS := --memory-init-file 0 --embed-file share
+EMCC_LINKFLAGS := --embed-file share
 EMCC_LINKFLAGS += -s NO_EXIT_RUNTIME=1
 EMCC_LINKFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
 EMCC_LINKFLAGS += -s TOTAL_MEMORY=134217728
