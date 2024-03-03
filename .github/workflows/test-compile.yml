@@ -30,6 +30,7 @@ jobs:
     env:
       CXXSTD: ${{ matrix.cpp_std }}
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
+      CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
     strategy:
       matrix:
         os:
@@ -43,9 +44,6 @@ jobs:
           - 'c++17'
           - 'c++20'
         include:
-          # Add os_name
-          - os: ubuntu-20.04
-            os_name: focal
           # macOS builds
           - os: macos-13
             compiler: 'clang'
@@ -55,11 +53,9 @@ jobs:
             cpp_std: 'c++17'
           # Limited testing for older compilers
           - os: ubuntu-20.04
-            os_name: focal
             compiler: 'clang-11'
             cpp_std: 'c++11'
           - os: ubuntu-20.04
-            os_name: focal
             compiler: 'gcc-10'
             cpp_std: 'c++11'
       fail-fast: false
@@ -109,8 +105,8 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          make config-${CC%%-*}
-          make -j$procs CXXSTD=$CXXSTD CC=$CC CXX=$CXX LD=$CC
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=$CXXSTD
 
       - name: Log yosys-config output
         run: |
