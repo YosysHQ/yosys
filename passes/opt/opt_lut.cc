@@ -167,7 +167,11 @@ struct OptLutWorker
 							legal = false;
 							break;
 						}
-						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)))
+
+						if (lut_dlogic.second->getPort(dlogic_conn.second).size() != 1)
+							continue;
+
+						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)[0]))
 						{
 							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
 							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
@@ -314,7 +318,7 @@ struct OptLutWorker
 
 			auto lutA = worklist.pop();
 			SigSpec lutA_input = sigmap(lutA->getPort(ID::A));
-			SigSpec lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
+			SigBit lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
 			int lutA_width = lutA->getParam(ID::WIDTH).as_int();
 			int lutA_arity = luts_arity[lutA];
 			pool<int> &lutA_dlogic_inputs = luts_dlogic_inputs[lutA];
@@ -528,12 +532,6 @@ struct OptLutPass : public Pass {
 		log("    opt_lut [options] [selection]\n");
 		log("\n");
 		log("This pass combines cascaded $lut cells with unused inputs.\n");
-		log("\n");
-		log("    -dlogic <type>:<cell-port>=<LUT-input>[:<cell-port>=<LUT-input>...]\n");
-		log("        preserve connections to dedicated logic cell <type> that has ports\n");
-		log("        <cell-port> connected to LUT inputs <LUT-input>. this includes\n");
-		log("        the case where both LUT and dedicated logic input are connected to\n");
-		log("        the same constant.\n");
 		log("\n");
 		log("	-tech ice40\n");
 		log("        treat the design as a LUT-mapped circuit for the iCE40 architecture\n");

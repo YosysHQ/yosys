@@ -92,14 +92,14 @@ VPATH := $(YOSYS_SRC)
 
 CXXSTD ?= c++11
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDLIBS := $(LDLIBS) -lstdc++ -lm
-PLUGIN_LDFLAGS :=
-PLUGIN_LDLIBS :=
-EXE_LDFLAGS :=
+LIBS := $(LIBS) -lstdc++ -lm
+PLUGIN_LINKFLAGS :=
+PLUGIN_LIBS :=
+EXE_LINKFLAGS :=
 ifeq ($(OS), MINGW)
-EXE_LDFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
-PLUGIN_LDFLAGS += -L"$(LIBDIR)"
-PLUGIN_LDLIBS := -lyosys_exe
+EXE_LINKFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
+PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
+PLUGIN_LIBS := -lyosys_exe
 endif
 
 PKG_CONFIG ?= pkg-config
@@ -109,7 +109,7 @@ STRIP ?= strip
 AWK ?= awk
 
 ifeq ($(OS), Darwin)
-PLUGIN_LDFLAGS += -undefined dynamic_lookup
+PLUGIN_LINKFLAGS += -undefined dynamic_lookup
 
 # homebrew search paths
 ifneq ($(shell :; command -v brew),)
@@ -117,10 +117,10 @@ BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
 CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
-LDFLAGS += -L$(BREW_PREFIX)/boost/lib
+LINKFLAGS += -L$(BREW_PREFIX)/boost/lib
 endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
-LDFLAGS += -L$(BREW_PREFIX)/readline/lib
+LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
 PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
@@ -129,19 +129,19 @@ export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX
 else ifneq ($(shell :; command -v port),)
 PORT_PREFIX := $(patsubst %/bin/port,%,$(shell :; command -v port))
 CXXFLAGS += -I$(PORT_PREFIX)/include
-LDFLAGS += -L$(PORT_PREFIX)/lib
+LINKFLAGS += -L$(PORT_PREFIX)/lib
 PKG_CONFIG_PATH := $(PORT_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(PORT_PREFIX)/bin:$(PATH)
 endif
 
 else
-LDFLAGS += -rdynamic
+LINKFLAGS += -rdynamic
 ifneq ($(OS), OpenBSD)
-LDLIBS += -lrt
+LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.37+27
+YOSYS_VER := 0.38+113
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -157,7 +157,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline a5c7f69.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 543faed.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -215,41 +215,38 @@ ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
 endif
 
 ifeq ($(CONFIG),clang)
-CXX = clang
-LD = clang++
+CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
-LDFLAGS += -g -fsanitize=$(SANITIZER)
+LINKFLAGS += -g -fsanitize=$(SANITIZER)
 ifneq ($(findstring address,$(SANITIZER)),)
 ENABLE_COVER := 0
 endif
 ifneq ($(findstring memory,$(SANITIZER)),)
 CXXFLAGS += -fPIE -fsanitize-memory-track-origins
-LDFLAGS += -fPIE -fsanitize-memory-track-origins
+LINKFLAGS += -fPIE -fsanitize-memory-track-origins
 endif
 ifneq ($(findstring cfi,$(SANITIZER)),)
 CXXFLAGS += -flto
-LDFLAGS += -flto
+LINKFLAGS += -flto
 endif
 endif
 
 else ifeq ($(CONFIG),gcc)
-CXX = gcc
-LD = gcc
+CXX = g++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else ifeq ($(CONFIG),gcc-static)
-LD = $(CXX)
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
-LDLIBS := $(filter-out -lrt,$(LDLIBS))
+LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -static
+LIBS := $(filter-out -lrt,$(LIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(CXX)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
                        ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
@@ -257,31 +254,28 @@ endif
 
 else ifeq ($(CONFIG),afl-gcc)
 CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
-LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
-CXX = gcc
-LD = gcc
+CXX = g++
 CXXFLAGS += -std=gnu++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
-LD = emcc
 CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8 -Wno-c++11-narrowing"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
-EMCC_LDFLAGS := --memory-init-file 0 --embed-file share
-EMCC_LDFLAGS += -s NO_EXIT_RUNTIME=1
-EMCC_LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
-EMCC_LDFLAGS += -s TOTAL_MEMORY=134217728
-EMCC_LDFLAGS += -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
+EMCC_LINKFLAGS := --embed-file share
+EMCC_LINKFLAGS += -s NO_EXIT_RUNTIME=1
+EMCC_LINKFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
+EMCC_LINKFLAGS += -s TOTAL_MEMORY=134217728
+EMCC_LINKFLAGS += -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 CXXFLAGS += $(EMCC_CXXFLAGS)
-LDFLAGS += $(EMCC_LDFLAGS)
-LDLIBS =
+LINKFLAGS += $(EMCC_LINKFLAGS)
+LIBS =
 EXE = .js
 
 DISABLE_SPAWN := 1
@@ -309,21 +303,19 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
-CXX = clang
-LD = clang++
+CXX = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
-CXX = $(WASI_SDK)/bin/clang
-LD = $(WASI_SDK)/bin/clang++
+CXX = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
 endif
 CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) -Os -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
-LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
-LDLIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LDLIBS))
+LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
+LIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
 ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT -Wno-c++11-narrowing"
 ABCMKARGS += OPTFLAGS="-Os"
@@ -339,34 +331,31 @@ endif
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
-LDLIBS := $(filter-out -lrt,$(LDLIBS))
+LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
+LIBS := $(filter-out -lrt,$(LIBS))
 ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 # TODO: Try to solve pthread linking issue in more appropriate way
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LINKFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
-LD = i686-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
-LDLIBS := $(filter-out -lrt,$(LDLIBS))
+LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
+LIBS := $(filter-out -lrt,$(LIBS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-64)
 CXX = x86_64-w64-mingw32-g++
-LD = x86_64-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
-LDLIBS := $(filter-out -lrt,$(LDLIBS))
+LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
+LIBS := $(filter-out -lrt,$(LIBS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
@@ -393,9 +382,9 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LDLIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-# python-config --ldflags includes LDLIBS for some reason
-LDFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
+LIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+# python-config --ldflags includes LIBS for some reason
+LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 
 PY_WRAPPER_FILE = kernel/python_wrappers
@@ -409,22 +398,22 @@ CXXFLAGS += -DYOSYS_ENABLE_READLINE
 ifeq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD))
 CXXFLAGS += -I/usr/local/include
 endif
-LDLIBS += -lreadline
+LIBS += -lreadline
 ifeq ($(LINK_CURSES),1)
-LDLIBS += -lcurses
+LIBS += -lcurses
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lcurses -lreadline"
 endif
 ifeq ($(LINK_TERMCAP),1)
-LDLIBS += -ltermcap
+LIBS += -ltermcap
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lreadline -ltermcap"
 endif
 ifeq ($(CONFIG),mxe)
-LDLIBS += -ltermcap
+LIBS += -ltermcap
 endif
 else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
-LDLIBS += -ledit -ltinfo -lbsd
+LIBS += -ledit -ltinfo -lbsd
 else
 ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
@@ -443,9 +432,9 @@ CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-e
 ifeq ($(OS), MINGW)
 CXXFLAGS += -Ilibs/dlfcn-win32
 endif
-LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi)
+LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi)
 ifneq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD MINGW))
-LDLIBS += -ldl
+LIBS += -ldl
 endif
 endif
 
@@ -455,7 +444,7 @@ endif
 
 ifeq ($(ENABLE_ZLIB),1)
 CXXFLAGS += -DYOSYS_ENABLE_ZLIB
-LDLIBS += -lz
+LIBS += -lz
 endif
 
 
@@ -472,21 +461,21 @@ endif
 
 ifeq ($(CONFIG),mxe)
 CXXFLAGS += -DYOSYS_ENABLE_TCL
-LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
+LIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
-LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
+LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
 endif
 endif
 
 ifeq ($(ENABLE_GCOV),1)
 CXXFLAGS += --coverage
-LDFLAGS += --coverage
+LINKFLAGS += --coverage
 endif
 
 ifeq ($(ENABLE_GPROF),1)
 CXXFLAGS += -pg
-LDFLAGS += -pg
+LINKFLAGS += -pg
 endif
 
 ifeq ($(ENABLE_NDEBUG),1)
@@ -506,7 +495,7 @@ CXXFLAGS += -DYOSYS_ENABLE_ABC
 ifeq ($(LINK_ABC),1)
 CXXFLAGS += -DYOSYS_LINK_ABC
 ifeq ($(DISABLE_ABC_THREADS),0)
-LDLIBS += -lpthread
+LIBS += -lpthread
 endif
 else
 ifeq ($(ABCEXTERNAL),)
@@ -520,10 +509,10 @@ GHDL_PREFIX ?= $(PREFIX)
 GHDL_INCLUDE_DIR ?= $(GHDL_PREFIX)/include
 GHDL_LIB_DIR ?= $(GHDL_PREFIX)/lib
 CXXFLAGS += -I$(GHDL_INCLUDE_DIR) -DYOSYS_ENABLE_GHDL
-LDLIBS += $(GHDL_LIB_DIR)/libghdl.a $(file <$(GHDL_LIB_DIR)/libghdl.link)
+LIBS += $(GHDL_LIB_DIR)/libghdl.a $(file <$(GHDL_LIB_DIR)/libghdl.link)
 endif
 
-LDLIBS_VERIFIC =
+LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= /usr/local/src/verific_lib
 VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
@@ -549,9 +538,9 @@ CXXFLAGS += -DYOSYSHQ_VERIFIC_EXTENSIONS
 endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 ifeq ($(OS), Darwin)
-LDLIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)),-Wl,-force_load $(comp)) -lz
+LIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)),-Wl,-force_load $(comp)) -lz
 else
-LDLIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
+LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
 endif
 
@@ -630,6 +619,7 @@ $(eval $(call add_include_file,kernel/qcsat.h))
 $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,kernel/scopeinfo.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
@@ -647,16 +637,10 @@ $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/cxxrtl.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/cxxrtl_vcd.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi.cc))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi_vcd.cc))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi_vcd.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -679,11 +663,7 @@ OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
 
 OBJS += libs/sha1/sha1.o
 
-ifneq ($(SMALL),1)
-
 OBJS += libs/json11/json11.o
-
-OBJS += libs/subcircuit/subcircuit.o
 
 OBJS += libs/ezsat/ezsat.o
 OBJS += libs/ezsat/ezminisat.o
@@ -699,6 +679,10 @@ OBJS += libs/fst/fastlz.o
 OBJS += libs/fst/lz4.o
 endif
 
+ifneq ($(SMALL),1)
+
+OBJS += libs/subcircuit/subcircuit.o
+
 include $(YOSYS_SRC)/frontends/*/Makefile.inc
 include $(YOSYS_SRC)/passes/*/Makefile.inc
 include $(YOSYS_SRC)/backends/*/Makefile.inc
@@ -707,6 +691,9 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 else
 
 include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
+ifeq ($(ENABLE_VERIFIC),1)
+include $(YOSYS_SRC)/frontends/verific/Makefile.inc
+endif
 include $(YOSYS_SRC)/frontends/rtlil/Makefile.inc
 include $(YOSYS_SRC)/frontends/ast/Makefile.inc
 include $(YOSYS_SRC)/frontends/blif/Makefile.inc
@@ -748,13 +735,13 @@ yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) $(LDLIBS_VERIFIC)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 else
-	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif
 
 %.o: %.cc
@@ -763,7 +750,7 @@ endif
 
 %.pyh: %.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) $(CXXFLAGS) -x c++ -o $@ -E -P -
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(CXX) $(CXXFLAGS) -x c++ -o $@ -E -P -
 
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
@@ -784,15 +771,15 @@ kernel/version_$(GIT_REV).cc: $(YOSYS_SRC)/Makefile
 
 ifeq ($(ENABLE_VERIFIC),1)
 CXXFLAGS_NOVERIFIC = $(foreach v,$(CXXFLAGS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
-LDLIBS_NOVERIFIC = $(foreach v,$(LDLIBS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
+LIBS_NOVERIFIC = $(foreach v,$(LIBS),$(if $(findstring $(VERIFIC_DIR),$(v)),,$(v)))
 else
 CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
-LDLIBS_NOVERIFIC = $(LDLIBS)
+LIBS_NOVERIFIC = $(LIBS)
 endif
 
 $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -Ilibs/dlfcn-win32,,$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC))))#;' \
-			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC) $(PLUGIN_LDLIBS))#;' \
+			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LINKFLAGS@#$(strip $(LINKFLAGS) $(PLUGIN_LINKFLAGS))#;' -e 's#@LIBS@#$(strip $(LIBS_NOVERIFIC) $(PLUGIN_LIBS))#;' \
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
@@ -844,9 +831,22 @@ else
 ABCOPT=""
 endif
 
+# When YOSYS_NOVERIFIC is set as a make variable, also export it to the
+# enviornment, so that `YOSYS_NOVERIFIC=1 make test` _and_
+# `make test YOSYS_NOVERIFIC=1` will run with verific disabled.
+ifeq ($(YOSYS_NOVERIFIC),1)
+export YOSYS_NOVERIFIC
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 ifeq ($(ENABLE_VERIFIC),1)
+ifeq ($(YOSYS_NOVERIFIC),1)
+	@echo
+	@echo "Running tests without verific support due to YOSYS_NOVERIFIC=1"
+	@echo
+else
 	+cd tests/verific && bash run-test.sh $(SEEDOPT)
+endif
 endif
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
@@ -918,7 +918,7 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 # Unit test
 unit-test: libyosys.so
 	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
-		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
+		CXXFLAGS="$(CXXFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean

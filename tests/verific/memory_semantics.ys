@@ -89,6 +89,6 @@ EOF
 hierarchy -top top
 proc
 opt_clean
-memory -nomap
+memory -nomap -nordff
 select -assert-count 1 t:$mem_v2
 sim -assert -clock clk -n 20

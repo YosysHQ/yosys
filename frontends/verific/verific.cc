@@ -343,36 +343,46 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	}
 }
 
+RTLIL::SigBit VerificImporter::netToSigBit(Verific::Net *net) {
+	if (net && net->IsGnd())
+		return RTLIL::State::S0;
+	else if (net && net->IsPwr())
+		return RTLIL::State::S1;
+	else if (net && net->IsX())
+		return RTLIL::State::Sx;
+	else if (net)
+		return net_map_at(net);
+	else
+		return RTLIL::State::Sz;
+}
+
 RTLIL::SigSpec VerificImporter::operatorInput(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->InputSize())-1; i >= 0; i--)
-		if (inst->GetInputBit(i))
-			sig.append(net_map_at(inst->GetInputBit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->InputSize())-1; i >= 0; i--) {
+		Net *net = inst->GetInputBit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
 RTLIL::SigSpec VerificImporter::operatorInput1(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->Input1Size())-1; i >= 0; i--)
-		if (inst->GetInput1Bit(i))
-			sig.append(net_map_at(inst->GetInput1Bit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->Input1Size())-1; i >= 0; i--) {
+		Net *net = inst->GetInput1Bit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
 RTLIL::SigSpec VerificImporter::operatorInput2(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->Input2Size())-1; i >= 0; i--)
-		if (inst->GetInput2Bit(i))
-			sig.append(net_map_at(inst->GetInput2Bit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->Input2Size())-1; i >= 0; i--) {
+		Net *net = inst->GetInput2Bit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
@@ -1980,6 +1990,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		}
 
 		RTLIL::Cell *cell = module->addCell(inst_name, inst_type);
+		import_attributes(cell->attributes, inst);
 
 		if (inst->IsPrimitive() && mode_keep)
 			cell->attributes[ID::keep] = 1;
@@ -2815,6 +2826,9 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
+		log("  -no-split-complex-ports\n");
+		log("    Complex ports (structs or arrays) are not split and remain packed as a single port.\n");
+		log("\n");
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
 		log("\n");
@@ -3548,6 +3562,7 @@ struct VerificPass : public Pass {
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false, mode_cells = false;
+			bool split_complex_ports = true;
 			string dumpfile;
 			string ppfile;
 			Map parameters(STRING_HASH);
@@ -3563,6 +3578,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-flatten") {
 					flatten = true;
+					continue;
+				}
+				if (args[argidx] == "-no-split-complex-ports") {
+					split_complex_ports = false;
 					continue;
 				}
 				if (args[argidx] == "-extnets") {
@@ -3804,8 +3823,10 @@ struct VerificPass : public Pass {
 					worker.run(nl.second);
 			}
 
-			for (auto nl : nl_todo)
-				nl.second->ChangePortBusStructures(1 /* hierarchical */);
+			if (split_complex_ports) {
+				for (auto nl : nl_todo)
+					nl.second->ChangePortBusStructures(1 /* hierarchical */);
+			}
 
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;

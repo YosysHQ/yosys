@@ -1,0 +1,65 @@
+# Test "casez to if/elif/else conversion" in backend
+
+read_verilog <<EOT
+module top(a, b, c, out);
+	input wire a, b, c;
+	output reg [3:0] out;
+	always @(*) begin
+		casez ({c, b, a})
+			3'b??1: begin
+				out = 0;
+			end
+			3'b?1?: begin
+				out = 1;
+			end
+			3'b1??: begin
+				out = 2;
+			end
+			default: begin
+				out = 3;
+			end
+		endcase
+	end
+endmodule
+EOT
+write_verilog roundtrip_proc_1.v
+design -stash gold
+read_verilog roundtrip_proc_1.v
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+prep
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+sat -prove-asserts -verify
+
+design -reset
+read_verilog <<EOT
+module top(a, b, c, out);
+	input wire a, b, c;
+	output reg [3:0] out;
+	always @(*) begin
+		out <= 0;
+		if (a) begin
+			if (b)
+				out <= 1;
+		end else begin
+			if (c)
+				out <= 2;
+			else
+				out <= 3;
+		end
+	end
+endmodule
+EOT
+proc_clean
+write_verilog roundtrip_proc_2.v
+design -stash gold
+read_verilog roundtrip_proc_2.v
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+prep
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+sat -prove-asserts -verify

@@ -952,7 +952,23 @@ struct lazy_fmt {
 	virtual std::string operator() () const = 0;
 };
 
-// An object that can be passed to a `eval()` method in order to act on side effects.
+// Flavor of a `$check` cell.
+enum class flavor {
+	// Corresponds to a `$assert` cell in other flows, and a Verilog `assert ()` statement.
+	ASSERT,
+	// Corresponds to a `$assume` cell in other flows, and a Verilog `assume ()` statement.
+	ASSUME,
+	// Corresponds to a `$live` cell in other flows, and a Verilog `assert (eventually)` statement.
+	ASSERT_EVENTUALLY,
+	// Corresponds to a `$fair` cell in other flows, and a Verilog `assume (eventually)` statement.
+	ASSUME_EVENTUALLY,
+	// Corresponds to a `$cover` cell in other flows, and a Verilog `cover ()` statement.
+	COVER,
+};
+
+// An object that can be passed to a `eval()` method in order to act on side effects. The default behavior implemented
+// below is the same as the behavior of `eval(nullptr)`, except that `-print-output` option of `write_cxxrtl` is not
+// taken into account.
 struct performer {
 	// Called by generated formatting code to evaluate a Verilog `$time` expression.
 	virtual int64_t vlog_time() const { return 0; }
@@ -963,6 +979,15 @@ struct performer {
 	// Called when a `$print` cell is triggered.
 	virtual void on_print(const lazy_fmt &formatter, const metadata_map &attributes) {
 		std::cout << formatter();
+	}
+
+	// Called when a `$check` cell is triggered.
+	virtual void on_check(flavor type, bool condition, const lazy_fmt &formatter, const metadata_map &attributes) {
+		if (type == flavor::ASSERT || type == flavor::ASSUME) {
+			if (!condition)
+				std::cerr << formatter();
+			CXXRTL_ASSERT(condition && "Check failed");
+		}
 	}
 };
 
@@ -1151,7 +1176,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(value<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = flags_;
@@ -1167,7 +1192,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = DRIVEN_COMB;
@@ -1183,8 +1208,9 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(wire<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
-		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 ||
+		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
 		              "wire<Bits> is not compatible with C layout");
 		type    = WIRE;
 		flags   = flags_;
@@ -1200,7 +1226,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Width>
 	debug_item(memory<Width> &item, size_t zero_offset = 0) {
-		static_assert(sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
+		static_assert(Width == 0 || sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
 		              "memory<Width> is not compatible with C layout");
 		type    = MEMORY;
 		flags   = 0;
@@ -1216,7 +1242,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_alias, const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
@@ -1232,8 +1258,9 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_alias, const wire<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 ||
+		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
 		              "wire<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
@@ -1249,7 +1276,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_outline &group, const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = OUTLINE;
 		flags   = DRIVEN_COMB;
@@ -1293,17 +1320,26 @@ namespace cxxrtl {
 using debug_attrs = ::_cxxrtl_attr_set;
 
 struct debug_items {
+	// Debug items may be composed of multiple parts, but the attributes are shared between all of them.
+	// There are additional invariants, not all of which are not checked by this code:
+	// - Memories and non-memories cannot be mixed together.
+	// - Bit indices (considering `lsb_at` and `width`) must not overlap.
+	// - Row indices (considering `depth` and `zero_at`) must be the same.
+	// - The `INPUT` and `OUTPUT` flags must be the same for all parts.
+	// Other than that, the parts can be quite different, e.g. it is OK to mix a value, a wire, an alias,
+	// and an outline, in the debug information for a single name in four parts.
 	std::map<std::string, std::vector<debug_item>> table;
 	std::map<std::string, std::unique_ptr<debug_attrs>> attrs_table;
 
-	void add(const std::string &name, debug_item &&item, metadata_map &&item_attrs = {}) {
-		std::unique_ptr<debug_attrs> &attrs = attrs_table[name];
+	void add(const std::string &path, debug_item &&item, metadata_map &&item_attrs = {}) {
+		assert((path.empty() || path[path.size() - 1] != ' ') && path.find("  ") == std::string::npos);
+		std::unique_ptr<debug_attrs> &attrs = attrs_table[path];
 		if (attrs.get() == nullptr)
 			attrs = std::unique_ptr<debug_attrs>(new debug_attrs);
 		for (auto attr : item_attrs)
 			attrs->map.insert(attr);
 		item.attrs = attrs.get();
-		std::vector<debug_item> &parts = table[name];
+		std::vector<debug_item> &parts = table[path];
 		parts.emplace_back(item);
 		std::sort(parts.begin(), parts.end(),
 			[](const debug_item &a, const debug_item &b) {
@@ -1311,35 +1347,71 @@ struct debug_items {
 			});
 	}
 
-	size_t count(const std::string &name) const {
-		if (table.count(name) == 0)
+	size_t count(const std::string &path) const {
+		if (table.count(path) == 0)
 			return 0;
-		return table.at(name).size();
+		return table.at(path).size();
 	}
 
-	const std::vector<debug_item> &parts_at(const std::string &name) const {
-		return table.at(name);
+	const std::vector<debug_item> &at(const std::string &path) const {
+		return table.at(path);
 	}
 
-	const debug_item &at(const std::string &name) const {
-		const std::vector<debug_item> &parts = table.at(name);
+	// Like `at()`, but operates only on single-part debug items.
+	const debug_item &operator [](const std::string &path) const {
+		const std::vector<debug_item> &parts = table.at(path);
 		assert(parts.size() == 1);
 		return parts.at(0);
 	}
 
-	const debug_item &operator [](const std::string &name) const {
-		return at(name);
+	bool is_memory(const std::string &path) const {
+		return at(path).at(0).type == debug_item::MEMORY;
 	}
 
-	const metadata_map &attrs(const std::string &name) const {
-		return attrs_table.at(name)->map;
+	const metadata_map &attrs(const std::string &path) const {
+		return attrs_table.at(path)->map;
 	}
 };
 
-// Tag class to disambiguate the default constructor used by the toplevel module that calls reset(),
+// Only `module` scopes are defined. The type is implicit, since Yosys does not currently support
+// any other scope types.
+struct debug_scope {
+	std::string module_name;
+	std::unique_ptr<debug_attrs> module_attrs;
+	std::unique_ptr<debug_attrs> cell_attrs;
+};
+
+struct debug_scopes {
+	std::map<std::string, debug_scope> table;
+
+	void add(const std::string &path, const std::string &module_name, metadata_map &&module_attrs, metadata_map &&cell_attrs) {
+		assert((path.empty() || path[path.size() - 1] != ' ') && path.find("  ") == std::string::npos);
+		assert(table.count(path) == 0);
+		debug_scope &scope = table[path];
+		scope.module_name = module_name;
+		scope.module_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { module_attrs });
+		scope.cell_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { cell_attrs });
+	}
+
+	size_t contains(const std::string &path) const {
+		return table.count(path);
+	}
+
+	const debug_scope &operator [](const std::string &path) const {
+		return table.at(path);
+	}
+};
+
+// Tag class to disambiguate the default constructor used by the toplevel module that calls `reset()`,
 // and the constructor of interior modules that should not call it.
 struct interior {};
 
+// The core API of the `module` class consists of only four virtual methods: `reset()`, `eval()`,
+// `commit`, and `debug_info()`. (The virtual destructor is made necessary by C++.) Every other method
+// is a convenience method, and exists solely to simplify some common pattern for C++ API consumers.
+// No behavior may be added to such convenience methods that other parts of CXXRTL can rely on, since
+// there is no guarantee they will be called (and, for example, other CXXRTL libraries will often call
+// the `eval()` and `commit()` directly instead, as well as being exposed in the C API).
 struct module {
 	module() {}
 	virtual ~module() {}
@@ -1355,8 +1427,14 @@ struct module {
 
 	virtual void reset() = 0;
 
+	// The `eval()` callback object, `performer`, is included in the virtual call signature since
+	// the generated code has broadly identical performance properties.
 	virtual bool eval(performer *performer = nullptr) = 0;
-	virtual bool commit() = 0; // commit observer isn't available since it avoids virtual calls
+
+	// The `commit()` callback object, `observer`, is not included in the virtual call signature since
+	// the generated code is severely pessimized by it. To observe commit events, the non-virtual
+	// `commit(observer *)` overload must be called directly on a `module` subclass.
+	virtual bool commit() = 0;
 
 	size_t step(performer *performer = nullptr) {
 		size_t deltas = 0;
@@ -1368,8 +1446,16 @@ struct module {
 		return deltas;
 	}
 
-	virtual void debug_info(debug_items &items, std::string path = "") {
-		(void)items, (void)path;
+	virtual void debug_info(debug_items *items, debug_scopes *scopes, std::string path, metadata_map &&cell_attrs = {}) {
+		(void)items, (void)scopes, (void)path, (void)cell_attrs;
+	}
+
+	// Compatibility method.
+#if __has_attribute(deprecated)
+	__attribute__((deprecated("Use `debug_info(path, &items, /*scopes=*/nullptr);` instead. (`path` could be \"top \".)")))
+#endif
+	void debug_info(debug_items &items, std::string path) {
+		debug_info(&items, /*scopes=*/nullptr, path);
 	}
 };
 

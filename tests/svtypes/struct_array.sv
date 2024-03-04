@@ -23,6 +23,29 @@ module top;
 	always_comb assert(s.b[23:16]===8'hxx);
 	always_comb assert(s.b[19:12]===8'hxf);
 
+	// Same as s, but defining dimensions in stages with typedef
+	typedef bit [7:0] bit8_t;
+	struct packed {
+		bit8_t [5:0] a;		// 6 element packed array of bytes
+		bit [15:0] b;		// filler for non-zero offset
+	} s_s;
+
+	initial begin
+		s_s = '0;
+
+		s_s.a[2:1] = 16'h1234;
+		s_s.a[5] = 8'h42;
+		s_s.a[-1] = '0;
+
+		s_s.b = '1;
+		s_s.b[1:0] = '0;
+	end
+
+	always_comb assert(s_s==64'h4200_0012_3400_FFFC);
+	always_comb assert(s_s.a[0][3:-4]===8'h0x);
+	always_comb assert(s_s.b[23:16]===8'hxx);
+	always_comb assert(s_s.b[19:12]===8'hxf);
+
 	struct packed {
 		bit [7:0] [7:0] a;	// 8 element packed array of bytes
 		bit [15:0] b;		// filler for non-zero offset
@@ -124,6 +147,28 @@ module top;
 	end
 
 	always_comb assert(s3_lbl==80'hFC00_4200_0012_3400_FFFC);
+
+	// Same as s3_lbl, but defining dimensions in stages with typedef
+	typedef bit [0:3] bit3l_t;
+	struct packed {
+		bit3l_t [0:7] [1:0] a;
+		bit [0:15] b;		// filler for non-zero offset
+	} s3_lbl_s;
+
+	initial begin
+		s3_lbl_s = '0;
+
+		s3_lbl_s.a[5:6] = 16'h1234;
+		s3_lbl_s.a[2] = 8'h42;
+
+		s3_lbl_s.a[0] = '1;
+		s3_lbl_s.a[0][0][2:3] = '0;
+
+		s3_lbl_s.b = '1;
+		s3_lbl_s.b[14:15] = '0;
+	end
+
+	always_comb assert(s3_lbl_s==80'hFC00_4200_0012_3400_FFFC);
 
 	struct packed {
 		bit [0:7] [0:1] [3:0] a;

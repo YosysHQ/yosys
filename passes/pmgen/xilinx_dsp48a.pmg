@@ -354,7 +354,7 @@ match ff
 	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
-	filter clock == SigBit() || port(ff, \CLK) == clock
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
 endmatch
 
 code argQ
@@ -404,7 +404,7 @@ match ff
 	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
 	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
 
-	filter clock == SigBit() || port(ff, \CLK) == clock
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
 endmatch
 
 code argQ

@@ -197,9 +197,20 @@ static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
 			range_node = makeRange(type_node->range_left, type_node->range_right, false);
 		}
 	}
-	if (range_node && range_node->children.size() != 2) {
-		frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+
+	if (range_node) {
+		bool valid = true;
+		if (range_node->type == AST_RANGE) {
+			valid = range_node->children.size() == 2;
+		} else {  // AST_MULTIRANGE
+			for (auto child : range_node->children) {
+				valid = valid && child->children.size() == 2;
+			}
+		}
+		if (!valid)
+			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form [<expr>:<expr>]");
 	}
+
 	return range_node;
 }
 
@@ -672,7 +683,7 @@ module_arg:
 		ast_stack.back()->children.push_back(astbuf2);
 		delete astbuf1; // really only needed if multiple instances of same type.
 	} module_arg_opt_assignment |
-	attr wire_type range TOK_ID {
+	attr wire_type range_or_multirange TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
 		SET_AST_NODE_LOC(node, @4, @4);
@@ -1165,7 +1176,7 @@ task_func_args:
 	task_func_port | task_func_args ',' task_func_port;
 
 task_func_port:
-	attr wire_type range {
+	attr wire_type range_or_multirange {
 		bool prev_was_input = true;
 		bool prev_was_output = false;
 		if (albuf) {
@@ -1889,10 +1900,11 @@ struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_toke
 	;
 
 member_type_token:
-	  member_type
-	| hierarchical_type_id {
-			addWiretypeNode($1, astbuf1);
-		}
+	member_type range_or_multirange {
+		AstNode *range = checkRange(astbuf1, $2);
+		if (range)
+			astbuf1->children.push_back(range);
+	}
 	| {
 		delete astbuf1;
 	} struct_union {
@@ -1908,7 +1920,8 @@ member_type_token:
 	;
 
 member_type: type_atom type_signing
-	| type_vec type_signing range_or_multirange	{ if ($3) astbuf1->children.push_back($3); }
+	| type_vec type_signing
+	| hierarchical_type_id { addWiretypeNode($1, astbuf1); }
 	;
 
 struct_var_list: struct_var
@@ -1928,7 +1941,7 @@ struct_var: TOK_ID	{	auto *var_node = astbuf2->clone();
 /////////
 
 wire_decl:
-	attr wire_type range {
+	attr wire_type range_or_multirange {
 		albuf = $1;
 		astbuf1 = $2;
 		astbuf2 = checkRange(astbuf1, $3);
@@ -2104,14 +2117,14 @@ type_name: TOK_ID		// first time seen
 	 ;
 
 typedef_decl:
-	TOK_TYPEDEF typedef_base_type range type_name range_or_multirange ';' {
+	TOK_TYPEDEF typedef_base_type range_or_multirange type_name range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = checkRange(astbuf1, $3);
 		if (astbuf2)
 			astbuf1->children.push_back(astbuf2);
 
 		if ($5 != NULL) {
-			if (!astbuf2) {
+			if (!astbuf2 && !astbuf1->is_custom_type) {
 				addRange(astbuf1, 0, 0, false);
 			}
 			rewriteAsMemoryNode(astbuf1, $5);
@@ -2484,7 +2497,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2497,7 +2510,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_ASSERT : AST_ASSUME, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2510,7 +2523,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2523,7 +2536,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2533,7 +2546,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' expr ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, $5);
-		SET_AST_NODE_LOC(node, @1, @6);
+		SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @6);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2542,7 +2555,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
-		SET_AST_NODE_LOC(node, @1, @5);
+		SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @5);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2551,7 +2564,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
-		SET_AST_NODE_LOC(node, @1, @2);
+		SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @2);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -2563,7 +2576,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(AST_ASSUME, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -2578,7 +2591,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(AST_FAIR, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
+			SET_AST_NODE_LOC(node, ($1 != nullptr ? @1 : @2), @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);

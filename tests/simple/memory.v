@@ -44,6 +44,7 @@ input [2:0] bit;
 output reg y1, y2;
 output y3, y4;
 
+(* nomem2reg *)
 reg [7:0] mem1 [3:0];
 
 (* mem2reg *)

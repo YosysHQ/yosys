@@ -46,24 +46,6 @@ IdString map_name(RTLIL::Cell *cell, T *object)
 	return cell->module->uniquify(concat_name(cell, object->name));
 }
 
-template<class T>
-void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
-{
-	if (object->has_attribute(ID::src))
-		object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-
-	// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
-	if (cell->name[0] == '\\' && (object->has_attribute(ID::hdlname) || orig_object_name[0] == '\\')) {
-		std::vector<std::string> hierarchy;
-		if (object->has_attribute(ID::hdlname))
-			hierarchy = object->get_hdlname_attribute();
-		else
-			hierarchy.push_back(orig_object_name.str().substr(1));
-		hierarchy.insert(hierarchy.begin(), cell->name.str().substr(1));
-		object->set_hdlname_attribute(hierarchy);
-	}
-}
-
 void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
 {
 	vector<SigChunk> chunks = sig;
@@ -76,6 +58,54 @@ void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &si
 struct FlattenWorker
 {
 	bool ignore_wb = false;
+	bool create_scopeinfo = true;
+	bool create_scopename = false;
+
+	template<class T>
+	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
+	{
+		if (!create_scopeinfo && object->has_attribute(ID::src))
+			object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+
+		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
+		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
+		if (cell->name[0] == '\\') {
+			if (object->has_attribute(ID::hdlname) || orig_object_name[0] == '\\') {
+				std::string new_hdlname;
+
+				if (cell->has_attribute(ID::hdlname)) {
+					new_hdlname = cell->get_string_attribute(ID(hdlname));
+				} else {
+					log_assert(!cell->name.empty());
+					new_hdlname = cell->name.c_str() + 1;
+				}
+				new_hdlname += ' ';
+
+				if (object->has_attribute(ID::hdlname)) {
+					new_hdlname += object->get_string_attribute(ID(hdlname));
+				} else {
+					log_assert(!orig_object_name.empty());
+					new_hdlname += orig_object_name.c_str() + 1;
+				}
+				object->set_string_attribute(ID(hdlname), new_hdlname);
+			} else if (object->has_attribute(ID(scopename))) {
+				std::string new_scopename;
+
+				if (cell->has_attribute(ID::hdlname)) {
+					new_scopename = cell->get_string_attribute(ID(hdlname));
+				} else {
+					log_assert(!cell->name.empty());
+					new_scopename = cell->name.c_str() + 1;
+				}
+				new_scopename += ' ';
+				new_scopename += object->get_string_attribute(ID(scopename));
+				object->set_string_attribute(ID(scopename), new_scopename);
+			} else if (create_scopename) {
+				log_assert(!cell->name.empty());
+				object->set_string_attribute(ID(scopename), cell->name.c_str() + 1);
+			}
+		}
+	}
 
 	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells)
 	{
@@ -220,7 +250,33 @@ struct FlattenWorker
 			sigmap.add(new_conn.first, new_conn.second);
 		}
 
+		RTLIL::Cell *scopeinfo = nullptr;
+		RTLIL::IdString cell_name = cell->name;
+
+		if (create_scopeinfo && cell_name.isPublic())
+		{
+			// The $scopeinfo's name will be changed below after removing the flattened cell
+			scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+			scopeinfo->setParam(ID::TYPE, RTLIL::Const("module"));
+
+			for (auto const &attr : cell->attributes)
+			{
+				if (attr.first == ID::hdlname)
+					scopeinfo->attributes.insert(attr);
+				else
+					scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
+			}
+
+			for (auto const &attr : tpl->attributes)
+				scopeinfo->attributes.emplace(stringf("\\module_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
+
+			scopeinfo->attributes.emplace(ID(module), RTLIL::unescape_id(tpl->name));
+		}
+
 		module->remove(cell);
+
+		if (scopeinfo != nullptr)
+			module->rename(scopeinfo, cell_name);
 	}
 
 	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules)
@@ -275,6 +331,20 @@ struct FlattenPass : public Pass {
 		log("    -wb\n");
 		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
+		log("    -noscopeinfo\n");
+		log("        Do not create '$scopeinfo' cells that preserve attributes of cells and\n");
+		log("        modules that were removed during flattening. With this option, the\n");
+		log("        'src' attribute of a given cell is merged into all objects replacing\n");
+		log("        that cell, with multiple distinct 'src' locations separated by '|'.\n");
+		log("        Without this option these 'src' locations can be found via the\n");
+		log("        cell_src' and 'module_src' attribute of '$scopeinfo' cells.\n");
+		log("\n");
+		log("    -scopename\n");
+		log("        Create 'scopename' attributes for objects with a private name. This\n");
+		log("        attribute records the 'hdlname' of the enclosing scope. For objects\n");
+		log("        with a public name the enclosing scope can be found via their\n");
+		log("        'hdlname' attribute.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -287,6 +357,14 @@ struct FlattenPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-wb") {
 				worker.ignore_wb = true;
+				continue;
+			}
+			if (args[argidx] == "-noscopeinfo") {
+				worker.create_scopeinfo = false;
+				continue;
+			}
+			if (args[argidx] == "-scopename") {
+				worker.create_scopename = true;
 				continue;
 			}
 			break;

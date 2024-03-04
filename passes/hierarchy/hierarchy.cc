@@ -671,7 +671,7 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 	if (cache.count(mod) == 0)
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 				return cache[mod] = true;
 		}
 	return cache[mod];
@@ -1005,6 +1005,18 @@ struct HierarchyPass : public Pass {
 			for (auto mod : design->modules())
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
+
+		if (top_mod == nullptr)
+		{
+			std::vector<IdString> abstract_ids;
+			for (auto module : design->modules())
+				if (module->name.begins_with("$abstract"))
+					abstract_ids.push_back(module->name);
+			for (auto abstract_id : abstract_ids)
+				design->module(abstract_id)->derive(design, {});
+			for (auto abstract_id : abstract_ids)
+				design->remove(design->module(abstract_id));
+		}
 
 		if (top_mod == nullptr && auto_top_mode) {
 			log_header(design, "Finding top of design hierarchy..\n");

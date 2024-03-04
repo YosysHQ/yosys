@@ -2,8 +2,27 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.37 .. Yosys 0.38-dev
+Yosys 0.38 .. Yosys 0.39-dev
 --------------------------
+
+Yosys 0.37 .. Yosys 0.38
+--------------------------
+ * New commands and options
+    - Added option "-tech" to "opt_lut" pass.
+    - Added option "-nokeep_prints" to "hierarchy" pass.
+    - Added option "-nolower" to "async2sync" and "clk2fflogic" pass.
+    - Added option "-lower" to "chformal" pass.
+
+ * Various
+    - Added $check cell to represent assertions with messages.
+    - Allow capturing $print cell output in CXXRTL.
+    - Added API to overwrite existing pass from plugin.
+    - Follow the XDG Base Directory Specification for storing history files.
+    - Without a known top module, derive all deferred modules (hierarchy pass).
+    - Detect and error out on combinational loops in write_aiger.
+
+ * Verific support
+    - Added option "-no-split-complex-ports" to "verific -import".
 
 Yosys 0.36 .. Yosys 0.37
 --------------------------

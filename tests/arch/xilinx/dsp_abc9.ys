@@ -30,6 +30,7 @@ module top(output [42:0] P);
 assert property (P == 42*42);
 endmodule
 EOT
+async2sync
 techmap -map +/xilinx/xc7_dsp_map.v
 verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
 synth_xilinx -abc9

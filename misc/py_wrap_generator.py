@@ -1257,6 +1257,7 @@ class WFunction:
 		func.is_static = False
 		func.is_inline = False
 		func.is_virtual = False
+		func.is_const = False
 		func.ret_attr_type = attr_types.default
 		func.is_operator = False
 		func.member_of = None
@@ -1334,6 +1335,11 @@ class WFunction:
 		found = find_closing(str_def, "(", ")")
 		if found == -1:
 			return None
+
+		post_qualifiers = str_def[found + 1:].lstrip().replace("{", " {") + " "
+		if post_qualifiers.startswith("const "):
+			func.is_const = True
+
 		str_def = str_def[0:found]
 		if func.name in blacklist_methods:
 			return None
@@ -1379,6 +1385,12 @@ class WFunction:
 	def gen_alias(self):
 		self.alias = self.mangled_name
 
+	def gen_post_qualifiers(self, derived=False):
+		if self.member_of != None and self.member_of.link_type == link_types.derive and self.is_virtual and derived:
+			# we drop the qualifiers when deriving callbacks to be implemented in Python
+			return ''
+		return ' const' if self.is_const else ''
+
 	def gen_decl(self):
 		if self.duplicate:
 			return ""
@@ -1392,7 +1404,7 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ");\n"
+		text += f"){self.gen_post_qualifiers()};\n"
 		return text
 
 	def gen_decl_virtual(self):
@@ -1411,12 +1423,18 @@ class WFunction:
 		if len(self.args) > 0:
 			text = text[:-2]
 		text += ")"
-		if len(self.args) == 0:
+		if len(self.args) == 0 and self.ret_type.name == "void":
 			text += "{}"
 		else:
 			text += "\n\t\t{"
 			for arg in self.args:
 				text += "\n\t\t\t(void)" + arg.gen_varname() + ";"
+			if self.ret_type.name == "void":
+				pass
+			elif self.ret_type.name == "bool":
+				text += "\n\t\t\treturn false;"
+			else:
+				raise NotImplementedError(self.ret_type.name)
 			text += "\n\t\t}\n"
 		text += "\n\t\tvirtual "
 		if self.is_static:
@@ -1427,7 +1445,7 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ") override;\n"
+		text += f"){self.gen_post_qualifiers()} override;\n"
 		return text
 
 	def gen_decl_hash_py(self):
@@ -1452,7 +1470,7 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text +=")\n\t{"
+		text += f"){self.gen_post_qualifiers()}\n\t{{"
 		for arg in self.args:
 			text += arg.gen_translation()
 		text += "\n\t\t"
@@ -1507,16 +1525,17 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ")\n\t{"
+		text += f"){self.gen_post_qualifiers()}\n\t{{"
 		for arg in self.args:
 			text += arg.gen_translation_cpp()
-		text += "\n\t\t"
+		return_stmt = "return " if self.ret_type.name != "void" else ""
+		text += f"\n\t\t{return_stmt}"
 		if self.member_of == None:
 			text += "::" + self.namespace + "::" + self.alias + "("
 		elif self.is_static:
 			text += self.member_of.namespace + "::" + self.member_of.name + "::" + self.name + "("
 		else:
-			text += "py_" + self.alias + "("
+			text += f"const_cast<{self.member_of.name}*>(this)->py_" + self.alias + "("
 		for arg in self.args:
 			text += arg.gen_call_cpp() + ", "
 		if len(self.args) > 0:
@@ -1547,11 +1566,13 @@ class WFunction:
 			call_string = call_string[0:-2]
 		call_string += ");"
 
+		return_stmt = "return " if self.ret_type.name != "void" else ""
+
 		text += ")\n\t\t{"
-		text += "\n\t\t\tif(boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\"))"
-		text += "\n\t\t\t\t" + call_string
+		text += "\n\t\t\tif (boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\"))"
+		text += f"\n\t\t\t\t{return_stmt}" + call_string
 		text += "\n\t\t\telse"
-		text += "\n\t\t\t\t" + self.member_of.name + "::" + call_string
+		text += f"\n\t\t\t\t{return_stmt}" + self.member_of.name + "::" + call_string
 		text += "\n\t\t}"
 
 		text += "\n\n\t\t" + self.ret_type.gen_text() + " default_py_" + self.alias + "("
@@ -1559,8 +1580,8 @@ class WFunction:
 			text += arg.gen_listitem() + ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ")\n\t\t{"
-		text += "\n\t\t\tthis->" + self.member_of.name + "::" + call_string
+		text += f")\n\t\t{{"
+		text += f"\n\t\t\t{return_stmt}this->" + self.member_of.name + "::" + call_string
 		text += "\n\t\t}"
 		return text
 
@@ -1584,9 +1605,9 @@ class WFunction:
 			for a in self.args:
 				text += a.gen_listitem_hash() + ", "
 			if len(self.args) > 0:
-				text = text[0:-2] + ")>"
+				text = text[0:-2] + f"){self.gen_post_qualifiers(True)}>"
 			else:
-				text += "void)>"
+				text += f"void){self.gen_post_qualifiers(True)}>"
 
 		if self.is_operator:
 			text += "(\"" + wrappable_operators[self.name.replace("operator","")] + "\""

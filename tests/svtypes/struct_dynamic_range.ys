@@ -4,4 +4,5 @@ select -assert-count 2 t:$shift
 select -assert-count 2 t:$shiftx
 prep -top top
 flatten
+async2sync
 sat -enable_undef -verify -prove-asserts

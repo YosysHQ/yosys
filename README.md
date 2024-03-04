@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>
+Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -587,7 +587,13 @@ from SystemVerilog:
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
 
-- packed structs and unions are supported.
+- packed structs and unions are supported
+	- arrays of packed structs/unions are currently not supported
+	- structure literals are currently not supported
+
+- multidimensional arrays are supported
+	- array assignment of unpacked arrays is currently not supported
+	- array literals are currently not supported
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.

@@ -35,19 +35,18 @@ jobs:
           cc --version
 
       - name: Checkout Yosys
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get iverilog
         shell: bash
         run: |
           git clone https://github.com/steveicarus/iverilog.git
           cd iverilog
-          git checkout ${{ vars.IVERILOG_VERSION }}
           echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: Cache iverilog
         id: cache-iverilog
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .local/
           key: ${{ matrix.os.id }}-${{ env.IVERILOG_GIT }}

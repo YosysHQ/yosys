@@ -25,6 +25,18 @@ struct packed {
 //wire [$bits({s.x, s.x})-1:0]xx_bits;
 
 always_comb begin
+	assert ($dimensions(s) == 1);
+	assert ($dimensions(s.x) == 1);
+`ifndef VERIFIC
+	assert ($dimensions(s.t) == 1);
+	assert ($dimensions({3{s.x}}) == 1);
+`endif
+	assert ($dimensions(s.sy.y) == 2);
+	assert ($dimensions(s.sy.y[2]) == 1);
+	assert ($dimensions(s.sz.z) == 3);
+	assert ($dimensions(s.sz.z[3]) == 2);
+	assert ($dimensions(s.sz.z[3][3]) == 1);
+
 	assert ($size(s) == $size(s.t) + $size(s.x) + $size(s.sy) + $size(s.sz));
 	assert ($size(s) == 1 + 4 + 6*4 + 6*8*4);
 
@@ -107,6 +119,19 @@ always_comb begin
 	assert ($right(s.sz.z[3]) == 9);
 	assert ($right(s.sz.z[3][3]) == 4);
 	assert ($right(s.sz.z[3], 2) == 4);
+
+	assert ($increment(s.x) == 1);
+	assert ($increment(s.sy.y) == -1);
+	assert ($increment(s.sy.y, 1) == -1);
+	assert ($increment(s.sy.y, (1+1)) == 1);
+
+	assert ($increment(s.sz.z) == 1);
+	assert ($increment(s.sz.z, 1) == 1);
+	assert ($increment(s.sz.z, 2) == -1);
+	assert ($increment(s.sz.z, 3) == -1);
+	assert ($increment(s.sz.z[3]) == -1);
+	assert ($increment(s.sz.z[3][3]) == -1);
+	assert ($increment(s.sz.z[3], 2) == -1);
 end
 
 endmodule

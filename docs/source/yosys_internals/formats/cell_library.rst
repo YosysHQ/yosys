@@ -200,7 +200,7 @@ from ``\S`` is set the output is undefined. Cells of this type are used to model
 by an optimization).
 
 The ``$tribuf`` cell is used to implement tristate logic. Cells of this type
-have a ``\B`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
+have a ``\WIDTH`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
 ``\A`` input and ``\Y`` output are ``\WIDTH`` bits wide, and the ``\EN`` input
 is one bit wide. When ``\EN`` is 0, the output is not driven. When ``\EN`` is 1,
 the value from ``\A`` input is sent to the ``\Y`` output. Therefore, the
@@ -627,7 +627,7 @@ Add information about ``$specify2``, ``$specify3``, and ``$specrule`` cells.
 Formal verification cells
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Add information about ``$assert``, ``$assume``, ``$live``, ``$fair``,
+Add information about ``$check``, ``$assert``, ``$assume``, ``$live``, ``$fair``,
 ``$cover``, ``$equiv``, ``$initstate``, ``$anyconst``, ``$anyseq``,
 ``$anyinit``, ``$allconst``, ``$allseq`` cells.
 
@@ -660,8 +660,8 @@ If ``\TRG_ENABLE`` is true, the following parameters also apply:
 	negative-edge triggered.
 
 ``\PRIORITY``
-	When multiple ``$print`` cells fire on the same trigger, they execute in
-	descending priority order.
+	When multiple ``$print`` or ``$$check`` cells fire on the same trigger, they\
+	execute in descending priority order.
 
 Ports:
 

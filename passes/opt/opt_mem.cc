@@ -52,6 +52,9 @@ struct OptMemPass : public Pass {
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
+			if (module->has_processes_warn())
+				continue;
+
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 			for (auto &mem : Mem::get_selected_memories(module)) {

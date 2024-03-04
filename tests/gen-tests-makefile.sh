@@ -16,8 +16,8 @@ generate_target() {
 # $ generate_ys_test ys_file [yosys_args]
 generate_ys_test() {
 	ys_file=$1
-	yosys_args=${2:-}
-	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file%.*}.log $yosys_args $ys_file"
+	yosys_args_=${2:-}
+	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file%.*}.log $yosys_args_ $ys_file"
 }
 
 # $ generate_bash_test bash_file
@@ -75,7 +75,7 @@ generate_tests() {
 	if [[ $do_sv = true ]]; then
 		for x in *.sv; do
 			if [ ! -f "${x%.sv}.ys"  ]; then
-				generate_ys_test "$x" "-p \"prep -top top; sat -enable_undef -verify -prove-asserts\" $yosys_args"
+				generate_ys_test "$x" "-p \"prep -top top; async2sync; sat -enable_undef -verify -prove-asserts\" $yosys_args"
 			fi;
 		done
 	fi;

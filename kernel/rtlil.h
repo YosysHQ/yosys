@@ -712,7 +712,7 @@ struct RTLIL::Const
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 		for (auto b : bits)
-			mkhash(h, b);
+			h = mkhash(h, b);
 		return h;
 	}
 };
@@ -924,6 +924,7 @@ public:
 	void remove(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other) const;
 	void remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
 	void remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigSpec *other);
+	void remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *other);
 
 	void remove(int offset, int length = 1);
 	void remove_const();

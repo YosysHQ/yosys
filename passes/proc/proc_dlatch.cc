@@ -46,7 +46,7 @@ struct proc_dlatch_db_t
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in(ID($mux), ID($pmux)))
+			if (cell->type.in(ID($mux), ID($pmux), ID($bwmux)))
 			{
 				auto sig_y = sigmap(cell->getPort(ID::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
@@ -186,6 +186,8 @@ struct proc_dlatch_db_t
 		Cell *cell = it->second.first;
 		int index = it->second.second;
 
+		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
+		bool is_bwmux = (cell->type == ID($bwmux));
 		SigSpec sig_a = sigmap(cell->getPort(ID::A));
 		SigSpec sig_b = sigmap(cell->getPort(ID::B));
 		SigSpec sig_s = sigmap(cell->getPort(ID::S));
@@ -200,12 +202,16 @@ struct proc_dlatch_db_t
 				sig[index] = State::Sx;
 				cell->setPort(ID::A, sig);
 			}
-			for (int i = 0; i < GetSize(sig_s); i++)
-				n = make_inner(sig_s[i], State::S0, n);
+			if (!is_bwmux) {
+				for (int i = 0; i < GetSize(sig_s); i++)
+					n = make_inner(sig_s[i], State::S0, n);
+			} else {
+				n = make_inner(sig_s[index], State::S0, n);
+			}
 			children.insert(n);
 		}
 
-		for (int i = 0; i < GetSize(sig_s); i++) {
+		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
 			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
@@ -213,7 +219,7 @@ struct proc_dlatch_db_t
 					sig[i*width + index] = State::Sx;
 					cell->setPort(ID::B, sig);
 				}
-				children.insert(make_inner(sig_s[i], State::S1, n));
+				children.insert(make_inner(sig_s[is_bwmux ? index : i], State::S1, n));
 			}
 		}
 

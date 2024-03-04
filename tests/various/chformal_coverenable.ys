@@ -2,16 +2,20 @@ read_verilog -formal <<EOT
 module top(input a, b, c, d);
 
     always @* begin
-        if (a) assert (b == c);
-        if (!a) assert (b != c);
-        if (b) assume (c);
-        if (c) cover (d);
+        if (a) c0: assert (b == c);
+        if (!a) c1: assert (b != c);
+        if (b) c2: assume (c);
+        if (c) c3: cover (d);
     end
 
 endmodule
 EOT
 
 prep -top top
+
+design -save prep
+
+async2sync
 
 select -assert-count 1 t:$cover
 
@@ -23,3 +27,36 @@ select -assert-count 4 t:$cover
 
 chformal -assume -coverenable
 select -assert-count 5 t:$cover
+
+autoname */t:$cover
+expose -evert */c? */c?_EN_$cover_*
+
+design -save a2s_first
+
+design -load prep
+select -assert-count 1 r:FLAVOR=cover
+
+chformal -cover -coverenable
+select -assert-count 2 r:FLAVOR=cover
+
+chformal -assert -coverenable
+select -assert-count 4 r:FLAVOR=cover
+
+chformal -assume -coverenable
+select -assert-count 5 r:FLAVOR=cover
+
+async2sync
+
+autoname */t:$cover
+expose -evert */c? */c?_EN_$cover_*
+
+design -save a2s_last
+
+design -reset
+
+design -copy-from a2s_first -as gold top
+design -copy-from a2s_last -as gate top
+
+miter -equiv -flatten -make_assert gold gate miter
+
+sat -verify -prove-asserts -tempinduct miter

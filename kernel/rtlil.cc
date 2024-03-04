@@ -1068,6 +1068,12 @@ namespace {
 				error(__LINE__);
 		}
 
+		std::string param_string(const RTLIL::IdString &name)
+		{
+			param(name);
+			return cell->parameters.at(name).decode_string();
+		}
+
 		void port(const RTLIL::IdString& name, int width)
 		{
 			auto it = cell->connections_.find(name);
@@ -1747,6 +1753,31 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($check)) {
+				std::string flavor = param_string(ID(FLAVOR));
+				if (!(flavor == "assert" || flavor == "assume" || flavor == "live" || flavor == "fair" || flavor == "cover"))
+					error(__LINE__);
+				param(ID(FORMAT));
+				param_bool(ID::TRG_ENABLE);
+				param(ID::TRG_POLARITY);
+				param(ID::PRIORITY);
+				port(ID::A, 1);
+				port(ID::EN, 1);
+				port(ID::TRG, param(ID::TRG_WIDTH));
+				port(ID::ARGS, param(ID::ARGS_WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($scopeinfo)) {
+				param(ID::TYPE);
+				check_expected();
+				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
+				if (scope_type != "module" && scope_type != "struct")
+					error(__LINE__);
+				return;
+			}
+
 			if (cell->type == ID($_BUF_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_NOT_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_AND_))    { port(ID::A,1); port(ID::B,1); port(ID::Y,1); check_expected(); return; }
@@ -2157,17 +2188,10 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
-			log_assert(GetSize(lhs) == GetSize(rhs));
-			lhs.unpack();
-			rhs.unpack();
-			for (int i = 0; i < GetSize(lhs); i++) {
-				RTLIL::SigBit &lhs_bit = lhs.bits_[i];
-				RTLIL::SigBit &rhs_bit = rhs.bits_[i];
-				if ((lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire)) || (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))) {
-					lhs_bit = State::Sx;
-					rhs_bit = State::Sx;
-				}
-			}
+			// If a deleted wire occurs on the lhs or rhs we just remove that part
+			// of the assignment
+			lhs.remove2(*wires_p, &rhs);
+			rhs.remove2(*wires_p, &lhs);
 		}
 	};
 
@@ -3693,6 +3717,9 @@ RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 {
+	log_assert(offset >= 0);
+	log_assert(length >= 0);
+	log_assert(offset + length <= width);
 	RTLIL::SigChunk ret;
 	if (wire) {
 		ret.wire = wire;
@@ -4238,6 +4265,34 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 	check();
 }
 
+void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *other)
+{
+	if (other)
+		cover("kernel.rtlil.sigspec.remove_other");
+	else
+		cover("kernel.rtlil.sigspec.remove");
+
+	unpack();
+
+	if (other != NULL) {
+		log_assert(width_ == other->width_);
+		other->unpack();
+	}
+
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i].wire)) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
+	}
+
+	check();
+}
+
 RTLIL::SigSpec RTLIL::SigSpec::extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other) const
 {
 	if (other)
@@ -4377,6 +4432,9 @@ void RTLIL::SigSpec::remove(int offset, int length)
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 {
+	log_assert(offset >= 0);
+	log_assert(length >= 0);
+	log_assert(offset + length <= width_);
 	unpack();
 	cover("kernel.rtlil.sigspec.extract_pos");
 	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);

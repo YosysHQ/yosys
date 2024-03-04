@@ -39,6 +39,9 @@ struct MemoryCollectPass : public Pass {
 		log_header(design, "Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules()) {
+			if (module->has_processes_warn())
+				continue;
+
 			for (auto &mem : Mem::get_selected_memories(module)) {
 				if (!mem.packed) {
 					mem.packed = true;

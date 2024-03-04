@@ -491,9 +491,9 @@ public:
 	template<typename ...Args>
 	recorder(Args &&...args) : writer(std::forward<Args>(args)...) {}
 
-	void start(module &module) {
+	void start(module &module, std::string top_path = "") {
 		debug_items items;
-		module.debug_info(items);
+		module.debug_info(&items, /*scopes=*/nullptr, top_path);
 		start(items);
 	}
 
@@ -556,7 +556,7 @@ public:
 	bool record_incremental(ModuleT &module) {
 		assert(streaming);
 
-		struct {
+		struct : observer {
 			std::unordered_map<const chunk_t*, spool::ident_t> *ident_lookup;
 			spool::writer *writer;
 
@@ -569,7 +569,9 @@ public:
 			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {
 				writer->write_change(ident_lookup->at(base), chunks, value, index);
 			}
-		} record_observer = { &ident_lookup, &writer };
+		} record_observer;
+		record_observer.ident_lookup = &ident_lookup;
+		record_observer.writer = &writer;
 
 		writer.write_sample(/*incremental=*/true, pointer++, timestamp);
 		for (auto input_index : inputs) {
@@ -619,9 +621,10 @@ public:
 	template<typename ...Args>
 	player(Args &&...args) : reader(std::forward<Args>(args)...) {}
 
-	void start(module &module) {
+	// The `top_path` must match the one given to the recorder.
+	void start(module &module, std::string top_path = "") {
 		debug_items items;
-		module.debug_info(items);
+		module.debug_info(&items, /*scopes=*/nullptr, top_path);
 		start(items);
 	}
 
@@ -641,7 +644,7 @@ public:
 			assert(items.count(name) != 0);
 			assert(part_index < items.count(name));
 
-			const debug_item &part = items.parts_at(name).at(part_index);
+			const debug_item &part = items.at(name).at(part_index);
 			assert(chunks == (part.width + sizeof(chunk_t) * 8 - 1) / (sizeof(chunk_t) * 8));
 			assert(depth == part.depth);
 
