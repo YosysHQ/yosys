@@ -338,12 +338,15 @@ struct CheckPass : public Pass {
 					MatchingEdgePrinter printer(message, sigmap, prev, bit);
 					printer.add_edges_from_cell(driver);
 
-					std::string wire_src;
-					if (wire->has_attribute(ID::src)) {
-						std::string src_attr = wire->get_src_attribute();
-						wire_src = stringf(" source: %s", src_attr.c_str());
+					if (wire->name.isPublic()) {
+						std::string wire_src;
+						if (wire->has_attribute(ID::src)) {
+							std::string src_attr = wire->get_src_attribute();
+							wire_src = stringf(" source: %s", src_attr.c_str());
+						}
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src.c_str());						
 					}
-					message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src.c_str());
+
 					prev = bit;
 				}
 				log_warning("%s", message.c_str());
