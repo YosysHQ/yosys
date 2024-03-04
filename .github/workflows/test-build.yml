@@ -35,11 +35,11 @@ jobs:
         os: [ubuntu-20.04, macos-13]
       fail-fast: false
     steps:
-      - name: Setup environment
-        uses: ./.github/actions/setup-build-env
-
       - name: Checkout Yosys
         uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Build
         shell: bash
@@ -80,11 +80,11 @@ jobs:
       matrix:
         os: [ubuntu-20.04, macos-13]
     steps:
-      - name: Setup environment
-        uses: ./.github/actions/setup-build-env
-
       - name: Checkout Yosys
         uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Get iverilog
         shell: bash
