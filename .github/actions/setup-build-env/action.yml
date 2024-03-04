@@ -12,6 +12,7 @@ runs:
 
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'
+      shell: bash
       run: |
         brew install bison flex gawk libffi pkg-config bash
 
