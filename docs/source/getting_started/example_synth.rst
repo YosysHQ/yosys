@@ -421,7 +421,7 @@ reductions are the ones affecting ``fifo.$flatten\fifo_reader.$add$fifo.v``.
 That is the ``$add`` cell incrementing the fifo_reader address.  We can look at
 the schematic and see the output of that cell has now changed.
 
-.. TODO:: pending bugfix in :cmd:ref:`wreduce` and/or :cmd:ref:`opt_clean`
+.. todo:: pending bugfix in :cmd:ref:`wreduce` and/or :cmd:ref:`opt_clean`
 
 .. figure:: /_images/code_examples/fifo/rdata_wreduce.*
    :class: width-helper

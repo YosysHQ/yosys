@@ -61,7 +61,7 @@ latex_elements = {
 
 # include todos during rewrite
 extensions.append('sphinx.ext.todo')
-todo_include_todos = True
+todo_include_todos = False
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]

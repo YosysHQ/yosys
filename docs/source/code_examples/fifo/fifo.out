@@ -357,9 +357,7 @@ Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$f
 Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:68$27_Y.
 Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_reader.$add$fifo.v:20$34_Y.
 
-yosys> select -set new_cells t:$add %co t:$add %d
-
-yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
+yosys> show -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
 
 20. Generating Graphviz representation of design.
 Writing dot description to `rdata_wreduce.dot'.
