@@ -12,7 +12,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+         fetch-depth: 0
+         submodules: true
       - name: Take last commit
         id: log
         run: echo "message=$(git log --no-merges -1 --oneline)" >> $GITHUB_OUTPUT

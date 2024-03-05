@@ -1,0 +1,13 @@
+name: "build nix flake"
+on:
+  pull_request:
+  push:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+       submodules: true
+    - uses: cachix/install-nix-action@v25
+    - run: nix build '.?submodules=1'
