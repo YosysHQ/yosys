@@ -80,7 +80,8 @@ jobs:
 
       - name: Checkout Yosys
         uses: actions/checkout@v4
-
+        with:
+         submodules: true
       - name: Get iverilog
         shell: bash
         run: |

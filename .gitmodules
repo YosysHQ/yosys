@@ -1,0 +1,3 @@
+[submodule "abc"]
+	path = abc
+	url = https://github.com/YosysHQ/abc
