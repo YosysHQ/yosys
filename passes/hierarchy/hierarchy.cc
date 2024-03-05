@@ -20,6 +20,8 @@
 
 #include "kernel/yosys.h"
 #include "frontends/verific/verific.h"
+#include "frontends/ast/ast.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -334,6 +336,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
+        log("derive call 1\n");
 		cell.type = abs_mod->derive(&design, cell.parameters);
 		cell.parameters.clear();
 		RTLIL::Module *mod = design.module(cell.type);
@@ -527,6 +530,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			continue;
 		}
 
+        log("derive call 2\n");
 		cell->type = mod->derive(design,
 					 cell->parameters,
 					 if_expander.interfaces_to_add_to_submodule,
@@ -962,11 +966,21 @@ struct HierarchyPass : public Pass {
 				}
 			}
 
-			if (top_mod == nullptr && design->module(abstract_id))
+			AST_INTERNAL::aux_modules.clear();
+			if (top_mod == nullptr && design->module(abstract_id)) {
+                log("derive call 3\n");
 				top_mod = design->module(design->module(abstract_id)->derive(design, top_parameters));
-			else if (top_mod != nullptr && !top_parameters.empty())
+			} else if (top_mod != nullptr && !top_parameters.empty()) {
+                log("derive call 4\n");
 				top_mod = design->module(top_mod->derive(design, top_parameters));
-
+			}
+			for (AST::AstNode *m : AST_INTERNAL::aux_modules)
+    		{
+				if (!design->has(m->str)) {
+					log("insert_a_module 1\n");
+					AST::insert_a_module(design, m, false, false, false);
+				}
+            }
 			if (top_mod != nullptr && top_mod->name != top_name) {
 				Module *m = top_mod->clone();
 				m->name = top_name;
@@ -1042,8 +1056,15 @@ struct HierarchyPass : public Pass {
 				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 			}
 
+			AST_INTERNAL::aux_modules.clear();
+            log("derive call 4\n");
 			top_mod = design->module(top_mod->derive(design, top_parameters));
-
+			for (AST::AstNode *m : AST_INTERNAL::aux_modules) {
+				if (!design->has(m->str)) {
+					log("insert_a_module 2\n");
+					AST::insert_a_module(design, m, false, false, false);
+				}
+			}
 			if (top_mod != nullptr && top_mod->name != top_name) {
 				Module *m = top_mod->clone();
 				m->name = top_name;
@@ -1080,10 +1101,18 @@ struct HierarchyPass : public Pass {
 					used_modules.insert(mod);
 			}
 
+			AST_INTERNAL::aux_modules.clear();
 			for (auto module : used_modules) {
 				if (expand_module(design, module, flag_check, flag_simcheck, flag_smtcheck, libdirs))
 					did_something = true;
 			}
+			for (AST::AstNode *m : AST_INTERNAL::aux_modules)
+    		{
+				if (!design->has(m->str)) {
+					log("insert_a_module 3 %s\n", m->str.c_str());
+					AST::insert_a_module(design, m, false, false, false);
+				}
+            }
 
 
 			// The top module might have changed if interface instances have been detected in it:
@@ -1222,8 +1251,10 @@ struct HierarchyPass : public Pass {
 
 		for (auto module : design_modules)
 		{
+			log("Processing module %s\n", RTLIL::id2cstr(module->name));
 			for (auto cell : module->cells())
 			{
+				log("Processing cell %s %s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name));
 				if (!cell->get_bool_attribute(ID::wildcard_port_conns))
 					continue;
 				Module *m = design->module(cell->type);
@@ -1234,7 +1265,17 @@ struct HierarchyPass : public Pass {
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
+					AST_INTERNAL::aux_modules.clear();
+                    log("derive call 5\n");
 					IdString new_m_name = m->derive(design, cell->parameters, true);
+					for (AST::AstNode *m : AST_INTERNAL::aux_modules)
+					{
+    				log("insert_a_module 4\n");
+						if (!design->has(m->str)) {
+							design_modules.push_back(AST::insert_a_module(design, m, false, false, false));
+						}
+					}
+
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {
@@ -1417,7 +1458,16 @@ struct HierarchyPass : public Pass {
 					continue;
 
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
+					AST_INTERNAL::aux_modules.clear();
+		            log("derive call 6\n");
 					IdString new_m_name = m->derive(design, cell->parameters, true);
+					for (AST::AstNode *m : AST_INTERNAL::aux_modules)
+					{
+						if (!design->has(m->str)) {
+							log("insert_a_module 5\n");
+							design_modules.push_back(AST::insert_a_module(design, m, false, false, false));
+						}
+					}
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {
