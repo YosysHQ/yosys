@@ -1117,7 +1117,18 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort(ID::A));
 				string name_en = get_bool(cell->getPort(ID::EN));
-				if (cell->name[0] == '$' && cell->attributes.count(ID::src))
+				bool private_name = cell->name[0] == '$';
+
+				if (!private_name && cell->has_attribute(ID::hdlname)) {
+					for (auto const &part : cell->get_hdlname_attribute()) {
+						if (part == "_witness_") {
+							private_name = true;
+							break;
+						}
+					}
+				}
+
+				if (private_name && cell->attributes.count(ID::src))
 					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), cell->attributes.at(ID::src).decode_string().c_str()));
 				else
 					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
