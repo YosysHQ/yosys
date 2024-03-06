@@ -2465,7 +2465,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			newNode = lvalue;
 		} else {
 			// Shift to access the indexed bit slice.
-			// This is adapted from old code in genrtlil.cc
 			AstNode *rvalue = clone();
 			rvalue->delete_children();
 			if (member_node)
@@ -2477,22 +2476,17 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			// Decode the index based on wire dimensions
 			int idx_signed_nbits = shift_expr_width_hint + !shift_expr_sign_hint;
+			int offset = !id2ast->range_swapped ? wire_offset : wire_width - result_width + wire_offset;
+			int offset_signed_nbits = min_bit_width(offset, true);
+			int raw_idx_nbits = 1 + std::max(idx_signed_nbits, offset_signed_nbits);
+			AstNode *node_offset = mkconst_int(offset, true, offset_signed_nbits);
+			shift_expr = new AstNode(AST_TO_SIGNED,
+						 new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
+						 );
 			if (!id2ast->range_swapped) {
-				int raw_idx_nbits = 1 + std::max(idx_signed_nbits, ceil_log2(std::abs(wire_offset) + 1) + 1);
-				shift_expr = new AstNode(AST_SUB,
-					new AstNode(AST_TO_SIGNED,
-						new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
-					),
-				node_int(wire_offset));
+				shift_expr = new AstNode(AST_SUB, shift_expr, node_offset);
 			} else {
-				int offset = wire_width - result_width + wire_offset;
-				int raw_idx_nbits = 1 + std::max(idx_signed_nbits, ceil_log2(std::abs(offset)) + 1);
-
-				shift_expr = new AstNode(AST_SUB, node_int(offset),
-					new AstNode(AST_TO_SIGNED,
-						new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
-					)
-				);
+				shift_expr = new AstNode(AST_SUB, node_offset, shift_expr);
 			}
 
 			// Shift rvalue to the right so that the bit slice starts at bit 0.
