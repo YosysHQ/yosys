@@ -271,8 +271,8 @@ struct SynthPass : public ScriptPass {
 			run("memory_map");
 			run("opt -full");
 			if (help_mode) {
-				run("techmap", "                  (unless -inject)");	
-				run("techmap -map +/techmap.v -map <inject>", "  (if -inject)");
+				run("techmap", "                  (unless -extra-map)");	
+				run("techmap -map +/techmap.v -map <inject>", "  (if -extra-map)");
 			} else {
 				std::string techmap_opts;
 				if (!techmap_maps.empty())
