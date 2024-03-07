@@ -443,13 +443,6 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (!raw_used_signals.check_any(s1)) {
 			// delete wires that aren't used by anything directly
 			goto delete_this_wire;
-		} else
-		if (!used_signals.check_any(s2)) {
-			// this path shouldn't be possible: this wire is used directly (otherwise it would get cleaned up above), and indirectly
-			// used wires are a superset of those used directly
-			log_assert(false);
-			// delete wires that aren't used by anything indirectly, even though other wires may alias it
-			goto delete_this_wire;
 		}
 
 		if (0)
