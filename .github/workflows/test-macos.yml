@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
-          brew install bison flex gawk libffi pkg-config bash
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install bison flex gawk libffi pkg-config bash
 
       - name: Runtime environment
         shell: bash
