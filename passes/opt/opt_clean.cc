@@ -31,6 +31,156 @@ PRIVATE_NAMESPACE_BEGIN
 
 using RTLIL::id2cstr;
 
+bool should_be_kept(Design *d, Cell *cell)
+{
+	if (cell->type.in(ID($meminit), ID($meminit_v2), ID($memwr), ID($memwr_v2)))
+		return true;
+
+	if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
+		return true;
+
+	if (cell->type.in(ID($overwrite_tag), ID($print)))
+		return true;
+
+	if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
+		return true;
+
+	if (cell->has_keep_attr())
+		return true;
+
+	// TODO: is this sufficient?
+	if (d->module(cell->type) && d->module(cell->type)->get_bool_attribute(ID::keep))
+		return true;
+
+	return false;
+}
+
+void rmunused_coarse(Design *d, Module *m)
+{
+	CellTypes ct(d);
+
+	// the private wires we are keeping
+	pool<Wire *> keep;
+	std::vector<Wire *> keep_queue;
+
+	// only among private wires
+	dict<Wire *, std::vector<Wire *>> wire_dependencies;
+
+	for (auto w : m->wires())
+	if (!w->name.isPublic() && (w->port_input || w->port_output || w->get_bool_attribute(ID::keep)))
+	if (!keep.count(w)) {
+		keep.insert(w);
+		keep_queue.push_back(w);
+	}
+
+	for (auto conn : m->connections())
+	for (int i = 0; i < conn.first.size(); i++)
+	if (conn.first[i].wire && conn.second[i].wire && !conn.second[i].wire->name.isPublic()) {
+		if (conn.first[i].wire->name.isPublic()) {
+			Wire *rhs = conn.second[i].wire;
+			if (!keep.count(rhs)) {
+				keep.insert(rhs);
+				keep_queue.push_back(rhs);
+			}
+		} else {
+			wire_dependencies[conn.first[i].wire].push_back(conn.second[i].wire);
+		}
+	}
+
+	for (auto cell : m->cells()) {
+		std::vector<Wire *> driven_wires;
+		std::vector<Wire *> consumed_wires;
+
+		for (auto conn : cell->connections()) {
+			if (ct.cell_output(cell->type, conn.first)) {
+				for (auto chunk : conn.second.chunks())
+				if (chunk.wire)
+					driven_wires.push_back(chunk.wire);
+			} else if (ct.cell_input(cell->type, conn.first)) {
+				for (auto chunk : conn.second.chunks())
+				if (chunk.wire)
+					consumed_wires.push_back(chunk.wire);
+			} else {
+				for (auto chunk : conn.second.chunks())
+				if (chunk.wire) {
+					driven_wires.push_back(chunk.wire);
+					consumed_wires.push_back(chunk.wire);
+				}
+			}
+		}
+
+		if (should_be_kept(d, cell))
+			goto cell_kept;
+
+		for (auto wire : driven_wires)
+		if (wire->name.isPublic() || keep.count(wire))
+			goto cell_kept;
+
+		for (auto driven : driven_wires)
+		for (auto consumed : consumed_wires)
+		if (!consumed->name.isPublic())
+			wire_dependencies[driven].push_back(consumed);
+		continue;
+
+	cell_kept:
+		for (auto consumed : consumed_wires)
+		if (!consumed->name.isPublic() && !keep.count(consumed)) {
+			keep.insert(consumed);
+			keep_queue.push_back(consumed);
+		}
+	}
+
+	for (int i = 0; i < (int) keep_queue.size(); i++) {
+		Wire *w = keep_queue[i];
+		for (auto w2 : wire_dependencies[w])
+		if (!keep.count(w2)) {
+			keep.insert(w2);
+			keep_queue.push_back(w2);
+		}
+	}
+
+	std::vector<Cell *> to_remove_cells;
+	pool<Wire *> to_remove_wires;
+	for (auto cell : m->cells()) {
+		if (should_be_kept(d, cell))
+			goto cell_kept2;
+
+		for (auto conn : cell->connections())
+		if (!ct.cell_input(cell->type, conn.first))
+		for (auto chunk : conn.second.chunks())
+		if (chunk.wire && (chunk.wire->name.isPublic() || keep.count(chunk.wire)))
+			goto cell_kept2;
+
+		to_remove_cells.push_back(cell);
+		continue;		
+
+	cell_kept2:
+		;
+	}
+
+	int removed_wires = 0, removed_cells = 0;
+
+	for (auto w : m->wires())
+	if (!w->name.isPublic() && !keep.count(w)) {
+		removed_wires++;
+		to_remove_wires.insert(w);
+	}
+	for (auto cell : to_remove_cells) {
+		removed_cells++;
+		m->remove(cell);
+	}
+	m->remove(to_remove_wires);
+	m->check();
+
+	std::vector<SigSig> new_conns;
+	for (auto conn : m->connections())
+	if (!conn.first.empty())
+		new_conns.push_back(conn);
+	std::swap(new_conns, m->connections_);
+
+	log("Removed %d wires and %d cells in module %s.\n", removed_wires, removed_cells, log_id(m));
+}
+
 struct keep_cache_t
 {
 	Design *design;
@@ -650,23 +800,34 @@ struct OptCleanPass : public Pass {
 		log("    -purge\n");
 		log("        also remove internal nets if they have a public name\n");
 		log("\n");
+		log("    -coarse\n");
+		log("        perform a fast, conservative clean-up in which no public wires are\n");
+		log("        removed and wire usage is analyzed at a coarse level without\n");
+		log("        distinguishing individual bits\n");
+		log("\n");
 	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
+		bool coarse_mode = false;
 
 		log_header(design, "Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-purge") {
+			if (args[argidx] == "-purge")
 				purge_mode = true;
-				continue;
-			}
-			break;
+			if (args[argidx] == "-coarse")
+				coarse_mode = true;
+			else
+				break;
 		}
 		extra_args(args, argidx, design);
+
+		if (coarse_mode && purge_mode)
+			log_cmd_error("Coarse and purge modes cannot be combined.\n");
 
 		keep_cache.reset(design, purge_mode);
 
@@ -682,7 +843,10 @@ struct OptCleanPass : public Pass {
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
-			rmunused_module(module, purge_mode, true, true);
+			if (coarse_mode)
+				rmunused_coarse(design, module);
+			else
+				rmunused_module(module, purge_mode, true, true);
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
