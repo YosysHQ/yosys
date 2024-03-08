@@ -364,7 +364,6 @@ EXE = .exe
 else ifneq ($(CONFIG),none)
 $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64)
 else
-$(info Using provided C++ compiler, '$(CXX)'.)
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 endif
@@ -1120,6 +1119,9 @@ echo-git-rev:
 
 echo-abc-rev:
 	@echo "$(ABCREV)"
+
+echo-cxx:
+	@echo "$(CXX)"
 
 -include libs/*/*.d
 -include frontends/*/*.d
