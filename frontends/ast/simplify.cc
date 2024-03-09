@@ -2387,7 +2387,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
 					shift_expr_width_max = std::max(i_width, stride_width);
 					// Stride width calculated from actual stride value.
-					stride_width = std::ceil(std::log2(std::abs(stride)));
+					stride_width = ceil_log2(std::abs(stride));
 
 					if (i_width + stride_width > shift_expr_width_max) {
 						// For (truncated) i*stride to be within the range of dst, the following must hold:
@@ -3066,7 +3066,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
 					max_width = std::max(i_width, stride_width);
 					// Stride width calculated from actual stride value.
-					stride_width = std::ceil(std::log2(std::abs(stride)));
+					stride_width = ceil_log2(std::abs(stride));
 
 					if (i_width + stride_width > max_width) {
 						// For (truncated) i*stride to be within the range of dst, the following must hold:
