@@ -93,6 +93,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 	string top_opt, json_file, family;
 	bool flatten, abc9, nocy, nolutram, nobram, nodsp, iopad;
+	std::string postfix;
 
 	void clear_flags() override
 	{
@@ -106,6 +107,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		nobram = false;
 		nodsp = false;
 		iopad = false;
+		postfix = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -175,7 +177,19 @@ struct SynthNanoXplorePass : public ScriptPass
 		if (family.empty()) {
 			//log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
 			family = "ultra";
+			postfix = "_u";
 		}
+
+		if (family == "ultra") {
+			postfix = "_u";
+		} else if (family == "u300") {
+			postfix = "_u";
+		} else if (family == "medium") {
+			postfix = "_m";
+		} else if (family == "large") {
+			postfix = "_l";
+		} else 
+			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family.c_str());
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -192,7 +206,8 @@ struct SynthNanoXplorePass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_bb.v");
+			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_bb.v +/nanoxplore/cells_bb" + postfix + ".v");
+			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
