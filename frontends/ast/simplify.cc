@@ -1292,6 +1292,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				else if (contains_unbased_unsized(value))
 					// unbased unsized literals extend to width of the context
 					lookup_suggested = true;
+				else if (value->type == AST_TO_UNSIGNED)
+					// inner expression may be signed by default
+					lookup_suggested = true;
+				else if (value->type == AST_CONCAT && value->children.size() == 1)
+					// concat of a single expression is equivalent to $unsigned
+					lookup_suggested = true;
 			}
 		}
 

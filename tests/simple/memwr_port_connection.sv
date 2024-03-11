@@ -5,9 +5,11 @@ module producer(
 endmodule
 
 module top(
-    output logic [3:0] out
+    output logic [3:0] out0, out1
 );
-    logic [3:0] v[0:0];
-    producer p(v[0]);
-    assign out = v[0];
+    logic [3:0] v[1:0];
+    producer p0(v[0]);
+    producer p1({v[1]});
+    assign out0 = v[0];
+    assign out1 = v[1];
 endmodule
