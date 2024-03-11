@@ -361,11 +361,12 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
-else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64)
-else
+else ifeq ($(CONFIG),none)
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
+
+else
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64, none)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
