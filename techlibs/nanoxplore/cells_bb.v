@@ -420,21 +420,6 @@ module NX_CKS(CKI, CMD, CKO);
 endmodule
 
 (* blackbox *)
-module NX_CKS_U(CKI, CMD, CKO);
-    input CKI;
-    output CKO;
-    input CMD;
-endmodule
-
-(* blackbox *)
-module NX_CMUX_U(CKI0, CKI1, SEL, CKO);
-    input CKI0;
-    input CKI1;
-    output CKO;
-    input SEL;
-endmodule
-
-(* blackbox *)
 module NX_CRX_L(DSCR_E_I, DEC_E_I, ALIGN_E_I, ALIGN_S_I, REP_E_I, BUF_R_I, OVS_BS_I1, OVS_BS_I2, BUF_FE_I, RST_N_I, CDR_R_I, CKG_RN_I, PLL_RN_I, TST_I1, TST_I2, TST_I3, TST_I4, LOS_O, DATA_O1, DATA_O2, DATA_O3
 , DATA_O4, DATA_O5, DATA_O6, DATA_O7, DATA_O8, DATA_O9, DATA_O10, DATA_O11, DATA_O12, DATA_O13, DATA_O14, DATA_O15, DATA_O16, DATA_O17, DATA_O18, DATA_O19, DATA_O20, DATA_O21, DATA_O22, DATA_O23, DATA_O24
 , DATA_O25, DATA_O26, DATA_O27, DATA_O28, DATA_O29, DATA_O30, DATA_O31, DATA_O32, DATA_O33, DATA_O34, DATA_O35, DATA_O36, DATA_O37, DATA_O38, DATA_O39, DATA_O40, DATA_O41, DATA_O42, DATA_O43, DATA_O44, DATA_O45
@@ -2837,17 +2822,6 @@ module NX_FIFO_U(RCK, WCK, WE, WEA, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11
     parameter use_read_arst = 1'b0;
     parameter use_write_arst = 1'b0;
     parameter wck_edge = 1'b0;
-endmodule
-
-(* blackbox *)
-module NX_GCK_U(SI1, SI2, CMD, SO);
-    input CMD;
-    input SI1;
-    input SI2;
-    output SO;
-    parameter inv_in = 1'b0;
-    parameter inv_out = 1'b0;
-    parameter std_mode = "BYPASS";
 endmodule
 
 (* blackbox *)
