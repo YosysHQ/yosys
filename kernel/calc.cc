@@ -601,6 +601,14 @@ RTLIL::Const RTLIL::const_pos(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 	return arg1_ext;
 }
 
+RTLIL::Const RTLIL::const_buf(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
+{
+	RTLIL::Const arg1_ext = arg1;
+	extend_u0(arg1_ext, result_len, signed1);
+
+	return arg1_ext;
+}
+
 RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
