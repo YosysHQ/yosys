@@ -485,3 +485,67 @@ module NX_DSP_U(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
     parameter raw_config3 = 3'b000;
     parameter std_mode = "";
 endmodule
+
+(* blackbox *)
+module NX_PLL_U(R, REF, FBK, OSC, VCO, LDFO, REFO, CLK_DIV1, CLK_DIV2, CLK_DIV3, CLK_DIV4, CLK_DIVD1, CLK_DIVD2, CLK_DIVD3, CLK_DIVD4, CLK_DIVD5, PLL_LOCKED, PLL_LOCKEDA, ARST_CAL, CLK_CAL, CLK_CAL_DIV
+, CAL_LOCKED, EXT_CAL_LOCKED, CAL1, CAL2, CAL3, CAL4, CAL5, EXT_CAL1, EXT_CAL2, EXT_CAL3, EXT_CAL4, EXT_CAL5);
+    input ARST_CAL;
+    output CAL1;
+    output CAL2;
+    output CAL3;
+    output CAL4;
+    output CAL5;
+    output CAL_LOCKED;
+    input CLK_CAL;
+    output CLK_CAL_DIV;
+    output CLK_DIV1;
+    output CLK_DIV2;
+    output CLK_DIV3;
+    output CLK_DIV4;
+    output CLK_DIVD1;
+    output CLK_DIVD2;
+    output CLK_DIVD3;
+    output CLK_DIVD4;
+    output CLK_DIVD5;
+    input EXT_CAL1;
+    input EXT_CAL2;
+    input EXT_CAL3;
+    input EXT_CAL4;
+    input EXT_CAL5;
+    input EXT_CAL_LOCKED;
+    input FBK;
+    output LDFO;
+    output OSC;
+    output PLL_LOCKED;
+    output PLL_LOCKEDA;
+    input R;
+    input REF;
+    output REFO;
+    output VCO;
+    parameter cal_delay = 6'b011011;
+    parameter cal_div = 4'b0111;
+    parameter clk_cal_sel = 2'b01;
+    parameter clk_outdiv1 = 3'b000;
+    parameter clk_outdiv2 = 3'b000;
+    parameter clk_outdiv3 = 3'b000;
+    parameter clk_outdiv4 = 3'b000;
+    parameter clk_outdivd1 = 4'b0000;
+    parameter clk_outdivd2 = 4'b0000;
+    parameter clk_outdivd3 = 4'b0000;
+    parameter clk_outdivd4 = 4'b0000;
+    parameter clk_outdivd5 = 4'b0000;
+    parameter ext_fbk_on = 1'b0;
+    parameter fbk_delay = 6'b000000;
+    parameter fbk_delay_on = 1'b0;
+    parameter fbk_intdiv = 7'b0000000;
+    parameter location = "";
+    parameter pll_cpump = 4'b0000;
+    parameter pll_lock = 4'b0000;
+    parameter pll_lpf_cap = 4'b0000;
+    parameter pll_lpf_res = 4'b0000;
+    parameter pll_odf = 2'b00;
+    parameter ref_intdiv = 5'b00000;
+    parameter ref_osc_on = 1'b0;
+    parameter use_cal = 1'b0;
+    parameter use_pll = 1'b1;
+endmodule

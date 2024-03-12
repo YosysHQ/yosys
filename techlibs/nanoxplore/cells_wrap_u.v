@@ -1349,3 +1349,113 @@ module NX_DSP_U_WRAP(CCI, CCO, CI, CK, CO43, CO57, OVF, R, RZ, WE, WEZ, A, B, C,
     .Z56(Z[55])
   );
 endmodule
+
+module NX_PLL_U_WRAP(R, REF, FBK, OSC, VCO, LDFO, REFO, PLL_LOCKED, PLL_LOCKEDA, ARST_CAL, CLK_CAL, CLK_CAL_DIV, CAL_LOCKED, EXT_CAL_LOCKED, CAL, CLK_DIVD, EXT_CAL, CLK_DIV);
+    input ARST_CAL;
+    output [4:0] CAL;
+    output CAL_LOCKED;
+    input CLK_CAL;
+    output CLK_CAL_DIV;
+    output [3:0] CLK_DIV;
+    output [4:0] CLK_DIVD;
+    input [4:0] EXT_CAL;
+    input EXT_CAL_LOCKED;
+    input FBK;
+    output LDFO;
+    output OSC;
+    output PLL_LOCKED;
+    output PLL_LOCKEDA;
+    input R;
+    input REF;
+    output REFO;
+    output VCO;
+    parameter cal_delay = 6'b011011;
+    parameter cal_div = 4'b0111;
+    parameter clk_cal_sel = 2'b01;
+    parameter clk_outdiv1 = 3'b000;
+    parameter clk_outdiv2 = 3'b000;
+    parameter clk_outdiv3 = 3'b000;
+    parameter clk_outdiv4 = 3'b000;
+    parameter clk_outdivd1 = 4'b0000;
+    parameter clk_outdivd2 = 4'b0000;
+    parameter clk_outdivd3 = 4'b0000;
+    parameter clk_outdivd4 = 4'b0000;
+    parameter clk_outdivd5 = 4'b0000;
+    parameter ext_fbk_on = 1'b0;
+    parameter fbk_delay = 6'b000000;
+    parameter fbk_delay_on = 1'b0;
+    parameter fbk_intdiv = 7'b0000000;
+    parameter location = "";
+    parameter pll_cpump = 4'b0000;
+    parameter pll_lock = 4'b0000;
+    parameter pll_lpf_cap = 4'b0000;
+    parameter pll_lpf_res = 4'b0000;
+    parameter pll_odf = 2'b00;
+    parameter ref_intdiv = 5'b00000;
+    parameter ref_osc_on = 1'b0;
+    parameter use_cal = 1'b0;
+    parameter use_pll = 1'b1;
+
+  NX_PLL_U #(
+    .cal_delay(cal_delay),
+    .cal_div(cal_div),
+    .clk_cal_sel(clk_cal_sel),
+    .clk_outdiv1(clk_outdiv1),
+    .clk_outdiv2(clk_outdiv2),
+    .clk_outdiv3(clk_outdiv3),
+    .clk_outdiv4(clk_outdiv4),
+    .clk_outdivd1(clk_outdivd1),
+    .clk_outdivd2(clk_outdivd2),
+    .clk_outdivd3(clk_outdivd3),
+    .clk_outdivd4(clk_outdivd4),
+    .clk_outdivd5(clk_outdivd5),
+    .ext_fbk_on(ext_fbk_on),
+    .fbk_delay(fbk_delay),
+    .fbk_delay_on(fbk_delay_on),
+    .fbk_intdiv(fbk_intdiv),
+    .location(location),
+    .pll_cpump(pll_cpump),
+    .pll_lock(pll_lock),
+    .pll_lpf_cap(pll_lpf_cap),
+    .pll_lpf_res(pll_lpf_res),
+    .pll_odf(pll_odf),
+    .ref_intdiv(ref_intdiv),
+    .ref_osc_on(ref_osc_on),
+    .use_cal(use_cal),
+    .use_pll(use_pll)
+  ) _TECHMAP_REPLACE_ (
+    .ARST_CAL(ARST_CAL),
+    .CAL1(CAL[0]),
+    .CAL2(CAL[1]),
+    .CAL3(CAL[2]),
+    .CAL4(CAL[3]),
+    .CAL5(CAL[4]),
+    .CAL_LOCKED(CAL_LOCKED),
+    .CLK_CAL(CLK_CAL),
+    .CLK_CAL_DIV(CLK_CAL_DIV),
+    .CLK_DIV1(CLK_DIV[0]),
+    .CLK_DIV2(CLK_DIV[1]),
+    .CLK_DIV3(CLK_DIV[2]),
+    .CLK_DIV4(CLK_DIV[3]),
+    .CLK_DIVD1(CLK_DIVD[0]),
+    .CLK_DIVD2(CLK_DIVD[1]),
+    .CLK_DIVD3(CLK_DIVD[2]),
+    .CLK_DIVD4(CLK_DIVD[3]),
+    .CLK_DIVD5(CLK_DIVD[4]),
+    .EXT_CAL1(EXT_CAL[0]),
+    .EXT_CAL2(EXT_CAL[1]),
+    .EXT_CAL3(EXT_CAL[2]),
+    .EXT_CAL4(EXT_CAL[3]),
+    .EXT_CAL5(EXT_CAL[4]),
+    .EXT_CAL_LOCKED(EXT_CAL_LOCKED),
+    .FBK(FBK),
+    .LDFO(LDFO),
+    .OSC(OSC),
+    .PLL_LOCKED(PLL_LOCKED),
+    .PLL_LOCKEDA(PLL_LOCKEDA),
+    .R(R),
+    .REF(REF),
+    .REFO(REFO),
+    .VCO(VCO)
+  );
+endmodule
