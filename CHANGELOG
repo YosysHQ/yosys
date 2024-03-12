@@ -2,8 +2,26 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.38 .. Yosys 0.39-dev
+Yosys 0.38 .. Yosys 0.39
 --------------------------
+ * New commands and options
+    - Added option "-extra-map" to "synth" pass. 
+    - Added option "-dont_use" to "dfflibmap" pass.
+    - Added option "-href" to "show" command.
+    - Added option "-noscopeinfo" to "flatten" pass.
+    - Added option "-scopename" to "flatten" pass.
+
+ * SystemVerilog
+    - Added support for packed multidimensional arrays.
+
+ * Various
+    - Added "$scopeinfo" cells to preserve information about
+      the hierarchy during flattening.
+    - Added sequential area output to "stat -liberty".
+    - Added ability to record/replay diagnostics in cxxrtl backend.
+ 
+ * Verific support
+    - Added attributes to module instantiation.
 
 Yosys 0.37 .. Yosys 0.38
 --------------------------
