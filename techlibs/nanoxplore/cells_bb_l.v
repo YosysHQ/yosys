@@ -469,3 +469,35 @@ module NX_DSP_L(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
     parameter std_mode = "";
 endmodule
 
+(* blackbox *)
+module NX_PLL_L(REF, FBK, R, VCO, LDFO, REFO, DIVO1, DIVO2, DIVP1, DIVP2, DIVP3, OSC, PLL_LOCKED, CAL_LOCKED);
+    output CAL_LOCKED;
+    output DIVO1;
+    output DIVO2;
+    output DIVP1;
+    output DIVP2;
+    output DIVP3;
+    input FBK;
+    output LDFO;
+    output OSC;
+    output PLL_LOCKED;
+    input R;
+    input REF;
+    output REFO;
+    output VCO;
+    parameter cfg_use_pll = 1'b1;
+    parameter clk_outdivo1 = 0;
+    parameter clk_outdivp1 = 0;
+    parameter clk_outdivp2 = 0;
+    parameter clk_outdivp3o2 = 0;
+    parameter ext_fbk_on = 1'b0;
+    parameter fbk_delay = 0;
+    parameter fbk_delay_on = 1'b0;
+    parameter fbk_intdiv = 2;
+    parameter location = "";
+    parameter pll_cpump = 3'b010;
+    parameter ref_intdiv = 0;
+    parameter ref_osc_on = 1'b0;
+    parameter wfg_sync_cal_lock = 1'b0;
+    parameter wfg_sync_pll_lock = 1'b0;
+endmodule
