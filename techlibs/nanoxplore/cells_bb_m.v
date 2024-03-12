@@ -378,3 +378,26 @@ module NX_DSP(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, 
     parameter std_mode = "";
 endmodule
 
+(* blackbox *)
+module NX_PLL(REF, FBK, VCO, D1, D2, D3, OSC, RDY);
+    output D1;
+    output D2;
+    output D3;
+    input FBK;
+    output OSC;
+    output RDY;
+    input REF;
+    output VCO;
+    parameter clk_outdiv1 = 0;
+    parameter clk_outdiv2 = 0;
+    parameter clk_outdiv3 = 0;
+    parameter ext_fbk_on = 1'b0;
+    parameter fbk_delay = 0;
+    parameter fbk_delay_on = 1'b0;
+    parameter fbk_div_on = 1'b0;
+    parameter fbk_intdiv = 2;
+    parameter location = "";
+    parameter ref_div_on = 1'b0;
+    parameter vco_range = 0;
+endmodule
+
