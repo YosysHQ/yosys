@@ -845,3 +845,194 @@ module NX_DSP_WRAP(CCI, CCO, CI, CK, CO, CO37, CO49, OVF, R, RZ, WE, A, B, C, D,
     .Z56(Z[55])
   );
 endmodule
+
+module NX_RFB_WRAP(RCK, WCK, COR, ERR, RE, WE, I, O, RA, WA);
+    output COR;
+    output ERR;
+    input [15:0] I;
+    output [15:0] O;
+    input [5:0] RA;
+    input RCK;
+    input RE;
+    input [5:0] WA;
+    input WCK;
+    input WE;
+    parameter mem_ctxt = "";
+    parameter rck_edge = 1'b0;
+    parameter wck_edge = 1'b0;
+
+  NX_RFB_M #(
+    .mem_ctxt(mem_ctxt),
+    .rck_edge(rck_edge),
+    .wck_edge(wck_edge)
+  ) _TECHMAP_REPLACE_ (
+    .RCK(RCK),
+    .WCK(WCK),
+    .I1(I[0]),
+    .I2(I[1]),
+    .I3(I[2]),
+    .I4(I[3]),
+    .I5(I[4]),
+    .I6(I[5]),
+    .I7(I[6]),
+    .I8(I[7]),
+    .I9(I[8]),
+    .I10(I[9]),
+    .I11(I[10]),
+    .I12(I[11]),
+    .I13(I[12]),
+    .I14(I[13]),
+    .I15(I[14]),
+    .I16(I[15]),
+    .COR(COR),
+    .ERR(ERR),
+    .O1(O[0]),
+    .O2(O[1]),
+    .O3(O[2]),
+    .O4(O[3]),
+    .O5(O[4]),
+    .O6(O[5]),
+    .O7(O[6]),
+    .O8(O[7]),
+    .O9(O[8]),
+    .O10(O[9]),
+    .O11(O[10]),
+    .O12(O[11]),
+    .O13(O[12]),
+    .O14(O[13]),
+    .O15(O[14]),
+    .O16(O[15]),
+    .RA1(RA[0]),
+    .RA2(RA[1]),
+    .RA3(RA[2]),
+    .RA4(RA[3]),
+    .RA5(RA[4]),
+    .RA6(RA[5]),
+    .RE(RE),
+    .WA1(WA[0]),
+    .WA2(WA[1]),
+    .WA3(WA[2]),
+    .WA4(WA[3]),
+    .WA5(WA[4]),
+    .WA6(WA[5]),
+    .WE(WE)
+  );
+endmodule
+
+module NX_RFB(RCK, WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, COR, ERR, O1
+, O2, O3, O4, O5, O6, O7, O8, O9, O10, O11, O12, O13, O14, O15, O16, RA1, RA2, RA3, RA4, RA5, RA6
+, RE, WA1, WA2, WA3, WA4, WA5, WA6, WE);
+    output COR;
+    output ERR;
+    input I1;
+    input I10;
+    input I11;
+    input I12;
+    input I13;
+    input I14;
+    input I15;
+    input I16;
+    input I2;
+    input I3;
+    input I4;
+    input I5;
+    input I6;
+    input I7;
+    input I8;
+    input I9;
+    output O1;
+    output O10;
+    output O11;
+    output O12;
+    output O13;
+    output O14;
+    output O15;
+    output O16;
+    output O2;
+    output O3;
+    output O4;
+    output O5;
+    output O6;
+    output O7;
+    output O8;
+    output O9;
+    input RA1;
+    input RA2;
+    input RA3;
+    input RA4;
+    input RA5;
+    input RA6;
+    input RCK;
+    input RE;
+    input WA1;
+    input WA2;
+    input WA3;
+    input WA4;
+    input WA5;
+    input WA6;
+    input WCK;
+    input WE;
+    parameter addr_mask = 5'b00000;
+    parameter mem_ctxt = "";
+    parameter rck_edge = 1'b0;
+    parameter wck_edge = 1'b0;
+    parameter we_mask = 1'b0;
+    parameter wea_mask = 1'b0;
+
+  NX_RFB_M #(
+    .mem_ctxt(mem_ctxt),
+    .rck_edge(rck_edge),
+    .wck_edge(wck_edge)
+  ) _TECHMAP_REPLACE_ (
+    .RCK(RCK),
+    .WCK(WCK),
+    .I1(I1),
+    .I2(I2),
+    .I3(I3),
+    .I4(I4),
+    .I5(I5),
+    .I6(I6),
+    .I7(I7),
+    .I8(I8),
+    .I9(I9),
+    .I10(I10),
+    .I11(I11),
+    .I12(I12),
+    .I13(I13),
+    .I14(I14),
+    .I15(I15),
+    .I16(I16),
+    .COR(COR),
+    .ERR(ERR),
+    .O1(O1),
+    .O2(O2),
+    .O3(O3),
+    .O4(O4),
+    .O5(O5),
+    .O6(O6),
+    .O7(O7),
+    .O8(O8),
+    .O9(O9),
+    .O10(O10),
+    .O11(O11),
+    .O12(O12),
+    .O13(O13),
+    .O14(O14),
+    .O15(O15),
+    .O16(O16),
+    .RA1(RA1),
+    .RA2(RA2),
+    .RA3(RA3),
+    .RA4(RA4),
+    .RA5(RA5),
+    .RA6(RA6),
+    .RE(RE),
+    .WA1(WA1),
+    .WA2(WA2),
+    .WA3(WA3),
+    .WA4(WA4),
+    .WA5(WA5),
+    .WA6(WA6),
+    .WE(WE)
+  );
+endmodule
