@@ -73,11 +73,11 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nocy\n");
 		log("        do not map adders to CY cells\n");
 		log("\n");
-		log("    -nolutram\n");
-		log("        do not use LUT RAM cells in output netlist\n");
+		log("    -norfram\n");
+		log("        do not use Register File RAM cells in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use block RAM cells in output netlist\n");
+		log("        do not use block NX_RAM cells in output netlist\n");
 		log("\n");
 		log("    -nodsp\n");
 		log("        do not map multipliers to NX_DSP cells\n");
@@ -92,8 +92,8 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, nolutram, nobram, nodsp, iopad;
-	std::string postfix;
+	bool flatten, abc9, nocy, norfram, nobram, nodsp, iopad;
+	std::string postfix, rf_postfix;
 
 	void clear_flags() override
 	{
@@ -103,11 +103,12 @@ struct SynthNanoXplorePass : public ScriptPass
 		flatten = true;
 		abc9 = false;
 		nocy = false;
-		nolutram = false;
+		norfram = false;
 		nobram = false;
 		nodsp = false;
 		iopad = false;
 		postfix = "";
+		rf_postfix = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -154,8 +155,8 @@ struct SynthNanoXplorePass : public ScriptPass
 				nocy = true;
 				continue;
 			}
-			if (args[argidx] == "-nolutram") {
-				nolutram = true;
+			if (args[argidx] == "-norfram") {
+				norfram = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -177,17 +178,20 @@ struct SynthNanoXplorePass : public ScriptPass
 		if (family.empty()) {
 			//log_warning("NanoXplore family not set, setting it to NG-ULTRA.\n");
 			family = "ultra";
-			postfix = "_u";
 		}
 
 		if (family == "ultra") {
 			postfix = "_u";
+			rf_postfix = "_u";
 		} else if (family == "u300") {
 			postfix = "_u";
+			rf_postfix = "_u";
 		} else if (family == "medium") {
 			postfix = "_m";
+			rf_postfix = "_l";
 		} else if (family == "large") {
 			postfix = "_l";
+			rf_postfix = "_l";
 		} else 
 			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family.c_str());
 
@@ -238,9 +242,18 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
-			run("memory_libmap -lib +/nanoxplore/drams.txt");
-			run("techmap -map +/nanoxplore/cells_map.v t:$__NX_XRFB_32x36_ t:$__NX_XRFB_64x18_");
+		if (check_label("map_ram"))
+		{
+			std::string args = "";
+			if (nobram)
+				args += " -no-auto-block";
+			if (norfram)
+				args += " -no-auto-distributed";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			run("memory_libmap -lib +/nanoxplore/rf_rams"+  rf_postfix+ ".txt -lib +/nanoxplore/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -norfram)");
+			run("techmap -map +/nanoxplore/rf_rams_map"+  rf_postfix+ ".v -map +/nanoxplore/brams_map.v");
+			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v t:NX_XRFB* t:NX_RFB*");
 		}
 
 		if (check_label("map_ffram"))
