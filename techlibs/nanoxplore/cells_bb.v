@@ -397,67 +397,6 @@ module NX_RAM(ACK, ACKC, ACKD, ACKR, BCK, BCKC, BCKD, BCKR, AI1, AI2, AI3, AI4, 
 endmodule
 
 (* blackbox *)
-module NX_RAM_SLOWECC_1K_36_1r1w(ACK, BCK, ACOR, AERR, ACS, AWE, AR, BCS, BWE, BR, AO, AI, AA);
-    input [9:0] AA;
-    input ACK;
-    output ACOR;
-    input ACS;
-    output AERR;
-    input [35:0] AI;
-    output [35:0] AO;
-    input AR;
-    input AWE;
-    input BCK;
-    input BCS;
-    input BR;
-    input BWE;
-    parameter mem_ctxt = "";
-endmodule
-
-(* blackbox *)
-module NX_RAM_WRAP(ACK, ACKD, ACKR, BCK, BCKD, BCKR, ACOR, AERR, BCOR, BERR, ACS, AWE, AR, BCS, BWE, BR, BI, AO, BO, AI, AA
-, BA);
-    input [15:0] AA;
-    input ACK;
-    input ACKD;
-    input ACKR;
-    output ACOR;
-    input ACS;
-    output AERR;
-    input [23:0] AI;
-    output [23:0] AO;
-    input AR;
-    input AWE;
-    input [15:0] BA;
-    input BCK;
-    input BCKD;
-    input BCKR;
-    output BCOR;
-    input BCS;
-    output BERR;
-    input [23:0] BI;
-    output [23:0] BO;
-    input BR;
-    input BWE;
-    parameter mcka_edge = 1'b0;
-    parameter mckb_edge = 1'b0;
-    parameter mem_ctxt = "";
-    parameter pcka_edge = 1'b0;
-    parameter pckb_edge = 1'b0;
-    parameter pipe_ia = 1'b0;
-    parameter pipe_ib = 1'b0;
-    parameter pipe_oa = 1'b0;
-    parameter pipe_ob = 1'b0;
-    parameter raw_config0 = 4'b0000;
-    parameter raw_config1 = 16'b0000000000000000;
-    parameter raw_l_enable = 1'b0;
-    parameter raw_l_extend = 4'b0000;
-    parameter raw_u_enable = 1'b0;
-    parameter raw_u_extend = 8'b00000000;
-    parameter std_mode = "";
-endmodule
-
-(* blackbox *)
 module NX_SER(FCK, SCK, R, IO, DCK, DRL, I, DS, DRA, DRI, DRO, DID);
     input DCK;
     output [5:0] DID;
