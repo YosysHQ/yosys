@@ -2519,3 +2519,188 @@ module NX_XFIFO_32x36(RCK, WCK, WE, WEA, WRSTI, WEQ, RRSTI, REQ, I, O, WAI, WAO,
     .REQ1(REQ)
   );
 endmodule
+
+//TODO
+module ACC84_2DSP(clk, rst, X, Z);
+    input [83:0] X;
+    output [84:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 2;
+endmodule
+
+//TODO
+module ACC92_2DSP(clk, rst, X, Z);
+    input [55:0] X;
+    output [91:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 2;
+endmodule
+
+//TODO
+module ACC98_2DSP(clk, rst, X, Z);
+    input [55:0] X;
+    output [97:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 2;
+endmodule
+
+//TODO
+module ADD84_1DSP_2CYCLES(clk, rst, X, Y, Z);
+    input [41:0] X;
+    input [41:0] Y;
+    output [84:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module ADD84_2DSP(clk, rst, X, Y, Z);
+    input [83:0] X;
+    input [83:0] Y;
+    output [84:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module SMACC24x18_1DSP(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [17:0] B;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 1;
+endmodule
+
+//TODO
+module SMACC24x32_2DSP(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 1;
+endmodule
+
+//TODO
+module SMACC24x32_enable_2DSP(clk, rst, we, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    input we;
+    parameter STAGE_1 = "false";
+    parameter STAGE_2 = "false";
+    parameter STAGE_3 = "false";
+    parameter STAGE_4 = "false";
+endmodule
+
+//TODO
+module SMUL24x32_2DSP(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [54:0] Z;
+    input clk;
+    input rst;
+    parameter g_pipe = 1;
+endmodule
+
+//TODO
+module SMUL24x32_2DSP_ACC_2DSP(clk, rst, we, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [97:0] Z;
+    input clk;
+    input rst;
+    input we;
+    parameter STAGE_1 = "false";
+    parameter STAGE_2 = "false";
+    parameter STAGE_3 = "false";
+endmodule
+
+//TODO
+module SMUL47x35_4DSP(clk, rst, A, B, Z);
+    input [46:0] A;
+    input [34:0] B;
+    output [80:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMADD24_2DSP(clk, rst, A, B, C, Z);
+    input [23:0] A;
+    input [31:0] B;
+    input [55:0] C;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL24x32_1DSP_2CYCLES(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [15:0] B;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL24x32_2DSP(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [55:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL24x36_1DSP_2CYCLES(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [17:0] B;
+    output [59:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL24x36_2DSP(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [35:0] B;
+    output [59:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL48x36_1DSP_4CYCLES(clk, rst, A, B, Z);
+    input [23:0] A;
+    input [17:0] B;
+    output [83:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule
+
+//TODO
+module UMUL48x36_4DSP(clk, rst, A, B, Z);
+    input [47:0] A;
+    input [35:0] B;
+    output [83:0] Z;
+    input clk;
+    input rst;
+    parameter piped = "true";
+endmodule

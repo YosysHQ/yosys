@@ -1400,3 +1400,14 @@ module NX_RFB(RCK, WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, 
     .WE(WE)
   );
 endmodule
+
+// TODO
+module SMUL24x32_2DSP_ACC_2DSP_L(clk, rst, we, A, B, Z);
+    input [23:0] A;
+    input [31:0] B;
+    output [91:0] Z;
+    input clk;
+    input rst;
+    input we;
+endmodule
+
