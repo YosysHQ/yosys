@@ -1942,3 +1942,62 @@ module NX_PMA_L(CLK_USER_I, CLK_REF_I, PRE_SG_I, PRE_EN_I, PRE_IS_I1, PRE_IS_I2,
     parameter rx_pma_half_step = 1'b0;
 endmodule
 
+(* blackbox *)
+module NX_RFB_L(RCK, WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, COR, ERR, O1
+, O2, O3, O4, O5, O6, O7, O8, O9, O10, O11, O12, O13, O14, O15, O16, RA1, RA2, RA3, RA4, RA5, RA6
+, RE, WA1, WA2, WA3, WA4, WA5, WA6, WE);
+    output COR;
+    output ERR;
+    input I1;
+    input I10;
+    input I11;
+    input I12;
+    input I13;
+    input I14;
+    input I15;
+    input I16;
+    input I2;
+    input I3;
+    input I4;
+    input I5;
+    input I6;
+    input I7;
+    input I8;
+    input I9;
+    output O1;
+    output O10;
+    output O11;
+    output O12;
+    output O13;
+    output O14;
+    output O15;
+    output O16;
+    output O2;
+    output O3;
+    output O4;
+    output O5;
+    output O6;
+    output O7;
+    output O8;
+    output O9;
+    input RA1;
+    input RA2;
+    input RA3;
+    input RA4;
+    input RA5;
+    input RA6;
+    input RCK;
+    input RE;
+    input WA1;
+    input WA2;
+    input WA3;
+    input WA4;
+    input WA5;
+    input WA6;
+    input WCK;
+    input WE;
+    parameter mem_ctxt = "";
+    parameter mode = 0;
+    parameter rck_edge = 1'b0;
+    parameter wck_edge = 1'b0;
+endmodule
