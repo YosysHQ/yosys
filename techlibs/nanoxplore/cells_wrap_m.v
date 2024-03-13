@@ -1036,3 +1036,466 @@ module NX_RFB(RCK, WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, 
     .WE(WE)
   );
 endmodule
+
+module NX_IOM_CONTROL(RTCK1, RRCK1, WTCK1, WRCK1, RTCK2, RRCK2, WTCK2, WRCK2, CTCK, C1TW, C1TS, C1RW1, C1RW2, C1RW3, C1RNE, C1RS, C2TW, C2TS, C2RW1, C2RW2, C2RW3
+, C2RNE, C2RS, FA1, FA2, FA3, FA4, FA5, FA6, FZ, DC, CCK, DCK, DRI1, DRI2, DRI3, DRI4, DRI5, DRI6, DRA1, DRA2, DRA3
+, DRA4, DRA5, DRA6, DRL, DOS, DOG, DIS, DIG, DPAS, DPAG, DQSS, DQSG, DS1, DS2, CAD1, CAD2, CAD3, CAD4, CAD5, CAD6, CAP1
+, CAP2, CAP3, CAP4, CAN1, CAN2, CAN3, CAN4, CAT1, CAT2, CAT3, CAT4, SPI1, SPI2, SPI3, CKO1, CKO2, FLD, FLG, C1RED, C2RED, DRO1
+, DRO2, DRO3, DRO4, DRO5, DRO6, CAL, LINK2, LINK3, LINK4, LINK5, LINK6, LINK7, LINK8, LINK9, LINK10, LINK11, LINK12, LINK13, LINK14, LINK15, LINK16
+, LINK17, LINK18, LINK19, LINK20, LINK21, LINK22, LINK23, LINK24, LINK25, LINK26, LINK27, LINK28, LINK29, LINK30, LINK31, LINK32, LINK33, LINK34, LINK1);
+    output C1RED;
+    input C1RNE;
+    input C1RS;
+    input C1RW1;
+    input C1RW2;
+    input C1RW3;
+    input C1TS;
+    input C1TW;
+    output C2RED;
+    input C2RNE;
+    input C2RS;
+    input C2RW1;
+    input C2RW2;
+    input C2RW3;
+    input C2TS;
+    input C2TW;
+    input CAD1;
+    input CAD2;
+    input CAD3;
+    input CAD4;
+    input CAD5;
+    input CAD6;
+    output CAL;
+    input CAN1;
+    input CAN2;
+    input CAN3;
+    input CAN4;
+    input CAP1;
+    input CAP2;
+    input CAP3;
+    input CAP4;
+    input CAT1;
+    input CAT2;
+    input CAT3;
+    input CAT4;
+    input CCK;
+    output CKO1;
+    output CKO2;
+    input CTCK;
+    input DC;
+    input DCK;
+    input DIG;
+    input DIS;
+    input DOG;
+    input DOS;
+    input DPAG;
+    input DPAS;
+    input DQSG;
+    input DQSS;
+    input DRA1;
+    input DRA2;
+    input DRA3;
+    input DRA4;
+    input DRA5;
+    input DRA6;
+    input DRI1;
+    input DRI2;
+    input DRI3;
+    input DRI4;
+    input DRI5;
+    input DRI6;
+    input DRL;
+    output DRO1;
+    output DRO2;
+    output DRO3;
+    output DRO4;
+    output DRO5;
+    output DRO6;
+    input DS1;
+    input DS2;
+    input FA1;
+    input FA2;
+    input FA3;
+    input FA4;
+    input FA5;
+    input FA6;
+    output FLD;
+    output FLG;
+    input FZ;
+    inout [41:0] LINK1;
+    inout [41:0] LINK10;
+    inout [41:0] LINK11;
+    inout [41:0] LINK12;
+    inout [41:0] LINK13;
+    inout [41:0] LINK14;
+    inout [41:0] LINK15;
+    inout [41:0] LINK16;
+    inout [41:0] LINK17;
+    inout [41:0] LINK18;
+    inout [41:0] LINK19;
+    inout [41:0] LINK2;
+    inout [41:0] LINK20;
+    inout [41:0] LINK21;
+    inout [41:0] LINK22;
+    inout [41:0] LINK23;
+    inout [41:0] LINK24;
+    inout [41:0] LINK25;
+    inout [41:0] LINK26;
+    inout [41:0] LINK27;
+    inout [41:0] LINK28;
+    inout [41:0] LINK29;
+    inout [41:0] LINK3;
+    inout [41:0] LINK30;
+    inout [41:0] LINK31;
+    inout [41:0] LINK32;
+    inout [41:0] LINK33;
+    inout [41:0] LINK34;
+    inout [41:0] LINK4;
+    inout [41:0] LINK5;
+    inout [41:0] LINK6;
+    inout [41:0] LINK7;
+    inout [41:0] LINK8;
+    inout [41:0] LINK9;
+    input RRCK1;
+    input RRCK2;
+    input RTCK1;
+    input RTCK2;
+    input SPI1;
+    input SPI2;
+    input SPI3;
+    input WRCK1;
+    input WRCK2;
+    input WTCK1;
+    input WTCK2;
+    parameter div_rx1 = 4'b0000;
+    parameter div_rx2 = 4'b0000;
+    parameter div_tx1 = 4'b0000;
+    parameter div_tx2 = 4'b0000;
+    parameter inv_di_fclk1 = 1'b0;
+    parameter inv_di_fclk2 = 1'b0;
+    parameter latency1 = 1'b0;
+    parameter latency2 = 1'b0;
+    parameter location = "";
+    parameter mode_cpath = "";
+    parameter mode_epath = "";
+    parameter mode_io_cal = 1'b0;
+    parameter mode_rpath = "";
+    parameter mode_side1 = 0;
+    parameter mode_side2 = 0;
+    parameter mode_tpath = "";
+    parameter sel_clk_out1 = 1'b0;
+    parameter sel_clk_out2 = 1'b0;
+    parameter sel_clkr_rx1 = 1'b0;
+    parameter sel_clkr_rx2 = 1'b0;
+    parameter sel_clkw_rx1 = 2'b00;
+    parameter sel_clkw_rx2 = 2'b00;
+
+  NX_IOM_CONTROL_M #(
+    .div_rx1(div_rx1),
+    .div_rx2(div_rx2),
+    .div_tx1(div_tx1),
+    .div_tx2(div_tx2),
+    .inv_di_fclk1(inv_di_fclk1),
+    .inv_di_fclk2(inv_di_fclk2),
+    .latency1(latency1),
+    .latency2(latency2),
+    .location(location),
+    .mode_cpath(mode_cpath),
+    .mode_epath(mode_epath),
+    .mode_io_cal(mode_io_cal),
+    .mode_rpath(mode_rpath),
+    .mode_side1(mode_side1),
+    .mode_side2(mode_side2),
+    .mode_tpath(mode_tpath),
+    .sel_clk_out1(sel_clk_out1),
+    .sel_clk_out2(sel_clk_out2),
+    .sel_clkr_rx1(sel_clkr_rx1),
+    .sel_clkr_rx2(sel_clkr_rx2),
+    .sel_clkw_rx1(sel_clkw_rx1),
+    .sel_clkw_rx2(sel_clkw_rx2)
+  ) _TECHMAP_REPLACE_ (
+    .C1RED(C1RED),
+    .C1RNE(C1RNE),
+    .C1RS(C1RS),
+    .C1RW1(C1RW1),
+    .C1RW2(C1RW2),
+    .C1RW3(C1RW3),
+    .C1TS(C1TS),
+    .C1TW(C1TW),
+    .C2RED(C2RED),
+    .C2RNE(C2RNE),
+    .C2RS(C2RS),
+    .C2RW1(C2RW1),
+    .C2RW2(C2RW2),
+    .C2RW3(C2RW3),
+    .C2TS(C2TS),
+    .C2TW(C2TW),
+    .CAD1(CAD1),
+    .CAD2(CAD2),
+    .CAD3(CAD3),
+    .CAD4(CAD4),
+    .CAD5(CAD5),
+    .CAD6(CAD6),
+    .CAL(CAL),
+    .CAN1(CAN1),
+    .CAN2(CAN2),
+    .CAN3(CAN3),
+    .CAN4(CAN4),
+    .CAP1(CAP1),
+    .CAP2(CAP2),
+    .CAP3(CAP3),
+    .CAP4(CAP4),
+    .CAT1(CAT1),
+    .CAT2(CAT2),
+    .CAT3(CAT3),
+    .CAT4(CAT4),
+    .CCK(CCK),
+    .CKO1(CKO1),
+    .CKO2(CKO2),
+    .CTCK(CTCK),
+    .DC(DC),
+    .DCK(DCK),
+    .DIG(DIG),
+    .DIS(DIS),
+    .DOG(DOG),
+    .DOS(DOS),
+    .DPAG(DPAG),
+    .DPAS(DPAS),
+    .DQSG(DQSG),
+    .DQSS(DQSS),
+    .DRA1(DRA1),
+    .DRA2(DRA2),
+    .DRA3(DRA3),
+    .DRA4(DRA4),
+    .DRA5(DRA5),
+    .DRA6(DRA6),
+    .DRI1(DRI1),
+    .DRI2(DRI2),
+    .DRI3(DRI3),
+    .DRI4(DRI4),
+    .DRI5(DRI5),
+    .DRI6(DRI6),
+    .DRL(DRL),
+    .DRO1(DRO1),
+    .DRO2(DRO2),
+    .DRO3(DRO3),
+    .DRO4(DRO4),
+    .DRO5(DRO5),
+    .DRO6(DRO6),
+    .DS1(DS1),
+    .DS2(DS2),
+    .FA1(FA1),
+    .FA2(FA2),
+    .FA3(FA3),
+    .FA4(FA4),
+    .FA5(FA5),
+    .FA6(FA6),
+    .FLD(FLD),
+    .FLG(FLG),
+    .FZ(FZ),
+    .LINK1(LINK1),
+    .LINK10(LINK10),
+    .LINK11(LINK11),
+    .LINK12(LINK12),
+    .LINK13(LINK13),
+    .LINK14(LINK14),
+    .LINK15(LINK15),
+    .LINK16(LINK16),
+    .LINK17(LINK17),
+    .LINK18(LINK18),
+    .LINK19(LINK19),
+    .LINK2(LINK2),
+    .LINK20(LINK20),
+    .LINK21(LINK21),
+    .LINK22(LINK22),
+    .LINK23(LINK23),
+    .LINK24(LINK24),
+    .LINK25(LINK25),
+    .LINK26(LINK26),
+    .LINK27(LINK27),
+    .LINK28(LINK28),
+    .LINK29(LINK29),
+    .LINK3(LINK3),
+    .LINK30(LINK30),
+    .LINK31(LINK31),
+    .LINK32(LINK32),
+    .LINK33(LINK33),
+    .LINK34(LINK34),
+    .LINK4(LINK4),
+    .LINK5(LINK5),
+    .LINK6(LINK6),
+    .LINK7(LINK7),
+    .LINK8(LINK8),
+    .LINK9(LINK9),
+    .RRCK1(RRCK1),
+    .RRCK2(RRCK2),
+    .RTCK1(RTCK1),
+    .RTCK2(RTCK2),
+    .SPI1(SPI1),
+    .SPI2(SPI2),
+    .SPI3(SPI3),
+    .WRCK1(WRCK1),
+    .WRCK2(WRCK2),
+    .WTCK1(WTCK1),
+    .WTCK2(WTCK2)
+  );
+endmodule
+
+module NX_IOM_DRIVER(EI1, EI2, EI3, EI4, EI5, EL, ER, CI1, CI2, CI3, CI4, CI5, CL, CR, CTI, RI, RL, RR, CO, EO, RO1
+, RO2, RO3, RO4, RO5, CTO, LINK);
+    input CI1;
+    input CI2;
+    input CI3;
+    input CI4;
+    input CI5;
+    input CL;
+    output CO;
+    input CR;
+    input CTI;
+    output CTO;
+    input EI1;
+    input EI2;
+    input EI3;
+    input EI4;
+    input EI5;
+    input EL;
+    output EO;
+    input ER;
+    inout [41:0] LINK;
+    input RI;
+    input RL;
+    output RO1;
+    output RO2;
+    output RO3;
+    output RO4;
+    output RO5;
+    input RR;
+    parameter chained = 1'b0;
+    parameter cpath_edge = 1'b0;
+    parameter cpath_init = 1'b0;
+    parameter cpath_inv = 1'b0;
+    parameter cpath_load = 1'b0;
+    parameter cpath_mode = 4'b0000;
+    parameter cpath_sync = 1'b0;
+    parameter epath_dynamic = 1'b0;
+    parameter epath_edge = 1'b0;
+    parameter epath_init = 1'b0;
+    parameter epath_load = 1'b0;
+    parameter epath_mode = 4'b0000;
+    parameter epath_sync = 1'b0;
+    parameter location = "";
+    parameter rpath_dynamic = 1'b0;
+    parameter rpath_edge = 1'b0;
+    parameter rpath_init = 1'b0;
+    parameter rpath_load = 1'b0;
+    parameter rpath_mode = 4'b0000;
+    parameter rpath_sync = 1'b0;
+    parameter symbol = "";
+    parameter tpath_mode = 2'b00;
+    parameter variant = "";
+
+  NX_IOM_DRIVER_M #(
+    .chained(chained),
+    .cpath_edge(cpath_edge),
+    .cpath_init(cpath_init),
+    .cpath_inv(cpath_inv),
+    .cpath_load(cpath_load),
+    .cpath_mode(cpath_mode),
+    .cpath_sync(cpath_sync),
+    .epath_dynamic(epath_dynamic),
+    .epath_edge(epath_edge),
+    .epath_init(epath_init),
+    .epath_load(epath_load),
+    .epath_mode(epath_mode),
+    .epath_sync(epath_sync),
+    .location(location),
+    .rpath_dynamic(rpath_dynamic),
+    .rpath_edge(rpath_edge),
+    .rpath_init(rpath_init),
+    .rpath_load(rpath_load),
+    .rpath_mode(rpath_mode),
+    .rpath_sync(rpath_sync),
+    .symbol(symbol),
+    .tpath_mode(tpath_mode),
+    .variant(variant)
+  ) _TECHMAP_REPLACE_ (
+    .CI1(CI1),
+    .CI2(CI2),
+    .CI3(CI3),
+    .CI4(CI4),
+    .CI5(CI5),
+    .CL(CL),
+    .CO(CO),
+    .CR(CR),
+    .CTI(CTI),
+    .CTO(CTO),
+    .EI1(EI1),
+    .EI2(EI2),
+    .EI3(EI3),
+    .EI4(EI4),
+    .EI5(EI5),
+    .EL(EL),
+    .EO(EO),
+    .ER(ER),
+    .LINK(LINK),
+    .RI(RI),
+    .RL(RL),
+    .RO1(RO1),
+    .RO2(RO2),
+    .RO3(RO3),
+    .RO4(RO4),
+    .RO5(RO5),
+    .RR(RR)
+  );
+endmodule
+
+module NX_IOM_SERDES(RTCK, WRCK, WTCK, RRCK, TRST, RRST, CTCK, DCK, DRL, DIG, FZ, FLD, FLG, DS, DRA, DRI, DRO, DID, LINKN, LINKP);
+    input CTCK;
+    input DCK;
+    output [5:0] DID;
+    input DIG;
+    input [5:0] DRA;
+    input [5:0] DRI;
+    input DRL;
+    output [5:0] DRO;
+    input [1:0] DS;
+    output FLD;
+    output FLG;
+    input FZ;
+    inout [41:0] LINKN;
+    inout [41:0] LINKP;
+    input RRCK;
+    input RRST;
+    input RTCK;
+    input TRST;
+    input WRCK;
+    input WTCK;
+    parameter data_size = 5;
+    parameter location = "";
+
+  NX_IOM_SERDES_M #(
+    .data_size(data_size),
+    .location(location)
+  ) _TECHMAP_REPLACE_ (
+    .CTCK(CTCK),
+    .DCK(DCK),
+    .DID(DID),
+    .DIG(DIG),
+    .DRA(DRA),
+    .DRI(DRI),
+    .DRL(DRL),
+    .DRO(DRO),
+    .DS(DS),
+    .FLD(FLD),
+    .FLG(FLG),
+    .FZ(FZ),
+    .LINKN(LINKN),
+    .LINKP(LINKP),
+    .RRCK(RRCK),
+    .RRST(RRST),
+    .RTCK(RTCK),
+    .TRST(TRST),
+    .WRCK(WRCK),
+    .WTCK(WTCK)
+  );
+endmodule
