@@ -2133,3 +2133,389 @@ module NX_RFB(RCK, WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, 
   assign COR=1'b0;
   assign ERR=1'b0;
 endmodule
+
+module NX_FIFO_DPREG(RCK, WCK, WE, WEA, WRSTI, WRSTO, WEQ, RRSTI, RRSTO, REQ, I, O, WAI, WAO, RAI, RAO);
+    input [17:0] I;
+    output [17:0] O;
+    input [5:0] RAI;
+    output [5:0] RAO;
+    input RCK;
+    output REQ;
+    input RRSTI;
+    output RRSTO;
+    input [5:0] WAI;
+    output [5:0] WAO;
+    input WCK;
+    input WE;
+    input WEA;
+    output WEQ;
+    input WRSTI;
+    output WRSTO;
+    parameter rck_edge = 1'b0;
+    parameter read_addr_inv = 6'b000000;
+    parameter use_read_arst = 1'b0;
+    parameter use_write_arst = 1'b0;
+    parameter wck_edge = 1'b0;
+
+  NX_FIFO_U #(
+    .mode(0),
+    .wck_edge(wck_edge),
+    .rck_edge(rck_edge),
+    .read_addr_inv(read_addr_inv),
+    .use_write_arst(use_write_arst),
+    .use_read_arst(use_read_arst)
+  ) _TECHMAP_REPLACE_ (
+    .RCK(RCK),
+    .WCK(WCK),
+    .WE(WE),
+    .WEA(WEA),
+    .I1(I[0]),
+    .I2(I[1]),
+    .I3(I[2]),
+    .I4(I[3]),
+    .I5(I[4]),
+    .I6(I[5]),
+    .I7(I[6]),
+    .I8(I[7]),
+    .I9(I[8]),
+    .I10(I[9]),
+    .I11(I[10]),
+    .I12(I[11]),
+    .I13(I[12]),
+    .I14(I[13]),
+    .I15(I[14]),
+    .I16(I[15]),
+    .I17(I[16]),
+    .I18(I[17]),
+    .I19(1'b0),
+    .I20(1'b0),
+    .I21(1'b0),
+    .I22(1'b0),
+    .I23(1'b0),
+    .I24(1'b0),
+    .I25(1'b0),
+    .I26(1'b0),
+    .I27(1'b0),
+    .I28(1'b0),
+    .I29(1'b0),
+    .I30(1'b0),
+    .I31(1'b0),
+    .I32(1'b0),
+    .I33(1'b0),
+    .I34(1'b0),
+    .I35(1'b0),
+    .I36(1'b0),
+    .O1(O[0]),
+    .O2(O[1]),
+    .O3(O[2]),
+    .O4(O[3]),
+    .O5(O[4]),
+    .O6(O[5]),
+    .O7(O[6]),
+    .O8(O[7]),
+    .O9(O[8]),
+    .O10(O[9]),
+    .O11(O[10]),
+    .O12(O[11]),
+    .O13(O[12]),
+    .O14(O[13]),
+    .O15(O[14]),
+    .O16(O[15]),
+    .O17(O[16]),
+    .O18(O[17]),
+    .WRSTI(WRSTI),
+    .WAI1(WAI[0]),
+    .WAI2(WAI[1]),
+    .WAI3(WAI[2]),
+    .WAI4(WAI[3]),
+    .WAI5(WAI[4]),
+    .WAI6(WAI[5]),
+    .WAI7(1'b0),
+    .WRSTO(WRSTO),
+    .WAO1(WAO[0]),
+    .WAO2(WAO[1]),
+    .WAO3(WAO[2]),
+    .WAO4(WAO[3]),
+    .WAO5(WAO[4]),
+    .WAO6(WAO[5]),
+    .WEQ1(WEQ),
+    .RRSTI(RRSTI),
+    .RAI1(RAI[0]),
+    .RAI2(RAI[1]),
+    .RAI3(RAI[2]),
+    .RAI4(RAI[3]),
+    .RAI5(RAI[4]),
+    .RAI6(RAI[5]),
+    .RAI7(1'b0),
+    .RRSTO(RRSTO),
+    .RAO1(RAO[0]),
+    .RAO2(RAO[1]),
+    .RAO3(RAO[2]),
+    .RAO4(RAO[3]),
+    .RAO5(RAO[4]),
+    .RAO6(RAO[5]),
+    .REQ1(REQ)
+  );
+endmodule
+
+module NX_XFIFO_64x18(RCK, WCK, WE, WEA, WRSTI, RRSTI, I, O, WEQ, REQ, WAI, WAO, RAI, RAO);
+    input [17:0] I;
+    output [17:0] O;
+    input [6:0] RAI;
+    output [6:0] RAO;
+    input RCK;
+    output [1:0] REQ;
+    input RRSTI;
+    input [6:0] WAI;
+    output [6:0] WAO;
+    input WCK;
+    input WE;
+    input WEA;
+    output [1:0] WEQ;
+    input WRSTI;
+    parameter rck_edge = 1'b0;
+    parameter read_addr_inv = 7'b0000000;
+    parameter use_read_arst = 1'b0;
+    parameter use_write_arst = 1'b0;
+    parameter wck_edge = 1'b0;
+
+  NX_FIFO_U #(
+    .mode(1),
+    .wck_edge(wck_edge),
+    .rck_edge(rck_edge),
+    .read_addr_inv(read_addr_inv),
+    .use_write_arst(use_write_arst),
+    .use_read_arst(use_read_arst)
+  ) _TECHMAP_REPLACE_ (
+    .RCK(RCK),
+    .WCK(WCK),
+    .WE(WE),
+    .WEA(WEA),
+    .I1(I[0]),
+    .I2(I[1]),
+    .I3(I[2]),
+    .I4(I[3]),
+    .I5(I[4]),
+    .I6(I[5]),
+    .I7(I[6]),
+    .I8(I[7]),
+    .I9(I[8]),
+    .I10(I[9]),
+    .I11(I[10]),
+    .I12(I[11]),
+    .I13(I[12]),
+    .I14(I[13]),
+    .I15(I[14]),
+    .I16(I[15]),
+    .I17(I[16]),
+    .I18(I[17]),
+    .I19(1'b0),
+    .I20(1'b0),
+    .I21(1'b0),
+    .I22(1'b0),
+    .I23(1'b0),
+    .I24(1'b0),
+    .I25(1'b0),
+    .I26(1'b0),
+    .I27(1'b0),
+    .I28(1'b0),
+    .I29(1'b0),
+    .I30(1'b0),
+    .I31(1'b0),
+    .I32(1'b0),
+    .I33(1'b0),
+    .I34(1'b0),
+    .I35(1'b0),
+    .I36(1'b0),
+    .O1(O[0]),
+    .O2(O[1]),
+    .O3(O[2]),
+    .O4(O[3]),
+    .O5(O[4]),
+    .O6(O[5]),
+    .O7(O[6]),
+    .O8(O[7]),
+    .O9(O[8]),
+    .O10(O[9]),
+    .O11(O[10]),
+    .O12(O[11]),
+    .O13(O[12]),
+    .O14(O[13]),
+    .O15(O[14]),
+    .O16(O[15]),
+    .O17(O[16]),
+    .O18(O[17]),
+    .WRSTI(WRSTI),
+    .WAI1(WAI[0]),
+    .WAI2(WAI[1]),
+    .WAI3(WAI[2]),
+    .WAI4(WAI[3]),
+    .WAI5(WAI[4]),
+    .WAI6(WAI[5]),
+    .WAI7(WAI[6]),
+    .WAO1(WAO[0]),
+    .WAO2(WAO[1]),
+    .WAO3(WAO[2]),
+    .WAO4(WAO[3]),
+    .WAO5(WAO[4]),
+    .WAO6(WAO[5]),
+    .WAO7(WAO[6]),
+    .WEQ1(WEQ[0]),
+    .WEQ2(WEQ[1]),
+    .RRSTI(RRSTI),
+    .RAI1(RAI[0]),
+    .RAI2(RAI[1]),
+    .RAI3(RAI[2]),
+    .RAI4(RAI[3]),
+    .RAI5(RAI[4]),
+    .RAI6(RAI[5]),
+    .RAI7(RAI[6]),
+    .RAO1(RAO[0]),
+    .RAO2(RAO[1]),
+    .RAO3(RAO[2]),
+    .RAO4(RAO[3]),
+    .RAO5(RAO[4]),
+    .RAO6(RAO[5]),
+    .RAO7(RAO[6]),
+    .REQ1(REQ[0]),
+    .REQ2(REQ[1])
+  );
+endmodule
+
+module NX_XFIFO_32x36(RCK, WCK, WE, WEA, WRSTI, WEQ, RRSTI, REQ, I, O, WAI, WAO, RAI, RAO);
+    input [35:0] I;
+    output [35:0] O;
+    input [5:0] RAI;
+    output [5:0] RAO;
+    input RCK;
+    output REQ;
+    input RRSTI;
+    input [5:0] WAI;
+    output [5:0] WAO;
+    input WCK;
+    input WE;
+    input WEA;
+    output WEQ;
+    input WRSTI;
+    parameter rck_edge = 1'b0;
+    parameter read_addr_inv = 7'b0000000;
+    parameter use_read_arst = 1'b0;
+    parameter use_write_arst = 1'b0;
+    parameter wck_edge = 1'b0;
+
+  NX_FIFO_U #(
+    .mode(2),
+    .wck_edge(wck_edge),
+    .rck_edge(rck_edge),
+    .read_addr_inv(read_addr_inv),
+    .use_write_arst(use_write_arst),
+    .use_read_arst(use_read_arst)
+  ) _TECHMAP_REPLACE_ (
+    .RCK(RCK),
+    .WCK(WCK),
+    .WE(WE),
+    .WEA(WEA),
+    .I1(I[0]),
+    .I2(I[1]),
+    .I3(I[2]),
+    .I4(I[3]),
+    .I5(I[4]),
+    .I6(I[5]),
+    .I7(I[6]),
+    .I8(I[7]),
+    .I9(I[8]),
+    .I10(I[9]),
+    .I11(I[10]),
+    .I12(I[11]),
+    .I13(I[12]),
+    .I14(I[13]),
+    .I15(I[14]),
+    .I16(I[15]),
+    .I17(I[16]),
+    .I18(I[17]),
+    .I19(I[18]),
+    .I20(I[19]),
+    .I21(I[20]),
+    .I22(I[21]),
+    .I23(I[22]),
+    .I24(I[23]),
+    .I25(I[24]),
+    .I26(I[25]),
+    .I27(I[26]),
+    .I28(I[27]),
+    .I29(I[28]),
+    .I30(I[29]),
+    .I31(I[30]),
+    .I32(I[31]),
+    .I33(I[32]),
+    .I34(I[33]),
+    .I35(I[34]),
+    .I36(I[35]),
+    .O1(O[0]),
+    .O2(O[1]),
+    .O3(O[2]),
+    .O4(O[3]),
+    .O5(O[4]),
+    .O6(O[5]),
+    .O7(O[6]),
+    .O8(O[7]),
+    .O9(O[8]),
+    .O10(O[9]),
+    .O11(O[10]),
+    .O12(O[11]),
+    .O13(O[12]),
+    .O14(O[13]),
+    .O15(O[14]),
+    .O16(O[15]),
+    .O17(O[16]),
+    .O18(O[17]),
+    .O19(O[18]),
+    .O20(O[19]),
+    .O21(O[20]),
+    .O22(O[21]),
+    .O23(O[22]),
+    .O24(O[23]),
+    .O25(O[24]),
+    .O26(O[25]),
+    .O27(O[26]),
+    .O28(O[27]),
+    .O29(O[28]),
+    .O30(O[29]),
+    .O31(O[30]),
+    .O32(O[31]),
+    .O33(O[32]),
+    .O34(O[33]),
+    .O35(O[34]),
+    .O36(O[35]),
+    .WRSTI(WRSTI),
+    .WAI1(WAI[0]),
+    .WAI2(WAI[1]),
+    .WAI3(WAI[2]),
+    .WAI4(WAI[3]),
+    .WAI5(WAI[4]),
+    .WAI6(WAI[5]),
+    .WAI7(1'b0),
+    .WAO1(WAO[0]),
+    .WAO2(WAO[1]),
+    .WAO3(WAO[2]),
+    .WAO4(WAO[3]),
+    .WAO5(WAO[4]),
+    .WAO6(WAO[5]),
+    .WEQ1(WEQ),
+    .RRSTI(RRSTI),
+    .RAI1(RAI[0]),
+    .RAI2(RAI[1]),
+    .RAI3(RAI[2]),
+    .RAI4(RAI[3]),
+    .RAI5(RAI[4]),
+    .RAI6(RAI[5]),
+    .RAI7(1'b0),
+    .RAO1(RAO[0]),
+    .RAO2(RAO[1]),
+    .RAO3(RAO[2]),
+    .RAO4(RAO[3]),
+    .RAO5(RAO[4]),
+    .RAO6(RAO[5]),
+    .REQ1(REQ)
+  );
+endmodule
