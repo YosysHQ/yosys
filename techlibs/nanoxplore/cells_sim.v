@@ -91,3 +91,97 @@ always @(posedge clock)
 assign O = mem[RA];
 
 endmodule
+
+module NX_IOB(I, C, T, O, IO);
+    input C;
+    input I;
+	(* iopad_external_pin *)
+    inout IO;
+    output O;
+    input T;
+    parameter differential = "";
+    parameter drive = "";
+    parameter dynDrive = "";
+    parameter dynInput = "";
+    parameter dynTerm = "";
+    parameter extra = 3;
+    parameter inputDelayLine = "";
+    parameter inputDelayOn = "";
+    parameter inputSignalSlope = "";
+    parameter location = "";
+    parameter locked = 1'b0;
+    parameter outputCapacity = "";
+    parameter outputDelayLine = "";
+    parameter outputDelayOn = "";
+    parameter slewRate = "";
+    parameter standard = "";
+    parameter termination = "";
+    parameter terminationReference = "";
+    parameter turbo = "";
+    parameter weakTermination = "";
+
+	assign O = IO;
+	assign IO = C ? I : 1'bz;
+endmodule
+
+module NX_IOB_I(C, T, IO, O);
+    input C;
+	(* iopad_external_pin *)
+    input IO;
+    output O;
+    input T;
+    parameter differential = "";
+    parameter drive = "";
+    parameter dynDrive = "";
+    parameter dynInput = "";
+    parameter dynTerm = "";
+    parameter extra = 1;
+    parameter inputDelayLine = "";
+    parameter inputDelayOn = "";
+    parameter inputSignalSlope = "";
+    parameter location = "";
+    parameter locked = 1'b0;
+    parameter outputCapacity = "";
+    parameter outputDelayLine = "";
+    parameter outputDelayOn = "";
+    parameter slewRate = "";
+    parameter standard = "";
+    parameter termination = "";
+    parameter terminationReference = "";
+    parameter turbo = "";
+    parameter weakTermination = "";
+
+	assign O = IO;
+endmodule
+
+module NX_IOB_O(I, C, T, IO);
+    input C;
+    input I;
+	(* iopad_external_pin *)
+    output IO;
+    input T;
+    parameter differential = "";
+    parameter drive = "";
+    parameter dynDrive = "";
+    parameter dynInput = "";
+    parameter dynTerm = "";
+    parameter extra = 2;
+    parameter inputDelayLine = "";
+    parameter inputDelayOn = "";
+    parameter inputSignalSlope = "";
+    parameter location = "";
+    parameter locked = 1'b0;
+    parameter outputCapacity = "";
+    parameter outputDelayLine = "";
+    parameter outputDelayOn = "";
+    parameter slewRate = "";
+    parameter standard = "";
+    parameter termination = "";
+    parameter terminationReference = "";
+    parameter turbo = "";
+    parameter weakTermination = "";
+
+	assign IO = C ? I : 1'bz;
+endmodule
+
+
