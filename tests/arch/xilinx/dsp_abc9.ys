@@ -49,7 +49,7 @@ DSP48E1 #(.AREG(1)) u2(.A(A), .B(B), .PCIN(casc), .P(P));
 endmodule
 EOT
 synth_xilinx -run :prepare
-abc9
+abc9 -lutlib
 clean
 check
 logger -expect-no-warnings

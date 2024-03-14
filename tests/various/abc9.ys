@@ -73,7 +73,7 @@ module abc9_test037(input [1:0] i, output o);
 LUT2 #(.mask(4'b0)) lut (.i(i), .o(o));
 endmodule
 EOT
-abc9
+abc9 -lutlib
 
 
 design -reset
