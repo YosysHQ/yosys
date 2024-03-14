@@ -278,12 +278,12 @@ struct SynthGowinPass : public ScriptPass
 		{
 			if (nowidelut && abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v");
-				run("abc9 -maxlut 4 -W 500");
+				run("abc9 -lutlib -maxlut 4 -W 500");
 			} else if (nowidelut && !abc9) {
 				run("abc -lut 4");
 			} else if (!nowidelut && abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v");
-				run("abc9 -maxlut 8 -W 500");
+				run("abc9 -lutlib -maxlut 8 -W 500");
 			} else if (!nowidelut && !abc9) {
 				run("abc -lut 4:8");
 			}

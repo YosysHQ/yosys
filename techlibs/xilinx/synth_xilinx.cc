@@ -650,7 +650,7 @@ struct SynthXilinxPass : public ScriptPass
 					abc9_opts += stringf(" -maxlut %d", lut_size);
 				if (dff)
 					abc9_opts += " -dff";
-				run("abc9" + abc9_opts);
+				run("abc9 -lutlib" + abc9_opts);
 			}
 			else {
 				std::string abc_opts;
