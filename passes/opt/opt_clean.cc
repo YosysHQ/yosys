@@ -819,7 +819,7 @@ struct OptCleanPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-purge")
 				purge_mode = true;
-			if (args[argidx] == "-coarse")
+			else if (args[argidx] == "-coarse")
 				coarse_mode = true;
 			else
 				break;
