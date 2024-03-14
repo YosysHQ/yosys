@@ -85,6 +85,11 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -iopad\n");
 		log("       insert IO buffers\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -92,8 +97,8 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, norfram, nobram, nodsp, iopad;
-	std::string postfix, rf_postfix;
+	bool flatten, abc9, nocy, norfram, nobram, nodsp, iopad, no_rw_check;
+	std::string postfix;
 
 	void clear_flags() override
 	{
@@ -107,8 +112,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		nobram = false;
 		nodsp = false;
 		iopad = false;
+		no_rw_check = false;
 		postfix = "";
-		rf_postfix = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -171,6 +176,10 @@ struct SynthNanoXplorePass : public ScriptPass
 				iopad = true;
 				continue;
 			}
+			if (args[argidx] == "-no-rw-check") {
+				no_rw_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -182,16 +191,12 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (family == "ultra") {
 			postfix = "_u";
-			rf_postfix = "_u";
 		} else if (family == "u300") {
 			postfix = "_u";
-			rf_postfix = "_u";
 		} else if (family == "medium") {
 			postfix = "_m";
-			rf_postfix = "_l";
 		} else if (family == "large") {
 			postfix = "_l";
-			rf_postfix = "_l";
 		} else 
 			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family.c_str());
 
@@ -208,6 +213,12 @@ struct SynthNanoXplorePass : public ScriptPass
 
 	void script() override
 	{
+		std::string no_rw_check_opt = "";
+		if (no_rw_check)
+			no_rw_check_opt = " -no-rw-check";
+		if (help_mode)
+			no_rw_check_opt = " [-no-rw-check]";
+
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_bb.v +/nanoxplore/cells_bb" + postfix + ".v");
@@ -238,7 +249,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("opt_clean");
 			run("alumacc");
 			run("opt");
-			run("memory -nomap");
+			run("memory -nomap" + no_rw_check_opt);
 			run("opt_clean");
 		}
 
@@ -251,8 +262,8 @@ struct SynthNanoXplorePass : public ScriptPass
 				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
-			run("memory_libmap -lib +/nanoxplore/rf_rams"+  rf_postfix+ ".txt -lib +/nanoxplore/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -norfram)");
-			run("techmap -map +/nanoxplore/rf_rams_map"+  rf_postfix+ ".v -map +/nanoxplore/brams_map.v");
+			run("memory_libmap -lib +/nanoxplore/rf_rams"+ postfix + ".txt -lib +/nanoxplore/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -norfram)");
+			run("techmap -map +/nanoxplore/rf_rams_map"+ postfix + ".v -map +/nanoxplore/brams_map.v");
 			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v t:NX_XRFB* t:NX_RFB*");
 		}
 
