@@ -228,7 +228,7 @@ struct Abc9Pass : public ScriptPass
 						/*arg == "-box" ||*/ arg == "-W") &&
 					argidx+1 < args.size()) {
 				if (arg == "-lut" || arg == "-luts")
-					lut_mode = false;
+					lut_mode = true;
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
@@ -272,6 +272,9 @@ struct Abc9Pass : public ScriptPass
 
 		if (maxlut && !lutlib_mode)
 			log_cmd_error("abc9 '-maxlut' option only applicable in conjunction with '-lutlib'.\n");
+
+		if (lut_mode && lutlib_mode)
+			log_cmd_error("abc9 '-lutlib' option is in conflict with '-lut' or '-luts'.\n");
 
 		log_assert(design);
 		if (design->selected_modules().empty()) {
