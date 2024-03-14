@@ -151,10 +151,14 @@ struct Abc9Pass : public ScriptPass
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
+		log("    -lutlib\n");
+		log("        generate netlist using luts. Use the modules that are loaded into the\n");
+		log("        current design and have the (* abc9_lut *) attribute for the library of\n");
+		log("        the available lut primitives.\n");
+		log("\n");
 		log("    -maxlut <width>\n");
-		log("        when auto-generating the lut library, discard all luts equal to or\n");
-		log("        greater than this size (applicable when neither -lut nor -luts is\n");
-		log("        specified).\n");
+		log("        when sourcing the lut library from the current design (option -lutlib),\n");
+		log("        discard all lut primitives with greater than the specified width.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        also pass $_DFF_[NP]_ cells through to ABC. modules with many clock\n");
@@ -186,7 +190,7 @@ struct Abc9Pass : public ScriptPass
 
 	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
-	bool lut_mode;
+	bool lutlib_mode, lut_mode;
 	int maxlut;
 	std::string box_file;
 
@@ -196,6 +200,7 @@ struct Abc9Pass : public ScriptPass
 		exe_cmd << "abc9_exe";
 		dff_mode = false;
 		cleanup = true;
+		lutlib_mode = false;
 		lut_mode = false;
 		maxlut = 0;
 		box_file = "";
@@ -223,13 +228,17 @@ struct Abc9Pass : public ScriptPass
 						/*arg == "-box" ||*/ arg == "-W") &&
 					argidx+1 < args.size()) {
 				if (arg == "-lut" || arg == "-luts")
-					lut_mode = true;
+					lut_mode = false;
 				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
 					/* arg == "-nocleanup" || */ arg == "-showtmp") {
 				exe_cmd << " " << arg;
+				continue;
+			}
+			if (arg == "-lutlib") {
+				lutlib_mode = true;
 				continue;
 			}
 			if (arg == "-dff") {
@@ -261,8 +270,8 @@ struct Abc9Pass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
-		if (maxlut && lut_mode)
-			log_cmd_error("abc9 '-maxlut' option only applicable without '-lut' nor '-luts'.\n");
+		if (maxlut && !lutlib_mode)
+			log_cmd_error("abc9 '-maxlut' option only applicable in conjunction with '-lutlib'.\n");
 
 		log_assert(design);
 		if (design->selected_modules().empty()) {
@@ -359,7 +368,7 @@ struct Abc9Pass : public ScriptPass
 				run("abc9_ops -break_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
 			if (help_mode)
 				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
-			else if (!lut_mode)
+			else if (lutlib_mode)
 				run(stringf("abc9_ops -prep_lut %d", maxlut));
 			if (help_mode)
 				run("abc9_ops -prep_box", "(skip if -box)");
@@ -386,7 +395,7 @@ struct Abc9Pass : public ScriptPass
 				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
 				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("    abc9_ops -reintegrate [-dff]");
+				run("    abc9_ops -reintegrate [-dff] [-lut]");
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
@@ -412,7 +421,7 @@ struct Abc9Pass : public ScriptPass
 					tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 					tempdir_name = make_temp_dir(tempdir_name);
 
-					if (!lut_mode)
+					if (lutlib_mode)
 						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
 					if (box_file.empty())
 						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
@@ -429,7 +438,7 @@ struct Abc9Pass : public ScriptPass
 					if (num_outputs) {
 						std::string abc9_exe_cmd;
 						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
-						if (!lut_mode)
+						if (lutlib_mode)
 							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
 						if (box_file.empty())
 							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
@@ -437,7 +446,8 @@ struct Abc9Pass : public ScriptPass
 							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
 						run_nocheck(abc9_exe_cmd);
 						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
-						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("abc9_ops -reintegrate%s%s", dff_mode ? " -dff" : "",
+											(lutlib_mode || lut_mode) ? " -lut" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");

@@ -176,8 +176,6 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
 	else if (!lut_file.empty())
 		abc9_script += stringf("read_lut \"%s\"; ", lut_file.c_str());
-	else
-		log_abort();
 
 	log_assert(!box_file.empty());
 	abc9_script += stringf("read_box \"%s\"; ", box_file.c_str());
@@ -197,8 +195,9 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	} else if (!lut_costs.empty() || !lut_file.empty()) {
 		abc9_script += fast_mode ? RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)
 			: RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos);
-	} else
-		log_abort();
+	} else {
+		log_error("Without a target library, a script needs to be provided.\n");
+	}
 
 	for (size_t pos = abc9_script.find("{D}"); pos != std::string::npos; pos = abc9_script.find("{D}", pos))
 		abc9_script = abc9_script.substr(0, pos) + delay_target + abc9_script.substr(pos+3);
