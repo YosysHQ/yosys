@@ -293,7 +293,6 @@ module fiftyfivenm_pll
 endmodule // max10_pll
 
 
-//rih
 /* MAX10 MULT clearbox model */
 (* blackbox *)
 module fiftyfivenm_mac_mult (
