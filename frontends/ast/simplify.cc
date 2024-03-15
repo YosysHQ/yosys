@@ -1487,6 +1487,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			width_hint = max(width_hint, children[1]->range_left - children[1]->range_right + 1);
 		}
 		break;
+
 	case AST_ENUM_ITEM:
 		while (!children[0]->basic_prep && children[0]->simplify(false, stage, -1, false))
 			did_something = true;
@@ -1500,11 +1501,84 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 		break;
 
+	case AST_CAST_SIZE: {
+		int width = 1;
+		AstNode *node;
+		AstNode *child = children[0];
+
+		if (child->type == AST_WIRE) {
+			if (child->children.size() == 0) {
+				//Base type (e.g. int)
+
+				//Construct AST_CONSTANT node
+				width = child->range_left - child->range_right +1;
+				node = mkconst_int(width, child->is_signed);
+			} else {
+				//User defined type
+				log_assert(child->children[0]->type == AST_WIRETYPE);
+
+				auto type_name = child->children[0]->str;
+				if (!current_scope.count(type_name)) {
+					input_error("Unknown identifier `%s' used as type name\n", type_name.c_str());
+				}
+				AstNode *resolved_type_node = current_scope.at(type_name);
+				if (resolved_type_node->type != AST_TYPEDEF)
+					input_error("`%s' does not name a type\n", type_name.c_str());
+				log_assert(resolved_type_node->children.size() == 1);
+				AstNode *template_node = resolved_type_node->children[0];
+
+				// Ensure typedef itself is fully simplified
+				while (template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
+
+				switch (template_node->type)
+				{
+				case AST_WIRE: {
+					if (template_node->children.size() > 0 && template_node->children[0]->type == AST_RANGE)
+						width = range_width(this, template_node->children[0]);
+
+					//delete child's children
+					child->delete_children();
+
+					//create AST_CONSTANT node
+					node = mkconst_int(width, true);
+
+					break;
+				}
+
+				case AST_STRUCT: {
+					//delete child's children
+					child->delete_children();
+
+					//create AST_CONSTANT node
+					width = size_packed_struct(template_node, 0);
+					node = mkconst_int(width, false);
+
+					break;
+				}
+
+				default:
+					log_error("Don't know how to translate static cast of type %s\n", type2str(template_node->type).c_str());
+				}
+			}
+
+			//Remove child node
+			delete child;
+			children.erase(children.begin());
+
+			//insert AST_CONSTANT
+			children.insert(children.begin(),node);
+		}
+
+		detect_width_simple = true;
+		children_are_self_determined = true;
+
+		break;
+	}
+
 	case AST_TO_BITS:
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_SELFSZ:
-	case AST_CAST_SIZE:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:

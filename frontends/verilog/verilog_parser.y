@@ -3506,6 +3506,12 @@ basic_expr:
 		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
 		SET_AST_NODE_LOC($$, @1, @4);
 	} |
+	typedef_base_type OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
 	'(' expr '=' expr ')' {
 		ensureAsgnExprAllowed();
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $4);
