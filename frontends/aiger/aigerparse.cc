@@ -505,6 +505,26 @@ void AigerReader::parse_xaiger()
 				boxes.emplace_back(cell);
 			}
 		}
+		else if (c == 'q') {
+			f.ignore(sizeof(uint32_t));
+			uint32_t pairNum = parse_xaiger_literal(f);
+
+			std::vector<Cell *> nodes;
+			nodes.resize(1000); // TODO: where can we get a reliable bound? `I` doesn't work
+			for (unsigned i = 0; i < pairNum; i++) {
+				uint32_t reprID = parse_xaiger_literal(f);
+				uint32_t siblingID = parse_xaiger_literal(f);
+				log_assert(nodes.size() > reprID && reprID > siblingID);
+				Cell *node = nodes[siblingID];
+				if (!node) {
+					node = nodes[siblingID] = module->addCell(stringf("$equivclass%u", siblingID), ID($__choice));
+					node->set_bool_attribute(ID::keep, true);
+					node->setPort(ID::A, module->wire(stringf("$aiger%d$%d", aiger_autoidx, siblingID)));
+				}
+				node->connections_.at(ID::A).append(module->wire(stringf("$aiger%d$%d", aiger_autoidx, reprID)));
+				nodes[reprID] = node;
+			}
+		}
 		else if (c == 'a' || c == 'i' || c == 'o' || c == 's') {
 			uint32_t dataSize = parse_xaiger_literal(f);
 			f.ignore(dataSize);
