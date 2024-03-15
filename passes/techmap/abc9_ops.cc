@@ -1248,6 +1248,27 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool lut_mode)
 		// TODO: Speed up toposort -- we care about NOT ordering only
 		toposort.node(mapped_cell->name);
 
+		if (mapped_cell->type == ID($__choice)) {
+			RTLIL::SigSpec a = mapped_cell->getPort(ID::A);
+
+			for (auto bit : a)
+				bit_users[bit].insert(mapped_cell->name);
+
+			Cell *cell = module->addCell(remap_name(mapped_cell->name.c_str()),
+										 mapped_cell->type);
+
+			for (auto &bit : a)
+			if (bit.wire) {
+				bit.wire = module->wires_.at(remap_name(bit.wire->name));
+				bit2sinks[bit].push_back(cell);
+			}	
+
+			cell->set_bool_attribute(ID::keep, true);
+			cell->setPort(ID::A, a);
+			cell_stats[cell->type]++;
+			continue;
+		}
+
 		if (!lut_mode && mapped_cell->type.in(ID($_AND_), ID($_NOT_))) {
 			RTLIL::SigBit a_bit, b_bit, y_bit;
 			RTLIL::SigBit a_bit_remap, b_bit_remap, y_bit_remap;
