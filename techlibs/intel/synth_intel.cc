@@ -195,17 +195,8 @@ struct SynthIntelPass : public ScriptPass {
 			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
-/*
-		if (flatten && check_label("flatten", "(unless -noflatten)")) {
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
-		}
-*/
 
 		if (check_label("coarse")) {
-//			run("synth -run coarse");
 			run("proc");
 			if (flatten || help_mode)
 				run("flatten", "(skip if -noflatten)");
