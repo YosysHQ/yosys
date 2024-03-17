@@ -32,23 +32,23 @@ yosys> select -module addr_gen
 yosys [addr_gen]> select -list
 addr_gen
 addr_gen/$1\addr[7:0]
-addr_gen/$add$fifo.v:20$3_Y
-addr_gen/$eq$fifo.v:17$2_Y
+addr_gen/$add$fifo.v:19$3_Y
+addr_gen/$eq$fifo.v:16$2_Y
 addr_gen/$0\addr[7:0]
 addr_gen/addr
 addr_gen/rst
 addr_gen/clk
 addr_gen/en
-addr_gen/$add$fifo.v:20$3
-addr_gen/$eq$fifo.v:17$2
+addr_gen/$add$fifo.v:19$3
+addr_gen/$eq$fifo.v:16$2
 addr_gen/$proc$fifo.v:0$4
-addr_gen/$proc$fifo.v:13$1
+addr_gen/$proc$fifo.v:12$1
 
 yosys [addr_gen]> select t:*
 
 yosys [addr_gen]*> select -list
-addr_gen/$add$fifo.v:20$3
-addr_gen/$eq$fifo.v:17$2
+addr_gen/$add$fifo.v:19$3
+addr_gen/$eq$fifo.v:16$2
 
 yosys [addr_gen]*> select -set new_cells %
 
@@ -84,7 +84,7 @@ Cleaned up 0 empty switches.
 yosys> proc_rmdead
 
 7.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
-Marked 2 switch rules as full_case in process $proc$fifo.v:13$1 in module addr_gen.
+Marked 2 switch rules as full_case in process $proc$fifo.v:12$1 in module addr_gen.
 Removed a total of 0 dead cases.
 
 yosys> proc_prune
@@ -102,7 +102,7 @@ Found init rule in `\addr_gen.$proc$fifo.v:0$4'.
 yosys> proc_arst
 
 7.5. Executing PROC_ARST pass (detect async resets in processes).
-Found async reset \rst in `\addr_gen.$proc$fifo.v:13$1'.
+Found async reset \rst in `\addr_gen.$proc$fifo.v:12$1'.
 
 yosys> proc_rom
 
@@ -114,7 +114,7 @@ yosys> proc_mux
 
 7.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
 Creating decoders for process `\addr_gen.$proc$fifo.v:0$4'.
-Creating decoders for process `\addr_gen.$proc$fifo.v:13$1'.
+Creating decoders for process `\addr_gen.$proc$fifo.v:12$1'.
      1/1: $0\addr[7:0]
 
 yosys> proc_dlatch
@@ -124,7 +124,7 @@ yosys> proc_dlatch
 yosys> proc_dff
 
 7.9. Executing PROC_DFF pass (convert process syncs to FFs).
-Creating register for signal `\addr_gen.\addr' using process `\addr_gen.$proc$fifo.v:13$1'.
+Creating register for signal `\addr_gen.\addr' using process `\addr_gen.$proc$fifo.v:12$1'.
   created $adff cell `$procdff$10' with positive edge clock and positive level reset.
 
 yosys> proc_memwr
@@ -135,8 +135,8 @@ yosys> proc_clean
 
 7.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Removing empty process `addr_gen.$proc$fifo.v:0$4'.
-Found and cleaned up 2 empty switches in `\addr_gen.$proc$fifo.v:13$1'.
-Removing empty process `addr_gen.$proc$fifo.v:13$1'.
+Found and cleaned up 2 empty switches in `\addr_gen.$proc$fifo.v:12$1'.
+Removing empty process `addr_gen.$proc$fifo.v:12$1'.
 Cleaned up 2 empty switches.
 
 yosys> select -set new_cells t:$mux t:*dff
@@ -210,9 +210,9 @@ Cleaned up 0 empty switches.
 yosys> proc_rmdead
 
 13.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
-Marked 2 switch rules as full_case in process $proc$fifo.v:64$24 in module fifo.
-Marked 1 switch rules as full_case in process $proc$fifo.v:38$16 in module fifo.
-Marked 2 switch rules as full_case in process $proc$fifo.v:13$32 in module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+Marked 2 switch rules as full_case in process $proc$fifo.v:62$24 in module fifo.
+Marked 1 switch rules as full_case in process $proc$fifo.v:36$16 in module fifo.
+Marked 2 switch rules as full_case in process $proc$fifo.v:12$32 in module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
 Removed a total of 0 dead cases.
 
 yosys> proc_prune
@@ -232,8 +232,8 @@ Found init rule in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000
 yosys> proc_arst
 
 13.5. Executing PROC_ARST pass (detect async resets in processes).
-Found async reset \rst in `\fifo.$proc$fifo.v:64$24'.
-Found async reset \rst in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Found async reset \rst in `\fifo.$proc$fifo.v:62$24'.
+Found async reset \rst in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:12$32'.
 
 yosys> proc_rom
 
@@ -245,14 +245,14 @@ yosys> proc_mux
 
 13.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
 Creating decoders for process `\fifo.$proc$fifo.v:0$31'.
-Creating decoders for process `\fifo.$proc$fifo.v:64$24'.
+Creating decoders for process `\fifo.$proc$fifo.v:62$24'.
      1/1: $0\count[8:0]
-Creating decoders for process `\fifo.$proc$fifo.v:38$16'.
-     1/3: $1$memwr$\data$fifo.v:40$15_EN[7:0]$22
-     2/3: $1$memwr$\data$fifo.v:40$15_DATA[7:0]$21
-     3/3: $1$memwr$\data$fifo.v:40$15_ADDR[7:0]$20
+Creating decoders for process `\fifo.$proc$fifo.v:36$16'.
+     1/3: $1$memwr$\data$fifo.v:38$15_EN[7:0]$22
+     2/3: $1$memwr$\data$fifo.v:38$15_DATA[7:0]$21
+     3/3: $1$memwr$\data$fifo.v:38$15_ADDR[7:0]$20
 Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
-Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:12$32'.
      1/1: $0\addr[7:0]
 
 yosys> proc_dlatch
@@ -262,17 +262,17 @@ yosys> proc_dlatch
 yosys> proc_dff
 
 13.9. Executing PROC_DFF pass (convert process syncs to FFs).
-Creating register for signal `\fifo.\count' using process `\fifo.$proc$fifo.v:64$24'.
+Creating register for signal `\fifo.\count' using process `\fifo.$proc$fifo.v:62$24'.
   created $adff cell `$procdff$55' with positive edge clock and positive level reset.
-Creating register for signal `\fifo.\rdata' using process `\fifo.$proc$fifo.v:38$16'.
+Creating register for signal `\fifo.\rdata' using process `\fifo.$proc$fifo.v:36$16'.
   created $dff cell `$procdff$56' with positive edge clock.
-Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_ADDR' using process `\fifo.$proc$fifo.v:38$16'.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:38$15_ADDR' using process `\fifo.$proc$fifo.v:36$16'.
   created $dff cell `$procdff$57' with positive edge clock.
-Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_DATA' using process `\fifo.$proc$fifo.v:38$16'.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:38$15_DATA' using process `\fifo.$proc$fifo.v:36$16'.
   created $dff cell `$procdff$58' with positive edge clock.
-Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_EN' using process `\fifo.$proc$fifo.v:38$16'.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:38$15_EN' using process `\fifo.$proc$fifo.v:36$16'.
   created $dff cell `$procdff$59' with positive edge clock.
-Creating register for signal `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.\addr' using process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Creating register for signal `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.\addr' using process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:12$32'.
   created $adff cell `$procdff$60' with positive edge clock and positive level reset.
 
 yosys> proc_memwr
@@ -283,13 +283,13 @@ yosys> proc_clean
 
 13.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Removing empty process `fifo.$proc$fifo.v:0$31'.
-Found and cleaned up 2 empty switches in `\fifo.$proc$fifo.v:64$24'.
-Removing empty process `fifo.$proc$fifo.v:64$24'.
-Found and cleaned up 1 empty switch in `\fifo.$proc$fifo.v:38$16'.
-Removing empty process `fifo.$proc$fifo.v:38$16'.
+Found and cleaned up 2 empty switches in `\fifo.$proc$fifo.v:62$24'.
+Removing empty process `fifo.$proc$fifo.v:62$24'.
+Found and cleaned up 1 empty switch in `\fifo.$proc$fifo.v:36$16'.
+Removing empty process `fifo.$proc$fifo.v:36$16'.
 Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
-Found and cleaned up 2 empty switches in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
-Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Found and cleaned up 2 empty switches in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:12$32'.
+Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:12$32'.
 Cleaned up 5 empty switches.
 
 yosys> opt_expr -keepdc
@@ -343,19 +343,19 @@ Dumping selected parts of module fifo to page 1.
 yosys> wreduce
 
 19. Executing WREDUCE pass (reducing word size of cells).
-Removed top 31 bits (of 32) from port B of cell fifo.$add$fifo.v:68$27 ($add).
-Removed top 23 bits (of 32) from port Y of cell fifo.$add$fifo.v:68$27 ($add).
-Removed top 31 bits (of 32) from port B of cell fifo.$sub$fifo.v:70$30 ($sub).
-Removed top 23 bits (of 32) from port Y of cell fifo.$sub$fifo.v:70$30 ($sub).
-Removed top 1 bits (of 2) from port B of cell fifo.$auto$opt_dff.cc:195:make_patterns_logic$64 ($ne).
+Removed top 31 bits (of 32) from port B of cell fifo.$add$fifo.v:66$27 ($add).
+Removed top 23 bits (of 32) from port Y of cell fifo.$add$fifo.v:66$27 ($add).
+Removed top 31 bits (of 32) from port B of cell fifo.$sub$fifo.v:68$30 ($sub).
+Removed top 23 bits (of 32) from port Y of cell fifo.$sub$fifo.v:68$30 ($sub).
+Removed top 1 bits (of 2) from port B of cell fifo.$auto$opt_dff.cc:195:make_patterns_logic$66 ($ne).
 Removed cell fifo.$flatten\fifo_writer.$procmux$53 ($mux).
-Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$34 ($add).
-Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$34 ($add).
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_writer.$add$fifo.v:19$34 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_writer.$add$fifo.v:19$34 ($add).
 Removed cell fifo.$flatten\fifo_reader.$procmux$53 ($mux).
-Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$34 ($add).
-Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$34 ($add).
-Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:68$27_Y.
-Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_reader.$add$fifo.v:20$34_Y.
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_reader.$add$fifo.v:19$34 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$fifo.v:19$34 ($add).
+Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:66$27_Y.
+Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_reader.$add$fifo.v:19$34_Y.
 
 yosys> show -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
 
@@ -388,18 +388,18 @@ yosys> alumacc
 
 24. Executing ALUMACC pass (create $alu and $macc cells).
 Extracting $alu and $macc cells in module fifo:
-  creating $macc model for $add$fifo.v:68$27 ($add).
-  creating $macc model for $flatten\fifo_reader.$add$fifo.v:20$34 ($add).
-  creating $macc model for $flatten\fifo_writer.$add$fifo.v:20$34 ($add).
-  creating $macc model for $sub$fifo.v:70$30 ($sub).
-  creating $alu model for $macc $sub$fifo.v:70$30.
-  creating $alu model for $macc $flatten\fifo_writer.$add$fifo.v:20$34.
-  creating $alu model for $macc $flatten\fifo_reader.$add$fifo.v:20$34.
-  creating $alu model for $macc $add$fifo.v:68$27.
-  creating $alu cell for $add$fifo.v:68$27: $auto$alumacc.cc:485:replace_alu$78
-  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$81
-  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$84
-  creating $alu cell for $sub$fifo.v:70$30: $auto$alumacc.cc:485:replace_alu$87
+  creating $macc model for $add$fifo.v:66$27 ($add).
+  creating $macc model for $flatten\fifo_reader.$add$fifo.v:19$34 ($add).
+  creating $macc model for $flatten\fifo_writer.$add$fifo.v:19$34 ($add).
+  creating $macc model for $sub$fifo.v:68$30 ($sub).
+  creating $alu model for $macc $sub$fifo.v:68$30.
+  creating $alu model for $macc $flatten\fifo_writer.$add$fifo.v:19$34.
+  creating $alu model for $macc $flatten\fifo_reader.$add$fifo.v:19$34.
+  creating $alu model for $macc $add$fifo.v:66$27.
+  creating $alu cell for $add$fifo.v:66$27: $auto$alumacc.cc:485:replace_alu$80
+  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:19$34: $auto$alumacc.cc:485:replace_alu$83
+  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:19$34: $auto$alumacc.cc:485:replace_alu$86
+  creating $alu cell for $sub$fifo.v:68$30: $auto$alumacc.cc:485:replace_alu$89
   created 4 $alu and 0 $macc cells.
 
 yosys> select -set new_cells t:$alu t:$macc

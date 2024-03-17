@@ -1,11 +1,10 @@
 // address generator/counter
 module addr_gen 
-#(  parameter MAX_DATA=256
+#(  parameter MAX_DATA=256,
+	localparam AWIDTH = $clog2(MAX_DATA)
 ) ( input en, clk, rst,
 	output reg [AWIDTH-1:0] addr
 );
-	localparam AWIDTH = $clog2(MAX_DATA);
-
 	initial addr <= 0;
 
 	// async reset
@@ -23,14 +22,13 @@ endmodule //addr_gen
 
 // Define our top level fifo entity
 module fifo 
-#(  parameter MAX_DATA=256
+#(  parameter MAX_DATA=256,
+	localparam AWIDTH = $clog2(MAX_DATA)
 ) ( input wen, ren, clk, rst,
 	input [7:0] wdata,
 	output reg [7:0] rdata,
 	output reg [AWIDTH:0] count
 );
-	localparam AWIDTH = $clog2(MAX_DATA);
-
 	// fifo storage
 	// sync read before write
 	wire [AWIDTH-1:0] waddr, raddr;

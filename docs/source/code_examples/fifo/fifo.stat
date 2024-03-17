@@ -40,17 +40,18 @@ yosys> stat -top fifo
 
 === fifo ===
 
-   Number of wires:                 97
-   Number of wire bits:            268
-   Number of public wires:          97
-   Number of public wire bits:     268
+   Number of wires:                 94
+   Number of wire bits:            260
+   Number of public wires:          94
+   Number of public wire bits:     260
    Number of memories:               0
    Number of memory bits:            0
    Number of processes:              0
    Number of cells:                138
+     $scopeinfo                      2
      SB_CARRY                       26
      SB_DFF                         26
      SB_DFFER                       25
-     SB_LUT4                        60
+     SB_LUT4                        58
      SB_RAM40_4K                     1
 
