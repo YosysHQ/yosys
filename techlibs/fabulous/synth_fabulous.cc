@@ -320,7 +320,7 @@ struct SynthPass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("map_ram")) {
+		if (check_label("map_ram", "(unless -noregfile)")) {
 			// RegFile extraction
 			if (!noregfile) {
 				run("memory_libmap -lib +/fabulous/ram_regfile.txt");
@@ -342,7 +342,7 @@ struct SynthPass : public ScriptPass
 		}
 
 		if (check_label("map_iopad", "(if -iopad)")) {
-			if (iopad) {
+			if (iopad || help_mode) {
 				run("opt -full");
 				run("iopadmap -bits -outpad $__FABULOUS_OBUF I:PAD -inpad $__FABULOUS_IBUF O:PAD "
 					"-toutpad IO_1_bidirectional_frame_config_pass ~T:I:PAD "
