@@ -134,7 +134,6 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 				cell->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
 				renames.emplace_back(cell, new_id);
 			}
-			break;
 		}
 
 		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
@@ -164,6 +163,20 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 					break;
 				}
 			}
+		}
+
+
+		if (cell->type.in(ID($assert), ID($assume), ID($cover), ID($live), ID($fair), ID($check))) {
+			has_witness_signals = true;
+			if (cell->name.isPublic())
+				continue;
+			std::string name = stringf("%s_%s", cell->type.c_str() + 1, cell->name.c_str() + 1);
+			for (auto &c : name)
+				if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
+					c = '_';
+			auto new_id = module->uniquify("\\_witness_." + name);
+			renames.emplace_back(cell, new_id);
+			cell->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
 		}
 	}
 	for (auto rename : renames) {

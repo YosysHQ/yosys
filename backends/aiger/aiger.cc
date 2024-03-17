@@ -67,6 +67,8 @@ struct AigerWriter
 	int initstate_ff = 0;
 
 	dict<SigBit, int> ywmap_clocks;
+	vector<Cell *> ywmap_asserts;
+	vector<Cell *> ywmap_assumes;
 
 	int mkgate(int a0, int a1)
 	{
@@ -269,6 +271,7 @@ struct AigerWriter
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				asserts.push_back(make_pair(A, EN));
+				ywmap_asserts.push_back(cell);
 				continue;
 			}
 
@@ -279,6 +282,7 @@ struct AigerWriter
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				assumes.push_back(make_pair(A, EN));
+				ywmap_assumes.push_back(cell);
 				continue;
 			}
 
@@ -852,6 +856,19 @@ struct AigerWriter
 		for (auto &it : init_lines)
 			json.value(it.second);
 		json.end_array();
+
+		json.name("asserts");
+		json.begin_array();
+		for (Cell *cell : ywmap_asserts)
+			json.value(witness_path(cell));
+		json.end_array();
+
+		json.name("assumes");
+		json.begin_array();
+		for (Cell *cell : ywmap_assumes)
+			json.value(witness_path(cell));
+		json.end_array();
+
 		json.end_object();
 	}
 

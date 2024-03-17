@@ -49,17 +49,26 @@
 // <file>           ::= <file-header> <definitions> <sample>+
 // <file-header>    ::= 0x52585843 0x00004c54
 // <definitions>    ::= <packet-define>* <packet-end>
-// <sample>         ::= <packet-sample> <packet-change>* <packet-end>
+// <sample>         ::= <packet-sample> (<packet-change> | <packet-diag>)* <packet-end>
 // <packet-define>  ::= 0xc0000000 ...
 // <packet-sample>  ::= 0xc0000001 ...
 // <packet-change>  ::= 0x0??????? <chunk>+ | 0x1??????? <index> <chunk>+ | 0x2??????? | 0x3???????
 // <chunk>, <index> ::= 0x????????
+// <packet-diag>    ::= <packet-break> | <packet-print> | <packet-assert> | <packet-assume>
+// <packet-break>   ::= 0xc0000010 <message> <source-location>
+// <packet-print>   ::= 0xc0000011 <message> <source-location>
+// <packet-assert>  ::= 0xc0000012 <message> <source-location>
+// <packet-assume>  ::= 0xc0000013 <message> <source-location>
 // <packet-end>     ::= 0xFFFFFFFF
 //
 // The replay log contains sample data, however, it does not cover the entire design. Rather, it only contains sample
 // data for the subset of debug items containing _design state_: inputs and registers/latches. This keeps its size to
 // a minimum, and recording speed to a maximum. The player samples any missing data by setting the design state items
 // to the same values they had during recording, and re-evaluating the design.
+//
+// Packets for diagnostics (prints, breakpoints, assertions, and assumptions) are used solely for diagnostics emitted
+// by the C++ testbench driving the simulation, and are not recorded while evaluating the design. (Diagnostics emitted
+// by the RTL can be reconstructed at replay time, so recording them would be a waste of space.)
 //
 // Limits
 // ------
@@ -109,6 +118,33 @@
 
 namespace cxxrtl {
 
+// A single diagnostic that can be manipulated as an object (including being written to and read from a file).
+// This differs from the base CXXRTL interface, where diagnostics can only be emitted via a procedure call, and are
+// not materialized as objects.
+struct diagnostic {
+	// The `BREAK` flavor corresponds to a breakpoint, which is a diagnostic type that can currently only be emitted
+	// by the C++ testbench code.
+	enum flavor {
+		BREAK  = 0,
+		PRINT  = 1,
+		ASSERT = 2,
+		ASSUME = 3,
+	};
+
+	flavor type;
+	std::string message;
+	std::string location; // same format as the `src` attribute of `$print` or `$check` cell
+
+	diagnostic()
+	: type(BREAK) {}
+
+	diagnostic(flavor type, const std::string &message, const std::string &location)
+	: type(type), message(message), location(location) {}
+
+	diagnostic(flavor type, const std::string &message, const char *file, unsigned line)
+	: type(type), message(message), location(std::string(file) + ':' + std::to_string(line)) {}
+};
+
 // A spool stores CXXRTL design state changes in a file.
 class spool {
 public:
@@ -127,7 +163,7 @@ public:
 
 	static constexpr uint32_t PACKET_SAMPLE  = 0xc0000001;
 	enum sample_flag : uint32_t {
-		EMPTY = 0,
+		EMPTY       = 0,
 		INCREMENTAL = 1,
 	};
 
@@ -138,6 +174,9 @@ public:
 	static constexpr uint32_t PACKET_CHANGEI = 0x10000000/* | ident */;
 	static constexpr uint32_t PACKET_CHANGEL = 0x20000000/* | ident */;
 	static constexpr uint32_t PACKET_CHANGEH = 0x30000000/* | ident */;
+
+	static constexpr uint32_t PACKET_DIAGNOSTIC = 0xc0000010/* | diagnostic::flavor */;
+	static constexpr uint32_t DIAGNOSTIC_MASK   = 0x0000000f;
 
 	static constexpr uint32_t PACKET_END     = 0xffffffff;
 
@@ -281,6 +320,12 @@ public:
 				emit_word(data[offset]);
 		}
 
+		void write_diagnostic(const diagnostic &diagnostic) {
+			emit_word(PACKET_DIAGNOSTIC | diagnostic.type);
+			emit_string(diagnostic.message);
+			emit_string(diagnostic.location);
+		}
+
 		void write_end() {
 			emit_word(PACKET_END);
 		}
@@ -397,11 +442,16 @@ public:
 			return true;
 		}
 
-		bool read_change_header(uint32_t &header, ident_t &ident) {
+		bool read_header(uint32_t &header) {
 			header = absorb_word();
-			if (header == PACKET_END)
-				return false;
-			assert((header & ~(CHANGE_MASK | MAXIMUM_IDENT)) == 0);
+			return header != PACKET_END;
+		}
+
+		// This method must be separate from `read_change_data` because `chunks` and `depth` can only be looked up
+		// if `ident` is known.
+		bool read_change_ident(uint32_t header, ident_t &ident) {
+			if ((header & ~(CHANGE_MASK | MAXIMUM_IDENT)) != 0)
+				return false; // some other packet
 			ident = header & MAXIMUM_IDENT;
 			return true;
 		}
@@ -426,6 +476,18 @@ public:
 			}
 			for (size_t offset = 0; offset < chunks; offset++)
 				data[chunks * index + offset] = absorb_word();
+		}
+
+		bool read_diagnostic(uint32_t header, diagnostic &diagnostic) {
+			if ((header & ~DIAGNOSTIC_MASK) != PACKET_DIAGNOSTIC)
+				return false; // some other packet
+			uint32_t type = header & DIAGNOSTIC_MASK;
+			assert(type == diagnostic::BREAK  || type == diagnostic::PRINT ||
+			       type == diagnostic::ASSERT || type == diagnostic::ASSUME);
+			diagnostic.type = (diagnostic::flavor)type;
+			diagnostic.message = absorb_string();
+			diagnostic.location = absorb_string();
+			return true;
 		}
 	};
 
@@ -584,6 +646,18 @@ public:
 		return changed;
 	}
 
+	void record_diagnostic(const diagnostic &diagnostic) {
+		assert(streaming);
+
+		// Emit an incremental delta cycle per diagnostic to simplify the logic of the recorder. This is inefficient, but
+		// diagnostics should be rare enough that this inefficiency does not matter. If it turns out to be an issue, this
+		// code should be changed to accumulate diagnostics to a buffer that is flushed in `record_{complete,incremental}`
+		// and also in `advance_time` before the timestamp is changed. (Right now `advance_time` never writes to the spool.)
+		writer.write_sample(/*incremental=*/true, pointer++, timestamp);
+		writer.write_diagnostic(diagnostic);
+		writer.write_end();
+	}
+
 	void flush() {
 		writer.flush();
 	}
@@ -657,8 +731,9 @@ public:
 		streaming = true;
 
 		// Establish the initial state of the design.
-		initialized = replay();
-		assert(initialized);
+		std::vector<diagnostic> diagnostics;
+		initialized = replay(&diagnostics);
+		assert(initialized && diagnostics.empty());
 	}
 
 	// Returns the pointer of the current sample.
@@ -690,8 +765,8 @@ public:
 	// If this function returns `true`, then `current_pointer() == at_pointer`, and the module contains values that
 	// correspond to this pointer in the replay log. To obtain a valid pointer, call `current_pointer()`; while pointers
 	// are monotonically increasing for each consecutive sample, using arithmetic operations to create a new pointer is
-	// not allowed.
-	bool rewind_to(spool::pointer_t at_pointer) {
+	// not allowed. The `diagnostics` argument, if not `nullptr`, receives the diagnostics recorded in this sample.
+	bool rewind_to(spool::pointer_t at_pointer, std::vector<diagnostic> *diagnostics) {
 		assert(initialized);
 
 		// The pointers in the replay log start from one that is greater than `at_pointer`. In this case the pointer will
@@ -707,9 +782,12 @@ public:
 		reader.rewind(position_it->second);
 
 		// Replay samples until eventually arriving to `at_pointer` or encountering end of file.
-		while(replay()) {
+		while(replay(diagnostics)) {
 			if (pointer == at_pointer)
 				return true;
+
+			if (diagnostics)
+				diagnostics->clear();
 		}
 		return false;
 	}
@@ -717,8 +795,8 @@ public:
 	// If this function returns `true`, then `current_time() <= at_or_before_timestamp`, and the module contains values
 	// that correspond to `current_time()` in the replay log. If `current_time() == at_or_before_timestamp` and there
 	// are several consecutive samples with the same time, the module contains values that correspond to the first of
-	// these samples.
-	bool rewind_to_or_before(const time &at_or_before_timestamp) {
+	// these samples. The `diagnostics` argument, if not `nullptr`, receives the diagnostics recorded in this sample.
+	bool rewind_to_or_before(const time &at_or_before_timestamp, std::vector<diagnostic> *diagnostics) {
 		assert(initialized);
 
 		// The timestamps in the replay log start from one that is greater than `at_or_before_timestamp`. In this case
@@ -734,7 +812,7 @@ public:
 		reader.rewind(position_it->second);
 
 		// Replay samples until eventually arriving to or past `at_or_before_timestamp` or encountering end of file.
-		while (replay()) {
+		while (replay(diagnostics)) {
 			if (timestamp == at_or_before_timestamp)
 				break;
 
@@ -743,14 +821,17 @@ public:
 				break;
 			if (next_timestamp > at_or_before_timestamp)
 				break;
+
+			if (diagnostics)
+				diagnostics->clear();
 		}
 		return true;
 	}
 
 	// If this function returns `true`, then `current_pointer()` and `current_time()` are updated for the next sample
 	// and the module now contains values that correspond to that sample. If it returns `false`, there was no next sample
-	// to read.
-	bool replay() {
+	// to read. The `diagnostics` argument, if not `nullptr`, receives the diagnostics recorded in the next sample.
+	bool replay(std::vector<diagnostic> *diagnostics) {
 		assert(streaming);
 
 		bool incremental;
@@ -771,11 +852,16 @@ public:
 		}
 
 		uint32_t header;
-		spool::ident_t ident;
-		variable var;
-		while (reader.read_change_header(header, ident)) {
-			variable &var = variables.at(ident);
-			reader.read_change_data(header, var.chunks, var.depth, var.curr);
+		while (reader.read_header(header)) {
+			spool::ident_t ident;
+			diagnostic diag;
+			if (reader.read_change_ident(header, ident)) {
+				variable &var = variables.at(ident);
+				reader.read_change_data(header, var.chunks, var.depth, var.curr);
+			} else if (reader.read_diagnostic(header, diag)) {
+				if (diagnostics)
+					diagnostics->push_back(diag);
+			} else assert(false && "Unrecognized packet header");
 		}
 		return true;
 	}

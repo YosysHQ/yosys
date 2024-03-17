@@ -1001,7 +1001,7 @@ struct LicensePass : public Pass {
 		log("This command produces the following notice.\n");
 		notice();
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) override
+	void execute(std::vector<std::string>, RTLIL::Design*) override
 	{
 		notice();
 	}
