@@ -40,14 +40,13 @@ The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
       - Most personal Linux based computers
 
    - darwin-x64 |darwin-x64|
-      - macOS 10.14 or later with Intel CPU
+      - macOS 12 or later with Intel CPU
 
    - darwin-arm64 |darwin-arm64|
-      - macOS 11.00 or later with M1 CPU
+      - macOS 12 or later with M1/M2 CPU
 
    - windows-x64 |windows-x64|
-      - Targeted for Windows 10 and 11, but older 64-bit version of Windows 7,
-        8, or 8.1 should work
+      - Targeted for Windows 10 and 11
 
    - linux-arm64 |linux-arm64|
 
