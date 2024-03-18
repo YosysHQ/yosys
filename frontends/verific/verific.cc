@@ -248,9 +248,50 @@ static const RTLIL::Const verific_const(const char* type_name, const char *value
 	RTLIL::Const c;
 	std::string val = std::string(value);
 	if (obj->IsFromVhdl()) {
-		if (type_name && strcmp(type_name, "real")==0) {
-			c = mkconst_str(val);
-			c.flags |= RTLIL::CONST_FLAG_REAL;
+		if (type_name) {
+			if (strcmp(type_name, "integer")==0 ||  strcmp(type_name, "natural")==0 || strcmp(type_name, "positive")==0) {
+				decimal = std::strtol(value, &end, 10);
+				c = RTLIL::Const((int)decimal, 32);
+			} else if (strcmp(type_name, "boolean")==0) {
+				if (val == "false") {
+					c = RTLIL::Const::from_string("0");
+				} else if (val == "true") {
+					c = RTLIL::Const::from_string("1");
+				} else 
+					log_error("Error parsing boolean\n");
+			} else if (strcmp(type_name, "bit")==0 || strcmp(type_name, "STD_LOGIC")==0 || strcmp(type_name, "STD_ULOGIC")==0) {
+				if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
+					c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+				} else 
+					log_error("Error parsing %s\n", type_name);
+			} else if (strcmp(type_name, "character")==0) {
+				if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+					c = RTLIL::Const((int)val[1], 32);
+				} else 
+					log_error("Error parsing character\n");
+			} else if (strcmp(type_name, "bit_vector")==0 || strcmp(type_name, "STD_LOGIC_VECTOR")==0 || strcmp(type_name, "STD_ULOGIC_VECTOR")==0 ||
+					   strcmp(type_name, "UNSIGNED")==0 || strcmp(type_name, "SIGNED")==0) {
+				if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+					c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+				} else 
+					log_error("Error parsing %s\n", type_name);
+				if (strcmp(type_name, "SIGNED")==0)
+					is_signed = true;
+			} else if (strcmp(type_name, "real")==0) {
+				c = mkconst_str(val);
+				c.flags |= RTLIL::CONST_FLAG_REAL;
+			} else if (strcmp(type_name, "string")==0) {
+				if (!(val.size()>1 && val[0]=='\"' && val.back()=='\"'))
+					log_error("Error parsing string\n");
+				c = RTLIL::Const(val.substr(1,val.size()-2));
+			} else {
+				if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+					c = RTLIL::Const(val.substr(1,val.size()-2));
+				else if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
+					c = RTLIL::Const(val.substr(1,val.size()-2));
+				else
+					c = RTLIL::Const(val);
+			}
 		} else if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
 			std::string data = val.substr(1,val.size()-2);
 			bool isBinary = std::all_of(data.begin(), data.end(), [](char c) {return c=='1' || c=='0'; });
