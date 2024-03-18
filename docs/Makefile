@@ -250,3 +250,6 @@ test-macros:
 images:
 	$(MAKE) -C source/_images
 
+.PHONY: reqs
+reqs:
+	$(PYTHON) -m pip install -r source/requirements.txt
