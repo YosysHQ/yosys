@@ -1,5 +1,6 @@
 
 OBJS += techlibs/nanoxplore/synth_nanoxplore.o
+OBJS += techlibs/nanoxplore/nx_carry.o
 
 # Techmap
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/arith_map.v))
