@@ -36,7 +36,7 @@ Example
 |code_examples/synth_flow|_.
 
 .. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
-.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/synth_flow
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/synth_flow
 
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
    :class: width-helper
