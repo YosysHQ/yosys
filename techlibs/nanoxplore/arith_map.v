@@ -1,4 +1,21 @@
-`default_nettype none
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2024  Miodrag Milanovic <micko@yosyshq.com>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
 
 (* techmap_celltype = "$alu" *)
 module _80_nx_cy_alu (A, B, CI, BI, X, Y, CO);
@@ -26,46 +43,32 @@ module _80_nx_cy_alu (A, B, CI, BI, X, Y, CO);
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
-	function integer round_up4;
-		input integer N;
-		begin
-			round_up4 = ((N + 3) / 4) * 4;
-		end
-	endfunction
-
-	localparam Y_WIDTH4 = round_up4(Y_WIDTH);
-
 	(* force_downto *)
-	wire [Y_WIDTH4-1:0] AA = A_buf;
+	wire [Y_WIDTH-1:0] AA = A_buf;
 	(* force_downto *)
-	wire [Y_WIDTH4-1:0] BB = BI ? ~B_buf : B_buf;
-	(* force_downto *)
-	wire [Y_WIDTH4-1:0] BX = B_buf;
-	(* force_downto *)
-	wire [Y_WIDTH4:0] C = {CO, CI};
-	(* force_downto *)
-	wire [Y_WIDTH4-1:0] FCO, Y1;
+	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 
 	genvar i;
-	generate for (i = 0; i < Y_WIDTH4; i = i + 4) begin:slice
-        NX_CY cy_i (
-            .CI(C[i]),
-            .A1(AA[i]), .A2(AA[i+1]), .A3(AA[i+2]), .A4(AA[i+3]),
-            .B1(BB[i]), .B2(BB[i+1]), .B3(BB[i+2]), .B4(BB[i+3]),
-            .S1(Y1[i]), .S2(Y1[i+1]), .S3(Y1[i+2]), .S4(Y1[i+3]),
-            .CO(FCO[i])
-        );
+	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
+		NX_CY_1BIT #(.first(i==0))
+			alu_i (
+			.CI(i==0 ? CI : CO[i-1]),
+			.A(AA[i]),
+			.B(BB[i]),
+			.S(Y[i]),
+			.CO(CO[i])
+		);
 
-		assign CO[i] = (AA[i] && BB[i]) || (C[i] && (AA[i] || BB[i]));
-        if (i+1 < Y_WIDTH)
-		    assign CO[i+1] = (AA[i+1] && BB[i+1]) || (C[i+1] && (AA[i+1] || BB[i+1]));
-		if (i+2 < Y_WIDTH)
-            assign CO[i+2] = (AA[i+2] && BB[i+2]) || (C[i+2] && (AA[i+2] || BB[i+2]));
-        if (i+3 < Y_WIDTH)
-            assign CO[i+3] = FCO[i];
+	end: slice
+	endgenerate
 
-	end endgenerate
+	NX_CY_1BIT alu_cout(
+		.CI(CO[Y_WIDTH-1]),
+		.A(1'b0),
+		.B(1'b0),
+		.S(CO[Y_WIDTH-1])
+	);
 
-	assign X = AA ^ BB;
-    assign Y = Y1[Y_WIDTH-1:0];
+   /* End implementation */
+   assign X = AA ^ BB;
 endmodule

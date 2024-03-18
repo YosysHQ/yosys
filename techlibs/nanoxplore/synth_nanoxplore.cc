@@ -279,8 +279,10 @@ struct SynthNanoXplorePass : public ScriptPass
 		{
 			if (nocy)
 				run("techmap");
-			else
+			else {
 				run("techmap -map +/techmap.v -map +/nanoxplore/arith_map.v");
+				run("nx_carry");
+			}
 			if (help_mode || iopad) {
 				run("iopadmap -bits -outpad $__BEYOND_OBUF I:PAD -inpad $__BEYOND_IBUF O:PAD A:top", "(only if '-iopad')");
 				run("techmap -map +/nanoxplore/io_map.v");
