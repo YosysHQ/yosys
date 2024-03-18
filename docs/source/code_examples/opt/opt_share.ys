@@ -1,0 +1,17 @@
+read_verilog <<EOT
+
+module uut(
+    input  [15:0] a, b,
+    input         sel,
+    output [15:0] res,
+);
+    assign res = {sel ? a + b : a - b};
+endmodule
+
+EOT
+
+copy uut after
+opt_share after
+clean
+
+show -format dot -prefix opt_share_full -notitle -color cornflowerblue uut

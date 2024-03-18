@@ -1,0 +1,6 @@
+read_verilog example.v
+show -pause # first
+proc
+show -pause # second
+opt
+show -pause # third

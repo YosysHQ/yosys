@@ -112,6 +112,13 @@ jobs:
           make config-${CC%%-*}
           make -j${{ env.procs }} CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
 
+      - name: Store build artifact
+        if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'gcc-11')
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-yosys
+          path: yosys
+
       - name: Run tests
         if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'gcc-11')
         shell: bash

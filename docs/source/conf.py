@@ -7,26 +7,38 @@ author = 'YosysHQ GmbH'
 copyright ='2022 YosysHQ GmbH'
 
 # select HTML theme
-html_theme = 'press'
-html_logo = '../static/logo.png'
-html_favicon = '../static/favico.png'
+html_theme = 'furo'
+templates_path = ["_templates"]
+html_logo = '_static/logo.png'
+html_favicon = '_static/favico.png'
 html_css_files = ['yosyshq.css', 'custom.css']
-html_sidebars = {'**': ['util/searchbox.html', 'util/sidetoc.html']}
+
+html_theme_options = {
+    "sidebar_hide_name": True,
+
+    "light_css_variables": {
+        "color-brand-primary": "#d6368f",
+        "color-brand-content": "#4b72b8",
+        "color-api-name": "#8857a3",
+        "color-api-pre-name": "#4b72b8",
+        "color-link": "#8857a3",
+    },
+
+    "dark_css_variables": {
+        "color-brand-primary": "#e488bb",
+        "color-brand-content": "#98bdff",
+        "color-api-name": "#8857a3",
+        "color-api-pre-name": "#4b72b8",
+        "color-link": "#be95d5",
+    },
+}
 
 # These folders are copied to the documentation's HTML output
-html_static_path = ['../static', "../images"]
+html_static_path = ['_static', "_images"]
 
 # code blocks style 
 pygments_style = 'colorful'
 highlight_language = 'none'
-
-html_theme_options = {
-    'external_links' : [
-        ('YosysHQ Docs', 'https://yosyshq.readthedocs.io'),
-        ('Blog', 'https://blog.yosyshq.com'),
-        ('Website', 'https://www.yosyshq.com'),
-    ],
-}
 
 extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
@@ -39,12 +51,6 @@ numfig = True
 
 bibtex_bibfiles = ['literature.bib']
 
-# unused docs
-exclude_patterns = [
-	"CHAPTER_Eval.rst",
-	"appendix/CHAPTER_StateOfTheArt.rst"
-]
-
 latex_elements = {
         'preamble': r'''
 \usepackage{lmodern}
@@ -53,10 +59,17 @@ latex_elements = {
 '''
 }
 
+# include todos during rewrite
+extensions.append('sphinx.ext.todo')
+todo_include_todos = False
+
+# custom cmd-ref parsing/linking
+sys.path += [os.path.dirname(__file__) + "/../"]
+extensions.append('util.cmdref')
+
 def setup(sphinx):
-	sys.path += [os.path.dirname(__file__) + "/../util"]
-	from RtlilLexer import RtlilLexer
+	from util.RtlilLexer import RtlilLexer
 	sphinx.add_lexer("RTLIL", RtlilLexer)
 
-	from YoscryptLexer import YoscryptLexer
+	from util.YoscryptLexer import YoscryptLexer
 	sphinx.add_lexer("yoscrypt", YoscryptLexer)

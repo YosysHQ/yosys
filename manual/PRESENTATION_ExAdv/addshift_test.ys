@@ -1,6 +1,0 @@
-read_verilog addshift_test.v
-hierarchy -check -top test
-
-techmap -map addshift_map.v;;
-
-show -prefix addshift -format pdf -notitle

@@ -784,9 +784,8 @@ struct HelpPass : public Pass {
 		fprintf(f, ".. raw:: latex\n\n    \\begin{comment}\n\n");
 
 		// render html
-		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
-		fprintf(f, "--------------------------------------------------------------------------------\n\n");
-		fprintf(f, ".. container:: cmdref\n");
+		fprintf(f, ".. cmd:def:: %s\n", cmd.c_str());
+		fprintf(f, "    :title: %s\n\n", title.c_str());
 		std::stringstream ss;
 		std::string textcp = text;
 		ss << text;

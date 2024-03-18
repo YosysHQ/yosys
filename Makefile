@@ -971,17 +971,27 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	mkdir -p docs/source/cmd
 	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 
-PHONY: docs/gen_images docs/guidelines
+PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs/gen_examples:
+	$(Q) $(MAKE) -C docs examples
+
 docs/gen_images:
-	$(Q) $(MAKE) -C docs/images all
+	$(Q) $(MAKE) -C docs images
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
 docs/guidelines:
 	$(Q) mkdir -p docs/source/temp
 	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/temp
 
+# many of these will return an error which can be safely ignored, so we prefix
+# the command with a '-'
+DOCS_USAGE_PROGS := yosys yosys-config yosys-filterlib yosys-abc yosys-smtbmc yosys-witness
+docs/usage: $(addprefix docs/source/temp/,$(DOCS_USAGE_PROGS))
+docs/source/temp/%: docs/guidelines
+	-$(Q) ./$(PROGRAM_PREFIX)$* --help > $@ 2>&1
+
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_images docs/guidelines
+docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
@@ -1000,8 +1010,6 @@ clean:
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
 	$(MAKE) -C docs clean
-	$(MAKE) -C docs/images clean
-	rm -rf docs/source/cmd docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean

@@ -1,0 +1,20 @@
+/* Reduce whitespace in cmd def pages */
+.cmd.def .highlight-yoscrypt, .cmd.def .highlight pre {
+    padding: 0%;
+    margin: 0%;
+}
+
+.cmd.def .highlight-none, .cmd.def .highlight pre {
+    padding-top: 0%;
+    margin-top: 0%;
+}
+
+/* Make images full width */
+.width-helper {
+    max-width: 100%;
+}
+
+/* Prevent code block caption text from bunching into the caption number */
+.literal-block-wrapper .code-block-caption .caption-number {
+    padding-right: 0.5em
+}
