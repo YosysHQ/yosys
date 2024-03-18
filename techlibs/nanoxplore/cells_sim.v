@@ -184,4 +184,16 @@ module NX_IOB_O(I, C, T, IO);
 	assign IO = C ? I : 1'bz;
 endmodule
 
+(* abc9_box, lib_whitebox *)
+module NX_CY_1BIT(CI, A, B, S, CO);
+    (* abc9_carry *)
+    input CI;
+    input A;
+    input B;
+    output S;
+    (* abc9_carry *)
+    output CO;
+    parameter first = 1'b0;
 
+    assign {CO, S} = A + B + CI;
+endmodule
