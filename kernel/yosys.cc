@@ -73,6 +73,10 @@
 #include <limits.h>
 #include <errno.h>
 
+#if __cplusplus >= 202002L
+#  include <bit>
+#endif
+
 #include "libs/json11/json11.hpp"
 
 YOSYS_NAMESPACE_BEGIN
@@ -156,6 +160,35 @@ int ceil_log2(int x)
 		if (((x-1) >> i) == 0)
 			return i;
 	log_abort();
+#endif
+}
+
+// Calculate the minimum number of bits required to store an integer value.
+// Note that min_bit_width(0) == 0.
+int min_bit_width(int x, bool is_signed)
+{
+	int width = 0;
+	if (is_signed) {
+		if (x < 0) {
+			// Compute two's complement of negative value.
+			// Negative numbers are represented in two's complement form
+			// in SystemVerilog, and this is also guaranteed by C++20.
+			// C++20 also makes integral conversion of unsigned integers
+			// to signed integers well defined.
+			x = -(unsigned)x;
+		}
+		// Add a bit for sign, except for 0 and the most negative number, whose
+		// two's complement is equal to itself, i.e. the sign bit is still set.
+		width = (x > 0);
+	}
+#if __cplusplus >= 202002L
+	return width + std::bit_width((unsigned)x);
+#else
+	while (x) {
+		width += 1;
+		x = (unsigned)x >> 1;
+	}
+	return width;
 #endif
 }
 
