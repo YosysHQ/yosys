@@ -230,6 +230,126 @@ RTLIL::Const mkconst_str(const std::string &str)
 	val.flags |= RTLIL::CONST_FLAG_STRING;
 	return val;
 }
+
+static const RTLIL::Const extract_vhdl_boolean(std::string &val)
+{
+	if (val == "false")
+		return RTLIL::Const::from_string("0");
+	if (val == "true")
+		return RTLIL::Const::from_string("1");
+	log_error("Expecting VHDL boolean value.\n");
+}
+
+static const RTLIL::Const extract_vhdl_bit(std::string &val, std::string &typ)
+{
+	if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
+		return  RTLIL::Const::from_string(val.substr(1,val.size()-2));
+	log_error("Error parsing VHDL %s.\n", typ.c_str());
+}
+
+static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string &typ)
+{
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		RTLIL::Const c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+		if (typ == "signed")
+			c.flags |= RTLIL::CONST_FLAG_SIGNED;
+		return c;
+	}
+	log_error("Error parsing VHDL %s.\n", typ.c_str());
+}
+
+static const RTLIL::Const extract_vhdl_integer(std::string &val)
+{
+	char *end;
+	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10), 32);
+}
+
+static const RTLIL::Const extract_vhdl_char(std::string &val)
+{
+	if (val.size()==3 && val[0]=='\"' && val.back()=='\"')
+		return RTLIL::Const((int)val[1], 32);
+	log_error("Error parsing VHDL character.\n");
+}
+
+static const RTLIL::Const extract_real_value(std::string &val)
+{
+	RTLIL::Const c = mkconst_str(val);
+	c.flags |= RTLIL::CONST_FLAG_REAL;
+	return c;
+}
+
+static const RTLIL::Const extract_vhdl_string(std::string &val)
+{
+	if (!(val.size()>1 && val[0]=='\"' && val.back()=='\"'))
+		log_error("Error parsing VHDL string.\n");
+	return RTLIL::Const(val.substr(1,val.size()-2));
+}
+
+static const  RTLIL::Const extract_vhdl_const(const char *value, bool output_signed)
+{
+	RTLIL::Const c;
+	char *end;
+	int decimal;
+	bool is_signed = false;
+	std::string val = std::string(value);
+
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		std::string data = val.substr(1,val.size()-2);
+		bool isBinary = std::all_of(data.begin(), data.end(), [](char c) {return c=='1' || c=='0'; });
+		if (isBinary)
+			c = RTLIL::Const::from_string(data);
+		else 
+			c = RTLIL::Const(data);
+	} else if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
+		c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+			((decimal = std::strtol(value, &end, 10)), !end[0])) {
+		is_signed = output_signed;
+		c = RTLIL::Const((int)decimal, 32);
+	} else if (val == "false") {
+		c = RTLIL::Const::from_string("0");
+	} else if (val == "true") {
+		c = RTLIL::Const::from_string("1");
+	} else {
+		c = mkconst_str(val);
+		log_warning("encoding value '%s' as string.\n", value);
+	}
+	if (is_signed)
+		c.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return c;
+}
+
+static const  RTLIL::Const extract_verilog_const(const char *value, bool allow_string, bool output_signed)
+{
+	RTLIL::Const c;
+	char *end;
+	int decimal;
+	bool is_signed = false;
+	size_t found;
+	std::string val = std::string(value);
+
+	if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		c = RTLIL::Const(val.substr(1,val.size()-2));
+	} else if ((found = val.find("'sb")) != std::string::npos) {
+		is_signed = output_signed;
+		c = RTLIL::Const::from_string(val.substr(found + 3));
+	} else if ((found = val.find("'b")) != std::string::npos) {
+		c = RTLIL::Const::from_string(val.substr(found + 2));
+	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+			((decimal = std::strtol(value, &end, 10)), !end[0])) {
+		is_signed = output_signed;
+		c = RTLIL::Const((int)decimal, 32);
+	} else if (allow_string) {
+		c = RTLIL::Const(val);
+	} else {
+		c = mkconst_str(val);
+		log_warning("encoding value '%s' as string.\n", value);
+	}
+	if (is_signed)
+		c.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return c;
+}
+
 // When used as attributes or parameter values Verific constants come already processed.
 // - Real string values are already under quotes
 // - Numeric values with specified width are always converted to binary
@@ -241,104 +361,35 @@ RTLIL::Const mkconst_str(const std::string &str)
 // also be negative.
 static const RTLIL::Const verific_const(const char* type_name, const char *value, DesignObj *obj, bool allow_string = true, bool output_signed = false)
 {
-	size_t found;
-	char *end;
-	int decimal;
-	bool is_signed = false;
-	RTLIL::Const c;
 	std::string val = std::string(value);
+	// VHDL
 	if (obj->IsFromVhdl()) {
 		if (type_name) {
-			if (strcmp(type_name, "integer")==0 ||  strcmp(type_name, "natural")==0 || strcmp(type_name, "positive")==0) {
-				decimal = std::strtol(value, &end, 10);
-				c = RTLIL::Const((int)decimal, 32);
-			} else if (strcmp(type_name, "boolean")==0) {
-				if (val == "false") {
-					c = RTLIL::Const::from_string("0");
-				} else if (val == "true") {
-					c = RTLIL::Const::from_string("1");
-				} else 
-					log_error("Error parsing boolean\n");
-			} else if (strcmp(type_name, "bit")==0 || strcmp(type_name, "STD_LOGIC")==0 || strcmp(type_name, "STD_ULOGIC")==0) {
-				if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
-					c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
-				} else 
-					log_error("Error parsing %s\n", type_name);
-			} else if (strcmp(type_name, "character")==0) {
-				if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
-					c = RTLIL::Const((int)val[1], 32);
-				} else 
-					log_error("Error parsing character\n");
-			} else if (strcmp(type_name, "bit_vector")==0 || strcmp(type_name, "STD_LOGIC_VECTOR")==0 || strcmp(type_name, "STD_ULOGIC_VECTOR")==0 ||
-					   strcmp(type_name, "UNSIGNED")==0 || strcmp(type_name, "SIGNED")==0) {
-				if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
-					c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
-				} else 
-					log_error("Error parsing %s\n", type_name);
-				if (strcmp(type_name, "SIGNED")==0)
-					is_signed = true;
-			} else if (strcmp(type_name, "real")==0) {
-				c = mkconst_str(val);
-				c.flags |= RTLIL::CONST_FLAG_REAL;
-			} else if (strcmp(type_name, "string")==0) {
-				if (!(val.size()>1 && val[0]=='\"' && val.back()=='\"'))
-					log_error("Error parsing string\n");
-				c = RTLIL::Const(val.substr(1,val.size()-2));
-			} else {
+			std::string typ = std::string(type_name);
+			transform(typ.begin(), typ.end(), typ.begin(), ::tolower);
+			if (typ ==  "integer" ||  typ == "natural" || typ=="positive") return extract_vhdl_integer(val);
+			else if (typ =="boolean") return extract_vhdl_boolean(val);
+			else if (typ == "bit" || typ =="std_logic" || typ == "std_ulogic") return extract_vhdl_bit(val,typ);
+			else if (typ == "character") return extract_vhdl_char(val);
+			else if (typ == "bit_vector" || typ == "std_logic_vector" || typ == "std_ulogic_vector" ||
+					 typ == "unsigned" || typ == "signed") return extract_vhdl_bit_vector(val,typ);
+			else if (typ == "real") return extract_real_value(val);
+			else if (typ == "string") return extract_vhdl_string(val);
+			else {
 				if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
-					c = RTLIL::Const(val.substr(1,val.size()-2));
+					return RTLIL::Const(val.substr(1,val.size()-2));
 				else if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
-					c = RTLIL::Const(val.substr(1,val.size()-2));
+					return RTLIL::Const(val.substr(1,val.size()-2));
 				else
-					c = RTLIL::Const(val);
+					return RTLIL::Const(val);
 			}
-		} else if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
-			std::string data = val.substr(1,val.size()-2);
-			bool isBinary = std::all_of(data.begin(), data.end(), [](char c) {return c=='1' || c=='0'; });
-			if (isBinary)
-				c = RTLIL::Const::from_string(data);
-			else 
-				c = RTLIL::Const(data);
-		} else if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
-			c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
-		} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
-				((decimal = std::strtol(value, &end, 10)), !end[0])) {
-			is_signed = output_signed;
-			c = RTLIL::Const((int)decimal, 32);
-		} else if (val == "false") {
-			c = RTLIL::Const::from_string("0");
-		} else if (val == "true") {
-			c = RTLIL::Const::from_string("1");
-		} else {
-			c = mkconst_str(val);
-			log_warning("encoding value '%s' of type '%s' as string  found", value, type_name ? type_name : "unknown");
-		}
-	} else {
-		if (type_name && strcmp(type_name, "real")==0) {
-			c = mkconst_str(val);
-			c.flags |= RTLIL::CONST_FLAG_REAL;
-		} else if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
-			c = RTLIL::Const(val.substr(1,val.size()-2));
-		} else if ((found = val.find("'sb")) != std::string::npos) {
-			is_signed = output_signed;
-			c = RTLIL::Const::from_string(val.substr(found + 3));
-		} else if ((found = val.find("'b")) != std::string::npos) {
-			c = RTLIL::Const::from_string(val.substr(found + 2));
-		} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
-				((decimal = std::strtol(value, &end, 10)), !end[0])) {
-			is_signed = output_signed;
-			c = RTLIL::Const((int)decimal, 32);
-		} else if (allow_string) {
-			c = RTLIL::Const(val);
-		} else {
-			c = mkconst_str(val);
-			log_warning("encoding value '%s' of type '%s' as string  found", value, type_name ? type_name : "unknown");
-		}
+		} else extract_vhdl_const(value, output_signed);
 	}
-
-	if (is_signed)
-		c.flags |= RTLIL::CONST_FLAG_SIGNED;
-	return c;
+	// SystemVerilog
+	if (type_name && strcmp(type_name, "real")==0) {
+		return extract_real_value(val);
+	} else 
+		return extract_verilog_const(value, allow_string, output_signed);
 }
 
 static const std::string verific_unescape(const char *value)
