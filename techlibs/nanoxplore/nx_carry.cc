@@ -34,35 +34,6 @@ static void nx_carry_chain(Module *module)
 {
 	SigMap sigmap(module);
 
-	dict<Cell*,SigBit> carry_ci_propagate;
-	for (auto cell : module->cells())
-	{
-		if (cell->type == ID(NX_CY_1BIT)) {
-			// Only first can have CI generated that is not constant
-			if (cell->getParam(ID(first)).as_int() == 0) continue;
-			if (!cell->getPort(ID(CI)).is_wire()) continue;
-			carry_ci_propagate[cell] = cell->getPort(ID(CI)).as_bit();
-		}
-	}
-
-	for (auto cy : carry_ci_propagate)
-	{
-		Cell *cell = cy.first;
-		cell->setParam(ID(first), Const(0, 1));
-		
-		SigBit new_co = module->addWire(NEW_ID);
-		Cell *c = module->addCell(NEW_ID, ID(NX_CY_1BIT));
-		c->setParam(ID(first), Const(1));
-		c->setPort(ID(CI), State::S0);
-		c->setPort(ID(A), cy.second);
-		c->setPort(ID(B), State::S0);
-		c->setPort(ID(CO), new_co);
-		cell->setPort(ID(CI), new_co);
-
-		log("Adding cell %s to propaget CI signal.\n", log_id(cell));
-	}
-	carry_ci_propagate.clear();
-
 	dict<SigBit,Cell*> carry;
 	for (auto cell : module->cells())
 	{
@@ -83,9 +54,10 @@ static void nx_carry_chain(Module *module)
 			if (cell->getParam(ID(first)).as_int() == 0) continue;
 			
 			vector<Cell*> chain;
-			SigBit co = sigmap(cell->getPort(ID(CO)).as_bit());
 			Cell *current = cell;
 			chain.push_back(current);
+
+			SigBit co = sigmap(cell->getPort(ID(CO)).as_bit());
 			while (co.is_wire())
 			{
 				if (carry.count(co)==0)
@@ -107,6 +79,18 @@ static void nx_carry_chain(Module *module)
 		IdString names_A[] = { ID(A1), ID(A2), ID(A3), ID(A4) };
 		IdString names_B[] = { ID(B1), ID(B2), ID(B3), ID(B4) };
 		IdString names_S[] = { ID(S1), ID(S2), ID(S3), ID(S4) };
+		if (c.second.at(0)->getPort(ID(CI)).is_wire()) {
+			SigBit new_co = module->addWire(NEW_ID);
+			cell = module->addCell(NEW_ID, ID(NX_CY));
+			cell->setPort(ID(CI), State::S0);
+			cell->setPort(names_A[0], c.second.at(0)->getPort(ID(CI)).as_bit());
+			cell->setPort(names_B[0], State::S0);
+			cell->setPort(ID(CO), new_co);
+
+			c.second.at(0)->setPort(ID(CI), new_co);
+			j++;
+		}
+
 		for (size_t i=0 ; i<c.second.size(); i++) {
 			if (j==0) {
 				cell = module->addCell(NEW_ID, ID(NX_CY));
