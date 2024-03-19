@@ -76,18 +76,15 @@ static void nx_carry_chain(Module *module)
 	for(auto& c : carry_chains) {
 		Cell *cell = nullptr;
 		int j = 0;
+		int cnt = 0;
 		IdString names_A[] = { ID(A1), ID(A2), ID(A3), ID(A4) };
 		IdString names_B[] = { ID(B1), ID(B2), ID(B3), ID(B4) };
 		IdString names_S[] = { ID(S1), ID(S2), ID(S3), ID(S4) };
 		if (c.second.at(0)->getPort(ID(CI)).is_wire()) {
-			SigBit new_co = module->addWire(NEW_ID);
 			cell = module->addCell(NEW_ID, ID(NX_CY));
 			cell->setPort(ID(CI), State::S0);
 			cell->setPort(names_A[0], c.second.at(0)->getPort(ID(CI)).as_bit());
 			cell->setPort(names_B[0], State::S0);
-			cell->setPort(ID(CO), new_co);
-
-			c.second.at(0)->setPort(ID(CI), new_co);
 			j++;
 		}
 
@@ -96,10 +93,24 @@ static void nx_carry_chain(Module *module)
 				cell = module->addCell(NEW_ID, ID(NX_CY));
 				cell->setPort(ID(CI), c.second.at(i)->getPort(ID(CI)));
 			}
-			if (j==3)
-				cell->setPort(ID(CO), c.second.at(i)->getPort(ID(CO)));
-
-			
+			if (j==3) {
+				cell->set_string_attribute(ID(cnt), std::to_string(cnt));
+				if (cnt % 24 == 23) {
+					SigBit new_co = module->addWire(NEW_ID);
+					cell->setPort(ID(A4), State::S0);
+					cell->setPort(ID(B4), State::S0);
+					cell->setPort(ID(S4), new_co);
+					cell = module->addCell(NEW_ID, ID(NX_CY));
+					cell->setPort(ID(CI), State::S0);
+					cell->setPort(ID(A1), new_co);
+					cell->setPort(ID(B1), State::S0);
+					j = 1;
+				} else {
+					if (c.second.at(i)->hasPort(ID(CO)))
+						cell->setPort(ID(CO), c.second.at(i)->getPort(ID(CO)));
+				}
+				cnt++;
+			}
 			cell->setPort(names_A[j], get_bit_or_zero(c.second.at(i)->getPort(ID(A))));
 			cell->setPort(names_B[j], get_bit_or_zero(c.second.at(i)->getPort(ID(B))));
 			
