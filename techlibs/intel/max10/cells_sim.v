@@ -322,7 +322,7 @@ module fiftyfivenm_mac_mult (
   input                                  aclr;
   input                                  clk;
   input                                  ena;
-endmodule : fiftyfivenm_mac_mult
+endmodule //fiftyfivenm_mac_mult
 
 module fiftyfivenm_mac_out (
   dataa,
@@ -342,4 +342,4 @@ module fiftyfivenm_mac_out (
   input                    aclr;
   input                    clk;
   input                    ena;
-endmodule : fiftyfivenm_mac_out
+endmodule //fiftyfivenm_mac_out
