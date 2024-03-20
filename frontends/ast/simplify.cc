@@ -4557,6 +4557,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 
 		switch (child->type) {
 		case AST_WIRE:
+		case AST_AUTOWIRE:
 		case AST_MEMORY:
 		case AST_STRUCT:
 		case AST_UNION:
@@ -4585,6 +4586,93 @@ void AstNode::expand_genblock(const std::string &prefix)
 			}
 			break;
 
+		case AST_IDENTIFIER:
+			if (!child->str.empty() && prefix.size() > 0) {
+				bool is_resolved = false;
+				std::string identifier_str = child->str;
+				if (current_ast_mod != nullptr && identifier_str.compare(0, current_ast_mod->str.size(), current_ast_mod->str) == 0) {
+					if (identifier_str.at(current_ast_mod->str.size()) == '.') {
+						identifier_str = '\\' + identifier_str.substr(current_ast_mod->str.size()+1, identifier_str.size());
+					}
+				}
+				// search starting in the innermost scope and then stepping outward
+				for (size_t ppos = prefix.size() - 1; ppos; --ppos) {
+					if (prefix.at(ppos) != '.') continue;
+
+					std::string new_prefix = prefix.substr(0, ppos + 1);
+					auto attempt_resolve = [&new_prefix](const std::string &ident) -> std::string {
+						std::string new_name = prefix_id(new_prefix, ident);
+						if (current_scope.count(new_name))
+							return new_name;
+						return {};
+					};
+
+					// attempt to resolve the full identifier
+					std::string resolved = attempt_resolve(identifier_str);
+					if (!resolved.empty()) {
+						is_resolved = true;
+						break;
+					}
+					// attempt to resolve hierarchical prefixes within the identifier,
+					// as the prefix could refer to a local scope which exists but
+					// hasn't yet been elaborated
+					for (size_t spos = identifier_str.size() - 1; spos; --spos) {
+						if (identifier_str.at(spos) != '.') continue;
+						resolved = attempt_resolve(identifier_str.substr(0, spos));
+						if (!resolved.empty()) {
+							is_resolved = true;
+							identifier_str = resolved + identifier_str.substr(spos);
+							ppos = 1; // break outer loop
+							break;
+						}
+					}
+					if (current_scope.count(identifier_str) == 0) {
+						AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+						for (auto node : current_scope_ast->children) {
+							switch (node->type) {
+							case AST_PARAMETER:
+							case AST_LOCALPARAM:
+							case AST_WIRE:
+							case AST_AUTOWIRE:
+							case AST_GENVAR:
+							case AST_MEMORY:
+							case AST_FUNCTION:
+							case AST_TASK:
+							case AST_DPI_FUNCTION:
+								if (prefix_id(new_prefix, identifier_str) == node->str) {
+									is_resolved = true;
+									current_scope[node->str] = node;
+								}
+								break;
+							case AST_ENUM:
+								current_scope[node->str] = node;
+								for (auto enum_node : node->children) {
+									log_assert(enum_node->type==AST_ENUM_ITEM);
+									if (prefix_id(new_prefix, identifier_str) == enum_node->str) {
+										is_resolved = true;
+										current_scope[enum_node->str] = enum_node;
+									}
+								}
+								break;
+							default:
+								break;
+							}
+						}
+					}
+				}
+				if ((current_scope.count(identifier_str) == 0) && is_resolved == false) {
+					if (current_ast_mod == nullptr) {
+						input_error("Identifier `%s' is implicitly declared outside of a module.\n", child->str.c_str());
+					} else if (flag_autowire || identifier_str == "\\$global_clock") {
+						AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
+						auto_wire->str = identifier_str;
+						children.push_back(auto_wire);
+					} else {
+						input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", identifier_str.c_str());
+					}
+				}
+			}
+			break;
 		default:
 			break;
 		}
