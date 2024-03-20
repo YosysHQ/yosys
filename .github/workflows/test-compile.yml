@@ -75,9 +75,6 @@ jobs:
             compiler: 'clang-17'
             cpp_std: 'c++11'
           - os: ubuntu-20.04
-            compiler: 'gcc-12'
-            cpp_std: 'c++11'
-          - os: ubuntu-20.04
             compiler: 'gcc-13'
             cpp_std: 'c++11'
       fail-fast: false
