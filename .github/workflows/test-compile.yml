@@ -58,6 +58,28 @@ jobs:
           - os: ubuntu-20.04
             compiler: 'gcc-10'
             cpp_std: 'c++11'
+          # Limited testing for newer compilers
+          - os: ubuntu-20.04
+            compiler: 'clang-13'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-14'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-15'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-16'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-17'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'gcc-12'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'gcc-13'
+            cpp_std: 'c++11'
       fail-fast: false
     steps:
       - name: Checkout Yosys
