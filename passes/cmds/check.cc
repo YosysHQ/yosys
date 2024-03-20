@@ -100,7 +100,6 @@ struct CheckPass : public Pass {
 		{
 			log("Checking module %s...\n", log_id(module));
 
-			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
 			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
@@ -111,40 +110,40 @@ struct CheckPass : public Pass {
 				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
 				for (size_t i = 0; i < all_cases.size(); i++) {
 					for (auto action : all_cases[i]->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : action.first)
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
 										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
 
-						for (auto bit : sigmap(action.second))
+						for (auto bit : action.second)
 							if (bit.wire) used_wires.insert(bit);
 					}
 					for (auto switch_ : all_cases[i]->switches) {
 						for (auto case_ : switch_->cases) {
 							all_cases.push_back(case_);
 							for (auto compare : case_->compare)
-								for (auto bit : sigmap(compare))
+								for (auto bit : compare)
 									if (bit.wire) used_wires.insert(bit);
 						}
 					}
 				}
 				for (auto &sync : proc_it.second->syncs) {
-					for (auto bit : sigmap(sync->signal))
+					for (auto bit : sync->signal)
 						if (bit.wire) used_wires.insert(bit);
 					for (auto action : sync->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : action.first)
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
 										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
-						for (auto bit : sigmap(action.second))
+						for (auto bit : action.second)
 							if (bit.wire) used_wires.insert(bit);
 					}
 					for (auto memwr : sync->mem_write_actions) {
-						for (auto bit : sigmap(memwr.address))
+						for (auto bit : memwr.address)
 							if (bit.wire) used_wires.insert(bit);
-						for (auto bit : sigmap(memwr.data))
+						for (auto bit : memwr.data)
 							if (bit.wire) used_wires.insert(bit);
-						for (auto bit : sigmap(memwr.enable))
+						for (auto bit : memwr.enable)
 							if (bit.wire) used_wires.insert(bit);
 					}
 				}
@@ -159,7 +158,7 @@ struct CheckPass : public Pass {
 				cell_allowed:;
 				}
 				for (auto &conn : cell->connections()) {
-					SigSpec sig = sigmap(conn.second);
+					SigSpec sig = conn.second;
 					bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
 					if (cell->input(conn.first))
 						for (auto bit : sig)
@@ -189,22 +188,22 @@ struct CheckPass : public Pass {
 
 			for (auto wire : module->wires()) {
 				if (wire->port_input) {
-					SigSpec sig = sigmap(wire);
+					SigSpec sig = wire;
 					for (int i = 0; i < GetSize(sig); i++)
 						if (sig[i].wire || !wire->port_output)
 							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
 				}
 				if (wire->port_output)
-					for (auto bit : sigmap(wire))
+					for (auto bit : SigSpec(wire))
 						if (bit.wire) used_wires.insert(bit);
 				if (wire->port_input && !wire->port_output)
-					for (auto bit : sigmap(wire))
+					for (auto bit : SigSpec(wire))
 						if (bit.wire) wire_drivers_count[bit]++;
 				if (wire->attributes.count(ID::init)) {
 					Const initval = wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++)
 						if (initval[i] == State::S0 || initval[i] == State::S1)
-							init_bits.insert(sigmap(SigBit(wire, i)));
+							init_bits.insert(SigBit(wire, i));
 					if (noinit) {
 						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
 						counter++;
@@ -212,14 +211,14 @@ struct CheckPass : public Pass {
 				}
 			}
 
-			for (auto state : {State::S0, State::S1, State::Sx})
-				if (wire_drivers.count(state)) {
-					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
-					for (auto str : wire_drivers[state])
-						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
-					counter++;
+			for (auto conn : module->connections()) {
+				for (int i = 0; i < conn.first.size(); i++) {
+					wire_drivers[conn.first[i]].push_back(stringf("assignment of %s", log_signal(conn.second[i])));
+					topo.edge(stringf("wire %s", log_signal(conn.second[i])),
+					          stringf("wire %s", log_signal(conn.first[i])));
+					wire_drivers_count[conn.first[i]]++;
 				}
+			}
 
 			for (auto it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {
@@ -252,7 +251,7 @@ struct CheckPass : public Pass {
 					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort(ID::Q)))
+					for (auto bit : cell->getPort(ID::Q))
 						init_bits.erase(bit);
 				}
 
