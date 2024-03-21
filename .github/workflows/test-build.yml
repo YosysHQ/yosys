@@ -3,10 +3,10 @@ name: Build and run tests
 on:
   pull_request:
     branches:
-    - master
+    - main
   push:
     branches:
-    - master
+    - main
 
 jobs:
   pre_job:
