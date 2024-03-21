@@ -941,6 +941,55 @@ struct metadata {
 		assert(value_type == DOUBLE);
 		return double_value;
 	}
+
+	// Internal CXXRTL use only.
+	static std::map<std::string, metadata> deserialize(const char *ptr) {
+		std::map<std::string, metadata> result;
+		std::string name;
+		// Grammar:
+		// string   ::= [^\0]+ \0
+		// metadata ::= [uid] .{8} | s <string>
+		// map      ::= ( <string> <metadata> )* \0
+		for (;;) {
+			if (*ptr) {
+				name += *ptr++;
+			} else if (!name.empty()) {
+				ptr++;
+				auto get_u64 = [&]() {
+					uint64_t result = 0;
+					for (size_t count = 0; count < 8; count++)
+						result = (result << 8) | *ptr++;
+					return result;
+				};
+				char type = *ptr++;
+				if (type == 'u') {
+					uint64_t value = get_u64();
+					result.emplace(name, value);
+				} else if (type == 'i') {
+					int64_t value = (int64_t)get_u64();
+					result.emplace(name, value);
+				} else if (type == 'd') {
+					double dvalue;
+					uint64_t uvalue = get_u64();
+					static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
+					memcpy(&dvalue, &uvalue, sizeof(dvalue));
+					result.emplace(name, dvalue);
+				} else if (type == 's') {
+					std::string value;
+					while (*ptr)
+						value += *ptr++;
+					ptr++;
+					result.emplace(name, value);
+				} else {
+					assert(false && "Unknown type specifier");
+					return result;
+				}
+				name.clear();
+			} else {
+				return result;
+			}
+		}
+	}
 };
 
 typedef std::map<std::string, metadata> metadata_map;

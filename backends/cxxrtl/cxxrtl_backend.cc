@@ -606,9 +606,10 @@ std::vector<std::string> split_by(const std::string &str, const std::string &sep
 	return result;
 }
 
-std::string escape_cxx_string(const std::string &input)
+std::string escape_c_string(const std::string &input)
 {
-	std::string output = "\"";
+	std::string output;
+	output.push_back('"');
 	for (auto c : input) {
 		if (::isprint(c)) {
 			if (c == '\\')
@@ -623,6 +624,12 @@ std::string escape_cxx_string(const std::string &input)
 		}
 	}
 	output.push_back('"');
+	return output;
+}
+
+std::string escape_cxx_string(const std::string &input)
+{
+	std::string output = escape_c_string(input);
 	if (output.find('\0') != std::string::npos) {
 		output.insert(0, "std::string {");
 		output.append(stringf(", %zu}", input.size()));
@@ -2276,14 +2283,23 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
+	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map, bool serialize = true)
 	{
 		if (metadata_map.empty()) {
 			f << "metadata_map()";
 			return;
-		}
-		f << "metadata_map({\n";
-		inc_indent();
+		} else if (serialize) {
+			// Creating thousands metadata_map objects using initializer lists in a single function results in one of:
+			// 1. Megabytes of stack usage (with __attribute__((optnone))).
+			// 2. Minutes of compile time (without __attribute__((optnone))).
+			// So, don't create them.
+			std::string data;
+			auto put_u64 = [&](uint64_t value) {
+				for (size_t count = 0; count < 8; count++) {
+					data += (char)(value >> 56);
+					value <<= 8;
+				}
+			};
 			for (auto metadata_item : metadata_map) {
 				if (!metadata_item.first.isPublic())
 					continue;
@@ -2291,21 +2307,58 @@ struct CxxrtlWorker {
 					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
 					continue;
 				}
-				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+				data += metadata_item.first.str().substr(1) + '\0';
 				// In Yosys, a real is a type of string.
 				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
-					f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
+					double dvalue = std::stod(metadata_item.second.decode_string());
+					uint64_t uvalue;
+					static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
+					memcpy(&uvalue, &dvalue, sizeof(uvalue));
+					data += 'd';
+					put_u64(uvalue);
 				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
-					f << escape_cxx_string(metadata_item.second.decode_string());
+					data += 's';
+					data += metadata_item.second.decode_string();
+					data += '\0';
 				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
-					f << "INT64_C(" << metadata_item.second.as_int(/*is_signed=*/true) << ")";
+					data += 'i';
+					put_u64((uint64_t)metadata_item.second.as_int(/*is_signed=*/true));
 				} else {
-					f << "UINT64_C(" << metadata_item.second.as_int(/*is_signed=*/false) << ")";
+					data += 'u';
+					put_u64(metadata_item.second.as_int(/*is_signed=*/false));
 				}
-				f << " },\n";
 			}
-		dec_indent();
-		f << indent << "})";
+			f << "metadata::deserialize(\n";
+			inc_indent();
+				f << indent << escape_c_string(data) << "\n";
+			dec_indent();
+			f << indent << ")";
+		} else {
+			f << "metadata_map({\n";
+			inc_indent();
+				for (auto metadata_item : metadata_map) {
+					if (!metadata_item.first.isPublic())
+						continue;
+					if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+						f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+						continue;
+					}
+					f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+					// In Yosys, a real is a type of string.
+					if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+						f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
+					} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+						f << escape_cxx_string(metadata_item.second.decode_string());
+					} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
+						f << "INT64_C(" << metadata_item.second.as_int(/*is_signed=*/true) << ")";
+					} else {
+						f << "UINT64_C(" << metadata_item.second.as_int(/*is_signed=*/false) << ")";
+					}
+					f << " },\n";
+				}
+			dec_indent();
+			f << indent << "})";
+		}
 	}
 
 	void dump_debug_attrs(const RTLIL::AttrObject *object)
