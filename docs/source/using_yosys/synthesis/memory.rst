@@ -36,7 +36,7 @@ Example
 |code_examples/synth_flow|_.
 
 .. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
-.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/synth_flow
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/synth_flow
 
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
    :class: width-helper
@@ -92,7 +92,7 @@ leftover memory cells unable to be converted are then picked up by
 
 For more on the lib format for :cmd:ref:`memory_libmap`, see
 `passes/memory/memlib.md
-<https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
+<https://github.com/YosysHQ/yosys/blob/main/passes/memory/memlib.md>`_
 
 Supported memory patterns
 ^^^^^^^^^^^^^^^^^^^^^^^^^

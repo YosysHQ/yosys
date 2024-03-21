@@ -31,7 +31,7 @@ Example
 |code_examples/synth_flow|_.
 
 .. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
-.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/synth_flow
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/synth_flow
 
 .. literalinclude:: /code_examples/synth_flow/proc_01.v
    :language: verilog

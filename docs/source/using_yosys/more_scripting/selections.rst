@@ -405,7 +405,7 @@ those cases selection variables must be used to capture more complex selections.
 Example code from |code_examples/selections|_:
 
 .. |code_examples/selections| replace:: :file:`docs/source/code_examples/selections`
-.. _code_examples/selections: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/selections
+.. _code_examples/selections: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/selections
 
 .. literalinclude:: /code_examples/selections/select.v
    :language: verilog
