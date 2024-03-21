@@ -80,6 +80,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-13]
+      fail-fast: false
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
@@ -148,6 +149,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-13]
+      fail-fast: false
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
