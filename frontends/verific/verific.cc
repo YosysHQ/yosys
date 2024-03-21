@@ -71,13 +71,13 @@ USING_YOSYS_NAMESPACE
 #include "VerificExtensions.h"
 #endif
 
-#ifndef YOSYSHQ_VERIFIC_API_VERSION
-#  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
-#endif
+//#ifndef YOSYSHQ_VERIFIC_API_VERSION
+//#  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
+//#endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20230901
-#  error "Please update your version of YosysHQ flavored Verific."
-#endif
+//#if YOSYSHQ_VERIFIC_API_VERSION < 20230901
+//#  error "Please update your version of YosysHQ flavored Verific."
+//#endif
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -1127,6 +1127,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	/*
 	if (inst->Type() == OPER_YOSYSHQ_SET_TAG)
 	{
 		RTLIL::SigSpec sig_expr = operatorInport(inst, "expr");
@@ -1163,6 +1164,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		module->connect(operatorOutput(inst),module->FutureFF(new_verific_id(inst), operatorInput(inst)));
 		return true;
 	}
+	*/
 
 	#undef IN
 	#undef IN1
@@ -1927,7 +1929,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				continue;
 		}
 
-		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
+		/* if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
 		{
 			if (verific_verbose)
 				log("   adding YosysHQ init state\n");
@@ -1938,6 +1940,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (!mode_keep)
 				continue;
 		}
+		*/
 
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
 			if (verific_verbose)
