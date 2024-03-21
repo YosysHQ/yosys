@@ -10,15 +10,15 @@ import sys
 logging.basicConfig(level=logging.INFO)
 
 # expects __file__ = yosys/docs/tests/macro_commands.py
-TESTS_DIR = Path(__file__).parent
+TESTS_DIR = Path(__file__).parent.absolute()
 ROOT_DIR = TESTS_DIR.parent.parent
-logging.log(logging.INFO, f"Using {ROOT_DIR.absolute()} as root directory")
+logging.log(logging.INFO, f"Using {ROOT_DIR} as root directory")
 THIS_FILE = (TESTS_DIR / "macro_commands.py").relative_to(ROOT_DIR)
 MACRO_SOURCE = TESTS_DIR.parent / "source" / "code_examples" / "macro_commands"
-assert MACRO_SOURCE.exists(), f"can't find macro_commands in {MACRO_SOURCE.absolute()}"
+assert MACRO_SOURCE.exists(), f"can't find macro_commands in {MACRO_SOURCE}"
 
 YOSYS = ROOT_DIR / "yosys"
-assert YOSYS.exists(), f"can't find yosys executable in {YOSYS.absolute()}"
+assert YOSYS.exists(), f"can't find yosys executable in {YOSYS}"
 
 raise_error = False
 # get all macro commands being used
