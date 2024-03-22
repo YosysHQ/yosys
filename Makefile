@@ -165,9 +165,9 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 0cd90d0
+ABCREV = 1107634
 ABCPULL = 1
-ABCURL ?= https://github.com/YosysHQ/abc
+ABCURL ?= https://github.com/povik/yosys-abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
