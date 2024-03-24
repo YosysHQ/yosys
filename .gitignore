@@ -46,3 +46,4 @@ __pycache__
 /tests/unit/bintest/
 /tests/unit/objtest/
 /tests/ystests
+/build

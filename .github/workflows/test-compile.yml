@@ -1,0 +1,91 @@
+name: Compiler testing
+
+on:
+  pull_request:
+    branches:
+    - main
+  push:
+    branches:
+    - main
+
+jobs:
+  test-compile:
+    runs-on: ${{ matrix.os }}
+    env:
+      CXXSTD: ${{ matrix.cpp_std }}
+      CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
+      CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+        compiler:
+          - 'clang-12'
+          - 'gcc-11'
+        cpp_std:
+          - 'c++11'
+          - 'c++14'
+          - 'c++17'
+          - 'c++20'
+        include:
+          # macOS builds
+          - os: macos-13
+            compiler: 'clang'
+            cpp_std: 'c++11'
+          - os: macos-13
+            compiler: 'clang'
+            cpp_std: 'c++17'
+          # Limited testing for older compilers
+          - os: ubuntu-20.04
+            compiler: 'clang-11'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'gcc-10'
+            cpp_std: 'c++11'
+          # Limited testing for newer compilers
+          - os: ubuntu-20.04
+            compiler: 'clang-13'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-14'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-15'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-16'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'clang-17'
+            cpp_std: 'c++11'
+          - os: ubuntu-20.04
+            compiler: 'gcc-13'
+            cpp_std: 'c++11'
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          $CC --version
+          $CXX --version
+
+      - name: Build
+        shell: bash
+        run: |
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=$CXXSTD
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
