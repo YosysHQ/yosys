@@ -16,8 +16,8 @@ Automatic testing
 
 .. _Yosys Git repo: https://github.com/YosysHQ/yosys
 
-.. |test-linux| image:: https://github.com/YosysHQ/yosys/actions/workflows/test-linux.yml/badge.svg?branch=master
-.. |test-macos| image:: https://github.com/YosysHQ/yosys/actions/workflows/test-macos.yml/badge.svg?branch=master
+.. |test-linux| image:: https://github.com/YosysHQ/yosys/actions/workflows/test-linux.yml/badge.svg?branch=main
+.. |test-macos| image:: https://github.com/YosysHQ/yosys/actions/workflows/test-macos.yml/badge.svg?branch=main
 
 For up to date information, including OS versions, refer to `the git actions
 page`_.

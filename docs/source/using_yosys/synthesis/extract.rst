@@ -15,7 +15,7 @@ The extract pass
 Example code can be found in |code_examples/macc|_.
 
 .. |code_examples/macc| replace:: :file:`docs/source/code_examples/macc`
-.. _code_examples/macc: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/macc
+.. _code_examples/macc: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/macc
 
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
