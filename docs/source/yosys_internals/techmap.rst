@@ -16,7 +16,7 @@ Code examples used in this document are included in the Yosys code base under
 |code_examples/techmap|_.
 
 .. |code_examples/techmap| replace:: :file:`docs/source/code_examples/techmap`
-.. _code_examples/techmap: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/techmap
+.. _code_examples/techmap: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/techmap
 
 
 Mapping OR3X1

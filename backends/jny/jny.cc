@@ -124,7 +124,7 @@ struct JnyWriter
         design->sort();
 
         f << "{\n";
-        f << "  \"$schema\": \"https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json\",\n";
+        f << "  \"$schema\": \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\",\n";
         f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_version_str).c_str());
         f << "  \"version\": \"0.0.1\",\n";
         f << "  \"invocation\": \"" << escape_string(invk) << "\",\n";
@@ -426,7 +426,7 @@ struct JnyBackend : public Backend {
         log("        Don't include property information in the netlist output.\n");
         log("\n");
         log("The JSON schema for JNY output files is located in the \"jny.schema.json\" file\n");
-        log("which is located at \"https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json\"\n");
+        log("which is located at \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\"\n");
         log("\n");
     }
 

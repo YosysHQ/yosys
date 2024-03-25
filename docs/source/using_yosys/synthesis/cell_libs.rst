@@ -21,7 +21,7 @@ detail in the :doc:`/getting_started/example_synth` document.
    
    To learn more about these commands, check out :ref:`interactive_show`.
 
-.. _example project: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/intro
+.. _example project: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/intro
 
 A simple counter
 ~~~~~~~~~~~~~~~~

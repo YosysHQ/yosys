@@ -29,7 +29,7 @@ Let's take a look at an example included in the Yosys code base under
 |code_examples/synth_flow|_:
 
 .. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
-.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/synth_flow
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/synth_flow
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
@@ -81,7 +81,7 @@ The code used in this section is included in the Yosys code base under
 |code_examples/axis|_.
 
 .. |code_examples/axis| replace:: :file:`docs/source/code_examples/axis`
-.. _code_examples/axis: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/axis
+.. _code_examples/axis: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/axis
 
 The following AXI4 Stream Master has a bug. But the bug is not exposed if the
 slave keeps ``tready`` asserted all the time. (Something a test bench might do.)
