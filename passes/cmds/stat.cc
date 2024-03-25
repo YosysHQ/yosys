@@ -36,7 +36,8 @@ struct cell_area_t {
 struct statdata_t
 {
 	#define STAT_INT_MEMBERS X(num_wires) X(num_wire_bits) X(num_pub_wires) X(num_pub_wire_bits) \
-			X(num_memories) X(num_memory_bits) X(num_cells) X(num_processes)
+			X(num_ports) X(num_port_bits) X(num_memories) X(num_memory_bits) X(num_cells) \
+			X(num_processes)
 
 	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area)
 
@@ -90,6 +91,11 @@ struct statdata_t
 
 		for (auto wire : mod->selected_wires())
 		{
+			if (wire->port_input || wire->port_output) {
+				num_ports++;
+				num_port_bits += wire->width;
+			}
+
 			if (wire->name.isPublic()) {
 				num_pub_wires++;
 				num_pub_wire_bits += wire->width;
@@ -239,6 +245,8 @@ struct statdata_t
 		log("   Number of wire bits:         %6u\n", num_wire_bits);
 		log("   Number of public wires:      %6u\n", num_pub_wires);
 		log("   Number of public wire bits:  %6u\n", num_pub_wire_bits);
+		log("   Number of ports:             %6u\n", num_ports);
+		log("   Number of port bits:         %6u\n", num_port_bits);
 		log("   Number of memories:          %6u\n", num_memories);
 		log("   Number of memory bits:       %6u\n", num_memory_bits);
 		log("   Number of processes:         %6u\n", num_processes);
@@ -284,6 +292,8 @@ struct statdata_t
 		log("         \"num_wire_bits\":     %u,\n", num_wire_bits);
 		log("         \"num_pub_wires\":     %u,\n", num_pub_wires);
 		log("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
+		log("         \"num_ports\":         %u,\n", num_ports);
+		log("         \"num_port_bits\":     %u,\n", num_port_bits);
 		log("         \"num_memories\":      %u,\n", num_memories);
 		log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
 		log("         \"num_processes\":     %u,\n", num_processes);
@@ -494,6 +504,8 @@ struct StatPass : public Pass {
 			design->scratchpad_set_int("stat.num_wire_bits", data.num_wire_bits);
 			design->scratchpad_set_int("stat.num_pub_wires", data.num_pub_wires);
 			design->scratchpad_set_int("stat.num_pub_wire_bits", data.num_pub_wire_bits);
+			design->scratchpad_set_int("stat.num_ports", data.num_ports);
+			design->scratchpad_set_int("stat.num_port_bits", data.num_port_bits);
 			design->scratchpad_set_int("stat.num_memories", data.num_memories);
 			design->scratchpad_set_int("stat.num_memory_bits", data.num_memory_bits);
 			design->scratchpad_set_int("stat.num_processes", data.num_processes);
