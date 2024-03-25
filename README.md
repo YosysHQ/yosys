@@ -105,10 +105,16 @@ For Cygwin use the following command to install all prerequisites, or select the
 
 	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
 
-To configure the build system to use a specific compiler, use one of
+The environment variable `CXX` can be used to control the C++ compiler used, or
+run one of the following:
 
 	$ make config-clang
 	$ make config-gcc
+
+Note that these will result in `make` ignoring the `CXX` environment variable,
+unless `CXX` is assigned in the call to make, e.g.
+
+  $ make CXX=$CXX
 
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
