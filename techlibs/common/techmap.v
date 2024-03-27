@@ -207,7 +207,7 @@ module _90_fa (A, B, C, X, Y);
 endmodule
 
 (* techmap_celltype = "$lcu" *)
-module _90_lcu (P, G, CI, CO);
+module _90_lcu_brent_kung (P, G, CI, CO);
 	parameter WIDTH = 2;
 
 	(* force_downto *)
