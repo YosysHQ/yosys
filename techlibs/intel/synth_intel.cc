@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2024  Richard Herveille <richard.herveille@roalogic.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -62,11 +63,18 @@ struct SynthIntelPass : public ScriptPass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -dff\n");
+		log("        pass DFFs to ABC to perform sequential logic optimisations\n");
+		log("        (EXPERIMENTAL)\n");
+		log("\n");
 		log("    -iopads\n");
 		log("        use IO pad cells in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
+		log("\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MUL18/MUL9 cells\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
@@ -80,7 +88,7 @@ struct SynthIntelPass : public ScriptPass {
 	}
 
 	string top_opt, family_opt, vout_file, blif_file;
-	bool retime, flatten, nobram, iopads;
+	bool retime, flatten, nobram, dff, nodsp, iopads;
 
 	void clear_flags() override
 	{
@@ -91,6 +99,8 @@ struct SynthIntelPass : public ScriptPass {
 		retime = false;
 		flatten = true;
 		nobram = false;
+		dff = false;
+		nodsp = false;
 		iopads = false;
 	}
 
@@ -128,6 +138,14 @@ struct SynthIntelPass : public ScriptPass {
 			}
 			if (args[argidx] == "-iopads") {
 				iopads = true;
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				dff = true;
+				continue;
+			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -178,15 +196,42 @@ struct SynthIntelPass : public ScriptPass {
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)")) {
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
-		}
-
 		if (check_label("coarse")) {
-			run("synth -run coarse");
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten", "(skip if -noflatten)");
+                        run("tribuf -logic");
+			run("deminout");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+
+			if (help_mode) {
+				run("techmap -map +mul2dsp.v [...]", "(unless -nodsp)");
+			} else if (!nodsp) {
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL9X9");
+					run("chtype -set $mul t:$__soft_mul");
+				run("alumacc");
+				run(stringf("techmap -map +/intel/%s/dsp_map.v", family_opt.c_str()));
+			} else {
+				run("alumacc");
+			}
+			run("opt");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
@@ -219,7 +264,10 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run("abc -lut 4" + string(retime ? " -dff" : ""));
+			run("abc9 -lut 4 -W 300" + string(dff ? " -dff" : ""));
+			run("clean");
+			run("opt -fast");
+			run("autoname");
 			run("clean");
 		}
 
