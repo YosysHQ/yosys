@@ -366,7 +366,7 @@ struct SynthNexusPass : public ScriptPass
 					abc9_opts += " -maxlut 4";
 				if (dff)
 					abc9_opts += " -dff";
-				run("abc9" + abc9_opts);
+				run("abc9 -lutlib" + abc9_opts);
 			} else {
 				std::string abc_args = " -dress";
 				if (nowidelut)

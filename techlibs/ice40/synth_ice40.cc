@@ -424,7 +424,7 @@ struct SynthIce40Pass : public ScriptPass
 					}
 					if (dff)
 						abc9_opts += " -dff";
-					run("abc9 " + abc9_opts);
+					run("abc9 -lutlib" + abc9_opts);
 				}
 				else
 					run(stringf("abc -dress -lut 4 %s", dff ? "-dff" : ""), "(skip if -noabc)");

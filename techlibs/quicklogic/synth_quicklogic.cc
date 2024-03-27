@@ -304,7 +304,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 			if (abc9) {
 				run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");
 				run("techmap -map " + lib_path + family + "/abc9_map.v");
-				run("abc9 -maxlut 4 -dff");
+				run("abc9 -lutlib -maxlut 4 -dff");
 				run("techmap -map " + lib_path + family + "/abc9_unmap.v");
 			} else {
 				run("abc -luts 1,2,2,4 -dress");
@@ -314,7 +314,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_luts", "(for qlf_k6n10f)") && (help_mode || family == "qlf_k6n10f")) {
 			if (abc9) {
-				run("abc9 -maxlut 6");
+				run("abc9 -lutlib -maxlut 6");
 			} else {
 				run("abc -lut 6 -dress");
 			}
