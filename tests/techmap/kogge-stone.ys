@@ -1,0 +1,1 @@
+test_cell -s 1711533949 -n 10 -map +/techmap.v -map +/choices/kogge-stone.v $lcu
