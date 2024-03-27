@@ -373,12 +373,14 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
-			if (nobram)
-				args += " -no-auto-block";
-			if (nolutram)
-				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+				if (nolutram)
+					args += " -no-auto-distributed";
+			}
 			run("memory_libmap -lib +/lattice/lutrams.txt -lib +/lattice/brams" + brams_map + ".txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run("techmap -map +/lattice/lutrams_map.v -map +/lattice/brams_map" + brams_map + ".v");
 		}

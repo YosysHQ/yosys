@@ -300,12 +300,14 @@ struct SynthNexusPass : public ScriptPass
 		{
 			std::string args = "";
 			args += " -no-auto-huge";
-			if (nobram)
-				args += " -no-auto-block";
-			if (nolutram)
-				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+				if (nolutram)
+					args += " -no-auto-distributed";
+			}
 			run("memory_libmap -lib +/nexus/lutrams.txt -lib +/nexus/brams.txt -lib +/nexus/lrams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run("techmap -map +/nexus/lutrams_map.v -map +/nexus/brams_map.v -map +/nexus/lrams_map.v");
 		}

@@ -2224,7 +2224,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				else
 					input_error("FATAL.\n");
 			} else {
-				input_error("Unknown elabortoon system task '%s'.\n", str.c_str());
+				input_error("Unknown elaboration system task '%s'.\n", str.c_str());
 			}
 		} break;
 

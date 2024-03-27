@@ -353,12 +353,14 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
-			if (!spram)
-				args += " -no-auto-huge";
-			if (nobram)
-				args += " -no-auto-block";
 			if (help_mode)
 				args += " [-no-auto-huge] [-no-auto-block]";
+			else {
+				if (!spram)
+					args += " -no-auto-huge";
+				if (nobram)
+					args += " -no-auto-block";
+			}
 			run("memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt" + args, "(-no-auto-huge unless -spram, -no-auto-block if -nobram)");
 			run("techmap -map +/ice40/brams_map.v -map +/ice40/spram_map.v");
 			run("ice40_braminit");
