@@ -790,7 +790,7 @@ struct AST_INTERNAL::ProcessGenerator
 				Fmt fmt;
 				fmt.parse_verilog(args, /*sformat_like=*/false, default_base, /*task_name=*/ast->str, current_module->name);
 				if (ast->str.substr(0, 8) == "$display")
-					fmt.append_string("\n");
+					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
 				log_file_error(ast->filename, ast->location.first_line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());

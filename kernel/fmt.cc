@@ -22,9 +22,9 @@
 
 USING_YOSYS_NAMESPACE
 
-void Fmt::append_string(const std::string &str) {
+void Fmt::append_literal(const std::string &str) {
 	FmtPart part = {};
-	part.type = FmtPart::STRING;
+	part.type = FmtPart::LITERAL;
 	part.str = str;
 	parts.push_back(part);
 }
@@ -46,7 +46,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 			log_assert(false && "Unexpected '}' in format string");
 		else if (fmt[i] == '{') {
 			if (!part.str.empty()) {
-				part.type = FmtPart::STRING;
+				part.type = FmtPart::LITERAL;
 				parts.push_back(part);
 				part = {};
 			}
@@ -108,7 +108,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 					part.type = FmtPart::INTEGER;
 					part.base = 16;
 				} else if (fmt[i] == 'c') {
-					part.type = FmtPart::CHARACTER;
+					part.type = FmtPart::STRING;
 				} else if (fmt[i] == 't') {
 					part.type = FmtPart::VLOG_TIME;
 				} else if (fmt[i] == 'r') {
@@ -150,7 +150,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 		}
 	}
 	if (!part.str.empty()) {
-		part.type = FmtPart::STRING;
+		part.type = FmtPart::LITERAL;
 		parts.push_back(part);
 	}
 }
@@ -161,7 +161,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				for (char c : part.str) {
 					if (c == '{')
 						fmt += "{{";
@@ -175,7 +175,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 			case FmtPart::VLOG_TIME:
 				log_assert(part.sig.size() == 0);
 				YS_FALLTHROUGH
-			case FmtPart::CHARACTER:
+			case FmtPart::STRING:
 				log_assert(part.sig.size() % 8 == 0);
 				YS_FALLTHROUGH
 			case FmtPart::INTEGER:
@@ -203,7 +203,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 					if (part.plus)
 						fmt += '+';
 					fmt += part.signed_ ? 's' : 'u';
-				} else if (part.type == FmtPart::CHARACTER) {
+				} else if (part.type == FmtPart::STRING) {
 					fmt += 'c';
 				} else if (part.type == FmtPart::VLOG_TIME) {
 					if (part.realtime)
@@ -299,12 +299,12 @@ void Fmt::apply_verilog_automatic_sizing_and_add(FmtPart &part)
 		part.width = places;
 
 		if (part.justify == FmtPart::RIGHT) {
-			append_string(gap);
+			append_literal(gap);
 			parts.push_back(part);
 		} else {
 			part.justify = FmtPart::RIGHT;
 			parts.push_back(part);
-			append_string(gap);
+			append_literal(gap);
 		}
 	}
 }
@@ -355,7 +355,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							part.str += module_name.str();
 						} else {
 							if (!part.str.empty()) {
-								part.type = FmtPart::STRING;
+								part.type = FmtPart::LITERAL;
 								parts.push_back(part);
 								part = {};
 							}
@@ -408,11 +408,11 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									part.type = FmtPart::INTEGER;
 									part.base = 16;
 								} else if (fmt[i] == 'c' || fmt[i] == 'C') {
-									part.type = FmtPart::CHARACTER;
+									part.type = FmtPart::STRING;
 									part.sig.extend_u0(8);
 									// %10c and %010c not fully defined in IEEE 1800-2017 and do different things in iverilog
 								} else if (fmt[i] == 's' || fmt[i] == 'S') {
-									part.type = FmtPart::CHARACTER;
+									part.type = FmtPart::STRING;
 									if ((part.sig.size() % 8) != 0)
 										part.sig.extend_u0((part.sig.size() + 7) / 8 * 8);
 									// %10s and %010s not fully defined in IEEE 1800-2017 and do the same thing in iverilog
@@ -449,12 +449,12 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 						}
 					}
 					if (!part.str.empty()) {
-						part.type = FmtPart::STRING;
+						part.type = FmtPart::LITERAL;
 						parts.push_back(part);
 					}
 				} else {
 					FmtPart part = {};
-					part.type = FmtPart::STRING;
+					part.type = FmtPart::LITERAL;
 					part.str = arg->str;
 					parts.push_back(part);
 				}
@@ -474,7 +474,7 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				for (char c : part.str) {
 					if (c == '%')
 						fmt.str += "%%";
@@ -513,7 +513,7 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				break;
 			}
 
-			case FmtPart::CHARACTER: {
+			case FmtPart::STRING: {
 				VerilogFmtArg arg;
 				arg.type = VerilogFmtArg::INTEGER;
 				arg.sig = part.sig;
@@ -599,9 +599,9 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << indent << "buf += fmt_part { ";
 		os << "fmt_part::";
 		switch (part.type) {
-			case FmtPart::STRING:    os << "STRING";    break;
+			case FmtPart::LITERAL:   os << "LITERAL";   break;
 			case FmtPart::INTEGER:   os << "INTEGER";   break;
-			case FmtPart::CHARACTER: os << "CHARACTER"; break;
+			case FmtPart::STRING:    os << "STRING";    break;
 			case FmtPart::VLOG_TIME: os << "VLOG_TIME"; break;
 		}
 		os << ", ";
@@ -631,12 +631,12 @@ std::string Fmt::render() const
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				str += part.str;
 				break;
 
 			case FmtPart::INTEGER:
-			case FmtPart::CHARACTER:
+			case FmtPart::STRING:
 			case FmtPart::VLOG_TIME: {
 				std::string buf;
 				if (part.type == FmtPart::INTEGER) {
@@ -718,7 +718,7 @@ std::string Fmt::render() const
 							std::reverse(buf.begin(), buf.end());
 						}
 					} else log_abort();
-				} else if (part.type == FmtPart::CHARACTER) {
+				} else if (part.type == FmtPart::STRING) {
 					buf = part.sig.as_const().decode_string();
 				} else if (part.type == FmtPart::VLOG_TIME) {
 					// We only render() during initial, so time is always zero.
