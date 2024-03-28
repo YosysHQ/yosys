@@ -1041,6 +1041,7 @@ struct fmt_part {
 		SPACE_MINUS	= 2,
 	} sign; // = MINUS;
 	bool hex_upper; // = false;
+	bool show_base; // = false;
 
 	// VLOG_TIME type
 	bool realtime; // = false;
@@ -1103,6 +1104,8 @@ struct fmt_part {
 				}
 
 				if (base == 2) {
+					if (show_base)
+						buf += "0b";
 					for (size_t i = width; i > 0; i--)
 						buf += (val.bit(i - 1) ? '1' : '0');
 				} else if (base == 8 || base == 16) {
@@ -1113,6 +1116,8 @@ struct fmt_part {
 							value |= val.bit(index + 3) << 3;
 						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
+					if (show_base)
+						buf += (base == 16) ? (hex_upper ? "X0" : "x0") : "o0";
 					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {
 					bool negative = signed_ && val.is_neg();
@@ -1130,6 +1135,8 @@ struct fmt_part {
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
 					}
+					if (show_base)
+						buf += "d0";
 					switch (sign) {
 						case MINUS:       buf += negative ? "-" : "";  break;
 						case PLUS_MINUS:  buf += negative ? "-" : "+"; break;
