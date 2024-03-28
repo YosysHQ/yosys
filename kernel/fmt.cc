@@ -776,7 +776,6 @@ std::string Fmt::render() const
 							else /* if (bit == State::S0) */
 								buf += '0';
 						}
-						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 8 || part.base == 16) {
 						if (part.show_base)
 							prefix += (part.base == 16) ? (part.hex_upper ? "0X" : "0x") : "0o";
@@ -807,7 +806,6 @@ std::string Fmt::render() const
 							else
 								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
 						}
-						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 10) {
 						if (part.show_base)
 							prefix += "0d";
@@ -831,9 +829,17 @@ std::string Fmt::render() const
 								value = RTLIL::const_div(value, 10, false, false, value.size());
 								index++;
 							}
-							std::reverse(buf.begin(), buf.end());
 						}
 					} else log_abort();
+					if (part.justify == FmtPart::NUMERIC && part.group && part.padding == '0') {
+						int group_size = part.base == 10 ? 3 : 4;
+						while (prefix.size() + buf.size() < part.width) {
+							if (buf.size() % (group_size + 1) == group_size)
+								buf += '_';
+							buf += '0';
+						}
+					}
+					std::reverse(buf.begin(), buf.end());
 				} else if (part.type == FmtPart::STRING) {
 					buf = part.sig.as_const().decode_string();
 				} else if (part.type == FmtPart::VLOG_TIME) {
