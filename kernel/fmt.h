@@ -85,6 +85,7 @@ struct FmtPart {
 	} sign = MINUS;
 	bool hex_upper = false;
 	bool show_base = false;
+	bool group = false;
 
 	// VLOG_TIME type
 	bool realtime = false;

@@ -156,6 +156,10 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 					part.show_base = true;
 					++i;
 				}
+				if (fmt[i] == '_') {
+					part.group = true;
+					++i;
+				}
 
 				if (fmt[i] == 'u')
 					part.signed_ = false;
@@ -241,6 +245,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						case FmtPart::SPACE_MINUS: fmt += ' '; break;
 					}
 					fmt += part.show_base ? "#" : "";
+					fmt += part.group ? "_" : "";
 					fmt += part.signed_ ? 's' : 'u';
 				} else if (part.type == FmtPart::STRING) {
 					fmt += 'c';
@@ -683,6 +688,7 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << ", ";
 		os << part.hex_upper << ", ";
 		os << part.show_base << ", ";
+		os << part.group << ", ";
 		os << part.realtime;
 		os << " }.render(";
 		emit_sig(part.sig);
@@ -737,12 +743,27 @@ std::string Fmt::render() const
 					}
 
 					if (part.base == 2) {
+						for (size_t index = 0; index < (size_t)value.size(); index++) {
+							if (part.group && index > 0 && index % 4 == 0)
+								buf += '_';
+							RTLIL::State bit = value[index];
+							if (bit == State::Sx)
+								buf += 'x';
+							else if (bit == State::Sz)
+								buf += 'z';
+							else if (bit == State::S1)
+								buf += '1';
+							else /* if (bit == State::S0) */
+								buf += '0';
+						}
 						if (part.show_base)
-							buf += "0b";
-						buf = value.as_string();
+							buf += "b0";
+						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 8 || part.base == 16) {
 						size_t step = (part.base == 16) ? 4 : 3;
 						for (size_t index = 0; index < (size_t)value.size(); index += step) {
+							if (part.group && index > 0 && index % (4 * step) == 0)
+								buf += '_';
 							RTLIL::Const subvalue = value.extract(index, min(step, value.size() - index));
 							bool has_x = false, all_x = true, has_z = false, all_z = true;
 							for (State bit : subvalue) {
@@ -799,9 +820,13 @@ std::string Fmt::render() const
 							log_assert(absvalue.is_fully_def());
 							if (absvalue.is_fully_zero())
 								buf += '0';
+							size_t index = 0;
 							while (!absvalue.is_fully_zero())	{
+								if (part.group && index > 0 && index % 3 == 0)
+									buf += '_';
 								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
 								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
+								index++;
 							}
 							if (part.show_base)
 								buf += "d0";

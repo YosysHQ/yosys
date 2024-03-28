@@ -1042,6 +1042,7 @@ struct fmt_part {
 	} sign; // = MINUS;
 	bool hex_upper; // = false;
 	bool show_base; // = false;
+	bool group; // = false;
 
 	// VLOG_TIME type
 	bool realtime; // = false;
@@ -1104,13 +1105,19 @@ struct fmt_part {
 				}
 
 				if (base == 2) {
+					for (size_t index = 0; index < width; index++) {
+						if (group && index > 0 && index % 4 == 0)
+							buf += '_';
+						buf += (val.bit(index) ? '1' : '0');
+					}
 					if (show_base)
-						buf += "0b";
-					for (size_t i = width; i > 0; i--)
-						buf += (val.bit(i - 1) ? '1' : '0');
+						buf += "b0";
+					std::reverse(buf.begin(), buf.end());
 				} else if (base == 8 || base == 16) {
 					size_t step = (base == 16) ? 4 : 3;
 					for (size_t index = 0; index < width; index += step) {
+						if (group && index > 0 && index % (4 * step) == 0)
+							buf += '_';
 						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
 						if (step == 4)
 							value |= val.bit(index + 3) << 3;
@@ -1126,7 +1133,10 @@ struct fmt_part {
 					if (val.is_zero())
 						buf += '0';
 					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
+					size_t index = 0;
 					while (!xval.is_zero()) {
+						if (group && index > 0 && index % 3 == 0)
+							buf += '_';
 						value<(Bits > 4 ? Bits : 4)> quotient, remainder;
 						if (Bits >= 4)
 							std::tie(quotient, remainder) = xval.udivmod(value<(Bits > 4 ? Bits : 4)>{10u});
@@ -1134,6 +1144,7 @@ struct fmt_part {
 							std::tie(quotient, remainder) = std::make_pair(value<(Bits > 4 ? Bits : 4)>{0u}, xval);
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
+						index++;
 					}
 					if (show_base)
 						buf += "d0";
