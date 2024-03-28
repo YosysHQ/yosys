@@ -1109,28 +1109,27 @@ struct fmt_part {
 					}
 				}
 
-				size_t width = Bits;
+				size_t val_width = Bits;
 				if (base != 10) {
-					width = 1;
+					val_width = 1;
 					for (size_t index = 0; index < Bits; index++)
 						if (val.bit(index))
-							width = index + 1;
+							val_width = index + 1;
 				}
 
 				if (base == 2) {
 					if (show_base)
 						prefix += "0b";
-					for (size_t index = 0; index < width; index++) {
+					for (size_t index = 0; index < val_width; index++) {
 						if (group && index > 0 && index % 4 == 0)
 							buf += '_';
 						buf += (val.bit(index) ? '1' : '0');
 					}
-					std::reverse(buf.begin(), buf.end());
 				} else if (base == 8 || base == 16) {
 					if (show_base)
 						prefix += (base == 16) ? (hex_upper ? "0X" : "0x") : "0o";
 					size_t step = (base == 16) ? 4 : 3;
-					for (size_t index = 0; index < width; index += step) {
+					for (size_t index = 0; index < val_width; index += step) {
 						if (group && index > 0 && index % (4 * step) == 0)
 							buf += '_';
 						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
@@ -1138,7 +1137,6 @@ struct fmt_part {
 							value |= val.bit(index + 3) << 3;
 						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
-					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {
 					if (show_base)
 						prefix += "0d";
@@ -1158,8 +1156,16 @@ struct fmt_part {
 						xval = quotient;
 						index++;
 					}
-					std::reverse(buf.begin(), buf.end());
 				} else assert(false && "Unsupported base for fmt_part");
+				if (justify == NUMERIC && group && padding == '0') {
+					int group_size = base == 10 ? 3 : 4;
+					while (prefix.size() + buf.size() < width) {
+						if (buf.size() % (group_size + 1) == group_size)
+							buf += '_';
+						buf += '0';
+					}
+				}
+				std::reverse(buf.begin(), buf.end());
 				break;
 			}
 
