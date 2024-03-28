@@ -78,6 +78,8 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				part.justify = FmtPart::RIGHT;
 			else if (fmt[i] == '<')
 				part.justify = FmtPart::LEFT;
+			else if (fmt[i] == '=')
+				part.justify = FmtPart::NUMERIC;
 			else
 				log_assert(false && "Unexpected justification in format substitution");
 			if (++i == fmt.size())
@@ -201,6 +203,8 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 					fmt += '>';
 				else if (part.justify == FmtPart::LEFT)
 					fmt += '<';
+				else if (part.justify == FmtPart::NUMERIC)
+					fmt += '=';
 				else log_abort();
 				log_assert(part.width == 0 || part.padding != '\0');
 				fmt += part.padding != '\0' ? part.padding : ' ';
@@ -452,8 +456,14 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 							}
 
-							if (part.padding == '\0')
-								part.padding = (has_leading_zero && part.justify == FmtPart::RIGHT) ? '0' : ' ';
+							if (part.padding == '\0') {
+								if (has_leading_zero && part.justify == FmtPart::RIGHT) {
+									part.padding = '0';
+									part.justify = FmtPart::NUMERIC;
+								} else {
+									part.padding = ' ';
+								}
+							}
 
 							if (part.type == FmtPart::INTEGER && part.base != 10 && part.sign != FmtPart::MINUS)
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
@@ -626,8 +636,9 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << escape_cxx_string(part.str) << ", ";
 		os << "fmt_part::";
 		switch (part.justify) {
-			case FmtPart::LEFT:  os << "LEFT";  break;
-			case FmtPart::RIGHT: os << "RIGHT"; break;
+			case FmtPart::LEFT:    os << "LEFT";    break;
+			case FmtPart::RIGHT:   os << "RIGHT";   break;
+			case FmtPart::NUMERIC: os << "NUMERIC"; break;
 		}
 		os << ", ";
 		os << "(char)" << (int)part.padding << ", ";
@@ -754,9 +765,9 @@ std::string Fmt::render() const
 				}
 
 				log_assert(part.width == 0 || part.padding != '\0');
-				if (part.justify == FmtPart::RIGHT && buf.size() < part.width) {
+				if (part.justify != FmtPart::LEFT && buf.size() < part.width) {
 					size_t pad_width = part.width - buf.size();
-					if (part.padding == '0' && (!buf.empty() && (buf.front() == '+' || buf.front() == '-'))) {
+					if (part.justify == FmtPart::NUMERIC && (!buf.empty() && (buf.front() == '+' || buf.front() == '-' || buf.front() == ' '))) {
 						str += buf.front();
 						buf.erase(0, 1);
 					}
