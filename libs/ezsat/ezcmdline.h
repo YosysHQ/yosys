@@ -22,14 +22,14 @@
 
 #include "ezsat.h"
 
-class ezSATCommand : public ezSAT
+class ezCmdlineSAT : public ezSAT
 {
 private:
 	std::string command;
 
 public:
-	ezSATCommand(const std::string &cmd);
-	virtual ~ezSATCommand();
+	ezCmdlineSAT(const std::string &cmd);
+	virtual ~ezCmdlineSAT();
 	bool solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions) override;
 };
 

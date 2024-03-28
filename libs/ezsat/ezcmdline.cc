@@ -1,13 +1,13 @@
 
-#include "ezcommand.h"
+#include "ezcmdline.h"
 
 #include "../../kernel/yosys.h"
 
-ezSATCommand::ezSATCommand(const std::string &cmd) : command(cmd) {}
+ezCmdlineSAT::ezCmdlineSAT(const std::string &cmd) : command(cmd) {}
 
-ezSATCommand::~ezSATCommand() {}
+ezCmdlineSAT::~ezCmdlineSAT() {}
 
-bool ezSATCommand::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
+bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
 #if !defined(YOSYS_DISABLE_SPAWN)
 	const std::string tempdir_name = Yosys::make_temp_dir(Yosys::get_base_tmpdir() + "/yosys-sat-XXXXXX");
