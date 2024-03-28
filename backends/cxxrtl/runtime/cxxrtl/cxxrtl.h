@@ -1010,19 +1010,19 @@ struct observer {
 // Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
 struct fmt_part {
 	enum {
-		STRING    = 0,
+		LITERAL   = 0,
 		INTEGER   = 1,
-		CHARACTER = 2,
+		STRING    = 2,
 		VLOG_TIME = 3,
 	} type;
 
-	// STRING type
+	// LITERAL type
 	std::string str;
 
-	// INTEGER/CHARACTER types
+	// INTEGER/STRING types
 	// + value<Bits> val;
 
-	// INTEGER/CHARACTER/VLOG_TIME types
+	// INTEGER/STRING/VLOG_TIME types
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
@@ -1050,10 +1050,10 @@ struct fmt_part {
 		// chunk access if it turns out to be slow enough to matter.
 		std::string buf;
 		switch (type) {
-			case STRING:
+			case LITERAL:
 				return str;
 
-			case CHARACTER: {
+			case STRING: {
 				buf.reserve(Bits/8);
 				for (int i = 0; i < Bits; i += 8) {
 					char ch = 0;
