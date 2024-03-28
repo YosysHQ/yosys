@@ -76,7 +76,11 @@ struct FmtPart {
 	// INTEGER type
 	unsigned base = 10;
 	bool signed_ = false;
-	bool plus = false;
+	enum {
+		MINUS		= 0,
+		PLUS_MINUS	= 1,
+		SPACE_MINUS	= 2,
+	} sign = MINUS;
 	bool hex_upper = false;
 
 	// VLOG_TIME type

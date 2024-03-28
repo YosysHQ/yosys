@@ -1033,7 +1033,11 @@ struct fmt_part {
 	// INTEGER type
 	unsigned base; // = 10;
 	bool signed_; // = false;
-	bool plus; // = false;
+	enum {
+		MINUS		= 0,
+		PLUS_MINUS	= 1,
+		SPACE_MINUS	= 2,
+	} sign; // = MINUS;
 	bool hex_upper; // = false;
 
 	// VLOG_TIME type
@@ -1105,8 +1109,11 @@ struct fmt_part {
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
 					}
-					if (negative || plus)
-						buf += negative ? '-' : '+';
+					switch (sign) {
+						case MINUS:       buf += negative ? "-" : "";  break;
+						case PLUS_MINUS:  buf += negative ? "-" : "+"; break;
+						case SPACE_MINUS: buf += negative ? "-" : " "; break;
+					}
 					std::reverse(buf.begin(), buf.end());
 				} else assert(false && "Unsupported base for fmt_part");
 				break;
