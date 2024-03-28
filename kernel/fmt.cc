@@ -128,10 +128,20 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				log_assert(false && "Unexpected end in format substitution");
 
 			if (part.type == FmtPart::INTEGER) {
-				if (fmt[i] == '+') {
-					part.plus = true;
+				if (fmt[i] == '-') {
+					part.sign = FmtPart::MINUS;
 					if (++i == fmt.size())
 						log_assert(false && "Unexpected end in format substitution");
+				} else if (fmt[i] == '+') {
+					part.sign = FmtPart::PLUS_MINUS;
+					if (++i == fmt.size())
+						log_assert(false && "Unexpected end in format substitution");
+				} else if (fmt[i] == ' ') {
+					part.sign = FmtPart::SPACE_MINUS;
+					if (++i == fmt.size())
+						log_assert(false && "Unexpected end in format substitution");
+				} else {
+					// also accept no sign character and treat like MINUS for compatibility
 				}
 
 				if (fmt[i] == 'u')
@@ -204,8 +214,11 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						case 16: fmt += part.hex_upper ? 'H' : 'h'; break;
 						default: log_abort();
 					}
-					if (part.plus)
-						fmt += '+';
+					switch (part.sign) {
+						case FmtPart::MINUS:       fmt += '-'; break;
+						case FmtPart::PLUS_MINUS:  fmt += '+'; break;
+						case FmtPart::SPACE_MINUS: fmt += ' '; break;
+					}
 					fmt += part.signed_ ? 's' : 'u';
 				} else if (part.type == FmtPart::STRING) {
 					fmt += 'c';
@@ -379,7 +392,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									part.justify = FmtPart::LEFT;
 								} else if (fmt[i] == '+') {
 									// always show sign; not in IEEE 1800-2017 or verilator but iverilog has it
-									part.plus = true;
+									part.sign = FmtPart::PLUS_MINUS;
 								} else break;
 							}
 							if (i == fmt.size()) {
@@ -442,7 +455,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (part.padding == '\0')
 								part.padding = (has_leading_zero && part.justify == FmtPart::RIGHT) ? '0' : ' ';
 
-							if (part.type == FmtPart::INTEGER && part.base != 10 && part.plus)
+							if (part.type == FmtPart::INTEGER && part.base != 10 && part.sign != FmtPart::MINUS)
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 
 							if (part.type == FmtPart::INTEGER && !has_leading_zero)
@@ -495,8 +508,8 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				args.push_back(arg);
 
 				fmt.str += '%';
-				if (part.plus)
-					fmt.str += '+';
+				if (part.sign == FmtPart::PLUS_MINUS || part.sign == FmtPart::SPACE_MINUS)
+					fmt.str += '+'; // treat space/minus as plus/minus
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
 				if (part.width == 0) {
@@ -553,7 +566,8 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				args.push_back(arg);
 
 				fmt.str += '%';
-				if (part.plus)
+				log_assert(part.sign == FmtPart::MINUS || part.sign == FmtPart::PLUS_MINUS);
+				if (part.sign == FmtPart::PLUS_MINUS)
 					fmt.str += '+';
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
@@ -620,7 +634,13 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << part.width << ", ";
 		os << part.base << ", ";
 		os << part.signed_ << ", ";
-		os << part.plus << ", ";
+		os << "fmt_part::";
+		switch (part.sign) {
+			case FmtPart::MINUS:       os << "MINUS";       break;
+			case FmtPart::PLUS_MINUS:  os << "PLUS_MINUS";  break;
+			case FmtPart::SPACE_MINUS: os << "SPACE_MINUS"; break;
+		}
+		os << ", ";
 		os << part.hex_upper << ", ";
 		os << part.realtime;
 		os << " }.render(";
@@ -718,8 +738,11 @@ std::string Fmt::render() const
 								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
 								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
 							}
-							if (negative || part.plus)
-								buf += negative ? '-' : '+';
+							switch (part.sign) {
+								case FmtPart::MINUS:       buf += negative ? "-" : "";  break;
+								case FmtPart::PLUS_MINUS:  buf += negative ? "-" : "+"; break;
+								case FmtPart::SPACE_MINUS: buf += negative ? "-" : " "; break;
+							}
 							std::reverse(buf.begin(), buf.end());
 						}
 					} else log_abort();
