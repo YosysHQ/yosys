@@ -1026,6 +1026,7 @@ struct fmt_part {
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
+		NUMERIC	= 2,
 	} justify; // = RIGHT;
 	char padding; // = '\0';
 	size_t width; // = 0;
@@ -1131,9 +1132,9 @@ struct fmt_part {
 
 		std::string str;
 		assert(width == 0 || padding != '\0');
-		if (justify == RIGHT && buf.size() < width) {
+		if (justify != LEFT && buf.size() < width) {
 			size_t pad_width = width - buf.size();
-			if (padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
+			if (justify == NUMERIC && (buf.front() == '+' || buf.front() == '-' || buf.front() == ' ')) {
 				str += buf.front();
 				buf.erase(0, 1);
 			}

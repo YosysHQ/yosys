@@ -69,6 +69,7 @@ struct FmtPart {
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
+		NUMERIC	= 2,
 	} justify = RIGHT;
 	char padding = '\0';
 	size_t width = 0;
