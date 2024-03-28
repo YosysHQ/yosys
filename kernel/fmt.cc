@@ -22,9 +22,9 @@
 
 USING_YOSYS_NAMESPACE
 
-void Fmt::append_string(const std::string &str) {
+void Fmt::append_literal(const std::string &str) {
 	FmtPart part = {};
-	part.type = FmtPart::STRING;
+	part.type = FmtPart::LITERAL;
 	part.str = str;
 	parts.push_back(part);
 }
@@ -46,7 +46,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 			log_assert(false && "Unexpected '}' in format string");
 		else if (fmt[i] == '{') {
 			if (!part.str.empty()) {
-				part.type = FmtPart::STRING;
+				part.type = FmtPart::LITERAL;
 				parts.push_back(part);
 				part = {};
 			}
@@ -107,8 +107,12 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				} else if (fmt[i] == 'h') {
 					part.type = FmtPart::INTEGER;
 					part.base = 16;
+				} else if (fmt[i] == 'H') {
+					part.type = FmtPart::INTEGER;
+					part.base = 16;
+					part.hex_upper = true;
 				} else if (fmt[i] == 'c') {
-					part.type = FmtPart::CHARACTER;
+					part.type = FmtPart::STRING;
 				} else if (fmt[i] == 't') {
 					part.type = FmtPart::VLOG_TIME;
 				} else if (fmt[i] == 'r') {
@@ -124,10 +128,20 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				log_assert(false && "Unexpected end in format substitution");
 
 			if (part.type == FmtPart::INTEGER) {
-				if (fmt[i] == '+') {
-					part.plus = true;
+				if (fmt[i] == '-') {
+					part.sign = FmtPart::MINUS;
 					if (++i == fmt.size())
 						log_assert(false && "Unexpected end in format substitution");
+				} else if (fmt[i] == '+') {
+					part.sign = FmtPart::PLUS_MINUS;
+					if (++i == fmt.size())
+						log_assert(false && "Unexpected end in format substitution");
+				} else if (fmt[i] == ' ') {
+					part.sign = FmtPart::SPACE_MINUS;
+					if (++i == fmt.size())
+						log_assert(false && "Unexpected end in format substitution");
+				} else {
+					// also accept no sign character and treat like MINUS for compatibility
 				}
 
 				if (fmt[i] == 'u')
@@ -150,7 +164,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 		}
 	}
 	if (!part.str.empty()) {
-		part.type = FmtPart::STRING;
+		part.type = FmtPart::LITERAL;
 		parts.push_back(part);
 	}
 }
@@ -161,7 +175,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				for (char c : part.str) {
 					if (c == '{')
 						fmt += "{{";
@@ -175,7 +189,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 			case FmtPart::VLOG_TIME:
 				log_assert(part.sig.size() == 0);
 				YS_FALLTHROUGH
-			case FmtPart::CHARACTER:
+			case FmtPart::STRING:
 				log_assert(part.sig.size() % 8 == 0);
 				YS_FALLTHROUGH
 			case FmtPart::INTEGER:
@@ -197,13 +211,16 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						case  2: fmt += 'b'; break;
 						case  8: fmt += 'o'; break;
 						case 10: fmt += 'd'; break;
-						case 16: fmt += 'h'; break;
+						case 16: fmt += part.hex_upper ? 'H' : 'h'; break;
 						default: log_abort();
 					}
-					if (part.plus)
-						fmt += '+';
+					switch (part.sign) {
+						case FmtPart::MINUS:       fmt += '-'; break;
+						case FmtPart::PLUS_MINUS:  fmt += '+'; break;
+						case FmtPart::SPACE_MINUS: fmt += ' '; break;
+					}
 					fmt += part.signed_ ? 's' : 'u';
-				} else if (part.type == FmtPart::CHARACTER) {
+				} else if (part.type == FmtPart::STRING) {
 					fmt += 'c';
 				} else if (part.type == FmtPart::VLOG_TIME) {
 					if (part.realtime)
@@ -299,12 +316,12 @@ void Fmt::apply_verilog_automatic_sizing_and_add(FmtPart &part)
 		part.width = places;
 
 		if (part.justify == FmtPart::RIGHT) {
-			append_string(gap);
+			append_literal(gap);
 			parts.push_back(part);
 		} else {
 			part.justify = FmtPart::RIGHT;
 			parts.push_back(part);
-			append_string(gap);
+			append_literal(gap);
 		}
 	}
 }
@@ -355,7 +372,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							part.str += module_name.str();
 						} else {
 							if (!part.str.empty()) {
-								part.type = FmtPart::STRING;
+								part.type = FmtPart::LITERAL;
 								parts.push_back(part);
 								part = {};
 							}
@@ -375,7 +392,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									part.justify = FmtPart::LEFT;
 								} else if (fmt[i] == '+') {
 									// always show sign; not in IEEE 1800-2017 or verilator but iverilog has it
-									part.plus = true;
+									part.sign = FmtPart::PLUS_MINUS;
 								} else break;
 							}
 							if (i == fmt.size()) {
@@ -408,11 +425,11 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									part.type = FmtPart::INTEGER;
 									part.base = 16;
 								} else if (fmt[i] == 'c' || fmt[i] == 'C') {
-									part.type = FmtPart::CHARACTER;
+									part.type = FmtPart::STRING;
 									part.sig.extend_u0(8);
 									// %10c and %010c not fully defined in IEEE 1800-2017 and do different things in iverilog
 								} else if (fmt[i] == 's' || fmt[i] == 'S') {
-									part.type = FmtPart::CHARACTER;
+									part.type = FmtPart::STRING;
 									if ((part.sig.size() % 8) != 0)
 										part.sig.extend_u0((part.sig.size() + 7) / 8 * 8);
 									// %10s and %010s not fully defined in IEEE 1800-2017 and do the same thing in iverilog
@@ -438,7 +455,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (part.padding == '\0')
 								part.padding = (has_leading_zero && part.justify == FmtPart::RIGHT) ? '0' : ' ';
 
-							if (part.type == FmtPart::INTEGER && part.base != 10 && part.plus)
+							if (part.type == FmtPart::INTEGER && part.base != 10 && part.sign != FmtPart::MINUS)
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 
 							if (part.type == FmtPart::INTEGER && !has_leading_zero)
@@ -449,12 +466,12 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 						}
 					}
 					if (!part.str.empty()) {
-						part.type = FmtPart::STRING;
+						part.type = FmtPart::LITERAL;
 						parts.push_back(part);
 					}
 				} else {
 					FmtPart part = {};
-					part.type = FmtPart::STRING;
+					part.type = FmtPart::LITERAL;
 					part.str = arg->str;
 					parts.push_back(part);
 				}
@@ -474,7 +491,7 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				for (char c : part.str) {
 					if (c == '%')
 						fmt.str += "%%";
@@ -491,8 +508,8 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				args.push_back(arg);
 
 				fmt.str += '%';
-				if (part.plus)
-					fmt.str += '+';
+				if (part.sign == FmtPart::PLUS_MINUS || part.sign == FmtPart::SPACE_MINUS)
+					fmt.str += '+'; // treat space/minus as plus/minus
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
 				if (part.width == 0) {
@@ -507,13 +524,13 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 					case  2: fmt.str += 'b'; break;
 					case  8: fmt.str += 'o'; break;
 					case 10: fmt.str += 'd'; break;
-					case 16: fmt.str += 'h'; break;
+					case 16: fmt.str += 'h'; break; // treat uppercase hex as lowercase
 					default: log_abort();
 				}
 				break;
 			}
 
-			case FmtPart::CHARACTER: {
+			case FmtPart::STRING: {
 				VerilogFmtArg arg;
 				arg.type = VerilogFmtArg::INTEGER;
 				arg.sig = part.sig;
@@ -549,7 +566,8 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				args.push_back(arg);
 
 				fmt.str += '%';
-				if (part.plus)
+				log_assert(part.sign == FmtPart::MINUS || part.sign == FmtPart::PLUS_MINUS);
+				if (part.sign == FmtPart::PLUS_MINUS)
 					fmt.str += '+';
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
@@ -599,9 +617,9 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << indent << "buf += fmt_part { ";
 		os << "fmt_part::";
 		switch (part.type) {
-			case FmtPart::STRING:    os << "STRING";    break;
+			case FmtPart::LITERAL:   os << "LITERAL";   break;
 			case FmtPart::INTEGER:   os << "INTEGER";   break;
-			case FmtPart::CHARACTER: os << "CHARACTER"; break;
+			case FmtPart::STRING:    os << "STRING";    break;
 			case FmtPart::VLOG_TIME: os << "VLOG_TIME"; break;
 		}
 		os << ", ";
@@ -616,7 +634,8 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << part.width << ", ";
 		os << part.base << ", ";
 		os << part.signed_ << ", ";
-		os << part.plus << ", ";
+		os << part.sign << ", ";
+		os << part.hex_upper << ", ";
 		os << part.realtime;
 		os << " }.render(";
 		emit_sig(part.sig);
@@ -631,12 +650,12 @@ std::string Fmt::render() const
 
 	for (auto &part : parts) {
 		switch (part.type) {
-			case FmtPart::STRING:
+			case FmtPart::LITERAL:
 				str += part.str;
 				break;
 
 			case FmtPart::INTEGER:
-			case FmtPart::CHARACTER:
+			case FmtPart::STRING:
 			case FmtPart::VLOG_TIME: {
 				std::string buf;
 				if (part.type == FmtPart::INTEGER) {
@@ -676,7 +695,7 @@ std::string Fmt::render() const
 							else if (has_z)
 								buf += 'Z';
 							else
-								buf += "0123456789abcdef"[subvalue.as_int()];
+								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
 						}
 						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 10) {
@@ -713,12 +732,15 @@ std::string Fmt::render() const
 								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
 								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
 							}
-							if (negative || part.plus)
-								buf += negative ? '-' : '+';
+							switch (part.sign) {
+								case FmtPart::MINUS:       buf += negative ? "-" : "";  break;
+								case FmtPart::PLUS_MINUS:  buf += negative ? "-" : "+"; break;
+								case FmtPart::SPACE_MINUS: buf += negative ? "-" : " "; break;
+							}
 							std::reverse(buf.begin(), buf.end());
 						}
 					} else log_abort();
-				} else if (part.type == FmtPart::CHARACTER) {
+				} else if (part.type == FmtPart::STRING) {
 					buf = part.sig.as_const().decode_string();
 				} else if (part.type == FmtPart::VLOG_TIME) {
 					// We only render() during initial, so time is always zero.

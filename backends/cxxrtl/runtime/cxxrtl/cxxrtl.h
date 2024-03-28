@@ -1010,19 +1010,19 @@ struct observer {
 // Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
 struct fmt_part {
 	enum {
-		STRING    = 0,
+		LITERAL   = 0,
 		INTEGER   = 1,
-		CHARACTER = 2,
+		STRING    = 2,
 		VLOG_TIME = 3,
 	} type;
 
-	// STRING type
+	// LITERAL type
 	std::string str;
 
-	// INTEGER/CHARACTER types
+	// INTEGER/STRING types
 	// + value<Bits> val;
 
-	// INTEGER/CHARACTER/VLOG_TIME types
+	// INTEGER/STRING/VLOG_TIME types
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
@@ -1033,7 +1033,12 @@ struct fmt_part {
 	// INTEGER type
 	unsigned base; // = 10;
 	bool signed_; // = false;
-	bool plus; // = false;
+	enum {
+		MINUS		= 0,
+		PLUS_MINUS	= 1,
+		SPACE_MINUS	= 2,
+	} sign; // = MINUS;
+	bool hex_upper; // = false;
 
 	// VLOG_TIME type
 	bool realtime; // = false;
@@ -1050,10 +1055,10 @@ struct fmt_part {
 		// chunk access if it turns out to be slow enough to matter.
 		std::string buf;
 		switch (type) {
-			case STRING:
+			case LITERAL:
 				return str;
 
-			case CHARACTER: {
+			case STRING: {
 				buf.reserve(Bits/8);
 				for (int i = 0; i < Bits; i += 8) {
 					char ch = 0;
@@ -1085,7 +1090,7 @@ struct fmt_part {
 						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
 						if (step == 4)
 							value |= val.bit(index + 3) << 3;
-						buf += "0123456789abcdef"[value];
+						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
 					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {
@@ -1104,8 +1109,11 @@ struct fmt_part {
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
 					}
-					if (negative || plus)
-						buf += negative ? '-' : '+';
+					switch (sign) {
+						case MINUS:       buf += negative ? "-" : "";  break;
+						case PLUS_MINUS:  buf += negative ? "-" : "+"; break;
+						case SPACE_MINUS: buf += negative ? "-" : " "; break;
+					}
 					std::reverse(buf.begin(), buf.end());
 				} else assert(false && "Unsupported base for fmt_part");
 				break;
