@@ -1079,7 +1079,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				// when $display()/$write() functions are used in an initial block, print them during synthesis
 				Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base, /*first_arg_at=*/0, /*may_fail=*/true);
 				if (str.substr(0, 8) == "$display")
-					fmt.append_string("\n");
+					fmt.append_literal("\n");
 				log("%s", fmt.render().c_str());
 			}
 
