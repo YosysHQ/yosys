@@ -56,13 +56,14 @@ struct FmtPart {
 		LITERAL  	= 0,
 		INTEGER 	= 1,
 		STRING    = 2,
-		VLOG_TIME = 3,
+		UNICHAR   = 3,
+		VLOG_TIME = 4,
 	} type;
 
 	// LITERAL type
 	std::string str;
 
-	// INTEGER/STRING types
+	// INTEGER/STRING/UNICHAR types
 	RTLIL::SigSpec sig;
 
 	// INTEGER/STRING/VLOG_TIME types

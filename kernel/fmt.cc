@@ -42,9 +42,9 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 		} else if (fmt.substr(i, 2) == "{{") {
 			part.str += '{';
 			++i;
-		} else if (fmt[i] == '}')
+		} else if (fmt[i] == '}') {
 			log_assert(false && "Unexpected '}' in format string");
-		else if (fmt[i] == '{') {
+		} else if (fmt[i] == '{') {
 			if (!part.str.empty()) {
 				part.type = FmtPart::LITERAL;
 				parts.push_back(part);
@@ -73,6 +73,12 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				log_assert(false && "Format part overruns arguments");
 			part.sig = args.extract(0, arg_size);
 			args.remove(0, arg_size);
+
+			if (fmt[i] == 'U') {
+				part.type = FmtPart::UNICHAR;
+				++i;
+				goto success;
+			}
 
 			if (fmt[i] == '>')
 				part.justify = FmtPart::RIGHT;
@@ -156,6 +162,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 					log_assert(false && "Unexpected end in format substitution");
 			}
 
+		success:
 			if (fmt[i] != '}')
 				log_assert(false && "Expected '}' after format substitution");
 
@@ -186,6 +193,11 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 					else
 						fmt += c;
 				}
+				break;
+
+			case FmtPart::UNICHAR:
+				log_assert(part.sig.size() <= 32);
+				fmt += "{U}";
 				break;
 
 			case FmtPart::VLOG_TIME:
@@ -568,6 +580,16 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				break;
 			}
 
+			case FmtPart::UNICHAR: {
+				VerilogFmtArg arg;
+				arg.type = VerilogFmtArg::INTEGER;
+				arg.sig = part.sig.extract(0, 7); // only ASCII
+				args.push_back(arg);
+
+				fmt.str += "%c";
+				break;
+			}
+
 			case FmtPart::VLOG_TIME: {
 				VerilogFmtArg arg;
 				arg.type = VerilogFmtArg::TIME;
@@ -630,6 +652,7 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 			case FmtPart::LITERAL:   os << "LITERAL";   break;
 			case FmtPart::INTEGER:   os << "INTEGER";   break;
 			case FmtPart::STRING:    os << "STRING";    break;
+			case FmtPart::UNICHAR:   os << "UNICHAR";   break;
 			case FmtPart::VLOG_TIME: os << "VLOG_TIME"; break;
 		}
 		os << ", ";
@@ -670,6 +693,26 @@ std::string Fmt::render() const
 			case FmtPart::LITERAL:
 				str += part.str;
 				break;
+
+			case FmtPart::UNICHAR: {
+				RTLIL::Const value = part.sig.as_const();
+				uint32_t codepoint = value.as_int();
+				if (codepoint >= 0x10000)
+					str += (char)(0xf0 |  (codepoint >> 18));
+				else if (codepoint >= 0x800)
+					str += (char)(0xe0 |  (codepoint >> 12));
+				else if (codepoint >= 0x80)
+					str += (char)(0xc0 |  (codepoint >>  6));
+				else
+					str += (char)codepoint;
+				if (codepoint >= 0x10000)
+					str += (char)(0x80 | ((codepoint >> 12) & 0x3f));
+				if (codepoint >= 0x800)
+					str += (char)(0x80 | ((codepoint >>  6) & 0x3f));
+				if (codepoint >= 0x80)
+					str += (char)(0x80 | ((codepoint >>  0) & 0x3f));
+				break;
+			}
 
 			case FmtPart::INTEGER:
 			case FmtPart::STRING:
