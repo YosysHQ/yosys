@@ -1058,6 +1058,7 @@ struct fmt_part {
 		// We might want to replace some of these bit() calls with direct
 		// chunk access if it turns out to be slow enough to matter.
 		std::string buf;
+		std::string prefix;
 		switch (type) {
 			case LITERAL:
 				return str;
@@ -1096,24 +1097,38 @@ struct fmt_part {
 			}
 
 			case INTEGER: {
+				bool negative = signed_ && val.is_neg();
+				if (negative) {
+					prefix = "-";
+					val = val.neg();
+				} else {
+					switch (sign) {
+						case MINUS:       break;
+						case PLUS_MINUS:  prefix = "+"; break;
+						case SPACE_MINUS: prefix = " "; break;
+					}
+				}
+
 				size_t width = Bits;
 				if (base != 10) {
-					width = 0;
+					width = 1;
 					for (size_t index = 0; index < Bits; index++)
 						if (val.bit(index))
 							width = index + 1;
 				}
 
 				if (base == 2) {
+					if (show_base)
+						prefix += "0b";
 					for (size_t index = 0; index < width; index++) {
 						if (group && index > 0 && index % 4 == 0)
 							buf += '_';
 						buf += (val.bit(index) ? '1' : '0');
 					}
-					if (show_base)
-						buf += "b0";
 					std::reverse(buf.begin(), buf.end());
 				} else if (base == 8 || base == 16) {
+					if (show_base)
+						prefix += (base == 16) ? (hex_upper ? "0X" : "0x") : "0o";
 					size_t step = (base == 16) ? 4 : 3;
 					for (size_t index = 0; index < width; index += step) {
 						if (group && index > 0 && index % (4 * step) == 0)
@@ -1123,13 +1138,10 @@ struct fmt_part {
 							value |= val.bit(index + 3) << 3;
 						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
-					if (show_base)
-						buf += (base == 16) ? (hex_upper ? "X0" : "x0") : "o0";
 					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {
-					bool negative = signed_ && val.is_neg();
-					if (negative)
-						val = val.neg();
+					if (show_base)
+						prefix += "0d";
 					if (val.is_zero())
 						buf += '0';
 					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
@@ -1145,13 +1157,6 @@ struct fmt_part {
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
 						index++;
-					}
-					if (show_base)
-						buf += "d0";
-					switch (sign) {
-						case MINUS:       buf += negative ? "-" : "";  break;
-						case PLUS_MINUS:  buf += negative ? "-" : "+"; break;
-						case SPACE_MINUS: buf += negative ? "-" : " "; break;
 					}
 					std::reverse(buf.begin(), buf.end());
 				} else assert(false && "Unsupported base for fmt_part");
@@ -1170,17 +1175,29 @@ struct fmt_part {
 
 		std::string str;
 		assert(width == 0 || padding != '\0');
-		if (justify != LEFT && buf.size() < width) {
-			size_t pad_width = width - buf.size();
-			if (justify == NUMERIC && (buf.front() == '+' || buf.front() == '-' || buf.front() == ' ')) {
-				str += buf.front();
-				buf.erase(0, 1);
-			}
-			str += std::string(pad_width, padding);
+		if (prefix.size() + buf.size() < width) {
+			size_t pad_width = width - prefix.size() - buf.size();
+			switch (justify) {
+				case LEFT:
+					str += prefix;
+					str += buf;
+					str += std::string(pad_width, padding);
+					break;
+				case RIGHT:
+					str += std::string(pad_width, padding);
+					str += prefix;
+					str += buf;
+					break;
+				case NUMERIC:
+					str += prefix;
+					str += std::string(pad_width, padding);
+					str += buf;
+					break;
+				}
+		} else {
+			str += prefix;
+			str += buf;
 		}
-		str += buf;
-		if (justify == LEFT && buf.size() < width)
-			str += std::string(width - buf.size(), padding);
 		return str;
 	}
 };

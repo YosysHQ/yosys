@@ -491,6 +491,8 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (part.type == FmtPart::INTEGER && part.base != 10 && part.sign != FmtPart::MINUS)
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 
+							if (part.base != 10)
+								part.signed_ = false;
 							if (part.type == FmtPart::INTEGER && !has_leading_zero)
 								apply_verilog_automatic_sizing_and_add(part);
 							else
@@ -731,11 +733,34 @@ std::string Fmt::render() const
 			case FmtPart::STRING:
 			case FmtPart::VLOG_TIME: {
 				std::string buf;
+				std::string prefix;
 				if (part.type == FmtPart::INTEGER) {
 					RTLIL::Const value = part.sig.as_const();
+					bool has_x = false, all_x = true, has_z = false, all_z = true;
+					for (State bit : value) {
+						if (bit == State::Sx)
+							has_x = true;
+						else
+							all_x = false;
+						if (bit == State::Sz)
+							has_z = true;
+						else
+							all_z = false;
+					}
+
+					if (!has_z && !has_x && part.signed_ && value[value.size() - 1]) {
+						prefix = "-";
+						value = RTLIL::const_neg(value, {}, part.signed_, {}, value.size() + 1);
+					} else {
+						switch (part.sign) {
+							case FmtPart::MINUS:       break;
+							case FmtPart::PLUS_MINUS:  prefix = "+"; break;
+							case FmtPart::SPACE_MINUS: prefix = " "; break;
+						}
+					}
 
 					if (part.base != 10) {
-						size_t minimum_size = 0;
+						size_t minimum_size = 1;
 						for (size_t index = 0; index < (size_t)value.size(); index++)
 							if (value[index] != State::S0)
 								minimum_size = index + 1;
@@ -743,6 +768,8 @@ std::string Fmt::render() const
 					}
 
 					if (part.base == 2) {
+						if (part.show_base)
+							prefix += "0b";
 						for (size_t index = 0; index < (size_t)value.size(); index++) {
 							if (part.group && index > 0 && index % 4 == 0)
 								buf += '_';
@@ -756,10 +783,10 @@ std::string Fmt::render() const
 							else /* if (bit == State::S0) */
 								buf += '0';
 						}
-						if (part.show_base)
-							buf += "b0";
 						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 8 || part.base == 16) {
+						if (part.show_base)
+							prefix += (part.base == 16) ? (part.hex_upper ? "0X" : "0x") : "0o";
 						size_t step = (part.base == 16) ? 4 : 3;
 						for (size_t index = 0; index < (size_t)value.size(); index += step) {
 							if (part.group && index > 0 && index % (4 * step) == 0)
@@ -787,21 +814,10 @@ std::string Fmt::render() const
 							else
 								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
 						}
-						if (part.show_base)
-							buf += (part.base == 16) ? (part.hex_upper ? "X0" : "x0") : "o0";
 						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 10) {
-						bool has_x = false, all_x = true, has_z = false, all_z = true;
-						for (State bit : value) {
-							if (bit == State::Sx)
-								has_x = true;
-							else
-								all_x = false;
-							if (bit == State::Sz)
-								has_z = true;
-							else
-								all_z = false;
-						}
+						if (part.show_base)
+							prefix += "0d";
 						if (all_x)
 							buf += 'x';
 						else if (all_z)
@@ -811,29 +827,16 @@ std::string Fmt::render() const
 						else if (has_z)
 							buf += 'Z';
 						else {
-							bool negative = part.signed_ && value[value.size() - 1];
-							RTLIL::Const absvalue;
-							if (negative)
-								absvalue = RTLIL::const_neg(value, {}, part.signed_, {}, value.size() + 1);
-							else
-								absvalue = value;
-							log_assert(absvalue.is_fully_def());
-							if (absvalue.is_fully_zero())
+							log_assert(value.is_fully_def());
+							if (value.is_fully_zero())
 								buf += '0';
 							size_t index = 0;
-							while (!absvalue.is_fully_zero())	{
+							while (!value.is_fully_zero())	{
 								if (part.group && index > 0 && index % 3 == 0)
 									buf += '_';
-								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
-								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
+								buf += '0' + RTLIL::const_mod(value, 10, false, false, 4).as_int();
+								value = RTLIL::const_div(value, 10, false, false, value.size());
 								index++;
-							}
-							if (part.show_base)
-								buf += "d0";
-							switch (part.sign) {
-								case FmtPart::MINUS:       buf += negative ? "-" : "";  break;
-								case FmtPart::PLUS_MINUS:  buf += negative ? "-" : "+"; break;
-								case FmtPart::SPACE_MINUS: buf += negative ? "-" : " "; break;
 							}
 							std::reverse(buf.begin(), buf.end());
 						}
@@ -846,17 +849,29 @@ std::string Fmt::render() const
 				}
 
 				log_assert(part.width == 0 || part.padding != '\0');
-				if (part.justify != FmtPart::LEFT && buf.size() < part.width) {
-					size_t pad_width = part.width - buf.size();
-					if (part.justify == FmtPart::NUMERIC && (!buf.empty() && (buf.front() == '+' || buf.front() == '-' || buf.front() == ' '))) {
-						str += buf.front();
-						buf.erase(0, 1);
+				if (prefix.size() + buf.size() < part.width) {
+					size_t pad_width = part.width - prefix.size() - buf.size();
+					switch (part.justify) {
+						case FmtPart::LEFT:
+							str += prefix;
+							str += buf;
+							str += std::string(pad_width, part.padding);
+							break;
+						case FmtPart::RIGHT:
+							str += std::string(pad_width, part.padding);
+							str += prefix;
+							str += buf;
+							break;
+						case FmtPart::NUMERIC:
+							str += prefix;
+							str += std::string(pad_width, part.padding);
+							str += buf;
+							break;
 					}
-					str += std::string(pad_width, part.padding);
+				} else {
+					str += prefix;
+					str += buf;
 				}
-				str += buf;
-				if (part.justify == FmtPart::LEFT && buf.size() < part.width)
-					str += std::string(part.width - buf.size(), part.padding);
 				break;
 			}
 		}
