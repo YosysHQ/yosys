@@ -107,6 +107,10 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				} else if (fmt[i] == 'h') {
 					part.type = FmtPart::INTEGER;
 					part.base = 16;
+				} else if (fmt[i] == 'H') {
+					part.type = FmtPart::INTEGER;
+					part.base = 16;
+					part.hex_upper = true;
 				} else if (fmt[i] == 'c') {
 					part.type = FmtPart::STRING;
 				} else if (fmt[i] == 't') {
@@ -197,7 +201,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						case  2: fmt += 'b'; break;
 						case  8: fmt += 'o'; break;
 						case 10: fmt += 'd'; break;
-						case 16: fmt += 'h'; break;
+						case 16: fmt += part.hex_upper ? 'H' : 'h'; break;
 						default: log_abort();
 					}
 					if (part.plus)
@@ -507,7 +511,7 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 					case  2: fmt.str += 'b'; break;
 					case  8: fmt.str += 'o'; break;
 					case 10: fmt.str += 'd'; break;
-					case 16: fmt.str += 'h'; break;
+					case 16: fmt.str += 'h'; break; // treat uppercase hex as lowercase
 					default: log_abort();
 				}
 				break;
@@ -617,6 +621,7 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		os << part.base << ", ";
 		os << part.signed_ << ", ";
 		os << part.plus << ", ";
+		os << part.hex_upper << ", ";
 		os << part.realtime;
 		os << " }.render(";
 		emit_sig(part.sig);
@@ -676,7 +681,7 @@ std::string Fmt::render() const
 							else if (has_z)
 								buf += 'Z';
 							else
-								buf += "0123456789abcdef"[subvalue.as_int()];
+								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
 						}
 						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 10) {
