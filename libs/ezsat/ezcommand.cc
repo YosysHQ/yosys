@@ -9,19 +9,20 @@ ezSATCommand::~ezSATCommand() {}
 
 bool ezSATCommand::solver(const std::vector<int> &modelExpressions, std::vector<bool> &modelValues, const std::vector<int> &assumptions)
 {
-	if (!assumptions.empty()) {
-		Yosys::log_error("Assumptions are not supported yet by command-based Sat solver\n");
-	}
 	const std::string tempdir_name = Yosys::make_temp_dir(Yosys::get_base_tmpdir() + "/yosys-sat-XXXXXX");
 	const std::string cnf_filename = Yosys::stringf("%s/problem.cnf", tempdir_name.c_str());
 	const std::string sat_command = Yosys::stringf("%s %s", command.c_str(), cnf_filename.c_str());
 	FILE *dimacs = fopen(cnf_filename.c_str(), "w");
-	printDIMACS(dimacs);
-	fclose(dimacs);
 
 	std::vector<int> modelIdx;
 	for (auto id : modelExpressions)
 		modelIdx.push_back(bind(id));
+	std::vector<std::vector<int>> extraClauses;
+	for (auto id : assumptions)
+		extraClauses.push_back({bind(id)});
+
+	printDIMACS(dimacs, false, extraClauses);
+	fclose(dimacs);
 
 	bool status_sat = false;
 	bool status_unsat = false;
