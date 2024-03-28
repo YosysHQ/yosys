@@ -1034,6 +1034,7 @@ struct fmt_part {
 	unsigned base; // = 10;
 	bool signed_; // = false;
 	bool plus; // = false;
+	bool hex_upper; // = false;
 
 	// VLOG_TIME type
 	bool realtime; // = false;
@@ -1085,7 +1086,7 @@ struct fmt_part {
 						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
 						if (step == 4)
 							value |= val.bit(index + 3) << 3;
-						buf += "0123456789abcdef"[value];
+						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
 					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {

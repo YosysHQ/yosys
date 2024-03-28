@@ -77,6 +77,7 @@ struct FmtPart {
 	unsigned base = 10;
 	bool signed_ = false;
 	bool plus = false;
+	bool hex_upper = false;
 
 	// VLOG_TIME type
 	bool realtime = false;
