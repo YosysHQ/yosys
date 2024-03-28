@@ -148,7 +148,7 @@ struct bit_ref_t {
 	int bit;
 };
 
-bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, RTLIL::Design *sel = nullptr,
+bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports, int min_port_width = -1, RTLIL::Design *sel = nullptr,
 		int max_fanout = -1, std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> *split = nullptr)
 {
 	SigMap sigmap(mod);
@@ -206,7 +206,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 
 		for (auto &conn : cell->connections())
 		{
-			graph.createPort(cell->name.str(), conn.first.str(), conn.second.size());
+			graph.createPort(cell->name.str(), conn.first.str(), conn.second.size(), min_port_width);
 
 			if (split && split->count(std::pair<RTLIL::IdString, RTLIL::IdString>(cell->type, conn.first)) > 0)
 				continue;
@@ -314,14 +314,25 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 			continue;
 
 		for (auto &conn : needle_cell->connections()) {
-			RTLIL::SigSpec sig = sigmap(conn.second);
-			if (mapping.portMapping.count(conn.first.str()) > 0 && sig2port.has(sigmap(sig))) {
-				for (int i = 0; i < sig.size(); i++)
-				for (auto &port : sig2port.find(sig[i])) {
-					RTLIL::SigSpec bitsig = haystack_cell->getPort(mapping.portMapping[conn.first.str()]).extract(i, 1);
+			RTLIL::SigSpec nsig = sigmap(conn.second);
+			if (mapping.portMapping.count(conn.first.str()) > 0 && sig2port.has(sigmap(nsig))) {
+				// copy parameters from haystack to new needle cell
+				RTLIL::IdString nconn_width = RTLIL::escape_id(conn.first.str() + "_WIDTH");
+				RTLIL::IdString nconn_sgn   = RTLIL::escape_id(conn.first.str() + "_SIGNED");
+				RTLIL::IdString hport_name  = mapping.portMapping[conn.first.str()];
+				cell->setParam(nconn_width, haystack_cell->getParam(RTLIL::escape_id(hport_name.str() + "_WIDTH")));
+				if(haystack_cell->hasParam(RTLIL::escape_id(hport_name.str() + "_SIGNED"))) {
+					cell->setParam(nconn_sgn,   haystack_cell->getParam(RTLIL::escape_id(hport_name.str() + "_SIGNED")));
+				}
+				// add and connect ports
+				RTLIL::SigSpec hsig = haystack_cell->getPort(hport_name);
+				for (int i = 0; i < nsig.size() && i < hsig.size(); i++)
+				for (auto &port : sig2port.find(nsig[i])) {
+					RTLIL::SigSpec bitsig = hsig.extract(i, 1);
 					RTLIL::SigSpec new_sig = cell->getPort(port.first);
 					new_sig.replace(port.second, bitsig);
 					cell->setPort(port.first, new_sig);
+					
 				}
 			}
 		}
@@ -427,6 +438,10 @@ struct ExtractPass : public Pass {
 		log("    -mine_max_fanout <num>\n");
 		log("        don't consider internal signals with more than <num> connections\n");
 		log("\n");
+		log("    -min_port_width <num>\n");
+		log("        match all subcircuits with port-sizes between needle port widths and this number\n");
+		log("        default: -1 (exact port width matching)\n");
+		log("\n");
 		log("The modules in the map file may have the attribute 'extract_order' set to an\n");
 		log("integer value. Then this value is used to determine the order in which the pass\n");
 		log("tries to map the modules to the design (ascending, default value is 0).\n");
@@ -452,6 +467,7 @@ struct ExtractPass : public Pass {
 		int mine_min_freq = 10;
 		int mine_limit_mod = -1;
 		int mine_max_fanout = -1;
+		int min_port_width = -1;
 		std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> mine_split;
 
 		size_t argidx;
@@ -556,6 +572,10 @@ struct ExtractPass : public Pass {
 				argidx += 2;
 				continue;
 			}
+			if (args[argidx] == "-min_port_width" && argidx+1 < args.size()) {
+				min_port_width = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -628,7 +648,7 @@ struct ExtractPass : public Pass {
 				SubCircuit::Graph mod_graph;
 				std::string graph_name = "needle_" + RTLIL::unescape_id(module->name);
 				log("Creating needle graph %s.\n", graph_name.c_str());
-				if (module2graph(mod_graph, module, constports)) {
+				if (module2graph(mod_graph, module, constports, min_port_width)) {
 					solver.addGraph(graph_name, mod_graph);
 					needle_map[graph_name] = module;
 					needle_list.push_back(module);
@@ -639,7 +659,7 @@ struct ExtractPass : public Pass {
 			SubCircuit::Graph mod_graph;
 			std::string graph_name = "haystack_" + RTLIL::unescape_id(module->name);
 			log("Creating haystack graph %s.\n", graph_name.c_str());
-			if (module2graph(mod_graph, module, constports, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : nullptr)) {
+			if (module2graph(mod_graph, module, constports, -1, design, mine_mode ? mine_max_fanout : -1, mine_mode ? &mine_split : nullptr)) {
 				solver.addGraph(graph_name, mod_graph);
 				haystack_map[graph_name] = module;
 			}
