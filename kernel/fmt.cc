@@ -91,10 +91,7 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 			if (++i == fmt.size())
 				log_assert(false && "Unexpected end in format substitution");
 
-			if (fmt[i] == '0' || fmt[i] == ' ')
-				part.padding = fmt[i];
-			else
-				log_assert(false && "Unexpected padding in format substitution");
+			part.padding = fmt[i];
 			if (++i == fmt.size())
 				log_assert(false && "Unexpected end in format substitution");
 
@@ -550,7 +547,6 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				if (part.width == 0) {
 					fmt.str += '0';
 				} else if (part.width > 0) {
-					log_assert(part.padding == ' ' || part.padding == '0');
 					if (part.base != 10 || part.padding == '0')
 						fmt.str += '0';
 					fmt.str += std::to_string(part.width);
@@ -576,7 +572,6 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 					fmt.str += '-';
 				if (part.sig.size() == 8) {
 					if (part.width > 0) {
-						log_assert(part.padding == '0' || part.padding == ' ');
 						if (part.padding == '0')
 							fmt.str += part.padding;
 						fmt.str += std::to_string(part.width);
@@ -585,7 +580,6 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				} else {
 					log_assert(part.sig.size() % 8 == 0);
 					if (part.width > 0) {
-						log_assert(part.padding == ' '); // no zero padding
 						fmt.str += std::to_string(part.width);
 					}
 					fmt.str += 's';
@@ -616,7 +610,6 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 					fmt.str += '+';
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
-				log_assert(part.padding == ' ' || part.padding == '0');
 				if (part.padding == '0' && part.width > 0)
 					fmt.str += '0';
 				fmt.str += std::to_string(part.width);
