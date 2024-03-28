@@ -1013,13 +1013,14 @@ struct fmt_part {
 		LITERAL   = 0,
 		INTEGER   = 1,
 		STRING    = 2,
-		VLOG_TIME = 3,
+		UNICHAR   = 3,
+		VLOG_TIME = 4,
 	} type;
 
 	// LITERAL type
 	std::string str;
 
-	// INTEGER/STRING types
+	// INTEGER/STRING/UNICHAR types
 	// + value<Bits> val;
 
 	// INTEGER/STRING/VLOG_TIME types
@@ -1070,6 +1071,25 @@ struct fmt_part {
 						buf.append({ch});
 				}
 				std::reverse(buf.begin(), buf.end());
+				break;
+			}
+
+			case UNICHAR: {
+				uint32_t codepoint = val.template get<uint32_t>();
+				if (codepoint >= 0x10000)
+					buf += (char)(0xf0 |  (codepoint >> 18));
+				else if (codepoint >= 0x800)
+					buf += (char)(0xe0 |  (codepoint >> 12));
+				else if (codepoint >= 0x80)
+					buf += (char)(0xc0 |  (codepoint >>  6));
+				else
+					buf += (char)codepoint;
+				if (codepoint >= 0x10000)
+					buf += (char)(0x80 | ((codepoint >> 12) & 0x3f));
+				if (codepoint >= 0x800)
+					buf += (char)(0x80 | ((codepoint >>  6) & 0x3f));
+				if (codepoint >= 0x80)
+					buf += (char)(0x80 | ((codepoint >>  0) & 0x3f));
 				break;
 			}
 
