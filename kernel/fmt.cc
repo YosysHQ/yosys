@@ -152,6 +152,11 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 					// also accept no sign character and treat like MINUS for compatibility
 				}
 
+				if (fmt[i] == '#') {
+					part.show_base = true;
+					++i;
+				}
+
 				if (fmt[i] == 'u')
 					part.signed_ = false;
 				else if (fmt[i] == 's')
@@ -235,6 +240,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						case FmtPart::PLUS_MINUS:  fmt += '+'; break;
 						case FmtPart::SPACE_MINUS: fmt += ' '; break;
 					}
+					fmt += part.show_base ? "#" : "";
 					fmt += part.signed_ ? 's' : 'u';
 				} else if (part.type == FmtPart::STRING) {
 					fmt += 'c';
@@ -676,6 +682,7 @@ void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(c
 		}
 		os << ", ";
 		os << part.hex_upper << ", ";
+		os << part.show_base << ", ";
 		os << part.realtime;
 		os << " }.render(";
 		emit_sig(part.sig);
@@ -730,6 +737,8 @@ std::string Fmt::render() const
 					}
 
 					if (part.base == 2) {
+						if (part.show_base)
+							buf += "0b";
 						buf = value.as_string();
 					} else if (part.base == 8 || part.base == 16) {
 						size_t step = (part.base == 16) ? 4 : 3;
@@ -757,6 +766,8 @@ std::string Fmt::render() const
 							else
 								buf += (part.hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[subvalue.as_int()];
 						}
+						if (part.show_base)
+							buf += (part.base == 16) ? (part.hex_upper ? "X0" : "x0") : "o0";
 						std::reverse(buf.begin(), buf.end());
 					} else if (part.base == 10) {
 						bool has_x = false, all_x = true, has_z = false, all_z = true;
@@ -792,6 +803,8 @@ std::string Fmt::render() const
 								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
 								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
 							}
+							if (part.show_base)
+								buf += "d0";
 							switch (part.sign) {
 								case FmtPart::MINUS:       buf += negative ? "-" : "";  break;
 								case FmtPart::PLUS_MINUS:  buf += negative ? "-" : "+"; break;
