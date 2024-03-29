@@ -625,11 +625,11 @@ struct value : public expr_base<value<Bits>> {
 		value<Bits + 1> remainder;
 		value<Bits + 1> dividend = sext<Bits + 1>();
 		value<Bits + 1> divisor = other.template sext<Bits + 1>();
-		if (dividend.is_neg()) dividend = dividend.neg();
-		if (divisor.is_neg()) divisor = divisor.neg();
+		if (is_neg()) dividend = dividend.neg();
+		if (other.is_neg()) divisor = divisor.neg();
 		std::tie(quotient, remainder) = dividend.udivmod(divisor);
-		if (dividend.is_neg() != divisor.is_neg()) quotient = quotient.neg();
-		if (dividend.is_neg()) remainder = remainder.neg();
+		if (is_neg() != other.is_neg()) quotient = quotient.neg();
+		if (is_neg()) remainder = remainder.neg();
 		return {quotient.template trunc<Bits>(), remainder.template trunc<Bits>()};
 	}
 };
