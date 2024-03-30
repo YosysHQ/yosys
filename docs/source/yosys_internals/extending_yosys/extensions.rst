@@ -24,7 +24,7 @@ Code examples from this section are included in the
 |code_examples/extensions|_ directory of the Yosys source code.
 
 .. |code_examples/extensions| replace:: :file:`docs/source/code_examples/extensions`
-.. _code_examples/extensions: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/extensions
+.. _code_examples/extensions: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/extensions
 
 
 Program components and data formats
@@ -254,7 +254,7 @@ The following is the complete code of the "stubnets" example module. It is
 included in the Yosys source distribution under |code_examples/stubnets|_.
 
 .. |code_examples/stubnets| replace:: :file:`docs/source/code_examples/stubnets`
-.. _code_examples/stubnets: https://github.com/YosysHQ/yosys/tree/master/docs/source/code_examples/stubnets
+.. _code_examples/stubnets: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/stubnets
 
 .. literalinclude:: /code_examples/stubnets/stubnets.cc
     :language: c++

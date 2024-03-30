@@ -46,7 +46,7 @@ Open "Git Bash" in this directory and run:
 	mv yosys yosys.bak
 	git clone https://github.com/YosysHQ/yosys.git yosys
 	cd yosys
-	git checkout -B master $(git rev-parse HEAD | cut -c1-10)
+	git checkout -B main $(git rev-parse HEAD | cut -c1-10)
 	unzip ../genfiles.zip
 EOT
 

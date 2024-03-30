@@ -633,9 +633,9 @@ with the mapping to ``SB_RAM40_4K`` done by :cmd:ref:`techmap` using
 into flip flops (the ``logic fallback``) with :cmd:ref:`memory_map`.
 
 .. |techlibs/ice40/brams.txt| replace:: :file:`techlibs/ice40/brams.txt`
-.. _techlibs/ice40/brams.txt: https://github.com/YosysHQ/yosys/tree/master/techlibs/ice40/brams.txt
+.. _techlibs/ice40/brams.txt: https://github.com/YosysHQ/yosys/tree/main/techlibs/ice40/brams.txt
 .. |techlibs/ice40/brams_map.v| replace:: :file:`techlibs/ice40/brams_map.v`
-.. _techlibs/ice40/brams_map.v: https://github.com/YosysHQ/yosys/tree/master/techlibs/ice40/brams_map.v
+.. _techlibs/ice40/brams_map.v: https://github.com/YosysHQ/yosys/tree/main/techlibs/ice40/brams_map.v
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt

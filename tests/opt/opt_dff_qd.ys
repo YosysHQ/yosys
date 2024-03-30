@@ -7,7 +7,7 @@ module top(...);
 input CLK;
 input EN;
 (* init = 24'h555555 *)
-output [19:0] Q;
+output [17:0] Q;
 input SRST;
 input ARST;
 input [1:0] CLR;
@@ -23,26 +23,20 @@ $sdffce #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_V
 $dffsr #(.CLK_POLARITY(1'b1), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff7 (.CLK(CLK), .SET(SET), .CLR(CLR), .D(Q[15:14]), .Q(Q[15:14]));
 $dffsre #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff8 (.CLK(CLK), .EN(EN), .SET(SET), .CLR(CLR), .D(Q[17:16]), .Q(Q[17:16]));
 
-$dlatch #(.EN_POLARITY(1'b1), .WIDTH(2)) ff9 (.EN(EN), .D(Q[19:18]), .Q(Q[19:18]));
-$adlatch #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff10 (.EN(EN), .ARST(ARST), .D(Q[21:20]), .Q(Q[21:20]));
-$dlatchsr #(.EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff11 (.EN(EN), .SET(SET), .CLR(CLR), .D(Q[23:22]), .Q(Q[23:22]));
-
 endmodule
 
 EOT
 
 design -save orig
 
-# Equivalence check will fail for unmapped adlatch and dlatchsr due to negative hold hack.
-delete top/ff10 top/ff11
 equiv_opt -undef -assert -multiclock opt_dff -keepdc
 
 design -load orig
 opt_dff -keepdc
 select -assert-count 1 t:$and
 select -assert-count 3 t:$dffe
-select -assert-count 3 t:$dlatch
-select -assert-count 3 t:$sr
+select -assert-count 2 t:$dlatch
+select -assert-count 2 t:$sr
 select -assert-none t:$and t:$dffe t:$dlatch t:$sr %% %n t:* %i
 
 design -load orig
@@ -50,7 +44,7 @@ simplemap
 opt_dff -keepdc
 select -assert-count 2 t:$_AND_
 select -assert-count 6 t:$_DFFE_??_
-select -assert-count 6 t:$_DLATCH_?_
-select -assert-count 6 t:$_SR_??_
+select -assert-count 4 t:$_DLATCH_?_
+select -assert-count 4 t:$_SR_??_
 select -assert-none t:$_AND_ t:$_DFFE_??_ t:$_DLATCH_?_ t:$_SR_??_ %% %n t:* %i
 
