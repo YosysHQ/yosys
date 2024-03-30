@@ -307,6 +307,87 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	}
 }
 
+void packed_mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	log_assert(cell->type == ID($mem_v2));
+	Const rd_clk_enable = cell->getParam(ID::RD_CLK_ENABLE);
+	int n_rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+	int abits = cell->getParam(ID::ABITS).as_int();
+	int width = cell->getParam(ID::WIDTH).as_int();
+
+	for (int i = 0; i < n_rd_ports; i++) {
+		if (rd_clk_enable[i] != State::S0) {
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::RD_ARST, i, ID::RD_DATA, i * width + k, -1);
+			continue;
+		}
+
+		for (int j = 0; j < abits; j++)
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::RD_ADDR, i * abits + j,
+								   ID::RD_DATA, i * width + k, -1);
+	}
+}
+
+void memrd_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	log_assert(cell->type.in(ID($memrd), ID($memrd_v2)));
+	int abits = cell->getParam(ID::ABITS).as_int();
+	int width = cell->getParam(ID::WIDTH).as_int();
+
+	if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+		if (cell->type == ID($memrd_v2)) {
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::ARST, 0, ID::DATA, k, -1);
+		}
+		return;
+	}
+
+	for (int j = 0; j < abits; j++)
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ADDR, j, ID::DATA, k, -1);
+}
+
+void mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	if (cell->type == ID($mem_v2))
+		packed_mem_op(db, cell);
+	else if (cell->type.in(ID($memrd), ID($memrd_v2)))
+		memrd_op(db, cell);
+	else if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit)))
+		return; /* no edges here */
+	else
+		log_abort();
+}
+
+void ff_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	int width = cell->getPort(ID::Q).size();
+
+	if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
+		for (int k = 0; k < width; k++) {
+			db->add_edge(cell, ID::D, k, ID::Q, k, -1);
+			db->add_edge(cell, ID::EN, 0, ID::Q, k, -1);
+		}
+	}
+
+	if (cell->hasPort(ID::CLR))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::CLR, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::SET))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::SET, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::ALOAD))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ALOAD, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::AD))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::AD, k, ID::Q, k, -1);
+	if (cell->hasPort(ID::ARST))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ARST, 0, ID::Q, k, -1);
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -361,6 +442,18 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
+	if (cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit))) {
+		mem_op(this, cell);
+		return true;
+	}
+
+	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+		ff_op(this, cell);
+		return true;
+	}
+
+	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
+	// FIXME: $lut $sop $alu $lcu $macc $fa
 	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
 	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
 

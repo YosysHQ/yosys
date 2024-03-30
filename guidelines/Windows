@@ -44,7 +44,7 @@ Visual Studio builds are not directly supported by build scripts, but they are s
 
 1. Easy way
 
-  - Go to https://github.com/YosysHQ/yosys/actions/workflows/vs.yml?query=branch%3Amaster
+  - Go to https://github.com/YosysHQ/yosys/actions/workflows/vs.yml?query=branch%3Amain
   - Click on the most recent completed run
   - In Artifacts region find vcxsrc and click on it to download
   - Unpack downloaded ZIP file
