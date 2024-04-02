@@ -17,10 +17,11 @@
  *
  */
 
-#include "kernel/yosys.h"
-
 #ifndef RTLIL_H
 #define RTLIL_H
+
+#include "kernel/yosys_common.h"
+#include "kernel/yosys.h"
 
 YOSYS_NAMESPACE_BEGIN
 
