@@ -1070,7 +1070,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(";\n");
 		return true;
 	}
-	
+
 	if (cell->type == ID($_BUF_)) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort(ID::Y));
@@ -2276,11 +2276,15 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 					active_initdata[sig[i]] = val[i];
 		}
 
-	if (!module->processes.empty())
-		log_warning("Module %s contains unmapped RTLIL processes. RTLIL processes\n"
-				"can't always be mapped directly to Verilog always blocks. Unintended\n"
-				"changes in simulation behavior are possible! Use \"proc\" to convert\n"
-				"processes to logic networks and registers.\n", log_id(module));
+	bool has_sync_rules = false;
+	for (auto process : module->processes)
+		if (!process.second->syncs.empty())
+			has_sync_rules = true;
+	if (has_sync_rules)
+		log_warning("Module %s contains RTLIL processes with sync rules. Such RTLIL "
+				"processes can't always be mapped directly to Verilog always blocks. "
+				"unintended changes in simulation behavior are possible! Use \"proc\" "
+				"to convert processes to logic networks and registers.\n", log_id(module));
 
 	f << stringf("\n");
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
