@@ -199,9 +199,7 @@ struct QlBramMergePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing QL_BRAM_MERGE pass.\n");
-
-		size_t argidx = 1;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (RTLIL::Module* module : design->selected_modules())
 		{

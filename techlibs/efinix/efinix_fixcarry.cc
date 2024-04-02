@@ -45,12 +45,12 @@ static void fix_carry_chain(Module *module)
 			if (bit_i0 == State::S0 && bit_i1== State::S0) {
 				SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
 				SigBit bit_o = sigmap(cell->getPort(ID::O));
-				ci_bits.insert(bit_ci);				
+				ci_bits.insert(bit_ci);
 				mapping_bits[bit_ci] = bit_o;
 			}
 		}
 	}
-	
+
 	vector<Cell*> adders_to_fix_cells;
 	for (auto cell : module->cells())
 	{
@@ -60,8 +60,8 @@ static void fix_carry_chain(Module *module)
 			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(I1)));
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
-				continue;			
-			if (bit_i0 == State::S0 && bit_i1== State::S0) 
+				continue;
+			if (bit_i0 == State::S0 && bit_i1== State::S0)
 				continue;
 
 			adders_to_fix_cells.push_back(cell);
@@ -83,7 +83,7 @@ static void fix_carry_chain(Module *module)
 		c->setPort(ID(I1), State::S1);
 		c->setPort(ID::CI, State::S0);
 		c->setPort(ID::CO, new_bit);
-		
+
 		cell->setPort(ID::CI, new_bit);
 	}
 }
@@ -102,20 +102,14 @@ struct EfinixCarryFixPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EFINIX_FIXCARRY pass (fix invalid carry chain).\n");
-		
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		Module *module = design->top_module();
 
 		if (module == nullptr)
 			log_cmd_error("No top module found.\n");
 
-		fix_carry_chain(module);		
+		fix_carry_chain(module);
 	}
 } EfinixCarryFixPass;
 

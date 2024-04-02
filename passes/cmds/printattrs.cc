@@ -50,8 +50,7 @@ struct PrintAttrsPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx = 1;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		unsigned int indent = 0;
 		for (auto mod : design->selected_modules())

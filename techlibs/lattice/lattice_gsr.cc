@@ -43,17 +43,7 @@ struct LatticeGsrPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing LATTICE_GSR pass (implement FF init values).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto module : design->selected_modules())
 		{

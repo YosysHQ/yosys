@@ -340,7 +340,7 @@ struct FmcombinePass : public Pass {
 		{
 			log_cmd_error("Invalid number of arguments.\n");
 		}
-		// extra_args(args, argidx, design);
+		// No call to extra_args, we handle this manually
 
 		if (opts.nop && (opts.fwd || opts.bwd))
 			log_cmd_error("Option -nop can not be combined with -fwd and/or -bwd.\n");

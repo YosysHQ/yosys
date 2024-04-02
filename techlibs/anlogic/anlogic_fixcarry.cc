@@ -48,8 +48,8 @@ static void fix_carry_chain(Module *module)
 				SigSpec o = cell->getPort(ID(o));
 				if (GetSize(o) == 2) {
 					SigBit bit_o = o[0];
-					ci_bits.insert(bit_ci);				
-					mapping_bits[bit_ci] = bit_o;				
+					ci_bits.insert(bit_ci);
+					mapping_bits[bit_ci] = bit_o;
 				}
 			}
 		}
@@ -64,8 +64,8 @@ static void fix_carry_chain(Module *module)
 			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(b)));
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
-				continue;			
-			if (bit_i0 == State::S0 && bit_i1== State::S0) 
+				continue;
+			if (bit_i0 == State::S0 && bit_i1== State::S0)
 				continue;
 
 			adders_to_fix_cells.push_back(cell);
@@ -90,10 +90,10 @@ static void fix_carry_chain(Module *module)
 		c->setPort(ID(b), State::S0);
 		c->setPort(ID(c), State::S0);
 		c->setPort(ID(o), bits);
-		
+
 		cell->setPort(ID(c), new_bit);
 	}
-	
+
 }
 
 struct AnlogicCarryFixPass : public Pass {
@@ -110,20 +110,14 @@ struct AnlogicCarryFixPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing anlogic_fixcarry pass (fix invalid carry chain).\n");
-		
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		Module *module = design->top_module();
 
 		if (module == nullptr)
 			log_cmd_error("No top module found.\n");
 
-		fix_carry_chain(module);		
+		fix_carry_chain(module);
 	}
 } AnlogicCarryFixPass;
 

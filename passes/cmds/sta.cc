@@ -289,16 +289,7 @@ struct StaPass : public Pass {
 	{
 		log_header(design, "Executing STA pass (static timing analysis).\n");
 
-		/*
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-TODO") {
-				continue;
-			}
-			break;
-		}
-		*/
-
+		// TODO: there was a commented out -TODO argument
 		extra_args(args, 1, design);
 
 		for (Module *module : design->selected_modules())

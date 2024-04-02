@@ -36,15 +36,7 @@ struct BlackboxPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-???") {
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto module : design->selected_whole_modules_warn(true))
 		{

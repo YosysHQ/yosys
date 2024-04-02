@@ -190,15 +190,7 @@ struct EquivPurgePass : public Pass {
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		log_header(design, "Executing EQUIV_PURGE pass.\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-foobar") {
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto module : design->selected_whole_modules_warn()) {
 			EquivPurgeWorker worker(module);

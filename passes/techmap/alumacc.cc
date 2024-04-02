@@ -563,16 +563,7 @@ struct AlumaccPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ALUMACC pass (create $alu and $macc cells).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-foobar") {
-			// 	foobar_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto mod : design->selected_modules())
 			if (!mod->has_processes_warn()) {

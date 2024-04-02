@@ -150,16 +150,7 @@ struct TestPmgenPass : public Pass {
 	{
 		log_header(design, "Executing TEST_PMGEN pass (-reduce_chain).\n");
 
-		size_t argidx;
-		for (argidx = 2; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 2, design);
 
 		for (auto module : design->selected_modules())
 			while (test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_chain)) {}
@@ -169,16 +160,7 @@ struct TestPmgenPass : public Pass {
 	{
 		log_header(design, "Executing TEST_PMGEN pass (-reduce_tree).\n");
 
-		size_t argidx;
-		for (argidx = 2; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 2, design);
 
 		for (auto module : design->selected_modules())
 			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_tree);
@@ -188,16 +170,7 @@ struct TestPmgenPass : public Pass {
 	{
 		log_header(design, "Executing TEST_PMGEN pass (-eqpmux).\n");
 
-		size_t argidx;
-		for (argidx = 2; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 2, design);
 
 		for (auto module : design->selected_modules())
 			test_pmgen_pm(module, module->selected_cells()).run_eqpmux(opt_eqpmux);
@@ -207,15 +180,7 @@ struct TestPmgenPass : public Pass {
 	{
 		log_header(design, "Executing TEST_PMGEN pass (-generate).\n");
 
-		size_t argidx;
-		for (argidx = 2; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
+		size_t argidx = 2;
 
 		if (argidx+1 != args.size())
 			log_cmd_error("Expected exactly one pattern.\n");

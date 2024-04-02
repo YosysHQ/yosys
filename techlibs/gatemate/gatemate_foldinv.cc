@@ -205,8 +205,7 @@ struct GatemateFoldInvPass : public Pass {
     {
         log_header(design, "Executing GATEMATE_FOLDINV pass (folding LUT tree inverters).\n");
 
-        size_t argidx = 1;
-        extra_args(args, argidx, design);
+        extra_args(args, 1, design);
 
         for (Module *module : design->selected_modules()) {
             FoldInvWorker worker(module);
