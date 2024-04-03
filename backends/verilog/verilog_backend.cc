@@ -2014,22 +2014,29 @@ void dump_sync_effect(std::ostream &f, std::string indent, const RTLIL::SigSpec 
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	if (simple_lhs) {
+	bool all_chunks_wires = true;
+	for (auto &chunk : left.chunks())
+		if (chunk.is_wire() && reg_wires.count(chunk.wire->name))
+			all_chunks_wires = false;
+	if (!simple_lhs && all_chunks_wires) {
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, left);
+		f << stringf(" = ");
+		dump_sigspec(f, right);
+		f << stringf(";\n");
+	} else {
 		int offset = 0;
 		for (auto &chunk : left.chunks()) {
-			f << stringf("%s" "assign ", indent.c_str());
+			if (chunk.is_wire() && reg_wires.count(chunk.wire->name))
+				f << stringf("%s" "always%s\n%s  ", indent.c_str(), systemverilog ? "_comb" : " @*", indent.c_str());
+			else
+				f << stringf("%s" "assign ", indent.c_str());
 			dump_sigspec(f, chunk);
 			f << stringf(" = ");
 			dump_sigspec(f, right.extract(offset, GetSize(chunk)));
 			f << stringf(";\n");
 			offset += GetSize(chunk);
 		}
-	} else {
-		f << stringf("%s" "assign ", indent.c_str());
-		dump_sigspec(f, left);
-		f << stringf(" = ");
-		dump_sigspec(f, right);
-		f << stringf(";\n");
 	}
 }
 
