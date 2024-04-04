@@ -52,8 +52,8 @@ or in generic synthesis call with -booth argument:
 synth -top my_design -booth
 */
 
-//FIXME: These debug prints are broken now, should be fixed or removed.
 //#define DEBUG_CPA
+//#define DEBUG_CSA 1
 
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
@@ -104,8 +104,7 @@ struct BoothPassWorker {
 	}
 
 	// Booth unsigned radix 4 encoder
-	void BuildBur4e(std::string name, SigBit y0_i, SigBit y1_i, SigBit y2_i,
-			SigBit &one_o, SigBit &two_o, SigBit &s_o, SigBit &sb_o)
+	void BuildBur4e(std::string name, SigBit y0_i, SigBit y1_i, SigBit y2_i, SigBit &one_o, SigBit &two_o, SigBit &s_o, SigBit &sb_o)
 	{
 		one_o = module->XorGate(NEW_ID_SUFFIX(name), y0_i, y1_i);
 		s_o = y2_i;
@@ -116,8 +115,7 @@ struct BoothPassWorker {
 
 	void BuildBr4e(std::string name, SigBit y2_m1_i,
 		       SigBit y2_i, // y2i
-		       SigBit y2_p1_i,
-		       SigBit &negi_o, SigBit &twoi_n_o, SigBit &onei_n_o, SigBit &cori_o)
+		       SigBit y2_p1_i, SigBit &negi_o, SigBit &twoi_n_o, SigBit &onei_n_o, SigBit &cori_o)
 	{
 		auto y2_p1_n = module->NotGate(NEW_ID_SUFFIX(name), y2_p1_i);
 		auto y2_n = module->NotGate(NEW_ID_SUFFIX(name), y2_i);
@@ -130,9 +128,8 @@ struct BoothPassWorker {
 		//    (y2_p1 & y2_n & y2_m1_n)
 		// )
 		twoi_n_o = module->NorGate(NEW_ID_SUFFIX(name),
-			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_n, module->AndGate(NEW_ID_SUFFIX(name), y2_i, y2_m1_i)),
-			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_i, module->AndGate(NEW_ID_SUFFIX(name), y2_n, y2_m1_n))
-		);
+					   module->AndGate(NEW_ID_SUFFIX(name), y2_p1_n, module->AndGate(NEW_ID_SUFFIX(name), y2_i, y2_m1_i)),
+					   module->AndGate(NEW_ID_SUFFIX(name), y2_p1_i, module->AndGate(NEW_ID_SUFFIX(name), y2_n, y2_m1_n)));
 
 		// onei_n = ~(y2_m1_i ^ y2_i);
 		onei_n_o = module->XnorGate(NEW_ID_SUFFIX(name), y2_m1_i, y2_i);
@@ -143,17 +140,14 @@ struct BoothPassWorker {
 	//
 	// signed booth radix 4 decoder
 	//
-	void BuildBr4d(std::string name, SigBit nxj_m1_i, SigBit twoi_n_i, SigBit xj_i, SigBit negi_i, SigBit onei_n_i,
-		       SigBit &ppij_o, SigBit &nxj_o)
+	void BuildBr4d(std::string name, SigBit nxj_m1_i, SigBit twoi_n_i, SigBit xj_i, SigBit negi_i, SigBit onei_n_i, SigBit &ppij_o, SigBit &nxj_o)
 	{
 		// nxj_in = xnor(xj,negi)
 		// nxj_o = xnj_in,
 		// ppij = ~( (nxj_m1_i | twoi_n_i) & (nxj_int | onei_n_i));
 		nxj_o = module->XnorGate(NEW_ID_SUFFIX(name), xj_i, negi_i);
-		ppij_o = module->NandGate(NEW_ID_SUFFIX(name),
-			module->OrGate(NEW_ID_SUFFIX(name), nxj_m1_i, twoi_n_i),
-			module->OrGate(NEW_ID_SUFFIX(name), nxj_o, onei_n_i)
-		);
+		ppij_o = module->NandGate(NEW_ID_SUFFIX(name), module->OrGate(NEW_ID_SUFFIX(name), nxj_m1_i, twoi_n_i),
+					  module->OrGate(NEW_ID_SUFFIX(name), nxj_o, onei_n_i));
 	}
 
 	/*
@@ -161,9 +155,8 @@ struct BoothPassWorker {
 	  using non-booth encoded logic. We can save a booth
 	  encoder for the first couple of bits.
 	*/
-	void BuildBoothQ1(std::string name, SigBit negi_i, SigBit cori_i, SigBit x0_i, SigBit x1_i, SigBit y0_i,
-			  SigBit y1_i,
-			  SigBit &nxj_o, SigBit &cor_o, SigBit &pp0_o, SigBit &pp1_o)
+	void BuildBoothQ1(std::string name, SigBit negi_i, SigBit cori_i, SigBit x0_i, SigBit x1_i, SigBit y0_i, SigBit y1_i, SigBit &nxj_o,
+			  SigBit &cor_o, SigBit &pp0_o, SigBit &pp1_o)
 	{
 		/*
 		  assign NXJO = ~(X1 ^ NEGI);
@@ -186,9 +179,8 @@ struct BoothPassWorker {
 		cor_o = module->AndGate(NEW_ID_SUFFIX(name), pp1_nor_pp0, cori_i);
 	}
 
-	void BuildBitwiseFa(Module *mod, std::string name, const SigSpec &sig_a, const SigSpec &sig_b,
-			    const SigSpec &sig_c, const SigSpec &sig_x, const SigSpec &sig_y,
-			    const std::string &src = "")
+	void BuildBitwiseFa(Module *mod, std::string name, const SigSpec &sig_a, const SigSpec &sig_b, const SigSpec &sig_c, const SigSpec &sig_x,
+			    const SigSpec &sig_y, const std::string &src = "")
 	{
 		// We can't emit a single wide full-adder cell here since
 		// there would typically be feedback loops involving the cells'
@@ -200,8 +192,7 @@ struct BoothPassWorker {
 		log_assert(sig_a.size() == sig_y.size());
 
 		for (int i = 0; i < sig_a.size(); i++)
-			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i],
-				   sig_c[i], sig_x[i], sig_y[i], src);
+			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i], sig_c[i], sig_x[i], sig_y[i], src);
 	}
 
 	void run()
@@ -216,8 +207,7 @@ struct BoothPassWorker {
 			int x_sz = GetSize(A), y_sz = GetSize(B), z_sz = GetSize(Y);
 
 			if (x_sz < 4 || y_sz < 4 || z_sz < 8) {
-				log_debug("Not mapping cell %s sized at %dx%x, %x: size below threshold\n",
-					  log_id(cell), x_sz, y_sz, z_sz);
+				log_debug("Not mapping cell %s sized at %dx%x, %x: size below threshold\n", log_id(cell), x_sz, y_sz, z_sz);
 				continue;
 			}
 
@@ -240,7 +230,7 @@ struct BoothPassWorker {
 						y_sz_revised = y_sz + 1;
 					} else {
 						x_sz_revised = y_sz;
-					}		
+					}
 				} else {
 					if (x_sz % 2 != 0) {
 						y_sz_revised = x_sz + 1;
@@ -257,7 +247,6 @@ struct BoothPassWorker {
 			}
 
 			log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
-
 
 			A.extend_u0(x_sz_revised, is_signed);
 			B.extend_u0(y_sz_revised, is_signed);
@@ -280,18 +269,16 @@ struct BoothPassWorker {
 
 			if (!lowpower)
 				CreateBoothMult(module,
-					A, // multiplicand
-					B, // multiplier(scanned)
-					Y, // result
-					is_signed
-				);
+						A, // multiplicand
+						B, // multiplier(scanned)
+						Y, // result
+						is_signed);
 			else
 				CreateBoothLowpowerMult(module,
-					A, // multiplicand
-					B, // multiplier(scanned)
-					Y, // result
-					is_signed
-				);
+							A, // multiplicand
+							B, // multiplier(scanned)
+							Y, // result
+							is_signed);
 
 			module->remove(cell);
 			booth_counter++;
@@ -306,11 +293,10 @@ struct BoothPassWorker {
 		while (summands.size() > 2) {
 			std::vector<SigSpec> new_summands;
 			int i;
-			for (i = 0; i < (int) summands.size() - 2; i += 3) {
+			for (i = 0; i < (int)summands.size() - 2; i += 3) {
 				SigSpec x = module->addWire(NEW_ID, width);
 				SigSpec y = module->addWire(NEW_ID, width);
-				BuildBitwiseFa(module, NEW_ID.str(), summands[i], summands[i + 1],
-					       summands[i + 2], x, y);
+				BuildBitwiseFa(module, NEW_ID.str(), summands[i], summands[i + 1], summands[i + 2], x, y);
 				new_summands.push_back(y);
 				new_summands.push_back({x.extract(0, width - 1), State::S0});
 			}
@@ -335,10 +321,9 @@ struct BoothPassWorker {
 	*/
 
 	void CreateBoothMult(RTLIL::Module *module,
-			      SigSpec X, // multiplicand
-			      SigSpec Y, // multiplier
-			      SigSpec Z,
-			      bool is_signed)
+			     SigSpec X, // multiplicand
+			     SigSpec Y, // multiplier
+			     SigSpec Z, bool is_signed)
 	{ // result
 		int z_sz = Z.size();
 
@@ -369,14 +354,11 @@ struct BoothPassWorker {
 			SigSpec ppij_row_n;
 
 			BuildBoothMultDecoderRowN(module,
-						   X, // multiplicand
-						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i,
-						   is_signed
-			);
+						  X, // multiplicand
+						  one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i, is_signed);
 			// data, shift, sign
 			ppij_int.push_back(std::make_tuple(ppij_row_n, i * 2, s_int[i]));
 		}
-
 
 		//  Debug dump out partial products
 		//  DebugDumpPP(ppij_int);
@@ -394,18 +376,51 @@ struct BoothPassWorker {
 
 		// Debug: dump out aligned partial products.
 		// Later on yosys will clean up unused constants
-		//  DebugDumpAlignPP(aligned_pp);
 
-		SigSig wtree_sum = WallaceSum(z_sz, aligned_pp);
+#ifdef DEBUG_CSA
+		DebugDumpAlignPP(aligned_pp);
+#endif
+		// SigSig wtree_sum =  WallaceSum(z_sz, aligned_pp);
 
+		SigSpec s_vec;
+		SigSpec c_vec;
+
+		std::vector<std::vector<RTLIL::Cell *>> debug_csa_trees;
+		BuildCSATree(module, aligned_pp, s_vec, c_vec, debug_csa_trees);
+#ifdef DEBUG_CSA
+		printf("Size of Sum Vec %d Size of Carry Vec %d\n", s_vec.size(), c_vec.size());
+		printf("Sum Vec %s \n", s_vec.as_string().c_str());
+		printf("Carry Vec %s \n", c_vec.as_string().c_str());
+		printf("Size of Sum %d Size of Result %d\n", s_vec.size(), Z.size());
+#endif
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
+		//		BuildCPA(module, s_vec, c_vec, Z);
 		// Build the CPA to do the final accumulation.
-		log_assert(wtree_sum.second[0] == State::S0);
-		if (mapped_cpa)
-			BuildCPA(module, wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
-		else
-			module->addAdd(NEW_ID, wtree_sum.first, {wtree_sum.second.extract_end(1), State::S0}, Z);
+		// log_assert(wtree_sum.second[0] == State::S0);
+		// wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
+
+		//		if (mapped_cpa)
+		//			BuildCPA(module, wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
+		//		else
+		// printf("Svec size %d c_vec size %d\n", s_vec.size(), c_vec.size());
+		//		module->addAdd(NEW_ID, s_vec,
+		//			       {c_vec.extract(0,c_vec.size()-1),State::S0}, Z);
+
+		// Brent Kung adder
+		SigSpec g = module->addWire(NEW_ID, s_vec.size());
+		SigSpec p = module->addWire(NEW_ID, s_vec.size());
+		SigSpec co = module->addWire(NEW_ID, s_vec.size());
+		module->addAnd(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, g);
+		module->addXor(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, p);
+		auto lcu = module->addCell(NEW_ID, ID($lcu));
+		auto lcu_int = module->addWire(NEW_ID, s_vec.size());
+		lcu->setParam(ID::WIDTH, s_vec.size());
+		lcu->setPort(ID::G, g);
+		lcu->setPort(ID::P, p);
+		lcu->setPort(ID::CI, State::S0);
+		lcu->setPort(ID::CO, lcu_int);
+		module->addXor(NEW_ID, p, {lcu_int, State::S0}, Z);
 	}
 
 	/*
@@ -413,9 +428,8 @@ struct BoothPassWorker {
 	*/
 
 	void BuildBoothMultDecoderRow0(RTLIL::Module *module,
-					SigSpec X, // multiplicand
-					SigSpec s_int, SigSpec sb_int, SigSpec one_int,
-					SigSpec two_int, SigSpec &ppij_vec, bool is_signed)
+				       SigSpec X, // multiplicand
+				       SigSpec s_int, SigSpec sb_int, SigSpec one_int, SigSpec two_int, SigSpec &ppij_vec, bool is_signed)
 	{
 		(void)sb_int;
 		(void)module;
@@ -427,21 +441,19 @@ struct BoothPassWorker {
 
 		// 1..xsize -1
 		for (int i = 1; i < x_sz; i++)
-			ppij_vec.append(Bur4d_n(stringf("row0_dec_%d", i), X[i], X[i - 1],
-						one_int[0], two_int[0], s_int[0]));
-
+			ppij_vec.append(Bur4d_n(stringf("row0_dec_%d", i), X[i], X[i - 1], one_int[0], two_int[0], s_int[0]));
 
 		// The redundant bit. Duplicate decoding of last bit.
 		if (!is_signed) {
 			ppij_vec.append(Bur4d_msb("row0_dec_msb", X.msb(), two_int[0], s_int[0]));
 		} else {
-			ppij_vec.append(Bur4d_n("row0_dec_msb", X.msb(), X.msb(),
-										  one_int[0], two_int[0], s_int[0]));
+			ppij_vec.append(Bur4d_n("row0_dec_msb", X.msb(), X.msb(), one_int[0], two_int[0], s_int[0]));
 		}
 
 		// append the sign bits
 		if (is_signed) {
-			SigBit e = module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int[0], one_int[0])));
+			SigBit e =
+			  module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int[0], one_int[0])));
 			ppij_vec.append({module->NotGate(NEW_ID, e), e, e});
 		} else {
 			// append the sign bits
@@ -452,10 +464,8 @@ struct BoothPassWorker {
 	// Build a generic row of decoders.
 
 	void BuildBoothMultDecoderRowN(RTLIL::Module *module,
-					SigSpec X, // multiplicand
-					SigSpec one_int, SigSpec two_int, SigSpec s_int, SigSpec sb_int,
-					SigSpec &ppij_vec, int row_ix,
-					bool is_signed)
+				       SigSpec X, // multiplicand
+				       SigSpec one_int, SigSpec two_int, SigSpec s_int, SigSpec sb_int, SigSpec &ppij_vec, int row_ix, bool is_signed)
 	{
 		(void)module;
 		int x_sz = GetSize(X);
@@ -465,28 +475,124 @@ struct BoothPassWorker {
 
 		// core bits
 		for (int i = 1; i < x_sz; i++)
-			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_%d", row_ix, i), X[i], X[i - 1],
-				     		one_int, two_int, s_int));
+			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_%d", row_ix, i), X[i], X[i - 1], one_int, two_int, s_int));
 
-		if (!is_signed) {			// redundant bit
+		if (!is_signed) { // redundant bit
 			ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
 		} else {
-			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_msb", row_ix), X[x_sz - 1], X[x_sz - 1],
-				     					one_int, two_int, s_int));
+			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_msb", row_ix), X[x_sz - 1], X[x_sz - 1], one_int, two_int, s_int));
 		}
 
-		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int, one_int))));
+		ppij_vec.append(!is_signed
+				  ? sb_int[0]
+				  : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int, one_int))));
 		ppij_vec.append(State::S1);
 	}
 
-	void DebugDumpAlignPP(std::vector<std::vector<RTLIL::Wire *>> &aligned_pp)
+	void DumpModule()
+	{
+		printf("Cells\n");
+		for (auto cell : module->cells_) {
+			printf("+Cell %s type %s\n", cell.first.c_str(), cell.second->type.c_str());
+			printf("Connections on cell\n");
+			for (auto c : cell.second->connections()) {
+				printf("Connection %s\n", c.first.c_str());
+				DumpSigSpec(1, c.second);
+			}
+			printf("-\n");
+		}
+		printf("Wires\n");
+		for (auto w : module->wires_) {
+			printf("Wire %s (%p) width %d port_id %d dir %s\n", w.first.c_str(), w.second, w.second->width, w.second->port_id,
+			       w.second->port_input ? "input" : "output");
+		}
+		printf("Connections\n");
+		for (auto con : module->connections_) {
+			SigSpec from = con.first;
+			SigSpec to = con.second;
+			printf("\t From connection %s  width %d bit lengtht %d", from.is_wire() ? "wire" : "?", from.size(), from.bits().size());
+			printf("\tTo connection %s ", to.is_wire() ? "wire" : to.is_bit() ? "bit" : to.is_chunk() ? "chunk" : "?");
+			if (to.is_bit()) {
+				RTLIL::SigBit sb = to.as_bit();
+				if (to.as_bit().wire) {
+					printf("Sig bit wire offset %d dir %s\n", to.as_bit().offset, to.as_bit().wire->port_input ? "ip" : "op");
+				} else
+					printf("Sig bit value is state\n");
+			}
+			printf("\n");
+		}
+	}
+
+	std::string Indent(int indent)
+	{
+		std::string ret = "";
+		for (int i = 0; i < indent; i++)
+			ret = ret + '\t';
+		return ret;
+	}
+
+	void DumpSigSpec(int ident, RTLIL::SigSpec sp, std::string hdr = "")
+	{
+		printf("%s Sig spec %s\n", Indent(ident).c_str(), hdr.c_str());
+		printf("%s Width %d\n", Indent(ident + 1).c_str(), sp.size());
+		printf("%s Type: %s\n", Indent(ident + 1).c_str(),
+		       sp.is_wire()
+			 ? "wire"
+			 : sp.is_chunk() ? "chunk"
+					 : sp.is_bit() ? "bit"
+						       : sp.is_fully_const()
+							   ? "fully const"
+							   : sp.is_fully_def()
+							       ? "fully def"
+							       : sp.is_fully_undef() ? "fully undef" : sp.has_marked_bits() ? "marked bits" : "unk");
+
+		printf("%s Number of bits %d Number of chunks %d\n", Indent(ident + 1).c_str(), sp.bits().size(), sp.chunks().size());
+		printf("%s Bits:\n", Indent(ident + 1).c_str());
+		int count = 0;
+		// b is SigBit
+		for (auto b : sp.bits()) {
+			if (b.wire) {
+				printf("%s [%d] Bit wire %s (%p)\n", Indent(ident + 1).c_str(), count, b.wire->name.c_str(), b.wire);
+			} else {
+				if (b.data == State::S0)
+					printf("%s Bit constant 0\n", Indent(ident + 1).c_str());
+				else if (b.data == State::S1)
+					printf("%s Bit constant 1\n", Indent(ident + 1).c_str());
+				else
+					printf("%s Unknown constant\n", Indent(ident + 1).c_str());
+			}
+			count++;
+		}
+
+		/*
+		count=0;
+		printf("%s Chunks:\n",Indent(ident).c_str());
+		if (sp.chunks().size() >0){
+		  for (auto sc: sp.chunks()){
+		    printf("%s [%d] Chunk wire %s (%p)width %d offset %d\n",
+			   Indent(ident).c_str(),
+			   count,
+			   sc.wire ? sc.wire -> name.c_str(): "non-wire chunk: empty",
+			   sc.wire,
+			   sc.width,
+			   sc.offset);
+		    count++;
+		}
+		}
+		*/
+	}
+
+	void DebugDumpAlignPP(std::vector<SigSpec> &aligned_pp)
 	{
 		printf("Aligned & Padded Partial products\n");
 		int pp_ix = 0;
 		for (auto pp_row : aligned_pp) {
 			printf("PP_%d \t", pp_ix);
-			for (unsigned i = 0; i < pp_row.size(); i++)
-				printf("[%d] %s ", i, pp_row[i] == nullptr ? " 0 " : pp_row[i]->name.c_str());
+			for (int i = 0; i < pp_row.size(); i++) {
+				RTLIL::SigSpec sb_el = pp_row.extract(i);
+				std::string col_ix = "PP_" + std::to_string(pp_ix) + " col" + std::to_string(i);
+				DumpSigSpec(1, sb_el, col_ix);
+			}
 			printf("\n");
 			pp_ix++;
 		}
@@ -558,8 +664,145 @@ struct BoothPassWorker {
 		}
 	}
 
-	void BuildCSATree(RTLIL::Module *module, std::vector<SigSpec> &bits_to_reduce, SigSpec &s_vec,
-			  SigSpec &c_vec, std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
+	/*
+	  Decompose the bits for pp[x] 2**n to reduce into groups of 3. Each group
+	  will ultimately feed a csa. Where we have odd bits
+	  we put them in A, B.
+	 */
+	void makeCSAGroups(SigSpec bits_to_reduce, std::vector<std::tuple<SigBit, SigBit, SigBit>> &groups, SigBit &A, SigBit &B)
+	{
+		int bit_ix = 0;
+		A = State::S0;
+		B = State::S0;
+		while (bit_ix < bits_to_reduce.size()) {
+			if (bit_ix == (bits_to_reduce.size() - 1)) {
+				A = bits_to_reduce.extract(bit_ix);
+				bit_ix++;
+			} else if (bit_ix == bits_to_reduce.size() - 2) {
+				A = bits_to_reduce.extract(bit_ix);
+				B = bits_to_reduce.extract(bit_ix + 1);
+				bit_ix = bit_ix + 2;
+			} else {
+				groups.push_back(std::make_tuple(bits_to_reduce.extract(bit_ix), bits_to_reduce.extract(bit_ix + 1),
+								 bits_to_reduce.extract(bit_ix + 2)));
+				bit_ix = bit_ix + 3;
+			}
+		}
+	}
+
+	void makeCSARow(int row_ix, std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees, RTLIL::Module *module,
+			std::vector<std::tuple<SigBit, SigBit, SigBit>> &groups, SigBit &A, SigBit &B, SigSpec &carry_bits_to_sum,
+			SigSpec &next_bits_to_reduce)
+	{
+		int col_ix = 0;
+		std::vector<RTLIL::Cell *> csa_row;
+
+		for (auto g : groups) {
+			std::string csa_name = "csa_" + std::to_string(row_ix) + "_" + std::to_string(col_ix);
+			auto csa = module->addCell(new_id(csa_name, __LINE__, ""), ID($fa));
+			csa_row.push_back(csa);
+			csa->setParam(ID::WIDTH, 1);
+			col_ix++;
+			csa->setPort(ID::A, get<0>(g));
+			csa->setPort(ID::B, get<1>(g));
+			csa->setPort(ID::C, get<2>(g));
+			std::string s_name = "s_" + std::to_string(row_ix) + "_" + std::to_string(col_ix);
+			std::string c_name = "c_" + std::to_string(row_ix) + "_" + std::to_string(col_ix);
+			SigBit sum = module->addWire(new_id(s_name, __LINE__, ""), 1);
+			SigBit carry = module->addWire(new_id(c_name, __LINE__, ""), 1);
+			csa->setPort(ID::Y, sum);
+			csa->setPort(ID::X, carry);
+			carry_bits_to_sum.append(carry);
+			next_bits_to_reduce.append(sum);
+
+#ifdef DEBUG_CSA
+			printf("CSA Appending carry bit %s\n", carry.is_wire() ? carry.wire->name.c_str() : "unk");
+			printf("New number of carry bits %d \n", carry_bits_to_sum.size());
+			DumpSigSpec(1, carry_bits_to_sum);
+#endif
+		}
+
+		if (A != State::S0 && B != State::S0) {
+			SigBit sum;
+			SigBit carry;
+			std::string ha_name = "ha_" + std::to_string(row_ix) + "_" + std::to_string(col_ix);
+			BuildHa(ha_name, A, B, sum, carry);
+			carry_bits_to_sum.append(carry);
+			next_bits_to_reduce.append(sum);
+#ifdef DEBUG_CSA
+			printf("HA Appending carry bit %s\n", carry.is_wire() ? carry.wire->name.c_str() : "unk");
+			printf("New number of carry bits %d \n", carry_bits_to_sum.size());
+			DumpSigSpec(1, carry_bits_to_sum);
+#endif
+
+		} else if (A != State::S0) {
+			next_bits_to_reduce.append(A);
+			col_ix++;
+		}
+		debug_csa_trees.push_back(csa_row);
+	}
+
+	void ReduceBitsParallel(RTLIL::Module *module, int column_ix, SigSpec column_bits, SigBit &s_result, SigBit &c_result,
+				SigSpec &carry_bits_to_sum, std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
+	{
+		(void)column_ix;
+
+#ifdef DEBUG_CSA
+		if (column_bits.size() > 0)
+			printf("Parallel Column %d reduce bits parallel given %d bits (%s) to reduce\n", column_ix, column_bits.size(),
+			       column_bits.as_string().c_str());
+		else
+			printf("Column %d given %d bits\n", column_ix, 0);
+
+#endif
+		SigSpec next_bits_to_reduce = column_bits;
+		std::vector<std::tuple<SigBit, SigBit, SigBit>> groups;
+
+		SigBit A;
+		SigBit B;
+		int row_ix = 0;
+
+		while (next_bits_to_reduce.size() > 1) {
+
+#ifdef DEBUG_CSA
+			printf("Row %d Column %d Reducing %d bits\n", row_ix, column_ix, next_bits_to_reduce.size());
+#endif
+			groups.clear();
+			makeCSAGroups(next_bits_to_reduce, groups, A, B);
+#ifdef DEBUG_CSA
+			printf("Row %d Got %ld groups to reduce + A %d + B %d\n", row_ix, groups.size(), A == State::S0 ? 0 : 1,
+			       B == State::S0 ? 0 : 1);
+#endif
+
+			SigSpec csa_row_bits;
+			int csa_count_before = debug_csa_trees.size();
+			makeCSARow(row_ix, debug_csa_trees, module, groups, A, B, carry_bits_to_sum, csa_row_bits);
+			int csa_count_after = debug_csa_trees.size();
+
+#ifdef DEBUG_CSA
+			printf("Reduced %d bits to %d bits using %d csa components\n", next_bits_to_reduce.size(), csa_row_bits.size(),
+			       csa_count_after - csa_count_before);
+#endif
+
+			next_bits_to_reduce = csa_row_bits;
+			row_ix++;
+		}
+
+		s_result = State::S0;
+		c_result = State::S0;
+		if (next_bits_to_reduce.size() == 1)
+			s_result = next_bits_to_reduce.extract(0);
+		if (carry_bits_to_sum.size() > 0) {
+			c_result = carry_bits_to_sum.extract(carry_bits_to_sum.size() - 1);
+			carry_bits_to_sum.remove(carry_bits_to_sum.size() - 1);
+		}
+	}
+
+	/*
+	  Build a parallel CSA tree
+	 */
+	void BuildCSATree(RTLIL::Module *module, std::vector<SigSpec> &bits_to_reduce, SigSpec &s_vec, SigSpec &c_vec,
+			  std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
 	{
 
 		if (!(bits_to_reduce.size() > 0))
@@ -568,6 +811,10 @@ struct BoothPassWorker {
 		int column_size = bits_to_reduce[0].size();
 		int row_size = bits_to_reduce.size();
 		SigSpec carry_bits_to_add_to_next_column;
+
+#ifdef DEBUG_CSA
+		printf("Reducing %d partial products. Each with %d columns\n", row_size, column_size);
+#endif
 
 		for (int column_ix = 0; column_ix < column_size; column_ix++) {
 
@@ -578,8 +825,9 @@ struct BoothPassWorker {
 					column_bits.append(bits_to_reduce[row_ix][column_ix]);
 			}
 			for (auto c : carry_bits_to_add_to_next_column) {
+
 #ifdef DEBUG_CSA
-				printf("\t Propagating column bit %s to column %d from column %d\n", c->name.c_str(), column_ix, column_ix - 1);
+				printf("\t Propagating column bit %s to column %d from column %d\n", c.wire->name.c_str(), column_ix, column_ix - 1);
 #endif
 				column_bits.append(c);
 			}
@@ -589,25 +837,26 @@ struct BoothPassWorker {
 #ifdef DEBUG_CSA
 			printf("Column %d Reducing %d bits\n", column_ix, column_bits.size());
 			for (auto b : column_bits) {
-				printf("\t %s\n", b->name.c_str());
+				printf("\t %s\n", b.wire ? b.wire->name.c_str()
+							 : b.data == State::S0 ? "Const 0" : (b.data == State::S1 ? "Const 1" : " Unk constant"));
 			}
 			printf("\n");
 #endif
-
 			SigBit s, c;
-#ifdef DEBUG_CSA
-			int csa_count_before = debug_csa_trees[column_ix].size();
-#endif
 
-			ReduceBits(module, column_ix, column_bits, s, c, carry_bits_to_add_to_next_column, debug_csa_trees);
+			ReduceBitsParallel(module, column_ix, column_bits, s, c, carry_bits_to_add_to_next_column, debug_csa_trees);
 
 			s_vec.append(s);
 			c_vec.append(c);
 
 #ifdef DEBUG_CSA
-			int csa_count_after = debug_csa_trees[column_ix].size();
-
-			printf("Column %d Created %d csa tree elements\n", column_ix, csa_count_after - csa_count_before);
+			printf("#Carry bits to next column: %d (%s)\n", carry_bits_to_add_to_next_column.size(),
+			       carry_bits_to_add_to_next_column.as_string().c_str());
+			for (auto b : carry_bits_to_add_to_next_column) {
+				printf("\t %s\n", b.wire ? b.wire->name.c_str()
+							 : b.data == State::S0 ? "Const 0" : (b.data == State::S1 ? "Const 1" : " Unk constant"));
+			}
+			printf("\n");
 #endif
 		}
 	}
@@ -632,14 +881,12 @@ struct BoothPassWorker {
 	  Pad out rows with zeros and left the opt pass clean them up.
 
 	*/
-	void AlignPP(int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int,
-		     std::vector<SigSpec> &aligned_pp)
+	void AlignPP(int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int, std::vector<SigSpec> &aligned_pp)
 	{
 		unsigned aligned_pp_ix = aligned_pp.size() - 1;
 
 		// default is zero for everything (so don't have to think to hard
 		// about padding).
-
 		for (unsigned i = 0; i < aligned_pp.size(); i++) {
 			for (int j = 0; j < z_sz; j++) {
 				aligned_pp[i][j] = State::S0;
@@ -730,12 +977,11 @@ struct BoothPassWorker {
 				// Make the carry results.. Two extra bits after fa.
 				SigBit carry_out = module->addWire(NEW_ID, 1);
 				module->addFa(NEW_ID_SUFFIX(stringf("cpa_%d_fa_%d", cpa_id, n)),
-					/* A */ s_vec[n],
-					/* B */ c_vec[n - 1],
-					/* C */ carry,
-					/* X */ carry_out,
-					/* Y */ result[n]
-				);
+					      /* A */ s_vec[n],
+					      /* B */ c_vec[n - 1],
+					      /* C */ carry,
+					      /* X */ carry_out,
+					      /* Y */ result[n]);
 				carry = carry_out;
 
 #ifdef DEBUG_CPA
@@ -758,12 +1004,11 @@ struct BoothPassWorker {
 			else {
 				SigBit carry_out = module->addWire(NEW_ID_SUFFIX(stringf("cpa_%d_carry_%d", cpa_id, n)), 1);
 				module->addFa(NEW_ID_SUFFIX(stringf("cpa_%d_fa_%d", cpa_id, n)),
-					/* A */ s_vec[n],
-					/* B */ c_vec[n - 1],
-					/* C */ carry,
-					/* X */ carry_out,
-					/* Y */ result[n]
-				);
+					      /* A */ s_vec[n],
+					      /* B */ c_vec[n - 1],
+					      /* C */ carry,
+					      /* X */ carry_out,
+					      /* Y */ result[n]);
 				carry = carry_out;
 #ifdef DEBUG_CPA
 				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.c_str(), s_vec[n]->name.c_str(),
@@ -777,9 +1022,17 @@ struct BoothPassWorker {
 	// Pass the carry bits from each csa to the next
 	// column for summation.
 
-	void ReduceBits(RTLIL::Module *module, int column_ix, SigSpec column_bits, SigBit &s_result, SigBit &c_result,
-			SigSpec &carry_bits_to_sum, std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
+	void ReduceBits(RTLIL::Module *module, int column_ix, SigSpec column_bits, SigBit &s_result, SigBit &c_result, SigSpec &carry_bits_to_sum,
+			std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
 	{
+
+#ifdef DEBUG_CSA
+		if (column_bits.size() > 0)
+			printf("Serial reduce Column %d reduce bits serial given %d bits (%s) to reduce\n", column_ix, column_bits.size(),
+			       column_bits.as_string().c_str());
+		else
+			printf("Serial reduce given 0 bits to reduce\n");
+#endif
 
 		int csa_ix = 0;
 		int column_size = column_bits.size();
@@ -799,18 +1052,17 @@ struct BoothPassWorker {
 				auto c_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_c", column_ix, csa_ix + 1)), 1);
 
 				auto csa = module->addFa(NEW_ID_SUFFIX(stringf("csa_%d_%d", column_ix, csa_ix)),
-					/* A */ first_csa_ips[0],
-					/* B */ first_csa_ips.size() > 1 ? first_csa_ips[1] : State::S0,
-					/* C */ first_csa_ips.size() > 2 ? first_csa_ips[2] : State::S0,
-					/* X */ c_wire,
-					/* Y */ s_wire
-				);
+							 /* A */ first_csa_ips[0],
+							 /* B */ first_csa_ips.size() > 1 ? first_csa_ips[1] : State::S0,
+							 /* C */ first_csa_ips.size() > 2 ? first_csa_ips[2] : State::S0,
+							 /* X */ c_wire,
+							 /* Y */ s_wire);
 
 				s_result = s_wire;
 				c_result = c_wire;
 
-				debug_csa_trees[column_ix].push_back(csa);
-				csa_ix++;				
+				// debug_csa_trees[column_ix].push_back(csa);
+				csa_ix++;
 
 				if (var_ix <= column_bits.size() - 1)
 					carry_bits_to_sum.append(c_wire);
@@ -831,14 +1083,13 @@ struct BoothPassWorker {
 						auto s_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_s", column_ix, csa_ix + 1)), 1);
 
 						auto csa = module->addFa(NEW_ID_SUFFIX(stringf("csa_%d_%d", column_ix, csa_ix)),
-							/* A */ s_result,
-							/* B */ csa_ips[0],
-							/* C */ csa_ips.size() > 1 ? csa_ips[1] : State::S0,
-							/* X */ c_wire,
-							/* Y */ s_wire
-						);
+									 /* A */ s_result,
+									 /* B */ csa_ips[0],
+									 /* C */ csa_ips.size() > 1 ? csa_ips[1] : State::S0,
+									 /* X */ c_wire,
+									 /* Y */ s_wire);
 
-						debug_csa_trees[column_ix].push_back(csa);
+						// debug_csa_trees[column_ix].push_back(csa);
 						csa_ix++;
 
 						if (var_ix <= column_bits.size() - 1)
@@ -852,8 +1103,8 @@ struct BoothPassWorker {
 		}
 	}
 
-	void BuildBoothMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int,
-				     SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module, int &encoder_ix, bool is_signed)
+	void BuildBoothMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int, SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module,
+				    int &encoder_ix, bool is_signed)
 	{
 		int y_sz = GetSize(Y);
 
@@ -866,8 +1117,7 @@ struct BoothPassWorker {
 			sb_int.append(module->addWire(NEW_ID_SUFFIX(stringf("sb_int_%d", encoder_ix)), 1));
 
 			if (y_ix == 0) {
-				BuildBur4e(enc_name, State::S0, Y[y_ix],
-					   Y[y_ix + 1], one_int[encoder_ix], two_int[encoder_ix], s_int[encoder_ix],
+				BuildBur4e(enc_name, State::S0, Y[y_ix], Y[y_ix + 1], one_int[encoder_ix], two_int[encoder_ix], s_int[encoder_ix],
 					   sb_int[encoder_ix]);
 
 				y_ix = y_ix + 1;
@@ -926,8 +1176,7 @@ struct BoothPassWorker {
 					sb_int.append(module->addWire(NEW_ID_SUFFIX(stringf("sb_int_%d", encoder_ix)), 1));
 
 					SigBit one_o_int, two_o_int, s_o_int, sb_o_int;
-					BuildBur4e(enc_name, Y[y_ix], State::S0,
-						   State::S0, one_o_int, two_o_int, s_o_int, sb_o_int);
+					BuildBur4e(enc_name, Y[y_ix], State::S0, State::S0, one_o_int, two_o_int, s_o_int, sb_o_int);
 
 					module->connect(one_int[encoder_ix], one_o_int);
 					module->connect(two_int[encoder_ix], two_o_int);
@@ -973,9 +1222,8 @@ struct BoothPassWorker {
 			cori_n_int[encoder_ix - 1] = module->addWire(NEW_ID_SUFFIX(stringf("cori_n_int_%d", encoder_ix)), 1);
 
 			if (encoder_ix == 1) {
-				BuildBr4e(enc_name, State::S0, Y[0], Y[1],
-					  negi_n_int[encoder_ix - 1], twoi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
-					  cori_n_int[encoder_ix - 1]);
+				BuildBr4e(enc_name, State::S0, Y[0], Y[1], negi_n_int[encoder_ix - 1], twoi_n_int[encoder_ix - 1],
+					  onei_n_int[encoder_ix - 1], cori_n_int[encoder_ix - 1]);
 
 			} else {
 				SigBit y1, y2, y3;
@@ -992,8 +1240,7 @@ struct BoothPassWorker {
 				else
 					y3 = Y[(encoder_ix - 1) * 2 + 1]; //+1
 
-				BuildBr4e(enc_name, y1, y2, y3,
-					  negi_n_int[encoder_ix - 1], twoi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
+				BuildBr4e(enc_name, y1, y2, y3, negi_n_int[encoder_ix - 1], twoi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
 					  cori_n_int[encoder_ix - 1]);
 			}
 		}
@@ -1005,11 +1252,10 @@ struct BoothPassWorker {
 		for (int encoder_ix = 1; encoder_ix <= (int)enc_count; encoder_ix++) {
 			for (int decoder_ix = 1; decoder_ix <= dec_count; decoder_ix++) {
 				PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1] =
-					module->addWire(NEW_ID_SUFFIX(stringf("ppij_%d_%d", encoder_ix, decoder_ix)), 1);
+				  module->addWire(NEW_ID_SUFFIX(stringf("ppij_%d_%d", encoder_ix, decoder_ix)), 1);
 
-				nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1] =
-					module->addWire(NEW_ID_SUFFIX(stringf("nxj_%s%d_%d", decoder_ix == 1 ? "pre_dec_" : "",
-									      encoder_ix, decoder_ix)), 1);
+				nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1] = module->addWire(
+				  NEW_ID_SUFFIX(stringf("nxj_%s%d_%d", decoder_ix == 1 ? "pre_dec_" : "", encoder_ix, decoder_ix)), 1);
 			}
 		}
 
@@ -1023,10 +1269,8 @@ struct BoothPassWorker {
 			if (encoder_ix == 1) {
 				// quadrant 1 optimization
 			} else {
-				module->addNotGate(NEW_ID_SUFFIX(stringf("pre_dec_%d", encoder_ix)),
-					negi_n_int[encoder_ix - 1],
-					nxj[(encoder_ix - 1) * dec_count]
-				);
+				module->addNotGate(NEW_ID_SUFFIX(stringf("pre_dec_%d", encoder_ix)), negi_n_int[encoder_ix - 1],
+						   nxj[(encoder_ix - 1) * dec_count]);
 			}
 
 			for (int decoder_ix = 1; decoder_ix < dec_count; decoder_ix++) {
@@ -1046,9 +1290,9 @@ struct BoothPassWorker {
 			// applies to 9th decoder (xsz+1 decoder).
 			std::string dec_name = stringf("dec_%d_%d", encoder_ix, x_sz + 1);
 			SigBit unused_op;
-			BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + dec_count - 1], twoi_n_int[encoder_ix - 1],
-				  X[dec_count - 2], negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
-				  PPij[((encoder_ix - 1) * dec_count) + dec_count - 1], unused_op);
+			BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + dec_count - 1], twoi_n_int[encoder_ix - 1], X[dec_count - 2],
+				  negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1], PPij[((encoder_ix - 1) * dec_count) + dec_count - 1],
+				  unused_op);
 		}
 
 		//
@@ -1060,8 +1304,7 @@ struct BoothPassWorker {
 		BuildBoothQ1("icb_booth_q1_",
 			     negi_n_int[0], // negi
 			     cori_n_int[0], // cori
-			     X[0], X[1], Y[0], Y[1],
-			     nxj_o_int, q1_carry_out, pp0_o_int, pp1_o_int);
+			     X[0], X[1], Y[0], Y[1], nxj_o_int, q1_carry_out, pp0_o_int, pp1_o_int);
 
 		module->connect(Z[0], pp0_o_int);
 		module->connect(Z[1], pp1_o_int);
@@ -1085,29 +1328,27 @@ struct BoothPassWorker {
 		SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv1"), PPij[(0 * dec_count) + dec_count - 1]);
 		SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv2"), PPij[(1 * dec_count) + dec_count - 1]);
 		BuildBitwiseFa(module, NEW_ID_SUFFIX("fa_row_0").str(),
-			/* A */ {State::S0, d08_inv, PPij[(0 * dec_count) + x_sz], PPij.extract((0 * dec_count) + 2, x_sz - 1)},
-			/* B */ {State::S1, d18_inv, PPij.extract((1 * dec_count), x_sz)},
-			/* C */ fa_carry[0].extract(1, x_sz + 2),
-			/* X */ fa_carry[0].extract(2, x_sz + 2),
-			/* Y */ fa_sum[0].extract(2, x_sz + 2)
-		);
+			       /* A */ {State::S0, d08_inv, PPij[(0 * dec_count) + x_sz], PPij.extract((0 * dec_count) + 2, x_sz - 1)},
+			       /* B */ {State::S1, d18_inv, PPij.extract((1 * dec_count), x_sz)},
+			       /* C */ fa_carry[0].extract(1, x_sz + 2),
+			       /* X */ fa_carry[0].extract(2, x_sz + 2),
+			       /* Y */ fa_sum[0].extract(2, x_sz + 2));
 		module->connect(fa_carry[0][1], q1_carry_out);
 
 		// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
 		// special because these are driven by a decoder and prior fa.
 		for (fa_row_ix = 1; fa_row_ix < fa_row_count; fa_row_ix++) {
 			// end two bits: sign extension
-			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_L", fa_row_ix)),
-						       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
+			SigBit d_inv =
+			  module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_L", fa_row_ix)), PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
 			BuildBitwiseFa(module, NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix)).str(),
-				/* A */	{State::S0, fa_carry[fa_row_ix - 1][fa_count - 1], fa_sum[fa_row_ix - 1].extract(2, x_sz + 2)},
-				/* B */ {State::S1, d_inv, PPij.extract((fa_row_ix + 1) * dec_count, x_sz), State::S0, State::S0},
+				       /* A */ {State::S0, fa_carry[fa_row_ix - 1][fa_count - 1], fa_sum[fa_row_ix - 1].extract(2, x_sz + 2)},
+				       /* B */ {State::S1, d_inv, PPij.extract((fa_row_ix + 1) * dec_count, x_sz), State::S0, State::S0},
 
-				/* C */ {fa_carry[fa_row_ix].extract(0, x_sz + 3), cori_n_int[fa_row_ix]},
-				/* X */ fa_carry[fa_row_ix],
-				/* Y */ fa_sum[fa_row_ix]
-			);
+				       /* C */ {fa_carry[fa_row_ix].extract(0, x_sz + 3), cori_n_int[fa_row_ix]},
+				       /* X */ fa_carry[fa_row_ix],
+				       /* Y */ fa_sum[fa_row_ix]);
 		}
 
 		// instantiate the cpa
