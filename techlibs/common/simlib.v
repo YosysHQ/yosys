@@ -907,8 +907,13 @@ endmodule
 //-     $macc (A, B, Y)
 //-
 //- Multiply and accumulate.
-//- A building block for summing any number of negated and unnegated signals and arithmetic products of pairs of signals. Cell port A concatenates pairs of signals to be multiplied together. When the second signal in a pair is zero length, a constant 1 is used instead as the second factor. Cell port B concatenates 1-bit-wide signals to also be summed, such as "carry in" in adders.
-//- Typically created by the `alumacc` pass, which transforms $add and $mul into $macc cells.
+//- A building block for summing any number of negated and unnegated signals
+//- and arithmetic products of pairs of signals. Cell port A concatenates pairs
+//- of signals to be multiplied together. When the second signal in a pair is zero
+//- length, a constant 1 is used instead as the second factor. Cell port B
+//- concatenates 1-bit-wide signals to also be summed, such as "carry in" in adders.
+//- Typically created by the `alumacc` pass, which transforms $add and $mul
+//- into $macc cells.
 module \$macc (A, B, Y);
 
 parameter A_WIDTH = 0;

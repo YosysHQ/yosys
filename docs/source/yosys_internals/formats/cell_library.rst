@@ -632,8 +632,9 @@ If the second signal in such a pair is zero length, no multiplication is necessa
 
 In this pseudocode, ``u(foo)`` means an unsigned int that's foo bits long.
 The CONFIG parameter carries the following information:
+
 .. code-block::
-	:force:
+
 	struct CONFIG {
 		u4 num_bits;
 		struct port_field {
@@ -645,8 +646,9 @@ The CONFIG parameter carries the following information:
 	};
 
 The A cell port carries the following information:
+
 .. code-block::
-	:force:
+
 	struct A {
 		u(CONFIG.port_field[0].factor1_len) port0factor1;
 		u(CONFIG.port_field[0].factor2_len) port0factor2;
@@ -660,10 +662,11 @@ A factor2 having a zero length implies factor2 is replaced with a constant 1.
 
 Additionally, B is an array of 1-bit-wide unsigned integers to also be summed up.
 Finally, we have:
+
 .. code-block::
-	:force:
+
 	Y = port0factor1 * port0factor2 + port1factor1 * port1factor2 + ...
-		* B[0] + B[1] + ...
+	     + B[0] + B[1] + ...
 
 Specify rules
 ~~~~~~~~~~~~~
