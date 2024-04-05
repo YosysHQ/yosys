@@ -622,22 +622,36 @@ Add a brief description of the ``$fsm`` cell type.
 Coarse arithmetics
 ~~~~~~~~~~~~~~~~~~~~~
 
-The ``$macc`` cell type represents a multiply and accumulate block, for summing any number of negated and unnegated signals and arithmetic products of pairs of signals. Cell port A concatenates pairs of signals to be multiplied together. When the second signal in a pair is zero length, a constant 1 is used instead as the second factor. Cell port B concatenates 1-bit-wide signals to also be summed, such as "carry in" in adders. 
+The ``$macc`` cell type represents a generalized multiply and accumulate operation. The cell is purely combinational. It outputs the result of summing up a sequence of products and other injected summands.
 
-The cell's ``CONFIG`` parameter determines the layout of cell port ``A``.
-In the terms used for this cell, there's mixed meanings for the term "port". To disambiguate:
-A cell port is for example the A input (it is constructed in C++ as ``cell->setPort(ID::A, ...))``
-Multiplier ports are pairs of multiplier inputs ("factors").
-If the second signal in such a pair is zero length, no multiplication is necessary, and the first signal is just added to the sum.
+.. code-block::
+
+	Y = 0 +- a0factor1 * a0factor2 +- a1factor1 * a1factor2 +- ...
+	     + B[0] + B[1] + ...
+
+The A port consists of concatenated pairs of multiplier inputs ("factors").
+A zero length factor2 acts as a constant 1, turning factor1 into a simple summand.
 
 In this pseudocode, ``u(foo)`` means an unsigned int that's foo bits long.
+
+.. code-block::
+
+	struct A {
+		u(CONFIG.mul_info[0].factor1_len) a0factor1;
+		u(CONFIG.mul_info[0].factor2_len) a0factor2;
+		u(CONFIG.mul_info[1].factor1_len) a1factor1;
+		u(CONFIG.mul_info[1].factor2_len) a1factor2;
+		...
+	};
+
+The cell's ``CONFIG`` parameter determines the layout of cell port ``A``.
 The CONFIG parameter carries the following information:
 
 .. code-block::
 
 	struct CONFIG {
 		u4 num_bits;
-		struct port_field {
+		struct mul_info {
 			bool is_signed;
 			bool is_subtract;
 			u(num_bits) factor1_len;
@@ -645,28 +659,7 @@ The CONFIG parameter carries the following information:
 		}[num_ports];
 	};
 
-The A cell port carries the following information:
-
-.. code-block::
-
-	struct A {
-		u(CONFIG.port_field[0].factor1_len) port0factor1;
-		u(CONFIG.port_field[0].factor2_len) port0factor2;
-		u(CONFIG.port_field[1].factor1_len) port1factor1;
-		u(CONFIG.port_field[1].factor2_len) port1factor2;
-		...
-	};
-
-No factor1 may have a zero length.
-A factor2 having a zero length implies factor2 is replaced with a constant 1.
-
-Additionally, B is an array of 1-bit-wide unsigned integers to also be summed up.
-Finally, we have:
-
-.. code-block::
-
-	Y = port0factor1 * port0factor2 + port1factor1 * port1factor2 + ...
-	     + B[0] + B[1] + ...
+B is an array of concatenated 1-bit-wide unsigned integers to also be summed up.
 
 Specify rules
 ~~~~~~~~~~~~~
