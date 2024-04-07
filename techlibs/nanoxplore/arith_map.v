@@ -35,6 +35,8 @@ module _80_nx_cy_alu (A, B, CI, BI, X, Y, CO);
 	input CI, BI;
 	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
+    (* force_downto *)
+    wire [Y_WIDTH-1:0] COx;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
@@ -52,18 +54,18 @@ module _80_nx_cy_alu (A, B, CI, BI, X, Y, CO);
 	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
 		NX_CY_1BIT #(.first(i==0))
 			alu_i (
-			.CI(i==0 ? CI : CO[i-1]),
+			.CI(i==0 ? CI : COx[i-1]),
 			.A(AA[i]),
 			.B(BB[i]),
 			.S(Y[i]),
-			.CO(CO[i])
+			.CO(COx[i])
 		);
 
 	end: slice
 	endgenerate
 
 	NX_CY_1BIT alu_cout(
-		.CI(CO[Y_WIDTH-1]),
+		.CI(COx[Y_WIDTH-1]),
 		.A(1'b0),
 		.B(1'b0),
 		.S(CO[Y_WIDTH-1])
