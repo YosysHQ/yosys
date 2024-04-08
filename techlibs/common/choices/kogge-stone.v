@@ -42,6 +42,7 @@ module _80_lcu_kogge_stone (P, G, CI, CO);
 		g[0] = g[0] | (p[0] & CI);
 
 		for (i = 0; i < $clog2(WIDTH); i = i + 1) begin
+			// iterate in reverse so we don't confuse a result from this stage and the previous
 			for (j = WIDTH - 1; j >= 2**i; j = j - 1) begin
 				g[j] = g[j] | p[j] & g[j - 2**i];
 				p[j] = p[j] & p[j - 2**i];
