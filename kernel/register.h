@@ -17,10 +17,11 @@
  *
  */
 
-#include "kernel/yosys.h"
-
 #ifndef REGISTER_H
 #define REGISTER_H
+
+#include "kernel/yosys_common.h"
+#include "kernel/yosys.h"
 
 YOSYS_NAMESPACE_BEGIN
 
