@@ -101,7 +101,7 @@ vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	string message_prefix = stringf("VERIFIC-%s [%s] ",
+	string message_prefix = stringf("ELAB-%s [%s] ",
 			msg_type == VERIFIC_NONE ? "NONE" :
 			msg_type == VERIFIC_ERROR ? "ERROR" :
 			msg_type == VERIFIC_WARNING ? "WARNING" :

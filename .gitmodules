@@ -1,0 +1,3 @@
+[submodule "verific"]
+	path = verific
+	url = git@github.com:silimate/verific.git

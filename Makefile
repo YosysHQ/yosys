@@ -9,20 +9,20 @@ CONFIG := none
 # CONFIG := msys2-64
 
 # features (the more the better)
-ENABLE_TCL := 1
+ENABLE_TCL := 0
 ENABLE_ABC := 1
 ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
-ENABLE_READLINE := 1
+ENABLE_READLINE := 0
 ENABLE_EDITLINE := 0
 ENABLE_GHDL := 0
 ENABLE_VERIFIC := 1
-ENABLE_VERIFIC_EDIF := 1
+ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 1
 DISABLE_VERIFIC_EXTENSIONS := 1
 DISABLE_VERIFIC_VHDL := 1
-ENABLE_COVER := 1
-ENABLE_LIBYOSYS := 1
+ENABLE_COVER := 0
+ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
 
 # python wrappers
@@ -518,8 +518,8 @@ endif
 
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
-VERIFIC_DIR ?= /usr/local/src/verific_lib
-VERIFIC_COMPONENTS ?= verilog database util containers hier_tree sdf
+VERIFIC_DIR ?= ./verific
+VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
 ifneq ($(DISABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
