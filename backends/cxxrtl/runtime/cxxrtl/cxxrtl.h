@@ -625,11 +625,11 @@ struct value : public expr_base<value<Bits>> {
 		value<Bits + 1> remainder;
 		value<Bits + 1> dividend = sext<Bits + 1>();
 		value<Bits + 1> divisor = other.template sext<Bits + 1>();
-		if (dividend.is_neg()) dividend = dividend.neg();
-		if (divisor.is_neg()) divisor = divisor.neg();
+		if (is_neg()) dividend = dividend.neg();
+		if (other.is_neg()) divisor = divisor.neg();
 		std::tie(quotient, remainder) = dividend.udivmod(divisor);
-		if (dividend.is_neg() != divisor.is_neg()) quotient = quotient.neg();
-		if (dividend.is_neg()) remainder = remainder.neg();
+		if (is_neg() != other.is_neg()) quotient = quotient.neg();
+		if (is_neg()) remainder = remainder.neg();
 		return {quotient.template trunc<Bits>(), remainder.template trunc<Bits>()};
 	}
 };
@@ -1010,22 +1010,24 @@ struct observer {
 // Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
 struct fmt_part {
 	enum {
-		STRING    = 0,
+		LITERAL   = 0,
 		INTEGER   = 1,
-		CHARACTER = 2,
-		VLOG_TIME = 3,
+		STRING    = 2,
+		UNICHAR   = 3,
+		VLOG_TIME = 4,
 	} type;
 
-	// STRING type
+	// LITERAL type
 	std::string str;
 
-	// INTEGER/CHARACTER types
+	// INTEGER/STRING/UNICHAR types
 	// + value<Bits> val;
 
-	// INTEGER/CHARACTER/VLOG_TIME types
+	// INTEGER/STRING/VLOG_TIME types
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
+		NUMERIC	= 2,
 	} justify; // = RIGHT;
 	char padding; // = '\0';
 	size_t width; // = 0;
@@ -1033,7 +1035,14 @@ struct fmt_part {
 	// INTEGER type
 	unsigned base; // = 10;
 	bool signed_; // = false;
-	bool plus; // = false;
+	enum {
+		MINUS		= 0,
+		PLUS_MINUS	= 1,
+		SPACE_MINUS	= 2,
+	} sign; // = MINUS;
+	bool hex_upper; // = false;
+	bool show_base; // = false;
+	bool group; // = false;
 
 	// VLOG_TIME type
 	bool realtime; // = false;
@@ -1049,11 +1058,12 @@ struct fmt_part {
 		// We might want to replace some of these bit() calls with direct
 		// chunk access if it turns out to be slow enough to matter.
 		std::string buf;
+		std::string prefix;
 		switch (type) {
-			case STRING:
+			case LITERAL:
 				return str;
 
-			case CHARACTER: {
+			case STRING: {
 				buf.reserve(Bits/8);
 				for (int i = 0; i < Bits; i += 8) {
 					char ch = 0;
@@ -1067,35 +1077,76 @@ struct fmt_part {
 				break;
 			}
 
+			case UNICHAR: {
+				uint32_t codepoint = val.template get<uint32_t>();
+				if (codepoint >= 0x10000)
+					buf += (char)(0xf0 |  (codepoint >> 18));
+				else if (codepoint >= 0x800)
+					buf += (char)(0xe0 |  (codepoint >> 12));
+				else if (codepoint >= 0x80)
+					buf += (char)(0xc0 |  (codepoint >>  6));
+				else
+					buf += (char)codepoint;
+				if (codepoint >= 0x10000)
+					buf += (char)(0x80 | ((codepoint >> 12) & 0x3f));
+				if (codepoint >= 0x800)
+					buf += (char)(0x80 | ((codepoint >>  6) & 0x3f));
+				if (codepoint >= 0x80)
+					buf += (char)(0x80 | ((codepoint >>  0) & 0x3f));
+				break;
+			}
+
 			case INTEGER: {
-				size_t width = Bits;
+				bool negative = signed_ && val.is_neg();
+				if (negative) {
+					prefix = "-";
+					val = val.neg();
+				} else {
+					switch (sign) {
+						case MINUS:       break;
+						case PLUS_MINUS:  prefix = "+"; break;
+						case SPACE_MINUS: prefix = " "; break;
+					}
+				}
+
+				size_t val_width = Bits;
 				if (base != 10) {
-					width = 0;
+					val_width = 1;
 					for (size_t index = 0; index < Bits; index++)
 						if (val.bit(index))
-							width = index + 1;
+							val_width = index + 1;
 				}
 
 				if (base == 2) {
-					for (size_t i = width; i > 0; i--)
-						buf += (val.bit(i - 1) ? '1' : '0');
+					if (show_base)
+						prefix += "0b";
+					for (size_t index = 0; index < val_width; index++) {
+						if (group && index > 0 && index % 4 == 0)
+							buf += '_';
+						buf += (val.bit(index) ? '1' : '0');
+					}
 				} else if (base == 8 || base == 16) {
+					if (show_base)
+						prefix += (base == 16) ? (hex_upper ? "0X" : "0x") : "0o";
 					size_t step = (base == 16) ? 4 : 3;
-					for (size_t index = 0; index < width; index += step) {
+					for (size_t index = 0; index < val_width; index += step) {
+						if (group && index > 0 && index % (4 * step) == 0)
+							buf += '_';
 						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
 						if (step == 4)
 							value |= val.bit(index + 3) << 3;
-						buf += "0123456789abcdef"[value];
+						buf += (hex_upper ? "0123456789ABCDEF" : "0123456789abcdef")[value];
 					}
-					std::reverse(buf.begin(), buf.end());
 				} else if (base == 10) {
-					bool negative = signed_ && val.is_neg();
-					if (negative)
-						val = val.neg();
+					if (show_base)
+						prefix += "0d";
 					if (val.is_zero())
 						buf += '0';
 					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
+					size_t index = 0;
 					while (!xval.is_zero()) {
+						if (group && index > 0 && index % 3 == 0)
+							buf += '_';
 						value<(Bits > 4 ? Bits : 4)> quotient, remainder;
 						if (Bits >= 4)
 							std::tie(quotient, remainder) = xval.udivmod(value<(Bits > 4 ? Bits : 4)>{10u});
@@ -1103,11 +1154,18 @@ struct fmt_part {
 							std::tie(quotient, remainder) = std::make_pair(value<(Bits > 4 ? Bits : 4)>{0u}, xval);
 						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
 						xval = quotient;
+						index++;
 					}
-					if (negative || plus)
-						buf += negative ? '-' : '+';
-					std::reverse(buf.begin(), buf.end());
 				} else assert(false && "Unsupported base for fmt_part");
+				if (justify == NUMERIC && group && padding == '0') {
+					int group_size = base == 10 ? 3 : 4;
+					while (prefix.size() + buf.size() < width) {
+						if (buf.size() % (group_size + 1) == group_size)
+							buf += '_';
+						buf += '0';
+					}
+				}
+				std::reverse(buf.begin(), buf.end());
 				break;
 			}
 
@@ -1123,17 +1181,29 @@ struct fmt_part {
 
 		std::string str;
 		assert(width == 0 || padding != '\0');
-		if (justify == RIGHT && buf.size() < width) {
-			size_t pad_width = width - buf.size();
-			if (padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
-				str += buf.front();
-				buf.erase(0, 1);
-			}
-			str += std::string(pad_width, padding);
+		if (prefix.size() + buf.size() < width) {
+			size_t pad_width = width - prefix.size() - buf.size();
+			switch (justify) {
+				case LEFT:
+					str += prefix;
+					str += buf;
+					str += std::string(pad_width, padding);
+					break;
+				case RIGHT:
+					str += std::string(pad_width, padding);
+					str += prefix;
+					str += buf;
+					break;
+				case NUMERIC:
+					str += prefix;
+					str += std::string(pad_width, padding);
+					str += buf;
+					break;
+				}
+		} else {
+			str += prefix;
+			str += buf;
 		}
-		str += buf;
-		if (justify == LEFT && buf.size() < width)
-			str += std::string(width - buf.size(), padding);
 		return str;
 	}
 };

@@ -16,7 +16,7 @@ for arch in ../../techlibs/*; do
 			done
 		else
 			echo -n "Test $path ->"
-			iverilog -t null -I$arch $path
+			iverilog -t null -I$arch -g2005-sv $path
 			echo " ok"
 		fi
 	done

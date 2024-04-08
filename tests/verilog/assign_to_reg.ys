@@ -1,0 +1,22 @@
+# https://github.com/yosyshq/yosys/issues/2035
+
+read_ilang <<END
+module \top
+  wire width 1 input 0 \halfbrite
+  wire width 2 output 1 \r_on
+  process $1
+    assign \r_on [1:0] 2'00
+    assign \r_on [1:0] 2'11
+    switch \halfbrite [0]
+      case 1'1
+        assign \r_on [1] 1'0
+    end
+  end
+end
+END
+proc_prune
+write_verilog assign_to_reg.v
+design -reset
+
+logger -expect-no-warnings
+read_verilog assign_to_reg.v
