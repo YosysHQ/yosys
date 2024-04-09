@@ -555,8 +555,10 @@ void yosys_setup()
 #undef X
 
 	#ifdef WITH_PYTHON
-		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
-		Py_Initialize();
+		if (!Py_IsInitialized()) {
+			PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+			Py_Initialize();
+		}
 		PyRun_SimpleString("import sys");
 		signal(SIGINT, SIG_DFL);
 	#endif
