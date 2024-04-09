@@ -2839,7 +2839,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #ifdef VERIFIC_VHDL_SUPPORT
-		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
+		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
@@ -3576,6 +3576,29 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2019")) {
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
+			bool flag_lib = false;
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (args[argidx] == "-lib") {
+					flag_lib = true;
+					continue;
+				}
+				if (args[argidx].compare(0, 1, "-") == 0) {
+					cmd_error(args, argidx, "unknown option");
+					goto check_error;
+				}
+				Map map(POINTER_HASH);
+				add_units_to_map(map, work, flag_lib);
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2019))
+					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename.c_str());
+				set_units_to_blackbox(map, work, flag_lib);
+			}
+			verific_import_pending = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			bool flag_lib = false;
@@ -4119,7 +4142,7 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("\n");
 #ifdef VERIFIC_VHDL_SUPPORT
-		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
+		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files. (Requires Verific.)\n");
 		log("\n");
@@ -4223,7 +4246,7 @@ struct ReadPass : public Pass {
 		}
 
 #ifdef VERIFIC_VHDL_SUPPORT
-		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
+		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl2019" || args[1] == "-vhdl") {
 			if (use_verific) {
 				args[0] = "verific";
 				Pass::call(design, args);
