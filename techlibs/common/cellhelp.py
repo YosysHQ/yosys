@@ -53,6 +53,8 @@ for line in fileinput.input():
         # no module definition, ignore line
         pass
     if line.startswith("endmodule"):
+        if not simHelper.desc:
+            simHelper.desc.append("No help message for this cell type found.\n")
         print(simHelper)
         simHelper = SimHelper()
 
