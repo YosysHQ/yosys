@@ -10,11 +10,11 @@ CONFIG := none
 
 # features (the more the better)
 ENABLE_TCL := 0
-ENABLE_ABC := 1
+ENABLE_ABC := 0
 ENABLE_GLOB := 1
 ENABLE_PLUGINS := 1
 ENABLE_READLINE := 0
-ENABLE_EDITLINE := 0
+ENABLE_EDITLINE := 1
 ENABLE_GHDL := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_EDIF := 0
@@ -26,7 +26,7 @@ ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
 
 # python wrappers
-ENABLE_PYOSYS := 1 
+ENABLE_PYOSYS := 1
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -417,7 +417,7 @@ endif
 else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
-LIBS += -ledit -ltinfo -lbsd
+LIBS += -ledit
 else
 ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
@@ -837,7 +837,7 @@ ABCOPT=""
 endif
 
 # When YOSYS_NOVERIFIC is set as a make variable, also export it to the
-# enviornment, so that `YOSYS_NOVERIFIC=1 make test` _and_
+# environment, so that `YOSYS_NOVERIFIC=1 make test` _and_
 # `make test YOSYS_NOVERIFIC=1` will run with verific disabled.
 ifeq ($(YOSYS_NOVERIFIC),1)
 export YOSYS_NOVERIFIC
