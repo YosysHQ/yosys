@@ -621,15 +621,12 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $alu (A, B, CI, BI, X, Y, CO)
-//-
-//- Arithmetic logic unit.
+//* ver 2
+//* short_desc Arithmetic logic unit
 //- A building block supporting both binary addition/subtraction operations, and
 //- indirectly, comparison operations.
 //- Typically created by the `alumacc` pass, which transforms:
-//-   $add, $sub, $lt, $le, $ge, $gt, $eq, $eqx, $ne, $nex
+//- $add, $sub, $lt, $le, $ge, $gt, $eq, $eqx, $ne, $nex
 //- cells into this $alu cell.
 //-
 module \$alu (A, B, CI, BI, X, Y, CO);
