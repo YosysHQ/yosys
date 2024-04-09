@@ -117,7 +117,7 @@ BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
 CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -rpath /usr/local/lib
+LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -rpath '$$ORIGIN' 
 endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
