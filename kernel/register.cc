@@ -747,9 +747,25 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 		design->selection_stack.pop_back();
 }
 
+struct SimHelper {
+	string name;
+	inline string filesafe_name() {
+		if (name.at(0) == '$')
+			return name.substr(1);
+		else
+			return name;
+	}
+	string short_desc;
+	string ports;
+	string desc;
+	string code;
+	string ver;
+};
+
 static struct CellHelpMessages {
-	dict<string, string> cell_help, cell_code;
+	dict<string, SimHelper> cell_help, cell_code;
 	CellHelpMessages() {
+		SimHelper tempCell;
 #include "techlibs/common/simlib_help.inc"
 #include "techlibs/common/simcells_help.inc"
 		cell_help.sort();
@@ -947,9 +963,8 @@ struct HelpPass : public Pass {
 			else if (args[1] == "-cells") {
 				log("\n");
 				for (auto &it : cell_help_messages.cell_help) {
-					string line = split_tokens(it.second, "\n").at(0);
-					string cell_name = next_token(line);
-					log("    %-15s %s\n", cell_name.c_str(), line.c_str());
+					SimHelper help_cell = it.second;
+					log("    %-15s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
 				}
 				log("\n");
 				log("Type 'help <cell_type>' for more information on a cell type.\n");
@@ -973,7 +988,7 @@ struct HelpPass : public Pass {
 			}
 			else if (args[1] == "-write-rst-cells-manual") {
 				for (auto &it : cell_help_messages.cell_help) {
-					write_cell_rst(it.first, it.second, cell_help_messages.cell_code.at(it.first + "+"));
+					write_cell_rst(it.first, it.second.desc, it.second.code);
 				}
 			}
 			else if (pass_register.count(args[1])) {
@@ -985,13 +1000,23 @@ struct HelpPass : public Pass {
 				}
 			}
 			else if (cell_help_messages.cell_help.count(args[1])) {
-				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());
-				log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
-				log("\n");
+				SimHelper help_cell = cell_help_messages.cell_help.at(args[1]);
+				if (help_cell.ver == "2") {
+					log("\n    %s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
+					log("\n%s\n", help_cell.short_desc.c_str());
+					log("%s\n", help_cell.desc.c_str());
+					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+					log("\n");
+				} else {
+					log("%s\n", help_cell.desc.c_str());
+					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+					log("\n");
+				}
 			}
 			else if (cell_help_messages.cell_code.count(args[1])) {
+				SimHelper help_cell = cell_help_messages.cell_code.at(args[1]);
 				log("\n");
-				log("%s", cell_help_messages.cell_code.at(args[1]).c_str());
+				log("%s\n", help_cell.code.c_str());
 			}
 			else
 				log("No such command or cell type: %s\n", args[1].c_str());

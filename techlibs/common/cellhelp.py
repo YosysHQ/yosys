@@ -1,34 +1,58 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
 import fileinput
 import json
 
-current_help_msg = []
-current_module_code = []
-current_module_name = None
-current_module_signature = None
+class SimHelper:
+    name: str = ""
+    short_desc: str = ""
+    ports: str = ""
+    desc: list[str]
+    code: list[str]
+    ver: str = "1"
 
-def print_current_cell():
-    print("cell_help[\"%s\"] = %s;" % (current_module_name, "\n".join([json.dumps(line) for line in current_help_msg])))
-    print("cell_code[\"%s+\"] = %s;" % (current_module_name, "\n".join([json.dumps(line) for line in current_module_code])))
+    def __init__(self) -> None:
+        self.desc = []
+    
+    def __str__(self) -> str:
+        val = "tempCell = {\n"
+        val += f'  {json.dumps(self.name)},\n'
+        val += f'  {json.dumps(self.short_desc)},\n'
+        val += f'  {json.dumps(self.ports)},\n'
+        val += '  ' + json.dumps("\n".join(self.desc)) + ',\n'
+        val += '  ' + json.dumps("\n".join(self.code)) + ',\n'
+        val += f'  {json.dumps(self.ver)},\n'
+        val += "};\n"
+        val += f'cell_help[{json.dumps(self.name)}] = tempCell;'
+        val += "\n"
+        val += f'cell_code[{json.dumps(self.name + "+")}] = tempCell;'
+        return val
+
+simHelper = SimHelper()
 
 for line in fileinput.input():
+    line = line.rstrip()
+    # special comments
     if line.startswith("//-"):
-        current_help_msg.append(line[4:] if len(line) > 4 else "\n")
+        simHelper.desc.append(line[4:] if len(line) > 4 else "")
+    elif line.startswith("//* "):
+        _, key, val = line.split(maxsplit=2)
+        setattr(simHelper, key, val)
+    
+    # code parsing
     if line.startswith("module "):
-        current_module_name = line.split()[1].strip("\\")
-        current_module_signature = " ".join(line.replace("\\", "").replace(";", "").split()[1:])
-        current_module_code = []
+        clean_line = line[7:].replace("\\", "").replace(";", "")
+        simHelper.name, simHelper.ports = clean_line.split(maxsplit=1)
+        simHelper.code = []
     elif not line.startswith("endmodule"):
         line = "    " + line
-    current_module_code.append(line.replace("\t", "    "))
+    try:
+        simHelper.code.append(line.replace("\t", "    "))
+    except AttributeError:
+        # no module definition, ignore line
+        pass
     if line.startswith("endmodule"):
-        if len(current_help_msg) == 0:
-            current_help_msg.append("\n")
-            current_help_msg.append("    %s\n" % current_module_signature)
-            current_help_msg.append("\n")
-            current_help_msg.append("No help message for this cell type found.\n")
-            current_help_msg.append("\n")
-        print_current_cell()
-        current_help_msg = []
+        print(simHelper)
+        simHelper = SimHelper()
 
