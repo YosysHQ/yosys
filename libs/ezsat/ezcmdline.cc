@@ -58,7 +58,8 @@ bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<
 			}
 		}
 	};
-	if (Yosys::run_command(sat_command, line_callback) != 0) {
+	int return_code = Yosys::run_command(sat_command, line_callback);
+	if (return_code != 0 && return_code != 10 && return_code != 20) {
 		Yosys::log_cmd_error("Shell command failed!\n");
 	}
 
