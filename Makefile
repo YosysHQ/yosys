@@ -383,6 +383,12 @@ BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python) \
 )
 
+# Inside CentOS 7 Docker
+ifeq (${DOCKER_RUNNING},1)
+BOOST_PYTHON_LIB = -L/usr/lib64/boost169/ -lboost_python36
+CXXFLAGS += -I/usr/include/boost169/
+endif
+
 ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
