@@ -4,7 +4,7 @@ always @(*) assert(foo);
 endmodule
 EOT
 
-verific -import test
+import -import test
 prep
 
 select -assert-count 1 t:$assert

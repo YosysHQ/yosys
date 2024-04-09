@@ -1,4 +1,4 @@
-verific -sv <<EOF
+import -sv <<EOF
 module rom(input clk, input [2:0] addr, (* ram_style = "block" *) output reg [7:0] data);
 
 always @(posedge clk) begin
@@ -30,7 +30,7 @@ select -assert-count 1 t:RAM_BLOCK_SDP
 
 design -reset
 
-verific -vhdl <<EOF
+import -vhdl <<EOF
 library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;

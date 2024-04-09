@@ -1,4 +1,4 @@
-verific -sv <<EOF
+import -sv <<EOF
 
 module top(clk);
 input wire clk;
