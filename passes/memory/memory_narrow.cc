@@ -38,12 +38,7 @@ struct MemoryNarrowPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MEMORY_NARROW pass (splitting up wide memory ports).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto module : design->selected_modules()) {
 			if (module->has_processes_warn())

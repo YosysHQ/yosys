@@ -72,13 +72,7 @@ struct TracePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// .. parse options ..
-			break;
-		}
-
+		size_t argidx = 1;
 		TraceMonitor monitor;
 		design->monitors.insert(&monitor);
 
@@ -107,12 +101,7 @@ struct DebugPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// .. parse options ..
-			break;
-		}
+		size_t argidx = 1;
 
 		log_force_debug++;
 

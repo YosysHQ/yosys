@@ -101,15 +101,7 @@ struct AutonamePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-foo") {
-			// 	foo = true;
-			// 	continue;
-			// }
-			break;
-		}
+		extra_args(args, 1, design);
 
 		log_header(design, "Executing AUTONAME pass.\n");
 

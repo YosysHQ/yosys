@@ -182,9 +182,7 @@ struct OptDemorganPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
-
-		int argidx = 0;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		unsigned int cells_changed = 0;
 		for (auto module : design->selected_modules())

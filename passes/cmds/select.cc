@@ -1713,8 +1713,7 @@ struct LsPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx = 1;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		if (design->selected_active_module.empty())
 		{

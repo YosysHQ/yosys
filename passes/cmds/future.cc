@@ -122,14 +122,7 @@ struct FuturePass : public Pass {
 		FutureOptions options;
 
 		log_header(design, "Executing FUTURE pass.\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-
-			break;
-		}
-
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		for (auto module : design->selected_modules()) {
 			FutureWorker worker(module, options);

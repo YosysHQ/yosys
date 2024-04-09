@@ -44,17 +44,7 @@ struct UniquifyPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing UNIQUIFY pass (creating unique copies of modules).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-check") {
-			// 	flag_check = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		bool did_something = true;
 		int count = 0;

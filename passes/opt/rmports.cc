@@ -42,9 +42,7 @@ struct RmportsPassPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing RMPORTS pass (remove ports with no connections).\n");
-
-		size_t argidx = 1;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		// The set of ports we removed
 		dict<IdString, pool<IdString>> removed_ports;

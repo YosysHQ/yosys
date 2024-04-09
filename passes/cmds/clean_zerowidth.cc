@@ -52,12 +52,7 @@ struct CleanZeroWidthPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		CellTypes ct;
 		ct.setup();

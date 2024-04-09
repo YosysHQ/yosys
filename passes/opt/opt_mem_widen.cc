@@ -38,16 +38,7 @@ struct OptMemWidenPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			// if (args[argidx] == "-nomux") {
-			// 	mode_nomux = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {

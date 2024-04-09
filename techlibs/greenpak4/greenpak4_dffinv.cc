@@ -102,17 +102,7 @@ struct Greenpak4DffInvPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing GREENPAK4_DFFINV pass (merge input/output inverters into FF/latch cells).\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			// if (args[argidx] == "-singleton") {
-			// 	singleton_mode = true;
-			// 	continue;
-			// }
-			break;
-		}
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		pool<IdString> gp_dff_types;
 		gp_dff_types.insert(ID(GP_DFF));
