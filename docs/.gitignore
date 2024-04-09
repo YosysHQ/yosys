@@ -1,5 +1,6 @@
 /build/
 /source/cmd
+/source/cell
 /source/generated
 /source/_images/**/*.log
 /source/_images/**/*.aux

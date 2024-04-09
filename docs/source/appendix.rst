@@ -16,3 +16,4 @@ Appendix
 	:includehidden:
 
 	cmd_ref
+	cell_ref

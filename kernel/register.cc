@@ -771,7 +771,7 @@ struct HelpPass : public Pass {
 		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
-	void write_rst(std::string cmd, std::string title, std::string text)
+	void write_cmd_rst(std::string cmd, std::string title, std::string text)
 	{
 		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
 		// make header
@@ -864,6 +864,57 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
+	void write_cell_rst(std::string cell, std::string help, std::string code)
+	{
+		// open
+		string safe_name = cell.substr(1);
+		FILE *f = fopen(stringf("docs/source/cell/%s.rst", safe_name.c_str()).c_str(), "wt");
+
+		// make header
+		string short_help = "";
+		string long_help = "";
+		string title_line = cell;
+		for (auto line : split_tokens(help, "\n")) {
+			if (short_help == "") {
+				size_t first_pos = line.find_first_not_of(" \t");
+				// skip empty lines
+				if (first_pos == string::npos) continue;
+				if (line.find(cell.c_str()) == string::npos) {
+					// strip leading/trailing space
+					size_t last_pos = line.find_last_not_of(" \t");
+					short_help = line.substr(first_pos, last_pos - first_pos +1);
+					// skip missing help message
+					if (short_help == "No help message for this cell type found.") {
+						long_help += line;
+						long_help += "\n";
+					} else {
+						title_line = stringf("%s - %s", cell.c_str(), short_help.c_str());
+					}
+				}
+			} else {
+				long_help += line;
+				long_help += "\n";
+			}
+		}
+		string underline = "\n";
+		underline.insert(0, title_line.length(), '=');
+		fprintf(f, "%s\n", title_line.c_str());
+		fprintf(f, "%s\n", underline.c_str());
+
+		// help text
+		fprintf(f, "%s\n", long_help.c_str());
+
+		// source code
+		fprintf(f, ".. code:: verilog\n\n");
+		std::stringstream ss;
+		ss << code;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			fprintf(f, "\t%s\n", line.c_str());
+		}
+
+		// close
+		fclose(f);
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
@@ -917,7 +968,12 @@ struct HelpPass : public Pass {
 						log("\n");
 					}
 					log_streams.pop_back();
-					write_rst(it.first, it.second->short_help, buf.str());
+					write_cmd_rst(it.first, it.second->short_help, buf.str());
+				}
+			}
+			else if (args[1] == "-write-rst-cells-manual") {
+				for (auto &it : cell_help_messages.cell_help) {
+					write_cell_rst(it.first, it.second, cell_help_messages.cell_code.at(it.first + "+"));
 				}
 			}
 			else if (pass_register.count(args[1])) {
