@@ -336,6 +336,9 @@ struct TechmapWorker
 
 			if (c->type.begins_with("\\$"))
 				c->type = c->type.substr(1);
+			
+			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype))
+				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
 
 			vector<IdString> autopurge_ports;
 
@@ -1134,6 +1137,10 @@ struct TechmapPass : public Pass {
 		log("Similarly, a wire named in the form `_TECHMAP_REPLACE_.<suffix>` will cause a\n");
 		log("new wire alias to be created and named as above but with the `_TECHMAP_REPLACE_'\n");
 		log("prefix also substituted.\n");
+		log("\n");
+		log("A cell with the type _TECHMAP_PLACEHOLDER_ in the map file will have its type\n");
+		log("changed to the content of the techmap_chtype attribute. This allows for choosing\n");
+		log("the cell type dynamically.\n");
 		log("\n");
 		log("See 'help extract' for a pass that does the opposite thing.\n");
 		log("\n");
