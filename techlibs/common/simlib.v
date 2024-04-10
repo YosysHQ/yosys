@@ -622,7 +622,7 @@ endmodule
 // --------------------------------------------------------
 
 //* ver 2
-//* short_desc Arithmetic logic unit
+//* title Arithmetic logic unit
 //- A building block supporting both binary addition/subtraction operations, and
 //- indirectly, comparison operations.
 //- Typically created by the `alumacc` pass, which transforms:

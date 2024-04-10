@@ -6,7 +6,7 @@ import json
 
 class SimHelper:
     name: str = ""
-    short_desc: str = ""
+    title: str = ""
     ports: str = ""
     desc: list[str]
     code: list[str]
@@ -18,7 +18,7 @@ class SimHelper:
     def __str__(self) -> str:
         val = "tempCell = {\n"
         val += f'  {json.dumps(self.name)},\n'
-        val += f'  {json.dumps(self.short_desc)},\n'
+        val += f'  {json.dumps(self.title)},\n'
         val += f'  {json.dumps(self.ports)},\n'
         val += '  ' + json.dumps("\n".join(self.desc)) + ',\n'
         val += '  ' + json.dumps("\n".join(self.code)) + ',\n'

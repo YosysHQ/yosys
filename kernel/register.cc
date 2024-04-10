@@ -755,7 +755,7 @@ struct SimHelper {
 		else
 			return name;
 	}
-	string short_desc;
+	string title;
 	string ports;
 	string desc;
 	string code;
@@ -887,8 +887,8 @@ struct HelpPass : public Pass {
 
 		// make header
 		string title_line;
-		if (cell.short_desc.length())
-			title_line = stringf("%s - %s", cell.name.c_str(), cell.short_desc.c_str());
+		if (cell.title.length())
+			title_line = stringf("%s - %s", cell.name.c_str(), cell.title.c_str());
 		else title_line = cell.name;
 		string underline = "\n";
 		underline.insert(0, title_line.length(), '=');
@@ -988,7 +988,7 @@ struct HelpPass : public Pass {
 				SimHelper help_cell = cell_help_messages.cell_help.at(args[1]);
 				if (help_cell.ver == "2") {
 					log("\n    %s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
-					log("\n%s\n", help_cell.short_desc.c_str());
+					log("\n%s\n", help_cell.title.c_str());
 					log("%s\n", help_cell.desc.c_str());
 					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
 					log("\n");
