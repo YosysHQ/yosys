@@ -337,8 +337,10 @@ struct TechmapWorker
 			if (c->type.begins_with("\\$"))
 				c->type = c->type.substr(1);
 			
-			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype))
+			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
 				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
+				c->attributes.erase(ID::techmap_chtype);
+			}
 
 			vector<IdString> autopurge_ports;
 
