@@ -142,7 +142,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.39+183
+YOSYS_VER := 0.40
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -158,7 +158,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 0033808.. | wc -l`/;" Makefile
+#	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 0033808.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #

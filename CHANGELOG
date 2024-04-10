@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.39 .. Yosys 0.40-dev
+Yosys 0.39 .. Yosys 0.40
 --------------------------
+ * New commands and options
+    - Added option "-vhdl2019" to "read" and "verific" pass. 
+
+ * Various
+    - Major documentation overhaul.
+    - Added port statistics to "stat" command.
+    - Added new formatting features to cxxrtl backend.
+
+ * Verific support
+    - Added better support for VHDL constants import.
+    - Added support for VHDL 2009.
 
 Yosys 0.38 .. Yosys 0.39
 --------------------------
