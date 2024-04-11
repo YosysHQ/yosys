@@ -194,7 +194,7 @@ public:
 };
 
 template<typename G, typename ComponentCallback>
-void topo_sorted_sccs(G &graph, ComponentCallback component)
+void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first = false)
 {
     typedef typename G::node_enumerator node_enumerator;
     typedef typename G::successor_enumerator successor_enumerator;
@@ -216,6 +216,23 @@ void topo_sorted_sccs(G &graph, ComponentCallback component)
 
 
     node_enumerator nodes = graph.enumerate_nodes();
+
+    if (sources_first) {
+        while (!nodes.finished()) {
+            node_type node = nodes.next();
+            successor_enumerator successors = graph.enumerate_successors(node);
+            if (successors.finished())
+            {
+                graph.dfs_index(node) = next_index;
+                next_index++;
+                component_stack.push_back(node);
+                component(component_stack.data(), component_stack.data() + 1);
+                component_stack.clear();
+                graph.dfs_index(node) = INT_MAX;
+            }
+        }
+        nodes = graph.enumerate_nodes();
+    }
 
     // iterate over all nodes to ensure we process the whole graph
     while (!nodes.finished()) {
