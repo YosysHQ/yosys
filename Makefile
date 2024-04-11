@@ -142,7 +142,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.40+0
+YOSYS_VER := 0.40+4
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
