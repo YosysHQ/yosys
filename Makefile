@@ -117,7 +117,7 @@ BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
 CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -rpath '$$ORIGIN' 
+LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -rpath /usr/local/lib
 endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
@@ -382,12 +382,6 @@ BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python$(PYTHON_MAJOR_VERSION)) || \
 	$(call CHECK_BOOST_PYTHON,boost_python) \
 )
-
-# Inside CentOS 7 Docker
-ifeq (${DOCKER_RUNNING},1)
-BOOST_PYTHON_LIB = -L/usr/lib64/boost169/ -lboost_python36
-CXXFLAGS += -I/usr/include/boost169/
-endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
