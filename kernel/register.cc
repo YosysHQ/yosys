@@ -757,6 +757,7 @@ struct SimHelper {
 	}
 	string title;
 	string ports;
+	string source;
 	string desc;
 	string code;
 	string ver;
@@ -901,7 +902,8 @@ struct HelpPass : public Pass {
 		// source code
 		fprintf(f, "Simulation model (Verilog)\n");
 		fprintf(f, "--------------------------\n\n");
-		fprintf(f, ".. code:: verilog\n\n");
+		fprintf(f, ".. code-block:: verilog\n");
+		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
 		std::stringstream ss;
 		ss << cell.code;
 		for (std::string line; std::getline(ss, line, '\n');) {
