@@ -15,5 +15,6 @@ endmodule
 EOF
 hierarchy -generate unknown_sub i:a i:b o:y
 hierarchy -generate $__dunder_sub i:a i:b o:y
+hierarchy -generate $xor i:A i:B o:Y # this one is ignored
 hierarchy -top top -check
 check -assert
