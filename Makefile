@@ -985,16 +985,27 @@ docs/gen_images:
 	$(Q) $(MAKE) -C docs images
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-docs/guidelines:
+docs/guidelines docs/source/temp:
 	$(Q) mkdir -p docs/source/temp
 	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/temp
 
-# many of these will return an error which can be safely ignored, so we prefix
-# the command with a '-'
-DOCS_USAGE_PROGS := yosys yosys-config yosys-filterlib yosys-abc yosys-smtbmc yosys-witness
-docs/usage: $(addprefix docs/source/temp/,$(DOCS_USAGE_PROGS))
-docs/source/temp/%: docs/guidelines
-	-$(Q) ./$(PROGRAM_PREFIX)$* --help > $@ 2>&1
+# some commands return an error and print the usage text to stderr
+define DOC_USAGE_STDERR
+docs/source/temp/$(1): $(PROGRAM_PREFIX)$(1) docs/source/temp
+	-$(Q) ./$$< --help 2> $$@
+endef
+DOCS_USAGE_STDERR := yosys-config yosys-filterlib yosys-abc
+$(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
+
+# others print to stdout
+define DOC_USAGE_STDOUT
+docs/source/temp/$(1): $(PROGRAM_PREFIX)$(1) docs/source/temp
+	$(Q) ./$$< --help > $$@
+endef
+DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
+$(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
+
+docs/usage: $(addprefix docs/source/temp/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE_STDERR))
 
 docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
