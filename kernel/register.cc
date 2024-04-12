@@ -988,10 +988,14 @@ struct HelpPass : public Pass {
 			}
 			else if (cell_help_messages.cell_help.count(args[1])) {
 				SimHelper help_cell = cell_help_messages.cell_help.at(args[1]);
-				if (help_cell.ver == "2") {
-					log("\n    %s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
-					log("\n%s\n", help_cell.title.c_str());
-					log("%s\n", help_cell.desc.c_str());
+				if (help_cell.ver == "2" || help_cell.ver == "2a") {
+					log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
+					if (help_cell.title != "") log("%s\n", help_cell.title.c_str());
+					std::stringstream ss;
+					ss << help_cell.desc;
+					for (std::string line; std::getline(ss, line, '\n');) {
+						if (line != "::") log("%s\n", line.c_str());
+					}
 					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
 					log("\n");
 				} else {

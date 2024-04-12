@@ -36,6 +36,24 @@ class SimHelper:
         val += f'cell_code[{json.dumps(self.name + "+")}] = tempCell;'
         return val
 
+def simcells_reparse(cell: SimHelper):
+    # cut manual signature
+    cell.desc = cell.desc[3:]
+
+    # code-block truth table
+    new_desc = []
+    indent = ""
+    for line in cell.desc:
+        if line.startswith("Truth table:"):
+            indent = "   "
+            new_desc.pop()
+            new_desc.extend(["::", ""])
+        new_desc.append(indent + line)
+    cell.desc = new_desc
+
+    # set version
+    cell.ver = "2a"
+
 simHelper = SimHelper()
 
 for line in fileinput.input():
@@ -62,7 +80,12 @@ for line in fileinput.input():
         # no module definition, ignore line
         pass
     if line.startswith("endmodule"):
+        short_filename = Path(fileinput.filename()).name
+        if simHelper.ver == "1" and short_filename == "simcells.v":
+            # default simcells parsing
+            simcells_reparse(simHelper)
         if not simHelper.desc:
+            # no help
             simHelper.desc.append("No help message for this cell type found.\n")
         print(simHelper)
         simHelper = SimHelper()
