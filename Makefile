@@ -780,9 +780,20 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
+.PHONY: check-git-abc
+
+check-git-abc:
+	@if [ -f "$(YOSYS_SRC)/abc/.git" ]; then \
+	    echo "abc/.git exists"; \
+		  exit 0; \
+	else \
+	    echo "abc/.git does not exist. Please execute git submodule update --init"; \
+	    exit 1; \
+	fi
+
 ABC_SOURCES := $(wildcard $(YOSYS_SRC)/abc/*)
 
-abc/abc$(EXE) abc/libabc.a: $(ABC_SOURCES)
+abc/abc$(EXE) abc/libabc.a: $(ABC_SOURCES) check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
