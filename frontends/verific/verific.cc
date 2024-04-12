@@ -44,6 +44,7 @@ USING_YOSYS_NAMESPACE
 
 #include "veri_file.h"
 #include "hier_tree.h"
+#include "VeriId.h"
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VeriLibrary.h"
@@ -51,7 +52,11 @@ USING_YOSYS_NAMESPACE
 
 #ifdef VERIFIC_VHDL_SUPPORT
 #include "vhdl_file.h"
+#include "VhdlIdDef.h"
+#include "VhdlCopy.h"
 #include "VhdlUnits.h"
+#include "VhdlExpression.h"
+#include "VhdlValue_Elab.h"
 #include "NameSpace.h"
 #endif
 
@@ -1421,7 +1426,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	module = new RTLIL::Module;
 	module->name = module_name;
 	design->add(module);
-
+	log("\n\n");
 	if (is_blackbox(nl)) {
 		log("Importing blackbox module %s.\n", RTLIL::id2cstr(module->name));
 		module->set_bool_attribute(ID::blackbox);
@@ -1436,14 +1441,71 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		char *architecture_name = name_space.ReName(nl->Name()) ;
 		module->set_string_attribute(ID(architecture), (architecture_name) ? architecture_name : nl->Name());
 	}
-#endif	
+#endif
+	printf("looking for :%s [%s]\n",netlist_name.c_str(), nl->Owner()->Name());
+	std::map<std::string, std::string> orig_params;
+	{
+		VeriModule *inst = veri_file::GetModuleFromAnyLibrary(netlist_name.c_str(),0,0);
+		if (inst) {
+			printf("Found Verilog instance : %s\n",inst->Name());
+			VeriModule *orig = inst->GetOriginalModule();
+			if (orig && orig->GetParameters()) {
+				printf("Original Verilog instance : %s\n",orig->Name());
+				for(size_t i=0;i<orig->GetParameters()->Size();i++)  {
+					VeriIdDef *param = (VeriIdDef*)orig->GetParameters()->At(i);
+					if (!param) continue ;
+					std::string name = std::string(param->Name());
+					std::string str = std::string(param->GetInitialValue()->Image());
+					orig_params.emplace(name,str);
+					printf("%s=%s\n",name.c_str(),str.c_str());
+				}
+			}
+		}
+	}	
+	{	
+		VhdlPrimaryUnit *inst = vhdl_file::GetPrimUnitFromAnyLibrary(netlist_name.c_str(),0,0);
+		if (inst) {
+			printf("Found VHDL instance : %s\n",inst->Name());
+			VhdlPrimaryUnit *orig = (VhdlPrimaryUnit*)inst->GetOriginalUnit();
+			if (orig && orig->HasGenerics()) { 
+				printf("Original VHDL instance : %s\n",orig->Name());
+				unsigned i ;
+				VhdlDeclaration *decl;
+				const Array *decls = orig->GetGenericClause() ;
+				FOREACH_ARRAY_ITEM(decls, i, decl) {
+					if (!decl) continue ;
+					if (decl->GetClassId()!=ID_VHDLINTERFACEDECL) continue;
+					if (!decl->GetIds()) continue;
+					if (!decl->GetInitAssign()) continue;
+
+					VhdlIdDef *id  = (VhdlIdDef*)decl->GetIds()->At(0);
+					std::string name = std::string(id->Name());
+					VhdlValue* v = decl->GetInitAssign()->Evaluate(0,0,0) ;
+                	std::string str = std::string(v->Image());
+
+					orig_params.emplace(name,str);
+					printf("%s=%s\n",name.c_str(),str.c_str());
+				}
+			}
+		}
+	}
+
 	const char *param_name ;
 	const char *param_value ;
 	MapIter mi;
+	printf("actual params\n=============\n");
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
 		module->avail_parameters(RTLIL::escape_id(param_name));
 		const TypeRange *tr = nl->GetTypeRange(param_name) ;
 		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(tr->GetTypeName(), param_value, nl);
+        if (orig_params.count(param_name)) {
+			if (orig_params[param_name] != param_value) {
+				printf("%s=%s\n",param_name,param_value);
+			}
+		} else {
+			printf("%s=%s\n",param_name,param_value);
+		}
+
 	}
 
 	SetIter si;
