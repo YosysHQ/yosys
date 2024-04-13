@@ -136,7 +136,7 @@ struct CellmatchPass : Pass {
 		log("selected modules and a module from the secondary design <design>. For every such\n");
 		log("correspondence found, a techmap rule is generated for mapping instances of the\n");
 		log("former to instances of the latter. This techmap rule is saved in yet another\n");
-		log("design called '$cellmatch_map', which is created if non-existent.\n");
+		log("design called '$cellmatch', which is created if non-existent.\n");
 		log("\n");
 		log("This pass restricts itself to combinational modules. Modules are functionally\n");
 		log("equivalent as long as their truth tables are identical upto a permutation of\n");
@@ -192,7 +192,7 @@ struct CellmatchPass : Pass {
 			targets[p_classes].push_back(Target{m, luts});
 		}
 
-		auto r = saved_designs.emplace("$cellmatch_map", nullptr);
+		auto r = saved_designs.emplace("$cellmatch", nullptr);
 		if (r.second)
 			r.first->second = new Design;
 		Design *map_design = r.first->second;

@@ -61,7 +61,7 @@ prep
 cellmatch -lib gatelib FA A:gate
 
 design -save gold
-techmap -map %$cellmatch_map
+techmap -map %$cellmatch
 design -save gate
 
 select -assert-none ripple_carry/t:FA
