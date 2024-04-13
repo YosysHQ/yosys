@@ -2,6 +2,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
+#include "kernel/consteval.h"
 #include "kernel/utils.h"
 
 #include <algorithm>
@@ -78,95 +79,48 @@ uint64_t p_class(int k, uint64_t lut)
 
 bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 {
-	SigMap sigmap(m);
 	CellTypes ff_types;
 	ff_types.setup_stdcells_mem();
-
-	dict<SigBit, Cell*> driver;
-	for (auto cell : m->selected_cells()) {
-		if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
-			continue;
-
+	for (auto cell : m->cells()) {
 		if (ff_types.cell_known(cell->type)) {
 			log("Ignoring module '%s' which isn't purely combinational.\n", log_id(m));
 			return false;
 		}
-
-		if (!cell->type.in(ID($_NOT_), ID($_AND_)))
-			log_error("Unsupported cell in module '%s': %s of type %s\n",
-					  log_id(m), log_id(cell), log_id(cell->type));
-
-		driver[sigmap(cell->getPort(ID::Y))] = cell;
 	}
 
-	TopoSort<Cell*> sort;
-	for (auto cell : m->cells())
-	if (cell->type.in(ID($_NOT_), ID($_AND_))) {
-		sort.node(cell);
-		SigSpec inputs = cell->type == ID($_AND_)
-				? SigSpec({cell->getPort(ID::B), cell->getPort(ID::A)})
-				: cell->getPort(ID::A);
-		for (auto bit : sigmap(inputs))
-		if (driver.count(bit))
-			sort.edge(driver.at(bit), cell);
+	SigSpec inputs = module_inputs(m);
+	SigSpec outputs = module_outputs(m);
+	int ninputs = inputs.size(), noutputs = outputs.size();
+
+	if (ninputs > 6) {
+		log_warning("Skipping module %s with more than 6 inputs bits.\n", log_id(m));
+		return false;
 	}
 
-	if (!sort.sort())
-		log_error("Module %s contains combinational loops.\n", log_id(m));
+	luts.clear();
+	luts.resize(noutputs);
 
-	dict<SigBit, uint64_t> states;
-	states[State::S0] = 0;
-	states[State::S1] = ~(uint64_t) 1;
+	ConstEval ceval(m);
+	for (int i = 0; i < 1 << ninputs; i++) {
+		ceval.clear();
+		for (int j = 0; j < ninputs; j++)
+			ceval.set(inputs[j], (i & (1 << j)) ? State::S1 : State::S0);
+		for (int j = 0; j < noutputs; j++) {
+			SigSpec bit = outputs[j];
 
-	{
-		uint64_t sieves[6] = {
-			0xaaaaaaaaaaaaaaaa,
-			0xcccccccccccccccc,
-			0xf0f0f0f0f0f0f0f0,
-			0xff00ff00ff00ff00,
-			0xffff0000ffff0000,
-			0xffffffff00000000,
-		};
+			if (!ceval.eval(bit)) {
+				log("Failed to evaluate output '%s' in module '%s'.\n",
+					log_signal(outputs[j]), log_id(m));
+				return false;
+			}
 
-		SigSpec inputs = sigmap(module_inputs(m));
-		if (inputs.size() > 6) {
-			log_warning("Skipping module %s with more than 6 inputs bits.\n", log_id(m));
-			return false;
-		}
+			log_assert(ceval.eval(bit));
 
-		for (int i = 0; i < inputs.size(); i++)
-			states[inputs[i]] = sieves[i] & ((((uint64_t) 1) << (1 << inputs.size())) - 1);
-	}
-
-	for (auto cell : sort.sorted) {
-		if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
-			continue;
-
-		if (cell->type == ID($_AND_)) {
-			SigSpec a = sigmap(cell->getPort(ID::A));
-			SigSpec b = sigmap(cell->getPort(ID::B));
-			if (!states.count(a) || !states.count(b))
-				log_error("Cell %s in module %s sources an undriven wire!",
-						  log_id(cell), log_id(m));
-			states[sigmap(cell->getPort(ID::Y))] = \
-				states.at(a) & states.at(b);
-		} else if (cell->type == ID($_NOT_)) {
-			SigSpec a = sigmap(cell->getPort(ID::A));
-			if (!states.count(a))
-				log_error("Cell %s in module %s sources an undriven wire!",
-						  log_id(cell), log_id(m));
-			states[sigmap(cell->getPort(ID::Y))] = ~states.at(a);
-		} else {
-			log_abort();
+			if (bit[0] == State::S1)
+				luts[j] |= 1 << i;
 		}
 	}
 
-	for (auto bit : module_outputs(m)) {
-		if (!states.count(sigmap(bit)))
-			log_error("Output port %s in module %s is undriven!",
-					  log_signal(bit), log_id(m));
-		luts.push_back(states.at(sigmap(bit)));
-	}
 	return true;
 }
 
@@ -184,10 +138,9 @@ struct CellmatchPass : Pass {
 		log("former to instances of the latter. This techmap rule is saved in yet another\n");
 		log("design called '$cellmatch_map', which is created if non-existent.\n");
 		log("\n");
-		log("This pass restricts itself to combinational modules which must be modeled with an\n");
-		log("and-inverter graph. Run 'aigmap' first if necessary. Modules are functionally\n");
+		log("This pass restricts itself to combinational modules. Modules are functionally\n");
 		log("equivalent as long as their truth tables are identical upto a permutation of\n");
-		log("inputs and outputs. The number of inputs is limited to 6.\n");
+		log("inputs and outputs. The supported number of inputs is limited to 6.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
