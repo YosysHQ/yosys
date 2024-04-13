@@ -185,6 +185,8 @@ struct CellmatchPass : Pass {
 				continue;
 			for (auto lut : luts)
 				p_classes.insert(p_class(ninputs, lut));
+			
+			log_debug("Registered %s\n", log_id(m));
 
 			// save as a viable target
 			targets[p_classes].push_back(Target{m, luts});
