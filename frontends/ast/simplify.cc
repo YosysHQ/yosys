@@ -1260,6 +1260,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	}
 
 	if (type == AST_CELL) {
+		// when a module lookup is suggested, any port connection that is not a
+		// plain identifier will be indirected through a new wire
 		bool lookup_suggested = false;
 
 		for (AstNode *child : children) {
@@ -1282,7 +1284,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 							continue;
 					}
 					if (elem->type == AST_MEMORY)
-						// need to determine is the is a read or wire
+						// need to determine is the is a read or write
 						lookup_suggested = true;
 					else if (elem->type == AST_WIRE && elem->is_signed && !value->children.empty())
 						// this may be a fully sliced signed wire which needs
@@ -1295,9 +1297,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				else if (value->type == AST_TO_UNSIGNED)
 					// inner expression may be signed by default
 					lookup_suggested = true;
-				else if (value->type == AST_CONCAT && value->children.size() == 1)
-					// concat of a single expression is equivalent to $unsigned
+				else if (value->type == AST_CONCAT) {
+					// concat of a single expression is equivalent to $unsigned;
+					// concats could also contain one or references to memories,
+					// which may ambiguously be reads or writes
 					lookup_suggested = true;
+				}
 			}
 		}
 
