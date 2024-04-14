@@ -38,7 +38,6 @@ two.
 
 .. literalinclude:: /temp/yosys-abc
     :start-at: usage
-    :end-before: UC Berkeley
 
 yosys-smtbmc
 ------------
