@@ -48,6 +48,7 @@ help:
 clean: clean-examples
 	rm -rf $(BUILDDIR)/*
 	rm -rf source/cmd util/__pycache__
+	rm -rf source/generated
 	$(MAKE) -C source/_images clean
 
 .PHONY: html
