@@ -662,6 +662,16 @@ const char *log_id(const RTLIL::IdString &str)
 	return p+1;
 }
 
+const char *log_str(const char *str)
+{
+	log_id_cache.push_back(strdup(str));
+	return log_id_cache.back();
+}
+
+const char *log_str(std::string const &str) {
+	return log_str(str.c_str());
+}
+
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
