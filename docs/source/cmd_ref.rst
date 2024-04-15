@@ -4,7 +4,7 @@
 Command line reference
 ================================================================================
 
-.. literalinclude:: /temp/yosys
+.. literalinclude:: /generated/yosys
     :start-at: Usage
 
 .. toctree::
