@@ -237,7 +237,7 @@ struct InitValWorker
 					return true;
 				if (ff.has_ce && initconst(ff.sig_ce.as_bit()) == (ff.pol_ce ? State::S0 : State::S1))
 					continue;
-				if (ff.has_srst && initconst(ff.sig_ce.as_bit()) == (ff.pol_srst ? State::S1 : State::S0))
+				if (ff.has_srst && initconst(ff.sig_srst.as_bit()) == (ff.pol_srst ? State::S1 : State::S0))
 					continue;
 
 				return true;
