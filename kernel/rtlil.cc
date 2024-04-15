@@ -3733,6 +3733,20 @@ RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 	return ret;
 }
 
+RTLIL::SigBit RTLIL::SigChunk::operator[](int offset) const
+{
+	log_assert(offset >= 0);
+	log_assert(offset <= width);
+	RTLIL::SigBit ret;
+	if (wire) {
+		ret.wire = wire;
+		ret.offset = this->offset + offset;
+	} else {
+		ret.data = data[offset];
+	}
+	return ret;
+}
+
 bool RTLIL::SigChunk::operator <(const RTLIL::SigChunk &other) const
 {
 	if (wire && other.wire)
