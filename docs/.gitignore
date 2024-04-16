@@ -1,6 +1,6 @@
 /build/
 /source/cmd
-/source/temp
+/source/generated
 /source/_images/**/*.log
 /source/_images/**/*.aux
 /source/_images/**/*.pdf
