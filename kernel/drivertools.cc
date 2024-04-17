@@ -499,7 +499,7 @@ int DriverMap::DriveBitGraph::count(DriveBitId src)
 	auto found = more_edges.find(src);
 	if (found == more_edges.end())
 		return 2;
-	return GetSize(found->second);
+	return GetSize(found->second) + 2;
 }
 
 DriverMap::DriveBitId DriverMap::DriveBitGraph::at(DriveBitId src, int index)
@@ -688,7 +688,7 @@ void DriverMap::add(DriveBit const &a, DriveBit const &b)
 	// and use the other end as representative bit.
 	else if (a_mode == BitMode::DRIVEN_UNIQUE && !(b_mode == BitMode::DRIVEN_UNIQUE || b_mode == BitMode::DRIVEN))
 		connect_directed_buffer(a_id, b_id);
-	else if (b_mode == BitMode::DRIVEN_UNIQUE && !(b_mode == BitMode::DRIVEN_UNIQUE || b_mode == BitMode::DRIVEN))
+	else if (b_mode == BitMode::DRIVEN_UNIQUE && !(a_mode == BitMode::DRIVEN_UNIQUE || a_mode == BitMode::DRIVEN))
 		connect_directed_buffer(b_id, a_id);
 	// If either bit only drives a value, store a directed connection from
 	// it to the other bit.
@@ -827,15 +827,18 @@ DriveBit DriverMap::operator()(DriveBit const &bit)
 
 	DriveBitId bit_id = id_from_drive_bit(bit);
 
-	bit_id = same_driver.find(bit_id);
+	DriveBitId bit_repr_id = same_driver.find(bit_id);
 
-	DriveBit bit_repr = drive_bit_from_id(bit_id);
+	DriveBit bit_repr = drive_bit_from_id(bit_repr_id);
 
 	BitMode mode = bit_mode(bit_repr);
 
-	int implicit_driver_count = connected_drivers.count(bit_id);
-	if (connected_undirected.contains(bit_id) && !oriented_present.count(bit_id))
-		orient_undirected(bit_id);
+	if (mode == BitMode::KEEP && bit_repr_id != bit_id)
+		return bit_repr;
+
+	int implicit_driver_count = connected_drivers.count(bit_repr_id);
+	if (connected_undirected.contains(bit_repr_id) && !oriented_present.count(bit_repr_id))
+		orient_undirected(bit_repr_id);
 
 	DriveBit driver;
 
@@ -843,11 +846,11 @@ DriveBit DriverMap::operator()(DriveBit const &bit)
 		driver = bit_repr;
 
 	for (int i = 0; i != implicit_driver_count; ++i)
-		driver.merge(drive_bit_from_id(connected_drivers.at(bit_id, i)));
+		driver.merge(drive_bit_from_id(connected_drivers.at(bit_repr_id, i)));
 
-	int oriented_driver_count = connected_oriented.count(bit_id);
+	int oriented_driver_count = connected_oriented.count(bit_repr_id);
 	for (int i = 0; i != oriented_driver_count; ++i)
-		driver.merge(drive_bit_from_id(connected_oriented.at(bit_id, i)));
+		driver.merge(drive_bit_from_id(connected_oriented.at(bit_repr_id, i)));
 
 	return driver;
 }

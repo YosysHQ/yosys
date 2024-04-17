@@ -1165,6 +1165,7 @@ private:
 		DriveBitId(int id) : id(id) { }
 
 		bool operator==(const DriveBitId &other) const { return id == other.id; }
+		bool operator!=(const DriveBitId &other) const { return id != other.id; }
 		bool operator<(const DriveBitId &other) const { return id < other.id; }
 		unsigned int hash() const { return id; }
 	};
