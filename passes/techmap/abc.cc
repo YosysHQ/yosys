@@ -707,7 +707,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells,
+		std::string liberty_args)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -806,7 +807,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		}
 		bool first_lib = true;
 		for (std::string liberty_file : liberty_files) {
-			abc_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args.c_str(), first_lib ? "" : "-m", liberty_file.c_str());
+			abc_script += stringf("read_lib %s %s -w %s \"%s\" ; ", dont_use_args.c_str(), first_lib ? "" : "-m", liberty_args.c_str(), liberty_file.c_str());
 			first_lib = false;
 		}
 		for (std::string liberty_file : genlib_files)
@@ -819,8 +820,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
 
+	std::string user_script;
+
 	if (!script_file.empty()) {
-		if (script_file[0] == '+') {
+		if (script_file[0] == '+') { // inline user script
 			for (size_t i = 1; i < script_file.size(); i++)
 				if (script_file[i] == '\'')
 					abc_script += "'\\''";
@@ -828,8 +831,17 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					abc_script += " ";
 				else
 					abc_script += script_file[i];
-		} else
-			abc_script += stringf("source %s", script_file.c_str());
+		} else {
+			// read in user script
+			std::ifstream ifs(script_file.c_str());
+			if(ifs.is_open()) {
+			user_script.assign( (std::istreambuf_iterator<char>(ifs) ),
+                                (std::istreambuf_iterator<char>()    ) );
+			} else {
+				log_error("Opening %s for reading failed\n", script_file.c_str());
+			}
+			abc_script += stringf("source %s/user.script", tempdir_name.c_str());
+		}
 	} else if (!lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : lut_costs)
@@ -874,6 +886,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 	fprintf(f, "%s\n", abc_script.c_str());
+	fclose(f);
+
+	buffer = stringf("%s/user.script", tempdir_name.c_str());
+	f = fopen(buffer.c_str(), "wt");
+	if (f == nullptr)
+		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+	fprintf(f, "%s\n", user_script.c_str());
 	fclose(f);
 
 	if (dff_mode || !clk_str.empty())
@@ -1659,7 +1678,7 @@ struct AbcPass : public Pass {
 		po_map.clear();
 
 		std::string exe_file = yosys_abc_executable;
-		std::string script_file, default_liberty_file, constr_file, clk_str;
+		std::string script_file, default_liberty_file, constr_file, clk_str, liberty_args;
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
@@ -1741,6 +1760,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-liberty_args" && argidx+1 < args.size()) {
+				liberty_args = args[++argidx];
 				continue;
 			}
 			if (arg == "-dont_use" && argidx+1 < args.size()) {
@@ -2053,7 +2076,7 @@ struct AbcPass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells, liberty_args);
 				continue;
 			}
 
@@ -2214,8 +2237,8 @@ struct AbcPass : public Pass {
 				arst_sig = assign_map(std::get<5>(it.first));
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells);
+				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$", keepff,
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells, liberty_args);
 				assign_map.set(mod);
 			}
 		}
