@@ -300,6 +300,8 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 	bool print_header = flag_m || design->selected_whole_module(module->name);
 	bool print_body = !flag_n || !design->selected_whole_module(module->name);
 
+    log("Dumping module %s %d %d\n", module->name.c_str(), print_header, print_body);
+
 	if (print_header)
 	{
 		for (auto it = module->attributes.begin(); it != module->attributes.end(); ++it) {
@@ -328,29 +330,37 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 	if (print_body)
 	{
-		for (auto it : module->wires())
+		for (auto it : module->wires()) {
+			log("    testing wire\n");
 			if (!only_selected || design->selected(module, it)) {
+				log("    dumping wire\n");
 				if (only_selected)
 					f << stringf("\n");
 				dump_wire(f, indent + "  ", it);
 			}
+		}
 
 		for (auto it : module->memories)
 			if (!only_selected || design->selected(module, it.second)) {
+				log("    dumping memory\n");
 				if (only_selected)
 					f << stringf("\n");
 				dump_memory(f, indent + "  ", it.second);
 			}
 
-		for (auto it : module->cells())
+		for (auto it : module->cells()) {
+			log("    testing cell\n");
 			if (!only_selected || design->selected(module, it)) {
+				log("    dumping cell\n");
 				if (only_selected)
 					f << stringf("\n");
 				dump_cell(f, indent + "  ", it);
 			}
+		}
 
 		for (auto it : module->processes)
 			if (!only_selected || design->selected(module, it.second)) {
+				log("    dumping processes\n");
 				if (only_selected)
 					f << stringf("\n");
 				dump_proc(f, indent + "  ", it.second);
@@ -358,6 +368,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 		bool first_conn_line = true;
 		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+			log("    dumping connection\n");
 			bool show_conn = !only_selected || design->selected_whole_module(module->name);
 			if (!show_conn) {
 				RTLIL::SigSpec sigs = it->first;

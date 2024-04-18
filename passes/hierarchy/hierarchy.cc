@@ -44,9 +44,12 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 {
 	std::set<RTLIL::IdString> found_celltypes;
 
+    log("Generating\n");
+
 	for (auto mod : design->modules())
 	for (auto cell : mod->cells())
 	{
+		log("gen for module %s and cell %s\n", mod->name.c_str(), cell->name.c_str());
 		if (design->module(cell->type) != nullptr)
 			continue;
 		if (cell->type.begins_with("$__"))

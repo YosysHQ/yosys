@@ -2399,6 +2399,7 @@ void RTLIL::Module::fixup_ports()
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
+	log("        add wire %s\n", name.c_str());
 	RTLIL::Wire *wire = new RTLIL::Wire;
 	wire->name = name;
 	wire->width = width;
@@ -2408,6 +2409,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
 {
+	log("        add wire2 %s\n", name.c_str());
 	RTLIL::Wire *wire = addWire(name);
 	wire->width = other->width;
 	wire->start_offset = other->start_offset;
@@ -2422,6 +2424,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
+	log("        add cell %s\n", name.c_str());
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	cell->name = name;
 	cell->type = type;
@@ -2431,6 +2434,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
+	log("        add cell2 %s\n", name.c_str());
 	RTLIL::Cell *cell = addCell(name, other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
@@ -2440,6 +2444,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
 {
+	log("        add memory %s\n", name.c_str());
 	RTLIL::Memory *mem = new RTLIL::Memory;
 	mem->name = name;
 	mem->width = other->width;
@@ -2452,6 +2457,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 {
+	log("        add process %s\n", name.c_str());
 	RTLIL::Process *proc = new RTLIL::Process;
 	proc->name = name;
 	add(proc);
@@ -2460,6 +2466,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
+	log("        add process2 %s\n", name.c_str());
 	RTLIL::Process *proc = other->clone();
 	proc->name = name;
 	add(proc);

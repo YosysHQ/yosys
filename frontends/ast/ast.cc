@@ -264,6 +264,14 @@ AstNode *AstNode::clone() const
 	return that;
 }
 
+AstNode *AstNode::setInLvalue()
+{
+	this->in_lvalue = true;
+	for (auto &it : this->children) {
+		it->setInLvalue();
+	}
+	return this;
+}
 // create a (deep recursive) copy of a node use 'other' as target root node
 void AstNode::cloneInto(AstNode *other) const
 {
@@ -1105,8 +1113,11 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		log("--- END OF AST DUMP ---\n");
 	//}
 
+    log("Here\n");
+
 	if (!defer)
 	{
+		log("Here defer\n");
 		for (const AstNode *node : ast->children)
 			if (node->type == AST_PARAMETER && param_has_no_default(node))
 				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
@@ -1147,11 +1158,13 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		//}
 
 		if (flag_nowb && ast->attributes.count(ID::whitebox)) {
+			log("White box\n");
 			delete ast->attributes.at(ID::whitebox);
 			ast->attributes.erase(ID::whitebox);
 		}
 
 		if (ast->attributes.count(ID::lib_whitebox)) {
+			log("lib_white box\n");
 			if (!flag_lib || flag_nowb) {
 				delete ast->attributes.at(ID::lib_whitebox);
 				ast->attributes.erase(ID::lib_whitebox);
@@ -1167,6 +1180,7 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		}
 
 		if (!blackbox_module && ast->attributes.count(ID::blackbox)) {
+			log("!blackbox_module\n");
 			AstNode *n = ast->attributes.at(ID::blackbox);
 			if (n->type != AST_CONSTANT)
 				ast->input_error("Got blackbox attribute with non-constant value!\n");
@@ -1174,6 +1188,7 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		}
 
 		if (blackbox_module && ast->attributes.count(ID::whitebox)) {
+			log("blackbox_module\n");
 			AstNode *n = ast->attributes.at(ID::whitebox);
 			if (n->type != AST_CONSTANT)
 				ast->input_error("Got whitebox attribute with non-constant value!\n");
@@ -1181,6 +1196,7 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		}
 
 		if (ast->attributes.count(ID::noblackbox)) {
+			log("noblackbox_module\n");
 			if (blackbox_module) {
 				AstNode *n = ast->attributes.at(ID::noblackbox);
 				if (n->type != AST_CONSTANT)
@@ -1193,6 +1209,7 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 
 		if (blackbox_module)
 		{
+			log("blackbox_module\n");
 			if (ast->attributes.count(ID::whitebox)) {
 				delete ast->attributes.at(ID::whitebox);
 				ast->attributes.erase(ID::whitebox);
@@ -1226,6 +1243,12 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
+		log("Generating RTLIL for nodes\n");
+
+    	for (auto f : log_files) {
+			ast->dumpAst(f, "rtlil ast>");
+		}
+
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
@@ -1233,21 +1256,33 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type == AST_WIRE || node->type == AST_MEMORY)
+			log("Node 1 %zu %d\n", i, node->type);
+			if (node->type == AST_WIRE || node->type == AST_MEMORY) {
+				log("    gen\n");
 				node->genRTLIL();
+			}
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
+			log("Node 2 %zu %d\n", i, node->type);
+			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL) {
+				log("    gen\n");
+    			for (auto f : log_files) {
+					node->dumpAst(f, "node>");
+				}
 				node->genRTLIL();
+			}
 		}
 
 		ignoreThisSignalsInInitial.sort_and_unify();
 
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type == AST_INITIAL)
+			log("Node 3 %zu %d\n", i, node->type);
+			if (node->type == AST_INITIAL) {
+				log("    gen\n");
 				node->genRTLIL();
+			}
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();

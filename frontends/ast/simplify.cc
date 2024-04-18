@@ -700,6 +700,54 @@ AstNode *AstNode::subst_ident(std::string v, std::string vsub)
     return this;
 }
 
+AstNode *AstNode::subst_term(AstNode *term, AstNode *sub)
+{
+	if (type==AST_IDENTIFIER) {
+        for (auto f : log_files) {
+            this->dumpAst(f, "subst term test> ");
+            term->dumpAst(f, "subst term orig> ");
+            sub->dumpAst(f, "subst term replace> ");
+        }
+	}
+	if (*this == *term) {
+        for (auto f : log_files) {
+			fprintf(f, "REPLACING\n");
+		}
+		AstNode *res = sub->clone();
+		if (this->in_lvalue) {
+			res->setInLvalue();
+		}
+		delete this;
+		return res;
+    } else if (type==AST_LOCALPARAM) {
+        return this;
+    }
+	std::vector<AstNode*> new_children;
+	new_children.clear();
+    for (AstNode *c : children) {
+		new_children.push_back(c->subst_term(term, sub));
+    }
+	children = new_children;
+    return this;
+}
+
+bool AstNode::isAssigned(AstNode *term)
+{
+	if (*this == *term) {
+		if (this->in_lvalue) {
+			return true;
+		}
+    } else if (type==AST_LOCALPARAM) {
+        return false;
+    }
+    for (AstNode *c : children) {
+		if (c->isAssigned(term)) {
+			return true;
+		}
+    }
+	return false;
+}
+
 AstNode *AstNode::subst_ident(std::string v, AstNode *node)
 {
     if (type == AST_IDENTIFIER) {
@@ -1014,6 +1062,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 {
 	static int recursion_counter = 0;
 	static bool deep_recursion_warning = false;
+    //aux_modules = false;
 
 	if (recursion_counter++ == 1000 && deep_recursion_warning) {
 		log_warning("Deep recursion in AST simplifier.\nDoes this design contain overly long or deeply nested expressions, or excessive recursion?\n");
@@ -2447,12 +2496,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		AstNode *next_ast = children[2];
 		AstNode *body_ast = children[3];
 		for (auto f : log_files) {
-                     fprintf(f, "Processing FOR or GENFOR\n");
+             fprintf(f, "Processing FOR or GENFOR\n");
 		     init_ast->dumpAst(f, "init-ast> ");
 		     while_ast->dumpAst(f, "while-ast> ");
 		     next_ast->dumpAst(f, "next-ast> ");
 		     body_ast->dumpAst(f, "body-ast> ");
-                }
+        }
 
 		while (body_ast->type == AST_GENBLOCK && body_ast->str.empty() &&
 				body_ast->children.size() == 1 && body_ast->children.at(0)->type == AST_GENBLOCK)
@@ -2493,7 +2542,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			input_error("Right hand side of 1st expression of %s for-loop is not constant!\n", loop_type_str);
 		for (auto f : log_files) {
 		     varbuf->dumpAst(f, "init varbuf> ");
-                }
+        }
 
 		auto resolved = current_scope.at(init_ast->children[0]->str);
 		if (resolved->range_valid) {
@@ -2513,7 +2562,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		varbuf->str = init_ast->children[0]->str;
 		for (auto f : log_files) {
 		     varbuf->dumpAst(f, "2nd varbuf> ");
-                }
+        }
 		log("Here0\n");
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
 		current_scope[varbuf->str] = varbuf;
@@ -2546,107 +2595,112 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (buf->type != AST_CONSTANT)
 				input_error("2nd expression of %s for-loop is not constant!\n", loop_type_str);
 
-		        for (auto f : log_files) {
-		            buf->dumpAst(f, "buf> ");
-		            varbuf->dumpAst(f, "3nd buf> ");
-        			fprintf(f, "Here.1\n");
-                }
-			if (buf->integer == 0) {
+		    for (auto f : log_files) {
+		        buf->dumpAst(f, "buf> ");
+		        varbuf->dumpAst(f, "3nd buf> ");
+        		fprintf(f, "Here.1\n");
+            }
+		    if (buf->integer == 0) {
 				delete buf;
-				break;
+			    break;
 			}
 			delete buf;
 
 			// expand body
 			int index = varbuf->children[0]->integer;
-		        for (auto f : log_files) {
-                            fprintf(f, "Index %d\n", index);
-                        }
+		    for (auto f : log_files) {
+                fprintf(f, "Index %d\n", index);
+            }
 			log_assert(body_ast->type == AST_GENBLOCK || body_ast->type == AST_BLOCK);
 			log_assert(!body_ast->str.empty());
 			buf = body_ast->clone();
 			std::stringstream sstr;
 			sstr << buf->str << "[" << index << "].";
 			std::string prefix = sstr.str();
-                        std::stringstream sstr2;
+            std::stringstream sstr2;
 			sstr2 << buf->str << "_" << index;
 			std::string prefix_cell = sstr2.str();
 			// create a scoped localparam for the current value of the loop variable
 			AstNode *local_index = varbuf->clone();
 			size_t pos = local_index->str.rfind('.');
 			if (pos != std::string::npos) // remove outer prefix
-				local_index->str = "\\" + local_index->str.substr(pos + 1);
+			    local_index->str = "\\" + local_index->str.substr(pos + 1);
 			index_tail = local_index->str;
 			//size_t ppos = 0;
 			//for (ppos = index_tail.size() - 1; ppos; --ppos) {
-				//if (index_tail.at(ppos) == '\\') break;
+			    //if (index_tail.at(ppos) == '\\') break;
 			//}
 
 			//index_tail = index_tail.substr(ppos + 1, index_tail.size()-ppos+1);
 			local_index->str = prefix_id(prefix, local_index->str);
 			current_scope[local_index->str] = local_index;
-			current_ast_mod->children.push_back(local_index);
+			if (type != AST_GENFOR || !aux_modules) {
+				current_ast_mod->children.push_back(local_index);
+			}
 
 			buf->expand_genblock(prefix);
 		    for (auto f : log_files) {
-				fprintf(f, "index_tail %s\n", index_tail.c_str());
-				local_index->dumpAst(f, "local index> ");
-				buf->dumpAst(f, "simplified buf> ");
+			    fprintf(f, "index_tail %s\n", index_tail.c_str());
+			    local_index->dumpAst(f, "local index> ");
+			    buf->dumpAst(f, "simplified buf> ");
 			}
 
 			if (type == AST_GENFOR) {
-                                if (aux_modules) {
-                                        AstNode *cell = new AstNode(AST_CELL);
-                                        current_ast_mod->children.push_back(cell);
-                                        cell->str = prefix_cell;
-                                        cell->children.push_back(new AstNode(AST_CELLTYPE));
-                                        cell->children.back()->str = block_name;
-                                        cell->children.push_back(new AstNode(AST_ARGUMENT));
-                                        //std::stringstream sstr;
-                                        //sstr << varbuf->str;
+                if (aux_modules) {
+                    AstNode *cell = new AstNode(AST_CELL);
+                    current_ast_mod->children.push_back(cell);
+                    cell->str = prefix_cell;
+                    cell->children.push_back(new AstNode(AST_CELLTYPE));
+                    cell->children.back()->str = block_name;
+                    cell->children.push_back(new AstNode(AST_PARASET));
+                    //std::stringstream sstr;
+                    //sstr << varbuf->str;
         
-                                        cell->children.back()->str = index_tail;
-                                        cell->children.back()->children.push_back(AstNode::mkconst_int(index, true));
+                    cell->children.back()->str = index_tail;
+                    cell->children.back()->children.push_back(AstNode::mkconst_int(index, true));
         
-                                        references.clear();
-                                        reference_ast.clear();
-                                        body_ast->collect_references();
-										std::string ind = index_tail;
-										for (size_t ppos = index_tail.size() - 1; ppos; --ppos) {
-											if (index_tail.at(ppos) != '\\') continue;
-											ind = index_tail.substr(ppos, index_tail.size()-ppos);
-											break;
-										}
-										log("ind = %s\n", ind.c_str());
-                                        for (std::string s : references) {
-                                             AstNode *node = reference_ast[s]->clone()->subst_ident(ind, mkconst_int(index, true));
-                                             for (auto f : log_files) {
-                                                 fprintf(f, "PROCESSING %s\n", s.c_str());
-                                                 node->dumpAst(f, "node>");
-                                             }
-                                             if (current_scope.find(node->str) != current_scope.end()) {
-                                                 AstNode *n = current_scope[node->str];
-                                                 for (auto f : log_files) {
-                                                     n->dumpAst(f, "scope>");
-                                                 }
-                                                 if (n->type==AST_MEMORY || n->type==AST_WIRE) {
-                                                     cell->children.push_back(new AstNode(AST_ARGUMENT));
-                                                     cell->children.back()->str = s;
-                                                     cell->children.back()->children.push_back(node);
-                                                 }
-                                             } else {
-                                                 for (auto f : log_files) {
-                                                     fprintf(f, "    Not in scope\n");
-                                                 }
-                                             }
-                                        }
-                                } else {
-				        for (size_t i = 0; i < buf->children.size(); i++) {
-					        buf->children[i]->simplify(const_fold, stage, -1, false, false, aux_modules);
-					        current_ast_mod->children.push_back(buf->children[i]);
-				        }
+                    references.clear();
+                    reference_ast.clear();
+                    body_ast->collect_references();
+				    std::string ind = index_tail;
+				    for (size_t ppos = index_tail.size() - 1; ppos; --ppos) {
+				        if (index_tail.at(ppos) != '\\') continue;
+					    ind = index_tail.substr(ppos, index_tail.size()-ppos);
+					    break;
+				    }
+			        log("ind = %s\n", ind.c_str());
+                    for (std::string s : references) {
+						if (s != ind) {
+                            AstNode *node = reference_ast[s]->clone(); // ->subst_ident(ind, mkconst_int(index, true));
+							node = node->subst_ident(ind, mkconst_int(index,true));
+                            for (auto f : log_files) {
+                                fprintf(f, "PROCESSING %s\n", s.c_str());
+                                node->dumpAst(f, "node>");
+                            }
+                            if (current_scope.find(node->str) != current_scope.end()) {
+                                AstNode *n = current_scope[node->str];
+                                for (auto f : log_files) {
+                                    n->dumpAst(f, "scope>");
                                 }
-			} else {
+                                if (n->type==AST_MEMORY || n->type==AST_WIRE) {
+                                    cell->children.push_back(new AstNode(AST_ARGUMENT));
+                                    cell->children.back()->str = s;
+                                    cell->children.back()->children.push_back(node);
+                                }
+                            } else {
+                                for (auto f : log_files) {
+                                    fprintf(f, "    Not in scope\n");
+								}
+                            }
+                        }
+                    }
+                } else {
+		            for (size_t i = 0; i < buf->children.size(); i++) {
+			            buf->children[i]->simplify(const_fold, stage, -1, false, false, aux_modules);
+    		            current_ast_mod->children.push_back(buf->children[i]);
+		            }
+                }
+		    } else {
 				for (size_t i = 0; i < buf->children.size(); i++)
 					current_block->children.insert(current_block->children.begin() + current_block_idx++, buf->children[i]);
 			}
@@ -2655,9 +2709,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			// eval 3rd expression
 			buf = next_ast->children[1]->clone();
-		        for (auto f : log_files) {
-		            buf->dumpAst(f, "next buf> ");
-                        }
+		    for (auto f : log_files) {
+		        buf->dumpAst(f, "next buf> ");
+            }
 			buf->set_in_param_flag(true);
 			{
 				int expr_width_hint = -1;
@@ -2673,49 +2727,52 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			varbuf->children[0] = buf;
 		}
 		if (aux_modules) {
+		    for (auto f : log_files) {
+		        body_ast->dumpAst(f, "aux_module core> ");
+            }
 			AstNode *module = new AstNode(AST_MODULE);
 			module->str = block_name;
-			module->children.push_back(new AstNode(AST_WIRE));
+			module->children.push_back(new AstNode(AST_PARAMETER));
 			module->children.back()->str = index_tail;
-			module->children.back()->is_input = true;
-                        AstNode *range = new AstNode(AST_RANGE);
-                        range->children.push_back(mkconst_int(31,true));
-                        range->children.push_back(mkconst_int(0,true));
-			module->children.back()->children.push_back(range);
+            //AstNode *range = new AstNode(AST_RANGE);
+            //range->children.push_back(mkconst_int(31,true));
+            //range->children.push_back(mkconst_int(0,true));
+			module->children.back()->children.push_back(mkconst_int(0,true));
 			references.clear();
 			reference_ast.clear();
 			body_ast->collect_references();
 			std::string v, vsub;
-			for (AstNode *n : body_ast->children)
-			{
-				if (n->type == AST_LOCALPARAM)
-				{
-					v = n->str;
-					vsub = n->children.back()->str;
-			                for (auto f : log_files) {
-                                            fprintf(f, "v, vsub %s %s\n", v.c_str(), vsub.c_str());
-                                        }
-				}
-			}
+			//for (AstNode *n : body_ast->children)
+			//{
+			//	if (n->type == AST_LOCALPARAM)
+			//	{
+			//		v = n->str;
+			//		vsub = n->children.back()->str;
+			//        for (auto f : log_files) {
+            //            fprintf(f, "v, vsub %s %s\n", v.c_str(), vsub.c_str());
+            //        }
+			//	}
+			//}
 			for (std::string s : references)
 			{
 				AstNode *node = reference_ast[s];
 				for (auto f : log_files) {
-					fprintf(f, "MODULE PROCESSING %s\n", s.c_str());
+					fprintf(f, "MODULE PROCESSING %s %s\n", v.c_str(), s.c_str());
 					node->dumpAst(f, "node>");
 				}
-				if (s != v) {
+				if (s != index_tail) {
 					if (current_scope.find(node->str) != current_scope.end()) {
 						AstNode *n = current_scope[node->str];
 						for (auto f : log_files) {
 							n->dumpAst(f, "scope>");
+							node->dumpAst(f, "node>");
 						}
 						if (n->type==AST_MEMORY || n->type==AST_WIRE) {
 							AstNode *nn = new AstNode(AST_WIRE);
 							module->children.push_back(nn);
 							nn->str = s;
-							nn->is_input = true;
-							nn->is_output = true;
+							nn->is_output = body_ast->isAssigned(node);
+							nn->is_input = !nn->is_output;
 							if (n->children.size() > 0) {
 								nn->children.push_back(n->children.at(0)->clone());
 							}
@@ -2729,25 +2786,44 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			{
 				if (n->type != AST_LOCALPARAM)
 				{
-					module->children.push_back(n->clone()->subst_ident(v,vsub));
+					AstNode *nn = n->clone();
+					for (std::string s : references) {
+						AstNode *node = reference_ast[s];
+						AstNode *r = new AstNode(AST_IDENTIFIER);
+                        r->str = s;
+             			for (auto f : log_files) {
+                            fprintf(f, "Replacing\n");
+		                    node->dumpAst(f, "orig> ");
+		                    r->dumpAst(f, "new> ");
+		                    nn->dumpAst(f, "in term> ");
+                        }
+						nn = nn->subst_term(node,r);
+						delete r;
+					}
+         			for (auto f : log_files) {
+                        fprintf(f, "Result term\n");
+	                    nn->dumpAst(f, "nn> ");
+                    }
+					module->children.push_back(nn);
 				}
 			}
 			for (auto f : log_files) {
-                            fprintf(f, "New Module\n");
-		            module->dumpAst(f, "genblk mod> ");
-                        }
+                fprintf(f, "New Module\n");
+		        module->dumpAst(f, "genblk mod> ");
+            }
 			AST_INTERNAL::aux_modules.push_back(module);
-		}
-		for (auto f : log_files) {
-		    current_ast_mod->dumpAst(f, "current_ast_mod> ");
-                }
-
-		if (type == AST_FOR) {
+			delete_children();
+			type = AST_NONE;
+		} else if (type == AST_FOR) {
 			AstNode *buf = next_ast->clone();
 			delete buf->children[1];
 			buf->children[1] = varbuf->children[0]->clone();
 			current_block->children.insert(current_block->children.begin() + current_block_idx++, buf);
 		}
+
+		for (auto f : log_files) {
+		    current_ast_mod->dumpAst(f, "current_ast_mod> ");
+        }
 
 		current_scope[varbuf->str] = backup_scope_varbuf;
 		delete varbuf;
@@ -4599,9 +4675,9 @@ replace_fcall_later:;
 	// if any of the above set 'newNode' -> use 'newNode' as template to update 'this'
 	if (newNode) {
 apply_newNode:
-		// fprintf(stderr, "----\n");
-		// dumpAst(stderr, "- ");
-		// newNode->dumpAst(stderr, "+ ");
+		fprintf(stderr, "----\n");
+		dumpAst(stderr, "- ");
+		newNode->dumpAst(stderr, "+ ");
 		log_assert(newNode != NULL);
 		newNode->filename = filename;
 		newNode->location = location;
@@ -4611,8 +4687,14 @@ apply_newNode:
 		did_something = true;
 	}
 
-	if (!did_something)
+	if (!did_something) {
 		basic_prep = true;
+	} else {
+		for (auto f : log_files) {
+			 fprintf(f, "FINISHED THE SIMPLIFY\n");
+		     dumpAst(f, "Finished simplify (modified)> ");
+        }
+	}
 
 	recursion_counter--;
 	return did_something;

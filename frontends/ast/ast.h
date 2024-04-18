@@ -239,6 +239,7 @@ namespace AST
 		// creating and deleting nodes
 		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
+        AstNode *setInLvalue();
 		void cloneInto(AstNode *other) const;
 		void delete_children();
 		~AstNode();
@@ -279,7 +280,7 @@ namespace AST
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 		bool detect_latch(const std::string &var);
 		const RTLIL::Module* lookup_cell_module();
-                void collect_references();
+        void collect_references();
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t {
@@ -293,6 +294,8 @@ namespace AST
 		bool has_const_only_constructs();
 		AstNode *subst_ident(std::string v, std::string sub);
 		AstNode *subst_ident(std::string v, AstNode *sub);
+		AstNode *subst_term(AstNode *v, AstNode *sub);
+        bool isAssigned(AstNode *term);
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();

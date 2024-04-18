@@ -344,11 +344,13 @@ struct AST_INTERNAL::ProcessGenerator
 	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), last_effect_priority(0)
 	{
 		// rewrite lookahead references
+		log("    BEGIN PROCESS GENERATOR %zu\n", always->children.size());
 		LookaheadRewriter la_rewriter(always);
 
 		// generate process and simple root case
 		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(always->filename).c_str(), always->location.first_line, autoidx++));
 		set_src_attr(proc, always);
+		log("    HERE1\n");
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				always->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
@@ -356,27 +358,34 @@ struct AST_INTERNAL::ProcessGenerator
 		}
 		current_case = &proc->root_case;
 
+		log("    HERE2\n");
 		// create initial temporary signal for all output registers
 		RTLIL::SigSpec subst_lvalue_from, subst_lvalue_to;
 		collect_lvalues(subst_lvalue_from, always, true, true);
 		subst_lvalue_to = new_temp_signal(subst_lvalue_from);
 		subst_lvalue_map = subst_lvalue_from.to_sigbit_map(subst_lvalue_to);
+		log("    HERE3\n");
 
 		bool found_global_syncs = false;
 		bool found_anyedge_syncs = false;
+		log("    CHILD COUNT %zu\n", always->children.size());
 		for (auto child : always->children)
 		{
+			log("    Processing child %d\n", child->type);
 			if ((child->type == AST_POSEDGE || child->type == AST_NEGEDGE) && GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER &&
 					child->children.at(0)->id2ast && child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute(ID::gclk)) {
+				log("        edge");
 				found_global_syncs = true;
 			}
 			if (child->type == AST_EDGE) {
+				log("        both edge");
 				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->str == "\\$global_clock")
 					found_global_syncs = true;
 				else
 					found_anyedge_syncs = true;
 			}
 		}
+		log("    Done processing child\n");
 
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
@@ -388,8 +397,10 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// create syncs for the process
 		bool found_clocked_sync = false;
-		for (auto child : always->children)
+		for (auto child : always->children) {
+		    log("    processing child2 %d\n", child->type);
 			if (child->type == AST_POSEDGE || child->type == AST_NEGEDGE) {
+				log("    Processing edge2\n");
 				if (GetSize(child->children) == 1 && child->children.at(0)->type == AST_IDENTIFIER && child->children.at(0)->id2ast &&
 						child->children.at(0)->id2ast->type == AST_WIRE && child->children.at(0)->id2ast->get_bool_attribute(ID::gclk))
 					continue;
@@ -403,8 +414,11 @@ struct AST_INTERNAL::ProcessGenerator
 					always->input_error("Found posedge/negedge event on a signal that is not 1 bit wide!\n");
 				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
 				proc->syncs.push_back(syncrule);
+				log("    Done processing edge2\n");
 			}
+		}
 		if (proc->syncs.empty()) {
+			log("    No sync rules\n");
 			RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 			syncrule->type = found_global_syncs ? RTLIL::STg : RTLIL::STa;
 			syncrule->signal = RTLIL::SigSpec();
@@ -420,12 +434,18 @@ struct AST_INTERNAL::ProcessGenerator
 		}
 
 		// process the AST
-		for (auto child : always->children)
-			if (child->type == AST_BLOCK)
+		for (auto child : always->children) {
+			log("    Testing always child\n");
+			if (child->type == AST_BLOCK) {
+				log("        processAst\n");
 				processAst(child);
+			}
+		}
 
-		for (auto sync: proc->syncs)
+		for (auto sync: proc->syncs) {
+			log("    processMemWrites proc->syncs\n");
 			processMemWrites(sync);
+		}
 
 		if (initSyncSignals.size() > 0)
 		{
@@ -1342,6 +1362,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// be instantiated for this type of AST node.
 	IdString type_name;
 
+    log("    genRTLIL in module %s\n", current_module->name.c_str());
 	current_filename = filename;
 
 	switch (type)
@@ -1367,8 +1388,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_TYPEDEF:
 	case AST_STRUCT:
 	case AST_UNION:
+	    log("    nothing\n");
 		break;
 	case AST_INTERFACEPORT: {
+		log("    interfaceport\n");
 		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
 		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
 		// signals.
@@ -1396,16 +1419,19 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		}
 		break;
 	case AST_INTERFACEPORTTYPE:
+		log("    interfaceport type\n");
 		break;
 
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
+		log("    parameter\n");
 		current_module->avail_parameters(str);
 		if (GetSize(children) >= 1 && children[0]->type == AST_CONSTANT) {
 			current_module->parameter_default_values[str] = children[0]->asParaConst();
 		}
 		YS_FALLTHROUGH
 	case AST_LOCALPARAM:
+		log("    localparam\n");
 		if (flag_pwires)
 		{
 			if (GetSize(children) < 1 || children[0]->type != AST_CONSTANT)
@@ -1431,6 +1457,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// create an RTLIL::Wire for an AST_WIRE node
 	case AST_WIRE: {
+    		log("    wire\n");
 			if (!range_valid)
 				input_error("Signal `%s' with non-constant width!\n", str.c_str());
 
@@ -1461,6 +1488,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// create an RTLIL::Memory for an AST_MEMORY node
 	case AST_MEMORY: {
+    		log("    memory\n");
 			log_assert(children.size() >= 2);
 			log_assert(children[0]->type == AST_RANGE);
 			log_assert(children[1]->type == AST_RANGE);
@@ -1494,6 +1522,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_CONSTANT:
 	case AST_REALVALUE:
 		{
+    		log("    constant/realvalue\n");
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			is_signed = sign_hint;
@@ -1516,6 +1545,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// shifter cell is created and the output signal of this cell is returned
 	case AST_IDENTIFIER:
 		{
+    		log("    identifier %s\n", str.c_str());
 			RTLIL::Wire *wire = NULL;
 			RTLIL::SigChunk chunk;
 			bool is_interface = false;
@@ -1686,6 +1716,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_SELFSZ: {
+    		log("    signal\n");
 			RTLIL::SigSpec sig = children[0]->genRTLIL();
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, sign_hint);
@@ -1695,6 +1726,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// changing the size of signal can be done directly using RTLIL::SigSpec
 	case AST_CAST_SIZE: {
+    		log("    cast\n");
 			RTLIL::SigSpec size = children[0]->genRTLIL();
 			if (!size.is_fully_const())
 				input_error("Static cast with non constant expression!\n");
@@ -1716,6 +1748,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// concatenation of signals can be done directly using RTLIL::SigSpec
 	case AST_CONCAT: {
+    		log("    concat\n");
 			RTLIL::SigSpec sig;
 			for (auto it = children.begin(); it != children.end(); it++)
 				sig.append((*it)->genRTLIL());
@@ -1726,6 +1759,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// replication of signals can be done directly using RTLIL::SigSpec
 	case AST_REPLICATE: {
+		    log("    replicate\n");
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL();
 			if (!left.is_fully_const())
@@ -1800,6 +1834,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_SHIFTX:       type_name = ID($shiftx); }
 	if (0) { case AST_SHIFT:        type_name = ID($shift); }
 		{
+    		log("    binary operator\n");
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
@@ -1813,6 +1848,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate cells for binary operations: $pow
 	case AST_POW:
 		{
+    		log("    pow\n");
 			int right_width;
 			bool right_signed;
 			children[1]->detectSignWidth(right_width, right_signed);
@@ -1837,6 +1873,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_GE:  type_name = ID($ge); }
 	if (0) { case AST_GT:  type_name = ID($gt); }
 		{
+     		log("    comparator\n");
 			int width = max(width_hint, 1);
 			width_hint = -1, sign_hint = true;
 			children[0]->detectSignWidthWorker(width_hint, sign_hint);
@@ -1854,6 +1891,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_DIV: type_name = ID($div); }
 	if (0) { case AST_MOD: type_name = ID($mod); }
 		{
+    		log("    arithmetic\n");
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
@@ -1881,6 +1919,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_LOGIC_AND: type_name = ID($logic_and); }
 	if (0) { case AST_LOGIC_OR:  type_name = ID($logic_or); }
 		{
+    		log("    logical\n");
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genRTLIL();
 			return binop2rtlil(this, type_name, max(width_hint, 1), left, right);
@@ -1889,6 +1928,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate cells for unary operations: $logic_not
 	case AST_LOGIC_NOT:
 		{
+    		log("    not\n");
 			RTLIL::SigSpec arg = children[0]->genRTLIL();
 			return uniop2rtlil(this, ID($logic_not), max(width_hint, 1), arg);
 		}
@@ -1896,6 +1936,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate multiplexer for ternary operator (aka ?:-operator)
 	case AST_TERNARY:
 		{
+    		log("    ternary\n");
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			is_signed = sign_hint;
@@ -1940,6 +1981,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $memrd cells for memory read ports
 	case AST_MEMRD:
 		{
+    		log("    memrd\n");
 			std::stringstream sstr;
 			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
 
@@ -1978,6 +2020,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $meminit cells
 	case AST_MEMINIT:
 		{
+    		log("    meminit\n");
 			std::stringstream sstr;
 			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
 
@@ -2015,6 +2058,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FAIR:
 	case AST_COVER:
 		{
+    		log("    assertion\n");
 			std::string flavor, desc;
 			if (type == AST_ASSERT) { flavor = "assert"; desc = "assert property ()"; }
 			if (type == AST_ASSUME) { flavor = "assume"; desc = "assume property ()"; }
@@ -2058,6 +2102,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// add entries to current_module->connections for assignments (outside of always blocks)
 	case AST_ASSIGN:
 		{
+    		log("    assign\n");
 			RTLIL::SigSpec left = children[0]->genRTLIL();
 			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size(), true);
 			if (left.has_const()) {
@@ -2081,6 +2126,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// create an RTLIL::Cell for an AST_CELL
 	case AST_CELL:
 		{
+    		log("    cell\n");
 			int port_counter = 0, para_counter = 0;
 
 			RTLIL::IdString id = str;
@@ -2185,6 +2231,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// use ProcessGenerator for always blocks
 	case AST_ALWAYS: {
+    		log("    always\n");
 			AstNode *always = this->clone();
 			ProcessGenerator generator(always);
 			ignoreThisSignalsInInitial.append(generator.outputSignals);
@@ -2192,12 +2239,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		} break;
 
 	case AST_INITIAL: {
+    		log("    initial\n");
 			AstNode *always = this->clone();
 			ProcessGenerator generator(always, ignoreThisSignalsInInitial);
 			delete always;
 		} break;
 
 	case AST_TECALL: {
+    		log("    tecall\n");
 			int sz = children.size();
 			if (str == "$info") {
 				if (sz > 0)
@@ -2229,6 +2278,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		} break;
 
 	case AST_BIND: {
+		log("    bind\n");
 		// Read a bind construct. This should have one or more cells as children.
 		for (RTLIL::Binding *binding : genBindings())
 			current_module->add(binding);
@@ -2236,6 +2286,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	}
 
 	case AST_FCALL: {
+			log("    fcall\n");
 			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
 				string myid = stringf("%s$%d", str.c_str() + 1, autoidx++);
@@ -2278,6 +2329,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// everything should have been handled above -> print error if not.
 	default:
+		log("    error case\n");
 		for (auto f : log_files)
 			current_ast_mod->dumpAst(f, "verilog-ast> ");
 		input_error("Don't know how to generate RTLIL code for %s node!\n", type2str(type).c_str());

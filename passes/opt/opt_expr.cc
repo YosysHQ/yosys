@@ -2302,7 +2302,7 @@ struct OptExprPass : public Pass {
 		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
-			log("Optimizing module %s.\n", log_id(module));
+            log("Optimizing module %s %zu %zu.\n", log_id(module), module->memories.size(), module->processes.size());
 
 			if (undriven) {
 				did_something = false;
