@@ -861,6 +861,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
 			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
 
+	// replace placeholders in abc.script and user.script
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
 		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
 
@@ -872,6 +873,25 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
+
+	for (size_t pos = abc_script.find("{tmpdir}"); pos != std::string::npos; pos = abc_script.find("{tmpdir}", pos))
+		abc_script = abc_script.substr(0, pos) + tempdir_name.c_str() + abc_script.substr(pos+ std::strlen("{tmpdir}"));
+
+	for (size_t pos = user_script.find("{D}"); pos != std::string::npos; pos = user_script.find("{D}", pos))
+		user_script = user_script.substr(0, pos) + delay_target + user_script.substr(pos+3);
+
+	for (size_t pos = user_script.find("{I}"); pos != std::string::npos; pos = user_script.find("{I}", pos))
+		user_script = user_script.substr(0, pos) + sop_inputs + user_script.substr(pos+3);
+
+	for (size_t pos = user_script.find("{P}"); pos != std::string::npos; pos = user_script.find("{P}", pos))
+		user_script = user_script.substr(0, pos) + sop_products + user_script.substr(pos+3);
+
+	for (size_t pos = user_script.find("{S}"); pos != std::string::npos; pos = user_script.find("{S}", pos))
+		user_script = user_script.substr(0, pos) + lutin_shared + user_script.substr(pos+3);
+
+	for (size_t pos = user_script.find("{tmpdir}"); pos != std::string::npos; pos = user_script.find("{tmpdir}", pos))
+		user_script = user_script.substr(0, pos) + tempdir_name.c_str() + user_script.substr(pos+ std::strlen("{tmpdir}"));
+
 	if (abc_dress)
 		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name.c_str());
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
