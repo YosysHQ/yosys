@@ -222,16 +222,16 @@ struct statdata_t
 	unsigned int cmos_transistor_count(bool *tran_cnt_exact)
 	{
 		unsigned int tran_cnt = 0;
-		auto &gate_costs = CellCosts::cmos_gate_cost();
+		auto cost_kind = CellCosts::CMOS;
+		CellCosts costs(cost_kind, nullptr);
+		auto cell_type_cost = costs.gate_type_cost();
 
 		for (auto it : num_cells_by_type) {
 			auto ctype = it.first;
 			auto cnum = it.second;
 
-			if (gate_costs.count(ctype))
-				tran_cnt += cnum * gate_costs.at(ctype);
-			else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
-				tran_cnt += cnum * 16;
+			if (cell_type_cost.count(ctype))
+				tran_cnt += cnum * cell_type_cost.at(ctype);
 			else
 				*tran_cnt_exact = false;
 		}
