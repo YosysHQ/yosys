@@ -17,6 +17,7 @@ $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_l.v
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_m.v))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_u.v))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/io_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/latches_map.v))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_l.txt))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_m.txt))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_u.txt))
