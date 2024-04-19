@@ -294,7 +294,8 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dfflegalize -cell $_DFF_?P?_ 0 -cell $_ALDFF_?P_ 0 -cell $_SDFF_?P?_ 0");
+			run("dfflegalize -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0 -cell $_DLATCH_?_ x"); //-cell $_ALDFF_?P_ 0
+			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
 			run("clean -purge");

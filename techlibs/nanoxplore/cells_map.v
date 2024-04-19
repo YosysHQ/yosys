@@ -43,13 +43,13 @@ module dff(input D, C, R, output Q);
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b0), .R(R), .O(Q));
 endmodule
 
-(* techmap_celltype = "$_ALDFF_[NP]P_" *)
-module aldff(input D, C, L, AD, output Q);
-	parameter _TECHMAP_CELLTYPE = "$_ALDFF_PP_";
-  localparam dff_edge = _TECHMAP_CELLTYPE[8*8 +: 8] == "N";
-  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(2)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(AD), .R(L), .O(Q));
-endmodule
+//(* techmap_celltype = "$_ALDFF_[NP]P_" *)
+//module aldff(input D, C, L, AD, output Q);
+//	parameter _TECHMAP_CELLTYPE = "$_ALDFF_PP_";
+//  localparam dff_edge = _TECHMAP_CELLTYPE[8*8 +: 8] == "N";
+//  wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
+//  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(2)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(AD), .R(L), .O(Q));
+//endmodule
 
 module \$_SDFF_PP0_ (input D, C, R, output Q);
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
