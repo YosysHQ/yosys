@@ -40,7 +40,15 @@ endmodule
 module NX_CY(input A1, A2, A3, A4, B1, B2, B3, B4, (* abc9_carry *) input CI, output S1, S2, S3, S4, (* abc9_carry *) output CO);
 parameter add_carry = 0;
 
-assign {CO, S4, S3, S2, S1} = {A4, A3, A2, A1} + {B4, B3, B2, B1} + CI;
+wire CI_1;
+wire CO1, CO2, CO3;
+
+assign  CI_1 = (add_carry==2) ? CI : ((add_carry==1) ? 1'b1 : 1'b0);
+
+assign { CO1, S1 } = A1 + B1 + CI_1;
+assign { CO2, S2 } = A2 + B2 + CO1;
+assign { CO3, S3 } = A3 + B3 + CO2;
+assign { CO,  S4 } = A4 + B4 + CO3;
 
 endmodule
 
