@@ -4435,8 +4435,39 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 	log_assert(offset >= 0);
 	log_assert(length >= 0);
 	log_assert(offset + length <= width_);
-	unpack();
+
 	cover("kernel.rtlil.sigspec.extract_pos");
+
+	if (packed())
+	{
+		if (chunks_.size() == 1)
+			return chunks_[0].extract(offset, length);
+
+		SigSpec extracted;
+		int end = offset + length;
+		int chunk_end = 0;
+
+		for (auto const &chunk : chunks_)
+		{
+			int chunk_begin = chunk_end;
+			chunk_end += chunk.width;
+			int extract_begin = std::max(chunk_begin, offset);
+			int extract_end = std::min(chunk_end, end);
+			if (extract_begin >= extract_end)
+				continue;
+			int extract_offset = extract_begin - chunk_begin;
+			int extract_len = extract_end - extract_begin;
+			if (extract_offset == 0 && extract_len == chunk.width)
+				extracted.chunks_.emplace_back(chunk);
+			else
+				extracted.chunks_.emplace_back(
+					chunk.extract(extract_offset, extract_len));
+		}
+
+		extracted.width_ = length;
+		return extracted;
+	}
+
 	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
 }
 
