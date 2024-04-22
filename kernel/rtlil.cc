@@ -4438,37 +4438,33 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 
 	cover("kernel.rtlil.sigspec.extract_pos");
 
-	if (packed())
-	{
-		if (chunks_.size() == 1)
-			return chunks_[0].extract(offset, length);
-
+	if (packed()) {
 		SigSpec extracted;
-		int end = offset + length;
-		int chunk_end = 0;
+		extracted.width_ = length;
 
-		for (auto const &chunk : chunks_)
-		{
-			int chunk_begin = chunk_end;
-			chunk_end += chunk.width;
-			int extract_begin = std::max(chunk_begin, offset);
-			int extract_end = std::min(chunk_end, end);
-			if (extract_begin >= extract_end)
-				continue;
-			int extract_offset = extract_begin - chunk_begin;
-			int extract_len = extract_end - extract_begin;
-			if (extract_offset == 0 && extract_len == chunk.width)
-				extracted.chunks_.emplace_back(chunk);
-			else
-				extracted.chunks_.emplace_back(
-					chunk.extract(extract_offset, extract_len));
+		auto it = chunks_.begin();
+		for (; offset; offset -= it->width, it++) {
+			if (offset < it->width) {
+				int chunk_length = min(it->width - offset, length);
+				extracted.chunks_.emplace_back(it->extract(offset, chunk_length));
+				length -= chunk_length;
+				it++;
+				break;
+			}
+		}
+		for (; length; length -= it->width, it++) {
+			if (length >= it->width) {
+				extracted.chunks_.emplace_back(*it);
+			} else {
+				extracted.chunks_.emplace_back(it->extract(0, length));
+				break;
+			}
 		}
 
-		extracted.width_ = length;
 		return extracted;
+	} else {
+		return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
 	}
-
-	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
