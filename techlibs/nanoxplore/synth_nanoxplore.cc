@@ -264,6 +264,7 @@ struct SynthNanoXplorePass : public ScriptPass
 				args += " [-no-auto-block] [-no-auto-distributed]";
 			run("memory_libmap -lib +/nanoxplore/rf_rams"+ postfix + ".txt -lib +/nanoxplore/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -norfram)");
 			run("techmap -map +/nanoxplore/rf_rams_map"+ postfix + ".v -map +/nanoxplore/brams_map.v");
+			run("techmap -map +/nanoxplore/cells_wrap.v t:NX_RAM*");
 			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v t:NX_XRFB* t:NX_RFB*");
 		}
 
