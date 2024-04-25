@@ -1,12 +1,6 @@
 name: Build and run tests
 
-on:
-  pull_request:
-    branches:
-    - main
-  push:
-    branches:
-    - main
+on: [push, pull_request]
 
 jobs:
   pre_job:
@@ -32,7 +26,7 @@ jobs:
       CC: clang
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-13]
+        os: [ubuntu-latest, macos-13]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -79,7 +73,7 @@ jobs:
       CC: clang
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-13]
+        os: [ubuntu-latest, macos-13]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -148,7 +142,7 @@ jobs:
       CC: clang
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
       fail-fast: false
     steps:
       - name: Checkout Yosys
