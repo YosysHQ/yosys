@@ -590,6 +590,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
+		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is an output\n", l1);
 		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
@@ -597,20 +598,18 @@ void AigerReader::parse_aiger_ascii()
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
-	//std::getline(f, line); // Ignore up to start of next line
 
 	// Parse bad properties
 	for (unsigned i = 0; i < B; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
+		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
 	}
-	//if (B > 0)
-	//	std::getline(f, line); // Ignore up to start of next line
 
 	// TODO: Parse invariant constraints
 	for (unsigned i = 0; i < C; ++i, ++line_count)
@@ -628,6 +627,7 @@ void AigerReader::parse_aiger_ascii()
 	for (unsigned i = 0; i < A; ++i) {
 		if (!(f >> l1 >> l2 >> l3))
 			log_error("Line %u cannot be interpreted as an AND!\n", line_count);
+		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d %d %d is an AND\n", l1, l2, l3);
 		log_assert(!(l1 & 1));
@@ -636,7 +636,6 @@ void AigerReader::parse_aiger_ascii()
 		RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 		module->addAndGate("$and" + o_wire->name.str(), i1_wire, i2_wire, o_wire);
 	}
-	std::getline(f, line); // Ignore up to start of next line
 }
 
 static unsigned parse_next_delta_literal(std::istream &f, unsigned ref)
@@ -715,6 +714,7 @@ void AigerReader::parse_aiger_binary()
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
+		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is an output\n", l1);
 		RTLIL::Wire *wire = module->addWire(stringf("$o%0*d", digits, i));
@@ -722,20 +722,18 @@ void AigerReader::parse_aiger_binary()
 		module->connect(wire, createWireIfNotExists(module, l1));
 		outputs.push_back(wire);
 	}
-	std::getline(f, line); // Ignore up to start of next line
 
 	// Parse bad properties
 	for (unsigned i = 0; i < B; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as a bad state property!\n", line_count);
+		std::getline(f, line); // Ignore up to start of next line
 
 		log_debug2("%d is a bad state property\n", l1);
 		RTLIL::Wire *wire = createWireIfNotExists(module, l1);
 		wire->port_output = true;
 		bad_properties.push_back(wire);
 	}
-	if (B > 0)
-		std::getline(f, line); // Ignore up to start of next line
 
 	// TODO: Parse invariant constraints
 	for (unsigned i = 0; i < C; ++i, ++line_count)
