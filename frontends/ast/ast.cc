@@ -209,6 +209,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	this->type = type;
 	filename = current_filename;
 	is_input = false;
+	blackbox = false;
 	is_output = false;
 	is_reg = false;
 	is_logic = false;
@@ -304,6 +305,19 @@ AstNode::~AstNode()
 	delete_children();
 }
 
+AstNode *AstNode::find_function(std::string n)
+{
+    if (type==AST_FUNCTION && str==n) {
+		return this;
+	}
+
+	for (auto c: children) {
+		AstNode *cc = c->find_function(n);
+		if (cc != NULL) return cc;
+	}
+	return NULL;
+}
+
 // create a nice text representation of the node
 // (traverse tree by recursion, use 'other' pointer for diffing two AST trees)
 void AstNode::dumpAst(FILE *f, std::string indent) const
@@ -335,6 +349,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
 		fprintf(f, "'(%d)", GetSize(bits));
 	}
+	if (blackbox)
+	    fprintf(f, " blackbox");
 	if (is_input)
 		fprintf(f, " input");
 	if (is_output)
@@ -1115,9 +1131,19 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 
     log("Here\n");
 
-	if (!defer)
-	{
-		log("Here defer\n");
+	if (defer) {
+        log("Here defer\n");
+		ast->extractFunctions();
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+		for (const AstNode *node : ast->children)
+			if (node->type == AST_PARAMETER)
+				current_module->avail_parameters(node->str);
+	} else {
+		log("Here no defer\n");
 		for (const AstNode *node : ast->children)
 			if (node->type == AST_PARAMETER && param_has_no_default(node))
 				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
@@ -1287,16 +1313,6 @@ static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 		current_scope.clear();
-	}
-	else {
-		for (auto &attr : ast->attributes) {
-			if (attr.second->type != AST_CONSTANT)
-				continue;
-			module->attributes[attr.first] = attr.second->asAttrConst();
-		}
-		for (const AstNode *node : ast->children)
-			if (node->type == AST_PARAMETER)
-				current_module->avail_parameters(node->str);
 	}
 
 	if (ast->type == AST_INTERFACE)

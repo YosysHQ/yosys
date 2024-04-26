@@ -196,6 +196,7 @@ namespace AST
 		std::string str;
 		std::vector<RTLIL::State> bits;
 		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized, is_custom_type;
+		bool blackbox;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
@@ -295,6 +296,8 @@ namespace AST
 		AstNode *subst_ident(std::string v, std::string sub);
 		AstNode *subst_ident(std::string v, AstNode *sub);
 		AstNode *subst_term(AstNode *v, AstNode *sub);
+        AstNode *find_function(std::string f);
+		
         bool isAssigned(AstNode *term);
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
@@ -321,6 +324,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
+		void extractFunctions();
 		RTLIL::SigSpec genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
@@ -412,7 +416,7 @@ namespace AST
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
-        AstModule *insert_a_module(RTLIL::Design *design, AstNode *module, bool defer, bool nooverwrite, bool overwrite);
+    AstModule *insert_a_module(RTLIL::Design *design, AstNode *module, bool defer, bool nooverwrite, bool overwrite);
 
 	// this must be set by the language frontend before parsing the sources
 	// the AstNode constructor then uses current_filename and get_line_num()

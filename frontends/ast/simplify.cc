@@ -2658,7 +2658,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
         
                     cell->children.back()->str = index_tail;
                     cell->children.back()->children.push_back(AstNode::mkconst_int(index, true));
-        
+
                     references.clear();
                     reference_ast.clear();
                     body_ast->collect_references();
@@ -2671,7 +2671,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			        log("ind = %s\n", ind.c_str());
                     for (std::string s : references) {
 						if (s != ind) {
-                            AstNode *node = reference_ast[s]->clone(); // ->subst_ident(ind, mkconst_int(index, true));
+                            AstNode *node = reference_ast[s]->clone();
 							node = node->subst_ident(ind, mkconst_int(index,true));
                             for (auto f : log_files) {
                                 fprintf(f, "PROCESSING %s\n", s.c_str());
@@ -4160,6 +4160,14 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *decl = current_scope[str];
 		if (unevaluated_tern_branch && decl->is_recursive_function())
 			goto replace_fcall_later;
+		log("Expanding %s\n",str.c_str());
+		for (auto f : log_files) {
+		    decl->dumpAst(f, "Function definition> ");
+        }
+		if (decl->blackbox) {
+			log("    BLACKBOX\n");
+			goto replace_fcall_later;
+		}
 		decl = decl->clone();
 		decl->replace_result_wire_name_in_function(str, "$result"); // enables recursion
 		decl->expand_genblock(prefix);

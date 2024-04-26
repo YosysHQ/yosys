@@ -60,6 +60,7 @@ namespace RTLIL
 	struct Design;
 	struct Module;
 	struct Wire;
+	struct Function;
 	struct Memory;
 	struct Cell;
 	struct SigChunk;
@@ -1166,6 +1167,7 @@ protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
 	void add(RTLIL::Process *process);
+	void add(RTLIL::Function *f);
 
 public:
 	RTLIL::Design *design;
@@ -1173,9 +1175,11 @@ public:
 
 	int refcount_wires_;
 	int refcount_cells_;
+	int refcount_functions_;
 
 	dict<RTLIL::IdString, RTLIL::Wire*> wires_;
 	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
+    dict<RTLIL::IdString, RTLIL::Function*> functions_;
 
 	std::vector<RTLIL::SigSig>   connections_;
 	std::vector<RTLIL::Binding*> bindings_;
@@ -1220,6 +1224,7 @@ public:
 
 	std::vector<RTLIL::Wire*> selected_wires() const;
 	std::vector<RTLIL::Cell*> selected_cells() const;
+	std::vector<RTLIL::Function*> selected_functions() const;
 
 	template<typename T> bool selected(T *member) const {
 		return design->selected_member(name, member->name);
@@ -1245,6 +1250,7 @@ public:
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+    RTLIL::ObjRange<RTLIL::Function*> functions() { return RTLIL::ObjRange<RTLIL::Function*>(&functions_, &refcount_functions_); }
 
 	void add(RTLIL::Binding *binding);
 
@@ -1270,6 +1276,8 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
+
+    RTLIL::Function *addFunction(RTLIL::IdString f, AST::AstNode *def);
 
 	RTLIL::Process *addProcess(RTLIL::IdString name);
 	RTLIL::Process *addProcess(RTLIL::IdString name, const RTLIL::Process *other);
@@ -1496,6 +1504,31 @@ public:
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
+#endif
+};
+
+struct RTLIL::Function : public RTLIL::AttrObject
+{
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
+protected:
+	// use module->addWire() and module->remove() to create or destroy wires
+	friend struct RTLIL::Module;
+	Function();
+	~Function();
+
+public:
+	// do not simply copy wires
+	Function(RTLIL::Function &other) = delete;
+	void operator=(RTLIL::Function &other) = delete;
+
+	RTLIL::Module *module;
+	RTLIL::IdString name;
+	AST::AstNode *def;
+
+#ifdef WITH_PYTHON
+	//static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
 };
 

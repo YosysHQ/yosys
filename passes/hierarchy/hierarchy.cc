@@ -375,7 +375,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	}
 
 	// We couldn't find the module anywhere. Complain if check is set.
-	if (check)
+	if (check && strcmp(cell_type.c_str(),"$fun"))
 		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
 		          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
 

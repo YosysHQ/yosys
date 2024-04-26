@@ -1116,6 +1116,10 @@ namespace {
 				return;
 			}
 
+            if (cell->type.in(ID($fun))) {
+				return;
+			}
+			
 			if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
 				param_bool(ID::A_SIGNED);
 				param_bool(ID::B_SIGNED);
@@ -2137,6 +2141,16 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 	return result;
 }
 
+std::vector<RTLIL::Function*> RTLIL::Module::selected_functions() const
+{
+	std::vector<RTLIL::Function*> result;
+	result.reserve(functions_.size());
+	for (auto &it : functions_)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
 void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	log_assert(!wire->name.empty());
@@ -2144,6 +2158,15 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 	log_assert(refcount_wires_ == 0);
 	wires_[wire->name] = wire;
 	wire->module = this;
+}
+
+void RTLIL::Module::add(RTLIL::Function *f)
+{
+	log_assert(!f->name.empty());
+	log_assert(count_id(f->name) == 0);
+    log_assert(refcount_functions_ == 0);
+	functions_[f->name] = f;
+	f->module = this;
 }
 
 void RTLIL::Module::add(RTLIL::Cell *cell)
@@ -2395,6 +2418,19 @@ void RTLIL::Module::fixup_ports()
 		ports.push_back(all_ports[i]->name);
 		all_ports[i]->port_id = i+1;
 	}
+}
+
+RTLIL::Function *RTLIL::Module::addFunction(RTLIL::IdString name, AST::AstNode *def)
+{
+	log("        add function %s\n", name.c_str());
+	for (auto f : log_files) {
+	    def->dumpAst(f, "            Function definition> ");
+    }
+	RTLIL::Function *f = new RTLIL::Function;
+	f->name = name;
+	f->def = def;
+	add(f);
+	return f;
 }
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
@@ -3487,6 +3523,27 @@ RTLIL::Cell::~Cell()
 {
 #ifdef WITH_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
+#endif
+}
+
+RTLIL::Function::Function() : module(nullptr)
+{
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+
+	// log("#memtrace# %p\n", this);
+	memhasher();
+
+#ifdef WITH_PYTHON
+	//RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
+#endif
+}
+
+RTLIL::Function::~Function()
+{
+#ifdef WITH_PYTHON
+	//RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
