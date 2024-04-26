@@ -48,7 +48,7 @@ struct Smt2Worker
 
 	pool<SigBit> clock_posedge, clock_negedge;
 	vector<string> ex_state_eq, ex_input_eq;
-
+    std::map<IdString, std::string> blackbox_funs;
 	std::map<RTLIL::SigBit, std::pair<int, int>> fcache;
 	std::map<Mem*, int> memarrays;
 	std::map<int, int> bvsizes;
@@ -456,6 +456,7 @@ struct Smt2Worker
 
 	void export_bvop(RTLIL::Cell *cell, std::string expr, char type = 0)
 	{
+		log("export_bvop %s\n", expr.c_str());
 		RTLIL::SigSpec sig_a, sig_b;
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 		bool is_signed = type == 'U' ? false : cell->getParam(ID::A_SIGNED).as_bool();
@@ -537,7 +538,7 @@ struct Smt2Worker
 
 	void export_cell(RTLIL::Cell *cell)
 	{
-		if (verbose)
+		//if (verbose)
 			log("%*s=> export_cell %s (%s) [%s]\n", 2+2*GetSize(recursive_cells), "",
 					log_id(cell), log_id(cell->type), exported_cells.count(cell) ? "old" : "new");
 
@@ -694,6 +695,73 @@ struct Smt2Worker
 					return export_bvop(cell, "(bvurem A B)", 'd');
 				}
 			}
+			if (cell->type == ID($fun)) {
+				int count = cell->getParam(ID(ARG_COUNT)).as_int();
+				int width = cell->getParam(ID::Y_WIDTH).as_int();
+				bool have = false;
+				for (auto e : blackbox_funs) {
+					if (e.first==cell->getParam(ID(CALLING)).decode_string()) {
+                        have = true;
+					}
+				}
+				if (!have) {
+					std::string str = stringf("(declare-fun %s", cell->getParam(ID(CALLING)).decode_string().c_str());
+					for (int i = 0; i < count; ++i) {
+    					char s[20];
+    					snprintf(s, sizeof(s), "\\A%d_WIDTH", i);
+	    				IdString id_width = IdString(s);
+    		            int width = cell->parameters[id_width].as_int();
+                        str += stringf(" (_ Bitvec %d)", width);
+					}
+					str += stringf(" (_ Bitvec %d))\n", width);
+					blackbox_funs[cell->getParam(ID(CALLING)).decode_string().c_str()] = str;
+					decls.push_back(str);
+				}
+				std::string str = stringf("(%s", cell->getParam(ID(CALLING)).decode_string().c_str());
+				for (int i = 0; i < count; ++i) {
+					char s[20];
+					snprintf(s, sizeof(s), "\\A%d", i);
+                    IdString id = IdString(s);
+					snprintf(s, sizeof(s), "\\A%d_SIGNED", i);
+					IdString id_signed = IdString(s);
+					snprintf(s, sizeof(s), "\\A%d_WIDTH", i);
+					IdString id_width = IdString(s);
+		            int width = cell->parameters[id_width].as_int();
+               		bool is_signed = cell->parameters[id_signed].as_bool();
+            		RTLIL::SigSpec sig;
+        			sig = cell->getPort(id);
+		        	sig.extend_u0(width, is_signed);
+					str += " ";
+                    str += get_bv(sig);
+				}
+				str += ")";
+				log("Here 0\n");
+         		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+				
+				log("Here 1\n");
+    	    	if (width != GetSize(sig_y)) // } && type != 'b')
+	    	    	str = stringf("((_ extract %d 0) %s)", GetSize(sig_y)-1, str.c_str());
+
+				log("Here 2\n");
+		        if (verbose)
+			        log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", log_id(cell));
+
+         		//if (type == 'b') {
+		        //	decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
+				//    	get_id(module), idcounter, get_id(module), str.c_str(), log_signal(sig_y)));
+        		//	register_boolvec(sig_y, idcounter++);
+		        //} else {
+    				log("Here 3\n");
+			        decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+					    get_id(module), idcounter, get_id(module), GetSize(sig_y), str.c_str(), log_signal(sig_y)));
+    				log("Here 4\n");
+			        register_bv(sig_y, idcounter++);
+		        //}
+				log("Here 5\n");
+    			recursive_cells.erase(cell);
+				return;
+			}
+
 			// "div" = flooring division
 			if (cell->type == ID($divfloor)) {
 				if (cell->getParam(ID::A_SIGNED).as_bool()) {

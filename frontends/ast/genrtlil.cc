@@ -103,39 +103,29 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 static RTLIL::SigSpec funcall2rtlil(AstNode *that, IdString type, int result_width, const std::vector<RTLIL::SigSpec> arguments)
 {
-	log("Here1\n");
 	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
-	log("Here2\n");
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	log("Here3\n");
 	set_src_attr(cell, that);
-	log("Here4\n");
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	log("Here5\n");
 	set_src_attr(wire, that);
-	log("Here6\n");
 	wire->is_signed = that->is_signed;
-	log("Here7\n");
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
 			that->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
 		cell->attributes[attr.first] = attr.second->asAttrConst();
 	}
-	log("Here8\n");
 
     int pos = 0;
-	char letter = 'A';
-	std::string calling = std::string("");
-	log("Here9\n");
+	std::string calling = std::string(that->str);
 	for (auto x : arguments) {
 		char name_cstr[100];
-		snprintf(name_cstr, sizeof(name_cstr), "\\%c", letter);
+		snprintf(name_cstr, sizeof(name_cstr), "\\A%d", pos);
 		IdString name = IdString(name_cstr);
-		snprintf(name_cstr, sizeof(name_cstr) ,"\\%c_SIGNED", letter);
+		snprintf(name_cstr, sizeof(name_cstr) ,"\\A%d_SIGNED", pos);
 		IdString name_signed = IdString(name_cstr);
-		snprintf(name_cstr, sizeof(name_cstr), "\\%c_WIDTH", letter);
+		snprintf(name_cstr, sizeof(name_cstr), "\\A%d_WIDTH", pos);
 		IdString name_width = IdString(name_cstr);
     	log("Here10 %d\n", pos);
 
@@ -146,19 +136,14 @@ static RTLIL::SigSpec funcall2rtlil(AstNode *that, IdString type, int result_wid
 		//	}
 		//	++pos;
 		//}
-		log("Here11 %d %de\n", that->children[pos]->is_signed, x.size());
     	cell->parameters[name_signed] = RTLIL::Const(that->children[pos]->is_signed);
     	cell->parameters[name_width] = RTLIL::Const(x.size());
     	cell->setPort(name, x);
-    	log("Here12\n");
 
 		++pos;
-		++letter;
 	}
-	log("Here14\n");
-	cell->parameters[ID("\CALLING")] = RTLIL::Const(calling);
-	log("Here15\n");
-
+	cell->parameters[ID(CALLING)] = RTLIL::Const(calling);
+    cell->parameters[ID(ARG_COUNT)] = RTLIL::Const(pos);
 	cell->parameters[ID::Y_WIDTH] = result_width;
 	cell->setPort(ID::Y, wire);
 

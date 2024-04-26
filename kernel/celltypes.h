@@ -191,7 +191,7 @@ struct CellTypes
 		setup_stdcells_eval();
 
 		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, true);
-		setup_type(ID($fun), {ID::A, ID::B, ID::C, ID::D, ID::E}, {ID::Y}, true);
+		setup_type(ID($fun), {ID(A0), ID(A1), ID(A2), ID(A3), ID(A4), ID(A5), ID(A6), ID(A7), ID(A8), ID(A9), ID(A10), ID(A11), ID(A12), ID(A13), ID(A14), ID(A15) }, {ID::Y}, true);
 	}
 
 	void setup_stdcells_eval()
