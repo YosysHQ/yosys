@@ -705,19 +705,19 @@ struct Smt2Worker
 					}
 				}
 				if (!have) {
-					std::string str = stringf("(declare-fun %s", cell->getParam(ID(CALLING)).decode_string().c_str());
+					std::string str = stringf("(declare-fun %s (", cell->getParam(ID(CALLING)).decode_string().c_str()+1);
 					for (int i = 0; i < count; ++i) {
     					char s[20];
     					snprintf(s, sizeof(s), "\\A%d_WIDTH", i);
 	    				IdString id_width = IdString(s);
     		            int width = cell->parameters[id_width].as_int();
-                        str += stringf(" (_ Bitvec %d)", width);
+                        str += stringf(" (_ BitVec %d)", width);
 					}
-					str += stringf(" (_ Bitvec %d))\n", width);
+					str += stringf(") (_ BitVec %d))\n", width);
 					blackbox_funs[cell->getParam(ID(CALLING)).decode_string().c_str()] = str;
 					decls.push_back(str);
 				}
-				std::string str = stringf("(%s", cell->getParam(ID(CALLING)).decode_string().c_str());
+				std::string str = stringf("(%s", cell->getParam(ID(CALLING)).decode_string().c_str()+1);
 				for (int i = 0; i < count; ++i) {
 					char s[20];
 					snprintf(s, sizeof(s), "\\A%d", i);
