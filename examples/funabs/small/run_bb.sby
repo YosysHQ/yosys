@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 100
+
+[engines]
+smtbmc --nounroll --dumpsmt2
+
+[script]
+read -formal small.v
+cutpoint \$abstract\small/\increment
+prep -top small
+
+[files]
+small.v

@@ -14,7 +14,7 @@ module small (
   initial assume (counter==0);
   initial assume (counter2==0);
   always @(posedge clk) begin
-      counter <= increment(counter+7'b0);
+      counter <= increment(counter+7'b1);
       counter2 <= increment(counter2);
   end
 

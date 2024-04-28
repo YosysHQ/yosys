@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 100
+
+[engines]
+smtbmc --nounroll --dumpsmt2
+
+[script]
+read -formal small_bad.v
+cutpoint \$abstract\small/\increment
+prep -top small
+
+[files]
+small_bad.v
