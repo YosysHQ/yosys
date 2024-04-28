@@ -104,6 +104,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 static RTLIL::SigSpec funcall2rtlil(AstNode *that, IdString type, int result_width, const std::vector<RTLIL::SigSpec> arguments)
 {
 	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
+	log("width = %d\n", result_width);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -1042,6 +1043,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	int this_width = 0;
 	AstNode *range = NULL;
 	AstNode *id_ast = NULL;
+	AstNode *func = nullptr;
 
 	bool local_found_real = false;
 	if (found_real == NULL)
@@ -1304,6 +1306,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_FCALL:
+	    log("Detecting fcall width\n");
 		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 			if (GetSize(children) == 1) {
 				while (children[0]->simplify(true, 1, -1, false, false, true) == true) { }
@@ -1330,11 +1333,19 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		}
 		if (current_scope.count(str))
 		{
+			func = current_scope.at(str);
+		} else {
+			func = current_ast_mod->find_function(str);
+		}
+		if (func != nullptr) {
+			log("Using function def\n");
+    		for (auto f : log_files)
+	    		func->dumpAst(f, "func-ast> ");
 			// This width detection is needed for function calls which are
 			// unelaborated, which currently applies to calls to functions
 			// reached via unevaluated ternary branches or used in case or case
 			// item expressions.
-			const AstNode *func = current_scope.at(str);
+			//const AstNode *func = current_scope.at(str);
 			if (func->type != AST_FUNCTION)
 				input_error("Function call to %s resolved to something that isn't a function!\n", RTLIL::unescape_id(str).c_str());
 			const AstNode *wire = nullptr;
@@ -1348,6 +1359,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			int result_width = 1;
 			if (!wire->children.empty())
 			{
+				log("Found return wire\n");
 				log_assert(wire->children.size() == 1);
 				const AstNode *range = wire->children.at(0);
 				log_assert(range->type == AST_RANGE && range->children.size() == 2);
@@ -1360,7 +1372,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					input_error("Function %s has non-constant width!",
 							RTLIL::unescape_id(str).c_str());
-				result_width = abs(int(left->asInt(true) - right->asInt(true)));
+				result_width = abs(int(left->asInt(true) - right->asInt(true)))+1;
+				log("result_width = %d\n", result_width);
 				delete left;
 				delete right;
 			}
@@ -2400,6 +2413,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				detectSignWidth(width_hint, sign_hint);
     			log("    fcall3 %d %d\n", width_hint, sign_hint);
 				is_signed = sign_hint;
+				if (width < 1) {
+					width = width_hint;
+				}
 				RTLIL::SigSpec res = funcall2rtlil(this, ID($fun), width, args);
     			log("    fcall4\n");
 				return res;
