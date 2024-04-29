@@ -73,6 +73,9 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nocy\n");
 		log("        do not map adders to CY cells\n");
 		log("\n");
+		log("    -nodffe\n");
+		log("        do not use flipflops with L in output netlist\n");
+		log("\n");
 		log("    -norfram\n");
 		log("        do not use Register File RAM cells in output netlist\n");
 		log("\n");
@@ -97,7 +100,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, norfram, nobram, nodsp, iopad, no_rw_check;
+	bool flatten, abc9, nocy, nodffe, norfram, nobram, nodsp, iopad, no_rw_check;
 	std::string postfix;
 
 	void clear_flags() override
@@ -108,6 +111,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		flatten = true;
 		abc9 = false;
 		nocy = false;
+		nodffe = false;
 		norfram = false;
 		nobram = false;
 		nodsp = false;
@@ -158,6 +162,10 @@ struct SynthNanoXplorePass : public ScriptPass
 			}
 			if (args[argidx] == "-nocy") {
 				nocy = true;
+				continue;
+			}
+			if (args[argidx] == "-nodffe") {
+				nodffe = true;
 				continue;
 			}
 			if (args[argidx] == "-norfram") {
@@ -294,7 +302,14 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dfflegalize -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0 -cell $_DLATCH_?_ x"); //-cell $_ALDFF_?P_ 0
+			std::string dfflegalize_args = " -cell $_DFF_?_ 0 -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0";
+			if (help_mode) {
+				dfflegalize_args += " [-cell $_DFFE_PP_ 0 -cell $_DFFE_NN_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFFE_?P?P_ 0]";
+			} else if (!nodffe) {
+				dfflegalize_args += " -cell $_DFFE_PP_ 0 -cell $_DFFE_NN_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFFE_?P?P_ 0";
+			}
+			dfflegalize_args += " -cell $_DLATCH_?_ x";
+			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
