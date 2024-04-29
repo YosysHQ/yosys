@@ -1,0 +1,15 @@
+[options]
+mode bmc
+depth 100
+smtc ../../theory.smtc
+
+[engines]
+smtbmc --nounroll --dumpsmt2
+
+[script]
+read -formal euf.v
+cutpoint \$abstract\euf/\ident
+prep -top euf
+
+[files]
+euf.v

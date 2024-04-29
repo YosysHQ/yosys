@@ -1,0 +1,5 @@
+logic AUFBV
+
+write (assert (forall ((x (_ BitVec 1))) (= (ident (ident x)) x)))
+write (assert (forall ((x (_ BitVec 1))) (= (ident (ident (ident x))) x)))
+
