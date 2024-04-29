@@ -1059,7 +1059,7 @@ class SmtOpts:
     def __init__(self):
         self.shortopts = "s:S:v"
         self.longopts = ["unroll", "noincr", "noprogress", "timeout=", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
-        self.solver = "yices"
+        self.solver = "z3"
         self.solver_opts = list()
         self.debug_print = False
         self.debug_file = None
