@@ -25,14 +25,14 @@ initial begin
 end
 
 wire clock = CK ^ dff_edge;
-wire load = (dff_type == 2) ? (dff_load ? L : 1'bx) : dff_type;
+wire load = dff_load ? L : 1'b1;
 wire async_reset = !dff_sync && dff_init && R;
 wire sync_reset = dff_sync && dff_init && R;
 
 always @(posedge clock, posedge async_reset)
-	if (async_reset) O <= load;
-	else if (sync_reset) O <= load;
-	else O <= I;
+	if (async_reset) O <= dff_type;
+	else if (sync_reset) O <= dff_type;
+	else if (load) O <= I;
 
 endmodule
 
