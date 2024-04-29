@@ -728,7 +728,7 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 .PHONY: compile-only
-compile-only: $(OBJS)
+compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Compile successful."
 	@echo ""
