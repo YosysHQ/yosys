@@ -22,61 +22,26 @@ jobs:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
-      CXXSTD: ${{ matrix.cpp_std }}
       CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
       CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
     strategy:
       matrix:
         os:
-          - ubuntu-22.04
+          - ubuntu-latest
         compiler:
-          - 'clang-12'
-          - 'gcc-11'
-        cpp_std:
-          - 'c++11'
-          - 'c++14'
-          - 'c++17'
-          - 'c++20'
+          # oldest supported
+          - 'clang-14'
+          - 'gcc-10'
+          # newest
+          - 'clang'
+          - 'gcc'
         include:
-          # macOS builds
-          - os: macos-latest
-            compiler: 'clang'
-            cpp_std: 'c++11'
+          # macOS
           - os: macos-13
             compiler: 'clang'
-            cpp_std: 'c++11'
-          - os: macos-13
-            compiler: 'clang'
-            cpp_std: 'c++17'
-          # ubuntu-22.04 compilers
+          # oldest clang not available on ubuntu-latest
           - os: ubuntu-22.04
             compiler: 'clang-11'
-            cpp_std: 'c++11'
-          - os: ubuntu-22.04
-            compiler: 'clang-13'
-            cpp_std: 'c++11'
-          # ubuntu-latest compilers
-          - os: ubuntu-latest
-            compiler: 'clang-14'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'clang-15'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'clang-16'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'clang-17'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'gcc-10'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'gcc-12'
-            cpp_std: 'c++11'
-          - os: ubuntu-latest
-            compiler: 'gcc-13'
-            cpp_std: 'c++11'
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -96,12 +61,17 @@ jobs:
           $CC --version
           $CXX --version
 
-      - name: Build
+      # minimum standard
+      - name: Build C++11
         shell: bash
         run: |
           make config-$CC_SHORT
-          make -j$procs CXXSTD=$CXXSTD
+          make -j$procs CXXSTD=c++11 compile-only
 
-      - name: Log yosys-config output
+      # maximum standard, only on newest compilers
+      - name: Build C++20
+        if: ${{ matrix.compiler == 'clang' || matrix.compiler == 'gcc'}}
+        shell: bash
         run: |
-          ./yosys-config || true
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=c++20 compile-only

@@ -727,6 +727,12 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo "  Build successful."
 	@echo ""
 
+.PHONY: compile-only
+compile-only: $(OBJS)
+	@echo ""
+	@echo "  Compile successful."
+	@echo ""
+
 ifeq ($(CONFIG),emcc)
 yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
