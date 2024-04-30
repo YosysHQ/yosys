@@ -1162,6 +1162,3 @@ echo-cxx:
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-afl-gcc config-gprof config-sudo
-
-echo-path:
-	@echo "$(PATH)"
