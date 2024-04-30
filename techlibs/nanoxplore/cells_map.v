@@ -85,7 +85,7 @@ module \$_DFFE_PP_ (input D, C, E, output Q);
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b0), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
 endmodule
 
-module \$_DFFE_NN_ (input D, C, E, output Q);
+module \$_DFFE_NP_ (input D, C, E, output Q);
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
   NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b1), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
 endmodule
