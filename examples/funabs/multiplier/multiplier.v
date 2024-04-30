@@ -19,10 +19,10 @@ function [4:0] concat14;
     end
 endfunction
 
-function [4:0] high54;
+function [3:0] high54;
     input [8:0] a;
     begin
-        high54 = a[8:4];
+        high54 = a[7:4];
     end
 endfunction
 
@@ -47,7 +47,7 @@ function high9;
     end
 endfunction
 
-function low18;
+function [7:0] low18;
     input [8:0] a;
     begin
         low18 = a[7:0];
@@ -67,6 +67,14 @@ function [8:0] shiftright9;
     begin
         shiftright9 = {1'b0,a[8:1]};
     end
+endfunction
+
+function [8:0] accumulate;
+   input [8:0] acc;
+   input [3:0] b;
+   begin
+      accumulate = {1'b0,acc[7:4],acc[3:0]} + b;
+   end
 endfunction
 
 module mult_4x4(
@@ -99,71 +107,40 @@ reg [3:0] Bsave;
 assign Finish = (State==9)? 1'b1:1'b0; // Finish Flag
 assign O = low18(ACC); 
 
+initial assume (State==12);
+
 // FSM
-initial assume (State==10);
 always @(posedge clk) begin
     if(reset) begin
-        State <= 0; 
-        ACC <= 0; 
-    end else begin 
+        State <= 0;
+        ACC <= 0;
+    end else begin
+        //if((Phi0==1'b1) || (Phi1==1'b1)) begin // 2 phase clocking
         if (State==0) begin
             ACC <= concat54(5'b00000,A); // begin cycle
             Asave <= A;
             Bsave <= B;
             State <= 1;
         end else if(State==1 || State == 3 || State ==5 || State ==7) begin
-                // add/shift State
-            if (lowbit(ACC) == 1'b1) begin // add multiplicand
-                ACC[8:4] <= {1'b0,ACC[7:4]} + B; 
-                ACC <= concat54(add54(concat14(1'b0,high54(ACC)),B),low54(ACC));
+            if (ACC[0] == 1'b1) begin // add multiplicand
+                ACC <= concat54(add54(concat14(1'b0,high54(ACC)),Bsave),low54(ACC));
                 State <= State + 1;
             end else begin
                 ACC <= shiftright9(ACC);// shift right
                 State <= State + 2;
             end
-        end else if(State==2 || State == 4 || State ==6 || State ==8) begin 
+        end else if(State==2 || State == 4 || State ==6 || State ==8) begin
                 // shift State
-            ACC <= shiftright9(ACC); // shift right
+            ACC <= shiftright9(ACC);// shift right
             State <= State + 1;
-        end begin
+        end else if(State == 9) begin
+            State <= 0;
+        end else begin
             State <= 10;
         end
     end
     mult_correct: assert (~Finish || (O==Asave*Bsave));
-end 
-
-endmodule
-// TestBench
-// fpga4student.com FPGA projects, Verilog projects, VHDL projects
-// Verilog project: Verilog code for multiplier
-
-module test();
-// signals
-reg start,reset;
-reg[3:0] A,B;
-// Outputs
-wire [7:0] O;
-wire Finish;
-wire clk;
-
-// Clock generator
-always
-begin
-    #5 clk = 1;
-    #5 clk = 0;
 end
-
-// device under test
-mult_4x4 dut(clk,reset,start, A,B,O,Finish);
-initial begin
-reset=1; // reset
-#40 start = 0;A =14; B= 11;
-#400 reset = 0; 
-#40 start = 1; // start
-//@(posedge Finish);
-//start = 0;
-//$finish;
-end 
 
 endmodule
 
