@@ -19,8 +19,8 @@ reg[3:0] State;
 // Accumulator
 reg [8:0] ACC; // Accumulator
 
-//reg [3:0] Asave;
-//reg [3:0] Bsave;
+reg [3:0] Asave;
+reg [3:0] Bsave;
 
 // logic to create 2 phase clocking when starting
 //nand u0(m1,start,m2);
@@ -31,25 +31,27 @@ reg [8:0] ACC; // Accumulator
 //and #2 u4(Phi1,m3,m4);// Second phase clocking
 
 assign Finish = (State==9)? 1'b1:1'b0; // Finish Flag
+assign O = ACC[7:0];
+
+initial assume (State==12);
 
 // FSM
 always @(posedge clk) begin
     if(reset) begin
         State <= 0; 
         ACC <= 0; 
-        O <= 0;
     end else begin 
         //if((Phi0==1'b1) || (Phi1==1'b1)) begin // 2 phase clocking
         if (State==0) begin
             ACC[8:4] <= 5'b00000; // begin cycle
             ACC[3:0] <= A; // Load A
-            //Asave <= A;
-            //Bsave <= B;
+            Asave <= A;
+            Bsave <= B;
             State <= 1;
         end else if(State==1 || State == 3 || State ==5 || State ==7) begin
                 // add/shift State
             if (ACC[0] == 1'b1) begin // add multiplicand
-                ACC[8:4] <= {1'b0,ACC[7:4]} + B; 
+                ACC[8:4] <= {1'b0,ACC[7:4]} + Bsave; 
                 State <= State + 1;
             end else begin
                 ACC <= {1'b0,ACC[8:1]};// shift right
@@ -61,10 +63,11 @@ always @(posedge clk) begin
             State <= State + 1;
         end else if(State == 9) begin
             State <= 0;
-            O <= ACC[7:0]; 
+        end else begin
+            State <= 10;
         end
     end
-    mult_correct: assert (~Finish || (O==$past({A,4'b0}*{B,4'b0},9)));
+    mult_correct: assert (~Finish || (O==Asave*Bsave));
 end 
 
 endmodule

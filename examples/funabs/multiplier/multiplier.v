@@ -97,13 +97,14 @@ reg [3:0] Bsave;
 //and #2 u4(Phi1,m3,m4);// Second phase clocking
 
 assign Finish = (State==9)? 1'b1:1'b0; // Finish Flag
+assign O = low18(ACC); 
 
 // FSM
+initial assume (State==10);
 always @(posedge clk) begin
     if(reset) begin
         State <= 0; 
         ACC <= 0; 
-        O <= 0;
     end else begin 
         if (State==0) begin
             ACC <= concat54(5'b00000,A); // begin cycle
@@ -124,9 +125,8 @@ always @(posedge clk) begin
                 // shift State
             ACC <= shiftright9(ACC); // shift right
             State <= State + 1;
-        end else if(State == 9) begin
-            State <= 0;
-            O <= low18(ACC); 
+        end begin
+            State <= 10;
         end
     end
     mult_correct: assert (~Finish || (O==Asave*Bsave));
