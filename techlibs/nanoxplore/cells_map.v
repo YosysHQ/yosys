@@ -71,21 +71,25 @@ module \$_SDFFE_xxxx_ (input D, C, R, E, output Q);
 endmodule
 
 module \$_DFF_P_ (input D, C, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'b0;
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b0), .dff_init(1'b0), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(1'b0), .O(Q));
+  NX_DFF #(.dff_ctxt(_TECHMAP_WIREINIT_Q_), .dff_edge(1'b0), .dff_init(1'b0), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(1'b0), .O(Q));
 endmodule
 
 module \$_DFF_N_ (input D, C, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'b0;
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b1), .dff_init(1'b0), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(1'b0), .O(Q));
+  NX_DFF #(.dff_ctxt(_TECHMAP_WIREINIT_Q_), .dff_edge(1'b1), .dff_init(1'b0), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(1'b0), .O(Q));
 endmodule
 
 module \$_DFFE_PP_ (input D, C, E, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'b0;
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b0), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
+  NX_DFF #(.dff_ctxt(_TECHMAP_WIREINIT_Q_), .dff_edge(1'b0), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
 endmodule
 
 module \$_DFFE_NP_ (input D, C, E, output Q);
+  parameter _TECHMAP_WIREINIT_Q_ = 1'b0;
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(1'b1), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
+  NX_DFF #(.dff_ctxt(_TECHMAP_WIREINIT_Q_), .dff_edge(1'b1), .dff_init(1'b0), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(1'b0)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(1'b0), .O(Q));
 endmodule
