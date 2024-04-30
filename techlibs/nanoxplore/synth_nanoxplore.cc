@@ -302,11 +302,11 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			std::string dfflegalize_args = " -cell $_DFF_?_ 0 -cell $_DFF_?P0_ 0 -cell $_SDFF_?P0_ 0";
+			std::string dfflegalize_args = " -cell $_DFF_?_ 0 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
 			if (help_mode) {
-				dfflegalize_args += " [-cell $_DFFE_?P_ 0 -cell $_DFFE_?P0P_ 0 -cell $_SDFFE_?P0P_ 0]";
+				dfflegalize_args += " [-cell $_DFFE_?P_ 0 -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r]";
 			} else if (!nodffe) {
-				dfflegalize_args += " -cell $_DFFE_?P_ 0 -cell $_DFFE_?P0P_ 0 -cell $_SDFFE_?P0P_ 0";
+				dfflegalize_args += " -cell $_DFFE_?P_ 0 -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r";
 			}
 			dfflegalize_args += " -cell $_DLATCH_?_ x";
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
