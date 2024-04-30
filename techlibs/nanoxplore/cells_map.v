@@ -40,7 +40,7 @@ module \$_DFF_xxxx_ (input D, C, R, output Q);
   localparam dff_edge = _TECHMAP_CELLTYPE_[3*8 +: 8] == "N";
   localparam dff_type = _TECHMAP_CELLTYPE_[1*8 +: 8] == "1";
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(R), .O(Q));
+  NX_DFF #(.dff_ctxt(dff_type), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b0), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(R), .O(Q));
 endmodule
 
 (* techmap_celltype = "$_SDFF_[NP]P[01]_" *)
@@ -49,7 +49,7 @@ module \$_SDFF_xxxx_ (input D, C, R, output Q);
   localparam dff_edge = _TECHMAP_CELLTYPE_[3*8 +: 8] == "N";
   localparam dff_type = _TECHMAP_CELLTYPE_[1*8 +: 8] == "1";
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(R), .O(Q));
+  NX_DFF #(.dff_ctxt(dff_type), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b0), .dff_sync(1'b1), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(1'b1), .R(R), .O(Q));
 endmodule
 
 (* techmap_celltype = "$_DFFE_[NP]P[01]P_" *)
@@ -58,7 +58,7 @@ module \$_DFFE_xxxx_ (input D, C, R, E, output Q);
   localparam dff_edge = _TECHMAP_CELLTYPE_[4*8 +: 8] == "N";
   localparam dff_type = _TECHMAP_CELLTYPE_[2*8 +: 8] == "1";
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(R), .O(Q));
+  NX_DFF #(.dff_ctxt(dff_type), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b0), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(R), .O(Q));
 endmodule
 
 (* techmap_celltype = "$_SDFFE_[NP]P[01]P_" *)
@@ -67,7 +67,7 @@ module \$_SDFFE_xxxx_ (input D, C, R, E, output Q);
   localparam dff_edge = _TECHMAP_CELLTYPE_[4*8 +: 8] == "N";
   localparam dff_type = _TECHMAP_CELLTYPE_[2*8 +: 8] == "1";
   wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-  NX_DFF #(.dff_ctxt(1'b0), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b1), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(R), .O(Q));
+  NX_DFF #(.dff_ctxt(dff_type), .dff_edge(dff_edge), .dff_init(1'b1), .dff_load(1'b1), .dff_sync(1'b1), .dff_type(dff_type)) _TECHMAP_REPLACE_ (.I(D), .CK(C), .L(E), .R(R), .O(Q));
 endmodule
 
 module \$_DFF_P_ (input D, C, output Q);
