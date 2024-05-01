@@ -680,9 +680,9 @@ void DriverMap::add(DriveBit const &a, DriveBit const &b)
 
 	// If either bit is just a wire that we don't need to keep, merge and
 	// use the other end as representative bit.
-	if (a_mode == BitMode::NONE)
+	if (a_mode == BitMode::NONE && !(b_mode == BitMode::DRIVEN_UNIQUE || b_mode == BitMode::DRIVEN))
 		connect_directed_merge(a_id, b_id);
-	else if (b_mode == BitMode::NONE)
+	else if (b_mode == BitMode::NONE && !(a_mode == BitMode::DRIVEN_UNIQUE || a_mode == BitMode::DRIVEN))
 		connect_directed_merge(b_id, a_id);
 	// If either bit requires a driven value and has a unique driver, merge
 	// and use the other end as representative bit.

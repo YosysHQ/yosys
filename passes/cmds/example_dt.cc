@@ -113,7 +113,7 @@ struct ExampleDtPass : public Pass
 								node.append_arg(enqueue(driver));
 							}
 						} else {
-							DriveChunkWire whole_wire(wire_chunk.wire, 0, wire_chunk.width);
+							DriveChunkWire whole_wire(wire_chunk.wire, 0, wire_chunk.wire->width);
 							node.set_function(ExampleFn(ID($$slice), {{ID(offset), wire_chunk.offset}, {ID(width), wire_chunk.width}}));
 							node.append_arg(enqueue(whole_wire));
 						}
@@ -145,7 +145,7 @@ struct ExampleDtPass : public Pass
 
 						} else {
 							DriveChunkPort whole_port(port_chunk.cell, port_chunk.port, 0, GetSize(port_chunk.cell->connections().at(port_chunk.port)));
-							node.set_function(ID($$buf));
+							node.set_function(ExampleFn(ID($$slice), {{ID(offset), port_chunk.offset}}));
 							node.append_arg(enqueue(whole_port));
 						}
 					} else if (chunk.is_constant()) {
