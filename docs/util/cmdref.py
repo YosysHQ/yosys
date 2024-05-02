@@ -1,30 +1,5 @@
 # based on https://github.com/ofosos/sphinxrecipes/blob/master/sphinxrecipes/sphinxrecipes.py
-# license:
-# Copyright 2019 Mark Meyer
-# 
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-# 
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import docutils
-from docutils import nodes
-import sphinx
-from docutils.parsers import rst
 from docutils.parsers.rst import directives
 from sphinx.domains import Domain, Index
 from sphinx.domains.std import StandardDomain
@@ -35,7 +10,8 @@ from sphinx import addnodes
 
 class CommandNode(ObjectDescription):
     """A custom node that describes a command."""
-  
+
+    name = 'cmd'
     required_arguments = 1
 
     option_spec = {
@@ -49,24 +25,29 @@ class CommandNode(ObjectDescription):
         return sig
 
     def add_target_and_index(self, name_cls, sig, signode):
-        signode['ids'].append('cmd' + '-' + sig)
+        signode['ids'].append(type(self).name + '-' + sig)
         if 'noindex' not in self.options:
-            name = "{}.{}.{}".format('cmd', type(self).__name__, sig)
-            tagmap = self.env.domaindata['cmd']['obj2tag']
+            name = "{}.{}.{}".format(self.name, type(self).__name__, sig)
+            tagmap = self.env.domaindata[type(self).name]['obj2tag']
             tagmap[name] = list(self.options.get('tags', '').split(' '))
             title = self.options.get('title')
-            titlemap = self.env.domaindata['cmd']['obj2title']
+            titlemap = self.env.domaindata[type(self).name]['obj2title']
             titlemap[name] = title
-            objs = self.env.domaindata['cmd']['objects']
+            objs = self.env.domaindata[type(self).name]['objects']
             objs.append((name,
                          sig,
                          title,
                          self.env.docname,
-                         'cmd' + '-' + sig,
+                         type(self).name + '-' + sig,
                          0))
 
+class CellNode(CommandNode):
+    """A custom node that describes an internal cell."""
+
+    name = 'cell'
+
 class TagIndex(Index):
-    """A custom directive that creates an tag matrix."""
+    """A custom directive that creates a tag matrix."""
     
     name = 'tag'
     localname = 'Tag Index'
@@ -167,7 +148,7 @@ class CommandIndex(Index):
                  in self.domain.get_objects())
         items = sorted(items, key=lambda item: item[0])
         for name, dispname, typ, docname, anchor in items:
-            lis = content.setdefault('Command', [])
+            lis = content.setdefault(self.shortname, [])
             lis.append((
                 dispname, 0, docname,
                 anchor,
@@ -177,10 +158,14 @@ class CommandIndex(Index):
 
         return (re, True)
 
+class CellIndex(CommandIndex):
+    name = 'cell'
+    localname = 'Internal cell reference'
+    shortname = 'Internal cell'
 
 class CommandDomain(Domain):
     name = 'cmd'
-    label = 'Command Sample'
+    label = 'Yosys commands'
 
     roles = {
         'ref': XRefRole()
@@ -203,7 +188,7 @@ class CommandDomain(Domain):
 
     def get_full_qualified_name(self, node):
         """Return full qualified name for a given node"""
-        return "{}.{}.{}".format('cmd',
+        return "{}.{}.{}".format(type(self).name,
                                  type(node).__name__,
                                  node.arguments[0])
 
@@ -229,18 +214,40 @@ class CommandDomain(Domain):
         else:
             print(f"Missing ref for {target} in {fromdocname} ")
             return None
+        
+class CellDomain(CommandDomain):
+    name = 'cell'
+    label = 'Yosys internal cells'
+
+    directives = {
+        'def': CellNode,
+    }
+
+    indices = {
+        CellIndex,
+        TagIndex
+    }
 
 def setup(app):
     app.add_domain(CommandDomain)
+    app.add_domain(CellDomain)
 
     StandardDomain.initial_data['labels']['commandindex'] =\
         ('cmd-cmd', '', 'Command Reference')
     StandardDomain.initial_data['labels']['tagindex'] =\
         ('cmd-tag', '', 'Tag Index')
+    StandardDomain.initial_data['labels']['cellindex'] =\
+        ('cell-cell', '', 'Internal cell reference')
+    StandardDomain.initial_data['labels']['tagindex'] =\
+        ('cell-tag', '', 'Tag Index')
 
     StandardDomain.initial_data['anonlabels']['commandindex'] =\
         ('cmd-cmd', '')
     StandardDomain.initial_data['anonlabels']['tagindex'] =\
         ('cmd-tag', '')
+    StandardDomain.initial_data['anonlabels']['cellindex'] =\
+        ('cell-cell', '')
+    StandardDomain.initial_data['anonlabels']['tagindex'] =\
+        ('cell-tag', '')
     
-    return {'version': '0.1'}
+    return {'version': '0.2'}

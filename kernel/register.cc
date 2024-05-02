@@ -899,17 +899,26 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s\n", title_line.c_str());
 		fprintf(f, "%s\n", underline.c_str());
 
-		// help text
-		fprintf(f, "%s\n\n", cell.desc.c_str());
+		// help text, with cell def for links
+		fprintf(f, ".. cell:def:: %s\n", cell.name.c_str());
+		if (cell.title.length())
+			fprintf(f, "   :title: %s\n\n", cell.title.c_str());
+		else
+			fprintf(f, "   :title: %s\n\n", cell.name.c_str());
+		std::stringstream ss;
+		ss << cell.desc;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			fprintf(f, "   %s\n", line.c_str());
+		}
 
 		// source code
-		fprintf(f, "Simulation model (Verilog)\n");
+		fprintf(f, "\nSimulation model (Verilog)\n");
 		fprintf(f, "--------------------------\n\n");
 		fprintf(f, ".. code-block:: verilog\n");
 		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
-		std::stringstream ss;
-		ss << cell.code;
-		for (std::string line; std::getline(ss, line, '\n');) {
+		std::stringstream ss2;
+		ss2 << cell.code;
+		for (std::string line; std::getline(ss2, line, '\n');) {
 			fprintf(f, "   %s\n", line.c_str());
 		}
 
