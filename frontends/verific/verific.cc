@@ -214,23 +214,120 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
-// When used as attributes or parameter values Verific constants come already processed.
-// - Real string values are already under quotes
-// - Numeric values with specified width are always converted to binary
-// - Rest of user defined values are handled as 32bit integers
-// - There could be some internal values that are strings without quotes
-//   so we check if value is all digits or not
-//
-// Note: For signed values, verific uses <len>'sb<bits> and decimal values can
-// also be negative.
-static const RTLIL::Const verific_const(const char *value, bool allow_string = true, bool output_signed = false)
+RTLIL::Const mkconst_str(const std::string &str)
 {
-	size_t found;
+	RTLIL::Const val;
+	std::vector<RTLIL::State> data;
+	data.reserve(str.size() * 8);
+	for (size_t i = 0; i < str.size(); i++) {
+		unsigned char ch = str[str.size() - i - 1];
+		for (int j = 0; j < 8; j++) {
+			data.push_back((ch & 1) ? State::S1 : State::S0);
+			ch = ch >> 1;
+		}
+	}
+	val.bits = data;
+	val.flags |= RTLIL::CONST_FLAG_STRING;
+	return val;
+}
+
+static const RTLIL::Const extract_vhdl_boolean(std::string &val)
+{
+	if (val == "false")
+		return RTLIL::Const::from_string("0");
+	if (val == "true")
+		return RTLIL::Const::from_string("1");
+	log_error("Expecting VHDL boolean value.\n");
+}
+
+static const RTLIL::Const extract_vhdl_bit(std::string &val, std::string &typ)
+{
+	if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
+		return  RTLIL::Const::from_string(val.substr(1,val.size()-2));
+	log_error("Error parsing VHDL %s.\n", typ.c_str());
+}
+
+static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string &typ)
+{
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		RTLIL::Const c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+		if (typ == "signed")
+			c.flags |= RTLIL::CONST_FLAG_SIGNED;
+		return c;
+	}
+	log_error("Error parsing VHDL %s.\n", typ.c_str());
+}
+
+static const RTLIL::Const extract_vhdl_integer(std::string &val)
+{
+	char *end;
+	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10), 32);
+}
+
+static const RTLIL::Const extract_vhdl_char(std::string &val)
+{
+	if (val.size()==3 && val[0]=='\"' && val.back()=='\"')
+		return RTLIL::Const((int)val[1], 32);
+	log_error("Error parsing VHDL character.\n");
+}
+
+static const RTLIL::Const extract_real_value(std::string &val)
+{
+	RTLIL::Const c = mkconst_str(val);
+	c.flags |= RTLIL::CONST_FLAG_REAL;
+	return c;
+}
+
+static const RTLIL::Const extract_vhdl_string(std::string &val)
+{
+	if (!(val.size()>1 && val[0]=='\"' && val.back()=='\"'))
+		log_error("Error parsing VHDL string.\n");
+	return RTLIL::Const(val.substr(1,val.size()-2));
+}
+
+static const  RTLIL::Const extract_vhdl_const(const char *value, bool output_signed)
+{
+	RTLIL::Const c;
 	char *end;
 	int decimal;
 	bool is_signed = false;
-	RTLIL::Const c;
 	std::string val = std::string(value);
+
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		std::string data = val.substr(1,val.size()-2);
+		bool isBinary = std::all_of(data.begin(), data.end(), [](char c) {return c=='1' || c=='0'; });
+		if (isBinary)
+			c = RTLIL::Const::from_string(data);
+		else 
+			c = RTLIL::Const(data);
+	} else if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
+		c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+			((decimal = std::strtol(value, &end, 10)), !end[0])) {
+		is_signed = output_signed;
+		c = RTLIL::Const((int)decimal, 32);
+	} else if (val == "false") {
+		c = RTLIL::Const::from_string("0");
+	} else if (val == "true") {
+		c = RTLIL::Const::from_string("1");
+	} else {
+		c = mkconst_str(val);
+		log_warning("encoding value '%s' as string.\n", value);
+	}
+	if (is_signed)
+		c.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return c;
+}
+
+static const  RTLIL::Const extract_verilog_const(const char *value, bool allow_string, bool output_signed)
+{
+	RTLIL::Const c;
+	char *end;
+	int decimal;
+	bool is_signed = false;
+	size_t found;
+	std::string val = std::string(value);
+
 	if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
 		c = RTLIL::Const(val.substr(1,val.size()-2));
 	} else if ((found = val.find("'sb")) != std::string::npos) {
@@ -245,13 +342,54 @@ static const RTLIL::Const verific_const(const char *value, bool allow_string = t
 	} else if (allow_string) {
 		c = RTLIL::Const(val);
 	} else {
-		log_error("expected numeric constant but found '%s'", value);
+		c = mkconst_str(val);
+		log_warning("encoding value '%s' as string.\n", value);
 	}
-
 	if (is_signed)
 		c.flags |= RTLIL::CONST_FLAG_SIGNED;
-
 	return c;
+}
+
+// When used as attributes or parameter values Verific constants come already processed.
+// - Real string values are already under quotes
+// - Numeric values with specified width are always converted to binary
+// - Rest of user defined values are handled as 32bit integers
+// - There could be some internal values that are strings without quotes
+//   so we check if value is all digits or not
+//
+// Note: For signed values, verific uses <len>'sb<bits> and decimal values can
+// also be negative.
+static const RTLIL::Const verific_const(const char* type_name, const char *value, DesignObj *obj, bool allow_string = true, bool output_signed = false)
+{
+	std::string val = std::string(value);
+	// VHDL
+	if (obj->IsFromVhdl()) {
+		if (type_name) {
+			std::string typ = std::string(type_name);
+			transform(typ.begin(), typ.end(), typ.begin(), ::tolower);
+			if (typ ==  "integer" ||  typ == "natural" || typ=="positive") return extract_vhdl_integer(val);
+			else if (typ =="boolean") return extract_vhdl_boolean(val);
+			else if (typ == "bit" || typ =="std_logic" || typ == "std_ulogic") return extract_vhdl_bit(val,typ);
+			else if (typ == "character") return extract_vhdl_char(val);
+			else if (typ == "bit_vector" || typ == "std_logic_vector" || typ == "std_ulogic_vector" ||
+					 typ == "unsigned" || typ == "signed") return extract_vhdl_bit_vector(val,typ);
+			else if (typ == "real") return extract_real_value(val);
+			else if (typ == "string") return extract_vhdl_string(val);
+			else {
+				if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+					return RTLIL::Const(val.substr(1,val.size()-2));
+				else if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
+					return RTLIL::Const(val.substr(1,val.size()-2));
+				else
+					return RTLIL::Const(val);
+			}
+		} else extract_vhdl_const(value, output_signed);
+	}
+	// SystemVerilog
+	if (type_name && strcmp(type_name, "real")==0) {
+		return extract_real_value(val);
+	} else 
+		return extract_verilog_const(value, allow_string, output_signed);
 }
 
 static const std::string verific_unescape(const char *value)
@@ -276,7 +414,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
-		attributes[RTLIL::escape_id(attr->Key())] = verific_const(attr->Value());
+		attributes[RTLIL::escape_id(attr->Key())] = verific_const(nullptr, attr->Value(), obj);
 	}
 
 	if (nl) {
@@ -298,7 +436,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		const char *k, *v;
 		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mi, &k, &v) {
 			if (nl->IsFromVerilog()) {
-				auto const value = verific_const(v, false);
+				auto const value = verific_const(type_name, v, nl, false);
 
 				attributes.emplace(stringf("\\enum_value_%s", value.as_string().c_str()), RTLIL::escape_id(k));
 			}
@@ -1292,6 +1430,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	}
 	import_attributes(module->attributes, nl, nl);
 	module->set_string_attribute(ID::hdlname, nl->CellBaseName());
+	module->set_string_attribute(ID(library), nl->Owner()->Owner()->Name());
 #ifdef VERIFIC_VHDL_SUPPORT
 	if (nl->IsFromVhdl()) {
 		NameSpace name_space(0);
@@ -1304,7 +1443,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	MapIter mi;
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
 		module->avail_parameters(RTLIL::escape_id(param_name));
-		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(param_value);
+		const TypeRange *tr = nl->GetTypeRange(param_name) ;
+		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(tr->GetTypeName(), param_value, nl);
 	}
 
 	SetIter si;
@@ -2004,7 +2144,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		const char *param_value ;
 		if (is_blackbox(inst->View())) {
 			FOREACH_PARAMETER_OF_INST(inst, mi2, param_name, param_value) {
-				cell->setParam(RTLIL::escape_id(param_name), verific_const(param_value));
+				const TypeRange *tr = inst->View()->GetTypeRange(param_name) ;
+				cell->setParam(RTLIL::escape_id(param_name), verific_const(tr->GetTypeName(), param_value, inst->View()));
 			}
 		}
 
@@ -2699,7 +2840,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #ifdef VERIFIC_VHDL_SUPPORT
-		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
+		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
@@ -3436,6 +3577,29 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2019")) {
+			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
+			bool flag_lib = false;
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (args[argidx] == "-lib") {
+					flag_lib = true;
+					continue;
+				}
+				if (args[argidx].compare(0, 1, "-") == 0) {
+					cmd_error(args, argidx, "unknown option");
+					goto check_error;
+				}
+				Map map(POINTER_HASH);
+				add_units_to_map(map, work, flag_lib);
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2019))
+					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename.c_str());
+				set_units_to_blackbox(map, work, flag_lib);
+			}
+			verific_import_pending = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			bool flag_lib = false;
@@ -3979,7 +4143,7 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("\n");
 #ifdef VERIFIC_VHDL_SUPPORT
-		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
+		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files. (Requires Verific.)\n");
 		log("\n");
@@ -4083,7 +4247,7 @@ struct ReadPass : public Pass {
 		}
 
 #ifdef VERIFIC_VHDL_SUPPORT
-		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
+		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl2019" || args[1] == "-vhdl") {
 			if (use_verific) {
 				args[0] = "verific";
 				Pass::call(design, args);

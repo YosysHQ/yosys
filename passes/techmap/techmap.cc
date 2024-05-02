@@ -1041,8 +1041,8 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("When a port on a module in the map file has the 'techmap_autopurge' attribute\n");
 		log("set, and that port is not connected in the instantiation that is mapped, then\n");
-		log("then a cell port connected only to such wires will be omitted in the mapped\n");
-		log("version of the circuit.\n");
+		log("a cell port connected only to such wires will be omitted in the mapped version\n");
+		log("of the circuit.\n");
 		log("\n");
 		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
 		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");

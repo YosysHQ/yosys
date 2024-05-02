@@ -34,6 +34,7 @@ body:
         - macOS
         - Windows
         - BSD
+        - WebAssembly
       multiple: true
     validations:
       required: true
@@ -42,7 +43,7 @@ body:
     attributes:
       value: >
         When providing steps to reproduce the issue, please ensure that the issue
-        is reproducible in the current git master of Yosys. Also ensure to
+        is reproducible in the current git main of Yosys. Also ensure to
         provide all necessary source files needed.
 
 

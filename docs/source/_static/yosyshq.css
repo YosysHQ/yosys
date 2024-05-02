@@ -1,0 +1,26 @@
+/* Don't hide the right sidebar as we're placing our fixed links there */
+aside.no-toc {
+    display: block !important;
+}
+
+/* Colorful headings */
+h1 {
+    color: var(--color-brand-primary);
+  }
+  
+h2, h3, h4, h5, h6 {
+    color: var(--color-brand-content);
+}
+
+/* Use a different color for external links */
+a.external {
+    color: var(--color-brand-primary) !important;
+}
+
+.wy-table-responsive table td {
+    white-space: normal;
+}
+  
+th {
+    text-align: left;
+}

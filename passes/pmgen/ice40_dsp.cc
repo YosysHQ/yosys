@@ -289,7 +289,7 @@ struct Ice40DspPass : public Pass {
 		log("\n");
 		log("Pack input registers (A, B, {C,D}; with optional hold), pipeline registers\n");
 		log("({F,J,K,G}, H), output registers (O -- full 32-bits or lower 16-bits only; with\n");
-		log("optional hold), and post-adder into into the SB_MAC16 resource.\n");
+		log("optional hold), and post-adder into the SB_MAC16 resource.\n");
 		log("\n");
 		log("Multiply-accumulate operations using the post-adder with feedback on the {C,D}\n");
 		log("input will be folded into the DSP. In this scenario only, resetting the\n");

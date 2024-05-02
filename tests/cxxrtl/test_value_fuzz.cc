@@ -25,6 +25,11 @@ T rand_int(T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>
 	return dist(generator);
 }
 
+int64_t sext(size_t bits, uint64_t value)
+{
+	return (int64_t)(value << (64 - bits)) >> (64 - bits);
+}
+
 struct BinaryOperationBase
 {
 	void tweak_input(uint64_t &a, uint64_t &b) {}
@@ -245,6 +250,106 @@ struct CtlzTest
 		return cxxrtl::value<Bits>((cxxrtl::chunk_t)result);
 	}
 } ctlz;
+
+struct UdivTest : BinaryOperationBase
+{
+	UdivTest()
+	{
+		std::printf("Randomized tests for value::udivmod (div):\n");
+		test_binary_operation(*this);
+	}
+
+	uint64_t reference_impl(size_t bits, uint64_t a, uint64_t b)
+	{
+		return a / b;
+	}
+
+	template<size_t Bits>
+	cxxrtl::value<Bits> testing_impl(cxxrtl::value<Bits> a, cxxrtl::value<Bits> b)
+	{
+		return std::get<0>(a.udivmod(b));
+	}
+
+	void tweak_input(uint64_t &, uint64_t &b)
+	{
+		if (b == 0) b = 1; // Avoid divide by zero
+	}
+} udiv;
+
+struct UmodTest : BinaryOperationBase
+{
+	UmodTest()
+	{
+		std::printf("Randomized tests for value::udivmod (mod):\n");
+		test_binary_operation(*this);
+	}
+
+	uint64_t reference_impl(size_t bits, uint64_t a, uint64_t b)
+	{
+		return a % b;
+	}
+
+	template<size_t Bits>
+	cxxrtl::value<Bits> testing_impl(cxxrtl::value<Bits> a, cxxrtl::value<Bits> b)
+	{
+		return std::get<1>(a.udivmod(b));
+	}
+
+	void tweak_input(uint64_t &, uint64_t &b)
+	{
+		if (b == 0) b = 1; // Avoid divide by zero
+	}
+} umod;
+
+struct SdivTest : BinaryOperationBase
+{
+	SdivTest()
+	{
+		std::printf("Randomized tests for value::sdivmod (div):\n");
+		test_binary_operation(*this);
+	}
+
+	uint64_t reference_impl(size_t bits, uint64_t a, uint64_t b)
+	{
+		return (uint64_t)(sext(bits, a) / sext(bits, b));
+	}
+
+	template<size_t Bits>
+	cxxrtl::value<Bits> testing_impl(cxxrtl::value<Bits> a, cxxrtl::value<Bits> b)
+	{
+		return std::get<0>(a.sdivmod(b));
+	}
+
+	void tweak_input(uint64_t &, uint64_t &b)
+	{
+		if (b == 0) b = 1; // Avoid divide by zero
+	}
+} sdiv;
+
+struct SmodTest : BinaryOperationBase
+{
+	SmodTest()
+	{
+		std::printf("Randomized tests for value::sdivmod (mod):\n");
+		test_binary_operation(*this);
+	}
+
+	uint64_t reference_impl(size_t bits, uint64_t a, uint64_t b)
+	{
+		return (uint64_t)(sext(bits, a) % sext(bits, b));
+	}
+
+	template<size_t Bits>
+	cxxrtl::value<Bits> testing_impl(cxxrtl::value<Bits> a, cxxrtl::value<Bits> b)
+	{
+		return std::get<1>(a.sdivmod(b));
+	}
+
+	void tweak_input(uint64_t &, uint64_t &b)
+	{
+		if (b == 0) b = 1; // Avoid divide by zero
+	}
+} smod;
 
 int main()
 {

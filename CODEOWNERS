@@ -10,6 +10,7 @@
 
 # PATH (can use glob)          USERNAME(S)
 
+CODEOWNERS                     @nakengelhardt
 passes/cmds/scratchpad.cc      @nakengelhardt
 frontends/rpc/                 @whitequark
 backends/cxxrtl/               @whitequark
@@ -18,7 +19,8 @@ passes/techmap/flowmap.cc      @whitequark
 passes/opt/opt_lut.cc          @whitequark
 passes/techmap/abc9*.cc        @eddiehung @Ravenslofty
 backends/aiger/xaiger.cc       @eddiehung
-
+docs/                          @KrystalDelusion
+.github/workflows/*.yml        @mmicko
 
 ## External Contributors
 # Only users with write permission to the repository get review

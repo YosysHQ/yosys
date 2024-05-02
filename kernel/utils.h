@@ -149,7 +149,7 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	std::map<T, int, C> node_to_index;
 	std::vector<std::set<int, IndirectCmp>> edges;
 	std::vector<T> sorted;
-	std::set<std::set<T, C>> loops;
+	std::set<std::vector<T>> loops;
 
 	TopoSort() : indirect_cmp(nodes)
 	{
@@ -220,10 +220,10 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 		if (active_cells[root_index]) {
 			found_loops = true;
 			if (analyze_loops) {
-				std::set<T, C> loop;
+				std::vector<T> loop;
 				for (int i = GetSize(active_stack) - 1; i >= 0; i--) {
 					const int index = active_stack[i];
-					loop.insert(nodes[index]);
+					loop.push_back(nodes[index]);
 					if (index == root_index)
 						break;
 				}

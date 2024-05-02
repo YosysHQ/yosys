@@ -52,7 +52,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		log("gen for module %s and cell %s\n", mod->name.c_str(), cell->name.c_str());
 		if (design->module(cell->type) != nullptr)
 			continue;
-		if (cell->type.begins_with("$__"))
+		if (cell->type.begins_with("$") && !cell->type.begins_with("$__"))
 			continue;
 		for (auto &pattern : celltypes)
 			if (patmatch(pattern.c_str(), RTLIL::unescape_id(cell->type).c_str()))

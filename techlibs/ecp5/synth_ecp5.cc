@@ -308,12 +308,14 @@ struct SynthEcp5Pass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
-			if (nobram)
-				args += " -no-auto-block";
-			if (nolutram)
-				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+				if (nolutram)
+					args += " -no-auto-distributed";
+			}
 			run("memory_libmap -lib +/ecp5/lutrams.txt -lib +/ecp5/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run("techmap -map +/ecp5/lutrams_map.v -map +/ecp5/brams_map.v");
 		}

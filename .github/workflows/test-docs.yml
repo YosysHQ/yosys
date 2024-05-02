@@ -1,0 +1,42 @@
+name: Build and test doc code samples
+
+on:
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  test-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install gperf build-essential bison flex libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev
+
+      - name: Setup GCC
+        uses: Dup4/actions-setup-gcc@v1
+
+      - name: Runtime environment
+        shell: bash
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Checkout Yosys
+        uses: actions/checkout@v3
+
+      - name: Build yosys
+        shell: bash
+        run: |
+          make config-gcc
+          make -j${{ env.procs }}
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -C docs test -j${{ env.procs }}

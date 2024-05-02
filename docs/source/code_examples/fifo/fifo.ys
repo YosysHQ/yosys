@@ -1,0 +1,82 @@
+# ========================================================
+# throw in some extra text to match what we expect if we were opening an
+# interactive terminal
+log $ yosys fifo.v
+log 
+log -- Parsing `fifo.v' using frontend ` -vlog2k' --
+read_verilog -defer fifo.v
+
+# turn command echoes on to use the log output as a console session
+echo on
+hierarchy -top addr_gen
+select -module addr_gen
+select -list
+select t:*
+select -list
+select -set new_cells %
+select -clear
+show -format dot -prefix addr_gen_show addr_gen
+show -format dot -prefix new_cells_show -notitle @new_cells
+show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
+
+# ========================================================
+proc -noopt
+select -set new_cells t:$mux t:*dff
+show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_proc
+
+# ========================================================
+opt_expr; clean
+select -set new_cells t:$eq
+show -color cornflowerblue @new_cells -notitle -format dot -prefix addr_gen_clean
+
+# ========================================================
+design -reset
+read_verilog fifo.v
+hierarchy -check -top fifo
+proc
+select -set new_cells t:$memrd
+show -color maroon3 c:fifo_reader -color cornflowerblue @new_cells -notitle -format dot -prefix rdata_proc o:rdata %ci*
+
+# ========================================================
+
+flatten;;
+select -set rdata_path o:rdata %ci*
+select -set new_cells @rdata_path o:rdata %ci3 %d i:* %d
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_flat @rdata_path
+
+# ========================================================
+
+opt_dff
+select -set new_cells t:$adffe
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_adffe o:rdata %ci*
+
+# ========================================================
+
+wreduce
+show -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
+
+# unclear if this is necessary or only because of bug(s)
+opt_clean
+
+# ========================================================
+
+memory_dff
+select -set new_cells t:$memrd_v2
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdata %ci*
+
+# ========================================================
+
+alumacc
+select -set new_cells t:$alu t:$macc
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdata %ci*
+
+# ========================================================
+
+memory_collect
+# or use the following commands:
+# design -reset
+# read_verilog fifo.v
+# synth_ice40 -top fifo -run begin:map_ram
+select -set new_cells t:$mem_v2
+select -set rdata_path @new_cells %ci*:-$mem_v2[WR_DATA,WR_ADDR,WR_EN] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_coarse @rdata_path

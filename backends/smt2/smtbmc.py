@@ -57,6 +57,8 @@ keep_going = False
 check_witness = False
 detect_loops = False
 incremental = None
+track_assumes = False
+minimize_assumes = False
 so = SmtOpts()
 
 
@@ -189,6 +191,15 @@ def help():
     --incremental
         run in incremental mode (experimental)
 
+    --track-assumes
+        track individual assumptions and report a subset of used
+        assumptions that are sufficient for the reported outcome. This
+        can be used to debug PREUNSAT failures as well as to find a
+        smaller set of sufficient assumptions.
+
+    --minimize-assumes
+        when using --track-assumes, solve for a minimal set of sufficient assumptions.
+
 """ + so.helpmsg())
 
 def usage():
@@ -200,7 +211,8 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:higcm:", so.longopts +
             ["help", "final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "yw=", "btorwit=", "presat",
              "dump-vcd=", "dump-yw=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness", "detect-loops", "incremental"])
+             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness", "detect-loops", "incremental",
+             "track-assumes", "minimize-assumes"])
 except:
     usage()
 
@@ -289,6 +301,10 @@ for o, a in opts:
     elif o == "--incremental":
         from smtbmc_incremental import Incremental
         incremental = Incremental()
+    elif o == "--track-assumes":
+        track_assumes = True
+    elif o == "--minimize-assumes":
+        minimize_assumes = True
     elif so.handle(o, a):
         pass
     else:
@@ -446,6 +462,9 @@ def get_constr_expr(db, state, final=False, getvalues=False, individual=False):
 
 
 smt = SmtIo(opts=so)
+
+if track_assumes:
+    smt.smt2_options[':produce-unsat-assumptions'] = 'true'
 
 if noinfo and vcdfile is None and vlogtbfile is None and outconstr is None:
     smt.produce_models = False
@@ -649,14 +668,20 @@ if aimfile is not None:
                 num_steps = max(num_steps, step+2)
             step += 1
 
+ywfile_hierwitness_cache = None
+
 def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
+    global ywfile_hierwitness_cache
     if map_steps is None:
         map_steps = {}
 
     with open(inywfile, "r") as f:
         inyw = ReadWitness(f)
 
-        inits, seqs, clocks, mems = smt.hierwitness(topmod, allregs=True, blackbox=True)
+        if ywfile_hierwitness_cache is None:
+            ywfile_hierwitness_cache = smt.hierwitness(topmod, allregs=True, blackbox=True)
+
+        inits, seqs, clocks, mems = ywfile_hierwitness_cache
 
         smt_wires = defaultdict(list)
         smt_mems = defaultdict(list)
@@ -1491,6 +1516,44 @@ def get_active_assert_map(step, active):
 
     return assert_map
 
+assume_enables = {}
+
+def declare_assume_enables():
+    def recurse(mod, path, key_base=()):
+        for expr, desc in smt.modinfo[mod].assumes.items():
+            enable = f"|assume_enable {len(assume_enables)}|"
+            smt.smt2_assumptions[(expr, key_base)] = enable
+            smt.write(f"(declare-const {enable} Bool)")
+            assume_enables[(expr, key_base)] = (enable, path, desc)
+
+        for cell, submod in smt.modinfo[mod].cells.items():
+            recurse(submod, f"{path}.{cell}", (mod, cell, key_base))
+
+    recurse(topmod, topmod)
+
+if track_assumes:
+    declare_assume_enables()
+
+def smt_assert_design_assumes(step):
+    if not track_assumes:
+        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        return
+
+    if not assume_enables:
+        return
+
+    def expr_for_assume(assume_key, base=None):
+        expr, key_base = assume_key
+        expr_prefix = f"(|{expr}| "
+        expr_suffix = ")"
+        while key_base:
+            mod, cell, key_base = key_base
+            expr_prefix += f"(|{mod}_h {cell}| "
+            expr_suffix += ")"
+        return f"{expr_prefix} s{step}{expr_suffix}"
+
+    for assume_key, (enable, path, desc) in assume_enables.items():
+        smt_assert_consequent(f"(=> {enable} {expr_for_assume(assume_key)})")
 
 states = list()
 asserts_antecedent_cache = [list()]
@@ -1645,6 +1708,13 @@ def smt_check_sat(expected=["sat", "unsat"]):
         smt_forall_assert()
     return smt.check_sat(expected=expected)
 
+def report_tracked_assumptions(msg):
+    if track_assumes:
+        print_msg(msg)
+        for key in smt.get_unsat_assumptions(minimize=minimize_assumes):
+            enable, path, descr = assume_enables[key]
+            print_msg(f"  In {path}: {descr}")
+
 
 if incremental:
     incremental.mainloop()
@@ -1658,7 +1728,7 @@ elif tempind:
             break
 
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
@@ -1701,6 +1771,7 @@ elif tempind:
 
         else:
             print_msg("Temporal induction successful.")
+            report_tracked_assumptions("Used assumptions:")
             retstatus = "PASSED"
             break
 
@@ -1726,7 +1797,7 @@ elif covermode:
 
     while step < num_steps:
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
 
@@ -1747,6 +1818,7 @@ elif covermode:
             smt_assert("(distinct (covers_%d s%d) #b%s)" % (coveridx, step, "0" * len(cover_desc)))
 
             if smt_check_sat() == "unsat":
+                report_tracked_assumptions("Used assumptions:")
                 smt_pop()
                 break
 
@@ -1755,13 +1827,14 @@ elif covermode:
                     print_msg("Appending additional step %d." % i)
                     smt_state(i)
                     smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, i))
-                    smt_assert_consequent("(|%s_u| s%d)" % (topmod, i))
+                    smt_assert_design_assumes(i)
                     smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                     smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                     smt_assert_consequent(get_constr_expr(constr_assumes, i))
                 print_msg("Re-solving with appended steps..")
                 if smt_check_sat() == "unsat":
                     print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                    report_tracked_assumptions("Conflicting assumptions:")
                     found_failed_assert = True
                     retstatus = "FAILED"
                     break
@@ -1817,7 +1890,7 @@ else:  # not tempind, covermode
     retstatus = "PASSED"
     while step < num_steps:
         smt_state(step)
-        smt_assert_consequent("(|%s_u| s%d)" % (topmod, step))
+        smt_assert_design_assumes(step)
         smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step))
         smt_assert_consequent(get_constr_expr(constr_assumes, step))
 
@@ -1847,7 +1920,7 @@ else:  # not tempind, covermode
             if step+i < num_steps:
                 smt_state(step+i)
                 smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step+i))
-                smt_assert_consequent("(|%s_u| s%d)" % (topmod, step+i))
+                smt_assert_design_assumes(step + i)
                 smt_assert_antecedent("(|%s_h| s%d)" % (topmod, step+i))
                 smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, step+i-1, step+i))
                 smt_assert_consequent(get_constr_expr(constr_assumes, step+i))
@@ -1861,7 +1934,8 @@ else:  # not tempind, covermode
                     print_msg("Checking assumptions in steps %d to %d.." % (step, last_check_step))
 
                 if smt_check_sat() == "unsat":
-                    print("%s Assumptions are unsatisfiable!" % smt.timestamp())
+                    print_msg("Assumptions are unsatisfiable!")
+                    report_tracked_assumptions("Conficting assumptions:")
                     retstatus = "PREUNSAT"
                     break
 
@@ -1914,13 +1988,14 @@ else:  # not tempind, covermode
                                 print_msg("Appending additional step %d." % i)
                                 smt_state(i)
                                 smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, i))
-                                smt_assert_consequent("(|%s_u| s%d)" % (topmod, i))
+                                smt_assert_design_assumes(i)
                                 smt_assert_antecedent("(|%s_h| s%d)" % (topmod, i))
                                 smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                                 smt_assert_consequent(get_constr_expr(constr_assumes, i))
                             print_msg("Re-solving with appended steps..")
                             if smt_check_sat() == "unsat":
-                                print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
+                                print_msg("Cannot append steps without violating assumptions!")
+                                report_tracked_assumptions("Conflicting assumptions:")
                                 retstatus = "FAILED"
                                 break
                         print_anyconsts(step)

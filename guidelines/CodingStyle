@@ -19,7 +19,7 @@ Formatting of code
   blank lines.
 
 - Otherwise stick to the Linux Kernel Coding Style:
-    https://www.kernel.org/doc/Documentation/CodingStyle
+    https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
 
 C++ Language

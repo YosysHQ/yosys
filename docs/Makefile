@@ -45,8 +45,11 @@ help:
 	@echo "  dummy      to check syntax errors of document sources"
 
 .PHONY: clean
-clean:
+clean: clean-examples
 	rm -rf $(BUILDDIR)/*
+	rm -rf source/cmd util/__pycache__
+	rm -rf source/generated
+	$(MAKE) -C source/_images clean
 
 .PHONY: html
 html:
@@ -224,3 +227,30 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+PYTHON ?= python3
+
+.PHONY: test test-examples test-macros examples
+test: test-examples test-macros
+
+FORCE:
+Makefile-%: FORCE
+	$(MAKE) -C $(@D) $(*F)
+
+CODE_EXAMPLES := $(wildcard source/code_examples/*/Makefile)
+TEST_EXAMPLES := $(addsuffix -all,$(CODE_EXAMPLES))
+CLEAN_EXAMPLES := $(addsuffix -clean,$(CODE_EXAMPLES))
+test-examples: $(TEST_EXAMPLES)
+clean-examples: $(CLEAN_EXAMPLES)
+examples: $(TEST_EXAMPLES)
+
+test-macros:
+	$(PYTHON) tests/macro_commands.py
+
+.PHONY: images
+images:
+	$(MAKE) -C source/_images
+
+.PHONY: reqs
+reqs:
+	$(PYTHON) -m pip install -r source/requirements.txt

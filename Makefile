@@ -1,5 +1,6 @@
 
-CONFIG := clang
+CONFIG := none
+# CONFIG := clang
 # CONFIG := gcc
 # CONFIG := afl-gcc
 # CONFIG := emcc
@@ -141,7 +142,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.38+120
+YOSYS_VER := 0.40+45
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -157,7 +158,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 543faed.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline a1bb025.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -165,7 +166,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 896e5e7
+ABCREV = 03da96f
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
@@ -217,7 +218,7 @@ endif
 ifeq ($(CONFIG),clang)
 CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -265,7 +266,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
 CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8 -Wno-c++11-narrowing"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
 EMCC_LINKFLAGS := --embed-file share
 EMCC_LINKFLAGS += -s NO_EXIT_RUNTIME=1
@@ -317,7 +318,7 @@ CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) -Os -D_WASI_EMULATED_PROCESS_CLOCKS $(fi
 LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
 LIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
-ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT -Wno-c++11-narrowing"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT"
 ABCMKARGS += OPTFLAGS="-Os"
 EXE = .wasm
 
@@ -360,8 +361,12 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
-else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64)
+else ifeq ($(CONFIG),none)
+CXXFLAGS += -std=$(CXXSTD) -Os
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
+
+else
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64, none)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -624,6 +629,7 @@ $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
 $(eval $(call add_include_file,kernel/yosys.h))
+$(eval $(call add_include_file,kernel/yosys_common.h))
 $(eval $(call add_include_file,kernel/yw.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
@@ -971,17 +977,41 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	mkdir -p docs/source/cmd
 	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 
-PHONY: docs/gen_images docs/guidelines
+PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
+docs/gen_examples:
+	$(Q) $(MAKE) -C docs examples
+
 docs/gen_images:
-	$(Q) $(MAKE) -C docs/images all
+	$(Q) $(MAKE) -C docs images
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-docs/guidelines:
-	$(Q) mkdir -p docs/source/temp
-	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/temp
+docs/guidelines docs/source/generated:
+	$(Q) mkdir -p docs/source/generated
+	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/generated
+
+# some commands return an error and print the usage text to stderr
+define DOC_USAGE_STDERR
+docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
+	-$(Q) ./$$< --help 2> $$@
+endef
+DOCS_USAGE_STDERR := yosys-config yosys-filterlib yosys-abc
+$(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
+
+# others print to stdout
+define DOC_USAGE_STDOUT
+docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
+	$(Q) ./$$< --help > $$@
+endef
+DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
+$(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
+
+docs/usage: $(addprefix docs/source/generated/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE_STDERR))
+
+docs/reqs:
+	$(Q) $(MAKE) -C docs reqs
 
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_images docs/guidelines
+docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
@@ -1000,8 +1030,6 @@ clean:
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
 	$(MAKE) -C docs clean
-	$(MAKE) -C docs/images clean
-	rm -rf docs/source/cmd docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
@@ -1115,6 +1143,9 @@ echo-git-rev:
 
 echo-abc-rev:
 	@echo "$(ABCREV)"
+
+echo-cxx:
+	@echo "$(CXX)"
 
 -include libs/*/*.d
 -include frontends/*/*.d
