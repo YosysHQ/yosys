@@ -900,7 +900,7 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s\n", underline.c_str());
 
 		// help text
-		fprintf(f, "%s\n", cell.desc.c_str());
+		fprintf(f, "%s\n\n", cell.desc.c_str());
 
 		// source code
 		fprintf(f, "Simulation model (Verilog)\n");
