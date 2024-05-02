@@ -5,8 +5,9 @@ Internal cell reference
 ================================================================================
 
 .. toctree::
-	:caption: Internal cell reference
-	:maxdepth: 1
-	:glob:
+   :caption: Internal cell reference
+   :maxdepth: 2
+   :glob:
 
-	/cell/*
+   cell_word
+   cell_gate

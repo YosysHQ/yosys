@@ -751,7 +751,10 @@ struct SimHelper {
 	string name;
 	inline string filesafe_name() {
 		if (name.at(0) == '$')
-			return name.substr(1);
+			if (name.at(1) == '_')
+				return "gate" + name.substr(1);
+			else
+				return "word_" + name.substr(1);
 		else
 			return name;
 	}

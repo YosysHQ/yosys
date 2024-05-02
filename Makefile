@@ -986,7 +986,7 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 	$(Q) rsync -rc temp/docs/source/cmd docs/source
 	$(Q) rm -rf temp
-docs/source/cell/add.rst: $(TARGETS) $(EXTRA_TARGETS)
+docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) mkdir -p docs/source/cell
 	$(Q) mkdir -p temp/docs/source/cell
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
@@ -1034,7 +1034,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/cell/word_add.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
 
 DOC_TARGET ?= html
 docs: docs/prep
