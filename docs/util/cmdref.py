@@ -1,6 +1,8 @@
 # based on https://github.com/ofosos/sphinxrecipes/blob/master/sphinxrecipes/sphinxrecipes.py
 
 from docutils.parsers.rst import directives
+from docutils.parsers.rst.states import Inliner
+from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
 from sphinx.domains.std import StandardDomain
 from sphinx.roles import XRefRole
@@ -228,7 +230,12 @@ class CellDomain(CommandDomain):
         TagIndex
     }
 
-def setup(app):
+def autoref(name, rawtext, text, lineno, inliner: Inliner,
+            options=None, content=None):
+    role = 'cell:ref' if text[0] == '$' else 'cmd:ref'
+    return inliner.interpreted(rawtext, text, role, lineno)
+
+def setup(app: Sphinx):
     app.add_domain(CommandDomain)
     app.add_domain(CellDomain)
 
@@ -249,5 +256,7 @@ def setup(app):
         ('cell-cell', '')
     StandardDomain.initial_data['anonlabels']['tagindex'] =\
         ('cell-tag', '')
+
+    app.add_role('autoref', autoref)
     
     return {'version': '0.2'}

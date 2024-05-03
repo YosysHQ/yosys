@@ -41,6 +41,9 @@ html_static_path = ['_static', "_images"]
 pygments_style = 'colorful'
 highlight_language = 'none'
 
+# default single quotes to attempt auto reference, or fallback to code
+default_role = 'autoref'
+
 extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
 if os.getenv("READTHEDOCS"):
