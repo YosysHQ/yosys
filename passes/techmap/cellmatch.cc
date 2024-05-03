@@ -42,10 +42,16 @@ SigSpec module_outputs(Module *m)
 	return ret;
 }
 
+// Permute the inputs of a single-output k-LUT according to varmap
 uint64_t permute_lut(uint64_t lut, const std::vector<int> &varmap)
 {
 	int k = varmap.size();
 	uint64_t ret = 0;
+	// Index j iterates over all bits in lut.
+	// When (j & 1 << n) is true,
+	//  (lut & 1 << j) represents an output value where input var n is set.
+	// We use this fact to permute the LUT such that
+	// every variable n is remapped to varmap[n].
 	for (int j = 0; j < 1 << k; j++) {
 		int m = 0;
 		for (int l = 0; l < k; l++)
@@ -57,6 +63,10 @@ uint64_t permute_lut(uint64_t lut, const std::vector<int> &varmap)
 	return ret;
 }
 
+// Find the LUT with the minimum integer representation
+// such that it is a permutation of the given lut.
+// The resulting LUT becomes the "fingerprint" of the "permutation class".
+// This function checks all possible input permutations.
 uint64_t p_class(int k, uint64_t lut)
 {
 	std::vector<int> map;
@@ -77,6 +87,9 @@ uint64_t p_class(int k, uint64_t lut)
 	return repr;
 }
 
+// Represent module m as N single-output k-LUTs
+// where k is the number of module inputs,
+//   and N is the number of module outputs.
 bool derive_module_luts(Module *m, std::vector<uint64_t> &luts)
 {
 	CellTypes ff_types;
@@ -185,7 +198,7 @@ struct CellmatchPass : Pass {
 				continue;
 			for (auto lut : luts)
 				p_classes.insert(p_class(ninputs, lut));
-			
+
 			log_debug("Registered %s\n", log_id(m));
 
 			// save as a viable target
@@ -210,7 +223,7 @@ struct CellmatchPass : Pass {
 				for (auto bit : outputs) {
 					log_assert(bit.is_wire());
 					bit.wire->attributes[ID(p_class)] = p_class(inputs.size(), luts[no]);
-					bit.wire->attributes[ID(lut)] = luts[no++];	
+					bit.wire->attributes[ID(lut)] = luts[no++];
 				}
 			}
 
@@ -236,11 +249,13 @@ struct CellmatchPass : Pass {
 					input_map.push_back(i);
 
 				bool found_match = false;
+				// For each input_map
 				while (!found_match) {
 					std::vector<int> output_map;
 					for (int i = 0; i < outputs.size(); i++)
 						output_map.push_back(i);
 
+					// For each output_map
 					while (!found_match) {
 						int out_no = 0;
 						bool match = true;
@@ -253,6 +268,8 @@ struct CellmatchPass : Pass {
 
 						if (match) {
 							log("Module %s matches %s\n", log_id(m), log_id(target.module));
+							// Add target.module to map_design ("$cellmatch")
+							// as a techmap rule to match m and replace it with target.module
 							Module *map = map_design->addModule(stringf("\\_60_%s_%s", log_id(m), log_id(target.module)));
 							Cell *cell = map->addCell(ID::_TECHMAP_REPLACE_, target.module->name);
 
@@ -281,7 +298,7 @@ struct CellmatchPass : Pass {
 						}
 
 						if (!std::next_permutation(output_map.begin(), output_map.end()))
-							break;		
+							break;
 					}
 
 					if (!std::next_permutation(input_map.begin(), input_map.end()))
