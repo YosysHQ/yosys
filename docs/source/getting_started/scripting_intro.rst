@@ -99,7 +99,7 @@ signifies we are matching on the *cell type*, and the ``*`` means to match
 anything.  For this (very simple) selection, we are trying to find all of the
 cells, regardless of their type.  The active selection is now shown as
 ``[addr_gen]*``, indicating some sub-selection of the ``addr_gen`` module.  This
-gives us the ``$add`` and ``$eq`` cells, which we want to highlight for the
+gives us the `$add` and `$eq` cells, which we want to highlight for the
 :ref:`addr_gen_hier` image.
 
 .. _select_new_cells:
@@ -111,10 +111,11 @@ by referring to it as ``@new_cells``, which we will see later.  Then we clear
 the selection so that the following commands can operate on the full design.
 While we split that out for this document, we could have done the same thing in
 a single line by calling :yoscrypt:`select -set new_cells addr_gen/t:*`.  If we
-know we only have the one module in our design, we can even skip the `addr_gen/`
-part.  Looking further down :ref:`the fifo.ys code <fifo-ys>` we can see this
-with :yoscrypt:`select -set new_cells t:$mux t:*dff`.  We can also see in that
-command that selections don't have to be limited to a single statement.
+know we only have the one module in our design, we can even skip the
+``addr_gen/`` part.  Looking further down :ref:`the fifo.ys code <fifo-ys>` we
+can see this with :yoscrypt:`select -set new_cells t:$mux t:*dff`.  We can also
+see in that command that selections don't have to be limited to a single
+statement.
 
 Many commands also support an optional ``[selection]`` argument which can be
 used to override the currently selected objects.  We could, for example, call
@@ -184,8 +185,8 @@ like when we called :yoscrypt:`select -module addr_gen` in :ref:`select_intro`.
 That last parameter doesn't have to be a module name, it can be any valid
 selection string.  Remember when we :ref:`assigned a name to a
 selection<select_new_cells>` and called it ``new_cells``?  We saw in the
-:yoscrypt:`select -list` output that it contained two cells, an ``$add`` and an
-``$eq``.  We can call :cmd:ref:`show` on that selection just as easily:
+:yoscrypt:`select -list` output that it contained two cells, an `$add` and an
+`$eq`.  We can call :cmd:ref:`show` on that selection just as easily:
 
 .. figure:: /_images/code_examples/fifo/new_cells_show.*
    :class: width-helper invert-helper

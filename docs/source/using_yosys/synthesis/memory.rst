@@ -75,7 +75,7 @@ For example:
     techmap -map my_memory_map.v
     memory_map
 
-:cmd:ref:`memory_libmap` attempts to convert memory cells (``$mem_v2`` etc) into
+:cmd:ref:`memory_libmap` attempts to convert memory cells (`$mem_v2` etc) into
 hardware supported memory using a provided library (:file:`my_memory_map.txt` in the
 example above).  Where necessary, emulation logic is added to ensure functional
 equivalence before and after this conversion. :yoscrypt:`techmap -map
@@ -171,10 +171,10 @@ In general, you can expect the automatic selection process to work roughly like 
 
 This process can be overridden by attaching a ram_style attribute to the memory:
 
-- `(* ram_style = "logic" *)` selects FF RAM
-- `(* ram_style = "distributed" *)` selects LUT RAM
-- `(* ram_style = "block" *)` selects block RAM
-- `(* ram_style = "huge" *)` selects huge RAM
+- ``(* ram_style = "logic" *)`` selects FF RAM
+- ``(* ram_style = "distributed" *)`` selects LUT RAM
+- ``(* ram_style = "block" *)`` selects block RAM
+- ``(* ram_style = "huge" *)`` selects huge RAM
 
 It is an error if this override cannot be realized for the given target.
 

@@ -24,12 +24,12 @@ following description:
 
 -  Does not already have the ``\fsm_encoding`` attribute.
 -  Is not an output of the containing module.
--  Is driven by single ``$dff`` or ``$adff`` cell.
--  The ``\D``-Input of this ``$dff`` or ``$adff`` cell is driven by a
+-  Is driven by single `$dff` or `$adff` cell.
+-  The ``\D``-Input of this `$dff` or `$adff` cell is driven by a
    multiplexer tree that only has constants or the old state value on its
    leaves.
 -  The state value is only used in the said multiplexer tree or by simple
-   relational cells that compare the state value to a constant (usually ``$eq``
+   relational cells that compare the state value to a constant (usually `$eq`
    cells).
 
 This heuristic has proven to work very well. It is possible to overwrite it by
@@ -64,9 +64,11 @@ information is determined:
 The state registers (and asynchronous reset state, if applicable) is simply
 determined by identifying the driver for the state signal.
 
-From there the ``$mux-tree`` driving the state register inputs is recursively
+.. todo:: Figure out what `$mux-tree` should actually be.
+
+From there the `$mux-tree` driving the state register inputs is recursively
 traversed. All select inputs are control signals and the leaves of the
-``$mux-tree`` are the states. The algorithm fails if a non-constant leaf that is
+`$mux-tree` are the states. The algorithm fails if a non-constant leaf that is
 not the state signal itself is found.
 
 The list of control outputs is initialized with the bits from the state signal.
@@ -99,18 +101,18 @@ create a transition table. For each state:
 
 6. If step 4 was successful: Emit transition
 
-Finally a ``$fsm`` cell is created with the generated transition table and added
+Finally a `$fsm` cell is created with the generated transition table and added
 to the module. This new cell is connected to the control signals and the old
 drivers for the control outputs are disconnected.
 
 FSM optimization
 ~~~~~~~~~~~~~~~~
 
-The :cmd:ref:`fsm_opt` pass performs basic optimizations on ``$fsm`` cells (not
+The :cmd:ref:`fsm_opt` pass performs basic optimizations on `$fsm` cells (not
 including state recoding). The following optimizations are performed (in this
 order):
 
--  Unused control outputs are removed from the ``$fsm`` cell. The attribute
+-  Unused control outputs are removed from the `$fsm` cell. The attribute
    ``\unused_bits`` (that is usually set by the :cmd:ref:`opt_clean` pass) is
    used to determine which control outputs are unused.
 

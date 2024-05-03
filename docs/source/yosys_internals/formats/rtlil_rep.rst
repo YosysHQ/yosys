@@ -79,7 +79,7 @@ This has three advantages:
    example, :cmd:ref:`opt_clean` tries to preserve signals with a user-provided
    name but doesn't hesitate to delete signals that have auto-generated names
    when they just duplicate other signals.  Note that this can be overridden
-   with the `-purge` option to also delete internal nets with user-provided
+   with the ``-purge`` option to also delete internal nets with user-provided
    names.
 
 -  Third, the delicate job of finding suitable auto-generated public visible
@@ -366,7 +366,7 @@ multiplexer for the enable signal:
    end
 
 Different combinations of passes may yield different results. Note that
-``$adff`` and ``$mux`` are internal cell types that still need to be mapped to
+`$adff` and `$mux` are internal cell types that still need to be mapped to
 cell types from the target cell library.
 
 Some passes refuse to operate on modules that still contain ``RTLIL::Process`` 
@@ -389,25 +389,25 @@ A memory object has the following properties:
 -  The width of an addressable word
 -  The size of the memory in number of words
 
-All read accesses to the memory are transformed to ``$memrd`` cells and all
-write accesses to ``$memwr`` cells by the language frontend. These cells consist
+All read accesses to the memory are transformed to `$memrd` cells and all
+write accesses to `$memwr` cells by the language frontend. These cells consist
 of independent read- and write-ports to the memory. Memory initialization is
-transformed to ``$meminit`` cells by the language frontend. The ``\MEMID``
+transformed to `$meminit` cells by the language frontend. The ``\MEMID``
 parameter on these cells is used to link them together and to the
 ``RTLIL::Memory`` object they belong to.
 
 The rationale behind using separate cells for the individual ports versus
 creating a large multiport memory cell right in the language frontend is that
-the separate ``$memrd`` and ``$memwr`` cells can be consolidated using resource
+the separate `$memrd` and `$memwr` cells can be consolidated using resource
 sharing. As resource sharing is a non-trivial optimization problem where
 different synthesis tasks can have different requirements it lends itself to do
 the optimisation in separate passes and merge the ``RTLIL::Memory`` objects and
-``$memrd`` and ``$memwr`` cells to multiport memory blocks after resource
+`$memrd` and `$memwr` cells to multiport memory blocks after resource
 sharing is completed.
 
 The memory pass performs this conversion and can (depending on the options
 passed to it) transform the memories directly to d-type flip-flops and address
-logic or yield multiport memory blocks (represented using ``$mem`` cells).
+logic or yield multiport memory blocks (represented using `$mem` cells).
 
 See :ref:`sec:memcells` for details about the memory cell types.
 

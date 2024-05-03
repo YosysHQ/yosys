@@ -129,7 +129,7 @@ Our ``addr_gen`` circuit now looks like this:
 
 Simple operations like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted
 from our ``always @`` block in :ref:`addr_gen-v`. This gives us the highlighted
-``$add`` and ``$eq`` cells we see. But control logic (like the ``if .. else``)
+`$add` and `$eq` cells we see. But control logic (like the ``if .. else``)
 and memory elements (like the ``addr <= 0``) are not so straightforward.  These
 get put into "processes", shown in the schematic as ``PROC``.  Note how the
 second line refers to the line numbers of the start/end of the corresponding
@@ -151,8 +151,8 @@ automatic optimizations which would normally happen.
    ``addr_gen`` module after :yoscrypt:`proc -noopt`
 
 There are now a few new cells from our ``always @``, which have been
-highlighted.  The ``if`` statements are now modeled with ``$mux`` cells, while
-the register uses an ``$adff`` cell.  If we look at the terminal output we can
+highlighted.  The ``if`` statements are now modeled with `$mux` cells, while
+the register uses an `$adff` cell.  If we look at the terminal output we can
 also see all of the different ``proc_*`` commands being called.  We will look at
 each of these in more detail in :doc:`/using_yosys/synthesis/proc`.
 
@@ -171,7 +171,7 @@ clean`.
 
    ``addr_gen`` module after :yoscrypt:`opt_expr; clean`
 
-You may also notice that the highlighted ``$eq`` cell input of ``255`` has
+You may also notice that the highlighted `$eq` cell input of ``255`` has
 changed to ``8'11111111``.  Constant values are presented in the format
 ``<bit_width>'<bits>``, with 32-bit values instead using the decimal number.
 This indicates that the constant input has been reduced from 32-bit wide to
@@ -218,7 +218,7 @@ could restart our shell session, but instead let's use two new commands:
    :end-before: yosys> proc
    :caption: reloading :file:`fifo.v` and running :yoscrypt:`hierarchy -check -top fifo`
 
-Notice how this time we didn't see any of those `$abstract` modules?  That's
+Notice how this time we didn't see any of those ``$abstract`` modules?  That's
 because when we ran ``yosys fifo.v``, the first command Yosys called was
 :yoscrypt:`read_verilog -defer fifo.v`.  The ``-defer`` option there tells
 :cmd:ref:`read_verilog` only read the abstract syntax tree and defer actual
@@ -263,10 +263,10 @@ The highlighted ``fifo_reader`` block contains an instance of the
 instance of the ``addr_gen`` module with the ``MAX_DATA`` parameter set to the
 given value.
 
-The other highlighted block is a ``$memrd`` cell.  At this stage of synthesis we
+The other highlighted block is a `$memrd` cell.  At this stage of synthesis we
 don't yet know what type of memory is going to be implemented, but we *do* know
 that ``rdata <= data[raddr];`` could be implemented as a read from memory. Note
-that the ``$memrd`` cell here is asynchronous, with both the clock and enable
+that the `$memrd` cell here is asynchronous, with both the clock and enable
 signal undefined; shown with the ``1'x`` inputs.
 
 .. seealso:: Advanced usage docs for
@@ -309,7 +309,7 @@ optimizations between modules which would otherwise be missed.  Let's run
 The pieces have moved around a bit, but we can see :ref:`addr_gen_proc` from
 earlier has replaced the ``fifo_reader`` block in :ref:`rdata_proc`.  We can
 also see that the ``addr`` output has been renamed to :file:`fifo_reader.addr`
-and merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
+and merged with the ``raddr`` wire feeding into the `$memrd` cell.  This wire
 merging happened during the call to :cmd:ref:`clean` which we can see in the
 :ref:`flat_clean`.
 
@@ -375,8 +375,8 @@ which are explored in more detail in :doc:`/using_yosys/synthesis/opt` and
 Up until now, the data path for ``rdata`` has remained the same since
 :ref:`rdata_flat`.  However the next call to :cmd:ref:`opt` does cause a change.
 Specifically, the call to :cmd:ref:`opt_dff` without the ``-nodffe -nosdff``
-options is able to fold one of the ``$mux`` cells into the ``$adff`` to form an
-``$adffe`` cell; highlighted below:
+options is able to fold one of the `$mux` cells into the `$adff` to form an
+`$adffe` cell; highlighted below:
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -418,7 +418,7 @@ First up is :doc:`/cmd/wreduce`.  If we run this we get the following:
 
 Looking at the data path for ``rdata``, the most relevant of these width
 reductions are the ones affecting ``fifo.$flatten\fifo_reader.$add$fifo.v``.
-That is the ``$add`` cell incrementing the fifo_reader address.  We can look at
+That is the `$add` cell incrementing the fifo_reader address.  We can look at
 the schematic and see the output of that cell has now changed.
 
 .. todo:: pending bugfix in :cmd:ref:`wreduce` and/or :cmd:ref:`opt_clean`
@@ -451,8 +451,8 @@ Our next command to run is
 
    ``rdata`` output after :cmd:ref:`memory_dff`
 
-As the title suggests, :cmd:ref:`memory_dff` has merged the output ``$dff`` into
-the ``$memrd`` cell and converted it to a ``$memrd_v2`` (highlighted).  This has
+As the title suggests, :cmd:ref:`memory_dff` has merged the output `$dff` into
+the `$memrd` cell and converted it to a `$memrd_v2` (highlighted).  This has
 also connected the ``CLK`` port to the ``clk`` input as it is now a synchronous
 memory read with appropriate enable (``EN=1'1``) and reset (``ARST=1'0`` and
 ``SRST=1'0``) inputs.
@@ -482,12 +482,12 @@ what they do.
    :name: synth_coarse3
 
 :yoscrypt:`wreduce t:$mul` performs width reduction again, this time targetting
-only cells of type ``$mul``.  :yoscrypt:`techmap -map +/mul2dsp.v -map
+only cells of type `$mul`.  :yoscrypt:`techmap -map +/mul2dsp.v -map
 +/ice40/dsp_map.v ... -D DSP_NAME=$__MUL16X16` uses :cmd:ref:`techmap` to map
-``$mul`` cells to ``$__MUL16X16`` which are, in turn, mapped to the iCE40
+`$mul` cells to ``$__MUL16X16`` which are, in turn, mapped to the iCE40
 ``SB_MAC16``.  Any multipliers which aren't compatible with conversion to
 ``$__MUL16X16`` are relabelled to ``$__soft_mul`` before :cmd:ref:`chtype`
-changes them back to ``$mul``.
+changes them back to `$mul`.
 
 During the mul2dsp conversion, some of the intermediate signals are marked with
 the attribute ``mul2dsp``.  By calling :yoscrypt:`select a:mul2dsp` we restrict
@@ -522,8 +522,8 @@ That brings us to the fourth and final part for the iCE40 synthesis flow:
    :caption: ``coarse`` section (part 4)
    :name: synth_coarse4
 
-Where before each type of arithmetic operation had its own cell, e.g. ``$add``,
-we now want to extract these into ``$alu`` and ``$macc`` cells which can help
+Where before each type of arithmetic operation had its own cell, e.g. `$add`,
+we now want to extract these into `$alu` and `$macc` cells which can help
 identify opportunities for reusing logic.  We do this by running
 :cmd:ref:`alumacc`, which we can see produce the following changes in our
 example design:
@@ -542,7 +542,7 @@ example design:
 
 Once these cells have been inserted, the call to :cmd:ref:`opt` can combine
 cells which are now identical but may have been missed due to e.g. the
-difference between ``$add`` and ``$sub``.
+difference between `$add` and `$sub`.
 
 The other new command in this part is :doc:`/cmd/memory`.  :cmd:ref:`memory` is
 another macro command which we examine in more detail in
@@ -559,7 +559,7 @@ combines all of the reads and writes for a memory block into a single cell.
    ``rdata`` output after :cmd:ref:`memory_collect`
 
 Looking at the schematic after running :cmd:ref:`memory_collect` we see that our
-``$memrd_v2`` cell has been replaced with a ``$mem_v2`` cell named ``data``, the
+`$memrd_v2` cell has been replaced with a `$mem_v2` cell named ``data``, the
 same name that we used in :ref:`fifo-v`. Where before we had a single set of
 signals for address and enable, we now have one set for reading (``RD_*``) and
 one for writing (``WR_*``), as well as both ``WR_DATA`` input and ``RD_DATA``
@@ -609,10 +609,10 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap` and
 
    ``rdata`` output after :ref:`map_ram`
 
-The :ref:`map_ram` converts the generic ``$mem_v2`` into the iCE40
+The :ref:`map_ram` converts the generic `$mem_v2` into the iCE40
 ``SB_RAM40_4K`` (highlighted). We can also see the memory address has been
 remapped, and the data bits have been reordered (or swizzled).  There is also
-now a ``$mux`` cell controlling the value of ``rdata``.  In :ref:`fifo-v` we
+now a `$mux` cell controlling the value of ``rdata``.  In :ref:`fifo-v` we
 wrote our memory as read-before-write, however the ``SB_RAM40_4K`` has undefined
 behaviour when reading from and writing to the same address in the same cycle.
 As a result, extra logic is added so that the generated circuit matches the
@@ -655,7 +655,7 @@ into flip flops (the ``logic fallback``) with :cmd:ref:`memory_map`.
 
    The visual clutter on the ``RDATA`` output port (highlighted) is an
    unfortunate side effect of :cmd:ref:`opt_clean` on the swizzled data bits. In
-   connecting the ``$mux`` input port directly to ``RDATA`` to reduce the number
+   connecting the `$mux` input port directly to ``RDATA`` to reduce the number
    of wires, the ``$techmap579\data.0.0.RDATA`` wire becomes more visually
    complex.
 
@@ -668,10 +668,10 @@ Arithmetic
 ^^^^^^^^^^
 
 Uses :cmd:ref:`techmap` to map basic arithmetic logic to hardware.  This sees
-somewhat of an explosion in cells as multi-bit ``$mux`` and ``$adffe`` are
-replaced with single-bit ``$_MUX_`` and ``$_DFFE_PP0P_`` cells, while the
-``$alu`` is replaced with primitive ``$_OR_`` and ``$_NOT_`` gates and a
-``$lut`` cell.
+somewhat of an explosion in cells as multi-bit :cell:ref:`$mux` and `$adffe` are
+replaced with single-bit `$_MUX_` and `$_DFFE_PP0P_` cells, while the
+:cell:ref:`$alu` is replaced with primitive `$_OR_` and `$_NOT_` gates and a
+`$lut` cell.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -695,12 +695,12 @@ Flip-flops
 
 Convert FFs to the types supported in hardware with :cmd:ref:`dfflegalize`, and
 then use :cmd:ref:`techmap` to map them.  In our example, this converts the
-``$_DFFE_PP0P_`` cells to ``SB_DFFER``.
+`$_DFFE_PP0P_` cells to ``SB_DFFER``.
 
 We also run :cmd:ref:`simplemap` here to convert any remaining cells which could
 not be mapped to hardware into gate-level primitives.  This includes optimizing
-``$_MUX_`` cells where one of the inputs is a constant ``1'0``, replacing it
-instead with an ``$_AND_`` cell.
+`$_MUX_` cells where one of the inputs is a constant ``1'0``, replacing it
+instead with an `$_AND_` cell.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -723,7 +723,7 @@ LUTs
 ^^^^
 
 :cmd:ref:`abc` and :cmd:ref:`techmap` are used to map LUTs; converting primitive
-cell types to use ``$lut`` and ``SB_CARRY`` cells.  Note that the iCE40 flow
+cell types to use `$lut` and ``SB_CARRY`` cells.  Note that the iCE40 flow
 uses :cmd:ref:`abc9` rather than :cmd:ref:`abc`. For more on what these do, and
 what the difference between these two commands are, refer to
 :doc:`/using_yosys/synthesis/abc`.
@@ -742,7 +742,7 @@ what the difference between these two commands are, refer to
 
    ``rdata`` output after :ref:`map_luts`
 
-Finally we use :cmd:ref:`techmap` to map the generic ``$lut`` cells to iCE40
+Finally we use :cmd:ref:`techmap` to map the generic `$lut` cells to iCE40
 ``SB_LUT4`` cells.
 
 .. literalinclude:: /cmd/synth_ice40.rst

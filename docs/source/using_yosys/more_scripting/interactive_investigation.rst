@@ -81,7 +81,7 @@ internal representation of the decision-trees and synchronization events
 modelled in a Verilog ``always``-block. The label reads ``PROC`` followed by a
 unique identifier in the first line and contains the source code location of the
 original ``always``-block in the second line. Note how the multiplexer from the
-``?:``-expression is represented as a ``$mux`` cell but the multiplexer from the
+``?:``-expression is represented as a `$mux` cell but the multiplexer from the
 ``if``-statement is yet still hidden within the process.
 
 The :cmd:ref:`proc` command transforms the process from the first diagram into a
@@ -117,7 +117,7 @@ leads us to the third diagram:
    
 Here we see that the :cmd:ref:`opt` command not only has removed the artifacts
 left behind by :cmd:ref:`proc`, but also determined correctly that it can remove
-the first ``$mux`` cell without changing the behavior of the circuit.
+the first `$mux` cell without changing the behavior of the circuit.
 
 Break-out boxes for signal vectors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

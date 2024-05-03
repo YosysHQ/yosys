@@ -3,7 +3,7 @@ Techmap by example
 
 As a quick recap, the :cmd:ref:`techmap` command replaces cells in the design
 with implementations given as Verilog code (called "map files"). It can replace
-Yosys' internal cell types (such as ``$or``) as well as user-defined cell types.
+Yosys' internal cell types (such as `$or`) as well as user-defined cell types.
 
 - Verilog parameters are used extensively to customize the internal cell types.
 - Additional special parameters are used by techmap to communicate meta-data to

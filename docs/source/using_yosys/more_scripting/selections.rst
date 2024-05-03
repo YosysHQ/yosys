@@ -105,7 +105,7 @@ The :cmd:ref:`select` command is actually much more powerful than it might seem
 at first glance. When it is called with multiple arguments, each argument is
 evaluated and pushed separately on a stack. After all arguments have been
 processed it simply creates the union of all elements on the stack. So
-:yoscrypt:`select t:$add a:foo` will select all ``$add`` cells and all objects
+:yoscrypt:`select t:$add a:foo` will select all `$add` cells and all objects
 with the ``foo`` attribute set:   
 
 .. literalinclude:: /code_examples/selections/foobaraddsub.v
@@ -126,7 +126,7 @@ ineffective way of selecting the interesting part of the design. Special
 arguments can be used to combine the elements on the stack. For example the
 ``%i`` arguments pops the last two elements from the stack, intersects them, and
 pushes the result back on the stack. So :yoscrypt:`select t:$add a:foo %i` will
-select all ``$add`` cells that have the ``foo`` attribute set:
+select all `$add` cells that have the ``foo`` attribute set:
 
 .. code-block::
    :caption: Output for command ``select t:$add a:foo %i -list`` on :numref:`foobaraddsub`
@@ -220,7 +220,7 @@ The following sequence of diagrams demonstrates this step-wise expansion:
    Output of :yoscrypt:`show prod %ci %ci %ci` on :numref:`sumprod`
 
 Notice the subtle difference between :yoscrypt:`show prod %ci` and
-:yoscrypt:`show prod %ci %ci`.  Both images show the ``$mul`` cell driven by
+:yoscrypt:`show prod %ci %ci`.  Both images show the `$mul` cell driven by
 some inputs ``$3_Y`` and ``c``.  However it is not until the second image,
 having called ``%ci`` the second time, that :cmd:ref:`show` is able to
 distinguish between ``$3_Y`` being a wire and ``c`` being an input.  We can see
@@ -296,7 +296,7 @@ cones`_ from above, we can use :yoscrypt:`show y %ci2`:
    
    Output of :yoscrypt:`show y %ci2`
 
-From this we would learn that ``y`` is driven by a ``$dff cell``, that ``y`` is
+From this we would learn that ``y`` is driven by a `$dff` cell, that ``y`` is
 connected to the output port ``Q``, that the ``clk`` signal goes into the
 ``CLK`` input port of the cell, and that the data comes from an auto-generated
 wire into the input ``D`` of the flip-flop cell (indicated by the ``$`` at the
@@ -313,7 +313,7 @@ inputs. To add a pattern we add a colon followed by the pattern to the ``%ci``
 action. The pattern itself starts with ``-`` or ``+``, indicating if it is an
 include or exclude pattern, followed by an optional comma separated list of cell
 types, followed by an optional comma separated list of port names in square
-brackets.  In this case, we want to exclude the ``S`` port of the ``$mux`` cell
+brackets.  In this case, we want to exclude the ``S`` port of the `$mux` cell
 type with :yoscrypt:`show y %ci5:-$mux[S]`:
 
 .. figure:: /_images/code_examples/selections/memdemo_03.*
@@ -334,7 +334,7 @@ multiplexer select inputs and flip-flop cells:
    Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
 
 Or we could use :yoscrypt:`show y %ci*:-[CLK,S]:+$dff:+$mux` instead, following
-the input cone all the way but only following ``$dff`` and ``$mux`` cells, and
+the input cone all the way but only following `$dff` and `$mux` cells, and
 ignoring any ports named ``CLK`` or ``S``:
 
 .. TODO:: pending discussion on whether rule ordering is a bug or a feature

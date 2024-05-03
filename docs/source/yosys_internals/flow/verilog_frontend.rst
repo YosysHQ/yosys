@@ -627,7 +627,7 @@ from a behavioural model to an RTL representation is performed by the
      asynchronous resets if necessary).
 
 -  | :cmd:ref:`proc_dff`
-   | This pass replaces the ``RTLIL::MemWriteAction``\ s with ``$memwr`` cells.
+   | This pass replaces the ``RTLIL::MemWriteAction``\ s with `$memwr` cells.
 
 -  | :cmd:ref:`proc_clean`
    | A final call to :cmd:ref:`proc_clean` removes the now empty
@@ -646,7 +646,7 @@ to extend the actual Verilog frontend.
 
 .. todo:: Synthesizing Verilog arrays
 
-  Add some information on the generation of ``$memrd`` and ``$memwr`` cells and
+  Add some information on the generation of `$memrd` and `$memwr` cells and
   how they are processed in the memory pass.
 
 
