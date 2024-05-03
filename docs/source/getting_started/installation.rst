@@ -184,9 +184,8 @@ directories:
 
 ``passes/``
    This directory contains a subdirectory for each pass or group of passes. For
-   example as of this writing the directory :file:`passes/hierarchy/` contains the
-   code for three passes: `hierarchy`, `submod`, and
-   `uniquify`.
+   example as of this writing the directory :file:`passes/hierarchy/` contains
+   the code for three passes: `hierarchy`, `submod`, and `uniquify`.
 
 ``techlibs/``
    This directory contains simulation models and standard implementations for

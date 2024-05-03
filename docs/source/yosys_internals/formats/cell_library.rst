@@ -73,16 +73,16 @@ also have the following parameters:
 	:verilog:`Y =  !A` $logic_not
 	================== ============
 
-For the unary cells that output a logical value (`$reduce_and`,
-`$reduce_or`, `$reduce_xor`, `$reduce_xnor`, `$reduce_bool`,
-`$logic_not`), when the ``\Y_WIDTH`` parameter is greater than 1, the output
-is zero-extended, and only the least significant bit varies.
+For the unary cells that output a logical value (`$reduce_and`, `$reduce_or`,
+`$reduce_xor`, `$reduce_xnor`, `$reduce_bool`, `$logic_not`), when the
+``\Y_WIDTH`` parameter is greater than 1, the output is zero-extended, and only
+the least significant bit varies.
 
 Note that `$reduce_or` and `$reduce_bool` actually represent the same logic
 function. But the HDL frontends generate them in different situations. A
 `$reduce_or` cell is generated when the prefix ``|`` operator is being used. A
-`$reduce_bool` cell is generated when a bit vector is used as a condition in
-an ``if``-statement or ``?:``-expression.
+`$reduce_bool` cell is generated when a bit vector is used as a condition in an
+``if``-statement or ``?:``-expression.
 
 Binary operators
 ~~~~~~~~~~~~~~~~
@@ -91,15 +91,15 @@ All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
 ``\Y``. They also have the following parameters:
 
 ``\A_SIGNED``
-	Set to a non-zero value if the input ``\A`` is signed and therefore
-	should be sign-extended when needed.
+	Set to a non-zero value if the input ``\A`` is signed and therefore should be
+	sign-extended when needed.
 
 ``\A_WIDTH``
 	The width of the input port ``\A``.
 
 ``\B_SIGNED``
-	Set to a non-zero value if the input ``\B`` is signed and therefore
-	should be sign-extended when needed.
+	Set to a non-zero value if the input ``\B`` is signed and therefore should be
+	sign-extended when needed.
 
 ``\B_WIDTH``
 	The width of the input port ``\B``.
@@ -130,29 +130,28 @@ All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
 	:verilog:`Y = A ** B`   $pow          ``N/A``                 $modfloor
 	======================= ============= ======================= =========
 
-The `$shl` and `$shr` cells implement logical shifts, whereas the `$sshl`
-and `$sshr` cells implement arithmetic shifts. The `$shl` and `$sshl`
-cells implement the same operation. All four of these cells interpret the second
+The `$shl` and `$shr` cells implement logical shifts, whereas the `$sshl` and
+`$sshr` cells implement arithmetic shifts. The `$shl` and `$sshl` cells
+implement the same operation. All four of these cells interpret the second
 operand as unsigned, and require ``\B_SIGNED`` to be zero.
 
 Two additional shift operator cells are available that do not directly
-correspond to any operator in Verilog, `$shift` and `$shiftx`. The
-`$shift` cell performs a right logical shift if the second operand is positive
-(or unsigned), and a left logical shift if it is negative. The `$shiftx` cell
-performs the same operation as the `$shift` cell, but the vacated bit
-positions are filled with undef (x) bits, and corresponds to the Verilog indexed
-part-select expression.
+correspond to any operator in Verilog, `$shift` and `$shiftx`. The `$shift` cell
+performs a right logical shift if the second operand is positive (or unsigned),
+and a left logical shift if it is negative. The `$shiftx` cell performs the same
+operation as the `$shift` cell, but the vacated bit positions are filled with
+undef (x) bits, and corresponds to the Verilog indexed part-select expression.
 
 For the binary cells that output a logical value (`$logic_and`, `$logic_or`,
-`$eqx`, `$nex`, `$lt`, `$le`, `$eq`, `$ne`, `$ge`, `$gt`), when
-the ``\Y_WIDTH`` parameter is greater than 1, the output is zero-extended, and
-only the least significant bit varies.
+`$eqx`, `$nex`, `$lt`, `$le`, `$eq`, `$ne`, `$ge`, `$gt`), when the ``\Y_WIDTH``
+parameter is greater than 1, the output is zero-extended, and only the least
+significant bit varies.
 
 Division and modulo cells are available in two rounding modes. The original
-`$div` and `$mod` cells are based on truncating division, and correspond to
-the semantics of the verilog ``/`` and ``%`` operators. The `$divfloor` and
-`$modfloor` cells represent flooring division and flooring modulo, the latter
-of which is also known as "remainder" in several languages. See
+`$div` and `$mod` cells are based on truncating division, and correspond to the
+semantics of the verilog ``/`` and ``%`` operators. The `$divfloor` and
+`$modfloor` cells represent flooring division and flooring modulo, the latter of
+which is also known as "remainder" in several languages. See
 :numref:`tab:CellLib_divmod` for a side-by-side comparison between the different
 semantics.
 
@@ -187,9 +186,9 @@ all of the specified width. This cell also has a single bit control input
 it is 1 the value from the ``\B`` input is sent to the output. So the `$mux`
 cell implements the function :verilog:`Y = S ? B : A`.
 
-The `$pmux` cell is used to multiplex between many inputs using a one-hot
-select signal. Cells of this type have a ``\WIDTH`` and a ``\S_WIDTH`` parameter
-and inputs ``\A``, ``\B``, and ``\S`` and an output ``\Y``. The ``\S`` input is
+The `$pmux` cell is used to multiplex between many inputs using a one-hot select
+signal. Cells of this type have a ``\WIDTH`` and a ``\S_WIDTH`` parameter and
+inputs ``\A``, ``\B``, and ``\S`` and an output ``\Y``. The ``\S`` input is
 ``\S_WIDTH`` bits wide. The ``\A`` input and the output are both ``\WIDTH`` bits
 wide and the ``\B`` input is ``\WIDTH*\S_WIDTH`` bits wide. When all bits of
 ``\S`` are zero, the value from ``\A`` input is sent to the output. If the
@@ -199,8 +198,8 @@ from ``\S`` is set the output is undefined. Cells of this type are used to model
 "parallel cases" (defined by using the ``parallel_case`` attribute or detected
 by an optimization).
 
-The `$tribuf` cell is used to implement tristate logic. Cells of this type
-have a ``\WIDTH`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
+The `$tribuf` cell is used to implement tristate logic. Cells of this type have
+a ``\WIDTH`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
 ``\A`` input and ``\Y`` output are ``\WIDTH`` bits wide, and the ``\EN`` input
 is one bit wide. When ``\EN`` is 0, the output is not driven. When ``\EN`` is 1,
 the value from ``\A`` input is sent to the ``\Y`` output. Therefore, the
@@ -224,27 +223,27 @@ parameters:
 	The width of inputs ``\SET`` and ``\CLR`` and output ``\Q``.
 
 ``\SET_POLARITY``
-	The set input bits are active-high if this parameter has the value
-	``1'b1`` and active-low if this parameter is ``1'b0``.
+	The set input bits are active-high if this parameter has the value ``1'b1``
+	and active-low if this parameter is ``1'b0``.
 
 ``\CLR_POLARITY``
-	The reset input bits are active-high if this parameter has the value
-	``1'b1`` and active-low if this parameter is ``1'b0``.
+	The reset input bits are active-high if this parameter has the value ``1'b1``
+	and active-low if this parameter is ``1'b0``.
 
 Both set and reset inputs have separate bits for every output bit. When both the
 set and reset inputs of an `$sr` cell are active for a given bit index, the
 reset input takes precedence.
 
-D-type flip-flops are represented by `$dff` cells. These cells have a clock
-port ``\CLK``, an input port ``\D`` and an output port ``\Q``. The following
+D-type flip-flops are represented by `$dff` cells. These cells have a clock port
+``\CLK``, an input port ``\D`` and an output port ``\Q``. The following
 parameters are available for `$dff` cells:
 
 ``\WIDTH``
 	The width of input ``\D`` and output ``\Q``.
 
 ``\CLK_POLARITY``
-	Clock is active on the positive edge if this parameter has the value
-	``1'b1`` and on the negative edge if this parameter is ``1'b0``.
+	Clock is active on the positive edge if this parameter has the value ``1'b1``
+	and on the negative edge if this parameter is ``1'b0``.
 
 D-type flip-flops with asynchronous reset are represented by `$adff` cells. As
 the `$dff` cells they have ``\CLK``, ``\D`` and ``\Q`` ports. In addition they
@@ -258,8 +257,8 @@ additional two parameters:
 ``\ARST_VALUE``
    	The state of ``\Q`` will be set to this value when the reset is active.
 
-Usually these cells are generated by the `proc` pass using the
-information in the designs RTLIL::Process objects.
+Usually these cells are generated by the `proc` pass using the information in
+the designs RTLIL::Process objects.
 
 D-type flip-flops with synchronous reset are represented by `$sdff` cells. As
 the `$dff` cells they have ``\CLK``, ``\D`` and ``\Q`` ports. In addition they
@@ -267,14 +266,14 @@ also have a single-bit ``\SRST`` input port for the reset pin and the following
 additional two parameters:
 
 ``\SRST_POLARITY``
-	The synchronous reset is active-high if this parameter has the value
-	``1'b1`` and active-low if this parameter is ``1'b0``.
+	The synchronous reset is active-high if this parameter has the value ``1'b1``
+	and active-low if this parameter is ``1'b0``.
 
 ``\SRST_VALUE``
 	The state of ``\Q`` will be set to this value when the reset is active.
 
-Note that the `$adff` and `$sdff` cells can only be used when the reset
-value is constant.
+Note that the `$adff` and `$sdff` cells can only be used when the reset value is
+constant.
 
 D-type flip-flops with asynchronous load are represented by `$aldff` cells. As
 the `$dff` cells they have ``\CLK``, ``\D`` and ``\Q`` ports. In addition they
@@ -283,25 +282,24 @@ also have a single-bit ``\ALOAD`` input port for the async load enable pin, a
 following additional parameter:
 
 ``\ALOAD_POLARITY``
-	The asynchronous load is active-high if this parameter has the value
-	``1'b1`` and active-low if this parameter is ``1'b0``.
+	The asynchronous load is active-high if this parameter has the value ``1'b1``
+	and active-low if this parameter is ``1'b0``.
 
 D-type flip-flops with asynchronous set and reset are represented by `$dffsr`
 cells. As the `$dff` cells they have ``\CLK``, ``\D`` and ``\Q`` ports. In
 addition they also have multi-bit ``\SET`` and ``\CLR`` input ports and the
 corresponding polarity parameters, like `$sr` cells.
 
-D-type flip-flops with enable are represented by `$dffe`, `$adffe`,
-`$aldffe`, `$dffsre`, `$sdffe`, and `$sdffce` cells, which are enhanced
-variants of `$dff`, `$adff`, `$aldff`, `$dffsr`, `$sdff` (with reset
-over enable) and `$sdff` (with enable over reset) cells, respectively.  They
-have the same ports and parameters as their base cell. In addition they also
-have a single-bit ``\EN`` input port for the enable pin and the following
-parameter:
+D-type flip-flops with enable are represented by `$dffe`, `$adffe`, `$aldffe`,
+`$dffsre`, `$sdffe`, and `$sdffce` cells, which are enhanced variants of `$dff`,
+`$adff`, `$aldff`, `$dffsr`, `$sdff` (with reset over enable) and `$sdff` (with
+enable over reset) cells, respectively.  They have the same ports and parameters
+as their base cell. In addition they also have a single-bit ``\EN`` input port
+for the enable pin and the following parameter:
 
 ``\EN_POLARITY``
-	The enable input is active-high if this parameter has the value ``1'b1``
-	and active-low if this parameter is ``1'b0``.
+	The enable input is active-high if this parameter has the value ``1'b1`` and
+	active-low if this parameter is ``1'b0``.
 
 D-type latches are represented by `$dlatch` cells.  These cells have an enable
 port ``\EN``, an input port ``\D``, and an output port ``\Q``.  The following
@@ -311,14 +309,14 @@ parameters are available for `$dlatch` cells:
 	The width of input ``\D`` and output ``\Q``.
 
 ``\EN_POLARITY``
-	The enable input is active-high if this parameter has the value ``1'b1``
-	and active-low if this parameter is ``1'b0``.
+	The enable input is active-high if this parameter has the value ``1'b1`` and
+	active-low if this parameter is ``1'b0``.
 
 The latch is transparent when the ``\EN`` input is active.
 
 D-type latches with reset are represented by `$adlatch` cells.  In addition to
-`$dlatch` ports and parameters, they also have a single-bit ``\ARST`` input
-port for the reset pin and the following additional parameters:
+`$dlatch` ports and parameters, they also have a single-bit ``\ARST`` input port
+for the reset pin and the following additional parameters:
 
 ``\ARST_POLARITY``
 	The asynchronous reset is active-high if this parameter has the value
@@ -363,56 +361,53 @@ parameters:
 	The number of address bits (width of the ``\ADDR`` input port).
 
 ``\WIDTH``
-	The number of data bits (width of the ``\DATA`` output port).  Note that
-	this may be a power-of-two multiple of the underlying memory's width --
-	such ports are called wide ports and access an aligned group of cells at
-	once.  In this case, the corresponding low bits of ``\ADDR`` must be
-	tied to 0.
+	The number of data bits (width of the ``\DATA`` output port).  Note that this
+	may be a power-of-two multiple of the underlying memory's width -- such ports
+	are called wide ports and access an aligned group of cells at once.  In this
+	case, the corresponding low bits of ``\ADDR`` must be tied to 0.
 
 ``\CLK_ENABLE``
-	When this parameter is non-zero, the clock is used. Otherwise this read
-	port is asynchronous and the ``\CLK`` input is not used.
+	When this parameter is non-zero, the clock is used. Otherwise this read port
+	is asynchronous and the ``\CLK`` input is not used.
 
 ``\CLK_POLARITY``
-	Clock is active on the positive edge if this parameter has the value
-	``1'b1`` and on the negative edge if this parameter is ``1'b0``.
+	Clock is active on the positive edge if this parameter has the value ``1'b1``
+	and on the negative edge if this parameter is ``1'b0``.
 
 ``\TRANSPARENCY_MASK``
-	This parameter is a bitmask of write ports that this read port is
-	transparent with. The bits of this parameter are indexed by the write
-	port's ``\PORTID`` parameter. Transparency can only be enabled between
-	synchronous ports sharing a clock domain. When transparency is enabled
-	for a given port pair, a read and write to the same address in the same
-	cycle will return the new value. Otherwise the old value is returned.
+	This parameter is a bitmask of write ports that this read port is transparent
+	with. The bits of this parameter are indexed by the write port's ``\PORTID``
+	parameter. Transparency can only be enabled between synchronous ports sharing
+	a clock domain. When transparency is enabled for a given port pair, a read
+	and write to the same address in the same cycle will return the new value.
+	Otherwise the old value is returned.
 
 ``\COLLISION_X_MASK``
 	This parameter is a bitmask of write ports that have undefined collision
-	behavior with this port. The bits of this parameter are indexed by the
-	write port's ``\PORTID`` parameter. This behavior can only be enabled
-	between synchronous ports sharing a clock domain. When undefined
-	collision is enabled for a given port pair, a read and write to the same
-	address in the same cycle will return the undefined (all-X) value.This
-	option is exclusive (for a given port pair) with the transparency
-	option.
+	behavior with this port. The bits of this parameter are indexed by the write
+	port's ``\PORTID`` parameter. This behavior can only be enabled between
+	synchronous ports sharing a clock domain. When undefined collision is enabled
+	for a given port pair, a read and write to the same address in the same cycle
+	will return the undefined (all-X) value.This option is exclusive (for a given
+	port pair) with the transparency option.
 
 ``\ARST_VALUE``
-	Whenever the ``\ARST`` input is asserted, the data output will be reset
-	to this value. Only used for synchronous ports.
+	Whenever the ``\ARST`` input is asserted, the data output will be reset to
+	this value. Only used for synchronous ports.
 
 ``\SRST_VALUE``
-	Whenever the ``\SRST`` input is synchronously asserted, the data output
-	will be reset to this value. Only used for synchronous ports.
+	Whenever the ``\SRST`` input is synchronously asserted, the data output will
+	be reset to this value. Only used for synchronous ports.
 
 ``\INIT_VALUE``
 	The initial value of the data output, for synchronous ports.
 
 ``\CE_OVER_SRST``
-	If this parameter is non-zero, the ``\SRST`` input is only recognized
-	when ``\EN`` is true. Otherwise, ``\SRST`` is recognized regardless of
-	``\EN``.
+	If this parameter is non-zero, the ``\SRST`` input is only recognized when
+	``\EN`` is true. Otherwise, ``\SRST`` is recognized regardless of ``\EN``.
 
-The `$memwr_v2` cells have a clock input ``\CLK``, an enable input ``\EN``
-(one enable bit for each data bit), an address input ``\ADDR`` and a data input
+The `$memwr_v2` cells have a clock input ``\CLK``, an enable input ``\EN`` (one
+enable bit for each data bit), an address input ``\ADDR`` and a data input
 ``\DATA``. They also have the following parameters:
 
 ``\MEMID``
@@ -424,16 +419,16 @@ The `$memwr_v2` cells have a clock input ``\CLK``, an enable input ``\EN``
 
 ``\WIDTH``
 	The number of data bits (width of the ``\DATA`` output port). Like with
-	`$memrd_v2` cells, the width is allowed to be any power-of-two
-	multiple of memory width, with the corresponding restriction on address.
+	`$memrd_v2` cells, the width is allowed to be any power-of-two multiple of
+	memory width, with the corresponding restriction on address.
 
 ``\CLK_ENABLE``
-	When this parameter is non-zero, the clock is used. Otherwise this write
-	port is asynchronous and the ``\CLK`` input is not used.
+	When this parameter is non-zero, the clock is used. Otherwise this write port
+	is asynchronous and the ``\CLK`` input is not used.
 
 ``\CLK_POLARITY``
-	Clock is active on positive edge if this parameter has the value
-	``1'b1`` and on the negative edge if this parameter is ``1'b0``.
+	Clock is active on positive edge if this parameter has the value ``1'b1`` and
+	on the negative edge if this parameter is ``1'b0``.
 
 ``\PORTID``
 	An identifier for this write port, used to index write port bit mask
@@ -442,16 +437,16 @@ The `$memwr_v2` cells have a clock input ``\CLK``, an enable input ``\EN``
 ``\PRIORITY_MASK``
 	This parameter is a bitmask of write ports that this write port has priority
 	over in case of writing to the same address.  The bits of this parameter are
-	indexed by the other write port's ``\PORTID`` parameter. Write ports can
-	only have priority over write ports with lower port ID. When two ports write
-	to the same address and neither has priority over the other, the result is
+	indexed by the other write port's ``\PORTID`` parameter. Write ports can only
+	have priority over write ports with lower port ID. When two ports write to
+	the same address and neither has priority over the other, the result is
 	undefined.  Priority can only be set between two synchronous ports sharing
 	the same clock domain.
 
-The `$meminit_v2` cells have an address input ``\ADDR``, a data input
-``\DATA``, with the width of the ``\DATA`` port equal to ``\WIDTH`` parameter
-times ``\WORDS`` parameter, and a bit enable mask input ``\EN`` with width equal
-to ``\WIDTH`` parameter. All three of the inputs must resolve to a constant for
+The `$meminit_v2` cells have an address input ``\ADDR``, a data input ``\DATA``,
+with the width of the ``\DATA`` port equal to ``\WIDTH`` parameter times
+``\WORDS`` parameter, and a bit enable mask input ``\EN`` with width equal to
+``\WIDTH`` parameter. All three of the inputs must resolve to a constant for
 synthesis to succeed.
 
 ``\MEMID``
@@ -472,19 +467,18 @@ synthesis to succeed.
 	initialization conflict.
 
 The HDL frontend models a memory using ``RTLIL::Memory`` objects and
-asynchronous `$memrd_v2` and `$memwr_v2` cells. The `memory` pass
-(i.e. its various sub-passes) migrates `$dff` cells into the `$memrd_v2` and
-`$memwr_v2` cells making them synchronous, then converts them to a single
-`$mem_v2` cell and (optionally) maps this cell type to `$dff` cells for the
-individual words and multiplexer-based address decoders for the read and write
-interfaces. When the last step is disabled or not possible, a `$mem_v2` cell
-is left in the design.
+asynchronous `$memrd_v2` and `$memwr_v2` cells. The `memory` pass (i.e. its
+various sub-passes) migrates `$dff` cells into the `$memrd_v2` and `$memwr_v2`
+cells making them synchronous, then converts them to a single `$mem_v2` cell and
+(optionally) maps this cell type to `$dff` cells for the individual words and
+multiplexer-based address decoders for the read and write interfaces. When the
+last step is disabled or not possible, a `$mem_v2` cell is left in the design.
 
 The `$mem_v2` cell provides the following parameters:
 
 ``\MEMID``
-	The name of the original ``RTLIL::Memory`` object that became this
-	`$mem_v2` cell.
+	The name of the original ``RTLIL::Memory`` object that became this `$mem_v2`
+	cell.
 
 ``\SIZE``
 	The number of words in the memory.
@@ -502,19 +496,19 @@ The `$mem_v2` cell provides the following parameters:
 	The number of read ports on this memory cell.
 
 ``\RD_WIDE_CONTINUATION``
-	This parameter is ``\RD_PORTS`` bits wide, containing a bitmask of
-	"wide continuation" read ports. Such ports are used to represent the
-	extra data bits of wide ports in the combined cell, and must have all
-	control signals identical with the preceding port, except for address,
-	which must have the proper sub-cell address encoded in the low bits.
+	This parameter is ``\RD_PORTS`` bits wide, containing a bitmask of "wide
+	continuation" read ports. Such ports are used to represent the extra data
+	bits of wide ports in the combined cell, and must have all control signals
+	identical with the preceding port, except for address, which must have the
+	proper sub-cell address encoded in the low bits.
 
 ``\RD_CLK_ENABLE``
-	This parameter is ``\RD_PORTS`` bits wide, containing a clock enable bit
-	for each read port.
+	This parameter is ``\RD_PORTS`` bits wide, containing a clock enable bit for
+	each read port.
 
 ``\RD_CLK_POLARITY``
-	This parameter is ``\RD_PORTS`` bits wide, containing a clock polarity
-	bit for each read port.
+	This parameter is ``\RD_PORTS`` bits wide, containing a clock polarity bit
+	for each read port.
 
 ``\RD_TRANSPARENCY_MASK``
 	This parameter is ``\RD_PORTS*\WR_PORTS`` bits wide, containing a
@@ -523,62 +517,62 @@ The `$mem_v2` cell provides the following parameters:
 
 ``\RD_COLLISION_X_MASK``
 	This parameter is ``\RD_PORTS*\WR_PORTS`` bits wide, containing a
-	concatenation of all ``\COLLISION_X_MASK`` values of the original
-	`$memrd_v2` cells.
+	concatenation of all ``\COLLISION_X_MASK`` values of the original `$memrd_v2`
+	cells.
 
 ``\RD_CE_OVER_SRST``
-	This parameter is ``\RD_PORTS`` bits wide, determining relative
-	synchronous reset and enable priority for each read port.
+	This parameter is ``\RD_PORTS`` bits wide, determining relative synchronous
+	reset and enable priority for each read port.
 
 ``\RD_INIT_VALUE``
 	This parameter is ``\RD_PORTS*\WIDTH`` bits wide, containing the initial
 	value for each synchronous read port.
 
 ``\RD_ARST_VALUE``
-	This parameter is ``\RD_PORTS*\WIDTH`` bits wide, containing the
-	asynchronous reset value for each synchronous read port.
+	This parameter is ``\RD_PORTS*\WIDTH`` bits wide, containing the asynchronous
+	reset value for each synchronous read port.
 
 ``\RD_SRST_VALUE``
-	This parameter is ``\RD_PORTS*\WIDTH`` bits wide, containing the
-	synchronous reset value for each synchronous read port.
+	This parameter is ``\RD_PORTS*\WIDTH`` bits wide, containing the synchronous
+	reset value for each synchronous read port.
 
 ``\WR_PORTS``
 	The number of write ports on this memory cell.
 
 ``\WR_WIDE_CONTINUATION``
-	This parameter is ``\WR_PORTS`` bits wide, containing a bitmask of
-	"wide continuation" write ports.
+	This parameter is ``\WR_PORTS`` bits wide, containing a bitmask of "wide
+	continuation" write ports.
 
 ``\WR_CLK_ENABLE``
-	This parameter is ``\WR_PORTS`` bits wide, containing a clock enable bit
-	for each write port.
+	This parameter is ``\WR_PORTS`` bits wide, containing a clock enable bit for
+	each write port.
 
 ``\WR_CLK_POLARITY``
-	This parameter is ``\WR_PORTS`` bits wide, containing a clock polarity
-	bit for each write port.
+	This parameter is ``\WR_PORTS`` bits wide, containing a clock polarity bit
+	for each write port.
 
 ``\WR_PRIORITY_MASK``
 	This parameter is ``\WR_PORTS*\WR_PORTS`` bits wide, containing a
-	concatenation of all ``\PRIORITY_MASK`` values of the original
-	`$memwr_v2` cells.
+	concatenation of all ``\PRIORITY_MASK`` values of the original `$memwr_v2`
+	cells.
 
 The `$mem_v2` cell has the following ports:
 
 ``\RD_CLK``
-	This input is ``\RD_PORTS`` bits wide, containing all clock signals for
-	the read ports.
+	This input is ``\RD_PORTS`` bits wide, containing all clock signals for the
+	read ports.
 
 ``\RD_EN``
-	This input is ``\RD_PORTS`` bits wide, containing all enable signals for
-	the read ports.
+	This input is ``\RD_PORTS`` bits wide, containing all enable signals for the
+	read ports.
 
 ``\RD_ADDR``
-	This input is ``\RD_PORTS*\ABITS`` bits wide, containing all address
-	signals for the read ports.
+	This input is ``\RD_PORTS*\ABITS`` bits wide, containing all address signals
+	for the read ports.
 
 ``\RD_DATA``
-	This output is ``\RD_PORTS*\WIDTH`` bits wide, containing all data
-	signals for the read ports.
+	This output is ``\RD_PORTS*\WIDTH`` bits wide, containing all data signals
+	for the read ports.
 
 ``\RD_ARST``
 	This input is ``\RD_PORTS`` bits wide, containing all asynchronous reset
@@ -593,26 +587,25 @@ The `$mem_v2` cell has the following ports:
 	the write ports.
 
 ``\WR_EN``
-	This input is ``\WR_PORTS*\WIDTH`` bits wide, containing all enable
-	signals for the write ports.
+	This input is ``\WR_PORTS*\WIDTH`` bits wide, containing all enable signals
+	for the write ports.
 
 ``\WR_ADDR``
-	This input is ``\WR_PORTS*\ABITS`` bits wide, containing all address
-	signals for the write ports.
+	This input is ``\WR_PORTS*\ABITS`` bits wide, containing all address signals
+	for the write ports.
 
 ``\WR_DATA``
-	This input is ``\WR_PORTS*\WIDTH`` bits wide, containing all data
-	signals for the write ports.
+	This input is ``\WR_PORTS*\WIDTH`` bits wide, containing all data signals for
+	the write ports.
 
-The `memory_collect` pass can be used to convert discrete
-`$memrd_v2`, `$memwr_v2`, and `$meminit_v2` cells belonging to the same
-memory to a single `$mem_v2` cell, whereas the `memory_unpack` pass
-performs the inverse operation. The `memory_dff` pass can combine
-asynchronous memory ports that are fed by or feeding registers into synchronous
-memory ports. The `memory_bram` pass can be used to recognize
-`$mem_v2` cells that can be implemented with a block RAM resource on an FPGA.
-The `memory_map` pass can be used to implement `$mem_v2` cells as
-basic logic: word-wide DFFs and address decoders.
+The `memory_collect` pass can be used to convert discrete `$memrd_v2`,
+`$memwr_v2`, and `$meminit_v2` cells belonging to the same memory to a single
+`$mem_v2` cell, whereas the `memory_unpack` pass performs the inverse operation.
+The `memory_dff` pass can combine asynchronous memory ports that are fed by or
+feeding registers into synchronous memory ports. The `memory_bram` pass can be
+used to recognize `$mem_v2` cells that can be implemented with a block RAM
+resource on an FPGA. The `memory_map` pass can be used to implement `$mem_v2`
+cells as basic logic: word-wide DFFs and address decoders.
 
 Finite state machines
 ~~~~~~~~~~~~~~~~~~~~~
@@ -622,15 +615,17 @@ Add a brief description of the `$fsm` cell type.
 Coarse arithmetics
 ~~~~~~~~~~~~~~~~~~~~~
 
-The `$macc` cell type represents a generalized multiply and accumulate operation. The cell is purely combinational. It outputs the result of summing up a sequence of products and other injected summands.
+The `$macc` cell type represents a generalized multiply and accumulate
+operation. The cell is purely combinational. It outputs the result of summing up
+a sequence of products and other injected summands.
 
 .. code-block::
 
 	Y = 0 +- a0factor1 * a0factor2 +- a1factor1 * a1factor2 +- ...
 	     + B[0] + B[1] + ...
 
-The A port consists of concatenated pairs of multiplier inputs ("factors").
-A zero length factor2 acts as a constant 1, turning factor1 into a simple summand.
+The A port consists of concatenated pairs of multiplier inputs ("factors"). A
+zero length factor2 acts as a constant 1, turning factor1 into a simple summand.
 
 In this pseudocode, ``u(foo)`` means an unsigned int that's foo bits long.
 
@@ -644,8 +639,8 @@ In this pseudocode, ``u(foo)`` means an unsigned int that's foo bits long.
 		...
 	};
 
-The cell's ``CONFIG`` parameter determines the layout of cell port ``A``.
-The CONFIG parameter carries the following information:
+The cell's ``CONFIG`` parameter determines the layout of cell port ``A``. The
+CONFIG parameter carries the following information:
 
 .. code-block::
 
@@ -714,8 +709,8 @@ Formal verification cells
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add information about `$check`, `$assert`, `$assume`, `$live`, `$fair`,
-`$cover`, `$equiv`, `$initstate`, `$anyconst`, `$anyseq`,
-`$anyinit`, `$allconst`, `$allseq` cells.
+`$cover`, `$equiv`, `$initstate`, `$anyconst`, `$anyseq`, `$anyinit`,
+`$allconst`, `$allseq` cells.
 
 Add information about `$ff` and `$_FF_` cells.
 
@@ -733,8 +728,8 @@ has the following parameters:
 	The width (in bits) of the signal on the ``\ARGS`` port.
 
 ``\TRG_ENABLE``
-	True if triggered on specific signals defined in ``\TRG``; false if
-	triggered whenever ``\ARGS`` or ``\EN`` change and ``\EN`` is 1.
+	True if triggered on specific signals defined in ``\TRG``; false if triggered
+	whenever ``\ARGS`` or ``\EN`` change and ``\EN`` is 1.
 
 If ``\TRG_ENABLE`` is true, the following parameters also apply:
 
@@ -792,12 +787,13 @@ width\ *?*
 	(optional) The number of characters wide to pad to.
 
 base
-	* ``b`` for base-2 integers (binary)
-	* ``o`` for base-8 integers	(octal)
-	* ``d`` for base-10 integers (decimal)
-	* ``h`` for base-16	integers (hexadecimal)
-	* ``c`` for ASCII characters/strings
-	* ``t`` and ``r`` for simulation time (corresponding to :verilog:`$time` and :verilog:`$realtime`)
+   * ``b`` for base-2 integers (binary)
+   * ``o`` for base-8 integers	(octal)
+   * ``d`` for base-10 integers (decimal)
+   * ``h`` for base-16	integers (hexadecimal)
+   * ``c`` for ASCII characters/strings
+   * ``t`` and ``r`` for simulation time (corresponding to :verilog:`$time` and
+     :verilog:`$realtime`)
 
 For integers, this item may follow:
 
@@ -1042,14 +1038,13 @@ Tables :numref:`%s <tab:CellLib_gates>`, :numref:`%s <tab:CellLib_gates_dffe>`,
 :numref:`%s <tab:CellLib_gates_adlatch>`, :numref:`%s
 <tab:CellLib_gates_dlatchsr>` and :numref:`%s <tab:CellLib_gates_sr>` list all
 cell types used for gate level logic. The cell types `$_BUF_`, `$_NOT_`,
-`$_AND_`, `$_NAND_`, `$_ANDNOT_`, `$_OR_`, `$_NOR_`, `$_ORNOT_`,
-`$_XOR_`, `$_XNOR_`, `$_AOI3_`, `$_OAI3_`, `$_AOI4_`, `$_OAI4_`,
-`$_MUX_`, `$_MUX4_`, `$_MUX8_`, `$_MUX16_` and `$_NMUX_` are used to
-model combinatorial logic. The cell type `$_TBUF_` is used to model tristate
-logic.
+`$_AND_`, `$_NAND_`, `$_ANDNOT_`, `$_OR_`, `$_NOR_`, `$_ORNOT_`, `$_XOR_`,
+`$_XNOR_`, `$_AOI3_`, `$_OAI3_`, `$_AOI4_`, `$_OAI4_`, `$_MUX_`, `$_MUX4_`,
+`$_MUX8_`, `$_MUX16_` and `$_NMUX_` are used to model combinatorial logic. The
+cell type `$_TBUF_` is used to model tristate logic.
 
-The `$_MUX4_`, `$_MUX8_` and `$_MUX16_` cells are used to model wide
-muxes, and correspond to the following Verilog code:
+The `$_MUX4_`, `$_MUX8_` and `$_MUX16_` cells are used to model wide muxes, and
+correspond to the following Verilog code:
 
 .. code-block:: verilog
 	:force:
@@ -1114,8 +1109,8 @@ following Verilog code template:
 
 The cell types ``$_DFFE_[NP][NP][01][NP]_`` implement d-type flip-flops with
 asynchronous reset and enable. The values in the table for these cell types
-relate to the following Verilog code template, where ``RST_EDGE`` is
-``posedge`` if ``RST_LVL`` if ``1``, and ``negedge`` otherwise.
+relate to the following Verilog code template, where ``RST_EDGE`` is ``posedge``
+if ``RST_LVL`` if ``1``, and ``negedge`` otherwise.
 
 .. code-block:: verilog
 	:force:
@@ -1156,8 +1151,8 @@ in the table for these cell types relate to the following Verilog code template:
 The cell types ``$_DFFSR_[NP][NP][NP]_`` implement d-type flip-flops with
 asynchronous set and reset. The values in the table for these cell types relate
 to the following Verilog code template, where ``RST_EDGE`` is ``posedge`` if
-``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE`` is ``posedge``
-if ``SET_LVL`` if ``1``, ``negedge`` otherwise.
+``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE`` is ``posedge`` if
+``SET_LVL`` if ``1``, ``negedge`` otherwise.
 
 .. code-block:: verilog
 	:force:
@@ -1173,8 +1168,8 @@ if ``SET_LVL`` if ``1``, ``negedge`` otherwise.
 The cell types ``$_DFFSRE_[NP][NP][NP][NP]_`` implement d-type flip-flops with
 asynchronous set and reset and enable. The values in the table for these cell
 types relate to the following Verilog code template, where ``RST_EDGE`` is
-``posedge`` if ``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE``
-is ``posedge`` if ``SET_LVL`` if ``1``, ``negedge`` otherwise.
+``posedge`` if ``RST_LVL`` if ``1``, ``negedge`` otherwise, and ``SET_EDGE`` is
+``posedge`` if ``SET_LVL`` if ``1``, ``negedge`` otherwise.
 
 .. code-block:: verilog
 	:force:

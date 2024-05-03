@@ -98,8 +98,8 @@ our internal cell library will be mapped to:
    :name: mycells-lib
    :caption: :file:`mycells.lib`
 
-Recall that the Yosys built-in logic gate types are `$_NOT_`, `$_AND_`,
-`$_OR_`, `$_XOR_`, and `$_MUX_` with an assortment of dff memory types.
+Recall that the Yosys built-in logic gate types are `$_NOT_`, `$_AND_`, `$_OR_`,
+`$_XOR_`, and `$_MUX_` with an assortment of dff memory types.
 :ref:`mycells-lib` defines our target cells as ``BUF``, ``NOT``, ``NAND``,
 ``NOR``, and ``DFF``.  Mapping between these is performed with the commands
 `dfflibmap` and `abc` as follows:
@@ -117,8 +117,8 @@ The final version of our ``counter`` module looks like this:
 
    ``counter`` after hardware cell mapping
 
-Before finally being output as a verilog file with `write_verilog`,
-which can then be loaded into another tool:
+Before finally being output as a verilog file with `write_verilog`, which can
+then be loaded into another tool:
 
 .. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt

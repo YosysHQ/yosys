@@ -599,14 +599,14 @@ The proc pass
 
 The ProcessGenerator converts a behavioural model in AST representation to a
 behavioural model in ``RTLIL::Process`` representation. The actual conversion
-from a behavioural model to an RTL representation is performed by the
-`proc` pass and the passes it launches:
+from a behavioural model to an RTL representation is performed by the `proc`
+pass and the passes it launches:
 
 -  | `proc_clean` and `proc_rmdead` 
    | These two passes just clean up the ``RTLIL::Process`` structure. The
-     `proc_clean` pass removes empty parts (eg. empty assignments) from
-     the process and `proc_rmdead` detects and removes unreachable
-     branches from the process's decision trees.
+     `proc_clean` pass removes empty parts (eg. empty assignments) from the
+     process and `proc_rmdead` detects and removes unreachable branches from the
+     process's decision trees.
 
 -  | `proc_arst` 
    | This pass detects processes that describe d-type flip-flops with
@@ -617,10 +617,10 @@ from a behavioural model to an RTL representation is performed by the
      and the top-level ``RTLIL::SwitchRule`` has been removed.
 
 -  | `proc_mux` 
-   | This pass converts the ``RTLIL::CaseRule``/\ ``RTLIL::SwitchRule``-tree to a
-     tree of multiplexers per written signal. After this, the ``RTLIL::Process``
-     structure only contains the ``RTLIL::SyncRule`` s that describe the output
-     registers.
+   | This pass converts the ``RTLIL::CaseRule``/\ ``RTLIL::SwitchRule``-tree to
+     a tree of multiplexers per written signal. After this, the
+     ``RTLIL::Process`` structure only contains the ``RTLIL::SyncRule`` s that
+     describe the output registers.
 
 -  | `proc_dff`
    | This pass replaces the ``RTLIL::SyncRule``\ s to d-type flip-flops (with
@@ -630,8 +630,8 @@ from a behavioural model to an RTL representation is performed by the
    | This pass replaces the ``RTLIL::MemWriteAction``\ s with `$memwr` cells.
 
 -  | `proc_clean`
-   | A final call to `proc_clean` removes the now empty
-     ``RTLIL::Process`` objects.
+   | A final call to `proc_clean` removes the now empty ``RTLIL::Process``
+     objects.
 
 Performing these last processing steps in passes instead of in the Verilog
 frontend has two important benefits:
@@ -646,8 +646,8 @@ to extend the actual Verilog frontend.
 
 .. todo:: Synthesizing Verilog arrays
 
-  Add some information on the generation of `$memrd` and `$memwr` cells and
-  how they are processed in the memory pass.
+  Add some information on the generation of `$memrd` and `$memwr` cells and how
+  they are processed in the memory pass.
 
 
 .. todo:: Synthesizing parametric designs

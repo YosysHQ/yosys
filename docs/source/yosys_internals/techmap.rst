@@ -1,8 +1,8 @@
 Techmap by example
 ------------------
 
-As a quick recap, the `techmap` command replaces cells in the design
-with implementations given as Verilog code (called "map files"). It can replace
+As a quick recap, the `techmap` command replaces cells in the design with
+implementations given as Verilog code (called "map files"). It can replace
 Yosys' internal cell types (such as `$or`) as well as user-defined cell types.
 
 - Verilog parameters are used extensively to customize the internal cell types.
@@ -94,8 +94,8 @@ Scripting in map modules
 
 .. note:: PROTIP:
 
-    Commands such as `shell`, ``show -pause``, and `dump` can
-    be used in the ``_TECHMAP_DO_*`` scripts for debugging map modules.
+    Commands such as `shell`, ``show -pause``, and `dump` can be used in the
+    ``_TECHMAP_DO_*`` scripts for debugging map modules.
 
 Example:
 

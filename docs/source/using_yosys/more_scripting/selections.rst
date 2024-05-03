@@ -9,31 +9,31 @@ The selection framework
 
 .. todo:: reduce overlap with :doc:`/getting_started/scripting_intro` select section
 
-The `select` command can be used to create a selection for subsequent
-commands. For example:
+The `select` command can be used to create a selection for subsequent commands.
+For example:
 
 .. code:: yoscrypt
 
     select foobar         # select the module foobar
     delete                # delete selected objects
 
-Normally the `select` command overwrites a previous selection. The
-commands :yoscrypt:`select -add` and :yoscrypt:`select -del` can be used to add
-or remove objects from the current selection.
+Normally the `select` command overwrites a previous selection. The commands
+:yoscrypt:`select -add` and :yoscrypt:`select -del` can be used to add or remove
+objects from the current selection.
 
 The command :yoscrypt:`select -clear` can be used to reset the selection to the
 default, which is a complete selection of everything in the current module.
 
 This selection framework can also be used directly in many other commands.
 Whenever a command has ``[selection]`` as last argument in its usage help, this
-means that it will use the engine behind the `select` command to
-evaluate additional arguments and use the resulting selection instead of the
-selection created by the last `select` command.
+means that it will use the engine behind the `select` command to evaluate
+additional arguments and use the resulting selection instead of the selection
+created by the last `select` command.
 
 For example, the command `delete` will delete everything in the current
 selection; while :yoscrypt:`delete foobar` will only delete the module foobar.
-If no `select` command has been made, then the "current selection" will
-be the whole design.
+If no `select` command has been made, then the "current selection" will be the
+whole design.
 
 .. note:: Many of the examples on this page make use of the `show` 
    command to visually demonstrate the effect of selections.  For a more 
@@ -59,8 +59,8 @@ Module and design context
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Commands can be executed in *module/* or *design/* context. Until now, all
-commands have been executed in design context. The `cd` command can be
-used to switch to module context.
+commands have been executed in design context. The `cd` command can be used to
+switch to module context.
 
 In module context, all commands only effect the active module. Objects in the
 module are selected without the ``<module_name>/`` prefix. For example:
@@ -91,7 +91,7 @@ Special patterns can be used to select by object property or type. For example:
   a:foobar=42`
 - select all modules with the attribute ``blabla`` set: :yoscrypt:`select
   A:blabla`
-- select all $add cells from the module foo: :yoscrypt:`select foo/t:$add`
+- select all `$add` cells from the module foo: :yoscrypt:`select foo/t:$add`
 
 A complete list of pattern expressions can be found in :doc:`/cmd/select`.
 
@@ -101,12 +101,12 @@ Operations on selections
 Combining selections
 ^^^^^^^^^^^^^^^^^^^^
 
-The `select` command is actually much more powerful than it might seem
-at first glance. When it is called with multiple arguments, each argument is
-evaluated and pushed separately on a stack. After all arguments have been
-processed it simply creates the union of all elements on the stack. So
-:yoscrypt:`select t:$add a:foo` will select all `$add` cells and all objects
-with the ``foo`` attribute set:   
+The `select` command is actually much more powerful than it might seem at first
+glance. When it is called with multiple arguments, each argument is evaluated
+and pushed separately on a stack. After all arguments have been processed it
+simply creates the union of all elements on the stack. So :yoscrypt:`select
+t:$add a:foo` will select all `$add` cells and all objects with the ``foo``
+attribute set:   
 
 .. literalinclude:: /code_examples/selections/foobaraddsub.v
    :caption: Test module for operations on selections
@@ -220,11 +220,11 @@ The following sequence of diagrams demonstrates this step-wise expansion:
    Output of :yoscrypt:`show prod %ci %ci %ci` on :numref:`sumprod`
 
 Notice the subtle difference between :yoscrypt:`show prod %ci` and
-:yoscrypt:`show prod %ci %ci`.  Both images show the `$mul` cell driven by
-some inputs ``$3_Y`` and ``c``.  However it is not until the second image,
-having called ``%ci`` the second time, that `show` is able to
-distinguish between ``$3_Y`` being a wire and ``c`` being an input.  We can see
-this better with the `dump` command instead:
+:yoscrypt:`show prod %ci %ci`.  Both images show the `$mul` cell driven by some
+inputs ``$3_Y`` and ``c``.  However it is not until the second image, having
+called ``%ci`` the second time, that `show` is able to distinguish between
+``$3_Y`` being a wire and ``c`` being an input.  We can see this better with the
+`dump` command instead:
 
 .. literalinclude:: /code_examples/selections/sumprod.out
    :language: RTLIL
@@ -241,8 +241,8 @@ be a bit dull. So there is a shortcut for that: the number of iterations can be
 appended to the action. So for example the action ``%ci3`` is identical to
 performing the ``%ci`` action three times.
 
-The action ``%ci*`` performs the ``%ci`` action over and over again until it
-has no effect anymore.
+The action ``%ci*`` performs the ``%ci`` action over and over again until it has
+no effect anymore.
 
 .. _advanced_logic_cones:
 
@@ -264,8 +264,8 @@ source repository.
    :name: memdemo_src
    :language: verilog
 
-The script :file:`memdemo.ys` is used to generate the images included here. Let's
-look at the first section:
+The script :file:`memdemo.ys` is used to generate the images included here.
+Let's look at the first section:
 
 .. literalinclude:: /code_examples/selections/memdemo.ys
    :caption: Synthesizing :ref:`memdemo_src`
@@ -276,8 +276,8 @@ look at the first section:
 This loads :numref:`memdemo_src` and synthesizes the included module. Note that
 this code can be copied and run directly in a Yosys command line session,
 provided :file:`memdemo.v` is in the same directory. We can now change to the
-``memdemo`` module with ``cd memdemo``, and call `show` to see the
-diagram in :numref:`memdemo_00`.
+``memdemo`` module with ``cd memdemo``, and call `show` to see the diagram in
+:numref:`memdemo_00`.
 
 .. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper invert-helper
@@ -371,8 +371,8 @@ selection instead of overwriting it.
     select -del reg_42      # but not this one
     select -add state %ci   # and add more stuff
 
-Within a select expression the token ``%`` can be used to push the previous selection
-on the stack.
+Within a select expression the token ``%`` can be used to push the previous
+selection on the stack.
 
 .. code:: yoscrypt
 
@@ -387,16 +387,16 @@ Storing and recalling selections
 The current selection can be stored in memory with the command ``select -set
 <name>``. It can later be recalled using ``select @<name>``. In fact, the
 ``@<name>`` expression pushes the stored selection on the stack maintained by
-the `select` command. So for example :yoscrypt:`select @foo @bar %i`
-will select the intersection between the stored selections ``foo`` and ``bar``.
+the `select` command. So for example :yoscrypt:`select @foo @bar %i` will select
+the intersection between the stored selections ``foo`` and ``bar``.
 
 In larger investigation efforts it is highly recommended to maintain a script
 that sets up relevant selections, so they can easily be recalled, for example
 when Yosys needs to be re-run after a design or source code change.
 
-The `history` command can be used to list all recent interactive
-commands. This feature can be useful for creating such a script from the
-commands used in an interactive session.
+The `history` command can be used to list all recent interactive commands. This
+feature can be useful for creating such a script from the commands used in an
+interactive session.
 
 Remember that select expressions can also be used directly as arguments to most
 commands. Some commands also accept a single select argument to some options. In

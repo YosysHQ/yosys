@@ -25,9 +25,8 @@ following description:
 -  Does not already have the ``\fsm_encoding`` attribute.
 -  Is not an output of the containing module.
 -  Is driven by single `$dff` or `$adff` cell.
--  The ``\D``-Input of this `$dff` or `$adff` cell is driven by a
-   multiplexer tree that only has constants or the old state value on its
-   leaves.
+-  The ``\D``-Input of this `$dff` or `$adff` cell is driven by a multiplexer
+   tree that only has constants or the old state value on its leaves.
 -  The state value is only used in the said multiplexer tree or by simple
    relational cells that compare the state value to a constant (usually `$eq`
    cells).
@@ -87,8 +86,8 @@ given set of result signals using a set of signal-value assignments. It can also
 be passed a list of stop-signals that abort the ConstEval algorithm if the value
 of a stop-signal is needed in order to calculate the result signals.
 
-The `fsm_extract` pass uses the ConstEval class in the following way to
-create a transition table. For each state:
+The `fsm_extract` pass uses the ConstEval class in the following way to create a
+transition table. For each state:
 
 1. Create a ConstEval object for the module containing the FSM
 2. Add all control inputs to the list of stop signals
@@ -108,13 +107,12 @@ drivers for the control outputs are disconnected.
 FSM optimization
 ~~~~~~~~~~~~~~~~
 
-The `fsm_opt` pass performs basic optimizations on `$fsm` cells (not
-including state recoding). The following optimizations are performed (in this
-order):
+The `fsm_opt` pass performs basic optimizations on `$fsm` cells (not including
+state recoding). The following optimizations are performed (in this order):
 
 -  Unused control outputs are removed from the `$fsm` cell. The attribute
-   ``\unused_bits`` (that is usually set by the `opt_clean` pass) is
-   used to determine which control outputs are unused.
+   ``\unused_bits`` (that is usually set by the `opt_clean` pass) is used to
+   determine which control outputs are unused.
 
 -  Control inputs that are connected to the same driver are merged.
 
@@ -134,11 +132,10 @@ order):
 FSM recoding
 ~~~~~~~~~~~~
 
-The `fsm_recode` pass assigns new bit pattern to the states. Usually
-this also implies a change in the width of the state signal. At the moment of
-this writing only one-hot encoding with all-zero for the reset state is
-supported.
+The `fsm_recode` pass assigns new bit pattern to the states. Usually this also
+implies a change in the width of the state signal. At the moment of this writing
+only one-hot encoding with all-zero for the reset state is supported.
 
-The `fsm_recode` pass can also write a text file with the changes
-performed by it that can be used when verifying designs synthesized by Yosys
-using Synopsys Formality.
+The `fsm_recode` pass can also write a text file with the changes performed by
+it that can be used when verifying designs synthesized by Yosys using Synopsys
+Formality.

@@ -1,12 +1,12 @@
 The extract pass
 ----------------
 
-- Like the `techmap` pass, the `extract` pass is called with a
-  map file. It compares the circuits inside the modules of the map file with the
-  design and looks for sub-circuits in the design that match any of the modules
-  in the map file.
-- If a match is found, the `extract` pass will replace the matching
-  subcircuit with an instance of the module from the map file.
+- Like the `techmap` pass, the `extract` pass is called with a map file. It
+  compares the circuits inside the modules of the map file with the design and
+  looks for sub-circuits in the design that match any of the modules in the map
+  file.
+- If a match is found, the `extract` pass will replace the matching subcircuit
+  with an instance of the module from the map file.
 - In a way the `extract` pass is the inverse of the techmap pass.
 
 .. todo:: add/expand supporting text, also mention custom pattern matching and
@@ -68,23 +68,23 @@ The wrap-extract-unwrap method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Often a coarse-grain element has a constant bit-width, but can be used to
-implement operations with a smaller bit-width. For example, a 18x25-bit multiplier
-can also be used to implement 16x20-bit multiplication.
+implement operations with a smaller bit-width. For example, a 18x25-bit
+multiplier can also be used to implement 16x20-bit multiplication.
 
 A way of mapping such elements in coarse grain synthesis is the
 wrap-extract-unwrap method:
 
 wrap
   Identify candidate-cells in the circuit and wrap them in a cell with a
-  constant wider bit-width using `techmap`. The wrappers use the same
-  parameters as the original cell, so the information about the original width
-  of the ports is preserved. Then use the `connwrappers` command to
-  connect up the bit-extended in- and outputs of the wrapper cells.
+  constant wider bit-width using `techmap`. The wrappers use the same parameters
+  as the original cell, so the information about the original width of the ports
+  is preserved. Then use the `connwrappers` command to connect up the
+  bit-extended in- and outputs of the wrapper cells.
 
 extract
   Now all operations are encoded using the same bit-width as the coarse grain
-  element. The `extract` command can be used to replace circuits with
-  cells of the target architecture.
+  element. The `extract` command can be used to replace circuits with cells of
+  the target architecture.
 
 unwrap
   The remaining wrapper cell can be unwrapped using `techmap`.
