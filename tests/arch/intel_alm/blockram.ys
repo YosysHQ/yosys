@@ -5,3 +5,4 @@ cd sync_ram_sdp
 select -assert-count 1 t:MISTRAL_NOT
 select -assert-count 1 t:MISTRAL_M10K
 select -assert-none t:MISTRAL_NOT t:MISTRAL_M10K %% t:* %D
+

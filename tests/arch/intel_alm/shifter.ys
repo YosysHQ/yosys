@@ -8,14 +8,3 @@ cd top # Constrain all select calls below inside the top module
 select -assert-count 8 t:MISTRAL_FF
 select -assert-none t:MISTRAL_FF %% t:* %D
 
-
-design -reset
-read_verilog ../common/shifter.v
-hierarchy -top top
-proc
-flatten
-equiv_opt -async2sync -assert -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd top # Constrain all select calls below inside the top module
-select -assert-count 8 t:MISTRAL_FF
-select -assert-none t:MISTRAL_FF %% t:* %D
