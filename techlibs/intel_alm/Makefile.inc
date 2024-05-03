@@ -21,6 +21,7 @@ $(eval $(call add_share_file,share/intel_alm/cyclonev,techlibs/intel_alm/cyclone
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k.txt))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab.txt))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab_map.v))
 
 # Miscellaneous
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/megafunction_bb.v))

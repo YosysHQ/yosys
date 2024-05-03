@@ -224,13 +224,20 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
-			run(stringf("memory_bram -rules +/intel_alm/common/bram_%s.txt", bram_type.c_str()));
-			run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type.c_str()));
-		}
+		if (check_label("map_ram", "(skip if -nobram)")) {
+			std::string args = "";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			else {
+				if (nobram)
+					args += " -no-auto-block";
+				if (nolutram)
+					args += " -no-auto-distributed";
+			}
 
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
-			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V)");
+			run(stringf("memory_libmap -lib +/intel_alm/common/bram_%s.txt -lib +/intel_alm/common/lutram_mlab.txt %s", bram_type.c_str(), args.c_str()), "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type.c_str()));
+			run("techmap -map +/intel_alm/common/lutram_mlab_map.v");
 		}
 
 		if (check_label("map_ffram")) {

@@ -1,29 +1,16 @@
-bram $__MISTRAL_M10K
-    init   1
-    abits 13   @D8192x1
-    dbits  1   @D8192x1
-    abits 12   @D4096x2
-    dbits  2   @D4096x2
-    abits 11   @D2048x5
-    dbits  5   @D2048x5
-    abits 10   @D1024x10
-    dbits 10   @D1024x10
-    abits  9   @D512x20
-    dbits 20   @D512x20
-    abits  8   @D256x40
-    dbits 40   @D256x40
-    groups 2
-    ports  1 1
-    wrmode 1 0
-    # read enable; write enable + byte enables (only for multiples of 8)
-    enable 1 1
-    transp 0 0
-    clocks 1 1
-    clkpol 1 1
-endbram
-
-
-match $__MISTRAL_M10K
-    min efficiency 5
-    make_transp
-endmatch
+ram block $__MISTRAL_M10K {
+    abits 13;
+    widths 1 2 5 10 20 40 global; # TODO: per-port width
+    cost 128;
+    init no_undef;
+    # the following is subject to change as more is implemented in nextpnr-mistral
+    port sw "W" {
+        clock posedge;
+        wrtrans "R" old;
+    }
+    port sr "R" {
+        clock posedge;
+        rden;
+        rdinit zero;
+    }
+}
