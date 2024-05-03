@@ -47,7 +47,7 @@ struct BboxDerivePass : Pass {
 		}
 		extra_args(args, argidx, d);
 
-		Module *base_override;
+		Module *base_override = nullptr;
 		if (!base_name.empty()) {
 			base_override = d->module(base_name);
 			if (!base_override)
