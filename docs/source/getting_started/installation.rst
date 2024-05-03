@@ -88,7 +88,7 @@ A C++ compiler with C++17 support is required as well as some standard tools
 such as GNU Flex, GNU Bison, Make and Python.  Some additional tools: readline,
 libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
-:cmd:ref:`show` command to display schematics.
+`show` command to display schematics.
 
 Installing all prerequisites for Ubuntu 20.04:
 
@@ -185,8 +185,8 @@ directories:
 ``passes/``
    This directory contains a subdirectory for each pass or group of passes. For
    example as of this writing the directory :file:`passes/hierarchy/` contains the
-   code for three passes: :cmd:ref:`hierarchy`, :cmd:ref:`submod`, and
-   :cmd:ref:`uniquify`.
+   code for three passes: `hierarchy`, `submod`, and
+   `uniquify`.
 
 ``techlibs/``
    This directory contains simulation models and standard implementations for

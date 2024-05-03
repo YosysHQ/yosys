@@ -76,7 +76,7 @@ This has three advantages:
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For
-   example, :cmd:ref:`opt_clean` tries to preserve signals with a user-provided
+   example, `opt_clean` tries to preserve signals with a user-provided
    name but doesn't hesitate to delete signals that have auto-generated names
    when they just duplicate other signals.  Note that this can be overridden
    with the ``-purge`` option to also delete internal nets with user-provided
@@ -320,7 +320,7 @@ trees before further processing them.
 
 One of the first actions performed on a design in RTLIL representation in most
 synthesis scripts is identifying asynchronous resets. This is usually done using
-the :cmd:ref:`proc_arst` pass. This pass transforms the above example to the
+the `proc_arst` pass. This pass transforms the above example to the
 following ``RTLIL::Process``:
 
 .. code:: RTLIL

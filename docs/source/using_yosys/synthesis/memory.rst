@@ -1,11 +1,11 @@
 Memory handling
 ===============
 
-The :cmd:ref:`memory` command
+The `memory` command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the RTL netlist, memory reads and writes are individual cells. This makes
-consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
+consolidating the number of ports for a memory easier. The `memory`
 pass transforms memories to an implementation. Per default that is logic for
 address decoders and registers. It also is a macro command that calls the other
 common ``memory_*`` passes in a sensible order:
@@ -13,19 +13,19 @@ common ``memory_*`` passes in a sensible order:
 .. literalinclude:: /code_examples/macro_commands/memory.ys
    :language: yoscrypt
    :start-after: #end:
-   :caption: Passes called by :cmd:ref:`memory`
+   :caption: Passes called by `memory`
 
 .. todo:: Make ``memory_*`` notes less quick
 
 Some quick notes:
 
--  :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
--  :cmd:ref:`memory_collect` collects all read and write cells for a memory and
+-  `memory_dff` merges registers into the memory read- and write cells.
+-  `memory_collect` collects all read and write cells for a memory and
    transforms them into one multi-port memory cell.
--  :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
+-  `memory_map` takes the multi-port memory cell and transforms it to
    address decoder logic and registers.
 
-For more information about :cmd:ref:`memory`, such as disabling certain sub
+For more information about `memory`, such as disabling certain sub
 commands, see :doc:`/cmd/memory`.
 
 Example
@@ -75,22 +75,22 @@ For example:
     techmap -map my_memory_map.v
     memory_map
 
-:cmd:ref:`memory_libmap` attempts to convert memory cells (`$mem_v2` etc) into
+`memory_libmap` attempts to convert memory cells (`$mem_v2` etc) into
 hardware supported memory using a provided library (:file:`my_memory_map.txt` in the
 example above).  Where necessary, emulation logic is added to ensure functional
 equivalence before and after this conversion. :yoscrypt:`techmap -map
-my_memory_map.v` then uses :cmd:ref:`techmap` to map to hardware primitives. Any
+my_memory_map.v` then uses `techmap` to map to hardware primitives. Any
 leftover memory cells unable to be converted are then picked up by
-:cmd:ref:`memory_map` and mapped to DFFs and address decoders.
+`memory_map` and mapped to DFFs and address decoders.
 
 .. note::
 
    More information about what mapping options are available and associated
    costs of each can be found by enabling debug outputs.  This can be done with
-   the :cmd:ref:`debug` command, or by using the ``-g`` flag when calling Yosys
+   the `debug` command, or by using the ``-g`` flag when calling Yosys
    to globally enable debug messages.
 
-For more on the lib format for :cmd:ref:`memory_libmap`, see
+For more on the lib format for `memory_libmap`, see
 `passes/memory/memlib.md
 <https://github.com/YosysHQ/yosys/blob/main/passes/memory/memlib.md>`_
 

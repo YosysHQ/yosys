@@ -600,15 +600,15 @@ The proc pass
 The ProcessGenerator converts a behavioural model in AST representation to a
 behavioural model in ``RTLIL::Process`` representation. The actual conversion
 from a behavioural model to an RTL representation is performed by the
-:cmd:ref:`proc` pass and the passes it launches:
+`proc` pass and the passes it launches:
 
--  | :cmd:ref:`proc_clean` and :cmd:ref:`proc_rmdead` 
+-  | `proc_clean` and `proc_rmdead` 
    | These two passes just clean up the ``RTLIL::Process`` structure. The
-     :cmd:ref:`proc_clean` pass removes empty parts (eg. empty assignments) from
-     the process and :cmd:ref:`proc_rmdead` detects and removes unreachable
+     `proc_clean` pass removes empty parts (eg. empty assignments) from
+     the process and `proc_rmdead` detects and removes unreachable
      branches from the process's decision trees.
 
--  | :cmd:ref:`proc_arst` 
+-  | `proc_arst` 
    | This pass detects processes that describe d-type flip-flops with
      asynchronous resets and rewrites the process to better reflect what they
      are modelling: Before this pass, an asynchronous reset has two
@@ -616,21 +616,21 @@ from a behavioural model to an RTL representation is performed by the
      reset path. After this pass the sync rule for the reset is level-sensitive
      and the top-level ``RTLIL::SwitchRule`` has been removed.
 
--  | :cmd:ref:`proc_mux` 
+-  | `proc_mux` 
    | This pass converts the ``RTLIL::CaseRule``/\ ``RTLIL::SwitchRule``-tree to a
      tree of multiplexers per written signal. After this, the ``RTLIL::Process``
      structure only contains the ``RTLIL::SyncRule`` s that describe the output
      registers.
 
--  | :cmd:ref:`proc_dff`
+-  | `proc_dff`
    | This pass replaces the ``RTLIL::SyncRule``\ s to d-type flip-flops (with
      asynchronous resets if necessary).
 
--  | :cmd:ref:`proc_dff`
+-  | `proc_dff`
    | This pass replaces the ``RTLIL::MemWriteAction``\ s with `$memwr` cells.
 
--  | :cmd:ref:`proc_clean`
-   | A final call to :cmd:ref:`proc_clean` removes the now empty
+-  | `proc_clean`
+   | A final call to `proc_clean` removes the now empty
      ``RTLIL::Process`` objects.
 
 Performing these last processing steps in passes instead of in the Verilog

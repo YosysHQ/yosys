@@ -54,7 +54,7 @@ Our circuit now looks like this:
    :class: width-helper invert-helper
    :name: counter-hierarchy
 
-   ``counter`` after :cmd:ref:`hierarchy`
+   ``counter`` after `hierarchy`
 
 Coarse-grain representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,7 +82,7 @@ Logic gate mapping
 .. figure:: /_images/code_examples/intro/counter_02.*
    :class: width-helper invert-helper
 
-   ``counter`` after :cmd:ref:`techmap`
+   ``counter`` after `techmap`
 
 Mapping to hardware
 ~~~~~~~~~~~~~~~~~~~
@@ -102,7 +102,7 @@ Recall that the Yosys built-in logic gate types are `$_NOT_`, `$_AND_`,
 `$_OR_`, `$_XOR_`, and `$_MUX_` with an assortment of dff memory types.
 :ref:`mycells-lib` defines our target cells as ``BUF``, ``NOT``, ``NAND``,
 ``NOR``, and ``DFF``.  Mapping between these is performed with the commands
-:cmd:ref:`dfflibmap` and :cmd:ref:`abc` as follows:
+`dfflibmap` and `abc` as follows:
 
 .. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
@@ -117,7 +117,7 @@ The final version of our ``counter`` module looks like this:
 
    ``counter`` after hardware cell mapping
 
-Before finally being output as a verilog file with :cmd:ref:`write_verilog`,
+Before finally being output as a verilog file with `write_verilog`,
 which can then be loaded into another tool:
 
 .. literalinclude:: /code_examples/intro/counter.ys

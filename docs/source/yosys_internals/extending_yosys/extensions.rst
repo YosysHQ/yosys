@@ -35,7 +35,7 @@ about the internal data storage format used in Yosys and the classes that it
 provides.
 
 This document will focus on the much simpler version of RTLIL left after the
-commands :cmd:ref:`proc` and :cmd:ref:`memory` (or :yoscrypt:`memory -nomap`):
+commands `proc` and `memory` (or :yoscrypt:`memory -nomap`):
 
 .. figure:: /_images/internals/simplified_rtlil.*
     :class: width-helper invert-helper
@@ -56,7 +56,7 @@ It is possible to only work on this simpler version:
     }
 
 When trying to understand what a command does, creating a small test case to
-look at the output of :cmd:ref:`dump` and :cmd:ref:`show` before and after the
+look at the output of `dump` and `show` before and after the
 command has been executed can be helpful.
 :doc:`/using_yosys/more_scripting/selections` has more information on using
 these commands.
@@ -152,7 +152,7 @@ Most commands modify existing modules, not create new ones.
 When modifying existing modules, stick to the following DOs and DON'Ts:
 
 - Do not remove wires. Simply disconnect them and let a successive
-  :cmd:ref:`clean` command worry about removing it.
+  `clean` command worry about removing it.
 - Use ``module->fixup_ports()`` after changing the ``port_*`` properties of
   wires.
 - You can safely remove cells or change the ``connections`` property of a cell,

@@ -1,14 +1,14 @@
 FSM handling
 ============
 
-The :cmd:ref:`fsm` command identifies, extracts, optimizes (re-encodes), and
+The `fsm` command identifies, extracts, optimizes (re-encodes), and
 re-synthesizes finite state machines. It again is a macro that calls a series of
 other commands:
 
 .. literalinclude:: /code_examples/macro_commands/fsm.ys
    :language: yoscrypt
    :start-after: #end:
-   :caption: Passes called by :cmd:ref:`fsm`
+   :caption: Passes called by `fsm`
 
 See also :doc:`/cmd/fsm`.
 
@@ -18,7 +18,7 @@ general reported technique :cite:p:`fsmextract`.
 FSM detection
 ~~~~~~~~~~~~~
 
-The :cmd:ref:`fsm_detect` pass identifies FSM state registers. It sets the
+The `fsm_detect` pass identifies FSM state registers. It sets the
 ``\fsm_encoding = "auto"`` attribute on any (multi-bit) wire that matches the
 following description:
 
@@ -44,7 +44,7 @@ results.
 FSM extraction
 ~~~~~~~~~~~~~~
 
-The :cmd:ref:`fsm_extract` pass operates on all state signals marked with the
+The `fsm_extract` pass operates on all state signals marked with the
 (``\fsm_encoding != "none"``) attribute. For each state signal the following
 information is determined:
 
@@ -87,7 +87,7 @@ given set of result signals using a set of signal-value assignments. It can also
 be passed a list of stop-signals that abort the ConstEval algorithm if the value
 of a stop-signal is needed in order to calculate the result signals.
 
-The :cmd:ref:`fsm_extract` pass uses the ConstEval class in the following way to
+The `fsm_extract` pass uses the ConstEval class in the following way to
 create a transition table. For each state:
 
 1. Create a ConstEval object for the module containing the FSM
@@ -108,12 +108,12 @@ drivers for the control outputs are disconnected.
 FSM optimization
 ~~~~~~~~~~~~~~~~
 
-The :cmd:ref:`fsm_opt` pass performs basic optimizations on `$fsm` cells (not
+The `fsm_opt` pass performs basic optimizations on `$fsm` cells (not
 including state recoding). The following optimizations are performed (in this
 order):
 
 -  Unused control outputs are removed from the `$fsm` cell. The attribute
-   ``\unused_bits`` (that is usually set by the :cmd:ref:`opt_clean` pass) is
+   ``\unused_bits`` (that is usually set by the `opt_clean` pass) is
    used to determine which control outputs are unused.
 
 -  Control inputs that are connected to the same driver are merged.
@@ -134,11 +134,11 @@ order):
 FSM recoding
 ~~~~~~~~~~~~
 
-The :cmd:ref:`fsm_recode` pass assigns new bit pattern to the states. Usually
+The `fsm_recode` pass assigns new bit pattern to the states. Usually
 this also implies a change in the width of the state signal. At the moment of
 this writing only one-hot encoding with all-zero for the reset state is
 supported.
 
-The :cmd:ref:`fsm_recode` pass can also write a text file with the changes
+The `fsm_recode` pass can also write a text file with the changes
 performed by it that can be used when verifying designs synthesized by Yosys
 using Synopsys Formality.

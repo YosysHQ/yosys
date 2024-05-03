@@ -1,13 +1,13 @@
 The extract pass
 ----------------
 
-- Like the :cmd:ref:`techmap` pass, the :cmd:ref:`extract` pass is called with a
+- Like the `techmap` pass, the `extract` pass is called with a
   map file. It compares the circuits inside the modules of the map file with the
   design and looks for sub-circuits in the design that match any of the modules
   in the map file.
-- If a match is found, the :cmd:ref:`extract` pass will replace the matching
+- If a match is found, the `extract` pass will replace the matching
   subcircuit with an instance of the module from the map file.
-- In a way the :cmd:ref:`extract` pass is the inverse of the techmap pass.
+- In a way the `extract` pass is the inverse of the techmap pass.
 
 .. todo:: add/expand supporting text, also mention custom pattern matching and
    pmgen
@@ -25,7 +25,7 @@ Example code can be found in |code_examples/macc|_.
 .. figure:: /_images/code_examples/macc/macc_simple_test_00a.*
     :class: width-helper invert-helper
     
-    before :cmd:ref:`extract`
+    before `extract`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
     :language: yoscrypt
@@ -34,7 +34,7 @@ Example code can be found in |code_examples/macc|_.
 .. figure:: /_images/code_examples/macc/macc_simple_test_00b.*
     :class: width-helper invert-helper
     
-    after :cmd:ref:`extract`
+    after `extract`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.v
    :language: verilog
@@ -76,18 +76,18 @@ wrap-extract-unwrap method:
 
 wrap
   Identify candidate-cells in the circuit and wrap them in a cell with a
-  constant wider bit-width using :cmd:ref:`techmap`. The wrappers use the same
+  constant wider bit-width using `techmap`. The wrappers use the same
   parameters as the original cell, so the information about the original width
-  of the ports is preserved. Then use the :cmd:ref:`connwrappers` command to
+  of the ports is preserved. Then use the `connwrappers` command to
   connect up the bit-extended in- and outputs of the wrapper cells.
 
 extract
   Now all operations are encoded using the same bit-width as the coarse grain
-  element. The :cmd:ref:`extract` command can be used to replace circuits with
+  element. The `extract` command can be used to replace circuits with
   cells of the target architecture.
 
 unwrap
-  The remaining wrapper cell can be unwrapped using :cmd:ref:`techmap`.
+  The remaining wrapper cell can be unwrapped using `techmap`.
 
 Example: DSP48_MACC
 ~~~~~~~~~~~~~~~~~~~
@@ -127,7 +127,7 @@ Extract: :file:`macc_xilinx_xmap.v`
    :caption: :file:`macc_xilinx_xmap.v`
 
 ... simply use the same wrapping commands on this module as on the design to
-create a template for the :cmd:ref:`extract` command.
+create a template for the `extract` command.
 
 Unwrapping multipliers: :file:`macc_xilinx_unwrap_map.v`
 
