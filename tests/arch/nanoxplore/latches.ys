@@ -6,9 +6,9 @@ proc
 # Can't run any sort of equivalence check because latches are blown to LUTs
 synth_nanoxplore
 cd latchp # Constrain all select calls below inside the top module
-select -assert-count 1 t:NX_DFF
+select -assert-count 1 t:NX_LUT
 
-select -assert-none t:NX_DFF %% t:* %D
+select -assert-none t:NX_LUT %% t:* %D
 
 
 design -load read
@@ -18,9 +18,8 @@ proc
 synth_nanoxplore
 cd latchn # Constrain all select calls below inside the top module
 select -assert-count 1 t:NX_LUT
-select -assert-count 1 t:NX_DFF
 
-select -assert-none t:NX_LUT t:NX_DFF %% t:* %D
+select -assert-none t:NX_LUT %% t:* %D
 
 
 design -load read
@@ -30,6 +29,5 @@ proc
 synth_nanoxplore
 cd latchsr # Constrain all select calls below inside the top module
 select -assert-count 2 t:NX_LUT
-select -assert-count 1 t:NX_DFF
 
-select -assert-none t:NX_LUT t:NX_DFF %% t:* %D
+select -assert-none t:NX_LUT %% t:* %D
