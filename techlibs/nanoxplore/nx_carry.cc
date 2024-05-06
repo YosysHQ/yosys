@@ -83,15 +83,6 @@ static void nx_carry_chain(Module *module)
 		if (c.second.at(0)->getPort(ID(CI)).is_wire()) {
 			cell = module->addCell(NEW_ID, ID(NX_CY));
 			cell->setPort(ID(CI), State::S0);
-			// Set all inputs on 0
-			cell->setPort(ID(A1), State::S0);
-			cell->setPort(ID(B1), State::S0);
-			cell->setPort(ID(A2), State::S0);
-			cell->setPort(ID(B2), State::S0);
-			cell->setPort(ID(A3), State::S0);
-			cell->setPort(ID(B3), State::S0);
-			cell->setPort(ID(A4), State::S0);
-			cell->setPort(ID(B4), State::S0);
 
 			cell->setPort(names_A[0], c.second.at(0)->getPort(ID(CI)).as_bit());
 			cell->setPort(names_B[0], State::S0);
@@ -103,15 +94,6 @@ static void nx_carry_chain(Module *module)
 				cell = module->addCell(NEW_ID, ID(NX_CY));
 				SigBit ci = c.second.at(i)->getPort(ID(CI)).as_bit();
 				cell->setPort(ID(CI), ci);
-				// Set all inputs on 0
-				cell->setPort(ID(A1), State::S0);
-				cell->setPort(ID(B1), State::S0);
-				cell->setPort(ID(A2), State::S0);
-				cell->setPort(ID(B2), State::S0);
-				cell->setPort(ID(A3), State::S0);
-				cell->setPort(ID(B3), State::S0);
-				cell->setPort(ID(A4), State::S0);
-				cell->setPort(ID(B4), State::S0);
 				if (ci.is_wire()) {
 					cell->setParam(ID(add_carry), Const(2,2));
 				} else {
@@ -132,13 +114,6 @@ static void nx_carry_chain(Module *module)
 					cell->setPort(ID(CI), State::S0);
 					cell->setPort(ID(A1), new_co);
 					cell->setPort(ID(B1), State::S0);
-					// Set all inputs on 0
-					cell->setPort(ID(A2), State::S0);
-					cell->setPort(ID(B2), State::S0);
-					cell->setPort(ID(A3), State::S0);
-					cell->setPort(ID(B3), State::S0);
-					cell->setPort(ID(A4), State::S0);
-					cell->setPort(ID(B4), State::S0);
 					j = 1;
 				} else {
 					if (c.second.at(i)->hasPort(ID(CO)))
