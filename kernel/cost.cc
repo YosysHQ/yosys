@@ -181,8 +181,9 @@ unsigned int port_width_sum(RTLIL::Cell *cell)
 unsigned int CellCosts::get(RTLIL::Cell *cell)
 {
 
+	// simple 1-bit cells
 	if (gate_type_cost().count(cell->type))
-		return gate_type_cost().at(cell->type);
+		return 1;
 
 	if (design_ && design_->module(cell->type) && cell->parameters.empty()) {
 		log_debug("%s is a module, recurse\n", cell->name.c_str());
