@@ -58,8 +58,6 @@ struct CellCosts
 			{ ID($_OAI4_),   7 },
 			{ ID($_MUX_),    4 },
 			{ ID($_NMUX_),   4 },
-			{ ID($_DFF_P_),  1 },
-			{ ID($_DFF_N_),  1 },
 		};
 
 		static const dict<RTLIL::IdString, int> cmos_transistors_db = {
