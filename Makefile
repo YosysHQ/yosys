@@ -143,7 +143,6 @@ endif
 endif
 
 YOSYS_VER := 0.40+50
-export YOSYS_VER
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -1013,7 +1012,7 @@ docs/reqs:
 
 DOC_TARGET ?= html
 docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
-	$(Q) $(MAKE) -C docs $(DOC_TARGET)
+	$(Q) YOSYS_VER=$(YOSYS_VER) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
 	rm -rf share
