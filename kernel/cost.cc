@@ -19,91 +19,65 @@ unsigned int CellCosts::get(RTLIL::Module *mod)
 
 static unsigned int y_coef(RTLIL::IdString type)
 {
-	// clang-format off
-    if (// equality
-        type == ID($bweqx) ||
-        type == ID($nex) ||
-        type == ID($eqx) ||
-        // basic logic
-        type == ID($and) ||
-        type == ID($or) ||
-        type == ID($xor) ||
-        type == ID($xnor) ||
-        type == ID($not) ||
-        // mux
-        type == ID($bwmux) ||
-        type == ID($mux) ||
-        type == ID($demux) ||
-        // others
-        type == ID($tribuf)) {
-        return 1;
-    } else if (type == ID($neg)) {
-        return 4;
-    } else if (type == ID($fa)) {
-        return 5;
-    } else if (// multi-bit adders
-        type == ID($add) ||
-        type == ID($sub) ||
-        type == ID($alu)) {
-        return 8;
-    } else if (// left shift
-        type == ID($shl) ||
-        type == ID($sshl)) {
-        return 10;
-    }
-	// clang-format on
+	if (
+	  // equality
+	  type.in(ID($bweqx), ID($nex), ID($eqx)) ||
+	  // basic logic
+	  type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($not)) ||
+	  // mux
+	  type.in(ID($bwmux), ID($mux), ID($demux)) ||
+	  // others
+	  type == ID($tribuf)) {
+		return 1;
+	} else if (type == ID($neg)) {
+		return 4;
+	} else if (type == ID($fa)) {
+		return 5;
+	} else if (type.in(ID($add), ID($sub), ID($alu))) {
+		// multi-bit adders
+		return 8;
+	} else if (type.in(ID($shl), ID($sshl))) {
+		// left shift
+		return 10;
+	}
 	return 0;
 }
 
 static unsigned int max_inp_coef(RTLIL::IdString type)
 {
-	// clang-format off
-    if (// binop reduce
-        type == ID($reduce_and) ||
-        type == ID($reduce_or) ||
-        type == ID($reduce_xor) ||
-        type == ID($reduce_xnor) ||
-        type == ID($reduce_bool) ||
-        // others
-        type == ID($logic_not) ||
-        type == ID($pmux) ||
-        type == ID($bmux)) {
-        return 1;
-    } else if (// equality
-        type == ID($eq) ||
-        type == ID($ne) ||
-        // logic
-        type == ID($logic_and) ||
-        type == ID($logic_or)) {
-        return 2;
-    } else if (type == ID($lcu)) {
-        return 5;
-    } else if (// comparison
-        type == ID($lt) ||
-        type == ID($le) ||
-        type == ID($ge) ||
-        type == ID($gt) ||
-        // others
-        type == ID($sop)) {
-        return 6;
+	if (
+	  // binop reduce
+	  type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)) ||
+	  // others
+	  type.in(ID($logic_not), ID($pmux), ID($bmux))) {
+		return 1;
+	} else if (
+	  // equality
+	  type.in(ID($eq), ID($ne)) ||
+	  // logic
+	  type.in(ID($logic_and), ID($logic_or))) {
+		return 2;
+	} else if (type == ID($lcu)) {
+		return 5;
+	} else if (
+	  // comparison
+	  type.in(ID($lt), ID($le), ID($ge), ID($gt)) ||
+	  // others
+	  type == ID($sop)) {
+		return 6;
 	}
-	// clang-format on
 	return 0;
 }
 
 static unsigned int sum_coef(RTLIL::IdString type)
 {
-	// clang-format off
-    if (// right shift
-        type == ID($shr) ||
-        type == ID($sshr)) {
-        return 4;
-    } else if (// shift
-        type == ID($shift) ||
-        type == ID($shiftx)) {
-        return 8;
+	if (type.in(ID($shr), ID($sshr))) {
+		// right shift
+		return 4;
+	} else if (type.in(ID($shift), ID($shiftx))) {
+		// shift
+		return 8;
 	}
-	// clang-format on
 	return 0;
 }
 
@@ -114,38 +88,18 @@ static unsigned int is_div_mod(RTLIL::IdString type)
 
 static bool is_free(RTLIL::IdString type)
 {
-	// clang-format off
-    return (// tags
-        type == ID($overwrite_tag) ||
-        type == ID($set_tag) ||
-        type == ID($original_tag) ||
-        type == ID($get_tag) ||
-        // formal
-        type == ID($check) ||
-        type == ID($equiv) ||
-        type == ID($initstate) ||
-        type == ID($assert) ||
-        type == ID($assume) ||
-        type == ID($live) ||
-        type == ID($cover) ||
-        type == ID($allseq) ||
-        type == ID($allconst) ||
-        type == ID($anyseq) ||
-        type == ID($anyinit) ||
-        type == ID($anyconst) ||
-        type == ID($fair) ||
-        // utilities
-        type == ID($scopeinfo) ||
-        type == ID($print) ||
-        // real but free
-        type == ID($concat) ||
-        type == ID($slice) ||
-        type == ID($pos) ||
-        // specify
-        type == ID($specrule) ||
-        type == ID($specify2) ||
-        type == ID($specify3));
-	// clang-format on
+	return (
+	  // tags
+	  type.in(ID($overwrite_tag), ID($set_tag), ID($original_tag), ID($get_tag)) ||
+	  // formal
+	  type.in(ID($check), ID($equiv), ID($initstate), ID($assert), ID($assume), ID($live), ID($cover), ID($fair)) ||
+	  type.in(ID($allseq), ID($allconst), ID($anyseq), ID($anyconst), ID($anyinit)) ||
+	  // utilities
+	  type.in(ID($scopeinfo), ID($print)) ||
+	  // real but free
+	  type.in(ID($concat), ID($slice), ID($pos)) ||
+	  // specify
+	  type.in(ID($specrule), ID($specify2), ID($specify3)));
 }
 
 unsigned int max_inp_width(RTLIL::Cell *cell)
