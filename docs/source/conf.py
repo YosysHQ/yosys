@@ -58,7 +58,7 @@ numfig = True
 
 bibtex_bibfiles = ['literature.bib']
 latex_elements = {
-        'releasename': ' ',
+        'releasename': 'Version',
         'preamble': r'''
 \usepackage{lmodern}
 \usepackage{comment}
