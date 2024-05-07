@@ -33,20 +33,20 @@ struct KeepHierarchyPass : public Pass {
 		log("\n");
 		log("Add the keep_hierarchy attribute.\n");
 		log("\n");
-		log("    -max_cost <max_cost>\n");
+		log("    -min_cost <min_cost>\n");
 		log("        only add the attribute to modules estimated to have more\n");
-		log("        than <max_cost> gates\n");
+		log("        than <min_cost> gates\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		unsigned int max_cost = 0;
+		unsigned int min_cost = 0;
 
 		log_header(design, "Executing KEEP_HIERARCHY pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-max_cost" && argidx+1 < args.size()) {
-				max_cost = std::stoi(args[++argidx].c_str());
+			if (args[argidx] == "-min_cost" && argidx+1 < args.size()) {
+				min_cost = std::stoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
@@ -56,10 +56,10 @@ struct KeepHierarchyPass : public Pass {
 		CellCosts costs(CellCosts::DEFAULT, design);
 
 		for (auto module : design->selected_modules()) {
-			if (max_cost) {
+			if (min_cost) {
 				unsigned int cost = costs.get(module);
-				if (cost > max_cost) {
-					log("Marking %s (module too big: %d > %d).\n", log_id(module), cost, max_cost);
+				if (cost > min_cost) {
+					log("Marking %s (module too big: %d > %d).\n", log_id(module), cost, min_cost);
 					module->set_bool_attribute(ID::keep_hierarchy);
 				}
 			} else {
