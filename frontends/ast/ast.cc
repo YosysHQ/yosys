@@ -1722,8 +1722,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
-	bool quiet = false;
-	log("quiet %d\n", quiet);
+	bool quiet = lib || attributes.count(ID::blackbox) || attributes.count(ID::whitebox);
 
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);
