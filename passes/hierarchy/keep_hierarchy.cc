@@ -53,7 +53,7 @@ struct KeepHierarchyPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		CellCosts costs(CellCosts::DEFAULT, design);
+		CellCosts costs(design);
 
 		for (auto module : design->selected_modules()) {
 			if (min_cost) {

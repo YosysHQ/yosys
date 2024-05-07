@@ -27,21 +27,17 @@ YOSYS_NAMESPACE_BEGIN
 struct CellCosts
 {
 
-	enum CostKind {
-		DEFAULT,
-		CMOS,
-	};
-
 	private:
 	dict<RTLIL::IdString, int> mod_cost_cache_;
-	CostKind kind_;
 	Design *design_ = nullptr;
 
 	public:
-	CellCosts(CellCosts::CostKind kind, RTLIL::Design *design) : kind_(kind), design_(design) { }
+	CellCosts(RTLIL::Design *design) : design_(design) { }
 
-	const dict<RTLIL::IdString, int>& gate_type_cost() {
-		static const dict<RTLIL::IdString, int> default_gate_db = {
+	static const dict<RTLIL::IdString, int>& default_gate_cost() {
+		// Default size heuristics for several common PDK standard cells
+		// used by abc and stat
+		static const dict<RTLIL::IdString, int> db = {
 			{ ID($_BUF_),    1 },
 			{ ID($_NOT_),    2 },
 			{ ID($_AND_),    4 },
@@ -59,8 +55,13 @@ struct CellCosts
 			{ ID($_MUX_),    4 },
 			{ ID($_NMUX_),   4 },
 		};
+		return db;
+	}
 
-		static const dict<RTLIL::IdString, int> cmos_transistors_db = {
+	static const dict<RTLIL::IdString, int>& cmos_gate_cost() {
+		// Estimated CMOS transistor counts for several common PDK standard cells
+		// used by stat and optionally by abc
+		static const dict<RTLIL::IdString, int> db = {
 			{ ID($_BUF_),     1 },
 			{ ID($_NOT_),     2 },
 			{ ID($_AND_),     6 },
@@ -80,14 +81,7 @@ struct CellCosts
 			{ ID($_DFF_P_),  16 },
 			{ ID($_DFF_N_),  16 },
 		};
-		switch (kind_) {
-			case DEFAULT:
-				return default_gate_db;
-			case CMOS:
-				return cmos_transistors_db;
-			default:
-				log_assert(false && "Unreachable: Invalid cell cost kind\n");
-		}
+		return db;
 	}
 
 	unsigned int get(RTLIL::Module *mod);

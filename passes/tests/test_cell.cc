@@ -1025,7 +1025,7 @@ struct TestCellPass : public Pass {
 								num_cells++;
 							}
 						}
-						CellCosts costs(CellCosts::DEFAULT, design);
+						CellCosts costs(design);
 						Pass::call(design, "select gold");
 						for (auto mod : design->selected_modules()) {
 							log_assert(mod->name.str() == "\\gold");

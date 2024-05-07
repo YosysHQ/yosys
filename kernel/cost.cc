@@ -136,7 +136,7 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 {
 
 	// simple 1-bit cells
-	if (gate_type_cost().count(cell->type))
+	if (cmos_gate_cost().count(cell->type))
 		return 1;
 
 	if (design_ && design_->module(cell->type) && cell->parameters.empty()) {
