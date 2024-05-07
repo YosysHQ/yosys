@@ -4,7 +4,8 @@ import os
 
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
-copyright ='2022 YosysHQ GmbH'
+copyright ='2024 YosysHQ GmbH'
+yosys_ver = "0.40"
 
 # select HTML theme
 html_theme = 'furo'
@@ -46,12 +47,18 @@ extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
 
+# set version
+if os.getenv("READTHEDOCS") and os.getenv("READTHEDOCS_VERSION") == "latest":
+    release = yosys_ver + "-dev"
+else:
+    release = yosys_ver
+
 # assign figure numbers
 numfig = True
 
 bibtex_bibfiles = ['literature.bib']
-
 latex_elements = {
+        'releasename': ' ',
         'preamble': r'''
 \usepackage{lmodern}
 \usepackage{comment}
@@ -62,14 +69,6 @@ latex_elements = {
 # include todos during rewrite
 extensions.append('sphinx.ext.todo')
 todo_include_todos = False
-
-# attempt to get version
-env_yosys_ver = os.getenv("YOSYS_VER")
-if env_yosys_ver:
-    if os.getenv("READTHEDOCS") and os.getenv("READTHEDOCS_VERSION") == "latest":
-        release = env_yosys_ver + "-dev"
-    else:
-        release = env_yosys_ver
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]

@@ -1012,7 +1012,7 @@ docs/reqs:
 
 DOC_TARGET ?= html
 docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
-	$(Q) YOSYS_VER=$(YOSYS_VER) $(MAKE) -C docs $(DOC_TARGET)
+	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
 	rm -rf share
