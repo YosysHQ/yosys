@@ -385,8 +385,8 @@ BOOST_PYTHON_LIB ?= $(shell \
 
 # Inside CentOS 7 Docker
 ifeq (${DOCKER_RUNNING},1)
-BOOST_PYTHON_LIB = -L/usr/lib64/boost169/ -lboost_python36
-CXXFLAGS += -I/usr/include/boost169/
+BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38
+CXXFLAGS += -I/opt/boost/include
 endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
