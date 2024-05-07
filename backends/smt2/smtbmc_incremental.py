@@ -1,7 +1,7 @@
 from collections import defaultdict
 import json
 import typing
-from functools import partial
+import ywio
 
 if typing.TYPE_CHECKING:
     import smtbmc
@@ -34,6 +34,7 @@ class Incremental:
         self._witness_index = None
 
         self._yw_constraints = {}
+        self._define_sorts = {}
 
     def setup(self):
         generic_assert_map = smtbmc.get_assert_map(
@@ -175,11 +176,7 @@ class Incremental:
         if len(expr) == 1:
             smt_out.push({"and": "true", "or": "false"}[expr[0]])
         elif len(expr) == 2:
-            arg_sort = self.expr(expr[1], smt_out)
-            if arg_sort != "Bool":
-                raise InteractiveError(
-                    f"arguments of {json.dumps(expr[0])} must have sort Bool"
-                )
+            self.expr(expr[1], smt_out, required_sort="Bool")
         else:
             sep = f"({expr[0]} "
             for arg in expr[1:]:
@@ -189,7 +186,51 @@ class Incremental:
             smt_out.append(")")
         return "Bool"
 
+    def expr_bv_binop(self, expr, smt_out):
+        self.expr_arg_len(expr, 2)
+
+        smt_out.append(f"({expr[0]} ")
+        arg_sort = self.expr(expr[1], smt_out, required_sort=("BitVec", None))
+        smt_out.append(" ")
+        self.expr(expr[2], smt_out, required_sort=arg_sort)
+        smt_out.append(")")
+        return arg_sort
+
+    def expr_extract(self, expr, smt_out):
+        self.expr_arg_len(expr, 3)
+
+        hi = expr[1]
+        lo = expr[2]
+
+        smt_out.append(f"((_ extract {hi} {lo}) ")
+
+        arg_sort = self.expr(expr[3], smt_out, required_sort=("BitVec", None))
+        smt_out.append(")")
+
+        if not (isinstance(hi, int) and 0 <= hi < arg_sort[1]):
+            raise InteractiveError(
+                f"high bit index must be 0 <= index < {arg_sort[1]}, is {hi!r}"
+            )
+        if not (isinstance(lo, int) and 0 <= lo <= hi):
+            raise InteractiveError(
+                f"low bit index must be 0 <= index < {hi}, is {lo!r}"
+            )
+
+        return "BitVec", hi - lo + 1
+
+    def expr_bv(self, expr, smt_out):
+        self.expr_arg_len(expr, 1)
+
+        arg = expr[1]
+        if not isinstance(arg, str) or arg.count("0") + arg.count("1") != len(arg):
+            raise InteractiveError("bv argument must contain only 0 or 1 bits")
+
+        smt_out.append("#b" + arg)
+
+        return "BitVec", len(arg)
+
     def expr_yw(self, expr, smt_out):
+        self.expr_arg_len(expr, 1, 2)
         if len(expr) == 2:
             name = None
             step = expr[1]
@@ -219,6 +260,40 @@ class Incremental:
 
         return "Bool"
 
+    def expr_yw_sig(self, expr, smt_out):
+        self.expr_arg_len(expr, 3, 4)
+
+        step = expr[1]
+        path = expr[2]
+        offset = expr[3]
+        width = expr[4] if len(expr) == 5 else 1
+
+        if not isinstance(offset, int) or offset < 0:
+            raise InteractiveError(
+                f"offset must be a non-negative integer, got {json.dumps(offset)}"
+            )
+
+        if not isinstance(width, int) or width <= 0:
+            raise InteractiveError(
+                f"width must be a positive integer, got {json.dumps(width)}"
+            )
+
+        if not isinstance(path, list) or not all(isinstance(s, str) for s in path):
+            raise InteractiveError(
+                f"path must be a string list, got {json.dumps(path)}"
+            )
+
+        if step not in self.state_set:
+            raise InteractiveError(f"step {step} not declared")
+
+        smt_expr = smtbmc.ywfile_signal(
+            ywio.WitnessSig(path=path, offset=offset, width=width), step
+        )
+
+        smt_out.append(smt_expr)
+
+        return "BitVec", width
+
     def expr_smtlib(self, expr, smt_out):
         self.expr_arg_len(expr, 2)
 
@@ -231,10 +306,15 @@ class Incremental:
                 f"got {json.dumps(smtlib_expr)}"
             )
 
-        if not isinstance(sort, str):
-            raise InteractiveError(
-                f"raw SMT-LIB sort has to be a string, got {json.dumps(sort)}"
-            )
+        if (
+            isinstance(sort, list)
+            and len(sort) == 2
+            and sort[0] == "BitVec"
+            and (sort[1] is None or isinstance(sort[1], int))
+        ):
+            sort = tuple(sort)
+        elif not isinstance(sort, str):
+            raise InteractiveError(f"unsupported raw SMT-LIB sort {json.dumps(sort)}")
 
         smt_out.append(smtlib_expr)
         return sort
@@ -258,6 +338,14 @@ class Incremental:
 
         return sort
 
+    def expr_def(self, expr, smt_out):
+        self.expr_arg_len(expr, 1)
+        sort = self._define_sorts.get(expr[1])
+        if sort is None:
+            raise InteractiveError(f"unknown definition {json.dumps(expr)}")
+        smt_out.append(expr[1])
+        return sort
+
     expr_handlers = {
         "step": expr_step,
         "cell": expr_cell,
@@ -270,8 +358,15 @@ class Incremental:
         "not": expr_not,
         "and": expr_andor,
         "or": expr_andor,
+        "bv": expr_bv,
+        "bvand": expr_bv_binop,
+        "bvor": expr_bv_binop,
+        "bvxor": expr_bv_binop,
+        "extract": expr_extract,
+        "def": expr_def,
         "=": expr_eq,
         "yw": expr_yw,
+        "yw_sig": expr_yw_sig,
         "smtlib": expr_smtlib,
         "!": expr_label,
     }
@@ -305,10 +400,13 @@ class Incremental:
         raise InteractiveError(f"unknown expression {json.dumps(expr[0])}")
 
     def expr_smt(self, expr, required_sort):
+        return self.expr_smt_and_sort(expr, required_sort)[0]
+
+    def expr_smt_and_sort(self, expr, required_sort=None):
         smt_out = []
-        self.expr(expr, smt_out, required_sort=required_sort)
+        output_sort = self.expr(expr, smt_out, required_sort=required_sort)
         out = "".join(smt_out)
-        return out
+        return out, output_sort
 
     def cmd_new_step(self, cmd):
         step = self.arg_step(cmd, declare=True)
@@ -338,7 +436,6 @@ class Incremental:
         expr = cmd.get("expr")
         key = cmd.get("key")
 
-
         key = mkkey(key)
 
         result = smtbmc.smt.smt2_assumptions.pop(key, None)
@@ -348,7 +445,7 @@ class Incremental:
         return result
 
     def cmd_get_unsat_assumptions(self, cmd):
-        return smtbmc.smt.get_unsat_assumptions(minimize=bool(cmd.get('minimize')))
+        return smtbmc.smt.get_unsat_assumptions(minimize=bool(cmd.get("minimize")))
 
     def cmd_push(self, cmd):
         smtbmc.smt_push()
@@ -369,6 +466,27 @@ class Incremental:
         smtbmc.smt.write(command)
         if response:
             return smtbmc.smt.read()
+
+    def cmd_define(self, cmd):
+        expr = cmd.get("expr")
+        if expr is None:
+            raise InteractiveError("'define' copmmand requires 'expr' parameter")
+
+        expr, sort = self.expr_smt_and_sort(expr)
+
+        if isinstance(sort, tuple) and sort[0] == "module":
+            raise InteractiveError("'define' does not support module sorts")
+
+        define_name = f"|inc def {len(self._define_sorts)}|"
+
+        self._define_sorts[define_name] = sort
+
+        if isinstance(sort, tuple):
+            sort = f"(_ {' '.join(map(str, sort))})"
+
+        smtbmc.smt.write(f"(define-const {define_name} {sort} {expr})")
+
+        return {"name": define_name}
 
     def cmd_design_hierwitness(self, cmd=None):
         allregs = (cmd is None) or bool(cmd.get("allreges", False))
@@ -451,6 +569,7 @@ class Incremental:
         "pop": cmd_pop,
         "check": cmd_check,
         "smtlib": cmd_smtlib,
+        "define": cmd_define,
         "design_hierwitness": cmd_design_hierwitness,
         "write_yw_trace": cmd_write_yw_trace,
         "read_yw_trace": cmd_read_yw_trace,
