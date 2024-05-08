@@ -1467,8 +1467,9 @@ struct debug_items {
 	}
 
 	// This overload exists to reduce excessive stack slot allocation in `CXXRTL_EXTREMELY_COLD void debug_info()`.
-	void add(const std::string &base_path, const char *path, debug_item &&item, const char *serialized_item_attrs) {
-		add(base_path + path, std::move(item), metadata::deserialize(serialized_item_attrs));
+	template<class... T>
+	void add(const std::string &base_path, const char *path, const char *serialized_item_attrs, T&&... args) {
+		add(base_path + path, debug_item(std::forward<T>(args)...), metadata::deserialize(serialized_item_attrs));
 	}
 
 	size_t count(const std::string &path) const {

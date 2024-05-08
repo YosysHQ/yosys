@@ -2473,20 +2473,22 @@ struct CxxrtlWorker {
 							if (has_driven_sync + has_driven_comb + has_undriven > 1)
 								count_mixed_driver++;
 
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(" << mangle(wire) << ", " << wire->start_offset;
-							bool first = true;
-							for (auto flag : flags) {
-								if (first) {
-									first = false;
-									f << ", ";
-								} else {
-									f << "|";
-								}
-								f << "debug_item::" << flag;
-							}
-							f << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", " << mangle(wire);
+							if (wire->start_offset != 0 || !flags.empty()) {
+								f << ", " << wire->start_offset;
+								bool first = true;
+								for (auto flag : flags) {
+									if (first) {
+										first = false;
+										f << ", ";
+									} else {
+										f << "|";
+									}
+									f << "debug_item::" << flag;
+								}
+							}
 							f << ");\n";
 							count_member_wires++;
 							break;
@@ -2494,16 +2496,18 @@ struct CxxrtlWorker {
 						case WireType::ALIAS: {
 							// Alias of a member wire
 							const RTLIL::Wire *aliasee = debug_wire_type.sig_subst.as_wire();
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							dump_debug_attrs(aliasee);
+							f << ", ";
 							// If the aliasee is an outline, then the alias must be an outline, too; otherwise downstream
 							// tooling has no way to find out about the outline.
 							if (debug_wire_types[aliasee].is_outline())
 								f << "debug_eval_outline";
 							else
 								f << "debug_alias()";
-							f << ", " << mangle(aliasee) << ", " << wire->start_offset << "), ";
-							dump_debug_attrs(aliasee);
+							f << ", " << mangle(aliasee);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_alias_wires++;
 							break;
@@ -2513,18 +2517,22 @@ struct CxxrtlWorker {
 							f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
 							dump_const(debug_wire_type.sig_subst.as_const());
 							f << ";\n";
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(const_" << mangle(wire) << ", " << wire->start_offset << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", const_" << mangle(wire);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_const_wires++;
 							break;
 						}
 						case WireType::OUTLINE: {
 							// Localized or inlined, but rematerializable wire
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
-							f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", " << wire->start_offset << "), ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
 							dump_debug_attrs(wire);
+							f << ", debug_eval_outline, " << mangle(wire);
+							if (wire->start_offset != 0)
+								f << ", " << wire->start_offset;
 							f << ");\n";
 							count_inline_wires++;
 							break;
@@ -2540,15 +2548,14 @@ struct CxxrtlWorker {
 					for (auto &mem : mod_memories[module]) {
 						if (!mem.memid.isPublic())
 							continue;
-						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
-						f << ", debug_item(" << mangle(&mem) << ", ";
-						f << mem.start_offset << "), ";
+						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem)) << ", ";
 						if (mem.packed) {
 							dump_debug_attrs(mem.cell);
 						} else {
 							dump_debug_attrs(mem.mem);
 						}
-						f << ");\n";
+						f << ", " << mangle(&mem) << ", ";
+						f << mem.start_offset << ");\n";
 					}
 				}
 			dec_indent();
