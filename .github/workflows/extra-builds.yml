@@ -14,6 +14,8 @@ jobs:
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
           # cancel previous builds if a new commit is pushed
           cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
 
   vs-prep:
     name: Prepare Visual Studio build
