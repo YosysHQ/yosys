@@ -2164,7 +2164,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				// that the indicies match LSB = 0 order to match the std::vector
 				// to SigSpec LSB = 0 precondition.
 				if (lsb_index > msb_index) {
-					port_offset = abs(port_offset - lsb_index);
+					port_offset = abs(port_offset - (lsb_index - min(msb_index, lsb_index)));
 				}
 			}
 			IdString port_name_id = RTLIL::escape_id(port_name);
