@@ -42,6 +42,7 @@ USING_YOSYS_NAMESPACE
 #pragma clang diagnostic ignored "-Woverloaded-virtual"
 #endif
 
+#include "hdl_file_sort.h"
 #include "veri_file.h"
 #include "hier_tree.h"
 #include "VeriModule.h"
@@ -3379,9 +3380,57 @@ struct VerificPass : public Pass {
 			break;
 		}
 
+		if (GetSize(args) > argidx && (args[argidx] == "-auto_discover" || args[argidx] == "-hdl_sort"))
+		{
+			// Always operate in SystemVerilog mode (overriding not supported)
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+			const char* arg = args[argidx].c_str();
+
+			// Select analyze function
+			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
+			
+			// Remaining arguments are treated as search directories to add
+			// -f <FILE> and -F <FILE> are also supported, but must come AFTER
+			unsigned i;
+    	const char *file_name;
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (args[argidx] == "-f" || args[argidx] == "-F") {
+					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
+					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
+					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
+						if (!hdl_file_sort::RegisterFile(file_name)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not register file %s.\n", file_name);
+						}
+					}
+					delete file_names;
+				} else {
+					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
+						verific_error_msg.clear();
+						log_cmd_error("Could not register directory %s.\n", args[argidx].c_str());
+					}
+				}
+			}
+
+			// Define macros
+			hdl_file_sort::DefineMacro("YOSYS");
+			hdl_file_sort::DefineMacro("VERIFIC");
+			hdl_file_sort::DefineMacro("SYNTHESIS");
+
+			// Analyze discovered/sorted files
+			if (!analyze_function(veri_file::MFCU)) {
+				verific_error_msg.clear();
+				log_cmd_error("Reading Verilog/SystemVerilog sources during %s failed.\n", arg);
+			}
+
+			// Check error
+			verific_import_pending = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
-			unsigned verilog_mode = veri_file::UNDEFINED;
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			bool is_formal = false;
 			const char* filename = nullptr;
 
@@ -3417,7 +3466,7 @@ struct VerificPass : public Pass {
 				}
 			}
 			if (!filename)
-				log_cmd_error("Filname must be specified.\n");
+				log_cmd_error("Filename must be specified.\n");
 
 			unsigned analysis_mode = verilog_mode; // keep default as provided by user if not defined in file
 			Array *file_names = veri_file::ProcessFFile(filename, flags, analysis_mode);

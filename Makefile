@@ -526,7 +526,7 @@ endif
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
-VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
+VERIFIC_COMPONENTS ?= verilog database util containers hier_tree hdl_file_sort
 ifneq ($(DISABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
