@@ -2,8 +2,22 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.40 .. Yosys 0.41-dev
+Yosys 0.41 .. Yosys 0.42-dev
 --------------------------
+
+Yosys 0.40 .. Yosys 0.41
+--------------------------
+ * New commands and options
+    - Added "cellmatch" pass for picking out standard cells automatically. 
+
+ * Various
+    - Extended the experimental incremental JSON API to allow arbitrary
+      smtlib subexpressions.
+    - Added support for using ABCs library merging when providing multiple
+      liberty files.
+
+ * Verific support
+    - Expose library name as module attribute.
 
 Yosys 0.39 .. Yosys 0.40
 --------------------------
