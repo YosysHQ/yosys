@@ -7,17 +7,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+         submodules: true
       - name: Build
         run: make vcxsrc YOSYS_VER=latest
       - uses: actions/upload-artifact@v4
         with:
           name: vcxsrc
           path: yosys-win32-vcxsrc-latest.zip
-  
+
   build:
     runs-on: windows-2019
     needs: yosys-vcxsrc
-    steps:  
+    steps:
       - uses: actions/download-artifact@v4
         with:
           name: vcxsrc

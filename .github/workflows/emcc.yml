@@ -8,6 +8,8 @@ jobs:
     steps:
       - uses: mymindstorm/setup-emsdk@v14
       - uses: actions/checkout@v4
+        with:
+         submodules: true
       - name: Build
         run: |
           make config-emcc
