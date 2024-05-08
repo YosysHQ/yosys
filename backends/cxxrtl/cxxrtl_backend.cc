@@ -2283,56 +2283,52 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map, bool serialize = true)
-	{
+	void dump_serialized_metadata(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+		// Creating thousands metadata_map objects using initializer lists in a single function results in one of:
+		// 1. Megabytes of stack usage (with __attribute__((optnone))).
+		// 2. Minutes of compile time (without __attribute__((optnone))).
+		// So, don't create them.
+		std::string data;
+		auto put_u64 = [&](uint64_t value) {
+			for (size_t count = 0; count < 8; count++) {
+				data += (char)(value >> 56);
+				value <<= 8;
+			}
+		};
+		for (auto metadata_item : metadata_map) {
+			if (!metadata_item.first.isPublic())
+				continue;
+			if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+				f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+				continue;
+			}
+			data += metadata_item.first.str().substr(1) + '\0';
+			// In Yosys, a real is a type of string.
+			if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+				double dvalue = std::stod(metadata_item.second.decode_string());
+				uint64_t uvalue;
+				static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
+				memcpy(&uvalue, &dvalue, sizeof(uvalue));
+				data += 'd';
+				put_u64(uvalue);
+			} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+				data += 's';
+				data += metadata_item.second.decode_string();
+				data += '\0';
+			} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
+				data += 'i';
+				put_u64((uint64_t)metadata_item.second.as_int(/*is_signed=*/true));
+			} else {
+				data += 'u';
+				put_u64(metadata_item.second.as_int(/*is_signed=*/false));
+			}
+		}
+		f << escape_c_string(data);
+	}
+
+	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
 		if (metadata_map.empty()) {
 			f << "metadata_map()";
-			return;
-		} else if (serialize) {
-			// Creating thousands metadata_map objects using initializer lists in a single function results in one of:
-			// 1. Megabytes of stack usage (with __attribute__((optnone))).
-			// 2. Minutes of compile time (without __attribute__((optnone))).
-			// So, don't create them.
-			std::string data;
-			auto put_u64 = [&](uint64_t value) {
-				for (size_t count = 0; count < 8; count++) {
-					data += (char)(value >> 56);
-					value <<= 8;
-				}
-			};
-			for (auto metadata_item : metadata_map) {
-				if (!metadata_item.first.isPublic())
-					continue;
-				if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
-					continue;
-				}
-				data += metadata_item.first.str().substr(1) + '\0';
-				// In Yosys, a real is a type of string.
-				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
-					double dvalue = std::stod(metadata_item.second.decode_string());
-					uint64_t uvalue;
-					static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
-					memcpy(&uvalue, &dvalue, sizeof(uvalue));
-					data += 'd';
-					put_u64(uvalue);
-				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
-					data += 's';
-					data += metadata_item.second.decode_string();
-					data += '\0';
-				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
-					data += 'i';
-					put_u64((uint64_t)metadata_item.second.as_int(/*is_signed=*/true));
-				} else {
-					data += 'u';
-					put_u64(metadata_item.second.as_int(/*is_signed=*/false));
-				}
-			}
-			f << "metadata::deserialize(\n";
-			inc_indent();
-				f << indent << escape_c_string(data) << "\n";
-			dec_indent();
-			f << indent << ")";
 		} else {
 			f << "metadata_map({\n";
 			inc_indent();
@@ -2361,14 +2357,18 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_debug_attrs(const RTLIL::AttrObject *object)
+	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
 		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
 		// Inherently necessary to get access to the object, so a waste of space to emit.
 		attributes.erase(ID::hdlname);
 		// Internal Yosys attribute that should be removed but isn't.
 		attributes.erase(ID::module_not_derived);
-		dump_metadata_map(attributes);
+		if (serialize) {
+			dump_serialized_metadata(attributes);
+		} else {
+			dump_metadata_map(attributes);
+		}
 	}
 
 	void dump_debug_info_method(RTLIL::Module *module)
@@ -2391,7 +2391,7 @@ struct CxxrtlWorker {
 				// The module is responsible for adding its own scope.
 				f << indent << "scopes->add(path.empty() ? path : path.substr(0, path.size() - 1), ";
 				f << escape_cxx_string(get_hdl_name(module)) << ", ";
-				dump_debug_attrs(module);
+				dump_debug_attrs(module, /*serialize=*/false);
 				f << ", std::move(cell_attrs));\n";
 				count_scopes++;
 				// If there were any submodules that were flattened, the module is also responsible for adding them.
@@ -2401,11 +2401,11 @@ struct CxxrtlWorker {
 						auto module_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Module);
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
-						f << indent << "scopes->add(path + " << escape_cxx_string(get_hdl_name(cell)) << ", ";
+						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
 						f << escape_cxx_string(cell->get_string_attribute(ID(module))) << ", ";
-						dump_metadata_map(module_attrs);
+						dump_serialized_metadata(module_attrs);
 						f << ", ";
-						dump_metadata_map(cell_attrs);
+						dump_serialized_metadata(cell_attrs);
 						f << ");\n";
 					} else log_assert(false && "Unknown $scopeinfo type");
 					count_scopes++;
@@ -2473,7 +2473,7 @@ struct CxxrtlWorker {
 							if (has_driven_sync + has_driven_comb + has_undriven > 1)
 								count_mixed_driver++;
 
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
 							f << ", debug_item(" << mangle(wire) << ", " << wire->start_offset;
 							bool first = true;
 							for (auto flag : flags) {
@@ -2494,7 +2494,7 @@ struct CxxrtlWorker {
 						case WireType::ALIAS: {
 							// Alias of a member wire
 							const RTLIL::Wire *aliasee = debug_wire_type.sig_subst.as_wire();
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
 							f << ", debug_item(";
 							// If the aliasee is an outline, then the alias must be an outline, too; otherwise downstream
 							// tooling has no way to find out about the outline.
@@ -2513,7 +2513,7 @@ struct CxxrtlWorker {
 							f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
 							dump_const(debug_wire_type.sig_subst.as_const());
 							f << ";\n";
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
 							f << ", debug_item(const_" << mangle(wire) << ", " << wire->start_offset << "), ";
 							dump_debug_attrs(wire);
 							f << ");\n";
@@ -2522,7 +2522,7 @@ struct CxxrtlWorker {
 						}
 						case WireType::OUTLINE: {
 							// Localized or inlined, but rematerializable wire
-							f << indent << "items->add(path + " << escape_cxx_string(get_hdl_name(wire));
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire));
 							f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", " << wire->start_offset << "), ";
 							dump_debug_attrs(wire);
 							f << ");\n";
@@ -2540,7 +2540,7 @@ struct CxxrtlWorker {
 					for (auto &mem : mod_memories[module]) {
 						if (!mem.memid.isPublic())
 							continue;
-						f << indent << "items->add(path + " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
+						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
 						f << ", debug_item(" << mangle(&mem) << ", ";
 						f << mem.start_offset << "), ";
 						if (mem.packed) {
@@ -2560,7 +2560,7 @@ struct CxxrtlWorker {
 					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 					f << indent << mangle(cell) << access;
 					f << "debug_info(items, scopes, path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ", ";
-					dump_debug_attrs(cell);
+					dump_debug_attrs(cell, /*serialize=*/false);
 					f << ");\n";
 				}
 			}

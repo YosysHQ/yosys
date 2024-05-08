@@ -1466,6 +1466,11 @@ struct debug_items {
 			});
 	}
 
+	// This overload exists to reduce excessive stack slot allocation in `CXXRTL_EXTREMELY_COLD void debug_info()`.
+	void add(const std::string &base_path, const char *path, debug_item &&item, const char *serialized_item_attrs) {
+		add(base_path + path, std::move(item), metadata::deserialize(serialized_item_attrs));
+	}
+
 	size_t count(const std::string &path) const {
 		if (table.count(path) == 0)
 			return 0;
@@ -1510,6 +1515,11 @@ struct debug_scopes {
 		scope.module_name = module_name;
 		scope.module_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { module_attrs });
 		scope.cell_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { cell_attrs });
+	}
+
+	// This overload exists to reduce excessive stack slot allocation in `CXXRTL_EXTREMELY_COLD void debug_info()`.
+	void add(const std::string &base_path, const char *path, const char *module_name, const char *serialized_module_attrs, const char *serialized_cell_attrs) {
+		add(base_path + path, module_name, metadata::deserialize(serialized_module_attrs), metadata::deserialize(serialized_cell_attrs));
 	}
 
 	size_t contains(const std::string &path) const {
