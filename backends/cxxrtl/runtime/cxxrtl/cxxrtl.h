@@ -941,6 +941,55 @@ struct metadata {
 		assert(value_type == DOUBLE);
 		return double_value;
 	}
+
+	// Internal CXXRTL use only.
+	static std::map<std::string, metadata> deserialize(const char *ptr) {
+		std::map<std::string, metadata> result;
+		std::string name;
+		// Grammar:
+		// string   ::= [^\0]+ \0
+		// metadata ::= [uid] .{8} | s <string>
+		// map      ::= ( <string> <metadata> )* \0
+		for (;;) {
+			if (*ptr) {
+				name += *ptr++;
+			} else if (!name.empty()) {
+				ptr++;
+				auto get_u64 = [&]() {
+					uint64_t result = 0;
+					for (size_t count = 0; count < 8; count++)
+						result = (result << 8) | *ptr++;
+					return result;
+				};
+				char type = *ptr++;
+				if (type == 'u') {
+					uint64_t value = get_u64();
+					result.emplace(name, value);
+				} else if (type == 'i') {
+					int64_t value = (int64_t)get_u64();
+					result.emplace(name, value);
+				} else if (type == 'd') {
+					double dvalue;
+					uint64_t uvalue = get_u64();
+					static_assert(sizeof(dvalue) == sizeof(uvalue), "double must be 64 bits in size");
+					memcpy(&dvalue, &uvalue, sizeof(dvalue));
+					result.emplace(name, dvalue);
+				} else if (type == 's') {
+					std::string value;
+					while (*ptr)
+						value += *ptr++;
+					ptr++;
+					result.emplace(name, value);
+				} else {
+					assert(false && "Unknown type specifier");
+					return result;
+				}
+				name.clear();
+			} else {
+				return result;
+			}
+		}
+	}
 };
 
 typedef std::map<std::string, metadata> metadata_map;
@@ -1417,6 +1466,12 @@ struct debug_items {
 			});
 	}
 
+	// This overload exists to reduce excessive stack slot allocation in `CXXRTL_EXTREMELY_COLD void debug_info()`.
+	template<class... T>
+	void add(const std::string &base_path, const char *path, const char *serialized_item_attrs, T&&... args) {
+		add(base_path + path, debug_item(std::forward<T>(args)...), metadata::deserialize(serialized_item_attrs));
+	}
+
 	size_t count(const std::string &path) const {
 		if (table.count(path) == 0)
 			return 0;
@@ -1461,6 +1516,11 @@ struct debug_scopes {
 		scope.module_name = module_name;
 		scope.module_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { module_attrs });
 		scope.cell_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { cell_attrs });
+	}
+
+	// This overload exists to reduce excessive stack slot allocation in `CXXRTL_EXTREMELY_COLD void debug_info()`.
+	void add(const std::string &base_path, const char *path, const char *module_name, const char *serialized_module_attrs, const char *serialized_cell_attrs) {
+		add(base_path + path, module_name, metadata::deserialize(serialized_module_attrs), metadata::deserialize(serialized_cell_attrs));
 	}
 
 	size_t contains(const std::string &path) const {
