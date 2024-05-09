@@ -784,23 +784,26 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 
 check-git-abc:
 	@if [ ! -d "$(YOSYS_SRC)/abc" ]; then \
-	    echo "Error: The 'abc' directory does not exist."; \
-			echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
-	    exit 1; \
+		echo "Error: The 'abc' directory does not exist."; \
+		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		exit 1; \
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
-	    echo "'abc' is a git submodule. Continuing."; \
-	    exit 0; \
+		echo "'abc' is a git submodule. Continuing."; \
+		exit 0; \
+	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+		echo "'abc' comes from a tarball. Continuing."; \
+		exit 0; \
 	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
-	    echo "Error: 'abc' is not configured as a git submodule."; \
-	    echo "To resolve this:"; \
-	    echo "1. Back up your changes: Save any modifications from the 'abc' directory to another location."; \
-	    echo "2. Remove the existing 'abc' directory: Delete the 'abc' directory and all its contents."; \
-	    echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
-	    echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
-	    exit 1; \
+		echo "Error: 'abc' is not configured as a git submodule."; \
+		echo "To resolve this:"; \
+		echo "1. Back up your changes: Save any modifications from the 'abc' directory to another location."; \
+		echo "2. Remove the existing 'abc' directory: Delete the 'abc' directory and all its contents."; \
+		echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
+		exit 1; \
 	else \
-	    echo "'abc' comes from a tarball. Continuing."; \
-	    exit 0; \
+		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		exit 1; \
 	fi
 
 ABC_SOURCES := $(wildcard $(YOSYS_SRC)/abc/*)
