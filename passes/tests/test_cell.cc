@@ -238,7 +238,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	if (cell_type == ID($sop))
 	{
 		int width = 1 + xorshift32(8 * bloat_factor);
-		int depth = 1 + xorshift32(8);
+		int depth = 1 + xorshift32(8 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width;
