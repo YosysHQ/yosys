@@ -798,7 +798,7 @@ check-git-abc:
 	    echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 	    echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
 	    exit 1; \
-	elif [ -z "$(git submodule status abc | grep '^-' )" ]; then \
+	elif [ -n "$(git submodule status abc | grep '^-' )" ]; then \
 	    echo "Error: The 'abc' directory does not exist."; \
 			echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 	    exit 1; \
