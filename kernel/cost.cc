@@ -166,9 +166,14 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 	} else if (is_div_mod(cell->type) || cell->type == ID($mul)) {
 		// quadratic with sum of port widths
 		unsigned int sum = port_width_sum(cell);
-        unsigned int coef = cell->type == ID($mul) ? 3 : 5;
-        log_debug("%s coef*(sum**2) %d * %d\n", cell->name.c_str(), coef, sum * sum);
+		unsigned int coef = cell->type == ID($mul) ? 3 : 5;
+		log_debug("%s coef*(sum**2) %d * %d\n", cell->name.c_str(), coef, sum * sum);
 		return coef * sum * sum;
+	} else if (cell->type == ID($lut)) {
+		int width = cell->getParam(ID::WIDTH).as_int();
+		unsigned int cost = 1U << (unsigned int)width;
+		log_debug("%s is 2**%d\n", cell->name.c_str(), width);
+		return cost;
 	} else if (is_free(cell->type)) {
 		log_debug("%s is free\n", cell->name.c_str());
 		return 0;
