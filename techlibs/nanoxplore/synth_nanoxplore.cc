@@ -294,8 +294,6 @@ struct SynthNanoXplorePass : public ScriptPass
 			if (help_mode || iopad) {
 				run("iopadmap -bits -outpad $__BEYOND_OBUF I:PAD -toutpad $__BEYOND_TOBUF C:I:PAD -inpad $__BEYOND_IBUF O:PAD -tinoutpad $__BEYOND_IOBUF C:O:I:PAD A:top", "(only if '-iopad')");
 				run("techmap -map +/nanoxplore/io_map.v");
-				run("attrmvcp -attr LOC t:NX_IOB_O t:NX_IOB n:*");
-				run("attrmvcp -attr LOC -driven t:NX_IOB_I t:NX_IOB n:*");
 			}
 			run("opt -fast");
 		}
