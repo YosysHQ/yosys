@@ -6,7 +6,22 @@ on:
     - main
 
 jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+
   test-docs:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
@@ -28,8 +43,9 @@ jobs:
           echo "procs=$(nproc)" >> $GITHUB_ENV
 
       - name: Checkout Yosys
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4
+        with:
+         submodules: true
       - name: Build yosys
         shell: bash
         run: |

@@ -3,14 +3,32 @@ name: Build and run tests with Verific (Linux)
 on: [push, pull_request]
 
 jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md"]'
+          # don't cancel previous builds
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+          # we have special actions when running on main, so this should be off
+          skip_after_successful_duplicate: 'false'
+
   test-verific:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-
+          submodules: true
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV

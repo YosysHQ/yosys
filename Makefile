@@ -141,7 +141,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.41+0
+YOSYS_VER := 0.41+8
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -159,15 +159,6 @@ OBJS = kernel/version_$(GIT_REV).o
 bumpversion:
 	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline c1ad377.. | wc -l`/;" Makefile
 
-# set 'ABCREV = default' to use abc/ as it is
-#
-# Note: If you do ABC development, make sure that 'abc' in this directory
-# is just a symlink to your actual ABC working directory, as 'make mrproper'
-# will remove the 'abc' directory and you do not want to accidentally
-# delete your work on ABC..
-ABCREV = 237d813
-ABCPULL = 1
-ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
@@ -795,41 +786,43 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
-abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
+.PHONY: check-git-abc
+
+check-git-abc:
+	@if [ ! -d "$(YOSYS_SRC)/abc" ]; then \
+		echo "Error: The 'abc' directory does not exist."; \
+		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		exit 1; \
+	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
+		echo "'abc' is a git submodule. Continuing."; \
+		exit 0; \
+	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+		echo "'abc' comes from a tarball. Continuing."; \
+		exit 0; \
+	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+		echo "Error: 'abc' is not configured as a git submodule."; \
+		echo "To resolve this:"; \
+		echo "1. Back up your changes: Save any modifications from the 'abc' directory to another location."; \
+		echo "2. Remove the existing 'abc' directory: Delete the 'abc' directory and all its contents."; \
+		echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
+		exit 1; \
+	else \
+		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
+		exit 1; \
+	fi
+
+ABC_SOURCES := $(wildcard $(YOSYS_SRC)/abc/*)
+
+abc/abc$(EXE) abc/libabc.a: $(ABC_SOURCES) check-git-abc
 	$(P)
-ifneq ($(ABCREV),default)
-	$(Q) if test -d abc/.hg; then \
-		echo 'REEBE: NOP qverpgbel vf n ut jbexvat pbcl! Erzbir nop/ naq er-eha "znxr".' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
-	fi
-	$(Q) if test -d abc && test -d abc/.git && ! git -C abc diff-index --quiet HEAD; then \
-		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
-	fi
-	$(Q) if test -d abc && ! test -d abc/.git && ! test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
-		echo 'REEBE: Qbjaybnqrq NOP irefvbaf qbrf abg zngpu! Qbjaybnq sebz:' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; echo $(ABCURL)/archive/$(ABCREV).tar.gz; false; \
-	fi
-# set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
-	$(Q) if test -d abc && ! test -d abc/.git && test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
-		echo "Compiling local copy of ABC"; \
-	elif ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" = "$$rev"); then \
-		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
-		echo "Pulling ABC from $(ABCURL):"; set -x; \
-		test -d abc || git clone $(ABCURL) abc; \
-		cd abc && $(MAKE) DEP= clean && git fetch $(ABCURL) && git checkout $(ABCREV); \
-	fi
-endif
-	$(Q) rm -f abc/abc-[0-9a-f]*
-	$(Q) $(MAKE) -C abc $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc-$(ABCREV)",PROG="abc-$(ABCREV)$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc-$(ABCREV).a)
+	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
-ifeq ($(ABCREV),default)
-.PHONY: abc/abc-$(ABCREV)$(EXE)
-.PHONY: abc/libabc-$(ABCREV).a
-endif
+$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc$(EXE)
+	$(P) cp $< $(PROGRAM_PREFIX)yosys-abc$(EXE)
 
-$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
-	$(P) cp abc/abc-$(ABCREV)$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
-
-$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc-$(ABCREV).a
-	$(P) cp abc/libabc-$(ABCREV).a $(PROGRAM_PREFIX)yosys-libabc.a
+$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc.a
+	$(P) cp $< $(PROGRAM_PREFIX)yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -1146,9 +1139,6 @@ echo-yosys-ver:
 
 echo-git-rev:
 	@echo "$(GIT_REV)"
-
-echo-abc-rev:
-	@echo "$(ABCREV)"
 
 echo-cxx:
 	@echo "$(CXX)"
