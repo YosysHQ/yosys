@@ -84,8 +84,13 @@ struct CellCosts
 		return db;
 	}
 
-	unsigned int get(RTLIL::Module *mod);
+	// Get the cell cost for a cell based on its parameters.
+	// This cost is an upper bound for the number of gates the cell will
+	// get mapped to with "opt -fast; techmap"
 	unsigned int get(RTLIL::Cell *cell);
+	// Sum up the cell costs of all cells in the module
+	// and all its submodules recursively
+	unsigned int get(RTLIL::Module *mod);
 };
 
 YOSYS_NAMESPACE_END
