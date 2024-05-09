@@ -123,6 +123,8 @@ Makefile.
 	$ vi Makefile            # ..or..
 	$ vi Makefile.conf
 
+Initialize the `abc` submodule with `git submodule update --init`.
+
 To build Yosys simply type 'make' in this directory.
 
 	$ make

@@ -790,7 +790,7 @@ check-git-abc:
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
 	    echo "'abc' is a git submodule. Continuing."; \
 	    exit 0; \
-	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+	elif ([ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit") || [ -z "$(git submodule status | grep '^-' )" ]; then \
 	    echo "Error: 'abc' is not configured as a git submodule."; \
 	    echo "To resolve this:"; \
 	    echo "1. Back up your changes: Save any modifications from the 'abc' directory to another location."; \
