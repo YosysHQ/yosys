@@ -3382,9 +3382,13 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && (args[argidx] == "-auto_discover" || args[argidx] == "-hdl_sort"))
 		{
-			// Always operate in SystemVerilog mode (overriding not supported)
+			// Always operate in SystemVerilog mode
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			const char* arg = args[argidx].c_str();
+
+			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
+			hdl_file_sort::RemoveFileExt(".v");
+			hdl_file_sort::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
 
 			// Select analyze function
 			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
