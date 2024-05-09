@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
