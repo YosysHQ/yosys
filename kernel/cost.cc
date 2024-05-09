@@ -59,11 +59,8 @@ static unsigned int max_inp_coef(RTLIL::IdString type)
 		return 2;
 	} else if (type == ID($lcu)) {
 		return 5;
-	} else if (
-	  // comparison
-	  type.in(ID($lt), ID($le), ID($ge), ID($gt)) ||
-	  // others
-	  type == ID($sop)) {
+	} else if (type.in(ID($lt), ID($le), ID($ge), ID($gt))) {
+		// comparison
 		return 6;
 	}
 	return 0;
@@ -174,6 +171,11 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		unsigned int cost = 1U << (unsigned int)width;
 		log_debug("%s is 2**%d\n", cell->name.c_str(), width);
 		return cost;
+	} else if (cell->type == ID($sop)) {
+		int width = cell->getParam(ID::WIDTH).as_int();
+		int depth = cell->getParam(ID::DEPTH).as_int();
+		log_debug("%s is (2*%d + 1)*%d + %d\n", cell->name.c_str(), width, depth);
+		return (2 * width + 1) * depth;
 	} else if (is_free(cell->type)) {
 		log_debug("%s is free\n", cell->name.c_str());
 		return 0;
