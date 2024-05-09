@@ -3396,7 +3396,9 @@ struct VerificPass : public Pass {
 			// Remaining arguments are treated as search directories to add
 			// -f <FILE> and -F <FILE> are also supported, but must come AFTER
 			unsigned i;
-    	const char *file_name;
+			MapIter mi;
+			// SetIter si;
+    	const char *file_name, *dir_name, *key, *value;
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-f" || args[argidx] == "-F") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
@@ -3407,6 +3409,40 @@ struct VerificPass : public Pass {
 							log_cmd_error("Could not register file %s.\n", file_name);
 						}
 					}
+					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
+						if (!hdl_file_sort::RegisterDir(dir_name)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not register include directory %s.\n", dir_name);
+						}
+						hdl_file_sort::AddIncludeDir(dir_name);
+					}
+					FOREACH_ARRAY_ITEM(veri_file::GetAllYDirs(), i, dir_name) {
+						if (!hdl_file_sort::RegisterDir(dir_name)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not register -y directory %s.\n", dir_name);
+						}
+					}
+					FOREACH_ARRAY_ITEM(veri_file::GetAllVFiles(), i, file_name) {
+						if (!hdl_file_sort::RegisterFile(file_name)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not register -v file %s.\n", file_name);
+						}
+					}
+					FOREACH_MAP_ITEM(veri_file::AllMacroDefs(), mi, &key, &value) {
+						if (!hdl_file_sort::DefineMacro(key, value, veri_file::MacroArgs(key))) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not define macro %s with value %s.\n", key, value);
+						}
+					}
+					FOREACH_MAP_ITEM(veri_file::AllCmdLineMacros(), mi, &key, &value) {
+						if (!hdl_file_sort::DefineCmdLineMacro(key, value)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not define command line macro %s with value %s.\n", key, value);
+						}
+					}
+					// FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, key) {
+					// 	hdl_file_sort::AddLOption(key);
+					// }
 					delete file_names;
 				} else {
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
