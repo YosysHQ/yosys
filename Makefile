@@ -687,6 +687,12 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo "  Build successful."
 	@echo ""
 
+.PHONY: compile-only
+compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Compile successful."
+	@echo ""
+
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
 
@@ -975,7 +981,9 @@ clean:
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
-	$(MAKE) -C docs clean
+	-$(MAKE) -C docs clean
+	-$(MAKE) -C docs/images clean
+	rm -rf docs/source/cmd docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
