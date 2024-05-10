@@ -229,7 +229,7 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_bb.v +/nanoxplore/cells_bb" + postfix + ".v");
+			run("read_verilog -lib -specify +/nanoxplore/cells_sim.v +/nanoxplore/cells_sim" + postfix + ".v +/nanoxplore/cells_bb.v +/nanoxplore/cells_bb" + postfix + ".v");
 			run("techmap -map +/nanoxplore/cells_wrap.v");
 			run("techmap -map +/nanoxplore/cells_wrap" + postfix + ".v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
