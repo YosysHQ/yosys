@@ -495,7 +495,7 @@ LIBS += -lpthread
 endif
 else
 ifeq ($(ABCEXTERNAL),)
-TARGETS += $(PROGRAM_PREFIX)yosys-abc$(EXE)
+TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
 endif
 endif
