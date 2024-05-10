@@ -28,12 +28,12 @@
 //endmodule
 
 // Bypass mode of NX_GCK_U
-(* blackbox *)
-module NX_BD(I, O);
-    input I;
-    output O;
-    parameter mode = "global_lowskew";
-endmodule
+//(* blackbox *)
+//module NX_BD(I, O);
+//    input I;
+//    output O;
+//    parameter mode = "global_lowskew";
+//endmodule
 
 //(* blackbox *)
 //module NX_DFF(I, CK, L, R, O);
@@ -51,12 +51,11 @@ endmodule
 //endmodule
 
 // Special mode of NX_DFF
-(* blackbox *)
-module NX_BFF(I, O);
-    input I;
-    output O;
-endmodule
-
+//(* blackbox *)
+//module NX_BFF(I, O);
+//    input I;
+//    output O;
+//endmodule
 
 (* blackbox *)
 module NX_DFR(I, CK, L, R, O);
@@ -79,17 +78,17 @@ module NX_DFR(I, CK, L, R, O);
 endmodule
 
 // Special mode of NX_DFR
-(* blackbox *)
-module NX_BFR(I, O);
-    input I;
-    output O;
-    parameter data_inv = 1'b0;
-    parameter iobname = "";
-    parameter location = "";
-    parameter mode = 0;
-    parameter path = 0;
-    parameter ring = 0;
-endmodule
+//(* blackbox *)
+//module NX_BFR(I, O);
+//    input I;
+//    output O;
+//    parameter data_inv = 1'b0;
+//    parameter iobname = "";
+//    parameter location = "";
+//    parameter mode = 0;
+//    parameter path = 0;
+//    parameter ring = 0;
+//endmodule
 
 (* blackbox *)
 module NX_RAM(ACK, ACKC, ACKD, ACKR, BCK, BCKC, BCKD, BCKR, AI1, AI2, AI3, AI4, AI5, AI6, AI7, AI8, AI9, AI10, AI11, AI12, AI13

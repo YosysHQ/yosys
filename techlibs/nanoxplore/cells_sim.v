@@ -52,54 +52,6 @@ assign { CO,  S4 } = A4 + B4 + CO3;
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
-module NX_XRFB_64x18(input WCK, input [17:0] I, input [5:0] RA, WA, input WE, WEA, output [17:0] O);
-
-parameter wck_edge = 1'b0;
-parameter mem_ctxt = 1152'b0;
-
-reg [17:0] mem [63:0];
-
-integer i;
-initial begin
-	for (i = 0; i < 64; i = i + 1)
-		mem[i] = mem_ctxt[18*i +: 18];
-end
-
-wire clock = WCK ^ wck_edge;
-
-always @(posedge clock)
-	if (WE && WEA)
-		mem[WA] <= I;
-
-assign O = mem[RA];
-
-endmodule
-
-(* abc9_box, lib_whitebox *)
-module NX_XRFB_32x36(input WCK, input [35:0] I, input [4:0] RA, WA, input WE, WEA, output [35:0] O);
-
-parameter wck_edge = 1'b0;
-parameter mem_ctxt = 1152'b0;
-
-reg [35:0] mem [31:0];
-
-integer i;
-initial begin
-	for (i = 0; i < 32; i = i + 1)
-		mem[i] = mem_ctxt[36*i +: 36];
-end
-
-wire clock = WCK ^ wck_edge;
-
-always @(posedge clock)
-	if (WE && WEA)
-		mem[WA] <= I;
-
-assign O = mem[RA];
-
-endmodule
-
 module NX_IOB(I, C, T, O, IO);
     input C;
     input I;
@@ -204,4 +156,32 @@ module NX_CY_1BIT(CI, A, B, S, CO);
     parameter first = 1'b0;
 
     assign {CO, S} = A + B + CI;
+endmodule
+
+module NX_BD(I, O);
+    input I;
+    output O;
+    parameter mode = "global_lowskew";
+
+    assign O = I;
+endmodule
+
+module NX_BFF(I, O);
+    input I;
+    output O;
+
+    assign O = I;
+endmodule
+
+module NX_BFR(I, O);
+    input I;
+    output O;
+    parameter data_inv = 1'b0;
+    parameter iobname = "";
+    parameter location = "";
+    parameter mode = 0;
+    parameter path = 0;
+    parameter ring = 0;
+
+    assign O = data_inv ? ~I : I;
 endmodule
