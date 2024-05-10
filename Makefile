@@ -788,7 +788,6 @@ check-git-abc:
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		exit 1; \
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
-		echo "'abc' is a git submodule. Continuing."; \
 		exit 0; \
 	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "'abc' comes from a tarball. Continuing."; \
@@ -806,9 +805,7 @@ check-git-abc:
 		exit 1; \
 	fi
 
-ABC_SOURCES := $(wildcard $(YOSYS_SRC)/abc/*)
-
-abc/abc$(EXE) abc/libabc.a: $(ABC_SOURCES) check-git-abc
+abc/abc$(EXE) abc/libabc.a: check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
