@@ -3413,60 +3413,60 @@ struct VerificPass : public Pass {
 				if (args[argidx] == "-f" || args[argidx] == "-F") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
 					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
-					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
-						if (!hdl_file_sort::RegisterFile(file_name)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not register file %s.\n", file_name);
-						}
-						log("Auto-discovery: registered file %s from .f file processing\n", file_name);
-					}
 					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
 						if (!hdl_file_sort::RegisterDir(dir_name)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not register include directory %s.\n", dir_name);
 						}
 						hdl_file_sort::AddIncludeDir(dir_name);
-						log("Auto-discovery: registered include directory %s\n", dir_name);
+						log("AUTO-DISCOVER: registered include directory %s\n", dir_name);
 					}
 					FOREACH_ARRAY_ITEM(veri_file::GetAllYDirs(), i, dir_name) {
 						if (!hdl_file_sort::RegisterDir(dir_name)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not register -y directory %s.\n", dir_name);
 						}
-						log("Auto-discovery: registered -y directory %s\n", dir_name);
+						log("AUTO-DISCOVER: registered -y directory %s\n", dir_name);
 					}
 					FOREACH_ARRAY_ITEM(veri_file::GetAllVFiles(), i, file_name) {
 						if (!hdl_file_sort::RegisterFile(file_name)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not register -v file %s.\n", file_name);
 						}
-						log("Auto-discovery: registered -v directory %s\n", file_name);
+						log("AUTO-DISCOVER: registered -v file %s\n", file_name);
 					}
 					FOREACH_MAP_ITEM(veri_file::AllMacroDefs(), mi, &key, &value) {
 						if (!hdl_file_sort::DefineMacro(key, value, veri_file::MacroArgs(key))) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not define macro %s with value %s.\n", key, value);
 						}
-						log("Auto-discovery: registered definition of macro %s with value %s\n", key, value);
+						log("AUTO-DISCOVER: registered definition of macro %s with value %s\n", key, value);
 					}
 					FOREACH_MAP_ITEM(veri_file::AllCmdLineMacros(), mi, &key, &value) {
 						if (!hdl_file_sort::DefineCmdLineMacro(key, value)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not define command line macro %s with value %s.\n", key, value);
 						}
-						log("Auto-discovery: registered definition of command line macro %s with value %s\n", key, value);
+						log("AUTO-DISCOVER: registered definition of command line macro %s with value %s\n", key, value);
 					}
 					// FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, key) {
 					// 	hdl_file_sort::AddLOption(key);
-					// 	log("Auto-discovery: added -L option %s\n", key);
+					// 	log("AUTO-DISCOVER: added -L option %s\n", key);
 					// }
+					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
+						if (!hdl_file_sort::RegisterFile(file_name)) {
+							verific_error_msg.clear();
+							log_cmd_error("Could not register file %s.\n", file_name);
+						}
+						log("AUTO-DISCOVER: registered file %s from .f file processing\n", file_name);
+					}
 					delete file_names;
 				} else {
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
 						verific_error_msg.clear();
 						log_cmd_error("Could not register directory %s.\n", args[argidx].c_str());
 					}
-					log("Auto-discovery: registered directory %s specified in config.options.search_dirs\n", args[argidx].c_str());
+					log("AUTO-DISCOVER: registered directory %s specified in config.options.search_dirs\n", args[argidx].c_str());
 				}
 			}
 
