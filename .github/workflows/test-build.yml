@@ -33,6 +33,8 @@ jobs:
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
+    needs: pre_docs_job
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
     env:
       CC: clang
     strategy:
