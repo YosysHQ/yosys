@@ -122,7 +122,7 @@ Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
 Our ``addr_gen`` circuit now looks like this:
 
 .. figure:: /_images/code_examples/fifo/addr_gen_hier.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: addr_gen_hier
 
    ``addr_gen`` module after :cmd:ref:`hierarchy`
@@ -145,7 +145,7 @@ we run it.  For now, we will call :yoscrypt:`proc -noopt` to prevent some
 automatic optimizations which would normally happen.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_proc.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: addr_gen_proc
 
    ``addr_gen`` module after :yoscrypt:`proc -noopt`
@@ -166,7 +166,7 @@ the same time by separating them with a colon and space: :yoscrypt:`opt_expr;
 clean`.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_clean.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: addr_gen_clean
 
    ``addr_gen`` module after :yoscrypt:`opt_expr; clean`
@@ -252,7 +252,7 @@ command only works with a single module, so you may need to call it with
 :doc:`/getting_started/scripting_intro` has more on how to use :cmd:ref:`show`.
 
 .. figure:: /_images/code_examples/fifo/rdata_proc.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_proc
 
    ``rdata`` output after :cmd:ref:`proc`
@@ -298,7 +298,7 @@ optimizations between modules which would otherwise be missed.  Let's run
    :caption: output of :yoscrypt:`flatten;;`
 
 .. figure:: /_images/code_examples/fifo/rdata_flat.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_flat
 
    ``rdata`` output after :yoscrypt:`flatten;;`
@@ -385,7 +385,7 @@ options is able to fold one of the ``$mux`` cells into the ``$adff`` to form an
    :caption: output of :cmd:ref:`opt_dff`
 
 .. figure:: /_images/code_examples/fifo/rdata_adffe.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_adffe
 
    ``rdata`` output after :cmd:ref:`opt_dff`
@@ -424,7 +424,7 @@ the schematic and see the output of that cell has now changed.
 .. todo:: pending bugfix in :cmd:ref:`wreduce` and/or :cmd:ref:`opt_clean`
 
 .. figure:: /_images/code_examples/fifo/rdata_wreduce.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_wreduce
 
    ``rdata`` output after :cmd:ref:`wreduce`
@@ -446,7 +446,7 @@ Our next command to run is
    :caption: output of :cmd:ref:`memory_dff`
 
 .. figure:: /_images/code_examples/fifo/rdata_memrdv2.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_memrdv2
 
    ``rdata`` output after :cmd:ref:`memory_dff`
@@ -535,7 +535,7 @@ example design:
    :caption: output of :cmd:ref:`alumacc`
 
 .. figure:: /_images/code_examples/fifo/rdata_alumacc.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_alumacc
 
    ``rdata`` output after :cmd:ref:`alumacc`
@@ -553,7 +553,7 @@ operating on the same memory only in the abstract. :cmd:ref:`memory_collect`
 combines all of the reads and writes for a memory block into a single cell.
 
 .. figure:: /_images/code_examples/fifo/rdata_coarse.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_coarse
 
    ``rdata`` output after :cmd:ref:`memory_collect`
@@ -604,7 +604,7 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap` and
    :caption: ``map_ram`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_ram.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_ram
 
    ``rdata`` output after :ref:`map_ram`
@@ -646,7 +646,7 @@ into flip flops (the ``logic fallback``) with :cmd:ref:`memory_map`.
    :caption: ``map_ffram`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_ffram.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_ffram
 
    ``rdata`` output after :ref:`map_ffram`
@@ -682,7 +682,7 @@ replaced with single-bit ``$_MUX_`` and ``$_DFFE_PP0P_`` cells, while the
    :caption: ``map_gates`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_gates.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_gates
 
    ``rdata`` output after :ref:`map_gates`
@@ -711,7 +711,7 @@ instead with an ``$_AND_`` cell.
    :caption: ``map_ffs`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_ffs.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_ffs
 
    ``rdata`` output after :ref:`map_ffs`
@@ -737,7 +737,7 @@ what the difference between these two commands are, refer to
    :caption: ``map_luts`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_luts.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_luts
 
    ``rdata`` output after :ref:`map_luts`
@@ -754,7 +754,7 @@ Finally we use :cmd:ref:`techmap` to map the generic ``$lut`` cells to iCE40
    :caption: ``map_cells`` section
 
 .. figure:: /_images/code_examples/fifo/rdata_map_cells.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: rdata_map_cells
 
    ``rdata`` output after :ref:`map_cells`

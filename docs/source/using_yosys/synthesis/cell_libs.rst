@@ -51,7 +51,7 @@ Loading the design
 Our circuit now looks like this:
 
 .. figure:: /_images/code_examples/intro/counter_00.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: counter-hierarchy
 
    ``counter`` after :cmd:ref:`hierarchy`
@@ -66,7 +66,7 @@ Coarse-grain representation
    :caption: :file:`counter.ys` - the high-level stuff
 
 .. figure:: /_images/code_examples/intro/counter_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Coarse-grain representation of the ``counter`` module
 
@@ -80,7 +80,7 @@ Logic gate mapping
    :caption: :file:`counter.ys` - mapping to internal cell library
 
 .. figure:: /_images/code_examples/intro/counter_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    ``counter`` after :cmd:ref:`techmap`
 
@@ -111,7 +111,7 @@ Recall that the Yosys built-in logic gate types are ``$_NOT_``, ``$_AND_``,
 The final version of our ``counter`` module looks like this:
 
 .. figure:: /_images/code_examples/intro/counter_03.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    ``counter`` after hardware cell mapping
 
