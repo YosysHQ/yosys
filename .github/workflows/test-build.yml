@@ -62,10 +62,6 @@ jobs:
         run: |
           ./yosys-config || true
 
-      - name: Log yosys-config output
-        run: |
-          ./yosys-config || true
-
       - name: Compress build
         shell: bash
         run: |
