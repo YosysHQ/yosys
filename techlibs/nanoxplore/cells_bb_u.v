@@ -1,15 +1,4 @@
 (* blackbox *)
-module NX_GCK_U(SI1, SI2, CMD, SO);
-    input CMD;
-    input SI1;
-    input SI2;
-    output SO;
-    parameter inv_in = 1'b0;
-    parameter inv_out = 1'b0;
-    parameter std_mode = "BYPASS";
-endmodule
-
-(* blackbox *)
 module NX_CDC_U(CK1, CK2, ASRSTI, ADRSTI, ASRSTO, ADRSTO, AI1, AI2, AI3, AI4, AI5, AI6, AO1, AO2, AO3, AO4, AO5, AO6, BSRSTI, BDRSTI, BSRSTO
 , BDRSTO, BI1, BI2, BI3, BI4, BI5, BI6, BO1, BO2, BO3, BO4, BO5, BO6, CSRSTI, CDRSTI, CSRSTO, CDRSTO, CI1, CI2, CI3, CI4
 , CI5, CI6, CO1, CO2, CO3, CO4, CO5, CO6, DSRSTI, DDRSTI, DSRSTO, DDRSTO, DI1, DI2, DI3, DI4, DI5, DI6, DO1, DO2, DO3
