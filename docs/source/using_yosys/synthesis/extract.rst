@@ -23,7 +23,7 @@ Example code can be found in |code_examples/macc|_.
     :lines: 1-2
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_00a.*
-    :class: width-helper
+    :class: width-helper invert-helper
     
     before :cmd:ref:`extract`
 
@@ -32,7 +32,7 @@ Example code can be found in |code_examples/macc|_.
     :lines: 6
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_00b.*
-    :class: width-helper
+    :class: width-helper invert-helper
     
     after :cmd:ref:`extract`
 
@@ -49,20 +49,20 @@ Example code can be found in |code_examples/macc|_.
    :caption: :file:`macc_simple_test_01.v`
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_01a.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_01b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_02.v
    :language: verilog
    :caption: :file:`macc_simple_test_02.v`
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_02a.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_02b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 The wrap-extract-unwrap method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -149,10 +149,10 @@ Unwrapping adders: :file:`macc_xilinx_unwrap_map.v`
    :caption: ``test1`` of :file:`macc_xilinx_test.v`
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1a.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
@@ -160,15 +160,15 @@ Unwrapping adders: :file:`macc_xilinx_unwrap_map.v`
    :caption: ``test2`` of :file:`macc_xilinx_test.v`
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2a.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 Wrapping in ``test1``:
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
     :language: yoscrypt
@@ -176,12 +176,12 @@ Wrapping in ``test1``:
     :end-before: end part c
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1c.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 Wrapping in ``test2``:
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2b.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
     :language: yoscrypt
@@ -189,12 +189,12 @@ Wrapping in ``test2``:
     :end-before: end part c
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2c.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 Extract in ``test1``:
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1c.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
     :language: yoscrypt
@@ -202,12 +202,12 @@ Extract in ``test1``:
     :end-before: end part d
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1d.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 Extract in ``test2``:
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2c.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
     :language: yoscrypt
@@ -215,12 +215,12 @@ Extract in ``test2``:
     :end-before: end part d
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2d.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 Unwrap in ``test2``:
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2d.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
     :language: yoscrypt
@@ -228,4 +228,4 @@ Unwrap in ``test2``:
     :end-before: end part e
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2e.*
-    :class: width-helper
+    :class: width-helper invert-helper

@@ -108,7 +108,7 @@ what the different symbols represent, see :ref:`interactive_show` and the
 :doc:`/using_yosys/more_scripting/interactive_investigation` page.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_show.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: addr_gen_show
 
    Calling :yoscrypt:`show addr_gen` after :cmd:ref:`hierarchy`
@@ -158,7 +158,7 @@ selection<select_new_cells>` and called it ``new_cells``?  We saw in the
 ``$eq``.  We can call :cmd:ref:`show` on that selection just as easily:
 
 .. figure:: /_images/code_examples/fifo/new_cells_show.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: new_cells_show
 
    Calling :yoscrypt:`show -notitle @new_cells`
@@ -173,7 +173,7 @@ the two ``PROC`` blocks.  To achieve this highlight, we make use of the
 :yoscrypt:`-color` option:
 
 .. figure:: /_images/code_examples/fifo/addr_gen_hier.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Calling :yoscrypt:`show -color maroon3 @new_cells -color cornflowerblue p:* -notitle`
 

@@ -88,7 +88,7 @@ trees can interfere with other optimizations.
    :caption: example verilog for demonstrating :cmd:ref:`opt_expr`
 
 .. figure:: /_images/code_examples/opt/opt_expr.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Before and after :cmd:ref:`opt_expr`
 
@@ -111,7 +111,7 @@ possible optimizations.
    :caption: example verilog for demonstrating :cmd:ref:`opt_merge`
 
 .. figure:: /_images/code_examples/opt/opt_merge.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Before and after :cmd:ref:`opt_merge`
 
@@ -133,7 +133,7 @@ detects this contradiction and replaces the inner multiplexer with a constant 1,
 yielding the logic for ``y = a ? b : d``.
 
 .. figure:: /_images/code_examples/opt/opt_muxtree.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Before and after :cmd:ref:`opt_muxtree`
 
@@ -172,7 +172,7 @@ multiplexing its output to multiplexing the non-shared input signals.
    :caption: example verilog for demonstrating :cmd:ref:`opt_share`
 
 .. figure:: /_images/code_examples/opt/opt_share.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Before and after :cmd:ref:`opt_share`
 

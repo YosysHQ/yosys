@@ -151,7 +151,7 @@ extensible and therefore is a good basis for implementing custom synthesis tools
 for specialised tasks.
 
 .. figure:: /_images/primer/levels_of_abstraction.*
-    :class: width-helper
+    :class: width-helper invert-helper
     :name: fig:Levels_of_abstraction
 
     Where Yosys exists in the layers of abstraction

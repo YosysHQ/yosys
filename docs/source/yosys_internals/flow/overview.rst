@@ -42,7 +42,7 @@ possible it is key that (1) all passes operate on the same data structure
 design in different stages of the synthesis.
 
 .. figure:: /_images/internals/overview_flow.*
-	:class: width-helper
+	:class: width-helper invert-helper
 	:name: fig:Overview_flow
 
 	Yosys simplified data flow (ellipses: data structures, rectangles:
