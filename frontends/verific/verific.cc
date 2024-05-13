@@ -3437,17 +3437,11 @@ struct VerificPass : public Pass {
 						log("AUTO-DISCOVER: registered -v file %s\n", file_name);
 					}
 					FOREACH_MAP_ITEM(veri_file::AllMacroDefs(), mi, &key, &value) {
-						if (!hdl_file_sort::DefineMacro(key, value, veri_file::MacroArgs(key))) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not define macro %s with value %s.\n", key, value);
-						}
+						hdl_file_sort::DefineMacro(key, value, veri_file::MacroArgs(key));
 						log("AUTO-DISCOVER: registered definition of macro %s with value %s\n", key, value);
 					}
 					FOREACH_MAP_ITEM(veri_file::AllCmdLineMacros(), mi, &key, &value) {
-						if (!hdl_file_sort::DefineCmdLineMacro(key, value)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not define command line macro %s with value %s.\n", key, value);
-						}
+						hdl_file_sort::DefineCmdLineMacro(key, value);
 						log("AUTO-DISCOVER: registered definition of command line macro %s with value %s\n", key, value);
 					}
 					// FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, key) {
