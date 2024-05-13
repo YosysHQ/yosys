@@ -688,6 +688,7 @@ Let ``\WIDTH`` be 3. We would like to represent ``\Y =~\A[0] + \A[1]~\A[2]``.
 There are 2 products to be summed, so ``\DEPTH`` shall be 2.
 
 .. code-block::
+
 	~A[2]-----┐
 	 A[2]----┐|
 	~A[1]---┐||
