@@ -25,12 +25,14 @@ static unsigned int y_coef(RTLIL::IdString type)
 	  // basic logic
 	  type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($not)) ||
 	  // mux
-	  type.in(ID($bwmux), ID($mux), ID($demux)) ||
+	  type.in(ID($bwmux), ID($mux)) ||
 	  // others
 	  type == ID($tribuf)) {
 		return 1;
 	} else if (type == ID($neg)) {
 		return 4;
+	} else if (type == ID($demux)) {
+		return 2;
 	} else if (type == ID($fa)) {
 		return 5;
 	} else if (type.in(ID($add), ID($sub), ID($alu))) {
@@ -61,7 +63,7 @@ static unsigned int max_inp_coef(RTLIL::IdString type)
 		return 5;
 	} else if (type.in(ID($lt), ID($le), ID($ge), ID($gt))) {
 		// comparison
-		return 6;
+		return 7;
 	}
 	return 0;
 }
@@ -109,6 +111,9 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 	  ID::S_WIDTH,
 	};
 
+	if (cell->type == ID($bmux))
+		return cell->getParam(ID::WIDTH).as_int() << cell->getParam(ID::S_WIDTH).as_int();
+
 	for (RTLIL::IdString param : input_width_params)
 		if (cell->hasParam(param))
 			max = std::max(max, (unsigned int)cell->getParam(param).as_int());
@@ -148,6 +153,8 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		log_assert((cell->hasParam(ID::Y_WIDTH) || cell->hasParam(ID::WIDTH)) && "Unknown width");
 		auto param = cell->hasParam(ID::Y_WIDTH) ? ID::Y_WIDTH : ID::WIDTH;
 		int width = cell->getParam(param).as_int();
+		if (cell->type == ID($demux))
+			width <<= cell->getParam(ID::S_WIDTH).as_int();
 		log_debug("%s Y*coef %d * %d\n", cell->name.c_str(), width, y_coef(cell->type));
 		return width * y_coef(cell->type);
 	} else if (sum_coef(cell->type)) {
@@ -174,13 +181,13 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 	} else if (cell->type == ID($sop)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		int depth = cell->getParam(ID::DEPTH).as_int();
-		log_debug("%s is (2*%d + 1)*%d + %d\n", cell->name.c_str(), width, depth);
+		log_debug("%s is (2*%d + 1)*%d\n", cell->name.c_str(), width, depth);
 		return (2 * width + 1) * depth;
 	} else if (is_free(cell->type)) {
 		log_debug("%s is free\n", cell->name.c_str());
 		return 0;
 	}
-	// TODO: $fsm $mem.*
+	// TODO: $fsm $mem.* $macc
 	// ignored: $pow
 
 	log_warning("Can't determine cost of %s cell (%d parameters).\n", log_id(cell->type), GetSize(cell->parameters));
