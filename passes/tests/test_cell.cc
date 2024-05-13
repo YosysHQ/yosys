@@ -755,6 +755,9 @@ struct TestCellPass : public Pass {
 		log("    -noeval\n");
 		log("        do not check const-eval models\n");
 		log("\n");
+		log("    -noopt\n");
+		log("        do not opt tecchmapped design\n");
+		log("\n");
 		log("    -edges\n");
 		log("        test cell edges db creator against sat-based implementation\n");
 		log("\n");
@@ -782,6 +785,7 @@ struct TestCellPass : public Pass {
 		bool constmode = false;
 		bool nosat = false;
 		bool noeval = false;
+		bool noopt = false;
 		bool edges = false;
 		bool check_cost = false;
 
@@ -835,6 +839,10 @@ struct TestCellPass : public Pass {
 			}
 			if (args[argidx] == "-noeval") {
 				noeval = true;
+				continue;
+			}
+			if (args[argidx] == "-noopt") {
+				noopt = true;
 				continue;
 			}
 			if (args[argidx] == "-edges") {
@@ -982,7 +990,13 @@ struct TestCellPass : public Pass {
 
 		std::vector<std::string> uut_names;
 
-		for (auto cell_type : selected_cell_types)
+		for (auto cell_type : selected_cell_types) {
+			// Cells that failed cell cost check
+			int failed = 0;
+			// How much bigger is the worst offender than estimated?
+			int worst_abs = 0;
+			// How many times is it bigger than estimated?
+			float worst_rel = 0.0;
 			for (int i = 0; i < num_iter; i++)
 			{
 				Cell* uut = nullptr;
@@ -997,7 +1011,9 @@ struct TestCellPass : public Pass {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
 				} else {
-					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
+					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..", techmap_cmd.c_str()));
+					if (!noopt)
+						Pass::call(design, "opt -fast gate");
 					if (!nosat)
 						Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
 					if (verbose)
@@ -1032,9 +1048,11 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								// correct
 								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
 							} else {
+								failed++;
+								worst_abs = num_cells - num_cells_estimate;
+								worst_rel = (num_cells - num_cells_estimate) / num_cells;
 								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
 							}
 						}
@@ -1042,7 +1060,11 @@ struct TestCellPass : public Pass {
 				}
 				delete design;
 			}
-
+			if (check_cost && failed) {
+				log_warning("Cell type %s failed in %.1f%% cases with worse offender being by %d (%.1f%%)\n", cell_type.c_str(),
+					    100 * (float)failed / (float)num_iter, worst_abs, 100 * worst_rel);
+			}
+		}
 		if (vlog_file.is_open()) {
 			vlog_file << "\nmodule testbench;\n";
 			for (auto &uut : uut_names)
