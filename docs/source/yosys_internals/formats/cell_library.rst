@@ -689,14 +689,15 @@ There are 2 products to be summed, so ``\DEPTH`` shall be 2.
 
 .. code-block::
 
-	~A[2]-----┐
-	 A[2]----┐|
-	~A[1]---┐||
-	 A[1]--┐|||
-	~A[0]-┐||||
-	 A[0]┐||||| product formula
-	     010000 ~\A[0]
-	     001001 \A[1]~\A[2]
+    ~A[2]-----+
+     A[2]----+|
+    ~A[1]---+||
+     A[1]--+|||
+    ~A[0]-+||||
+     A[0]+||||| 
+         |||||| product formula
+         010000 ~\A[0]
+         001001 \A[1]~\A[2]
 
 So the value of ``\TABLE`` will become ``010000001001``.
 
