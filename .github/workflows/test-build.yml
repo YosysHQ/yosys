@@ -16,12 +16,25 @@ jobs:
           cancel_others: 'true'
           # only run on push *or* pull_request, not both
           concurrent_skipping: 'same_content_newer'
+  pre_docs_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md"]'
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
 
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
-    needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: pre_docs_job
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
     env:
       CC: clang
     strategy:
@@ -44,10 +57,6 @@ jobs:
           cd build
           make -f ../Makefile config-$CC
           make -f ../Makefile -j$procs
-
-      - name: Log yosys-config output
-        run: |
-          ./yosys-config || true
 
       - name: Log yosys-config output
         run: |
@@ -137,8 +146,8 @@ jobs:
   test-docs:
     name: Run docs tests
     runs-on: ${{ matrix.os }}
-    needs: [build-yosys, pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: [build-yosys, pre_docs_job]
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
     env:
       CC: clang
     strategy:
