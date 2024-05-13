@@ -1051,8 +1051,10 @@ struct TestCellPass : public Pass {
 								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
 							} else {
 								failed++;
-								worst_abs = num_cells - num_cells_estimate;
-								worst_rel = (num_cells - num_cells_estimate) / num_cells;
+								if (worst_abs < num_cells - num_cells_estimate) {
+									worst_abs = num_cells - num_cells_estimate;
+									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
+								}
 								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
 							}
 						}
@@ -1061,7 +1063,7 @@ struct TestCellPass : public Pass {
 				delete design;
 			}
 			if (check_cost && failed) {
-				log_warning("Cell type %s failed in %.1f%% cases with worse offender being by %d (%.1f%%)\n", cell_type.c_str(),
+				log_warning("Cell type %s failed in %.1f%% cases with worst offender being by %d (%.1f%%)\n", cell_type.c_str(),
 					    100 * (float)failed / (float)num_iter, worst_abs, 100 * worst_rel);
 			}
 		}
