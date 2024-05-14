@@ -3394,6 +3394,9 @@ struct VerificPass : public Pass {
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			const char* arg = args[argidx].c_str();
 
+			// Ignore translate_off statements
+			hdl_file_sort::SetIgnoreTranslateOff(0);
+
 			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
 			hdl_file_sort::RemoveFileExt(".v");
 			hdl_file_sort::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
