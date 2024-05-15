@@ -1,0 +1,55 @@
+name: Documentation Report
+description: Report a problem with the Yosys documentation
+labels: ["pending-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+
+        If you have a general question, please ask it in the [Discussions](https://github.com/YosysHQ/yosys/discussions) area
+        or join our [IRC Channel](https://web.libera.chat/#yosys) or [Community Slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
+
+
+        If you have found a bug in Yosys, or in building the documentation,
+        please fill out the Bug Report issue form, this form is for problems
+        with the live documentation on [Read the
+        Docs](https://yosyshq.readthedocs.io/projects/yosys/).  Please only
+        report problems that appear on the latest version of the documentation.
+
+
+        Please contact [YosysHQ GmbH](https://www.yosyshq.com/) if you need
+        commercial support for Yosys.
+
+  - type: input
+    id: docs_url
+    attributes:
+      label: Link to page
+      description: "Please provide a link to the page where the problem was found."
+      placeholder: "e.g. https://yosyshq.readthedocs.io/projects/yosys/"
+    validations:
+      required: true
+
+  - type: input
+    id: build_number
+    attributes:
+      label: Build number
+      description: "If possible, please provide the latest build number from https://readthedocs.org/projects/yosys/builds/."
+      placeholder: "e.g. Build #24078236"
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Issue
+      description: "Please describe what is incorrect, invalid, or missing."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: "If applicable, please describe what should appear instead."
+    validations:
+      required: false

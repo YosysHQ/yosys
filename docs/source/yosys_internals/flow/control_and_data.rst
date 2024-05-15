@@ -10,7 +10,7 @@ and generating the data for the next subsystem (see :numref:`Fig. %s
 <fig:approach_flow>`).
 
 .. figure:: /_images/internals/approach_flow.*
-	:class: width-helper
+	:class: width-helper invert-helper
 	:name: fig:approach_flow
 
 	General data- and control-flow of a synthesis tool

@@ -38,7 +38,7 @@ This document will focus on the much simpler version of RTLIL left after the
 commands :cmd:ref:`proc` and :cmd:ref:`memory` (or :yoscrypt:`memory -nomap`):
 
 .. figure:: /_images/internals/simplified_rtlil.*
-    :class: width-helper
+    :class: width-helper invert-helper
     :name: fig:Simplified_RTLIL
 
     Simplified RTLIL entity-relationship diagram without memories and processes
@@ -140,7 +140,7 @@ We'll do the same as before and format it as a a ``Yosys::Pass``.
 And if we look at the schematic for this new module we see the following:
 
 .. figure:: /_images/code_examples/extensions/test1.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Output of ``yosys -m ./my_cmd.so -p 'test1; show'``
 

@@ -2,7 +2,6 @@ CONFIG := none
 # CONFIG := clang
 # CONFIG := gcc
 # CONFIG := afl-gcc
-# CONFIG := emcc
 # CONFIG := wasi
 # CONFIG := mxe
 # CONFIG := msys2-32
@@ -141,7 +140,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.41+24
+YOSYS_VER := 0.41+83
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -253,45 +252,6 @@ CXX = g++
 CXXFLAGS += -std=gnu++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
-else ifeq ($(CONFIG),emcc)
-CXX = emcc
-CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
-EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
-EMCC_LINKFLAGS := --embed-file share
-EMCC_LINKFLAGS += -s NO_EXIT_RUNTIME=1
-EMCC_LINKFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
-EMCC_LINKFLAGS += -s TOTAL_MEMORY=134217728
-EMCC_LINKFLAGS += -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
-# https://github.com/kripken/emscripten/blob/master/src/settings.js
-CXXFLAGS += $(EMCC_CXXFLAGS)
-LINKFLAGS += $(EMCC_LINKFLAGS)
-LIBS =
-EXE = .js
-
-DISABLE_SPAWN := 1
-
-TARGETS := $(filter-out $(PROGRAM_PREFIX)yosys-config,$(TARGETS))
-EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
-
-ifeq ($(ENABLE_ABC),1)
-LINK_ABC := 1
-DISABLE_ABC_THREADS := 1
-endif
-
-viz.js:
-	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
-	mv viz.js.part viz.js
-
-yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
-	rm -rf yosysjs-$(YOSYS_VER) yosysjs-$(YOSYS_VER).zip
-	mkdir -p yosysjs-$(YOSYS_VER)
-	cp viz.js misc/yosysjs/* yosys.js yosys.wasm yosysjs-$(YOSYS_VER)/
-	zip -r yosysjs-$(YOSYS_VER).zip yosysjs-$(YOSYS_VER)
-
-yosys.html: misc/yosys.html
-	$(P) cp misc/yosys.html yosys.html
-
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
 CXX = clang++
@@ -356,7 +316,7 @@ CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64, none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, mxe, msys2-32, msys2-64, none)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -501,7 +461,7 @@ LIBS += -lpthread
 endif
 else
 ifeq ($(ABCEXTERNAL),)
-TARGETS += $(PROGRAM_PREFIX)yosys-abc$(EXE)
+TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
 endif
 endif
@@ -733,9 +693,11 @@ top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo "  Build successful."
 	@echo ""
 
-ifeq ($(CONFIG),emcc)
-yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
-endif
+.PHONY: compile-only
+compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Compile successful."
+	@echo ""
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
@@ -794,7 +756,6 @@ check-git-abc:
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		exit 1; \
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
-		echo "'abc' is a git submodule. Continuing."; \
 		exit 0; \
 	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "'abc' comes from a tarball. Continuing."; \
@@ -812,9 +773,7 @@ check-git-abc:
 		exit 1; \
 	fi
 
-ABC_SOURCES := $(wildcard $(YOSYS_SRC)/abc/*)
-
-abc/abc$(EXE) abc/libabc.a: $(ABC_SOURCES) check-git-abc
+abc/abc$(EXE) abc/libabc.a: check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
@@ -1028,7 +987,9 @@ clean:
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
-	$(MAKE) -C docs clean
+	-$(MAKE) -C docs clean
+	-$(MAKE) -C docs/images clean
+	rm -rf docs/source/cmd docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
@@ -1090,14 +1051,6 @@ config-gcc-static: clean
 
 config-afl-gcc: clean
 	echo 'CONFIG := afl-gcc' > Makefile.conf
-
-config-emcc: clean
-	echo 'CONFIG := emcc' > Makefile.conf
-	echo 'ENABLE_TCL := 0' >> Makefile.conf
-	echo 'ENABLE_ABC := 0' >> Makefile.conf
-	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
-	echo 'ENABLE_READLINE := 0' >> Makefile.conf
-	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
 
 config-wasi: clean
 	echo 'CONFIG := wasi' > Makefile.conf

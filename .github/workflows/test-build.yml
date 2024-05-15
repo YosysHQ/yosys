@@ -1,0 +1,181 @@
+name: Build and run tests
+
+on: [push, pull_request]
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+  pre_docs_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md"]'
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+
+  build-yosys:
+    name: Reusable build
+    runs-on: ${{ matrix.os }}
+    needs: pre_docs_job
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          make -f ../Makefile config-$CC
+          make -f ../Makefile -j$procs
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Compress build
+        shell: bash
+        run: |
+          cd build
+          tar -cvf ../build.tar share/ yosys yosys-*
+
+      - name: Store build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build.tar
+          retention-days: 1
+
+  test-yosys:
+    name: Run tests
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Get iverilog
+        shell: bash
+        run: |
+          git clone https://github.com/steveicarus/iverilog.git
+          cd iverilog
+          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Cache iverilog
+        id: cache-iverilog
+        uses: actions/cache@v4
+        with:
+          path: .local/
+          key: ${{ matrix.os }}-${{ env.IVERILOG_GIT }}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p ${{ github.workspace }}/.local/
+          cd iverilog
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
+          make -j$procs
+          make install
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+
+      - name: Report errors
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          find tests/**/*.err -print -exec cat {} \;
+
+  test-docs:
+    name: Run docs tests
+    runs-on: ${{ matrix.os }}
+    needs: [build-yosys, pre_docs_job]
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -C docs test -j${{ env.procs }}
