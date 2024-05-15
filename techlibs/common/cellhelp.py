@@ -22,18 +22,14 @@ class SimHelper:
             "name", "title", "ports", "source", "desc", "code", "ver",
         ]
         # generate C++ struct
-        val = "tempCell = {\n"
+        val = f"cell_help[{json.dumps(self.name)}] = "
+        val += "{\n"
         for field in printed_fields:
             field_val = getattr(self, field)
             if isinstance(field_val, list):
                 field_val = "\n".join(field_val)
             val += f'  {json.dumps(field_val)},\n'
         val += "};\n"
-
-        # map name to struct
-        val += f'cell_help[{json.dumps(self.name)}] = tempCell;'
-        val += "\n"
-        val += f'cell_code[{json.dumps(self.name + "+")}] = tempCell;'
         return val
 
 def simcells_reparse(cell: SimHelper):

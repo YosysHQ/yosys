@@ -766,15 +766,23 @@ struct SimHelper {
 	string ver;
 };
 
+static bool is_code_getter(string name) {
+	return *(--(name.end())) == '+';
+}
+
+static string get_cell_name(string name) {
+	return is_code_getter(name) ? name.substr(0, name.length()-1) : name;
+}
+
 static struct CellHelpMessages {
-	dict<string, SimHelper> cell_help, cell_code;
+	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
-		SimHelper tempCell;
 #include "techlibs/common/simlib_help.inc"
 #include "techlibs/common/simcells_help.inc"
 		cell_help.sort();
-		cell_code.sort();
 	}
+	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }
+	SimHelper get(string name) { return cell_help[get_cell_name(name)]; }
 } cell_help_messages;
 
 struct HelpPass : public Pass {
@@ -884,7 +892,7 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
-	void write_cell_rst(Yosys::SimHelper cell)
+	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType)
 	{
 		// open
 		FILE *f = fopen(stringf("docs/source/cell/%s.rst", cell.filesafe_name().c_str()).c_str(), "wt");
@@ -985,9 +993,20 @@ struct HelpPass : public Pass {
 					write_cmd_rst(it.first, it.second->short_help, buf.str());
 				}
 			}
+			// this option is also undocumented as it is for internal use only
 			else if (args[1] == "-write-rst-cells-manual") {
-				for (auto &it : cell_help_messages.cell_help) {
-					write_cell_rst(it.second);
+				bool raise_error = false;
+				for (auto &it : yosys_celltypes.cell_types) {
+					auto name = it.first.str();
+					if (cell_help_messages.contains(name)) {
+						write_cell_rst(cell_help_messages.get(name), it.second);
+					} else {
+						log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
+						raise_error |= true;
+					}
+				}
+				if (raise_error) {
+					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
 				}
 			}
 			else if (pass_register.count(args[1])) {
@@ -998,28 +1017,26 @@ struct HelpPass : public Pass {
 					log("\n");
 				}
 			}
-			else if (cell_help_messages.cell_help.count(args[1])) {
-				SimHelper help_cell = cell_help_messages.cell_help.at(args[1]);
-				if (help_cell.ver == "2" || help_cell.ver == "2a") {
-					log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
-					if (help_cell.title != "") log("%s\n", help_cell.title.c_str());
-					std::stringstream ss;
-					ss << help_cell.desc;
-					for (std::string line; std::getline(ss, line, '\n');) {
-						if (line != "::") log("%s\n", line.c_str());
+			else if (cell_help_messages.contains(args[1])) {
+				auto help_cell = cell_help_messages.get(args[1]);
+				if (is_code_getter(args[1])) {
+						log("\n");
+						log("%s\n", help_cell.code.c_str());
+				} else {
+					if (help_cell.ver == "2" || help_cell.ver == "2a") {
+						log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
+						if (help_cell.title != "") log("%s\n", help_cell.title.c_str());
+						std::stringstream ss;
+						ss << help_cell.desc;
+						for (std::string line; std::getline(ss, line, '\n');) {
+							if (line != "::") log("%s\n", line.c_str());
+						}
+					} else {
+						log("%s\n", help_cell.desc.c_str());
 					}
 					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
 					log("\n");
-				} else {
-					log("%s\n", help_cell.desc.c_str());
-					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
-					log("\n");
 				}
-			}
-			else if (cell_help_messages.cell_code.count(args[1])) {
-				SimHelper help_cell = cell_help_messages.cell_code.at(args[1]);
-				log("\n");
-				log("%s\n", help_cell.code.c_str());
 			}
 			else
 				log("No such command or cell type: %s\n", args[1].c_str());
