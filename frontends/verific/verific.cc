@@ -3469,6 +3469,7 @@ struct VerificPass : public Pass {
 					}
 					delete file_names;
 				} else {
+					veri_file::AddIncludeDir(args[argidx].c_str());
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
 						verific_error_msg.clear();
 						log_cmd_error("Could not register directory %s.\n", args[argidx].c_str());
