@@ -892,7 +892,7 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
-	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType)
+	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType ct)
 	{
 		// open
 		FILE *f = fopen(stringf("docs/source/cell/%s.rst", cell.filesafe_name().c_str()).c_str(), "wt");
@@ -919,9 +919,21 @@ struct HelpPass : public Pass {
 			fprintf(f, "   %s\n", line.c_str());
 		}
 
+		// properties
+		fprintf(f, "\nProperties");
+		fprintf(f, "\n----------\n\n");
+		dict<string, bool> prop_dict = {
+			{"is_evaluable", ct.is_evaluable},
+			{"is_combinatorial", ct.is_combinatorial},
+			{"is_synthesizable", ct.is_synthesizable},
+		};
+		for (auto &it : prop_dict) {
+			fprintf(f, "- %s: %s\n", it.first.c_str(), it.second ? "true" : "false");
+		}
+
 		// source code
-		fprintf(f, "\nSimulation model (Verilog)\n");
-		fprintf(f, "--------------------------\n\n");
+		fprintf(f, "\nSimulation model (Verilog)");
+		fprintf(f, "\n--------------------------\n\n");
 		fprintf(f, ".. code-block:: verilog\n");
 		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
 		std::stringstream ss2;
