@@ -3394,8 +3394,13 @@ struct VerificPass : public Pass {
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			const char* arg = args[argidx].c_str();
 
+			// Define macros
+			hdl_file_sort::DefineMacro("SYNTHESIS");
+			veri_file::DefineMacro("SYNTHESIS");
+
 			// Ignore translate_off statements
 			hdl_file_sort::SetIgnoreTranslateOff(0);
+			veri_file::SetIgnoreTranslateOff(0);
 
 			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
 			hdl_file_sort::RemoveFileExt(".v");
@@ -3468,6 +3473,12 @@ struct VerificPass : public Pass {
 						log("AUTO-DISCOVER: registered file %s from .f file processing\n", file_name);
 					}
 					delete file_names;
+				} else if (args[argidx] == "-i") {
+					const char *ignore_module = args[++argidx].c_str();
+					log("AUTO-DISCOVER: ignoring module %s\n", ignore_module);
+					veri_file::AddToIgnoredModuleNames(ignore_module);
+					veri_file::AddToIgnoredParsedModuleNames(ignore_module);
+					hdl_file_sort::RegisterIgnoreUnitName(ignore_module);
 				} else {
 					veri_file::AddIncludeDir(args[argidx].c_str());
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
@@ -3477,11 +3488,6 @@ struct VerificPass : public Pass {
 					log("AUTO-DISCOVER: registered directory %s specified in config.options.search_dirs\n", args[argidx].c_str());
 				}
 			}
-
-			// Define macros
-			hdl_file_sort::DefineMacro("YOSYS");
-			hdl_file_sort::DefineMacro("VERIFIC");
-			hdl_file_sort::DefineMacro("SYNTHESIS");
 
 			// Analyze discovered/sorted files
 			if (!analyze_function(veri_file::MFCU)) {
