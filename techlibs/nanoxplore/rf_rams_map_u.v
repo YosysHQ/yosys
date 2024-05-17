@@ -12,13 +12,17 @@ module $__NX_RFB_U_DPREG_ (
   parameter OPTION_MODE = 0;
   parameter WIDTH = 18;
   parameter BITS_USED = 0;
+  localparam BLOCK_NUM  = OPTION_MODE == 2 ? 64 : 32;
+  localparam BLOCK_SIZE = OPTION_MODE == 3 ? 36 : 18;
+
+`include "rf_init.vh"
 
   // mode 0 - DPREG
   // mode 2 - NX_XRFB_64x18
   // mode 3 - NX_XRFB_32x36
   NX_RFB_U #(
     .mode(OPTION_MODE),
-    .mem_ctxt(INIT),
+    .mem_ctxt($sformatf("%s",rf_init_to_string(INIT, BLOCK_NUM, BLOCK_SIZE))),
     .wck_edge(PORT_W_CLK_POL == 1 ? 1'b0 : 1'b1)
   ) _TECHMAP_REPLACE_ (
     .WCK(PORT_W_CLK),
@@ -122,13 +126,14 @@ module $__NX_RFB_U_SPREG_ (
   input PORT_RW_WR_EN,
   output [17:0] PORT_RW_RD_DATA
 );
-  parameter INIT = 1152'bx;
+  parameter INIT = 576'bx;
   parameter PORT_RW_CLK_POL = 1'b1;
   parameter BITS_USED = 0;
+`include "rf_init.vh"
 
   NX_RFB_U #(
     .mode(1),
-    .mem_ctxt(INIT),
+    .mem_ctxt($sformatf("%s",rf_init_to_string(INIT, 32, 18))),
     .wck_edge(PORT_RW_CLK_POL == 1 ? 1'b0 : 1'b1)
   ) _TECHMAP_REPLACE_ (
     .WCK(PORT_RW_CLK),
@@ -235,13 +240,14 @@ module $__NX_XRFB_2R_1W_ (
   output [17:0] PORT_A_RD_DATA,
   output [17:0] PORT_B_RD_DATA
 );
-  parameter INIT = 1152'bx;
+  parameter INIT = 576'bx;
   parameter PORT_W_CLK_POL = 1'b1;
   parameter BITS_USED = 0;
+`include "rf_init.vh"
 
   NX_RFB_U #(
     .mode(4),
-    .mem_ctxt(INIT),
+    .mem_ctxt($sformatf("%s",rf_init_to_string(INIT, 32, 18))),
     .wck_edge(PORT_W_CLK_POL == 1 ? 1'b0 : 1'b1)
   ) _TECHMAP_REPLACE_ (
     .WCK(PORT_W_CLK),
