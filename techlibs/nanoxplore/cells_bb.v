@@ -255,10 +255,10 @@ module NX_RAM(ACK, ACKC, ACKD, ACKR, BCK, BCKC, BCKD, BCKR, AI1, AI2, AI3, AI4, 
     parameter pipe_ob = 1'b0;
     parameter raw_config0 = 4'b0000;
     parameter raw_config1 = 16'b0000000000000000;
-    parameter raw_l_enable = 1'b0;
-    parameter raw_l_extend = 4'b0000;
-    parameter raw_u_enable = 1'b0;
-    parameter raw_u_extend = 8'b00000000;
+    //parameter raw_l_enable = 1'b0;
+    //parameter raw_l_extend = 4'b0000;
+    //parameter raw_u_enable = 1'b0;
+    //parameter raw_u_extend = 8'b00000000;
     parameter std_mode = "";
 endmodule
 
