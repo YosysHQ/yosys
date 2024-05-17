@@ -100,9 +100,14 @@ latex_elements = {
 sys.path += [os.path.dirname(__file__) + "/../"]
 extensions.append('util.cmdref')
 
-def setup(sphinx):
-	from util.RtlilLexer import RtlilLexer
-	sphinx.add_lexer("RTLIL", RtlilLexer)
+# use autodocs
+extensions.append('sphinx.ext.autodoc')
+extensions.append('util.cellref')
 
-	from util.YoscryptLexer import YoscryptLexer
-	sphinx.add_lexer("yoscrypt", YoscryptLexer)
+from sphinx.application import Sphinx
+def setup(app: Sphinx) -> None:
+    from util.RtlilLexer import RtlilLexer
+    app.add_lexer("RTLIL", RtlilLexer)
+
+    from util.YoscryptLexer import YoscryptLexer
+    app.add_lexer("yoscrypt", YoscryptLexer)
