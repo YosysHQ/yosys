@@ -334,8 +334,8 @@ BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python) \
 )
 
-# Inside CentOS 7 Docker
-ifeq (${DOCKER_RUNNING},1)
+# Inside CentOS 7
+ifeq (${IS_CENTOS7},1)
 BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38
 CXXFLAGS += -I/opt/boost/include
 endif
