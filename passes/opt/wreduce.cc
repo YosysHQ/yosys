@@ -458,7 +458,7 @@ struct WreduceWorker
 				continue;
 
 			log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
-			Wire *nw = module->addWire(NEW_ID, GetSize(w) - unused_top_bits);
+			Wire *nw = module->addWire(IdString("$" + w->name.str()), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
 		}

@@ -16,7 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-
+#define YOSYS_ENABLE_VERIFIC
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
@@ -208,10 +208,7 @@ bool is_blackbox(Netlist *nl)
 
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
-	std::string s = stringf("$imp$%s", obj->Name());
-	// if (obj->Linefile())
-	//   s += stringf("$%s:%d.%d-%d.%d", RTLIL::encode_filename(LineFile::GetFileName(obj->Linefile())).c_str(), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
-	s += stringf("$%d", autoidx++);
+	std::string s = stringf("$%s", obj->Name());
 	return s;
 }
 
