@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PosixPath, WindowsPath
 import re
 
 from typing import Any
@@ -140,7 +140,8 @@ class YosysCellDocumenter(Documenter):
         # find cell lib file
         objpath = Path('/'.join(self.objpath))
         if not objpath.exists():
-            objpath = Path('source') / 'generated' / objpath
+            cells_loc: Path = self.config.cells_loc
+            objpath = cells_loc / objpath
 
         # load cell lib
         try:
@@ -358,6 +359,7 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
         return False, []
 
 def setup(app: Sphinx) -> dict[str, Any]:
+    app.add_config_value('cells_loc', False, 'html', [Path, PosixPath, WindowsPath])
     app.setup_extension('sphinx.ext.autodoc')
     app.add_autodocumenter(YosysCellDocumenter)
     app.add_autodocumenter(YosysCellSourceDocumenter)

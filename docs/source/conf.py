@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from pathlib import Path
 import sys
 import os
 
@@ -79,6 +80,7 @@ extensions.append('util.cmdref')
 # use autodocs
 extensions.append('sphinx.ext.autodoc')
 extensions.append('util.cellref')
+cells_loc = Path(__file__).parent / 'generated'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:
