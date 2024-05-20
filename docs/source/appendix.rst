@@ -1,6 +1,12 @@
 Appendix
 ========
 
+.. autocell:: simlib.v:$alu
+   :source:
+   :linenos:
+
+.. autocell:: simlib.v:$lcu
+
 .. toctree::
 	:maxdepth: 2
 	:includehidden:
