@@ -7,7 +7,7 @@
 
 ram distributed $__NX_RFB_U_DPREG_ {
 	option "MODE" 0 {
-        cost 35;
+        cost 30;
         widthscale 30;
 		abits 5;
 		widths 18 global;
@@ -53,8 +53,8 @@ ram distributed $__NX_RFB_U_SPREG_ {
 # NX_RFB_U in mode 4 (NX_XRFB_2R_1W)
 
 ram distributed $__NX_XRFB_2R_1W_ {
-	cost 30;
-    widthscale;
+	cost 40;
+    widthscale 30;
     abits 5;
     width 18;
 	init no_undef;
