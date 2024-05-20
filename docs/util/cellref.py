@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # cell signature
 cell_ext_sig_re = re.compile(
-    r'''^ (?:([\w._/]+):)?       # explicit file name
+    r'''^ (?:([^:\s]+):)?        # explicit file name
           ([\w$._]+?)?           # module and/or class name(s)
           (?:\.([\w_]+))?        # optional: thing name
           (::[\w_]+)?            #           attribute
@@ -147,8 +147,17 @@ class YosysCellDocumenter(Documenter):
         try:
             parsed_lib = self.parsed_libs[objpath]
         except KeyError:
-            parsed_lib = load_cell_lib(objpath)
+            try:
+                parsed_lib = load_cell_lib(objpath)
+            except FileNotFoundError:
+                logger.warning(
+                    f"unable to find cell lib at {'/'.join(self.objpath)}",
+                    type = 'cellref',
+                    subtype = 'import_object'
+                )
+                return False
             self.parsed_libs[objpath] = parsed_lib
+
 
         # get cell
         try:
@@ -264,7 +273,12 @@ class YosysCellDocumenter(Documenter):
             )
             return
 
-        self.import_object()
+        if not self.import_object():
+            logger.warning(
+                f"unable to load {self.name}",
+                type = 'cellref'
+            )
+            return
 
         # check __module__ of object (for members not given explicitly)
         # if check_module:
