@@ -104,7 +104,6 @@ static void nx_carry_chain(Module *module)
 				}
 			}
 			if (j==3) {
-				cell->set_string_attribute(ID(cnt), std::to_string(cnt));
 				if (cnt % 24 == 23) {
 					SigBit new_co = module->addWire(NEW_ID);
 					cell->setPort(ID(A4), State::S0);
