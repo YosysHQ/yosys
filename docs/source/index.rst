@@ -36,6 +36,7 @@ available, go to :ref:`commandindex`.
    :maxdepth: 3
    :includehidden:
 
+   self
    introduction
    getting_started/index
    using_yosys/index
