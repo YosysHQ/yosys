@@ -55,3 +55,6 @@ __pycache__
 
 # Ignore Brewfile locks
 Brewfile.lock.json
+
+# Ignore backups
+*.bak
