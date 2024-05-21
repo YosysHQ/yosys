@@ -21,29 +21,29 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct BboxDerivePass : Pass {
-	BboxDerivePass() : Pass("bbox_derive", "derive blackbox modules") {}
+struct BoxDerivePass : Pass {
+	BoxDerivePass() : Pass("box_derive", "derive box modules") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    bbox_derive [-base <base_module>] [-naming_attr <attr>] [selection]\n");
+		log("    box_derive [-base <base_module>] [-naming_attr <attr>] [selection]\n");
 		log("\n");
 		log("As part of the assembly of the design hierarchy done by the 'hierarchy' command,\n");
 		log("specializations of parametric modules are derived on demand: for each choice of\n");
 		log("parameter values appearing in the design, a copy of the parametric module is\n");
 		log("derived which is specialized to that choice.\n");
 		log("\n");
-		log("This derivation process ignores blackboxes and whiteboxes. To supplement, this\n");
-		log("'bbox_derive' command can be used to request the derivation of modules based on\n");
-		log("blackbox or whitebox instances appearing in the design, which is desirable in\n");
-		log("certain use cases. Only the selected cells are considered as the instances that\n");
-		log("steer the derivation process.\n");
+		log("This derivation process ignores blackboxes and whiteboxes (boxes). To supplement,\n");
+		log("this 'box_derive' command can be used to request the derivation of modules based\n");
+		log("on box instances appearing in the design, which is desirable in certain use\n");
+		log("cases. Only the selected cells are considered as the instances that steer the\n");
+		log("derivation process.\n");
 		log("\n");
 		log("    -base <base_module>\n");
-		log("        instead of deriving the module that directly corresponds to each blackbox\n");
+		log("        instead of deriving the module that directly corresponds to each box\n");
 		log("        instance, derive a specialization of <base_module> (this option applies\n");
-		log("        to all selected blackbox cells)\n");
+		log("        to all selected box cells)\n");
 		log("\n");
 		log("    -naming_attr <attr>\n");
 		log("        once a specialization is derived, use the value of the module attribute\n");
@@ -54,7 +54,7 @@ struct BboxDerivePass : Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
-		log_header(d, "Executing BBOX_DERIVE pass. (derive modules for blackboxes)\n");
+		log_header(d, "Executing BOX_DERIVE pass. (derive modules for boxes)\n");
 
 		size_t argidx;
 		IdString naming_attr;
@@ -111,6 +111,6 @@ struct BboxDerivePass : Pass {
 			}
 		}
 	}
-} BboxDerivePass;
+} BoxDerivePass;
 
 PRIVATE_NAMESPACE_END

@@ -34,4 +34,4 @@ module top;
 endmodule
 EOF
 
-bbox_derive -naming_attr final_name top
+box_derive -naming_attr final_name top
