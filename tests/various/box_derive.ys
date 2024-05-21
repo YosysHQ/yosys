@@ -35,3 +35,13 @@ endmodule
 EOF
 
 box_derive -naming_attr final_name top
+select -assert-mod-count 1 =bb1
+select -assert-mod-count 0 =bb2
+select -assert-mod-count 1 =bb3
+
+select -assert-mod-count 1 =cc1
+select -assert-mod-count 0 =cc2
+select -assert-mod-count 0 =cc3
+
+# the original aa, bb, cc, and 5 specializations
+select -assert-mod-count 8 =A:whitebox
