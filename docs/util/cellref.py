@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from dataclasses import dataclass
+import json
 from pathlib import Path, PosixPath, WindowsPath
 import re
 
@@ -15,93 +17,54 @@ logger = logging.getLogger(__name__)
 # cell signature
 cell_ext_sig_re = re.compile(
     r'''^ (?:([^:\s]+):)?        # explicit file name
-          ([\w$._]+?)?           # module and/or class name(s)
+          ([\w$._]+?)            # module name
           (?:\.([\w_]+))?        # optional: thing name
           (::[\w_]+)?            #           attribute
           \s* $                  # and nothing more
           ''', re.VERBOSE)
 
-class SimHelper:
-    name: str = ""
-    title: str = ""
-    ports: str = ""
-    source: str = ""
-    desc: list[str]
-    code: list[str]
-    group: str = ""
-    ver: str = "1"
-
-    def __init__(self) -> None:
-        self.desc = []
-
-def simcells_reparse(cell: SimHelper):
-    # cut manual signature
-    cell.desc = cell.desc[3:]
-
-    # code-block truth table
-    new_desc = []
-    indent = ""
-    for line in cell.desc:
-        if line.startswith("Truth table:"):
-            indent = "   "
-            new_desc.pop()
-            new_desc.extend(["::", ""])
-        new_desc.append(indent + line)
-    cell.desc = new_desc
-
-    # set version
-    cell.ver = "2a"
-
-def load_cell_lib(file: Path):
-    simHelpers: dict[str, SimHelper] = {}
-    simHelper = SimHelper()
-    with open(file, "r") as f:
-        lines = f.readlines()
-
-    for lineno, line in enumerate(lines, 1):
-        line = line.rstrip()
-        # special comments
-        if line.startswith("//-"):
-            simHelper.desc.append(line[4:] if len(line) > 4 else "")
-        elif line.startswith("//* "):
-            _, key, val = line.split(maxsplit=2)
-            setattr(simHelper, key, val)
-        
-        # code parsing
-        if line.startswith("module "):
-            clean_line = line[7:].replace("\\", "").replace(";", "")
-            simHelper.name, simHelper.ports = clean_line.split(maxsplit=1)
-            simHelper.code = []
-            simHelper.source = f'{file.name}:{lineno}'
-        elif not line.startswith("endmodule"):
-            line = "    " + line
-        try:
-            simHelper.code.append(line.replace("\t", "    "))
-        except AttributeError:
-            # no module definition, ignore line
-            pass
-        if line.startswith("endmodule"):
-            if simHelper.ver == "1" and file.name == "simcells.v":
-                # default simcells parsing
-                simcells_reparse(simHelper)
-            if not simHelper.desc:
-                # no help
-                simHelper.desc.append("No help message for this cell type found.\n")
-            elif simHelper.ver == "1" and file.name == "simlib.v" and simHelper.desc[1].startswith('    '):
-                simHelper.desc.pop(1)
-            simHelpers[simHelper.name] = simHelper
-            simHelper = SimHelper()
-    return simHelpers
+@dataclass
+class YosysCell:
+    cell: str
+    title: str
+    ports: str
+    source: str
+    desc: str
+    code: str
+    inputs: list[str]
+    outputs: list[str]
+    properties: dict[str, bool]
 
 class YosysCellDocumenter(Documenter):
     objtype = 'cell'
-    parsed_libs: dict[Path, dict[str, SimHelper]] = {}
-    object: SimHelper
+    object: YosysCell
 
     option_spec = {
         'source': autodoc.bool_option,
         'linenos': autodoc.bool_option,
     }
+
+    __cell_lib: dict[str, YosysCell] | None = None
+    @property
+    def cell_lib(self) -> dict[str, YosysCell]:
+        if not self.__cell_lib:
+            self.__cell_lib = {}
+            cells_obj: dict[str, list[dict[str, list[dict[str]]]]]
+            try:
+                with open(self.config.cells_json, "r") as f:
+                    cells_obj = json.loads(f.read())
+            except FileNotFoundError:
+                logger.warning(
+                    f"unable to find cell lib at {self.config.cells_json}",
+                    type = 'cellref',
+                    subtype = 'cell_lib'
+                )
+            else:
+                for group in cells_obj.get("groups", []):
+                    for cell in group.get("cells", []):
+                        yosysCell = YosysCell(**cell)
+                        self.__cell_lib[yosysCell.cell] = yosysCell
+        return self.__cell_lib
 
     @classmethod
     def can_document_member(
@@ -125,9 +88,6 @@ class YosysCellDocumenter(Documenter):
             logger.warning(('invalid signature for auto%s (%r)') % (self.objtype, self.name),
                            type='cellref')
             return False
-        
-        if not path:
-            return False
 
         self.modname = modname
         self.objpath = [path]
@@ -137,45 +97,23 @@ class YosysCellDocumenter(Documenter):
         return True
     
     def import_object(self, raiseerror: bool = False) -> bool:
-        # find cell lib file
-        objpath = Path('/'.join(self.objpath))
-        if not objpath.exists():
-            cells_loc: Path = self.config.cells_loc
-            objpath = cells_loc / objpath
-
-        # load cell lib
-        try:
-            parsed_lib = self.parsed_libs[objpath]
-        except KeyError:
-            try:
-                parsed_lib = load_cell_lib(objpath)
-            except FileNotFoundError:
-                logger.warning(
-                    f"unable to find cell lib at {'/'.join(self.objpath)}",
-                    type = 'cellref',
-                    subtype = 'import_object'
-                )
-                return False
-            self.parsed_libs[objpath] = parsed_lib
-
-
         # get cell
         try:
-            self.object = parsed_lib[self.modname]
+            self.object = self.cell_lib[self.modname]
         except KeyError:
             return False
 
-        self.real_modname = f'{objpath}:{self.modname}'
+        self.real_modname = self.modname or ''
         return True
     
     def get_sourcename(self) -> str:
-        return self.objpath
+        return self.object.source.split(":")[0]
     
     def format_name(self) -> str:
-        return self.object.name
+        return self.object.cell
 
     def format_signature(self, **kwargs: Any) -> str:
-        return f"{self.object.name} {self.object.ports}"
+        return f"{self.object.cell} {self.object.ports}"
     
     def add_directive_header(self, sig: str) -> None:
         domain = getattr(self, 'domain', self.objtype)
@@ -202,7 +140,7 @@ class YosysCellDocumenter(Documenter):
         sourcename = self.get_sourcename()
         startline = int(self.object.source.split(":")[1])
 
-        for i, line in enumerate(self.object.desc, startline):
+        for i, line in enumerate(self.object.desc.splitlines(), startline):
             self.add_line(line, sourcename, i)
 
         # add additional content (e.g. from document), if present
@@ -321,9 +259,6 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
         isattr: bool,
         parent: Any
     ) -> bool:
-        sourcename = str(member).split(":")[0]
-        if not sourcename.endswith(".v"):
-            return False
         if membername != "__source":
             return False
         if isinstance(parent, YosysCellDocumenter):
@@ -358,7 +293,7 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
         sourcename = self.get_sourcename()
         startline = int(self.object.source.split(":")[1])
 
-        for i, line in enumerate(self.object.code, startline-1):
+        for i, line in enumerate(self.object.code.splitlines(), startline-1):
             self.add_line(line, sourcename, i)
 
         # add additional content (e.g. from document), if present
@@ -373,7 +308,7 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
         return False, []
 
 def setup(app: Sphinx) -> dict[str, Any]:
-    app.add_config_value('cells_loc', False, 'html', [Path, PosixPath, WindowsPath])
+    app.add_config_value('cells_json', False, 'html', [Path, PosixPath, WindowsPath])
     app.setup_extension('sphinx.ext.autodoc')
     app.add_autodocumenter(YosysCellDocumenter)
     app.add_autodocumenter(YosysCellSourceDocumenter)
