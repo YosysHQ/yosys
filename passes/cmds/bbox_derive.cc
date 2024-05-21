@@ -54,7 +54,7 @@ struct BboxDerivePass : Pass {
 				log_cmd_error("Base module %s not found.\n", log_id(base_name));
 		}
 
-		dict<dict<RTLIL::IdString, RTLIL::Const>, Module*> done;
+		dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Module*> done;
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
@@ -62,12 +62,14 @@ struct BboxDerivePass : Pass {
 				if (!inst_module || !inst_module->get_blackbox_attribute())
 					continue;
 
-				if (cell->parameters.empty() || done.count(cell->parameters))
-					continue;
-
 				Module *base = inst_module;
 				if (base_override)
 					base = base_override;
+
+				auto index = std::make_pair(base->name, cell->parameters);
+
+				if (cell->parameters.empty() || done.count(index))
+					continue;
 
 				IdString derived_type = base->derive(d, cell->parameters);
 				Module *derived = d->module(derived_type);
@@ -83,7 +85,7 @@ struct BboxDerivePass : Pass {
 					d->rename(derived, new_name);
 				}
 
-				done[cell->parameters] = derived;
+				done[index] = derived;
 			}
 		}
 	}
