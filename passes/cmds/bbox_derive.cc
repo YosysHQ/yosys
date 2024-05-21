@@ -29,6 +29,28 @@ struct BboxDerivePass : Pass {
 		log("\n");
 		log("    bbox_derive [-base <base_module>] [-naming_attr <attr>] [selection]\n");
 		log("\n");
+		log("As part of the assembly of the design hierarchy done by the 'hierarchy' command,\n");
+		log("specializations of parametric modules are derived on demand: for each choice of\n");
+		log("parameter values appearing in the design, a copy of the parametric module is\n");
+		log("derived which is specialized to that choice.\n");
+		log("\n");
+		log("This derivation process ignores blackboxes and whiteboxes. To supplement, this\n");
+		log("'bbox_derive' command can be used to request the derivation of modules based on\n");
+		log("blackbox or whitebox instances appearing in the design, which is desirable in\n");
+		log("certain use cases. Only the selected cells are considered as the instances that\n");
+		log("steer the derivation process.\n");
+		log("\n");
+		log("    -base <base_module>\n");
+		log("        instead of deriving the module that directly corresponds to each blackbox\n");
+		log("        instance, derive a specialization of <base_module> (this option applies\n");
+		log("        to all selected blackbox cells)\n");
+		log("\n");
+		log("    -naming_attr <attr>\n");
+		log("        once a specialization is derived, use the value of the module attribute\n");
+		log("        <attr> for a name which should be used for the derived module (this\n");
+		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
+		log("        modules start with '$paramod$')\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
