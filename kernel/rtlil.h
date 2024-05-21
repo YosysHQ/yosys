@@ -1510,6 +1510,10 @@ public:
 #endif
 };
 
+namespace RTLIL_BACKEND {
+void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+}
+
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
@@ -1521,6 +1525,12 @@ protected:
 	Wire();
 	~Wire();
 
+	friend struct RTLIL::Design;
+	friend struct RTLIL::Cell;
+	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+	RTLIL::Cell *driverCell_ = nullptr;
+	RTLIL::IdString driverPort_;
+
 public:
 	// do not simply copy wires
 	Wire(RTLIL::Wire &other) = delete;
@@ -1531,8 +1541,8 @@ public:
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
 
-	RTLIL::Cell *driverCell = nullptr;
-	RTLIL::IdString driverPort;
+	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
+	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);

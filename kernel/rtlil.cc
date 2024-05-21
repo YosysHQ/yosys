@@ -3575,10 +3575,12 @@ void RTLIL::Design::bufNormalize(bool enable)
 		for (auto module : modules()) {
 			module->bufNormQueue.clear();
 			for (auto wire : module->wires()) {
-				wire->driverCell = nullptr;
-				wire->driverPort = IdString();
+				wire->driverCell_ = nullptr;
+				wire->driverPort_ = IdString();
 			}
 		}
+
+		flagBufferedNormalized = false;
 		return;
 	}
 
@@ -3592,9 +3594,9 @@ void RTLIL::Design::bufNormalize(bool enable)
 					continue;
 				if (conn.second.is_wire()) {
 					Wire *wire = conn.second.as_wire();
-					log_assert(wire->driverCell == nullptr);
-					wire->driverCell = cell;
-					wire->driverPort = conn.first;
+					log_assert(wire->driverCell_ == nullptr);
+					wire->driverCell_ = cell;
+					wire->driverPort_ = conn.first;
 				} else {
 					pair<RTLIL::Cell*, RTLIL::IdString> key(cell, conn.first);
 					module->bufNormQueue.insert(key);
@@ -3614,7 +3616,7 @@ void RTLIL::Module::bufNormalize()
 	if (!design->flagBufferedNormalized)
 		return;
 
-	while (GetSize(bufNormQueue))
+	while (GetSize(bufNormQueue) || !connections_.empty())
 	{
 		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
 		bufNormQueue.swap(queue);
@@ -3636,9 +3638,13 @@ void RTLIL::Module::bufNormalize()
 
 			if (sig.is_wire()) {
 				Wire *wire = sig.as_wire();
-				log_assert(wire->driverCell == nullptr);
-				wire->driverCell = cell;
-				wire->driverPort = portname;
+				if (wire->driverCell_) {
+					log_error("Conflict between %s %s in module %s\n",
+										log_id(cell), log_id(wire->driverCell_), log_id(this));
+				}
+				log_assert(wire->driverCell_ == nullptr);
+				wire->driverCell_ = cell;
+				wire->driverPort_ = portname;
 				continue;
 			}
 
@@ -3688,9 +3694,9 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 
 		if (conn_it->second.is_wire()) {
 			Wire *w = conn_it->second.as_wire();
-			if (w->driverCell == this && w->driverPort == portname) {
-				w->driverCell = nullptr;
-				w->driverPort = IdString();
+			if (w->driverCell_ == this && w->driverPort_ == portname) {
+				w->driverCell_ = nullptr;
+				w->driverPort_ = IdString();
 			}
 		}
 
@@ -3705,12 +3711,12 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 		}
 
 		Wire *w = signal.as_wire();
-		if (w->driverCell != nullptr) {
-			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell, w->driverPort);
+		if (w->driverCell_ != nullptr) {
+			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
 			module->bufNormQueue.insert(other_key);
 		}
-		w->driverCell = this;
-		w->driverPort = portname;
+		w->driverCell_ = this;
+		w->driverPort_ = portname;
 
 		module->bufNormQueue.erase(key);
 		break;

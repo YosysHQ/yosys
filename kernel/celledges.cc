@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	bool is_signed = (cell->type != ID($buf)) && cell->getParam(ID::A_SIGNED).as_bool();
 	int a_width = GetSize(cell->getPort(ID::A));
 	int y_width = GetSize(cell->getPort(ID::Y));
 
