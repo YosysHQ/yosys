@@ -3,7 +3,6 @@ Gate-level cells
 
 .. toctree::
    :caption: Gate-level cells
-   :maxdepth: 1
-   :glob:
+   :maxdepth: 2
 
-   /cell/gate_*
+   /cell/gate_other

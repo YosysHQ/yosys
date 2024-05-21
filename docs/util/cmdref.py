@@ -15,7 +15,16 @@ from sphinx.directives.code import container_wrapper
 from sphinx.util.nodes import make_refnode
 from sphinx import addnodes
 
-class TocNode(ObjectDescription):
+class TocNode(ObjectDescription):    
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+
     def _object_hierarchy_parts(self, sig_node: addnodes.desc_signature) -> tuple[str, ...]:
         if 'fullname' not in sig_node:
             return ()
@@ -34,17 +43,13 @@ class TocNode(ObjectDescription):
 
         config = self.env.app.config
         objtype = sig_node.parent.get('objtype')
-        if config.add_function_parentheses and objtype in {'function', 'method'}:
-            parens = '()'
-        else:
-            parens = ''
         *parents, name = sig_node['_toc_parts']
         if config.toc_object_entries_show_parents == 'domain':
-            return sig_node.get('fullname', name) + parens
+            return sig_node.get('tocname', name)
         if config.toc_object_entries_show_parents == 'hide':
-            return name + parens
+            return name
         if config.toc_object_entries_show_parents == 'all':
-            return '.'.join(parents + [name + parens])
+            return '.'.join(parents + [name])
         return ''
 
 class CommandNode(TocNode):
@@ -59,11 +64,10 @@ class CommandNode(TocNode):
     }
 
     def handle_signature(self, sig, signode: addnodes.desc_signature):
-        fullname = sig
-        signode['fullname'] = fullname
+        signode['fullname'] = sig
         signode += addnodes.desc_addname(text="yosys> help ")
         signode += addnodes.desc_name(text=sig)
-        return fullname
+        return signode['fullname']
 
     def add_target_and_index(self, name_cls, sig, signode):
         signode['ids'].append(type(self).name + '-' + sig)
@@ -82,10 +86,46 @@ class CommandNode(TocNode):
                          type(self).name + '-' + sig,
                          0))
 
-class CellNode(CommandNode):
+class CellNode(TocNode):
     """A custom node that describes an internal cell."""
 
     name = 'cell'
+
+    option_spec = {
+        'title': directives.unchanged,
+        'ports': directives.unchanged,
+    }
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        signode['fullname'] = sig
+        signode['tocname'] = tocname = sig.split('::')[-1]
+        signode += addnodes.desc_addname(text="yosys> help ")
+        signode += addnodes.desc_name(text=tocname)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            tagmap = self.env.domaindata[self.domain]['obj2tag']
+            tagmap[name] = list(self.options.get('tags', '').split(' '))
+            title: str = self.options.get('title', sig)
+            titlemap = self.env.domaindata[self.domain]['obj2title']
+            titlemap[name] = title
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         title,
+                         self.env.docname,
+                         idx,
+                         0))
 
 class CellSourceNode(TocNode):
     """A custom code block for including cell source."""
@@ -104,21 +144,12 @@ class CellSourceNode(TocNode):
         signode: addnodes.desc_signature
     ) -> str:
         language = self.options.get('language')
-        fullname = sig + "::" + language
-        signode['fullname'] = fullname
+        signode['fullname'] = sig
+        signode['tocname'] = f"{sig.split('::')[-2]} {language}"
         signode += addnodes.desc_name(text="Simulation model")
         signode += addnodes.desc_sig_space()
         signode += addnodes.desc_addname(text=f'({language})')
-        return fullname
-    
-    def add_target_and_index(
-        self,
-        name: str,
-        sig: str,
-        signode: addnodes.desc_signature
-    ) -> None:
-        idx = f'{".".join(self.name.split(":"))}.{sig}'
-        signode['ids'].append(idx)
+        return signode['fullname']
 
     def run(self) -> list[Node]:
         """Override run to parse content as a code block"""
@@ -191,6 +222,29 @@ class CellSourceNode(TocNode):
         literal = container_wrapper(self, literal, self.options.get('source'))
 
         return [self.indexnode, node, literal]
+
+class CellGroupNode(TocNode):
+    name = 'cellgroup'
+
+    option_spec = {
+        'caption': directives.unchanged,
+    }
+
+    def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
+        if self.options.get('caption', ''):
+            super().add_target_and_index(name, sig, signode)
+
+    def handle_signature(
+        self,
+        sig,
+        signode: addnodes.desc_signature
+    ) -> str:
+        signode['fullname'] = fullname = sig
+        caption = self.options.get("caption", fullname)
+        if caption:
+            signode['tocname'] = caption
+            signode += addnodes.desc_name(text=caption)
+        return fullname
 
 class TagIndex(Index):
     """A custom directive that creates a tag matrix."""
@@ -368,6 +422,7 @@ class CellDomain(CommandDomain):
     directives = {
         'def': CellNode,
         'source': CellSourceNode,
+        'group': CellGroupNode,
     }
 
     indices = {

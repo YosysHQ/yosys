@@ -958,7 +958,8 @@ struct HelpPass : public Pass {
 		json.entry("version", "Yosys internal cells");
 		json.entry("generator", yosys_version_str);
 
-		dict<string, dict<string, pair<SimHelper, CellType>>> groups;
+		dict<string, vector<string>> groups;
+		dict<string, pair<SimHelper, CellType>> cells;
 
 		// iterate over cells
 		bool raise_error = false;
@@ -966,59 +967,61 @@ struct HelpPass : public Pass {
 			auto name = it.first.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
-				dict<string, pair<SimHelper, CellType>> *cell_group;
 				if (groups.count(cell_help.group) != 0) {
-					cell_group = &groups.at(cell_help.group);
+					auto group_cells = &groups.at(cell_help.group);
+					group_cells->push_back(name);
 				} else {
-					cell_group = new dict<string, pair<SimHelper, CellType>>();
-					groups.emplace(cell_help.group, *cell_group);
+					auto group_cells = new vector<string>(1, name);
+					groups.emplace(cell_help.group, *group_cells);
 				}
 				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
-				cell_group->emplace(name, cell_pair);
+				cells.emplace(name, cell_pair);
 			} else {
 				log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
 				raise_error |= true;
 			}
 		}
+		for (auto &it : cell_help_messages.cell_help) {
+			if (cells.count(it.first) == 0) {
+				log_warning("Found cell model '%s' without matching cell type.\n", it.first.c_str());
+			}
+		}
 
 		// write to json
-		json.name("groups");
-		json.begin_array();
+		json.name("groups"); json.begin_object();
 		groups.sort();
 		for (auto &it : groups) {
-			json.begin_object();
-			json.name("group"); json.value(it.first.c_str());
-			json.name("cells"); json.begin_array();
-			for (auto &it2 : it.second) {
-				auto ch = it2.second.first;
-				auto ct = it2.second.second;
-				json.begin_object();
-				json.name("cell"); json.value(ch.name);
-				json.name("title"); json.value(ch.title);
-				json.name("ports"); json.value(ch.ports);
-				json.name("source"); json.value(ch.source);
-				json.name("desc"); json.value(ch.desc);
-				json.name("code"); json.value(ch.code);
-				json.name("inputs"); json.begin_array();
-				for (auto &input : ct.inputs)
-					json.value(input.c_str());
-				json.end_array();
-				json.name("outputs"); json.begin_array();
-				for (auto &output : ct.outputs)
-					json.value(output.c_str());
-				json.end_array();
-				dict<string, bool> prop_dict = {
-					{"is_evaluable", ct.is_evaluable},
-					{"is_combinatorial", ct.is_combinatorial},
-					{"is_synthesizable", ct.is_synthesizable},
-				};
-				json.name("properties"); json.value(prop_dict);
-				json.end_object();
-			}
-			json.end_array();
+			json.name(it.first.c_str()); json.value(it.second);
+		}
+		json.end_object();
+
+		json.name("cells"); json.begin_object();
+		cells.sort();
+		for (auto &it : cells) {
+			auto ch = it.second.first;
+			auto ct = it.second.second;
+			json.name(ch.name.c_str()); json.begin_object();
+			json.name("title"); json.value(ch.title);
+			json.name("ports"); json.value(ch.ports);
+			json.name("source"); json.value(ch.source);
+			json.name("desc"); json.value(ch.desc);
+			json.name("code"); json.value(ch.code);
+			vector<string> inputs, outputs;
+			for (auto &input : ct.inputs)
+				inputs.push_back(input.str());
+			json.name("inputs"); json.value(inputs);
+			for (auto &output : ct.outputs)
+				outputs.push_back(output.str());
+			json.name("outputs"); json.value(outputs);
+			dict<string, bool> prop_dict = {
+				{"is_evaluable", ct.is_evaluable},
+				{"is_combinatorial", ct.is_combinatorial},
+				{"is_synthesizable", ct.is_synthesizable},
+			};
+			json.name("properties"); json.value(prop_dict);
 			json.end_object();
 		}
-		json.end_array();
+		json.end_object();
 
 		json.end_object();
 		return raise_error;

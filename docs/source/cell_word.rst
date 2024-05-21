@@ -2,8 +2,8 @@ Word-level cells
 ----------------
 
 .. toctree::
-   :caption: Word-level cells
-   :maxdepth: 1
+   :maxdepth: 2
    :glob:
 
-   /cell/word_*
+   /cell/word_unary
+   /cell/word_other
