@@ -142,7 +142,7 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
     integer i;
     initial begin
         for (i = 0; i < MEM_SIZE; i = i + 1)
-            mem[i] = MEM_SIZE'b0;
+            mem[i] = MEM_WIDTH'b0;
     end
 
     wire [ADDR_WIDTH-1:0] WA = (mode==2) ? { WA6, WA5, WA4, WA3, WA2, WA1 } : { WA5, WA4, WA3, WA2, WA1 };
