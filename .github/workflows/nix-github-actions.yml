@@ -1,0 +1,15 @@
+name: "build nix flake"
+on:
+  pull_request:
+  push:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+       submodules: true
+    - uses: cachix/install-nix-action@v26
+      with:
+       install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+    - run: nix build .?submodules=1
