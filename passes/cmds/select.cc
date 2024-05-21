@@ -1385,17 +1385,20 @@ struct SelectPass : public Pass {
 		if (none_mode && args.size() != 2)
 			log_cmd_error("Option -none can not be combined with any other options.\n");
 
-		if (add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) + (assert_max >= 0) + (assert_min >= 0) > 1)
-			log_cmd_error("Options -add, -del, -assert-none, -assert-any, assert-count, -assert-max or -assert-min can not be combined.\n");
+		int common_flagset_tally = add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) + (assert_max >= 0) + (assert_min >= 0);
+		const char *common_flagset = "-add, -del, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min";
 
-		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any, assert-count, -assert-max, or -assert-min.\n");
+		if (common_flagset_tally > 1)
+			log_cmd_error("Options %s can not be combined.\n", common_flagset);                
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !unset_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -unset, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && common_flagset_tally)
+			log_cmd_error("Options -list, -write and -count can not be combined with %s.\n", common_flagset);
 
-		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !set_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -add, -del, -set, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || !unset_name.empty() || common_flagset_tally))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -unset, %s.\n", common_flagset);
+
+		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || !set_name.empty() || common_flagset_tally))
+			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -set, %s.\n", common_flagset);
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
