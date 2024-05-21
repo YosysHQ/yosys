@@ -43,7 +43,9 @@ USING_YOSYS_NAMESPACE
 #endif
 
 #include "veri_file.h"
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 #include "hier_tree.h"
+#endif
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VeriLibrary.h"
@@ -72,11 +74,15 @@ USING_YOSYS_NAMESPACE
 #endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
-#  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
-#endif
-
+#warning "Only YosysHQ flavored Verific is fully supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
+#else
 #if YOSYSHQ_VERIFIC_API_VERSION < 20230901
 #  error "Please update your version of YosysHQ flavored Verific."
+#endif
+#endif
+
+#ifndef DB_PRESERVE_INITIAL_VALUE
+#error "Verific must have DB_PRESERVE_INITIAL_VALUE compile flag set on"
 #endif
 
 #ifdef __clang__
@@ -115,9 +121,15 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 
 	if (log_verific_callback) {
 		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
+#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), 
 			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0, 
 			linefile ? linefile->GetRightLine() : 0, linefile ? linefile->GetRightCol() : 0, full_message.c_str());
+#else
+		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), 
+			linefile ? LineFile::GetLineNo(linefile) : 0, 0, 
+			linefile ? LineFile::GetLineNo(linefile) : 0, 0, full_message.c_str());
+#endif
 	} else {
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
 			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
@@ -392,6 +404,7 @@ static const RTLIL::Const verific_const(const char* type_name, const char *value
 		return extract_verilog_const(value, allow_string, output_signed);
 }
 
+#ifdef YOSYSHQ_VERIFIC_API_VERSION
 static const std::string verific_unescape(const char *value)
 {
 	std::string val = std::string(value);
@@ -399,6 +412,7 @@ static const std::string verific_unescape(const char *value)
 		return val.substr(1,val.size()-2);
 	return value;
 }
+#endif
 
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
 {
@@ -408,8 +422,13 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	MapIter mi;
 	Att *attr;
 
+#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 	if (obj->Linefile())
 		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
+#else
+	if (obj->Linefile())
+		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+#endif
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
@@ -1265,6 +1284,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+#ifdef YOSYSHQ_VERIFIC_API_VERSION
 	if (inst->Type() == OPER_YOSYSHQ_SET_TAG)
 	{
 		RTLIL::SigSpec sig_expr = operatorInport(inst, "expr");
@@ -1301,6 +1321,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		module->connect(operatorOutput(inst),module->FutureFF(new_verific_id(inst), operatorInput(inst)));
 		return true;
 	}
+#endif
 
 	#undef IN
 	#undef IN1
@@ -2067,6 +2088,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				continue;
 		}
 
+#ifdef YOSYSHQ_VERIFIC_API_VERSION
 		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
 		{
 			if (verific_verbose)
@@ -2078,6 +2100,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (!mode_keep)
 				continue;
 		}
+#endif
 
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
 			if (verific_verbose)
@@ -2680,7 +2703,24 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 		verific_error_msg.clear();
 #endif
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
+#else
+		if (parameters.size())
+			log_warning("Please note that parameters are not propagated during import.\n");
+		veri_file::ElaborateAll("work");
+		MapIter mi ;
+		Verific::Cell *c ;
+		Library *l = Libset::Global()->GetLibrary("work");
+		FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+			MapIter ni ;
+			Netlist *nl;
+			FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+				if (nl)
+					nl_todo.emplace(nl->CellBaseName(), nl);
+			}
+		}
+#endif
 	}
 	else {
 
@@ -2737,7 +2777,11 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			}
 #endif
 
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 			netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
+#else
+			netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
+#endif
 		}
 	}
 
@@ -2781,7 +2825,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::Reset();
 #endif
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 	hier_tree::DeleteHierarchicalTree();
+#endif
 	veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
 	vhdl_file::Reset();
@@ -3852,6 +3898,7 @@ struct VerificPass : public Pass {
 #endif
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
 
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
 				Netlist *nl;
 				int i;
@@ -3859,6 +3906,23 @@ struct VerificPass : public Pass {
 				FOREACH_ARRAY_ITEM(netlists, i, nl)
 					nl_todo.emplace(nl->CellBaseName(), nl);
 				delete netlists;
+#else
+				if (parameters.Size())
+					log_warning("Please note that parameters are not propagated during import.\n");
+				veri_file::ElaborateAll(work.c_str());
+
+				MapIter mi ;
+				Verific::Cell *c ;
+				Library *l = Libset::Global()->GetLibrary(work.c_str());
+				FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+					MapIter ni ;
+					Netlist *nl;
+					FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+						if (nl)
+							nl_todo.emplace(nl->CellBaseName(), nl);
+					}
+				}
+#endif
 			}
 			else
 			{
@@ -3949,7 +4013,11 @@ struct VerificPass : public Pass {
 					}
 
 					log("Running hier_tree::Elaborate().\n");
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 					netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
+#else
+					netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
+#endif
 				}
 
 				Netlist *nl;
@@ -4026,7 +4094,9 @@ struct VerificPass : public Pass {
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			VerificExtensions::Reset();
 #endif
+#ifdef VERIFIC_HIER_TREE_SUPPORT
 			hier_tree::DeleteHierarchicalTree();
+#endif
 			veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
 			vhdl_file::Reset();
