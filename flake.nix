@@ -15,7 +15,7 @@
         # TODO: don't override src when ./abc is empty
         # which happens when the command used is `nix build` and not `nix build ?submodules=1`
         abc-verifier = pkgs.abc-verifier.overrideAttrs(x: y: {src = ./abc;});
-        customYosys = pkgs.clangStdenv.mkDerivation {
+        yosys = pkgs.clangStdenv.mkDerivation {
           name = "yosys";
           src = ./. ;
           buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git pkg-configUpstream ];
@@ -38,8 +38,8 @@
           };
         };
       in {
-        packages.default = customYosys;
-        defaultPackage = customYosys;
+        packages.default = yosys;
+        defaultPackage = yosys;
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
         };
