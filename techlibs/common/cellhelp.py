@@ -12,6 +12,7 @@ class SimHelper:
     source: str = ""
     desc: list[str]
     code: list[str]
+    group: str = ""
     ver: str = "1"
 
     def __init__(self) -> None:
@@ -19,7 +20,7 @@ class SimHelper:
     
     def __str__(self) -> str:
         printed_fields = [
-            "name", "title", "ports", "source", "desc", "code", "ver",
+            "name", "title", "ports", "source", "desc", "code", "group", "ver",
         ]
         # generate C++ struct
         val = f"cell_help[{json.dumps(self.name)}] = "
@@ -28,6 +29,7 @@ class SimHelper:
             field_val = getattr(self, field)
             if isinstance(field_val, list):
                 field_val = "\n".join(field_val)
+            field_val = field_val.strip()
             val += f'  {json.dumps(field_val)},\n'
         val += "};\n"
         return val
@@ -80,9 +82,23 @@ for line in fileinput.input():
         if simHelper.ver == "1" and short_filename == "simcells.v":
             # default simcells parsing
             simcells_reparse(simHelper)
+
+        # check help
         if not simHelper.desc:
-            # no help
             simHelper.desc.append("No help message for this cell type found.\n")
+        elif simHelper.ver == "1" and short_filename == "simlib.v" and simHelper.desc[1].startswith('    '):
+            simHelper.desc.pop(1)
+
+        # check group
+        if not simHelper.group:
+            if short_filename == 'simcells.v':
+                simHelper.group = "gate_"
+            elif short_filename == 'simlib.v':
+                simHelper.group = "word_"
+            simHelper.group += "other"
+
+        # dump
         print(simHelper)
+        # new
         simHelper = SimHelper()
 
