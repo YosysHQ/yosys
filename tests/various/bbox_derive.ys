@@ -1,0 +1,37 @@
+read_verilog <<EOF
+(* whitebox *)
+(* final_name=$sformatf("aa%d", X) *)
+module aa(input wire d, output wire q);
+  parameter [1:0] X = 0;
+  assign q = X[d];
+endmodule
+
+(* whitebox *)
+(* final_name=$sformatf("bb%d", X) *)
+module bb(input wire d, output wire q);
+  parameter [1:0] X = 0;
+  assign q = X[~d];
+endmodule
+
+(* whitebox *)
+(* final_name=$sformatf("cc%d", X) *)
+module cc(input wire d, output wire q);
+  parameter [1:0] X = 0;
+  assign q = ~X[d];
+endmodule
+
+module top;
+	wire d, q1, q2, q3, q3, q4, q5, q6;
+
+	aa #(.X(1)) aa1(.d(d), .q(q1));
+	aa #(.X(2)) aa2(.d(d), .q(q2));
+
+	bb #(.X(1)) bb1(.d(d), .q(q3));
+	bb #(.X(3)) bb2(.d(d), .q(q4));
+
+	cc #(.X(1)) cc1(.d(d), .q(q5));
+	cc #(.X(1)) cc2(.d(d), .q(q6));
+endmodule
+EOF
+
+bbox_derive -naming_attr final_name top
