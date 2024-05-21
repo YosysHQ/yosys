@@ -80,7 +80,7 @@ extensions.append('util.cmdref')
 # use autodocs
 extensions.append('sphinx.ext.autodoc')
 extensions.append('util.cellref')
-cells_loc = Path(__file__).parent / 'generated'
+cells_json = Path(__file__).parent / 'generated' / 'cells.json'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:
