@@ -3263,6 +3263,7 @@ struct CxxrtlWorker {
 						debug_wire_type = wire_type; // wire is a member
 
 					if (!debug_alias) continue;
+					if (wire->port_input || wire->port_output) continue; // preserve input/output metadata in flags
 					const RTLIL::Wire *it = wire;
 					while (flow.is_inlinable(it)) {
 						log_assert(flow.wire_comb_defs[it].size() == 1);
