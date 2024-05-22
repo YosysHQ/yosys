@@ -140,7 +140,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := REPLACEME
+YOSYS_VER := 0.41+101
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -1002,11 +1002,12 @@ coverage:
 	genhtml coverage.info --output-directory coverage_html
 
 qtcreator:
+	echo "$(CXXFLAGS)" | grep -o '\-D[^ ]*' | tr ' ' '\n' | sed 's/-D/#define /' | sed 's/=/ /'> qtcreator.config
 	{ for file in $(basename $(OBJS)); do \
 		for prefix in cc y l; do if [ -f $${file}.$${prefix} ]; then echo $$file.$${prefix}; fi; done \
 	done; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \); } > qtcreator.files
 	{ echo .; find backends frontends kernel libs passes -type f \( -name '*.h' -o -name '*.hh' \) -printf '%h\n' | sort -u; } > qtcreator.includes
-	touch qtcreator.config qtcreator.creator
+	touch qtcreator.creator
 
 vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}

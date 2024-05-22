@@ -46,6 +46,7 @@ __pycache__
 /tests/unit/objtest/
 /tests/ystests
 /build
+/result
 
 # Created during tests
 /tests/arch/quicklogic/pp3/run-test.mk
