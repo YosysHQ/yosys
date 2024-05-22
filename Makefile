@@ -946,7 +946,13 @@ define DOC_USAGE_STDERR
 docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
 	-$(Q) ./$$< --help 2> $$@
 endef
-DOCS_USAGE_STDERR := yosys-config yosys-filterlib yosys-abc
+DOCS_USAGE_STDERR := yosys-config yosys-filterlib
+
+# The in-tree ABC (yosys-abc) is only built when ABCEXTERNAL is not set.
+ifeq ($(ABCEXTERNAL),)
+DOCS_USAGE_STDERR += yosys-abc
+endif
+
 $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 
 # others print to stdout
