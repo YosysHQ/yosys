@@ -540,27 +540,6 @@ module NX_PLL_U(R, REF, FBK, OSC, VCO, LDFO, REFO, CLK_DIV1, CLK_DIV2, CLK_DIV3,
 endmodule
 
 (* blackbox *)
-module NX_WFG_U(R, SI, ZI, SO, ZO);
-    input R;
-    input SI;
-    output SO;
-    input ZI;
-    output ZO;
-    parameter delay = 0;
-    parameter delay_on = 1'b0;
-    parameter div_phase = 1'b0;
-    parameter div_ratio = 0;
-    parameter location = "";
-    parameter mode = 0;
-    parameter pattern = 16'b0000000000000000;
-    parameter pattern_end = 0;
-    parameter reset_on_cal_lock_n = 1'b0;
-    parameter reset_on_pll_lock_n = 1'b0;
-    parameter reset_on_pll_locka_n = 1'b0;
-    parameter wfg_edge = 1'b0;
-endmodule
-
-(* blackbox *)
 module NX_XCDC_U(CK1, CK2, ASRSTI, ADRSTI, ASRSTO, ADRSTO, BSRSTI, BDRSTI, BSRSTO, BDRSTO, CSRSTI, CDRSTI, CSRSTO, CDRSTO, DSRSTI, DDRSTI, DSRSTO, DDRSTO, BI, CI, CO
 , AO, BO, AI, DI, DO);
     input ADRSTI;

@@ -142,7 +142,7 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
     integer i;
     initial begin
         for (i = 0; i < MEM_SIZE; i = i + 1)
-            mem[i] = MEM_WIDTH'b0;
+            mem[i] = 36'b0;
     end
 
     wire [ADDR_WIDTH-1:0] WA = (mode==2) ? { WA6, WA5, WA4, WA3, WA2, WA1 } : { WA5, WA4, WA3, WA2, WA1 };
@@ -177,4 +177,51 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
     always @(posedge clock)
         if (WE)
             mem[WA] <= I[MEM_WIDTH-1:0];
+endmodule
+
+(* abc9_box, lib_whitebox *)
+module NX_WFG_U(R, SI, ZI, SO, ZO);
+    input R;
+    input SI;
+    output SO;
+    input ZI;
+    output ZO;
+    parameter delay = 0;
+    parameter delay_on = 1'b0;
+    parameter div_phase = 1'b0;
+    parameter div_ratio = 0;
+    parameter location = "";
+    parameter mode = 0;
+    parameter pattern = 16'b0000000000000000;
+    parameter pattern_end = 0;
+    parameter reset_on_cal_lock_n = 1'b0;
+    parameter reset_on_pll_lock_n = 1'b0;
+    parameter reset_on_pll_locka_n = 1'b0;
+    parameter wfg_edge = 1'b0;
+
+    generate
+        if (mode==0) begin
+            assign SO = SI;
+        end
+        else if (mode==1) begin
+            wire clock = ZI ^ wfg_edge;
+            wire reset = R || SI;
+            reg [3:0] counter = 0;
+            reg [15:0] rom = pattern;
+
+            always @(posedge clock)
+            begin
+                if (reset)
+                    counter <= 4'b0;
+                else
+                    counter <= counter + 1;
+            end
+            assign SO = counter == pattern_end;
+            assign ZO = rom[counter];
+        end
+        else if (mode==2) begin
+        end
+        else
+            $error("Unknown NX_WFG_U mode");
+    endgenerate
 endmodule
