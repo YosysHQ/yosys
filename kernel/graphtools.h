@@ -32,7 +32,7 @@ class CellSimplifier {
 	Factory &factory;
 	T reduce_shift_width(T b, int b_width, int y_width, int &reduced_b_width) {
 		log_assert(y_width > 0);
-		int new_width = sizeof(int) * 8 - __builtin_clz(y_width);
+		int new_width = ceil_log2(y_width + 1);
 		if (b_width <= new_width) {
 			reduced_b_width = b_width;
 			return b;
@@ -221,7 +221,7 @@ public:
 		for (auto wire : module->wires()) {
 			if (wire->port_output) {
 				T node = enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width)));
-				factory.declare_output(node, wire->name);
+				factory.declare_output(node, wire->name, wire->width);
 			}
 		}
 	}
@@ -273,7 +273,7 @@ public:
 								for (auto const &conn : cell->connections()) {
 									if (driver_map.celltypes.cell_input(cell->type, conn.first)) {
 										T node = enqueue(DriveChunkPort(cell, conn));
-										factory.declare_state(node, cell->name);
+										factory.declare_state(node, cell->name, port_chunk.width);
 									}
 								}
 							}
