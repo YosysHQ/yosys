@@ -214,10 +214,10 @@ public:
 		pending.set_function(CxxFunction(ID($$buf), pending.function().width));
 		pending.append_arg(node);
 	}
-	void declare_output(T node, IdString name) {
+	void declare_output(T node, IdString name, int) {
 		node.assign_key(name);
 	}
-	void declare_state(T node, IdString name) {
+	void declare_state(T node, IdString name, int) {
 		node.assign_key(name);
 	}
 	void suggest_name(T node, IdString name) {
