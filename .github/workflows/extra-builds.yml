@@ -90,8 +90,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-        submodules: true
+          submodules: true
       - uses: cachix/install-nix-action@v26
         with:
-        install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+          install_url: https://releases.nixos.org/nix/nix-2.18.1/install
       - run: nix build .?submodules=1
