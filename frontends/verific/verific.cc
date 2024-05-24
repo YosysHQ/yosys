@@ -3392,8 +3392,12 @@ struct VerificPass : public Pass {
 			const char* arg = args[argidx].c_str();
 
 			// Define macros
+			hdl_file_sort::DefineMacro("SYNTH");
 			hdl_file_sort::DefineMacro("SYNTHESIS");
+			hdl_file_sort::DefineMacro("OVL_SVA");
+			veri_file::DefineMacro("SYNTH");
 			veri_file::DefineMacro("SYNTHESIS");
+			veri_file::DefineMacro("OVL_SVA");
 
 			// Ignore translate_off statements
 			hdl_file_sort::SetIgnoreTranslateOff(0);
