@@ -17,6 +17,8 @@
  *
  */
 
+#include <cassert>
+#include <array>
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
