@@ -5,8 +5,8 @@
 
 #include <cxxrtl/cxxrtl_vcd.h>
 
-#include "and_cxxrtl.cc"
-#include "and_functional_cxx.cc"
+#include "my_module_cxxrtl.cc"
+#include "my_module_functional_cxx.cc"
 
 struct DumpHeader {
     std::ofstream &ofs;
@@ -41,10 +41,10 @@ int main(int argc, char **argv)
     constexpr int steps = 10;
     constexpr int number_timescale = 1;
     const std::string units_timescale = "us";
-    Adder_Inputs inputs;
-    Adder_Outputs outputs;
-    Adder_State state;
-    Adder_State next_state;
+    my_module_Inputs inputs;
+    my_module_Outputs outputs;
+    my_module_State state;
+    my_module_State next_state;
 
     std::ofstream vcd_file("functional_cxx.vcd");
 
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     }
     vcd_file << "$enddefinitions $end\n$dumpvars\n";
 
-    cxxrtl_design::p_Adder top;
+    cxxrtl_design::p_my__module top;
 
     // debug_items maps the hierarchical names of signals and memories in the design
     // to a cxxrtl_object (a value, a wire, or a memory)
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         vcd_file << "#" << (step + 1) << "\n";
         inputs.a = $const<1>(a_value);
         inputs.b = $const<1>(b_value);
-        Adder(inputs, outputs, state, next_state);
+        my_module(inputs, outputs, state, next_state);
         {
             Dump d(vcd_file);
             inputs.dump(d);

@@ -3,7 +3,7 @@ module my_module(
     input b,
     output y
 );
-   // Perform AND
-   assign y = a & b;
+   // Perform operation
+   assign y = a | b;
 
 endmodule
