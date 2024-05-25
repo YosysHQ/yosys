@@ -21,6 +21,8 @@
 #define SIM_H
 
 #include <array>
+#include <cstdint>
+#include <cassert>
 
 template<size_t n>
 using Signal = std::array<bool, n>;

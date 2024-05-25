@@ -1,0 +1,5 @@
+and_cxxrtl.cc
+and_functional_cxx.cc
+vcd_harness
+cxxrtl.vcd
+functional_cxx.vcd

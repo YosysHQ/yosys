@@ -37,11 +37,36 @@
             maintainers = with maintainers; [ ];
           };
         };
+        vcdiff = pkgs.stdenv.mkDerivation {
+          pname = "vcdiff";
+          version = "1.1";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "orsonmmz";
+            repo = "vcdiff";
+            rev = "master";
+            hash = "sha256-jTuok3TjuGW7+ATc11R9osKDPxbhRtuEbM8tRE4+AAI=";
+          };
+
+          buildInputs = [ pkgs.gcc ];
+
+          installPhase = ''
+          mkdir -p $out/bin
+          cp vcdiff $out/bin/
+        '';
+
+          meta = with pkgs.lib; {
+            description = "The ultimate VCD files comparator";
+            license = licenses.gpl3;
+            maintainers = with maintainers; [ orsonmmz ];
+          };
+        };
       in {
         packages.default = yosys;
         defaultPackage = yosys;
+        packages.vcdiff = vcdiff;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
+          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier gtkwave vcdiff ];
         };
       }
     );
