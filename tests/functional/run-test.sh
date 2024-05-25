@@ -7,6 +7,8 @@ failing_files=()
 
 # Loop through all Verilog files in the verilog directory
 for verilog_file in verilog/*.v; do
+    # Extract the base name without extension
+    base_name=$(basename "$verilog_file" .v)
     # Run yosys to process each Verilog file
     if ../../yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"; then
         echo "Yosys processed $verilog_file successfully."
@@ -15,9 +17,9 @@ for verilog_file in verilog/*.v; do
         ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ../../backends/functional/cxx_runtime/ -I ../../backends/cxxrtl/runtime/ -o vcd_harness
         
         # Generate VCD files cxxrtl.vcd and functional_cxx.vcd
-        if ./vcd_harness; then
+        if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd ; then
             # Run vcdiff and capture the output
-            output=$(vcdiff cxxrtl.vcd functional_cxx.vcd)
+            output=$(vcdiff ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd)
 
             # Check if there is any output
             if [ -n "$output" ]; then

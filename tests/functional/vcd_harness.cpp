@@ -38,6 +38,14 @@ struct Dump {
 
 int main(int argc, char **argv)
 {
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <functional_vcd_filename> <cxxrtl_vcd_filename>\n";
+        return 1;
+    }
+
+    const std::string functional_vcd_filename = argv[1];
+    const std::string cxxrtl_vcd_filename = argv[2];
+
     constexpr int steps = 10;
     constexpr int number_timescale = 1;
     const std::string units_timescale = "us";
@@ -46,50 +54,33 @@ int main(int argc, char **argv)
     my_module_State state;
     my_module_State next_state;
 
-    std::ofstream vcd_file("functional_cxx.vcd");
+    std::ofstream vcd_file(functional_vcd_filename);
 
-    vcd_file << "$timescale " << number_timescale << " " << units_timescale << " $end\n"; //$scope module logic $end\n";
+    vcd_file << "$timescale " << number_timescale << " " << units_timescale << " $end\n";
     {
         DumpHeader d(vcd_file);
         inputs.dump(d);
         outputs.dump(d);
-        // vcd_file << "$scope module state $end\n";
         state.dump(d);
     }
     vcd_file << "$enddefinitions $end\n$dumpvars\n";
 
     cxxrtl_design::p_my__module top;
 
-    // debug_items maps the hierarchical names of signals and memories in the design
-    // to a cxxrtl_object (a value, a wire, or a memory)
     cxxrtl::debug_items all_debug_items;
     cxxrtl::debug_scope debug_scope;
-    // Load the debug items of the top down the whole design hierarchy
     top.debug_info(&all_debug_items, nullptr, "");
 
-    // vcd_writer is the CXXRTL object that's responsible for creating a string with
-    // the VCD file contents.
     cxxrtl::vcd_writer vcd;
     vcd.timescale(number_timescale, units_timescale);
-
-    // Here we tell the vcd writer to dump all the signals of the design, except for the
-    // memories, to the VCD file.
-    //
-    // It's not necessary to load all debug objects to the VCD. There is, for example,
-    // a  vcd.add(<debug items>, <filter>)) method which allows creating your custom filter to decide
-    // what to add and what not.
     vcd.add_without_memories(all_debug_items);
 
-    std::ofstream waves("cxxrtl.vcd");
+    std::ofstream waves(cxxrtl_vcd_filename);
 
     top.p_a.set<bool>(false);
     top.p_b.set<bool>(false);
     top.step();
 
-    // We need to manually tell the VCD writer when to sample and write out the traced items.
-    // This is only a slight inconvenience and allows for complete flexibility.
-    // E.g. you could only start waveform tracing when an internal signal has reached some specific
-    // value etc.
     vcd.sample(0);
     vcd_file << "#0\n";
     inputs.a = $const<1>(false);
@@ -101,14 +92,13 @@ int main(int argc, char **argv)
         state.dump(d);
     }
 
-    // Initialize random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::bernoulli_distribution dist(0.5); // 50% chance for true or false
-    
+    std::bernoulli_distribution dist(0.5);
+
     for (int step = 0; step < steps; ++step) {
-      const bool a_value = dist(gen);
-      const bool b_value = dist(gen);
+        const bool a_value = dist(gen);
+        const bool b_value = dist(gen);
 
         // cxxrtl
         top.p_a.set<bool>(a_value);
