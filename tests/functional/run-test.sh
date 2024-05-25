@@ -2,29 +2,49 @@
 
 set -ex
 
+# Initialize an array to store the names of failing Verilog files
+failing_files=()
+
 # Loop through all Verilog files in the verilog directory
 for verilog_file in verilog/*.v; do
     # Run yosys to process each Verilog file
-    ../../yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"
+    if ../../yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"; then
+        echo "Yosys processed $verilog_file successfully."
+        
+        # Compile the generated C++ files with vcd_harness.cpp
+        ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ../../backends/functional/cxx_runtime/ -I ../../backends/cxxrtl/runtime/ -o vcd_harness
+        
+        # Generate VCD files cxxrtl.vcd and functional_cxx.vcd
+        if ./vcd_harness; then
+            # Run vcdiff and capture the output
+            output=$(vcdiff cxxrtl.vcd functional_cxx.vcd)
 
-    # Compile the generated C++ files with vcd_harness.cpp
-    ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ../../backends/functional/cxx_runtime/ -I ../../backends/cxxrtl/runtime/ -o vcd_harness
-
-    # Generate VCD files cxxrtl.vcd and functional_cxx.vcd
-    ./vcd_harness
-
-    # Run vcdiff and capture the output
-    output=$(vcdiff cxxrtl.vcd functional_cxx.vcd)
-
-    # Check if there is any output
-    if [ -n "$output" ]; then
-        echo "Differences detected in $verilog_file:"
-        echo "$output"
-        exit 1
+            # Check if there is any output
+            if [ -n "$output" ]; then
+                echo "Differences detected in $verilog_file:"
+                echo "$output"
+                failing_files+=("$verilog_file")
+            else
+                echo "No differences detected in $verilog_file."
+            fi
+        else
+            echo "Failed to generate VCD files for $verilog_file."
+            failing_files+=("$verilog_file")
+        fi
     else
-        echo "No differences detected in $verilog_file."
+        echo "Yosys failed to process $verilog_file."
+        failing_files+=("$verilog_file")
     fi
 done
 
-# If all files are processed without differences
-exit 0
+# Check if the array of failing files is empty
+if [ ${#failing_files[@]} -eq 0 ]; then
+    echo "All files passed."
+    exit 0
+else
+    echo "The following files failed:"
+    for file in "${failing_files[@]}"; do
+        echo "$file"
+    done
+    exit 1
+fi
