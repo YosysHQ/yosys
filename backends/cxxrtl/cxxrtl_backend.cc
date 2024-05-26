@@ -1138,7 +1138,7 @@ struct CxxrtlWorker {
 		f << indent << "// cell " << cell->name.str() << " syncs\n";
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
-				if (is_cxxrtl_sync_port(cell, conn.first)) {
+				if (is_cxxrtl_sync_port(cell, conn.first) && !conn.second.empty()) {
 					f << indent;
 					dump_sigspec_lhs(conn.second, for_debug);
 					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
