@@ -140,7 +140,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.41+101
+YOSYS_VER := 0.41+108
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -949,7 +949,13 @@ define DOC_USAGE_STDERR
 docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
 	-$(Q) ./$$< --help 2> $$@
 endef
-DOCS_USAGE_STDERR := yosys-config yosys-filterlib yosys-abc
+DOCS_USAGE_STDERR := yosys-config yosys-filterlib
+
+# The in-tree ABC (yosys-abc) is only built when ABCEXTERNAL is not set.
+ifeq ($(ABCEXTERNAL),)
+DOCS_USAGE_STDERR += yosys-abc
+endif
+
 $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 
 # others print to stdout
