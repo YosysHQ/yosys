@@ -1840,8 +1840,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int width = max(width_hint, 1);
 			width_hint = -1, sign_hint = true;
 			children[0]->detectSignWidthWorker(width_hint, sign_hint);
-			children[1]->detectSignWidthWorker(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			children[1]->detectSignWidthWorker(width_hint, sign_hint);
 			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
 			RTLIL::SigSpec sig = binop2rtlil(this, type_name, width, left, right);
 			return sig;
