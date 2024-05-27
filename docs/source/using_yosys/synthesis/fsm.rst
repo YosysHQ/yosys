@@ -63,12 +63,10 @@ information is determined:
 The state registers (and asynchronous reset state, if applicable) is simply
 determined by identifying the driver for the state signal.
 
-.. todo:: Figure out what `$mux-tree` should actually be.
-
-From there the `$mux-tree` driving the state register inputs is recursively
-traversed. All select inputs are control signals and the leaves of the
-`$mux-tree` are the states. The algorithm fails if a non-constant leaf that is
-not the state signal itself is found.
+From there the `$mux`\ -tree driving the state register inputs is recursively
+traversed. All select inputs are control signals and the leaves of the `$mux`\
+-tree are the states. The algorithm fails if a non-constant leaf that is not the
+state signal itself is found.
 
 The list of control outputs is initialized with the bits from the state signal.
 It is then extended by adding all values that are calculated by cells that
