@@ -11,9 +11,9 @@ Writing extensions
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
 
-The `guidelines/` directory of the Yosys source code contains notes on various
-aspects of Yosys development. In particular, the files GettingStarted and
-CodingStyle may be of interest.
+The :file:`guidelines/` directory of the Yosys source code contains notes on
+various aspects of Yosys development. In particular, the files GettingStarted
+and CodingStyle may be of interest.
 
 .. todo:: what's in guidelines/GettingStarted that's missing from the manual?
 

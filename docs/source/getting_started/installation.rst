@@ -109,7 +109,7 @@ Installing all prerequisites for macOS 11 (with Homebrew):
 Running the build system
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-From the root `yosys` directory, call the following commands:
+From the root ``yosys`` directory, call the following commands:
 
 .. code:: console
    
@@ -117,7 +117,7 @@ From the root `yosys` directory, call the following commands:
    sudo make install
 
 This will build and then install Yosys, making it available on the command line
-as `yosys`.  Note that this also downloads, builds, and installs `ABC`_ (using
+as ``yosys``.  Note that this also downloads, builds, and installs `ABC`_ (using
 :program:`yosys-abc` as the executable name).
 
 .. _ABC: https://github.com/berkeley-abc/abc
