@@ -1195,3 +1195,5 @@ file via ABC using the abc pass.
 .. todo:: Add information about ``$lut`` and ``$sop`` cells.
 
 .. todo:: Add information about ``$alu``, ``$fa``, and ``$lcu`` cells.
+
+.. todo:: Add information about ``$demux`` cell.
