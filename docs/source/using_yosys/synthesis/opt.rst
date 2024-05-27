@@ -196,7 +196,7 @@ Removing unused cells and wires - `opt_clean` pass
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass identifies unused signals and cells and removes them from the design.
-It also creates an ``\unused_bits`` attribute on wires with unused bits. This
+It also creates an ``unused_bits`` attribute on wires with unused bits. This
 attribute can be used for debugging or by other optimization passes.
 
 When to use `opt` or `clean`
