@@ -2,6 +2,9 @@
 
 set -ex
 
+# Define the common variable for the relative path
+BASE_PATH="../../../"
+
 # Initialize an array to store the names of failing Verilog files and their failure types
 declare -A failing_files
 
@@ -11,11 +14,11 @@ for verilog_file in verilog/*.v; do
     base_name=$(basename "$verilog_file" .v)
     
     # Run yosys to process each Verilog file
-    if ../../yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"; then
+    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"; then
         echo "Yosys processed $verilog_file successfully."
         
         # Compile the generated C++ files with vcd_harness.cpp
-        ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ../../backends/functional/cxx_runtime/ -I ../../backends/cxxrtl/runtime/ -o vcd_harness
+        ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ${BASE_PATH}backends/functional/cxx_runtime/ -I ${BASE_PATH}backends/cxxrtl/runtime/ -o vcd_harness
         
         # Generate VCD files with base_name
         if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd ; then

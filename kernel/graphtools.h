@@ -183,6 +183,12 @@ public:
 			int offset = parameters.at(ID(OFFSET)).as_int();
 			T a = inputs.at(ID(A));
 			return factory.slice(a, a_width, offset, y_width);
+		}else if(cellType == ID($mul)){
+		  bool is_signed = a_signed && b_signed;
+		  int width = a_width + b_width;
+		  T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
+		  T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
+		  return extend(factory.mul(a, b, width), width, y_width, is_signed);	
 		}else{
 			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 		}

@@ -365,4 +365,18 @@ Signal<n> $sign_extend(Signal<m> const& a)
     return ret;
 }
 
+template<size_t n>
+Signal<n> $mul(Signal<n> const& a, Signal<n> const& b)
+{
+    Signal<n> ret = $const<n>(0);
+
+    for(size_t i = 0; i < n; i++) {
+        if(b[i]) {
+            Signal<n> shifted_a = $shl<n, n>($zero_extend<n, n>(a), $const<n>(i));
+            ret = $add(ret, shifted_a);
+        }
+    }
+    return ret;
+}
+
 #endif
