@@ -139,6 +139,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $and (A, B, Y)
+//* group binary
 //-
 //- A bit-wise AND. This corresponds to the Verilog '&' operator.
 //-
@@ -169,6 +170,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $or (A, B, Y)
+//* group binary
 //-
 //- A bit-wise OR. This corresponds to the Verilog '|' operator.
 //-
@@ -199,6 +201,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $xor (A, B, Y)
+//* group binary
 //-
 //- A bit-wise XOR. This corresponds to the Verilog '^' operator.
 //-
@@ -229,6 +232,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $xnor (A, B, Y)
+//* group binary
 //-
 //- A bit-wise XNOR. This corresponds to the Verilog '~^' operator.
 //-
@@ -400,6 +404,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $shl (A, B, Y)
+//* group binary
 //-
 //- A logical shift-left operation. This corresponds to the Verilog '<<' operator.
 //-
@@ -430,6 +435,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $shr (A, B, Y)
+//* group binary
 //-
 //- A logical shift-right operation. This corresponds to the Verilog '>>' operator.
 //-
@@ -460,6 +466,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $sshl (A, B, Y)
+//* group binary
 //-
 //- An arithmatic shift-left operation. 
 //- This corresponds to the Verilog '<<<' operator.
@@ -491,6 +498,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $sshr (A, B, Y)
+//* group binary
 //-
 //- An arithmatic shift-right operation.
 //- This corresponds to the Verilog '>>>' operator.
@@ -518,6 +526,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$shift (A, B, Y);
 
@@ -550,6 +559,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$shiftx (A, B, Y);
 
@@ -691,6 +701,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $lt (A, B, Y)
+//* group binary
 //-
 //- A less-than comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '<' operator.
@@ -722,6 +733,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $le (A, B, Y)
+//* group binary
 //-
 //- A less-than-or-equal-to comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '<=' operator.
@@ -753,6 +765,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $eq (A, B, Y)
+//* group binary
 //-
 //- An equality comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '==' operator.
@@ -784,6 +797,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $ne (A, B, Y)
+//* group binary
 //-
 //- An inequality comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '!=' operator.
@@ -815,6 +829,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $eqx (A, B, Y)
+//* group binary
 //-
 //- An exact equality comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '===' operator.
@@ -848,6 +863,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $nex (A, B, Y)
+//* group binary
 //-
 //- An exact inequality comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '!==' operator.
@@ -881,6 +897,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $ge (A, B, Y)
+//* group binary
 //-
 //- A greater-than-or-equal-to comparison between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '>=' operator.
@@ -912,6 +929,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $gt (A, B, Y)
+//* group binary
 //-
 //- A greater-than comparison between inputs 'A' and 'B'. 
 //- This corresponds to the Verilog '>' operator.
@@ -943,6 +961,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $add (A, B, Y)
+//* group binary
 //-
 //-  Addition of inputs 'A' and 'B'. This corresponds to the Verilog '+' operator.
 //-
@@ -973,6 +992,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $sub (A, B, Y)
+//* group binary
 //-
 //- Subtraction between inputs 'A' and 'B'.
 //- This corresponds to the Verilog '-' operator.
@@ -1004,6 +1024,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $mul (A, B, Y)
+//* group binary
 //-
 //- Multiplication of inputs 'A' and 'B'.
 //- This corresponds to the Verilog '*' operator.
@@ -1185,6 +1206,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $div (A, B, Y)
+//* group binary
 //-
 //- Division with truncated result (rounded towards 0).
 //-
@@ -1215,6 +1237,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $mod (A, B, Y)
+//* group binary
 //-
 //- Modulo/remainder of division with truncated result (rounded towards 0).
 //-
@@ -1247,6 +1270,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $divfloor (A, B, Y)
+//* group binary
 //-
 //- Division with floored result (rounded towards negative infinity).
 //-
@@ -1284,6 +1308,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $modfloor (A, B, Y)
+//* group binary
 //-
 //- Modulo/remainder of division with floored result (rounded towards negative infinity).
 //-
@@ -1324,6 +1349,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $pow (A, B, Y)
+//* group binary
 //-
 //- Exponentiation of an input (Y = A ** B). 
 //- This corresponds to the Verilog '**' operator.
@@ -1362,10 +1388,10 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $logic_not (A, Y)
+//* group unary
 //-
 //- A logical inverter. This corresponds to the Verilog unary prefix '!' operator.
 //-
-//* group unary
 module \$logic_not (A, Y);
 
 parameter A_SIGNED = 0;
@@ -1390,6 +1416,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $logic_and (A, B, Y)
+//* group binary
 //-
 //- A logical AND. This corresponds to the Verilog '&&' operator.
 //-
@@ -1420,6 +1447,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $logic_or (A, B, Y)
+//* group binary
 //-
 //- A logical OR. This corresponds to the Verilog '||' operator.
 //-
