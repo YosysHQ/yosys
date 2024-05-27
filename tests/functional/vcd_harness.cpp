@@ -85,13 +85,14 @@ int main(int argc, char **argv)
     vcd_file << "#0\n";
     inputs.a = $const<1>(false);
     inputs.b = $const<1>(false);
+    my_module(inputs, outputs, state, next_state);
     {
-        Dump d(vcd_file);
-        inputs.dump(d);
-        outputs.dump(d);
-        state.dump(d);
+      Dump d(vcd_file);
+      inputs.dump(d);
+      outputs.dump(d);
+      state.dump(d);
     }
-
+    
     std::random_device rd;
     std::mt19937 gen(rd());
     std::bernoulli_distribution dist(0.5);
@@ -113,6 +114,7 @@ int main(int argc, char **argv)
         vcd_file << "#" << (step + 1) << "\n";
         inputs.a = $const<1>(a_value);
         inputs.b = $const<1>(b_value);
+	
         my_module(inputs, outputs, state, next_state);
         {
             Dump d(vcd_file);
@@ -120,6 +122,7 @@ int main(int argc, char **argv)
             outputs.dump(d);
             state.dump(d);
         }
+	
         state = next_state;
     }
 
