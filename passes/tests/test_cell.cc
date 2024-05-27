@@ -769,8 +769,8 @@ struct TestCellPass : public Pass {
 		log("    -bloat {factor}\n");
 		log("        increase cell size limits b{factor} times where possible\n");
 		log("    -check_cost\n");
-		log("        check the estimated cell cost is a valid upper bound for the techmapped\n");
-		log("        cell count \n");
+		log("        check if the estimated cell cost is a valid upper bound for\n");
+		log("        the techmapped cell count \n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
@@ -1063,8 +1063,10 @@ struct TestCellPass : public Pass {
 				delete design;
 			}
 			if (check_cost && failed) {
-				log_warning("Cell type %s failed in %.1f%% cases with worst offender being by %d (%.1f%%)\n", cell_type.c_str(),
-					    100 * (float)failed / (float)num_iter, worst_abs, 100 * worst_rel);
+				log_warning("Cell type %s cost underestimated in %.1f%% cases "
+					    "with worst offender being by %d (%.1f%%)\n",
+					    cell_type.c_str(), 100 * (float)failed / (float)num_iter,
+						worst_abs, 100 * worst_rel);
 			}
 		}
 		if (vlog_file.is_open()) {

@@ -85,8 +85,9 @@ struct CellCosts
 	}
 
 	// Get the cell cost for a cell based on its parameters.
-	// This cost is an upper bound for the number of gates the cell will
-	// get mapped to with "opt -fast; techmap"
+	// This cost is an *approximate* upper bound for the number of gates that
+	// the cell will get mapped to with "opt -fast; techmap"
+	// The intended usage is for flattening heuristics and similar situations
 	unsigned int get(RTLIL::Cell *cell);
 	// Sum up the cell costs of all cells in the module
 	// and all its submodules recursively
