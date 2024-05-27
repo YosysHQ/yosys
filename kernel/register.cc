@@ -1111,18 +1111,20 @@ struct HelpPass : public Pass {
 						log("\n");
 						log("%s\n", help_cell.code.c_str());
 				} else {
+					log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
 					if (help_cell.ver == "2" || help_cell.ver == "2a") {
-						log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
-						if (help_cell.title != "") log("%s\n", help_cell.title.c_str());
+						if (help_cell.title != "") log("%s:\n", help_cell.title.c_str());
 						std::stringstream ss;
 						ss << help_cell.desc;
 						for (std::string line; std::getline(ss, line, '\n');) {
 							if (line != "::") log("%s\n", line.c_str());
 						}
-					} else {
+					} else if (help_cell.desc.length()) {
 						log("%s\n", help_cell.desc.c_str());
+					} else {
+						log("No help message for this cell type found.\n");
 					}
-					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+					log("\nRun 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
 					log("\n");
 				}
 			}

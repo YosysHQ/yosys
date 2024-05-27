@@ -84,9 +84,7 @@ for line in fileinput.input():
             simcells_reparse(simHelper)
 
         # check help
-        if not simHelper.desc:
-            simHelper.desc.append("No help message for this cell type found.\n")
-        elif simHelper.ver == "1" and short_filename == "simlib.v" and simHelper.desc[1].startswith('    '):
+        if simHelper.desc and simHelper.ver == "1" and short_filename == "simlib.v" and simHelper.desc[1].startswith('    '):
             simHelper.desc.pop(1)
 
         # check group
