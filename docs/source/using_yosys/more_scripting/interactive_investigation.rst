@@ -65,7 +65,7 @@ displayed as rectangles with inputs on the left and outputs on the right side.
 The cell labels are two lines long: The first line contains a unique identifier
 for the cell and the second line contains the cell type. Internal cell types are
 prefixed with a dollar sign. For more details on the internal cell library, see
-:doc:`/yosys_internals/formats/cell_library`.
+:doc:`/cell_gate` and :doc:`/cell_word`.
 
 Constants are shown as ellipses with the constant value as label. The syntax
 ``<bit_width>'<bits>`` is used for constants that are not 32-bit wide and/or

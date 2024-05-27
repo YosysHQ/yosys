@@ -601,6 +601,7 @@ assign Y = t1 ^ C, X = (t2 | t3) ^ (Y ^ Y);
 endmodule
 
 // --------------------------------------------------------
+//* group arith
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
@@ -639,6 +640,7 @@ endmodule
 
 //* ver 2
 //* title Arithmetic logic unit
+//* group arith
 //- A building block supporting both binary addition/subtraction operations, and
 //- indirectly, comparison operations.
 //- Typically created by the `alumacc` pass, which transforms:
@@ -1055,6 +1057,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $macc (A, B, Y)
+//* group arith
 //-
 //- Multiply and accumulate.
 //- A building block for summing any number of negated and unnegated signals
@@ -1510,6 +1513,7 @@ assign Y = {B, A};
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
@@ -1530,6 +1534,7 @@ assign Y = S ? B : A;
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$bmux (A, S, Y);
 
@@ -1557,6 +1562,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$pmux (A, B, S, Y);
 
@@ -1591,6 +1597,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
@@ -1662,6 +1669,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
@@ -1684,6 +1692,7 @@ assign Y = EN ? A : 'bz;
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specify2 (EN, SRC, DST);
 
@@ -1722,6 +1731,7 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specify3 (EN, SRC, DST, DAT);
 
@@ -1830,6 +1840,7 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specrule (EN_SRC, EN_DST, SRC, DST);
 
@@ -1896,6 +1907,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$assert (A, EN);
 
@@ -1913,6 +1925,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$assume (A, EN);
 
@@ -1930,6 +1943,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$live (A, EN);
 
@@ -1938,6 +1952,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$fair (A, EN);
 
@@ -1946,6 +1961,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$cover (A, EN);
 
@@ -1954,6 +1970,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$initstate (Y);
 
@@ -1971,6 +1988,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$anyconst (Y);
 
@@ -1983,6 +2001,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$anyseq (Y);
 
@@ -1999,6 +2018,7 @@ endmodule
 `ifndef SIMLIB_GLOBAL_CLOCK
 `define SIMLIB_GLOBAL_CLOCK $global_clk
 `endif
+//* group formal
 module \$anyinit (D, Q);
 
 parameter WIDTH = 0;
@@ -2015,6 +2035,7 @@ end
 endmodule
 `endif
 // --------------------------------------------------------
+//* group formal
 
 module \$allconst (Y);
 
@@ -2027,6 +2048,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$allseq (Y);
 
@@ -2039,6 +2061,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$equiv (A, B, Y);
 
@@ -2059,6 +2082,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group debug
 
 module \$print (EN, TRG, ARGS);
 
@@ -2078,6 +2102,7 @@ input [ARGS_WIDTH-1:0] ARGS;
 endmodule
 
 // --------------------------------------------------------
+//* group debug
 
 module \$check (A, EN, TRG, ARGS);
 
@@ -2100,6 +2125,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$sr (SET, CLR, Q);
 
@@ -2132,6 +2158,7 @@ endmodule
 `ifndef SIMLIB_GLOBAL_CLOCK
 `define SIMLIB_GLOBAL_CLOCK $global_clk
 `endif
+//* group formal
 
 module \$ff (D, Q);
 
@@ -2148,6 +2175,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group reg
 
 module \$dff (CLK, D, Q);
 
@@ -2166,6 +2194,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dffe (CLK, EN, D, Q);
 
@@ -2186,6 +2215,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$dffsr (CLK, SET, CLR, D, Q);
 
@@ -2218,6 +2248,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dffsre (CLK, SET, CLR, EN, D, Q);
 
@@ -2252,6 +2283,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group reg
 
 module \$adff (CLK, ARST, D, Q);
 
@@ -2276,6 +2308,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$aldff (CLK, ALOAD, AD, D, Q);
 
@@ -2300,6 +2333,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdff (CLK, SRST, D, Q);
 
@@ -2324,6 +2358,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$adffe (CLK, ARST, EN, D, Q);
 
@@ -2349,6 +2384,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$aldffe (CLK, ALOAD, AD, EN, D, Q);
 
@@ -2374,6 +2410,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdffe (CLK, SRST, EN, D, Q);
 
@@ -2399,6 +2436,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdffce (CLK, SRST, EN, D, Q);
 
@@ -2426,6 +2464,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dlatch (EN, D, Q);
 
@@ -2444,6 +2483,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$adlatch (EN, ARST, D, Q);
 
@@ -2467,6 +2507,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$dlatchsr (EN, SET, CLR, D, Q);
 
@@ -2500,6 +2541,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group fsm
 
 module \$fsm (CLK, ARST, CTRL_IN, CTRL_OUT);
 
@@ -2594,6 +2636,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOMEM
+//* group mem
 
 module \$memrd (CLK, EN, ADDR, DATA);
 
@@ -2617,6 +2660,8 @@ initial begin
 end
 
 endmodule
+
+//* group mem
 
 module \$memrd_v2 (CLK, EN, ARST, SRST, ADDR, DATA);
 
@@ -2647,6 +2692,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$memwr (CLK, EN, ADDR, DATA);
 
@@ -2672,6 +2718,7 @@ end
 
 endmodule
 
+//* group mem
 module \$memwr_v2 (CLK, EN, ADDR, DATA);
 
 parameter MEMID = "";
@@ -2698,6 +2745,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$meminit (ADDR, DATA);
 
@@ -2721,6 +2769,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$meminit_v2 (ADDR, DATA, EN);
 
@@ -2745,6 +2794,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$mem (RD_CLK, RD_EN, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
@@ -2832,6 +2882,8 @@ always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 end
 
 endmodule
+
+//* group mem
 
 module \$mem_v2 (RD_CLK, RD_EN, RD_ARST, RD_SRST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
