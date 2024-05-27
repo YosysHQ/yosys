@@ -430,9 +430,12 @@ class CellDomain(CommandDomain):
         TagIndex
     }
 
-def autoref(name, rawtext, text, lineno, inliner: Inliner,
+def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
     role = 'cell:ref' if text[0] == '$' else 'cmd:ref'
+    if text.startswith("help ") and text.count(' ') == 1:
+        _, cmd = text.split(' ', 1)
+        text = f'{text} <{cmd}>'
     return inliner.interpreted(rawtext, text, role, lineno)
 
 def setup(app: Sphinx):
