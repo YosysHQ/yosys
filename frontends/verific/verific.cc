@@ -3243,7 +3243,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: add to use Synopsys register names
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: infer post elaboration to improve optimization
+			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
