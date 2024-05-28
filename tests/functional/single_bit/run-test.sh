@@ -22,17 +22,15 @@ run_test() {
         
         # Generate VCD files with base_name
         if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd; then
-            # Run vcdiff and capture the output
-            local output=$(vcdiff ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd 2>&1)
-
-            # Check if there is any output
-            if [ -n "$output" ]; then
-                echo "Differences detected in $verilog_file:"
-                echo "$output"
-                failing_files["$verilog_file"]="Differences detected"
-            else
-                echo "No differences detected in $verilog_file."
-            fi
+	    
+	    # Run yosys to process each Verilog file
+	    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -r ${base_name}_functional_cxx.vcd -scope my_module -timescale 1us -sim-cmp"; then
+		echo "Yosys sim $verilog_file successfully."
+	    else
+		echo "Yosys simulation of $verilog_file failed. There is a discrepancy with functional cxx"
+		failing_files["$verilog_file"]="Yosys sim failure"
+	    fi
+	    
         else
             echo "Failed to generate VCD files for $verilog_file."
             failing_files["$verilog_file"]="VCD generation failure"

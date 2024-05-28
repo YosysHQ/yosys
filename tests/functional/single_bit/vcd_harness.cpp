@@ -57,6 +57,7 @@ int main(int argc, char **argv)
     std::ofstream vcd_file(functional_vcd_filename);
 
     vcd_file << "$timescale " << number_timescale << " " << units_timescale << " $end\n";
+    vcd_file << "$scope module my_module $end\n";
     {
         DumpHeader d(vcd_file);
         inputs.dump(d);
