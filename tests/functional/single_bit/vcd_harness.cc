@@ -3,9 +3,6 @@
 #include <fstream>
 #include <random>
 
-#include <cxxrtl/cxxrtl_vcd.h>
-
-#include "my_module_cxxrtl.cc"
 #include "my_module_functional_cxx.cc"
 
 struct DumpHeader {
@@ -38,13 +35,12 @@ struct Dump {
 
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <functional_vcd_filename> <cxxrtl_vcd_filename>\n";
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <functional_vcd_filename>\n";
         return 1;
     }
 
     const std::string functional_vcd_filename = argv[1];
-    const std::string cxxrtl_vcd_filename = argv[2];
 
     constexpr int steps = 10;
     constexpr int number_timescale = 1;
@@ -65,24 +61,6 @@ int main(int argc, char **argv)
         state.dump(d);
     }
     vcd_file << "$enddefinitions $end\n$dumpvars\n";
-
-    cxxrtl_design::p_my__module top;
-
-    cxxrtl::debug_items all_debug_items;
-    cxxrtl::debug_scope debug_scope;
-    top.debug_info(&all_debug_items, nullptr, "");
-
-    cxxrtl::vcd_writer vcd;
-    vcd.timescale(number_timescale, units_timescale);
-    vcd.add_without_memories(all_debug_items);
-
-    std::ofstream waves(cxxrtl_vcd_filename);
-
-    top.p_a.set<bool>(false);
-    top.p_b.set<bool>(false);
-    top.step();
-
-    vcd.sample(0);
     vcd_file << "#0\n";
     inputs.a = $const<1>(false);
     inputs.b = $const<1>(false);
@@ -102,15 +80,6 @@ int main(int argc, char **argv)
         const bool a_value = dist(gen);
         const bool b_value = dist(gen);
 
-        // cxxrtl
-        top.p_a.set<bool>(a_value);
-        top.p_b.set<bool>(b_value);
-        top.step();
-        vcd.sample(step + 1);
-
-        waves << vcd.buffer;
-        vcd.buffer.clear();
-
         // Functional backend cxx
         vcd_file << "#" << (step + 1) << "\n";
         inputs.a = $const<1>(a_value);
@@ -128,7 +97,6 @@ int main(int argc, char **argv)
     }
 
     vcd_file.close();
-    waves.close();
 
     return 0;
 }

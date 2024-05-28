@@ -14,14 +14,14 @@ run_test() {
     local base_name=$(basename "$verilog_file" .v)
     
     # Run yosys to process each Verilog file
-    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; write_cxxrtl my_module_cxxrtl.cc; write_functional_cxx my_module_functional_cxx.cc"; then
+    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; write_functional_cxx my_module_functional_cxx.cc"; then
         echo "Yosys processed $verilog_file successfully."
         
         # Compile the generated C++ files with vcd_harness.cpp
-        ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ${BASE_PATH}backends/functional/cxx_runtime/ -I ${BASE_PATH}backends/cxxrtl/runtime/ -o vcd_harness
+        ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cc -I ${BASE_PATH}backends/functional/cxx_runtime/ -o vcd_harness
         
         # Generate VCD files with base_name
-        if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd; then
+        if ./vcd_harness ${base_name}_functional_cxx.vcd; then
 	    
 	    # Run yosys to process each Verilog file
 	    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -r ${base_name}_functional_cxx.vcd -scope my_module -timescale 1us -sim-cmp"; then
