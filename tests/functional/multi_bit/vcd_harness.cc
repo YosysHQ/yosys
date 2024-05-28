@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include <bitset>
 
 #include "my_module_functional_cxx.cc"
 
@@ -74,16 +75,16 @@ int main(int argc, char **argv)
     
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::bernoulli_distribution dist(0.5);
+    std::uniform_int_distribution<int> dist(0, 255);
 
     for (int step = 0; step < steps; ++step) {
-        const bool a_value = dist(gen);
-        const bool b_value = dist(gen);
+        const uint8_t a_value = dist(gen);
+        const uint8_t b_value = dist(gen);
 
         // Functional backend cxx
         vcd_file << "#" << (step + 1) << "\n";
-        inputs.a = $const<1>(a_value);
-        inputs.b = $const<1>(b_value);
+        inputs.a = $const<8>(a_value);
+        inputs.b = $const<8>(b_value);
 	
         my_module(inputs, outputs, state, next_state);
         {
