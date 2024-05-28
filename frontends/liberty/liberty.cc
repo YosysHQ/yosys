@@ -591,6 +591,12 @@ struct LibertyFrontend : public Frontend {
 
 			for (auto node : cell->children)
 			{
+				if (node->id == "area")
+					module->attributes["\\area"] = node->value;
+
+				if (node->id == "cell_leakage_power")
+					module->attributes["\\LeakagePower"] = node->value;
+
 				if (node->id == "pin" && node->args.size() == 1) {
 					LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))

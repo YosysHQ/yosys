@@ -3459,6 +3459,9 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
+			
+			// Add blackbox modules
+			veri_file::AddVFile("preqorsor/data/blackboxes.v");
 
 			// Select analyze function
 			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
