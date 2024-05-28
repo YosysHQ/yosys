@@ -849,6 +849,8 @@ endif
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
 	+cd tests/cxxrtl && bash run-test.sh
+	+cd tests/functional/single_bit && bash run-test.sh
+	+cd tests/functional/multi_bit && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
