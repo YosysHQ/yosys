@@ -790,7 +790,7 @@ struct AST_INTERNAL::ProcessGenerator
 				Fmt fmt;
 				fmt.parse_verilog(args, /*sformat_like=*/false, default_base, /*task_name=*/ast->str, current_module->name);
 				if (ast->str.substr(0, 8) == "$display")
-					fmt.append_string("\n");
+					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
 				log_file_error(ast->filename, ast->location.first_line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
@@ -2224,7 +2224,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				else
 					input_error("FATAL.\n");
 			} else {
-				input_error("Unknown elabortoon system task '%s'.\n", str.c_str());
+				input_error("Unknown elaboration system task '%s'.\n", str.c_str());
 			}
 		} break;
 

@@ -1,0 +1,95 @@
+name: Build and run tests with Verific (Linux)
+
+on: [push, pull_request]
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md"]'
+          # don't cancel previous builds
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+          # we have special actions when running on main, so this should be off
+          skip_after_successful_duplicate: 'false'
+
+  test-verific:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j${{ env.procs }}
+
+      - name: Install Yosys
+        run: |
+          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Checkout Documentation
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/checkout@v4
+        with:
+          path: 'yosys-cmd-ref'
+          repository: 'YosysHQ-Docs/yosys-cmd-ref'
+          fetch-depth: 0
+          token: ${{ secrets.CI_DOCS_UPDATE_PAT }}
+          persist-credentials: true
+
+      - name: Update documentation
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          make docs
+          rm -rf docs/build
+          cd yosys-cmd-ref
+          rm -rf *
+          git checkout README.md
+          cp -R ../docs/* .
+          rm -rf util/__pycache__
+          git add -A .
+          git diff-index --quiet HEAD || git commit -m "Update"
+          git push
+
+      - name: Checkout SBY
+        uses: actions/checkout@v4
+        with:
+          repository: 'YosysHQ/sby'
+          path: 'sby'
+
+      - name: Build SBY
+        run: |
+          make -C sby install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Run Yosys tests
+        run: |
+          make -j${{ env.procs }} test
+
+      - name: Run Verific specific Yosys tests
+        run: |
+          make -C tests/sva
+          cd tests/svtypes && bash run-test.sh
+
+      - name: Run SBY tests
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          make -C sby run_ci

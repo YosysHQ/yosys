@@ -1,0 +1,97 @@
+name: Test extra build flows
+
+on: [push, pull_request]
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+
+  vs-prep:
+    name: Prepare Visual Studio build
+    runs-on: ubuntu-latest
+    needs: [pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+         submodules: true
+      - name: Build
+        run: make vcxsrc YOSYS_VER=latest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vcxsrc
+          path: yosys-win32-vcxsrc-latest.zip
+  
+  vs-build:
+    name: Visual Studio build
+    runs-on: windows-2019
+    needs: [vs-prep, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    steps:  
+      - uses: actions/download-artifact@v4
+        with:
+          name: vcxsrc
+          path: .
+      - name: unzip
+        run: unzip yosys-win32-vcxsrc-latest.zip
+      - name: setup-msbuild
+        uses: microsoft/setup-msbuild@v2
+      - name: MSBuild
+        working-directory: yosys-win32-vcxsrc-latest
+        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.17763.0
+
+  wasi-build:
+    name: WASI build
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+         submodules: true
+      - name: Build
+        run: |
+          WASI_SDK=wasi-sdk-19.0
+          WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
+          if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
+
+          mkdir -p build
+          cat > build/Makefile.conf <<END
+          export PATH := $(pwd)/${WASI_SDK}/bin:${PATH}
+          WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
+
+          CONFIG := wasi
+          PREFIX := /
+
+          ENABLE_TCL := 0
+          ENABLE_READLINE := 0
+          ENABLE_PLUGINS := 0
+          ENABLE_ZLIB := 0
+          END
+
+          make -C build -f ../Makefile CXX=clang -j$(nproc)
+
+  nix-build:
+    name: "Build nix flake"
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: cachix/install-nix-action@v26
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+      - run: nix build .?submodules=1

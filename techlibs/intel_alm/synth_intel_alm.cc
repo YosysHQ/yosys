@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
- *  Copyright (C) 2019  Dan Ravensloft <dan.ravensloft@gmail.com>
+ *  Copyright (C) 2019  Hannah Ravensloft <dan.ravensloft@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -43,20 +43,10 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -family <family>\n");
 		log("        target one of:\n");
 		log("        \"cyclonev\"    - Cyclone V (default)\n");
-		log("        \"arriav\"      - Arria V (non-GZ)\n");
-		log("        \"cyclone10gx\" - Cyclone 10GX\n");
-		log("\n");
-		log("    -vqm <file>\n");
-		log("        write the design to the specified Verilog Quartus Mapping File. Writing\n");
-		log("        of an output file is omitted if this parameter is not specified. Implies\n");
-		log("        -quartus.\n");
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis; useful for per-module area\n");
 		log("        statistics\n");
-		log("\n");
-		log("    -quartus\n");
-		log("        output a netlist using Quartus cells instead of MISTRAL_* cells\n");
 		log("\n");
 		log("    -dff\n");
 		log("        pass DFFs to ABC to perform sequential logic optimisations\n");
@@ -87,17 +77,15 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram, dff, nodsp, noiopad, noclkbuf;
+	string top_opt, family_opt, bram_type;
+	bool flatten, nolutram, nobram, dff, nodsp, noiopad, noclkbuf;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		family_opt = "cyclonev";
 		bram_type = "m10k";
-		vout_file = "";
 		flatten = true;
-		quartus = false;
 		nolutram = false;
 		nobram = false;
 		dff = false;
@@ -121,21 +109,12 @@ struct SynthIntelALMPass : public ScriptPass {
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-vqm" && argidx + 1 < args.size()) {
-				quartus = true;
-				vout_file = args[++argidx];
-				continue;
-			}
 			if (args[argidx] == "-run" && argidx + 1 < args.size()) {
 				size_t pos = args[argidx + 1].find(':');
 				if (pos == std::string::npos)
 					break;
 				run_from = args[++argidx].substr(0, pos);
 				run_to = args[argidx].substr(pos + 1);
-				continue;
-			}
-			if (args[argidx] == "-quartus") {
-				quartus = true;
 				continue;
 			}
 			if (args[argidx] == "-nolutram") {
@@ -172,18 +151,6 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (family_opt == "cyclonev" || family_opt == "arriav") {
-			bram_type = "m10k";
-		} else if (family_opt == "cyclone10gx") {
-			bram_type = "m20k";
-		} else if (family_opt == "arriva") {
-			// I have typoed "arriav" as "arriva" (a local bus company)
-			// so many times I thought it would be funny to have an easter egg.
-			log_cmd_error("synth_intel_alm cannot synthesize for bus companies. (did you mean '-family arriav'?)\n");
-		} else {
-			log_cmd_error("Invalid family specified: '%s'\n", family_opt.c_str());
-		}
 
 		log_header(design, "Executing SYNTH_INTEL_ALM pass.\n");
 		log_push();
@@ -237,22 +204,16 @@ struct SynthIntelALMPass : public ScriptPass {
 			if (help_mode) {
 				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
 			} else if (!nodsp) {
-				// Cyclone V/Arria V supports 9x9 multiplication, Cyclone 10 GX does not.
 				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL27X27");
 				run("chtype -set $mul t:$__soft_mul");
 				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=19 -D DSP_NAME=__MUL27X27");
 				run("chtype -set $mul t:$__soft_mul");
-				if (family_opt == "cyclonev" || family_opt == "arriav") {
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
-					run("chtype -set $mul t:$__soft_mul");
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=10 -D DSP_NAME=__MUL18X18");
-					run("chtype -set $mul t:$__soft_mul");
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL9X9");
-					run("chtype -set $mul t:$__soft_mul");
-				} else if (family_opt == "cyclone10gx") {
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
-					run("chtype -set $mul t:$__soft_mul");
-				}
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
+				run("chtype -set $mul t:$__soft_mul");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=10 -D DSP_NAME=__MUL18X18");
+				run("chtype -set $mul t:$__soft_mul");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL9X9");
+				run("chtype -set $mul t:$__soft_mul");
 			}
 			run("alumacc");
 			if (!noiopad)
@@ -269,7 +230,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
-			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V / Cyclone 10GX)");
+			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V)");
 		}
 
 		if (check_label("map_ffram")) {
@@ -302,28 +263,6 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("stat");
 			run("check");
 			run("blackbox =A:whitebox");
-		}
-
-		if (check_label("quartus")) {
-			if (quartus || help_mode) {
-				// Quartus ICEs if you have a wire which has `[]` in its name,
-				// which Yosys produces when building memories out of flops.
-				run("rename -hide w:*[* w:*]*");
-				// VQM mode does not support 'x, so replace those with zero.
-				run("setundef -zero");
-				// VQM mode does not support multi-bit constant assignments
-				// (e.g. 2'b00 is an error), so as a workaround use references
-				// to constant driver cells, which Quartus accepts.
-				run("hilomap -singleton -hicell __MISTRAL_VCC Q -locell __MISTRAL_GND Q");
-				// Rename from Yosys-internal MISTRAL_* cells to Quartus cells.
-				run(stringf("techmap -D %s -map +/intel_alm/common/quartus_rename.v", family_opt.c_str()));
-			}
-		}
-
-		if (check_label("vqm")) {
-			if (!vout_file.empty() || help_mode) {
-				run(stringf("write_verilog -attr2comment -defparam -nohex -decimal %s", help_mode ? "<file-name>" : vout_file.c_str()));
-			}
 		}
 	}
 } SynthIntelALMPass;

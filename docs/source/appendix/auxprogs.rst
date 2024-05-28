@@ -11,7 +11,7 @@ The ``yosys-config`` tool (an auto-generated shell-script) can be used to query
 compiler options and other information needed for building loadable modules for
 Yosys. See :doc:`/yosys_internals/extending_yosys/extensions` for details.
 
-.. literalinclude:: /temp/yosys-config
+.. literalinclude:: /generated/yosys-config
     :start-at: Usage
 
 .. _sec:filterlib:
@@ -25,7 +25,7 @@ The ``yosys-filterlib`` tool is a small utility that can be used to strip or
 extract information from a Liberty file.  This can be useful for removing
 sensitive or proprietary information such as timing or other trade secrets.
 
-.. literalinclude:: /temp/yosys-filterlib
+.. literalinclude:: /generated/yosys-filterlib
     :start-at: Usage
 
 yosys-abc
@@ -36,9 +36,8 @@ been accepted upstream. Not all versions of Yosys work with all versions of ABC.
 So Yosys comes with its own yosys-abc to avoid compatibility issues between the
 two.
 
-.. literalinclude:: /temp/yosys-abc
+.. literalinclude:: /generated/yosys-abc
     :start-at: usage
-    :end-before: UC Berkeley
 
 yosys-smtbmc
 ------------
@@ -46,7 +45,7 @@ yosys-smtbmc
 The ``yosys-smtbmc`` tool is a utility used by SBY for interacting with smt
 solvers.
 
-.. literalinclude:: /temp/yosys-smtbmc
+.. literalinclude:: /generated/yosys-smtbmc
 
 yosys-witness
 -------------
@@ -55,7 +54,7 @@ yosys-witness
 This is used in SBY and SCY for producing traces in a consistent format
 independent of the solver.
 
-.. literalinclude:: /temp/yosys-witness
+.. literalinclude:: /generated/yosys-witness
     :start-at: Usage
 
 .. note:: ``yosys-witness`` requires `click`_ Python package for use.

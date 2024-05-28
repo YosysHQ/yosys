@@ -1,0 +1,33 @@
+name: Build environment setup
+description: Configure build env for Yosys builds
+runs:
+  using: composite
+  steps:
+    - name: Install Linux Dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install gperf build-essential bison flex libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev
+
+    - name: Install macOS Dependencies
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install bison flex gawk libffi pkg-config bash autoconf
+
+    - name: Linux runtime environment
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+        echo "procs=$(nproc)" >> $GITHUB_ENV
+
+    - name: macOS runtime environment
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+        echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+        echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+        echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV

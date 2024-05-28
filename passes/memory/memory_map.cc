@@ -415,7 +415,7 @@ struct MemoryMapPass : public Pass {
 		log("        to any of the values.\n");
 		log("\n");
 		log("    -iattr\n");
-		log("        for -attr, ignore case of <value>.\n");
+		log("        for -attr, suppress case sensitivity in matching of <value>.\n");
 		log("\n");
 		log("    -rom-only\n");
 		log("        only perform conversion for ROMs (memories with no write ports).\n");

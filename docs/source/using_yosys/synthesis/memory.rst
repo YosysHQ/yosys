@@ -39,7 +39,7 @@ Example
 .. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/synth_flow
 
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_01.ys
    :language: yoscrypt
@@ -50,7 +50,7 @@ Example
    :caption: :file:`memory_01.v`
 
 .. figure:: /_images/code_examples/synth_flow/memory_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_02.v
    :language: verilog

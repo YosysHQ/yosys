@@ -356,7 +356,7 @@ int main(int argc, char **argv)
 		printf("    -V\n");
 		printf("        print version information and exit\n");
 		printf("\n");
-		printf("The option -S is an shortcut for calling the \"synth\" command, a default\n");
+		printf("The option -S is a shortcut for calling the \"synth\" command, a default\n");
 		printf("script for transforming the Verilog input to a gate-level netlist. For example:\n");
 		printf("\n");
 		printf("    yosys -o output.blif -S input.v\n");

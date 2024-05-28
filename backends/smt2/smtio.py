@@ -160,6 +160,7 @@ class SmtIo:
             self.noincr = opts.noincr
             self.info_stmts = opts.info_stmts
             self.nocomments = opts.nocomments
+            self.smt2_options.update(opts.smt2_options)
 
         else:
             self.solver = "yices"
@@ -959,6 +960,8 @@ class SmtIo:
         return int(self.bv2bin(v), 2)
 
     def get_raw_unsat_assumptions(self):
+        if not self.smt2_assumptions:
+            return []
         self.write("(get-unsat-assumptions)")
         exprs = set(self.unparse(part) for part in self.parse(self.read()))
         unsat_assumptions = []
@@ -973,6 +976,10 @@ class SmtIo:
     def get_unsat_assumptions(self, minimize=False):
         if not minimize:
             return self.get_raw_unsat_assumptions()
+        orig_assumptions = self.smt2_assumptions
+
+        self.smt2_assumptions = dict(orig_assumptions)
+
         required_assumptions = {}
 
         while True:
@@ -998,6 +1005,7 @@ class SmtIo:
                     required_assumptions[candidate_key] = candidate_assume
 
             if candidate_assumptions is not None:
+                self.smt2_assumptions = orig_assumptions
                 return list(required_assumptions)
 
     def get(self, expr):
@@ -1146,7 +1154,7 @@ class SmtIo:
 class SmtOpts:
     def __init__(self):
         self.shortopts = "s:S:v"
-        self.longopts = ["unroll", "noincr", "noprogress", "timeout=", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
+        self.longopts = ["unroll", "noincr", "noprogress", "timeout=", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments", "smt2-option="]
         self.solver = "yices"
         self.solver_opts = list()
         self.debug_print = False
@@ -1159,6 +1167,7 @@ class SmtOpts:
         self.logic = None
         self.info_stmts = list()
         self.nocomments = False
+        self.smt2_options = {}
 
     def handle(self, o, a):
         if o == "-s":
@@ -1185,6 +1194,13 @@ class SmtOpts:
             self.info_stmts.append(a)
         elif o == "--nocomments":
             self.nocomments = True
+        elif o == "--smt2-option":
+            args = a.split('=', 1)
+            if len(args) != 2:
+                print("--smt2-option expects an <option>=<value> argument")
+                sys.exit(1)
+            option, value = args
+            self.smt2_options[option] = value
         else:
             return False
         return True
@@ -1207,6 +1223,9 @@ class SmtOpts:
     --dummy <filename>
         if solver is "dummy", read solver output from that file
         otherwise: write solver output to that file
+
+    --smt2-option <option>=<value>
+        enable an SMT-LIBv2 option.
 
     -v
         enable debug output

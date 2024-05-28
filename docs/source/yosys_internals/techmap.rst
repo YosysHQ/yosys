@@ -34,7 +34,7 @@ Mapping OR3X1
    :caption: :file:`red_or3x1_map.v`
 
 .. figure:: /_images/code_examples/techmap/red_or3x1.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/techmap/red_or3x1_test.ys
    :language: yoscrypt
@@ -61,7 +61,7 @@ Conditional techmap
 Example:
 
 .. figure:: /_images/code_examples/techmap/sym_mul.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/techmap/sym_mul_map.v
    :language: verilog
@@ -100,7 +100,7 @@ Scripting in map modules
 Example:
 
 .. figure:: /_images/code_examples/techmap/mymul.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/techmap/mymul_map.v
    :language: verilog
@@ -130,7 +130,7 @@ Handling constant inputs
 Example:
 
 .. figure:: /_images/code_examples/techmap/mulshift.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/techmap/mulshift_map.v
    :language: verilog
@@ -162,7 +162,7 @@ Handling shorted inputs
 Example:
 
 .. figure:: /_images/code_examples/techmap/addshift.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/techmap/addshift_map.v
    :language: verilog

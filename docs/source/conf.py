@@ -4,7 +4,8 @@ import os
 
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
-copyright ='2022 YosysHQ GmbH'
+copyright ='2024 YosysHQ GmbH'
+yosys_ver = "0.41"
 
 # select HTML theme
 html_theme = 'furo'
@@ -46,12 +47,18 @@ extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
 
+# set version
+if os.getenv("READTHEDOCS") and os.getenv("READTHEDOCS_VERSION") == "latest":
+    release = yosys_ver + "-dev"
+else:
+    release = yosys_ver
+
 # assign figure numbers
 numfig = True
 
 bibtex_bibfiles = ['literature.bib']
-
 latex_elements = {
+        'releasename': 'Version',
         'preamble': r'''
 \usepackage{lmodern}
 \usepackage{comment}

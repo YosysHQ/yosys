@@ -1,0 +1,33 @@
+read_verilog <<EOT
+
+(* techmap_celltype="foo" *)
+module _80_lcu_primitive(P, G, CI, CO);
+	parameter WIDTH = 10;
+
+	(* force_downto *)
+	input wire [WIDTH-1:0] P;
+	(* force_downto *)
+	input wire [WIDTH-1:0] G;
+	input wire CI;
+	(* force_downto *)
+	output wire [WIDTH-1:0] CO;
+
+	(* techmap_chtype=$sformatf("LCU_%0d", WIDTH) *)
+	_TECHMAP_PLACEHOLDER_ #(.WIDTH(WIDTH)) _TECHMAP_REPLACE_(.P(P), .G(G), .CI(CI), .CO(CO));
+endmodule
+
+EOT
+design -stash techmap
+
+read_verilog <<EOT
+module top(input [3:0] pi, input [3:0] gi, input ci, output [3:0] co);
+foo #(.WIDTH(8)) suuuub(pi, gi, ci, co);
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+opt
+techmap -map %techmap
+
+select -assert-count 1 t:LCU_8

@@ -17,10 +17,10 @@
  *
  */
 
-#include "kernel/yosys.h"
-
 #ifndef LOG_H
 #define LOG_H
+
+#include "kernel/yosys_common.h"
 
 #include <time.h>
 
@@ -448,5 +448,7 @@ void log_dump_args_worker(const char *p, T first, Args ... args)
 } while (0)
 
 YOSYS_NAMESPACE_END
+
+#include "kernel/yosys.h"
 
 #endif
