@@ -66,7 +66,7 @@
         defaultPackage = yosys;
         packages.vcdiff = vcdiff;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier gtkwave vcdiff lcov ];
+          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier gtkwave vcdiff lcov racket verilog ];
         };
       }
     );
