@@ -794,6 +794,9 @@ struct HierarchyPass : public Pass {
 		log("    -auto-top\n");
 		log("        automatically determine the top of the design hierarchy and mark it.\n");
 		log("\n");
+		log("    -opt\n");
+		log("        optimize all modules in design hierarchy.\n");
+		log("\n");
 		log("    -chparam name value \n");
 		log("       elaborate the top module using this parameter value. Modules on which\n");
 		log("       this parameter does not exist may cause a warning message to be output.\n");
@@ -821,6 +824,7 @@ struct HierarchyPass : public Pass {
 	{
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
+		bool flag_opt = false;
 		bool flag_check = false;
 		bool flag_simcheck = false;
 		bool flag_smtcheck = false;
@@ -932,6 +936,10 @@ struct HierarchyPass : public Pass {
 				auto_top_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-opt") {
+				flag_opt = true;
+				continue;
+			}
 			if (args[argidx] == "-chparam"  && argidx+2 < args.size()) {
 				const std::string &key = args[++argidx];
 				const std::string &value = args[++argidx];
@@ -981,7 +989,7 @@ struct HierarchyPass : public Pass {
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
-				load_top_mod = verific_import(design, parameters, load_top_mod);
+				load_top_mod = verific_import(design, parameters, load_top_mod, flag_opt);
 				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
@@ -990,7 +998,7 @@ struct HierarchyPass : public Pass {
 		} else {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending)
-				verific_import(design, parameters);
+				verific_import(design, parameters, std::string(), flag_opt);
 #endif
 		}
 

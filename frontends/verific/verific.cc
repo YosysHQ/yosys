@@ -2655,7 +2655,7 @@ struct VerificExtNets
 	}
 };
 
-std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
+std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt)
 {
 	verific_sva_fsm_limit = 16;
 
@@ -2766,6 +2766,44 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
 		worker.run(nl.second);
+
+	if (opt) { // SILIMATE: use Verific optimization
+		log("  Optimizing all netlists with IMPORT.\n");
+		for (auto nl : nl_todo) {
+			log("    Removing buffers for %s.\n", nl.first.c_str());
+			nl.second->RemoveBuffers();
+
+			log("    Balancing timing for %s.\n", nl.first.c_str());
+			unsigned result = nl.second->BalanceTiming(0);
+			log("    Balance timing result before: %d\n", result);
+			result = nl.second->BalanceTiming(1);
+			log("    Balance timing result after: %d\n", result);
+
+			log("    Running post-elaboration for %s.\n", nl.first.c_str());
+			nl.second->PostElaborationProcess();
+			log("    Removing dangling logic for %s.\n", nl.first.c_str());
+			nl.second->RemoveDanglingLogic(1, 1, 1);
+
+			log("    Merging RAM write ports for %s.\n", nl.first.c_str());
+			nl.second->MergeRamWritePorts();
+			log("    Merging RAMs for %s.\n", nl.first.c_str());
+			nl.second->MergeRams();
+
+			log("    Merging selectors for %s.\n", nl.first.c_str());
+			nl.second->MergeSelectors();
+			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
+			nl.second->OptimizePrioSelectors();
+			log("    Performing resource sharing for %s.\n", nl.first.c_str());
+			nl.second->ResourceSharing();
+			log("    Performing final resource merging for %s.\n", nl.first.c_str());
+			nl.second->OptimizeSameInputSubstractorComparator();
+
+			log("    Balancing timing for %s.\n", nl.first.c_str());
+			log("    Balance timing result before: %d\n", result);
+			result = nl.second->BalanceTiming(1);
+			log("    Balance timing result after: %d\n", result);
+		}
+	}
 
 	while (!nl_todo.empty()) {
 		auto it = nl_todo.begin();
@@ -3201,8 +3239,11 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_preserve_x", 1);
 
+			RuntimeFlags::SetVar("db_merge_cascaded_muxes", 1); // SILIMATE: add to improve optimization
+			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: add to use Synopsys register names
+
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+			RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: infer post elaboration to improve optimization
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
@@ -3384,7 +3425,8 @@ struct VerificPass : public Pass {
 			break;
 		}
 
-		if (GetSize(args) > argidx && (args[argidx] == "-auto_discover" || args[argidx] == "-hdl_sort"))
+		// SILIMATE: auto-discover
+		if (GetSize(args) > argidx && args[argidx] == "-auto_discover")
 		{
 			// Always operate in SystemVerilog mode
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
