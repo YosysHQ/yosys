@@ -190,6 +190,8 @@ public:
   T logical_shift_right(T a, T b, int y_width, int) { return graph.add(CxxFunction(ID($shr), y_width, {{ID(WIDTH), y_width}}), 0, std::array<T, 2>{a, b}); }
   T arithmetic_shift_right(T a, T b, int y_width, int) { return graph.add(CxxFunction(ID($asr), y_width, {{ID(WIDTH), y_width}}), 0, std::array<T, 2>{a, b}); }
   T mul(T a, T b, int width) { return graph.add(CxxFunction(ID($mul), width), 0, std::array<T, 2>{a, b}); }
+  T mod(T a, T b, int width) { return graph.add(CxxFunction(ID($mod), width), 0, std::array<T, 2>{a, b}); }
+  T div(T a, T b, int width) { return graph.add(CxxFunction(ID($div), width), 0, std::array<T, 2>{a, b}); }
   
   T constant(RTLIL::Const value) {
     return graph.add(CxxFunction(ID($$const), value.size(), {{ID(value), value}}), 0);

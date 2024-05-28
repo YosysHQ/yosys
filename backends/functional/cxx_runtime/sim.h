@@ -379,4 +379,34 @@ Signal<n> $mul(Signal<n> const& a, Signal<n> const& b)
     return ret;
 }
 
+template<size_t n>
+Signal<n> $div(Signal<n> const& a, Signal<n> const& b)
+{
+    Signal<n> quotient = $const<n>(0);
+    Signal<n> remainder = a;
+    Signal<n> divisor = b;
+
+    for(int i = n - 1; i >= 0; i--) {
+        if(as_int(remainder) >= (as_int(divisor) << i)) {
+            remainder = $sub(remainder, $shl<n, n>(divisor, $const<n>(i)));
+            quotient[i] = true;
+        }
+    }
+    return quotient;
+}
+
+template<size_t n>
+Signal<n> $mod(Signal<n> const& a, Signal<n> const& b)
+{
+    Signal<n> remainder = a;
+    Signal<n> divisor = b;
+
+    for(int i = n - 1; i >= 0; i--) {
+        if(as_int(remainder) >= (as_int(divisor) << i)) {
+            remainder = $sub(remainder, $shl<n, n>(divisor, $const<n>(i)));
+        }
+    }
+    return remainder;
+}
+
 #endif

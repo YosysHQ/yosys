@@ -189,6 +189,18 @@ public:
 		  T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
 		  T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
 		  return extend(factory.mul(a, b, width), width, y_width, is_signed);	
+		}else if(cellType == ID($div)){
+		  bool is_signed = a_signed && b_signed;
+		  int width = max(a_width, b_width);
+		  T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
+		  T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
+		  return extend(factory.div(a, b, width), width, y_width, is_signed);  
+		}else if(cellType == ID($mod)){
+		  bool is_signed = a_signed && b_signed;
+		  int width = max(a_width, b_width);
+		  T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
+		  T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
+		  return extend(factory.mod(a, b, width), width, y_width, is_signed);  
 		}else{
 			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 		}

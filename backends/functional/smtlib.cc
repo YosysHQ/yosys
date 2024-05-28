@@ -368,6 +368,8 @@ public:
 	T logical_shift_right(T a, T b, int y_width, int b_width) { return shift("bvlshl", a, b, y_width, b_width); }
 	T arithmetic_shift_right(T a, T b, int y_width, int b_width) { return shift("bvashr", a, b, y_width, b_width, true); }
         T mul(T a, T b, int width) { return node(SExpr {"bvmul", Arg(1), Arg(2)}, width, {a, b}); }
+        T div(T a, T b, int width) { return node(SExpr {"bvudiv", Arg(1), Arg(2)}, width, {a, b}); }
+        T mod(T a, T b, int width) { return node(SExpr {"bvurem", Arg(1), Arg(2)}, width, {a, b}); }
   
 	T constant(RTLIL::Const value) { return node(SExpr(value), value.size(), {}); }
 	T input(IdString name, int width) {
