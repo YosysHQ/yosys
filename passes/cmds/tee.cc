@@ -54,6 +54,9 @@ struct TeePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::vector<FILE*> backup_log_files, files_to_close;
 		std::vector<std::ostream*> backup_log_streams;
 		std::vector<std::string> backup_log_scratchpads;

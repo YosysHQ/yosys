@@ -23,6 +23,8 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include "tracy/public/tracy/Tracy.hpp"
+
 YOSYS_NAMESPACE_BEGIN
 
 struct Pass

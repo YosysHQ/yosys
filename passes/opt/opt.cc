@@ -66,6 +66,9 @@ struct OptPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::string opt_clean_args;
 		std::string opt_expr_args;
 		std::string opt_reduce_args;

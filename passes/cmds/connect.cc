@@ -80,6 +80,9 @@ struct ConnectPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool flag_nounset = false, flag_nomap = false, flag_assert = false;
 		std::string set_lhs, set_rhs, unset_expr;
 		std::string port_cell, port_port, port_expr;

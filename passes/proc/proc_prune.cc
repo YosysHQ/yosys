@@ -122,6 +122,9 @@ struct ProcPrunePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		int total_removed_count = 0, total_promoted_count = 0;
 		log_header(design, "Executing PROC_PRUNE pass (remove redundant assignments in processes).\n");
 

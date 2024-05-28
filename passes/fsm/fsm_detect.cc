@@ -287,6 +287,9 @@ struct FsmDetectPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing FSM_DETECT pass (finding FSMs in design).\n");
 
 		bool ignore_self_reset = false;

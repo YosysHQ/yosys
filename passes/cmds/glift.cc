@@ -517,6 +517,9 @@ struct GliftPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool opt_create_precise_model = false, opt_create_imprecise_model = false, opt_create_instrumented_model = false;
 		bool opt_taintconstants = false, opt_keepoutputs = false, opt_simplecostmodel = false, opt_nocostmodel = false;
 		bool opt_instrumentmore = false;

@@ -338,6 +338,9 @@ struct OptMemFeedbackPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).\n");
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		extra_args(args, 1, design);
 		OptMemFeedbackWorker worker(design);
 

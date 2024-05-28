@@ -42,6 +42,9 @@ struct EquivRemovePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool mode_gold = false;
 		bool mode_gate = false;
 		int remove_count = 0;

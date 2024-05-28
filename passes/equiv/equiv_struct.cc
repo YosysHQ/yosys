@@ -316,6 +316,9 @@ struct EquivStructPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		pool<IdString> fwonly_cells({ ID($equiv) });
 		bool mode_icells = false;
 		bool mode_fwd = false;

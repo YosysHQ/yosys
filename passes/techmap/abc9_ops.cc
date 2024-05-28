@@ -1654,6 +1654,9 @@ struct Abc9OpsPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 
 		bool check_mode = false;
