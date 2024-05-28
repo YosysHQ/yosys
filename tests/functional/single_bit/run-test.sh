@@ -21,9 +21,9 @@ run_test() {
         ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cpp -I ${BASE_PATH}backends/functional/cxx_runtime/ -I ${BASE_PATH}backends/cxxrtl/runtime/ -o vcd_harness
         
         # Generate VCD files with base_name
-        if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd ; then
+        if ./vcd_harness ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd; then
             # Run vcdiff and capture the output
-            local output=$(vcdiff ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd)
+            local output=$(vcdiff ${base_name}_functional_cxx.vcd ${base_name}_cxxrtl.vcd 2>&1)
 
             # Check if there is any output
             if [ -n "$output" ]; then
