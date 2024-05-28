@@ -4,6 +4,7 @@ OBJS += techlibs/nanoxplore/nx_carry.o
 
 # Techmap
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/arith_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams_init.vh))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams_map.v))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams.txt))
 $(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_bb.v))
