@@ -1067,7 +1067,7 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    -assert-mod-count N\n");
 		log("        do not modify the current selection. instead assert that the given\n");
-		log("        selection contains exactly N modules.\n");
+		log("        selection contains exactly N modules (partially or fully selected).\n");
 		log("\n");
 		log("    -assert-count N\n");
 		log("        do not modify the current selection. instead assert that the given\n");
