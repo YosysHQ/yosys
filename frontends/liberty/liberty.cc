@@ -552,8 +552,12 @@ struct LibertyFrontend : public Frontend {
 		std::map<std::string, std::tuple<int, int, bool>> global_type_map;
 		parse_type_map(global_type_map, parser.ast);
 
+		string leakage_power_unit;
 		for (auto cell : parser.ast->children)
 		{
+			if (cell->id == "leakage_power_unit")
+				leakage_power_unit = cell->value;
+
 			if (cell->id != "cell" || cell->args.size() != 1)
 				continue;
 
@@ -579,6 +583,7 @@ struct LibertyFrontend : public Frontend {
 
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
+			module->attributes["\\leakage_power_unit"] = leakage_power_unit;
 
 			if (flag_lib)
 				module->set_bool_attribute(ID::blackbox);
