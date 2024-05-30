@@ -540,54 +540,6 @@ module NX_PLL_U(R, REF, FBK, OSC, VCO, LDFO, REFO, CLK_DIV1, CLK_DIV2, CLK_DIV3,
 endmodule
 
 (* blackbox *)
-module NX_XCDC_U(CK1, CK2, ASRSTI, ADRSTI, ASRSTO, ADRSTO, BSRSTI, BDRSTI, BSRSTO, BDRSTO, CSRSTI, CDRSTI, CSRSTO, CDRSTO, DSRSTI, DDRSTI, DSRSTO, DDRSTO, BI, CI, CO
-, AO, BO, AI, DI, DO);
-    input ADRSTI;
-    output ADRSTO;
-    input [5:0] AI;
-    output [5:0] AO;
-    input ASRSTI;
-    output ASRSTO;
-    input BDRSTI;
-    output BDRSTO;
-    input [5:0] BI;
-    output [5:0] BO;
-    input BSRSTI;
-    output BSRSTO;
-    input CDRSTI;
-    output CDRSTO;
-    input [5:0] CI;
-    input CK1;
-    input CK2;
-    output [5:0] CO;
-    input CSRSTI;
-    output CSRSTO;
-    input DDRSTI;
-    output DDRSTO;
-    input [5:0] DI;
-    output [5:0] DO;
-    input DSRSTI;
-    output DSRSTO;
-    parameter ack_sel = 1'b0;
-    parameter bck_sel = 1'b0;
-    parameter cck_sel = 1'b0;
-    parameter ck0_edge = 1'b0;
-    parameter ck1_edge = 1'b0;
-    parameter dck_sel = 1'b0;
-    parameter link_BA = 1'b0;
-    parameter link_CB = 1'b0;
-    parameter link_DC = 1'b0;
-    parameter use_adest_arst = 1'b0;
-    parameter use_asrc_arst = 1'b0;
-    parameter use_bdest_arst = 1'b0;
-    parameter use_bsrc_arst = 1'b0;
-    parameter use_cdest_arst = 1'b0;
-    parameter use_csrc_arst = 1'b0;
-    parameter use_ddest_arst = 1'b0;
-    parameter use_dsrc_arst = 1'b0;
-endmodule
-
-(* blackbox *)
 module NX_CRX_U(DSCR_E_I, DEC_E_I, ALIGN_E_I, ALIGN_S_I, REP_E_I, BUF_R_I, OVS_BS_I1, OVS_BS_I2, RST_N_I, PMA_RSTN_I, MEYE_RST_I, PWDN_N_I, DBG_S_I1, DBG_S_I2, DBG_S_I3, DATA_O1, DATA_O2, DATA_O3, DATA_O4, DATA_O5, DATA_O6
 , DATA_O7, DATA_O8, DATA_O9, DATA_O10, DATA_O11, DATA_O12, DATA_O13, DATA_O14, DATA_O15, DATA_O16, DATA_O17, DATA_O18, DATA_O19, DATA_O20, DATA_O21, DATA_O22, DATA_O23, DATA_O24, DATA_O25, DATA_O26, DATA_O27
 , DATA_O28, DATA_O29, DATA_O30, DATA_O31, DATA_O32, DATA_O33, DATA_O34, DATA_O35, DATA_O36, DATA_O37, DATA_O38, DATA_O39, DATA_O40, DATA_O41, DATA_O42, DATA_O43, DATA_O44, DATA_O45, DATA_O46, DATA_O47, DATA_O48
