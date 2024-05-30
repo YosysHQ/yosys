@@ -80,7 +80,7 @@ static void nx_carry_chain(Module *module)
 		IdString names_A[] = { ID(A1), ID(A2), ID(A3), ID(A4) };
 		IdString names_B[] = { ID(B1), ID(B2), ID(B3), ID(B4) };
 		IdString names_S[] = { ID(S1), ID(S2), ID(S3), ID(S4) };
-		if (c.second.at(0)->getPort(ID(CI)).is_wire()) {
+		if (!c.second.at(0)->getPort(ID(CI)).is_fully_const()) {
 			cell = module->addCell(NEW_ID, ID(NX_CY));
 			cell->setPort(ID(CI), State::S0);
 
