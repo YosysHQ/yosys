@@ -82,7 +82,8 @@ static void nx_carry_chain(Module *module)
 		IdString names_S[] = { ID(S1), ID(S2), ID(S3), ID(S4) };
 		if (!c.second.at(0)->getPort(ID(CI)).is_fully_const()) {
 			cell = module->addCell(NEW_ID, ID(NX_CY));
-			cell->setPort(ID(CI), State::S0);
+			cell->setParam(ID(add_carry), Const(1,2));
+			cell->setPort(ID(CI), State::S1);
 
 			cell->setPort(names_A[0], c.second.at(0)->getPort(ID(CI)).as_bit());
 			cell->setPort(names_B[0], State::S0);
@@ -104,13 +105,14 @@ static void nx_carry_chain(Module *module)
 				}
 			}
 			if (j==3) {
-				if (cnt % 24 == 23) {
+				if (cnt !=0 && (cnt % 24 == 0)) {
 					SigBit new_co = module->addWire(NEW_ID);
 					cell->setPort(ID(A4), State::S0);
 					cell->setPort(ID(B4), State::S0);
 					cell->setPort(ID(S4), new_co);
 					cell = module->addCell(NEW_ID, ID(NX_CY));
-					cell->setPort(ID(CI), State::S0);
+					cell->setParam(ID(add_carry), Const(1,2));
+					cell->setPort(ID(CI), State::S1);
 					cell->setPort(ID(A1), new_co);
 					cell->setPort(ID(B1), State::S0);
 					j = 1;
