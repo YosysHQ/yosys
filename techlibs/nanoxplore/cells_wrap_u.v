@@ -466,6 +466,141 @@ module NX_CDC_U_GRAY2BIN(BI, AO, BO, AI);
   );
 endmodule
 
+module NX_XCDC_U(CK1, CK2, ASRSTI, ADRSTI, ASRSTO, ADRSTO, BSRSTI, BDRSTI, BSRSTO, BDRSTO, CSRSTI, CDRSTI, CSRSTO, CDRSTO, DSRSTI, DDRSTI, DSRSTO, DDRSTO, BI, CI, CO
+, AO, BO, AI, DI, DO);
+    input ADRSTI;
+    output ADRSTO;
+    input [5:0] AI;
+    output [5:0] AO;
+    input ASRSTI;
+    output ASRSTO;
+    input BDRSTI;
+    output BDRSTO;
+    input [5:0] BI;
+    output [5:0] BO;
+    input BSRSTI;
+    output BSRSTO;
+    input CDRSTI;
+    output CDRSTO;
+    input [5:0] CI;
+    input CK1;
+    input CK2;
+    output [5:0] CO;
+    input CSRSTI;
+    output CSRSTO;
+    input DDRSTI;
+    output DDRSTO;
+    input [5:0] DI;
+    output [5:0] DO;
+    input DSRSTI;
+    output DSRSTO;
+    parameter ack_sel = 1'b0;
+    parameter bck_sel = 1'b0;
+    parameter cck_sel = 1'b0;
+    parameter ck0_edge = 1'b0;
+    parameter ck1_edge = 1'b0;
+    parameter dck_sel = 1'b0;
+    parameter link_BA = 1'b0;
+    parameter link_CB = 1'b0;
+    parameter link_DC = 1'b0;
+    parameter use_adest_arst = 1'b0;
+    parameter use_asrc_arst = 1'b0;
+    parameter use_bdest_arst = 1'b0;
+    parameter use_bsrc_arst = 1'b0;
+    parameter use_cdest_arst = 1'b0;
+    parameter use_csrc_arst = 1'b0;
+    parameter use_ddest_arst = 1'b0;
+    parameter use_dsrc_arst = 1'b0;
+
+  NX_CDC_U #(
+    .mode(5), // -- 5: XCDC
+    .ck0_edge(ck0_edge),
+    .ck1_edge(ck1_edge),
+    .ack_sel(ack_sel),
+    .bck_sel(bck_sel),
+    .cck_sel(cck_sel),
+    .dck_sel(dck_sel),
+    .use_asrc_arst(use_asrc_arst),
+    .use_adest_arst(use_adest_arst),
+    .use_bsrc_arst(use_bsrc_arst),
+    .use_bdest_arst(use_bdest_arst),
+    .use_csrc_arst(use_csrc_arst),
+    .use_cdest_arst(use_cdest_arst),
+    .use_dsrc_arst(use_dsrc_arst),
+    .use_ddest_arst(use_ddest_arst),
+    .link_BA(link_BA),
+    .link_CB(link_CB),
+    .link_DC(link_DC),
+  ) _TECHMAP_REPLACE_ (
+    .CK1(CK1),
+    .CK2(CK2),
+    .ASRSTI(ASRSTI),
+    .ADRSTI(ADRSTI),
+    .ASRSTO(ASRSTO),
+    .ADRSTO(ADRSTO),
+    .AI1(AI[0]),
+    .AI2(AI[1]),
+    .AI3(AI[2]),
+    .AI4(AI[3]),
+    .AI5(AI[4]),
+    .AI6(AI[5]),
+    .AO1(AO[0]),
+    .AO2(AO[1]),
+    .AO3(AO[2]),
+    .AO4(AO[3]),
+    .AO5(AO[4]),
+    .AO6(AO[5]),
+    .BSRSTI(BSRSTI),
+    .BDRSTI(BDRSTI),
+    .BSRSTO(BSRSTO),
+    .BDRSTO(BDRSTO),
+    .BI1(BI[0]),
+    .BI2(BI[1]),
+    .BI3(BI[2]),
+    .BI4(BI[3]),
+    .BI5(BI[4]),
+    .BI6(BI[5]),
+    .BO1(BO[0]),
+    .BO2(BO[1]),
+    .BO3(BO[2]),
+    .BO4(BO[3]),
+    .BO5(BO[4]),
+    .BO6(BO[5]),
+    .CSRSTI(CSRSTI),
+    .CDRSTI(CDRSTI),
+    .CSRSTO(CSRSTO),
+    .CDRSTO(CDRSTO),
+    .CI1(CI[0]),
+    .CI2(CI[1]),
+    .CI3(CI[2]),
+    .CI4(CI[3]),
+    .CI5(CI[4]),
+    .CI6(CI[5]),
+    .CO1(CO[0]),
+    .CO2(CO[1]),
+    .CO3(CO[2]),
+    .CO4(CO[3]),
+    .CO5(CO[4]),
+    .CO6(CO[5]),
+    .DSRSTI(DSRSTI),
+    .DDRSTI(DDRSTI),
+    .DSRSTO(DSRSTO),
+    .DDRSTO(DDRSTO),
+    .DI1(DI[0]),
+    .DI2(DI[1]),
+    .DI3(DI[2]),
+    .DI4(DI[3]),
+    .DI5(DI[4]),
+    .DI6(DI[5]),
+    .DO1(DO[0]),
+    .DO2(DO[1]),
+    .DO3(DO[2]),
+    .DO4(DO[3]),
+    .DO5(DO[4]),
+    .DO6(DO[5]),
+  );
+endmodule
+
 module NX_DSP_U_SPLIT(CK, R, RZ, WE, WEZ, CI, CCI, CO42, CO56, OVF, CCO, A, B, C, D, Z, CAI, CBI, CZI, CAO, CBO, CZO);
     input [23:0] A;
     input [17:0] B;
