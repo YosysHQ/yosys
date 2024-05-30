@@ -3459,9 +3459,6 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
-			
-			// Add blackbox modules
-			veri_file::AddVFile("preqorsor/data/blackboxes.v");
 
 			// Select analyze function
 			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
@@ -3476,6 +3473,7 @@ struct VerificPass : public Pass {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
 					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
+					veri_file::AddVFile("preqorsor/data/blackboxes.v");
 					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
 						if (!hdl_file_sort::RegisterDir(dir_name)) {
 							verific_error_msg.clear();
@@ -3519,11 +3517,9 @@ struct VerificPass : public Pass {
 					}
 					delete file_names;
 				} else if (args[argidx] == "-i") {
-					const char *ignore_module = args[++argidx].c_str();
-					log("AUTO-DISCOVER: ignoring module %s\n", ignore_module);
-					veri_file::AddToIgnoredModuleNames(ignore_module);
-					veri_file::AddToIgnoredParsedModuleNames(ignore_module);
-					hdl_file_sort::RegisterIgnoreUnitName(ignore_module);
+					const char *ignore_file = args[++argidx].c_str();
+					log("AUTO-DISCOVER: ignoring file %s\n", ignore_file);
+					hdl_file_sort::UnRegisterFile(ignore_file);
 				} else {
 					veri_file::AddIncludeDir(args[argidx].c_str());
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
