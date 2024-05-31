@@ -28,7 +28,7 @@
 #include <limits>
 
 USING_YOSYS_NAMESPACE
-template<> struct hash_ops<AigNode *> : hash_ptr_ops {};
+template<> struct ::Yosys::hashlib::hash_ops<AigNode *> : Yosys::hashlib::hash_ptr_ops {};
 
 PRIVATE_NAMESPACE_BEGIN
 
