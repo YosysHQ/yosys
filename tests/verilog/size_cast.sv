@@ -27,7 +27,6 @@ module top;
 	    byte    lsbs;
     } s12bit_packed_struct_t;
 
-
     logic y = 1;
 
     always @* begin
@@ -58,7 +57,6 @@ module top;
         assert (s1bit_t'(L2sb10) == 1'b0);
         assert (s1bit_t'(L2sb11) == 1'b1);
 
-
         assert (2'(L1b0  ) == 2'b00);
         assert (2'(L1b1  ) == 2'b01);
         assert (2'(L1sb0 ) == 2'b00);
@@ -85,7 +83,6 @@ module top;
         assert (s2bit_t'(L2sb10) == 2'b10);
         assert (s2bit_t'(L2sb11) == 2'b11);
 
-
         assert (3'(L1b0  ) == 3'b000);
         assert (3'(L1b1  ) == 3'b001);
         assert (3'(L1sb0 ) == 3'b000);
@@ -111,7 +108,6 @@ module top;
         assert (u3bit_t'(L2sb01) == 3'b001);
         assert (u3bit_t'(L2sb10) == 3'b110);
         assert (u3bit_t'(L2sb11) == 3'b111);
-
 
         assert (3'(L1b0   | '1) == 3'b111);
         assert (3'(L1b1   | '1) == 3'b111);
@@ -178,7 +174,6 @@ module top;
         assert (s12bit_packed_struct_t'(L2sb10 | '1) == 12'hfff);
         assert (s12bit_packed_struct_t'(L2sb11 | '1) == 12'hfff);
 
-
         assert (3'(L1b0   | '0) == 3'b000);
         assert (3'(L1b1   | '0) == 3'b001);
         assert (3'(L1sb0  | '0) == 3'b000);
@@ -243,7 +238,6 @@ module top;
         assert (s12bit_packed_struct_t'(L2sb01 | '0) == 12'h001);
         assert (s12bit_packed_struct_t'(L2sb10 | '0) == 12'h002);
         assert (s12bit_packed_struct_t'(L2sb11 | '0) == 12'h003);
-
 
         assert (3'(y ? L1b0   : '1) == 3'b000);
         assert (3'(y ? L1b1   : '1) == 3'b001);
@@ -310,7 +304,6 @@ module top;
         assert (s12bit_packed_struct_t'(y ? L2sb10 : '1) == 12'h002);
         assert (s12bit_packed_struct_t'(y ? L2sb11 : '1) == 12'h003);
 
-
         assert (3'(y ? L1b0   : '0) == 3'b000);
         assert (3'(y ? L1b1   : '0) == 3'b001);
         assert (3'(y ? L1sb0  : '0) == 3'b000);
@@ -375,7 +368,6 @@ module top;
         assert (s12bit_packed_struct_t'(y ? L2sb01 : '0) == 12'h001);
         assert (s12bit_packed_struct_t'(y ? L2sb10 : '0) == 12'h002);
         assert (s12bit_packed_struct_t'(y ? L2sb11 : '0) == 12'h003);
-	
 
         assert (3'(y ? L1b0   : 1'sb0) == 3'b000);
         assert (3'(y ? L1b1   : 1'sb0) == 3'b001);
@@ -506,7 +498,6 @@ module top;
         assert (s12bit_packed_struct_t'(y ? L2sb01 : s1bit_t'(0)) == 12'h001);
         assert (s12bit_packed_struct_t'(y ? L2sb10 : s1bit_t'(0)) == 12'hffe);
         assert (s12bit_packed_struct_t'(y ? L2sb11 : s1bit_t'(0)) == 12'hfff);
-
 
         assert (3'(y ? L1b0   : 1'sb1) == 3'b000);
         assert (3'(y ? L1b1   : 1'sb1) == 3'b001);

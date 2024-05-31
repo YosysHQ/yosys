@@ -697,26 +697,20 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		switch (children[0]->type)
 		{
 		case AST_WIRE:
-			if (children[0]->children.size() > 0) {
+			if (children[0]->children.size() > 0)
 				children[0]->children[0]->dumpVlog(f, "");
-				fprintf(f, "'(");
-				children[1]->dumpVlog(f, "");
-				fprintf(f, ")");
-			} else {
-				fprintf(f, "%d'(", children[0]->range_left - children[0]->range_right +1);
-				children[1]->dumpVlog(f, "");
-				fprintf(f, ")");
-			}
+			else
+				fprintf(f, "%d'", children[0]->range_left - children[0]->range_right +1);
 			break;
 
 		default: //AST_IDENTIFIER
 			children[0]->dumpVlog(f, "");
-			fprintf(f, "'(");
-			children[1]->dumpVlog(f, "");
-			fprintf(f, ")");
 		}
-		break;
 
+		fprintf(f, "'(");
+		children[1]->dumpVlog(f, "");
+		fprintf(f, ")");
+		break;
 
 	if (0) { case AST_BIT_AND:      txt = "&";   }
 	if (0) { case AST_BIT_OR:       txt = "|";   }

@@ -1509,8 +1509,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (child->type == AST_WIRE) {
 			if (child->children.size() == 0) {
 				//Base type (e.g. int)
-
-				//Construct AST_CONSTANT node
 				width = child->range_left - child->range_right +1;
 				node = mkconst_int(width, child->is_signed);
 			} else {
@@ -1536,23 +1534,15 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (template_node->children.size() > 0 && template_node->children[0]->type == AST_RANGE)
 						width = range_width(this, template_node->children[0]);
 
-					//delete child's children
 					child->delete_children();
-
-					//create AST_CONSTANT node
 					node = mkconst_int(width, true);
-
 					break;
 				}
 
 				case AST_STRUCT: {
-					//delete child's children
 					child->delete_children();
-
-					//create AST_CONSTANT node
 					width = size_packed_struct(template_node, 0);
 					node = mkconst_int(width, false);
-
 					break;
 				}
 
@@ -1561,17 +1551,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 			}
 
-			//Remove child node
 			delete child;
 			children.erase(children.begin());
-
-			//insert AST_CONSTANT
 			children.insert(children.begin(),node);
 		}
 
 		detect_width_simple = true;
 		children_are_self_determined = true;
-
 		break;
 	}
 
