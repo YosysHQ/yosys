@@ -25,6 +25,7 @@
 #include "kernel/mem.h"
 
 #include <assert.h>
+#include <limits>
 
 USING_YOSYS_NAMESPACE
 template<> struct hash_ops<AigNode *> : hash_ptr_ops {};
