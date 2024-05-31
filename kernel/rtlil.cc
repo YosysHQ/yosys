@@ -27,6 +27,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <iostream>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -927,6 +928,7 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
+	TracyAllocN(this, sizeof(RTLIL::Module), "module");
 
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
@@ -945,6 +947,7 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
+	TracyFree(this);
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
@@ -2423,6 +2426,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
+	// std::cout << "alloc " << (long long)cell << " called " << cell->name.c_str() << "\n";
 	cell->name = name;
 	cell->type = type;
 	add(cell);
@@ -3420,7 +3424,7 @@ RTLIL::Wire::Wire()
 	port_output = false;
 	upto = false;
 	is_signed = false;
-
+	TracyAllocN(this, sizeof(RTLIL::Wire), "wire");
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
 #endif
@@ -3428,6 +3432,7 @@ RTLIL::Wire::Wire()
 
 RTLIL::Wire::~Wire()
 {
+	TracyFree(this);
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
@@ -3455,11 +3460,17 @@ RTLIL::Memory::Memory()
 #endif
 }
 
+RTLIL::Process::~Process()
+{
+	TracyFree(this);
+}
+
 RTLIL::Process::Process() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+	TracyAllocN(this, sizeof(RTLIL::Process), "process");
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
@@ -3469,6 +3480,7 @@ RTLIL::Cell::Cell() : module(nullptr)
 	hashidx_ = hashidx_count;
 
 	// log("#memtrace# %p\n", this);
+	TracyAllocN(this, sizeof(RTLIL::Cell), "cell");
 	memhasher();
 
 #ifdef WITH_PYTHON
@@ -3478,6 +3490,7 @@ RTLIL::Cell::Cell() : module(nullptr)
 
 RTLIL::Cell::~Cell()
 {
+	TracyFree(this);
 #ifdef WITH_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
