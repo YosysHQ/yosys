@@ -24,7 +24,7 @@ run_test() {
         if ./vcd_harness ${base_name}_functional_cxx.vcd; then
 	    
 	    # Run yosys to process each Verilog file
-	    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -r ${base_name}_functional_cxx.vcd -scope my_module -vcd ${base_name}_yosys_sim.vcd -timescale 1us -sim-cmp"; then
+	    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -r ${base_name}_functional_cxx.vcd -scope my_module -vcd ${base_name}_yosys_sim.vcd -timescale 1us -sim-gold"; then
 		echo "Yosys sim $verilog_file successfully."
 	    else
 		${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -vcd ${base_name}_yosys_sim.vcd -r ${base_name}_functional_cxx.vcd -scope my_module -timescale 1us"
