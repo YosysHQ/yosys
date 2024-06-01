@@ -66,6 +66,7 @@
         defaultPackage = yosys;
         packages.vcdiff = vcdiff;
         devShell = pkgs.mkShell {
+          LOCALE_ARCHIVE_2_27 = "${pkgs.glibcLocales}/lib/locale/locale-archive";
           buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier gtkwave vcdiff lcov racket verilog ];
         };
       }
