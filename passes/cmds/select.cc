@@ -1065,6 +1065,10 @@ struct SelectPass : public Pass {
 		log("        selection is non-empty. i.e. produce an error if no object or module\n");
 		log("        matching the selection is found.\n");
 		log("\n");
+		log("    -assert-mod-count N\n");
+		log("        do not modify the current selection. instead assert that the given\n");
+		log("        selection contains exactly N modules (partially or fully selected).\n");
+		log("\n");
 		log("    -assert-count N\n");
 		log("        do not modify the current selection. instead assert that the given\n");
 		log("        selection contains exactly N objects.\n");
@@ -1263,6 +1267,7 @@ struct SelectPass : public Pass {
 		bool got_module = false;
 		bool assert_none = false;
 		bool assert_any = false;
+		int assert_modcount = -1;
 		int assert_count = -1;
 		int assert_max = -1;
 		int assert_min = -1;
@@ -1289,6 +1294,10 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-assert-any") {
 				assert_any = true;
+				continue;
+			}
+			if (arg == "-assert-mod-count" && argidx+1 < args.size()) {
+				assert_modcount = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (arg == "-assert-count" && argidx+1 < args.size()) {
@@ -1345,7 +1354,8 @@ struct SelectPass : public Pass {
 			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
-			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_count != -1) || (assert_max != -1) || (assert_min != -1);
+			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_modcount != -1) ||
+											(assert_count != -1) || (assert_max != -1) || (assert_min != -1);
 			select_stmt(design, arg, disable_empty_warning);
 			sel_str += " " + arg;
 		}
@@ -1385,17 +1395,20 @@ struct SelectPass : public Pass {
 		if (none_mode && args.size() != 2)
 			log_cmd_error("Option -none can not be combined with any other options.\n");
 
-		if (add_mode + del_mode + assert_none + assert_any + (assert_count >= 0) + (assert_max >= 0) + (assert_min >= 0) > 1)
-			log_cmd_error("Options -add, -del, -assert-none, -assert-any, assert-count, -assert-max or -assert-min can not be combined.\n");
+		int common_flagset_tally = add_mode + del_mode + assert_none + assert_any + (assert_modcount >= 0) + (assert_count >= 0) + (assert_max >= 0) + (assert_min >= 0);
+		const char *common_flagset = "-add, -del, -assert-none, -assert-any, -assert-mod-count, -assert-count, -assert-max, or -assert-min";
 
-		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any, assert-count, -assert-max, or -assert-min.\n");
+		if (common_flagset_tally > 1)
+			log_cmd_error("Options %s can not be combined.\n", common_flagset);                
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !unset_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -unset, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if ((list_mode || !write_file.empty() || count_mode) && common_flagset_tally)
+			log_cmd_error("Options -list, -write and -count can not be combined with %s.\n", common_flagset);
 
-		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !set_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -add, -del, -set, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || !unset_name.empty() || common_flagset_tally))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -unset, %s.\n", common_flagset);
+
+		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || !set_name.empty() || common_flagset_tally))
+			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -set, %s.\n", common_flagset);
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -1514,15 +1527,16 @@ struct SelectPass : public Pass {
 			return;
 		}
 
-		if (assert_count >= 0 || assert_max >= 0 || assert_min >= 0)
+		if (assert_modcount >= 0 || assert_count >= 0 || assert_max >= 0 || assert_min >= 0)
 		{
-			int total_count = 0;
+			int module_count = 0, total_count = 0;
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			RTLIL::Selection *sel = &work_stack.back();
 			sel->optimize(design);
 			for (auto mod : design->modules())
 				if (sel->selected_module(mod->name)) {
+					module_count++;
 					for (auto wire : mod->wires())
 						if (sel->selected_member(mod->name, wire->name))
 							total_count++;
@@ -1536,6 +1550,11 @@ struct SelectPass : public Pass {
 						if (sel->selected_member(mod->name, it.first))
 							total_count++;
 				}
+			if (assert_modcount >= 0 && assert_modcount != module_count)
+			{
+				log_error("Assertion failed: selection contains %d modules instead of the asserted %d:%s\n",
+						module_count, assert_modcount, sel_str.c_str());
+			}
 			if (assert_count >= 0 && assert_count != total_count)
 			{
 				std::string desc = describe_selection_for_assert(design, sel);

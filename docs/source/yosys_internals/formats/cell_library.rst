@@ -1237,3 +1237,5 @@ file via ABC using the abc pass.
 .. todo:: Add information about ``$slice`` and ``$concat`` cells.
 
 .. todo:: Add information about ``$alu``, ``$fa``, and ``$lcu`` cells.
+
+.. todo:: Add information about ``$demux`` cell.
