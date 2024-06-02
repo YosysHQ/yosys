@@ -3252,6 +3252,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
+			RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
+			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
+			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
 
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
@@ -3276,7 +3279,7 @@ struct VerificPass : public Pass {
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
 			// https://github.com/YosysHQ/yosys/issues/1055
-			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
+			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 0) ; // SILIMATE: add to resolve bug related to interfaces
 
 			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
