@@ -195,8 +195,8 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	for (auto &operand : muxed_operands) {
 		operand.sig.extend_u0(max_width, operand.is_signed);
-		// if (operand.sign != muxed_operands[0].sign)
-		// 	operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
+		if (operand.sign != muxed_operands[0].sign)
+			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
 	}
 
 	for (const auto& p : ports) {

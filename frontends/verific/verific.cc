@@ -1195,9 +1195,6 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == OPER_WIDE_CASE_SELECT_BOX)
 	{
-		// SILIMATE: WARN FOR THIS CASE BECAUSE YOSYS CAN DO WHATEVER IT WANTS
-		log_warning("Using OPER_WIDE_CASE_SELECT_BOX! This could result in long chains of logic...\n");
-
 		RTLIL::SigSpec sig_out_val = operatorInport(inst, "out_value");
 		RTLIL::SigSpec sig_select = operatorInport(inst, "select");
 		RTLIL::SigSpec sig_select_values = operatorInportCase(inst, "select_values");
@@ -2776,9 +2773,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Removing buffers for %s.\n", nl.first.c_str());
 			nl.second->RemoveBuffers();
 
-			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
-			nl.second->OptimizePrioSelectors();
-
 			log("    Balancing timing for %s.\n", nl.first.c_str());
 			unsigned result = nl.second->BalanceTiming(0);
 			log("    Balance timing result before: %d\n", result);
@@ -2788,10 +2782,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Running post-elaboration for %s.\n", nl.first.c_str());
 			nl.second->PostElaborationProcess();
 
-			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
-			nl.second->OptimizePrioSelectors();
-			log("    Merging selectors for %s.\n", nl.first.c_str());
-			nl.second->MergeSelectors();
+			log("    Running operator optimization for %s.\n", nl.first.c_str());
+			nl.second->OperatorOptimization(1, 1);
+			
 			log("    Performing resource sharing for %s.\n", nl.first.c_str());
 			nl.second->ResourceSharing();
 			log("    Performing final resource merging for %s.\n", nl.first.c_str());
@@ -2803,6 +2796,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			nl.second->MergeRams();
 
 			log("    Balancing timing for %s.\n", nl.first.c_str());
+			result = nl.second->BalanceTiming(0);
 			log("    Balance timing result before: %d\n", result);
 			result = nl.second->BalanceTiming(1);
 			log("    Balance timing result after: %d\n", result);
