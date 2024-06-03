@@ -3498,7 +3498,7 @@ void RTLIL::Design::bufNormalize(bool enable)
 	{
 		if (!flagBufferedNormalized)
 			return;
-
+		// Initialize
 		for (auto module : modules()) {
 			module->bufNormQueue.clear();
 			for (auto wire : module->wires()) {
@@ -3518,11 +3518,18 @@ void RTLIL::Design::bufNormalize(bool enable)
 				if (!cell->output(conn.first) || GetSize(conn.second) == 0)
 					continue;
 				if (conn.second.is_wire()) {
+					// Connection is constructed of a single wire,
+					// so we can normalize immediately
 					Wire *wire = conn.second.as_wire();
+					// TODO does this imply no tristate at this point?
 					log_assert(wire->driverCell == nullptr);
 					wire->driverCell = cell;
 					wire->driverPort = conn.first;
 				} else {
+					// Multiple chunks or is const, queue this cell connection
+					// for per-module processing
+					// TODO when the connection is const, is it still
+					// advantageous to queue it?
 					pair<RTLIL::Cell*, RTLIL::IdString> key(cell, conn.first);
 					module->bufNormQueue.insert(key);
 				}
@@ -3543,15 +3550,24 @@ void RTLIL::Module::bufNormalize()
 
 	while (GetSize(bufNormQueue))
 	{
+		// TODO I'm pretty sure this isn't a loop
+		// Maybe it was expected that bufNormQueue will be
+		// pushed connections into as they get discovered?
+
+		// Pairs of cells and output ports
 		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
 		bufNormQueue.swap(queue);
 
+		// Output wires that we will buffer
 		pool<Wire*> outWires;
+		// We will buffer all non-const module connections
 		for (auto &conn : connections())
 		for (auto &chunk : conn.first.chunks())
 			if (chunk.wire) outWires.insert(chunk.wire);
 
 		SigMap sigmap(this);
+
+		// After bufnormalize, there are no module connections needed
 		new_connections({});
 
 		for (auto &key : queue)
@@ -3562,16 +3578,21 @@ void RTLIL::Module::bufNormalize()
 			if (GetSize(sig) == 0) continue;
 
 			if (sig.is_wire()) {
+				// TODO I'm pretty sure this is unreachable
+				// due to the condition in Design::bufNormalize
 				Wire *wire = sig.as_wire();
 				log_assert(wire->driverCell == nullptr);
+				// Let the wire know who its driver is
 				wire->driverCell = cell;
 				wire->driverPort = portname;
 				continue;
 			}
 
+			// Each non-const chunk gets a buffer later
 			for (auto &chunk : sig.chunks())
 				if (chunk.wire) outWires.insert(chunk.wire);
 
+			// Create wire for the driving signal
 			Wire *wire = addWire(NEW_ID, GetSize(sig));
 			sigmap.add(sig, wire);
 			cell->setPort(portname, wire);
