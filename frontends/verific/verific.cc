@@ -3279,7 +3279,7 @@ struct VerificPass : public Pass {
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
 			// https://github.com/YosysHQ/yosys/issues/1055
-			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 0) ; // SILIMATE: add to resolve bug related to interfaces
+			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
 
 			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
