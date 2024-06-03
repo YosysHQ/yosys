@@ -1195,7 +1195,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == OPER_WIDE_CASE_SELECT_BOX)
 	{
-		// SILIMATE: WARN FOR THIS CASE BECAUSE
+		// SILIMATE: WARN FOR THIS CASE BECAUSE YOSYS CAN DO WHATEVER IT WANTS
 		log_warning("Using OPER_WIDE_CASE_SELECT_BOX! This could result in long chains of logic...\n");
 
 		RTLIL::SigSpec sig_out_val = operatorInport(inst, "out_value");
@@ -3248,6 +3248,7 @@ struct VerificPass : public Pass {
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 0); // SILIMATE: add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
@@ -3257,7 +3258,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 			RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
-			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector (FIXME: check if this is ok)
+			// RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector (FIXME: check if this is ok)
 			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
 
 #ifdef VERIFIC_VHDL_SUPPORT
