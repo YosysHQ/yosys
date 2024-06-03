@@ -2767,45 +2767,46 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	for (auto nl : nl_todo)
 		worker.run(nl.second);
 
-	if (opt) { // SILIMATE: use Verific optimization
-		log("  Optimizing all netlists with IMPORT.\n");
-		for (auto nl : nl_todo) {
-			log("    Removing buffers for %s.\n", nl.first.c_str());
-			nl.second->RemoveBuffers();
-
-			log("    Balancing timing for %s.\n", nl.first.c_str());
-			unsigned result = nl.second->BalanceTiming(0);
-			log("    Balance timing result before: %d\n", result);
-			result = nl.second->BalanceTiming(1);
-			log("    Balance timing result after: %d\n", result);
-
-			log("    Running post-elaboration for %s.\n", nl.first.c_str());
-			nl.second->PostElaborationProcess();
-
-			log("    Running operator optimization for %s.\n", nl.first.c_str());
-			nl.second->OperatorOptimization(1, 1);
-			
-			log("    Performing resource sharing for %s.\n", nl.first.c_str());
-			nl.second->ResourceSharing();
-			log("    Performing final resource merging for %s.\n", nl.first.c_str());
-			nl.second->OptimizeSameInputSubstractorComparator();
-
-			log("    Merging RAM write ports for %s.\n", nl.first.c_str());
-			nl.second->MergeRamWritePorts();
-			log("    Merging RAMs for %s.\n", nl.first.c_str());
-			nl.second->MergeRams();
-
-			log("    Balancing timing for %s.\n", nl.first.c_str());
-			result = nl.second->BalanceTiming(0);
-			log("    Balance timing result before: %d\n", result);
-			result = nl.second->BalanceTiming(1);
-			log("    Balance timing result after: %d\n", result);
-		}
-	}
-
 	while (!nl_todo.empty()) {
 		auto it = nl_todo.begin();
 		Netlist *nl = it->second;
+
+		// SILIMATE: use Verific optimization
+		if (opt) {
+			log("  Optimizing netlist for %s.\n", it->first.c_str());
+
+			log("    Removing buffers for %s.\n", it->first.c_str());
+			nl->RemoveBuffers();
+
+			log("    Balancing timing for %s.\n", it->first.c_str());
+			unsigned result = nl->BalanceTiming(0);
+			log("    Balance timing result before: %d\n", result);
+			result = nl->BalanceTiming(1);
+			log("    Balance timing result after: %d\n", result);
+
+			log("    Running post-elaboration for %s.\n", it->first.c_str());
+			nl->PostElaborationProcess();
+
+			log("    Running operator optimization for %s.\n", it->first.c_str());
+			nl->OperatorOptimization(1, 1);
+			
+			log("    Performing resource sharing for %s.\n", it->first.c_str());
+			nl->ResourceSharing();
+			log("    Performing final resource merging for %s.\n", it->first.c_str());
+			nl->OptimizeSameInputSubstractorComparator();
+
+			log("    Merging RAM write ports for %s.\n", it->first.c_str());
+			nl->MergeRamWritePorts();
+			log("    Merging RAMs for %s.\n", it->first.c_str());
+			nl->MergeRams();
+
+			log("    Balancing timing for %s.\n", it->first.c_str());
+			result = nl->BalanceTiming(0);
+			log("    Balance timing result before: %d\n", result);
+			result = nl->BalanceTiming(1);
+			log("    Balance timing result after: %d\n", result);
+		}
+
 		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false);
 			nl_done[it->first] = it->second;
