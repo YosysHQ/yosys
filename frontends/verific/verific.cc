@@ -3447,8 +3447,8 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("OVL_SVA");
 
 			// Ignore translate_off statements
-			hdl_file_sort::SetIgnoreTranslateOff(0);
-			veri_file::SetIgnoreTranslateOff(0);
+			hdl_file_sort::SetIgnoreTranslateOff(1);
+			veri_file::SetIgnoreTranslateOff(1);
 
 			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
 			hdl_file_sort::RemoveFileExt(".v");
