@@ -1195,6 +1195,9 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == OPER_WIDE_CASE_SELECT_BOX)
 	{
+		// SILIMATE: WARN FOR THIS CASE BECAUSE
+		log_warning("Using OPER_WIDE_CASE_SELECT_BOX! This could result in long chains of logic...\n");
+
 		RTLIL::SigSpec sig_out_val = operatorInport(inst, "out_value");
 		RTLIL::SigSpec sig_select = operatorInport(inst, "select");
 		RTLIL::SigSpec sig_select_values = operatorInportCase(inst, "select_values");
@@ -2773,6 +2776,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Removing buffers for %s.\n", nl.first.c_str());
 			nl.second->RemoveBuffers();
 
+			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
+			nl.second->OptimizePrioSelectors();
+
 			log("    Balancing timing for %s.\n", nl.first.c_str());
 			unsigned result = nl.second->BalanceTiming(0);
 			log("    Balance timing result before: %d\n", result);
@@ -2781,22 +2787,20 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 			log("    Running post-elaboration for %s.\n", nl.first.c_str());
 			nl.second->PostElaborationProcess();
-			log("    Removing dangling logic for %s.\n", nl.first.c_str());
-			nl.second->RemoveDanglingLogic(1, 1, 1);
+
+			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
+			nl.second->OptimizePrioSelectors();
+			log("    Merging selectors for %s.\n", nl.first.c_str());
+			nl.second->MergeSelectors();
+			log("    Performing resource sharing for %s.\n", nl.first.c_str());
+			nl.second->ResourceSharing();
+			log("    Performing final resource merging for %s.\n", nl.first.c_str());
+			nl.second->OptimizeSameInputSubstractorComparator();
 
 			log("    Merging RAM write ports for %s.\n", nl.first.c_str());
 			nl.second->MergeRamWritePorts();
 			log("    Merging RAMs for %s.\n", nl.first.c_str());
 			nl.second->MergeRams();
-
-			log("    Merging selectors for %s.\n", nl.first.c_str());
-			nl.second->MergeSelectors();
-			log("    Optimizing priority selectors for %s.\n", nl.first.c_str());
-			nl.second->OptimizePrioSelectors();
-			log("    Performing resource sharing for %s.\n", nl.first.c_str());
-			nl.second->ResourceSharing();
-			log("    Performing final resource merging for %s.\n", nl.first.c_str());
-			nl.second->OptimizeSameInputSubstractorComparator();
 
 			log("    Balancing timing for %s.\n", nl.first.c_str());
 			log("    Balance timing result before: %d\n", result);
@@ -3247,13 +3251,13 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
-			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 1);
+			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 0); // SILIMATE: disable this to speed up result (FIXME: check if this is ok)
 
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 			RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
-			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
+			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector (FIXME: check if this is ok)
 			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
 
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -3434,6 +3438,9 @@ struct VerificPass : public Pass {
 			// Always operate in SystemVerilog mode
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			const char* arg = args[argidx].c_str();
+
+			// Set relaxed language checking
+    	VeriNode::SetRelaxedChecking(1);
 
 			// Define macros
 			hdl_file_sort::DefineMacro("SYNTH");
