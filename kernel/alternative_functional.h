@@ -118,7 +118,7 @@ public:
     struct Ref : public BaseRef<ComputeGraph>
     {
     private:
-      friend struct ComputeGraph;
+        friend struct ComputeGraph;
         Ref(ComputeGraph *graph, int index) : BaseRef<ComputeGraph>(graph, index) {}
         Node &deref() const { this->check(); return this->graph_->nodes[this->index_]; }
 
