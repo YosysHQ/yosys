@@ -967,7 +967,7 @@ std::string proc_self_dirname()
 {
 	return "/";
 }
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__HAIKU__)
 char yosys_path[PATH_MAX];
 char *yosys_argv0;
 
