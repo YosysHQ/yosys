@@ -3458,6 +3458,7 @@ struct VerificPass : public Pass {
 			hdl_file_sort::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
 			hdl_file_sort::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			hdl_file_sort::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
+			hdl_file_sort::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
 			veri_file::RemoveFileExt(".v");
 			veri_file::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
@@ -3465,6 +3466,7 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
+			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
 
 			// Select analyze function
 			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
