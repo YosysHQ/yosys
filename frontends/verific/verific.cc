@@ -3479,6 +3479,11 @@ struct VerificPass : public Pass {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
 					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
+					if (args[argidx] == "-i") {
+						const char *ignore_file = args[++argidx].c_str();
+						log("AUTO-DISCOVER: ignoring file %s\n", ignore_file);
+						hdl_file_sort::UnRegisterFile(ignore_file);
+					} 
 					veri_file::AddVFile("preqorsor/data/blackboxes.v");
 					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
 						if (!hdl_file_sort::RegisterDir(dir_name)) {
@@ -3522,10 +3527,6 @@ struct VerificPass : public Pass {
 						log("AUTO-DISCOVER: registered file %s from .f file processing\n", file_name);
 					}
 					delete file_names;
-				} else if (args[argidx] == "-i") {
-					const char *ignore_file = args[++argidx].c_str();
-					log("AUTO-DISCOVER: ignoring file %s\n", ignore_file);
-					hdl_file_sort::UnRegisterFile(ignore_file);
 				} else {
 					veri_file::AddIncludeDir(args[argidx].c_str());
 					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
