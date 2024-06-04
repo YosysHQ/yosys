@@ -10,14 +10,12 @@
 
 (declare-datatypes ((Pair 2)) ((par (X Y) ((pair (first X) (second Y))))))
 
-(define-fun my_module_step ((inputs my_module_inputs) ) (my_module_outputs)
-  (let (((b (my_module_inputs_b inputs))))
-  (let (((a (my_module_inputs_a inputs))))
-  (let ((($add$tests/functional/single_bit/verilog/my_module_add.v_7$1$_Y (bvadd a b))))
-      (my_module_outputs
-        $add$tests/functional/single_bit/verilog/my_module_add.v_7$1$_Y    ; sum
-      )
-  )))
+(define-fun my_module_step ((inputs my_module_inputs)) my_module_outputs
+  (let ((b (my_module_inputs_b inputs))
+        (a (my_module_inputs_a inputs))
+        (sum (bvadd a b)))
+      (my_module_outputs sum)
+  )
 )
 
 ; Create input values
@@ -33,11 +31,10 @@
 (define-const inputs my_module_inputs (my_module_inputs input_b input_a))
 
 ; Call the step function
-(define-const result (my_module_step inputs))
+(define-const result my_module_outputs (my_module_step inputs))
 
 ; Extract the output
-(define-const output (first result))
-(define-const output_sum (my_module_outputs_sum output))
+(define-const output_sum (_ BitVec 1) (my_module_outputs_sum result))
 
 ; Check the output
 (check-sat)
