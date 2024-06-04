@@ -185,10 +185,9 @@ public:
 			return factory.slice(a, a_width, offset, y_width);
 		}else if(cellType == ID($mul)){
 		  bool is_signed = a_signed && b_signed;
-		  int width = a_width + b_width;
-		  T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
-		  T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
-		  return extend(factory.mul(a, b, width), width, y_width, is_signed);	
+		  T a = extend(inputs.at(ID(A)), a_width, y_width, is_signed);
+		  T b = extend(inputs.at(ID(B)), b_width, y_width, is_signed);
+		  return factory.mul(a, b, y_width);
 		}else if(cellType == ID($div)){
 		  bool is_signed = a_signed && b_signed;
 		  int width = max(a_width, b_width);
