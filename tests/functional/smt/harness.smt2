@@ -1,41 +1,35 @@
-; Load the datatypes and function definitions
-(declare-datatype my_module_inputs ((my_module_inputs
-  (my_module_inputs_b (_ BitVec 1))
-  (my_module_inputs_a (_ BitVec 1))
-)))
-(declare-datatype my_module_outputs ((my_module_outputs
-  (my_module_outputs_sum (_ BitVec 1))
-)))
-; (declare-datatype my_module_state (()))
+(set-logic QF_UFBV)
 
-(declare-datatypes ((Pair 2)) ((par (X Y) ((pair (first X) (second Y))))))
+; Declare sorts and functions as defined in the original file
+(declare-sort |my_module_s| 0)
+(declare-fun |my_module_is| (|my_module_s|) Bool)
+(declare-fun |my_module#0| (|my_module_s|) (_ BitVec 1)) ; \a
+(declare-fun |my_module#1| (|my_module_s|) (_ BitVec 1)) ; \b
+(define-fun |my_module#2| ((state |my_module_s|)) (_ BitVec 1) (bvadd (|my_module#0| state) (|my_module#1| state))) ; $add$tests/functional/single_bit/verilog/my_module_add.v:7$1_Y
 
-(define-fun my_module_step ((inputs my_module_inputs)) my_module_outputs
-  (let ((b (my_module_inputs_b inputs))
-        (a (my_module_inputs_a inputs))
-        (sum (bvadd a b)))
-      (my_module_outputs sum)
-  )
-)
+; Declare input witness functions
+(define-fun |my_module_n a| ((state |my_module_s|)) Bool (= ((_ extract 0 0) (|my_module#0| state)) #b1))
+(define-fun |my_module_n b| ((state |my_module_s|)) Bool (= ((_ extract 0 0) (|my_module#1| state)) #b1))
 
-; Create input values
-(declare-const input_a (_ BitVec 1))
-(declare-const input_b (_ BitVec 1))
-; (declare-const initial_state my_module_state)
+; Declare output function
+(define-fun |my_module_n sum| ((state |my_module_s|)) Bool (= ((_ extract 0 0) (|my_module#2| state)) #b1))
 
-; Define input values
-(assert (= input_a #b1)) ; or #b0 for 0
-(assert (= input_b #b0)) ; or #b1 for 1
+; Other functions as defined in the original file
+(define-fun |my_module_a| ((state |my_module_s|)) Bool true)
+(define-fun |my_module_u| ((state |my_module_s|)) Bool true)
+(define-fun |my_module_i| ((state |my_module_s|)) Bool true)
+(define-fun |my_module_h| ((state |my_module_s|)) Bool true)
+(define-fun |my_module_t| ((state |my_module_s|) (next_state |my_module_s|)) Bool true)
 
-; Construct the input object
-(define-const inputs my_module_inputs (my_module_inputs input_b input_a))
+; Create a state variable
+(declare-fun state0 () |my_module_s|)
 
-; Call the step function
-(define-const result my_module_outputs (my_module_step inputs))
-
-; Extract the output
-(define-const output_sum (_ BitVec 1) (my_module_outputs_sum result))
+; Assign inputs
+(assert (= (|my_module#0| state0) #b1)) ; a = 1
+(assert (= (|my_module#1| state0) #b0)) ; b = 0
 
 ; Check the output
+(assert (|my_module_n sum| state0)) ; sum should be 1 (0 + 1 = 1)
+
+; Check satisfiability
 (check-sat)
-(get-value (output_sum))
