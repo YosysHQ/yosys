@@ -3521,7 +3521,7 @@ struct VerificPass : public Pass {
 					// }
 					int orig_argidx = argidx;
 					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
-						bool skip;
+						bool skip = false;
 						for (argidx = orig_argidx; argidx < GetSize(args) && args[argidx] == "-i"; argidx++) {
 							string ignore_file = args[++argidx];
 							if (string(file_name) == ignore_file) {
