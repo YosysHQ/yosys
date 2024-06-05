@@ -3446,10 +3446,6 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("SYNTHESIS");
 			veri_file::DefineMacro("OVL_SVA");
 
-			// Ignore translate_off statements
-			hdl_file_sort::SetIgnoreTranslateOff(1);
-			veri_file::SetIgnoreTranslateOff(1);
-
 			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
 			hdl_file_sort::RemoveFileExt(".v");
 			hdl_file_sort::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
@@ -3481,8 +3477,15 @@ struct VerificPass : public Pass {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
 					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
-					if (args[argidx] == "-i") {
-						const char *ignore_file = args[++argidx].c_str();
+					argidx++;
+					if (args[argidx++] == "-ignore_translate_off") {
+						// Ignore translate_off statements
+						log("AUTO-DISCOVER: ignoring translate_off directives\n");
+						hdl_file_sort::SetIgnoreTranslateOff(1);
+						veri_file::SetIgnoreTranslateOff(1);
+					}
+					while (args[argidx++] == "-i") {
+						const char *ignore_file = args[argidx++].c_str();
 						log("AUTO-DISCOVER: ignoring file %s\n", ignore_file);
 						hdl_file_sort::UnRegisterFile(ignore_file);
 					} 
