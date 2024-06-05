@@ -24,12 +24,13 @@
           preConfigure = "make config-clang";
           checkTarget = "test";
           installPhase = ''
-            make install PREFIX=$out ABCEXTERNAL=yosys-abc
+            make install PREFIX=$out ABCEXTERNAL=yosys-abc STRIP=\#
             ln -s ${abc-verifier}/bin/abc $out/bin/yosys-abc
           '';
 					buildPhase = ''
             make -j$(nproc) ABCEXTERNAL=yosys-abc
           '';
+          dontStrip = true;
           meta = with pkgs.lib; {
             description = "Yosys Open SYnthesis Suite";
             homepage = "https://yosyshq.net/yosys/";

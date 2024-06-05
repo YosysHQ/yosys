@@ -928,7 +928,6 @@ RTLIL::Module::Module()
 	design = nullptr;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
-	TracyAllocN(this, sizeof(RTLIL::Module), "module");
 
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
@@ -947,7 +946,6 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
-	TracyFree(this);
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
@@ -3460,17 +3458,11 @@ RTLIL::Memory::Memory()
 #endif
 }
 
-RTLIL::Process::~Process()
-{
-	TracyFree(this);
-}
-
 RTLIL::Process::Process() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
-	TracyAllocN(this, sizeof(RTLIL::Process), "process");
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
