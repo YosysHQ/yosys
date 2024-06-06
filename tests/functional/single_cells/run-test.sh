@@ -18,7 +18,7 @@ run_test() {
         echo "Yosys processed $rtlil_file successfully."
         
         # Compile the generated C++ files with vcd_harness.cpp
-        if ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cc -I ${BASE_PATH}backends/functional/cxx_runtime/ -o vcd_harness; then
+        if ${CXX:-g++} -g -fprofile-arcs -ftest-coverage vcd_harness.cc -I ${BASE_PATH}backends/functional/cxx_runtime/ -std=c++17 -o vcd_harness; then
             echo "Compilation successful."
             # Generate VCD files with base_name
             if ./vcd_harness ${base_name}_functional_cxx.vcd; then
