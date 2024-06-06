@@ -148,16 +148,20 @@ struct CxxStruct {
     return scope[field];
   }
   private:
-    std::string generate_variant_types() const {
-        std::string variant_types;
+  std::string generate_variant_types() const {
+        std::set<std::string> unique_types;
         for (const auto& p : types) {
-            if (!variant_types.empty()) {
-                variant_types += ", ";
-            }
-            variant_types += "std::reference_wrapper<" + p.second + ">";
+            unique_types.insert("std::reference_wrapper<" + p.second + ">");
         }
-        return variant_types;
-    }
+        std::ostringstream oss;
+        for (auto it = unique_types.begin(); it != unique_types.end(); ++it) {
+            if (it != unique_types.begin()) {
+                oss << ", ";
+            }
+            oss << *it;
+        }
+        return oss.str();
+  }
 };
 
 struct CxxFunction {
