@@ -2,6 +2,8 @@
 
 # Initialize an array to store the names of failing RTLIL files and their failure types
 declare -A failing_files
+# Initialize an array to store the names of successful RTLIL files
+declare -A successful_files
 
 # Function to run the test on a given RTLIL file
 run_test() {
@@ -26,6 +28,7 @@ run_test() {
 		# Run yosys to process each RTLIL file
 		if ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -r ${base_name}_functional_cxx.vcd -scope gold -vcd ${base_name}_yosys_sim.vcd -timescale 1us -sim-gold"; then
 		    echo "Yosys sim $rtlil_file successfully."
+		    successful_files["$rtlil_file"]="Success"
 		else
 		    ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -vcd ${base_name}_yosys_sim.vcd -r ${base_name}_functional_cxx.vcd -scope gold -timescale 1us"
 		    echo "Yosys simulation of $rtlil_file failed. There is a discrepancy with functional cxx"
@@ -56,11 +59,19 @@ run_all_tests() {
     # Check if the array of failing files is empty
     if [ ${#failing_files[@]} -eq 0 ]; then
         echo "All files passed."
+	echo "The following files passed:"
+        for file in "${!successful_files[@]}"; do
+            echo "$file"
+        done
         return 0
     else
         echo "The following files failed:"
         for file in "${!failing_files[@]}"; do
             echo "$file: ${failing_files[$file]}"
+        done
+	echo "The following files passed:"
+        for file in "${!successful_files[@]}"; do
+            echo "$file"
         done
         return 1
     fi
