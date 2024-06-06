@@ -341,6 +341,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			run("stat");
 			run("check -noinit");
 			run("blackbox =A:whitebox");
+			run("setundef -zero -undriven");
 		}
 
 		if (check_label("json"))
