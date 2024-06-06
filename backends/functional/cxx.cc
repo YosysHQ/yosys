@@ -101,7 +101,10 @@ struct CxxStruct {
   std::string name;
   dict<IdString, std::string> types;
   CxxScope scope;
-  CxxStruct(std::string name) : name(name) {
+  bool generate_methods;
+  int count;
+  CxxStruct(std::string name, bool generate_methods = false, int count = 0) 
+    : name(name), generate_methods(generate_methods), count(count) {
     scope.reserve("out");
     scope.reserve("dump");
   }
@@ -114,15 +117,47 @@ struct CxxStruct {
     for (auto p : types) {
       f.printf("\t%s %s;\n", p.second.c_str(), scope[p.first].c_str());
     }
-    f.printf("\n\ttemplate <typename T> void dump(T &out) {\n");
+    f.printf("\n\ttemplate <typename T> void dump(T &out) const {\n");
     for (auto p : types) {
       f.printf("\t\tout(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope[p.first].c_str());
     }
-    f.printf("\t}\n};\n\n");
-  }
+    f.printf("\t}\n\n");
+
+    if (generate_methods) {
+      // Add size method
+      f.printf("\tint size() const {\n");
+      f.printf("\t\treturn %d;\n", count);
+      f.printf("\t}\n\n");
+
+      // Add get_input method
+      f.printf("\tstd::variant<%s> get_input(const int index) {\n", generate_variant_types().c_str());
+      f.printf("\t\tswitch (index) {\n");
+      int idx = 0;
+      for (auto p : types) {
+	f.printf("\t\t\tcase %d: return std::ref(%s);\n", idx, scope[p.first].c_str());
+	idx++;
+      }
+      f.printf("\t\t\tdefault: throw std::out_of_range(\"Invalid input index\");\n");
+      f.printf("\t\t}\n");
+      f.printf("\t}\n");
+    }
+    
+    f.printf("};\n\n");
+  };
   std::string operator[](IdString field) {
     return scope[field];
   }
+  private:
+    std::string generate_variant_types() const {
+        std::string variant_types;
+        for (const auto& p : types) {
+            if (!variant_types.empty()) {
+                variant_types += ", ";
+            }
+            variant_types += "std::reference_wrapper<" + p.second + ">";
+        }
+        return variant_types;
+    }
 };
 
 struct CxxFunction {
@@ -307,7 +342,8 @@ struct FunctionalCxxBackend : public Backend
 	  state[ref.function().parameters.begin()->first] = ref.function().width;
       }
     f.printf("#include \"sim.h\"\n");
-    CxxStruct input_struct(name + "_Inputs");
+    f.printf("#include <variant>\n");
+    CxxStruct input_struct(name + "_Inputs", true, inputs.size());
     for (auto const &input : inputs)
       input_struct.insert(input.first, "Signal<" + std::to_string(input.second) + ">");
     CxxStruct output_struct(name + "_Outputs");
