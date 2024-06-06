@@ -27,7 +27,7 @@ run_test() {
 		if ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -r ${base_name}_functional_cxx.vcd -scope gold -vcd ${base_name}_yosys_sim.vcd -timescale 1us -sim-gold"; then
 		    echo "Yosys sim $rtlil_file successfully."
 		else
-		    ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -vcd ${base_name}_yosys_sim.vcd -r ${base_name}_functional_cxx.vcd -scope my_module -timescale 1us"
+		    ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -vcd ${base_name}_yosys_sim.vcd -r ${base_name}_functional_cxx.vcd -scope gold -timescale 1us"
 		    echo "Yosys simulation of $rtlil_file failed. There is a discrepancy with functional cxx"
 		    failing_files["$rtlil_file"]="Yosys sim failure"
 		fi
