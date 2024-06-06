@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Initialize an array to store the names of failing Verilog files and their failure types
+# Initialize an array to store the names of failing RTLIL files and their failure types
 declare -A failing_files
 
-# Function to run the test on a given Verilog file
+# Function to run the test on a given RTLIL file
 run_test() {
     # Define the common variable for the relative path
     BASE_PATH="../../../"
@@ -13,7 +13,7 @@ run_test() {
     # Extract the base name without extension
     local base_name=$(basename "$verilog_file" .v)
     
-    # Run yosys to process each Verilog file
+    # Run yosys to process each RTLIL file
     if ${BASE_PATH}yosys -p "read_verilog $verilog_file; write_functional_cxx my_module_functional_cxx.cc"; then
         echo "Yosys processed $verilog_file successfully."
         
@@ -23,7 +23,7 @@ run_test() {
         # Generate VCD files with base_name
         if ./vcd_harness ${base_name}_functional_cxx.vcd; then
 	    
-	    # Run yosys to process each Verilog file
+	    # Run yosys to process each RTLIL file
 	    if ${BASE_PATH}yosys -p "read_verilog $verilog_file; sim -r ${base_name}_functional_cxx.vcd -scope my_module -vcd ${base_name}_yosys_sim.vcd -timescale 1us -sim-gold"; then
 		echo "Yosys sim $verilog_file successfully."
 	    else
@@ -44,7 +44,7 @@ run_test() {
 
 # Main function to run all tests
 run_all_tests() {
-    # Loop through all Verilog files in the verilog directory
+    # Loop through all RTLIL files in the verilog directory
     for verilog_file in verilog/*.v; do
         run_test "$verilog_file"
     done
