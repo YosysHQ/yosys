@@ -36,7 +36,7 @@ localparam raw_config1_val = OPTION_STD_MODE == "NOECC_48kx1" ? 16'b000000000000
                              OPTION_STD_MODE == "NOECC_6kx8"  ? 16'b0000011011011011:
                              OPTION_STD_MODE == "NOECC_4kx12" ? 16'b0000100100100100:
                              OPTION_STD_MODE == "NOECC_2kx24" ? 16'b0000101101101101:
-                             'bx;
+                             16'bx;
 
 localparam A_REPEAT  =  24 / PORT_A_WIDTH;
 localparam B_REPEAT  =  24 / PORT_B_WIDTH;
@@ -51,7 +51,7 @@ NX_RAM_WRAP #(
     .pcka_edge(PORT_A_CLK_POL == 1 ? 1'b0 : 1'b1),
     .pckb_edge(PORT_B_CLK_POL == 1 ? 1'b0 : 1'b1),
     .raw_config0(4'b0000),
-    .raw_config1(raw_config1_val),
+    .raw_config1(raw_config1_val[15:0]),
     .mem_ctxt($sformatf("%s",bram_init_to_string(INIT,A_REPEAT,PORT_A_WIDTH))),
 ) _TECHMAP_REPLACE_ (
     .ACK(PORT_A_CLK),
