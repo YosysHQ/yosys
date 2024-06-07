@@ -719,6 +719,8 @@ def smt_extract_mask(smt_expr, mask):
     return combined_chunks, ''.join(mask_index_order[start:end] for start, end in chunks)[::-1]
 
 def smt_concat(exprs):
+    if not isinstance(exprs, (tuple, list)):
+        exprs = tuple(exprs)
     if not exprs:
         return ""
     if len(exprs) == 1:
@@ -817,6 +819,9 @@ def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
                     bits = bits.replace('x', '?')
                 if not bits_re.match(bits):
                     raise ValueError("unsupported bit value in Yosys witness file")
+
+                if bits.count('?') == len(bits):
+                    continue
 
                 smt_expr = ywfile_signal(sig, map_steps.get(t, t))
 
