@@ -42,14 +42,17 @@ USING_YOSYS_NAMESPACE
 #pragma clang diagnostic ignored "-Woverloaded-virtual"
 #endif
 
-#include "veri_file.h"
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 #include "hier_tree.h"
 #endif
+
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+#include "veri_file.h"
 #include "VeriModule.h"
 #include "VeriWrite.h"
 #include "VeriLibrary.h"
 #include "VeriExpression.h"
+#endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
 #include "vhdl_file.h"
@@ -103,7 +106,9 @@ bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
+#endif
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
@@ -157,6 +162,7 @@ string get_full_netlist_name(Netlist *nl)
 	return nl->CellBaseName();
 }
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 class YosysStreamCallBackHandler : public VerificStreamCallBackHandler
 {
 public:
@@ -186,6 +192,7 @@ public:
 };
 
 YosysStreamCallBackHandler verific_read_cb;
+#endif
 
 // ==================================================================
 
@@ -1825,10 +1832,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	for (auto net : anyseq_nets)
 		module->connect(net_map_at(net), module->Anyseq(new_verific_id(net)));
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	pool<Instance*, hash_ptr_ops> sva_asserts;
 	pool<Instance*, hash_ptr_ops> sva_assumes;
 	pool<Instance*, hash_ptr_ops> sva_covers;
 	pool<Instance*, hash_ptr_ops> sva_triggers;
+#endif
 
 	pool<RTLIL::Cell*> past_ffs;
 
@@ -1945,6 +1954,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				continue;
 		}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (inst->Type() == PRIM_SVA_ASSERT || inst->Type() == PRIM_SVA_IMMEDIATE_ASSERT)
 			sva_asserts.insert(inst);
 
@@ -2087,6 +2097,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (!mode_keep)
 				continue;
 		}
+#endif
 
 #ifdef YOSYSHQ_VERIFIC_API_VERSION
 		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
@@ -2210,6 +2221,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		}
 	}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	if (!mode_nosva)
 	{
 		for (auto inst : sva_asserts) {
@@ -2229,6 +2241,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		merge_past_ffs(past_ffs);
 	}
+#endif
 
 	if (!mode_fullinit)
 	{
@@ -2280,7 +2293,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 // ==================================================================
 
-VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_at_only)
+VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_at_only YS_MAYBE_UNUSED)
 {
 	module = importer->module;
 
@@ -2289,6 +2302,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 
 	Instance *inst = net->Driver();
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	// Detect condition expression in sva_at_only mode
 	if (sva_at_only)
 	do {
@@ -2337,7 +2351,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 		net = inst->GetInput();
 		inst = net->Driver();;
 	}
-
+#endif
 	if (inst != nullptr && inst->Type() == PRIM_INV)
 	{
 		net = inst->GetInput();
@@ -2383,6 +2397,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 		inst = net->Driver();;
 	} while (0);
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	// Detect condition expression
 	do {
 		if (body_net == nullptr)
@@ -2407,6 +2422,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 		cond_net = inst_mux->GetControl();
 		cond_pol = pwr1;
 	} while (0);
+#endif
 
 	clock_net = net;
 	clock_sig = importer->net_map_at(clock_net);
@@ -2683,15 +2699,16 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	verific_sva_fsm_limit = 16;
 
 	std::map<std::string,Netlist*> nl_todo, nl_done;
-
-	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	Array *netlists = NULL;
 	Array veri_libs, vhdl_libs;
 #ifdef VERIFIC_VHDL_SUPPORT
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
+#endif
 
 	Map verific_params(STRING_HASH);
 	for (const auto &i : parameters)
@@ -2708,7 +2725,13 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 #else
 		if (parameters.size())
 			log_warning("Please note that parameters are not propagated during import.\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::ElaborateAll("work");
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+		vhdl_file::ElaborateAll("work");
+#endif
+		netlists = new Array(1);
 		MapIter mi ;
 		Verific::Cell *c ;
 		Library *l = Libset::Global()->GetLibrary("work");
@@ -2717,7 +2740,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			Netlist *nl;
 			FOREACH_NETLIST_OF_CELL(c, ni, nl) {
 				if (nl)
-					nl_todo.emplace(nl->CellBaseName(), nl);
+					netlists->InsertLast(nl);
 			}
 		}
 #endif
@@ -2728,7 +2751,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
 #endif
 		{
-			Array veri_modules, vhdl_units;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+			Array veri_modules;
 
 			if (veri_lib) {
 				VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
@@ -2760,8 +2784,10 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 					}
 				}
 			}
+#endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
+			Array vhdl_units;
 			if (vhdl_lib) {
 				VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
 				if (vhdl_unit)
@@ -2780,7 +2806,17 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 			netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
 #else
+#if defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && !defined(VERIFIC_VHDL_SUPPORT)
+			// SystemVerilog support only
 			netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
+#elif defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
+			// VHDL support	only
+			netlists = new Array(1);
+			vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
+			netlists->InsertLast(Netlist::PresentDesign());
+#else
+			// Both SystemVerilog and VHDL support
+#endif
 #endif
 		}
 	}
@@ -2828,7 +2864,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 	hier_tree::DeleteHierarchicalTree();
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	veri_file::Reset();
+#endif
 #ifdef VERIFIC_VHDL_SUPPORT
 	vhdl_file::Reset();
 #endif
@@ -2842,9 +2880,11 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	Message::Reset();
 	RuntimeFlags::DeleteAllFlags();
 	LineFile::DeleteAllLineFiles();
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	verific_incdirs.clear();
 	verific_libdirs.clear();
 	verific_libexts.clear();
+#endif
 	verific_import_pending = false;
 
 	if (!verific_error_msg.empty())
@@ -2875,6 +2915,7 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
@@ -2893,6 +2934,7 @@ struct VerificPass : public Pass {
 		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
 		log("\n");
+#endif
 #ifdef VERIFIC_VHDL_SUPPORT
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
@@ -2919,6 +2961,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
 		log("                     -sv2012|-sv|-formal] <command-file>\n");
 		log("\n");
@@ -2952,6 +2995,7 @@ struct VerificPass : public Pass {
 		log("        -sverilog\n");
 		log("\n");
 		log("\n");
+#endif
 		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
@@ -2964,6 +3008,7 @@ struct VerificPass : public Pass {
 		log("(-L may be used more than once)\n");
 		log("\n");
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific -vlog-incdir <directory>..\n");
 		log("\n");
 		log("Add Verilog include directories.\n");
@@ -2990,6 +3035,7 @@ struct VerificPass : public Pass {
 		log("Remove Verilog defines previously set with -vlog-define.\n");
 		log("\n");
 		log("\n");
+#endif
 		log("    verific -set-error <msg_id>..\n");
 		log("    verific -set-warning <msg_id>..\n");
 		log("    verific -set-info <msg_id>..\n");
@@ -3024,9 +3070,11 @@ struct VerificPass : public Pass {
 		log("  -no-split-complex-ports\n");
 		log("    Complex ports (structs or arrays) are not split and remain packed as a single port.\n");
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
 		log("\n");
+#endif
 		log("  -fullinit\n");
 		log("    Keep all register initializations, even those for non-FF registers.\n");
 		log("\n");
@@ -3059,12 +3107,14 @@ struct VerificPass : public Pass {
 		log("  -V\n");
 		log("    Import Verific netlist as-is without translating to Yosys cell types. \n");
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
 		log("\n");
 		log("  -L <int>\n");
 		log("    Maximum number of ctrl bits for SVA checker FSMs (default=16).\n");
 		log("\n");
+#endif
 		log("  -n\n");
 		log("    Keep all Verific names on instances and nets. By default only\n");
 		log("    user-declared names are preserved.\n");
@@ -3188,7 +3238,7 @@ struct VerificPass : public Pass {
 #endif
 
 	msg_type_t prev_1063;
-
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	void add_modules_to_map(Map &map, std::string work, bool flag_lib)
 	{
 		MapIter mi ;
@@ -3222,6 +3272,7 @@ struct VerificPass : public Pass {
 		if (Message::GetMessageType("VERI-1063")!=prev_1063)
 			Message::SetMessageType("VERI-1063", prev_1063);
 	}
+#endif
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -3254,10 +3305,11 @@ struct VerificPass : public Pass {
 			// Properly respect order of read and write for rams
 			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 1);
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
-
+#endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
@@ -3270,6 +3322,7 @@ struct VerificPass : public Pass {
 			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
 			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
 			RuntimeFlags::SetVar("veri_preserve_comments", 1);
 			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
@@ -3282,7 +3335,7 @@ struct VerificPass : public Pass {
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
-
+#endif
 			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
 #ifndef DB_PRESERVE_INITIAL_VALUE
@@ -3312,8 +3365,9 @@ struct VerificPass : public Pass {
 		std::string work = "work";
 		bool is_work_set = false;
 		(void)is_work_set;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
-
+#endif
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
 		{
@@ -3347,6 +3401,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-incdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				verific_incdirs.push_back(args[argidx]);
@@ -3566,14 +3621,17 @@ struct VerificPass : public Pass {
 			verific_import_pending = true;
 			goto check_error;
 		}
+#endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
 			bool flag_lib = false;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			argidx++;
+			while (argidx < GetSize(args)) {
 				if (args[argidx] == "-lib") {
 					flag_lib = true;
+					argidx++;
 					continue;
 				}
 				if (args[argidx].compare(0, 1, "-") == 0) {
@@ -3594,9 +3652,11 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			bool flag_lib = false;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			argidx++;
+			while (argidx < GetSize(args)) {
 				if (args[argidx] == "-lib") {
 					flag_lib = true;
+					argidx++;
 					continue;
 				}
 				if (args[argidx].compare(0, 1, "-") == 0) {
@@ -3617,9 +3677,11 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
 			bool flag_lib = false;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			argidx++;
+			while (argidx < GetSize(args)) {
 				if (args[argidx] == "-lib") {
 					flag_lib = true;
+					argidx++;
 					continue;
 				}
 				if (args[argidx].compare(0, 1, "-") == 0) {
@@ -3640,9 +3702,11 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2019")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
 			bool flag_lib = false;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			argidx++;
+			while (argidx < GetSize(args)) {
 				if (args[argidx] == "-lib") {
 					flag_lib = true;
+					argidx++;
 					continue;
 				}
 				if (args[argidx].compare(0, 1, "-") == 0) {
@@ -3663,9 +3727,11 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
 			bool flag_lib = false;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			argidx++;
+			while (argidx < GetSize(args)) {
 				if (args[argidx] == "-lib") {
 					flag_lib = true;
+					argidx++;
 					continue;
 				}
 				if (args[argidx].compare(0, 1, "-") == 0) {
@@ -3774,8 +3840,10 @@ struct VerificPass : public Pass {
 #else
 				goto check_error;
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			else
 				veri_file::PrettyPrint(filename, module, work.c_str());
+#endif
 			goto check_error;
 		}
 
@@ -3816,6 +3884,7 @@ struct VerificPass : public Pass {
 					mode_keep = true;
 					continue;
 				}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				if (args[argidx] == "-nosva") {
 					mode_nosva = true;
 					continue;
@@ -3824,14 +3893,17 @@ struct VerificPass : public Pass {
 					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
 				}
+#endif
 				if (args[argidx] == "-n") {
 					mode_names = true;
 					continue;
 				}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				if (args[argidx] == "-autocover") {
 					mode_autocover = true;
 					continue;
 				}
+#endif
 				if (args[argidx] == "-fullinit") {
 					mode_fullinit = true;
 					continue;
@@ -3884,19 +3956,22 @@ struct VerificPass : public Pass {
 				VerificExtensions::ElaborateAndRewrite(work, &parameters);
 				verific_error_msg.clear();
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				if (!ppfile.empty())
 					veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
-
+#endif
 				log("Running hier_tree::ElaborateAll().\n");
 
-				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-
-				Array veri_libs, vhdl_libs;
 #ifdef VERIFIC_VHDL_SUPPORT
+				Array vhdl_libs;
 				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+				Array veri_libs;
+				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
+#endif
 
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
@@ -3909,8 +3984,12 @@ struct VerificPass : public Pass {
 #else
 				if (parameters.Size())
 					log_warning("Please note that parameters are not propagated during import.\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				veri_file::ElaborateAll(work.c_str());
-
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+				vhdl_file::ElaborateAll(work.c_str());
+#endif
 				MapIter mi ;
 				Verific::Cell *c ;
 				Library *l = Libset::Global()->GetLibrary(work.c_str());
@@ -3936,17 +4015,20 @@ struct VerificPass : public Pass {
 #endif
 				{
 
-					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 #ifdef VERIFIC_VHDL_SUPPORT
+					Array vhdl_units;
 					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 #endif
-
-					Array veri_modules, vhdl_units;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+					Array veri_modules;
+					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
+#endif
 					for (int i = argidx; i < GetSize(args); i++)
 					{
 						const char *name = args[i].c_str();
 						top_mod_names.insert(name);
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 						VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
 						if (veri_module) {
 							if (veri_module->IsConfiguration()) {
@@ -3974,6 +4056,7 @@ struct VerificPass : public Pass {
 							}
 							continue;
 						}
+#endif
 #ifdef VERIFIC_VHDL_SUPPORT
 						VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
 						if (vhdl_unit) {
@@ -3990,13 +4073,15 @@ struct VerificPass : public Pass {
 						VerificExtensions::ElaborateAndRewrite(work, &veri_modules, &vhdl_units, &parameters);
 						verific_error_msg.clear();
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 						if (!ppfile.empty())
 							veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
-
+#endif
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 						continue;
 					}
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 					const char *lib_name = nullptr;
 					SetIter si;
 					FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
@@ -4011,12 +4096,24 @@ struct VerificPass : public Pass {
 							}
 						}
 					}
-
+#endif
 					log("Running hier_tree::Elaborate().\n");
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 					netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 #else
+#if defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && !defined(VERIFIC_VHDL_SUPPORT)
+					// SystemVerilog support only
 					netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
+#elif defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
+					// VHDL support	only
+					netlists = new Array(top_mod_names.size());
+					for (auto &name : top_mod_names) {
+						vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
+						netlists->InsertLast(Netlist::PresentDesign());
+					}
+#else
+					// Both SystemVerilog and VHDL support
+#endif
 #endif
 				}
 
@@ -4074,11 +4171,12 @@ struct VerificPass : public Pass {
 					nl.second->ChangePortBusStructures(1 /* hierarchical */);
 			}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
 				veri_writer.WriteFile(dumpfile.c_str(), Netlist::PresentDesign());
 			}
-
+#endif
 			while (!nl_todo.empty()) {
 				auto it = nl_todo.begin();
 				Netlist *nl = it->second;
@@ -4097,7 +4195,9 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 			hier_tree::DeleteHierarchicalTree();
 #endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			veri_file::Reset();
+#endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			vhdl_file::Reset();
 #endif
@@ -4111,9 +4211,11 @@ struct VerificPass : public Pass {
 			Message::Reset();
 			RuntimeFlags::DeleteAllFlags();
 			LineFile::DeleteAllLineFiles();
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			verific_incdirs.clear();
 			verific_libdirs.clear();
 			verific_libexts.clear();
+#endif
 			verific_import_pending = false;
 			goto check_error;
 		}
