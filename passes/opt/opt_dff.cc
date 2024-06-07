@@ -884,7 +884,7 @@ struct OptDffPass : public Pass {
 	{
 		log_header(design, "Executing OPT_DFF pass (perform DFF optimizations).\n");
 		OptDffOptions opt;
-		opt.nodffe = false;
+		opt.nodffe = true; // SILIMATE: DISABLE DFFE PASS BECAUSE IT BREAKS THE DESIGN
 		opt.nosdff = false;
 		opt.simple_dffe = false;
 		opt.keepdc = false;
