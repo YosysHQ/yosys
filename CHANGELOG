@@ -2,8 +2,14 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.41 .. Yosys 0.42-dev
+Yosys 0.41 .. Yosys 0.42
 --------------------------
+ * New commands and options
+    - Added "box_derive" pass to derive box modules.
+    - Added option "assert-mod-count" to "select" pass. 
+    - Added option "-header","-push" and "-pop" to "log" pass. 
+ * Intel support
+    - Dropped Quartus support in "synth_intel_alm" pass.
 
 Yosys 0.40 .. Yosys 0.41
 --------------------------
