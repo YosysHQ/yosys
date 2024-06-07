@@ -3252,7 +3252,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
-			RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
+			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
 			// RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector (FIXME: check if this is ok)
 			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
 
