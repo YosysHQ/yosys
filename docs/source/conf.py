@@ -87,5 +87,5 @@ def setup(app: Sphinx) -> None:
     from util.RtlilLexer import RtlilLexer
     app.add_lexer("RTLIL", RtlilLexer)
 
-    from util.YoscryptLexer import YoscryptLexer
+    from furo_ys.lexers.YoscryptLexer import YoscryptLexer
     app.add_lexer("yoscrypt", YoscryptLexer)
