@@ -3243,17 +3243,17 @@ struct VerificPass : public Pass {
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 0); // SILIMATE: add to improve optimization (QoR)
+			RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
-			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 0); // SILIMATE: disable this to speed up result (FIXME: check if this is ok)
+			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 0); // SILIMATE: disable this to speed up result
 
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
-			// RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector (FIXME: check if this is ok)
+			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
 			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
 
 #ifdef VERIFIC_VHDL_SUPPORT
