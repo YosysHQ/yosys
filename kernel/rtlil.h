@@ -1666,7 +1666,6 @@ public:
 
 	constexpr void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
 	constexpr const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
-	constexpr const RTLIL::Const getParam(const RTLIL::IdString &paramname);
 	constexpr void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
 	constexpr const RTLIL::Const getParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
