@@ -1602,28 +1602,11 @@ public:
 		}
 		int count(RTLIL::IdString portname) {
 			try {
-				parent->getParam(portname);
+				parent->getPort(portname);
 			} catch (const std::out_of_range& e) {
 				return 0;
 			}
 			return 1;
-		}
-		// const std::array<RTLIL::Const> make_array () {
-
-		// 	return std::array<RTLIL::Const>
-		// }
-		std::vector<int> fixed_data{1, 9, 100};
-
-		auto begin() {
-			if (parent->is_legacy())
-				return parent->legacy->connections_.begin();
-			if (parent->type.in(ID($pos))) {
-				return parent->pos.connections().begin();
-			}
-		}
-
-		auto end() {
-			return parent->is_legacy() ? parent->legacy->connections_.end() : fixed_data.end();
 		}
 	};
 	FakeParams parameters;
