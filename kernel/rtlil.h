@@ -1555,9 +1555,10 @@ struct RTLIL::Unary {
 	int a_width;
 	int y_width;
 	bool is_signed;
-	std::array<RTLIL::SigSpec&, 2> connections() {
-		return {a, y};
+	std::array<std::pair<RTLIL::IdString, RTLIL::SigSpec>, 2> connections() {
+		return {std::make_pair(ID::A, a), std::make_pair(ID::Y, y)};
 	}
+	// TODO new interface: inputs
 };
 
 struct RTLIL::Cell
@@ -1608,6 +1609,49 @@ public:
 			}
 			return 1;
 		}
+		class iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, SigSpec>> {
+			Cell* parent;
+			int position;
+		public:
+			iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const iterator &other) const {
+				return !(*this == other);
+			}
+			std::pair<IdString, SigSpec> operator*() const {
+					if (parent->is_legacy()) {
+						auto it = parent->legacy->connections_.begin();
+						it += position;
+						return *it;
+					} else if (parent->type == ID($pos)) {
+						return parent->pos.connections()[position];
+					} else if (parent->type == ID($neg)) {
+						return parent->neg.connections()[position];
+					} else if (parent->type == ID($not)) {
+						return parent->not_.connections()[position];
+					}
+			}
+			iterator begin() const {
+					return iterator(parent, 0);
+			}
+			iterator end() const {
+				if (parent->is_legacy()) {
+					return iterator(parent, parent->legacy->connections_.size());
+				} else if (parent->type == ID($pos)) {
+					return iterator(parent, parent->pos.connections().size());
+				} else if (parent->type == ID($neg)) {
+					return iterator(parent, parent->neg.connections().size());
+				} else if (parent->type == ID($not)) {
+					return iterator(parent, parent->not_.connections().size());
+				}
+			}
+		};
 	};
 	FakeParams parameters;
 	FakeConns connections_;
