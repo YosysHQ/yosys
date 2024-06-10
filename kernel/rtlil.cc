@@ -1017,13 +1017,13 @@ size_t RTLIL::Module::count_id(const RTLIL::IdString& id)
 
 #ifndef NDEBUG
 namespace {
-	struct InternalCellChecker
+	struct InternalOldCellChecker
 	{
 		RTLIL::Module *module;
-		RTLIL::Cell *cell;
+		RTLIL::OldCell *cell;
 		pool<RTLIL::IdString> expected_params, expected_ports;
 
-		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
+		InternalOldCellChecker(RTLIL::Module *module, RTLIL::OldCell *cell) : module(module), cell(cell) { }
 
 		void error(int linenr)
 		{
@@ -1981,7 +1981,7 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 		for (auto &it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
-		InternalCellChecker checker(this, it.second);
+		InternalOldCellChecker checker(this, it.second);
 		checker.check();
 		if (it.second->has_memid()) {
 			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
@@ -2063,7 +2063,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		new_mod->addMemory(it.first, it.second);
 
 	for (auto &it : cells_)
-		new_mod->addCell(it.first, it.second);
+		new_mod->addOldCell(it.first, it.second);
 
 	for (auto &it : processes)
 		new_mod->addProcess(it.first, it.second);
@@ -2128,9 +2128,9 @@ std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const
 	return result;
 }
 
-std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
+std::vector<RTLIL::OldCell*> RTLIL::Module::selected_cells() const
 {
-	std::vector<RTLIL::Cell*> result;
+	std::vector<RTLIL::OldCell*> result;
 	result.reserve(cells_.size());
 	for (auto &it : cells_)
 		if (design->selected(this, it.second))
@@ -2147,7 +2147,7 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 	wire->module = this;
 }
 
-void RTLIL::Module::add(RTLIL::Cell *cell)
+void RTLIL::Module::add(RTLIL::OldCell *cell)
 {
 	log_assert(!cell->name.empty());
 	log_assert(count_id(cell->name) == 0);
@@ -2208,7 +2208,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 	}
 }
 
-void RTLIL::Module::remove(RTLIL::Cell *cell)
+void RTLIL::Module::remove(RTLIL::OldCell *cell)
 {
 	while (!cell->connections_.empty())
 		cell->unsetPort(cell->connections_.begin()->first);
@@ -2235,7 +2235,7 @@ void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
 	add(wire);
 }
 
-void RTLIL::Module::rename(RTLIL::Cell *cell, RTLIL::IdString new_name)
+void RTLIL::Module::rename(RTLIL::OldCell *cell, RTLIL::IdString new_name)
 {
 	log_assert(cells_[cell->name] == cell);
 	log_assert(refcount_wires_ == 0);
@@ -2270,7 +2270,7 @@ void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
 	wires_[w2->name] = w2;
 }
 
-void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
+void RTLIL::Module::swap_names(RTLIL::OldCell *c1, RTLIL::OldCell *c2)
 {
 	log_assert(cells_[c1->name] == c1);
 	log_assert(cells_[c2->name] == c2);
@@ -2421,19 +2421,24 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	return wire;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
+RTLIL::Cell *RTLIL::Module::addOldCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	// std::cout << "alloc " << (long long)cell << " called " << cell->name.c_str() << "\n";
 	cell->name = name;
 	cell->type = type;
+	if (RTLIL::Cell::is_legacy(type)) {
+		auto legOldCell = new RTLIL::OldCell;
+		legOldCell->name = name;
+		legOldCell->type = type;
+	}
 	add(cell);
 	return cell;
 }
 
-RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
+RTLIL::Cell *RTLIL::Module::addOldCell(RTLIL::IdString name, const RTLIL::OldCell *other)
 {
-	RTLIL::Cell *cell = addCell(name, other->type);
+	RTLIL::Cell *cell = addOldCell(name, other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
@@ -2469,8 +2474,8 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 }
 
 #define DEF_METHOD(_func, _y_size, _type) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);           \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);           \
 		cell->parameters[ID::A_SIGNED] = is_signed;         \
 		cell->parameters[ID::A_WIDTH] = sig_a.size();       \
 		cell->parameters[ID::Y_WIDTH] = sig_y.size();       \
@@ -2496,8 +2501,8 @@ DEF_METHOD(LogicNot,   1, ID($logic_not))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);           \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);           \
 		cell->parameters[ID::A_SIGNED] = is_signed;         \
 		cell->parameters[ID::B_SIGNED] = is_signed;         \
 		cell->parameters[ID::A_WIDTH] = sig_a.size();       \
@@ -2540,8 +2545,8 @@ DEF_METHOD(LogicOr,  1, ID($logic_or))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);           \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);           \
 		cell->parameters[ID::A_SIGNED] = is_signed;         \
 		cell->parameters[ID::B_SIGNED] = false;             \
 		cell->parameters[ID::A_WIDTH] = sig_a.size();       \
@@ -2565,8 +2570,8 @@ DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);                 \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);                 \
 		cell->parameters[ID::WIDTH] = sig_a.size();               \
 		if (_pmux) cell->parameters[ID::S_WIDTH] = sig_s.size();  \
 		cell->setPort(ID::A, sig_a);                              \
@@ -2587,8 +2592,8 @@ DEF_METHOD(Pmux,     ID($pmux),       1)
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _demux) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);                 \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_y, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);                 \
 		cell->parameters[ID::WIDTH] = _demux ? sig_a.size() : sig_y.size(); \
 		cell->parameters[ID::S_WIDTH] = sig_s.size();             \
 		cell->setPort(ID::A, sig_a);                              \
@@ -2607,8 +2612,8 @@ DEF_METHOD(Demux,    ID($demux),      1)
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);                 \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);                 \
 		cell->parameters[ID::WIDTH] = sig_a.size();               \
 		cell->setPort(ID::A, sig_a);                              \
 		cell->setPort(ID::B, sig_b);                              \
@@ -2625,8 +2630,8 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 #undef DEF_METHOD
 
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);         \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);         \
 		cell->setPort("\\" #_P1, sig1);                   \
 		cell->setPort("\\" #_P2, sig2);                   \
 		cell->set_src_attribute(src);                     \
@@ -2638,8 +2643,8 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return sig2;                                      \
 	}
 #define DEF_METHOD_3(_func, _type, _P1, _P2, _P3) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);         \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);         \
 		cell->setPort("\\" #_P1, sig1);                   \
 		cell->setPort("\\" #_P2, sig2);                   \
 		cell->setPort("\\" #_P3, sig3);                   \
@@ -2652,8 +2657,8 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return sig3;                                      \
 	}
 #define DEF_METHOD_4(_func, _type, _P1, _P2, _P3, _P4) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);         \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);         \
 		cell->setPort("\\" #_P1, sig1);                   \
 		cell->setPort("\\" #_P2, sig2);                   \
 		cell->setPort("\\" #_P3, sig3);                   \
@@ -2667,8 +2672,8 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return sig4;                                      \
 	}
 #define DEF_METHOD_5(_func, _type, _P1, _P2, _P3, _P4, _P5) \
-	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SigBit &sig5, const std::string &src) { \
-		RTLIL::Cell *cell = addCell(name, _type);         \
+	RTLIL::OldCell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const RTLIL::SigBit &sig5, const std::string &src) { \
+		RTLIL::OldCell *cell = addOldCell(name, _type);         \
 		cell->setPort("\\" #_P1, sig1);                   \
 		cell->setPort("\\" #_P2, sig2);                   \
 		cell->setPort("\\" #_P3, sig3);                   \
@@ -2703,9 +2708,9 @@ DEF_METHOD_5(Oai4Gate,   ID($_OAI4_),   A, B, C, D, Y)
 #undef DEF_METHOD_4
 #undef DEF_METHOD_5
 
-RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool a_signed, bool b_signed, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addPow(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool a_signed, bool b_signed, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($pow));
+	RTLIL::OldCell *cell = addOldCell(name, ID($pow));
 	cell->parameters[ID::A_SIGNED] = a_signed;
 	cell->parameters[ID::B_SIGNED] = b_signed;
 	cell->parameters[ID::A_WIDTH] = sig_a.size();
@@ -2718,9 +2723,9 @@ RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, const RTLIL::SigSpec &s
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addFa(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addFa(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($fa));
+	RTLIL::OldCell *cell = addOldCell(name, ID($fa));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::B, sig_b);
@@ -2731,9 +2736,9 @@ RTLIL::Cell* RTLIL::Module::addFa(RTLIL::IdString name, const RTLIL::SigSpec &si
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addSlice(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($slice));
+	RTLIL::OldCell *cell = addOldCell(name, ID($slice));
 	cell->parameters[ID::A_WIDTH] = sig_a.size();
 	cell->parameters[ID::Y_WIDTH] = sig_y.size();
 	cell->parameters[ID::OFFSET] = offset;
@@ -2743,9 +2748,9 @@ RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addConcat(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($concat));
+	RTLIL::OldCell *cell = addOldCell(name, ID($concat));
 	cell->parameters[ID::A_WIDTH] = sig_a.size();
 	cell->parameters[ID::B_WIDTH] = sig_b.size();
 	cell->setPort(ID::A, sig_a);
@@ -2755,9 +2760,9 @@ RTLIL::Cell* RTLIL::Module::addConcat(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const lut, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addLut(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const lut, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($lut));
+	RTLIL::OldCell *cell = addOldCell(name, ID($lut));
 	cell->parameters[ID::LUT] = lut;
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->setPort(ID::A, sig_a);
@@ -2766,9 +2771,9 @@ RTLIL::Cell* RTLIL::Module::addLut(RTLIL::IdString name, const RTLIL::SigSpec &s
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addTribuf(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_y, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addTribuf(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($tribuf));
+	RTLIL::OldCell *cell = addOldCell(name, ID($tribuf));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
@@ -2777,54 +2782,54 @@ RTLIL::Cell* RTLIL::Module::addTribuf(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAssert(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addAssert(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($assert));
+	RTLIL::OldCell *cell = addOldCell(name, ID($assert));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAssume(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addAssume(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($assume));
+	RTLIL::OldCell *cell = addOldCell(name, ID($assume));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addLive(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addLive(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($live));
+	RTLIL::OldCell *cell = addOldCell(name, ID($live));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addFair(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addFair(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($fair));
+	RTLIL::OldCell *cell = addOldCell(name, ID($fair));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addCover(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addCover(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_en, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($cover));
+	RTLIL::OldCell *cell = addOldCell(name, ID($cover));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::EN, sig_en);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addEquiv(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($equiv));
+	RTLIL::OldCell *cell = addOldCell(name, ID($equiv));
 	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::B, sig_b);
 	cell->setPort(ID::Y, sig_y);
@@ -2832,9 +2837,9 @@ RTLIL::Cell* RTLIL::Module::addEquiv(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr, const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addSr(RTLIL::IdString name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr, const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($sr));
+	RTLIL::OldCell *cell = addOldCell(name, ID($sr));
 	cell->parameters[ID::SET_POLARITY] = set_polarity;
 	cell->parameters[ID::CLR_POLARITY] = clr_polarity;
 	cell->parameters[ID::WIDTH] = sig_q.size();
@@ -2845,9 +2850,9 @@ RTLIL::Cell* RTLIL::Module::addSr(RTLIL::IdString name, const RTLIL::SigSpec &si
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addFf(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addFf(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($ff));
+	RTLIL::OldCell *cell = addOldCell(name, ID($ff));
 	cell->parameters[ID::WIDTH] = sig_q.size();
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
@@ -2855,9 +2860,9 @@ RTLIL::Cell* RTLIL::Module::addFf(RTLIL::IdString name, const RTLIL::SigSpec &si
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dff));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dff));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::WIDTH] = sig_q.size();
 	cell->setPort(ID::CLK, sig_clk);
@@ -2867,9 +2872,9 @@ RTLIL::Cell* RTLIL::Module::addDff(RTLIL::IdString name, const RTLIL::SigSpec &s
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dffe));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dffe));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::WIDTH] = sig_q.size();
@@ -2881,10 +2886,10 @@ RTLIL::Cell* RTLIL::Module::addDffe(RTLIL::IdString name, const RTLIL::SigSpec &
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDffsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dffsr));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dffsr));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::SET_POLARITY] = set_polarity;
 	cell->parameters[ID::CLR_POLARITY] = clr_polarity;
@@ -2898,10 +2903,10 @@ RTLIL::Cell* RTLIL::Module::addDffsr(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffsre(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDffsre(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dffsre));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dffsre));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::SET_POLARITY] = set_polarity;
@@ -2917,10 +2922,10 @@ RTLIL::Cell* RTLIL::Module::addDffsre(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const arst_value, bool clk_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($adff));
+	RTLIL::OldCell *cell = addOldCell(name, ID($adff));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::ARST_POLARITY] = arst_polarity;
 	cell->parameters[ID::ARST_VALUE] = arst_value;
@@ -2933,10 +2938,10 @@ RTLIL::Cell* RTLIL::Module::addAdff(RTLIL::IdString name, const RTLIL::SigSpec &
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const arst_value, bool clk_polarity, bool en_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($adffe));
+	RTLIL::OldCell *cell = addOldCell(name, ID($adffe));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::ARST_POLARITY] = arst_polarity;
@@ -2951,10 +2956,10 @@ RTLIL::Cell* RTLIL::Module::addAdffe(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAldff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAldff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($aldff));
+	RTLIL::OldCell *cell = addOldCell(name, ID($aldff));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::ALOAD_POLARITY] = aload_polarity;
 	cell->parameters[ID::WIDTH] = sig_q.size();
@@ -2967,10 +2972,10 @@ RTLIL::Cell* RTLIL::Module::addAldff(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAldffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAldffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($aldffe));
+	RTLIL::OldCell *cell = addOldCell(name, ID($aldffe));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::ALOAD_POLARITY] = aload_polarity;
@@ -2985,10 +2990,10 @@ RTLIL::Cell* RTLIL::Module::addAldffe(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const srst_value, bool clk_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($sdff));
+	RTLIL::OldCell *cell = addOldCell(name, ID($sdff));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::SRST_POLARITY] = srst_polarity;
 	cell->parameters[ID::SRST_VALUE] = srst_value;
@@ -3001,10 +3006,10 @@ RTLIL::Cell* RTLIL::Module::addSdff(RTLIL::IdString name, const RTLIL::SigSpec &
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($sdffe));
+	RTLIL::OldCell *cell = addOldCell(name, ID($sdffe));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::SRST_POLARITY] = srst_polarity;
@@ -3019,10 +3024,10 @@ RTLIL::Cell* RTLIL::Module::addSdffe(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdffce(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdffce(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($sdffce));
+	RTLIL::OldCell *cell = addOldCell(name, ID($sdffce));
 	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::SRST_POLARITY] = srst_polarity;
@@ -3037,9 +3042,9 @@ RTLIL::Cell* RTLIL::Module::addSdffce(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDlatch(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dlatch));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dlatch));
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::WIDTH] = sig_q.size();
 	cell->setPort(ID::EN, sig_en);
@@ -3049,10 +3054,10 @@ RTLIL::Cell* RTLIL::Module::addDlatch(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdlatch(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdlatch(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const arst_value, bool en_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($adlatch));
+	RTLIL::OldCell *cell = addOldCell(name, ID($adlatch));
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::ARST_POLARITY] = arst_polarity;
 	cell->parameters[ID::ARST_VALUE] = arst_value;
@@ -3065,10 +3070,10 @@ RTLIL::Cell* RTLIL::Module::addAdlatch(RTLIL::IdString name, const RTLIL::SigSpe
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($dlatchsr));
+	RTLIL::OldCell *cell = addOldCell(name, ID($dlatchsr));
 	cell->parameters[ID::EN_POLARITY] = en_polarity;
 	cell->parameters[ID::SET_POLARITY] = set_polarity;
 	cell->parameters[ID::CLR_POLARITY] = clr_polarity;
@@ -3082,10 +3087,10 @@ RTLIL::Cell* RTLIL::Module::addDlatchsr(RTLIL::IdString name, const RTLIL::SigSp
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addSrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		const RTLIL::SigSpec &sig_q, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_SR_%c%c_", set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_SR_%c%c_", set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
 	cell->setPort(ID::S, sig_set);
 	cell->setPort(ID::R, sig_clr);
 	cell->setPort(ID::Q, sig_q);
@@ -3093,18 +3098,18 @@ RTLIL::Cell* RTLIL::Module::addSrGate(RTLIL::IdString name, const RTLIL::SigSpec
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addFfGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addFfGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($_FF_));
+	RTLIL::OldCell *cell = addOldCell(name, ID($_FF_));
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
@@ -3112,9 +3117,9 @@ RTLIL::Cell* RTLIL::Module::addDffGate(RTLIL::IdString name, const RTLIL::SigSpe
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::D, sig_d);
@@ -3123,10 +3128,10 @@ RTLIL::Cell* RTLIL::Module::addDffeGate(RTLIL::IdString name, const RTLIL::SigSp
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::S, sig_set);
 	cell->setPort(ID::R, sig_clr);
@@ -3136,10 +3141,10 @@ RTLIL::Cell* RTLIL::Module::addDffsrGate(RTLIL::IdString name, const RTLIL::SigS
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDffsreGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDffsreGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool clk_polarity, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFFSRE_%c%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFFSRE_%c%c%c%c_", clk_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::S, sig_set);
 	cell->setPort(ID::R, sig_clr);
@@ -3150,10 +3155,10 @@ RTLIL::Cell* RTLIL::Module::addDffsreGate(RTLIL::IdString name, const RTLIL::Sig
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool arst_value, bool clk_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFF_%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::R, sig_arst);
 	cell->setPort(ID::D, sig_d);
@@ -3162,10 +3167,10 @@ RTLIL::Cell* RTLIL::Module::addAdffGate(RTLIL::IdString name, const RTLIL::SigSp
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool arst_value, bool clk_polarity, bool en_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::R, sig_arst);
 	cell->setPort(ID::E, sig_en);
@@ -3175,10 +3180,10 @@ RTLIL::Cell* RTLIL::Module::addAdffeGate(RTLIL::IdString name, const RTLIL::SigS
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAldffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAldffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::L, sig_aload);
 	cell->setPort(ID::D, sig_d);
@@ -3188,10 +3193,10 @@ RTLIL::Cell* RTLIL::Module::addAldffGate(RTLIL::IdString name, const RTLIL::SigS
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAldffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAldffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::L, sig_aload);
 	cell->setPort(ID::E, sig_en);
@@ -3202,10 +3207,10 @@ RTLIL::Cell* RTLIL::Module::addAldffeGate(RTLIL::IdString name, const RTLIL::Sig
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool srst_value, bool clk_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_SDFF_%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_SDFF_%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::R, sig_srst);
 	cell->setPort(ID::D, sig_d);
@@ -3214,10 +3219,10 @@ RTLIL::Cell* RTLIL::Module::addSdffGate(RTLIL::IdString name, const RTLIL::SigSp
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_SDFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_SDFFE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::R, sig_srst);
 	cell->setPort(ID::E, sig_en);
@@ -3227,10 +3232,10 @@ RTLIL::Cell* RTLIL::Module::addSdffeGate(RTLIL::IdString name, const RTLIL::SigS
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addSdffceGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addSdffceGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool srst_value, bool clk_polarity, bool en_polarity, bool srst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_SDFFCE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_SDFFCE_%c%c%c%c_", clk_polarity ? 'P' : 'N', srst_polarity ? 'P' : 'N', srst_value ? '1' : '0', en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::C, sig_clk);
 	cell->setPort(ID::R, sig_srst);
 	cell->setPort(ID::E, sig_en);
@@ -3240,9 +3245,9 @@ RTLIL::Cell* RTLIL::Module::addSdffceGate(RTLIL::IdString name, const RTLIL::Sig
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DLATCH_%c_", en_polarity ? 'P' : 'N'));
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
@@ -3250,10 +3255,10 @@ RTLIL::Cell* RTLIL::Module::addDlatchGate(RTLIL::IdString name, const RTLIL::Sig
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAdlatchGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+RTLIL::OldCell* RTLIL::Module::addAdlatchGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_arst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		bool arst_value, bool en_polarity, bool arst_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCH_%c%c%c_", en_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DLATCH_%c%c%c_", en_polarity ? 'P' : 'N', arst_polarity ? 'P' : 'N', arst_value ? '1' : '0'));
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::R, sig_arst);
 	cell->setPort(ID::D, sig_d);
@@ -3262,10 +3267,10 @@ RTLIL::Cell* RTLIL::Module::addAdlatchGate(RTLIL::IdString name, const RTLIL::Si
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
+RTLIL::OldCell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_set, const RTLIL::SigSpec &sig_clr,
 		RTLIL::SigSpec sig_d, const RTLIL::SigSpec &sig_q, bool en_polarity, bool set_polarity, bool clr_polarity, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
+	RTLIL::OldCell *cell = addOldCell(name, stringf("$_DLATCHSR_%c%c%c_", en_polarity ? 'P' : 'N', set_polarity ? 'P' : 'N', clr_polarity ? 'P' : 'N'));
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::S, sig_set);
 	cell->setPort(ID::R, sig_clr);
@@ -3275,9 +3280,9 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, const RTLIL::S
 	return cell;
 }
 
-RTLIL::Cell* RTLIL::Module::addAnyinit(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addAnyinit(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($anyinit));
+	RTLIL::OldCell *cell = addOldCell(name, ID($anyinit));
 	cell->parameters[ID::WIDTH] = sig_q.size();
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
@@ -3288,7 +3293,7 @@ RTLIL::Cell* RTLIL::Module::addAnyinit(RTLIL::IdString name, const RTLIL::SigSpe
 RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, ID($anyconst));
+	OldCell *cell = addOldCell(name, ID($anyconst));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
@@ -3298,7 +3303,7 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const st
 RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, ID($anyseq));
+	OldCell *cell = addOldCell(name, ID($anyseq));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
@@ -3308,7 +3313,7 @@ RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std:
 RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, ID($allconst));
+	OldCell *cell = addOldCell(name, ID($allconst));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
@@ -3318,7 +3323,7 @@ RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const st
 RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, width);
-	Cell *cell = addCell(name, ID($allseq));
+	OldCell *cell = addOldCell(name, ID($allseq));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
@@ -3328,7 +3333,7 @@ RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std:
 RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID);
-	Cell *cell = addCell(name, ID($initstate));
+	OldCell *cell = addOldCell(name, ID($initstate));
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
@@ -3337,7 +3342,7 @@ RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string 
 RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
-	Cell *cell = addCell(name, ID($set_tag));
+	OldCell *cell = addOldCell(name, ID($set_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
 	cell->setPort(ID::A, sig_a);
@@ -3348,9 +3353,9 @@ RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &ta
 	return sig;
 }
 
-RTLIL::Cell* RTLIL::Module::addSetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addSetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	Cell *cell = addCell(name, ID($set_tag));
+	OldCell *cell = addOldCell(name, ID($set_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
 	cell->setPort(ID::A, sig_a);
@@ -3364,7 +3369,7 @@ RTLIL::Cell* RTLIL::Module::addSetTag(RTLIL::IdString name, const std::string &t
 RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
-	Cell *cell = addCell(name, ID($get_tag));
+	OldCell *cell = addOldCell(name, ID($get_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
 	cell->setPort(ID::A, sig_a);
@@ -3373,9 +3378,9 @@ RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &ta
 	return sig;
 }
 
-RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
+RTLIL::OldCell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
 {
-	RTLIL::Cell *cell = addCell(name, ID($overwrite_tag));
+	RTLIL::OldCell *cell = addOldCell(name, ID($overwrite_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
 	cell->setPort(ID::A, sig_a);
@@ -3388,7 +3393,7 @@ RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::str
 RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
-	Cell *cell = addCell(name, ID($original_tag));
+	OldCell *cell = addOldCell(name, ID($original_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
 	cell->setPort(ID::A, sig_a);
@@ -3400,7 +3405,7 @@ RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::strin
 RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src)
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
-	Cell *cell = addCell(name, ID($future_ff));
+	OldCell *cell = addOldCell(name, ID($future_ff));
 	cell->parameters[ID::WIDTH] = sig_e.size();
 	cell->setPort(ID::A, sig_e);
 	cell->setPort(ID::Y, sig);
@@ -3422,7 +3427,7 @@ RTLIL::Wire::Wire()
 	port_output = false;
 	upto = false;
 	is_signed = false;
-	TracyAllocN(this, sizeof(RTLIL::Wire), "wire");
+
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
 #endif
@@ -3430,7 +3435,7 @@ RTLIL::Wire::Wire()
 
 RTLIL::Wire::~Wire()
 {
-	TracyFree(this);
+
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
@@ -3465,43 +3470,149 @@ RTLIL::Process::Process() : module(nullptr)
 	hashidx_ = hashidx_count;
 }
 
-RTLIL::Cell::Cell() : module(nullptr)
+RTLIL::Cell::Cell()
+{
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+
+	parameters.parent = this;
+	connections_.parent = this;
+}
+RTLIL::Cell::~Cell()
+{
+	if (is_legacy()) {
+		delete legacy;
+	}
+}
+
+
+constexpr void RTLIL::Cell::setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal) {
+	if (is_legacy()) {
+		legacy->setPort(portname, signal);
+		return;
+	}
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			not_.a = signal;
+		} else if (portname == ID::Y) {
+			not_.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setPort()");
+	}
+}
+constexpr const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) {
+	if (is_legacy())
+		return legacy->getPort(portname);
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			return not_.a;
+		} else if (portname == ID::Y) {
+			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setPort()");
+	}
+}
+
+// TODO autogen
+constexpr void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value) {
+	if (is_legacy()) {
+		legacy->setParam(paramname, value);
+		return;
+	}
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			not_.a_width = value.as_int();
+		} else if (paramname == ID::Y_WIDTH) {
+			not_.y_width = value.as_int();
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setParam()");
+	}
+}
+
+// TODO autogen
+constexpr const RTLIL::Const RTLIL::Cell::getParam(const RTLIL::IdString &paramname) {
+	if (is_legacy()) {
+		return legacy->getParam(paramname);
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			return RTLIL::Const(not_.a_width);
+		} else if (paramname == ID::Y_WIDTH) {
+			return RTLIL::Const(not_.y_width);
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getParam()");
+	}
+}
+
+// // Compatibility layer. Avoid using it
+// inline RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) const
+// {
+// 	if (is_legacy()) {
+// 		return legacy->getParam(paramname);
+// 	} else {
+// 		// TODO auto-generate this
+// 		if (type == ID($not)) {
+// 			if (paramname == ID::A_WIDTH) {
+// 				return RTLIL::Const(not_.a_width);
+// 			// ...else if...
+// 			} else {
+// 				throw std::out_of_range("Cell::getParam()");
+// 			}
+// 		}
+// 	}
+// }
+
+RTLIL::OldCell::OldCell() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
 
 	// log("#memtrace# %p\n", this);
-	TracyAllocN(this, sizeof(RTLIL::Cell), "cell");
 	memhasher();
 
 #ifdef WITH_PYTHON
-	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
+	RTLIL::OldCell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::OldCell*>(hashidx_, this));
 #endif
 }
 
-RTLIL::Cell::~Cell()
+RTLIL::OldCell::~OldCell()
 {
-	TracyFree(this);
 #ifdef WITH_PYTHON
-	RTLIL::Cell::get_all_cells()->erase(hashidx_);
+	RTLIL::OldCell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Cell*> all_cells;
-std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
+static std::map<unsigned int, RTLIL::OldCell*> all_cells;
+std::map<unsigned int, RTLIL::OldCell*> *RTLIL::OldCell::get_all_cells(void)
 {
 	return &all_cells;
 }
 #endif
 
-bool RTLIL::Cell::hasPort(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::hasPort(const RTLIL::IdString& portname) const
 {
 	return connections_.count(portname) != 0;
 }
 
-void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
+void RTLIL::OldCell::unsetPort(const RTLIL::IdString& portname)
 {
 	RTLIL::SigSpec signal;
 	auto conn_it = connections_.find(portname);
@@ -3524,7 +3635,7 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 	}
 }
 
-void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
+void RTLIL::OldCell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
 {
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;
@@ -3546,17 +3657,17 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 	conn_it->second = std::move(signal);
 }
 
-const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString& portname) const
+const RTLIL::SigSpec &RTLIL::OldCell::getPort(const RTLIL::IdString& portname) const
 {
 	return connections_.at(portname);
 }
 
-const dict<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() const
+const dict<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::OldCell::connections() const
 {
 	return connections_;
 }
 
-bool RTLIL::Cell::known() const
+bool RTLIL::OldCell::known() const
 {
 	if (yosys_celltypes.cell_known(type))
 		return true;
@@ -3565,7 +3676,7 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
-bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::input(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
@@ -3577,7 +3688,7 @@ bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::output(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
@@ -3589,22 +3700,22 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::hasParam(const RTLIL::IdString& paramname) const
+bool RTLIL::OldCell::hasParam(const RTLIL::IdString& paramname) const
 {
 	return parameters.count(paramname) != 0;
 }
 
-void RTLIL::Cell::unsetParam(const RTLIL::IdString& paramname)
+void RTLIL::OldCell::unsetParam(const RTLIL::IdString& paramname)
 {
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(const RTLIL::IdString& paramname, RTLIL::Const value)
+void RTLIL::OldCell::setParam(const RTLIL::IdString& paramname, RTLIL::Const value)
 {
 	parameters[paramname] = std::move(value);
 }
 
-const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) const
+const RTLIL::Const &RTLIL::OldCell::getParam(const RTLIL::IdString& paramname) const
 {
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())
@@ -3614,25 +3725,25 @@ const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) cons
 		if (m)
 			return m->parameter_default_values.at(paramname);
 	}
-	throw std::out_of_range("Cell::getParam()");
+	throw std::out_of_range("OldCell::getParam()");
 }
 
-void RTLIL::Cell::sort()
+void RTLIL::OldCell::sort()
 {
 	connections_.sort(sort_by_id_str());
 	parameters.sort(sort_by_id_str());
 	attributes.sort(sort_by_id_str());
 }
 
-void RTLIL::Cell::check()
+void RTLIL::OldCell::check()
 {
 #ifndef NDEBUG
-	InternalCellChecker checker(NULL, this);
+	InternalOldCellChecker checker(NULL, this);
 	checker.check();
 #endif
 }
 
-void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
+void RTLIL::OldCell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
 	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
@@ -3699,12 +3810,12 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	check();
 }
 
-bool RTLIL::Cell::has_memid() const
+bool RTLIL::OldCell::has_memid() const
 {
 	return type.in(ID($memwr), ID($memwr_v2), ID($memrd), ID($memrd_v2), ID($meminit), ID($meminit_v2));
 }
 
-bool RTLIL::Cell::is_mem_cell() const
+bool RTLIL::OldCell::is_mem_cell() const
 {
 	return type.in(ID($mem), ID($mem_v2)) || has_memid();
 }

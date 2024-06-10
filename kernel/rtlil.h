@@ -62,7 +62,9 @@ namespace RTLIL
 	struct Module;
 	struct Wire;
 	struct Memory;
+	struct Unary;
 	struct Cell;
+	struct OldCell;
 	struct SigChunk;
 	struct SigBit;
 	struct SigSpecIterator;
@@ -1545,7 +1547,114 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 #endif
 };
 
-struct RTLIL::Cell : public RTLIL::AttrObject
+
+// $not
+struct RTLIL::Unary {
+	RTLIL::SigSpec a;
+	RTLIL::SigSpec y;
+	int a_width;
+	int y_width;
+	bool is_signed;
+	std::array<RTLIL::SigSpec&, 2> connections() {
+		return {a, y};
+	}
+};
+
+struct RTLIL::Cell
+{
+	// TODO huh?
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+	// TODO figure this out later
+	friend struct RTLIL::Module;
+	Cell();
+	~Cell();
+
+public:
+
+	RTLIL::IdString type;
+	RTLIL::IdString name; // delete?
+	bool has_attrs;
+	union {
+		RTLIL::Unary not_;
+		RTLIL::Unary pos;
+		RTLIL::Unary neg;
+		RTLIL::OldCell* legacy;
+	};
+	struct FakeParams {
+		RTLIL::Cell* parent;
+		RTLIL::Const at(RTLIL::IdString name) {
+			return parent->getParam(name);
+		}
+		int count(RTLIL::IdString name) {
+			try {
+				parent->getParam(name);
+			} catch (const std::out_of_range& e) {
+				return 0;
+			}
+			return 1;
+		}
+	};
+	struct FakeConns {
+		RTLIL::Cell* parent;
+		RTLIL::SigSpec at(RTLIL::IdString portname) {
+			return parent->getPort(portname);
+		}
+		int count(RTLIL::IdString portname) {
+			try {
+				parent->getParam(portname);
+			} catch (const std::out_of_range& e) {
+				return 0;
+			}
+			return 1;
+		}
+		// const std::array<RTLIL::Const> make_array () {
+
+		// 	return std::array<RTLIL::Const>
+		// }
+		std::vector<int> fixed_data{1, 9, 100};
+
+		auto begin() {
+			if (parent->is_legacy())
+				return parent->legacy->connections_.begin();
+			if (parent->type.in(ID($pos))) {
+				return parent->pos.connections().begin();
+			}
+		}
+
+		auto end() {
+			return parent->is_legacy() ? parent->legacy->connections_.end() : fixed_data.end();
+		}
+	};
+	FakeParams parameters;
+	FakeConns connections_;
+	// TODO src loc? internal attrs?
+
+	// Canonical tag
+	bool is_legacy() {
+		return has_attrs || is_legacy_type(type);
+	};
+
+	// The weird bits
+
+	constexpr void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
+	constexpr const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
+	constexpr const RTLIL::Const getParam(const RTLIL::IdString &paramname);
+	constexpr void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
+	constexpr const RTLIL::Const getParam(const RTLIL::IdString &paramname);
+	bool hasParam(const RTLIL::IdString &paramname) {
+		return parameters.count(paramname);
+	}
+
+private:
+	// NOT the tag, but a helper - faster short-circuit if public?
+	static bool is_legacy_type (RTLIL::IdString type) {
+		return !type.in(ID($not), ID($pos), ID($neg));
+	}
+
+};
+
+struct RTLIL::OldCell : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -1553,13 +1662,14 @@ struct RTLIL::Cell : public RTLIL::AttrObject
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
-	Cell();
-	~Cell();
+	friend struct RTLIL::Cell;
+	OldCell();
+	~OldCell();
 
 public:
 	// do not simply copy cells
-	Cell(RTLIL::Cell &other) = delete;
-	void operator=(RTLIL::Cell &other) = delete;
+	OldCell(RTLIL::OldCell &other) = delete;
+	void operator=(RTLIL::OldCell &other) = delete;
 
 	RTLIL::Module *module;
 	RTLIL::IdString name;
@@ -1598,7 +1708,7 @@ public:
 	template<typename T> void rewrite_sigspecs2(T &functor);
 
 #ifdef WITH_PYTHON
-	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
+	static std::map<unsigned int, RTLIL::OldCell*> *get_all_cells(void);
 #endif
 
 	bool has_memid() const;
@@ -1747,13 +1857,13 @@ void RTLIL::Module::rewrite_sigspecs2(T &functor)
 }
 
 template<typename T>
-void RTLIL::Cell::rewrite_sigspecs(T &functor) {
+void RTLIL::OldCell::rewrite_sigspecs(T &functor) {
 	for (auto &it : connections_)
 		functor(it.second);
 }
 
 template<typename T>
-void RTLIL::Cell::rewrite_sigspecs2(T &functor) {
+void RTLIL::OldCell::rewrite_sigspecs2(T &functor) {
 	for (auto &it : connections_)
 		functor(it.second);
 }
