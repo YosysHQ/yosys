@@ -214,6 +214,18 @@ static RTLIL::SigSpec parse_func_expr(RTLIL::Module *module, const char *expr)
 	return stack.back().sig;
 }
 
+static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func, const char *three_state_expr)
+{
+	RTLIL::SigSpec three_state = parse_func_expr(module, three_state_expr);
+
+	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($tribuf));
+	cell->setParam(ID::WIDTH, GetSize(func));
+	cell->setPort(ID::A, func);
+	cell->setPort(ID::EN, create_inv_cell(module, three_state));
+	cell->setPort(ID::Y, module->addWire(NEW_ID));
+	return cell->getPort(ID::Y);
+}
+
 static void create_ff(RTLIL::Module *module, LibertyAst *node)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
@@ -695,18 +707,24 @@ struct LibertyFrontend : public Frontend {
 					LibertyAst *func = node->find("function");
 					if (func == NULL)
 					{
-						if (!flag_ignore_miss_func)
-						{
-							log_error("Missing function on output %s of cell %s.\n", log_id(wire->name), log_id(module->name));
-						} else {
-							log("Ignoring cell %s with missing function on output %s.\n", log_id(module->name), log_id(wire->name));
-							delete module;
-							goto skip_cell;
+						if (dir->value != "inout") { // allow inout with missing function, can be used for power pins
+							if (!flag_ignore_miss_func)
+							{
+								log_error("Missing function on output %s of cell %s.\n", log_id(wire->name), log_id(module->name));
+							} else {
+								log("Ignoring cell %s with missing function on output %s.\n", log_id(module->name), log_id(wire->name));
+								delete module;
+								goto skip_cell;
+							}
 						}
+					} else {
+						RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
+						LibertyAst *three_state = node->find("three_state");
+						if (three_state) {
+							out_sig = create_tristate(module, out_sig, three_state->value.c_str());
+						}
+						module->connect(RTLIL::SigSig(wire, out_sig));
 					}
-
-					RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
-					module->connect(RTLIL::SigSig(wire, out_sig));
 				}
 			}
 
