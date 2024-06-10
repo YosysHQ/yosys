@@ -1548,6 +1548,68 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 };
 
 
+struct RTLIL::OldCell : public RTLIL::AttrObject
+{
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
+protected:
+	// use module->addCell() and module->remove() to create or destroy cells
+	friend struct RTLIL::Module;
+	friend struct RTLIL::Cell;
+	OldCell();
+	~OldCell();
+
+public:
+	// do not simply copy cells
+	OldCell(RTLIL::OldCell &other) = delete;
+	void operator=(RTLIL::OldCell &other) = delete;
+
+	RTLIL::Module *module;
+	RTLIL::IdString name;
+	RTLIL::IdString type;
+	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
+	dict<RTLIL::IdString, RTLIL::Const> parameters;
+
+	// access cell ports
+	bool hasPort(const RTLIL::IdString &portname) const;
+	void unsetPort(const RTLIL::IdString &portname);
+	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
+	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
+
+	// information about cell ports
+	bool known() const;
+	bool input(const RTLIL::IdString &portname) const;
+	bool output(const RTLIL::IdString &portname) const;
+
+	// access cell parameters
+	bool hasParam(const RTLIL::IdString &paramname) const;
+	void unsetParam(const RTLIL::IdString &paramname);
+	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
+	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
+
+	void sort();
+	void check();
+	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+
+	bool has_keep_attr() const {
+		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute(ID::keep));
+	}
+
+	template<typename T> void rewrite_sigspecs(T &functor);
+	template<typename T> void rewrite_sigspecs2(T &functor);
+
+#ifdef WITH_PYTHON
+	static std::map<unsigned int, RTLIL::OldCell*> *get_all_cells(void);
+#endif
+
+	bool has_memid() const;
+	bool is_mem_cell() const;
+};
+
+
 // $not
 struct RTLIL::Unary {
 	RTLIL::SigSpec a;
@@ -1625,17 +1687,20 @@ public:
 				return !(*this == other);
 			}
 			std::pair<IdString, SigSpec> operator*() const {
-					if (parent->is_legacy()) {
-						auto it = parent->legacy->connections_.begin();
-						it += position;
-						return *it;
-					} else if (parent->type == ID($pos)) {
-						return parent->pos.connections()[position];
-					} else if (parent->type == ID($neg)) {
-						return parent->neg.connections()[position];
-					} else if (parent->type == ID($not)) {
-						return parent->not_.connections()[position];
-					}
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					log_assert(false && "unreachable");
+					__builtin_unreachable();
+				}
 			}
 			iterator begin() const {
 					return iterator(parent, 0);
@@ -1678,67 +1743,6 @@ private:
 		return !type.in(ID($not), ID($pos), ID($neg));
 	}
 
-};
-
-struct RTLIL::OldCell : public RTLIL::AttrObject
-{
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
-
-protected:
-	// use module->addCell() and module->remove() to create or destroy cells
-	friend struct RTLIL::Module;
-	friend struct RTLIL::Cell;
-	OldCell();
-	~OldCell();
-
-public:
-	// do not simply copy cells
-	OldCell(RTLIL::OldCell &other) = delete;
-	void operator=(RTLIL::OldCell &other) = delete;
-
-	RTLIL::Module *module;
-	RTLIL::IdString name;
-	RTLIL::IdString type;
-	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
-	dict<RTLIL::IdString, RTLIL::Const> parameters;
-
-	// access cell ports
-	bool hasPort(const RTLIL::IdString &portname) const;
-	void unsetPort(const RTLIL::IdString &portname);
-	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
-	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
-
-	// information about cell ports
-	bool known() const;
-	bool input(const RTLIL::IdString &portname) const;
-	bool output(const RTLIL::IdString &portname) const;
-
-	// access cell parameters
-	bool hasParam(const RTLIL::IdString &paramname) const;
-	void unsetParam(const RTLIL::IdString &paramname);
-	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
-
-	void sort();
-	void check();
-	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
-
-	bool has_keep_attr() const {
-		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute(ID::keep));
-	}
-
-	template<typename T> void rewrite_sigspecs(T &functor);
-	template<typename T> void rewrite_sigspecs2(T &functor);
-
-#ifdef WITH_PYTHON
-	static std::map<unsigned int, RTLIL::OldCell*> *get_all_cells(void);
-#endif
-
-	bool has_memid() const;
-	bool is_mem_cell() const;
 };
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
