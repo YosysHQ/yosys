@@ -325,8 +325,7 @@ std::string RTLIL::Const::decode_string() const
 				ch |= 1 << j;
 			}
 		}
-		if (ch != 0)
-			s.append({ch});
+		s.append({ch});
 	}
 	i -= 8;
 	for (; i >= 0; i -= 8) {
@@ -336,10 +335,9 @@ std::string RTLIL::Const::decode_string() const
 				ch |= 1 << j;
 			}
 		}
-		if (ch != 0)
-			s.append({ch});
+		s.append({ch});
 	}
-	return s;
+	return s.substr(s.find_first_not_of('\0'));
 }
 
 bool RTLIL::Const::is_fully_zero() const
