@@ -1050,6 +1050,7 @@ struct RTLIL::Monitor
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
 	virtual void notify_connect(RTLIL::Cell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
+	virtual void notify_connect(RTLIL::OldCell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
 	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
@@ -1649,6 +1650,12 @@ public:
 		RTLIL::Const at(RTLIL::IdString name) {
 			return parent->getParam(name);
 		}
+		// Watch out! This is different semantics than what dict has!
+		// but we rely on RTLIL::Cell always being constructed correctly
+		// since its layout is fixed as defined by InternalOldCellChecker
+		RTLIL::Const operator[](RTLIL::IdString name) {
+			return parent->getParam(name);
+		}
 		int count(RTLIL::IdString name) {
 			try {
 				parent->getParam(name);
@@ -1657,6 +1664,7 @@ public:
 			}
 			return 1;
 		}
+
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
@@ -1671,7 +1679,23 @@ public:
 			}
 			return 1;
 		}
-		class iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, SigSpec>> {
+		size_t size() const {
+			if (parent->is_legacy()) {
+				return parent->legacy->connections_.size();
+			} else if (parent->type == ID($pos)) {
+				return parent->pos.connections().size();
+			} else if (parent->type == ID($neg)) {
+				return parent->neg.connections().size();
+			} else if (parent->type == ID($not)) {
+				return parent->not_.connections().size();
+			} else {
+				log_assert(false && "malformed cell or code broke");
+			}
+		}
+		bool empty() {
+			return !size();
+		}
+		class iterator: public std::iterator<std::bidirectional_iterator_tag, std::pair<IdString, SigSpec>> {
 			Cell* parent;
 			int position;
 		public:
@@ -1686,6 +1710,55 @@ public:
 			bool operator!=(const iterator &other) const {
 				return !(*this == other);
 			}
+			std::pair<IdString, SigSpec>& operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					// auto a = ();
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					log_assert(false && "malformed cell or code broke");
+				}
+			}
+		};
+		iterator begin() {
+				return iterator(parent, 0);
+		}
+		iterator end() {
+			if (parent->is_legacy()) {
+				return iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return iterator(parent, parent->not_.connections().size());
+			} else {
+				log_assert(false && "malformed cell or code broke");
+			}
+		}
+		// CONST ITERATOR
+		class const_iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, SigSpec>> {
+			Cell* parent;
+			int position;
+		public:
+			const_iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			const_iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const const_iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const const_iterator &other) const {
+				return !(*this == other);
+			}
 			std::pair<IdString, SigSpec> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
@@ -1698,25 +1771,26 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					log_assert(false && "unreachable");
-					__builtin_unreachable();
-				}
-			}
-			iterator begin() const {
-					return iterator(parent, 0);
-			}
-			iterator end() const {
-				if (parent->is_legacy()) {
-					return iterator(parent, parent->legacy->connections_.size());
-				} else if (parent->type == ID($pos)) {
-					return iterator(parent, parent->pos.connections().size());
-				} else if (parent->type == ID($neg)) {
-					return iterator(parent, parent->neg.connections().size());
-				} else if (parent->type == ID($not)) {
-					return iterator(parent, parent->not_.connections().size());
+					log_assert(false && "malformed cell or code broke");
 				}
 			}
 		};
+		const_iterator begin() const {
+				return const_iterator(parent, 0);
+		}
+		const_iterator end() const {
+			if (parent->is_legacy()) {
+				return const_iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return const_iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return const_iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return const_iterator(parent, parent->not_.connections().size());
+			} else {
+				log_assert(false && "malformed cell or code broke");
+			}
+		}
 	};
 	FakeParams parameters;
 	FakeConns connections_;
@@ -1728,14 +1802,32 @@ public:
 	};
 
 	// The weird bits
+	bool has_memid() { return is_legacy() && legacy->has_memid(); }
+	bool is_mem_cell() { return is_legacy() && legacy->is_mem_cell(); }
+	// TODO stub
+	void set_src_attribute(const std::string &src) { };
 
-	constexpr void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	constexpr const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
-	constexpr void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	constexpr const RTLIL::Const getParam(const RTLIL::IdString &paramname);
+	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
+	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
+	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
+	const RTLIL::Const getParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
 		return parameters.count(paramname);
 	}
+	template<typename T>
+	void rewrite_sigspecs2(T &functor) {
+		for (auto &it : connections_)
+			functor(it.second);
+	}
+	template<typename T>
+	void rewrite_sigspecs(T &functor) {
+		for (auto &it : connections_)
+			functor(it.second);
+	}
+	void sort() {
+		if (is_legacy()) legacy->sort();
+	}
+
 
 private:
 	// NOT the tag, but a helper - faster short-circuit if public?
