@@ -337,7 +337,10 @@ std::string RTLIL::Const::decode_string() const
 		}
 		s.append({ch});
 	}
-	return s.substr(s.find_first_not_of('\0'));
+	auto first_char = s.find_first_not_of('\0');
+	if (first_char != std::string::npos)
+		return s.substr(first_char);
+	else return s;
 }
 
 bool RTLIL::Const::is_fully_zero() const
