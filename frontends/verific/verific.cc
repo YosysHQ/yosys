@@ -2816,6 +2816,14 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			netlists->InsertLast(Netlist::PresentDesign());
 #else
 			// Both SystemVerilog and VHDL support
+			if (veri_modules.Size()>0)
+				netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
+			else
+				netlists = new Array(1);
+			if (vhdl_units.Size()>0) {
+				vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
+				netlists->InsertLast(Netlist::PresentDesign());
+			}
 #endif
 #endif
 		}
@@ -4113,6 +4121,16 @@ struct VerificPass : public Pass {
 					}
 #else
 					// Both SystemVerilog and VHDL support
+					if (veri_modules.Size()>0)
+						netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
+					else
+						netlists = new Array(1);
+					if (vhdl_units.Size()>0) {
+						for (auto &name : top_mod_names) {
+							vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
+							netlists->InsertLast(Netlist::PresentDesign());
+						}
+					}
 #endif
 #endif
 				}
