@@ -84,10 +84,6 @@ USING_YOSYS_NAMESPACE
 #endif
 #endif
 
-#ifndef DB_PRESERVE_INITIAL_VALUE
-#error "Verific must have DB_PRESERVE_INITIAL_VALUE compile flag set on"
-#endif
-
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -2700,12 +2696,13 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 	std::map<std::string,Netlist*> nl_todo, nl_done;
 	Array *netlists = NULL;
-	Array veri_libs, vhdl_libs;
 #ifdef VERIFIC_VHDL_SUPPORT
+	Array vhdl_libs;
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	Array veri_libs;
 	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 #endif
@@ -3901,17 +3898,15 @@ struct VerificPass : public Pass {
 					verific_sva_fsm_limit = atoi(args[++argidx].c_str());
 					continue;
 				}
-#endif
-				if (args[argidx] == "-n") {
-					mode_names = true;
-					continue;
-				}
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				if (args[argidx] == "-autocover") {
 					mode_autocover = true;
 					continue;
 				}
 #endif
+				if (args[argidx] == "-n") {
+					mode_names = true;
+					continue;
+				}
 				if (args[argidx] == "-fullinit") {
 					mode_fullinit = true;
 					continue;
