@@ -2696,13 +2696,13 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 	std::map<std::string,Netlist*> nl_todo, nl_done;
 	Array *netlists = NULL;
-#ifdef VERIFIC_VHDL_SUPPORT
 	Array vhdl_libs;
+#ifdef VERIFIC_VHDL_SUPPORT
 	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	Array veri_libs;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 #endif
@@ -2748,9 +2748,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
 #endif
 		{
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			Array veri_modules;
-
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (veri_lib) {
 				VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
 				if (veri_module) {
@@ -2783,8 +2782,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			}
 #endif
 
-#ifdef VERIFIC_VHDL_SUPPORT
 			Array vhdl_units;
+#ifdef VERIFIC_VHDL_SUPPORT
 			if (vhdl_lib) {
 				VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
 				if (vhdl_unit)
@@ -3965,13 +3964,13 @@ struct VerificPass : public Pass {
 #endif
 				log("Running hier_tree::ElaborateAll().\n");
 
-#ifdef VERIFIC_VHDL_SUPPORT
 				Array vhdl_libs;
+#ifdef VERIFIC_VHDL_SUPPORT
 				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				Array veri_libs;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
 #endif
@@ -4018,12 +4017,12 @@ struct VerificPass : public Pass {
 #endif
 				{
 
-#ifdef VERIFIC_VHDL_SUPPORT
 					Array vhdl_units;
+#ifdef VERIFIC_VHDL_SUPPORT
 					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 #endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 					Array veri_modules;
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 #endif
 					for (int i = argidx; i < GetSize(args); i++)
