@@ -264,6 +264,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		if (check_label("map_ram"))
 		{
 			std::string args = "";
+			if (family == "large")
+				args += " -D IS_NG_LARGE";
 			if (nobram)
 				args += " -no-auto-block";
 			if (norfram)

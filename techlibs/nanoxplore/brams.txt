@@ -9,18 +9,22 @@ ram block $__NX_RAM_ {
 		abits 14;
 		widths 2 per_port;
 	}
-	option "STD_MODE" "NOECC_16kx3" {
-		abits 14;
-		widths 3 per_port;
+	ifdef IS_NG_LARGE {
+		option "STD_MODE" "NOECC_16kx3" {
+			abits 14;
+			widths 3 per_port;
+		}
 	}
 	option "STD_MODE" "NOECC_12kx4" {
 		# only 8k used
 		abits 13;
 		widths 4 per_port;
 	}
-	option "STD_MODE" "NOECC_8kx6" {
-		abits 13;
-		widths 6 per_port;
+	ifdef IS_NG_LARGE {
+		option "STD_MODE" "NOECC_8kx6" {
+			abits 13;
+			widths 6 per_port;
+		}
 	}
 	option "STD_MODE" "NOECC_6kx8" {
 		# only 4k used
