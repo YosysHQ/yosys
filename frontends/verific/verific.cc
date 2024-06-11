@@ -3234,12 +3234,13 @@ struct VerificPass : public Pass {
 			Message::SetConsoleOutput(0);
 			Message::RegisterCallBackMsg(msg_func);
 
-			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
+			// RuntimeFlags::SetVar("db_preserve_user_instances", 1); // SILIMATE: comment out to improve optimization
 			// RuntimeFlags::SetVar("db_preserve_user_nets", 1); // SILIMATE: comment out to improve optimization
-			RuntimeFlags::SetVar("db_preserve_x", 1);
+			// RuntimeFlags::SetVar("db_preserve_x", 1); // SILIMATE: comment out to improve optimization
 
 			RuntimeFlags::SetVar("db_merge_cascaded_muxes", 1); // SILIMATE: add to improve optimization
 			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: add to use Synopsys register names
+			RuntimeFlags::SetVar("db_stop_cse_on_ram_ports", 0); // SILIMATE: perform CSE on RAM ports to improve optimization
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
@@ -3268,9 +3269,9 @@ struct VerificPass : public Pass {
 			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
 			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
-			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
+			// RuntimeFlags::SetVar("veri_preserve_assignments", 1); // SILIMATE: disable to improve optimization
 			RuntimeFlags::SetVar("veri_preserve_comments", 1);
-			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
+			// RuntimeFlags::SetVar("veri_preserve_drivers", 1); // SILIMATE: disable to improve optimization
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
