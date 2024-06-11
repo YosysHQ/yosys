@@ -42,6 +42,8 @@ USING_YOSYS_NAMESPACE
 #pragma clang diagnostic ignored "-Woverloaded-virtual"
 #endif
 
+#include "Array.h"
+#include "RuntimeFlags.h"
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 #include "hier_tree.h"
 #endif
@@ -82,6 +84,10 @@ USING_YOSYS_NAMESPACE
 #if YOSYSHQ_VERIFIC_API_VERSION < 20230901
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
+#endif
+
+#if !defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
+#error "At least one of HDL languages must be enabled."
 #endif
 
 #ifdef __clang__
@@ -2814,7 +2820,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			netlists = new Array(1);
 			vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
 			netlists->InsertLast(Netlist::PresentDesign());
-#else
+#elif defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && defined(VERIFIC_VHDL_SUPPORT)
 			// Both SystemVerilog and VHDL support
 			if (veri_modules.Size()>0)
 				netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
@@ -2824,6 +2830,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 				vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
 				netlists->InsertLast(Netlist::PresentDesign());
 			}
+#else
 #endif
 #endif
 		}
@@ -3452,6 +3459,7 @@ struct VerificPass : public Pass {
 		}
 
 		veri_file::RemoveAllLOptions();
+#endif
 		for (int i = argidx; i < GetSize(args); i++)
 		{
 			if (args[i] == "-work" && i+1 < GetSize(args)) {
@@ -3459,24 +3467,30 @@ struct VerificPass : public Pass {
 				is_work_set = true;
 				continue;
 			}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (args[i] == "-L" && i+1 < GetSize(args)) {
 				++i;
 				continue;
 			}
+#endif
 			break;
 		}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::AddLOption(work.c_str());
+#endif
 		for (int i = argidx; i < GetSize(args); i++)
 		{
 			if (args[i] == "-work" && i+1 < GetSize(args)) {
 				++i;
 				continue;
 			}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (args[i] == "-L" && i+1 < GetSize(args)) {
 				if (args[++i] == work)
 					veri_file::RemoveAllLOptions();
 				continue;
 			}
+#endif
 			break;
 		}
 		for (; argidx < GetSize(args); argidx++)
@@ -3486,13 +3500,16 @@ struct VerificPass : public Pass {
 				is_work_set = true;
 				continue;
 			}
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
 				veri_file::AddLOption(args[++argidx].c_str());
 				continue;
 			}
+#endif
 			break;
 		}
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
@@ -3966,8 +3983,6 @@ struct VerificPass : public Pass {
 				if (!ppfile.empty())
 					veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
 #endif
-				log("Running hier_tree::ElaborateAll().\n");
-
 				Array vhdl_libs;
 #ifdef VERIFIC_VHDL_SUPPORT
 				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
@@ -3980,6 +3995,7 @@ struct VerificPass : public Pass {
 #endif
 
 #ifdef VERIFIC_HIER_TREE_SUPPORT
+				log("Running hier_tree::ElaborateAll().\n");
 				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
 				Netlist *nl;
 				int i;
@@ -3991,9 +4007,11 @@ struct VerificPass : public Pass {
 				if (parameters.Size())
 					log_warning("Please note that parameters are not propagated during import.\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+				log("Running veri_file::ElaborateAll().\n");
 				veri_file::ElaborateAll(work.c_str());
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
+				log("Running vhdl_file::ElaborateAll().\n");
 				vhdl_file::ElaborateAll(work.c_str());
 #endif
 				MapIter mi ;
@@ -4107,32 +4125,37 @@ struct VerificPass : public Pass {
 						}
 					}
 #endif
-					log("Running hier_tree::Elaborate().\n");
 #ifdef VERIFIC_HIER_TREE_SUPPORT
+					log("Running hier_tree::Elaborate().\n");
 					netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 #else
 #if defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && !defined(VERIFIC_VHDL_SUPPORT)
+					log("Running veri_file::ElaborateMultipleTop().\n");
 					// SystemVerilog support only
 					netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
 #elif defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
+					log("Running vhdl_file::Elaborate().\n");
 					// VHDL support	only
 					netlists = new Array(top_mod_names.size());
 					for (auto &name : top_mod_names) {
 						vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
 						netlists->InsertLast(Netlist::PresentDesign());
 					}
-#else
+#elif defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && defined(VERIFIC_VHDL_SUPPORT)
 					// Both SystemVerilog and VHDL support
-					if (veri_modules.Size()>0)
+					if (veri_modules.Size()>0) {
+						log("Running veri_file::ElaborateMultipleTop().\n");
 						netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
-					else
+					} else
 						netlists = new Array(1);
 					if (vhdl_units.Size()>0) {
+						log("Running vhdl_file::Elaborate().\n");
 						for (auto &name : top_mod_names) {
 							vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
 							netlists->InsertLast(Netlist::PresentDesign());
 						}
 					}
+#else
 #endif
 #endif
 				}
