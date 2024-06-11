@@ -8,10 +8,40 @@ file format and how you can make your own synthesis scripts.
 Yosys script files typically use the :file:`.ys` extension and contain a set of
 commands for Yosys to run sequentially.  These commands are the same ones we
 were using on the previous page like :cmd:ref:`read_verilog` and
-:cmd:ref:`hierarchy`.  As with the interactive shell, each command consists of
-the command name, and an optional whitespace separated list of arguments.
-Commands are terminated with the newline character, or by a semicolon (;). Empty
-lines, and lines starting with the hash sign (#), are ignored.
+:cmd:ref:`hierarchy`.
+
+Script parsing
+~~~~~~~~~~~~~~
+
+As with the interactive shell, each command consists of the command name, and an
+optional whitespace separated list of arguments. Commands are terminated with
+the newline character, and anything after a hash sign ``#`` is a comment (i.e.
+it is ignored).
+
+It is also possible to terminate commands with a semicolon ``;``.  This is
+particularly useful in conjunction with the ``-p <command>`` command line
+option, where ``<command>`` can be a string with multiple commands separated by
+semicolon. In-line comments can also be made with the colon ``:``, where the end
+of the comment is a semicolon ``;`` or a new line.
+
+.. code-block::
+   :caption: Using the ``-p`` option
+
+   $ yosys -p "read_verilog fifo.v; :this is a comment; prep"
+
+.. warning::
+
+   The space after the semicolon is required for correct parsing. ``log a;log
+   b;`` for example will display ``a;log b`` instead of ``a`` and ``b`` as might
+   be expected.
+
+Another special character that can be used in Yosys scripts is the bang ``!``.
+Anything after the bang will be executed as a shell command.  This can only be
+terminated with a new line.  Any semicolons, hashes, or other special characters
+will be passed to the shell.  If an error code is returned from the shell it
+will be raised by Yosys.  :cmd:ref:`exec` provides a much more flexible way of
+executing commands, allowing the output to be logged and more control over when
+to generate errors.
 
 The synthesis starter script
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
