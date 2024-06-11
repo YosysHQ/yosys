@@ -2731,13 +2731,17 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		netlists = new Array(1);
 		MapIter mi ;
 		Verific::Cell *c ;
-		Library *l = Libset::Global()->GetLibrary("work");
-		FOREACH_CELL_OF_LIBRARY(l,mi,c) {
-			MapIter ni ;
-			Netlist *nl;
-			FOREACH_NETLIST_OF_CELL(c, ni, nl) {
-				if (nl)
-					netlists->InsertLast(nl);
+		MapIter it ;
+		Library *l ;
+		FOREACH_LIBRARY_OF_LIBSET(Libset::Global(),it,l) {
+			if (l == Library::Primitives() || l == Library::Operators()) continue;
+			FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+				MapIter ni ;
+				Netlist *nl;
+				FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+					if (nl)
+						netlists->InsertLast(nl);
+				}
 			}
 		}
 #endif
@@ -3994,13 +3998,17 @@ struct VerificPass : public Pass {
 #endif
 				MapIter mi ;
 				Verific::Cell *c ;
-				Library *l = Libset::Global()->GetLibrary(work.c_str());
-				FOREACH_CELL_OF_LIBRARY(l,mi,c) {
-					MapIter ni ;
-					Netlist *nl;
-					FOREACH_NETLIST_OF_CELL(c, ni, nl) {
-						if (nl)
-							nl_todo.emplace(nl->CellBaseName(), nl);
+				MapIter it ;
+				Library *l ;
+				FOREACH_LIBRARY_OF_LIBSET(Libset::Global(),it,l) {
+					if (l == Library::Primitives() || l == Library::Operators()) continue;
+					FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+						MapIter ni ;
+						Netlist *nl;
+						FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+							if (nl)
+								nl_todo.emplace(nl->CellBaseName(), nl);
+						}
 					}
 				}
 #endif
