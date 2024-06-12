@@ -219,19 +219,54 @@ std::ostream& operator << (std::ostream &os, SExpr const &s) {
     return os;
 }
 
+struct SmtlibType {
+	bool _is_memory;
+	int _width;
+	int _addr_width;
+public:
+	SmtlibType() : _is_memory(false), _width(0), _addr_width(0) { }
+	SmtlibType(int width) : _is_memory(false), _width(width), _addr_width(0) { }
+	SmtlibType(int addr_width, int data_width) : _is_memory(true), _width(data_width), _addr_width(addr_width) { }
+	static SmtlibType signal(int width) { return SmtlibType(width); }
+	static SmtlibType memory(int addr_width, int data_width) { return SmtlibType(addr_width, data_width); }
+	bool is_signal() const { return !_is_memory; }
+	bool is_memory() const { return _is_memory; }
+	int width() const { log_assert(is_signal()); return _width; }
+	int addr_width() const { log_assert(is_memory()); return _addr_width; }
+	int data_width() const { log_assert(is_memory()); return _width; }
+	SExpr to_sexpr() const {
+		if(_is_memory) {
+			return SExpr{ "Array", SExpr{ "_", "BitVec", addr_width() }, SExpr{ "_", "BitVec", data_width() }};
+		} else {
+			return SExpr{ "_", "BitVec", width() };
+		}
+	}
+	bool operator ==(SmtlibType const& other) const {
+		if(_is_memory != other._is_memory) return false;
+		if(_is_memory && _addr_width != other._addr_width) return false;
+		return _width == other._width;
+	}
+	unsigned int hash() const {
+		if(_is_memory)
+			return mkhash(1, mkhash(_width, _addr_width));
+		else
+			return mkhash(0, _width);
+	}
+};
+
 struct SmtlibStruct {
 	SmtlibScope &scope;
 	std::string name;
 	idict<IdString> members;
-	vector<int> widths;
+	vector<SmtlibType> types;
 	vector<std::string> accessors;
 	SmtlibStruct(std::string name, SmtlibScope &scope) : scope(scope), name(name) {
 	}
-	std::string insert(IdString field, int width) {
+	std::string insert(IdString field, SmtlibType type) {
 		if(members.at(field, -1) == -1){
 			members(field);
 			scope.insert(field);
-			widths.push_back(width);
+			types.push_back(type);
 			accessors.push_back(scope.insert(std::string("\\") + name + "_" + RTLIL::unescape_id(field)));
 		}
 		return scope[field];
@@ -239,7 +274,7 @@ struct SmtlibStruct {
 	void print(SmtlibWriter &f) {
 		f.printf("(declare-datatype %s ((%s\n", name.c_str(), name.c_str());
 		for (size_t i = 0; i < members.size(); i++)
-			f.printf("  (%s (_ BitVec %d))\n", accessors[i].c_str(), widths[i]);
+			f << "  " << SExpr{accessors[i], types[i].to_sexpr()} << "\n";
 		f.printf(")))\n");
 	}
 	void print_value(SmtlibWriter &f, dict<IdString, SExpr> values, int indentation) {
@@ -260,16 +295,16 @@ struct SmtlibStruct {
 
 struct Node {
 	SExpr expr;
-	int width;
+	SmtlibType type;
 
-	Node(SExpr &&expr, int width) : expr(std::move(expr)), width(width) {}
+	Node(SExpr &&expr, SmtlibType type) : expr(std::move(expr)), type(type) {}
 
 	bool operator==(Node const &other) const {
-		return expr == other.expr && width == other.width;
+		return expr == other.expr && type == other.type;
 	}
 
 	unsigned int hash() const {
-		return mkhash(expr.hash(), width);
+		return mkhash(expr.hash(), type.hash());
 	}
 };
 
@@ -302,8 +337,8 @@ class SmtlibComputeGraphFactory {
 		auto it = yosys_celltypes.cell_types.find(type);
 		return it != yosys_celltypes.cell_types.end() && it->second.outputs.size() <= 1;
 	}
-	T node(SExpr &&expr, int width, std::initializer_list<T> args) {
-		return graph.add(Node(std::move(expr), width), 0, args);
+	T node(SExpr &&expr, SmtlibType type, std::initializer_list<T> args) {
+		return graph.add(Node(std::move(expr), type), 0, args);
 	}
 	T shift(const char *name, T a, T b, int y_width, int b_width, bool a_signed = false) {
 		int width = max(y_width, b_width);
@@ -367,6 +402,13 @@ public:
 	T logical_shift_right(T a, T b, int y_width, int b_width) { return shift("bvlshl", a, b, y_width, b_width); }
 	T arithmetic_shift_right(T a, T b, int y_width, int b_width) { return shift("bvashr", a, b, y_width, b_width, true); }
 
+	T memory_read(T mem, T addr, int addr_width, int data_width) {
+		return node(SExpr {"select", Arg(1), Arg(2)}, data_width, {mem, addr});
+	}
+	T memory_write(T mem, T addr, T data, int addr_width, int data_width) {
+		return node(SExpr {"store", Arg(1), Arg(2), Arg(3)}, SmtlibType::memory(addr_width, data_width), {mem, addr, data});
+	}
+
 	T constant(RTLIL::Const value) { return node(SExpr(value), value.size(), {}); }
 	T input(IdString name, int width) {
 		module.input_struct.insert(name, width);
@@ -375,6 +417,10 @@ public:
 	T state(IdString name, int width) {
 		module.state_struct.insert(name, width);
 		return node(module.state_struct.access("current_state", name), width, {});
+	}
+	T state_memory(IdString name, int addr_width, int data_width) {
+		module.state_struct.insert(name, SmtlibType::memory(addr_width, data_width));
+		return node(module.state_struct.access("current_state", name), SmtlibType::memory(addr_width, data_width), {});
 	}
 	T cell_output(T cell, IdString type, IdString name, int width) {
 		if (is_single_output(type))
@@ -399,7 +445,7 @@ public:
 	}
 	void update_pending(T pending, T node) {
 		log_assert(pending.function().expr.is_none());
-		pending.set_function(Node(Arg(1), pending.function().width));
+		pending.set_function(Node(Arg(1), pending.function().type));
 		pending.append_arg(node);
 	}
 	void declare_output(T node, IdString name, int width) {
@@ -408,6 +454,10 @@ public:
 	}
 	void declare_state(T node, IdString name, int width) {
 		module.state_struct.insert(name, width);
+		node.assign_key(name);
+	}
+	void declare_state_memory(T node, IdString name, int addr_width, int data_width) {
+		module.state_struct.insert(name, SmtlibType::memory(addr_width, data_width));
 		node.assign_key(name);
 	}
 	void suggest_name(T node, IdString name) {

@@ -1064,6 +1064,13 @@ public:
 			append(bit);
 	}
 
+	DriveSpec(SigSpec const &sig)
+	{
+		// TODO: converting one chunk at a time would be faster
+		for (auto const &bit : sig.bits())
+			append(bit);
+	}
+
 	std::vector<DriveChunk> const &chunks() const { pack(); return chunks_; }
 	std::vector<DriveBit> const &bits() const { unpack(); return bits_; }
 

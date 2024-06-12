@@ -23,6 +23,7 @@
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/functional.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
@@ -71,6 +72,11 @@ public:
 		T reduced_b = reduce_shift_width(b, b_width, y_width, reduced_b_width);
 		return factory.arithmetic_shift_right(a, reduced_b, y_width, reduced_b_width);
 	}
+	T bitwise_mux(T a, T b, T s, int width) {
+		T aa = factory.bitwise_and(a, factory.bitwise_not(s, width), width);
+		T bb = factory.bitwise_and(b, s, width);
+		return factory.bitwise_or(aa, bb, width);
+	}
 	CellSimplifier(Factory &f) : factory(f) {}
 	T handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, T> inputs)
 	{
@@ -104,7 +110,7 @@ public:
 			T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
 			if(cellType.in({ID($eq), ID($eqx)}))
 				return extend(factory.eq(a, b, width), 1, y_width, false);
-			if(cellType.in({ID($ne), ID($nex)}))
+			else if(cellType.in({ID($ne), ID($nex)}))
 				return extend(factory.ne(a, b, width), 1, y_width, false);
 			else if(cellType == ID($lt))
 				return extend(is_signed ? factory.gt(b, a, width) : factory.ugt(b, a, width), 1, y_width, false);
@@ -197,6 +203,8 @@ class ComputeGraphConstruction {
 	DriverMap driver_map;
 	Factory& factory;
 	CellSimplifier<T, Factory> simplifier;
+	vector<Mem> memories_vector;
+	dict<Cell*, Mem*> memories;
 
 	T enqueue(DriveSpec const &spec)
 	{
@@ -224,6 +232,45 @@ public:
 				factory.declare_output(node, wire->name, wire->width);
 			}
 		}
+		memories_vector = Mem::get_all_memories(module);
+		for (auto &mem : memories_vector) {
+			if (mem.cell != nullptr)
+				memories[mem.cell] = &mem;
+		}
+	}
+	T concatenate_read_results(Mem *mem, vector<T> results)
+	{
+		if(results.size() == 0)
+			return factory.undriven(0);
+		T node = results[0];
+		int size = results[0].size();
+		for(size_t i = 1; i < results.size(); i++) {
+			node = factory.concat(node, size, results[i], results[i].size());
+			size += results[i].size();
+		}
+		return node;
+	}
+	T handle_memory(Mem *mem)
+	{
+		vector<T> read_results;
+		int addr_width = ceil_log2(mem->size);
+		int data_width = mem->width;
+		T node = factory.state_memory(mem->cell->name, addr_width, data_width);
+		for (auto &rd : mem->rd_ports) {
+			log_assert(!rd.clk_enable);
+			T addr = enqueue(driver_map(DriveSpec(rd.addr)));
+			read_results.push_back(factory.memory_read(node, addr, addr_width, data_width));
+		}
+		for (auto &wr : mem->wr_ports) {
+			T en = enqueue(driver_map(DriveSpec(wr.en)));
+			T addr = enqueue(driver_map(DriveSpec(wr.addr)));
+			T new_data = enqueue(driver_map(DriveSpec(wr.data)));
+			T old_data = factory.memory_read(node, addr, addr_width, data_width);
+			T wr_data = simplifier.bitwise_mux(old_data, new_data, en, data_width);
+			node = factory.memory_write(node, addr, wr_data, addr_width, data_width);
+		}
+		factory.declare_state_memory(node, mem->cell->name, addr_width, data_width);
+		return concatenate_read_results(mem, read_results);
 	}
 	void process_queue()
 	{
@@ -306,13 +353,20 @@ public:
 					factory.update_pending(pending, node);
 				} else if (chunk.is_marker()) {
 					Cell *cell = cells[chunk.marker().marker];
-					dict<IdString, T> connections;
-					for(auto const &conn : cell->connections()) {
-						if(driver_map.celltypes.cell_input(cell->type, conn.first))
-							connections.insert({ conn.first, enqueue(DriveChunkPort(cell, conn)) });
+					if (cell->is_mem_cell()) {
+						Mem *mem = memories.at(cell, nullptr);
+						log_assert(mem != nullptr);
+						T node = handle_memory(mem);
+						factory.update_pending(pending, node);
+					} else {
+						dict<IdString, T> connections;
+						for(auto const &conn : cell->connections()) {
+							if(driver_map.celltypes.cell_input(cell->type, conn.first))
+								connections.insert({ conn.first, enqueue(DriveChunkPort(cell, conn)) });
+						}
+						T node = simplifier.handle(cell->type, cell->parameters, connections);
+						factory.update_pending(pending, node);
 					}
-					T node = simplifier.handle(cell->type, cell->parameters, connections);
-					factory.update_pending(pending, node);
 				} else if (chunk.is_none()) {
 					T node = factory.undriven(chunk.size());
 					factory.update_pending(pending, node);

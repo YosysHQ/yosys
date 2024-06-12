@@ -83,6 +83,41 @@ struct CxxScope {
 	}
 };
 
+struct CxxType {
+	bool _is_memory;
+	int _width;
+	int _addr_width;
+public:
+	CxxType() : _is_memory(false), _width(0), _addr_width(0) { }
+	CxxType(int width) : _is_memory(false), _width(width), _addr_width(0) { }
+	CxxType(int addr_width, int data_width) : _is_memory(true), _width(data_width), _addr_width(addr_width) { }
+	static CxxType signal(int width) { return CxxType(width); }
+	static CxxType memory(int addr_width, int data_width) { return CxxType(addr_width, data_width); }
+	bool is_signal() const { return !_is_memory; }
+	bool is_memory() const { return _is_memory; }
+	int width() const { log_assert(is_signal()); return _width; }
+	int addr_width() const { log_assert(is_memory()); return _addr_width; }
+	int data_width() const { log_assert(is_memory()); return _width; }
+	std::string to_string() const {
+		if(_is_memory) {
+			return stringf("Memory<%d, %d>", addr_width(), data_width());
+		} else {
+			return stringf("Signal<%d>", width());
+		}
+	}
+	bool operator ==(CxxType const& other) const {
+		if(_is_memory != other._is_memory) return false;
+		if(_is_memory && _addr_width != other._addr_width) return false;
+		return _width == other._width;
+	}
+	unsigned int hash() const {
+		if(_is_memory)
+			return mkhash(1, mkhash(_width, _addr_width));
+		else
+			return mkhash(0, _width);
+	}
+};
+
 struct CxxWriter {
 	std::ostream &f;
 	CxxWriter(std::ostream &out) : f(out) {}
@@ -97,7 +132,7 @@ struct CxxWriter {
 
 struct CxxStruct {
   std::string name;
-  dict<IdString, std::string> types;
+  dict<IdString, CxxType> types;
   CxxScope scope;
   bool generate_methods;
   int count;
@@ -106,14 +141,14 @@ struct CxxStruct {
     scope.reserve("out");
     scope.reserve("dump");
   }
-  void insert(IdString name, std::string type) {
+  void insert(IdString name, CxxType type) {
     scope.insert(name);
     types.insert({name, type});
   }
   void print(CxxWriter &f) {
     f.printf("struct %s {\n", name.c_str());
     for (auto p : types) {
-      f.printf("\t%s %s;\n", p.second.c_str(), scope[p.first].c_str());
+      f.printf("\t%s %s;\n", p.second.to_string().c_str(), scope[p.first].c_str());
     }
     f.printf("\n\ttemplate <typename T> void dump(T &out) const {\n");
     for (auto p : types) {
@@ -149,7 +184,7 @@ struct CxxStruct {
   std::string generate_variant_types() const {
         std::set<std::string> unique_types;
         for (const auto& p : types) {
-            unique_types.insert("std::reference_wrapper<" + p.second + ">");
+            unique_types.insert("std::reference_wrapper<" + p.second.to_string() + ">");
         }
         std::ostringstream oss;
         for (auto it = unique_types.begin(); it != unique_types.end(); ++it) {
@@ -164,18 +199,18 @@ struct CxxStruct {
 
 struct CxxFunction {
 	IdString name;
-	int width;
+	CxxType type;
 	dict<IdString, Const> parameters;
 
-	CxxFunction(IdString name, int width) : name(name), width(width) {}
-	CxxFunction(IdString name, int width, dict<IdString, Const> parameters) : name(name), width(width), parameters(parameters) {}
+	CxxFunction(IdString name, CxxType type) : name(name), type(type) {}
+	CxxFunction(IdString name, CxxType type, dict<IdString, Const> parameters) : name(name), type(type), parameters(parameters) {}
 
 	bool operator==(CxxFunction const &other) const {
-		return name == other.name && parameters == other.parameters && width == other.width;
+		return name == other.name && parameters == other.parameters && type == other.type;
 	}
 
 	unsigned int hash() const {
-		return mkhash(name.hash(), parameters.hash());
+		return mkhash(name.hash(), mkhash(type.hash(), parameters.hash()));
 	}
 };
 
@@ -232,6 +267,9 @@ public:
 	}
 	T input(IdString name, int width) { return graph.add(CxxFunction(ID($$input), width, {{name, {}}}), 0); }
 	T state(IdString name, int width) { return graph.add(CxxFunction(ID($$state), width, {{name, {}}}), 0); }
+	T state_memory(IdString name, int addr_width, int data_width) {
+		return graph.add(CxxFunction(ID($$state), CxxType::memory(addr_width, data_width), {{name, {}}}), 0);
+	}
 	T cell_output(T cell, IdString type, IdString name, int width) {
 		if (is_single_output(type))
 			return cell;
@@ -245,18 +283,28 @@ public:
 		return graph.add(CxxFunction(ID($$undriven), width), 0);
 	}
 
+	T memory_read(T mem, T addr, int addr_width, int data_width) {
+		return graph.add(CxxFunction(ID($memory_read), data_width), 0, std::array<T, 2>{mem, addr});
+	}
+	T memory_write(T mem, T addr, T data, int addr_width, int data_width) {
+		return graph.add(CxxFunction(ID($memory_write), CxxType::memory(addr_width, data_width)), 0, std::array<T, 3>{mem, addr, data});
+	}
+
 	T create_pending(int width) {
 		return graph.add(CxxFunction(ID($$pending), width), 0);
 	}
 	void update_pending(T pending, T node) {
 		log_assert(pending.function().name == ID($$pending));
-		pending.set_function(CxxFunction(ID($$buf), pending.function().width));
+		pending.set_function(CxxFunction(ID($$buf), pending.function().type));
 		pending.append_arg(node);
 	}
 	void declare_output(T node, IdString name, int) {
 		node.assign_key(name);
 	}
 	void declare_state(T node, IdString name, int) {
+		node.assign_key(name);
+	}
+	void declare_state_memory(T node, IdString name, int, int) {
 		node.assign_key(name);
 	}
 	void suggest_name(T node, IdString name) {
@@ -312,8 +360,10 @@ struct FunctionalCxxBackend : public Backend
 			{
 				int target_index = alias[node.arg(0).index()];
 				auto target_node = compute_graph[perm[target_index]];
-				if(!target_node.has_sparse_attr() && node.has_sparse_attr())
-					target_node.sparse_attr() = node.sparse_attr();
+				if(!target_node.has_sparse_attr() && node.has_sparse_attr()){
+					IdString id = node.sparse_attr();
+					target_node.sparse_attr() = id;
+				}
 				alias.push_back(target_index);
 			}
 			else
@@ -328,7 +378,7 @@ struct FunctionalCxxBackend : public Backend
 
 	void printCxx(std::ostream &stream, std::string, std::string const & name, CxxComputeGraph &compute_graph)
 	{
-		dict<IdString, int> inputs, state;
+		dict<IdString, CxxType> inputs, state;
 		CxxWriter f(stream);
 
 		// Dump the compute graph
@@ -336,22 +386,22 @@ struct FunctionalCxxBackend : public Backend
 		{
 			auto ref = compute_graph[i];
 			if(ref.function().name == ID($$input))
-				inputs[ref.function().parameters.begin()->first] = ref.function().width;
+				inputs[ref.function().parameters.begin()->first] = ref.function().type;
 			if(ref.function().name == ID($$state))
-				state[ref.function().parameters.begin()->first] = ref.function().width;
+				state[ref.function().parameters.begin()->first] = ref.function().type;
 		}
 		f.printf("#include \"sim.h\"\n");
 		f.printf("#include <variant>\n");
 		CxxStruct input_struct(name + "_Inputs", true, inputs.size());
 		for (auto const &input : inputs)
-			input_struct.insert(input.first, "Signal<" + std::to_string(input.second) + ">");
+			input_struct.insert(input.first, input.second);
 		CxxStruct output_struct(name + "_Outputs");
 		for (auto const &key : compute_graph.keys())
 			if(state.count(key.first) == 0)
-				output_struct.insert(key.first, "Signal<" + std::to_string(compute_graph[key.second].function().width) + ">");
+				output_struct.insert(key.first, compute_graph[key.second].function().type);
 		CxxStruct state_struct(name + "_State");
 		for (auto const &state_var : state)
-			state_struct.insert(state_var.first, "Signal<" + std::to_string(state_var.second) + ">");
+			state_struct.insert(state_var.first, state_var.second);
 
 		idict<std::string> node_names;
 		CxxScope locals;
@@ -368,7 +418,7 @@ struct FunctionalCxxBackend : public Backend
 		for (int i = 0; i < compute_graph.size(); ++i)
 		{
 			auto ref = compute_graph[i];
-			int width = ref.function().width;
+			auto type = ref.function().type;
 			std::string name;
 			if(ref.has_sparse_attr())
 				name = locals.insert(ref.sparse_attr());
@@ -376,19 +426,19 @@ struct FunctionalCxxBackend : public Backend
 				name = locals.insert("\\n" + std::to_string(i));
 			node_names(name);
 			if(ref.function().name == ID($$input))
-				f.printf("\tSignal<%d> %s = input.%s;\n", width, name.c_str(), input_struct[ref.function().parameters.begin()->first].c_str());
+				f.printf("\t%s %s = input.%s;\n", type.to_string().c_str(), name.c_str(), input_struct[ref.function().parameters.begin()->first].c_str());
 			else if(ref.function().name == ID($$state))
-				f.printf("\tSignal<%d> %s = current_state.%s;\n", width, name.c_str(), state_struct[ref.function().parameters.begin()->first].c_str());
+				f.printf("\t%s %s = current_state.%s;\n", type.to_string().c_str(), name.c_str(), state_struct[ref.function().parameters.begin()->first].c_str());
 			else if(ref.function().name == ID($$buf))
-				f.printf("\tSignal<%d> %s = %s;\n", width, name.c_str(), node_names[ref.arg(0).index()].c_str());
+				f.printf("\t%s %s = %s;\n", type.to_string().c_str(), name.c_str(), node_names[ref.arg(0).index()].c_str());
 			else if(ref.function().name == ID($$cell_output))
-				f.printf("\tSignal<%d> %s = %s.%s;\n", width, name.c_str(), node_names[ref.arg(0).index()].c_str(), RTLIL::unescape_id(ref.function().parameters.begin()->first).c_str());
+				f.printf("\t%s %s = %s.%s;\n", type.to_string().c_str(), name.c_str(), node_names[ref.arg(0).index()].c_str(), RTLIL::unescape_id(ref.function().parameters.begin()->first).c_str());
 			else if(ref.function().name == ID($$const)){
 				auto c = ref.function().parameters.begin()->second;
 				if(c.size() <= 32){
-					f.printf("\tSignal<%d> %s = $const<%d>(%#x);\n", width, name.c_str(), width, (uint32_t) c.as_int());
+					f.printf("\t%s %s = $const<%d>(%#x);\n", type.to_string().c_str(), name.c_str(), type.width(), (uint32_t) c.as_int());
 				}else{
-					f.printf("\tSignal<%d> %s = $const<%d>({%#x", width, name.c_str(), width, (uint32_t) c.as_int());
+					f.printf("\t%s %s = $const<%d>({%#x", type.to_string().c_str(), name.c_str(), type.width(), (uint32_t) c.as_int());
 					while(c.size() > 32){
 						c = c.extract(32, c.size() - 32);
 						f.printf(", %#x", c.as_int());
@@ -396,9 +446,9 @@ struct FunctionalCxxBackend : public Backend
 					f.printf("});\n");
 				}
 			}else if(ref.function().name == ID($$undriven))
-				f.printf("\tSignal<%d> %s; //undriven\n", width, name.c_str());
+				f.printf("\t%s %s; //undriven\n", type.to_string().c_str(), name.c_str());
 			else if(ref.function().name == ID($$slice))
-				f.printf("\tSignal<%d> %s = slice<%d>(%s, %d);\n", width, name.c_str(), width, node_names[ref.arg(0).index()].c_str(), ref.function().parameters.at(ID(offset)).as_int());
+				f.printf("\t%s %s = slice<%d>(%s, %d);\n", type.to_string().c_str(), name.c_str(), type.width(), node_names[ref.arg(0).index()].c_str(), ref.function().parameters.at(ID(offset)).as_int());
 			else if(ref.function().name == ID($$concat)){
 				f.printf("\tauto %s = concat(", name.c_str());
 				for (int i = 0, end = ref.size(); i != end; ++i){
@@ -409,11 +459,7 @@ struct FunctionalCxxBackend : public Backend
 				f.printf(");\n");
 			}else{
 				f.printf("\t");
-				if(ref.function().width > 0)
-					f.printf("Signal<%d>", ref.function().width);
-				else
-					f.printf("%s_Outputs", log_id(ref.function().name));
-				f.printf(" %s = %s", name.c_str(), log_id(ref.function().name));
+				f.printf("%s %s = %s", type.to_string().c_str(), name.c_str(), log_id(ref.function().name));
 				if(ref.function().parameters.count(ID(WIDTH))){
 					f.printf("<%d>", ref.function().parameters.at(ID(WIDTH)).as_int());
 				}

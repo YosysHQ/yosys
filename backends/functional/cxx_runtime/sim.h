@@ -363,4 +363,23 @@ Signal<n> $sign_extend(Signal<m> const& a)
     return ret;
 }
 
+template<size_t a, size_t d>
+struct Memory {
+    std::array<Signal<d>, 1<<a> contents;
+};
+
+template<size_t a, size_t d>
+Signal<d> $memory_read(Memory<a, d> memory, Signal<a> addr)
+{
+    return memory.contents[as_int(addr)];
+}
+
+template<size_t a, size_t d>
+Memory<a, d> $memory_write(Memory<a, d> memory, Signal<a> addr, Signal<d> data)
+{
+    Memory<a, d> ret = memory;
+    ret.contents[as_int(addr)] = data;
+    return ret;
+}
+
 #endif
