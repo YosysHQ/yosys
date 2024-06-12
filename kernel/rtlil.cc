@@ -1041,7 +1041,7 @@ namespace {
 			if (it == cell->parameters.end())
 				error(__LINE__);
 			expected_params.insert(name);
-			return it->second.as_int();
+			return (*it).second.as_int();
 		}
 
 		int param_bool(const RTLIL::IdString& name)
@@ -1080,7 +1080,7 @@ namespace {
 			auto it = cell->connections_.find(name);
 			if (it == cell->connections_.end())
 				error(__LINE__);
-			if (GetSize(it->second) != width)
+			if (GetSize((*it).second) != width)
 				error(__LINE__);
 			expected_ports.insert(name);
 		}
