@@ -1137,7 +1137,7 @@ void write_box(RTLIL::Module *module, const std::string &dst) {
 	ofs.close();
 }
 
-void reintegrate(RTLIL::Module *module, bool dff_mode)
+void reintegrate(RTLIL::Module *module, bool dff_mode, bool lut_mode)
 {
 	auto design = module->design;
 	log_assert(design);
@@ -1247,6 +1247,48 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 		// TODO: Speed up toposort -- we care about NOT ordering only
 		toposort.node(mapped_cell->name);
+
+		if (!lut_mode && mapped_cell->type.in(ID($_AND_), ID($_NOT_))) {
+			RTLIL::SigBit a_bit, b_bit, y_bit;
+			RTLIL::SigBit a_bit_remap, b_bit_remap, y_bit_remap;
+
+			a_bit = a_bit_remap = mapped_cell->getPort(ID::A);
+			y_bit = y_bit_remap = mapped_cell->getPort(ID::Y);
+			if (mapped_cell->type == ID($_AND_))
+				b_bit = b_bit_remap = mapped_cell->getPort(ID::B);
+
+			for (auto bit : {&a_bit_remap, &b_bit_remap, &y_bit_remap})
+			if (bit->wire)
+				bit->wire = module->wires_.at(remap_name(bit->wire->name));
+
+			// Catch the case of a complemented constant zero
+			if (mapped_cell->type == ID($_NOT_) && !a_bit.wire) {
+				module->connect(y_bit_remap, State::S1);
+				continue;
+			}
+
+			bit_users[a_bit].insert(mapped_cell->name);
+			if (mapped_cell->type == ID($_AND_))
+				bit_users[b_bit].insert(mapped_cell->name);
+
+			// Ignore inouts for topo ordering
+			if (y_bit.wire && !(y_bit.wire->port_input && y_bit.wire->port_output))
+				bit_drivers[y_bit].insert(mapped_cell->name);
+
+			Cell *cell = module->addCell(remap_name(stringf("$aig%s", mapped_cell->name.c_str())),
+										 mapped_cell->type);
+			for (auto bit : {a_bit_remap, b_bit_remap})
+			if (bit.wire)
+				bit2sinks[bit].push_back(cell);
+
+			cell->setPort(ID::A, a_bit_remap);
+			cell->setPort(ID::Y, y_bit_remap);
+			if (cell->type == ID($_AND_))
+				cell->setPort(ID::B, b_bit_remap);
+
+			cell_stats[cell->type]++;
+			continue;
+		}
 
 		if (mapped_cell->type == ID($_NOT_)) {
 			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
@@ -1667,6 +1709,7 @@ struct Abc9OpsPass : public Pass {
 		bool prep_box_mode = false;
 		bool reintegrate_mode = false;
 		bool dff_mode = false;
+		bool lut_mode = false;
 		std::string write_lut_dst;
 		int maxlut = 0;
 		std::string write_box_dst;
@@ -1752,6 +1795,10 @@ struct Abc9OpsPass : public Pass {
 				dff_mode = true;
 				continue;
 			}
+			if (arg == "-lut") {
+				lut_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -1799,7 +1846,7 @@ struct Abc9OpsPass : public Pass {
 			if (prep_xaiger_mode)
 				prep_xaiger(mod, dff_mode);
 			if (reintegrate_mode)
-				reintegrate(mod, dff_mode);
+				reintegrate(mod, dff_mode, lut_mode);
 		}
 	}
 } Abc9OpsPass;
