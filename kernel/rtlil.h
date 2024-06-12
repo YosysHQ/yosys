@@ -1684,7 +1684,12 @@ public:
 			return !size();
 		}
 		// AAA
-		class iterator: public std::iterator<std::bidirectional_iterator_tag, std::pair<IdString, Const>> {
+		class iterator {
+			typedef std::bidirectional_iterator_tag iterator_category;
+			typedef std::pair<IdString, Const> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, Const>* pointer;
+			typedef std::pair<IdString, Const>& reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1747,7 +1752,12 @@ public:
 			}
 		}
 		// AAA CONST ITERATOR
-		class const_iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, Const>> {
+		class const_iterator {
+			typedef std::input_iterator_tag iterator_category;
+			typedef std::pair<IdString, Const> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, Const>* pointer;
+			typedef std::pair<IdString, Const>& reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1825,7 +1835,12 @@ public:
 			return !size();
 		}
 		// AAA
-		class iterator: public std::iterator<std::bidirectional_iterator_tag, std::pair<IdString, SigSpec>> {
+		class iterator {
+			typedef std::bidirectional_iterator_tag iterator_category;
+			typedef std::pair<IdString, SigSpec> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, SigSpec>* pointer;
+			typedef std::pair<IdString, SigSpec>& reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1890,7 +1905,12 @@ public:
 			}
 		}
 		// AAA CONST ITERATOR
-		class const_iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, SigSpec>> {
+		class const_iterator {
+			typedef std::input_iterator_tag iterator_category;
+			typedef std::pair<IdString, SigSpec> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, SigSpec>* pointer;
+			typedef std::pair<IdString, SigSpec>& reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1917,7 +1937,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					log_assert(false && "malformed cell or code broke");
+					throw std::out_of_range("FakeConns.const_iterator::operator*() const");
 				}
 			}
 		};
@@ -1951,7 +1971,7 @@ public:
 	bool has_memid() { return is_legacy() && legacy->has_memid(); }
 	bool is_mem_cell() { return is_legacy() && legacy->is_mem_cell(); }
 	// TODO stub
-	void set_src_attribute(const std::string &src) { };
+	void set_src_attribute(const std::string &src) { (void)src; };
 
 	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
@@ -1967,7 +1987,7 @@ public:
 	}
 	template<typename T>
 	void rewrite_sigspecs(T &functor) {
-		for (auto &it : connections_)
+		for (std::pair<IdString, SigSpec> &it : connections_)
 			functor(it.second);
 	}
 	void sort() {
