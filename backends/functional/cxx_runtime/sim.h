@@ -21,6 +21,7 @@
 #define SIM_H
 
 #include <array>
+#include <cassert>
 
 template<size_t n>
 using Signal = std::array<bool, n>;
@@ -249,7 +250,7 @@ Signal<n> $shl(Signal<na> const& a, Signal<nb> const &b)
 {
     if(nb >= sizeof(int) * 8 - 1)
         for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            log_assert(!b[i]);
+            assert(!b[i]);
     size_t amount = as_int(b);
     Signal<n> ret = $const<n>(0);
     if(amount < n){
@@ -266,7 +267,7 @@ Signal<n> $shr(Signal<n> const& a, Signal<nb> const &b)
 {
     if(nb >= sizeof(int) * 8 - 1)
         for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            log_assert(!b[i]);
+            assert(!b[i]);
     size_t amount = as_int(b);
     Signal<n> ret;
     for (size_t i = 0; i < n; i++) {
@@ -283,7 +284,7 @@ Signal<n> $asr(Signal<n> const& a, Signal<nb> const &b)
 {
     if(nb >= sizeof(int) * 8 - 1)
         for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            log_assert(!b[i]);
+            assert(!b[i]);
     size_t amount = as_int(b);
     Signal<n> ret;
     for (size_t i = 0; i < n; i++) {
@@ -344,7 +345,7 @@ Signal<n+m> concat(Signal<n> const& a, Signal<m> const& b)
 template<size_t n, size_t m>
 Signal<n> $zero_extend(Signal<m> const& a)
 {
-    log_assert(n >= m);
+    assert(n >= m);
     Signal<n> ret;
     std::copy(a.begin(), a.end(), ret.begin());
     for(size_t i = m; i < n; i++)
@@ -355,7 +356,7 @@ Signal<n> $zero_extend(Signal<m> const& a)
 template<size_t n, size_t m>
 Signal<n> $sign_extend(Signal<m> const& a)
 {
-    log_assert(n >= m);
+    assert(n >= m);
     Signal<n> ret;
     std::copy(a.begin(), a.end(), ret.begin());
     for(size_t i = m; i < n; i++)
