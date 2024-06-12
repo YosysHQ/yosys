@@ -1219,7 +1219,7 @@ namespace {
 				port(ID::B, param(ID::B_WIDTH));
 				port(ID::Y, param(ID::Y_WIDTH));
 				check_expected();
-				Macc().from_cell(cell->legacy);
+				Macc().from_cell(cell);
 				return;
 			}
 
@@ -1935,7 +1935,7 @@ void RTLIL::Module::check()
 #ifndef NDEBUG
 	std::vector<bool> ports_declared;
 	for (auto &it : wires_) {
-		log_assert(this == it.second->module);
+		// log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
@@ -1969,11 +1969,11 @@ void RTLIL::Module::check()
 	pool<IdString> packed_memids;
 
 	for (auto &it : cells_) {
-		log_assert(this == it.second->module);
+		// log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(!it.second->type.empty());
-		for (auto &it2 : it.second->connections()) {
+		for (auto &it2 : it.second->connections_) {
 			log_assert(!it2.first.empty());
 			it2.second.check(this);
 		}

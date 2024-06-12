@@ -1621,6 +1621,9 @@ struct RTLIL::Unary {
 	std::array<std::pair<RTLIL::IdString, RTLIL::SigSpec>, 2> connections() {
 		return {std::make_pair(ID::A, a), std::make_pair(ID::Y, y)};
 	}
+	std::array<std::pair<RTLIL::IdString, RTLIL::Const>, 3> parameters() {
+		return {std::make_pair(ID::A_WIDTH, Const(a_width)), std::make_pair(ID::Y_WIDTH, Const(y_width)), std::make_pair(ID::A_SIGNED, Const(y_width))};
+	}
 	// TODO new interface: inputs
 };
 
@@ -1664,7 +1667,133 @@ public:
 			}
 			return 1;
 		}
-
+		size_t size() const {
+			if (parent->is_legacy()) {
+				return parent->legacy->connections_.size();
+			} else if (parent->type == ID($pos)) {
+				return parent->pos.connections().size();
+			} else if (parent->type == ID($neg)) {
+				return parent->neg.connections().size();
+			} else if (parent->type == ID($not)) {
+				return parent->not_.connections().size();
+			} else {
+				throw std::out_of_range("FakeParams::size()");
+			}
+		}
+		bool empty() {
+			return !size();
+		}
+		// AAA
+		class iterator: public std::iterator<std::bidirectional_iterator_tag, std::pair<IdString, Const>> {
+			Cell* parent;
+			int position;
+		public:
+			iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const iterator &other) const {
+				return !(*this == other);
+			}
+			std::pair<IdString, Const> operator*() {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeParams.iterator::operator*()");
+				}
+			}
+			const std::pair<IdString, Const> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeParams.iterator::operator*() const");
+				}
+			}
+		};
+		iterator begin() {
+				return iterator(parent, 0);
+		}
+		iterator end() {
+			if (parent->is_legacy()) {
+				return iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return iterator(parent, parent->not_.connections().size());
+			} else {
+				throw std::out_of_range("FakeParams.iterator::end()");
+			}
+		}
+		// AAA CONST ITERATOR
+		class const_iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, Const>> {
+			Cell* parent;
+			int position;
+		public:
+			const_iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			const_iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const const_iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const const_iterator &other) const {
+				return !(*this == other);
+			}
+			const std::pair<IdString, Const> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeConns.const_iterator::operator*() const");
+				}
+			}
+		};
+		const_iterator begin() const {
+				return const_iterator(parent, 0);
+		}
+		const_iterator end() const {
+			if (parent->is_legacy()) {
+				return const_iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return const_iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return const_iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return const_iterator(parent, parent->not_.connections().size());
+			} else {
+				throw std::out_of_range("FakeConns::end() const");
+			}
+		}
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
@@ -1689,12 +1818,13 @@ public:
 			} else if (parent->type == ID($not)) {
 				return parent->not_.connections().size();
 			} else {
-				log_assert(false && "malformed cell or code broke");
+				throw std::out_of_range("FakeConns::size()");
 			}
 		}
 		bool empty() {
 			return !size();
 		}
+		// AAA
 		class iterator: public std::iterator<std::bidirectional_iterator_tag, std::pair<IdString, SigSpec>> {
 			Cell* parent;
 			int position;
@@ -1710,7 +1840,7 @@ public:
 			bool operator!=(const iterator &other) const {
 				return !(*this == other);
 			}
-			std::pair<IdString, SigSpec>& operator*() const {
+			std::pair<IdString, SigSpec> operator*() {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
@@ -1723,7 +1853,23 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					log_assert(false && "malformed cell or code broke");
+					throw std::out_of_range("FakeConns.iterator::operator*()");
+				}
+			}
+			const std::pair<IdString, SigSpec> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					return *it;
+				} else if (parent->type == ID($pos)) {
+					// auto a = ();
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					throw std::out_of_range("FakeConns.iterator::operator*() const");
 				}
 			}
 		};
@@ -1740,10 +1886,10 @@ public:
 			} else if (parent->type == ID($not)) {
 				return iterator(parent, parent->not_.connections().size());
 			} else {
-				log_assert(false && "malformed cell or code broke");
+				throw std::out_of_range("FakeConns.iterator::end()");
 			}
 		}
-		// CONST ITERATOR
+		// AAA CONST ITERATOR
 		class const_iterator: public std::iterator<std::input_iterator_tag, std::pair<IdString, SigSpec>> {
 			Cell* parent;
 			int position;
@@ -1759,7 +1905,7 @@ public:
 			bool operator!=(const const_iterator &other) const {
 				return !(*this == other);
 			}
-			std::pair<IdString, SigSpec> operator*() const {
+			const std::pair<IdString, SigSpec> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
@@ -1788,7 +1934,7 @@ public:
 			} else if (parent->type == ID($not)) {
 				return const_iterator(parent, parent->not_.connections().size());
 			} else {
-				log_assert(false && "malformed cell or code broke");
+				throw std::out_of_range("FakeConns::end() const");
 			}
 		}
 	};
