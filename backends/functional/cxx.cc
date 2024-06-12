@@ -17,7 +17,6 @@
  *
  */
 
-#include <cassert>
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
@@ -38,7 +37,7 @@ const char *reserved_keywords[] = {
 	"int","long","mutable","namespace","new","noexcept","not","not_eq",
 	"nullptr","operator","or","or_eq","private","protected","public",
 	"reflexpr","register","reinterpret_cast","requires","return","short",
-	"signed","sizeof","static","static_assert","static_cast","struct",
+	"signed","sizeof","static","static_log_assert","static_cast","struct",
 	"switch","synchronized","template","this","thread_local","throw",
 	"true","try","typedef","typeid","typename","union","unsigned",
 	"using","virtual","void","volatile","wchar_t","while","xor","xor_eq",
@@ -193,11 +192,11 @@ class CxxComputeGraphFactory {
 public:
 	CxxComputeGraphFactory(CxxComputeGraph &g) : graph(g) {}
 	T slice(T a, int in_width, int offset, int out_width) {
-		assert(offset + out_width <= in_width);
+		log_assert(offset + out_width <= in_width);
 		return graph.add(CxxFunction(ID($$slice), out_width, {{ID(offset), offset}}), 0, std::array<T, 1>{a});
 	}
 	T extend(T a, int in_width, int out_width, bool is_signed) {
-		assert(in_width < out_width);
+		log_assert(in_width < out_width);
 		if(is_signed)
 			return graph.add(CxxFunction(ID($sign_extend), out_width, {{ID(WIDTH), out_width}}), 0, std::array<T, 1>{a});
 		else
@@ -250,7 +249,7 @@ public:
 		return graph.add(CxxFunction(ID($$pending), width), 0);
 	}
 	void update_pending(T pending, T node) {
-		assert(pending.function().name == ID($$pending));
+		log_assert(pending.function().name == ID($$pending));
 		pending.set_function(CxxFunction(ID($$buf), pending.function().width));
 		pending.append_arg(node);
 	}

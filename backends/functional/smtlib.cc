@@ -17,7 +17,6 @@
  *
  */
 
-#include <cassert>
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
@@ -328,11 +327,11 @@ class SmtlibComputeGraphFactory {
 public:
 	SmtlibComputeGraphFactory(SmtlibModule &mod) : module(mod), graph(mod.compute_graph) {}
 	T slice(T a, int in_width, int offset, int out_width) {
-		assert(offset + out_width <= in_width);
+		log_assert(offset + out_width <= in_width);
 		return node(extract(Arg(1), offset, out_width), out_width, {a});
 	}
 	T extend(T a, int in_width, int out_width, bool is_signed) {
-		assert(in_width < out_width);
+		log_assert(in_width < out_width);
 		if(is_signed)
 			return node(SExpr {SExpr {"_", "sign_extend", out_width - in_width}, Arg(1)}, out_width, {a});
 		else
@@ -399,7 +398,7 @@ public:
 		return node(SExpr(), width, {});
 	}
 	void update_pending(T pending, T node) {
-		assert(pending.function().expr.is_none());
+		log_assert(pending.function().expr.is_none());
 		pending.set_function(Node(Arg(1), pending.function().width));
 		pending.append_arg(node);
 	}
