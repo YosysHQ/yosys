@@ -40,7 +40,7 @@ class CellSimplifier {
 		} else {
 			reduced_b_width = new_width;
 			T lower_b = factory.slice(b, b_width, 0, new_width);
-			T overflow = factory.gt(b, factory.constant(RTLIL::Const(y_width, b_width)), b_width);
+			T overflow = factory.ugt(b, factory.constant(RTLIL::Const(y_width, b_width)), b_width);
 			return factory.mux(lower_b, factory.constant(RTLIL::Const(y_width, new_width)), overflow, new_width);
 		}
 	}
