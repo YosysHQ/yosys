@@ -28,7 +28,7 @@
             ln -s ${abc-verifier}/bin/abc $out/bin/yosys-abc
           '';
 					buildPhase = ''
-            make -j$(nproc) ABCEXTERNAL=yosys-abc
+            make -j$(nproc) ABCEXTERNAL=yosys-abc PROFILER=tracy
           '';
           dontStrip = true;
           meta = with pkgs.lib; {

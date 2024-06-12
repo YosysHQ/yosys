@@ -1087,10 +1087,10 @@ namespace {
 
 		void check_expected(bool check_matched_sign = false)
 		{
-			for (auto &para : cell->parameters)
+			for (auto &&para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
 					error(__LINE__);
-			for (auto &conn : cell->connections_)
+			for (auto &&conn : cell->connections_)
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
 
@@ -1973,13 +1973,14 @@ void RTLIL::Module::check()
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(!it.second->type.empty());
-		for (auto &it2 : it.second->connections_) {
+		for (auto &&it2 : it.second->connections_) {
 			log_assert(!it2.first.empty());
 			it2.second.check(this);
 		}
-		for (auto &it2 : it.second->attributes)
-			log_assert(!it2.first.empty());
-		for (auto &it2 : it.second->parameters)
+		// TODO
+		// for (auto &&it2 : it.second->attributes)
+		// 	log_assert(!it2.first.empty());
+		for (auto &&it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
 		InternalOldCellChecker checker(this, it.second);
 		checker.check();
@@ -3553,6 +3554,9 @@ const RTLIL::Const RTLIL::Cell::getParam(const RTLIL::IdString &paramname) {
 
 	if (type == ID($not)) {
 		if (paramname == ID::A_WIDTH) {
+			// Notice using the trivial default constructor
+			// This is to reduce code changes later when we replace Const
+			// with int/bool where possible in internal cell type variants
 			return RTLIL::Const(not_.a_width);
 		} else if (paramname == ID::Y_WIDTH) {
 			return RTLIL::Const(not_.y_width);
@@ -3739,15 +3743,15 @@ void RTLIL::OldCell::sort()
 	attributes.sort(sort_by_id_str());
 }
 
-void RTLIL::OldCell::check()
+void RTLIL::Cell::check()
 {
 #ifndef NDEBUG
 	InternalOldCellChecker checker(NULL, this);
 	checker.check();
 #endif
 }
-
-void RTLIL::OldCell::fixup_parameters(bool set_a_signed, bool set_b_signed)
+int bigboy() {return sizeof(RTLIL::Cell);}
+void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
 	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))

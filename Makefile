@@ -210,9 +210,6 @@ CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
-CXXFLAGS += -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
-LINKFLAGS += -g
-
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
@@ -227,6 +224,15 @@ endif
 ifneq ($(findstring cfi,$(SANITIZER)),)
 CXXFLAGS += -flto
 LINKFLAGS += -flto
+endif
+endif
+
+ifneq ($(PROFILER),)
+$(info [Profiler] $(PROFILER))
+CXXFLAGS += -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
+LINKFLAGS += -g
+ifneq ($(findstring tracy,$(PROFILER)),)
+CXXFLAGS += -DTRACY_ENABLE
 endif
 endif
 
@@ -598,8 +604,8 @@ $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
+# See -DTRACY_ENABLE
 OBJS += tracy/public/TracyClient.o
-CXXFLAGS += -DTRACY_ENABLE
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o

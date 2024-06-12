@@ -657,6 +657,7 @@ namespace RTLIL
 	};
 };
 
+// TODO OF GALACTIC PROPORTIONS
 struct RTLIL::Const
 {
 	int flags;
@@ -1591,8 +1592,8 @@ public:
 	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
 
 	void sort();
-	void check();
-	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+	// void check();
+	// void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
 	bool has_keep_attr() const {
 		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
@@ -1613,20 +1614,21 @@ public:
 
 // $not
 struct RTLIL::Unary {
-	RTLIL::SigSpec a;
-	RTLIL::SigSpec y;
-	int a_width;
-	int y_width;
-	bool is_signed;
-	std::array<std::pair<RTLIL::IdString, RTLIL::SigSpec>, 2> connections() {
-		return {std::make_pair(ID::A, a), std::make_pair(ID::Y, y)};
+	SigSpec a;
+	SigSpec y;
+	Const a_width;
+	Const y_width;
+	Const is_signed;
+	std::array<std::pair<IdString, SigSpec&>, 2> connections() {
+		return {std::make_pair(ID::A, std::ref(a)), std::make_pair(ID::Y, std::ref(y))};
 	}
-	std::array<std::pair<RTLIL::IdString, RTLIL::Const>, 3> parameters() {
-		return {std::make_pair(ID::A_WIDTH, Const(a_width)), std::make_pair(ID::Y_WIDTH, Const(y_width)), std::make_pair(ID::A_SIGNED, Const(y_width))};
+	std::array<std::pair<IdString, Const&>, 3> parameters() {
+		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(y_width))};
 	}
 	// TODO new interface: inputs
 };
 
+// NewCell
 struct RTLIL::Cell
 {
 	// TODO huh?
@@ -1704,11 +1706,13 @@ public:
 			bool operator!=(const iterator &other) const {
 				return !(*this == other);
 			}
-			std::pair<IdString, Const> operator*() {
+			std::pair<IdString, Const&> operator*() {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					return parent->pos.parameters()[position];
 				} else if (parent->type == ID($neg)) {
@@ -1719,11 +1723,13 @@ public:
 					throw std::out_of_range("FakeParams.iterator::operator*()");
 				}
 			}
-			const std::pair<IdString, Const> operator*() const {
+			const std::pair<IdString, Const&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					return parent->pos.parameters()[position];
 				} else if (parent->type == ID($neg)) {
@@ -1736,7 +1742,13 @@ public:
 			}
 		};
 		iterator begin() {
-				return iterator(parent, 0);
+			return iterator(parent, 0);
+		}
+		// Stupid impl, but rarely used, so I don't want to think about it rn
+		iterator find(IdString name) {
+			auto it = iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
 		}
 		iterator end() {
 			if (parent->is_legacy()) {
@@ -1756,8 +1768,8 @@ public:
 			typedef std::input_iterator_tag iterator_category;
 			typedef std::pair<IdString, Const> value_type;
 			typedef ptrdiff_t difference_type;
-			typedef std::pair<IdString, Const>* pointer;
-			typedef std::pair<IdString, Const>& reference;
+			typedef std::pair<IdString, Const*> pointer;
+			typedef std::pair<IdString, Const&> reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1772,11 +1784,13 @@ public:
 			bool operator!=(const const_iterator &other) const {
 				return !(*this == other);
 			}
-			const std::pair<IdString, Const> operator*() const {
+			const std::pair<IdString, Const&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					return parent->pos.parameters()[position];
 				} else if (parent->type == ID($neg)) {
@@ -1810,6 +1824,12 @@ public:
 		RTLIL::SigSpec at(RTLIL::IdString portname) {
 			return parent->getPort(portname);
 		}
+		// Watch out! This is different semantics than what dict has!
+		// but we rely on RTLIL::Cell always being constructed correctly
+		// since its layout is fixed as defined by InternalOldCellChecker
+		RTLIL::SigSpec operator[](RTLIL::IdString portname) {
+			return parent->getPort(portname);
+		}
 		int count(RTLIL::IdString portname) {
 			try {
 				parent->getPort(portname);
@@ -1839,8 +1859,8 @@ public:
 			typedef std::bidirectional_iterator_tag iterator_category;
 			typedef std::pair<IdString, SigSpec> value_type;
 			typedef ptrdiff_t difference_type;
-			typedef std::pair<IdString, SigSpec>* pointer;
-			typedef std::pair<IdString, SigSpec>& reference;
+			typedef std::pair<IdString, SigSpec*> pointer;
+			typedef std::pair<IdString, SigSpec&> reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1855,11 +1875,13 @@ public:
 			bool operator!=(const iterator &other) const {
 				return !(*this == other);
 			}
-			std::pair<IdString, SigSpec> operator*() {
+			std::pair<IdString, SigSpec&> operator*() {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					// auto a = ();
 					return parent->pos.connections()[position];
@@ -1871,11 +1893,13 @@ public:
 					throw std::out_of_range("FakeConns.iterator::operator*()");
 				}
 			}
-			const std::pair<IdString, SigSpec> operator*() const {
+			const std::pair<IdString, SigSpec&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					// auto a = ();
 					return parent->pos.connections()[position];
@@ -1909,8 +1933,8 @@ public:
 			typedef std::input_iterator_tag iterator_category;
 			typedef std::pair<IdString, SigSpec> value_type;
 			typedef ptrdiff_t difference_type;
-			typedef std::pair<IdString, SigSpec>* pointer;
-			typedef std::pair<IdString, SigSpec>& reference;
+			typedef std::pair<IdString, SigSpec*> pointer;
+			typedef std::pair<IdString, SigSpec&> reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1925,11 +1949,13 @@ public:
 			bool operator!=(const const_iterator &other) const {
 				return !(*this == other);
 			}
-			const std::pair<IdString, SigSpec> operator*() const {
+			const std::pair<IdString, SigSpec&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
-					return *it;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
 				} else if (parent->type == ID($pos)) {
 					return parent->pos.connections()[position];
 				} else if (parent->type == ID($neg)) {
@@ -1982,17 +2008,24 @@ public:
 	}
 	template<typename T>
 	void rewrite_sigspecs2(T &functor) {
-		for (auto &it : connections_)
+		// for(auto it = connections_.begin(); it != connections_.end(); ++it) {
+		// 	auto& thing = *it;
+		// 	functor(it.second);
+		// }
+		// TODO fix!!!
+		for (auto &&it : connections_)
 			functor(it.second);
 	}
 	template<typename T>
 	void rewrite_sigspecs(T &functor) {
-		for (std::pair<IdString, SigSpec> &it : connections_)
+		for (auto &&it : connections_)
 			functor(it.second);
 	}
 	void sort() {
 		if (is_legacy()) legacy->sort();
 	}
+	void check();
+	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
 
 private:

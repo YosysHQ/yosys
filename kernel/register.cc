@@ -314,6 +314,9 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	auto state = pass_register[args[0]]->pre_execute();
+	ZoneScopedN(pass_name.c_str());
+	// ZoneText(pass_name.c_str(), pass_name.length());
+	ZoneColor((uint32_t)(size_t)pass_name.c_str());
 	pass_register[args[0]]->execute(args, design);
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
