@@ -1723,6 +1723,8 @@ public:
 					throw std::out_of_range("FakeParams.iterator::operator*()");
 				}
 			}
+			// std::pair<IdString, Const&> operator->() { return operator*(); }
+			// const std::pair<IdString, Const&> operator->() const { return operator*(); }
 			const std::pair<IdString, Const&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
@@ -1893,6 +1895,8 @@ public:
 					throw std::out_of_range("FakeConns.iterator::operator*()");
 				}
 			}
+			// std::pair<IdString, SigSpec&> operator->() { return operator*(); }
+			// const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
 			const std::pair<IdString, SigSpec&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
@@ -1914,6 +1918,12 @@ public:
 		};
 		iterator begin() {
 				return iterator(parent, 0);
+		}
+		// Stupid impl, but rarely used, so I don't want to think about it rn
+		iterator find(IdString name) {
+			auto it = iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
 		}
 		iterator end() {
 			if (parent->is_legacy()) {
