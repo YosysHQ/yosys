@@ -20,6 +20,7 @@
 #ifndef SIM_H
 #define SIM_H
 
+#include <cassert>
 #include <array>
 
 template<size_t n>

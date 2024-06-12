@@ -17,6 +17,7 @@
  *
  */
 
+#include <cassert>
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
@@ -96,31 +97,70 @@ struct CxxWriter {
 };
 
 struct CxxStruct {
-	std::string name;
-	dict<IdString, std::string> types;
-	CxxScope scope;
-	CxxStruct(std::string name) : name(name) {
-		scope.reserve("out");
-		scope.reserve("dump");
-	}
-	void insert(IdString name, std::string type) {
-		scope.insert(name);
-		types.insert({name, type});
-	}
-	void print(CxxWriter &f) {
-		f.printf("struct %s {\n", name.c_str());
-		for (auto p : types) {
-			f.printf("\t%s %s;\n", p.second.c_str(), scope[p.first].c_str());
-		}
-		f.printf("\n\ttemplate <typename T> void dump(T &out) {\n");
-		for (auto p : types) {
-			f.printf("\t\tout(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope[p.first].c_str());
-		}
-		f.printf("\t}\n};\n\n");
-	}
-	std::string operator[](IdString field) {
-		return scope[field];
-	}
+  std::string name;
+  dict<IdString, std::string> types;
+  CxxScope scope;
+  bool generate_methods;
+  int count;
+  CxxStruct(std::string name, bool generate_methods = false, int count = 0) 
+    : name(name), generate_methods(generate_methods), count(count) {
+    scope.reserve("out");
+    scope.reserve("dump");
+  }
+  void insert(IdString name, std::string type) {
+    scope.insert(name);
+    types.insert({name, type});
+  }
+  void print(CxxWriter &f) {
+    f.printf("struct %s {\n", name.c_str());
+    for (auto p : types) {
+      f.printf("\t%s %s;\n", p.second.c_str(), scope[p.first].c_str());
+    }
+    f.printf("\n\ttemplate <typename T> void dump(T &out) const {\n");
+    for (auto p : types) {
+      f.printf("\t\tout(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope[p.first].c_str());
+    }
+    f.printf("\t}\n\n");
+
+    if (generate_methods) {
+      // Add size method
+      f.printf("\tint size() const {\n");
+      f.printf("\t\treturn %d;\n", count);
+      f.printf("\t}\n\n");
+
+      // Add get_input method
+      f.printf("\tstd::variant<%s> get_input(const int index) {\n", generate_variant_types().c_str());
+      f.printf("\t\tswitch (index) {\n");
+      int idx = 0;
+      for (auto p : types) {
+	f.printf("\t\t\tcase %d: return std::ref(%s);\n", idx, scope[p.first].c_str());
+	idx++;
+      }
+      f.printf("\t\t\tdefault: throw std::out_of_range(\"Invalid input index\");\n");
+      f.printf("\t\t}\n");
+      f.printf("\t}\n");
+    }
+    
+    f.printf("};\n\n");
+  };
+  std::string operator[](IdString field) {
+    return scope[field];
+  }
+  private:
+  std::string generate_variant_types() const {
+        std::set<std::string> unique_types;
+        for (const auto& p : types) {
+            unique_types.insert("std::reference_wrapper<" + p.second + ">");
+        }
+        std::ostringstream oss;
+        for (auto it = unique_types.begin(); it != unique_types.end(); ++it) {
+            if (it != unique_types.begin()) {
+                oss << ", ";
+            }
+            oss << *it;
+        }
+        return oss.str();
+  }
 };
 
 struct CxxFunction {
@@ -302,7 +342,8 @@ struct FunctionalCxxBackend : public Backend
 				state[ref.function().parameters.begin()->first] = ref.function().width;
 		}
 		f.printf("#include \"sim.h\"\n");
-		CxxStruct input_struct(name + "_Inputs");
+		f.printf("#include <variant>\n");
+		CxxStruct input_struct(name + "_Inputs", true, inputs.size());
 		for (auto const &input : inputs)
 			input_struct.insert(input.first, "Signal<" + std::to_string(input.second) + ">");
 		CxxStruct output_struct(name + "_Outputs");
