@@ -3525,6 +3525,22 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 		throw std::out_of_range("Cell::setPort()");
 	}
 }
+const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) {
+	if (is_legacy())
+		return legacy->getPort(portname);
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			return not_.a;
+		} else if (portname == ID::Y) {
+			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setPort()");
+	}
+}
 
 // TODO autogen
 void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value) {

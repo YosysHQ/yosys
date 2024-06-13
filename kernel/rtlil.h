@@ -1625,6 +1625,12 @@ struct RTLIL::Unary {
 	std::array<std::pair<IdString, Const&>, 3> parameters() {
 		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(y_width))};
 	}
+	bool input(IdString portname) {
+		return portname == ID::A;
+	}
+	bool output(IdString portname) {
+		return portname == ID::Y;
+	}
 	// TODO new interface: inputs
 };
 
@@ -1831,10 +1837,10 @@ public:
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
-		RTLIL::SigSpec at(RTLIL::IdString name) {
-			return parent->getPort(name);
-		}
-		const RTLIL::SigSpec at(RTLIL::IdString name) const {
+		// RTLIL::SigSpec at(RTLIL::IdString name) {
+		// 	return parent->getPort(name);
+		// }
+		const RTLIL::SigSpec& at(RTLIL::IdString name) const {
 			return parent->getPort(name);
 		}
 		void sort() {}
@@ -2008,6 +2014,7 @@ public:
 	};
 	FakeParams parameters;
 	FakeConns connections_;
+	const FakeConns &connections() const { return connections_; }
 	// TODO src loc? internal attrs?
 
 	// Canonical tag
@@ -2022,15 +2029,44 @@ public:
 	bool known () {
 		return is_legacy() ? legacy->known() : true;
 	}
+	bool input(const RTLIL::IdString &portname) {
+		if (is_legacy()) {
+			return legacy->input(portname);
+		} else if (type == ID($pos)) {
+			return pos.input(portname);
+		} else if (type == ID($neg)) {
+			return neg.input(portname);
+		} else if (type == ID($not)) {
+			return not_.input(portname);
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
+	bool output(const RTLIL::IdString &portname) {
+		if (is_legacy()) {
+			return legacy->output(portname);
+		} else if (type == ID($pos)) {
+			return pos.output(portname);
+		} else if (type == ID($neg)) {
+			return neg.output(portname);
+		} else if (type == ID($not)) {
+			return not_.output(portname);
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
 
 	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
+	// TODO is this reasonable at all?
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
 	bool hasPort(const RTLIL::IdString &portname) {
 		return connections_.count(portname);
 	}
 	// The need for this function implies setPort will be used on incompat types
 	void unsetPort(const RTLIL::IdString& portname) { (void)portname; }
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
+	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
