@@ -207,7 +207,7 @@ bool is_blackbox(Netlist *nl)
 
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
-	std::string s = stringf("$%s", obj->Name());
+	std::string s = stringf("$%s$%d", obj->Name(), autoidx++);
 	return s;
 }
 
