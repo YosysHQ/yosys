@@ -1090,7 +1090,7 @@ namespace {
 			for (auto &&para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
 					error(__LINE__);
-			for (auto &&conn : cell->connections_)
+			for (auto conn : cell->connections_)
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
 

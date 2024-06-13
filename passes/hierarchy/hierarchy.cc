@@ -575,7 +575,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 		RTLIL::Module *mod = design->module(cell->type);
 
-		for (auto &&conn : cell->connections_) {
+		for (auto conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			RTLIL::IdString portname = conn.first;
 			if (portname.begins_with("$")) {

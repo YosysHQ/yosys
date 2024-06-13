@@ -361,7 +361,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	// gather the usage information for cells
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
-		for (auto &it2 : cell->connections_) {
+		for (auto it2 : cell->connections_) {
 			assign_map.apply(it2.second); // modify the cell connection in place
 			raw_used_signals.add(it2.second);
 			used_signals.add(it2.second);

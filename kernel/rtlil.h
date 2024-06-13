@@ -1691,7 +1691,7 @@ public:
 			return parent->getParam(name);
 		}
 		void sort() {}
-		void reserve() {}
+		void reserve(int n) { (void)n; }
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
@@ -1903,7 +1903,7 @@ public:
 			return parent->getPort(name);
 		}
 		void sort() {}
-		void reserve() {}
+		void reserve(int n) { (void)n; }
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker

@@ -498,7 +498,7 @@ struct ExposePass : public Pass {
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
-					for (auto &&conn : cell->connections_)
+					for (auto conn : cell->connections_)
 						if (ct.cell_output(cell->type, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
@@ -519,7 +519,7 @@ struct ExposePass : public Pass {
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
-					for (auto &&conn : cell->connections_)
+					for (auto conn : cell->connections_)
 						if (ct.cell_input(cell->type, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
