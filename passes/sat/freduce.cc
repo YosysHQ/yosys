@@ -722,7 +722,7 @@ struct FreduceWorker
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
-				for (auto &port : drv->connections_)
+				for (auto port : drv->connections_)
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 

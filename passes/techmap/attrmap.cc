@@ -339,8 +339,10 @@ struct ParamapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->parameters);
+		for (auto cell : module->selected_cells()) {
+			auto params = cell->parameters.as_dict();
+			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, params);
+		}
 	}
 } ParamapPass;
 

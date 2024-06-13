@@ -70,7 +70,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 						portnames.insert(conn.first);
 					portwidths[conn.first] = max(portwidths[conn.first], conn.second.size());
 				}
-				for (auto &&para : cell->parameters)
+				for (auto para : cell->parameters)
 					parameters.insert(para.first);
 			}
 

@@ -490,7 +490,7 @@ struct TechmapWorker
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
-				dict<IdString, RTLIL::Const> parameters(cell->parameters);
+				dict<IdString, RTLIL::Const> parameters(cell->parameters.as_dict());
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -514,7 +514,7 @@ struct TechmapWorker
 					{
 						std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
 
-						for (auto &c : cell->parameters)
+						for (auto c : cell->parameters)
 							m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
 						if (extmapper_name == "wrap")
@@ -531,7 +531,7 @@ struct TechmapWorker
 							extmapper_cell->set_src_attribute(cell->get_src_attribute());
 
 							int port_counter = 1;
-							for (auto &c : extmapper_cell->connections_) {
+							for (auto c : extmapper_cell->connections_) {
 								RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
 								if (w->name.in(ID::Y, ID::Q))
 									w->port_output = true;
@@ -916,7 +916,7 @@ struct TechmapWorker
 							auto wirename = RTLIL::escape_id(it.first.substr(21, it.first.size() - 21 - 1));
 							auto it = cell->connections().find(wirename);
 							if (it != cell->connections().end()) {
-								auto sig = sigmap(it->second);
+								auto sig = sigmap((*it).second);
 								for (int i = 0; i < sig.size(); i++)
 									if (val[i] == State::S1)
 										initvals.remove_init(sig[i]);

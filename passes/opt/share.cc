@@ -481,11 +481,11 @@ struct ShareWorker
 			return true;
 		}
 
-		for (auto &it : c1->parameters)
+		for (auto it : c1->parameters)
 			if (c2->parameters.count(it.first) == 0 || c2->parameters.at(it.first) != it.second)
 				return false;
 
-		for (auto &it : c2->parameters)
+		for (auto it : c2->parameters)
 			if (c1->parameters.count(it.first) == 0 || c1->parameters.at(it.first) != it.second)
 				return false;
 

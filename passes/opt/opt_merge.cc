@@ -42,7 +42,8 @@ struct OptMergeWorker
 	CellTypes ct;
 	int total_count;
 
-	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	template <typename SmellsLikeDict>
+	static void sort_pmux_conn(SmellsLikeDict &conn)
 	{
 		SigSpec sig_s = conn.at(ID::S);
 		SigSpec sig_b = conn.at(ID::B);
@@ -82,7 +83,8 @@ struct OptMergeWorker
 		vector<string> hash_conn_strings;
 		std::string hash_string = cell->type.str() + "\n";
 
-		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
+		auto tmp = cell->connections_.as_dict();
+		dict<RTLIL::IdString, RTLIL::SigSpec>* conn = &tmp;
 		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
 
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
@@ -140,7 +142,7 @@ struct OptMergeWorker
 			hash_conn_strings.push_back(s + "\n");
 		}
 
-		for (auto &&it : cell->parameters)
+		for (auto it : cell->parameters)
 			hash_conn_strings.push_back("P " + it.first.str() + "=" + it.second.as_string() + "\n");
 
 		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());

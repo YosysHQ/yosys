@@ -590,7 +590,7 @@ void break_scc(RTLIL::Module *module)
 		cell->attributes.erase(it);
 		if (!r.second)
 			continue;
-		for (auto &c : cell->connections_) {
+		for (auto c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
@@ -1353,12 +1353,12 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 			auto jt = mapped_cell->connections_.find(ID(i));
 			log_assert(jt != mapped_cell->connections_.end());
-			SigSpec inputs = std::move(jt->second);
-			mapped_cell->connections_.erase(jt);
+			SigSpec inputs = std::move((*jt).second);
+			mapped_cell->connections_.erase((*jt).first);
 			jt = mapped_cell->connections_.find(ID(o));
 			log_assert(jt != mapped_cell->connections_.end());
-			SigSpec outputs = std::move(jt->second);
-			mapped_cell->connections_.erase(jt);
+			SigSpec outputs = std::move((*jt).second);
+			mapped_cell->connections_.erase((*jt).first);
 
 			auto abc9_flop = box_module->get_bool_attribute(ID::abc9_flop);
 			if (abc9_flop) {

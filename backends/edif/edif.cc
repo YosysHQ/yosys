@@ -473,7 +473,7 @@ struct EdifBackend : public Backend {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
-				for (auto &p : cell->parameters)
+				for (auto p : cell->parameters)
 					add_prop(p.first, p.second);
 				if (attr_properties)
 					for (auto &p : cell->attributes)

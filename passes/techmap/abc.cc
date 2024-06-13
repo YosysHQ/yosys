@@ -1336,7 +1336,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 			if (c->type.in(ID(_const0_), ID(_const1_))) {
 				RTLIL::SigSig conn;
-				conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
+				auto it = c->connections().begin();
+				conn.first = module->wire(remap_name((*it).second.as_wire()->name));
 				conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
 				module->connect(conn);
 				continue;

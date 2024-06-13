@@ -1690,6 +1690,31 @@ public:
 		const RTLIL::Const& at(RTLIL::IdString name) const {
 			return parent->getParam(name);
 		}
+		const RTLIL::Const& at(RTLIL::IdString name, const RTLIL::Const& def) const {
+			if (parent->hasParam(name))
+				return parent->getParam(name);
+			else
+				return def;
+		}
+		dict<IdString, Const> as_dict() const {
+			if (parent->is_legacy())
+				return parent->legacy->parameters;
+
+			auto d = dict<IdString, Const>();
+			if (parent->type == ID($not)) {
+				for (auto conn: parent->not_.parameters())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($pos)) {
+				for (auto conn: parent->pos.parameters())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($neg)) {
+				for (auto conn: parent->neg.parameters())
+					d[conn.first] = conn.second;
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+			return d;
+		}
 		void sort() {}
 		void reserve(int n) { (void)n; }
 		// Watch out! This is different semantics than what dict has!
@@ -1880,6 +1905,11 @@ public:
 		const_iterator begin() const {
 				return const_iterator(parent, 0);
 		}
+		const_iterator find(const IdString name) const {
+			auto it = const_iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
 		const_iterator end() const {
 			if (parent->is_legacy()) {
 				return const_iterator(parent, parent->legacy->connections_.size());
@@ -1896,11 +1926,36 @@ public:
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
-		// RTLIL::SigSpec at(RTLIL::IdString name) {
-		// 	return parent->getPort(name);
-		// }
+		RTLIL::SigSpec at(RTLIL::IdString name) {
+			return parent->getMutPort(name);
+		}
 		const RTLIL::SigSpec& at(RTLIL::IdString name) const {
 			return parent->getPort(name);
+		}
+		const RTLIL::SigSpec& at(RTLIL::IdString name, const RTLIL::SigSpec& def) const {
+			if (parent->hasPort(name))
+				return parent->getPort(name);
+			else
+				return def;
+		}
+		dict<IdString, SigSpec> as_dict() const {
+			if (parent->is_legacy())
+				return parent->legacy->connections_;
+
+			auto d = dict<IdString, SigSpec>();
+			if (parent->type == ID($not)) {
+				for (auto conn: parent->not_.connections())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($pos)) {
+				for (auto conn: parent->pos.connections())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($neg)) {
+				for (auto conn: parent->neg.connections())
+					d[conn.first] = conn.second;
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+			return d;
 		}
 		void sort() {}
 		void reserve(int n) { (void)n; }
@@ -1923,6 +1978,24 @@ public:
 			} else {
 				throw std::out_of_range("Cell::getParam()");
 			}
+		}
+		bool operator==(const FakeConns& other) const {
+			auto this_it = this->begin();
+			auto other_it = other.begin();
+			while (this_it != this->end() && other_it != other.end()) {
+				if (*this_it != *other_it)
+					return false;
+				++this_it;
+				++other_it;
+			}
+			if (this_it != this->end() || other_it != other.end()) {
+				// One has more params than the other
+				return false;
+			}
+			return true;
+		}
+		bool operator!=(const FakeConns& other) const {
+			return !operator==(other);
 		}
 		int count(RTLIL::IdString portname) const {
 			try {
@@ -2076,6 +2149,11 @@ public:
 		const_iterator begin() const {
 				return const_iterator(parent, 0);
 		}
+		const_iterator find(const IdString name) const {
+			auto it = const_iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
 		const_iterator end() const {
 			if (parent->is_legacy()) {
 				return const_iterator(parent, parent->legacy->connections_.size());
@@ -2163,12 +2241,12 @@ public:
 		// 	functor(it.second);
 		// }
 		// TODO fix!!!
-		for (auto &&it : connections_)
+		for (auto it : connections_)
 			functor(it.second);
 	}
 	template<typename T>
 	void rewrite_sigspecs(T &functor) {
-		for (auto &&it : connections_)
+		for (auto it : connections_)
 			functor(it.second);
 	}
 	void sort() {

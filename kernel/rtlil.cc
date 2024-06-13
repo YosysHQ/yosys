@@ -1087,7 +1087,7 @@ namespace {
 
 		void check_expected(bool check_matched_sign = false)
 		{
-			for (auto &&para : cell->parameters)
+			for (auto para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
 					error(__LINE__);
 			for (auto conn : cell->connections_)
@@ -1973,14 +1973,14 @@ void RTLIL::Module::check()
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(!it.second->type.empty());
-		for (auto &&it2 : it.second->connections_) {
+		for (auto it2 : it.second->connections_) {
 			log_assert(!it2.first.empty());
 			it2.second.check(this);
 		}
 		// TODO
 		// for (auto &&it2 : it.second->attributes)
 		// 	log_assert(!it2.first.empty());
-		for (auto &&it2 : it.second->parameters)
+		for (auto it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
 		InternalOldCellChecker checker(this, it.second);
 		checker.check();
@@ -2493,9 +2493,9 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
-DEF_METHOD(Not,        sig_a.size(), ID($not))
-DEF_METHOD(Pos,        sig_a.size(), ID($pos))
-DEF_METHOD(Neg,        sig_a.size(), ID($neg))
+// DEF_METHOD(Not,        sig_a.size(), ID($not))
+// DEF_METHOD(Pos,        sig_a.size(), ID($pos))
+// DEF_METHOD(Neg,        sig_a.size(), ID($neg))
 DEF_METHOD(ReduceAnd,  1, ID($reduce_and))
 DEF_METHOD(ReduceOr,   1, ID($reduce_or))
 DEF_METHOD(ReduceXor,  1, ID($reduce_xor))
