@@ -45,7 +45,8 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
+template <typename SmellsLikeDict>
+static void do_setunset(SmellsLikeDict &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset)

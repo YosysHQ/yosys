@@ -343,9 +343,9 @@ private:
 				//recurse to GLIFT model the child module. However, we need to augment the ports list
 				//with taint signals and connect the new ports to the corresponding taint signals.
 				RTLIL::Module *cell_module_def = module->design->module(cell->type);
-				dict<RTLIL::IdString, RTLIL::SigSpec> orig_ports = cell->connections();
+				auto orig_ports = cell->connections();
 				log("Adding cell %s\n", cell_module_def->name.c_str());
-				for (auto &it : orig_ports) {
+				for (auto &&it : orig_ports) {
 					RTLIL::SigSpec port = it.second;
 					RTLIL::SigSpec port_taint = get_corresponding_taint_signal(port);
 

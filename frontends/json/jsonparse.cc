@@ -274,7 +274,8 @@ Const json_parse_attr_param_value(JsonNode *node)
 	return value;
 }
 
-void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
+template <typename SmellsLikeDict>
+void json_parse_attr_param(SmellsLikeDict &results, JsonNode *node)
 {
 	if (node->type != 'D')
 		log_error("JSON attributes or parameters node is not a dictionary.\n");

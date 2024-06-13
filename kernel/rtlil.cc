@@ -3580,22 +3580,6 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 // 	}
 // }
 
-const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) {
-	if (is_legacy())
-		return legacy->getParam(paramname);
-
-	if (type == ID($not)) {
-		if (paramname == ID::A_WIDTH) {
-			return not_.a_width;
-		} else if (paramname == ID::Y_WIDTH) {
-			return not_.y_width;
-		} else {
-			throw std::out_of_range("Cell::getParam()");
-		}
-	} else {
-		throw std::out_of_range("Cell::getParam()");
-	}
-}
 const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
 	if (is_legacy())
 		return legacy->getParam(paramname);

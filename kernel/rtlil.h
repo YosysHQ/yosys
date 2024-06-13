@@ -1625,10 +1625,10 @@ struct RTLIL::Unary {
 	std::array<std::pair<IdString, Const&>, 3> parameters() {
 		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(y_width))};
 	}
-	bool input(IdString portname) {
+	bool input(IdString portname) const {
 		return portname == ID::A;
 	}
-	bool output(IdString portname) {
+	bool output(IdString portname) const {
 		return portname == ID::Y;
 	}
 	// TODO new interface: inputs
@@ -1660,9 +1660,22 @@ public:
 	};
 	struct FakeParams {
 		RTLIL::Cell* parent;
-		// RTLIL::Const& at(RTLIL::IdString name) {
-		// 	return parent->getParam(name);
-		// }
+		RTLIL::Const& at(RTLIL::IdString paramname) {
+			if (parent->is_legacy())
+				return parent->legacy->parameters.at(paramname);
+
+			if (parent->type == ID($not)) {
+				if (paramname == ID::A_WIDTH) {
+					return parent->not_.a_width;
+				} else if (paramname == ID::Y_WIDTH) {
+					return parent->not_.y_width;
+				} else {
+					throw std::out_of_range("Cell::getParam()");
+				}
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+		}
 		const RTLIL::Const& at(RTLIL::IdString name) const {
 			return parent->getParam(name);
 		}
@@ -1673,7 +1686,7 @@ public:
 		RTLIL::Const operator[](RTLIL::IdString name) {
 			return parent->getParam(name);
 		}
-		int count(RTLIL::IdString name) {
+		int count(RTLIL::IdString name) const {
 			try {
 				parent->getParam(name);
 			} catch (const std::out_of_range& e) {
@@ -2029,7 +2042,7 @@ public:
 	bool known () {
 		return is_legacy() ? legacy->known() : true;
 	}
-	bool input(const RTLIL::IdString &portname) {
+	bool input(const RTLIL::IdString &portname) const {
 		if (is_legacy()) {
 			return legacy->input(portname);
 		} else if (type == ID($pos)) {
@@ -2042,7 +2055,7 @@ public:
 			throw std::out_of_range("FakeParams::size()");
 		}
 	}
-	bool output(const RTLIL::IdString &portname) {
+	bool output(const RTLIL::IdString &portname) const {
 		if (is_legacy()) {
 			return legacy->output(portname);
 		} else if (type == ID($pos)) {
@@ -2068,10 +2081,13 @@ public:
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
 	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
-	const RTLIL::Const& getParam(const RTLIL::IdString &paramname);
+	// const RTLIL::Const& getParam(const RTLIL::IdString &paramname);
+	RTLIL::Const& getParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
 		return parameters.count(paramname);
 	}
+	// The need for this function implies setPort will be used on incompat types
+	void unsetParam(const RTLIL::IdString& paramname) { (void)paramname; }
 	template<typename T>
 	void rewrite_sigspecs2(T &functor) {
 		// for(auto it = connections_.begin(); it != connections_.end(); ++it) {

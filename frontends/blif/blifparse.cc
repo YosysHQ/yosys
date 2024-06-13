@@ -125,7 +125,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 	};
 
 	dict<RTLIL::IdString, RTLIL::Const> *obj_attributes = nullptr;
-	dict<RTLIL::IdString, RTLIL::Const> *obj_parameters = nullptr;
+	RTLIL::Cell::FakeParams *obj_parameters = nullptr;
 
 	dict<RTLIL::IdString, std::pair<int, bool>> wideports_cache;
 

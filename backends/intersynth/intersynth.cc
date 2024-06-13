@@ -175,7 +175,7 @@ struct IntersynthBackend : public Backend {
 						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
 					}
 				}
-				for (auto &param : cell->parameters) {
+				for (auto &&param : cell->parameters) {
 					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), log_id(param.first));
 					if (param.second.bits.size() != 32) {
 						node_code += stringf(" %s '", log_id(param.first));
