@@ -3750,7 +3750,6 @@ void RTLIL::OldCell::sort()
 {
 	connections_.sort(sort_by_id_str());
 	parameters.sort(sort_by_id_str());
-	attributes.sort(sort_by_id_str());
 }
 
 void RTLIL::Cell::check()

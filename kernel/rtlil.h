@@ -1552,7 +1552,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 };
 
 
-struct RTLIL::OldCell : public RTLIL::AttrObject
+struct RTLIL::OldCell
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
@@ -1597,10 +1597,10 @@ public:
 	// void check();
 	// void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
-	bool has_keep_attr() const {
-		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute(ID::keep));
-	}
+	// bool has_keep_attr() const {
+	// 	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+	// 			module->design->module(type)->get_bool_attribute(ID::keep));
+	// }
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -1632,6 +1632,15 @@ struct RTLIL::Unary {
 	}
 	bool output(IdString portname) const {
 		return portname == ID::Y;
+	}
+	void conns_from_dict(dict<IdString, SigSpec> conns) {
+		a = conns[ID::A];
+		y = conns[ID::Y];
+	}
+	void params_from_dict(dict<IdString, Const> conns) {
+		a_width = conns[ID::A_WIDTH];
+		y_width = conns[ID::Y_WIDTH];
+		is_signed = conns[ID::A_SIGNED];
 	}
 	// TODO new interface: inputs
 };
@@ -1682,11 +1691,26 @@ public:
 			return parent->getParam(name);
 		}
 		void sort() {}
+		void reserve() {}
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::Const& operator[](RTLIL::IdString name) {
 			return parent->getMutParam(name);
+		}
+		void operator=(dict<IdString, Const> from) {
+			if (parent->is_legacy())
+				parent->legacy->parameters = from;
+
+			if (parent->type == ID($not)) {
+				parent->not_.params_from_dict(from);
+			} else if (parent->type == ID($pos)) {
+				parent->pos.params_from_dict(from);
+			} else if (parent->type == ID($neg)) {
+				parent->neg.params_from_dict(from);
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
 		}
 		bool operator==(const FakeParams& other) const {
 			auto this_it = this->begin();
@@ -1879,11 +1903,26 @@ public:
 			return parent->getPort(name);
 		}
 		void sort() {}
+		void reserve() {}
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
 			return parent->getMutPort(portname);
+		}
+		void operator=(dict<IdString, SigSpec> from) {
+			if (parent->is_legacy())
+				parent->legacy->connections_ = from;
+
+			if (parent->type == ID($not)) {
+				parent->not_.conns_from_dict(from);
+			} else if (parent->type == ID($pos)) {
+				parent->pos.conns_from_dict(from);
+			} else if (parent->type == ID($neg)) {
+				parent->neg.conns_from_dict(from);
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
 		}
 		int count(RTLIL::IdString portname) const {
 			try {
@@ -2063,6 +2102,10 @@ public:
 
 	bool has_memid() { return is_legacy() && legacy->has_memid(); }
 	bool is_mem_cell() { return is_legacy() && legacy->is_mem_cell(); }
+	bool has_keep_attr() const {
+		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute(ID::keep));
+	}
 	// TODO stub
 	void set_src_attribute(const std::string &src) { (void)src; };
 	bool known () {
