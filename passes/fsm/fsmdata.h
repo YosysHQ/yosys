@@ -48,7 +48,8 @@ struct FsmData
 		cell->parameters[ID::STATE_TABLE] = RTLIL::Const();
 
 		for (int i = 0; i < int(state_table.size()); i++) {
-			std::vector<RTLIL::State> &bits_table = cell->parameters[ID::STATE_TABLE].bits;
+			auto thing = cell->parameters[ID::STATE_TABLE];
+			std::vector<RTLIL::State> &bits_table = thing.bits;
 			std::vector<RTLIL::State> &bits_state = state_table[i].bits;
 			bits_table.insert(bits_table.end(), bits_state.begin(), bits_state.end());
 		}

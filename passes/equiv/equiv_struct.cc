@@ -162,7 +162,7 @@ struct EquivStructWorker
 			Cell *cell = module->cell(cell_name);
 			key.type = cell->type;
 
-			for (auto &it : cell->parameters)
+			for (auto &&it : cell->parameters)
 				key.parameters.push_back(it);
 			std::sort(key.parameters.begin(), key.parameters.end());
 

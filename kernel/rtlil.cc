@@ -3525,9 +3525,9 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 		throw std::out_of_range("Cell::setPort()");
 	}
 }
-const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) {
+RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
 	if (is_legacy())
-		return legacy->getPort(portname);
+		return legacy->connections_[portname];
 
 	if (type == ID($not)) {
 		if (portname == ID::A) {
@@ -3562,24 +3562,6 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 	}
 }
 
-// // TODO autogen
-// const RTLIL::Const RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
-// 	if (is_legacy())
-// 		return legacy->getParam(paramname);
-
-// 	if (type == ID($not)) {
-// 		if (paramname == ID::A_WIDTH) {
-// 			return RTLIL::Const(not_.a_width);
-// 		} else if (paramname == ID::Y_WIDTH) {
-// 			return RTLIL::Const(not_.y_width);
-// 		} else {
-// 			throw std::out_of_range("Cell::getParam()");
-// 		}
-// 	} else {
-// 		throw std::out_of_range("Cell::getParam()");
-// 	}
-// }
-
 const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
 	if (is_legacy())
 		return legacy->getParam(paramname);
@@ -3597,23 +3579,22 @@ const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) cons
 	}
 }
 
-// // Compatibility layer. Avoid using it
-// inline RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) const
-// {
-// 	if (is_legacy()) {
-// 		return legacy->getParam(paramname);
-// 	} else {
-// 		// TODO auto-generate this
-// 		if (type == ID($not)) {
-// 			if (paramname == ID::A_WIDTH) {
-// 				return RTLIL::Const(not_.a_width);
-// 			// ...else if...
-// 			} else {
-// 				throw std::out_of_range("Cell::getParam()");
-// 			}
-// 		}
-// 	}
-// }
+RTLIL::Const& RTLIL::Cell::getMutParam(const RTLIL::IdString &paramname) {
+	if (is_legacy())
+		return legacy->parameters[paramname];
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			return not_.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return not_.y_width;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getParam()");
+	}
+}
 
 RTLIL::OldCell::OldCell() : module(nullptr)
 {
@@ -4256,9 +4237,56 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	other->check();
 }
 
+void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec &other) const
+{
+	log_assert(width_ == other.width_);
+	log_assert(pattern.width_ == with.width_);
+
+	pattern.unpack();
+	with.unpack();
+	unpack();
+	other.unpack();
+
+	dict<RTLIL::SigBit, int> pattern_to_with;
+	for (int i = 0; i < GetSize(pattern.bits_); i++) {
+		if (pattern.bits_[i].wire != NULL) {
+			pattern_to_with.emplace(pattern.bits_[i], i);
+		}
+	}
+
+	for (int j = 0; j < GetSize(bits_); j++) {
+		auto it = pattern_to_with.find(bits_[j]);
+		if (it != pattern_to_with.end()) {
+			other.bits_[j] = with.bits_[it->second];
+		}
+	}
+
+	other.check();
+}
+
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules)
 {
 	replace(rules, this);
+}
+
+// TODO is this one even used?
+void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec &other) const
+{
+	cover("kernel.rtlil.sigspec.replace_dict");
+
+	log_assert(width_ == other.width_);
+
+	if (rules.empty()) return;
+	unpack();
+	other.unpack();
+
+	for (int i = 0; i < GetSize(bits_); i++) {
+		auto it = rules.find(bits_[i]);
+		if (it != rules.end())
+			other.bits_[i] = it->second;
+	}
+
+	other.check();
 }
 
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const

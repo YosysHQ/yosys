@@ -911,9 +911,11 @@ public:
 
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec &other) const;
 
 	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules);
 	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const;
+	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec &other) const;
 
 	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules);
 	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const;
@@ -1683,8 +1685,26 @@ public:
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
-		RTLIL::Const operator[](RTLIL::IdString name) {
-			return parent->getParam(name);
+		RTLIL::Const& operator[](RTLIL::IdString name) {
+			return parent->getMutParam(name);
+		}
+		bool operator==(const FakeParams& other) const {
+			auto this_it = this->begin();
+			auto other_it = other.begin();
+			while (this_it != this->end() && other_it != other.end()) {
+				if (*this_it != *other_it)
+					return false;
+				++this_it;
+				++other_it;
+			}
+			if (this_it != this->end() || other_it != other.end()) {
+				// One has more params than the other
+				return false;
+			}
+			return true;
+		}
+		bool operator!=(const FakeParams& other) const {
+			return !operator==(other);
 		}
 		int count(RTLIL::IdString name) const {
 			try {
@@ -1712,6 +1732,8 @@ public:
 		}
 		// The need for this function implies setPort will be used on incompat types
 		void erase(const RTLIL::IdString& paramname) { (void)paramname; }
+		// The need for this function implies setPort will be used on incompat types
+		void clear() {}
 		// AAA
 		class iterator {
 			typedef std::bidirectional_iterator_tag iterator_category;
@@ -1747,7 +1769,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.parameters()[position];
 				} else {
-					throw std::out_of_range("FakeParams.iterator::operator*()");
+					throw std::out_of_range("FakeParams::iterator::operator*()");
 				}
 			}
 			// std::pair<IdString, Const&> operator->() { return operator*(); }
@@ -1766,7 +1788,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.parameters()[position];
 				} else {
-					throw std::out_of_range("FakeParams.iterator::operator*() const");
+					throw std::out_of_range("FakeParams::iterator::operator*() const");
 				}
 			}
 		};
@@ -1789,7 +1811,7 @@ public:
 			} else if (parent->type == ID($not)) {
 				return iterator(parent, parent->not_.connections().size());
 			} else {
-				throw std::out_of_range("FakeParams.iterator::end()");
+				throw std::out_of_range("FakeParams::iterator::end()");
 			}
 		}
 		// AAA CONST ITERATOR
@@ -1827,7 +1849,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.parameters()[position];
 				} else {
-					throw std::out_of_range("FakeConns.const_iterator::operator*() const");
+					throw std::out_of_range("FakeParams::const_iterator::operator*() const");
 				}
 			}
 		};
@@ -1860,10 +1882,10 @@ public:
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
-		RTLIL::SigSpec operator[](RTLIL::IdString portname) {
-			return parent->getPort(portname);
+		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
+			return parent->getMutPort(portname);
 		}
-		int count(RTLIL::IdString portname) {
+		int count(RTLIL::IdString portname) const {
 			try {
 				parent->getPort(portname);
 			} catch (const std::out_of_range& e) {
@@ -1884,6 +1906,10 @@ public:
 				throw std::out_of_range("FakeConns::size()");
 			}
 		}
+		// The need for this function implies setPort will be used on incompat types
+		void erase(const RTLIL::IdString& portname) { (void)portname; }
+		// The need for this function implies setPort will be used on incompat types
+		void clear() {}
 		bool empty() {
 			return !size();
 		}
@@ -1923,7 +1949,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					throw std::out_of_range("FakeConns.iterator::operator*()");
+					throw std::out_of_range("FakeConns::iterator::operator*()");
 				}
 			}
 			// std::pair<IdString, SigSpec&> operator->() { return operator*(); }
@@ -1943,7 +1969,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					throw std::out_of_range("FakeConns.iterator::operator*() const");
+					throw std::out_of_range("FakeConns::iterator::operator*() const");
 				}
 			}
 		};
@@ -1966,7 +1992,7 @@ public:
 			} else if (parent->type == ID($not)) {
 				return iterator(parent, parent->not_.connections().size());
 			} else {
-				throw std::out_of_range("FakeConns.iterator::end()");
+				throw std::out_of_range("FakeConns::iterator::end()");
 			}
 		}
 		// AAA CONST ITERATOR
@@ -2004,7 +2030,7 @@ public:
 				} else if (parent->type == ID($not)) {
 					return parent->not_.connections()[position];
 				} else {
-					throw std::out_of_range("FakeConns.const_iterator::operator*() const");
+					throw std::out_of_range("FakeConns::const_iterator::operator*() const");
 				}
 			}
 		};
@@ -2072,7 +2098,7 @@ public:
 	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
 	// TODO is this reasonable at all?
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
+	RTLIL::SigSpec &getMutPort(const RTLIL::IdString &portname);
 	bool hasPort(const RTLIL::IdString &portname) {
 		return connections_.count(portname);
 	}
@@ -2081,8 +2107,7 @@ public:
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
 	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
-	// const RTLIL::Const& getParam(const RTLIL::IdString &paramname);
-	RTLIL::Const& getParam(const RTLIL::IdString &paramname);
+	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
 		return parameters.count(paramname);
 	}

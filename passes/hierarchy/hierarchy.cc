@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/compat.h"
 #include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -69,7 +70,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 						portnames.insert(conn.first);
 					portwidths[conn.first] = max(portwidths[conn.first], conn.second.size());
 				}
-				for (auto &para : cell->parameters)
+				for (auto &&para : cell->parameters)
 					parameters.insert(para.first);
 			}
 
@@ -334,7 +335,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
-		cell.type = abs_mod->derive(&design, cell.parameters);
+		cell.type = abs_mod->derive(&design, cell_to_mod_params(cell.parameters));
 		cell.parameters.clear();
 		RTLIL::Module *mod = design.module(cell.type);
 		log_assert(mod);
@@ -418,7 +419,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			          log_id(conn.first));
 		}
 	}
-	for (auto &param : cell.parameters) {
+	for (auto param : cell.parameters) {
 		if (read_id_num(param.first, &id)) {
 			if (id <= 0 || id > GetSize(mod.avail_parameters))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
@@ -528,7 +529,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		}
 
 		cell->type = mod->derive(design,
-					 cell->parameters,
+					 cell_to_mod_params(cell->parameters),
 					 if_expander.interfaces_to_add_to_submodule,
 					 if_expander.modports_used_in_submodule);
 		cell->parameters.clear();
@@ -1237,7 +1238,7 @@ struct HierarchyPass : public Pass {
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
+					IdString new_m_name = m->derive(design, cell_to_mod_params(cell->parameters), true);
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {
@@ -1420,7 +1421,7 @@ struct HierarchyPass : public Pass {
 					continue;
 
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
+					IdString new_m_name = m->derive(design, cell_to_mod_params(cell->parameters), true);
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {

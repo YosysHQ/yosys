@@ -23,6 +23,7 @@
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
 #include "kernel/timinginfo.h"
+#include "kernel/compat.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -113,7 +114,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 					//   but not its existence)
 					if (!inst_module->has_attribute(ID::abc9_flop))
 						continue;
-					derived_type = inst_module->derive(design, cell->parameters);
+					derived_type = inst_module->derive(design, cell_to_mod_params(cell->parameters));
 					derived_module = design->module(derived_type);
 					log_assert(derived_module);
 				}
@@ -170,7 +171,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_module = inst_module;
 			}
 			else {
-				derived_type = inst_module->derive(design, cell->parameters);
+				derived_type = inst_module->derive(design, cell_to_mod_params(cell->parameters));
 				derived_module = design->module(derived_type);
 				unused_derived.insert(derived_type);
 			}

@@ -21,6 +21,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/timinginfo.h"
+#include "kernel/compat.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -74,7 +75,7 @@ struct StaWorker
 				continue;
 			}
 
-			IdString derived_type = inst_module->derive(design, cell->parameters);
+			IdString derived_type = inst_module->derive(design, cell_to_mod_params(cell->parameters));
 			inst_module = design->module(derived_type);
 			log_assert(inst_module);
 

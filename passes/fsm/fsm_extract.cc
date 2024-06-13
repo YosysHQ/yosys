@@ -395,7 +395,8 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
 		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", autoidx++), unconn_sig.size());
-		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
+		auto &x = cell->connections_[cellport.second];
+		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), x);
 	}
 }
 

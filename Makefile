@@ -566,6 +566,7 @@ $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
+$(eval $(call add_include_file,kernel/compat.h))
 $(eval $(call add_include_file,kernel/cost.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
@@ -606,7 +607,7 @@ $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 # See -DTRACY_ENABLE
 OBJS += tracy/public/TracyClient.o
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/compat.o
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 ifeq ($(ENABLE_ZLIB),1)

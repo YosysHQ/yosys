@@ -165,7 +165,7 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("\n");
 	}
 	f << stringf("%s" "cell %s %s\n", indent.c_str(), cell->type.c_str(), cell->name.c_str());
-	for (auto &it : cell->parameters) {
+	for (auto &&it : cell->parameters) {
 		f << stringf("%s  parameter%s%s %s ", indent.c_str(),
 				(it.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "",
 				(it.second.flags & RTLIL::CONST_FLAG_REAL) != 0 ? " real" : "",
