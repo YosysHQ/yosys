@@ -1629,7 +1629,8 @@ struct RTLIL::Unary {
 };
 
 // NewCell
-struct RTLIL::Cell
+// TODO attributes
+struct RTLIL::Cell : RTLIL::AttrObject
 {
 	// TODO huh?
 	unsigned int hashidx_;
@@ -1642,7 +1643,8 @@ struct RTLIL::Cell
 public:
 
 	RTLIL::IdString type;
-	RTLIL::IdString name; // delete?
+	RTLIL::IdString name; // TODO delete?
+	RTLIL::Module* module; // TODO delete
 	bool has_attrs;
 	union {
 		RTLIL::Unary not_;
@@ -1652,9 +1654,13 @@ public:
 	};
 	struct FakeParams {
 		RTLIL::Cell* parent;
-		RTLIL::Const at(RTLIL::IdString name) {
+		// RTLIL::Const& at(RTLIL::IdString name) {
+		// 	return parent->getParam(name);
+		// }
+		const RTLIL::Const& at(RTLIL::IdString name) const {
 			return parent->getParam(name);
 		}
+		void sort() {}
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
@@ -1685,6 +1691,8 @@ public:
 		bool empty() {
 			return !size();
 		}
+		// The need for this function implies setPort will be used on incompat types
+		void erase(const RTLIL::IdString& paramname) { (void)paramname; }
 		// AAA
 		class iterator {
 			typedef std::bidirectional_iterator_tag iterator_category;
@@ -1823,9 +1831,13 @@ public:
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
-		RTLIL::SigSpec at(RTLIL::IdString portname) {
-			return parent->getPort(portname);
+		RTLIL::SigSpec at(RTLIL::IdString name) {
+			return parent->getPort(name);
 		}
+		const RTLIL::SigSpec at(RTLIL::IdString name) const {
+			return parent->getPort(name);
+		}
+		void sort() {}
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
@@ -1999,20 +2011,28 @@ public:
 	// TODO src loc? internal attrs?
 
 	// Canonical tag
-	bool is_legacy() {
+	bool is_legacy() const {
 		return has_attrs || is_legacy_type(type);
 	};
 
-	// The weird bits
 	bool has_memid() { return is_legacy() && legacy->has_memid(); }
 	bool is_mem_cell() { return is_legacy() && legacy->is_mem_cell(); }
 	// TODO stub
 	void set_src_attribute(const std::string &src) { (void)src; };
+	bool known () {
+		return is_legacy() ? legacy->known() : true;
+	}
 
 	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname);
+	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	bool hasPort(const RTLIL::IdString &portname) {
+		return connections_.count(portname);
+	}
+	// The need for this function implies setPort will be used on incompat types
+	void unsetPort(const RTLIL::IdString& portname) { (void)portname; }
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	const RTLIL::Const getParam(const RTLIL::IdString &paramname);
+	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
+	const RTLIL::Const& getParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) {
 		return parameters.count(paramname);
 	}

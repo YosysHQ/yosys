@@ -703,7 +703,7 @@ namespace {
 		res.packed = true;
 		res.cell = cell;
 		res.attributes = cell->attributes;
-		Const &init = cell->parameters.at(ID::INIT);
+		const Const &init = cell->parameters.at(ID::INIT);
 		if (!init.is_fully_undef()) {
 			int pos = 0;
 			while (pos < res.size) {

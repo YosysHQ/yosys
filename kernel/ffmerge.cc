@@ -345,7 +345,7 @@ void FfMergeHelper::set(FfInitVals *initvals_, RTLIL::Module *module_)
 			for (int i = 0; i < GetSize(q); i++)
 				dff_driver[q[i]] = std::make_pair(cell, i);
 		}
-		for (auto &conn : cell->connections())
+		for (auto &&conn : cell->connections_)
 			if (!cell->known() || cell->input(conn.first))
 				for (auto bit : (*sigmap)(conn.second))
 					sigbit_users_count[bit]++;

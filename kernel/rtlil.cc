@@ -2154,8 +2154,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	log_assert(count_id(cell->name) == 0);
 	log_assert(refcount_cells_ == 0);
 	cells_[cell->name] = cell;
-	// TODO
-	// cell->module = this;
+	cell->module = this;
 }
 
 void RTLIL::Module::add(RTLIL::Process *process)
@@ -3475,7 +3474,7 @@ RTLIL::Process::Process() : module(nullptr)
 	hashidx_ = hashidx_count;
 }
 
-RTLIL::Cell::Cell()
+RTLIL::Cell::Cell() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -3510,7 +3509,7 @@ void RTLIL::Cell::setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal
 		throw std::out_of_range("Cell::setPort()");
 	}
 }
-const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) {
+const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) const {
 	if (is_legacy())
 		return legacy->getPort(portname);
 
@@ -3547,19 +3546,49 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 	}
 }
 
-// TODO autogen
-const RTLIL::Const RTLIL::Cell::getParam(const RTLIL::IdString &paramname) {
+// // TODO autogen
+// const RTLIL::Const RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
+// 	if (is_legacy())
+// 		return legacy->getParam(paramname);
+
+// 	if (type == ID($not)) {
+// 		if (paramname == ID::A_WIDTH) {
+// 			return RTLIL::Const(not_.a_width);
+// 		} else if (paramname == ID::Y_WIDTH) {
+// 			return RTLIL::Const(not_.y_width);
+// 		} else {
+// 			throw std::out_of_range("Cell::getParam()");
+// 		}
+// 	} else {
+// 		throw std::out_of_range("Cell::getParam()");
+// 	}
+// }
+
+const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) {
 	if (is_legacy())
 		return legacy->getParam(paramname);
 
 	if (type == ID($not)) {
 		if (paramname == ID::A_WIDTH) {
-			// Notice using the trivial default constructor
-			// This is to reduce code changes later when we replace Const
-			// with int/bool where possible in internal cell type variants
-			return RTLIL::Const(not_.a_width);
+			return not_.a_width;
 		} else if (paramname == ID::Y_WIDTH) {
-			return RTLIL::Const(not_.y_width);
+			return not_.y_width;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getParam()");
+	}
+}
+const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
+	if (is_legacy())
+		return legacy->getParam(paramname);
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			return not_.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return not_.y_width;
 		} else {
 			throw std::out_of_range("Cell::getParam()");
 		}
@@ -3750,7 +3779,7 @@ void RTLIL::Cell::check()
 	checker.check();
 #endif
 }
-int bigboy() {return sizeof(RTLIL::Cell);}
+
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
 	if (!type.begins_with("$") || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
