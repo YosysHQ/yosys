@@ -66,7 +66,8 @@ match add
 	define <bool> offset_negative ((port(add, constport).bits().back() == State::S1) ^ (is_sub && varport_A))
 
 	// checking some value boundaries as well:
-	// data[...-c +:W1] is fine for +/-var (pad at LSB, all data still accessible)
+	// data[...-c +:W1] is fine for any signed var (pad at LSB, all data still accessible)
+	// unsigned shift may underflow (eg var-3 with var<3) -> cannot be converted
 	// data[...+c +:W1] is only fine for +var(add) and var unsigned
 	// (+c cuts lower C bits, making them inaccessible, a signed var could try to access them)
 	// either its an add or the variable port is A (it must be positive)
@@ -74,6 +75,8 @@ match add
 
 	// -> data[var+c +:W1] (with var signed) is illegal
 	filter !(!offset_negative && varport_signed)
+	// -> data >> (var-c) (with var unsigned) is illegal
+	filter !(offset_negative && !varport_signed)
 
 	// state-variables are assigned at the end only:
 	// shift the log2scale offset in-front of add to get true value: (var+c)<<N -> (var<<N)+(c<<N)
