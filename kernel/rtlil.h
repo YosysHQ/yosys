@@ -1776,13 +1776,13 @@ public:
 				throw std::out_of_range("FakeParams::size()");
 			}
 		}
-		bool empty() {
+		bool empty() const {
 			return !size();
 		}
 		// The need for this function implies setPort will be used on incompat types
-		void erase(const RTLIL::IdString& paramname) { (void)paramname; }
+		void erase(const RTLIL::IdString& paramname) const { (void)paramname; }
 		// The need for this function implies setPort will be used on incompat types
-		void clear() {}
+		void clear() const {}
 		// AAA
 		class iterator {
 			typedef std::bidirectional_iterator_tag iterator_category;
@@ -1821,8 +1821,8 @@ public:
 					throw std::out_of_range("FakeParams::iterator::operator*()");
 				}
 			}
-			// std::pair<IdString, Const&> operator->() { return operator*(); }
-			// const std::pair<IdString, Const&> operator->() const { return operator*(); }
+			std::pair<IdString, Const&> operator->() { return operator*(); }
+			const std::pair<IdString, Const&> operator->() const { return operator*(); }
 			const std::pair<IdString, Const&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
@@ -1901,6 +1901,8 @@ public:
 					throw std::out_of_range("FakeParams::const_iterator::operator*() const");
 				}
 			}
+			std::pair<IdString, Const&> operator->() { return operator*(); }
+			const std::pair<IdString, Const&> operator->() const { return operator*(); }
 		};
 		const_iterator begin() const {
 				return const_iterator(parent, 0);
@@ -1926,7 +1928,7 @@ public:
 	};
 	struct FakeConns {
 		RTLIL::Cell* parent;
-		RTLIL::SigSpec at(RTLIL::IdString name) {
+		RTLIL::SigSpec& at(RTLIL::IdString name) {
 			return parent->getMutPort(name);
 		}
 		const RTLIL::SigSpec& at(RTLIL::IdString name) const {
@@ -2021,8 +2023,8 @@ public:
 		// The need for this function implies setPort will be used on incompat types
 		void erase(const RTLIL::IdString& portname) { (void)portname; }
 		// The need for this function implies setPort will be used on incompat types
-		void clear() {}
-		bool empty() {
+		void clear() const {}
+		bool empty() const {
 			return !size();
 		}
 		// AAA
@@ -2064,8 +2066,8 @@ public:
 					throw std::out_of_range("FakeConns::iterator::operator*()");
 				}
 			}
-			// std::pair<IdString, SigSpec&> operator->() { return operator*(); }
-			// const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
+			std::pair<IdString, SigSpec&> operator->() { return operator*(); }
+			const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
 			const std::pair<IdString, SigSpec&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
@@ -2145,6 +2147,8 @@ public:
 					throw std::out_of_range("FakeConns::const_iterator::operator*() const");
 				}
 			}
+			std::pair<IdString, SigSpec&> operator->() { return operator*(); }
+			const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
 		};
 		const_iterator begin() const {
 				return const_iterator(parent, 0);
@@ -2175,7 +2179,7 @@ public:
 
 	// Canonical tag
 	bool is_legacy() const {
-		return has_attrs || is_legacy_type(type);
+		return is_legacy_type(type);
 	};
 
 	bool has_memid() { return is_legacy() && legacy->has_memid(); }
@@ -2186,7 +2190,7 @@ public:
 	}
 	// TODO stub
 	void set_src_attribute(const std::string &src) { (void)src; };
-	bool known () {
+	bool known () const {
 		return is_legacy() ? legacy->known() : true;
 	}
 	bool input(const RTLIL::IdString &portname) const {
@@ -2220,7 +2224,7 @@ public:
 	// TODO is this reasonable at all?
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
 	RTLIL::SigSpec &getMutPort(const RTLIL::IdString &portname);
-	bool hasPort(const RTLIL::IdString &portname) {
+	bool hasPort(const RTLIL::IdString &portname) const {
 		return connections_.count(portname);
 	}
 	// The need for this function implies setPort will be used on incompat types
@@ -2229,7 +2233,7 @@ public:
 	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
 	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
-	bool hasParam(const RTLIL::IdString &paramname) {
+	bool hasParam(const RTLIL::IdString &paramname) const {
 		return parameters.count(paramname);
 	}
 	// The need for this function implies setPort will be used on incompat types

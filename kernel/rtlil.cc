@@ -2428,26 +2428,29 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
 	// std::cout << "alloc " << (long long)cell << " called " << cell->name.c_str() << "\n";
+	cell->module = this;
 	cell->name = name;
 	cell->type = type;
 	if (RTLIL::Cell::is_legacy_type(type)) {
-		auto legOldCell = new RTLIL::OldCell;
-		legOldCell->name = name;
-		legOldCell->type = type;
+		std::cout << "new RTLIL::OldCell\n";
+		cell->legacy = new RTLIL::OldCell;
+		cell->legacy->name = name;
+		cell->legacy->type = type;
 	}
 	add(cell);
 	return cell;
 }
 
-// TODO ? brokey
-// RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::OldCell *other)
-// {
-// 	RTLIL::Cell *cell = addCell(name, other->type);
-// 	cell->connections_ = other->connections_;
-// 	cell->parameters = other->parameters;
-// 	cell->attributes = other->attributes;
-// 	return cell;
-// }
+RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
+{
+	RTLIL::Cell *cell = addCell(name, other->type);
+	cell->module = this;
+	cell->connections_ = other->connections_;
+	cell->parameters = other->parameters;
+	cell->attributes = other->attributes;
+	add(cell);
+	return cell;
+}
 
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
 {
@@ -2493,9 +2496,9 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
-// DEF_METHOD(Not,        sig_a.size(), ID($not))
-// DEF_METHOD(Pos,        sig_a.size(), ID($pos))
-// DEF_METHOD(Neg,        sig_a.size(), ID($neg))
+DEF_METHOD(Not,        sig_a.size(), ID($not))
+DEF_METHOD(Pos,        sig_a.size(), ID($pos))
+DEF_METHOD(Neg,        sig_a.size(), ID($neg))
 DEF_METHOD(ReduceAnd,  1, ID($reduce_and))
 DEF_METHOD(ReduceOr,   1, ID($reduce_or))
 DEF_METHOD(ReduceXor,  1, ID($reduce_xor))

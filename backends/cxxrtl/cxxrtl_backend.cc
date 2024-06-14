@@ -2326,7 +2326,8 @@ struct CxxrtlWorker {
 		f << escape_c_string(data);
 	}
 
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+	template <typename SmellsLikeDict>
+	void dump_metadata_map(const SmellsLikeDict &metadata_map) {
 		if (metadata_map.empty()) {
 			f << "metadata_map()";
 		} else {

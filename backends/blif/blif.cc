@@ -141,9 +141,10 @@ struct BlifDumper
 		return "subckt";
 	}
 
-	void dump_params(const char *command, dict<IdString, Const> &params)
+	template <typename SmellsLikeDict>
+	void dump_params(const char *command, SmellsLikeDict &params)
 	{
-		for (auto &param : params) {
+		for (auto param : params) {
 			f << stringf("%s %s ", command, log_id(param.first));
 			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 				std::string str = param.second.decode_string();

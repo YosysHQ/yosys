@@ -409,7 +409,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
-					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
+					GetSize(cell->getPort(ID::B)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
 			if (cell->type.in(ID($mux), ID($_MUX_)) &&
 					cell->getPort(ID::A) == SigSpec(State::S1) && cell->getPort(ID::B) == SigSpec(State::S0))

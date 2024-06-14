@@ -45,10 +45,10 @@ DISABLE_SPAWN := 0
 DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
-SANITIZER =
+# SANITIZER =
 # SANITIZER = address
 # SANITIZER = memory
-# SANITIZER = undefined
+SANITIZER = undefined
 # SANITIZER = cfi
 
 PROGRAM_PREFIX :=

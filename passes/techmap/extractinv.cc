@@ -102,9 +102,9 @@ struct ExtractinvPass : public Pass {
 				if (it2 == cell->parameters.end())
 					continue;
 				SigSpec sig = port.second;
-				if (it2->second.size() != sig.size())
+				if ((*it2).second.size() != sig.size())
 					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", log_id(module->name), log_id(cell->type), log_id(port.first), log_id(param_name));
-				RTLIL::Const invmask = it2->second;
+				RTLIL::Const invmask = (*it2).second;
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
 					continue;
