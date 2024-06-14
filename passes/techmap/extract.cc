@@ -103,6 +103,8 @@ public:
 			return true;
 		}
 
+		// TODO: add an optional check to make sure the port-assignment is in one continous block, not in chunks
+
 		if (!ignore_parameters) {
 			std::map<RTLIL::IdString, RTLIL::Const> needle_param, haystack_param;
 			for (auto &it : needleCell->parameters)
@@ -286,7 +288,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	return true;
 }
 
-RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match)
+RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit::Solver::Result &match, bool minimize_port_width=false)
 {
 	SigMap sigmap(needle);
 	SigSet<std::pair<RTLIL::IdString, int>> sig2port;
@@ -296,10 +298,12 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 
 	// create cell ports
 	for (auto wire : needle->wires()) {
+		// for all ports in the needle module
 		if (wire->port_id > 0) {
+			cell->setPort(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
+			// remember all bits
 			for (int i = 0; i < wire->width; i++)
 				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<RTLIL::IdString, int>(wire->name, i));
-			cell->setPort(wire->name, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
 		}
 	}
 
@@ -315,29 +319,57 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 
 		for (auto &conn : needle_cell->connections()) {
 			RTLIL::SigSpec nsig = sigmap(conn.second);
-			if (mapping.portMapping.count(conn.first.str()) > 0 && sig2port.has(sigmap(nsig))) {
-				// copy parameters from haystack to new needle cell
-				RTLIL::IdString nconn_width = RTLIL::escape_id(conn.first.str() + "_WIDTH");
-				RTLIL::IdString nconn_sgn   = RTLIL::escape_id(conn.first.str() + "_SIGNED");
-				RTLIL::IdString hport_name  = mapping.portMapping[conn.first.str()];
-				cell->setParam(nconn_width, haystack_cell->getParam(RTLIL::escape_id(hport_name.str() + "_WIDTH")));
+			std::string nsig_name = conn.first.str();
+			// if it is a mapped port and connects to a wire/port in the needle module
+			if (mapping.portMapping.count(nsig_name) > 0 && sig2port.has(sigmap(nsig))) {
+				RTLIL::IdString hport_name  = mapping.portMapping[nsig_name];
+				
+				// copy signed-ness from haystack to new needle cell
+				RTLIL::IdString nconn_sgn   = RTLIL::escape_id(nsig_name + "_SIGNED");
 				if(haystack_cell->hasParam(RTLIL::escape_id(hport_name.str() + "_SIGNED"))) {
-					cell->setParam(nconn_sgn,   haystack_cell->getParam(RTLIL::escape_id(hport_name.str() + "_SIGNED")));
+					cell->setParam(nconn_sgn, haystack_cell->getParam(RTLIL::escape_id(hport_name.str() + "_SIGNED")));
+				} else {
+					cell->setParam(nconn_sgn, 0);
 				}
 				// add and connect ports
 				RTLIL::SigSpec hsig = haystack_cell->getPort(hport_name);
-				for (int i = 0; i < nsig.size() && i < hsig.size(); i++)
-				for (auto &port : sig2port.find(nsig[i])) {
-					RTLIL::SigSpec bitsig = hsig.extract(i, 1);
-					RTLIL::SigSpec new_sig = cell->getPort(port.first);
-					new_sig.replace(port.second, bitsig);
-					cell->setPort(port.first, new_sig);
-					
+				
+				for (int i = 0; i < nsig.size() && i < hsig.size(); i++) { // for each bit
+					// for each needle port connected to wire-bit
+					for (auto &port : sig2port.find(nsig[i])) {
+						RTLIL::SigSpec bitsig = hsig.extract(i, 1);
+						RTLIL::SigSpec new_sig = cell->getPort(port.first);
+						new_sig.replace(port.second, bitsig);
+						cell->setPort(port.first, new_sig);
+					}
 				}
 			}
 		}
-
 		haystack->remove(haystack_cell);
+	}
+
+	// for all connections/port of the new cell
+	for (auto &conn : cell->connections()) {
+		// for all ports in the needle module
+		RTLIL::IdString port_name = conn.first;
+		RTLIL::SigSpec port = cell->getPort(conn.first);
+		if(minimize_port_width) {
+			// starting from the MSB, remove until first non-constant bit
+			int msb = port.size()-1;
+			for (; msb >= 0; msb--) {
+				if(port[msb].is_wire())
+					break;
+			}
+			if(msb > 0 && msb < port.size()-1) {
+				log("removing in %s (width: %d) from bit %d-%d\n", port_name.c_str(), port.size(), port.size()-1, msb+1);
+				log("  remove(%d, %d)\n", msb+1, port.size()-1-msb);
+				port.remove(msb+1, port.size()-1-msb);
+				log("removing in %s (width: %d) from bit %d-%d\n", port_name.c_str(), port.size(), port.size()-1, msb+1);
+			}
+		}
+		
+		RTLIL::IdString port_width = RTLIL::escape_id(port_name.str() + "_WIDTH");
+		cell->setParam(port_width, port.size());
 	}
 
 	return cell;
@@ -439,7 +471,8 @@ struct ExtractPass : public Pass {
 		log("        don't consider internal signals with more than <num> connections\n");
 		log("\n");
 		log("    -min_port_width <num>\n");
-		log("        match all subcircuits with port-sizes between needle port widths and this number\n");
+		log("        match all subcircuits with port widths starting from <num>");
+		log("        up to the needle port width defined in the map-design\n");
 		log("        default: -1 (exact port width matching)\n");
 		log("\n");
 		log("The modules in the map file may have the attribute 'extract_order' set to an\n");
@@ -692,7 +725,7 @@ struct ExtractPass : public Pass {
 							log(" %s:%s", it2.first.c_str(), it2.second.c_str());
 						log("\n");
 					}
-					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
+					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result, (min_port_width >= 0));
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
 					log("  new cell: %s\n", log_id(new_cell->name));
 				}
