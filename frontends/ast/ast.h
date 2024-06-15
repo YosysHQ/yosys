@@ -17,12 +17,7 @@
  *
  *  ---
  *
- *  This is the AST frontend library.
- *
- *  The AST frontend library is not a frontend on it's own but provides a
- *  generic abstract syntax tree (AST) abstraction for HDL code and can be
- *  used by HDL frontends. See "ast.h" for an overview of the API and the
- *  Verilog frontend for an usage example.
+ *  This is support code for the Verilog frontend at frontends/verilog
  *
  */
 

@@ -1582,7 +1582,7 @@ struct module {
 
 	// Compatibility method.
 #if __has_attribute(deprecated)
-	__attribute__((deprecated("Use `debug_info(path, &items, /*scopes=*/nullptr);` instead. (`path` could be \"top \".)")))
+	__attribute__((deprecated("Use `debug_info(&items, /*scopes=*/nullptr, path);` instead.")))
 #endif
 	void debug_info(debug_items &items, std::string path) {
 		debug_info(&items, /*scopes=*/nullptr, path);

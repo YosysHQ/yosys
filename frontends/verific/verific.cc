@@ -3687,6 +3687,12 @@ struct VerificPass : public Pass {
 					verific_error_msg.clear();
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}
+			char* fn;
+			int i = 0;
+
+			FOREACH_ARRAY_ITEM(&file_names, i, fn) {
+				free(fn);
+			}
 			set_modules_to_blackbox(map, work, flag_lib);
 			verific_import_pending = true;
 			goto check_error;
