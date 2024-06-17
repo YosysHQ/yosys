@@ -25,7 +25,7 @@ Formatting of code
 C++ Language
 -------------
 
-Yosys is written in C++11.
+Yosys is written in C++17.
 
 In general Yosys uses "int" instead of "size_t". To avoid compiler
 warnings for implicit type casts, always use "GetSize(foobar)" instead
