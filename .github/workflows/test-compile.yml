@@ -64,11 +64,11 @@ jobs:
           $CXX --version
 
       # minimum standard
-      - name: Build C++11
+      - name: Build C++17
         shell: bash
         run: |
           make config-$CC_SHORT
-          make -j$procs CXXSTD=c++11 compile-only
+          make -j$procs CXXSTD=c++17 compile-only
 
       # maximum standard, only on newest compilers
       - name: Build C++20
