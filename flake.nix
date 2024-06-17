@@ -18,7 +18,7 @@
         yosys = pkgs.llvmPackages.libcxxStdenv.mkDerivation {
           name = "yosys";
           src = ./. ;
-          buildInputs = with pkgs; [ bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git pkg-configUpstream tracy ];
+          buildInputs = with pkgs; [ bison flex libffi tcl readline python3 zlib git pkg-configUpstream tracy ];
           checkInputs = with pkgs; [ gtest ];
           propagatedBuildInputs = [ abc-verifier ];
           preConfigure = "make config-clang";
@@ -41,8 +41,9 @@
       in {
         packages.default = yosys;
         defaultPackage = yosys;
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier tracy ];
+        devShell = pkgs.mkShell.override {stdenv = pkgs.llvmPackages.libcxxStdenv; } {
+          buildInputs = with pkgs; [ bison flex libffi tcl readline python3 zlib git pkg-configUpstream tracy ];
+          propagatedBuildInputs = [ abc-verifier ];
         };
       }
     );
