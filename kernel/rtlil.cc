@@ -2427,15 +2427,26 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
-	// std::cout << "alloc " << (long long)cell << " called " << cell->name.c_str() << "\n";
-	cell->module = this;
+	std::cout << "RTLIL::Module::addCell " << name.c_str() << " " << type.c_str() << "to module " << this->name.c_str() << "\n";
+	log("ptr 0x%016X\n", cell);
 	cell->name = name;
 	cell->type = type;
 	if (RTLIL::Cell::is_legacy_type(type)) {
-		std::cout << "new RTLIL::OldCell\n";
 		cell->legacy = new RTLIL::OldCell;
 		cell->legacy->name = name;
 		cell->legacy->type = type;
+		cell->legacy->module = this;
+		log_assert(this);
+	} else {
+		// Due to the tagged union deal,
+		// we don't get this automagically,
+		// so let's use "placement new"
+		for (auto param: cell->parameters) {
+			new (&param.second) Const();
+		}
+		for (auto conn: cell->connections_) {
+			new (&conn.second) SigSpec();
+		}
 	}
 	add(cell);
 	return cell;
@@ -2448,7 +2459,6 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
-	add(cell);
 	return cell;
 }
 
@@ -3508,10 +3518,27 @@ void RTLIL::Cell::setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal
 		} else {
 			throw std::out_of_range("Cell::setPort()");
 		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			pos.a = signal;
+		} else if (portname == ID::Y) {
+			pos.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			neg.a = signal;
+		} else if (portname == ID::Y) {
+			neg.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
 	} else {
 		throw std::out_of_range("Cell::setPort()");
 	}
 }
+
 const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) const {
 	if (is_legacy())
 		return legacy->getPort(portname);
@@ -3521,6 +3548,22 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 			return not_.a;
 		} else if (portname == ID::Y) {
 			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			return pos.a;
+		} else if (portname == ID::Y) {
+			return pos.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			return neg.a;
+		} else if (portname == ID::Y) {
+			return neg.y;
 		} else {
 			throw std::out_of_range("Cell::setPort()");
 		}
@@ -3537,6 +3580,22 @@ RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
 			return not_.a;
 		} else if (portname == ID::Y) {
 			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			return pos.a;
+		} else if (portname == ID::Y) {
+			return pos.y;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			return neg.a;
+		} else if (portname == ID::Y) {
+			return neg.y;
 		} else {
 			throw std::out_of_range("Cell::setPort()");
 		}
@@ -3557,6 +3616,28 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 			not_.a_width = value.as_int();
 		} else if (paramname == ID::Y_WIDTH) {
 			not_.y_width = value.as_int();
+		} else if (paramname == ID::A_SIGNED) {
+			not_.is_signed = value.as_int();
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			pos.a_width = value.as_int();
+		} else if (paramname == ID::Y_WIDTH) {
+			pos.y_width = value.as_int();
+		} else if (paramname == ID::A_SIGNED) {
+			pos.is_signed = value.as_int();
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			neg.a_width = value.as_int();
+		} else if (paramname == ID::Y_WIDTH) {
+			neg.y_width = value.as_int();
+		} else if (paramname == ID::A_SIGNED) {
+			neg.is_signed = value.as_int();
 		} else {
 			throw std::out_of_range("Cell::setParam()");
 		}
@@ -3566,14 +3647,38 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 }
 
 const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
+	log_debug("paramname %s, type %s\n", paramname.c_str(), type.c_str());
 	if (is_legacy())
 		return legacy->getParam(paramname);
+	log_debug("fr");
 
 	if (type == ID($not)) {
 		if (paramname == ID::A_WIDTH) {
 			return not_.a_width;
 		} else if (paramname == ID::Y_WIDTH) {
 			return not_.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return not_.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			return pos.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return pos.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return pos.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			return neg.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return neg.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return neg.is_signed;
 		} else {
 			throw std::out_of_range("Cell::getParam()");
 		}
@@ -3591,11 +3696,33 @@ RTLIL::Const& RTLIL::Cell::getMutParam(const RTLIL::IdString &paramname) {
 			return not_.a_width;
 		} else if (paramname == ID::Y_WIDTH) {
 			return not_.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return not_.is_signed;
 		} else {
-			throw std::out_of_range("Cell::getParam()");
+			throw std::out_of_range("Cell::getMutParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			return pos.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return pos.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return pos.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getMutParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			return neg.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return neg.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return neg.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getMutParam()");
 		}
 	} else {
-		throw std::out_of_range("Cell::getParam()");
+		throw std::out_of_range("Cell::getMutParam()");
 	}
 }
 

@@ -1721,6 +1721,7 @@ public:
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::Const& operator[](RTLIL::IdString name) {
+			log("operator[] on %s type %s\n", name.c_str(), parent->type.c_str());
 			return parent->getMutParam(name);
 		}
 		void operator=(dict<IdString, Const> from) {
@@ -1965,6 +1966,7 @@ public:
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
+			log("operator[] on %s type %s\n", portname.c_str(), parent->type.c_str());
 			return parent->getMutPort(portname);
 		}
 		void operator=(dict<IdString, SigSpec> from) {
@@ -2225,7 +2227,8 @@ public:
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
 	RTLIL::SigSpec &getMutPort(const RTLIL::IdString &portname);
 	bool hasPort(const RTLIL::IdString &portname) const {
-		return connections_.count(portname);
+		// TODO hack?
+		return connections_.count(portname) && !getPort(portname).empty();
 	}
 	// The need for this function implies setPort will be used on incompat types
 	void unsetPort(const RTLIL::IdString& portname) { (void)portname; }
@@ -2234,7 +2237,7 @@ public:
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
 	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) const {
-		return parameters.count(paramname);
+		return parameters.count(paramname) && !getParam(paramname).empty();
 	}
 	// The need for this function implies setPort will be used on incompat types
 	void unsetParam(const RTLIL::IdString& paramname) { (void)paramname; }
