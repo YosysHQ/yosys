@@ -3246,7 +3246,7 @@ struct VerificPass : public Pass {
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: add to improve optimization (QoR)
+			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
