@@ -1614,7 +1614,7 @@ public:
 };
 
 
-// $not
+// $not etc
 struct RTLIL::Unary {
 	SigSpec a;
 	SigSpec y;
@@ -1662,7 +1662,6 @@ public:
 	RTLIL::IdString type;
 	RTLIL::IdString name; // TODO delete?
 	RTLIL::Module* module; // TODO delete
-	bool has_attrs;
 	union {
 		RTLIL::Unary not_;
 		RTLIL::Unary pos;
@@ -1869,8 +1868,8 @@ public:
 			typedef std::input_iterator_tag iterator_category;
 			typedef std::pair<IdString, Const> value_type;
 			typedef ptrdiff_t difference_type;
-			typedef std::pair<IdString, Const*> pointer;
-			typedef std::pair<IdString, Const&> reference;
+			typedef std::pair<IdString, const Const*> pointer;
+			typedef std::pair<IdString, const Const&> reference;
 			Cell* parent;
 			int position;
 		public:
@@ -1885,7 +1884,7 @@ public:
 			bool operator!=(const const_iterator &other) const {
 				return !(*this == other);
 			}
-			const std::pair<IdString, Const&> operator*() const {
+			const std::pair<IdString, const Const&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->parameters.begin();
 					it += position;
@@ -1902,8 +1901,8 @@ public:
 					throw std::out_of_range("FakeParams::const_iterator::operator*() const");
 				}
 			}
-			std::pair<IdString, Const&> operator->() { return operator*(); }
-			const std::pair<IdString, Const&> operator->() const { return operator*(); }
+			// std::pair<IdString, Const&> operator->() { return operator*(); }
+			const std::pair<IdString, const Const&> operator->() const { return operator*(); }
 		};
 		const_iterator begin() const {
 				return const_iterator(parent, 0);
@@ -2116,8 +2115,8 @@ public:
 			typedef std::input_iterator_tag iterator_category;
 			typedef std::pair<IdString, SigSpec> value_type;
 			typedef ptrdiff_t difference_type;
-			typedef std::pair<IdString, SigSpec*> pointer;
-			typedef std::pair<IdString, SigSpec&> reference;
+			typedef std::pair<IdString, const SigSpec*> pointer;
+			typedef std::pair<IdString, const SigSpec&> reference;
 			Cell* parent;
 			int position;
 		public:
@@ -2132,7 +2131,7 @@ public:
 			bool operator!=(const const_iterator &other) const {
 				return !(*this == other);
 			}
-			const std::pair<IdString, SigSpec&> operator*() const {
+			const std::pair<IdString, const SigSpec&> operator*() const {
 				if (parent->is_legacy()) {
 					auto it = parent->legacy->connections_.begin();
 					it += position;
@@ -2149,8 +2148,8 @@ public:
 					throw std::out_of_range("FakeConns::const_iterator::operator*() const");
 				}
 			}
-			std::pair<IdString, SigSpec&> operator->() { return operator*(); }
-			const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
+			// std::pair<IdString, const SigSpec&> operator->() { return operator*(); }
+			const std::pair<IdString, const SigSpec&> operator->() const { return operator*(); }
 		};
 		const_iterator begin() const {
 				return const_iterator(parent, 0);

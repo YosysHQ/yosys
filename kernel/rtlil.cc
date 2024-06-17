@@ -28,6 +28,7 @@
 #include <string.h>
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -2424,6 +2425,20 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	return wire;
 }
 
+template<typename AAAA>
+void scream(AAAA* aaa) {
+	unsigned char *ptr = reinterpret_cast<unsigned char*>(aaa);
+    for (size_t i = 0; i < sizeof(AAAA); ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(ptr[i]) << ' ';
+    }
+    std::cout << std::endl;
+}
+template<typename AAAA>
+void scream(const char* ctx, AAAA* aaa) {
+	log("%s\n", ctx);
+	scream(aaa); 
+}
+
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
@@ -2431,6 +2446,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 	log("ptr 0x%016X\n", cell);
 	cell->name = name;
 	cell->type = type;
+	scream("addCell pre", cell);
 	if (RTLIL::Cell::is_legacy_type(type)) {
 		cell->legacy = new RTLIL::OldCell;
 		cell->legacy->name = name;
@@ -2448,6 +2464,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 			new (&conn.second) SigSpec();
 		}
 	}
+	scream("addCell post", cell);
 	add(cell);
 	return cell;
 }
