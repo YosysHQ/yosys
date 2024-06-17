@@ -2696,183 +2696,217 @@ struct VerificExtNets
 	}
 };
 
-std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
+void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED)
 {
-	verific_sva_fsm_limit = 16;
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	VerificExtensions::ElaborateAndRewrite(work, parameters);
+	verific_error_msg.clear();
+#endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	if (!ppfile.empty())
+		veri_file::PrettyPrint(ppfile.c_str(), nullptr, work);
+#endif
 
-	std::map<std::string,Netlist*> nl_todo, nl_done;
-	Array *netlists = NULL;
 	Array vhdl_libs;
 #ifdef VERIFIC_VHDL_SUPPORT
-	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
+	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work, 1);
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
 #endif
 	Array veri_libs;
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
+	VeriLibrary *veri_lib = veri_file::GetLibrary(work, 1);
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 #endif
 
-	Map verific_params(STRING_HASH);
-	for (const auto &i : parameters)
-		verific_params.Insert(i.first.c_str(), i.second.c_str());
-
-	if (top.empty()) {
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-		VerificExtensions::ElaborateAndRewrite("work", &verific_params);
-		verific_error_msg.clear();
-#endif
 #ifdef VERIFIC_HIER_TREE_SUPPORT
-		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
+	if (show_message)
+		log("Running hier_tree::ElaborateAll().\n");
+	Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, parameters);
+	Netlist *nl;
+	int i;
+
+	FOREACH_ARRAY_ITEM(netlists, i, nl)
+		nl_todo->emplace(nl->CellBaseName(), nl);
+	delete netlists;
 #else
-		if (parameters.size())
-			log_warning("Please note that parameters are not propagated during import.\n");
+	if (parameters->Size())
+		log_warning("Please note that parameters are not propagated during import.\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		veri_file::ElaborateAll("work");
+	if (show_message)
+		log("Running veri_file::ElaborateAll().\n");
+	veri_file::ElaborateAll(work);
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
-		vhdl_file::ElaborateAll("work");
+	if (show_message)
+		log("Running vhdl_file::ElaborateAll().\n");
+	vhdl_file::ElaborateAll(work);
 #endif
-		netlists = new Array(1);
-		MapIter mi ;
-		Verific::Cell *c ;
-		MapIter it ;
-		Library *l ;
-		FOREACH_LIBRARY_OF_LIBSET(Libset::Global(),it,l) {
-			if (l == Library::Primitives() || l == Library::Operators()) continue;
-			FOREACH_CELL_OF_LIBRARY(l,mi,c) {
-				MapIter ni ;
-				Netlist *nl;
-				FOREACH_NETLIST_OF_CELL(c, ni, nl) {
-					if (nl)
-						netlists->InsertLast(nl);
-				}
+	MapIter mi ;
+	Verific::Cell *c ;
+	MapIter it ;
+	Library *l ;
+	FOREACH_LIBRARY_OF_LIBSET(Libset::Global(),it,l) {
+		if (l == Library::Primitives() || l == Library::Operators()) continue;
+		FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+			MapIter ni ;
+			Netlist *nl;
+			FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+				if (nl)
+					nl_todo->emplace(nl->CellBaseName(), nl);
 			}
 		}
-#endif
 	}
-	else {
+#endif
+}
+
+std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED, std::vector<std::string> &tops)
+{
+	std::set<std::string> top_mod_names;
+	Array *netlists = nullptr;
+
+#ifdef VERIFIC_VHDL_SUPPORT
+	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work, 1);
+#endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	VeriLibrary* veri_lib = veri_file::GetLibrary(work, 1);
+#endif
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-		for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
+	for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
 #endif
+	{
+		Array vhdl_units;
+		Array veri_modules;
+		for (std::string n : tops)
 		{
-			Array veri_modules;
+			const char *name = n.c_str();
+			top_mod_names.insert(name);
+
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			if (veri_lib) {
-				VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
-				if (veri_module) {
+			VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
+			if (veri_module) {
+				if (veri_module->IsConfiguration()) {
+					if (show_message)
+						log("Adding Verilog configuration '%s' to elaboration queue.\n", name);
 					veri_modules.InsertLast(veri_module);
-					if (veri_module->IsConfiguration()) {
-						VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
-						VeriName *module_name = (VeriName*)cfg->GetTopModuleNames()->GetLast();
+					top_mod_names.erase(name);
+					VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
+					VeriName *module_name;
+					int i;
+					FOREACH_ARRAY_ITEM(cfg->GetTopModuleNames(), i, module_name) {
 						VeriLibrary *lib = veri_module->GetLibrary() ;
 						if (module_name && module_name->IsHierName()) {
 							VeriName *prefix = module_name->GetPrefix() ;
 							const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
-							if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
+							if (work != lib_name) lib = veri_file::GetLibrary(lib_name, 1) ;
 						}
 						if (lib && module_name)
-							top = lib->GetModule(module_name->GetName(), 1)->GetName();
+							top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
 					}
+				} else {
+					if (show_message)
+						log("Adding Verilog module '%s' to elaboration queue.\n", name);
+					veri_modules.InsertLast(veri_module);
 				}
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-				if (!static_elaborate)
-#endif
-				{
-					// Also elaborate all root modules since they may contain bind statements
-					MapIter mi;
-					FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-						if (!veri_module->IsRootModule()) continue;
-						veri_modules.InsertLast(veri_module);
-					}
-				}
+			continue;
 			}
 #endif
-
-			Array vhdl_units;
 #ifdef VERIFIC_VHDL_SUPPORT
-			if (vhdl_lib) {
-				VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
-				if (vhdl_unit)
-					vhdl_units.InsertLast(vhdl_unit);
-			}
-#endif
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-			if (static_elaborate) {
-				VerificExtensions::ElaborateAndRewrite("work", &veri_modules, &vhdl_units, &verific_params);
-				verific_error_msg.clear();
+			VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
+			if (vhdl_unit) {
+				if (show_message)
+					log("Adding VHDL unit '%s' to elaboration queue.\n", name);
+				vhdl_units.InsertLast(vhdl_unit);
 				continue;
 			}
 #endif
+			log_error("Can't find module/unit '%s'.\n", name);
+		}
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+		if (static_elaborate) {
+			VerificExtensions::ElaborateAndRewrite(work, &veri_modules, &vhdl_units, parameters);
+			verific_error_msg.clear();
+#endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+			if (!ppfile.empty())
+				veri_file::PrettyPrint(ppfile.c_str(), nullptr, work);
+#endif
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+			continue;
+		}
+#endif
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		const char *lib_name = nullptr;
+		SetIter si;
+		FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
+			VeriLibrary* veri_lib = veri_file::GetLibrary(lib_name, 0);
+			if (veri_lib) {
+				// Also elaborate all root modules since they may contain bind statements
+				MapIter mi;
+				VeriModule *veri_module;
+				FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+					if (!veri_module->IsRootModule()) continue;
+					veri_modules.InsertLast(veri_module);
+				}
+			}
+		}
+#endif
 #ifdef VERIFIC_HIER_TREE_SUPPORT
-			netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
+		if (show_message)
+			log("Running hier_tree::Elaborate().\n");
+		netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, parameters);
 #else
 #if defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && !defined(VERIFIC_VHDL_SUPPORT)
-			// SystemVerilog support only
-			netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
+		if (show_message)
+			log("Running veri_file::ElaborateMultipleTop().\n");
+		// SystemVerilog support only
+		netlists = veri_file::ElaborateMultipleTop(&veri_modules, parameters);
 #elif defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
-			// VHDL support	only
-			netlists = new Array(1);
-			vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
+		if (show_message)
+			log("Running vhdl_file::Elaborate().\n");
+		// VHDL support	only
+		netlists = new Array(top_mod_names.size());
+		for (auto &name : top_mod_names) {
+			vhdl_file::Elaborate(name.c_str(), work, 0, parameters);
 			netlists->InsertLast(Netlist::PresentDesign());
+		}
 #elif defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && defined(VERIFIC_VHDL_SUPPORT)
-			// Both SystemVerilog and VHDL support
-			if (veri_modules.Size()>0)
-				netlists = veri_file::ElaborateMultipleTop(&veri_modules, &verific_params);
-			else
-				netlists = new Array(1);
-			if (vhdl_units.Size()>0) {
-				vhdl_file::Elaborate(top.c_str(), "work", 0, &verific_params);
+		// Both SystemVerilog and VHDL support
+		if (veri_modules.Size()>0) {
+			if (show_message)
+				log("Running veri_file::ElaborateMultipleTop().\n");
+			netlists = veri_file::ElaborateMultipleTop(&veri_modules, parameters);
+		} else
+			netlists = new Array(1);
+		if (vhdl_units.Size()>0) {
+			if (show_message)
+				log("Running vhdl_file::Elaborate().\n");
+			for (auto &name : top_mod_names) {
+				vhdl_file::Elaborate(name.c_str(), work, 0, parameters);
 				netlists->InsertLast(Netlist::PresentDesign());
 			}
+		}
 #else
 #endif
 #endif
-		}
 	}
-
 	Netlist *nl;
 	int i;
-	std::string cell_name = top;
 
 	FOREACH_ARRAY_ITEM(netlists, i, nl) {
 		if (!nl) continue;
-		if (!top.empty() && nl->CellBaseName() != top)
+		if (!top_mod_names.count(nl->CellBaseName()))
 			continue;
 		nl->AddAtt(new Att(" \\top", NULL));
-		nl_todo.emplace(nl->CellBaseName(), nl);
-		cell_name = nl->CellBaseName();
+		nl_todo->emplace(nl->CellBaseName(), nl);
 	}
-	if (top.empty()) cell_name = top;
-
 	delete netlists;
+	return top_mod_names;
+}
 
-	if (!verific_error_msg.empty())
-		log_error("%s\n", verific_error_msg.c_str());
-
-	for (auto nl : nl_todo)
-		nl.second->ChangePortBusStructures(1 /* hierarchical */);
-
-	VerificExtNets worker;
-	for (auto nl : nl_todo)
-		worker.run(nl.second);
-
-	while (!nl_todo.empty()) {
-		auto it = nl_todo.begin();
-		Netlist *nl = it->second;
-		if (nl_done.count(it->first) == 0) {
-			VerificImporter importer(false, false, false, false, false, false, false);
-			nl_done[it->first] = it->second;
-			importer.import_netlist(design, nl, nl_todo, nl->CellBaseName() == cell_name);
-		}
-		nl_todo.erase(it);
-	}
-
+void verific_cleanup()
+{
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::Reset();
 #endif
@@ -2901,7 +2935,53 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	verific_libexts.clear();
 #endif
 	verific_import_pending = false;
+}
 
+std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
+{
+	verific_sva_fsm_limit = 16;
+
+	std::map<std::string,Netlist*> nl_todo, nl_done;
+
+	Map verific_params(STRING_HASH);
+	for (const auto &i : parameters)
+		verific_params.Insert(i.first.c_str(), i.second.c_str());
+
+	std::set<std::string> top_mod_names;
+	if (top.empty()) {
+		import_all("work", &nl_todo, &verific_params, false, "");
+	} else {
+		std::vector<std::string> tops;
+		tops.push_back(top);
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		veri_file::RemoveAllLOptions();
+		veri_file::AddLOption("work");
+#endif
+		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops) ;
+	}
+
+	if (!verific_error_msg.empty())
+		log_error("%s\n", verific_error_msg.c_str());
+
+	for (auto nl : nl_todo)
+		nl.second->ChangePortBusStructures(1 /* hierarchical */);
+
+	VerificExtNets worker;
+	for (auto nl : nl_todo)
+		worker.run(nl.second);
+
+	while (!nl_todo.empty()) {
+		auto it = nl_todo.begin();
+		Netlist *nl = it->second;
+		if (nl_done.count(it->first) == 0) {
+			VerificImporter importer(false, false, false, false, false, false, false);
+			nl_done[it->first] = it->second;
+			importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
+		}
+		nl_todo.erase(it);
+	}
+
+	verific_cleanup();
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 	return top;
@@ -3974,203 +4054,17 @@ struct VerificPass : public Pass {
 
 			if (mode_all)
 			{
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-				VerificExtensions::ElaborateAndRewrite(work, &parameters);
-				verific_error_msg.clear();
-#endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-				if (!ppfile.empty())
-					veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
-#endif
-				Array vhdl_libs;
-#ifdef VERIFIC_VHDL_SUPPORT
-				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
-				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
-#endif
-				Array veri_libs;
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-				if (veri_lib) veri_libs.InsertLast(veri_lib);
-#endif
-
-#ifdef VERIFIC_HIER_TREE_SUPPORT
-				log("Running hier_tree::ElaborateAll().\n");
-				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
-				Netlist *nl;
-				int i;
-
-				FOREACH_ARRAY_ITEM(netlists, i, nl)
-					nl_todo.emplace(nl->CellBaseName(), nl);
-				delete netlists;
-#else
-				if (parameters.Size())
-					log_warning("Please note that parameters are not propagated during import.\n");
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-				log("Running veri_file::ElaborateAll().\n");
-				veri_file::ElaborateAll(work.c_str());
-#endif
-#ifdef VERIFIC_VHDL_SUPPORT
-				log("Running vhdl_file::ElaborateAll().\n");
-				vhdl_file::ElaborateAll(work.c_str());
-#endif
-				MapIter mi ;
-				Verific::Cell *c ;
-				MapIter it ;
-				Library *l ;
-				FOREACH_LIBRARY_OF_LIBSET(Libset::Global(),it,l) {
-					if (l == Library::Primitives() || l == Library::Operators()) continue;
-					FOREACH_CELL_OF_LIBRARY(l,mi,c) {
-						MapIter ni ;
-						Netlist *nl;
-						FOREACH_NETLIST_OF_CELL(c, ni, nl) {
-							if (nl)
-								nl_todo.emplace(nl->CellBaseName(), nl);
-						}
-					}
-				}
-#endif
+				import_all(work.c_str(), &nl_todo, &parameters, true, ppfile);
 			}
 			else
 			{
 				if (argidx == GetSize(args))
 					cmd_error(args, argidx, "No top module specified.\n");
 
-				Array *netlists = nullptr;
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-				for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
-#endif
-				{
-
-					Array vhdl_units;
-#ifdef VERIFIC_VHDL_SUPPORT
-					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
-#endif
-					Array veri_modules;
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-#endif
-					for (int i = argidx; i < GetSize(args); i++)
-					{
-						const char *name = args[i].c_str();
-						top_mod_names.insert(name);
-
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-						VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
-						if (veri_module) {
-							if (veri_module->IsConfiguration()) {
-								log("Adding Verilog configuration '%s' to elaboration queue.\n", name);
-								veri_modules.InsertLast(veri_module);
-
-								top_mod_names.erase(name);
-
-								VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
-								VeriName *module_name;
-								int i;
-								FOREACH_ARRAY_ITEM(cfg->GetTopModuleNames(), i, module_name) {
-									VeriLibrary *lib = veri_module->GetLibrary() ;
-									if (module_name && module_name->IsHierName()) {
-										VeriName *prefix = module_name->GetPrefix() ;
-										const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
-										if (work != lib_name) lib = veri_file::GetLibrary(lib_name, 1) ;
-									}
-									if (lib && module_name)
-										top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
-								}
-							} else {
-								log("Adding Verilog module '%s' to elaboration queue.\n", name);
-								veri_modules.InsertLast(veri_module);
-							}
-							continue;
-						}
-#endif
-#ifdef VERIFIC_VHDL_SUPPORT
-						VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
-						if (vhdl_unit) {
-							log("Adding VHDL unit '%s' to elaboration queue.\n", name);
-							vhdl_units.InsertLast(vhdl_unit);
-							continue;
-						}
-#endif
-						log_error("Can't find module/unit '%s'.\n", name);
-					}
-
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-					if (static_elaborate) {
-						VerificExtensions::ElaborateAndRewrite(work, &veri_modules, &vhdl_units, &parameters);
-						verific_error_msg.clear();
-#endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-						if (!ppfile.empty())
-							veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
-#endif
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-						continue;
-					}
-#endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-					const char *lib_name = nullptr;
-					SetIter si;
-					FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
-						VeriLibrary* veri_lib = veri_file::GetLibrary(lib_name, 0);
-						if (veri_lib) {
-							// Also elaborate all root modules since they may contain bind statements
-							MapIter mi;
-							VeriModule *veri_module;
-							FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-								if (!veri_module->IsRootModule()) continue;
-								veri_modules.InsertLast(veri_module);
-							}
-						}
-					}
-#endif
-#ifdef VERIFIC_HIER_TREE_SUPPORT
-					log("Running hier_tree::Elaborate().\n");
-					netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
-#else
-#if defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && !defined(VERIFIC_VHDL_SUPPORT)
-					log("Running veri_file::ElaborateMultipleTop().\n");
-					// SystemVerilog support only
-					netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
-#elif defined(VERIFIC_VHDL_SUPPORT) && !defined(VERIFIC_SYSTEMVERILOG_SUPPORT)
-					log("Running vhdl_file::Elaborate().\n");
-					// VHDL support	only
-					netlists = new Array(top_mod_names.size());
-					for (auto &name : top_mod_names) {
-						vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
-						netlists->InsertLast(Netlist::PresentDesign());
-					}
-#elif defined(VERIFIC_SYSTEMVERILOG_SUPPORT) && defined(VERIFIC_VHDL_SUPPORT)
-					// Both SystemVerilog and VHDL support
-					if (veri_modules.Size()>0) {
-						log("Running veri_file::ElaborateMultipleTop().\n");
-						netlists = veri_file::ElaborateMultipleTop(&veri_modules, &parameters);
-					} else
-						netlists = new Array(1);
-					if (vhdl_units.Size()>0) {
-						log("Running vhdl_file::Elaborate().\n");
-						for (auto &name : top_mod_names) {
-							vhdl_file::Elaborate(name.c_str(), work.c_str(), 0, &parameters);
-							netlists->InsertLast(Netlist::PresentDesign());
-						}
-					}
-#else
-#endif
-#endif
-				}
-
-				Netlist *nl;
-				int i;
-
-				FOREACH_ARRAY_ITEM(netlists, i, nl) {
-					if (!nl) continue;
-					if (!top_mod_names.count(nl->CellBaseName()))
-						continue;
-					nl->AddAtt(new Att(" \\top", NULL));
-					nl_todo.emplace(nl->CellBaseName(), nl);
-				}
-				delete netlists;
+				std::vector<std::string> tops;
+				for (int i = argidx; i < GetSize(args); i++)
+					tops.push_back(args[i].c_str());
+				top_mod_names = import_tops(work.c_str(), &nl_todo, &parameters, true, ppfile, tops) ;
 			}
 			if (mode_cells) {
 				log("Importing all cells.\n");
@@ -4232,34 +4126,7 @@ struct VerificPass : public Pass {
 				nl_todo.erase(it);
 			}
 
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-			VerificExtensions::Reset();
-#endif
-#ifdef VERIFIC_HIER_TREE_SUPPORT
-			hier_tree::DeleteHierarchicalTree();
-#endif
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			veri_file::Reset();
-#endif
-#ifdef VERIFIC_VHDL_SUPPORT
-			vhdl_file::Reset();
-#endif
-#ifdef VERIFIC_EDIF_SUPPORT
-			edif_file::Reset();
-#endif
-#ifdef VERIFIC_LIBERTY_SUPPORT
-			synlib_file::Reset();
-#endif
-			Libset::Reset();
-			Message::Reset();
-			RuntimeFlags::DeleteAllFlags();
-			LineFile::DeleteAllLineFiles();
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			verific_incdirs.clear();
-			verific_libdirs.clear();
-			verific_libexts.clear();
-#endif
-			verific_import_pending = false;
+			verific_cleanup();
 			goto check_error;
 		}
 
