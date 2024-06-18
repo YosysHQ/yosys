@@ -1625,7 +1625,7 @@ struct RTLIL::Unary {
 		return {std::make_pair(ID::A, std::ref(a)), std::make_pair(ID::Y, std::ref(y))};
 	}
 	std::array<std::pair<IdString, Const&>, 3> parameters() {
-		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(y_width))};
+		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(is_signed))};
 	}
 	bool input(IdString portname) const {
 		return portname == ID::A;
@@ -1671,20 +1671,7 @@ public:
 	struct FakeParams {
 		RTLIL::Cell* parent;
 		RTLIL::Const& at(RTLIL::IdString paramname) {
-			if (parent->is_legacy())
-				return parent->legacy->parameters.at(paramname);
-
-			if (parent->type == ID($not)) {
-				if (paramname == ID::A_WIDTH) {
-					return parent->not_.a_width;
-				} else if (paramname == ID::Y_WIDTH) {
-					return parent->not_.y_width;
-				} else {
-					throw std::out_of_range("Cell::getParam()");
-				}
-			} else {
-				throw std::out_of_range("Cell::getParam()");
-			}
+			return parent->getMutParam(paramname);
 		}
 		const RTLIL::Const& at(RTLIL::IdString name) const {
 			return parent->getParam(name);

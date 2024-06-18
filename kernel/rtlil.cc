@@ -2425,20 +2425,6 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	return wire;
 }
 
-template<typename AAAA>
-void scream(AAAA* aaa) {
-	unsigned char *ptr = reinterpret_cast<unsigned char*>(aaa);
-    for (size_t i = 0; i < sizeof(AAAA); ++i) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(ptr[i]) << ' ';
-    }
-    std::cout << std::endl;
-}
-template<typename AAAA>
-void scream(const char* ctx, AAAA* aaa) {
-	log("%s\n", ctx);
-	scream(aaa); 
-}
-
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
@@ -2446,7 +2432,6 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 	log("ptr 0x%016X\n", cell);
 	cell->name = name;
 	cell->type = type;
-	// scream("addCell pre", cell);
 	if (RTLIL::Cell::is_legacy_type(type)) {
 		cell->legacy = new RTLIL::OldCell;
 		cell->legacy->name = name;
@@ -2457,14 +2442,16 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 		// Due to the tagged union deal,
 		// we don't get this automagically,
 		// so let's use "placement new"
-		for (auto param: cell->parameters) {
-			new (&param.second) Const();
-		}
-		for (auto conn: cell->connections_) {
-			new (&conn.second) SigSpec();
+		if (type == ID($not)) {
+			new (&cell->not_) Unary();
+		} else if (type == ID($pos)) {
+			new (&cell->pos) Unary();
+		} else if (type == ID($neg)) {
+			new (&cell->neg) Unary();
+		} else {
+			throw std::out_of_range("Cell::setPort()");
 		}
 	}
-	// scream("addCell post", cell);
 	add(cell);
 	return cell;
 }
@@ -3630,31 +3617,31 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 
 	if (type == ID($not)) {
 		if (paramname == ID::A_WIDTH) {
-			not_.a_width = value.as_int();
+			not_.a_width = value;
 		} else if (paramname == ID::Y_WIDTH) {
-			not_.y_width = value.as_int();
+			not_.y_width = value;
 		} else if (paramname == ID::A_SIGNED) {
-			not_.is_signed = value.as_int();
+			not_.is_signed = value;
 		} else {
 			throw std::out_of_range("Cell::setParam()");
 		}
 	} else if (type == ID($pos)) {
 		if (paramname == ID::A_WIDTH) {
-			pos.a_width = value.as_int();
+			pos.a_width = value;
 		} else if (paramname == ID::Y_WIDTH) {
-			pos.y_width = value.as_int();
+			pos.y_width = value;
 		} else if (paramname == ID::A_SIGNED) {
-			pos.is_signed = value.as_int();
+			pos.is_signed = value;
 		} else {
 			throw std::out_of_range("Cell::setParam()");
 		}
 	} else if (type == ID($neg)) {
 		if (paramname == ID::A_WIDTH) {
-			neg.a_width = value.as_int();
+			neg.a_width = value;
 		} else if (paramname == ID::Y_WIDTH) {
-			neg.y_width = value.as_int();
+			neg.y_width = value;
 		} else if (paramname == ID::A_SIGNED) {
-			neg.is_signed = value.as_int();
+			neg.is_signed = value;
 		} else {
 			throw std::out_of_range("Cell::setParam()");
 		}

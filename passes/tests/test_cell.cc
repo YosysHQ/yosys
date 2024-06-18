@@ -41,10 +41,6 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 {
 	RTLIL::Module *module = design->addModule(ID(gold));
 	RTLIL::Cell *cell = module->addCell(ID(UUT), cell_type);
-	for (auto para : cell->parameters)
-		log("param %s is %s\n", para.first.c_str(), para.second.as_string().c_str());
-	// for (auto para : cell->connections)
-	// 	log("param %s is %s\n", para.first.c_str(), para.second.as_string());
 	RTLIL::Wire *wire;
 
 	if (cell_type.in(ID($mux), ID($pmux)))
