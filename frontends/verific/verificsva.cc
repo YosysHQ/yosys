@@ -80,6 +80,7 @@ USING_YOSYS_NAMESPACE
 using namespace Verific;
 #endif
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 PRIVATE_NAMESPACE_BEGIN
 
 // Non-deterministic FSM
@@ -1878,5 +1879,8 @@ bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net)
 	worker.importer = importer;
 	return worker.net_to_ast_driver(net) != nullptr;
 }
-
+#else
+YOSYS_NAMESPACE_BEGIN
+pool<int> verific_sva_prims = {};
+#endif
 YOSYS_NAMESPACE_END
