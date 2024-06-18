@@ -203,7 +203,7 @@ struct SccWorker
 			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
 				log("Found an SCC: ");
 				pool<RTLIL::Cell*> scc;
-				log("%s %s %s %s ->", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->get_src_attribute()));
+				log("%s %s %s %s -> ", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->get_src_attribute()));
 				cell2scc[cell] = sccList.size();
 				scc.insert(cell);
 				sccList.push_back(scc);
