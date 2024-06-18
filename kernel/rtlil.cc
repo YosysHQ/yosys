@@ -2446,7 +2446,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 	log("ptr 0x%016X\n", cell);
 	cell->name = name;
 	cell->type = type;
-	scream("addCell pre", cell);
+	// scream("addCell pre", cell);
 	if (RTLIL::Cell::is_legacy_type(type)) {
 		cell->legacy = new RTLIL::OldCell;
 		cell->legacy->name = name;
@@ -2464,7 +2464,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 			new (&conn.second) SigSpec();
 		}
 	}
-	scream("addCell post", cell);
+	// scream("addCell post", cell);
 	add(cell);
 	return cell;
 }
@@ -3664,7 +3664,6 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 }
 
 const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
-	log_debug("paramname %s, type %s\n", paramname.c_str(), type.c_str());
 	if (is_legacy())
 		return legacy->getParam(paramname);
 	log_debug("fr");

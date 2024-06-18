@@ -1852,13 +1852,13 @@ public:
 		}
 		iterator end() {
 			if (parent->is_legacy()) {
-				return iterator(parent, parent->legacy->connections_.size());
+				return iterator(parent, parent->legacy->parameters.size());
 			} else if (parent->type == ID($pos)) {
-				return iterator(parent, parent->pos.connections().size());
+				return iterator(parent, parent->pos.parameters().size());
 			} else if (parent->type == ID($neg)) {
-				return iterator(parent, parent->neg.connections().size());
+				return iterator(parent, parent->neg.parameters().size());
 			} else if (parent->type == ID($not)) {
-				return iterator(parent, parent->not_.connections().size());
+				return iterator(parent, parent->not_.parameters().size());
 			} else {
 				throw std::out_of_range("FakeParams::iterator::end()");
 			}
@@ -1914,13 +1914,13 @@ public:
 		}
 		const_iterator end() const {
 			if (parent->is_legacy()) {
-				return const_iterator(parent, parent->legacy->connections_.size());
+				return const_iterator(parent, parent->legacy->parameters.size());
 			} else if (parent->type == ID($pos)) {
-				return const_iterator(parent, parent->pos.connections().size());
+				return const_iterator(parent, parent->pos.parameters().size());
 			} else if (parent->type == ID($neg)) {
-				return const_iterator(parent, parent->neg.connections().size());
+				return const_iterator(parent, parent->neg.parameters().size());
 			} else if (parent->type == ID($not)) {
-				return const_iterator(parent, parent->not_.connections().size());
+				return const_iterator(parent, parent->not_.parameters().size());
 			} else {
 				throw std::out_of_range("FakeConns::end() const");
 			}
