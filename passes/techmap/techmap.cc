@@ -563,6 +563,7 @@ struct TechmapWorker
 							if (extmapper_name == "wrap") {
 								std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
 								log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+								log_module(extmapper_module);
 								mkdebug.on();
 								Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
 								log_continue = true;

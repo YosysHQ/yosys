@@ -167,7 +167,7 @@ struct OptMergeWorker
 			if (!cell2->connections_.count(it.first))
 				return false;
 
-		decltype(Cell::connections_) conn1, conn2;
+		dict<RTLIL::IdString, RTLIL::SigSpec> conn1, conn2;
 		conn1.reserve(cell1->connections_.size());
 		conn2.reserve(cell1->connections_.size());
 

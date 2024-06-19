@@ -106,7 +106,7 @@ void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk(), autoint);
 	} else {
-		f << stringf("{ ");
+		f << stringf("{"); //FIXME this is a hack
 		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); ++it) {
 			dump_sigchunk(f, *it, false);
 			f << stringf(" ");

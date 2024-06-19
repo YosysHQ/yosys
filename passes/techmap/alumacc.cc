@@ -145,7 +145,9 @@ struct AlumaccWorker
 			Macc::port_t new_port;
 
 			n->cell = cell;
+			log("%s\n", log_signal(cell->getPort(ID::Y)));
 			n->y = sigmap(cell->getPort(ID::Y));
+			log("%s\n", log_signal(n->y));
 			n->users = 0;
 
 			for (auto bit : n->y)
@@ -181,6 +183,7 @@ struct AlumaccWorker
 				n->macc.ports.push_back(new_port);
 			}
 
+			log("%s\n", log_signal(n->y));
 			log_assert(sig_macc.count(n->y) == 0);
 			sig_macc[n->y] = n;
 		}
@@ -237,8 +240,12 @@ struct AlumaccWorker
 
 				for (int i = 0; i < GetSize(n->macc.ports); i++)
 				{
+					log("ports: size %d\n", n->macc.ports.size());
 					auto &port = n->macc.ports[i];
 
+					log("ports 2: size %d\n", port.in_b.size());
+					log("uuh: count %d\n", sig_macc.count(port.in_a));
+					log("%s\n", log_signal(port.in_a));
 					if (GetSize(port.in_b) > 0 || sig_macc.count(port.in_a) == 0)
 						continue;
 

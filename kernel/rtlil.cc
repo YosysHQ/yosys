@@ -2212,14 +2212,15 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
-	// TODO is this ok?
+	// TODO monitors are broken when unsetPort is unused here
+	// for 
 	// while (!cell->connections_.empty())
-	// 	cell->unsetPort(cell->connections_.begin()->first);
+	// 	cell->unsetPort((*cell->connections_.begin()).first);
 	//
 
-	// log_assert(cells_.count(cell->name) != 0);
-	// log_assert(refcount_cells_ == 0);
-	// cells_.erase(cell->name);
+	log_assert(cells_.count(cell->name) != 0);
+	log_assert(refcount_cells_ == 0);
+	cells_.erase(cell->name);
 	delete cell;
 }
 
@@ -2428,8 +2429,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
-	std::cout << "RTLIL::Module::addCell " << name.c_str() << " " << type.c_str() << "to module " << this->name.c_str() << "\n";
-	log("ptr 0x%016X\n", cell);
+	// std::cout << "RTLIL::Module::addCell " << name.c_str() << " " << type.c_str() << "to module " << this->name.c_str() << "\n";
 	cell->name = name;
 	cell->type = type;
 	if (RTLIL::Cell::is_legacy_type(type)) {
@@ -2459,7 +2459,6 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
 	RTLIL::Cell *cell = addCell(name, other->type);
-	cell->module = this;
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
@@ -3543,7 +3542,10 @@ void RTLIL::Cell::setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal
 	}
 }
 
+static const SigSpec discon_dummy;
+
 const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) const {
+	// log("getPort this %d %s (%016X %016X)\n", this, portname.c_str(), &portname, portname.c_str());
 	if (is_legacy())
 		return legacy->getPort(portname);
 
@@ -3553,7 +3555,7 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 		} else if (portname == ID::Y) {
 			return not_.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getPort()");
 		}
 	} else if (type == ID($pos)) {
 		if (portname == ID::A) {
@@ -3561,7 +3563,7 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 		} else if (portname == ID::Y) {
 			return pos.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getPort()");
 		}
 	} else if (type == ID($neg)) {
 		if (portname == ID::A) {
@@ -3569,10 +3571,10 @@ const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) cons
 		} else if (portname == ID::Y) {
 			return neg.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getPort()");
 		}
 	} else {
-		throw std::out_of_range("Cell::setPort()");
+		throw std::out_of_range("Cell::getPort()");
 	}
 }
 RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
@@ -3585,7 +3587,7 @@ RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
 		} else if (portname == ID::Y) {
 			return not_.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getMutPort()");
 		}
 	} else if (type == ID($pos)) {
 		if (portname == ID::A) {
@@ -3593,7 +3595,7 @@ RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
 		} else if (portname == ID::Y) {
 			return pos.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getMutPort()");
 		}
 	} else if (type == ID($neg)) {
 		if (portname == ID::A) {
@@ -3601,10 +3603,10 @@ RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
 		} else if (portname == ID::Y) {
 			return neg.y;
 		} else {
-			throw std::out_of_range("Cell::setPort()");
+			throw std::out_of_range("Cell::getMutPort()");
 		}
 	} else {
-		throw std::out_of_range("Cell::setPort()");
+		throw std::out_of_range("Cell::getMutPort()");
 	}
 }
 
@@ -3653,7 +3655,6 @@ void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value)
 const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
 	if (is_legacy())
 		return legacy->getParam(paramname);
-	log_debug("fr");
 
 	if (type == ID($not)) {
 		if (paramname == ID::A_WIDTH) {

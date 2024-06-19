@@ -1707,7 +1707,7 @@ public:
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::Const& operator[](RTLIL::IdString name) {
-			log("operator[] on %s type %s\n", name.c_str(), parent->type.c_str());
+			// log("operator[] on %s type %s\n", name.c_str(), parent->type.c_str());
 			return parent->getMutParam(name);
 		}
 		void operator=(dict<IdString, Const> from) {
@@ -1723,6 +1723,26 @@ public:
 			} else {
 				throw std::out_of_range("Cell::getParam()");
 			}
+		}
+		void operator=(const FakeParams& from) {
+			log_assert(parent->type == from.parent->type);
+
+			if (parent->is_legacy()) {
+				log_assert(from.parent->is_legacy());
+				parent->legacy->parameters = from.parent->legacy->parameters;
+				// return;
+			}
+			auto this_it = begin();
+			auto from_it = from.parent->parameters.begin();
+			while (this_it != end() && from_it != from.parent->parameters.end()) {
+				// Well-ordered
+				log_assert((*this_it).first == (*from_it).first);
+				(*this_it).second = (*from_it).second;
+				++this_it;
+				++from_it;
+			}
+			// Same params
+			log_assert(this_it == this->end() && from_it == from.parent->parameters.end());
 		}
 		bool operator==(const FakeParams& other) const {
 			auto this_it = this->begin();
@@ -1742,7 +1762,7 @@ public:
 		bool operator!=(const FakeParams& other) const {
 			return !operator==(other);
 		}
-		int count(RTLIL::IdString name) const {
+		int count(const RTLIL::IdString& name) const {
 			try {
 				parent->getParam(name);
 			} catch (const std::out_of_range& e) {
@@ -1952,12 +1972,14 @@ public:
 		// but we rely on RTLIL::Cell always being constructed correctly
 		// since its layout is fixed as defined by InternalOldCellChecker
 		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
-			log("operator[] on %s type %s\n", portname.c_str(), parent->type.c_str());
+			// log("operator[] on %s type %s\n", portname.c_str(), parent->type.c_str());
 			return parent->getMutPort(portname);
 		}
 		void operator=(dict<IdString, SigSpec> from) {
-			if (parent->is_legacy())
+			if (parent->is_legacy()) {
 				parent->legacy->connections_ = from;
+				return;
+			}
 
 			if (parent->type == ID($not)) {
 				parent->not_.conns_from_dict(from);
@@ -1968,6 +1990,26 @@ public:
 			} else {
 				throw std::out_of_range("Cell::getParam()");
 			}
+		}
+		void operator=(const FakeConns& from) {
+			log_assert(parent->type == from.parent->type);
+
+			if (parent->is_legacy()) {
+				log_assert(from.parent->is_legacy());
+				parent->legacy->connections_ = from.parent->legacy->connections_;
+				// return;
+			}
+			auto this_it = begin();
+			auto from_it = from.parent->connections_.begin();
+			while (this_it != end() && from_it != from.parent->connections_.end()) {
+				// Well-ordered
+				log_assert((*this_it).first == (*from_it).first);
+				(*this_it).second = (*from_it).second;
+				++this_it;
+				++from_it;
+			}
+			// Same params
+			log_assert(this_it == this->end() && from_it == from.parent->connections_.end());
 		}
 		bool operator==(const FakeConns& other) const {
 			auto this_it = this->begin();
@@ -1987,12 +2029,15 @@ public:
 		bool operator!=(const FakeConns& other) const {
 			return !operator==(other);
 		}
-		int count(RTLIL::IdString portname) const {
+		int count(const RTLIL::IdString& portname) const {
+			log("count this %d\n", this);
 			try {
 				parent->getPort(portname);
 			} catch (const std::out_of_range& e) {
+				log("count 0\n");
 				return 0;
 			}
+			log("count 1\n");
 			return 1;
 		}
 		size_t size() const {
@@ -2213,20 +2258,41 @@ public:
 	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
 	RTLIL::SigSpec &getMutPort(const RTLIL::IdString &portname);
 	bool hasPort(const RTLIL::IdString &portname) const {
-		// TODO hack?
-		return connections_.count(portname) && !getPort(portname).empty();
+		if (is_legacy()) {
+			return legacy->hasPort(portname);
+		} else if (type == ID($pos)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else if (type == ID($neg)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else if (type == ID($not)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
 	}
-	// The need for this function implies setPort will be used on incompat types
-	void unsetPort(const RTLIL::IdString& portname) { (void)portname; }
+	void unsetPort(const RTLIL::IdString& portname) {
+		if (is_legacy())
+			legacy->unsetPort(portname);
+		setPort(portname, SigSpec());
+	}
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
 	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
 	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) const {
-		return parameters.count(paramname) && !getParam(paramname).empty();
+		if (is_legacy()) {
+			return legacy->hasParam(paramname);
+		} else if (type.in(ID($pos), ID($neg), ID($not))) {
+			return paramname.in(ID::A_WIDTH, ID::Y_WIDTH, ID::A_SIGNED) && !getParam(paramname).empty();
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
 	}
-	// The need for this function implies setPort will be used on incompat types
-	void unsetParam(const RTLIL::IdString& paramname) { (void)paramname; }
+	void unsetParam(const RTLIL::IdString& paramname) {
+		if (is_legacy())
+			legacy->unsetParam(paramname);
+		setPort(paramname, Const());
+	}
 	template<typename T>
 	void rewrite_sigspecs2(T &functor) {
 		// for(auto it = connections_.begin(); it != connections_.end(); ++it) {
@@ -2252,7 +2318,7 @@ public:
 private:
 	// NOT the tag, but a helper - faster short-circuit if public?
 	static bool is_legacy_type (RTLIL::IdString type) {
-		return !type.in(ID($not), ID($pos), ID($neg));
+		return !type.in(ID($not), ID($pos));
 	}
 
 };
