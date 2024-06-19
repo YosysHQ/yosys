@@ -58,7 +58,7 @@ void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &si
 struct FlattenWorker
 {
 	bool ignore_wb = false;
-	bool create_scopeinfo = true;
+	bool create_scopeinfo = false; // SILIMATE: default false
 	bool create_scopename = false;
 
 	template<class T>
@@ -331,12 +331,12 @@ struct FlattenPass : public Pass {
 		log("    -wb\n");
 		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
-		log("    -noscopeinfo\n");
-		log("        Do not create '$scopeinfo' cells that preserve attributes of cells and\n");
-		log("        modules that were removed during flattening. With this option, the\n");
+		log("    -scopeinfo\n");
+		log("        Create '$scopeinfo' cells that preserve attributes of cells and\n");
+		log("        modules that were removed during flattening. Without this option, the\n");
 		log("        'src' attribute of a given cell is merged into all objects replacing\n");
 		log("        that cell, with multiple distinct 'src' locations separated by '|'.\n");
-		log("        Without this option these 'src' locations can be found via the\n");
+		log("        With this option these 'src' locations can be found via the\n");
 		log("        cell_src' and 'module_src' attribute of '$scopeinfo' cells.\n");
 		log("\n");
 		log("    -scopename\n");
@@ -359,8 +359,8 @@ struct FlattenPass : public Pass {
 				worker.ignore_wb = true;
 				continue;
 			}
-			if (args[argidx] == "-noscopeinfo") {
-				worker.create_scopeinfo = false;
+			if (args[argidx] == "-scopeinfo") {
+				worker.create_scopeinfo = true;
 				continue;
 			}
 			if (args[argidx] == "-scopename") {
