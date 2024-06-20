@@ -123,6 +123,8 @@ public:
         Node &deref() const { this->check(); return this->graph_->nodes[this->index_]; }
 
     public:
+        Ref(BaseRef<ComputeGraph> ref) : Ref(ref.graph_, ref.index_) {}
+
         void set_function(Fn const &function) const
         {
             deref().fn_index = this->graph_->functions(function);
@@ -224,7 +226,7 @@ public:
     }
 
     template<typename T>
-    Ref add(Fn const &function, Attr const &attr, T const &args)
+    Ref add(Fn const &function, Attr const &attr, T &&args)
     {
         Ref added = add(function, attr);
         for (auto arg : args)
@@ -233,7 +235,23 @@ public:
     }
 
     template<typename T>
-    Ref add(Fn const &function, Attr &&attr, T const &args)
+    Ref add(Fn const &function, Attr &&attr, T &&args)
+    {
+        Ref added = add(function, std::move(attr));
+        for (auto arg : args)
+            added.append_arg(arg);
+        return added;
+    }
+
+    Ref add(Fn const &function, Attr const &attr, std::initializer_list<Ref> args)
+    {
+        Ref added = add(function, attr);
+        for (auto arg : args)
+            added.append_arg(arg);
+        return added;
+    }
+
+    Ref add(Fn const &function, Attr &&attr, std::initializer_list<Ref> args)
     {
         Ref added = add(function, std::move(attr));
         for (auto arg : args)

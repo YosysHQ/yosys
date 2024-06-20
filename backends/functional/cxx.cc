@@ -18,10 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/drivertools.h"
-#include "kernel/topo_scc.h"
-#include "kernel/functional.h"
-#include "kernel/graphtools.h"
+#include "kernel/functionalir.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -84,37 +81,16 @@ struct CxxScope {
 };
 
 struct CxxType {
-	bool _is_memory;
-	int _width;
-	int _addr_width;
-public:
-	CxxType() : _is_memory(false), _width(0), _addr_width(0) { }
-	CxxType(int width) : _is_memory(false), _width(width), _addr_width(0) { }
-	CxxType(int addr_width, int data_width) : _is_memory(true), _width(data_width), _addr_width(addr_width) { }
-	static CxxType signal(int width) { return CxxType(width); }
-	static CxxType memory(int addr_width, int data_width) { return CxxType(addr_width, data_width); }
-	bool is_signal() const { return !_is_memory; }
-	bool is_memory() const { return _is_memory; }
-	int width() const { log_assert(is_signal()); return _width; }
-	int addr_width() const { log_assert(is_memory()); return _addr_width; }
-	int data_width() const { log_assert(is_memory()); return _width; }
+	FunctionalIR::Sort sort;
+	CxxType(FunctionalIR::Sort sort) : sort(sort) {}
 	std::string to_string() const {
-		if(_is_memory) {
-			return stringf("Memory<%d, %d>", addr_width(), data_width());
+		if(sort.is_memory()) {
+			return stringf("Memory<%d, %d>", sort.addr_width(), sort.data_width());
+		} else if(sort.is_signal()) {
+			return stringf("Signal<%d>", sort.width());
 		} else {
-			return stringf("Signal<%d>", width());
+			log_error("unknown sort");
 		}
-	}
-	bool operator ==(CxxType const& other) const {
-		if(_is_memory != other._is_memory) return false;
-		if(_is_memory && _addr_width != other._addr_width) return false;
-		return _width == other._width;
-	}
-	unsigned int hash() const {
-		if(_is_memory)
-			return mkhash(1, mkhash(_width, _addr_width));
-		else
-			return mkhash(0, _width);
 	}
 };
 
@@ -135,9 +111,8 @@ struct CxxStruct {
   dict<IdString, CxxType> types;
   CxxScope scope;
   bool generate_methods;
-  int count;
-  CxxStruct(std::string name, bool generate_methods = false, int count = 0) 
-    : name(name), generate_methods(generate_methods), count(count) {
+  CxxStruct(std::string name, bool generate_methods = false)
+    : name(name), generate_methods(generate_methods) {
     scope.reserve("out");
     scope.reserve("dump");
   }
@@ -159,7 +134,7 @@ struct CxxStruct {
     if (generate_methods) {
       // Add size method
       f.printf("\tint size() const {\n");
-      f.printf("\t\treturn %d;\n", count);
+      f.printf("\t\treturn %d;\n", types.size());
       f.printf("\t}\n\n");
 
       // Add get_input method
@@ -197,119 +172,87 @@ struct CxxStruct {
   }
 };
 
-struct CxxFunction {
-	IdString name;
-	CxxType type;
-	dict<IdString, Const> parameters;
-
-	CxxFunction(IdString name, CxxType type) : name(name), type(type) {}
-	CxxFunction(IdString name, CxxType type, dict<IdString, Const> parameters) : name(name), type(type), parameters(parameters) {}
-
-	bool operator==(CxxFunction const &other) const {
-		return name == other.name && parameters == other.parameters && type == other.type;
+struct CxxTemplate {
+	vector<std::variant<std::string, int>> _v;
+public:
+	CxxTemplate(std::string fmt) {
+		std::string buf;
+		for(auto it = fmt.begin(); it != fmt.end(); it++){
+			if(*it == '%'){
+				it++;
+				log_assert(it != fmt.end());
+				if(*it == '%')
+					buf += *it;
+				else {
+					log_assert(*it >= '0' && *it <= '9');
+					_v.emplace_back(std::move(buf));
+					_v.emplace_back((int)(*it - '0'));
+				}
+			}else
+				buf += *it;
+		}
+		if(!buf.empty())
+			_v.emplace_back(std::move(buf));
 	}
-
-	unsigned int hash() const {
-		return mkhash(name.hash(), mkhash(type.hash(), parameters.hash()));
+	template<typename... Args> static std::string format(CxxTemplate fmt, Args&&... args) {
+		vector<std::string> strs = {args...};
+		std::string result;
+		for(auto &v : fmt._v){
+			if(std::string *s = std::get_if<std::string>(&v))
+				result += *s;
+			else if(int *i = std::get_if<int>(&v))
+				result += strs[*i];
+			else
+				log_error("missing case");
+		}
+		return result;
 	}
 };
 
-typedef ComputeGraph<CxxFunction, int, IdString, IdString> CxxComputeGraph;
-
-class CxxComputeGraphFactory {
-	CxxComputeGraph &graph;
-	using T = CxxComputeGraph::Ref;
-	static bool is_single_output(IdString type)
-	{
-		auto it = yosys_celltypes.cell_types.find(type);
-		return it != yosys_celltypes.cell_types.end() && it->second.outputs.size() <= 1;
+template<class NodeNames> struct CxxPrintVisitor {
+	using Node = FunctionalIR::Node;
+	NodeNames np;
+	CxxStruct &input_struct;
+	CxxStruct &state_struct;
+	CxxPrintVisitor(NodeNames np, CxxStruct &input_struct, CxxStruct &state_struct) : np(np), input_struct(input_struct), state_struct(state_struct) { }
+	template<class T> std::string arg_to_string(T n) { return std::to_string(n); }
+	template<> std::string arg_to_string(std::string n) { return n; }
+	template<> std::string arg_to_string(Node n) { return np(n); }
+	template<typename... Args> std::string format(std::string fmt, Args&&... args) {
+		return CxxTemplate::format(fmt, arg_to_string(args)...);
 	}
-public:
-	CxxComputeGraphFactory(CxxComputeGraph &g) : graph(g) {}
-	T slice(T a, int in_width, int offset, int out_width) {
-		log_assert(offset + out_width <= in_width);
-		return graph.add(CxxFunction(ID($$slice), out_width, {{ID(offset), offset}}), 0, std::array<T, 1>{a});
-	}
-	T extend(T a, int in_width, int out_width, bool is_signed) {
-		log_assert(in_width < out_width);
-		if(is_signed)
-			return graph.add(CxxFunction(ID($sign_extend), out_width, {{ID(WIDTH), out_width}}), 0, std::array<T, 1>{a});
-		else
-			return graph.add(CxxFunction(ID($zero_extend), out_width, {{ID(WIDTH), out_width}}), 0, std::array<T, 1>{a});
-	}
-	T concat(T a, int a_width, T b, int b_width) {
-		return graph.add(CxxFunction(ID($$concat), a_width + b_width), 0, std::array<T, 2>{a, b});
-	}
-	T add(T a, T b, int width) { return graph.add(CxxFunction(ID($add), width), 0, std::array<T, 2>{a, b}); }
-	T sub(T a, T b, int width) { return graph.add(CxxFunction(ID($sub), width), 0, std::array<T, 2>{a, b}); }
-	T bitwise_and(T a, T b, int width) { return graph.add(CxxFunction(ID($and), width), 0, std::array<T, 2>{a, b}); }
-	T bitwise_or(T a, T b, int width) { return graph.add(CxxFunction(ID($or), width), 0, std::array<T, 2>{a, b}); }
-	T bitwise_xor(T a, T b, int width) { return graph.add(CxxFunction(ID($xor), width), 0, std::array<T, 2>{a, b}); }
-	T bitwise_not(T a, int width) { return graph.add(CxxFunction(ID($not), width), 0, std::array<T, 1>{a}); }
-	T neg(T a, int width) { return graph.add(CxxFunction(ID($neg), width), 0, std::array<T, 1>{a}); }
-	T mux(T a, T b, T s, int width) { return graph.add(CxxFunction(ID($mux), width), 0, std::array<T, 3>{a, b, s}); }
-	T pmux(T a, T b, T s, int width, int) { return graph.add(CxxFunction(ID($pmux), width), 0, std::array<T, 3>{a, b, s}); }
-	T reduce_and(T a, int) { return graph.add(CxxFunction(ID($reduce_and), 1), 0, std::array<T, 1>{a}); }
-	T reduce_or(T a, int) { return graph.add(CxxFunction(ID($reduce_or), 1), 0, std::array<T, 1>{a}); }
-	T reduce_xor(T a, int) { return graph.add(CxxFunction(ID($reduce_xor), 1), 0, std::array<T, 1>{a}); }
-	T eq(T a, T b, int) { return graph.add(CxxFunction(ID($eq), 1), 0, std::array<T, 2>{a, b}); }
-	T ne(T a, T b, int) { return graph.add(CxxFunction(ID($ne), 1), 0, std::array<T, 2>{a, b}); }
-	T gt(T a, T b, int) { return graph.add(CxxFunction(ID($gt), 1), 0, std::array<T, 2>{a, b}); }
-	T ge(T a, T b, int) { return graph.add(CxxFunction(ID($ge), 1), 0, std::array<T, 2>{a, b}); }
-	T ugt(T a, T b, int) { return graph.add(CxxFunction(ID($ugt), 1), 0, std::array<T, 2>{a, b}); }
-	T uge(T a, T b, int) { return graph.add(CxxFunction(ID($uge), 1), 0, std::array<T, 2>{a, b}); }
-	T logical_shift_left(T a, T b, int y_width, int) { return graph.add(CxxFunction(ID($shl), y_width, {{ID(WIDTH), y_width}}), 0, std::array<T, 2>{a, b}); }
-	T logical_shift_right(T a, T b, int y_width, int) { return graph.add(CxxFunction(ID($shr), y_width, {{ID(WIDTH), y_width}}), 0, std::array<T, 2>{a, b}); }
-	T arithmetic_shift_right(T a, T b, int y_width, int) { return graph.add(CxxFunction(ID($asr), y_width, {{ID(WIDTH), y_width}}), 0, std::array<T, 2>{a, b}); }
-
-	T constant(RTLIL::Const value) {
-		return graph.add(CxxFunction(ID($$const), value.size(), {{ID(value), value}}), 0);
-	}
-	T input(IdString name, int width) { return graph.add(CxxFunction(ID($$input), width, {{name, {}}}), 0); }
-	T state(IdString name, int width) { return graph.add(CxxFunction(ID($$state), width, {{name, {}}}), 0); }
-	T state_memory(IdString name, int addr_width, int data_width) {
-		return graph.add(CxxFunction(ID($$state), CxxType::memory(addr_width, data_width), {{name, {}}}), 0);
-	}
-	T cell_output(T cell, IdString type, IdString name, int width) {
-		if (is_single_output(type))
-			return cell;
-		else
-			return graph.add(CxxFunction(ID($$cell_output), width, {{name, {}}}), 0, std::array<T, 1>{cell});
-	}
-	T multiple(vector<T> args, int width) {
-		return graph.add(CxxFunction(ID($$multiple), width), 0, args);
-	}
-	T undriven(int width) {
-		return graph.add(CxxFunction(ID($$undriven), width), 0);
-	}
-
-	T memory_read(T mem, T addr, int addr_width, int data_width) {
-		return graph.add(CxxFunction(ID($memory_read), data_width), 0, std::array<T, 2>{mem, addr});
-	}
-	T memory_write(T mem, T addr, T data, int addr_width, int data_width) {
-		return graph.add(CxxFunction(ID($memory_write), CxxType::memory(addr_width, data_width)), 0, std::array<T, 3>{mem, addr, data});
-	}
-
-	T create_pending(int width) {
-		return graph.add(CxxFunction(ID($$pending), width), 0);
-	}
-	void update_pending(T pending, T node) {
-		log_assert(pending.function().name == ID($$pending));
-		pending.set_function(CxxFunction(ID($$buf), pending.function().type));
-		pending.append_arg(node);
-	}
-	void declare_output(T node, IdString name, int) {
-		node.assign_key(name);
-	}
-	void declare_state(T node, IdString name, int) {
-		node.assign_key(name);
-	}
-	void declare_state_memory(T node, IdString name, int, int) {
-		node.assign_key(name);
-	}
-	void suggest_name(T node, IdString name) {
-		node.sparse_attr() = name;
-	}
+	std::string buf(Node, Node n) { return np(n); }
+	std::string slice(Node, Node a, int, int offset, int out_width) { return format("slice<%2>(%0, %1)", a, offset, out_width); }
+	std::string zero_extend(Node, Node a, int, int out_width) { return format("$zero_extend<%1>(%0)", a, out_width); }
+	std::string sign_extend(Node, Node a, int, int out_width) { return format("$sign_extend<%1>(%0)", a, out_width); }
+	std::string concat(Node, Node a, int, Node b, int) { return format("concat(%0, %1)", a, b); }
+	std::string add(Node, Node a, Node b, int) { return format("$add(%0, %1)", a, b); }
+	std::string sub(Node, Node a, Node b, int) { return format("$sub(%0, %1)", a, b); }
+	std::string bitwise_and(Node, Node a, Node b, int) { return format("$and(%0, %1)", a, b); }
+	std::string bitwise_or(Node, Node a, Node b, int) { return format("$or(%0, %1)", a, b); }
+	std::string bitwise_xor(Node, Node a, Node b, int) { return format("$xor(%0, %1)", a, b); }
+	std::string bitwise_not(Node, Node a, int) { return format("$not(%0)", a); }
+	std::string unary_minus(Node, Node a, int) { return format("$neg(%0)", a); }
+	std::string reduce_and(Node, Node a, int) { return format("$reduce_and(%0)", a); }
+	std::string reduce_or(Node, Node a, int) { return format("$reduce_or(%0)", a); }
+	std::string reduce_xor(Node, Node a, int) { return format("$reduce_xor(%0)", a); }
+	std::string equal(Node, Node a, Node b, int) { return format("$eq(%0, %1)", a, b); }
+	std::string not_equal(Node, Node a, Node b, int) { return format("$ne(%0, %1)", a, b); }
+	std::string signed_greater_than(Node, Node a, Node b, int) { return format("$gt(%0, %1)", a, b); }
+	std::string signed_greater_equal(Node, Node a, Node b, int) { return format("$ge(%0, %1)", a, b); }
+	std::string unsigned_greater_than(Node, Node a, Node b, int) { return format("$ugt(%0, %1)", a, b); }
+	std::string unsigned_greater_equal(Node, Node a, Node b, int) { return format("$uge(%0, %1)", a, b); }
+	std::string logical_shift_left(Node, Node a, Node b, int, int) { return format("$shl<%2>(%0, %1)", a, b, a.width()); }
+	std::string logical_shift_right(Node, Node a, Node b, int, int) { return format("$shr<%2>(%0, %1)", a, b, a.width()); }
+	std::string arithmetic_shift_right(Node, Node a, Node b, int, int) { return format("$asr<%2>(%0, %1)", a, b, a.width()); }
+	std::string mux(Node, Node a, Node b, Node s, int) { return format("$mux(%0, %1, %2)", a, b, s); }
+	std::string pmux(Node, Node a, Node b, Node s, int, int) { return format("$pmux(%0, %1, %2)", a, b, s); }
+	std::string constant(Node, RTLIL::Const value) { return format("$const<%0>(%1)", value.size(), value.as_int()); }
+	std::string input(Node, IdString name) { return format("input.%0", input_struct[name]); }
+	std::string state(Node, IdString name) { return format("current_state.%0", state_struct[name]); }
+	std::string memory_read(Node, Node mem, Node addr, int, int) { return format("$memory_read(%0, %1)", mem, addr); }
+	std::string memory_write(Node, Node mem, Node addr, Node data, int, int) { return format("$memory_write(%0, %1, %2)", mem, addr, data); }
+	std::string undriven(Node, int width) { return format("$const<%0>(0)", width); }
 };
 
 struct FunctionalCxxBackend : public Backend
@@ -322,88 +265,24 @@ struct FunctionalCxxBackend : public Backend
 		log("\n");
     }
 
-	CxxComputeGraph calculate_compute_graph(RTLIL::Module *module)
+	void printCxx(std::ostream &stream, std::string, std::string const & name, Module *module)
 	{
-		CxxComputeGraph compute_graph;
-		CxxComputeGraphFactory factory(compute_graph);
-		ComputeGraphConstruction<CxxComputeGraph::Ref, CxxComputeGraphFactory> construction(factory);
-		construction.add_module(module);
-		construction.process_queue();
-
-		// Perform topo sort and detect SCCs
-		CxxComputeGraph::SccAdaptor compute_graph_scc(compute_graph);
-
-		bool scc = false;
-		std::vector<int> perm;
-		topo_sorted_sccs(compute_graph_scc, [&](int *begin, int *end) {
-			perm.insert(perm.end(), begin, end);
-			if (end > begin + 1)
-			{
-				log_warning("SCC:");
-				for (int *i = begin; i != end; ++i)
-					log(" %d(%s)(%s)", *i, compute_graph[*i].function().name.c_str(), compute_graph[*i].has_sparse_attr() ? compute_graph[*i].sparse_attr().c_str() : "");
-				log("\n");
-				scc = true;
-			}
-		}, /* sources_first */ true);
-		compute_graph.permute(perm);
-		if(scc) log_error("combinational loops, aborting\n");
-
-		// Forward $$buf
-		std::vector<int> alias;
-		perm.clear();
-
-		for (int i = 0; i < compute_graph.size(); ++i)
-		{
-			auto node = compute_graph[i];
-			if (node.function().name == ID($$buf) && node.arg(0).index() < i)
-			{
-				int target_index = alias[node.arg(0).index()];
-				auto target_node = compute_graph[perm[target_index]];
-				if(!target_node.has_sparse_attr() && node.has_sparse_attr()){
-					IdString id = node.sparse_attr();
-					target_node.sparse_attr() = id;
-				}
-				alias.push_back(target_index);
-			}
-			else
-			{
-				alias.push_back(GetSize(perm));
-				perm.push_back(i);
-			}
-		}
-		compute_graph.permute(perm, alias);
-		return compute_graph;
-	}
-
-	void printCxx(std::ostream &stream, std::string, std::string const & name, CxxComputeGraph &compute_graph)
-	{
-		dict<IdString, CxxType> inputs, state;
+		auto ir = FunctionalIR::from_module(module);
 		CxxWriter f(stream);
 
-		// Dump the compute graph
-		for (int i = 0; i < compute_graph.size(); ++i)
-		{
-			auto ref = compute_graph[i];
-			if(ref.function().name == ID($$input))
-				inputs[ref.function().parameters.begin()->first] = ref.function().type;
-			if(ref.function().name == ID($$state))
-				state[ref.function().parameters.begin()->first] = ref.function().type;
-		}
 		f.printf("#include \"sim.h\"\n");
 		f.printf("#include <variant>\n");
-		CxxStruct input_struct(name + "_Inputs", true, inputs.size());
-		for (auto const &input : inputs)
-			input_struct.insert(input.first, input.second);
+		CxxStruct input_struct(name + "_Inputs", true);
+		for (auto [name, sort] : ir.inputs())
+			input_struct.insert(name, sort);
 		CxxStruct output_struct(name + "_Outputs");
-		for (auto const &key : compute_graph.keys())
-			if(state.count(key.first) == 0)
-				output_struct.insert(key.first, compute_graph[key.second].function().type);
+		for (auto [name, sort] : ir.outputs())
+			output_struct.insert(name, sort);
 		CxxStruct state_struct(name + "_State");
-		for (auto const &state_var : state)
-			state_struct.insert(state_var.first, state_var.second);
+		for (auto [name, sort] : ir.state())
+			state_struct.insert(name, sort);
 
-		idict<std::string> node_names;
+		dict<int, std::string> node_names;
 		CxxScope locals;
 
 		input_struct.print(f);
@@ -415,73 +294,17 @@ struct FunctionalCxxBackend : public Backend
 		locals.reserve("output");
 		locals.reserve("current_state");
 		locals.reserve("next_state");
-		for (int i = 0; i < compute_graph.size(); ++i)
+		auto node_to_string = [&](FunctionalIR::Node n) { return node_names.at(n.id()); };
+		for (auto node : ir)
 		{
-			auto ref = compute_graph[i];
-			auto type = ref.function().type;
-			std::string name;
-			if(ref.has_sparse_attr())
-				name = locals.insert(ref.sparse_attr());
-			else
-				name = locals.insert("\\n" + std::to_string(i));
-			node_names(name);
-			if(ref.function().name == ID($$input))
-				f.printf("\t%s %s = input.%s;\n", type.to_string().c_str(), name.c_str(), input_struct[ref.function().parameters.begin()->first].c_str());
-			else if(ref.function().name == ID($$state))
-				f.printf("\t%s %s = current_state.%s;\n", type.to_string().c_str(), name.c_str(), state_struct[ref.function().parameters.begin()->first].c_str());
-			else if(ref.function().name == ID($$buf))
-				f.printf("\t%s %s = %s;\n", type.to_string().c_str(), name.c_str(), node_names[ref.arg(0).index()].c_str());
-			else if(ref.function().name == ID($$cell_output))
-				f.printf("\t%s %s = %s.%s;\n", type.to_string().c_str(), name.c_str(), node_names[ref.arg(0).index()].c_str(), RTLIL::unescape_id(ref.function().parameters.begin()->first).c_str());
-			else if(ref.function().name == ID($$const)){
-				auto c = ref.function().parameters.begin()->second;
-				if(c.size() <= 32){
-					f.printf("\t%s %s = $const<%d>(%#x);\n", type.to_string().c_str(), name.c_str(), type.width(), (uint32_t) c.as_int());
-				}else{
-					f.printf("\t%s %s = $const<%d>({%#x", type.to_string().c_str(), name.c_str(), type.width(), (uint32_t) c.as_int());
-					while(c.size() > 32){
-						c = c.extract(32, c.size() - 32);
-						f.printf(", %#x", c.as_int());
-					}
-					f.printf("});\n");
-				}
-			}else if(ref.function().name == ID($$undriven))
-				f.printf("\t%s %s; //undriven\n", type.to_string().c_str(), name.c_str());
-			else if(ref.function().name == ID($$slice))
-				f.printf("\t%s %s = slice<%d>(%s, %d);\n", type.to_string().c_str(), name.c_str(), type.width(), node_names[ref.arg(0).index()].c_str(), ref.function().parameters.at(ID(offset)).as_int());
-			else if(ref.function().name == ID($$concat)){
-				f.printf("\tauto %s = concat(", name.c_str());
-				for (int i = 0, end = ref.size(); i != end; ++i){
-					if(i > 0)
-						f.printf(", ");
-					f.printf("%s", node_names[ref.arg(i).index()].c_str());
-				}
-				f.printf(");\n");
-			}else{
-				f.printf("\t");
-				f.printf("%s %s = %s", type.to_string().c_str(), name.c_str(), log_id(ref.function().name));
-				if(ref.function().parameters.count(ID(WIDTH))){
-					f.printf("<%d>", ref.function().parameters.at(ID(WIDTH)).as_int());
-				}
-				f.printf("(");
-				for (int i = 0, end = ref.size(); i != end; ++i)
-					f.printf("%s%s", i>0?", ":"", node_names[ref.arg(i).index()].c_str());
-				f.printf("); //");
-				for (auto const &param : ref.function().parameters)
-				{
-					if (param.second.empty())
-						f.printf("[%s]", log_id(param.first));
-					else
-						f.printf("[%s=%s]", log_id(param.first), log_const(param.second));
-				}
-				f.printf("\n");
-			}
+			std::string name = locals.insert(node.name());
+			node_names.emplace(node.id(), name);
+			f.printf("\t%s %s = %s;\n", CxxType(node.sort()).to_string().c_str(), name.c_str(), node.visit(CxxPrintVisitor(node_to_string, input_struct, state_struct)).c_str());
 		}
-
-		for (auto const &key : compute_graph.keys())
-		{
-			f.printf("\t%s.%s = %s;\n", state.count(key.first) > 0 ? "next_state" : "output", state_struct[key.first].c_str(), node_names[key.second].c_str());
-		}
+		for (auto [name, sort] : ir.state())
+			f.printf("\tnext_state.%s = %s;\n", state_struct[name].c_str(), node_to_string(ir.get_state_next_node(name)).c_str());
+		for (auto [name, sort] : ir.outputs())
+			f.printf("\toutput.%s = %s;\n", output_struct[name].c_str(), node_to_string(ir.get_output_node(name)).c_str());
 		f.printf("}\n");
 	}
 
@@ -494,8 +317,7 @@ struct FunctionalCxxBackend : public Backend
 
 		for (auto module : design->selected_modules()) {
             log("Dumping module `%s'.\n", module->name.c_str());
-			auto compute_graph = calculate_compute_graph(module);
-			printCxx(*f, filename, RTLIL::unescape_id(module->name), compute_graph);
+			printCxx(*f, filename, RTLIL::unescape_id(module->name), module);
 		}
 	}
 } FunctionalCxxBackend;
