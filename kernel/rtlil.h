@@ -2030,14 +2030,11 @@ public:
 			return !operator==(other);
 		}
 		int count(const RTLIL::IdString& portname) const {
-			log("count this %d\n", this);
 			try {
 				parent->getPort(portname);
 			} catch (const std::out_of_range& e) {
-				log("count 0\n");
 				return 0;
 			}
-			log("count 1\n");
 			return 1;
 		}
 		size_t size() const {
@@ -2270,13 +2267,15 @@ public:
 			throw std::out_of_range("FakeParams::size()");
 		}
 	}
+	// TODO check
 	void unsetPort(const RTLIL::IdString& portname) {
 		if (is_legacy())
 			legacy->unsetPort(portname);
-		setPort(portname, SigSpec());
+		try {
+			setPort(portname, SigSpec());
+		} catch (const std::out_of_range& e) {}
 	}
 	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
-	// TODO is this reasonable at all?
 	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
 	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
 	bool hasParam(const RTLIL::IdString &paramname) const {
@@ -2288,18 +2287,16 @@ public:
 			throw std::out_of_range("FakeParams::size()");
 		}
 	}
+	// TODO check
 	void unsetParam(const RTLIL::IdString& paramname) {
 		if (is_legacy())
 			legacy->unsetParam(paramname);
-		setPort(paramname, Const());
+		try {
+			setPort(paramname, Const());
+		} catch (const std::out_of_range& e) {}
 	}
 	template<typename T>
 	void rewrite_sigspecs2(T &functor) {
-		// for(auto it = connections_.begin(); it != connections_.end(); ++it) {
-		// 	auto& thing = *it;
-		// 	functor(it.second);
-		// }
-		// TODO fix!!!
 		for (auto it : connections_)
 			functor(it.second);
 	}

@@ -408,6 +408,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 	for (auto cell : module->cells())
 		if (design->selected(module, cell) && cell->type[0] == '$') {
+			log("%s\n", cell->name.c_str());
+			log_cell(cell, "inner ");
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
 					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
@@ -2305,6 +2307,9 @@ struct OptExprPass : public Pass {
 		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
+			for (auto cell : module->cells()) {
+				log_cell(cell, "start ");
+			}
 			log("Optimizing module %s.\n", log_id(module));
 
 			if (undriven) {
@@ -2312,6 +2317,9 @@ struct OptExprPass : public Pass {
 				replace_undriven(module, ct);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
+			}
+			for (auto cell : module->cells()) {
+				log_cell(cell, "mid ");
 			}
 
 			do {

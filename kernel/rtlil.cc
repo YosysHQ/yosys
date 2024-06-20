@@ -2458,6 +2458,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
+	log_assert(other);
 	RTLIL::Cell *cell = addCell(name, other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
