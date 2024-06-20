@@ -17,15 +17,8 @@
  *
  */
 
-#ifndef GRAPHTOOLS_H
-#define GRAPHTOOLS_H
+#include "kernel/functionalir.h"
 
-#include "kernel/yosys.h"
-#include "kernel/drivertools.h"
-#include "kernel/functional.h"
-#include "kernel/mem.h"
-
-USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
 template <class T, class Factory>
@@ -196,7 +189,7 @@ public:
 };
 
 template <class T, class Factory>
-class ComputeGraphConstruction {
+class FunctionalIRConstruction {
 	std::deque<DriveSpec> queue;
 	dict<DriveSpec, T> graph_nodes;
 	idict<Cell *> cells;
@@ -218,7 +211,7 @@ class ComputeGraphConstruction {
 			return it->second;
 	}
 public:
-	ComputeGraphConstruction(Factory &f) : factory(f), simplifier(f) {}
+	FunctionalIRConstruction(Factory &f) : factory(f), simplifier(f) {}
 	void add_module(Module *module)
 	{
 		driver_map.add(module);
@@ -238,8 +231,9 @@ public:
 				memories[mem.cell] = &mem;
 		}
 	}
-	T concatenate_read_results(Mem *mem, vector<T> results)
+	T concatenate_read_results(Mem *, vector<T> results)
 	{
+        /* TODO: write code to check that this is ok to do */
 		if(results.size() == 0)
 			return factory.undriven(0);
 		T node = results[0];
@@ -381,6 +375,60 @@ public:
 	}
 };
 
-YOSYS_NAMESPACE_END
+FunctionalIR FunctionalIR::from_module(Module *module) {
+    FunctionalIR ir;
+    auto factory = ir.factory();
+    FunctionalIRConstruction<FunctionalIR::Node, FunctionalIR::Factory> ctor(factory);
+    ctor.add_module(module);
+    ctor.process_queue();
+    ir.topological_sort();
+    ir.forward_buf();
+    return ir;
+}
 
-#endif
+void FunctionalIR::topological_sort() {
+    Graph::SccAdaptor compute_graph_scc(_graph);
+    bool scc = false;
+    std::vector<int> perm;
+    topo_sorted_sccs(compute_graph_scc, [&](int *begin, int *end) {
+        perm.insert(perm.end(), begin, end);
+        if (end > begin + 1)
+        {
+            log_warning("SCC:");
+            for (int *i = begin; i != end; ++i)
+                log(" %d", *i);
+            log("\n");
+            scc = true;
+        }
+    }, /* sources_first */ true);
+    _graph.permute(perm);
+    if(scc) log_error("combinational loops, aborting\n");
+}
+
+void FunctionalIR::forward_buf() {
+    std::vector<int> perm, alias;
+    perm.clear();
+
+    for (int i = 0; i < _graph.size(); ++i)
+    {
+        auto node = _graph[i];
+        if (node.function().fn() == Fn::buf && node.arg(0).index() < i)
+        {
+            int target_index = alias[node.arg(0).index()];
+            auto target_node = _graph[perm[target_index]];
+            if(!target_node.has_sparse_attr() && node.has_sparse_attr()){
+                IdString id = node.sparse_attr();
+                target_node.sparse_attr() = id;
+            }
+            alias.push_back(target_index);
+        }
+        else
+        {
+            alias.push_back(GetSize(perm));
+            perm.push_back(i);
+        }
+    }
+    _graph.permute(perm, alias);
+}
+
+YOSYS_NAMESPACE_END
