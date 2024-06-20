@@ -81,9 +81,9 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 	}
 
 	if(cell_type_latch)
-		cell->type = stringf("\\GP_DLATCH%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
+		cell = cell->module->morphCell(stringf("\\GP_DLATCH%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : ""), cell);
 	else
-		cell->type = stringf("\\GP_DFF%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
+		cell = cell->module->morphCell(stringf("\\GP_DFF%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : ""), cell);
 
 	log("Merged %s inverter into cell %s.%s: %s -> %s\n", invert_input ? "input" : "output",
 			log_id(cell->module), log_id(cell), cell_type.c_str()+1, log_id(cell->type));

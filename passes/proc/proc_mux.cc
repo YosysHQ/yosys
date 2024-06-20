@@ -262,7 +262,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
-	last_mux_cell->type = ID($pmux);
+	last_mux_cell = last_mux_cell->module->morphCell(ID($pmux), last_mux_cell);
 
 	RTLIL::SigSpec new_s = last_mux_cell->getPort(ID::S);
 	new_s.append(ctrl_sig);

@@ -269,21 +269,21 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	cell->setPort(ID::C, clk_sig);
 
 	if (clear_sig.size() == 0 && preset_sig.size() == 0) {
-		cell->type = stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N');
+		cell = cell->module->morphCell(stringf("$_DFF_%c_", clk_polarity ? 'P' : 'N'), cell);
 	}
 
 	if (clear_sig.size() == 1 && preset_sig.size() == 0) {
-		cell->type = stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+		cell = cell->module->morphCell(stringf("$_DFF_%c%c0_", clk_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N'), cell);
 		cell->setPort(ID::R, clear_sig);
 	}
 
 	if (clear_sig.size() == 0 && preset_sig.size() == 1) {
-		cell->type = stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N');
+		cell = cell->module->morphCell(stringf("$_DFF_%c%c1_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N'), cell);
 		cell->setPort(ID::R, preset_sig);
 	}
 
 	if (clear_sig.size() == 1 && preset_sig.size() == 1) {
-		cell->type = stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N');
+		cell = cell->module->morphCell(stringf("$_DFFSR_%c%c%c_", clk_polarity ? 'P' : 'N', preset_polarity ? 'P' : 'N', clear_polarity ? 'P' : 'N'), cell);
 		cell->setPort(ID::S, preset_sig);
 		cell->setPort(ID::R, clear_sig);
 	}

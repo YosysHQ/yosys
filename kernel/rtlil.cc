@@ -2434,7 +2434,6 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 	cell->type = type;
 	if (RTLIL::Cell::is_legacy_type(type)) {
 		cell->legacy = new RTLIL::OldCell;
-		cell->legacy->name = name;
 		cell->legacy->type = type;
 		cell->legacy->module = this;
 		log_assert(this);
@@ -2464,6 +2463,32 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	return cell;
+}
+
+// Swap cell for a new one with a different type, keeping everything else
+// Throws if their types don't allow it
+RTLIL::Cell *RTLIL::Module::morphCell(RTLIL::IdString type, RTLIL::Cell *old)
+{
+	// if (old->is_legacy() && Cell::is_legacy_type(type)) {
+	// 	old->type = type;
+	// 	return old;
+	// }
+	// TODO xtrace
+	if (yosys_xtrace) {
+		log("#X# Morphing %s.%s from type %s to %s\n", log_id(this), log_id(old), log_id(old->type), log_id(type));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+	log_assert(old);
+	cells_.erase(old->name);
+	RTLIL::Cell *new_cell = addCell(old->name, type);
+	new_cell->connections_ = old->connections_.as_dict();
+	new_cell->parameters = old->parameters.as_dict();
+	new_cell->attributes = old->attributes;
+	new_cell->name = old->name;
+	log_assert(refcount_cells_ == 0);
+	cells_[new_cell->name] = new_cell;
+	delete old;
+	return new_cell;
 }
 
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)

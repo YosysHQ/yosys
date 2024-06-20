@@ -331,16 +331,18 @@ struct TechmapWorker
 			else
 				apply_prefix(cell->name, c_name);
 
+			auto type = tpl_cell->type;
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
 
-			if (c->type.begins_with("\\$"))
-				c->type = c->type.substr(1);
-			
-			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
-				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
+			if (type.begins_with("\\$"))
+				type = type.substr(1);
+
+			if (type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
+				type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
 				c->attributes.erase(ID::techmap_chtype);
 			}
+			c = module->morphCell(type, c);
 
 			vector<IdString> autopurge_ports;
 
@@ -508,7 +510,7 @@ struct TechmapWorker
 
 				if (!extmapper_name.empty())
 				{
-					cell->type = cell_type;
+					cell = cell->module->morphCell(cell_type, cell);
 
 					if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 					{
@@ -570,7 +572,7 @@ struct TechmapWorker
 							}
 						}
 
-						cell->type = extmapper_module->name;
+						cell = cell->module->morphCell(extmapper_module->name, cell);
 						cell->parameters.clear();
 
 						if (!extern_mode || in_recursion) {
@@ -937,14 +939,14 @@ struct TechmapWorker
 
 						for (auto cell : m->cells()) {
 							if (cell->type.begins_with("\\$"))
-								cell->type = cell->type.substr(1);
+								cell = cell->module->morphCell(cell->type.substr(1), cell);
 						}
 
 						module_queue.insert(m);
 					}
 
 					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
-					cell->type = m_name;
+					cell = cell->module->morphCell(m_name, cell);
 					cell->parameters.clear();
 				}
 				else

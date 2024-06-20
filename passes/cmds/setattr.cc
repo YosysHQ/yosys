@@ -220,7 +220,7 @@ struct SetparamPass : public Pass {
 		{
 			for (auto cell : module->selected_cells()) {
 				if (!new_cell_type.empty())
-					cell->type = new_cell_type;
+					cell = cell->module->morphCell(new_cell_type, cell);
 				do_setunset(cell->parameters, setunset_list);
 			}
 		}

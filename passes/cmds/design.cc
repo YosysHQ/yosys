@@ -318,7 +318,7 @@ struct DesignPass : public Pass {
 						done[cell->type] = trg_name;
 					}
 
-					cell->type = done.at(cell->type);
+					cell = cell->module->morphCell(done.at(cell->type), cell);
 				}
 			}
 		}

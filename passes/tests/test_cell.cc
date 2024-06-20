@@ -973,9 +973,9 @@ struct TestCellPass : public Pass {
 					Frontend::frontend_call(design, NULL, std::string(), "rtlil " + rtlil_file);
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
-				if (!write_prefix.empty()) {
+				if (!write_prefix.empty())
 					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
-				} else if (edges) {
+				if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
 				} else {

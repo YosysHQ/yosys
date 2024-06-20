@@ -293,10 +293,10 @@ struct proc_dlatch_db_t
 			cell->setPort(ID::A, sig_any_valid_b);
 
 		if (GetSize(sig_new_s) == 1) {
-			cell->type = ID($mux);
+			cell = cell->module->morphCell(ID($mux), cell);
 			cell->unsetParam(ID::S_WIDTH);
 		} else {
-			cell->type = ID($pmux);
+			cell = cell->module->morphCell(ID($pmux), cell);
 			cell->setParam(ID::S_WIDTH, GetSize(sig_new_s));
 		}
 

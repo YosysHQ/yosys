@@ -70,12 +70,12 @@ struct ChtypePass : public Pass {
 			for (auto cell : module->selected_cells())
 			{
 				if (map_types.count(cell->type)) {
-					cell->type = map_types.at(cell->type);
+					cell = cell->module->morphCell(map_types.at(cell->type), cell);
 					continue;
 				}
 
 				if (set_type != IdString()) {
-					cell->type = set_type;
+					cell = cell->module->morphCell(set_type, cell);
 					continue;
 				}
 			}

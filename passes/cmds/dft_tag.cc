@@ -109,7 +109,7 @@ struct DftTagWorker {
 			module->remove(cell);
 		}
 		for (auto cell : original_cells) {
-			cell->type = ID($get_tag);
+			cell = cell->module->morphCell(ID($get_tag), cell);
 		}
 
 		if (design_changed)

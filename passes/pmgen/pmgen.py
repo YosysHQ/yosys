@@ -5,6 +5,8 @@ import sys
 import pprint
 import getopt
 
+# TODO there's an invalid cell type assignment here that should be turned into morphCell
+
 pp = pprint.PrettyPrinter(indent=4)
 
 prefix = None

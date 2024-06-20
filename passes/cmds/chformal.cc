@@ -46,7 +46,7 @@ static RTLIL::IdString formal_flavor(RTLIL::Cell *cell)
 static void set_formal_flavor(RTLIL::Cell *cell, RTLIL::IdString flavor)
 {
 	if (cell->type != ID($check)) {
-		cell->type = flavor;
+		cell = cell->module->morphCell(flavor, cell);
 		return;
 	}
 
@@ -423,7 +423,7 @@ struct ChformalPass : public Pass {
 					if (cell->getPort(ID::ARGS).empty()) {
 						module->remove(cell);
 					} else {
-						cell->type = ID($print);
+						cell = cell->module->morphCell(ID($print), cell);
 						cell->setPort(ID::EN, combined_en);
 						cell->unsetPort(ID::A);
 						cell->unsetParam(ID(FLAVOR));

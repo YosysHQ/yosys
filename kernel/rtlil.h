@@ -1276,6 +1276,8 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
+	RTLIL::Cell *morphCell(RTLIL::IdString type, RTLIL::Cell *old);
+
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
 	RTLIL::Process *addProcess(RTLIL::IdString name);
@@ -1559,6 +1561,7 @@ struct RTLIL::OldCell
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
+	// also see morphCell
 	friend struct RTLIL::Module;
 	friend struct RTLIL::Cell;
 	OldCell();
@@ -1711,8 +1714,10 @@ public:
 			return parent->getMutParam(name);
 		}
 		void operator=(dict<IdString, Const> from) {
-			if (parent->is_legacy())
+			if (parent->is_legacy()) {
 				parent->legacy->parameters = from;
+				return;
+			}
 
 			if (parent->type == ID($not)) {
 				parent->not_.params_from_dict(from);
@@ -1991,7 +1996,7 @@ public:
 				throw std::out_of_range("Cell::getParam()");
 			}
 		}
-		void operator=(const FakeConns& from) {
+		void operator=(const FakeConns& from) { // TODO check warning
 			log_assert(parent->type == from.parent->type);
 
 			if (parent->is_legacy()) {
@@ -2269,8 +2274,10 @@ public:
 	}
 	// TODO check
 	void unsetPort(const RTLIL::IdString& portname) {
-		if (is_legacy())
+		if (is_legacy()) {
 			legacy->unsetPort(portname);
+			return;
+		}
 		try {
 			setPort(portname, SigSpec());
 		} catch (const std::out_of_range& e) {}
@@ -2289,8 +2296,10 @@ public:
 	}
 	// TODO check
 	void unsetParam(const RTLIL::IdString& paramname) {
-		if (is_legacy())
+		if (is_legacy()) {
 			legacy->unsetParam(paramname);
+			return;
+		}
 		try {
 			setPort(paramname, Const());
 		} catch (const std::out_of_range& e) {}

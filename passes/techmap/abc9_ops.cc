@@ -195,7 +195,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						// If derived_type is present in unmap_design, it means that it was processed previously, but found to be incompatible -- e.g. if
 						// it contained a non-zero initial state. In this case, continue to replace the cell type/parameters so that it has the same properties
 						// as a compatible type, yet will be safely unmapped later
-						cell->type = derived_type;
+						cell = cell->module->morphCell(derived_type, cell);
 						cell->parameters.clear();
 						unused_derived.erase(derived_type);
 					}
@@ -255,7 +255,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 			}
 
-			cell->type = derived_type;
+			cell = cell->module->morphCell(derived_type, cell);
 			cell->parameters.clear();
 			unused_derived.erase(derived_type);
 		}
@@ -1344,7 +1344,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			RTLIL::Module* box_module = design->module(existing_cell->type);
 			log_assert(existing_cell->parameters.empty());
 			log_assert(mapped_cell->type == stringf("$__boxid%d", box_module->attributes.at(ID::abc9_box_id).as_int()));
-			mapped_cell->type = existing_cell->type;
+			mapped_cell = mapped_cell->module->morphCell(existing_cell->type, mapped_cell);
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = existing_cell->parameters;

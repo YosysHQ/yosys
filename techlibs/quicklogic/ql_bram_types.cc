@@ -154,7 +154,7 @@ struct QlBramTypesPass : public Pass {
 					type += "nonsplit";
 				}
 
-				cell->type = RTLIL::escape_id(type);
+				cell = cell->module->morphCell(RTLIL::escape_id(type), cell);
 				log_debug("Changed type of memory cell %s to %s\n", log_id(cell->name), log_id(cell->type));
 			}
 	}

@@ -89,7 +89,7 @@ struct UniquifyPass : public Pass {
 
 					auto smod = tmod->clone();
 					smod->name = newname;
-					cell->type = newname;
+					cell = cell->module->morphCell(newname, cell);
 					smod->set_bool_attribute(ID::unique);
 					if (smod->attributes.count(ID::hdlname) == 0)
 						smod->attributes[ID::hdlname] = string(log_id(tmod->name));

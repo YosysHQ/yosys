@@ -332,7 +332,7 @@ struct ShregmapWorker
 				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
-			first_cell->type = shreg_cell_type_str;
+			first_cell = first_cell->module->morphCell(shreg_cell_type_str, first_cell);
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam(ID::DEPTH, depth);
 

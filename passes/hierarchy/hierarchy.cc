@@ -473,7 +473,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.substr(pos_type + 1);
+			cell = cell->module->morphCell(cell->type.substr(pos_type + 1), cell);
 		}
 
 		RTLIL::Module *mod = design->module(cell->type);

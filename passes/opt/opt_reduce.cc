@@ -160,7 +160,7 @@ struct OptReduceWorker
 			if (new_sig_s.size() > 1) {
 				cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
 			} else {
-				cell->type = ID($mux);
+				cell = cell->module->morphCell(ID($mux), cell);
 				cell->parameters.erase(ID::S_WIDTH);
 			}
 		}
@@ -228,7 +228,7 @@ struct OptReduceWorker
 
 		if (new_sig_s.size() == 1)
 		{
-			cell->type = ID($mux);
+			cell = cell->module->morphCell(ID($mux), cell);
 			cell->setPort(ID::A, new_sig_a.extract(0, width));
 			cell->setPort(ID::B, new_sig_a.extract(width, width));
 			cell->setPort(ID::S, new_sig_s);
