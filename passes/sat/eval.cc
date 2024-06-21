@@ -384,6 +384,9 @@ struct EvalPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows, tables;
 		bool set_undef = false;

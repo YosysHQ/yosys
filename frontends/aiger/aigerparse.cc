@@ -766,7 +766,8 @@ void AigerReader::post_process()
 {
 	unsigned ci_count = 0, co_count = 0;
 	for (auto cell : boxes) {
-		for (auto &bit : cell->connections_.at(ID(i))) {
+		auto sig_inp = cell->connections_.at(ID(i));
+		for (auto &bit : sig_inp) {
 			log_assert(bit == State::S0);
 			log_assert(co_count < outputs.size());
 			bit = outputs[co_count++];
@@ -774,7 +775,8 @@ void AigerReader::post_process()
 			log_assert(bit.wire->port_output);
 			bit.wire->port_output = false;
 		}
-		for (auto &bit : cell->connections_.at(ID(o))) {
+		auto sig_outp = cell->connections_.at(ID(i));
+		for (auto &bit : sig_outp) {
 			log_assert(bit == State::S0);
 			log_assert((piNum + ci_count) < inputs.size());
 			bit = inputs[piNum + ci_count++];

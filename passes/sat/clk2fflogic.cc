@@ -120,6 +120,9 @@ struct Clk2fflogicPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool flag_nolower = false;
 
 		log_header(design, "Executing CLK2FFLOGIC pass (convert clocked FFs to generic $ff cells).\n");

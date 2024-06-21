@@ -304,6 +304,9 @@ struct EquivSimplePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool verbose = false, short_cones = false, model_undef = false, nogroup = false;
 		int success_counter = 0;
 		int max_seq = 1;

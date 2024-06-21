@@ -343,9 +343,9 @@ private:
 				//recurse to GLIFT model the child module. However, we need to augment the ports list
 				//with taint signals and connect the new ports to the corresponding taint signals.
 				RTLIL::Module *cell_module_def = module->design->module(cell->type);
-				dict<RTLIL::IdString, RTLIL::SigSpec> orig_ports = cell->connections();
+				auto orig_ports = cell->connections().as_dict();
 				log("Adding cell %s\n", cell_module_def->name.c_str());
-				for (auto &it : orig_ports) {
+				for (auto &&it : orig_ports) {
 					RTLIL::SigSpec port = it.second;
 					RTLIL::SigSpec port_taint = get_corresponding_taint_signal(port);
 
@@ -517,6 +517,9 @@ struct GliftPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool opt_create_precise_model = false, opt_create_imprecise_model = false, opt_create_instrumented_model = false;
 		bool opt_taintconstants = false, opt_keepoutputs = false, opt_simplecostmodel = false, opt_nocostmodel = false;
 		bool opt_instrumentmore = false;

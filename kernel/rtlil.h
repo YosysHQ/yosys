@@ -62,7 +62,9 @@ namespace RTLIL
 	struct Module;
 	struct Wire;
 	struct Memory;
+	struct Unary;
 	struct Cell;
+	struct OldCell;
 	struct SigChunk;
 	struct SigBit;
 	struct SigSpecIterator;
@@ -655,6 +657,7 @@ namespace RTLIL
 	};
 };
 
+// TODO OF GALACTIC PROPORTIONS
 struct RTLIL::Const
 {
 	int flags;
@@ -908,9 +911,11 @@ public:
 
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with);
 	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec *other) const;
+	void replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec &other) const;
 
 	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules);
 	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const;
+	void replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec &other) const;
 
 	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules);
 	void replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const;
@@ -1048,6 +1053,7 @@ struct RTLIL::Monitor
 	virtual void notify_module_add(RTLIL::Module*) { }
 	virtual void notify_module_del(RTLIL::Module*) { }
 	virtual void notify_connect(RTLIL::Cell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
+	virtual void notify_connect(RTLIL::OldCell*, const RTLIL::IdString&, const RTLIL::SigSpec&, const RTLIL::SigSpec&) { }
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
 	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
@@ -1269,6 +1275,8 @@ public:
 
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
+
+	RTLIL::Cell *morphCell(RTLIL::IdString type, RTLIL::Cell *old);
 
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
@@ -1545,21 +1553,24 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 #endif
 };
 
-struct RTLIL::Cell : public RTLIL::AttrObject
+
+struct RTLIL::OldCell
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
+	// also see morphCell
 	friend struct RTLIL::Module;
-	Cell();
-	~Cell();
+	friend struct RTLIL::Cell;
+	OldCell();
+	~OldCell();
 
 public:
 	// do not simply copy cells
-	Cell(RTLIL::Cell &other) = delete;
-	void operator=(RTLIL::Cell &other) = delete;
+	OldCell(RTLIL::OldCell &other) = delete;
+	void operator=(RTLIL::OldCell &other) = delete;
 
 	RTLIL::Module *module;
 	RTLIL::IdString name;
@@ -1586,23 +1597,736 @@ public:
 	const RTLIL::Const &getParam(const RTLIL::IdString &paramname) const;
 
 	void sort();
-	void check();
-	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+	// void check();
+	// void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
-	bool has_keep_attr() const {
-		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute(ID::keep));
-	}
+	// bool has_keep_attr() const {
+	// 	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+	// 			module->design->module(type)->get_bool_attribute(ID::keep));
+	// }
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 
 #ifdef WITH_PYTHON
-	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
+	static std::map<unsigned int, RTLIL::OldCell*> *get_all_cells(void);
 #endif
 
 	bool has_memid() const;
 	bool is_mem_cell() const;
+};
+
+
+// $not etc
+struct RTLIL::Unary {
+	SigSpec a;
+	SigSpec y;
+	Const a_width;
+	Const y_width;
+	Const is_signed;
+	std::array<std::pair<IdString, SigSpec&>, 2> connections() {
+		return {std::make_pair(ID::A, std::ref(a)), std::make_pair(ID::Y, std::ref(y))};
+	}
+	std::array<std::pair<IdString, Const&>, 3> parameters() {
+		return {std::make_pair(ID::A_WIDTH, std::ref(a_width)), std::make_pair(ID::Y_WIDTH, std::ref(y_width)), std::make_pair(ID::A_SIGNED, std::ref(is_signed))};
+	}
+	bool input(IdString portname) const {
+		return portname == ID::A;
+	}
+	bool output(IdString portname) const {
+		return portname == ID::Y;
+	}
+	void conns_from_dict(dict<IdString, SigSpec> conns) {
+		a = conns[ID::A];
+		y = conns[ID::Y];
+	}
+	void params_from_dict(dict<IdString, Const> conns) {
+		a_width = conns[ID::A_WIDTH];
+		y_width = conns[ID::Y_WIDTH];
+		is_signed = conns[ID::A_SIGNED];
+	}
+	// TODO new interface: inputs
+};
+
+// NewCell
+// TODO attributes
+struct RTLIL::Cell : RTLIL::AttrObject
+{
+	// TODO huh?
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+	// TODO figure this out later
+	friend struct RTLIL::Module;
+	Cell();
+	~Cell();
+
+public:
+
+	RTLIL::IdString type;
+	RTLIL::IdString name; // TODO delete?
+	RTLIL::Module* module; // TODO delete
+	union {
+		RTLIL::Unary not_;
+		RTLIL::Unary pos;
+		RTLIL::Unary neg;
+		RTLIL::OldCell* legacy;
+	};
+	struct FakeParams {
+		RTLIL::Cell* parent;
+		RTLIL::Const& at(RTLIL::IdString paramname) {
+			return parent->getMutParam(paramname);
+		}
+		const RTLIL::Const& at(RTLIL::IdString name) const {
+			return parent->getParam(name);
+		}
+		const RTLIL::Const& at(RTLIL::IdString name, const RTLIL::Const& def) const {
+			if (parent->hasParam(name))
+				return parent->getParam(name);
+			else
+				return def;
+		}
+		dict<IdString, Const> as_dict() const {
+			if (parent->is_legacy())
+				return parent->legacy->parameters;
+
+			auto d = dict<IdString, Const>();
+			if (parent->type == ID($not)) {
+				for (auto conn: parent->not_.parameters())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($pos)) {
+				for (auto conn: parent->pos.parameters())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($neg)) {
+				for (auto conn: parent->neg.parameters())
+					d[conn.first] = conn.second;
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+			return d;
+		}
+		void sort() {}
+		void reserve(int n) { (void)n; }
+		// Watch out! This is different semantics than what dict has!
+		// but we rely on RTLIL::Cell always being constructed correctly
+		// since its layout is fixed as defined by InternalOldCellChecker
+		RTLIL::Const& operator[](RTLIL::IdString name) {
+			// log("operator[] on %s type %s\n", name.c_str(), parent->type.c_str());
+			return parent->getMutParam(name);
+		}
+		void operator=(dict<IdString, Const> from) {
+			if (parent->is_legacy()) {
+				parent->legacy->parameters = from;
+				return;
+			}
+
+			if (parent->type == ID($not)) {
+				parent->not_.params_from_dict(from);
+			} else if (parent->type == ID($pos)) {
+				parent->pos.params_from_dict(from);
+			} else if (parent->type == ID($neg)) {
+				parent->neg.params_from_dict(from);
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+		}
+		void operator=(const FakeParams& from) {
+			log_assert(parent->type == from.parent->type);
+
+			if (parent->is_legacy()) {
+				log_assert(from.parent->is_legacy());
+				parent->legacy->parameters = from.parent->legacy->parameters;
+				// return;
+			}
+			auto this_it = begin();
+			auto from_it = from.parent->parameters.begin();
+			while (this_it != end() && from_it != from.parent->parameters.end()) {
+				// Well-ordered
+				log_assert((*this_it).first == (*from_it).first);
+				(*this_it).second = (*from_it).second;
+				++this_it;
+				++from_it;
+			}
+			// Same params
+			log_assert(this_it == this->end() && from_it == from.parent->parameters.end());
+		}
+		bool operator==(const FakeParams& other) const {
+			auto this_it = this->begin();
+			auto other_it = other.begin();
+			while (this_it != this->end() && other_it != other.end()) {
+				if (*this_it != *other_it)
+					return false;
+				++this_it;
+				++other_it;
+			}
+			if (this_it != this->end() || other_it != other.end()) {
+				// One has more params than the other
+				return false;
+			}
+			return true;
+		}
+		bool operator!=(const FakeParams& other) const {
+			return !operator==(other);
+		}
+		int count(const RTLIL::IdString& name) const {
+			try {
+				parent->getParam(name);
+			} catch (const std::out_of_range& e) {
+				return 0;
+			}
+			return 1;
+		}
+		size_t size() const {
+			if (parent->is_legacy()) {
+				return parent->legacy->connections_.size();
+			} else if (parent->type == ID($pos)) {
+				return parent->pos.connections().size();
+			} else if (parent->type == ID($neg)) {
+				return parent->neg.connections().size();
+			} else if (parent->type == ID($not)) {
+				return parent->not_.connections().size();
+			} else {
+				throw std::out_of_range("FakeParams::size()");
+			}
+		}
+		bool empty() const {
+			return !size();
+		}
+		// The need for this function implies setPort will be used on incompat types
+		void erase(const RTLIL::IdString& paramname) const { (void)paramname; }
+		// The need for this function implies setPort will be used on incompat types
+		void clear() const {}
+		// AAA
+		class iterator {
+			typedef std::bidirectional_iterator_tag iterator_category;
+			typedef std::pair<IdString, Const> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, Const>* pointer;
+			typedef std::pair<IdString, Const>& reference;
+			Cell* parent;
+			int position;
+		public:
+			iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const iterator &other) const {
+				return !(*this == other);
+			}
+			std::pair<IdString, Const&> operator*() {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeParams::iterator::operator*()");
+				}
+			}
+			std::pair<IdString, Const&> operator->() { return operator*(); }
+			const std::pair<IdString, Const&> operator->() const { return operator*(); }
+			const std::pair<IdString, Const&> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeParams::iterator::operator*() const");
+				}
+			}
+		};
+		iterator begin() {
+			return iterator(parent, 0);
+		}
+		// Stupid impl, but rarely used, so I don't want to think about it rn
+		iterator find(IdString name) {
+			auto it = iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
+		iterator end() {
+			if (parent->is_legacy()) {
+				return iterator(parent, parent->legacy->parameters.size());
+			} else if (parent->type == ID($pos)) {
+				return iterator(parent, parent->pos.parameters().size());
+			} else if (parent->type == ID($neg)) {
+				return iterator(parent, parent->neg.parameters().size());
+			} else if (parent->type == ID($not)) {
+				return iterator(parent, parent->not_.parameters().size());
+			} else {
+				throw std::out_of_range("FakeParams::iterator::end()");
+			}
+		}
+		// AAA CONST ITERATOR
+		class const_iterator {
+			typedef std::input_iterator_tag iterator_category;
+			typedef std::pair<IdString, Const> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, const Const*> pointer;
+			typedef std::pair<IdString, const Const&> reference;
+			Cell* parent;
+			int position;
+		public:
+			const_iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			const_iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const const_iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const const_iterator &other) const {
+				return !(*this == other);
+			}
+			const std::pair<IdString, const Const&> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->parameters.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.parameters()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.parameters()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.parameters()[position];
+				} else {
+					throw std::out_of_range("FakeParams::const_iterator::operator*() const");
+				}
+			}
+			// std::pair<IdString, Const&> operator->() { return operator*(); }
+			const std::pair<IdString, const Const&> operator->() const { return operator*(); }
+		};
+		const_iterator begin() const {
+				return const_iterator(parent, 0);
+		}
+		const_iterator find(const IdString name) const {
+			auto it = const_iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
+		const_iterator end() const {
+			if (parent->is_legacy()) {
+				return const_iterator(parent, parent->legacy->parameters.size());
+			} else if (parent->type == ID($pos)) {
+				return const_iterator(parent, parent->pos.parameters().size());
+			} else if (parent->type == ID($neg)) {
+				return const_iterator(parent, parent->neg.parameters().size());
+			} else if (parent->type == ID($not)) {
+				return const_iterator(parent, parent->not_.parameters().size());
+			} else {
+				throw std::out_of_range("FakeConns::end() const");
+			}
+		}
+	};
+	struct FakeConns {
+		RTLIL::Cell* parent;
+		RTLIL::SigSpec& at(RTLIL::IdString name) {
+			return parent->getMutPort(name);
+		}
+		const RTLIL::SigSpec& at(RTLIL::IdString name) const {
+			return parent->getPort(name);
+		}
+		const RTLIL::SigSpec& at(RTLIL::IdString name, const RTLIL::SigSpec& def) const {
+			if (parent->hasPort(name))
+				return parent->getPort(name);
+			else
+				return def;
+		}
+		dict<IdString, SigSpec> as_dict() const {
+			if (parent->is_legacy())
+				return parent->legacy->connections_;
+
+			auto d = dict<IdString, SigSpec>();
+			if (parent->type == ID($not)) {
+				for (auto conn: parent->not_.connections())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($pos)) {
+				for (auto conn: parent->pos.connections())
+					d[conn.first] = conn.second;
+			} else if (parent->type == ID($neg)) {
+				for (auto conn: parent->neg.connections())
+					d[conn.first] = conn.second;
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+			return d;
+		}
+		void sort() {}
+		void reserve(int n) { (void)n; }
+		// Watch out! This is different semantics than what dict has!
+		// but we rely on RTLIL::Cell always being constructed correctly
+		// since its layout is fixed as defined by InternalOldCellChecker
+		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
+			// log("operator[] on %s type %s\n", portname.c_str(), parent->type.c_str());
+			return parent->getMutPort(portname);
+		}
+		void operator=(dict<IdString, SigSpec> from) {
+			if (parent->is_legacy()) {
+				parent->legacy->connections_ = from;
+				return;
+			}
+
+			if (parent->type == ID($not)) {
+				parent->not_.conns_from_dict(from);
+			} else if (parent->type == ID($pos)) {
+				parent->pos.conns_from_dict(from);
+			} else if (parent->type == ID($neg)) {
+				parent->neg.conns_from_dict(from);
+			} else {
+				throw std::out_of_range("Cell::getParam()");
+			}
+		}
+		void operator=(const FakeConns& from) { // TODO check warning
+			log_assert(parent->type == from.parent->type);
+
+			if (parent->is_legacy()) {
+				log_assert(from.parent->is_legacy());
+				parent->legacy->connections_ = from.parent->legacy->connections_;
+				// return;
+			}
+			auto this_it = begin();
+			auto from_it = from.parent->connections_.begin();
+			while (this_it != end() && from_it != from.parent->connections_.end()) {
+				// Well-ordered
+				log_assert((*this_it).first == (*from_it).first);
+				(*this_it).second = (*from_it).second;
+				++this_it;
+				++from_it;
+			}
+			// Same params
+			log_assert(this_it == this->end() && from_it == from.parent->connections_.end());
+		}
+		bool operator==(const FakeConns& other) const {
+			auto this_it = this->begin();
+			auto other_it = other.begin();
+			while (this_it != this->end() && other_it != other.end()) {
+				if (*this_it != *other_it)
+					return false;
+				++this_it;
+				++other_it;
+			}
+			if (this_it != this->end() || other_it != other.end()) {
+				// One has more params than the other
+				return false;
+			}
+			return true;
+		}
+		bool operator!=(const FakeConns& other) const {
+			return !operator==(other);
+		}
+		int count(const RTLIL::IdString& portname) const {
+			try {
+				parent->getPort(portname);
+			} catch (const std::out_of_range& e) {
+				return 0;
+			}
+			return 1;
+		}
+		size_t size() const {
+			if (parent->is_legacy()) {
+				return parent->legacy->connections_.size();
+			} else if (parent->type == ID($pos)) {
+				return parent->pos.connections().size();
+			} else if (parent->type == ID($neg)) {
+				return parent->neg.connections().size();
+			} else if (parent->type == ID($not)) {
+				return parent->not_.connections().size();
+			} else {
+				throw std::out_of_range("FakeConns::size()");
+			}
+		}
+		// The need for this function implies setPort will be used on incompat types
+		void erase(const RTLIL::IdString& portname) { (void)portname; }
+		// The need for this function implies setPort will be used on incompat types
+		void clear() const {}
+		bool empty() const {
+			return !size();
+		}
+		// AAA
+		class iterator {
+			typedef std::bidirectional_iterator_tag iterator_category;
+			typedef std::pair<IdString, SigSpec> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, SigSpec*> pointer;
+			typedef std::pair<IdString, SigSpec&> reference;
+			Cell* parent;
+			int position;
+		public:
+			iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const iterator &other) const {
+				return !(*this == other);
+			}
+			std::pair<IdString, SigSpec&> operator*() {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					// auto a = ();
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					throw std::out_of_range("FakeConns::iterator::operator*()");
+				}
+			}
+			std::pair<IdString, SigSpec&> operator->() { return operator*(); }
+			const std::pair<IdString, SigSpec&> operator->() const { return operator*(); }
+			const std::pair<IdString, SigSpec&> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					// auto a = ();
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					throw std::out_of_range("FakeConns::iterator::operator*() const");
+				}
+			}
+		};
+		iterator begin() {
+				return iterator(parent, 0);
+		}
+		// Stupid impl, but rarely used, so I don't want to think about it rn
+		iterator find(IdString name) {
+			auto it = iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
+		iterator end() {
+			if (parent->is_legacy()) {
+				return iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return iterator(parent, parent->not_.connections().size());
+			} else {
+				throw std::out_of_range("FakeConns::iterator::end()");
+			}
+		}
+		// AAA CONST ITERATOR
+		class const_iterator {
+			typedef std::input_iterator_tag iterator_category;
+			typedef std::pair<IdString, SigSpec> value_type;
+			typedef ptrdiff_t difference_type;
+			typedef std::pair<IdString, const SigSpec*> pointer;
+			typedef std::pair<IdString, const SigSpec&> reference;
+			Cell* parent;
+			int position;
+		public:
+			const_iterator(Cell *parent, int position)
+				: parent(parent), position(position) {}
+			const_iterator& operator++() {
+				position++; return *this;
+			}
+			bool operator==(const const_iterator &other) const {
+				return position == other.position;
+			}
+			bool operator!=(const const_iterator &other) const {
+				return !(*this == other);
+			}
+			const std::pair<IdString, const SigSpec&> operator*() const {
+				if (parent->is_legacy()) {
+					auto it = parent->legacy->connections_.begin();
+					it += position;
+					auto& ref = *it;
+					auto ret = std::make_pair(ref.first, std::ref(ref.second));
+					return ret;
+				} else if (parent->type == ID($pos)) {
+					return parent->pos.connections()[position];
+				} else if (parent->type == ID($neg)) {
+					return parent->neg.connections()[position];
+				} else if (parent->type == ID($not)) {
+					return parent->not_.connections()[position];
+				} else {
+					throw std::out_of_range("FakeConns::const_iterator::operator*() const");
+				}
+			}
+			// std::pair<IdString, const SigSpec&> operator->() { return operator*(); }
+			const std::pair<IdString, const SigSpec&> operator->() const { return operator*(); }
+		};
+		const_iterator begin() const {
+				return const_iterator(parent, 0);
+		}
+		const_iterator find(const IdString name) const {
+			auto it = const_iterator(parent, 0);
+			for (; it != end() && (*it).first != name; ++it) {}
+			return it;
+		}
+		const_iterator end() const {
+			if (parent->is_legacy()) {
+				return const_iterator(parent, parent->legacy->connections_.size());
+			} else if (parent->type == ID($pos)) {
+				return const_iterator(parent, parent->pos.connections().size());
+			} else if (parent->type == ID($neg)) {
+				return const_iterator(parent, parent->neg.connections().size());
+			} else if (parent->type == ID($not)) {
+				return const_iterator(parent, parent->not_.connections().size());
+			} else {
+				throw std::out_of_range("FakeConns::end() const");
+			}
+		}
+	};
+	FakeParams parameters;
+	FakeConns connections_;
+	const FakeConns &connections() const { return connections_; }
+	// TODO src loc? internal attrs?
+
+	// Canonical tag
+	bool is_legacy() const {
+		return is_legacy_type(type);
+	};
+
+	bool has_memid() { return is_legacy() && legacy->has_memid(); }
+	bool is_mem_cell() { return is_legacy() && legacy->is_mem_cell(); }
+	bool has_keep_attr() const {
+		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
+				module->design->module(type)->get_bool_attribute(ID::keep));
+	}
+	// TODO stub
+	void set_src_attribute(const std::string &src) { (void)src; };
+	bool known () const {
+		return is_legacy() ? legacy->known() : true;
+	}
+	bool input(const RTLIL::IdString &portname) const {
+		if (is_legacy()) {
+			return legacy->input(portname);
+		} else if (type == ID($pos)) {
+			return pos.input(portname);
+		} else if (type == ID($neg)) {
+			return neg.input(portname);
+		} else if (type == ID($not)) {
+			return not_.input(portname);
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
+	bool output(const RTLIL::IdString &portname) const {
+		if (is_legacy()) {
+			return legacy->output(portname);
+		} else if (type == ID($pos)) {
+			return pos.output(portname);
+		} else if (type == ID($neg)) {
+			return neg.output(portname);
+		} else if (type == ID($not)) {
+			return not_.output(portname);
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
+
+	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
+	// TODO is this reasonable at all?
+	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
+	RTLIL::SigSpec &getMutPort(const RTLIL::IdString &portname);
+	bool hasPort(const RTLIL::IdString &portname) const {
+		if (is_legacy()) {
+			return legacy->hasPort(portname);
+		} else if (type == ID($pos)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else if (type == ID($neg)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else if (type == ID($not)) {
+			return portname.in(ID::A, ID::Y) && !getPort(portname).empty();
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
+	// TODO check
+	void unsetPort(const RTLIL::IdString& portname) {
+		if (is_legacy()) {
+			legacy->unsetPort(portname);
+			return;
+		}
+		try {
+			setPort(portname, SigSpec());
+		} catch (const std::out_of_range& e) {}
+	}
+	void setParam(const RTLIL::IdString &paramname, RTLIL::Const value);
+	const RTLIL::Const& getParam(const RTLIL::IdString &paramname) const;
+	RTLIL::Const& getMutParam(const RTLIL::IdString &paramname);
+	bool hasParam(const RTLIL::IdString &paramname) const {
+		if (is_legacy()) {
+			return legacy->hasParam(paramname);
+		} else if (type.in(ID($pos), ID($neg), ID($not))) {
+			return paramname.in(ID::A_WIDTH, ID::Y_WIDTH, ID::A_SIGNED) && !getParam(paramname).empty();
+		} else {
+			throw std::out_of_range("FakeParams::size()");
+		}
+	}
+	// TODO check
+	void unsetParam(const RTLIL::IdString& paramname) {
+		if (is_legacy()) {
+			legacy->unsetParam(paramname);
+			return;
+		}
+		try {
+			setPort(paramname, Const());
+		} catch (const std::out_of_range& e) {}
+	}
+	template<typename T>
+	void rewrite_sigspecs2(T &functor) {
+		for (auto it : connections_)
+			functor(it.second);
+	}
+	template<typename T>
+	void rewrite_sigspecs(T &functor) {
+		for (auto it : connections_)
+			functor(it.second);
+	}
+	void sort() {
+		if (is_legacy()) legacy->sort();
+	}
+	void check();
+	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
+
+
+private:
+	// NOT the tag, but a helper - faster short-circuit if public?
+	static bool is_legacy_type (RTLIL::IdString type) {
+		return !type.in(ID($not), ID($pos));
+	}
+
 };
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
@@ -1747,13 +2471,13 @@ void RTLIL::Module::rewrite_sigspecs2(T &functor)
 }
 
 template<typename T>
-void RTLIL::Cell::rewrite_sigspecs(T &functor) {
+void RTLIL::OldCell::rewrite_sigspecs(T &functor) {
 	for (auto &it : connections_)
 		functor(it.second);
 }
 
 template<typename T>
-void RTLIL::Cell::rewrite_sigspecs2(T &functor) {
+void RTLIL::OldCell::rewrite_sigspecs2(T &functor) {
 	for (auto &it : connections_)
 		functor(it.second);
 }

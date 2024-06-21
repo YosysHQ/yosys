@@ -150,6 +150,9 @@ struct SetundefPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		int got_value = 0;
 		bool undriven_mode = false;
 		bool expose_mode = false;
@@ -242,7 +245,7 @@ struct SetundefPass : public Pass {
 			if (params_mode)
 			{
 				for (auto *cell : module->selected_cells()) {
-					for (auto &parameter : cell->parameters) {
+					for (auto parameter : cell->parameters) {
 						for (auto &bit : parameter.second.bits) {
 							if (bit > RTLIL::State::S1)
 								bit = worker.next_bit();

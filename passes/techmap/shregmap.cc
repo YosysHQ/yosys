@@ -332,7 +332,7 @@ struct ShregmapWorker
 				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
-			first_cell->type = shreg_cell_type_str;
+			first_cell = first_cell->module->morphCell(shreg_cell_type_str, first_cell);
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam(ID::DEPTH, depth);
 
@@ -434,6 +434,9 @@ struct ShregmapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		ShregmapOptions opts;
 		string clkpol, enpol;
 

@@ -218,6 +218,9 @@ struct Pmux2ShiftxPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		int min_density = 50;
 		int min_choices = 3;
 		bool allow_onehot = false;
@@ -742,6 +745,9 @@ struct OnehotPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool verbose = false;
 		bool verbose_onehot = false;
 

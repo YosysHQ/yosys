@@ -105,7 +105,7 @@ struct ConnwrappersWorker
 
 		for (auto cell : module->selected_cells())
 		{
-			for (auto &conn : cell->connections_)
+			for (auto conn : cell->connections_)
 			{
 				std::vector<RTLIL::SigBit> sigbits = sigmap(conn.second).to_sigbit_vector();
 				RTLIL::SigSpec old_sig;
@@ -167,6 +167,9 @@ struct ConnwrappersPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		ConnwrappersWorker worker;
 
 		size_t argidx;

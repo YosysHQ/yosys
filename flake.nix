@@ -14,22 +14,23 @@
         };
         # TODO: don't override src when ./abc is empty
         # which happens when the command used is `nix build` and not `nix build ?submodules=1`
-        abc-verifier = pkgs.abc-verifier.overrideAttrs(x: y: {src = ./abc;});
-        yosys = pkgs.clangStdenv.mkDerivation {
+        abc-verifier = pkgs.abc-verifier;
+        yosys = pkgs.llvmPackages.libcxxStdenv.mkDerivation {
           name = "yosys";
           src = ./. ;
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git pkg-configUpstream ];
+          buildInputs = with pkgs; [ stdenv.cc.cc bison flex libffi tcl readline python3 zlib git pkg-configUpstream tracy ];
           checkInputs = with pkgs; [ gtest ];
           propagatedBuildInputs = [ abc-verifier ];
           preConfigure = "make config-clang";
           checkTarget = "test";
           installPhase = ''
-            make install PREFIX=$out ABCEXTERNAL=yosys-abc
+            make install PREFIX=$out ABCEXTERNAL=yosys-abc STRIP=\#
             ln -s ${abc-verifier}/bin/abc $out/bin/yosys-abc
           '';
 					buildPhase = ''
-            make -j$(nproc) ABCEXTERNAL=yosys-abc
+            make -j$(nproc) ABCEXTERNAL=yosys-abc PROFILER=tracy
           '';
+          dontStrip = true;
           meta = with pkgs.lib; {
             description = "Yosys Open SYnthesis Suite";
             homepage = "https://yosyshq.net/yosys/";
@@ -41,7 +42,7 @@
         packages.default = yosys;
         defaultPackage = yosys;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
+          buildInputs = with pkgs; [ stdenv.cc.cc bison flex libffi tcl readline python3 zlib git gtest abc-verifier tracy ];
         };
       }
     );

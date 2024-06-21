@@ -46,7 +46,7 @@ static RTLIL::IdString formal_flavor(RTLIL::Cell *cell)
 static void set_formal_flavor(RTLIL::Cell *cell, RTLIL::IdString flavor)
 {
 	if (cell->type != ID($check)) {
-		cell->type = flavor;
+		cell = cell->module->morphCell(flavor, cell);
 		return;
 	}
 
@@ -128,6 +128,9 @@ struct ChformalPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool assert2assume = false;
 		bool assume2assert = false;
 		bool live2fair = false;
@@ -420,7 +423,7 @@ struct ChformalPass : public Pass {
 					if (cell->getPort(ID::ARGS).empty()) {
 						module->remove(cell);
 					} else {
-						cell->type = ID($print);
+						cell = cell->module->morphCell(ID($print), cell);
 						cell->setPort(ID::EN, combined_en);
 						cell->unsetPort(ID::A);
 						cell->unsetParam(ID(FLAVOR));

@@ -722,7 +722,7 @@ struct FreduceWorker
 
 				RTLIL::Cell *drv = drivers.at(grp[i].bit).first;
 				RTLIL::Wire *dummy_wire = module->addWire(NEW_ID);
-				for (auto &port : drv->connections_)
+				for (auto port : drv->connections_)
 					if (ct.cell_output(drv->type, port.first))
 						sigmap(port.second).replace(grp[i].bit, dummy_wire, &port.second);
 
@@ -794,6 +794,9 @@ struct FreducePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		reduce_counter = 0;
 		reduce_stop_at = 0;
 		verbose_level = 0;

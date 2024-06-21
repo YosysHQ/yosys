@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/compat.h"
 #include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -69,7 +70,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 						portnames.insert(conn.first);
 					portwidths[conn.first] = max(portwidths[conn.first], conn.second.size());
 				}
-				for (auto &para : cell->parameters)
+				for (auto para : cell->parameters)
 					parameters.insert(para.first);
 			}
 
@@ -334,7 +335,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
-		cell.type = abs_mod->derive(&design, cell.parameters);
+		cell.type = abs_mod->derive(&design, cell_to_mod_params(cell.parameters));
 		cell.parameters.clear();
 		RTLIL::Module *mod = design.module(cell.type);
 		log_assert(mod);
@@ -418,7 +419,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			          log_id(conn.first));
 		}
 	}
-	for (auto &param : cell.parameters) {
+	for (auto param : cell.parameters) {
 		if (read_id_num(param.first, &id)) {
 			if (id <= 0 || id > GetSize(mod.avail_parameters))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
@@ -472,7 +473,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->type.substr(pos_type + 1);
+			cell = cell->module->morphCell(cell->type.substr(pos_type + 1), cell);
 		}
 
 		RTLIL::Module *mod = design->module(cell->type);
@@ -528,7 +529,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		}
 
 		cell->type = mod->derive(design,
-					 cell->parameters,
+					 cell_to_mod_params(cell->parameters),
 					 if_expander.interfaces_to_add_to_submodule,
 					 if_expander.modports_used_in_submodule);
 		cell->parameters.clear();
@@ -574,7 +575,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 		RTLIL::Module *mod = design->module(cell->type);
 
-		for (auto &conn : cell->connections_) {
+		for (auto conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			RTLIL::IdString portname = conn.first;
 			if (portname.begins_with("$")) {
@@ -819,6 +820,9 @@ struct HierarchyPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_check = false;
@@ -1234,7 +1238,7 @@ struct HierarchyPass : public Pass {
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
+					IdString new_m_name = m->derive(design, cell_to_mod_params(cell->parameters), true);
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {
@@ -1417,7 +1421,7 @@ struct HierarchyPass : public Pass {
 					continue;
 
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
+					IdString new_m_name = m->derive(design, cell_to_mod_params(cell->parameters), true);
 					if (new_m_name.empty())
 						continue;
 					if (new_m_name != m->name) {

@@ -1306,6 +1306,9 @@ struct MemoryBramPass : public Pass {
 	}
 	void execute(vector<string> args, Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		rules_t rules;
 
 		log_header(design, "Executing MEMORY_BRAM pass (mapping $mem cells to block memories).\n");

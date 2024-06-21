@@ -44,6 +44,9 @@ struct OptLutInsPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing OPT_LUT_INS pass (discard unused LUT inputs).\n");
 		string techname;
 
@@ -241,17 +244,17 @@ struct OptLutInsPass : public Pass {
 						else
 							log_assert(GetSize(new_inputs) <= 4);
 						if (GetSize(new_inputs) == 1)
-							cell->type = ID(LUT1);
+							cell = cell->module->morphCell(ID(LUT1), cell);
 						else if (GetSize(new_inputs) == 2)
-							cell->type = ID(LUT2);
+							cell = cell->module->morphCell(ID(LUT2), cell);
 						else if (GetSize(new_inputs) == 3)
-							cell->type = ID(LUT3);
+							cell = cell->module->morphCell(ID(LUT3), cell);
 						else if (GetSize(new_inputs) == 4)
-							cell->type = ID(LUT4);
+							cell = cell->module->morphCell(ID(LUT4), cell);
 						else if (GetSize(new_inputs) == 5)
-							cell->type = ID(LUT5);
+							cell = cell->module->morphCell(ID(LUT5), cell);
 						else if (GetSize(new_inputs) == 6)
-							cell->type = ID(LUT6);
+							cell = cell->module->morphCell(ID(LUT6), cell);
 						else
 							log_assert(0);
 						cell->unsetPort(ID(I0));

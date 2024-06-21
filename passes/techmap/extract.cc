@@ -105,10 +105,10 @@ public:
 
 		if (!ignore_parameters) {
 			std::map<RTLIL::IdString, RTLIL::Const> needle_param, haystack_param;
-			for (auto &it : needleCell->parameters)
+			for (auto it : needleCell->parameters)
 				if (!ignored_parameters.count(std::pair<RTLIL::IdString, RTLIL::IdString>(needleCell->type, it.first)))
 					needle_param[it.first] = unified_param(needleCell->type, it.first, it.second);
-			for (auto &it : haystackCell->parameters)
+			for (auto it : haystackCell->parameters)
 				if (!ignored_parameters.count(std::pair<RTLIL::IdString, RTLIL::IdString>(haystackCell->type, it.first)))
 					haystack_param[it.first] = unified_param(haystackCell->type, it.first, it.second);
 			if (needle_param != haystack_param)
@@ -436,6 +436,9 @@ struct ExtractPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing EXTRACT pass (map subcircuits to cells).\n");
 		log_push();
 

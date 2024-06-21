@@ -628,7 +628,7 @@ void counter_worker(
 	cell->unsetParam(ID::Y_WIDTH);
 
 	//Change the cell type
-	cell->type = ID($__COUNT_);
+	cell = cell->module->morphCell(ID($__COUNT_), cell);
 
 	//Hook up resets
 	if(extract.has_reset)
@@ -788,6 +788,9 @@ struct ExtractCounterPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
 		pool<RTLIL::IdString> _parallel_cells;

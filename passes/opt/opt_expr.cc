@@ -125,7 +125,6 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
 			cell->type.c_str(), cell->name.c_str(), info.c_str(),
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
-	// log_cell(cell);
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
 	module->remove(cell);
@@ -341,7 +340,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 					log_id(port), log_id(cell->type), log_id(cell), log_id(cell->module),
 					log_signal(sig), log_signal(invert_map.at(sig)));
 			cell->setPort(port, (invert_map.at(sig)));
-			cell->type = cell->type == type1 ? type2 : type1;
+			cell = cell->module->morphCell(cell->type == type1 ? type2 : type1, cell);
 		}
 	}
 }
@@ -640,7 +639,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				cover("opt.opt_expr.reduce_xnor_not");
 				log_debug("Replacing %s cell `%s' in module `%s' with $not cell.\n",
 						log_id(cell->type), log_id(cell->name), log_id(module));
-				cell->type = ID($not);
+				cell = cell->module->morphCell(ID($not), cell);
 				did_something = true;
 			} else {
 				cover("opt.opt_expr.unary_buffer");
@@ -1167,7 +1166,7 @@ skip_fine_alu:
 			if (input.match("01 ")) ACTION_DO(ID::Y, input.extract(0, 1));
 			if (input.match("10 ")) {
 				cover("opt.opt_expr.mux_to_inv");
-				cell->type = ID($_NOT_);
+				cell = cell->module->morphCell(ID($_NOT_), cell);
 				cell->setPort(ID::A, input.extract(0, 1));
 				cell->unsetPort(ID::B);
 				cell->unsetPort(ID::S);
@@ -1271,7 +1270,7 @@ skip_fine_alu:
 				} else {
 					cover_list("opt.opt_expr.eqneq.isnot", "$eq", "$ne", cell->type.str());
 					log_debug("Replacing %s cell `%s' in module `%s' with inverter.\n", log_id(cell->type), log_id(cell), log_id(module));
-					cell->type = ID($not);
+					cell = cell->module->morphCell(ID($not), cell);
 					cell->parameters.erase(ID::B_WIDTH);
 					cell->parameters.erase(ID::B_SIGNED);
 					cell->unsetPort(ID::B);
@@ -1287,7 +1286,7 @@ skip_fine_alu:
 			cover_list("opt.opt_expr.eqneq.cmpzero", "$eq", "$ne", cell->type.str());
 			log_debug("Replacing %s cell `%s' in module `%s' with %s.\n", log_id(cell->type), log_id(cell),
 					log_id(module), cell->type == ID($eq) ? "$logic_not" : "$reduce_bool");
-			cell->type = cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool);
+			cell = cell->module->morphCell(cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool), cell);
 			if (assign_map(cell->getPort(ID::A)).is_fully_zero()) {
 				cell->setPort(ID::A, cell->getPort(ID::B));
 				cell->setParam(ID::A_SIGNED, cell->getParam(ID::B_SIGNED));
@@ -1435,7 +1434,7 @@ skip_fine_alu:
 					cell->setParam(ID::A_SIGNED, cell->getParam(ID::B_SIGNED));
 				}
 
-				cell->type = arith_inverse ? ID($neg) : ID($pos);
+				cell = cell->module->morphCell(arith_inverse ? ID($neg) : ID($pos), cell);
 				cell->unsetPort(ID::B);
 				cell->parameters.erase(ID::B_WIDTH);
 				cell->parameters.erase(ID::B_SIGNED);
@@ -1467,9 +1466,9 @@ skip_identity:
 				cell->parameters[ID::Y_WIDTH] = width;
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($not);
+				cell = cell->module->morphCell(ID($not), cell);
 			} else
-				cell->type = ID($_NOT_);
+				cell = cell->module->morphCell(ID($_NOT_), cell);
 			did_something = true;
 			goto next_cell;
 		}
@@ -1487,9 +1486,9 @@ skip_identity:
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters[ID::B_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($and);
+				cell = cell->module->morphCell(ID($and), cell);
 			} else
-				cell->type = ID($_AND_);
+				cell = cell->module->morphCell(ID($_AND_), cell);
 			did_something = true;
 			goto next_cell;
 		}
@@ -1507,9 +1506,9 @@ skip_identity:
 				cell->parameters[ID::A_SIGNED] = 0;
 				cell->parameters[ID::B_SIGNED] = 0;
 				cell->parameters.erase(ID::WIDTH);
-				cell->type = ID($or);
+				cell = cell->module->morphCell(ID($or), cell);
 			} else
-				cell->type = ID($_OR_);
+				cell = cell->module->morphCell(ID($_OR_), cell);
 			did_something = true;
 			goto next_cell;
 		}
@@ -1555,10 +1554,10 @@ skip_identity:
 				cell->setPort(ID::B, new_b);
 				cell->setPort(ID::S, new_s);
 				if (new_s.size() > 1) {
-					cell->type = ID($pmux);
+					cell = cell->module->morphCell(ID($pmux), cell);
 					cell->parameters[ID::S_WIDTH] = new_s.size();
 				} else {
-					cell->type = ID($mux);
+					cell = cell->module->morphCell(ID($mux), cell);
 					cell->parameters.erase(ID::S_WIDTH);
 				}
 				did_something = true;
@@ -1731,7 +1730,7 @@ skip_identity:
 
 					Const new_b = exp;
 
-					cell->type = ID($shl);
+					cell = cell->module->morphCell(ID($shl), cell);
 					cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 					cell->parameters[ID::B_SIGNED] = false;
 					cell->setPort(ID::B, new_b);
@@ -1822,7 +1821,7 @@ skip_identity:
 
 						Const new_b = exp;
 
-						cell->type = ID($sshr);
+						cell = cell->module->morphCell(ID($sshr), cell);
 						cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 						cell->parameters[ID::B_SIGNED] = false;
 						cell->setPort(ID::B, new_b);
@@ -1871,7 +1870,7 @@ skip_identity:
 							if (b_signed || exp == 0)
 								new_b.push_back(State::S0);
 
-							cell->type = ID($and);
+							cell = cell->module->morphCell(ID($and), cell);
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->setPort(ID::B, new_b);
 							cell->check();
@@ -2252,6 +2251,9 @@ struct OptExprPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool mux_undef = false;
 		bool mux_bool = false;
 		bool undriven = false;

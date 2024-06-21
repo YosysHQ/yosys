@@ -538,6 +538,9 @@ struct MemorySharePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		bool flag_widen = true;
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool flag_sat = true;
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
 		size_t argidx;

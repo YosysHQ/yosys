@@ -145,7 +145,9 @@ struct AlumaccWorker
 			Macc::port_t new_port;
 
 			n->cell = cell;
+			log("%s\n", log_signal(cell->getPort(ID::Y)));
 			n->y = sigmap(cell->getPort(ID::Y));
+			log("%s\n", log_signal(n->y));
 			n->users = 0;
 
 			for (auto bit : n->y)
@@ -181,6 +183,7 @@ struct AlumaccWorker
 				n->macc.ports.push_back(new_port);
 			}
 
+			log("%s\n", log_signal(n->y));
 			log_assert(sig_macc.count(n->y) == 0);
 			sig_macc[n->y] = n;
 		}
@@ -562,6 +565,9 @@ struct AlumaccPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing ALUMACC pass (create $alu and $macc cells).\n");
 
 		size_t argidx;

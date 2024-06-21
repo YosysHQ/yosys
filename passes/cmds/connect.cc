@@ -33,7 +33,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
 	for (auto cell : module->cells())
-	for (auto &port : cell->connections_)
+	for (auto port : cell->connections_)
 		if (ct.cell_output(cell->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
 
@@ -80,6 +80,9 @@ struct ConnectPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool flag_nounset = false, flag_nomap = false, flag_assert = false;
 		std::string set_lhs, set_rhs, unset_expr;
 		std::string port_cell, port_port, port_expr;

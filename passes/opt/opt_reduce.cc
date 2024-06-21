@@ -160,7 +160,7 @@ struct OptReduceWorker
 			if (new_sig_s.size() > 1) {
 				cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
 			} else {
-				cell->type = ID($mux);
+				cell = cell->module->morphCell(ID($mux), cell);
 				cell->parameters.erase(ID::S_WIDTH);
 			}
 		}
@@ -228,7 +228,7 @@ struct OptReduceWorker
 
 		if (new_sig_s.size() == 1)
 		{
-			cell->type = ID($mux);
+			cell = cell->module->morphCell(ID($mux), cell);
 			cell->setPort(ID::A, new_sig_a.extract(0, width));
 			cell->setPort(ID::B, new_sig_a.extract(width, width));
 			cell->setPort(ID::S, new_sig_s);
@@ -630,6 +630,9 @@ struct OptReducePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool do_fine = false;
 
 		log_header(design, "Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).\n");

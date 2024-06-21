@@ -342,11 +342,12 @@ struct JnyWriter
         }
     }
 
-    void write_prams(dict<RTLIL::IdString, RTLIL::Const>& params, uint16_t indent_level = 0) {
+    template <typename SmellsLikeDict>
+    void write_prams(SmellsLikeDict& params, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
 
         bool first_param{true};
-        for (auto& param : params) {
+        for (auto param : params) {
             if (!first_param)
                 f << stringf(",\n");
             const auto param_val = param.second;

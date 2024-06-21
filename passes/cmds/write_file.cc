@@ -46,6 +46,9 @@ struct WriteFileFrontend : public Frontend {
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool append_mode = false;
 		std::string output_filename;
 

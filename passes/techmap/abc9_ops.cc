@@ -23,6 +23,7 @@
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
 #include "kernel/timinginfo.h"
+#include "kernel/compat.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -113,7 +114,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 					//   but not its existence)
 					if (!inst_module->has_attribute(ID::abc9_flop))
 						continue;
-					derived_type = inst_module->derive(design, cell->parameters);
+					derived_type = inst_module->derive(design, cell_to_mod_params(cell->parameters));
 					derived_module = design->module(derived_type);
 					log_assert(derived_module);
 				}
@@ -170,7 +171,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_module = inst_module;
 			}
 			else {
-				derived_type = inst_module->derive(design, cell->parameters);
+				derived_type = inst_module->derive(design, cell_to_mod_params(cell->parameters));
 				derived_module = design->module(derived_type);
 				unused_derived.insert(derived_type);
 			}
@@ -194,7 +195,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						// If derived_type is present in unmap_design, it means that it was processed previously, but found to be incompatible -- e.g. if
 						// it contained a non-zero initial state. In this case, continue to replace the cell type/parameters so that it has the same properties
 						// as a compatible type, yet will be safely unmapped later
-						cell->type = derived_type;
+						cell = cell->module->morphCell(derived_type, cell);
 						cell->parameters.clear();
 						unused_derived.erase(derived_type);
 					}
@@ -254,7 +255,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 			}
 
-			cell->type = derived_type;
+			cell = cell->module->morphCell(derived_type, cell);
 			cell->parameters.clear();
 			unused_derived.erase(derived_type);
 		}
@@ -589,7 +590,7 @@ void break_scc(RTLIL::Module *module)
 		cell->attributes.erase(it);
 		if (!r.second)
 			continue;
-		for (auto &c : cell->connections_) {
+		for (auto c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
@@ -1343,7 +1344,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			RTLIL::Module* box_module = design->module(existing_cell->type);
 			log_assert(existing_cell->parameters.empty());
 			log_assert(mapped_cell->type == stringf("$__boxid%d", box_module->attributes.at(ID::abc9_box_id).as_int()));
-			mapped_cell->type = existing_cell->type;
+			mapped_cell = mapped_cell->module->morphCell(existing_cell->type, mapped_cell);
 
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = existing_cell->parameters;
@@ -1352,12 +1353,12 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 			auto jt = mapped_cell->connections_.find(ID(i));
 			log_assert(jt != mapped_cell->connections_.end());
-			SigSpec inputs = std::move(jt->second);
-			mapped_cell->connections_.erase(jt);
+			SigSpec inputs = std::move((*jt).second);
+			mapped_cell->connections_.erase((*jt).first);
 			jt = mapped_cell->connections_.find(ID(o));
 			log_assert(jt != mapped_cell->connections_.end());
-			SigSpec outputs = std::move(jt->second);
-			mapped_cell->connections_.erase(jt);
+			SigSpec outputs = std::move((*jt).second);
+			mapped_cell->connections_.erase((*jt).first);
 
 			auto abc9_flop = box_module->get_bool_attribute(ID::abc9_flop);
 			if (abc9_flop) {
@@ -1654,6 +1655,9 @@ struct Abc9OpsPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 
 		bool check_mode = false;

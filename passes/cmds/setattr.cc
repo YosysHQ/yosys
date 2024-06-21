@@ -45,7 +45,8 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
+template <typename SmellsLikeDict>
+static void do_setunset(SmellsLikeDict &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset)
@@ -71,6 +72,9 @@ struct SetattrPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::vector<setunset_t> setunset_list;
 		bool flag_mod = false;
 
@@ -140,6 +144,9 @@ struct WbflipPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -181,6 +188,9 @@ struct SetparamPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		vector<setunset_t> setunset_list;
 		string new_cell_type;
 
@@ -210,7 +220,7 @@ struct SetparamPass : public Pass {
 		{
 			for (auto cell : module->selected_cells()) {
 				if (!new_cell_type.empty())
-					cell->type = new_cell_type;
+					cell = cell->module->morphCell(new_cell_type, cell);
 				do_setunset(cell->parameters, setunset_list);
 			}
 		}
@@ -236,6 +246,9 @@ struct ChparamPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::vector<setunset_t> setunset_list;
 		dict<RTLIL::IdString, RTLIL::Const> new_parameters;
 		bool list_mode = false;

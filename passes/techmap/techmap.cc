@@ -331,16 +331,18 @@ struct TechmapWorker
 			else
 				apply_prefix(cell->name, c_name);
 
+			auto type = tpl_cell->type;
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
 
-			if (c->type.begins_with("\\$"))
-				c->type = c->type.substr(1);
-			
-			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
-				c->type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
+			if (type.begins_with("\\$"))
+				type = type.substr(1);
+
+			if (type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
+				type = RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype));
 				c->attributes.erase(ID::techmap_chtype);
 			}
+			c = module->morphCell(type, c);
 
 			vector<IdString> autopurge_ports;
 
@@ -490,7 +492,7 @@ struct TechmapWorker
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
-				dict<IdString, RTLIL::Const> parameters(cell->parameters);
+				dict<IdString, RTLIL::Const> parameters(cell->parameters.as_dict());
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -508,13 +510,13 @@ struct TechmapWorker
 
 				if (!extmapper_name.empty())
 				{
-					cell->type = cell_type;
+					cell = cell->module->morphCell(cell_type, cell);
 
 					if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 					{
 						std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
 
-						for (auto &c : cell->parameters)
+						for (auto c : cell->parameters)
 							m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
 						if (extmapper_name == "wrap")
@@ -531,7 +533,7 @@ struct TechmapWorker
 							extmapper_cell->set_src_attribute(cell->get_src_attribute());
 
 							int port_counter = 1;
-							for (auto &c : extmapper_cell->connections_) {
+							for (auto c : extmapper_cell->connections_) {
 								RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
 								if (w->name.in(ID::Y, ID::Q))
 									w->port_output = true;
@@ -563,13 +565,14 @@ struct TechmapWorker
 							if (extmapper_name == "wrap") {
 								std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
 								log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+								log_module(extmapper_module);
 								mkdebug.on();
 								Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
 								log_continue = true;
 							}
 						}
 
-						cell->type = extmapper_module->name;
+						cell = cell->module->morphCell(extmapper_module->name, cell);
 						cell->parameters.clear();
 
 						if (!extern_mode || in_recursion) {
@@ -916,7 +919,7 @@ struct TechmapWorker
 							auto wirename = RTLIL::escape_id(it.first.substr(21, it.first.size() - 21 - 1));
 							auto it = cell->connections().find(wirename);
 							if (it != cell->connections().end()) {
-								auto sig = sigmap(it->second);
+								auto sig = sigmap((*it).second);
 								for (int i = 0; i < sig.size(); i++)
 									if (val[i] == State::S1)
 										initvals.remove_init(sig[i]);
@@ -936,14 +939,14 @@ struct TechmapWorker
 
 						for (auto cell : m->cells()) {
 							if (cell->type.begins_with("\\$"))
-								cell->type = cell->type.substr(1);
+								cell = cell->module->morphCell(cell->type.substr(1), cell);
 						}
 
 						module_queue.insert(m);
 					}
 
 					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
-					cell->type = m_name;
+					cell = cell->module->morphCell(m_name, cell);
 					cell->parameters.clear();
 				}
 				else
@@ -1152,6 +1155,9 @@ struct TechmapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();
 

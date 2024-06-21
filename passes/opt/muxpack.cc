@@ -269,7 +269,7 @@ struct MuxpackWorker
 			mux_count += cases;
 			pmux_count += 1;
 
-			first_cell->type = ID($pmux);
+			first_cell = first_cell->module->morphCell(ID($pmux), first_cell);
 			SigSpec b_sig = first_cell->getPort(ID::B);
 			SigSpec s_sig = first_cell->getPort(ID::S);
 
@@ -343,6 +343,9 @@ struct MuxpackPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;

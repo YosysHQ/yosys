@@ -404,6 +404,9 @@ struct StatPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool width_mode = false, json_mode = false;
 		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;

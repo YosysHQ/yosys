@@ -256,6 +256,9 @@ struct RenamePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::string pattern_prefix = "_", pattern_suffix = "_";
 		std::string cell_suffix = "";
 		bool flag_src = false;

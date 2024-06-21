@@ -1074,6 +1074,9 @@ struct SatPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove, prove_x;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;

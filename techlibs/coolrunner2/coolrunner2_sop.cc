@@ -170,14 +170,14 @@ struct Coolrunner2SopPass : public Pass {
 								if (has_invert)
 								{
 									auto cell = std::get<0>(x);
-									if (cell->type == ID(FDCP)) cell->type = ID(FDCP_N);
-									else if (cell->type == ID(FDCP_N)) cell->type = ID(FDCP);
-									else if (cell->type == ID(FTCP)) cell->type = ID(FTCP_N);
-									else if (cell->type == ID(FTCP_N)) cell->type = ID(FTCP);
-									else if (cell->type == ID(FDCPE)) cell->type = ID(FDCPE_N);
-									else if (cell->type == ID(FDCPE_N)) cell->type = ID(FDCPE);
-									else if (cell->type == ID(LDCP)) cell->type = ID(LDCP_N);
-									else if (cell->type == ID(LDCP_N)) cell->type = ID(LDCP);
+									if (cell->type == ID(FDCP)) cell = cell->module->morphCell(ID(FDCP_N), cell);
+									else if (cell->type == ID(FDCP_N)) cell = cell->module->morphCell(ID(FDCP), cell);
+									else if (cell->type == ID(FTCP)) cell = cell->module->morphCell(ID(FTCP_N), cell);
+									else if (cell->type == ID(FTCP_N)) cell = cell->module->morphCell(ID(FTCP), cell);
+									else if (cell->type == ID(FDCPE)) cell = cell->module->morphCell(ID(FDCPE_N), cell);
+									else if (cell->type == ID(FDCPE_N)) cell = cell->module->morphCell(ID(FDCPE), cell);
+									else if (cell->type == ID(LDCP)) cell = cell->module->morphCell(ID(LDCP_N), cell);
+									else if (cell->type == ID(LDCP_N)) cell = cell->module->morphCell(ID(LDCP), cell);
 									else log_assert(!"Internal error! Bad cell type!");
 								}
 							}

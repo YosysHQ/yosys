@@ -252,7 +252,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	return RTLIL::SigSpec(result_wire);
 }
 
-void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *last_mux_cell, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
+void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SigSpec when_signal, RTLIL::Cell *&last_mux_cell, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	log_assert(last_mux_cell != NULL);
 	log_assert(when_signal.size() == last_mux_cell->getPort(ID::A).size());
@@ -262,7 +262,7 @@ void append_pmux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::ve
 
 	RTLIL::SigSpec ctrl_sig = gen_cmp(mod, signal, compare, sw, cs, ifxmode);
 	log_assert(ctrl_sig.size() == 1);
-	last_mux_cell->type = ID($pmux);
+	last_mux_cell = last_mux_cell->module->morphCell(ID($pmux), last_mux_cell);
 
 	RTLIL::SigSpec new_s = last_mux_cell->getPort(ID::S);
 	new_s.append(ctrl_sig);
@@ -454,6 +454,9 @@ struct ProcMuxPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool ifxmode = false;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
 

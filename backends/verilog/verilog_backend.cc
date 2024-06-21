@@ -1895,9 +1895,9 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 			if (it != cell->parameters.begin())
 				f << stringf(",");
-			f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			if (it->second.size() > 0)
-				dump_const(f, it->second);
+			f << stringf("\n%s  .%s(", indent.c_str(), id((*it).first).c_str());
+			if ((*it).second.size() > 0)
+				dump_const(f, (*it).second);
 			f << stringf(")");
 		}
 		f << stringf("\n%s" ")", indent.c_str());
@@ -1915,36 +1915,36 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		char str[16];
 		snprintf(str, 16, "$%d", i);
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-			if (it->first != str)
+			if ((*it).first != str)
 				continue;
 			if (!first_arg)
 				f << stringf(",");
 			first_arg = false;
 			f << stringf("\n%s  ", indent.c_str());
-			dump_sigspec(f, it->second);
-			numbered_ports.insert(it->first);
+			dump_sigspec(f, (*it).second);
+			numbered_ports.insert((*it).first);
 			goto found_numbered_port;
 		}
 		break;
 	found_numbered_port:;
 	}
 	for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-		if (numbered_ports.count(it->first))
+		if (numbered_ports.count((*it).first))
 			continue;
 		if (!first_arg)
 			f << stringf(",");
 		first_arg = false;
-		f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-		if (it->second.size() > 0)
-			dump_sigspec(f, it->second);
+		f << stringf("\n%s  .%s(", indent.c_str(), id((*it).first).c_str());
+		if ((*it).second.size() > 0)
+			dump_sigspec(f, (*it).second);
 		f << stringf(")");
 	}
 	f << stringf("\n%s" ");\n", indent.c_str());
 
 	if (defparam && cell->parameters.size() > 0) {
 		for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
-			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id(it->first).c_str());
-			dump_const(f, it->second);
+			f << stringf("%sdefparam %s.%s = ", indent.c_str(), cell_name.c_str(), id((*it).first).c_str());
+			dump_const(f, (*it).second);
 			f << stringf(";\n");
 		}
 	}

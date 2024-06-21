@@ -47,10 +47,10 @@ DISABLE_SPAWN := 0
 DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
-SANITIZER =
+# SANITIZER =
 # SANITIZER = address
 # SANITIZER = memory
-# SANITIZER = undefined
+SANITIZER = undefined
 # SANITIZER = cfi
 
 PROGRAM_PREFIX :=
@@ -92,8 +92,8 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXSTD ?= c++11
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
+CXXSTD ?= c++17
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -Itracy/public -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
@@ -226,6 +226,15 @@ endif
 ifneq ($(findstring cfi,$(SANITIZER)),)
 CXXFLAGS += -flto
 LINKFLAGS += -flto
+endif
+endif
+
+ifneq ($(PROFILER),)
+$(info [Profiler] $(PROFILER))
+CXXFLAGS += -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
+LINKFLAGS += -g
+ifneq ($(findstring tracy,$(PROFILER)),)
+CXXFLAGS += -DTRACY_ENABLE
 endif
 endif
 
@@ -579,6 +588,7 @@ $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
+$(eval $(call add_include_file,kernel/compat.h))
 $(eval $(call add_include_file,kernel/cost.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
@@ -617,7 +627,9 @@ $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+# See -DTRACY_ENABLE
+OBJS += tracy/public/TracyClient.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/compat.o
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 ifeq ($(ENABLE_ZLIB),1)

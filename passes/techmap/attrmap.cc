@@ -243,6 +243,9 @@ struct AttrmapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing ATTRMAP pass (move or copy attributes).\n");
 
 		bool modattr_mode = false;
@@ -319,6 +322,9 @@ struct ParamapPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing PARAMAP pass (move or copy cell parameters).\n");
 
 		vector<std::unique_ptr<AttrmapAction>> actions;
@@ -333,8 +339,10 @@ struct ParamapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->parameters);
+		for (auto cell : module->selected_cells()) {
+			auto params = cell->parameters.as_dict();
+			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, params);
+		}
 	}
 } ParamapPass;
 

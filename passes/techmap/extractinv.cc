@@ -59,6 +59,9 @@ struct ExtractinvPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing EXTRACTINV pass (extracting pin inverters).\n");
 
 		std::string inv_celltype, inv_portname, inv_portname2;
@@ -99,9 +102,9 @@ struct ExtractinvPass : public Pass {
 				if (it2 == cell->parameters.end())
 					continue;
 				SigSpec sig = port.second;
-				if (it2->second.size() != sig.size())
+				if ((*it2).second.size() != sig.size())
 					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", log_id(module->name), log_id(cell->type), log_id(port.first), log_id(param_name));
-				RTLIL::Const invmask = it2->second;
+				RTLIL::Const invmask = (*it2).second;
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
 					continue;

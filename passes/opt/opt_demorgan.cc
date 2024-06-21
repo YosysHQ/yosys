@@ -155,9 +155,9 @@ void demorgan_worker(
 
 	//Change the cell type
 	if(cell->type == ID($reduce_and))
-		cell->type = ID($reduce_or);
+		cell = m->morphCell(ID($reduce_or), cell);
 	else if(cell->type == ID($reduce_or))
-		cell->type = ID($reduce_and);
+		cell = m->morphCell(ID($reduce_and), cell);
 	//don't change XOR
 
 	//Add an inverter to the output
@@ -181,6 +181,9 @@ struct OptDemorganPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
 
 		int argidx = 1;

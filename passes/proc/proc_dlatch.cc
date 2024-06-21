@@ -293,10 +293,10 @@ struct proc_dlatch_db_t
 			cell->setPort(ID::A, sig_any_valid_b);
 
 		if (GetSize(sig_new_s) == 1) {
-			cell->type = ID($mux);
+			cell = cell->module->morphCell(ID($mux), cell);
 			cell->unsetParam(ID::S_WIDTH);
 		} else {
-			cell->type = ID($pmux);
+			cell = cell->module->morphCell(ID($pmux), cell);
 			cell->setParam(ID::S_WIDTH, GetSize(sig_new_s));
 		}
 
@@ -460,6 +460,9 @@ struct ProcDlatchPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing PROC_DLATCH pass (convert process syncs to latches).\n");
 
 		extra_args(args, 1, design);

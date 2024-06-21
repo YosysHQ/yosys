@@ -188,7 +188,7 @@ struct SpliceWorker
 		for (auto cell : mod_cells) {
 			if (!sel_by_wire && !design->selected(module, cell))
 				continue;
-			for (auto &conn : cell->connections_)
+			for (auto conn : cell->connections_)
 				if (ct.cell_input(cell->type, conn.first)) {
 					if (ports.size() > 0 && !ports.count(conn.first))
 						continue;
@@ -289,6 +289,9 @@ struct SplicePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool sel_by_cell = false;
 		bool sel_by_wire = false;
 		bool sel_any_bit = false;

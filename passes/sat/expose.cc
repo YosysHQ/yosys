@@ -256,6 +256,9 @@ struct ExposePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool flag_shared = false;
 		bool flag_evert = false;
 		bool flag_dff = false;
@@ -495,7 +498,7 @@ struct ExposePass : public Pass {
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
-					for (auto &conn : cell->connections_)
+					for (auto conn : cell->connections_)
 						if (ct.cell_output(cell->type, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}
@@ -516,7 +519,7 @@ struct ExposePass : public Pass {
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
-					for (auto &conn : cell->connections_)
+					for (auto conn : cell->connections_)
 						if (ct.cell_input(cell->type, conn.first))
 							conn.second = out_to_in_map(sigmap(conn.second));
 				}

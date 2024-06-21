@@ -2093,9 +2093,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			for (auto it = children.begin(); it != children.end(); it++) {
 				AstNode *child = *it;
 				if (child->type == AST_CELLTYPE) {
-					cell->type = child->str;
-					if (flag_icells && cell->type.begins_with("\\$"))
-						cell->type = cell->type.substr(1);
+					auto type = IdString(child->str);
+					if (flag_icells && type.begins_with("\\$"))
+						type = type.substr(1);
+					cell = cell->module->morphCell(type, cell);
 					continue;
 				}
 				if (child->type == AST_PARASET) {

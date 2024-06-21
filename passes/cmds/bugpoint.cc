@@ -399,6 +399,9 @@ struct BugpointPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		string yosys_cmd = "yosys", yosys_arg, grep, runner;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, wires = false, has_part = false;

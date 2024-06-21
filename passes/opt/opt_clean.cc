@@ -361,7 +361,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	// gather the usage information for cells
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
-		for (auto &it2 : cell->connections_) {
+		for (auto it2 : cell->connections_) {
 			assign_map.apply(it2.second); // modify the cell connection in place
 			raw_used_signals.add(it2.second);
 			used_signals.add(it2.second);
@@ -646,6 +646,9 @@ struct OptCleanPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool purge_mode = false;
 
 		log_header(design, "Executing OPT_CLEAN pass (remove unused cells and wires).\n");
@@ -711,6 +714,9 @@ struct CleanPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool purge_mode = false;
 
 		size_t argidx;

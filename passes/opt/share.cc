@@ -481,11 +481,11 @@ struct ShareWorker
 			return true;
 		}
 
-		for (auto &it : c1->parameters)
+		for (auto it : c1->parameters)
 			if (c2->parameters.count(it.first) == 0 || c2->parameters.at(it.first) != it.second)
 				return false;
 
-		for (auto &it : c2->parameters)
+		for (auto it : c2->parameters)
 			if (c1->parameters.count(it.first) == 0 || c1->parameters.at(it.first) != it.second)
 				return false;
 
@@ -1442,6 +1442,9 @@ struct SharePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		ShareWorkerConfig config;
 
 		config.limit = -1;

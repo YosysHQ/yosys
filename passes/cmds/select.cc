@@ -106,7 +106,8 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	log_abort();
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
+template <typename SmellsLikeDict>
+static bool match_attr(const SmellsLikeDict &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
@@ -124,7 +125,8 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 	return false;
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &match_expr)
+template <typename SmellsLikeDict>
+static bool match_attr(const SmellsLikeDict &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 
@@ -1258,6 +1260,9 @@ struct SelectPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool add_mode = false;
 		bool del_mode = false;
 		bool clear_mode = false;
@@ -1641,6 +1646,9 @@ struct CdPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		if (args.size() != 1 && args.size() != 2)
 			log_cmd_error("Invalid number of arguments.\n");
 
@@ -1732,6 +1740,9 @@ struct LsPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		size_t argidx = 1;
 		extra_args(args, argidx, design);
 

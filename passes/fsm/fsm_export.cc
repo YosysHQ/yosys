@@ -145,6 +145,9 @@ struct FsmExportPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		dict<RTLIL::IdString, RTLIL::Const>::iterator attr_it;
 		std::string arg;
 		bool flag_noauto = false;

@@ -62,6 +62,9 @@ struct CheckPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		int counter = 0;
 		bool noinit = false;
 		bool initdrv = false;

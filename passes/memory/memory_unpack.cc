@@ -37,6 +37,9 @@ struct MemoryUnpackPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing MEMORY_UNPACK pass (generating $memrd/$memwr cells form $mem cells).\n");
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules()) {
 			for (auto &mem : Mem::get_selected_memories(module)) {

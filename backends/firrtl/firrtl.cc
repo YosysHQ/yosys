@@ -480,17 +480,17 @@ struct FirrtlWorker
 		wire_exprs.push_back(stringf("%s" "inst %s%s of %s %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceName.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-			if (it->second.size() > 0) {
-				const SigSpec &secondSig = it->second;
-				const std::string firstName = cell_name + "." + make_id(it->first);
+			if ((*it).second.size() > 0) {
+				const SigSpec &secondSig = (*it).second;
+				const std::string firstName = cell_name + "." + make_id((*it).first);
 				const std::string secondExpr = make_expr(secondSig);
 				// Find the direction for this port.
-				FDirection dir = getPortFDirection(it->first, instModule);
+				FDirection dir = getPortFDirection((*it).first, instModule);
 				std::string sourceExpr, sinkExpr;
 				const SigSpec *sinkSig = nullptr;
 				switch (dir) {
 					case FD_INOUT:
-						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal((*it).second));
 						YS_FALLTHROUGH
 					case FD_OUT:
 						sourceExpr = firstName;
@@ -498,14 +498,14 @@ struct FirrtlWorker
 						sinkSig = &secondSig;
 						break;
 					case FD_NODIRECTION:
-						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal((*it).second));
 						YS_FALLTHROUGH
 					case FD_IN:
 						sourceExpr = secondExpr;
 						sinkExpr = firstName;
 						break;
 					default:
-						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal(it->second), dir);
+						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal((*it).second), dir);
 						break;
 				}
 				// Check for subfield assignment.
@@ -849,7 +849,7 @@ struct FirrtlWorker
 				}
 
 				auto it = cell->parameters.find(ID::B_SIGNED);
-				if (it == cell->parameters.end() || !it->second.as_bool()) {
+				if (it == cell->parameters.end() || !(*it).second.as_bool()) {
 					b_expr = "asUInt(" + b_expr + ")";
 				}
 
@@ -881,7 +881,7 @@ struct FirrtlWorker
 			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
 				auto it = cell->parameters.find(ID::WIDTH);
-				int width = it == cell->parameters.end()? 1 : it->second.as_int();
+				int width = it == cell->parameters.end()? 1 : (*it).second.as_int();
 				string a_expr = make_expr(cell->getPort(ID::A));
 				string b_expr = make_expr(cell->getPort(ID::B));
 				string s_expr = make_expr(cell->getPort(ID::S));

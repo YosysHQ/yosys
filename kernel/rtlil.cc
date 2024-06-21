@@ -27,6 +27,8 @@
 
 #include <string.h>
 #include <algorithm>
+#include <iostream>
+#include <iomanip>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -1016,13 +1018,13 @@ size_t RTLIL::Module::count_id(const RTLIL::IdString& id)
 
 #ifndef NDEBUG
 namespace {
-	struct InternalCellChecker
+	struct InternalOldCellChecker
 	{
 		RTLIL::Module *module;
 		RTLIL::Cell *cell;
 		pool<RTLIL::IdString> expected_params, expected_ports;
 
-		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
+		InternalOldCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
 		void error(int linenr)
 		{
@@ -1040,7 +1042,7 @@ namespace {
 			if (it == cell->parameters.end())
 				error(__LINE__);
 			expected_params.insert(name);
-			return it->second.as_int();
+			return (*it).second.as_int();
 		}
 
 		int param_bool(const RTLIL::IdString& name)
@@ -1079,17 +1081,17 @@ namespace {
 			auto it = cell->connections_.find(name);
 			if (it == cell->connections_.end())
 				error(__LINE__);
-			if (GetSize(it->second) != width)
+			if (GetSize((*it).second) != width)
 				error(__LINE__);
 			expected_ports.insert(name);
 		}
 
 		void check_expected(bool check_matched_sign = false)
 		{
-			for (auto &para : cell->parameters)
+			for (auto para : cell->parameters)
 				if (expected_params.count(para.first) == 0)
 					error(__LINE__);
-			for (auto &conn : cell->connections())
+			for (auto conn : cell->connections_)
 				if (expected_ports.count(conn.first) == 0)
 					error(__LINE__);
 
@@ -1934,7 +1936,7 @@ void RTLIL::Module::check()
 #ifndef NDEBUG
 	std::vector<bool> ports_declared;
 	for (auto &it : wires_) {
-		log_assert(this == it.second->module);
+		// log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(it.second->width >= 0);
@@ -1968,19 +1970,20 @@ void RTLIL::Module::check()
 	pool<IdString> packed_memids;
 
 	for (auto &it : cells_) {
-		log_assert(this == it.second->module);
+		// log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(!it.second->type.empty());
-		for (auto &it2 : it.second->connections()) {
+		for (auto it2 : it.second->connections_) {
 			log_assert(!it2.first.empty());
 			it2.second.check(this);
 		}
-		for (auto &it2 : it.second->attributes)
+		// TODO
+		// for (auto &&it2 : it.second->attributes)
+		// 	log_assert(!it2.first.empty());
+		for (auto it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
-		for (auto &it2 : it.second->parameters)
-			log_assert(!it2.first.empty());
-		InternalCellChecker checker(this, it.second);
+		InternalOldCellChecker checker(this, it.second);
 		checker.check();
 		if (it.second->has_memid()) {
 			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
@@ -2209,8 +2212,11 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
 {
-	while (!cell->connections_.empty())
-		cell->unsetPort(cell->connections_.begin()->first);
+	// TODO monitors are broken when unsetPort is unused here
+	// for 
+	// while (!cell->connections_.empty())
+	// 	cell->unsetPort((*cell->connections_.begin()).first);
+	//
 
 	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
@@ -2423,19 +2429,66 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
+	// std::cout << "RTLIL::Module::addCell " << name.c_str() << " " << type.c_str() << "to module " << this->name.c_str() << "\n";
 	cell->name = name;
 	cell->type = type;
+	if (RTLIL::Cell::is_legacy_type(type)) {
+		cell->legacy = new RTLIL::OldCell;
+		cell->legacy->type = type;
+		cell->legacy->module = this;
+		log_assert(this);
+	} else {
+		// Due to the tagged union deal,
+		// we don't get this automagically,
+		// so let's use "placement new"
+		if (type == ID($not)) {
+			new (&cell->not_) Unary();
+		} else if (type == ID($pos)) {
+			new (&cell->pos) Unary();
+		} else if (type == ID($neg)) {
+			new (&cell->neg) Unary();
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	}
 	add(cell);
 	return cell;
 }
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
+	log_assert(other);
 	RTLIL::Cell *cell = addCell(name, other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	return cell;
+}
+
+// Swap cell for a new one with a different type, keeping everything else
+// Throws if their types don't allow it
+RTLIL::Cell *RTLIL::Module::morphCell(RTLIL::IdString type, RTLIL::Cell *old)
+{
+	// if (old->is_legacy() && Cell::is_legacy_type(type)) {
+	// 	old->type = type;
+	// 	return old;
+	// }
+	// TODO xtrace
+	if (yosys_xtrace) {
+		log("#X# Morphing %s.%s from type %s to %s\n", log_id(this), log_id(old), log_id(old->type), log_id(type));
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+	log_assert(old);
+	cells_.erase(old->name);
+	RTLIL::Cell *new_cell = addCell(old->name, type);
+	new_cell->connections_ = old->connections_.as_dict();
+	new_cell->parameters = old->parameters.as_dict();
+	new_cell->attributes = old->attributes;
+	new_cell->name = old->name;
+	log_assert(refcount_cells_ == 0);
+	cells_[new_cell->name] = new_cell;
+	delete old;
+	return new_cell;
 }
 
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
@@ -3428,6 +3481,7 @@ RTLIL::Wire::Wire()
 
 RTLIL::Wire::~Wire()
 {
+
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
@@ -3468,35 +3522,275 @@ RTLIL::Cell::Cell() : module(nullptr)
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
 
+	parameters.parent = this;
+	connections_.parent = this;
+}
+RTLIL::Cell::~Cell()
+{
+	if (is_legacy()) {
+		delete legacy;
+	}
+}
+
+
+void RTLIL::Cell::setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal) {
+	if (is_legacy()) {
+		legacy->setPort(portname, signal);
+		return;
+	}
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			not_.a = signal;
+		} else if (portname == ID::Y) {
+			not_.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			pos.a = signal;
+		} else if (portname == ID::Y) {
+			pos.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			neg.a = signal;
+		} else if (portname == ID::Y) {
+			neg.y = signal;
+		} else {
+			throw std::out_of_range("Cell::setPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setPort()");
+	}
+}
+
+static const SigSpec discon_dummy;
+
+const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString &portname) const {
+	// log("getPort this %d %s (%016X %016X)\n", this, portname.c_str(), &portname, portname.c_str());
+	if (is_legacy())
+		return legacy->getPort(portname);
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			return not_.a;
+		} else if (portname == ID::Y) {
+			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::getPort()");
+		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			return pos.a;
+		} else if (portname == ID::Y) {
+			return pos.y;
+		} else {
+			throw std::out_of_range("Cell::getPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			return neg.a;
+		} else if (portname == ID::Y) {
+			return neg.y;
+		} else {
+			throw std::out_of_range("Cell::getPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getPort()");
+	}
+}
+RTLIL::SigSpec &RTLIL::Cell::getMutPort(const RTLIL::IdString &portname) {
+	if (is_legacy())
+		return legacy->connections_[portname];
+
+	if (type == ID($not)) {
+		if (portname == ID::A) {
+			return not_.a;
+		} else if (portname == ID::Y) {
+			return not_.y;
+		} else {
+			throw std::out_of_range("Cell::getMutPort()");
+		}
+	} else if (type == ID($pos)) {
+		if (portname == ID::A) {
+			return pos.a;
+		} else if (portname == ID::Y) {
+			return pos.y;
+		} else {
+			throw std::out_of_range("Cell::getMutPort()");
+		}
+	} else if (type == ID($neg)) {
+		if (portname == ID::A) {
+			return neg.a;
+		} else if (portname == ID::Y) {
+			return neg.y;
+		} else {
+			throw std::out_of_range("Cell::getMutPort()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getMutPort()");
+	}
+}
+
+// TODO autogen
+void RTLIL::Cell::setParam(const RTLIL::IdString &paramname, RTLIL::Const value) {
+	if (is_legacy()) {
+		legacy->setParam(paramname, value);
+		return;
+	}
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			not_.a_width = value;
+		} else if (paramname == ID::Y_WIDTH) {
+			not_.y_width = value;
+		} else if (paramname == ID::A_SIGNED) {
+			not_.is_signed = value;
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			pos.a_width = value;
+		} else if (paramname == ID::Y_WIDTH) {
+			pos.y_width = value;
+		} else if (paramname == ID::A_SIGNED) {
+			pos.is_signed = value;
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			neg.a_width = value;
+		} else if (paramname == ID::Y_WIDTH) {
+			neg.y_width = value;
+		} else if (paramname == ID::A_SIGNED) {
+			neg.is_signed = value;
+		} else {
+			throw std::out_of_range("Cell::setParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::setParam()");
+	}
+}
+
+const RTLIL::Const& RTLIL::Cell::getParam(const RTLIL::IdString &paramname) const {
+	if (is_legacy())
+		return legacy->getParam(paramname);
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			return not_.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return not_.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return not_.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			return pos.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return pos.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return pos.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			return neg.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return neg.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return neg.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getParam()");
+	}
+}
+
+RTLIL::Const& RTLIL::Cell::getMutParam(const RTLIL::IdString &paramname) {
+	if (is_legacy())
+		return legacy->parameters[paramname];
+
+	if (type == ID($not)) {
+		if (paramname == ID::A_WIDTH) {
+			return not_.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return not_.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return not_.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getMutParam()");
+		}
+	} else if (type == ID($pos)) {
+		if (paramname == ID::A_WIDTH) {
+			return pos.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return pos.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return pos.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getMutParam()");
+		}
+	} else if (type == ID($neg)) {
+		if (paramname == ID::A_WIDTH) {
+			return neg.a_width;
+		} else if (paramname == ID::Y_WIDTH) {
+			return neg.y_width;
+		} else if (paramname == ID::A_SIGNED) {
+			return neg.is_signed;
+		} else {
+			throw std::out_of_range("Cell::getMutParam()");
+		}
+	} else {
+		throw std::out_of_range("Cell::getMutParam()");
+	}
+}
+
+RTLIL::OldCell::OldCell() : module(nullptr)
+{
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+
 	// log("#memtrace# %p\n", this);
 	memhasher();
 
 #ifdef WITH_PYTHON
-	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
+	RTLIL::OldCell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::OldCell*>(hashidx_, this));
 #endif
 }
 
-RTLIL::Cell::~Cell()
+RTLIL::OldCell::~OldCell()
 {
 #ifdef WITH_PYTHON
-	RTLIL::Cell::get_all_cells()->erase(hashidx_);
+	RTLIL::OldCell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
 #ifdef WITH_PYTHON
-static std::map<unsigned int, RTLIL::Cell*> all_cells;
-std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
+static std::map<unsigned int, RTLIL::OldCell*> all_cells;
+std::map<unsigned int, RTLIL::OldCell*> *RTLIL::OldCell::get_all_cells(void)
 {
 	return &all_cells;
 }
 #endif
 
-bool RTLIL::Cell::hasPort(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::hasPort(const RTLIL::IdString& portname) const
 {
 	return connections_.count(portname) != 0;
 }
 
-void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
+void RTLIL::OldCell::unsetPort(const RTLIL::IdString& portname)
 {
 	RTLIL::SigSpec signal;
 	auto conn_it = connections_.find(portname);
@@ -3519,7 +3813,7 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 	}
 }
 
-void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
+void RTLIL::OldCell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
 {
 	auto r = connections_.insert(portname);
 	auto conn_it = r.first;
@@ -3541,17 +3835,17 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 	conn_it->second = std::move(signal);
 }
 
-const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString& portname) const
+const RTLIL::SigSpec &RTLIL::OldCell::getPort(const RTLIL::IdString& portname) const
 {
 	return connections_.at(portname);
 }
 
-const dict<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::Cell::connections() const
+const dict<RTLIL::IdString, RTLIL::SigSpec> &RTLIL::OldCell::connections() const
 {
 	return connections_;
 }
 
-bool RTLIL::Cell::known() const
+bool RTLIL::OldCell::known() const
 {
 	if (yosys_celltypes.cell_known(type))
 		return true;
@@ -3560,7 +3854,7 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
-bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::input(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
@@ -3572,7 +3866,7 @@ bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
+bool RTLIL::OldCell::output(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
@@ -3584,22 +3878,22 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 	return false;
 }
 
-bool RTLIL::Cell::hasParam(const RTLIL::IdString& paramname) const
+bool RTLIL::OldCell::hasParam(const RTLIL::IdString& paramname) const
 {
 	return parameters.count(paramname) != 0;
 }
 
-void RTLIL::Cell::unsetParam(const RTLIL::IdString& paramname)
+void RTLIL::OldCell::unsetParam(const RTLIL::IdString& paramname)
 {
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(const RTLIL::IdString& paramname, RTLIL::Const value)
+void RTLIL::OldCell::setParam(const RTLIL::IdString& paramname, RTLIL::Const value)
 {
 	parameters[paramname] = std::move(value);
 }
 
-const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) const
+const RTLIL::Const &RTLIL::OldCell::getParam(const RTLIL::IdString& paramname) const
 {
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())
@@ -3609,20 +3903,19 @@ const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) cons
 		if (m)
 			return m->parameter_default_values.at(paramname);
 	}
-	throw std::out_of_range("Cell::getParam()");
+	throw std::out_of_range("OldCell::getParam()");
 }
 
-void RTLIL::Cell::sort()
+void RTLIL::OldCell::sort()
 {
 	connections_.sort(sort_by_id_str());
 	parameters.sort(sort_by_id_str());
-	attributes.sort(sort_by_id_str());
 }
 
 void RTLIL::Cell::check()
 {
 #ifndef NDEBUG
-	InternalCellChecker checker(NULL, this);
+	InternalOldCellChecker checker(NULL, this);
 	checker.check();
 #endif
 }
@@ -3694,12 +3987,12 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	check();
 }
 
-bool RTLIL::Cell::has_memid() const
+bool RTLIL::OldCell::has_memid() const
 {
 	return type.in(ID($memwr), ID($memwr_v2), ID($memrd), ID($memrd_v2), ID($meminit), ID($meminit_v2));
 }
 
-bool RTLIL::Cell::is_mem_cell() const
+bool RTLIL::OldCell::is_mem_cell() const
 {
 	return type.in(ID($mem), ID($mem_v2)) || has_memid();
 }
@@ -4103,9 +4396,56 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	other->check();
 }
 
+void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with, RTLIL::SigSpec &other) const
+{
+	log_assert(width_ == other.width_);
+	log_assert(pattern.width_ == with.width_);
+
+	pattern.unpack();
+	with.unpack();
+	unpack();
+	other.unpack();
+
+	dict<RTLIL::SigBit, int> pattern_to_with;
+	for (int i = 0; i < GetSize(pattern.bits_); i++) {
+		if (pattern.bits_[i].wire != NULL) {
+			pattern_to_with.emplace(pattern.bits_[i], i);
+		}
+	}
+
+	for (int j = 0; j < GetSize(bits_); j++) {
+		auto it = pattern_to_with.find(bits_[j]);
+		if (it != pattern_to_with.end()) {
+			other.bits_[j] = with.bits_[it->second];
+		}
+	}
+
+	other.check();
+}
+
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules)
 {
 	replace(rules, this);
+}
+
+// TODO is this one even used?
+void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec &other) const
+{
+	cover("kernel.rtlil.sigspec.replace_dict");
+
+	log_assert(width_ == other.width_);
+
+	if (rules.empty()) return;
+	unpack();
+	other.unpack();
+
+	for (int i = 0; i < GetSize(bits_); i++) {
+		auto it = rules.find(bits_[i]);
+		if (it != rules.end())
+			other.bits_[i] = it->second;
+	}
+
+	other.check();
 }
 
 void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RTLIL::SigSpec *other) const

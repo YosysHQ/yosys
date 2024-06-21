@@ -128,11 +128,11 @@ struct JsonWriter
 			f << get_string(value.as_string());
 		}
 	}
-
-	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
+	template <typename SmellsLikeDict>
+	void write_parameters(const SmellsLikeDict &parameters, bool for_module=false)
 	{
 		bool first = true;
-		for (auto &param : parameters) {
+		for (auto param : parameters) {
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first).c_str());
 			write_parameter_value(param.second);

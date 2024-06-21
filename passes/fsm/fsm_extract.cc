@@ -395,7 +395,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
 		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", autoidx++), unconn_sig.size());
-		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
+		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), cell->connections_[cellport.second]);
 	}
 }
 
@@ -419,6 +419,9 @@ struct FsmExtractPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);
 

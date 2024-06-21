@@ -127,7 +127,7 @@ struct QlDspIORegs : public Pass {
 			}
 
 			// Set new type name
-			cell->type = RTLIL::IdString(new_type);
+			cell = cell->module->morphCell(RTLIL::IdString(new_type), cell);
 
 			std::vector<std::string> ports2del;
 

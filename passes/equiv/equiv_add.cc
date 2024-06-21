@@ -41,6 +41,9 @@ struct EquivAddPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
+		ZoneScoped;
+		ZoneText(pass_name.c_str(), pass_name.length());
+		ZoneColor((uint32_t)(size_t)pass_name.c_str());
 		bool try_mode = false;
 
 		if (design->selected_active_module.empty())
