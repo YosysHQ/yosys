@@ -216,8 +216,8 @@ template<class NodeNames> struct CxxPrintVisitor {
 	CxxStruct &state_struct;
 	CxxPrintVisitor(NodeNames np, CxxStruct &input_struct, CxxStruct &state_struct) : np(np), input_struct(input_struct), state_struct(state_struct) { }
 	template<class T> std::string arg_to_string(T n) { return std::to_string(n); }
-	template<> std::string arg_to_string(std::string n) { return n; }
-	template<> std::string arg_to_string(Node n) { return np(n); }
+	std::string arg_to_string(std::string n) { return n; }
+	std::string arg_to_string(Node n) { return np(n); }
 	template<typename... Args> std::string format(std::string fmt, Args&&... args) {
 		return CxxTemplate::format(fmt, arg_to_string(args)...);
 	}
