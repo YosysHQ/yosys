@@ -344,7 +344,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (constmode)
 	{
-		auto conn_list = cell->connections();
+		auto conn_list = cell->connections().as_dict();
 		for (auto conn : conn_list)
 		{
 			RTLIL::SigSpec sig = conn.second;
