@@ -19,11 +19,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/functionalir.h"
-#include <cassert>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <unordered_map>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
