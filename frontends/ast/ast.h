@@ -33,6 +33,7 @@
 #include "kernel/fmt.h"
 #include <stdint.h>
 #include <set>
+#include <optional>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -186,7 +187,318 @@ namespace AST
 		AstNodeType type;
 
 		// the list of child nodes for this node
-		std::vector<AstNode*> children;
+		struct FakeChildren {
+			class iterator {
+				friend FakeChildren;
+			public:
+				using iterator_category = std::random_access_iterator_tag;
+				using value_type = AstNode*;
+				using difference_type = ptrdiff_t;
+				using pointer = AstNode**;
+				using reference = AstNode*&;
+
+				iterator() : container(nullptr), index(0) {}
+				iterator(std::vector<AstNode*>* cont) : container(cont), index(0) {}
+				iterator(std::vector<AstNode*>* cont, int idx) : container(cont), index(idx) {}
+
+				reference operator*() const {
+					return (*container)[index];
+				}
+
+				pointer operator->() const {
+					return &(*container)[index];
+				}
+
+				iterator& operator++() {
+					++index;
+					return *this;
+				}
+
+				iterator operator++(int) {
+					iterator tmp = *this;
+					++(*this);
+					return tmp;
+				}
+
+				iterator& operator--() {
+					--index;
+					return *this;
+				}
+
+				iterator operator--(int) {
+					iterator tmp = *this;
+					--(*this);
+					return tmp;
+				}
+
+				iterator& operator+=(difference_type n) {
+					index += n;
+					return *this;
+				}
+
+				iterator operator+(difference_type n) const {
+					iterator tmp = *this;
+					return tmp += n;
+				}
+
+				iterator& operator-=(difference_type n) {
+					index -= n;
+					return *this;
+				}
+
+				iterator operator-(difference_type n) const {
+					iterator tmp = *this;
+					return tmp -= n;
+				}
+
+				difference_type operator-(const iterator& other) const {
+					return index - other.index;
+				}
+				bool operator==(const iterator& other) const {
+					return container == other.container && index == other.index;
+				}
+
+				bool operator!=(const iterator& other) const {
+					return !(*this == other);
+				}
+
+			private:
+				std::vector<AstNode*>* container;
+				size_t index;
+			};
+			class const_iterator {
+				friend FakeChildren;
+			public:
+				using iterator_category = std::random_access_iterator_tag;
+				using value_type = const AstNode*;
+				using difference_type = ptrdiff_t;
+				using pointer = const AstNode* const *;
+				using reference = const AstNode* const &;
+
+				const_iterator() : container(nullptr), index(0) {}
+				const_iterator(const std::vector<AstNode*>* cont) : container(cont), index(0) {}
+				const_iterator(const std::vector<AstNode*>* cont, size_t idx) : container(cont), index(idx) {}
+
+				reference operator*() const {
+					return (*container)[index];
+				}
+
+				pointer operator->() const {
+					return &(*container)[index];
+				}
+
+				const_iterator& operator++() {
+					++index;
+					return *this;
+				}
+
+				const_iterator operator++(int) {
+					const_iterator tmp = *this;
+					++(*this);
+					return tmp;
+				}
+
+				const_iterator& operator--() {
+					--index;
+					return *this;
+				}
+
+				const_iterator operator--(int) {
+					const_iterator tmp = *this;
+					--(*this);
+					return tmp;
+				}
+
+				const_iterator& operator+=(difference_type n) {
+					index += n;
+					return *this;
+				}
+
+				const_iterator operator+(difference_type n) const {
+					const_iterator tmp = *this;
+					return tmp += n;
+				}
+
+				const_iterator& operator-=(difference_type n) {
+					index -= n;
+					return *this;
+				}
+
+				const_iterator operator-(difference_type n) const {
+					const_iterator tmp = *this;
+					return tmp -= n;
+				}
+
+				difference_type operator-(const const_iterator& other) const {
+					return index - other.index;
+				}
+
+				bool operator==(const const_iterator& other) const {
+					return container == other.container && index == other.index;
+				}
+
+				bool operator!=(const const_iterator& other) const {
+					return !(*this == other);
+				}
+
+			private:
+				const std::vector<AstNode*>* container;
+				size_t index;
+			};
+			std::optional<std::vector<AstNode*>> backing;
+			static std::vector<AstNode*> empty_;
+			void ensure_initialized() {
+				if (!backing) {
+					backing.emplace();
+				}
+			}
+
+			void push_back(AstNode* node) {
+				ensure_initialized();
+				backing->push_back(node);
+			}
+
+			// void push_back(const AstNode* node) {
+			// 	ensure_initialized();
+			// 	backing->push_back(node);
+			// }
+
+			void clear() {
+				if (backing) {
+					backing->clear();
+					if (backing->empty()) {
+						backing.reset();
+					}
+				}
+			}
+
+			size_t size() const {
+				return backing ? backing->size() : 0;
+			}
+
+			AstNode*& operator[](size_t index) {
+				ensure_initialized();
+				return (*backing)[index];
+			}
+
+			const AstNode* operator[](size_t index) const {
+				return backing ? (*backing)[index] : nullptr;
+			}
+			AstNode*& at(size_t index) {
+				ensure_initialized();
+				return (*backing)[index];
+			}
+
+			const AstNode* at(size_t index) const {
+				return backing ? (*backing)[index] : nullptr;
+			}
+
+			// using iterator = FakeChildrenIterator;
+			// using const_iterator = FakeChildrenIterator;
+
+			iterator begin() {
+				return backing ? iterator(&(*backing), 0) : iterator(&empty_, 0);
+			}
+
+			iterator end() {
+				return backing ? iterator(&(*backing), backing->size()) : iterator(&empty_, 0);
+			}
+
+			const_iterator begin() const {
+				return backing ? const_iterator(&(*backing), 0) : const_iterator(&empty_, 0);
+			}
+
+			const_iterator end() const {
+				return backing ? const_iterator(&(*backing), backing->size()) : const_iterator(&empty_, 0);
+			}
+			AstNode*& front() {
+				ensure_initialized();
+				return backing->front();
+			}
+
+			const AstNode* front() const {
+				return backing ? backing->front() : nullptr;
+			}
+
+			AstNode*& back() {
+				ensure_initialized();
+				return backing->back();
+			}
+
+			const AstNode* back() const {
+				return backing ? backing->back() : nullptr;
+			}
+
+			void pop_back() {
+				if (backing) {
+					backing->pop_back();
+					if (backing->empty()) {
+						backing.reset();
+					}
+				}
+			}
+
+			using reverse_iterator = std::reverse_iterator<iterator>;
+			using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+			auto rbegin() {
+				return backing ? std::make_reverse_iterator(backing->rbegin()) : std::make_reverse_iterator(empty_.rbegin());
+			}
+			auto rend() {
+				return backing ? std::make_reverse_iterator(backing->rend()) : std::make_reverse_iterator(empty_.rend());
+			}
+
+			// const_reverse_iterator rbegin() const {
+			// 	return backing ? backing->rbegin() : empty_.rbegin();
+			// }
+
+			// const_reverse_iterator rend() const {
+			// 	return backing ? backing->rend() : empty_.rend();
+			// }
+
+			bool empty() const {
+				return backing ? backing->size() : true;
+			}
+
+			void swap(FakeChildren& other) noexcept {
+				std::swap(backing, other.backing);
+			}
+			void swap(std::vector<AstNode*> other_children) noexcept {
+				ensure_initialized();
+				std::swap(*backing, other_children);
+			}
+			void insert(size_t index, AstNode* node) {
+				ensure_initialized();
+				backing->insert(backing->begin() + index, node);
+			}
+			void insert(iterator pos, AstNode* node) {
+				ensure_initialized();
+				backing->insert(backing->begin() + pos.index, node);
+			}
+			// void erase(size_t index) {
+			// 	if (backing) {
+			// 		backing->erase(index);
+			// 		if (backing->empty()) {
+			// 			backing.reset();
+			// 		}
+			// 	}
+			// }
+			void erase(std::vector<AstNode*>::iterator pos) {
+				if (backing) {
+					backing->erase(pos);
+					if (backing->empty()) {
+						backing.reset();
+					}
+				}
+			}
+			void erase(iterator pos) {
+				if (backing) {
+					backing->erase(backing->begin() + pos.index);
+					if (backing->empty()) {
+						backing.reset();
+					}
+				}
+			}
+		} children;
 
 		// the list of attributes assigned to this node
 		std::map<RTLIL::IdString, AstNode*> attributes;

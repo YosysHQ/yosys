@@ -401,7 +401,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 {
 	bool first = true;
 	std::string txt;
-	std::vector<AstNode*> rem_children1, rem_children2;
+	std::vector<const AstNode*> rem_children1, rem_children2;
 
 	if (f == NULL) {
 		for (auto f : log_files)
@@ -610,7 +610,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		children[0]->dumpVlog(f, "");
 		fprintf(f, ")\n");
 		for (size_t i = 1; i < children.size(); i++) {
-			AstNode *child = children[i];
+			const AstNode *child = children[i];
 			child->dumpVlog(f, indent + "  ");
 		}
 		fprintf(f, "%s" "endcase\n", indent.c_str());
