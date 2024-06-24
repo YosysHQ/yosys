@@ -84,7 +84,7 @@ not regularly tested:
 Build prerequisites
 ^^^^^^^^^^^^^^^^^^^
 
-A C++ compiler with C++11 support is required as well as some standard tools
+A C++ compiler with C++17 support is required as well as some standard tools
 such as GNU Flex, GNU Bison, Make and Python.  Some additional tools: readline,
 libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the

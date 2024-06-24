@@ -71,7 +71,7 @@ Many Linux distributions also provide Yosys binaries, some more up to date than 
 Building from Source
 ====================
 
-You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
+You need a C++ compiler with C++17 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
 TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
 Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
