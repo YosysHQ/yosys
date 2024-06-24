@@ -1178,7 +1178,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			RTLIL::Wire *orig_wire = nullptr;
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
 			if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
-				wire->attributes[ID::src] = orig_wire->attributes[ID::src];
+				wire->set_src_attribute(orig_wire->get_src_attribute());
 			if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, wire);
 		}

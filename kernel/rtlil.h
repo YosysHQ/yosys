@@ -165,8 +165,8 @@ namespace RTLIL
 				return it->second;
 			}
 
-			log_assert(p[0] == '$' || p[0] == '\\');
-			log_assert(p[1] != 0);
+			// log_assert(p[0] == '$' || p[0] == '\\');
+			// log_assert(p[1] != 0);
 			for (const char *c = p; *c; c++)
 				if ((unsigned)*c <= (unsigned)' ')
 					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
@@ -721,6 +721,7 @@ struct RTLIL::Const
 struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
+	IdString raw_src;
 
 	bool has_attribute(const RTLIL::IdString &id) const;
 
@@ -739,10 +740,19 @@ struct RTLIL::AttrObject
 	pool<string> get_strpool_attribute(const RTLIL::IdString &id) const;
 
 	void set_src_attribute(const std::string &src) {
-		set_string_attribute(ID::src, src);
+		if (std::count(src.begin(), src.end(), ':') == 1) {
+			auto idx = src.find(':');
+			raw_src = src.substr(0, idx);
+			set_string_attribute(ID::src_post, src.substr(idx));
+		} else {
+			raw_src = src;
+		}
 	}
 	std::string get_src_attribute() const {
-		return get_string_attribute(ID::src);
+		if (has_attribute(ID::src_post))
+			return raw_src.str() + ":" + get_string_attribute(ID::src_post);
+		else
+			return raw_src.str();
 	}
 
 	void set_hdlname_attribute(const vector<string> &hierarchy);

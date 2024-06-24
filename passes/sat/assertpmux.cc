@@ -175,7 +175,7 @@ struct AssertpmuxWorker
 		Cell *assert_cell = module->addAssert(NEW_ID, assert_a, assert_en);
 
 		if (pmux->attributes.count(ID::src) != 0)
-			assert_cell->attributes[ID::src] = pmux->attributes.at(ID::src);
+			assert_cell->set_src_attribute(pmux->get_src_attribute());
 	}
 };
 

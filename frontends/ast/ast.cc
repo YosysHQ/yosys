@@ -1056,7 +1056,7 @@ std::string AstNode::loc_string() const
 
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
-	obj->attributes[ID::src] = ast->loc_string();
+	obj->set_src_attribute(ast->loc_string());
 }
 
 static bool param_has_no_default(const AstNode *param) {
