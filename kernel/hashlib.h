@@ -211,6 +211,7 @@ inline int hashtable_size(int min_size)
 	throw std::length_error("hash table exceeded maximum size.");
 }
 
+template<typename K, typename T, typename OPS = hash_ops<K>> class tag_dict;
 template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
 template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
 template<typename K, typename OPS = hash_ops<K>> class pool;
@@ -669,6 +670,39 @@ public:
 	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
 	const_iterator element(int n) const { return const_iterator(this, int(entries.size())-1-n); }
 	const_iterator end() const { return const_iterator(nullptr, -1); }
+};
+
+template<typename K, typename T, typename OPS>
+class tag_dict : public dict<K, T, OPS> {
+	public:
+	tag_dict& operator = (const tag_dict& rhs) {
+		dict<K, T, OPS>::operator =(rhs);
+		return *this;
+	}
+	tag_dict& operator = (tag_dict&& rhs) {
+		dict<K, T, OPS>::operator =(rhs);
+		return *this;
+	}
+	constexpr tag_dict() : dict<K, T, OPS>()
+	{
+	}
+
+	tag_dict(const dict<K, T, OPS> &other) : dict<K, T, OPS>(other) { }
+	tag_dict(const tag_dict &other) : dict<K, T, OPS>(other) { }
+	// tag_dict(const tag_dict &other)
+	// {
+	// 	dict<K, T, OPS>(other);
+	// 	// entries = other.entries;
+	// 	// do_rehash();
+	// }
+
+	tag_dict(dict<K, T, OPS> &&other) : dict<K, T, OPS>(other) { }
+	tag_dict(tag_dict &&other) : dict<K, T, OPS>(other) { }
+	// tag_dict(tag_dict &&other)
+	// {
+	// 	dict<K, T, OPS>(other);
+	// 	// swap(other);
+	// }
 };
 
 template<typename K, typename OPS>

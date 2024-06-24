@@ -1565,7 +1565,7 @@ public:
 	RTLIL::IdString name;
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
-	dict<RTLIL::IdString, RTLIL::Const> parameters;
+	hashlib::tag_dict<RTLIL::IdString, RTLIL::Const> parameters;
 
 	// access cell ports
 	bool hasPort(const RTLIL::IdString &portname) const;
