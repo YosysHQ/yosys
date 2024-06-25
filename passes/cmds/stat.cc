@@ -230,8 +230,6 @@ struct statdata_t
 
 			if (gate_costs.count(ctype))
 				tran_cnt += cnum * gate_costs.at(ctype);
-			else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
-				tran_cnt += cnum * 16;
 			else
 				*tran_cnt_exact = false;
 		}

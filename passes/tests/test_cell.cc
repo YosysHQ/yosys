@@ -23,11 +23,13 @@
 #include "kernel/consteval.h"
 #include "kernel/celledges.h"
 #include "kernel/macc.h"
+#include "kernel/cost.h"
 #include <algorithm>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static int bloat_factor = 1;
 static uint32_t xorshift32_state = 123456789;
 
 static uint32_t xorshift32(uint32_t limit) {
@@ -37,7 +39,7 @@ static uint32_t xorshift32(uint32_t limit) {
 	return xorshift32_state % limit;
 }
 
-static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
+static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
 	RTLIL::Module *module = design->addModule(ID(gold));
 	RTLIL::Cell *cell = module->addCell(ID(UUT), cell_type);
@@ -45,7 +47,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type.in(ID($mux), ID($pmux)))
 	{
-		int width = 1 + xorshift32(8);
+		int width = 1 + xorshift32(8 * bloat_factor);
 		int swidth = cell_type == ID($mux) ? 1 : 1 + xorshift32(8);
 
 		wire = module->addWire(ID::A);
@@ -71,8 +73,8 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($bmux))
 	{
-		int width = 1 + xorshift32(8);
-		int swidth = 1 + xorshift32(4);
+		int width = 1 + xorshift32(8 * bloat_factor);
+		int swidth = 1 + xorshift32(4 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width << swidth;
@@ -92,8 +94,8 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($demux))
 	{
-		int width = 1 + xorshift32(8);
-		int swidth = 1 + xorshift32(6);
+		int width = 1 + xorshift32(8 * bloat_factor);
+		int swidth = 1 + xorshift32(6 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width;
@@ -113,7 +115,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($fa))
 	{
-		int width = 1 + xorshift32(8);
+		int width = 1 + xorshift32(8 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width;
@@ -143,7 +145,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($lcu))
 	{
-		int width = 1 + xorshift32(8);
+		int width = 1 + xorshift32(8 * bloat_factor);
 
 		wire = module->addWire(ID::P);
 		wire->width = width;
@@ -168,7 +170,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	if (cell_type == ID($macc))
 	{
 		Macc macc;
-		int width = 1 + xorshift32(8);
+		int width = 1 + xorshift32(8 * bloat_factor);
 		int depth = 1 + xorshift32(6);
 		int mulbits_a = 0, mulbits_b = 0;
 
@@ -215,7 +217,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($lut))
 	{
-		int width = 1 + xorshift32(6);
+		int width = 1 + xorshift32(6 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width;
@@ -235,8 +237,8 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type == ID($sop))
 	{
-		int width = 1 + xorshift32(8);
-		int depth = 1 + xorshift32(8);
+		int width = 1 + xorshift32(8 * bloat_factor);
+		int depth = 1 + xorshift32(8 * bloat_factor);
 
 		wire = module->addWire(ID::A);
 		wire->width = width;
@@ -270,7 +272,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type_flags.find('A') != std::string::npos) {
 		wire = module->addWire(ID::A);
-		wire->width = 1 + xorshift32(8);
+		wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
 		cell->setPort(ID::A, wire);
 	}
@@ -278,9 +280,9 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	if (cell_type_flags.find('B') != std::string::npos) {
 		wire = module->addWire(ID::B);
 		if (cell_type_flags.find('h') != std::string::npos)
-			wire->width = 1 + xorshift32(6);
+			wire->width = 1 + xorshift32(6 * bloat_factor);
 		else
-			wire->width = 1 + xorshift32(8);
+			wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_input = true;
 		cell->setPort(ID::B, wire);
 	}
@@ -301,7 +303,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
 		wire = module->addWire(ID::Y);
-		wire->width = 1 + xorshift32(8);
+		wire->width = 1 + xorshift32(8 * bloat_factor);
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
 	}
@@ -380,6 +382,7 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 	module->fixup_ports();
 	cell->fixup_parameters();
 	cell->check();
+	return cell;
 }
 
 static void run_edges_test(RTLIL::Design *design, bool verbose)
@@ -752,6 +755,9 @@ struct TestCellPass : public Pass {
 		log("    -noeval\n");
 		log("        do not check const-eval models\n");
 		log("\n");
+		log("    -noopt\n");
+		log("        do not opt tecchmapped design\n");
+		log("\n");
 		log("    -edges\n");
 		log("        test cell edges db creator against sat-based implementation\n");
 		log("\n");
@@ -760,6 +766,11 @@ struct TestCellPass : public Pass {
 		log("\n");
 		log("    -vlog {filename}\n");
 		log("        create a Verilog test bench to test simlib and write_verilog\n");
+		log("    -bloat {factor}\n");
+		log("        increase cell size limits b{factor} times where possible\n");
+		log("    -check_cost\n");
+		log("        check if the estimated cell cost is a valid upper bound for\n");
+		log("        the techmapped cell count \n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
@@ -774,7 +785,9 @@ struct TestCellPass : public Pass {
 		bool constmode = false;
 		bool nosat = false;
 		bool noeval = false;
+		bool noopt = false;
 		bool edges = false;
+		bool check_cost = false;
 
 		int argidx;
 		for (argidx = 1; argidx < GetSize(args); argidx++)
@@ -828,6 +841,10 @@ struct TestCellPass : public Pass {
 				noeval = true;
 				continue;
 			}
+			if (args[argidx] == "-noopt") {
+				noopt = true;
+				continue;
+			}
 			if (args[argidx] == "-edges") {
 				edges = true;
 				continue;
@@ -840,6 +857,14 @@ struct TestCellPass : public Pass {
 				vlog_file.open(args[++argidx], std::ios_base::trunc);
 				if (!vlog_file.is_open())
 					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-bloat" && argidx+1 < GetSize(args)) {
+				bloat_factor = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-check_cost") {
+				check_cost = true;
 				continue;
 			}
 			break;
@@ -965,21 +990,30 @@ struct TestCellPass : public Pass {
 
 		std::vector<std::string> uut_names;
 
-		for (auto cell_type : selected_cell_types)
+		for (auto cell_type : selected_cell_types) {
+			// Cells that failed cell cost check
+			int failed = 0;
+			// How much bigger is the worst offender than estimated?
+			int worst_abs = 0;
+			// How many times is it bigger than estimated?
+			float worst_rel = 0.0;
 			for (int i = 0; i < num_iter; i++)
 			{
+				Cell* uut = nullptr;
 				RTLIL::Design *design = new RTLIL::Design;
 				if (cell_type == ID(rtlil))
 					Frontend::frontend_call(design, NULL, std::string(), "rtlil " + rtlil_file);
 				else
-					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
+					uut = create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
 					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
 				} else {
-					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..; opt -fast gate", techmap_cmd.c_str()));
+					Pass::call(design, stringf("copy gold gate; cd gate; %s; cd ..", techmap_cmd.c_str()));
+					if (!noopt)
+						Pass::call(design, "opt -fast gate");
 					if (!nosat)
 						Pass::call(design, "miter -equiv -flatten -make_outputs -ignore_gold_x gold gate miter");
 					if (verbose)
@@ -997,10 +1031,44 @@ struct TestCellPass : public Pass {
 					}
 					if (!noeval)
 						run_eval_test(design, verbose, nosat, uut_name, vlog_file);
+					if (check_cost && uut) {
+						Pass::call(design, "select gate");
+						int num_cells = 0;
+						for (auto mod : design->selected_modules()) {
+							// Expected to run once
+							for (auto cell : mod->selected_cells()) {
+								(void) cell;
+								num_cells++;
+							}
+						}
+						CellCosts costs(design);
+						Pass::call(design, "select gold");
+						for (auto mod : design->selected_modules()) {
+							log_assert(mod->name.str() == "\\gold");
+							// Expected to run once
+							int num_cells_estimate = costs.get(uut);
+							if (num_cells <= num_cells_estimate) {
+								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+							} else {
+								failed++;
+								if (worst_abs < num_cells - num_cells_estimate) {
+									worst_abs = num_cells - num_cells_estimate;
+									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
+								}
+								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+							}
+						}
+					}
 				}
 				delete design;
 			}
-
+			if (check_cost && failed) {
+				log_warning("Cell type %s cost underestimated in %.1f%% cases "
+					    "with worst offender being by %d (%.1f%%)\n",
+					    cell_type.c_str(), 100 * (float)failed / (float)num_iter,
+						worst_abs, 100 * worst_rel);
+			}
+		}
 		if (vlog_file.is_open()) {
 			vlog_file << "\nmodule testbench;\n";
 			for (auto &uut : uut_names)
