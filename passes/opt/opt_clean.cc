@@ -745,7 +745,6 @@ struct CleanPass : public Pass {
 			log("Removed %d unused cells and %d unused wires.\n", count_rm_cells, count_rm_wires);
 
 		design->optimize();
-		design->sort();
 		design->check();
 
 		keep_cache.reset();
