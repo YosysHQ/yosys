@@ -513,8 +513,9 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	}
 
 	if (!cells.sort()) {
-		// There might be a combinational loop, or there might be constants on the output of cells. Either way 'check' will find out more.
-		log_warning("Unable to topologically sort combinational cells, there must be an issue with the design. Run 'check' to see what the issue is.\n");
+		// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
+		// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
+		log("Couldn't topologically sort cells, Yosys performance may be degraded.\nRunning 'check' is recommended.\n");
 	}
 
 	for (auto cell : cells.sorted)
