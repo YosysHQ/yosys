@@ -152,7 +152,10 @@ struct SmtPrintVisitor {
   }
 
   std::string reduce_or(Node, Node a, int) {
-    return format("(distinct %0 #b0)", np(a));
+    std::stringstream ss;
+    // We use ite to set the result to bit vector, to ensure appropriate type
+    ss << "(ite (= " << np(a) << " #b" << std::string(a.width(), '0') << ") #b0 #b1)";
+    return ss.str();
   }
 
   std::string reduce_xor(Node, Node a, int) {
