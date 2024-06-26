@@ -55,28 +55,27 @@ run_smt_test() {
 	if z3 "${base_name}.smt2"; then
             echo "SMT file ${base_name}.smt2 is valid ."
 	    smt_successful_files["$rtlil_file"]="Success"
-            # if python3 using_smtio.py "${base_name}.smt2"; then
-	    # 	echo "Python script generated VCD file for $rtlil_file successfully."
+            if python3 vcd_harness_smt.py "${base_name}.smt2"; then
+		echo "Python script generated VCD file for $rtlil_file successfully."
 
-	    # 	if [ -f "${base_name}.smt2.vcd" ]; then
-            #         echo "VCD file ${base_name}.vcd generated successfully by Python."
+		if [ -f "${base_name}.smt2.vcd" ]; then
+                    echo "VCD file ${base_name}.vcd generated successfully by Python."
 
-            #         if ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -vcd ${base_name}_yosys.vcd -r ${base_name}.smt2.vcd -scope gold -timescale 1us"; then
-	    # 		echo "Yosys simulation for $rtlil_file completed successfully."
-	    # 		smt_successful_files["$rtlil_file"]="Success"
-            #         else
-	    # 		echo "Yosys simulation failed for $rtlil_file."
-	    # 		smt_failing_files["$rtlil_file"]="Yosys simulation failure"
-            #         fi
-	    # 	else
-		    
-            #         echo "Failed to generate VCD file (${base_name}.vcd) for $rtlil_file. "
-            #         smt_failing_files["$rtlil_file"]="VCD generation failure"
-	    # 	fi
-            # else
-	    # 	echo "Failed to run Python script for $rtlil_file."
-	    # 	smt_failing_files["$rtlil_file"]="Python script failure"
-	    # fi
+                    if ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; sim -vcd ${base_name}_yosys.vcd -r ${base_name}.smt2.vcd -scope gold -timescale 1us"; then
+			echo "Yosys simulation for $rtlil_file completed successfully."
+			smt_successful_files["$rtlil_file"]="Success"
+                    else
+			echo "Yosys simulation failed for $rtlil_file."
+			smt_failing_files["$rtlil_file"]="Yosys simulation failure"
+                    fi
+		else		    
+                    echo "Failed to generate VCD file (${base_name}.vcd) for $rtlil_file. "
+                    smt_failing_files["$rtlil_file"]="VCD generation failure"
+		fi
+            else
+		echo "Failed to run Python script for $rtlil_file."
+		smt_failing_files["$rtlil_file"]="Python script failure"
+	    fi
 	else
 	    echo "SMT file for $rtlil_file is invalid"
 	    smt_failing_files["$rtlil_file"]="Invalid SMT"
