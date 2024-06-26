@@ -108,11 +108,11 @@ struct SmtPrintVisitor {
   }
 
   std::string zero_extend(Node, Node a, int, int out_width) {
-    return format("((_ zero_extend %1) %0)", np(a), out_width);
+    return format("((_ zero_extend %1) %0)", np(a), out_width - a.width());
   }
 
   std::string sign_extend(Node, Node a, int, int out_width) {
-    return format("((_ sign_extend %1) %0)", np(a), out_width);
+    return format("((_ sign_extend %1) %0)", np(a), out_width - a.width());
   }
 
   std::string concat(Node, Node a, int, Node b, int) {
@@ -228,6 +228,7 @@ struct SmtPrintVisitor {
     return format("#b%0", std::string(width, '0'));
   }
 };
+
 struct SmtModule {
   std::string name;
   SmtScope scope;
@@ -236,11 +237,24 @@ struct SmtModule {
   SmtModule(const std::string& module_name, FunctionalIR ir) 
     : name(module_name), ir(std::move(ir)) {}
 
+  std::string replaceCharacters(const std::string& input) {
+    std::string result = input;
+    std::replace(result.begin(), result.end(), '$', '_');  // Replace $ with _
+    
+    // Since \ is an escape character, we use a loop to replace it
+    size_t pos = 0;
+    while ((pos = result.find('\\', pos)) != std::string::npos) {
+        result.replace(pos, 1, "_");
+        pos += 1;  // Move past the replaced character
+    }
+    
+    return result;
+  }
+  
   void write(std::ostream& out) {
     SmtWriter writer(out);
-        
+    
     writer.print("(declare-fun %s () Bool)\n", name.c_str());
-
     writer.print("(declare-datatypes () ((Inputs (mk_inputs");
     for (const auto& input : ir.inputs()) {
       std::string input_name = scope[input.first];
@@ -258,7 +272,6 @@ struct SmtModule {
     writer.print("(declare-fun state () (_ BitVec 1))\n");
 
     writer.print("(define-fun %s_step ((state (_ BitVec 1)) (inputs Inputs)) Outputs\n", name.c_str());
-
     writer.print("  (let (\n");
     for (const auto& input : ir.inputs()) {
       std::string input_name = scope[input.first];
@@ -268,35 +281,41 @@ struct SmtModule {
 
     auto node_to_string = [&](FunctionalIR::Node n) { return scope[n.name()]; };
     SmtPrintVisitor<decltype(node_to_string)> visitor(node_to_string, scope);
-    writer.print("    (let (\n");
+
+    std::string nested_lets;
     for (auto it = ir.begin(); it != ir.end(); ++it) {
       const FunctionalIR::Node& node = *it;
 
-      if (ir.inputs().count(node.name()) > 0) {
-        continue;
-      }
+      if (ir.inputs().count(node.name()) > 0) continue;
       
-      std::string node_name = scope[node.name()];
+      std::string node_name = replaceCharacters(scope[node.name()]);
       std::string node_expr = node.visit(visitor);
-      writer.print("      (%s %s)\n", node_name.c_str(), node_expr.c_str());
+      
+      nested_lets += "(let (\n      (" + node_name + " " + node_expr + "))\n";
     }
-    writer.print("    )\n");
 
-    writer.print("      (let (\n");
+    nested_lets += "          (let (\n";
     for (const auto& output : ir.outputs()) {
       std::string output_name = scope[output.first];
-      // writer.print("        (%s %s)\n", output_name.c_str(), scope[output_name].c_str());
+      const std::string output_assignment = ir.get_output_node(output.first).name().c_str();
+      nested_lets += "            (" + output_name + " " + replaceCharacters(output_assignment).substr(1) + ")\n";
     }
-    writer.print("      )\n");
+    nested_lets += "          )\n";
+    nested_lets += "            (mk_outputs\n";
 
-    writer.print("        (mk_outputs\n");
     for (const auto& output : ir.outputs()) {
       std::string output_name = scope[output.first];
-      writer.print("          %s\n", output_name.c_str());
+      nested_lets += "              " + output_name + "\n";
     }
-    writer.print("        )\n");
-    writer.print("      )\n");
-    writer.print("    )\n");
+    nested_lets += "            )\n";
+    nested_lets += "          )\n";
+
+    // Close the nested lets
+    for (size_t i = 0; i < ir.size() - ir.inputs().size(); ++i) {
+      nested_lets += "    )\n";
+    }
+
+    writer.print("%s", nested_lets.c_str());
     writer.print("  )\n");
     writer.print(")\n");
   }
