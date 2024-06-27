@@ -29,6 +29,58 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
+namespace FunctionalTools {
+	class Scope {
+		const char *_illegal_characters;
+		pool<std::string> _used_names;
+		dict<int, std::string> _by_id;
+		dict<IdString, std::string> _by_name;
+		std::string allocate_name(IdString suggestion) {
+			std::string str = RTLIL::unescape_id(suggestion);
+			for(size_t i = 0; i < str.size(); i++)
+				if(strchr(_illegal_characters, str[i]))
+					str[i] = '_';
+			if(_used_names.count(str) == 0) {
+				_used_names.insert(str);
+				return str;
+			}
+			for (int idx = 0 ; ; idx++){
+				std::string suffixed = str + "_" + std::to_string(idx);
+				if(_used_names.count(suffixed) == 0) {
+					_used_names.insert(suffixed);
+					return suffixed;
+				}
+			}
+		}
+	public:
+		Scope(const char *illegal_characters = "", const char **keywords = nullptr) {
+			_illegal_characters = illegal_characters;
+			if(keywords != nullptr)
+				for(const char **p = keywords; *p != nullptr; p++)
+					reserve(*p);
+		}
+		void reserve(std::string name) {
+			_used_names.insert(std::move(name));
+		}
+		std::string operator()(int id, IdString suggestion) {
+			auto it = _by_id.find(id);
+			if(it != _by_id.end())
+				return it->second;
+			std::string str = allocate_name(suggestion);
+			_by_id.insert({id, str});
+			return str;
+		}
+		std::string operator()(IdString idstring) {
+			auto it = _by_name.find(idstring);
+			if(it != _by_name.end())
+				return it->second;
+			std::string str = allocate_name(idstring);
+			_by_name.insert({idstring, str});
+			return str;
+		}
+	};
+}
+
 class FunctionalIR {
 	enum class Fn {
 		invalid,
@@ -133,7 +185,7 @@ public:
 		friend class Factory;
 		friend class FunctionalIR;
 		Graph::Ref _ref;
-		Node(Graph::Ref ref) : _ref(ref) { }
+		explicit Node(Graph::Ref ref) : _ref(ref) { }
 		operator Graph::Ref() { return _ref; }
 		template<class NodePrinter> struct PrintVisitor {
 			NodePrinter np;
@@ -225,7 +277,6 @@ public:
 		{
 			return visit(PrintVisitor(np));
 		}
-		/* TODO: delete */ int size() const { return sort().width(); }
 	};
 	class Factory {
 		FunctionalIR &_ir;
@@ -235,7 +286,7 @@ public:
 			Graph::Ref ref = _ir._graph.add(std::move(fn), {std::move(sort)});
 			for (auto arg : args)
 				ref.append_arg(Graph::Ref(arg));
-			return ref;
+			return Node(ref);
 		}
 		void check_basic_binary(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && a.sort() == b.sort()); }
 		void check_shift(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && b.sort().is_signal()); }
@@ -341,39 +392,30 @@ public:
 		void suggest_name(Node node, IdString name) {
 			node._ref.sparse_attr() = name;
 		}
-
-		/* TODO delete this later*/
-		Node eq(Node a, Node b, int) { return equal(a, b, 0); }
-		Node ne(Node a, Node b, int) { return not_equal(a, b, 0); }
-		Node gt(Node a, Node b, int) { return signed_greater_than(a, b, 0); }
-		Node ge(Node a, Node b, int) { return signed_greater_equal(a, b, 0); }
-		Node ugt(Node a, Node b, int) { return unsigned_greater_than(a, b, 0); }
-		Node uge(Node a, Node b, int) { return unsigned_greater_equal(a, b, 0); }
-		Node neg(Node a, int) { return unary_minus(a, 0); }
 	};
 	static FunctionalIR from_module(Module *module);
 	Factory factory() { return Factory(*this); }
 	int size() const { return _graph.size(); }
-	Node operator[](int i) { return _graph[i]; }
+	Node operator[](int i) { return Node(_graph[i]); }
 	void topological_sort();
 	void forward_buf();
 	dict<IdString, Sort> inputs() const { return _inputs; }
 	dict<IdString, Sort> outputs() const { return _outputs; }
 	dict<IdString, Sort> state() const { return _state; }
-	Node get_output_node(IdString name) { return _graph({name, false}); }
-	Node get_state_next_node(IdString name) { return _graph({name, true}); }
+	Node get_output_node(IdString name) { return Node(_graph({name, false})); }
+	Node get_state_next_node(IdString name) { return Node(_graph({name, true})); }
 	class Iterator {
 		friend class FunctionalIR;
-		FunctionalIR &_ir;
+		FunctionalIR *_ir;
 		int _index;
-		Iterator(FunctionalIR &ir, int index) : _ir(ir), _index(index) {}
+		Iterator(FunctionalIR *ir, int index) : _ir(ir), _index(index) {}
 	public:
-		Node operator*() { return _ir._graph[_index]; }
+		Node operator*() { return Node(_ir->_graph[_index]); }
 		Iterator &operator++() { _index++; return *this; }
 		bool operator!=(Iterator const &other) const { return _index != other._index; }
 	};
-	Iterator begin() { return Iterator(*this, 0); }
-	Iterator end() { return Iterator(*this, _graph.size()); }
+	Iterator begin() { return Iterator(this, 0); }
+	Iterator end() { return Iterator(this, _graph.size()); }
 };
 
 YOSYS_NAMESPACE_END

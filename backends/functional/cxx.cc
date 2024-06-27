@@ -23,6 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+const char illegal_characters[] = "!\"#%&'()*+,-./:;<=>?@[]\\^`{|}~ ";
 const char *reserved_keywords[] = {
 	"alignas","alignof","and","and_eq","asm","atomic_cancel","atomic_commit",
 	"atomic_noexcept","auto","bitand","bitor","bool","break","case",
@@ -39,45 +40,6 @@ const char *reserved_keywords[] = {
 	"true","try","typedef","typeid","typename","union","unsigned",
 	"using","virtual","void","volatile","wchar_t","while","xor","xor_eq",
 	nullptr
-};
-
-struct CxxScope {
-	pool<std::string> used_names;
-	dict<IdString, std::string> name_map;
-
-	CxxScope() {
-		for(const char **p = reserved_keywords; *p != nullptr; p++)
-			reserve(*p);
-	}
-	void reserve(std::string name) {
-		used_names.insert(name);
-	}
-	std::string insert(IdString id) {
-		std::string str = RTLIL::unescape_id(id);
-		for(size_t i = 0; i < str.size(); i++)
-			if(strchr("!\"#%&'()*+,-./:;<=>?@[]\\^`{|}~ ", str[i]))
-				str[i] = '_';
-		if(used_names.count(str) == 0){
-			used_names.insert(str);
-			name_map.insert({id, str});
-			return str;
-		}
-		for (int idx = 0 ; ; idx++){
-			std::string suffixed = str + "_" + std::to_string(idx);
-			if (used_names.count(suffixed) == 0) {
-				used_names.insert(suffixed);
-				if(name_map.count(id) == 0)
-					name_map.insert({id, suffixed});
-				return suffixed;
-			}
-		}
-	}
-	std::string operator[](IdString id) {
-		if(name_map.count(id) > 0)
-			return name_map[id];
-		else
-			return insert(id);
-	}
 };
 
 struct CxxType {
@@ -109,66 +71,30 @@ struct CxxWriter {
 struct CxxStruct {
   std::string name;
   dict<IdString, CxxType> types;
-  CxxScope scope;
-  bool generate_methods;
-  CxxStruct(std::string name, bool generate_methods = false)
-    : name(name), generate_methods(generate_methods) {
+  FunctionalTools::Scope scope;
+  CxxStruct(std::string name)
+    : name(name), scope(illegal_characters, reserved_keywords) {
     scope.reserve("out");
     scope.reserve("dump");
   }
   void insert(IdString name, CxxType type) {
-    scope.insert(name);
+    scope(name);
     types.insert({name, type});
   }
   void print(CxxWriter &f) {
-    f.printf("struct %s {\n", name.c_str());
+    f.printf("\tstruct %s {\n", name.c_str());
     for (auto p : types) {
-      f.printf("\t%s %s;\n", p.second.to_string().c_str(), scope[p.first].c_str());
+      f.printf("\t\t%s %s;\n", p.second.to_string().c_str(), scope(p.first).c_str());
     }
-    f.printf("\n\ttemplate <typename T> void dump(T &out) const {\n");
+    f.printf("\n\t\ttemplate <typename T> void visit(T &fn) {\n");
     for (auto p : types) {
-      f.printf("\t\tout(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope[p.first].c_str());
+      f.printf("\t\t\tfn(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope(p.first).c_str());
     }
-    f.printf("\t}\n\n");
-
-    if (generate_methods) {
-      // Add size method
-      f.printf("\tint size() const {\n");
-      f.printf("\t\treturn %d;\n", types.size());
-      f.printf("\t}\n\n");
-
-      // Add get_input method
-      f.printf("\tstd::variant<%s> get_input(const int index) {\n", generate_variant_types().c_str());
-      f.printf("\t\tswitch (index) {\n");
-      int idx = 0;
-      for (auto p : types) {
-	f.printf("\t\t\tcase %d: return std::ref(%s);\n", idx, scope[p.first].c_str());
-	idx++;
-      }
-      f.printf("\t\t\tdefault: throw std::out_of_range(\"Invalid input index\");\n");
-      f.printf("\t\t}\n");
-      f.printf("\t}\n");
-    }
-    
-    f.printf("};\n\n");
+    f.printf("\t\t}\n");
+    f.printf("\t};\n\n");
   };
   std::string operator[](IdString field) {
-    return scope[field];
-  }
-  private:
-  std::string generate_variant_types() const {
-        std::set<std::string> unique_types;
-        for (const auto& p : types) {
-            unique_types.insert("std::reference_wrapper<" + p.second.to_string() + ">");
-        }
-        std::ostringstream oss;
-        for (auto it = unique_types.begin(); it != unique_types.end(); ++it) {
-            if (it != unique_types.begin()) {
-                oss << ", ";
-            }
-            oss << *it;
-        }
-        return oss.str();
+    return scope(field);
   }
 };
 
@@ -255,6 +181,54 @@ template<class NodeNames> struct CxxPrintVisitor {
 	std::string undriven(Node, int width) { return format("$const<%0>(0)", width); }
 };
 
+struct CxxModule {
+	FunctionalIR ir;
+	CxxStruct input_struct, output_struct, state_struct;
+	std::string module_name;
+
+	explicit CxxModule(Module *module) :
+		ir(FunctionalIR::from_module(module)),
+		input_struct("Inputs"),
+		output_struct("Outputs"),
+		state_struct("State")
+	{
+		for (auto [name, sort] : ir.inputs())
+			input_struct.insert(name, sort);
+		for (auto [name, sort] : ir.outputs())
+			output_struct.insert(name, sort);
+		for (auto [name, sort] : ir.state())
+			state_struct.insert(name, sort);
+		module_name = FunctionalTools::Scope(illegal_characters, reserved_keywords)(module->name);
+	}
+	void write_header(CxxWriter &f) {
+		f.printf("#include \"sim.h\"\n\n");
+	}
+	void write_struct_def(CxxWriter &f) {
+		f.printf("struct %s {\n", module_name.c_str());
+		input_struct.print(f);
+		output_struct.print(f);
+		state_struct.print(f);
+		f.printf("\tstatic void eval(Inputs const &, Outputs &, State const &, State &);\n");
+		f.printf("};\n\n");
+	}
+	void write_eval_def(CxxWriter &f) {
+		f.printf("void %s::eval(%s::Inputs const &input, %s::Outputs &output, %s::State const &current_state, %s::State &next_state)\n{\n", module_name.c_str(), module_name.c_str(), module_name.c_str(), module_name.c_str(), module_name.c_str());
+		FunctionalTools::Scope locals(illegal_characters, reserved_keywords);
+		locals.reserve("input");
+		locals.reserve("output");
+		locals.reserve("current_state");
+		locals.reserve("next_state");
+		auto node_name = [&](FunctionalIR::Node n) { return locals(n.id(), n.name()); };
+		for (auto node : ir)
+			f.printf("\t%s %s = %s;\n", CxxType(node.sort()).to_string().c_str(), node_name(node).c_str(), node.visit(CxxPrintVisitor(node_name, input_struct, state_struct)).c_str());
+		for (auto [name, sort] : ir.state())
+			f.printf("\tnext_state.%s = %s;\n", state_struct[name].c_str(), node_name(ir.get_state_next_node(name)).c_str());
+		for (auto [name, sort] : ir.outputs())
+			f.printf("\toutput.%s = %s;\n", output_struct[name].c_str(), node_name(ir.get_output_node(name)).c_str());
+		f.printf("}\n");
+	}
+};
+
 struct FunctionalCxxBackend : public Backend
 {
 	FunctionalCxxBackend() : Backend("functional_cxx", "convert design to C++ using the functional backend") {}
@@ -265,47 +239,13 @@ struct FunctionalCxxBackend : public Backend
 		log("\n");
     }
 
-	void printCxx(std::ostream &stream, std::string, std::string const & name, Module *module)
+	void printCxx(std::ostream &stream, std::string, Module *module)
 	{
-		auto ir = FunctionalIR::from_module(module);
 		CxxWriter f(stream);
-
-		f.printf("#include \"sim.h\"\n");
-		f.printf("#include <variant>\n");
-		CxxStruct input_struct(name + "_Inputs", true);
-		for (auto [name, sort] : ir.inputs())
-			input_struct.insert(name, sort);
-		CxxStruct output_struct(name + "_Outputs");
-		for (auto [name, sort] : ir.outputs())
-			output_struct.insert(name, sort);
-		CxxStruct state_struct(name + "_State");
-		for (auto [name, sort] : ir.state())
-			state_struct.insert(name, sort);
-
-		dict<int, std::string> node_names;
-		CxxScope locals;
-
-		input_struct.print(f);
-		output_struct.print(f);
-		state_struct.print(f);
-
-		f.printf("void %s(%s_Inputs const &input, %s_Outputs &output, %s_State const &current_state, %s_State &next_state)\n{\n", name.c_str(), name.c_str(), name.c_str(), name.c_str(), name.c_str());
-		locals.reserve("input");
-		locals.reserve("output");
-		locals.reserve("current_state");
-		locals.reserve("next_state");
-		auto node_to_string = [&](FunctionalIR::Node n) { return node_names.at(n.id()); };
-		for (auto node : ir)
-		{
-			std::string name = locals.insert(node.name());
-			node_names.emplace(node.id(), name);
-			f.printf("\t%s %s = %s;\n", CxxType(node.sort()).to_string().c_str(), name.c_str(), node.visit(CxxPrintVisitor(node_to_string, input_struct, state_struct)).c_str());
-		}
-		for (auto [name, sort] : ir.state())
-			f.printf("\tnext_state.%s = %s;\n", state_struct[name].c_str(), node_to_string(ir.get_state_next_node(name)).c_str());
-		for (auto [name, sort] : ir.outputs())
-			f.printf("\toutput.%s = %s;\n", output_struct[name].c_str(), node_to_string(ir.get_output_node(name)).c_str());
-		f.printf("}\n");
+		CxxModule mod(module);
+		mod.write_header(f);
+		mod.write_struct_def(f);
+		mod.write_eval_def(f);
 	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
@@ -317,7 +257,7 @@ struct FunctionalCxxBackend : public Backend
 
 		for (auto module : design->selected_modules()) {
             log("Dumping module `%s'.\n", module->name.c_str());
-			printCxx(*f, filename, RTLIL::unescape_id(module->name), module);
+			printCxx(*f, filename, module);
 		}
 	}
 } FunctionalCxxBackend;

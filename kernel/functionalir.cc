@@ -33,7 +33,7 @@ class CellSimplifier {
 		} else {
 			reduced_b_width = new_width;
 			T lower_b = factory.slice(b, b_width, 0, new_width);
-			T overflow = factory.ugt(b, factory.constant(RTLIL::Const(y_width, b_width)), b_width);
+			T overflow = factory.unsigned_greater_than(b, factory.constant(RTLIL::Const(y_width, b_width)), b_width);
 			return factory.mux(lower_b, factory.constant(RTLIL::Const(y_width, new_width)), overflow, new_width);
 		}
 	}
@@ -102,17 +102,17 @@ public:
 			T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
 			T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
 			if(cellType.in({ID($eq), ID($eqx)}))
-				return extend(factory.eq(a, b, width), 1, y_width, false);
+				return extend(factory.equal(a, b, width), 1, y_width, false);
 			else if(cellType.in({ID($ne), ID($nex)}))
-				return extend(factory.ne(a, b, width), 1, y_width, false);
+				return extend(factory.not_equal(a, b, width), 1, y_width, false);
 			else if(cellType == ID($lt))
-				return extend(is_signed ? factory.gt(b, a, width) : factory.ugt(b, a, width), 1, y_width, false);
+				return extend(is_signed ? factory.signed_greater_than(b, a, width) : factory.unsigned_greater_than(b, a, width), 1, y_width, false);
 			else if(cellType == ID($le))
-				return extend(is_signed ? factory.ge(b, a, width) : factory.uge(b, a, width), 1, y_width, false);
+				return extend(is_signed ? factory.signed_greater_equal(b, a, width) : factory.unsigned_greater_equal(b, a, width), 1, y_width, false);
 			else if(cellType == ID($gt))
-				return extend(is_signed ? factory.gt(a, b, width) : factory.ugt(a, b, width), 1, y_width, false);
+				return extend(is_signed ? factory.signed_greater_than(a, b, width) : factory.unsigned_greater_than(a, b, width), 1, y_width, false);
 			else if(cellType == ID($ge))
-				return extend(is_signed ? factory.ge(a, b, width) : factory.uge(a, b, width), 1, y_width, false);
+				return extend(is_signed ? factory.signed_greater_equal(a, b, width) : factory.unsigned_greater_equal(a, b, width), 1, y_width, false);
 			else
 				log_abort();
 		}else if(cellType.in({ID($logic_or), ID($logic_and)})){
@@ -127,7 +127,7 @@ public:
 			return extend(inputs.at(ID(A)), a_width, y_width, a_signed);
 		}else if(cellType == ID($neg)){
 			T a = extend(inputs.at(ID(A)), a_width, y_width, a_signed);
-			return factory.neg(a, y_width);
+			return factory.unary_minus(a, y_width);
 		}else if(cellType == ID($logic_not)){
 			T a = reduce_or(inputs.at(ID(A)), a_width);
 			T y = factory.bitwise_not(a, 1);
@@ -161,7 +161,7 @@ public:
 			T shr = logical_shift_right(a, b, width, b_width);
 			if(b_signed) {
 				T sign_b = factory.slice(b, b_width, b_width - 1, 1);
-				T shl = logical_shift_left(a, factory.neg(b, b_width), width, b_width);
+				T shl = logical_shift_left(a, factory.unary_minus(b, b_width), width, b_width);
 				T y = factory.mux(shr, shl, sign_b, width);
 				return extend(y, width, y_width, false);
 			} else {
@@ -237,10 +237,10 @@ public:
 		if(results.size() == 0)
 			return factory.undriven(0);
 		T node = results[0];
-		int size = results[0].size();
+		int size = results[0].width();
 		for(size_t i = 1; i < results.size(); i++) {
-			node = factory.concat(node, size, results[i], results[i].size());
-			size += results[i].size();
+			node = factory.concat(node, size, results[i], results[i].width());
+			size += results[i].width();
 		}
 		return node;
 	}
@@ -405,6 +405,13 @@ void FunctionalIR::topological_sort() {
     if(scc) log_error("combinational loops, aborting\n");
 }
 
+IdString merge_name(IdString a, IdString b) {
+	if(a[0] == '$' && b[0] == '\\')
+		return b;
+	else
+		return a;
+}
+
 void FunctionalIR::forward_buf() {
     std::vector<int> perm, alias;
     perm.clear();
@@ -416,10 +423,15 @@ void FunctionalIR::forward_buf() {
         {
             int target_index = alias[node.arg(0).index()];
             auto target_node = _graph[perm[target_index]];
-            if(!target_node.has_sparse_attr() && node.has_sparse_attr()){
-                IdString id = node.sparse_attr();
-                target_node.sparse_attr() = id;
-            }
+			if(node.has_sparse_attr()) {
+				if(target_node.has_sparse_attr()) {
+					IdString id = merge_name(node.sparse_attr(), target_node.sparse_attr());
+					target_node.sparse_attr() = id;
+				} else {
+					IdString id = node.sparse_attr();
+					target_node.sparse_attr() = id;
+				}
+			}
             alias.push_back(target_index);
         }
         else
