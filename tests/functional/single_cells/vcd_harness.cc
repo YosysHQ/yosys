@@ -34,9 +34,7 @@ struct Dump {
 };
 
 template<size_t n>
-Signal<n> random_signal() {
-  std::random_device rd;  // Random device for seeding
-  std::mt19937 gen(rd()); // Mersenne Twister engine
+Signal<n> random_signal(std::mt19937 &gen) {
   std::uniform_int_distribution<uint32_t> dist;
   std::array<uint32_t, (n+31)/32> words;
   for(auto &w : words)
@@ -52,9 +50,12 @@ struct Reset {
 };
 
 struct Randomize {
+  std::mt19937 &gen;
+  Randomize(std::mt19937 &gen) : gen(gen) {}
+
   template <size_t n>
   void operator()(const char *, Signal<n> &signal) {
-    signal = random_signal<n>();
+    signal = random_signal<n>(gen);
   }
 };
 
@@ -89,7 +90,7 @@ int main(int argc, char **argv)
   vcd_file << "#0\n";
   // Set all signals to false
   inputs.visit(Reset());
-     
+
   gold::eval(inputs, outputs, state, next_state);
   {
     Dump d(vcd_file);
@@ -97,11 +98,15 @@ int main(int argc, char **argv)
     outputs.visit(d);
     state.visit(d);
   }
-    
+
+  // Initialize random number generator once
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
   for (int step = 0; step < steps; ++step) {
     // Functional backend cxx
     vcd_file << "#" << (step + 1) << "\n";
-    inputs.visit(Randomize());
+    inputs.visit(Randomize(gen));
 
     gold::eval(inputs, outputs, state, next_state);
     {
@@ -110,7 +115,7 @@ int main(int argc, char **argv)
       outputs.visit(d);
       state.visit(d);
     }
-	
+
     state = next_state;
   }
 
