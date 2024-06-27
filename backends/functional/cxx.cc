@@ -86,7 +86,7 @@ struct CxxStruct {
     for (auto p : types) {
       f.printf("\t\t%s %s;\n", p.second.to_string().c_str(), scope(p.first).c_str());
     }
-    f.printf("\n\t\ttemplate <typename T> void visit(T &fn) {\n");
+    f.printf("\n\t\ttemplate <typename T> void visit(T &&fn) {\n");
     for (auto p : types) {
       f.printf("\t\t\tfn(\"%s\", %s);\n", RTLIL::unescape_id(p.first).c_str(), scope(p.first).c_str());
     }
@@ -148,37 +148,37 @@ template<class NodeNames> struct CxxPrintVisitor {
 		return CxxTemplate::format(fmt, arg_to_string(args)...);
 	}
 	std::string buf(Node, Node n) { return np(n); }
-	std::string slice(Node, Node a, int, int offset, int out_width) { return format("slice<%2>(%0, %1)", a, offset, out_width); }
-	std::string zero_extend(Node, Node a, int, int out_width) { return format("$zero_extend<%1>(%0)", a, out_width); }
-	std::string sign_extend(Node, Node a, int, int out_width) { return format("$sign_extend<%1>(%0)", a, out_width); }
-	std::string concat(Node, Node a, int, Node b, int) { return format("concat(%0, %1)", a, b); }
-	std::string add(Node, Node a, Node b, int) { return format("$add(%0, %1)", a, b); }
-	std::string sub(Node, Node a, Node b, int) { return format("$sub(%0, %1)", a, b); }
-	std::string bitwise_and(Node, Node a, Node b, int) { return format("$and(%0, %1)", a, b); }
-	std::string bitwise_or(Node, Node a, Node b, int) { return format("$or(%0, %1)", a, b); }
-	std::string bitwise_xor(Node, Node a, Node b, int) { return format("$xor(%0, %1)", a, b); }
-	std::string bitwise_not(Node, Node a, int) { return format("$not(%0)", a); }
-	std::string unary_minus(Node, Node a, int) { return format("$neg(%0)", a); }
-	std::string reduce_and(Node, Node a, int) { return format("$reduce_and(%0)", a); }
-	std::string reduce_or(Node, Node a, int) { return format("$reduce_or(%0)", a); }
-	std::string reduce_xor(Node, Node a, int) { return format("$reduce_xor(%0)", a); }
-	std::string equal(Node, Node a, Node b, int) { return format("$eq(%0, %1)", a, b); }
-	std::string not_equal(Node, Node a, Node b, int) { return format("$ne(%0, %1)", a, b); }
-	std::string signed_greater_than(Node, Node a, Node b, int) { return format("$gt(%0, %1)", a, b); }
-	std::string signed_greater_equal(Node, Node a, Node b, int) { return format("$ge(%0, %1)", a, b); }
-	std::string unsigned_greater_than(Node, Node a, Node b, int) { return format("$ugt(%0, %1)", a, b); }
-	std::string unsigned_greater_equal(Node, Node a, Node b, int) { return format("$uge(%0, %1)", a, b); }
-	std::string logical_shift_left(Node, Node a, Node b, int, int) { return format("$shl<%2>(%0, %1)", a, b, a.width()); }
-	std::string logical_shift_right(Node, Node a, Node b, int, int) { return format("$shr<%2>(%0, %1)", a, b, a.width()); }
-	std::string arithmetic_shift_right(Node, Node a, Node b, int, int) { return format("$asr<%2>(%0, %1)", a, b, a.width()); }
-	std::string mux(Node, Node a, Node b, Node s, int) { return format("$mux(%0, %1, %2)", a, b, s); }
-	std::string pmux(Node, Node a, Node b, Node s, int, int) { return format("$pmux(%0, %1, %2)", a, b, s); }
-	std::string constant(Node, RTLIL::Const value) { return format("$const<%0>(%1)", value.size(), value.as_int()); }
+	std::string slice(Node, Node a, int, int offset, int out_width) { return format("%0.slice<%2>(%1)", a, offset, out_width); }
+	std::string zero_extend(Node, Node a, int, int out_width) { return format("%0.zero_extend<%1>()", a, out_width); }
+	std::string sign_extend(Node, Node a, int, int out_width) { return format("%0.sign_extend<%1>()", a, out_width); }
+	std::string concat(Node, Node a, int, Node b, int) { return format("%0.concat(%1)", a, b); }
+	std::string add(Node, Node a, Node b, int) { return format("%0 + %1", a, b); }
+	std::string sub(Node, Node a, Node b, int) { return format("%0 - %1", a, b); }
+	std::string bitwise_and(Node, Node a, Node b, int) { return format("%0 & %1", a, b); }
+	std::string bitwise_or(Node, Node a, Node b, int) { return format("%0 | %1", a, b); }
+	std::string bitwise_xor(Node, Node a, Node b, int) { return format("%0 ^ %1", a, b); }
+	std::string bitwise_not(Node, Node a, int) { return format("~%0", a); }
+	std::string unary_minus(Node, Node a, int) { return format("-%0", a); }
+	std::string reduce_and(Node, Node a, int) { return format("%0.all()", a); }
+	std::string reduce_or(Node, Node a, int) { return format("%0.any()", a); }
+	std::string reduce_xor(Node, Node a, int) { return format("%0.parity()", a); }
+	std::string equal(Node, Node a, Node b, int) { return format("%0 == %1", a, b); }
+	std::string not_equal(Node, Node a, Node b, int) { return format("%0 != %1", a, b); }
+	std::string signed_greater_than(Node, Node a, Node b, int) { return format("%0.signed_greater_than(%1)", a, b); }
+	std::string signed_greater_equal(Node, Node a, Node b, int) { return format("%0.signed_greater_equal(%1)", a, b); }
+	std::string unsigned_greater_than(Node, Node a, Node b, int) { return format("%0 > %1", a, b); }
+	std::string unsigned_greater_equal(Node, Node a, Node b, int) { return format("%0 >= %1", a, b); }
+	std::string logical_shift_left(Node, Node a, Node b, int, int) { return format("%0 << %1", a, b); }
+	std::string logical_shift_right(Node, Node a, Node b, int, int) { return format("%0 >> %1", a, b); }
+	std::string arithmetic_shift_right(Node, Node a, Node b, int, int) { return format("%0.arithmetic_shift_right(%1)", a, b); }
+	std::string mux(Node, Node a, Node b, Node s, int) { return format("%2.any() ? %1 : %0", a, b, s); }
+	std::string pmux(Node, Node a, Node b, Node s, int, int) { return format("%0.pmux(%1, %2)", a, b, s); }
+	std::string constant(Node, RTLIL::Const value) { return format("Signal<%0>(%1)", value.size(), value.as_int()); }
 	std::string input(Node, IdString name) { return format("input.%0", input_struct[name]); }
 	std::string state(Node, IdString name) { return format("current_state.%0", state_struct[name]); }
-	std::string memory_read(Node, Node mem, Node addr, int, int) { return format("$memory_read(%0, %1)", mem, addr); }
-	std::string memory_write(Node, Node mem, Node addr, Node data, int, int) { return format("$memory_write(%0, %1, %2)", mem, addr, data); }
-	std::string undriven(Node, int width) { return format("$const<%0>(0)", width); }
+	std::string memory_read(Node, Node mem, Node addr, int, int) { return format("%0.read(%1)", mem, addr); }
+	std::string memory_write(Node, Node mem, Node addr, Node data, int, int) { return format("%0.write(%1, %2)", mem, addr, data); }
+	std::string undriven(Node, int width) { return format("Signal<%0>(0)", width); }
 };
 
 struct CxxModule {
