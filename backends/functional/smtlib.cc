@@ -23,11 +23,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+const char illegal_characters[] = "$\\";
+const char *reserved_keywords[] = {};
+
 struct SmtScope {
 	pool<std::string> used_names;
 	dict<IdString, std::string> name_map;
-
-	SmtScope() {}
+	FunctionalTools::Scope scope;
+	SmtScope() : scope(illegal_characters, reserved_keywords) {}
 
 	void reserve(const std::string &name) { used_names.insert(name); }
 
@@ -184,21 +187,6 @@ struct SmtModule {
 
 	SmtModule(const std::string &module_name, FunctionalIR ir) : name(module_name), ir(std::move(ir)) {}
 
-	std::string replaceCharacters(const std::string &input)
-	{
-		std::string result = input;
-		std::replace(result.begin(), result.end(), '$', '_'); // Replace $ with _
-
-		// Since \ is an escape character, we use a loop to replace it
-		size_t pos = 0;
-		while ((pos = result.find('\\', pos)) != std::string::npos) {
-			result.replace(pos, 1, "_");
-			pos += 1; // Move past the replaced character
-		}
-
-		return result;
-	}
-
 	void write(std::ostream &out)
 	{
 		SmtWriter writer(out);
@@ -237,7 +225,7 @@ struct SmtModule {
 			if (ir.inputs().count(node.name()) > 0)
 				continue;
 
-			std::string node_name = replaceCharacters(scope[node.name()]);
+			std::string node_name = scope[node.name()];
 			std::string node_expr = node.visit(visitor);
 
 			writer.print("  (let (      (%s %s))", node_name.c_str(), node_expr.c_str());
@@ -247,7 +235,7 @@ struct SmtModule {
 		for (const auto &output : ir.outputs()) {
 			std::string output_name = scope[output.first];
 			const std::string output_assignment = ir.get_output_node(output.first).name().c_str();
-			writer.print("      (%s %s)", output_name.c_str(), replaceCharacters(output_assignment).substr(1).c_str());
+			writer.print("      (%s %s)", output_name.c_str(), output_assignment.substr(1).c_str());
 		}
 		writer.print("    )");
 		writer.print("      (mk_outputs");
