@@ -24,363 +24,333 @@
 #include <cassert>
 
 template<size_t n>
-using Signal = std::array<bool, n>;
-
-template<size_t n, size_t m>
-Signal<n> slice(Signal<m> const& a, size_t offset)
-{
-    Signal<n> ret;
-
-    std::copy(a.begin() + offset, a.begin() + offset + n, ret.begin());
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $const(uint32_t val)
-{
-    size_t i;
-    Signal<n> ret;
-
-    for(i = 0; i < n; i++)
-        if(i < 32)
-            ret[i] = val & (1<<i);
-        else
-            ret[i] = false;
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $const(std::initializer_list<uint32_t> vals)
-{
-    size_t k, i;
-    Signal<n> ret;
-
-    k = 0;
-    for (auto val : vals) {
-        for(i = 0; i < 32; i++)
-            if(i + k < n)
-                ret[i + k] = val & (1<<i);
-        k += 32;
+class Signal {
+    template<size_t m> friend class Signal;
+    std::array<bool, n> _bits;
+public:
+    Signal() { }
+    Signal(uint32_t val)
+    {
+        for(size_t i = 0; i < n; i++)
+            if(i < 32)
+                _bits[i] = val & (1<<i);
+            else
+                _bits[i] = false;
     }
-    for(; k < n; k++)
-        ret[k] = false;
-    return ret;
-}
 
-template<size_t n>
-bool as_bool(Signal<n> sig)
-{
-    for(int i = 0; i < n; i++)
-        if(sig[i])
-            return true;
-    return false;
-}
+    Signal(std::initializer_list<uint32_t> vals)
+    {
+        size_t k, i;
 
-template<size_t n>
-uint32_t as_int(Signal<n> sig)
-{
-    uint32_t ret = 0;
-    for(int i = 0; i < n; i++)
-        if(sig[i] && i < 32)
-            ret |= 1<<i;
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $mux(Signal<n> const& a, Signal<n> const &b, Signal<1> const &s)
-{
-    return s[0] ? b : a;
-}
-
-template<size_t n>
-Signal<n> $not(Signal<n> const& a)
-{
-    Signal<n> ret;
-    for(size_t i = 0; i < n; i++)
-        ret[i] = !a[i];
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $neg(Signal<n> const& a)
-{
-    Signal<n> ret;
-    bool carry = true;
-    for(size_t i = 0; i < n; i++) {
-        int r = !a[i] + carry;
-        ret[i] = (r & 1) != 0;
-        carry = (r >> 1) != 0;
-    }
-    return ret;
-}
-
-template<size_t n>
-Signal<1> $reduce_or(Signal<n> const& a)
-{
-    return { as_bool(a) };
-}
-
-template<size_t n>
-Signal<1> $reduce_and(Signal<n> const& a)
-{
-    for(size_t i = 0; i < n; i++)
-        if(!a[i])
-            return { false };
-    return { true };
-}
-
-template<size_t n>
-Signal<1> $reduce_bool(Signal<n> const& a)
-{
-    return { as_bool(a) };
-}
-
-template<size_t n>
-Signal<1> $logic_and(Signal<n> const& a, Signal<n> const& b)
-{
-    return { as_bool(a) && as_bool(b) };
-}
-
-template<size_t n>
-Signal<1> $logic_or(Signal<n> const& a, Signal<n> const& b)
-{
-    return { as_bool(a) || as_bool(b) };
-}
-
-template<size_t n>
-Signal<1> $logic_not(Signal<n> const& a)
-{
-    return { !as_bool(a) };
-}
-
-template<size_t n>
-Signal<n> $add(Signal<n> const& a, Signal<n> const &b)
-{
-    Signal<n> ret;
-    size_t i;
-    int x = 0;
-    for(i = 0; i < n; i++){
-        x += (int)a[i] + (int)b[i];
-        ret[i] = x & 1;
-        x >>= 1;
-    }
-    return ret;
-}
-template<size_t n>
-Signal<n> $sub(Signal<n> const& a, Signal<n> const &b)
-{
-    Signal<n> ret;
-    int x = 1;
-    for(size_t i = 0; i < n; i++){
-        x += (int)a[i] + (int)!b[i];
-        ret[i] = x & 1;
-        x >>= 1;
-    }
-    return ret;
-}
-
-template<size_t n>
-Signal<1> $uge(Signal<n> const& a, Signal<n> const &b)
-{
-    for(size_t i = n; i-- != 0; )
-        if(a[i] != b[i])
-            return { a[i] };
-    return { true };
-}
-
-template<size_t n>
-Signal<1> $ugt(Signal<n> const& a, Signal<n> const &b)
-{
-    for(size_t i = n; i-- != 0; )
-        if(a[i] != b[i])
-            return { a[i] };
-    return { false };
-}
-
-template<size_t n>
-Signal<1> $ge(Signal<n> const& a, Signal<n> const &b)
-{
-    if(a[n-1] != b[n-1])
-        return { b[n-1] };
-    return $uge(a, b);
-}
-
-template<size_t n>
-Signal<1> $gt(Signal<n> const& a, Signal<n> const &b)
-{
-    if(a[n-1] != b[n-1])
-        return { b[n-1] };
-    return $ugt(a, b);
-}
-
-template<size_t n> Signal<1> $ule(Signal<n> const& a, Signal<n> const &b) { return $uge(b, a); }
-template<size_t n> Signal<1> $ult(Signal<n> const& a, Signal<n> const &b) { return $ugt(b, a); }
-template<size_t n> Signal<1> $le(Signal<n> const& a, Signal<n> const &b) { return $ge(b, a); }
-template<size_t n> Signal<1> $lt(Signal<n> const& a, Signal<n> const &b) { return $gt(b, a); }
-
-template<size_t n>
-Signal<n> $and(Signal<n> const& a, Signal<n> const &b)
-{
-    Signal<n> ret;
-    for(size_t i = 0; i < n; i++)
-        ret[i] = a[i] && b[i];
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $or(Signal<n> const& a, Signal<n> const &b)
-{
-    Signal<n> ret;
-    for(size_t i = 0; i < n; i++)
-        ret[i] = a[i] || b[i];
-    return ret;
-}
-
-template<size_t n>
-Signal<n> $xor(Signal<n> const& a, Signal<n> const &b)
-{
-    Signal<n> ret;
-    for(size_t i = 0; i < n; i++)
-        ret[i] = a[i] != b[i];
-    return ret;
-}
-
-template<size_t n, size_t na, size_t nb>
-Signal<n> $shl(Signal<na> const& a, Signal<nb> const &b)
-{
-    if(nb >= sizeof(int) * 8 - 1)
-        for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            assert(!b[i]);
-    size_t amount = as_int(b);
-    Signal<n> ret = $const<n>(0);
-    if(amount < n){
-        if(amount + na > n)
-            std::copy(a.begin(), a.begin() + (n - amount), ret.begin() + amount);
-        else
-            std::copy(a.begin(), a.end(), ret.begin() + amount);
-    }
-    return ret;
-}
-
-template<size_t n, size_t nb>
-Signal<n> $shr(Signal<n> const& a, Signal<nb> const &b)
-{
-    if(nb >= sizeof(int) * 8 - 1)
-        for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            assert(!b[i]);
-    size_t amount = as_int(b);
-    Signal<n> ret;
-    for (size_t i = 0; i < n; i++) {
-        if(i + amount < n)
-            ret[i] = a[i + amount];
-        else
-            ret[i] = false;
-    }
-    return ret;
-}
-
-template<size_t n, size_t nb>
-Signal<n> $asr(Signal<n> const& a, Signal<nb> const &b)
-{
-    if(nb >= sizeof(int) * 8 - 1)
-        for(size_t i = sizeof(int) * 8 - 1; i < nb; i++)
-            assert(!b[i]);
-    size_t amount = as_int(b);
-    Signal<n> ret;
-    for (size_t i = 0; i < n; i++) {
-        if(i + amount < n)
-            ret[i] = a[i + amount];
-        else
-            ret[i] = a[n - 1];
-    }
-    return ret;
-}
-
-template<size_t n>
-Signal<1> $eq(Signal<n> const& a, Signal<n> const &b)
-{
-    for(size_t i = 0; i < n; i++)
-        if(a[i] != b[i])
-            return { false };
-    return { true };
-}
-
-template<size_t n>
-Signal<1> $ne(Signal<n> const& a, Signal<n> const &b)
-{
-    for(size_t i = 0; i < n; i++)
-        if(a[i] != b[i])
-            return { true };
-    return { false };
-}
-
-template<size_t n, size_t ns>
-Signal<n> $pmux(Signal<n> const& a, Signal<n*ns> const &b, Signal<ns> const &s)
-{
-    bool found;
-    Signal<n> ret;
-
-    found = false;
-    ret = a;
-    for(size_t i = 0; i < ns; i++){
-        if(s[i]){
-            if(found)
-                return $const<n>(0);
-            found = true;
-            ret = slice<n>(b, n * i);
+        k = 0;
+        for (auto val : vals) {
+            for(i = 0; i < 32; i++)
+                if(i + k < n)
+                    _bits[i + k] = val & (1<<i);
+            k += 32;
         }
+        for(; k < n; k++)
+            _bits[k] = false;
     }
-    return ret;
-}
 
-template<size_t n, size_t m>
-Signal<n+m> concat(Signal<n> const& a, Signal<m> const& b)
-{
-    Signal<n + m> ret;
-    std::copy(a.begin(), a.end(), ret.begin());
-    std::copy(b.begin(), b.end(), ret.begin() + n);
-    return ret;
-}
+    template<typename T>
+    static Signal from_array(T vals)
+    {
+        size_t k, i;
+        Signal ret;
 
-template<size_t n, size_t m>
-Signal<n> $zero_extend(Signal<m> const& a)
-{
-    assert(n >= m);
-    Signal<n> ret;
-    std::copy(a.begin(), a.end(), ret.begin());
-    for(size_t i = m; i < n; i++)
-        ret[i] = false;
-    return ret;
-}
+        k = 0;
+        for (auto val : vals) {
+            for(i = 0; i < 32; i++)
+                if(i + k < n)
+                    ret._bits[i + k] = val & (1<<i);
+            k += 32;
+        }
+        for(; k < n; k++)
+            ret._bits[k] = false;
+        return ret;
+    }
 
-template<size_t n, size_t m>
-Signal<n> $sign_extend(Signal<m> const& a)
-{
-    assert(n >= m);
-    Signal<n> ret;
-    std::copy(a.begin(), a.end(), ret.begin());
-    for(size_t i = m; i < n; i++)
-        ret[i] = a[m-1];
-    return ret;
-}
+    static Signal from_signed(int32_t val)
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            if(i < 32)
+                ret._bits[i] = val & (1<<i);
+            else
+                ret._bits[i] = val < 0;
+        return ret;
+    }
+    static Signal repeat(bool b)
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            ret._bits[i] = b;
+        return ret;
+    }
 
-template<size_t a, size_t d>
-struct Memory {
-    std::array<Signal<d>, 1<<a> contents;
+    int size() const { return n; }
+    bool operator[](int i) const { assert(n >= 0 && i < n); return _bits[i]; }
+
+    template<size_t m>
+    Signal<m> slice(size_t offset) const
+    {
+        Signal<m> ret;
+
+        assert(offset + m <= n);
+        std::copy(_bits.begin() + offset, _bits.begin() + offset + m, ret._bits.begin());
+        return ret;
+    }
+
+    bool any() const
+    {
+        for(int i = 0; i < n; i++)
+            if(_bits[i])
+                return true;
+        return false;
+    }
+
+    bool all() const
+    {
+        for(int i = 0; i < n; i++)
+            if(!_bits[i])
+                return false;
+        return true;
+    }
+
+    bool parity() const
+    {
+        bool result = false;
+        for(int i = 0; i < n; i++)
+            result ^= _bits[i];
+        return result;
+    }
+
+    bool sign() const { return _bits[n-1]; }
+
+    template<typename T>
+    T as_numeric() const
+    {
+        T ret = 0;
+        for(size_t i = 0; i < std::min<size_t>(sizeof(T) * 8, n); i++)
+            if(_bits[i])
+                ret |= ((T)1)<<i;
+        return ret;
+    }
+
+    template<typename T>
+    T as_numeric_clamped() const
+    {
+        for(size_t i = sizeof(T) * 8; i < n; i++)
+            if(_bits[i])
+                return ~0;
+        return as_numeric<T>();
+    }
+
+    uint32_t as_int() { return as_numeric<uint32_t>(); }
+
+    Signal<n> operator ~() const
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            ret._bits[i] = !_bits[i];
+        return ret;
+    }
+
+    Signal<n> operator -() const
+    {
+        Signal<n> ret;
+        bool carry = true;
+        for(size_t i = 0; i < n; i++) {
+            int r = !_bits[i] + carry;
+            ret._bits[i] = (r & 1) != 0;
+            carry = (r >> 1) != 0;
+        }
+        return ret;
+    }
+
+    Signal<n> operator +(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        size_t i;
+        int x = 0;
+        for(i = 0; i < n; i++){
+            x += (int)_bits[i] + (int)b._bits[i];
+            ret._bits[i] = x & 1;
+            x >>= 1;
+        }
+        return ret;
+    }
+
+    Signal<n> operator -(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        int x = 1;
+        for(size_t i = 0; i < n; i++){
+            x += (int)_bits[i] + (int)!b._bits[i];
+            ret._bits[i] = x & 1;
+            x >>= 1;
+        }
+        return ret;
+    }
+
+    bool operator ==(Signal<n> const &b) const
+    {
+        for(size_t i = 0; i < n; i++)
+            if(_bits[i] != b._bits[i])
+                return false;
+        return true;
+    }
+
+    bool operator >=(Signal<n> const &b) const
+    {
+        for(size_t i = n; i-- != 0; )
+            if(_bits[i] != b._bits[i])
+                return _bits[i];
+        return true;
+    }
+
+    bool operator >(Signal<n> const &b) const
+    {
+        for(size_t i = n; i-- != 0; )
+            if(_bits[i] != b._bits[i])
+                return _bits[i];
+        return false;
+    }
+
+    bool operator !=(Signal<n> const &b) const { return !(*this == b); }
+    bool operator <=(Signal<n> const &b) const { return b <= *this; }
+    bool operator <(Signal<n> const &b) const { return b < *this; }
+
+    bool signed_greater_than(Signal<n> const &b) const
+    {
+        if(_bits[n-1] != b._bits[n-1])
+            return b._bits[n-1];
+        return *this > b;
+    }
+
+    bool signed_greater_equal(Signal<n> const &b) const
+    {
+        if(_bits[n-1] != b._bits[n-1])
+            return b._bits[n-1];
+        return *this >= b;
+    }
+
+    Signal<n> operator &(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            ret._bits[i] = _bits[i] && b._bits[i];
+        return ret;
+    }
+
+    Signal<n> operator |(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            ret._bits[i] = _bits[i] || b._bits[i];
+        return ret;
+    }
+
+    Signal<n> operator ^(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        for(size_t i = 0; i < n; i++)
+            ret._bits[i] = _bits[i] != b._bits[i];
+        return ret;
+    }
+
+    template<size_t nb>
+    Signal<n> operator <<(Signal<nb> const &b) const
+    {
+        Signal<n> ret = 0;
+        size_t amount = b.template as_numeric_clamped<size_t>();
+        if(amount < n)
+            std::copy(_bits.begin(), _bits.begin() + (n - amount), ret._bits.begin() + amount);
+        return ret;
+    }
+
+    template<size_t nb>
+    Signal<n> operator >>(Signal<nb> const &b) const
+    {
+        Signal<n> ret = 0;
+        size_t amount = b.template as_numeric_clamped<size_t>();
+        if(amount < n)
+            std::copy(_bits.begin() + amount, _bits.end(), ret._bits.begin());
+        return ret;
+    }
+
+    template<size_t nb>
+    Signal<n> arithmetic_shift_right(Signal<nb> const &b) const
+    {
+        Signal<n> ret = Signal::repeat(sign());
+        size_t amount = b.template as_numeric_clamped<size_t>();
+        if(amount < n)
+            std::copy(_bits.begin() + amount, _bits.end(), ret._bits.begin());
+        return ret;
+    }
+
+    template<size_t ns>
+    Signal<n> pmux(Signal<n*ns> const &b, Signal<ns> const &s) const
+    {
+        bool found;
+        Signal<n> ret;
+
+        found = false;
+        ret = *this;
+        for(size_t i = 0; i < ns; i++){
+            if(s._bits[i]){
+                if(found)
+                    return 0;
+                found = true;
+                ret = b.template slice<n>(n * i);
+            }
+        }
+        return ret;
+    }
+
+    template<size_t m>
+    Signal<n+m> concat(Signal<m> const& b) const
+    {
+        Signal<n + m> ret;
+        std::copy(_bits.begin(), _bits.end(), ret._bits.begin());
+        std::copy(b._bits.begin(), b._bits.end(), ret._bits.begin() + n);
+        return ret;
+    }
+
+    template<size_t m>
+    Signal<m> zero_extend() const
+    {
+        assert(m >= n);
+        Signal<m> ret = 0;
+        std::copy(_bits.begin(), _bits.end(), ret._bits.begin());
+        return ret;
+    }
+
+    template<size_t m>
+    Signal<m> sign_extend() const
+    {
+        assert(m >= n);
+        Signal<m> ret = Signal<m>::repeat(sign());
+        std::copy(_bits.begin(), _bits.end(), ret._bits.begin());
+        return ret;
+    }
 };
 
 template<size_t a, size_t d>
-Signal<d> $memory_read(Memory<a, d> memory, Signal<a> addr)
-{
-    return memory.contents[as_int(addr)];
-}
-
-template<size_t a, size_t d>
-Memory<a, d> $memory_write(Memory<a, d> memory, Signal<a> addr, Signal<d> data)
-{
-    Memory<a, d> ret = memory;
-    ret.contents[as_int(addr)] = data;
-    return ret;
-}
+class Memory {
+    std::array<Signal<d>, 1<<a> _contents;
+public:
+    Signal<d> read(Signal<a> addr) const
+    {
+        return _contents[addr.template as_numeric<size_t>()];
+    }
+    Memory write(Signal<a> addr, Signal<d> data) const
+    {
+        Memory ret = *this;
+        ret._contents[addr.template as_numeric<size_t>()] = data;
+        return ret;
+    }
+};
 
 #endif

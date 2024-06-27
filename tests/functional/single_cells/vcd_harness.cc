@@ -33,22 +33,30 @@ struct Dump {
   }
 };
 
-// Function to set all values in a signal to false
-template<std::size_t n>
-void set_all_false(Signal<n>& signal) {
-  std::fill(signal.begin(), signal.end(), false);
-}
-
-template<std::size_t n>
-void set_all_random(Signal<n>& signal) {
+template<size_t n>
+Signal<n> random_signal() {
   std::random_device rd;  // Random device for seeding
   std::mt19937 gen(rd()); // Mersenne Twister engine
-  std::bernoulli_distribution dist(0.5); // 50-50 distribution
-
-  for (auto& value : signal) {
-    value = dist(gen); // Set each value to a random boolean
-  }
+  std::uniform_int_distribution<uint32_t> dist;
+  std::array<uint32_t, (n+31)/32> words;
+  for(auto &w : words)
+    w = dist(gen);
+  return Signal<n>::from_array(words);
 }
+
+struct Reset {
+  template <size_t n>
+  void operator()(const char *, Signal<n> &signal) {
+    signal = 0;
+  }
+};
+
+struct Randomize {
+  template <size_t n>
+  void operator()(const char *, Signal<n> &signal) {
+    signal = random_signal<n>();
+  }
+};
 
 int main(int argc, char **argv)
 {
@@ -62,10 +70,10 @@ int main(int argc, char **argv)
   constexpr int steps = 10;
   constexpr int number_timescale = 1;
   const std::string units_timescale = "us";
-  gold_Inputs inputs;
-  gold_Outputs outputs;
-  gold_State state;
-  gold_State next_state;
+  gold::Inputs inputs;
+  gold::Outputs outputs;
+  gold::State state;
+  gold::State next_state;
 
   std::ofstream vcd_file(functional_vcd_filename);
 
@@ -73,45 +81,34 @@ int main(int argc, char **argv)
   vcd_file << "$scope module gold $end\n";
   {
     DumpHeader d(vcd_file);
-    inputs.dump(d);
-    outputs.dump(d);
-    state.dump(d);
+    inputs.visit(d);
+    outputs.visit(d);
+    state.visit(d);
   }
   vcd_file << "$enddefinitions $end\n$dumpvars\n";
   vcd_file << "#0\n";
   // Set all signals to false
-  for (int i = 0; i < inputs.size(); ++i) {
-    auto input_variant = inputs.get_input(i);
-    std::visit([](auto& signal_ref) {
-      set_all_false(signal_ref.get());
-    }, input_variant);
-  }
+  inputs.visit(Reset());
      
-  gold(inputs, outputs, state, next_state);
+  gold::eval(inputs, outputs, state, next_state);
   {
     Dump d(vcd_file);
-    inputs.dump(d);
-    outputs.dump(d);
-    state.dump(d);
+    inputs.visit(d);
+    outputs.visit(d);
+    state.visit(d);
   }
     
   for (int step = 0; step < steps; ++step) {
     // Functional backend cxx
     vcd_file << "#" << (step + 1) << "\n";
-    // Set all signals to random
-    for (int i = 0; i < inputs.size(); ++i) {
-      auto input_variant = inputs.get_input(i);
-      std::visit([](auto& signal_ref) {
-	set_all_random(signal_ref.get());
-      }, input_variant);
-    }
+    inputs.visit(Randomize());
 
-    gold(inputs, outputs, state, next_state);
+    gold::eval(inputs, outputs, state, next_state);
     {
       Dump d(vcd_file);
-      inputs.dump(d);
-      outputs.dump(d);
-      state.dump(d);
+      inputs.visit(d);
+      outputs.visit(d);
+      state.visit(d);
     }
 	
     state = next_state;
