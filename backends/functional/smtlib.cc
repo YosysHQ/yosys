@@ -231,7 +231,6 @@ struct SmtModule {
 		auto node_to_string = [&](FunctionalIR::Node n) { return scope[n.name()]; };
 		SmtPrintVisitor<decltype(node_to_string)> visitor(node_to_string, scope);
 
-		std::string nested_lets;
 		for (auto it = ir.begin(); it != ir.end(); ++it) {
 			const FunctionalIR::Node &node = *it;
 
@@ -241,31 +240,29 @@ struct SmtModule {
 			std::string node_name = replaceCharacters(scope[node.name()]);
 			std::string node_expr = node.visit(visitor);
 
-			nested_lets += "(let (      (" + node_name + " " + node_expr + "))";
+			writer.print("  (let (      (%s %s))", node_name.c_str(), node_expr.c_str());
 		}
 
-		nested_lets += "          (let (";
+		writer.print("    (let (");
 		for (const auto &output : ir.outputs()) {
 			std::string output_name = scope[output.first];
 			const std::string output_assignment = ir.get_output_node(output.first).name().c_str();
-			nested_lets += "            (" + output_name + " " + replaceCharacters(output_assignment).substr(1) + ")";
+			writer.print("      (%s %s)", output_name.c_str(), replaceCharacters(output_assignment).substr(1).c_str());
 		}
-		nested_lets += "          )";
-		nested_lets += "            (mk_outputs";
-
+		writer.print("    )");
+		writer.print("      (mk_outputs");
 		for (const auto &output : ir.outputs()) {
 			std::string output_name = scope[output.first];
-			nested_lets += "              " + output_name;
+			writer.print("        %s", output_name.c_str());
 		}
-		nested_lets += "            )";
-		nested_lets += "          )";
+		writer.print("      )");
+		writer.print("    )");
 
 		// Close the nested lets
 		for (size_t i = 0; i < ir.size() - ir.inputs().size(); ++i) {
-			nested_lets += "    )";
+			writer.print("  )");
 		}
 
-		writer.print("%s", nested_lets.c_str());
 		writer.print("  )");
 		writer.print(")\n");
 	}
