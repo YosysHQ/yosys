@@ -769,6 +769,7 @@ struct RTLIL::SigChunk
 	SigChunk(const RTLIL::SigBit &bit);
 
 	RTLIL::SigChunk extract(int offset, int length) const;
+	RTLIL::SigBit operator[](int offset) const;
 	inline int size() const { return width; }
 	inline bool is_wire() const { return wire != NULL; }
 
