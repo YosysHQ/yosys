@@ -3286,9 +3286,9 @@ struct VerificPass : public Pass {
 
 			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
-#ifndef DB_PRESERVE_INITIAL_VALUE
-#  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
-#endif
+// #ifndef DB_PRESERVE_INITIAL_VALUE
+// #  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
+// #endif
 
 			set_verific_global_flags = false;
 		}
