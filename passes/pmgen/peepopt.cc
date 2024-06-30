@@ -25,6 +25,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
+// scratchpad configurations for pmgen
+int shiftadd_max_ratio;
+
 #include "passes/pmgen/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
@@ -50,6 +53,9 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("   * shiftadd - Replace A>>(B+D) with (A'>>D)>>(B) where D is constant and\n");
 		log("                A' is derived from A by padding or cutting inaccessible bits.\n");
+		log("                Scratchpad: 'peepopt.shiftadd.max_data_multiple' (default: 2)\n");
+		log("                limits the amount of padding to a multiple of the data, \n");
+		log("                to avoid high resource usage from large temporary MUX trees.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -62,6 +68,11 @@ struct PeepoptPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		// limit the padding from shiftadd to a multiple of the input data
+		// during techmap it creates (#data + #padding) * log(shift) $_MUX_ cells
+		// 2x implies there is a constant shift larger than the input-data which should be extremely rare
+		shiftadd_max_ratio = design->scratchpad_get_int("peepopt.shiftadd.max_data_multiple", 2);
 
 		for (auto module : design->selected_modules())
 		{
