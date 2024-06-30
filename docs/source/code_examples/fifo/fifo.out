@@ -306,14 +306,15 @@ yosys> show -color maroon3 c:fifo_reader -color cornflowerblue @new_cells -notit
 Writing dot description to `rdata_proc.dot'.
 Dumping selected parts of module fifo to page 1.
 
-yosys> flatten
+yosys> echo off
+echo off
+yosys> flatten;;
 
 15. Executing FLATTEN pass (flatten design).
 Deleting now unused module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
 <suppressed ~2 debug messages>
-
-yosys> clean
 Removed 3 unused cells and 25 unused wires.
+echo on
 
 yosys> select -set rdata_path o:rdata %ci*
 
