@@ -2429,7 +2429,8 @@ namespace YOSYS_PYTHON {
 	{
 		// Create an ostream that delegates to the python object.
 		boost::iostreams::stream<PythonOutputDevice>* output = new boost::iostreams::stream<PythonOutputDevice>(object);
-		Yosys::log_streams.insert(Yosys::log_streams.begin(), output);
+		Yosys::log_streams.clear();
+		Yosys::log_streams.push_back(output);
 	};
 
 
