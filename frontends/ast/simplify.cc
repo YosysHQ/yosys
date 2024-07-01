@@ -2380,7 +2380,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 		if (varbuf->type != AST_CONSTANT)
 			input_error("Right hand side of 1st expression of %s for-loop is not constant!\n", loop_type_str);
-
+		if (init_ast->children[0]->id2ast)
+			varbuf->is_signed = init_ast->children[0]->id2ast->is_signed;
+		else
+			varbuf->is_signed = init_ast->children[0]->is_signed;
 		auto resolved = current_scope.at(init_ast->children[0]->str);
 		if (resolved->range_valid) {
 			int const_size = varbuf->range_left - varbuf->range_right;
