@@ -10,20 +10,19 @@ fine-grained optimisation and LUT mapping.
 Yosys has two different commands, which both use this logic toolbox, but use it
 in different ways.
 
-The :cmd:ref:`abc` pass can be used for both ASIC (e.g. :yoscrypt:`abc
--liberty`) and FPGA (:yoscrypt:`abc -lut`) mapping, but this page will focus on
-FPGA mapping.
+The `abc` pass can be used for both ASIC (e.g. :yoscrypt:`abc -liberty`) and
+FPGA (:yoscrypt:`abc -lut`) mapping, but this page will focus on FPGA mapping.
 
-The :cmd:ref:`abc9` pass generally provides superior mapping quality due to
-being aware of combination boxes and DFF and LUT timings, giving it a more
-global view of the mapping problem.
+The `abc9` pass generally provides superior mapping quality due to being aware
+of combination boxes and DFF and LUT timings, giving it a more global view of
+the mapping problem.
 
 .. _ABC: https://github.com/berkeley-abc/abc
 
 ABC: the unit delay model, simple and efficient
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :cmd:ref:`abc` pass uses a highly simplified view of an FPGA:
+The `abc` pass uses a highly simplified view of an FPGA:
 
 - An FPGA is made up of a network of inputs that connect through LUTs to a
   network of outputs. These inputs may actually be I/O pins, D flip-flops,

@@ -3,7 +3,7 @@ Yosys environment variables
 
 ``HOME``
    Yosys command history is stored in :file:`$HOME/.yosys_history`.  Graphics
-   (from :cmd:ref:`show` and :cmd:ref:`viz` commands) will output to this
+   (from `show` and `viz` commands) will output to this
    directory by default.  This environment variable is also used in some cases
    for resolving filenames with :file:`~`.
 

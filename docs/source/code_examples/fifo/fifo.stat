@@ -9,6 +9,8 @@ yosys> stat
    Number of wire bits:            219
    Number of public wires:           9
    Number of public wire bits:      45
+   Number of ports:                  7
+   Number of port bits:             29
    Number of memories:               1
    Number of memory bits:         2048
    Number of processes:              3
@@ -26,6 +28,8 @@ yosys> stat
    Number of wire bits:             60
    Number of public wires:           4
    Number of public wire bits:      11
+   Number of ports:                  4
+   Number of port bits:             11
    Number of memories:               0
    Number of memory bits:            0
    Number of processes:              2
@@ -44,6 +48,8 @@ yosys> stat -top fifo
    Number of wire bits:            260
    Number of public wires:          94
    Number of public wire bits:     260
+   Number of ports:                  7
+   Number of port bits:             29
    Number of memories:               0
    Number of memory bits:            0
    Number of processes:              0
