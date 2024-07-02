@@ -29,9 +29,9 @@ reg [19:0] mem [0:1023] ;
 assign dout = mem[addr_reg];
 
 always@(posedge clk) begin
-    addr_reg <= addr;
-    if(wr)
-        mem[addr]<= din;
+	addr_reg <= addr;
+	if(wr)
+		mem[addr]<= din;
 end
 endmodule
 

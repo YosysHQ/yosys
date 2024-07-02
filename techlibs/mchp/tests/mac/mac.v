@@ -17,27 +17,27 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module mac(
-    input clk,
-    input signed [4:0] in_A,
-    input signed [4:0] in_B,
-    input signed [4:0] in_D,
-    output reg signed [11:0] out_P,
+	input clk,
+	input signed [4:0] in_A,
+	input signed [4:0] in_B,
+	input signed [4:0] in_D,
+	output reg signed [11:0] out_P,
 
-    input srst_P,
+	input srst_P,
 
-    input signed [4:0] casA,
-    input signed [4:0] casB
+	input signed [4:0] casA,
+	input signed [4:0] casB
 
 );
 
 
 // sync reset P
 always@(posedge clk) begin
-    if (~srst_P) begin
-        out_P <= 12'h000;
-    end else begin
-        out_P <= in_A * (in_B + in_D) + out_P;
-    end
+	if (~srst_P) begin
+		out_P <= 12'h000;
+	end else begin
+		out_P <= in_A * (in_B + in_D) + out_P;
+	end
 end
 
 endmodule

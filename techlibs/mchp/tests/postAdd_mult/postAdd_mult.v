@@ -17,11 +17,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module postAdd_mult(
-    input signed[17:0] in_A,
-    input signed [17:0] in_B,
-    input signed [17:0] in_C,
+	input signed[17:0] in_A,
+	input signed [17:0] in_B,
+	input signed [17:0] in_C,
 
-    output signed [35:0] out_Y
+	output signed [35:0] out_Y
 );
 
 assign out_Y = (in_B*in_A)+in_C;

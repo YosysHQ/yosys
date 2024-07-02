@@ -30,8 +30,8 @@ reg [d_width-1:0] mem [mem_depth-1:0];
 assign q = mem[waddr];
 
 always @(posedge clk) begin
-    if (we) 
-        mem[waddr] <= data;
+	if (we) 
+		mem[waddr] <= data;
 
 end
 

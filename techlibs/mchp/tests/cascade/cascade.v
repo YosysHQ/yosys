@@ -17,13 +17,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module cascade(
-    input signed [5:0] in_A,
-    input signed [4:0] in_B,
-    input signed [4:0] in_D,
-    output signed [11:0] out_P,
+	input signed [5:0] in_A,
+	input signed [4:0] in_B,
+	input signed [4:0] in_D,
+	output signed [11:0] out_P,
 
-    input signed [4:0] casA,
-    input signed [4:0] casB
+	input signed [4:0] casA,
+	input signed [4:0] casB
 
 );
 

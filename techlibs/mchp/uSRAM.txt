@@ -23,21 +23,21 @@ ram block $__uSRAM_AR_ {
 	# INIT supported
 	init any;
 
-    abits 6;
-    widths 12 per_port;
+	abits 6;
+	widths 12 per_port;
 
-    # single write enable wire
+	# single write enable wire
 	port sw "W" {
 		clock posedge;
 
-        # collision not supported, but write takes precedence and read data is invalid while writing to 
-        #       the same address
+		# collision not supported, but write takes precedence and read data is invalid while writing to 
+		# the same address
 		wrtrans all new;
 		
 		optional;
 	}
 	port ar "R" {
-        optional;
+		optional;
 	}
 }
 
@@ -48,14 +48,14 @@ ram block $__uSRAM_SR_ {
 
 	cost 42;
 
-    init any;
-    abits 6;
-    widths 12 per_port;
+	init any;
+	abits 6;
+widths 12 per_port;
 
 	port sw "W" {
 		clock posedge;
 
-        # collision not supported
+		# collision not supported
 		wrtrans all new;
 		
 		optional;

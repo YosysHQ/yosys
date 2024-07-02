@@ -17,11 +17,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module pre_adder_dsp(
-    input signed [5:0] in_A,
-    input signed [4:0] in_B,
-    input signed [4:0] in_D,
-    
-    output [11:0] out_Y
+	input signed [5:0] in_A,
+	input signed [4:0] in_B,
+	input signed [4:0] in_D,
+
+	output [11:0] out_Y
 );
 
 assign out_Y = in_A * (in_B + in_D);

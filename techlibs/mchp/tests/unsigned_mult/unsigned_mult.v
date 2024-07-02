@@ -17,10 +17,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module unsigned_mult(
-    input [10:0] in_A,
-    input signed [10:0] in_B,
-    
-    output [21:0] out_Y
+	input [10:0] in_A,
+	input signed [10:0] in_B,
+
+	output [21:0] out_Y
 );
 
 assign out_Y = in_A * in_B;

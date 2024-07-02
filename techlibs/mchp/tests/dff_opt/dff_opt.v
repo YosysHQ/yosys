@@ -17,11 +17,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module dff_opt(
-    input clk,
-    input [1:0] D_comb,
-    input [1:0] EN_comb,
-    input [1:0] RST_comb,
-    output bar
+	input clk,
+	input [1:0] D_comb,
+	input [1:0] EN_comb,
+	input [1:0] RST_comb,
+	output bar
 );
 
 // DFF with enable that can be merged into D
@@ -32,11 +32,11 @@ assign bar = foo;
 
 // sync reset
 always@(posedge clk) begin
-    if (&RST_comb) begin
-        foo <= 0;
-    end else begin
-        foo <= &D_comb;
-    end
+	if (&RST_comb) begin
+		foo <= 0;
+	end else begin
+		foo <= &D_comb;
+	end
 end
 
 endmodule

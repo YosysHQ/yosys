@@ -17,9 +17,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module large_mult(
-    input signed [20:0] in1,
-    input signed [17:0] in2,
-    output signed [38:0] out1
+	input signed [20:0] in1,
+	input signed [17:0] in2,
+	output signed [38:0] out1
 );
 assign out1 = in1 * in2;
 endmodule

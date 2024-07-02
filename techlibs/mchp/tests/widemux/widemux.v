@@ -17,31 +17,31 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module widemux(
-        input [3:0] data,
-        input S0,
-        input S1,
-        output Y
+	input [3:0] data,
+	input S0,
+	input S1,
+	output Y
 
-    );
+);
 
-    wire A, B;
+wire A, B;
 
-    always @ (*) begin 
-         if (S0)begin
-            A = data[1];
-            B = data[3];
-         end else begin 
-            A = data[0];
-            B = data[2];
-        end
+always @ (*) begin 
+		if (S0)begin
+		A = data[1];
+		B = data[3];
+		end else begin 
+		A = data[0];
+		B = data[2];
+	end
 
-        if (S1)begin
-            Y = A;
-        end else begin
-            Y = B;
-        end
+	if (S1)begin
+		Y = A;
+	end else begin
+		Y = B;
+	end
 
-    end
+end
 endmodule
 
 

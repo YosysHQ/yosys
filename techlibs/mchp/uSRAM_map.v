@@ -17,7 +17,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 // See document PolarFire Family Fabric User Guide
-//   section 4.2 for port list.
+// section 4.2 for port list.
 
 // Asynchronous read
 module $__uSRAM_AR_ (...);
@@ -82,36 +82,36 @@ input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 input PORT_W_WR_EN;
 
 // Read port clock and enable signal
-//   that async read uSRAM doesn't have
+// that async read uSRAM doesn't have
 input PORT_R_CLK;
 input PORT_R_RD_EN;
 input [ADDR_BITS-1:0] PORT_R_ADDR;
 output [PORT_R_WIDTH-1:0] PORT_R_RD_DATA;
 
 RAM64x12 _TECHMAP_REPLACE_ (
-    .R_CLK(PORT_R_CLK),
-    .R_ADDR(PORT_R_ADDR),
-    .R_ADDR_BYPASS(1'b0),
-    .R_ADDR_EN(PORT_R_RD_EN),
-    .R_ADDR_SL_N(1'b1),
-    .R_ADDR_SD(1'b0),
-    .R_ADDR_AL_N(1'b1), 
-    .R_ADDR_AD_N(1'b0),
-    .BLK_EN(PORT_R_USED ? 1'b1 : 1'b0),
-    .R_DATA(PORT_R_RD_DATA),
-    .R_DATA_BYPASS(1'b1),
-    .R_DATA_EN(1'b0),
-    .R_DATA_SL_N(1'b1),
-    .R_DATA_SD(1'b0),
-    .R_DATA_AL_N(1'b1),
-    .R_DATA_AD_N(1'b0),
+	.R_CLK(PORT_R_CLK),
+	.R_ADDR(PORT_R_ADDR),
+	.R_ADDR_BYPASS(1'b0),
+	.R_ADDR_EN(PORT_R_RD_EN),
+	.R_ADDR_SL_N(1'b1),
+	.R_ADDR_SD(1'b0),
+	.R_ADDR_AL_N(1'b1), 
+	.R_ADDR_AD_N(1'b0),
+	.BLK_EN(PORT_R_USED ? 1'b1 : 1'b0),
+	.R_DATA(PORT_R_RD_DATA),
+	.R_DATA_BYPASS(1'b1),
+	.R_DATA_EN(1'b0),
+	.R_DATA_SL_N(1'b1),
+	.R_DATA_SD(1'b0),
+	.R_DATA_AL_N(1'b1),
+	.R_DATA_AD_N(1'b0),
 
-    .W_CLK(PORT_W_CLK),
-    .W_ADDR(PORT_W_ADDR),
-    .W_DATA(PORT_W_WR_DATA),
-    .W_EN(PORT_W_WR_EN),
+	.W_CLK(PORT_W_CLK),
+	.W_ADDR(PORT_W_ADDR),
+	.W_DATA(PORT_W_WR_DATA),
+	.W_EN(PORT_W_WR_EN),
 
-    .BUSY_FB(1'b0)
+	.BUSY_FB(1'b0)
 );
 
 endmodule

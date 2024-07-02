@@ -17,21 +17,21 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module Registers(
-    input clk,
-    input en,
-    input rst,
-    input D,
-    output Q
+	input clk,
+	input en,
+	input rst,
+	input D,
+	output Q
 );
 parameter LOAD_DATA = 1;
 
 // active low async reset
 always @(posedge clk, negedge rst) begin
-    if (rst == 0) begin
-        Q <= LOAD_DATA;
-    end else if(en) begin
-        Q <= D;
-    end
+	if (rst == 0) begin
+		Q <= LOAD_DATA;
+	end else if(en) begin
+		Q <= D;
+	end
 end
 
 

@@ -17,10 +17,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module reduce(
-        input [7:0] data,
-        output Y
+	input [7:0] data,
+	output Y
 
-    );
+);
 
 
 assign Y = ^data;

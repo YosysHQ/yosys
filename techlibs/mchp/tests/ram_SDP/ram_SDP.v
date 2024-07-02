@@ -28,11 +28,11 @@ output reg [d_width-1:0] q;
 reg [d_width-1:0] mem [mem_depth-1:0];
 
 always @(posedge clk) begin
-    if (we) begin 
-        mem[waddr] <= data;
-    end else begin
-        q <= mem[waddr];
-    end
+	if (we) begin 
+		mem[waddr] <= data;
+	end else begin
+		q <= mem[waddr];
+	end
 end
 
 endmodule

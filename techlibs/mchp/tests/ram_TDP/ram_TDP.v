@@ -27,11 +27,11 @@ reg [addr_width - 1 : 0] addra_reg, addrb_reg;
 reg [data_width - 1 : 0] mem [(2**addr_width) - 1 : 0];
 
 always @ (posedge clka)
-    begin
-        addra_reg <= addra;
-        if(wea)
-            mem[addra] <= dataina;
-    end
+	begin
+		addra_reg <= addra;
+		if(wea)
+			mem[addra] <= dataina;
+	end
 
 always @ (posedge clkb)
 begin

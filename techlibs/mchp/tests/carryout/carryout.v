@@ -25,10 +25,10 @@ input [n:0] a;
 input [n:0] b;
 input [n-1:0] c;
 
-    always @(a,b,c) 
-    begin
-        {cout,out} = a * b + c;
-        
-    end
+	always @(a,b,c) 
+	begin
+		{cout,out} = a * b + c;
+		
+	end
 
 endmodule

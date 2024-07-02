@@ -46,9 +46,9 @@ module CFG1 (
 );
 	parameter [1:0] INIT = 2'h0;
 	assign Y = INIT >> A;
-  specify
-    (A => Y) = 127;
-  endspecify
+	specify
+		(A => Y) = 127;
+	endspecify
 endmodule
 
 (* abc9_lut=2 *)
@@ -59,10 +59,10 @@ module CFG2 (
 );
 	parameter [3:0] INIT = 4'h0;
 	assign Y = INIT >> {B, A};
-  specify
-    (A => Y) = 238;
-    (B => Y) = 127;
-  endspecify
+	specify
+		(A => Y) = 238;
+		(B => Y) = 127;
+	endspecify
 endmodule
 
 (* abc9_lut=3 *)
@@ -74,11 +74,11 @@ module CFG3 (
 );
 	parameter [7:0] INIT = 8'h0;
 	assign Y = INIT >> {C, B, A};
-  specify
-    (A => Y) = 407;
-    (B => Y) = 238;
-    (C => Y) = 127;
-  endspecify
+	specify
+		(A => Y) = 407;
+		(B => Y) = 238;
+		(C => Y) = 127;
+	endspecify
 endmodule
 
 (* abc9_lut=3 *)
@@ -91,12 +91,12 @@ module CFG4 (
 );
 	parameter [15:0] INIT = 16'h0;
 	assign Y = INIT >> {D, C, B, A};
-  specify
-    (A => Y) = 472;
-    (B => Y) = 407;
-    (C => Y) = 238;
-    (D => Y) = 127;
-  endspecify
+	specify
+		(A => Y) = 472;
+		(B => Y) = 407;
+		(C => Y) = 238;
+		(D => Y) = 127;
+	endspecify
 endmodule
 
 module BUFF (
@@ -176,12 +176,12 @@ module MCHP_SYNC_SET_DFF(
 	end
 
 	specify
-		$setup(D , posedge CLK &&& En && Set, 0);  // neg setup not supported?
+		$setup(D , posedge CLK &&& En && Set, 0); // neg setup not supported?
 		$setup(En, posedge CLK, 109);
 		$setup(Set, posedge CLK &&& En, 404);
 		if (En && !Set) (posedge CLK => (Q : 1'b1)) = 303;
-		if (En && Set)  (posedge CLK => (Q : D)) = 303;
-  	endspecify
+		if (En && Set) (posedge CLK => (Q : D)) = 303;
+	endspecify
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -202,12 +202,12 @@ module MCHP_SYNC_RESET_DFF(
 	end
 
 	specify
-		$setup(D , posedge CLK &&& En && Reset, 0);  // neg setup not supported?
+		$setup(D , posedge CLK &&& En && Reset, 0); // neg setup not supported?
 		$setup(En, posedge CLK, 109);
 		$setup(Reset, posedge CLK &&& En, 404);
 		if (En && !Reset) (posedge CLK => (Q : 1'b0)) = 303;
-		if (En && Reset)  (posedge CLK => (Q : D)) = 303;
-  	endspecify
+		if (En && Reset) (posedge CLK => (Q : D)) = 303;
+	endspecify
 endmodule
 
 module SLE (
@@ -272,19 +272,19 @@ module ARI1 (
 	
 	specify
 		//pin to pin path delay 
-		(A => Y )     = 472;
-		(B => Y )     = 407;
-		(C => Y )     = 238;
-		(D => Y )     = 127;
-		(A => S )     = 572;
-		(B => S )     = 507;
-		(C => S )     = 338;
-		(D => S )     = 227;
-		(FCI => S )   = 100;
-		(A => FCO )   = 522;
-		(B => FCO )   = 457;
-		(C => FCO )   = 288;
-		(D => FCO )   = 177;
+		(A => Y )	= 472;
+		(B => Y )	= 407;
+		(C => Y )	= 238;
+		(D => Y )	= 127;
+		(A => S )	= 572;
+		(B => S )	= 507;
+		(C => S )	= 338;
+		(D => S )	= 227;
+		(FCI => S ) = 100;
+		(A => FCO ) = 522;
+		(B => FCO ) = 457;
+		(C => FCO ) = 288;
+		(D => FCO ) = 177;
 		(FCI => FCO ) = 50;
 	endspecify
 endmodule
@@ -508,8 +508,8 @@ module CLKBUF (
 	parameter IOSTD = "";
 	assign Y = PAD;
 	specify
-    	(PAD => Y) = 50;
-  	endspecify
+	 	(PAD => Y) = 50;
+	endspecify
 endmodule
 
 (* blackbox *)
@@ -595,7 +595,7 @@ endmodule
 (* blackbox *)
 module SYSRESET (
 	(* iopad_external_pin *)
-	input  DEVRST_N,
+	input DEVRST_N,
 	output POWER_ON_RESET_N);
 endmodule
 
@@ -603,7 +603,7 @@ endmodule
 (* blackbox *)
 module XTLOSC (
 	(* iopad_external_pin *)
-	input  XTL,
+	input XTL,
 	output CLKOUT);
 	parameter [1:0] MODE = 2'h3;
 	parameter real FREQUENCY = 20.0;
@@ -611,191 +611,190 @@ endmodule
 
 (* blackbox *)
 module RAM1K18 (
-	input [13:0]  A_ADDR,
-	input [2:0]   A_BLK,
+	input [13:0] 	A_ADDR,
+	input [2:0] 	A_BLK,
 	(* clkbuf_sink *)
-	input	      A_CLK,
-	input [17:0]  A_DIN,
-	output [17:0] A_DOUT,
-	input [1:0]   A_WEN,
-	input [2:0]   A_WIDTH,
-	input	      A_WMODE,
-	input	      A_ARST_N,
-	input	      A_DOUT_LAT,
-	input	      A_DOUT_ARST_N,
+	input			A_CLK,
+	input [17:0] 	A_DIN,
+	output [17:0]	A_DOUT,
+	input [1:0]		A_WEN,
+	input [2:0]		A_WIDTH,
+	input			A_WMODE,
+	input			A_ARST_N,
+	input			A_DOUT_LAT,
+	input			A_DOUT_ARST_N,
 	(* clkbuf_sink *)
-	input	      A_DOUT_CLK,
-	input	      A_DOUT_EN,
-	input	      A_DOUT_SRST_N,
+	input			A_DOUT_CLK,
+	input			A_DOUT_EN,
+	input			A_DOUT_SRST_N,
 
-	input [13:0]  B_ADDR,
-	input [2:0]   B_BLK,
+	input [13:0]	B_ADDR,
+	input [2:0] 	B_BLK,
 	(* clkbuf_sink *)
-	input	      B_CLK,
-	input [17:0]  B_DIN,
-	output [17:0] B_DOUT,
-	input [1:0]   B_WEN,
-	input [2:0]   B_WIDTH,
-	input	      B_WMODE,
-	input	      B_ARST_N,
-	input	      B_DOUT_LAT,
-	input	      B_DOUT_ARST_N,
+	input			B_CLK,
+	input [17:0] 	B_DIN,
+	output [17:0]	B_DOUT,
+	input [1:0]		B_WEN,
+	input [2:0]		B_WIDTH,
+	input			B_WMODE,
+	input			B_ARST_N,
+	input			B_DOUT_LAT,
+	input			B_DOUT_ARST_N,
 	(* clkbuf_sink *)
-	input	      B_DOUT_CLK,
-	input	      B_DOUT_EN,
-	input	      B_DOUT_SRST_N,
-
-	input	      A_EN,
-	input	      B_EN,
-	input	      SII_LOCK,
-	output	      BUSY);
+	input			B_DOUT_CLK,
+	input			B_DOUT_EN,
+	input			B_DOUT_SRST_N,
+	input			A_EN,
+	input			B_EN,
+	input			SII_LOCK,
+	output			BUSY);
 endmodule
 
 (* blackbox *)
 module RAM64x18 (
-	input [9:0]   A_ADDR,
-	input [1:0]   A_BLK,
-	input [2:0]   A_WIDTH,
-	output [17:0] A_DOUT,
-	input	      A_DOUT_ARST_N,
+	input [9:0] 	A_ADDR,
+	input [1:0] 	A_BLK,
+	input [2:0] 	A_WIDTH,
+	output [17:0] 	A_DOUT,
+	input			A_DOUT_ARST_N,
 	(* clkbuf_sink *)
-	input	      A_DOUT_CLK,
-	input	      A_DOUT_EN,
-	input	      A_DOUT_LAT,
-	input	      A_DOUT_SRST_N,
+	input	 		A_DOUT_CLK,
+	input	 		A_DOUT_EN,
+	input	 		A_DOUT_LAT,
+	input	 		A_DOUT_SRST_N,
 	(* clkbuf_sink *)
-	input	      A_ADDR_CLK,
-	input	      A_ADDR_EN,
-	input	      A_ADDR_LAT,
-	input	      A_ADDR_SRST_N,
-	input	      A_ADDR_ARST_N,
+	input			A_ADDR_CLK,
+	input	 		A_ADDR_EN,
+	input	 		A_ADDR_LAT,
+	input	 		A_ADDR_SRST_N,
+	input	 		A_ADDR_ARST_N,
 
-	input [9:0]   B_ADDR,
-	input [1:0]   B_BLK,
-	input [2:0]   B_WIDTH,
-	output [17:0] B_DOUT,
-	input	      B_DOUT_ARST_N,
+	input [9:0]		B_ADDR,
+	input [1:0]		B_BLK,
+	input [2:0]		B_WIDTH,
+	output [17:0] 	B_DOUT,
+	input			B_DOUT_ARST_N,
 	(* clkbuf_sink *)
-	input	      B_DOUT_CLK,
-	input	      B_DOUT_EN,
-	input	      B_DOUT_LAT,
-	input	      B_DOUT_SRST_N,
+	input			B_DOUT_CLK,
+	input			B_DOUT_EN,
+	input			B_DOUT_LAT,
+	input			B_DOUT_SRST_N,
 	(* clkbuf_sink *)
-	input	      B_ADDR_CLK,
-	input	      B_ADDR_EN,
-	input	      B_ADDR_LAT,
-	input	      B_ADDR_SRST_N,
-	input	      B_ADDR_ARST_N,
+	input			B_ADDR_CLK,
+	input			B_ADDR_EN,
+	input			B_ADDR_LAT,
+	input			B_ADDR_SRST_N,
+	input			B_ADDR_ARST_N,
 
-	input [9:0]   C_ADDR,
+	input [9:0]		C_ADDR,
 	(* clkbuf_sink *)
-	input	      C_CLK,
-	input [17:0]  C_DIN,
-	input	      C_WEN,
-	input [1:0]   C_BLK,
-	input [2:0]   C_WIDTH,
+	input			C_CLK,
+	input [17:0]	C_DIN,
+	input			C_WEN,
+	input [1:0]		C_BLK,
+	input [2:0]		C_WIDTH,
 
-	input	      A_EN,
-	input	      B_EN,
-	input	      C_EN,
-	input	      SII_LOCK,
-	output	      BUSY);
+	input			A_EN,
+	input			B_EN,
+	input			C_EN,
+	input			SII_LOCK,
+	output			BUSY);
 endmodule
 
 (* blackbox *)
 module MACC_PA (
-  input DOTP,
-  input SIMD,
-  input OVFL_CARRYOUT_SEL,
-  input CLK,
-  input AL_N,
-  input [17:0] A,
-  input A_BYPASS,
-  input A_SRST_N,
-  input A_EN,
-  input [17:0] B,
-  input B_BYPASS,
-  input B_SRST_N,
-  input B_EN,
-  input [17:0] D,
-  input D_BYPASS,
-  input D_ARST_N,
-  input D_SRST_N,
-  input D_EN,
-  input CARRYIN,
-  input [47:0] C,
-  input C_BYPASS,
-  input C_ARST_N,
-  input C_SRST_N,
-  input C_EN,
-  input [47:0] CDIN,
-  output [47:0] P,
-  output OVFL_CARRYOUT,
-  input P_BYPASS,
-  input P_SRST_N,
-  input P_EN,
-  output [47:0] CDOUT,
-  input PASUB,
-  input PASUB_BYPASS,
-  input PASUB_AD_N,
-  input PASUB_SL_N,
-  input PASUB_SD_N,
-  input PASUB_EN,
-  input [1:0] CDIN_FDBK_SEL,
-  input CDIN_FDBK_SEL_BYPASS,
-  input [1:0] CDIN_FDBK_SEL_AD_N,
-  input CDIN_FDBK_SEL_SL_N,
-  input [1:0] CDIN_FDBK_SEL_SD_N,
-  input CDIN_FDBK_SEL_EN,
-  input ARSHFT17,
-  input ARSHFT17_BYPASS,
-  input ARSHFT17_AD_N,
-  input ARSHFT17_SL_N,
-  input ARSHFT17_SD_N,
-  input ARSHFT17_EN,
-  input SUB,
-  input SUB_BYPASS,
-  input SUB_AD_N,
-  input SUB_SL_N,
-  input SUB_SD_N,
-  input SUB_EN
+	input DOTP,
+	input SIMD,
+	input OVFL_CARRYOUT_SEL,
+	input CLK,
+	input AL_N,
+	input [17:0] A,
+	input A_BYPASS,
+	input A_SRST_N,
+	input A_EN,
+	input [17:0] B,
+	input B_BYPASS,
+	input B_SRST_N,
+	input B_EN,
+	input [17:0] D,
+	input D_BYPASS,
+	input D_ARST_N,
+	input D_SRST_N,
+	input D_EN,
+	input CARRYIN,
+	input [47:0] C,
+	input C_BYPASS,
+	input C_ARST_N,
+	input C_SRST_N,
+	input C_EN,
+	input [47:0] CDIN,
+	output [47:0] P,
+	output OVFL_CARRYOUT,
+	input P_BYPASS,
+	input P_SRST_N,
+	input P_EN,
+	output [47:0] CDOUT,
+	input PASUB,
+	input PASUB_BYPASS,
+	input PASUB_AD_N,
+	input PASUB_SL_N,
+	input PASUB_SD_N,
+	input PASUB_EN,
+	input [1:0] CDIN_FDBK_SEL,
+	input CDIN_FDBK_SEL_BYPASS,
+	input [1:0] CDIN_FDBK_SEL_AD_N,
+	input CDIN_FDBK_SEL_SL_N,
+	input [1:0] CDIN_FDBK_SEL_SD_N,
+	input CDIN_FDBK_SEL_EN,
+	input ARSHFT17,
+	input ARSHFT17_BYPASS,
+	input ARSHFT17_AD_N,
+	input ARSHFT17_SL_N,
+	input ARSHFT17_SD_N,
+	input ARSHFT17_EN,
+	input SUB,
+	input SUB_BYPASS,
+	input SUB_AD_N,
+	input SUB_SL_N,
+	input SUB_SD_N,
+	input SUB_EN
 );
 endmodule
 
 (* blackbox *)
 module RAM1K20 (
-    input  [13:0] A_ADDR,
-    input  [2:0]  A_BLK_EN,
-    input         A_CLK,
-    input  [19:0] A_DIN,
-    output [19:0] A_DOUT,
-    input  [1:0]  A_WEN,
-    input         A_REN,
-    input  [2:0]  A_WIDTH,
-    input  [1:0]  A_WMODE,
-    input         A_BYPASS,
-    input         A_DOUT_EN,
-    input         A_DOUT_SRST_N,
-    input         A_DOUT_ARST_N,
-    input  [13:0] B_ADDR,
-    input  [2:0]  B_BLK_EN,
-    input         B_CLK,
-    input  [19:0] B_DIN,
-    output [19:0] B_DOUT,
-    input  [1:0]  B_WEN,
-    input         B_REN,
-    input  [2:0]  B_WIDTH,
-    input  [1:0]  B_WMODE,
-    input         B_BYPASS,
-    input         B_DOUT_EN,
-    input         B_DOUT_SRST_N,
-    input         B_DOUT_ARST_N,
-    input	      ECC_EN, 
-    input 		  ECC_BYPASS,
-    output        SB_CORRECT,
-    output 		  DB_DETECT,
-    input         BUSY_FB,
-    output        ACCESS_BUSY
+	input 	[13:0] 	A_ADDR,
+	input 	[2:0]	A_BLK_EN,
+	input			A_CLK,
+	input 	[19:0]	A_DIN,
+	output	[19:0]	A_DOUT,
+	input 	[1:0]	A_WEN,
+	input			A_REN,
+	input 	[2:0]	A_WIDTH,
+	input 	[1:0]	A_WMODE,
+	input 			A_BYPASS,
+	input 			A_DOUT_EN,
+	input 			A_DOUT_SRST_N,
+	input 			A_DOUT_ARST_N,
+	input 	[13:0]	B_ADDR,
+	input 	[2:0]	B_BLK_EN,
+	input			B_CLK,
+	input 	[19:0] 	B_DIN,
+	output	[19:0]	B_DOUT,
+	input 	[1:0]	B_WEN,
+	input			B_REN,
+	input 	[2:0]	B_WIDTH,
+	input 	[1:0]	B_WMODE,
+	input			B_BYPASS,
+	input			B_DOUT_EN,
+	input			B_DOUT_SRST_N,
+	input			B_DOUT_ARST_N,
+	input			ECC_EN, 
+	input			ECC_BYPASS,
+	output			SB_CORRECT,
+	output			DB_DETECT,
+	input			BUSY_FB,
+	output			ACCESS_BUSY
 );
 parameter INIT0 = 1024'h0;
 parameter INIT1 = 1024'h0;
@@ -821,29 +820,29 @@ endmodule
 
 (* blackbox *)
 module RAM64x12 (
-	input           R_CLK,
-	input  [5:0]    R_ADDR,
-	input           R_ADDR_BYPASS,
+	input			R_CLK,
+	input [5:0]		R_ADDR,
+	input			R_ADDR_BYPASS,
 	input			R_ADDR_EN,
 	input 			R_ADDR_SL_N,
 	input			R_ADDR_SD,
 	input			R_ADDR_AL_N, 
 	input			R_ADDR_AD_N,
-	input           BLK_EN,
-	output [11:0]   R_DATA,
-	input           R_DATA_BYPASS,
+	input			BLK_EN,
+	output [11:0]	R_DATA,
+	input			R_DATA_BYPASS,
 	input	 		R_DATA_EN,
 	input	 		R_DATA_SL_N,
 	input	 		R_DATA_SD,
 	input	 		R_DATA_AL_N,
 	input	 		R_DATA_AD_N,
 
-	input           W_CLK,
-	input  [5:0]    W_ADDR,
-	input  [11:0]   W_DATA,
-	input           W_EN,
+	input		W_CLK,
+	input [5:0]	W_ADDR,
+	input [11:0]W_DATA,
+	input		W_EN,
 
-	input           BUSY_FB,
-	output          ACCESS_BUSY
+	input		BUSY_FB,
+	output		ACCESS_BUSY
 );
 endmodule

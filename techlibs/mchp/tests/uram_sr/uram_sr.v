@@ -26,7 +26,7 @@ reg [5:0] raddr_reg;
 reg [11:0] mem [0:63];
 assign dout = mem[raddr_reg];
 always@(posedge clk) begin
-    raddr_reg <= raddr; if(wr)
-    mem[waddr]<= din;
+	raddr_reg <= raddr; if(wr)
+	mem[waddr]<= din;
 end
 endmodule

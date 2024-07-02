@@ -17,12 +17,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module post_adder(
-    input signed [5:0] in_A,
-    input signed [4:0] in_B,
-    input signed [4:0] in_D,
-    input signed [11:0] in_C,
-    
-    output [12:0] out_Y
+	input signed [5:0] in_A,
+	input signed [4:0] in_B,
+	input signed [4:0] in_D,
+	input signed [11:0] in_C,
+
+	output [12:0] out_Y
 );
 
 assign out_Y = (in_D + in_B) * in_A + in_C;

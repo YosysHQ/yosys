@@ -17,28 +17,28 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module reg_test(
-    input clk,
+	input clk,
 
-    // active high
-    input en_A,
-    input en_B,
-    input en_D,
-    input en_P,
+	// active high
+	input en_A,
+	input en_B,
+	input en_D,
+	input en_P,
 
-    // active low
-    input srst_A,
-    input srst_B,
-    input srst_D,
-    input srst_P,
+	// active low
+	input srst_A,
+	input srst_B,
+	input srst_D,
+	input srst_P,
 
-    // active low
-    input arst_D,
+	// active low
+	input arst_D,
 
-    input signed [5:0] in_A,
-    input signed [4:0] in_B,
-    input signed [4:0] in_D,
-    
-    output reg [11:0] out_P
+	input signed [5:0] in_A,
+	input signed [4:0] in_B,
+	input signed [4:0] in_D,
+
+	output reg [11:0] out_P
 
 );
 
@@ -60,38 +60,38 @@ reg signed [4:0] reg_D;
 
 // sync reset A
 always@(posedge clk) begin
-    if (srst_A_N) begin
-        reg_A = 6'b000000;
-    end else begin
-        reg_A = in_A;
-    end
+	if (srst_A_N) begin
+		reg_A = 6'b000000;
+	end else begin
+		reg_A = in_A;
+	end
 end
 
 // sync reset B
 always@(posedge clk) begin
-    if (srst_B_N) begin
-        reg_B = 5'b00000;
-    end else begin
-        reg_B = in_B;
-    end
+	if (srst_B_N) begin
+		reg_B = 5'b00000;
+	end else begin
+		reg_B = in_B;
+	end
 end
 
 // async reset D
 always@(posedge clk, negedge arst_D) begin
-    if (~arst_D) begin
-        reg_D = 5'b00000;
-    end else begin
-        reg_D = in_D;
-    end
+	if (~arst_D) begin
+		reg_D = 5'b00000;
+	end else begin
+		reg_D = in_D;
+	end
 end
 
 // sync reset P
 always@(posedge clk) begin
-    if (srst_P_N) begin
-        out_P = 12'h000;
-    end else begin
-        out_P = reg_A * (reg_B + reg_D);
-    end
+	if (srst_P_N) begin
+		out_P = 12'h000;
+	end else begin
+		out_P = reg_A * (reg_B + reg_D);
+	end
 end
 
 endmodule

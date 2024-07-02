@@ -16,12 +16,12 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 module full_dsp(
-    input signed[5:0] in_A,
-    input signed [4:0] in_B,
-    input signed [11:0] in_C,
-    input signed [4:0] in_D,
+	input signed[5:0] in_A,
+	input signed [4:0] in_B,
+	input signed [11:0] in_C,
+	input signed [4:0] in_D,
 
-    output signed [12:0] out_Y
+	output signed [12:0] out_Y
 );
 
 assign out_Y = ((in_D + in_B)*in_A)+in_C;

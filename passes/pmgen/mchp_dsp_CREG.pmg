@@ -56,7 +56,7 @@ udata <Cell*> dff
 //     and (b) uses the 'C' port
 match dsp
 	select dsp->type.in(\MACC_PA)
-    select port(dsp, \C_BYPASS, SigSpec()).is_fully_ones()
+	select port(dsp, \C_BYPASS, SigSpec()).is_fully_ones()
 	select nusers(port(dsp, \C, SigSpec())) > 1
 endmatch
 
@@ -76,14 +76,14 @@ code sigC sigP clock
 
 	SigSpec P = port(dsp, \P);
 
-    // Only care about those bits that are used
-    int i;
-    for (i = GetSize(P)-1; i >= 0; i--)
-        if (nusers(P[i]) > 1)
-            break;
-    i++;
-    log_assert(nusers(P.extract_end(i)) <= 1);
-    sigP = P.extract(0, i);
+	// Only care about those bits that are used
+	int i;
+	for (i = GetSize(P)-1; i >= 0; i--)
+		if (nusers(P[i]) > 1)
+			break;
+	i++;
+	log_assert(nusers(P.extract_end(i)) <= 1);
+	sigP = P.extract(0, i);
 
 	clock = port(dsp, \CLK, SigBit());
 endcode
@@ -150,20 +150,20 @@ match ff
 endmatch
 
 code argQ
-    // Check that reset value, if present, is fully 0.
+	// Check that reset value, if present, is fully 0.
 	bool noResetFlop = ff->type.in($dff, $dffe);
 	bool srstZero = ff->type.in($sdff, $sdffe) && param(ff, \SRST_VALUE).is_fully_zero();
 	bool arstZero = ff->type.in($adff, $adffe) && param(ff, \ARST_VALUE).is_fully_zero();
 	bool resetLegal = noResetFlop || srstZero || arstZero;
 	if (resetLegal)
-    {
-        SigSpec Q = port(ff, \Q);
-        dff = ff;
-        dffclock = port(ff, \CLK);
-        dffD = argQ;
-        SigSpec D = port(ff, \D);
-        argQ = Q;
-        dffD.replace(argQ, D);
-    }
+	{
+		SigSpec Q = port(ff, \Q);
+		dff = ff;
+		dffclock = port(ff, \CLK);
+		dffD = argQ;
+		SigSpec D = port(ff, \D);
+		argQ = Q;
+		dffD.replace(argQ, D);
+	}
 	
 endcode

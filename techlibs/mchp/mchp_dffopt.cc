@@ -166,11 +166,11 @@ lut_sigin_done:
 			// Iterate through FFs.
 			for (auto cell : module->selected_cells())
 			{
-				
-				if (!cell->type.in(ID(SLE)))  // not a SLE
+
+				if (!cell->type.in(ID(SLE))) // not a SLE
 					continue;
 				if (cell->getPort(ID(LAT)).is_fully_ones()) // skip latch
-				  	continue;
+					continue;
 				if (cell->get_bool_attribute(ID::keep)) // keep attribute
 					continue;
 				if (!cell->getPort(ID(ALn)).is_fully_ones()) // async FF
