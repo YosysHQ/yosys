@@ -37,6 +37,17 @@ $(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_cascade_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/mchp_dsp.o
+GENFILES += passes/pmgen/mchp_dsp_pm.h
+GENFILES += passes/pmgen/mchp_dsp_CREG_pm.h
+GENFILES += passes/pmgen/mchp_dsp_cascade_pm.h
+passes/pmgen/mchp_dsp.o: passes/pmgen/mchp_dsp_pm.h passes/pmgen/mchp_dsp_CREG_pm.h passes/pmgen/mchp_dsp_cascade_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/mchp_dsp_pm.h))
+$(eval $(call add_extra_objs,passes/pmgen/mchp_dsp_CREG_pm.h))
+$(eval $(call add_extra_objs,passes/pmgen/mchp_dsp_cascade_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/peepopt.o
 GENFILES += passes/pmgen/peepopt_pm.h
 passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
