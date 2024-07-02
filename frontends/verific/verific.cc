@@ -2935,7 +2935,7 @@ void verific_cleanup()
 	verific_import_pending = false;
 }
 
-std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt = true)
+std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt)
 {
 	verific_sva_fsm_limit = 16;
 
