@@ -43,7 +43,7 @@ ram block $__uSRAM_AR_ {
 
 # synchronous read
 # NOTE: synchronous read can be realized by the address pipeline register or data pipeline register.
-#       This assumes address is synchronized
+#		This assumes address is synchronized
 ram block $__uSRAM_SR_ {
 
 	cost 42;

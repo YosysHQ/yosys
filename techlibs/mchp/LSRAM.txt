@@ -44,12 +44,12 @@ ram block $__LSRAM_TDP_ {
 
 	option "WIDTH_CONFIG" "REGULAR" {
 
-		# Data-Width | Address bits
-		# 1	         | 14
-		# 2	         | 13
-		# 4	         | 12
-		# 8	         | 11
-		# 16         | 10
+		# Data-Width| Address bits
+		# 1			| 14
+		# 2			| 13
+		# 4			| 12
+		# 8			| 11
+		# 16		| 10
 
 		# 14 address bits
 		abits 14;
@@ -59,10 +59,10 @@ ram block $__LSRAM_TDP_ {
 	}
 	option "WIDTH_CONFIG" "ALIGN" {
 		
-		# Data-Width | Address bits
-		# 5	         | 12
-		# 10         | 11
-		# 20         | 10
+		# Data-Width| Address bits
+		# 5			| 12
+		# 10		| 11
+		# 20		| 10
 
 		# Quick "hack" to fix address bit alignment by setting address bits to 12.
 		#   If abits=14, tool will think there are 14 bits for width=5, 13 bits for width=10, 12 bits for width=20
@@ -133,13 +133,13 @@ ram block $__LSRAM_SDP_ {
 
 	option "WIDTH_CONFIG" "REGULAR" {
 
-		# Data-Width | Address bits
-		# 1	         | 14
-		# 2	         | 13
-		# 4	         | 12
-		# 8	         | 11
-		# 16         | 10
-		# 32         | 9
+		# Data-Width| Address bits
+		# 1			| 14
+		# 2			| 13
+		# 4			| 12
+		# 8			| 11
+		# 16		| 10
+		# 32		| 9
 
 		abits 14;
 
@@ -151,11 +151,11 @@ ram block $__LSRAM_SDP_ {
 	}
 	option "WIDTH_CONFIG" "ALIGN" {
 		
-		# Data-Width | Address bits
-		# 5	         | 12
-		# 10         | 11
-		# 20         | 10
-		# 40         | 9
+		# Data-Width| Address bits
+		# 5			| 12
+		# 10		| 11
+		# 20		| 10
+		# 40		| 9
 
 		# Same trick as TSP RAM for alignment
 		abits 12;

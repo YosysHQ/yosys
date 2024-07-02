@@ -68,8 +68,8 @@ assign B_address = (OPTION_WIDTH_CONFIG == "REGULAR") ? PORT_B_ADDR : {PORT_B_AD
 // if port is not used, set block sel to 0 to disable it (read-data output is set to 0)
 parameter PORT_A_RD_USED = 0;
 parameter PORT_A_WR_USED = 0;
-wire [2:0] A_BLK_SEL = (PORT_A_RD_USED == 1 || PORT_A_WR_USED == 1) ?  3'b111 : 3'b000;
-wire [2:0] B_BLK_SEL = (PORT_B_RD_USED == 1 || PORT_B_WR_USED == 1) ?  3'b111 : 3'b000;
+wire [2:0] A_BLK_SEL = (PORT_A_RD_USED == 1 || PORT_A_WR_USED == 1) ? 3'b111 : 3'b000;
+wire [2:0] B_BLK_SEL = (PORT_B_RD_USED == 1 || PORT_B_WR_USED == 1) ? 3'b111 : 3'b000;
 
 // wires for write data 
 generate
