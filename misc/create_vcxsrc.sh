@@ -30,6 +30,7 @@ popd
 	tail -n +$((n+1)) "$vcxsrc"/YosysVS/YosysVS.vcxproj
 } > "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 
+sed -i 's,</AdditionalIncludeDirectories>,</AdditionalIncludeDirectories>\n      <LanguageStandard>stdcpp17</LanguageStandard>\n      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 mv "$vcxsrc"/YosysVS/YosysVS.vcxproj.new "$vcxsrc"/YosysVS/YosysVS.vcxproj
 
 mkdir -p "$vcxsrc"/yosys

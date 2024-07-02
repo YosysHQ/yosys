@@ -142,12 +142,8 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 
 #if __cplusplus >= 201703L
 #  define YS_FALLTHROUGH [[fallthrough]];
-#elif defined(__clang__)
-#  define YS_FALLTHROUGH [[clang::fallthrough]];
-#elif defined(__GNUC__)
-#  define YS_FALLTHROUGH [[gnu::fallthrough]];
 #else
-#  define YS_FALLTHROUGH
+#  error "C++17 or later compatible compiler is required"
 #endif
 
 

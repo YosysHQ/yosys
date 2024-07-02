@@ -15,12 +15,14 @@ ENABLE_PLUGINS := 1
 ENABLE_READLINE := 0
 ENABLE_EDITLINE := 1
 ENABLE_GHDL := 0
-ENABLE_VERIFIC := 1
+ENABLE_VERIFIC := 0
+ENABLE_VERIFIC_SYSTEMVERILOG := 1
+ENABLE_VERIFIC_VHDL := 1
+ENABLE_VERIFIC_HIER_TREE := 1
+ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
-DISABLE_VERIFIC_EXTENSIONS := 1
-DISABLE_VERIFIC_VHDL := 1
-ENABLE_COVER := 0
+ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
 
@@ -89,7 +91,7 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXSTD ?= c++11
+CXXSTD ?= c++17
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
@@ -140,7 +142,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.42+15
+YOSYS_VER := 0.42+40
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -478,7 +480,23 @@ LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
 VERIFIC_COMPONENTS ?= verilog database util containers hier_tree hdl_file_sort
-ifneq ($(DISABLE_VERIFIC_VHDL),1)
+ifeq ($(ENABLE_VERIFIC_HIER_TREE),1)
+VERIFIC_COMPONENTS += hier_tree
+CXXFLAGS += -DVERIFIC_HIER_TREE_SUPPORT
+else
+ifneq ($(wildcard $(VERIFIC_DIR)/hier_tree),)
+VERIFIC_COMPONENTS += hier_tree
+endif
+endif
+ifeq ($(ENABLE_VERIFIC_SYSTEMVERILOG),1)
+VERIFIC_COMPONENTS += verilog
+CXXFLAGS += -DVERIFIC_SYSTEMVERILOG_SUPPORT
+else
+ifneq ($(wildcard $(VERIFIC_DIR)/verilog),)
+VERIFIC_COMPONENTS += verilog
+endif
+endif
+ifeq ($(ENABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
 else
@@ -494,9 +512,13 @@ ifeq ($(ENABLE_VERIFIC_LIBERTY),1)
 VERIFIC_COMPONENTS += synlib
 CXXFLAGS += -DVERIFIC_LIBERTY_SUPPORT
 endif
-ifneq ($(DISABLE_VERIFIC_EXTENSIONS),1)
+ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
 CXXFLAGS += -DYOSYSHQ_VERIFIC_EXTENSIONS
+else
+ifneq ($(wildcard $(VERIFIC_DIR)/extensions),)
+VERIFIC_COMPONENTS += extensions
+endif
 endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 ifeq ($(OS), Darwin)
@@ -742,7 +764,7 @@ CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
 LIBS_NOVERIFIC = $(LIBS)
 endif
 
-$(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
+$(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in $(YOSYS_SRC)/Makefile
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -Ilibs/dlfcn-win32,,$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC))))#;' \
 			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LINKFLAGS@#$(strip $(LINKFLAGS) $(PLUGIN_LINKFLAGS))#;' -e 's#@LIBS@#$(strip $(LIBS_NOVERIFIC) $(PLUGIN_LIBS))#;' \
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
@@ -1021,7 +1043,7 @@ qtcreator:
 vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
-		echo "Analyse: $$f" >&2; cpp -std=c++11 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
 	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
 	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
 	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc

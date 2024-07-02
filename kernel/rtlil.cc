@@ -2517,7 +2517,6 @@ DEF_METHOD(Or,       max(sig_a.size(), sig_b.size()), ID($or))
 DEF_METHOD(Xor,      max(sig_a.size(), sig_b.size()), ID($xor))
 DEF_METHOD(Xnor,     max(sig_a.size(), sig_b.size()), ID($xnor))
 DEF_METHOD(Shift,    sig_a.size(), ID($shift))
-DEF_METHOD(Shiftx,   sig_a.size(), ID($shiftx))
 DEF_METHOD(Lt,       1, ID($lt))
 DEF_METHOD(Le,       1, ID($le))
 DEF_METHOD(Eq,       1, ID($eq))
@@ -2560,6 +2559,28 @@ DEF_METHOD(Shl,      sig_a.size(), ID($shl))
 DEF_METHOD(Shr,      sig_a.size(), ID($shr))
 DEF_METHOD(Sshl,     sig_a.size(), ID($sshl))
 DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);           \
+		cell->parameters[ID::A_SIGNED] = false;             \
+		cell->parameters[ID::B_SIGNED] = is_signed;         \
+		cell->parameters[ID::A_WIDTH] = sig_a.size();       \
+		cell->parameters[ID::B_WIDTH] = sig_b.size();       \
+		cell->parameters[ID::Y_WIDTH] = sig_y.size();       \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::B, sig_b);                        \
+		cell->setPort(ID::Y, sig_y);                        \
+		cell->set_src_attribute(src);                       \
+		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
+		return sig_y;                                            \
+	}
+DEF_METHOD(Shiftx,      sig_a.size(), ID($shiftx))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _type, _pmux) \
