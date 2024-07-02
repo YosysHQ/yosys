@@ -45,10 +45,10 @@ ram block $__LSRAM_TDP_ {
 	option "WIDTH_CONFIG" "REGULAR" {
 
 		# Data-Width| Address bits
-		# 1			| 14
-		# 2			| 13
-		# 4			| 12
-		# 8			| 11
+		# 1 		| 14
+		# 2 		| 13
+		# 4 		| 12
+		# 8 		| 11
 		# 16		| 10
 
 		# 14 address bits
@@ -60,7 +60,7 @@ ram block $__LSRAM_TDP_ {
 	option "WIDTH_CONFIG" "ALIGN" {
 		
 		# Data-Width| Address bits
-		# 5			| 12
+		# 5 		| 12
 		# 10		| 11
 		# 20		| 10
 
@@ -134,10 +134,10 @@ ram block $__LSRAM_SDP_ {
 	option "WIDTH_CONFIG" "REGULAR" {
 
 		# Data-Width| Address bits
-		# 1			| 14
-		# 2			| 13
-		# 4			| 12
-		# 8			| 11
+		# 1 		| 14
+		# 2 		| 13
+		# 4 		| 12
+		# 8 		| 11
 		# 16		| 10
 		# 32		| 9
 
@@ -152,7 +152,7 @@ ram block $__LSRAM_SDP_ {
 	option "WIDTH_CONFIG" "ALIGN" {
 		
 		# Data-Width| Address bits
-		# 5			| 12
+		# 5 		| 12
 		# 10		| 11
 		# 20		| 10
 		# 40		| 9
