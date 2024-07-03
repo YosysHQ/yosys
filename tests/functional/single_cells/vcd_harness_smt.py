@@ -133,6 +133,9 @@ for command in smt_commands:
 # smt_io.setup()
 result = smt_io.check_sat()
 print(f'SAT result: {result}')
+if result != 'sat':
+    smt_io.p_close()
+    sys.exit(1)
 
 value = smt_io.get(f'(Y test_outputs_step_n0)')
 print(f"  Y: {value}")
@@ -197,3 +200,4 @@ def write_vcd(filename, signals, timescale='1 ns', date='today'):
 
 # Write the VCD file
 write_vcd(smt_file_path + '.vcd', signals)
+sys.exit(0)

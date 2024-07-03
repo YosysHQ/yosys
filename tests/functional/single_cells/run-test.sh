@@ -54,7 +54,6 @@ run_smt_test() {
 	# TODO: which SMT solver should be run?
 	if z3 "${base_name}.smt2"; then
             echo "SMT file ${base_name}.smt2 is valid ."
-	    smt_successful_files["$rtlil_file"]="Success"
             if python3 vcd_harness_smt.py "${base_name}.smt2"; then
 		echo "Python script generated VCD file for $rtlil_file successfully."
 
