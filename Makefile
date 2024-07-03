@@ -479,7 +479,7 @@ endif
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
-VERIFIC_COMPONENTS ?= verilog database util containers hier_tree hdl_file_sort
+VERIFIC_COMPONENTS ?= database util containers hdl_file_sort
 ifeq ($(ENABLE_VERIFIC_HIER_TREE),1)
 VERIFIC_COMPONENTS += hier_tree
 CXXFLAGS += -DVERIFIC_HIER_TREE_SUPPORT
