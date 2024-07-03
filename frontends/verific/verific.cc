@@ -3641,7 +3641,7 @@ struct VerificPass : public Pass {
 			const char* arg = args[argidx].c_str();
 
 			// Set relaxed language checking
-    	VeriNode::SetRelaxedChecking(1);
+			VeriNode::SetRelaxedChecking(1);
 
 			// Define macros
 			hdl_file_sort::DefineMacro("SYNTH");
