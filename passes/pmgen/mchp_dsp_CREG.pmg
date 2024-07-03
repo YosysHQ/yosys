@@ -125,7 +125,6 @@ code
 		if (c.wire->get_bool_attribute(\keep))
 			reject;
 		// Abandon matches when 'Q' has a non-zero init attribute set
-		// (not supported by DSP48E1)
 		Const init = c.wire->attributes.at(\init, Const());
 		if (!init.empty())
 			for (auto b : init.extract(c.offset, c.width))

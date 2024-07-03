@@ -16,8 +16,7 @@
 
 
 // This file describes the main pattern matcher setup (of three total) that
-//   forms the `mchp_dsp` pass described in mchp_dsp.cc - version for
-//   DSP48A/DSP48A1 (Spartan 3A DSP, Spartan 6).
+//   forms the `mchp_dsp` pass described in mchp_dsp.cc 
 // At a high level, it works as follows:
 //   ( 1) Starting from a DSP cell. Capture DSP configurations as states
 //   ( 2) Match for pre-adder
