@@ -41,7 +41,7 @@ parsed_results = []
 # Load and execute the SMT file
 with open(smt_file_path, 'r') as smt_file:
     for line in smt_file:
-        smt_io.write(line.strip())
+        smt_io.write(line.strip())    
 smt_io.check_sat()
 # Read and parse the SMT file line by line
 with open(smt_file_path, 'r') as smt_file:
@@ -161,6 +161,17 @@ for step in range(num_steps):
         value = hex_to_bin(value[1:])
         print(f"  {output_name}: {value}")
         signals[output_name].append((step, value))
+        smt_io.write(f'(push 1)')
+        smt_io.write(f'(assert (not (= ({output_name} test_outputs_step_n{step}) #{value})))')
+        result = smt_io.check_sat(["unsat"])
+        if result != 'unsat':
+            smt_io.p_close()
+            sys.exit(1)
+        smt_io.write(f'(pop 1)')
+        result = smt_io.check_sat(["sat"])
+        if result != 'sat':
+            smt_io.p_close()
+            sys.exit(1)
         
 smt_io.p_close()
 
