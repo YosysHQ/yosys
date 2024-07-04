@@ -143,11 +143,11 @@ public:
     {
         for(size_t i = sizeof(T) * 8; i < n; i++)
             if(_bits[i])
-                return ~0;
+                return ~((T)0);
         return as_numeric<T>();
     }
 
-    uint32_t as_int() { return as_numeric<uint32_t>(); }
+    uint32_t as_int() const { return as_numeric<uint32_t>(); }
 
     Signal<n> operator ~() const
     {

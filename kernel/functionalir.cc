@@ -443,4 +443,55 @@ void FunctionalIR::forward_buf() {
     _graph.permute(perm, alias);
 }
 
+static std::string quote_fmt(const char *fmt)
+{
+	std::string r;
+	for(const char *p = fmt; *p != 0; p++) {
+		switch(*p) {
+		case '\n': r += "\\n"; break;
+		case '\t': r += "\\t"; break;
+		case '"': r += "\\\""; break;
+		case '\\': r += "\\\\"; break;
+		default: r += *p; break;
+		}
+	}
+	return r;
+}
+
+void FunctionalTools::Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
+{
+	size_t next_index = 0;
+	for(const char *p = fmt; *p != 0; p++)
+		switch(*p) {
+		case '{':
+			if(*++p == '{') {
+				*os << '{';
+			} else {
+				char *pe;
+				size_t index = strtoul(p, &pe, 10);
+				if(*pe != '}')
+					log_error("invalid format string: expected {<number>}, {} or {{, got \"%s\": \"%s\"\n",
+						quote_fmt(std::string(p - 1, pe - p + 2).c_str()).c_str(),
+						quote_fmt(fmt).c_str());
+				if(p == pe)
+					index = next_index;
+				else
+					p = pe;
+				if(index >= fns.size())
+					log_error("invalid format string: index %zu out of bounds (%zu): \"%s\"\n", index, fns.size(), quote_fmt(fmt).c_str());
+				fns[index]();
+				next_index = index + 1;
+			}
+			break;
+		case '}':
+			p++;
+			if(*p != '}')
+				log_error("invalid format string: unescaped }: \"%s\"\n", quote_fmt(fmt).c_str());
+			*os << '}';
+			break;
+		default:
+			*os << *p;
+		}
+}
+
 YOSYS_NAMESPACE_END
