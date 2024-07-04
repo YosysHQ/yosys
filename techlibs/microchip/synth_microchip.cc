@@ -45,7 +45,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        Run synthesis for the specified Microchip architecture. \n");
 		log("        Generate the synthesis netlist for the specified family.\n");
 		log("        supported values:\n");
-		log("        - pf: PolarFire\n");
+		log("        - polarfire: PolarFire\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        Write the design to the specified edif file. Writing of an output file\n");
@@ -112,7 +112,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
-		family = "pf";
+		family = "polarfire";
 		flatten = false;
 		retime = false;
 		noiopad = false;
@@ -286,8 +286,8 @@ struct SynthMicrochipPass : public ScriptPass {
 				run("memory_dff"); // microchip_dsp will merge registers, reserve memory port registers first
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/microchip/{family}_dsp_map.v {options}");
-				else if (family == "pf") // Microchip - map multipliers to DSP
-					run("techmap -map +/mul2dsp.v -map +/microchip/pf_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
+				else if (family == "polarfire") // Microchip - map multipliers to DSP
+					run("techmap -map +/mul2dsp.v -map +/microchip/polarfire_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
 					    "-D DSP_A_MAXWIDTH_PARTIAL=18 " // Partial multipliers are intentionally
 									    // limited to 18x18 in order to take
 									    // advantage of the (PCOUT >> 17) -> PCIN
@@ -303,7 +303,7 @@ struct SynthMicrochipPass : public ScriptPass {
 				run("select -clear");
 				if (help_mode)
 					run("microchip_dsp -family <family>");
-				else if (family == "pf") // Microchip - absorb cells into DSP
+				else if (family == "polarfire") // Microchip - absorb cells into DSP
 					run("microchip_dsp -family " + family);
 
 				run("chtype -set $mul t:$__soft_mul");
@@ -329,7 +329,7 @@ struct SynthMicrochipPass : public ScriptPass {
 				params = " [...]";
 			} else {
 
-				if (family == "pf") {
+				if (family == "polarfire") {
 					// cost of a single bit for memory lowered to soft logic
 					params += " -logic-cost-rom 0.015625";
 
@@ -452,7 +452,7 @@ struct SynthMicrochipPass : public ScriptPass {
 			// $_DLATCH_[NP][NP][01]_			(D-latch + reset to 0/1)
 			// $_DLATCHSR_[NP][NP][NP]_			(D-latch + set + reset)
 
-			if (family == "pf") {
+			if (family == "polarfire") {
 				std::string params = "";
 
 				// D-flop with async reset and enable
