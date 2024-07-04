@@ -31,9 +31,9 @@ endmodule
 
 (* techmap_celltype = "$reduce_xor" *)
 module \$__microchip_XOR8_ (A, Y);
-	parameter A_SIGNED = 0;
-	parameter A_WIDTH = 0;
-	parameter Y_WIDTH = 0;
+	parameter A_SIGNED = 1;
+	parameter A_WIDTH = 8;
+	parameter Y_WIDTH = 1;
 
 	input [A_WIDTH-1:0] A;
 	output [Y_WIDTH-1:0] Y;
