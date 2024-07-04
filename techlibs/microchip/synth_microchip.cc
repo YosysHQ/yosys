@@ -225,7 +225,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		}
 		extra_args(args, argidx, design);
 
-		if (family == "pf") {
+		if (family == "polarfire") {
 			lut_size = 4;
 		} else {
 			log_cmd_error("Invalid Microchip -family setting: '%s'.\n", family.c_str());
