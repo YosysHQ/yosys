@@ -57,25 +57,25 @@
 //    output O;
 //endmodule
 
-(* blackbox *)
-module NX_DFR(I, CK, L, R, O);
-    input CK;
-    input I;
-    input L;
-    output O;
-    input R;
-    parameter data_inv = 1'b0;
-    parameter dff_edge = 1'b0;
-    parameter dff_init = 1'b0;
-    parameter dff_load = 1'b0;
-    parameter dff_sync = 1'b0;
-    parameter dff_type = 1'b0;
-    parameter iobname = "";
-    parameter location = "";
-    parameter mode = 0;
-    parameter path = 0;
-    parameter ring = 0;
-endmodule
+// (* blackbox *)
+// module NX_DFR(I, CK, L, R, O);
+//     input CK;
+//     input I;
+//     input L;
+//     output O;
+//     input R;
+//     parameter data_inv = 1'b0;
+//     parameter dff_edge = 1'b0;
+//     parameter dff_init = 1'b0;
+//     parameter dff_load = 1'b0;
+//     parameter dff_sync = 1'b0;
+//     parameter dff_type = 1'b0;
+//     parameter iobname = "";
+//     parameter location = "";
+//     parameter mode = 0;
+//     parameter path = 0;
+//     parameter ring = 0;
+// endmodule
 
 // Special mode of NX_DFR
 //(* blackbox *)
