@@ -37,6 +37,37 @@ always @(posedge clock, posedge async_reset)
 endmodule
 
 (* abc9_box, lib_whitebox *)
+module NX_DFR(input I, CK, L, R, output O);
+
+parameter data_inv = 1'b0;
+parameter dff_edge = 1'b0;
+parameter dff_init = 1'b0;
+parameter dff_load = 1'b0;
+parameter dff_sync = 1'b0;
+parameter dff_type = 1'b0;
+parameter iobname = "";
+parameter location = "";
+parameter mode = 0;
+parameter path = 0;
+parameter ring = 0;
+
+wire clock = CK ^ dff_edge;
+wire load = dff_load ? L : 1'b1;
+wire async_reset = !dff_sync && dff_init && R;
+wire sync_reset = dff_sync && dff_init && R;
+reg O_reg;
+
+always @(posedge clock, posedge async_reset)
+	if (async_reset) O_reg <= dff_type;
+	else if (sync_reset) O_reg <= dff_type;
+	else if (load) O_reg <= I;
+
+assign O = data_inv ? O_reg : ~O_reg;
+
+endmodule
+
+
+(* abc9_box, lib_whitebox *)
 module NX_CY(input A1, A2, A3, A4, B1, B2, B3, B4, (* abc9_carry *) input CI, output S1, S2, S3, S4, (* abc9_carry *) output CO);
 parameter add_carry = 0;
 
