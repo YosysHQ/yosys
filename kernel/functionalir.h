@@ -29,58 +29,6 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
-namespace FunctionalTools {
-	class Scope {
-		const char *_illegal_characters;
-		pool<std::string> _used_names;
-		dict<int, std::string> _by_id;
-		dict<IdString, std::string> _by_name;
-		std::string allocate_name(IdString suggestion) {
-			std::string str = RTLIL::unescape_id(suggestion);
-			for(size_t i = 0; i < str.size(); i++)
-				if(strchr(_illegal_characters, str[i]))
-					str[i] = '_';
-			if(_used_names.count(str) == 0) {
-				_used_names.insert(str);
-				return str;
-			}
-			for (int idx = 0 ; ; idx++){
-				std::string suffixed = str + "_" + std::to_string(idx);
-				if(_used_names.count(suffixed) == 0) {
-					_used_names.insert(suffixed);
-					return suffixed;
-				}
-			}
-		}
-	public:
-		Scope(const char *illegal_characters = "", const char **keywords = nullptr) {
-			_illegal_characters = illegal_characters;
-			if(keywords != nullptr)
-				for(const char **p = keywords; *p != nullptr; p++)
-					reserve(*p);
-		}
-		void reserve(std::string name) {
-			_used_names.insert(std::move(name));
-		}
-		std::string operator()(int id, IdString suggestion) {
-			auto it = _by_id.find(id);
-			if(it != _by_id.end())
-				return it->second;
-			std::string str = allocate_name(suggestion);
-			_by_id.insert({id, str});
-			return str;
-		}
-		std::string operator()(IdString idstring) {
-			auto it = _by_name.find(idstring);
-			if(it != _by_name.end())
-				return it->second;
-			std::string str = allocate_name(idstring);
-			_by_name.insert({idstring, str});
-			return str;
-		}
-	};
-}
-
 class FunctionalIR {
 	enum class Fn {
 		invalid,
@@ -417,6 +365,82 @@ public:
 	Iterator begin() { return Iterator(this, 0); }
 	Iterator end() { return Iterator(this, _graph.size()); }
 };
+
+namespace FunctionalTools {
+	class Scope {
+		const char *_illegal_characters;
+		pool<std::string> _used_names;
+		dict<int, std::string> _by_id;
+		dict<IdString, std::string> _by_name;
+		std::string allocate_name(IdString suggestion) {
+			std::string str = RTLIL::unescape_id(suggestion);
+			for(size_t i = 0; i < str.size(); i++)
+				if(strchr(_illegal_characters, str[i]))
+					str[i] = '_';
+			if(_used_names.count(str) == 0) {
+				_used_names.insert(str);
+				return str;
+			}
+			for (int idx = 0 ; ; idx++){
+				std::string suffixed = str + "_" + std::to_string(idx);
+				if(_used_names.count(suffixed) == 0) {
+					_used_names.insert(suffixed);
+					return suffixed;
+				}
+			}
+		}
+	public:
+		Scope(const char *illegal_characters = "", const char **keywords = nullptr) {
+			_illegal_characters = illegal_characters;
+			if(keywords != nullptr)
+				for(const char **p = keywords; *p != nullptr; p++)
+					reserve(*p);
+		}
+		void reserve(std::string name) {
+			_used_names.insert(std::move(name));
+		}
+		std::string operator()(int id, IdString suggestion) {
+			auto it = _by_id.find(id);
+			if(it != _by_id.end())
+				return it->second;
+			std::string str = allocate_name(suggestion);
+			_by_id.insert({id, str});
+			return str;
+		}
+		std::string operator()(IdString idstring) {
+			auto it = _by_name.find(idstring);
+			if(it != _by_name.end())
+				return it->second;
+			std::string str = allocate_name(idstring);
+			_by_name.insert({idstring, str});
+			return str;
+		}
+	};
+	class Writer {
+		std::ostream *os;
+		void print_impl(const char *fmt, vector<std::function<void()>>& fns);
+	public:
+		Writer(std::ostream &os) : os(&os) {}
+		template<class T> Writer& operator <<(T&& arg) { *os << std::forward<T>(arg); return *this; }
+		template<typename... Args>
+		void print(const char *fmt, Args&&... args)
+		{
+			vector<std::function<void()>> fns { [&]() { *this << args; }... };
+			print_impl(fmt, fns);
+		}
+		template<typename Fn, typename... Args>
+		void print_with(Fn fn, const char *fmt, Args&&... args)
+		{
+			vector<std::function<void()>> fns { [&]() {
+				if constexpr (std::is_invocable_v<Fn, Args>)
+					*this << fn(args);
+				else
+					*this << args; }...
+			};
+			print_impl(fmt, fns);
+		}
+	};
+}
 
 YOSYS_NAMESPACE_END
 
