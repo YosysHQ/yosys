@@ -37,7 +37,7 @@ $(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_cascade_pm.h))
 
 # --------------------------------------
 
-OBJS += passes/pmgen/microvhip.o
+OBJS += passes/pmgen/microchip_dsp.o
 GENFILES += passes/pmgen/microchip_dsp_pm.h
 GENFILES += passes/pmgen/microchip_dsp_CREG_pm.h
 GENFILES += passes/pmgen/microchip_dsp_cascade_pm.h

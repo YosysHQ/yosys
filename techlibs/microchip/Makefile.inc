@@ -22,7 +22,7 @@ OBJS += techlibs/microchip/microchip_dffopt.o
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/arith_map.v))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/cells_map.v))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/cells_sim.v))
-$(eval $(call add_share_file,share/microchip,techlibs/microchip/pf_dsp_map.v))
+$(eval $(call add_share_file,share/microchip,techlibs/microchip/polarfire_dsp_map.v))
 
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/brams_defs.vh))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/LSRAM_map.v))
