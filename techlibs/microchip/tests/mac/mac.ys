@@ -18,7 +18,7 @@
 read_verilog mac.v
 
 # run the synth flow, specifies top module and additional parameters
-synticrochip -top mac -abc9 -family polarfire -noiopad
+synth_microchip -top mac -abc9 -family polarfire -noiopad
 
 # write final outputfile
 write_verilog -noexpr mac.vm
