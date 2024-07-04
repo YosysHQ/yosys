@@ -38,7 +38,11 @@ input PORT_W_WR_EN;
 input [ADDR_BITS-1:0] PORT_R_ADDR;
 output [PORT_R_WIDTH-1:0] PORT_R_RD_DATA;
 
-RAM64x12 _TECHMAP_REPLACE_ (
+`include "brams_defs.vh"
+
+RAM64x12 #(
+	`PARAMS_INIT_uSRAM
+) _TECHMAP_REPLACE_ (
 	.R_ADDR(PORT_R_ADDR),
 	.R_ADDR_BYPASS(1'b1),
 	.R_ADDR_EN(1'b0),
@@ -88,7 +92,11 @@ input PORT_R_RD_EN;
 input [ADDR_BITS-1:0] PORT_R_ADDR;
 output [PORT_R_WIDTH-1:0] PORT_R_RD_DATA;
 
-RAM64x12 _TECHMAP_REPLACE_ (
+`include "brams_defs.vh"
+
+RAM64x12 #(
+	`PARAMS_INIT_uSRAM
+) _TECHMAP_REPLACE_ (
 	.R_CLK(PORT_R_CLK),
 	.R_ADDR(PORT_R_ADDR),
 	.R_ADDR_BYPASS(1'b0),

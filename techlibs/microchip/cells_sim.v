@@ -847,4 +847,17 @@ module RAM64x12 (
 	input		BUSY_FB,
 	output		ACCESS_BUSY
 );
+parameter INIT0 = 64'h0;
+parameter INIT1 = 64'h0;
+parameter INIT2 = 64'h0;
+parameter INIT3 = 64'h0;
+parameter INIT4 = 64'h0;
+parameter INIT5 = 64'h0;
+parameter INIT6 = 64'h0;
+parameter INIT7 = 64'h0;
+parameter INIT8 = 64'h0;
+parameter INIT9 = 64'h0;
+parameter INIT10 = 64'h0;
+parameter INIT11 = 64'h0;
+
 endmodule

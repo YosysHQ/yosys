@@ -17,16 +17,24 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
 module uram_sr(clk, wr, raddr, din, waddr, dout);
-input clk;
-input [11:0] din;
-input wr;
-input [5:0] waddr, raddr;
-output [11:0] dout;
-reg [5:0] raddr_reg;
-reg [11:0] mem [0:63];
-assign dout = mem[raddr_reg];
-always@(posedge clk) begin
-	raddr_reg <= raddr; if(wr)
-	mem[waddr]<= din;
-end
+	input clk;
+	input [11:0] din;
+	input wr;
+	input [5:0] waddr, raddr;
+	output [11:0] dout;
+	reg [5:0] raddr_reg;
+	reg [11:0] mem [0:63];
+	assign dout = mem[raddr_reg];
+
+	integer i;
+	initial begin
+		for (i = 0; i < 64; i = i + 1) begin
+			mem[i] = 12'hfff;
+		end
+	end
+
+	always@(posedge clk) begin
+		raddr_reg <= raddr; if(wr)
+		mem[waddr]<= din;
+	end
 endmodule
