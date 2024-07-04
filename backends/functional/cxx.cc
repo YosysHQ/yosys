@@ -105,6 +105,9 @@ template<class NodePrinter> struct CxxPrintVisitor {
 	void concat(Node, Node a, int, Node b, int) { print("{}.concat({})", a, b); }
 	void add(Node, Node a, Node b, int) { print("{} + {}", a, b); }
 	void sub(Node, Node a, Node b, int) { print("{} - {}", a, b); }
+	void mul(Node, Node a, Node b, int) { print("{} * {}", a, b); }
+	void unsigned_div(Node, Node a, Node b, int) { print("{} / {}", a, b); }
+	void unsigned_mod(Node, Node a, Node b, int) { print("{} % {}", a, b); }
 	void bitwise_and(Node, Node a, Node b, int) { print("{} & {}", a, b); }
 	void bitwise_or(Node, Node a, Node b, int) { print("{} | {}", a, b); }
 	void bitwise_xor(Node, Node a, Node b, int) { print("{} ^ {}", a, b); }

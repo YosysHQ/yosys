@@ -37,6 +37,15 @@ class CellSimplifier {
 			return factory.mux(lower_b, factory.constant(RTLIL::Const(y_width, new_width)), overflow, new_width);
 		}
 	}
+	T sign(T a, int a_width) {
+		return factory.slice(a, a_width, a_width - 1, 1);
+	}
+	T neg_if(T a, int a_width, T s) {
+		return factory.mux(a, factory.unary_minus(a, a_width), s, a_width);
+	}
+	T abs(T a, int a_width) {
+		return neg_if(a, a_width, sign(a, a_width));
+	}
 public:
 	T reduce_or(T a, int width) {
 		if (width == 1)
@@ -71,6 +80,23 @@ public:
 		return factory.bitwise_or(aa, bb, width);
 	}
 	CellSimplifier(Factory &f) : factory(f) {}
+private:
+	T handle_pow(T a0, int a_width, T b, int b_width, int y_width, bool is_signed) {
+		T a = extend(a0, a_width, y_width, is_signed);
+		T r = factory.constant(Const(1, y_width));
+		for(int i = 0; i < b_width; i++) {
+			T b_bit = factory.slice(b, b_width, i, 1);
+			r = factory.mux(r, factory.mul(r, a, y_width), b_bit, y_width);
+			a = factory.mul(a, a, y_width);
+		}
+		if (is_signed) {
+			T a_ge_1 = factory.unsigned_greater_than(abs(a0, a_width), factory.constant(Const(1, a_width)), a_width);
+			T zero_result = factory.bitwise_and(a_ge_1, sign(b, b_width), 1);
+			r = factory.mux(r, factory.constant(Const(0, y_width)), zero_result, y_width);
+		}
+		return r;
+	}
+public:
 	T handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, T> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
@@ -78,7 +104,7 @@ public:
 		int y_width = parameters.at(ID(Y_WIDTH), Const(-1)).as_int();
 		bool a_signed = parameters.at(ID(A_SIGNED), Const(0)).as_bool();
 		bool b_signed = parameters.at(ID(B_SIGNED), Const(0)).as_bool();
-		if(cellType.in({ID($add), ID($sub), ID($and), ID($or), ID($xor), ID($xnor)})){
+		if(cellType.in({ID($add), ID($sub), ID($and), ID($or), ID($xor), ID($xnor), ID($mul)})){
 			bool is_signed = a_signed && b_signed;
 			T a = extend(inputs.at(ID(A)), a_width, y_width, is_signed);
 			T b = extend(inputs.at(ID(B)), b_width, y_width, is_signed);
@@ -86,6 +112,8 @@ public:
 				return factory.add(a, b, y_width);
 			else if(cellType == ID($sub))
 				return factory.sub(a, b, y_width);
+			else if(cellType == ID($mul))
+				return factory.mul(a, b, y_width);
 			else if(cellType == ID($and))
 				return factory.bitwise_and(a, b, y_width);
 			else if(cellType == ID($or))
@@ -160,7 +188,7 @@ public:
 			T b = inputs.at(ID(B));
 			T shr = logical_shift_right(a, b, width, b_width);
 			if(b_signed) {
-				T sign_b = factory.slice(b, b_width, b_width - 1, 1);
+				T sign_b = sign(b, b_width);
 				T shl = logical_shift_left(a, factory.unary_minus(b, b_width), width, b_width);
 				T y = factory.mux(shr, shl, sign_b, width);
 				return extend(y, width, y_width, false);
@@ -182,7 +210,46 @@ public:
 			int offset = parameters.at(ID(OFFSET)).as_int();
 			T a = inputs.at(ID(A));
 			return factory.slice(a, a_width, offset, y_width);
-		}else{
+		}else if(cellType.in({ID($div), ID($mod), ID($divfloor), ID($modfloor)})) {
+			int width = max(a_width, b_width);
+			bool is_signed = a_signed && b_signed;
+			T a = extend(inputs.at(ID(A)), a_width, width, is_signed);
+			T b = extend(inputs.at(ID(B)), b_width, width, is_signed);
+			if(is_signed) {
+				if(cellType == ID($div)) {
+					T abs_y = factory.unsigned_div(abs(a, width), abs(b, width), width);
+					T out_sign = factory.not_equal(sign(a, width), sign(b, width), 1);
+					return neg_if(extend(abs_y, width, y_width, true), y_width, out_sign);
+				} else if(cellType == ID($mod)) {
+					T abs_y = factory.unsigned_mod(abs(a, width), abs(b, width), width);
+					return neg_if(extend(abs_y, width, y_width, true), y_width, sign(a, width));
+				} else if(cellType == ID($divfloor)) {
+					T b_sign = sign(b, width);
+					T a1 = neg_if(a, width, b_sign);
+					T b1 = neg_if(b, width, b_sign);
+					T a1_sign = sign(a1, width);
+					T a2 = factory.mux(a1, factory.bitwise_not(a1, width), a1_sign, width);
+					T y1 = factory.unsigned_div(a2, b1, width);
+					T y2 = factory.mux(y1, factory.bitwise_not(y1, width), a1_sign, width);
+					return extend(y2, width, y_width, true);
+				} else if(cellType == ID($modfloor)) {
+					T abs_b = abs(b, width);
+					T abs_y = factory.unsigned_mod(abs(a, width), abs_b, width);
+					T flip_y = factory.bitwise_and(factory.bitwise_xor(sign(a, width), sign(b, width), 1), factory.reduce_or(abs_y, width), 1);
+					T y_flipped = factory.mux(abs_y, factory.sub(abs_b, abs_y, width), flip_y, width);
+					T y = neg_if(y_flipped, width, sign(b, b_width));
+					return extend(y, width, y_width, true);
+				} else
+					log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
+			} else {
+				if(cellType.in({ID($mod), ID($modfloor)}))
+					return extend(factory.unsigned_mod(a, b, width), width, y_width, false);
+				else
+					return extend(factory.unsigned_div(a, b, width), width, y_width, false);
+			}
+		} else if(cellType == ID($pow)) {
+			return handle_pow(inputs.at(ID(A)), a_width, inputs.at(ID(B)), b_width, y_width, a_signed && b_signed);
+		} else{
 			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 		}
 	}

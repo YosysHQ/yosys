@@ -39,6 +39,9 @@ class FunctionalIR {
 		concat,
 		add,
 		sub,
+		mul,
+		unsigned_div,
+		unsigned_mod,
 		bitwise_and,
 		bitwise_or,
 		bitwise_xor,
@@ -145,6 +148,9 @@ public:
 			std::string concat(Node, Node a, int, Node b, int) { return "concat(" + np(a) + ", " + np(b) + ")"; }
 			std::string add(Node, Node a, Node b, int) { return "add(" + np(a) + ", " + np(b) + ")"; }
 			std::string sub(Node, Node a, Node b, int) { return "sub(" + np(a) + ", " + np(b) + ")"; }
+			std::string mul(Node, Node a, Node b, int) { return "mul(" + np(a) + ", " + np(b) + ")"; }
+			std::string unsigned_div(Node, Node a, Node b, int) { return "unsigned_div(" + np(a) + ", " + np(b) + ")"; }
+			std::string unsigned_mod(Node, Node a, Node b, int) { return "unsigned_mod(" + np(a) + ", " + np(b) + ")"; }
 			std::string bitwise_and(Node, Node a, Node b, int) { return "bitwise_and(" + np(a) + ", " + np(b) + ")"; }
 			std::string bitwise_or(Node, Node a, Node b, int) { return "bitwise_or(" + np(a) + ", " + np(b) + ")"; }
 			std::string bitwise_xor(Node, Node a, Node b, int) { return "bitwise_xor(" + np(a) + ", " + np(b) + ")"; }
@@ -193,11 +199,14 @@ public:
 			case Fn::concat: return v.concat(*this, arg(0), arg(0).width(), arg(1), arg(1).width()); break;
 			case Fn::add: return v.add(*this, arg(0), arg(1), sort().width()); break;
 			case Fn::sub: return v.sub(*this, arg(0), arg(1), sort().width()); break;
+			case Fn::mul: return v.mul(*this, arg(0), arg(1), sort().width()); break;
+			case Fn::unsigned_div: return v.unsigned_div(*this, arg(0), arg(1), sort().width()); break;
+			case Fn::unsigned_mod: return v.unsigned_mod(*this, arg(0), arg(1), sort().width()); break;
 			case Fn::bitwise_and: return v.bitwise_and(*this, arg(0), arg(1), sort().width()); break;
 			case Fn::bitwise_or: return v.bitwise_or(*this, arg(0), arg(1), sort().width()); break;
 			case Fn::bitwise_xor: return v.bitwise_xor(*this, arg(0), arg(1), sort().width()); break;
 			case Fn::bitwise_not: return v.bitwise_not(*this, arg(0), sort().width()); break;
-			case Fn::unary_minus: return v.bitwise_not(*this, arg(0), sort().width()); break;
+			case Fn::unary_minus: return v.unary_minus(*this, arg(0), sort().width()); break;
 			case Fn::reduce_and: return v.reduce_and(*this, arg(0), arg(0).width()); break;
 			case Fn::reduce_or: return v.reduce_or(*this, arg(0), arg(0).width()); break;
 			case Fn::reduce_xor: return v.reduce_xor(*this, arg(0), arg(0).width()); break;
@@ -257,6 +266,9 @@ public:
 		}
 		Node add(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::add, a.sort(), {a, b}); }
 		Node sub(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::sub, a.sort(), {a, b}); }
+		Node mul(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::mul, a.sort(), {a, b}); }
+		Node unsigned_div(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_div, a.sort(), {a, b}); }
+		Node unsigned_mod(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_mod, a.sort(), {a, b}); }
 		Node bitwise_and(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_and, a.sort(), {a, b}); }
 		Node bitwise_or(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_or, a.sort(), {a, b}); }
 		Node bitwise_xor(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_xor, a.sort(), {a, b}); }
@@ -298,7 +310,8 @@ public:
 			return add(Fn::buf, Sort(width), {});
 		}
 		void update_pending(Node node, Node value) {
-			log_assert(node._ref.function() == Fn::buf && node._ref.size() == 0 && node.sort() == value.sort());
+			log_assert(node._ref.function() == Fn::buf && node._ref.size() == 0);
+			log_assert(node.sort() == value.sort());
 			node._ref.append_arg(value._ref);
 		} 
 		Node input(IdString name, int width) {
