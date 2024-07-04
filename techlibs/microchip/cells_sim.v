@@ -166,14 +166,19 @@ module MICROCHIP_SYNC_SET_DFF(
 	input En,
 	output Q);
 	parameter [0:0] INIT = 1'b0; // unused
+
+	reg q_ff;
+
 	always @(posedge CLK) begin
 		if (En == 1) begin
 			if (Set == 0)
-				Q <= 1;
+				q_ff <= 1;
 			else
-				Q <= D;
+				q_ff <= D;
 		end
 	end
+
+	assign Q = q_ff;
 
 	specify
 		$setup(D , posedge CLK &&& En && Set, 0); // neg setup not supported?
@@ -192,14 +197,19 @@ module MICROCHIP_SYNC_RESET_DFF(
 	input En,
 	output Q);
 	parameter [0:0] INIT = 1'b0; // unused
-	always @(posedge C) begin
+
+	reg q_ff;
+
+	always @(posedge CLK) begin
 		if (En == 1) begin
 			if (Reset == 0) 
-				Q <= 0;
+				q_ff <= 0;
 			else
-				Q <= D;
+				q_ff <= D;
 		end
 	end
+
+	assign Q = q_ff;
 
 	specify
 		$setup(D , posedge CLK &&& En && Reset, 0); // neg setup not supported?
