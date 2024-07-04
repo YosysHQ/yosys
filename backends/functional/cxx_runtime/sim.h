@@ -24,6 +24,7 @@
 #include <cassert>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 template<size_t n>
 class Signal {
