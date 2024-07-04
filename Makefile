@@ -863,6 +863,7 @@ endif
 	+cd tests/arch/quicklogic/pp3 && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/quicklogic/qlf_k6n10f && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/gatemate && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/microchip && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh
