@@ -22,6 +22,8 @@
 
 #include <array>
 #include <cassert>
+#include <string>
+#include <iostream>
 
 template<size_t n>
 class Signal {
@@ -149,6 +151,48 @@ public:
 
     uint32_t as_int() const { return as_numeric<uint32_t>(); }
 
+private:
+    std::string as_string_p2(int b) const {
+        std::string ret;
+        for(int i = (n - 1) - (n - 1) % b; i >= 0; i -= b)
+            ret += "0123456789abcdef"[(*this >> Signal<32>(i)).as_int() & ((1<<b)-1)];
+        return ret;
+    }
+    std::string as_string_b10() const {
+        std::string ret;
+        if(n < 4) return std::string() + (char)('0' + as_int());
+        Signal<n> t = *this;
+        Signal<n> b = 10;
+        do{
+            ret += (char)('0' + (t % b).as_int());
+            t = t / b;
+        }while(t.any());
+        std::reverse(ret.begin(), ret.end());
+        return ret;
+    }
+public:
+    std::string as_string(int base = 16, bool showbase = true) const {
+        std::string ret;
+        if(showbase) {
+            ret += std::to_string(n);
+            switch(base) {
+            case 2: ret += "'b"; break;
+            case 8: ret += "'o"; break;
+            case 10: ret += "'d"; break;
+            case 16: ret += "'h"; break;
+            default: assert(0);
+            }
+        }
+        switch(base) {
+        case 2: return ret + as_string_p2(1);
+        case 8: return ret + as_string_p2(3);
+        case 10: return ret + as_string_b10();
+        case 16: return ret + as_string_p2(4);
+        default: assert(0);
+        }
+    }
+    friend std::ostream &operator << (std::ostream &os, Signal<n> const &s) { return os << s.as_string(); }
+
     Signal<n> operator ~() const
     {
         Signal<n> ret;
@@ -160,11 +204,11 @@ public:
     Signal<n> operator -() const
     {
         Signal<n> ret;
-        bool carry = true;
+        int x = 1;
         for(size_t i = 0; i < n; i++) {
-            int r = !_bits[i] + carry;
-            ret._bits[i] = (r & 1) != 0;
-            carry = (r >> 1) != 0;
+            x += (int)!_bits[i];
+            ret._bits[i] = (x & 1) != 0;
+            x >>= 1;
         }
         return ret;
     }
@@ -172,9 +216,8 @@ public:
     Signal<n> operator +(Signal<n> const &b) const
     {
         Signal<n> ret;
-        size_t i;
         int x = 0;
-        for(i = 0; i < n; i++){
+        for(size_t i = 0; i < n; i++){
             x += (int)_bits[i] + (int)b._bits[i];
             ret._bits[i] = x & 1;
             x >>= 1;
@@ -193,6 +236,40 @@ public:
         }
         return ret;
     }
+
+    Signal<n> operator *(Signal<n> const &b) const
+    {
+        Signal<n> ret;
+        int x = 0;
+        for(size_t i = 0; i < n; i++){
+            for(size_t j = 0; j <= i; j++)
+                x += (int)_bits[j] & (int)b._bits[i-j];
+            ret._bits[i] = x & 1;
+            x >>= 1;
+        }
+        return ret;
+    }
+
+private:
+    Signal<n> divmod(Signal<n> const &b, bool modulo) const
+    {
+        if(!b.any()) return 0;
+        Signal<n> q = 0;
+        Signal<n> r = 0;
+        for(size_t i = n; i-- != 0; ){
+            r = r << Signal<1>(1);
+            r._bits[0] = _bits[i];
+            if(r >= b){
+                r = r - b;
+                q._bits[i] = true;
+            }
+        }
+        return modulo ? r : q;
+    }
+public:
+
+    Signal<n> operator /(Signal<n> const &b) const { return divmod(b, false); }
+    Signal<n> operator %(Signal<n> const &b) const { return divmod(b, true); }
 
     bool operator ==(Signal<n> const &b) const
     {

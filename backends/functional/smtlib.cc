@@ -119,6 +119,12 @@ template <class NodeNames> struct SmtPrintVisitor {
 
 	std::string sub(Node, Node a, Node b, int) { return format("(bvsub %0 %1)", np(a), np(b)); }
 
+	std::string mul(Node, Node a, Node b, int) { return format("(bvmul %0 %1)", np(a), np(b)); }
+
+	std::string unsigned_div(Node, Node a, Node b, int) { return format("(bvudiv %0 %1)", np(a), np(b)); }
+
+	std::string unsigned_mod(Node, Node a, Node b, int) { return format("(bvurem %0 %1)", np(a), np(b)); }
+
 	std::string bitwise_and(Node, Node a, Node b, int) { return format("(bvand %0 %1)", np(a), np(b)); }
 
 	std::string bitwise_or(Node, Node a, Node b, int) { return format("(bvor %0 %1)", np(a), np(b)); }
