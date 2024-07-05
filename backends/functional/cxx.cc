@@ -124,7 +124,7 @@ template<class NodePrinter> struct CxxPrintVisitor {
 	void unsigned_greater_equal(Node, Node a, Node b, int) { print("{} >= {}", a, b); }
 	void logical_shift_left(Node, Node a, Node b, int, int) { print("{} << {}", a, b); }
 	void logical_shift_right(Node, Node a, Node b, int, int) { print("{} >> {}", a, b); }
-	void arithmetic_shift_right(Node, Node a, Node b, int, int) { print("{}.arithmetic_shift_right{})", a, b); }
+	void arithmetic_shift_right(Node, Node a, Node b, int, int) { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s, int) { print("{2}.any() ? {1} : {0}", a, b, s); }
 	void pmux(Node, Node a, Node b, Node s, int, int) { print("{0}.pmux({1}, {2})", a, b, s); }
 	void constant(Node, RTLIL::Const value) {
