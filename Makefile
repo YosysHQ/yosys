@@ -1046,6 +1046,14 @@ coverage:
 	lcov --capture -d . --no-external -o coverage.info
 	genhtml coverage.info --output-directory coverage_html
 
+clean_coverage:
+	find . -name "*.gcda" -type f -delete
+
+coverage_functional:
+	rm -rf coverage.info coverage_html
+	lcov --capture -d backends/functional --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
+
 qtcreator:
 	{ for file in $(basename $(OBJS)); do \
 		for prefix in cc y l; do if [ -f $${file}.$${prefix} ]; then echo $$file.$${prefix}; fi; done \
