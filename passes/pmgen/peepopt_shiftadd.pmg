@@ -91,11 +91,21 @@ code
 	// it should only differ if previous passes create invalid data
 	log_assert(!(offset>0 && var_signed));
 
+	SigSpec old_a = port(shift, \A); // data
+	std::string location = shift->get_src_attribute();
+
+	if(shiftadd_max_ratio>0 && offset<0 && -offset*shiftadd_max_ratio > old_a.size()) {
+		log_warning("at %s: candiate for shiftadd optimization (shifting '%s' by '%s - %d' bits) " 
+					"was ignored to avoid high resource usage, see help peepopt\n", 
+					location.c_str(), log_signal(old_a), log_signal(var_signal), -offset);
+		reject;
+	}
+
 	did_something = true;
 	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
 			log_id(module), log_id(shift), log_id(add), offset);
 
-	SigSpec old_a = port(shift, \A), new_a;
+	SigSpec new_a;
 	if(offset<0) {
 		// data >> (...-c) transformed to {data, c'X} >> (...)
 		SigSpec padding( (shift->type.in($shiftx) ? State::Sx : State::S0), -offset );
@@ -107,14 +117,13 @@ code
 			new_a.append(old_a.extract_end(offset));
 		} else {
 			// warn user in case data is empty (no bits left)
-			std::string location = shift->get_src_attribute();
 			if (location.empty())
 				location = shift->name.str();
 			if(shift->type.in($shiftx))
 				log_warning("at %s: result of indexed part-selection is always constant (selecting from '%s' with index '%s + %d')\n", \
 							location.c_str(), log_signal(old_a), log_signal(var_signal), offset);
 			else
-				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d'-bits)\n", \
+				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d' bits)\n", \
 							location.c_str(), log_signal(old_a), log_signal(var_signal), offset);
 		}
 	}
