@@ -24,7 +24,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 const char illegal_characters[] = "#:\\";
-const char *reserved_keywords[] = {};
+const char *reserved_keywords[] = {nullptr};
 
 struct SmtScope {
   pool<std::string> used_names;
