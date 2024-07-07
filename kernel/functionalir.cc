@@ -248,9 +248,31 @@ public:
 					return extend(factory.unsigned_div(a, b, width), width, y_width, false);
 			}
 		} else if(cellType == ID($pow)) {
-			return handle_pow(inputs.at(ID(A)), a_width, inputs.at(ID(B)), b_width, y_width, a_signed && b_signed);
+		  return handle_pow(inputs.at(ID(A)), a_width, inputs.at(ID(B)), b_width, y_width, a_signed && b_signed);
+		} else if (cellType == ID($lut)) {
+		  int width = parameters.at(ID(WIDTH)).as_int();
+		  Const lut_table = parameters.at(ID(LUT));
+		  T a = inputs.at(ID(A));
+
+		  // Output initialization
+		  T y = factory.constant(Const(0, 1));
+
+		  // Iterate over each possible input combination
+		  for (int i = 0; i < (1 << width); ++i) {
+		    // Create a constant representing the value of i
+		    T i_val = factory.constant(Const(i, width));
+		    // Check if the input matches this value
+		    T match = factory.equal(a, i_val, width);
+		    // Get the corresponding LUT value
+		    bool lut_val = lut_table.bits[i] == State::S1;
+		    T lut_output = factory.constant(Const(lut_val, 1));
+		    // Use a multiplexer to select the correct output based on the match
+		    y = factory.mux(y, lut_output, match, 1);
+		  }
+
+		  return y;
 		} else{
-			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
+		  log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 		}
 	}
 };
