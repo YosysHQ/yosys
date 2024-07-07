@@ -76,6 +76,8 @@ for lst in parsed_results:
             declarations = datatype_group[1][1:]  # Skip the first item (e.g., 'mk_inputs')
             if datatype_name == 'Inputs':
                 for declaration in declarations:
+                    print("My declaration")
+                    print(declaration)
                     input_name = declaration[0]
                     bitvec_size = declaration[1][2]
                     inputs[input_name] = int(bitvec_size)
@@ -103,7 +105,7 @@ def set_step(inputs, step):
     define_inputs = f"(define-const test_inputs_step_n{step} Inputs ({mk_inputs_call}))\n"
 
     # Create the output definition by calling the gold_step function
-    define_output = f"(define-const test_outputs_step_n{step} Outputs (gold_step #b0 test_inputs_step_n{step}))\n"
+    define_output = f"(define-const test_outputs_step_n{step} Outputs (gold_step test_inputs_step_n{step}))\n"
     smt_commands = []
     smt_commands.append(define_inputs)
     smt_commands.append(define_output)

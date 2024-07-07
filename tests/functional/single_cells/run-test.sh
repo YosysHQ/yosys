@@ -87,6 +87,10 @@ run_smt_test() {
 
 
 run_all_tests() {
+    declare -A cxx_failing_files
+    declare -A smt_failing_files
+    declare -A cxx_successful_files
+    declare -A smt_successful_files
     return_code=0
     for rtlil_file in rtlil/*.il; do
         run_cxx_test "$rtlil_file"
@@ -134,6 +138,8 @@ run_all_tests() {
 }
 
 run_smt_tests() {
+    declare -A smt_failing_files
+    declare -A smt_successful_files
     return_code=0
     for rtlil_file in rtlil/*.il; do
         run_smt_test "$rtlil_file"
