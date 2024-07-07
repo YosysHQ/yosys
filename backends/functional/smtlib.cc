@@ -277,7 +277,7 @@ struct SmtModule {
   SmtModule(const std::string &module_name, FunctionalIR ir) : name(module_name), ir(std::move(ir)) {}
 
   void write(std::ostream &out)
-  {
+  {    
     const bool stateful = ir.state().size() != 0;
     SmtWriter writer(out);
 
@@ -371,6 +371,8 @@ struct SmtModule {
     for (size_t i = 0; i < ir.size() - ir.inputs().size(); ++i) {
       writer.print(" )"); // Closing each node
     }
+    if (ir.size() == ir.inputs().size())
+      writer.print(" )"); // Corner case
 
     writer.print(" )"); // Closing inputs let statement
     writer.print(")\n"); // Closing step function
