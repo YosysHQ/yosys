@@ -115,7 +115,7 @@ struct MicrochipDffOptPass : public Pass {
 	{
 		log_header(design, "Executing MICROCHIP_DFFOPT pass (optimize FF control signal usage).\n");
 
-		size_t argidx;
+		size_t argidx = 0;
 		int max_lut_size = 4;
 
 		extra_args(args, argidx, design);
