@@ -14,9 +14,27 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog uram_ar.v
+read_verilog <<EOT
+module uram_ar(data,waddr,we,clk,q);
+parameter d_width = 12;
+parameter addr_width = 2;
+parameter mem_depth = 12;
+input [d_width-1:0] data;
+input [addr_width-1:0] waddr;
+input we, clk;
+output [d_width-1:0] q;
+
+reg [d_width-1:0] mem [mem_depth-1:0];
+assign q = mem[waddr];
+
+always @(posedge clk) begin
+	if (we) 
+		mem[waddr] <= data;
+
+end
+endmodule
+EOT
 
 synth_microchip -top uram_ar -family polarfire -noiopad
-
 select -assert-count 1 t:RAM64x12
 select -assert-none t:RAM64x12 %% t:* %D

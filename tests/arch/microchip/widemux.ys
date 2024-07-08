@@ -14,13 +14,19 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog widemux.v
-
+read_verilog <<EOT
+module widemux(
+	input [3:0] data,
+	input S0,
+	input S1,
+	output Y
+);
+	assign Y = S1 ? (S0 ? data[3] : data[1]) : (S0 ? data[2] : data[0]);
+endmodule
+EOT
 synth_microchip -top widemux -family polarfire -noiopad
-
 select -assert-count 1 t:MX4
 select -assert-none t:MX4 %% t:* %D
-
 
 # RTL style is different here forming a different structure
 read_verilog ../common/mux.v

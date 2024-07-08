@@ -14,10 +14,28 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog dff_opt.v 
 
+# reset can be merged into D LUT
+read_verilog <<EOT
+module dff_opt(
+	input clk,
+	input [1:0] D_comb,
+	input [1:0] EN_comb,
+	input [1:0] RST_comb,
+	output bar
+);
+reg foo;
+assign bar = foo;
+always@(posedge clk) begin
+	if (&RST_comb) begin
+		foo <= 0;
+	end else begin
+		foo <= &D_comb;
+	end
+end
+endmodule
+EOT
 synth_microchip -top dff_opt -family polarfire -noiopad
-
 select -assert-count 1 t:SLE
 select -assert-count 1 t:CFG4
 select -assert-count 1 t:CLKBUF

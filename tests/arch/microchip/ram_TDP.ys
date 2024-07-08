@@ -14,7 +14,41 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog ram_TDP.v
+read_verilog <<EOT
+module ram_TDP (clka,clkb,wea,addra,dataina,qa,web,addrb,datainb,qb);
+parameter addr_width = 10;
+parameter data_width = 2;
+input clka,clkb,wea,web;
+input [data_width - 1 : 0] dataina,datainb;
+input [addr_width - 1 : 0] addra,addrb;
+output reg [data_width - 1 : 0] qa,qb;
+reg [addr_width - 1 : 0] addra_reg, addrb_reg;
+reg [data_width - 1 : 0] mem [(2**addr_width) - 1 : 0];
+
+always @ (posedge clka)
+begin
+	addra_reg <= addra;
+			
+	if(wea) begin
+		mem[addra] <= dataina;
+		qa <= dataina;
+	end else begin
+		qa <= mem[addra];
+	end
+end
+
+always @ (posedge clkb)
+begin
+	addrb_reg <= addrb;
+	if(web) begin
+		mem[addrb] <= datainb;
+		qb <= datainb;
+	end else begin
+		qb <= mem[addrb];
+	end
+end
+endmodule
+EOT
 synth_microchip -top ram_TDP -family polarfire -noiopad
 select -assert-count 1 t:RAM1K20
 select -assert-none t:RAM1K20 %% t:* %D

@@ -14,10 +14,15 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog reduce.v
-
+read_verilog <<EOT
+module reduce(
+	input [7:0] data,
+	output Y
+);
+	assign Y = ^data;
+endmodule
+EOT
 synth_microchip -top reduce -family polarfire -noiopad
-
 select -assert-count 1 t:XOR8
 select -assert-none t:XOR8 %% t:* %D
 

@@ -14,7 +14,27 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-read_verilog ram_SDP.v
+read_verilog <<EOT
+module ram_SDP(data,waddr,we,clk,q);
+parameter d_width = 32;
+parameter addr_width = 8;
+parameter mem_depth = 256;
+input [d_width-1:0] data;
+input [addr_width-1:0] waddr;
+input we, clk;
+output reg [d_width-1:0] q;
+
+reg [d_width-1:0] mem [mem_depth-1:0];
+
+always @(posedge clk) begin
+	if (we) begin 
+		mem[waddr] <= data;
+	end else begin
+		q <= mem[waddr];
+	end
+end
+endmodule
+EOT
 synth_microchip -top ram_SDP -family polarfire -noiopad
 select -assert-count 1 t:RAM1K20
 select -assert-count 1 t:CFG1

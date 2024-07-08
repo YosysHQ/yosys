@@ -90,6 +90,9 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("    -noabc9\n");
 		log("        Use classic ABC flow instead of ABC9\n");
 		log("\n");
+		log("    -discard-ffinit\n");
+		log("        discard FF init value instead of emitting an error\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -99,6 +102,7 @@ struct SynthMicrochipPass : public ScriptPass {
 	std::string top_opt, edif_file, blif_file, vlog_file, family;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
+	bool discard_ffinit;
 	int lut_size;
 
 	// debug dump switches
@@ -122,6 +126,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		abc9 = true;
 		dff = false;
 		lut_size = 4;
+		discard_ffinit = false;
 
 		debug_memory = false;
 		debug_carry = false;
@@ -216,6 +221,10 @@ struct SynthMicrochipPass : public ScriptPass {
 			}
 			if (args[argidx] == "-debug_carry") {
 				debug_carry = true;
+				continue;
+			}
+			if (args[argidx] == "-discard-ffinit") {
+				discard_ffinit = true;
 				continue;
 			}
 			break;
@@ -314,6 +323,8 @@ struct SynthMicrochipPass : public ScriptPass {
 			run("opt");
 			run("memory -nomap");
 			run("opt_clean");
+			if (discard_ffinit || help_mode)
+				run("attrmap -remove init", "(only if -discard-ffinit)");
 		}
 
 		if (check_label("map_memory")) {
@@ -454,15 +465,15 @@ struct SynthMicrochipPass : public ScriptPass {
 
 				// D-flop with async reset and enable
 				// posedge CLK, active low reset to 1 or 0, active high EN
-				params += " -cell $_DFFE_PN?P_ 01";
+				params += " -cell $_DFFE_PN?P_ x";
 
 				// D-flop with sync reset and enable, enable takes priority over reset
 				// posedge CLK, active low reset to 1 or 0, active high EN
-				params += " -cell $_SDFFCE_PN?P_ 01";
+				params += " -cell $_SDFFCE_PN?P_ x";
 
 				// D-latch + reset to 0/1
 				// posedge CLK, active low reset to 1 or 0
-				params += " -cell $_DLATCH_PN?_ 01";
+				params += " -cell $_DLATCH_PN?_ x";
 
 				run("dfflegalize" + params, "(Converts FFs to supported types)");
 			}
