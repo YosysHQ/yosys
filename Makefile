@@ -34,7 +34,6 @@ ENABLE_PYOSYS := 0
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
-ENABLE_NDEBUG := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
@@ -53,6 +52,8 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
+# Prefer using ENABLE_DEBUG over setting this
+OPT_LEVEL := -O3
 PROGRAM_PREFIX :=
 
 OS := $(shell uname -s)
@@ -209,7 +210,7 @@ endif
 
 ifeq ($(CONFIG),clang)
 CXX = clang++
-CXXFLAGS += -std=$(CXXSTD) -Os
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 ifneq ($(SANITIZER),)
@@ -231,14 +232,14 @@ endif
 
 else ifeq ($(CONFIG),gcc)
 CXX = g++
-CXXFLAGS += -std=$(CXXSTD) -Os
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else ifeq ($(CONFIG),gcc-static)
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -static
 LIBS := $(filter-out -lrt,$(LIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-CXXFLAGS += -std=$(CXXSTD) -Os
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(CXX)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
                        ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
 ifeq ($(DISABLE_ABC_THREADS),1)
@@ -247,12 +248,12 @@ endif
 
 else ifeq ($(CONFIG),afl-gcc)
 CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
-CXXFLAGS += -std=$(CXXSTD) -Os
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
 CXX = g++
-CXXFLAGS += -std=gnu++11 -Os
+CXXFLAGS += -std=gnu++11 $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),wasi)
@@ -267,12 +268,12 @@ AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
 endif
-CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) -Os -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
+CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
 LIBS := -lwasi-emulated-process-clocks $(filter-out -lrt,$(LIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
 ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -D_WASI_EMULATED_PROCESS_CLOCKS -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT"
-ABCMKARGS += OPTFLAGS="-Os"
+ABCMKARGS += OPTFLAGS="$(OPT_LEVEL)"
 EXE = .wasm
 
 DISABLE_SPAWN := 1
@@ -285,7 +286,7 @@ endif
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
@@ -296,7 +297,7 @@ EXE = .exe
 
 else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
-CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
@@ -306,7 +307,7 @@ EXE = .exe
 
 else ifeq ($(CONFIG),msys2-64)
 CXX = x86_64-w64-mingw32-g++
-CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
@@ -315,7 +316,7 @@ ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-
 EXE = .exe
 
 else ifeq ($(CONFIG),none)
-CXXFLAGS += -std=$(CXXSTD) -Os
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else
@@ -436,12 +437,8 @@ CXXFLAGS += -pg
 LINKFLAGS += -pg
 endif
 
-ifeq ($(ENABLE_NDEBUG),1)
-CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os -ggdb,$(CXXFLAGS))
-endif
-
 ifeq ($(ENABLE_DEBUG),1)
-CXXFLAGS := -Og -DDEBUG $(filter-out -Os,$(CXXFLAGS))
+CXXFLAGS := -Og -DDEBUG $(filter-out $(OPT_LEVEL),$(CXXFLAGS))
 endif
 
 ifeq ($(ENABLE_ABC),1)
