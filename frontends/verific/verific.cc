@@ -3433,7 +3433,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_stop_cse_on_ram_ports", 0); // SILIMATE: perform CSE on RAM ports to improve optimization
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+			// RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
