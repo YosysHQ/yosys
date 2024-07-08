@@ -139,9 +139,6 @@ if result != 'sat':
     smt_io.p_close()
     sys.exit(1)
 
-value = smt_io.get(f'(Y test_outputs_step_n0)')
-print(f"  Y: {value}")
-
 # Store signal values
 signals = {name: [] for name in list(inputs.keys()) + list(outputs.keys())}
 # Retrieve and print values for each state
@@ -151,6 +148,8 @@ def hex_to_bin(value):
         bin_value = bin(int(hex_value, 16))[2:]  # Convert to binary and remove the '0b' prefix
         return f'b{bin_value.zfill(len(hex_value) * 4)}'  # Add 'b' prefix and pad with zeros
     return value
+
+combined_assertions = []
 for step in range(num_steps):
     print(f"Values for step {step + 1}:")
     for input_name, width in inputs.items():
@@ -163,18 +162,17 @@ for step in range(num_steps):
         value = hex_to_bin(value[1:])
         print(f"  {output_name}: {value}")
         signals[output_name].append((step, value))
-        smt_io.write(f'(push 1)')
-        smt_io.write(f'(assert (not (= ({output_name} test_outputs_step_n{step}) #{value})))')
-        result = smt_io.check_sat(["unsat"])
-        if result != 'unsat':
-            smt_io.p_close()
-            sys.exit(1)
-        smt_io.write(f'(pop 1)')
-        result = smt_io.check_sat(["sat"])
-        if result != 'sat':
-            smt_io.p_close()
-            sys.exit(1)
-        
+        combined_assertions.append(f'(= ({output_name} test_outputs_step_n{step}) #{value})')
+# Create a single assertion covering all timesteps
+combined_condition = " ".join(combined_assertions)
+smt_io.write(f'(assert (not (and {combined_condition})))')
+
+# Check the combined assertion
+result = smt_io.check_sat(["unsat"])
+if result != 'unsat':
+    smt_io.p_close()
+    sys.exit(1)
+
 smt_io.p_close()
 
 def write_vcd(filename, signals, timescale='1 ns', date='today'):
