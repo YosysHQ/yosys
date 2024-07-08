@@ -441,11 +441,7 @@ CXXFLAGS := -O3 -DNDEBUG $(filter-out -Os -ggdb,$(CXXFLAGS))
 endif
 
 ifeq ($(ENABLE_DEBUG),1)
-ifeq ($(CONFIG),clang)
-CXXFLAGS := -O0 -DDEBUG $(filter-out -Os,$(CXXFLAGS))
-else
 CXXFLAGS := -Og -DDEBUG $(filter-out -Os,$(CXXFLAGS))
-endif
 endif
 
 ifeq ($(ENABLE_ABC),1)
