@@ -16,7 +16,20 @@
 
 read_verilog widemux.v
 
-synth_microchip -top widemux -abc9 -family polarfire -noiopad
+synth_microchip -top widemux -family polarfire -noiopad
 
 select -assert-count 1 t:MX4
 select -assert-none t:MX4 %% t:* %D
+
+
+# RTL style is different here forming a different structure
+read_verilog ../common/mux.v
+design -save read
+
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/microchip/cells_sim.v synth_microchip -top mux4 -family polarfire -noiopad
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 3 t:CFG3
+select -assert-none t:CFG3 %% t:* %D

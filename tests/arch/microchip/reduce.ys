@@ -16,7 +16,7 @@
 
 read_verilog reduce.v
 
-synth_microchip -top reduce -abc9 -family polarfire -noiopad
+synth_microchip -top reduce -family polarfire -noiopad
 
 select -assert-count 1 t:XOR8
 select -assert-none t:XOR8 %% t:* %D

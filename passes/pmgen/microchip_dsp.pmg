@@ -126,7 +126,7 @@ code sigA sigB sigD preAdderStatic moveBtoA
 			// sigA should be the input to the multiplier without the preAdd. sigB and sigD should be 
 			//the preAdd inputs. If our "A" input into the multiplier is from the preAdd (not sigA), then 
 			// we basically swap it.
-			sigA = port(dsp, \B);
+			sigA = sigB;
 		}
 
 		// port B of preAdderStatic must be mapped to port D of DSP for subtraction
@@ -368,7 +368,7 @@ match ff
 	filter !ff->type.in($adff, $adffe) || allowAsync
 
 	// clock must be consistent
-	filter clock == SigBit() || port(ff, \CLK) == clock
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
 endmatch
 
 code argQ
@@ -415,7 +415,7 @@ match ff
 	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
 	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
 
-	filter clock == SigBit() || port(ff, \CLK) == clock
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
 endmatch
 
 code argQ

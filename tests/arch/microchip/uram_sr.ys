@@ -16,7 +16,7 @@
 
 read_verilog uram_sr.v
 
-synth_microchip -top uram_sr -abc9 -family polarfire -noiopad
+synth_microchip -top uram_sr -family polarfire -noiopad
 
 select -assert-count 1 t:RAM64x12
 select -assert-none t:RAM64x12 %% t:* %D

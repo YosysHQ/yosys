@@ -15,8 +15,16 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 read_verilog ram_TDP.v
-
-synth_microchip -top ram_TDP -abc9 -family polarfire -noiopad -debug_memory
-
+synth_microchip -top ram_TDP -family polarfire -noiopad
 select -assert-count 1 t:RAM1K20
 select -assert-none t:RAM1K20 %% t:* %D
+
+# similar to ram_TDP.v, but different write mode and read_enable=~write_enable
+design -reset
+read_verilog ../common/blockram.v
+hierarchy -top sync_ram_tdp
+chparam -set DATA_WIDTH 2 -set ADDRESS_WIDTH 10
+synth_microchip -top sync_ram_tdp -family polarfire -noiopad
+select -assert-count 1 t:RAM1K20
+select -assert-count 2 t:CFG1
+select -assert-none t:RAM1K20 t:CFG1 %% t:* %D

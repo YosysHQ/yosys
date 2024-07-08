@@ -16,7 +16,7 @@
 
 read_verilog dff_opt.v 
 
-synth_microchip -top dff_opt -abc9 -family polarfire -noiopad
+synth_microchip -top dff_opt -family polarfire -noiopad
 
 select -assert-count 1 t:SLE
 select -assert-count 1 t:CFG4

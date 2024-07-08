@@ -27,30 +27,26 @@ reg [addr_width - 1 : 0] addra_reg, addrb_reg;
 reg [data_width - 1 : 0] mem [(2**addr_width) - 1 : 0];
 
 always @ (posedge clka)
-	begin
-		addra_reg <= addra;
-		if(wea)
-			mem[addra] <= dataina;
+begin
+	addra_reg <= addra;
+			
+	if(wea) begin
+		mem[addra] <= dataina;
+		qa <= dataina;
+	end else begin
+		qa <= mem[addra];
 	end
-
-always @ (posedge clkb)
-begin
-addrb_reg <= addrb;
-if(web)
-mem[addrb] <= datainb;
-end
-
-always @ (posedge clka)
-begin
-if(~wea)
-qa <= mem[addra];
-else qa <= dataina;
 end
 
 always @ (posedge clkb)
 begin
-if(~web)
-qb <= mem[addrb];
-else qb <= datainb;
+	addrb_reg <= addrb;
+	if(web) begin
+		mem[addrb] <= datainb;
+		qb <= datainb;
+	end else begin
+		qb <= mem[addrb];
+	end
 end
+
 endmodule

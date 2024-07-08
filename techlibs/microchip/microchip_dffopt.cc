@@ -218,6 +218,7 @@ struct MicrochipDffOptPass : public Pass {
 						worthy_post_ce = true;
 				} else if (sig_CE.data != State::S1) {
 					// Strange.  Should not happen in a reasonable flow, so bail.
+					log_assert(false); // This DFF is always off
 					continue;
 				} else {
 					lut_d_post_ce = lut_d;
@@ -241,6 +242,7 @@ struct MicrochipDffOptPass : public Pass {
 							worthy_post_s = true;
 					} else if (sig_S.data != (inv_s ? State::S1 : State::S0)) {
 						// Strange.  Should not happen in a reasonable flow, so bail.
+						log_assert(false); // DFF is always in set mode
 						continue;
 					}
 				}
@@ -263,6 +265,7 @@ struct MicrochipDffOptPass : public Pass {
 							worthy_post_r = true;
 					} else if (sig_R.data != (inv_r ? State::S1 : State::S0)) {
 						// Strange.  Should not happen in a reasonable flow, so bail.
+						log_assert(false); // DFF is always in reset mode
 						continue;
 					}
 				}

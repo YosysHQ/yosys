@@ -33,10 +33,8 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("\n");
 		log("    synth_microchip [options]\n");
 		log("\n");
-		log("This command runs synthesis for Microchip FPGAs. Operating on\n");
-		log("partly selected designs is not supported (you must submit a fully-selected \n");
-		log("design). This command creates netlists that are compatible with Microchip \n");
-		log("PolarFire devices.\n");
+		log("This command runs synthesis for Microchip FPGAs. This command creates \n");
+		log("netlists that are compatible with Microchip PolarFire devices. \n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as the top module\n");
@@ -55,6 +53,9 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        Write the design to the specified BLIF file. Writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
+		log("    -vlog <file>\n");
+		log("        write the design to the specified Verilog file. writing of an output\n");
+		log("        file is omitted if this parameter is not specified.\n");
 		log("    -nobram\n");
 		log("        Do not use block RAM cells in output netlist\n");
 		log("\n");
@@ -76,11 +77,8 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        'from_label' is synonymous to 'begin', and empty 'to_label' is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
-		log("    -flatten\n");
-		log("        Flatten design before synthesis.\n");
-		log("\n");
-		log("    -flatten_before_abc\n");
-		log("        Flatten design before abc tech mapping.\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
 		log("        Run 'abc'/'abc9' with -dff option\n");
@@ -89,8 +87,8 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        Run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
 		log("        implies -dff.\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        Use new ABC9 flow (EXPERIMENTAL)\n");
+		log("    -abc\n");
+		log("        Use classic ABC flow instead of ABC9\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -98,10 +96,9 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, family;
+	std::string top_opt, edif_file, blif_file, vlog_file, family;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
-	bool flatten_before_abc;
 	int lut_size;
 
 	// debug dump switches
@@ -112,8 +109,9 @@ struct SynthMicrochipPass : public ScriptPass {
 		top_opt = "-auto-top";
 		edif_file.clear();
 		blif_file.clear();
+		vlog_file.clear();
 		family = "polarfire";
-		flatten = false;
+		flatten = true;
 		retime = false;
 		noiopad = false;
 		noclkbuf = false;
@@ -121,9 +119,8 @@ struct SynthMicrochipPass : public ScriptPass {
 		nobram = false;
 		nowidelut = false;
 		nodsp = false;
-		abc9 = false;
+		abc9 = true;
 		dff = false;
-		flatten_before_abc = false;
 		lut_size = 4;
 
 		debug_memory = false;
@@ -153,6 +150,10 @@ struct SynthMicrochipPass : public ScriptPass {
 				blif_file = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-vlog" && argidx + 1 < args.size()) {
+				vlog_file = args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-run" && argidx + 1 < args.size()) {
 				size_t pos = args[argidx + 1].find(':');
 				if (pos == std::string::npos)
@@ -161,12 +162,8 @@ struct SynthMicrochipPass : public ScriptPass {
 				run_to = args[argidx].substr(pos + 1);
 				continue;
 			}
-			if (args[argidx] == "-flatten") {
-				flatten = true;
-				continue;
-			}
-			if (args[argidx] == "-flatten_before_abc") {
-				flatten_before_abc = true;
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
 				continue;
 			}
 			if (args[argidx] == "-retime") {
@@ -201,8 +198,8 @@ struct SynthMicrochipPass : public ScriptPass {
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-abc9") {
-				abc9 = true;
+			if (args[argidx] == "-abc") {
+				abc9 = false;
 				continue;
 			}
 			if (args[argidx] == "-nodsp") {
@@ -479,8 +476,6 @@ struct SynthMicrochipPass : public ScriptPass {
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef -noclkinv");
-			if (flatten_before_abc)
-				run("flatten");
 			if (help_mode)
 				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
 			else if (abc9) {
@@ -534,6 +529,12 @@ struct SynthMicrochipPass : public ScriptPass {
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
 				run(stringf("write_blif %s", blif_file.c_str()));
+		}
+
+		if (check_label("vlog"))
+		{
+			if (!vlog_file.empty() || help_mode)
+				run(stringf("write_verilog %s", help_mode ? "<file-name>" : vlog_file.c_str()));
 		}
 	}
 } SynthMicrochipPass;
