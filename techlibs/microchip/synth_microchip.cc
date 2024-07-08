@@ -87,7 +87,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        Run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
 		log("        implies -dff.\n");
 		log("\n");
-		log("    -abc\n");
+		log("    -noabc9\n");
 		log("        Use classic ABC flow instead of ABC9\n");
 		log("\n");
 		log("\n");
@@ -198,7 +198,7 @@ struct SynthMicrochipPass : public ScriptPass {
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-abc") {
+			if (args[argidx] == "-noabc9") {
 				abc9 = false;
 				continue;
 			}
@@ -481,7 +481,7 @@ struct SynthMicrochipPass : public ScriptPass {
 			else if (abc9) {
 
 				std::string abc9_opts;
-				// for the if command in abc to specify wire delay between adjects LUTs (default = 0)
+				// for the if command in abc to specify wire delay between adjacent LUTs (default = 0)
 				// NOTE: should not have 0 wire delay between LUTs,
 				//		 otherwise abc might use LUT2+LUT3 instead of single LUT4
 				abc9_opts += " -W 300";
