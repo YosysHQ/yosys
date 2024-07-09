@@ -20,7 +20,7 @@ ENABLE_VERIFIC := 0
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
 ENABLE_VERIFIC_VHDL := 1
 ENABLE_VERIFIC_HIER_TREE := 1
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1
+ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_COVER := 1
@@ -143,7 +143,7 @@ LIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.42+40
+YOSYS_VER := 0.43
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -159,7 +159,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9b6afcf.. | wc -l`/;" Makefile
+#	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9b6afcf.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 

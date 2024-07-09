@@ -2,8 +2,17 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.42 .. Yosys 0.43-dev
+Yosys 0.42 .. Yosys 0.43
 --------------------------
+ * Various
+    - C++ compiler with C++17 support is required.
+    - Support for IO liberty files for verification.
+    - Limit padding from shiftadd for "peepopt" pass.
+
+ * Verific support
+    - Support building Yosys with various Verific library
+      configurations. Can be built now without YosysHQ 
+      specific patch and extension library.
 
 Yosys 0.41 .. Yosys 0.42
 --------------------------
