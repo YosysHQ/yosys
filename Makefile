@@ -34,6 +34,7 @@ ENABLE_PYOSYS := 0
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
+ENABLE_LTO := 1
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
@@ -52,8 +53,11 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
-# Prefer using ENABLE_DEBUG over setting this
+# Prefer using ENABLE_DEBUG over setting these
 OPT_LEVEL := -O3
+GCC_LTO := -flto=auto
+CLANG_LTO := -flto=thin
+
 PROGRAM_PREFIX :=
 
 OS := $(shell uname -s)
@@ -208,10 +212,15 @@ ifeq ($(OS), OpenBSD)
 ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
 endif
 
+# This gets overridden later.
+LTOFLAGS := $(GCC_LTO)
+
 ifeq ($(CONFIG),clang)
 CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
+LINKFLAGS += -fuse-ld=lld
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
+LTOFLAGS := $(CLANG_LTO)
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -227,6 +236,7 @@ endif
 ifneq ($(findstring cfi,$(SANITIZER)),)
 CXXFLAGS += -flto
 LINKFLAGS += -flto
+LTOFLAGS =
 endif
 endif
 
@@ -318,9 +328,16 @@ EXE = .exe
 else ifeq ($(CONFIG),none)
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
+LTOFLAGS =
 
 else
 $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, mxe, msys2-32, msys2-64, none)
+endif
+
+
+ifeq ($(ENABLE_LTO),1)
+CXXFLAGS += $(LTOFLAGS)
+LINKFLAGS += $(LTOFLAGS)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)

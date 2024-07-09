@@ -41,7 +41,7 @@
         packages.default = yosys;
         defaultPackage = yosys;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
+          buildInputs = with pkgs; [ clang llvmPackages.bintools bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
         };
       }
     );
