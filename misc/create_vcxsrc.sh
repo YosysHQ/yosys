@@ -6,8 +6,8 @@ yosysver="$2"
 gitsha="$3"
 
 rm -rf YosysVS-Tpl-v2.zip YosysVS
-wget https://yosyshq.net/yosys/nogit/YosysVS-Tpl-v2.zip
-wget https://www.zlib.net/fossils/zlib-1.2.11.tar.gz
+wget https://github.com/YosysHQ/yosys/releases/download/resources/YosysVS-Tpl-v2.zip
+wget https://github.com/YosysHQ/yosys/releases/download/resources/zlib-1.2.11.tar.gz
 
 unzip YosysVS-Tpl-v2.zip
 rm -f YosysVS-Tpl-v2.zip
