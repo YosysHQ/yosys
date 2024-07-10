@@ -39,6 +39,7 @@ jobs:
           echo "ENABLE_VERIFIC := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
           make -j${{ env.procs }}
 
