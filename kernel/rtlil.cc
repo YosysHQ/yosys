@@ -1018,13 +1018,13 @@ size_t RTLIL::Module::count_id(const RTLIL::IdString& id)
 
 #ifndef NDEBUG
 namespace {
-	struct InternalOldCellChecker
+	struct InternalCellChecker
 	{
 		RTLIL::Module *module;
 		RTLIL::Cell *cell;
 		pool<RTLIL::IdString> expected_params, expected_ports;
 
-		InternalOldCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
+		InternalCellChecker(RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
 		void error(int linenr)
 		{
@@ -1983,7 +1983,7 @@ void RTLIL::Module::check()
 		// 	log_assert(!it2.first.empty());
 		for (auto it2 : it.second->parameters)
 			log_assert(!it2.first.empty());
-		InternalOldCellChecker checker(this, it.second);
+		InternalCellChecker checker(this, it.second);
 		checker.check();
 		if (it.second->has_memid()) {
 			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
@@ -3915,7 +3915,7 @@ void RTLIL::OldCell::sort()
 void RTLIL::Cell::check()
 {
 #ifndef NDEBUG
-	InternalOldCellChecker checker(NULL, this);
+	InternalCellChecker checker(NULL, this);
 	checker.check();
 #endif
 }

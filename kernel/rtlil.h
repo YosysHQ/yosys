@@ -1708,7 +1708,7 @@ public:
 		void reserve(int n) { (void)n; }
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
-		// since its layout is fixed as defined by InternalOldCellChecker
+		// since its layout is fixed as defined by InternalCellChecker
 		RTLIL::Const& operator[](RTLIL::IdString name) {
 			// log("operator[] on %s type %s\n", name.c_str(), parent->type.c_str());
 			return parent->getMutParam(name);
@@ -1975,7 +1975,7 @@ public:
 		void reserve(int n) { (void)n; }
 		// Watch out! This is different semantics than what dict has!
 		// but we rely on RTLIL::Cell always being constructed correctly
-		// since its layout is fixed as defined by InternalOldCellChecker
+		// since its layout is fixed as defined by InternalCellChecker
 		RTLIL::SigSpec& operator[](RTLIL::IdString portname) {
 			// log("operator[] on %s type %s\n", portname.c_str(), parent->type.c_str());
 			return parent->getMutPort(portname);
