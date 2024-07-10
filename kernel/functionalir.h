@@ -30,6 +30,7 @@ USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
 class FunctionalIR {
+public:
 	enum class Fn {
 		invalid,
 		buf,
@@ -69,7 +70,6 @@ class FunctionalIR {
 		memory_read,
 		memory_write
 	};
-public:
 	class Sort {
 		std::variant<int, std::pair<int, int>> _v;
 	public:
@@ -185,6 +185,7 @@ public:
 			else
 				return std::string("\\n") + std::to_string(id());
 		}
+		Fn fn() const { return _ref.function().fn(); }
 		Sort sort() const { return _ref.attr().sort; }
 		int width() const { return sort().width(); }
 		Node arg(int n) const { return Node(_ref.arg(n)); }
@@ -380,16 +381,22 @@ public:
 };
 
 namespace FunctionalTools {
-	class Scope {
-		const char *_illegal_characters;
+	template<class Id> class Scope {
+	protected:
+		char substitution_character = '_';
+		virtual bool is_character_legal(char) = 0;
+	private:
 		pool<std::string> _used_names;
-		dict<int, std::string> _by_id;
-		dict<IdString, std::string> _by_name;
-		std::string allocate_name(IdString suggestion) {
+		dict<Id, std::string> _by_id;
+	public:
+		void reserve(std::string name) {
+			_used_names.insert(std::move(name));
+		}
+		std::string unique_name(IdString suggestion) {
 			std::string str = RTLIL::unescape_id(suggestion);
 			for(size_t i = 0; i < str.size(); i++)
-				if(strchr(_illegal_characters, str[i]))
-					str[i] = '_';
+				if(!is_character_legal(str[i]))
+					str[i] = substitution_character;
 			if(_used_names.count(str) == 0) {
 				_used_names.insert(str);
 				return str;
@@ -402,30 +409,12 @@ namespace FunctionalTools {
 				}
 			}
 		}
-	public:
-		Scope(const char *illegal_characters = "", const char **keywords = nullptr) {
-			_illegal_characters = illegal_characters;
-			if(keywords != nullptr)
-				for(const char **p = keywords; *p != nullptr; p++)
-					reserve(*p);
-		}
-		void reserve(std::string name) {
-			_used_names.insert(std::move(name));
-		}
-		std::string operator()(int id, IdString suggestion) {
+		std::string operator()(Id id, IdString suggestion) {
 			auto it = _by_id.find(id);
 			if(it != _by_id.end())
 				return it->second;
-			std::string str = allocate_name(suggestion);
+			std::string str = unique_name(suggestion);
 			_by_id.insert({id, str});
-			return str;
-		}
-		std::string operator()(IdString idstring) {
-			auto it = _by_name.find(idstring);
-			if(it != _by_name.end())
-				return it->second;
-			std::string str = allocate_name(idstring);
-			_by_name.insert({idstring, str});
 			return str;
 		}
 	};
