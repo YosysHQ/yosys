@@ -19,11 +19,11 @@
 
 #include "kernel/yosys.h"
 #include "kernel/functionalir.h"
+#include <ctype.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-const char illegal_characters[] = "!\"#%&'()*+,-./:;<=>?@[]\\^`{|}~ ";
 const char *reserved_keywords[] = {
 	"alignas","alignof","and","and_eq","asm","atomic_cancel","atomic_commit",
 	"atomic_noexcept","auto","bitand","bitor","bool","break","case",
@@ -40,6 +40,16 @@ const char *reserved_keywords[] = {
 	"true","try","typedef","typeid","typename","union","unsigned",
 	"using","virtual","void","volatile","wchar_t","while","xor","xor_eq",
 	nullptr
+};
+
+template<typename Id> struct CxxScope : public FunctionalTools::Scope<Id> {
+	CxxScope() {
+		for(const char **p = reserved_keywords; *p != nullptr; p++)
+			this->reserve(*p);
+	}
+	bool is_character_legal(char c) override {
+		return isascii(c) && (isalnum(c) || c == '_' || c == '$');
+	}
 };
 
 struct CxxType {
@@ -61,30 +71,30 @@ using CxxWriter = FunctionalTools::Writer;
 struct CxxStruct {
   std::string name;
   dict<IdString, CxxType> types;
-  FunctionalTools::Scope scope;
+  CxxScope<IdString> scope;
   CxxStruct(std::string name)
-    : name(name), scope(illegal_characters, reserved_keywords) {
+    : name(name) {
     scope.reserve("fn");
     scope.reserve("visit");
   }
   void insert(IdString name, CxxType type) {
-    scope(name);
+    scope(name, name);
     types.insert({name, type});
   }
   void print(CxxWriter &f) {
     f.print("\tstruct {} {{\n", name);
     for (auto p : types) {
-      f.print("\t\t{} {};\n", p.second.to_string(), scope(p.first));
+      f.print("\t\t{} {};\n", p.second.to_string(), scope(p.first, p.first));
     }
     f.print("\n\t\ttemplate <typename T> void visit(T &&fn) {{\n");
     for (auto p : types) {
-      f.print("\t\t\tfn(\"{}\", {});\n", RTLIL::unescape_id(p.first), scope(p.first));
+      f.print("\t\t\tfn(\"{}\", {});\n", RTLIL::unescape_id(p.first), scope(p.first, p.first));
     }
     f.print("\t\t}}\n");
     f.print("\t}};\n\n");
   };
   std::string operator[](IdString field) {
-    return scope(field);
+    return scope(field, field);
   }
 };
 
@@ -165,7 +175,7 @@ struct CxxModule {
 			output_struct.insert(name, sort);
 		for (auto [name, sort] : ir.state())
 			state_struct.insert(name, sort);
-		module_name = FunctionalTools::Scope(illegal_characters, reserved_keywords)(module->name);
+		module_name = CxxScope<int>().unique_name(module->name);
 	}
 	void write_header(CxxWriter &f) {
 		f.print("#include \"sim.h\"\n\n");
@@ -180,7 +190,7 @@ struct CxxModule {
 	}
 	void write_eval_def(CxxWriter &f) {
 		f.print("void {0}::eval({0}::Inputs const &input, {0}::Outputs &output, {0}::State const &current_state, {0}::State &next_state)\n{{\n", module_name);
-		FunctionalTools::Scope locals(illegal_characters, reserved_keywords);
+		CxxScope<int> locals;
 		locals.reserve("input");
 		locals.reserve("output");
 		locals.reserve("current_state");
