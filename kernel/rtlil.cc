@@ -2535,9 +2535,9 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
-DEF_METHOD(Not,        sig_a.size(), ID($not))
-DEF_METHOD(Pos,        sig_a.size(), ID($pos))
-DEF_METHOD(Neg,        sig_a.size(), ID($neg))
+// DEF_METHOD(Not,        sig_a.size(), ID($not))
+// DEF_METHOD(Pos,        sig_a.size(), ID($pos))
+// DEF_METHOD(Neg,        sig_a.size(), ID($neg))
 DEF_METHOD(ReduceAnd,  1, ID($reduce_and))
 DEF_METHOD(ReduceOr,   1, ID($reduce_or))
 DEF_METHOD(ReduceXor,  1, ID($reduce_xor))
