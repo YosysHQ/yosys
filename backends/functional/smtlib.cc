@@ -19,10 +19,13 @@
 
 #include "kernel/functionalir.h"
 #include "kernel/yosys.h"
+#include "kernel/sexpr.h"
 #include <ctype.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+using SExprUtil::list;
 
 const char *reserved_keywords[] = {
 	"BINARY", "DECIMAL", "HEXADECIMAL", "NUMERAL", "STRING", "_", "!", "as", "let", "exists", "forall", "match", "par",
@@ -45,166 +48,6 @@ struct SmtScope : public FunctionalTools::Scope<int> {
 	bool is_character_legal(char c) override {
 		return isascii(c) && (isalnum(c) || strchr("~!@$%^&*_-+=<>.?/", c));
 	}
-};
-
-class SExpr {
-public:
-	std::variant<std::vector<SExpr>, std::string> _v;
-public:
-	SExpr(std::string a) : _v(std::move(a)) {}
-    SExpr(const char *a) : _v(a) {}
-	SExpr(int n) : _v(std::to_string(n)) {}
-	SExpr(std::vector<SExpr> const &l) : _v(l) {}
-	SExpr(std::vector<SExpr> &&l) : _v(std::move(l)) {}
-    bool is_atom() const { return std::holds_alternative<std::string>(_v); }
-    std::string const &atom() const { return std::get<std::string>(_v); }
-    bool is_list() const { return std::holds_alternative<std::vector<SExpr>>(_v); }
-    std::vector<SExpr> const &list() const { return std::get<std::vector<SExpr>>(_v); }
-	friend std::ostream &operator<<(std::ostream &os, SExpr const &sexpr) {
-		if(sexpr.is_atom())
-			os << sexpr.atom();
-		else if(sexpr.is_list()){
-			os << "(";
-			auto l = sexpr.list();
-			for(size_t i = 0; i < l.size(); i++) {
-				if(i > 0) os << " ";
-				os << l[i];
-			}
-			os << ")";
-		}else
-			os << "<invalid>";
-		return os;
-	}
-	std::string to_string() const {
-		std::stringstream ss;
-		ss << *this;
-		return ss.str();
-	}
-};
-template<typename... Args> SExpr list(Args&&... args) {
-	return SExpr(std::vector<SExpr>{std::forward<Args>(args)...});
-}
-
-class SExprWriter {
-    std::ostream &os;
-    int _max_line_width;
-    int _indent = 0;
-    int _pos = 0;
-    bool _pending_nl = false;
-	vector<bool> _unclosed;
-	vector<size_t> _unclosed_stack;
-	void nl_if_pending() {
-		if(_pending_nl) {
-            os << '\n';
-            _pos = 0;
-            _pending_nl = false;
-		}
-	}
-    void puts(std::string const &s) {
-        if(s.empty()) return;
-		nl_if_pending();
-        for(auto c : s) {
-            if(c == '\n') {
-                os << c;
-                _pos = 0;
-            } else {
-                if(_pos == 0) {
-                    for(int i = 0; i < _indent; i++)
-                        os << "  ";
-                    _pos = 2 * _indent;
-                }
-                os << c;
-                _pos++;
-            }
-        }
-    }
-    int width(SExpr const &sexpr) {
-        if(sexpr.is_atom())
-            return sexpr.atom().size();
-        else if(sexpr.is_list()) {
-            int w = 2;
-            for(auto arg : sexpr.list())
-                w += width(arg);
-            if(sexpr.list().size() > 1)
-                w += sexpr.list().size() - 1;
-            return w;
-        } else
-            return 0;
-    }
-    void print(SExpr const &sexpr, bool close = true, bool indent_rest = true) {
-        if(sexpr.is_atom())
-            puts(sexpr.atom());
-        else if(sexpr.is_list()) {
-            auto args = sexpr.list();
-			puts("(");
-			bool vertical = args.size() > 1 && _pos + width(sexpr) > _max_line_width;
-			if(vertical) _indent++;
-			for(size_t i = 0; i < args.size(); i++) {
-				if(i > 0) puts(vertical ? "\n" : " ");
-				print(args[i]);
-			}
-			_indent += (!close && indent_rest) - vertical;
-			if(close)
-				puts(")");
-			else {
-				_unclosed.push_back(indent_rest);
-				_pending_nl = true;
-			}
-        }else
-            log_error("shouldn't happen in SExprWriter::print");
-    }
-public:
-    SExprWriter(std::ostream &os, int max_line_width = 80)
-        : os(os)
-        , _max_line_width(max_line_width)
-    {}
-    void open(SExpr const &sexpr, bool indent_rest = true) {
-        log_assert(sexpr.is_list());
-        print(sexpr, false, indent_rest);
-    }
-    void close(size_t n = 1) {
-		log_assert(_unclosed.size() - (_unclosed_stack.empty() ? 0 : _unclosed_stack.back()) >= n);
-		while(n-- > 0) {
-			bool indented = _unclosed[_unclosed.size() - 1];
-			_unclosed.pop_back();
-			_pending_nl = _pos >= _max_line_width;
-			if(indented)
-				_indent--;
-			puts(")");
-			_pending_nl = true;
-		}
-    }
-	void push() {
-		_unclosed_stack.push_back(_unclosed.size());
-	}
-	void pop() {
-		auto t = _unclosed_stack.back();
-		log_assert(_unclosed.size() >= t);
-		close(_unclosed.size() - t);
-		_unclosed_stack.pop_back();
-	}
-    SExprWriter &operator <<(SExpr const &sexpr) {
-        print(sexpr);
-        _pending_nl = true;
-        return *this;
-    }
-	void comment(std::string const &str, bool hanging = false) {
-		if(hanging) {
-			if(_pending_nl) {
-				_pending_nl = false;
-				puts(" ");
-			}
-		}
-		puts("; ");
-		puts(str);
-		puts("\n");
-	}
-    ~SExprWriter() {
-		while(!_unclosed_stack.empty())
-			pop();
-		close(_unclosed.size());
-		nl_if_pending();
-    }
 };
 
 struct SmtSort {
