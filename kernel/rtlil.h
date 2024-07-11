@@ -1786,11 +1786,13 @@ public:
 				throw std::out_of_range("FakeParams::size()");
 			}
 		}
-		bool empty() const {
-			return !size();
-		}
+		bool empty() const { return !size(); }
 		// The need for this function implies setPort will be used on incompat types
-		void erase(const RTLIL::IdString& paramname) const { (void)paramname; }
+		void erase(const RTLIL::IdString &paramname) const
+		{
+			if (parent->is_legacy())
+				parent->legacy->parameters.erase(paramname);
+		}
 		// The need for this function implies setPort will be used on incompat types
 		void clear() const {}
 		// AAA
