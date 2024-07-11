@@ -25,7 +25,6 @@ ram distributed $__NX_RFB_U_DPREG_ {
 		widths 36 global;
 	}
     init no_undef;
-    prune_rom;
 
     port sw "W" {
         clock anyedge;
@@ -43,7 +42,6 @@ ram distributed $__NX_RFB_U_SPREG_ {
     abits 5;
     width 18;
 	init no_undef;
-	prune_rom;
 	port arsw "RW" {
 		clock anyedge;
 	}
@@ -58,7 +56,6 @@ ram distributed $__NX_XRFB_2R_1W_ {
     abits 5;
     width 18;
 	init no_undef;
-	prune_rom;
     port sw "W" {
         clock anyedge;
     }
