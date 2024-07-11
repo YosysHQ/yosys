@@ -136,13 +136,38 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
     localparam MEM_SIZE  = mode == 2 ? 64 : 32;
     localparam MEM_WIDTH = mode == 3 ? 36 : 18;
     localparam ADDR_WIDTH = mode == 2 ? 6 : 5;
+    localparam DATA_SIZE = MEM_SIZE * MEM_WIDTH;
+    localparam MAX_SIZE = DATA_SIZE + MEM_SIZE + 1;
 
     reg [MEM_WIDTH-1:0] mem [MEM_SIZE-1:0];
 
+	function [DATA_SIZE-1:0] convert_initval;
+		input [8*MAX_SIZE-1:0] hex_initval;
+		reg done;
+		reg [DATA_SIZE-1:0] temp;
+		reg [7:0] char;
+		integer i,j;
+		begin
+			done = 1'b0;
+			temp = 0;
+            j = 0;
+			for (i = 0; i < MAX_SIZE; i = i + 1) begin
+                char = hex_initval[8*i +: 8];
+                if (char >= "0" && char <= "1") begin
+                    temp[j] = char - "0";
+                    j = j + 1;
+                end
+			end
+			convert_initval = temp;
+		end
+	endfunction
+
     integer i;
+    reg [DATA_SIZE-1:0] mem_data;
     initial begin
+        mem_data = convert_initval(mem_ctxt);
         for (i = 0; i < MEM_SIZE; i = i + 1)
-            mem[i] = 36'b0;
+            mem[i] = mem_data[MEM_WIDTH*(MEM_SIZE-i-1) +: MEM_WIDTH];
     end
 
     wire [ADDR_WIDTH-1:0] WA = (mode==2) ? { WA6, WA5, WA4, WA3, WA2, WA1 } : { WA5, WA4, WA3, WA2, WA1 };
