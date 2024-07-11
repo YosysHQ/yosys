@@ -280,7 +280,7 @@ void Mem::emit() {
 		for (auto &port : rd_ports) {
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memrd_v2));
-			port.cell = cell->module->morphCell(ID($memrd_v2), cell);
+			port.cell = port.cell->module->morphCell(ID($memrd_v2), port.cell);
 			port.cell->attributes = port.attributes;
 			port.cell->parameters[ID::MEMID] = memid.str();
 			port.cell->parameters[ID::ABITS] = GetSize(port.addr);
@@ -305,7 +305,7 @@ void Mem::emit() {
 		for (auto &port : wr_ports) {
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memwr_v2));
-			port.cell = cell->module->morphCell(ID($memwr_v2), cell);
+			port.cell = port.cell->module->morphCell(ID($memwr_v2), port.cell);
 			port.cell->attributes = port.attributes;
 			if (port.cell->parameters.count(ID::PRIORITY))
 				port.cell->parameters.erase(ID::PRIORITY);
@@ -327,7 +327,7 @@ void Mem::emit() {
 			if (!init.cell)
 				init.cell = module->addCell(NEW_ID, v2 ? ID($meminit_v2) : ID($meminit));
 			else
-				init.cell = cell->module->morphCell(v2 ? ID($meminit_v2) : ID($meminit), cell);
+				init.cell = init.cell->module->morphCell(v2 ? ID($meminit_v2) : ID($meminit), init.cell);
 			init.cell->attributes = init.attributes;
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
