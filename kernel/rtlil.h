@@ -1794,7 +1794,10 @@ public:
 				parent->legacy->parameters.erase(paramname);
 		}
 		// The need for this function implies setPort will be used on incompat types
-		void clear() const {}
+		void clear() const {
+			if (parent->is_legacy())
+				parent->legacy->parameters.clear();
+		}
 		// AAA
 		class iterator {
 			typedef std::bidirectional_iterator_tag iterator_category;
@@ -2056,9 +2059,16 @@ public:
 			}
 		}
 		// The need for this function implies setPort will be used on incompat types
-		void erase(const RTLIL::IdString& portname) { (void)portname; }
+		void erase(const RTLIL::IdString &portname) const
+		{
+			if (parent->is_legacy())
+				parent->legacy->connections_.erase(portname);
+		}
 		// The need for this function implies setPort will be used on incompat types
-		void clear() const {}
+		void clear() const {
+			if (parent->is_legacy())
+				parent->legacy->connections_.clear();
+		}
 		bool empty() const {
 			return !size();
 		}

@@ -2473,7 +2473,9 @@ RTLIL::Cell *RTLIL::Module::morphCell(RTLIL::IdString type, RTLIL::Cell *old)
 	// 	old->type = type;
 	// 	return old;
 	// }
-	// TODO xtrace
+	if (old->type == type)
+		return old;
+
 	if (yosys_xtrace) {
 		log("#X# Morphing %s.%s from type %s to %s\n", log_id(this), log_id(old), log_id(old->type), log_id(type));
 		log_backtrace("-X- ", yosys_xtrace-1);
@@ -2487,7 +2489,7 @@ RTLIL::Cell *RTLIL::Module::morphCell(RTLIL::IdString type, RTLIL::Cell *old)
 	new_cell->name = old->name;
 	log_assert(refcount_cells_ == 0);
 	cells_[new_cell->name] = new_cell;
-	delete old;
+	remove(old);
 	return new_cell;
 }
 

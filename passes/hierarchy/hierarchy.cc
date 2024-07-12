@@ -327,17 +327,18 @@ struct IFExpander
 // something. or null otherwise (the module should be blackbox or we couldn't
 // find it and check is not set).
 RTLIL::Module *get_module(RTLIL::Design                  &design,
-                          RTLIL::Cell                    &cell,
+                          RTLIL::Cell                    *&cell,
                           RTLIL::Module                  &parent,
                           bool                            check,
                           const std::vector<std::string> &libdirs)
 {
-	std::string cell_type = cell.type.str();
+	std::string cell_type = cell->type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
-		cell.type = abs_mod->derive(&design, cell_to_mod_params(cell.parameters));
-		cell.parameters.clear();
-		RTLIL::Module *mod = design.module(cell.type);
+		auto new_cell_type = abs_mod->derive(&design, cell_to_mod_params(cell->parameters));
+		cell->parameters.clear();
+		cell = cell->module->morphCell(new_cell_type, cell);
+		RTLIL::Module *mod = design.module(cell->type);
 		log_assert(mod);
 		return mod;
 	}
@@ -356,12 +357,12 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			};
 
 		for (auto &ext : extensions_list) {
-			std::string filename = dir + "/" + RTLIL::unescape_id(cell.type) + ext.first;
+			std::string filename = dir + "/" + RTLIL::unescape_id(cell->type) + ext.first;
 			if (!check_file_exists(filename))
 				continue;
 
 			Frontend::frontend_call(&design, NULL, filename, ext.second);
-			RTLIL::Module *mod = design.module(cell.type);
+			RTLIL::Module *mod = design.module(cell->type);
 			if (!mod)
 				log_error("File `%s' from libdir does not declare module `%s'.\n",
 				          filename.c_str(), cell_type.c_str());
@@ -372,7 +373,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	// We couldn't find the module anywhere. Complain if check is set.
 	if (check)
 		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-		          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
+		          cell_type.c_str(), parent.name.c_str(), cell->name.c_str());
 
 	return nullptr;
 }
@@ -479,7 +480,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		RTLIL::Module *mod = design->module(cell->type);
 		if (!mod)
 		{
-			mod = get_module(*design, *cell, *module, flag_check || flag_simcheck || flag_smtcheck, libdirs);
+			mod = get_module(*design, cell, *module, flag_check || flag_simcheck || flag_smtcheck, libdirs);
 
 			// If we still don't have a module, treat the cell as a black box and skip
 			// it. Otherwise, we either loaded or derived something so should set the
@@ -528,12 +529,16 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			continue;
 		}
 
-		cell->type = mod->derive(design,
-					 cell_to_mod_params(cell->parameters),
-					 if_expander.interfaces_to_add_to_submodule,
-					 if_expander.modports_used_in_submodule);
-		cell->parameters.clear();
-		did_something = true;
+		{
+			auto params = cell_to_mod_params(cell->parameters);
+			cell->parameters.clear();
+			auto type = mod->derive(design,
+						params,
+						if_expander.interfaces_to_add_to_submodule,
+						if_expander.modports_used_in_submodule);
+			cell = mod->morphCell(type, cell);
+			did_something = true;
+		}
 
 		handle_interface_instance:
 
