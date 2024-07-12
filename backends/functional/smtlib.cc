@@ -28,6 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 using SExprUtil::list;
 
 const char *reserved_keywords[] = {
+	// reserved keywords from the smtlib spec
 	"BINARY", "DECIMAL", "HEXADECIMAL", "NUMERAL", "STRING", "_", "!", "as", "let", "exists", "forall", "match", "par",
 	"assert", "check-sat", "check-sat-assuming", "declare-const", "declare-datatype", "declare-datatypes",
 	"declare-fun", "declare-sort", "define-fun", "define-fun-rec", "define-funs-rec", "define-sort",
@@ -35,6 +36,7 @@ const char *reserved_keywords[] = {
 	"get-option", "get-proof", "get-unsat-assumptions", "get-unsat-core", "get-value",
 	"pop", "push", "reset", "reset-assertions", "set-info", "set-logic", "set-option",
 
+	// reserved for our own purposes
 	"pair", "Pair", "first", "second",
 	"inputs", "state",
 	nullptr
@@ -89,12 +91,17 @@ public:
 		w.close(3);
 	}
 	template<typename Fn> void write_value(SExprWriter &w, Fn fn) {
-		w.open(list(name));
-		for(auto field_name : field_names) {
-			w << fn(field_name);
-			w.comment(RTLIL::unescape_id(field_name), true);
+		if(field_names.empty()) {
+			// Zero-argument constructors in SMTLIB must not be called as functions.
+			w << name;
+		} else {
+			w.open(list(name));
+			for(auto field_name : field_names) {
+				w << fn(field_name);
+				w.comment(RTLIL::unescape_id(field_name), true);
+			}
+			w.close();
 		}
-		w.close();
 	}
 	SExpr access(SExpr record, IdString name) {
 		size_t i = field_names.at(name);
@@ -131,7 +138,7 @@ struct SmtPrintVisitor {
 	SExpr slice(Node, Node a, int, int offset, int out_width) { return extract(n(a), offset, out_width); }
 	SExpr zero_extend(Node, Node a, int, int out_width) { return list(list("_", "zero_extend", out_width - a.width()), n(a)); }
 	SExpr sign_extend(Node, Node a, int, int out_width) { return list(list("_", "sign_extend", out_width - a.width()), n(a)); }
-	SExpr concat(Node, Node a, int, Node b, int) { return list("concat", n(a), n(b)); }
+	SExpr concat(Node, Node a, int, Node b, int) { return list("concat", n(b), n(a)); }
 	SExpr add(Node, Node a, Node b, int) { return list("bvadd", n(a), n(b)); }
 	SExpr sub(Node, Node a, Node b, int) { return list("bvsub", n(a), n(b)); }
 	SExpr mul(Node, Node a, Node b, int) { return list("bvmul", n(a), n(b)); }
@@ -143,7 +150,7 @@ struct SmtPrintVisitor {
 	SExpr bitwise_not(Node, Node a, int) { return list("bvnot", n(a)); }
 	SExpr unary_minus(Node, Node a, int) { return list("bvneg", n(a)); }
 	SExpr reduce_and(Node, Node a, int) { return from_bool(list("=", n(a), literal(RTLIL::Const(State::S1, a.width())))); }
-	SExpr reduce_or(Node, Node a, int) { return from_bool(list("=", n(a), literal(RTLIL::Const(State::S0, a.width())))); }
+	SExpr reduce_or(Node, Node a, int) { return from_bool(list("distinct", n(a), literal(RTLIL::Const(State::S0, a.width())))); }
 	SExpr reduce_xor(Node, Node a, int) {
 		vector<SExpr> s { "bvxor" };
 		for(int i = 0; i < a.width(); i++)
@@ -164,9 +171,9 @@ struct SmtPrintVisitor {
 			return std::move(a);
 	}
 	SExpr logical_shift_left(Node, Node a, Node b, int, int) { return list("bvshl", n(a), extend(n(b), b.width(), a.width())); }
-	SExpr logical_shift_right(Node, Node a, Node b, int, int) { return list("bvshr", n(a), extend(n(b), b.width(), a.width())); }
-	SExpr arithmetic_shift_right(Node, Node a, Node b, int, int) { return list("bvasr", n(a), extend(n(b), b.width(), a.width())); }
-	SExpr mux(Node, Node a, Node b, Node s, int) { return list("ite", to_bool(n(s)), n(a), n(b)); }
+	SExpr logical_shift_right(Node, Node a, Node b, int, int) { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr arithmetic_shift_right(Node, Node a, Node b, int, int) { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr mux(Node, Node a, Node b, Node s, int) { return list("ite", to_bool(n(s)), n(b), n(a)); }
 	SExpr pmux(Node, Node a, Node b, Node s, int, int) {
 		SExpr rv = n(a);
 		for(int i = 0; i < s.width(); i++)
