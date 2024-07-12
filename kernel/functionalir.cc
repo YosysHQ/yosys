@@ -96,6 +96,15 @@ private:
 		}
 		return r;
 	}
+	T handle_bmux(T a, T s, int a_width, int a_offset, int width, int s_width, int sn) {
+		if(sn < 1)
+			return factory.slice(a, a_width, a_offset, width);
+		else {
+			T y0 = handle_bmux(a, s, a_width, a_offset, width, s_width, sn - 1);
+			T y1 = handle_bmux(a, s, a_width, a_offset + (width << (sn - 1)), width, s_width, sn - 1);
+			return factory.mux(y0, y1, factory.slice(s, s_width, sn - 1, 1), width);
+		}
+	}
 public:
 	T handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, T> inputs)
 	{
@@ -248,31 +257,54 @@ public:
 					return extend(factory.unsigned_div(a, b, width), width, y_width, false);
 			}
 		} else if(cellType == ID($pow)) {
-		  return handle_pow(inputs.at(ID(A)), a_width, inputs.at(ID(B)), b_width, y_width, a_signed && b_signed);
+			return handle_pow(inputs.at(ID(A)), a_width, inputs.at(ID(B)), b_width, y_width, a_signed && b_signed);
 		} else if (cellType == ID($lut)) {
-		  int width = parameters.at(ID(WIDTH)).as_int();
-		  Const lut_table = parameters.at(ID(LUT));
-		  T a = inputs.at(ID(A));
-
-		  // Output initialization
-		  T y = factory.constant(Const(0, 1));
-
-		  // Iterate over each possible input combination
-		  for (int i = 0; i < (1 << width); ++i) {
-		    // Create a constant representing the value of i
-		    T i_val = factory.constant(Const(i, width));
-		    // Check if the input matches this value
-		    T match = factory.equal(a, i_val, width);
-		    // Get the corresponding LUT value
-		    bool lut_val = lut_table.bits[i] == State::S1;
-		    T lut_output = factory.constant(Const(lut_val, 1));
-		    // Use a multiplexer to select the correct output based on the match
-		    y = factory.mux(y, lut_output, match, 1);
-		  }
-
-		  return y;
-		} else{
-		  log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
+			int width = parameters.at(ID(WIDTH)).as_int();
+			Const lut_table = parameters.at(ID(LUT));
+			T a = inputs.at(ID(A));
+			// Output initialization
+			T y = factory.constant(Const(0, 1));
+			// Iterate over each possible input combination
+			for (int i = 0; i < (1 << width); ++i) {
+				// Create a constant representing the value of i
+				T i_val = factory.constant(Const(i, width));
+				// Check if the input matches this value
+				T match = factory.equal(a, i_val, width);
+				// Get the corresponding LUT value
+				bool lut_val = lut_table.bits[i] == State::S1;
+				T lut_output = factory.constant(Const(lut_val, 1));
+				// Use a multiplexer to select the correct output based on the match
+				y = factory.mux(y, lut_output, match, 1);
+			}
+			return y;
+		} else if (cellType == ID($bwmux)) {
+			int width = parameters.at(ID(WIDTH)).as_int();
+			T a = inputs.at(ID(A));
+			T b = inputs.at(ID(B));
+			T s = inputs.at(ID(S));
+			return factory.bitwise_or(
+				factory.bitwise_and(a, factory.bitwise_not(s, width), width),
+				factory.bitwise_and(b, s, width), width);
+		} else if (cellType == ID($bweqx)) {
+			int width = parameters.at(ID(WIDTH)).as_int();
+			T a = inputs.at(ID(A));
+			T b = inputs.at(ID(B));
+			return factory.bitwise_not(factory.bitwise_xor(a, b, width), width);
+		} else if(cellType == ID($bmux)) {
+			int width = parameters.at(ID(WIDTH)).as_int();
+			int s_width = parameters.at(ID(S_WIDTH)).as_int();
+			return handle_bmux(inputs.at(ID(A)), inputs.at(ID(S)), width << s_width, 0, width, s_width, s_width);
+		} else if(cellType == ID($demux)) {
+			int width = parameters.at(ID(WIDTH)).as_int();
+			int s_width = parameters.at(ID(S_WIDTH)).as_int();
+			int y_width = width << s_width;
+			int b_width = ceil_log2(y_width + 1);
+			T a = extend(inputs.at(ID(A)), width, y_width, false);
+			T s = factory.extend(inputs.at(ID(S)), s_width, b_width, false);
+			T b = factory.mul(s, factory.constant(Const(width, b_width)), b_width);
+			return factory.logical_shift_left(a, b, y_width, b_width);
+		} else {
+			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 		}
 	}
 };
