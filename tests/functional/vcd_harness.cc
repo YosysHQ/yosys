@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 
   const std::string functional_vcd_filename = argv[1];
 
-  constexpr int steps = 10;
+  constexpr int steps = 1000;
   constexpr int number_timescale = 1;
   const std::string units_timescale = "us";
   gold::Inputs inputs;
