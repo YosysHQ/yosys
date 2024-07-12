@@ -150,7 +150,7 @@ YOSYS_VER := 0.43+3
 # will have this file in its unexpanded form tough, in which case we fall
 # back to calling git directly.
 TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
-ifneq ($(findstring "Format:",$(TARBALL_GIT_REV)),)
+ifneq ($(findstring Format:,$(TARBALL_GIT_REV)),)
 GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
 else
 GIT_REV := $(TARBALL_GIT_REV)
