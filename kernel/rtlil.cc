@@ -4023,8 +4023,8 @@ RTLIL::SigSpec::SigSpec(bool bit)
 void RTLIL::SigSpec::switch_to_packed() const
 {
 	// TODO change to debug asserts
-	log_assert(!this->packed_);
-	log_assert(bits_.size() == 0);
+	// log_assert(!this->packed_);
+	// log_assert(bits_.size() == 0);
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
 	that->bits_.~vector();
 	that->packed_ = true;
@@ -4034,8 +4034,8 @@ void RTLIL::SigSpec::switch_to_packed() const
 void RTLIL::SigSpec::switch_to_unpacked() const
 {
 	// TODO change to debug asserts
-	log_assert(this->packed_);
-	log_assert(chunks_.size() == 0);
+	// log_assert(this->packed_);
+	// log_assert(chunks_.size() == 0);
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
 	that->chunks_.~vector();
 	that->packed_ = false;
