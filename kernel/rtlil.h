@@ -842,20 +842,25 @@ struct RTLIL::SigSpec
 {
 private:
 	int width_;
+	bool packed_;
 	unsigned long hash_;
-	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
-	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	union {
+		std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
+		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	};
 
 	void pack() const;
 	void unpack() const;
+	void switch_to_packed() const;
+	void switch_to_unpacked() const;
 	void updhash() const;
 
 	inline bool packed() const {
-		return bits_.empty();
+		return packed_;
 	}
 
 	inline void inline_unpack() const {
-		if (!chunks_.empty())
+		if (packed_ && !chunks_.empty())
 			unpack();
 	}
 
@@ -864,8 +869,47 @@ private:
 	friend struct RTLIL::Module;
 
 public:
-	SigSpec() : width_(0), hash_(0) {}
+	SigSpec() : width_(0), packed_(true), hash_(0), chunks_() {}
+	~SigSpec() { if (packed_) chunks_.~vector(); else bits_.~vector(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
+	SigSpec(const Yosys::RTLIL::SigSpec &other)
+	{
+		packed_ = other.packed_;
+		width_ = other.width_;
+		hash_ = other.hash_;
+		if (packed_) {
+			(void)new (&this->chunks_) std::vector<SigChunk>();
+			chunks_ = other.chunks_;
+		} else {
+			(void)new (&this->bits_) std::vector<SigBit>();
+			bits_ = other.bits_;
+		}
+		check();
+	}
+	SigSpec& operator=(const Yosys::RTLIL::SigSpec & other)
+	{
+		if (packed_ != other.packed_) {
+			if (packed_) {
+				chunks_.clear();
+				switch_to_unpacked();
+				bits_ = other.bits_;
+			} else {
+				bits_.clear();
+				switch_to_packed();
+				chunks_ = other.chunks_;
+			}
+		} else {
+			if (packed_)
+				chunks_ = other.chunks_;
+			else
+				bits_ = other.bits_;
+		}
+
+		width_ = other.width_;
+		hash_ = other.hash_;
+		check();
+		return *this;
+	}
 
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
