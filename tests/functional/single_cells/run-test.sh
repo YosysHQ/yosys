@@ -85,16 +85,41 @@ run_smt_test() {
     fi
 }
 
+run_rkt_test() {
+    BASE_PATH="../../../"
+
+    local rtlil_file=$1
+
+    local base_name=$(basename "$rtlil_file" .il)
+
+    if ${BASE_PATH}yosys -p "read_rtlil $rtlil_file; write_functional_rosette ${base_name}.rkt"; then
+        echo "Yosys processed $rtlil_file successfully."
+        if raco test "${base_name}.rkt"; then
+            # TODO: Can we evaluate the code instead of just parsing?
+            echo "Racket parse for $rtlil_file completed successfully."
+            rkt_successful_files["$rtlil_file"]="Success"
+        else
+            echo "Rosette file for $rtlil_file is invalid"
+            rkt_failing_files["$rtlil_file"]="Invalid Rosette ${base_name}.rkt"
+        fi
+    else
+        echo "Yosys failed to process $rtlil_file."
+        rkt_failing_files["$rtlil_file"]="Yosys failure"
+    fi
+}
 
 run_all_tests() {
     declare -A cxx_failing_files
     declare -A smt_failing_files
+    declare -A rkt_failing_files
     declare -A cxx_successful_files
     declare -A smt_successful_files
+    declare -A rkt_successful_files
     return_code=0
     for rtlil_file in rtlil/*.il; do
         run_cxx_test "$rtlil_file"
-	run_smt_test "$rtlil_file"
+        run_smt_test "$rtlil_file"
+        run_rkt_test "$rtlil_file"
     done
     
     echo "C++ tests results:"
@@ -133,6 +158,25 @@ run_all_tests() {
             echo "$file"
         done
 	return_code=1
+    fi
+    
+    echo "Rosette tests results:"
+    if [ ${#rkt_failing_files[@]} -eq 0 ]; then
+        echo "All files passed."
+        echo "The following files passed:"
+        for file in "${!rkt_successful_files[@]}"; do
+            echo "$file"
+        done
+    else
+        echo "The following files failed:"
+        for file in "${!rkt_failing_files[@]}"; do
+            echo "$file: ${rkt_failing_files[$file]}"
+        done
+        echo "The following files passed:"
+        for file in "${!rkt_successful_files[@]}"; do
+            echo "$file"
+        done
+        return_code=1
     fi
     return $return_code
 }
