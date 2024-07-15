@@ -19,385 +19,261 @@
 
 #include "kernel/functionalir.h"
 #include "kernel/yosys.h"
+#include "kernel/sexpr.h"
+#include <ctype.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-const char illegal_characters[] = "#:\\";
-const char *reserved_keywords[] = {nullptr};
+using SExprUtil::list;
 
-struct SmtScope {
-  pool<std::string> used_names;
-  dict<IdString, std::string> name_map;
-  FunctionalTools::Scope scope;
-  SmtScope() : scope(illegal_characters, reserved_keywords) {}
+const char *reserved_keywords[] = {
+	// reserved keywords from the smtlib spec
+	"BINARY", "DECIMAL", "HEXADECIMAL", "NUMERAL", "STRING", "_", "!", "as", "let", "exists", "forall", "match", "par",
+	"assert", "check-sat", "check-sat-assuming", "declare-const", "declare-datatype", "declare-datatypes",
+	"declare-fun", "declare-sort", "define-fun", "define-fun-rec", "define-funs-rec", "define-sort",
+	"exit", "get-assertions", "symbol", "sort", "get-assignment", "get-info", "get-model",
+	"get-option", "get-proof", "get-unsat-assumptions", "get-unsat-core", "get-value",
+	"pop", "push", "reset", "reset-assertions", "set-info", "set-logic", "set-option",
 
-  void reserve(const std::string &name) { used_names.insert(name); }
-
-  std::string insert(IdString id)
-  {
-
-    std::string name = scope(id);
-    if (used_names.count(name) == 0) {
-      used_names.insert(name);
-      name_map[id] = name;
-      return name;
-    }
-    for (int idx = 0;; ++idx) {
-      std::string new_name = name + "_" + std::to_string(idx);
-      if (used_names.count(new_name) == 0) {
-	used_names.insert(new_name);
-	name_map[id] = new_name;
-	return new_name;
-      }
-    }
-  }
-
-  std::string operator[](IdString id)
-  {
-    if (name_map.count(id)) {
-      return name_map[id];
-    } else {
-      return insert(id);
-    }
-  }
+	// reserved for our own purposes
+	"pair", "Pair", "first", "second",
+	"inputs", "state",
+	nullptr
 };
 
-struct SmtWriter {
-  std::ostream &stream;
-
-  SmtWriter(std::ostream &out) : stream(out) {}
-
-  void print(const char *fmt, ...)
-  {
-    va_list args;
-    va_start(args, fmt);
-    stream << vstringf(fmt, args);
-    va_end(args);
-  }
+struct SmtScope : public FunctionalTools::Scope<int> {
+	SmtScope() {
+		for(const char **p = reserved_keywords; *p != nullptr; p++)
+			reserve(*p);
+	}
+	bool is_character_legal(char c) override {
+		return isascii(c) && (isalnum(c) || strchr("~!@$%^&*_-+=<>.?/", c));
+	}
 };
 
-template <class NodeNames> struct SmtPrintVisitor {
-  using Node = FunctionalIR::Node;
-  NodeNames np;
-  SmtScope &scope;
+struct SmtSort {
+	FunctionalIR::Sort sort;
+	SmtSort(FunctionalIR::Sort sort) : sort(sort) {}
+	SExpr to_sexpr() const {
+		if(sort.is_memory()) {
+			return list("Array", list("_", "BitVec", sort.addr_width()), list("_", "BitVec", sort.data_width()));
+		} else if(sort.is_signal()) {
+			return list("_", "BitVec", sort.width());
+		} else {
+			log_error("unknown sort");
+		}
+	}
+};
 
-  SmtPrintVisitor(NodeNames np, SmtScope &scope) : np(np), scope(scope) {}
+class SmtStruct {
+	struct Field {
+		SmtSort sort;
+		std::string accessor;
+	};
+	idict<IdString> field_names;
+	vector<Field> fields;
+	SmtScope &scope;
+public:
+	std::string name;
+	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
+	void insert(IdString field_name, SmtSort sort) {
+		field_names(field_name);
+		auto accessor = scope.unique_name("\\" + name + "_" + RTLIL::unescape_id(field_name));
+		fields.emplace_back(Field{sort, accessor});
+	}
+	void write_definition(SExprWriter &w) {
+		w.open(list("declare-datatype", name));
+		w.open(list());
+		w.open(list(name));
+		for(const auto &field : fields)
+			w << list(field.accessor, field.sort.to_sexpr());
+		w.close(3);
+	}
+	template<typename Fn> void write_value(SExprWriter &w, Fn fn) {
+		if(field_names.empty()) {
+			// Zero-argument constructors in SMTLIB must not be called as functions.
+			w << name;
+		} else {
+			w.open(list(name));
+			for(auto field_name : field_names) {
+				w << fn(field_name);
+				w.comment(RTLIL::unescape_id(field_name), true);
+			}
+			w.close();
+		}
+	}
+	SExpr access(SExpr record, IdString name) {
+		size_t i = field_names.at(name);
+		return list(fields[i].accessor, std::move(record));
+	}
+};
 
-  template <class T> std::string arg_to_string(T n) { return std::to_string(n); }
+struct SmtPrintVisitor {
+	using Node = FunctionalIR::Node;
+	std::function<SExpr(Node)> n;
+	SmtStruct &input_struct;
+	SmtStruct &state_struct;
 
-  std::string arg_to_string(std::string n) { return n; }
+	SmtPrintVisitor(SmtStruct &input_struct, SmtStruct &state_struct) : input_struct(input_struct), state_struct(state_struct) {}
 
-  std::string arg_to_string(Node n) { return np(n); }
+	std::string literal(RTLIL::Const c) {
+		std::string s = "#b";
+		for(int i = c.size(); i-- > 0; )
+			s += c[i] == State::S1 ? '1' : '0';
+		return s;
+	}
 
-  template <typename... Args> std::string format(std::string fmt, Args &&...args)
-  {
-    std::vector<std::string> arg_strings = {arg_to_string(std::forward<Args>(args))...};
-    for (size_t i = 0; i < arg_strings.size(); ++i) {
-      std::string placeholder = "%" + std::to_string(i);
-      size_t pos = 0;
-      while ((pos = fmt.find(placeholder, pos)) != std::string::npos) {
-	fmt.replace(pos, placeholder.length(), arg_strings[i]);
-	pos += arg_strings[i].length();
-      }
-    }
-    return fmt;
-  }
-  std::string buf(Node, Node n) { return np(n); }
+	SExpr from_bool(SExpr &&arg) {
+		return list("ite", std::move(arg), "#b1", "#b0");
+	}
+	SExpr to_bool(SExpr &&arg) {
+		return list("=", std::move(arg), "#b1");
+	}
+	SExpr extract(SExpr &&arg, int offset, int out_width = 1) {
+		return list(list("_", "extract", offset + out_width - 1, offset), std::move(arg));
+	}
 
-  std::string slice(Node, Node a, int, int offset, int out_width)
-  {
-    return format("((_ extract %2 %1) %0)", np(a), offset, offset + out_width - 1);
-  }
+	SExpr buf(Node, Node a) { return n(a); }
+	SExpr slice(Node, Node a, int, int offset, int out_width) { return extract(n(a), offset, out_width); }
+	SExpr zero_extend(Node, Node a, int, int out_width) { return list(list("_", "zero_extend", out_width - a.width()), n(a)); }
+	SExpr sign_extend(Node, Node a, int, int out_width) { return list(list("_", "sign_extend", out_width - a.width()), n(a)); }
+	SExpr concat(Node, Node a, int, Node b, int) { return list("concat", n(b), n(a)); }
+	SExpr add(Node, Node a, Node b, int) { return list("bvadd", n(a), n(b)); }
+	SExpr sub(Node, Node a, Node b, int) { return list("bvsub", n(a), n(b)); }
+	SExpr mul(Node, Node a, Node b, int) { return list("bvmul", n(a), n(b)); }
+	SExpr unsigned_div(Node, Node a, Node b, int) { return list("bvudiv", n(a), n(b)); }
+	SExpr unsigned_mod(Node, Node a, Node b, int) { return list("bvurem", n(a), n(b)); }
+	SExpr bitwise_and(Node, Node a, Node b, int) { return list("bvand", n(a), n(b)); }
+	SExpr bitwise_or(Node, Node a, Node b, int) { return list("bvor", n(a), n(b)); }
+	SExpr bitwise_xor(Node, Node a, Node b, int) { return list("bvxor", n(a), n(b)); }
+	SExpr bitwise_not(Node, Node a, int) { return list("bvnot", n(a)); }
+	SExpr unary_minus(Node, Node a, int) { return list("bvneg", n(a)); }
+	SExpr reduce_and(Node, Node a, int) { return from_bool(list("=", n(a), literal(RTLIL::Const(State::S1, a.width())))); }
+	SExpr reduce_or(Node, Node a, int) { return from_bool(list("distinct", n(a), literal(RTLIL::Const(State::S0, a.width())))); }
+	SExpr reduce_xor(Node, Node a, int) {
+		vector<SExpr> s { "bvxor" };
+		for(int i = 0; i < a.width(); i++)
+			s.push_back(extract(n(a), i));
+		return s;
+	}
+	SExpr equal(Node, Node a, Node b, int) { return from_bool(list("=", n(a), n(b))); }
+	SExpr not_equal(Node, Node a, Node b, int) { return from_bool(list("distinct", n(a), n(b))); }
+	SExpr signed_greater_than(Node, Node a, Node b, int) { return from_bool(list("bvsgt", n(a), n(b))); }
+	SExpr signed_greater_equal(Node, Node a, Node b, int) { return from_bool(list("bvsge", n(a), n(b))); }
+	SExpr unsigned_greater_than(Node, Node a, Node b, int) { return from_bool(list("bvugt", n(a), n(b))); }
+	SExpr unsigned_greater_equal(Node, Node a, Node b, int) { return from_bool(list("bvuge", n(a), n(b))); }
 
-  std::string zero_extend(Node, Node a, int, int out_width) { return format("((_ zero_extend %1) %0)", np(a), out_width - a.width()); }
+	SExpr extend(SExpr &&a, int in_width, int out_width) {
+		if(in_width < out_width)
+			return list(list("_", "zero_extend", out_width - in_width), std::move(a));
+		else
+			return std::move(a);
+	}
+	SExpr logical_shift_left(Node, Node a, Node b, int, int) { return list("bvshl", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr logical_shift_right(Node, Node a, Node b, int, int) { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr arithmetic_shift_right(Node, Node a, Node b, int, int) { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr mux(Node, Node a, Node b, Node s, int) { return list("ite", to_bool(n(s)), n(b), n(a)); }
+	SExpr pmux(Node, Node a, Node b, Node s, int, int) {
+		SExpr rv = n(a);
+		for(int i = 0; i < s.width(); i++)
+			rv = list("ite", to_bool(extract(n(s), i)), extract(n(b), a.width() * i, a.width()), rv);
+		return rv;
+	}
+	SExpr constant(Node, RTLIL::Const value) { return literal(value); }
+	SExpr memory_read(Node, Node mem, Node addr, int, int) { return list("select", n(mem), n(addr)); }
+	SExpr memory_write(Node, Node mem, Node addr, Node data, int, int) { return list("store", n(mem), n(addr), n(data)); }
 
-  std::string sign_extend(Node, Node a, int, int out_width) { return format("((_ sign_extend %1) %0)", np(a), out_width - a.width()); }
+	SExpr input(Node, IdString name) { return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name) { return state_struct.access("state", name); }
 
-  std::string concat(Node, Node a, int, Node b, int) { return format("(concat %0 %1)", np(a), np(b)); }
-
-  std::string add(Node, Node a, Node b, int) { return format("(bvadd %0 %1)", np(a), np(b)); }
-
-  std::string sub(Node, Node a, Node b, int) { return format("(bvsub %0 %1)", np(a), np(b)); }
-
-  std::string mul(Node, Node a, Node b, int) { return format("(bvmul %0 %1)", np(a), np(b)); }
-
-  std::string unsigned_div(Node, Node a, Node b, int) { return format("(bvudiv %0 %1)", np(a), np(b)); }
-
-  std::string unsigned_mod(Node, Node a, Node b, int) { return format("(bvurem %0 %1)", np(a), np(b)); }
-
-  std::string bitwise_and(Node, Node a, Node b, int) { return format("(bvand %0 %1)", np(a), np(b)); }
-
-  std::string bitwise_or(Node, Node a, Node b, int) { return format("(bvor %0 %1)", np(a), np(b)); }
-
-  std::string bitwise_xor(Node, Node a, Node b, int) { return format("(bvxor %0 %1)", np(a), np(b)); }
-
-  std::string bitwise_not(Node, Node a, int) { return format("(bvnot %0)", np(a)); }
-
-  std::string unary_minus(Node, Node a, int) { return format("(bvneg %0)", np(a)); }
-
-  std::string reduce_and(Node, Node a, int) {
-    std::stringstream ss;
-    // We use ite to set the result to bit vector, to ensure appropriate type
-    ss << "(ite (= " << np(a) << " #b" << std::string(a.width(), '1') << ") #b1 #b0)";
-    return ss.str();
-  }
- 
-  std::string reduce_or(Node, Node a, int)
-  {
-    std::stringstream ss;
-    // We use ite to set the result to bit vector, to ensure appropriate type
-    ss << "(ite (= " << np(a) << " #b" << std::string(a.width(), '0') << ") #b0 #b1)";
-    return ss.str();
-  }
-
-  std::string reduce_xor(Node, Node a, int) {
-    std::stringstream ss;
-    ss << "(bvxor ";
-    for (int i = 0; i < a.width(); ++i) {
-      if (i > 0) ss << " ";
-      ss << "((_ extract " << i << " " << i << ") " << np(a) << ")";
-    }
-    ss << ")";
-    return ss.str();
-  }
- 
-  std::string equal(Node, Node a, Node b, int) {
-    return format("(ite (= %0 %1) #b1 #b0)", np(a), np(b));
-  }
-
-  std::string not_equal(Node, Node a, Node b, int) {
-    return format("(ite (distinct %0 %1) #b1 #b0)", np(a), np(b));
-  }
-
-  std::string signed_greater_than(Node, Node a, Node b, int) { 
-    return format("(ite (bvsgt %0 %1) #b1 #b0)", np(a), np(b)); 
-  }
-
-  std::string signed_greater_equal(Node, Node a, Node b, int) {
-    return format("(ite (bvsge %0 %1) #b1 #b0)", np(a), np(b));
-  }
-
-  std::string unsigned_greater_than(Node, Node a, Node b, int) { 
-    return format("(ite (bvugt %0 %1) #b1 #b0)", np(a), np(b)); 
-  }
-
-  std::string unsigned_greater_equal(Node, Node a, Node b, int) { 
-    return format("(ite (bvuge %0 %1) #b1 #b0)", np(a), np(b)); 
-  }
-
-  std::string logical_shift_left(Node, Node a, Node b, int, int) {
-    // Get the bit-widths of a and b
-    int bit_width_a = a.width();
-    int bit_width_b = b.width();
-
-    // Extend b to match the bit-width of a if necessary
-    std::ostringstream oss;
-    if (bit_width_a > bit_width_b) {
-      oss << "((_ zero_extend " << (bit_width_a - bit_width_b) << ") " << np(b) << ")";
-    } else {
-      oss << np(b);  // No extension needed if b's width is already sufficient
-    }
-    std::string b_extended = oss.str();
-
-    // Format the bvshl operation with the extended b
-    oss.str(""); // Clear the stringstream
-    oss << "(bvshl " << np(a) << " " << b_extended << ")";
-    return oss.str();
-  }
-
-  std::string logical_shift_right(Node, Node a, Node b, int, int) {
-    // Get the bit-widths of a and b
-    int bit_width_a = a.width();
-    int bit_width_b = b.width();
-
-    // Extend b to match the bit-width of a if necessary
-    std::ostringstream oss;
-    if (bit_width_a > bit_width_b) {
-      oss << "((_ zero_extend " << (bit_width_a - bit_width_b) << ") " << np(b) << ")";
-    } else {
-      oss << np(b);  // No extension needed if b's width is already sufficient
-    }
-    std::string b_extended = oss.str();
-
-    // Format the bvlshr operation with the extended b
-    oss.str(""); // Clear the stringstream
-    oss << "(bvlshr " << np(a) << " " << b_extended << ")";
-    return oss.str();
-  }
-
-  std::string arithmetic_shift_right(Node, Node a, Node b, int, int) {
-    // Get the bit-widths of a and b
-    int bit_width_a = a.width();
-    int bit_width_b = b.width();
-
-    // Extend b to match the bit-width of a if necessary
-    std::ostringstream oss;
-    if (bit_width_a > bit_width_b) {
-      oss << "((_ zero_extend " << (bit_width_a - bit_width_b) << ") " << np(b) << ")";
-    } else {
-      oss << np(b);  // No extension needed if b's width is already sufficient
-    }
-    std::string b_extended = oss.str();
-
-    // Format the bvashr operation with the extended b
-    oss.str(""); // Clear the stringstream
-    oss << "(bvashr " << np(a) << " " << b_extended << ")";
-    return oss.str();
-  }
- 
-  std::string mux(Node, Node a, Node b, Node s, int) {
-    return format("(ite (= %2 #b1) %0 %1)", np(a), np(b), np(s));
-  }
-
-  std::string pmux(Node, Node a, Node b, Node s, int, int)
-  {
-    // Assume s is a bit vector, combine a and b based on the selection bits
-    return format("(pmux %0 %1 %2)", np(a), np(b), np(s));
-  }
-
-  std::string constant(Node, RTLIL::Const value) { return format("#b%0", value.as_string()); }
-
-  std::string input(Node, IdString name) { return format("%0", scope[name]); }
-
-  std::string state(Node, IdString name) { return format("(%0 current_state)", scope[name]); }
-
-  std::string memory_read(Node, Node mem, Node addr, int, int) { return format("(select %0 %1)", np(mem), np(addr)); }
-
-  std::string memory_write(Node, Node mem, Node addr, Node data, int, int) { return format("(store %0 %1 %2)", np(mem), np(addr), np(data)); }
-
-  std::string undriven(Node, int width) { return format("#b%0", std::string(width, '0')); }
+	SExpr undriven(Node, int width) { return literal(RTLIL::Const(State::S0, width)); }
 };
 
 struct SmtModule {
-  std::string name;
-  SmtScope scope;
-  FunctionalIR ir;
+	FunctionalIR ir;
+	SmtScope scope;
+	std::string name;
+	
+	SmtStruct input_struct;
+	SmtStruct output_struct;
+	SmtStruct state_struct;
 
-  SmtModule(const std::string &module_name, FunctionalIR ir) : name(module_name), ir(std::move(ir)) {}
+	SmtModule(Module *module)
+		: ir(FunctionalIR::from_module(module))
+		, scope()
+		, name(scope.unique_name(module->name))
+		, input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope)
+		, output_struct(scope.unique_name(module->name.str() + "_Outputs"), scope)
+		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
+	{
+		for (const auto &input : ir.inputs())
+			input_struct.insert(input.first, input.second);
+		for (const auto &output : ir.outputs())
+			output_struct.insert(output.first, output.second);
+		for (const auto &state : ir.state())
+			state_struct.insert(state.first, state.second);
+	}
 
-  void write(std::ostream &out)
-  {    
-    const bool stateful = ir.state().size() != 0;
-    SmtWriter writer(out);
+	void write(std::ostream &out)
+	{    
+		SExprWriter w(out);
 
-    writer.print("(declare-fun %s () Bool)\n\n", name.c_str());
+		input_struct.write_definition(w);
+		output_struct.write_definition(w);
+		state_struct.write_definition(w);
 
-    writer.print("(declare-datatypes ()  ((Inputs    (mk_inputs");
-    for (const auto &input : ir.inputs()) {
-      std::string input_name = scope[input.first];
-      writer.print(" (%s (_ BitVec %d))", input_name.c_str(), input.second.width());
-    }
-    writer.print("))))\n\n");
+		w << list("declare-datatypes",
+			list(list("Pair", 2)),
+			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
 
-    writer.print("(declare-datatypes () ((Outputs    (mk_outputs");
-    for (const auto &output : ir.outputs()) {
-      std::string output_name = scope[output.first];
-      writer.print(" (%s (_ BitVec %d))", output_name.c_str(), output.second.width());
-    }
-    writer.print("))))\n");
-
-    if (stateful) {
-      writer.print("(declare-datatypes ()  ((State   (mk_state");
-      for (const auto &state : ir.state()) {
-	std::string state_name = scope[state.first];
-	writer.print(" (%s (_ BitVec %d))", state_name.c_str(), state.second.width());
-      }
-      writer.print("))))\n");
-
-      writer.print("(declare-datatypes ()  ((Pair   (mk-pair (outputs Outputs) (next_state State)))))\n");
-    }
-
-    if (stateful)
-      writer.print("(define-fun %s_step ((current_state State) (inputs Inputs)) Pair", name.c_str());
-    else
-      writer.print("(define-fun %s_step ((inputs Inputs)) Outputs", name.c_str());
-
-    writer.print(" (let (");
-    for (const auto &input : ir.inputs()) {
-      std::string input_name = scope[input.first];
-      writer.print(" (%s (%s inputs))", input_name.c_str(), input_name.c_str());
-    }
-    writer.print(" )");
-
-    auto node_to_string = [&](FunctionalIR::Node n) { return scope[n.name()]; };
-    SmtPrintVisitor<decltype(node_to_string)> visitor(node_to_string, scope);
-
-    for (auto it = ir.begin(); it != ir.end(); ++it) {
-      const FunctionalIR::Node &node = *it;
-
-      if (ir.inputs().count(node.name()) > 0)
-	continue;
-
-      std::string node_name = scope[node.name()];
-      std::string node_expr = node.visit(visitor);
-
-      writer.print(" (let ( (%s %s))", node_name.c_str(), node_expr.c_str());
-    }
-
-    if (stateful) {
-      writer.print(" (let ( (next_state (mk_state ");
-      for (const auto &state : ir.state()) {
-	std::string state_name = scope[state.first];
-	const std::string state_assignment = ir.get_state_next_node(state.first).name().c_str();
-	writer.print(" %s", state_assignment.substr(1).c_str());
-      }
-      writer.print(" )))");
-    }
-
-    if (stateful) {
-      writer.print(" (let ( (outputs (mk_outputs ");
-      for (const auto &output : ir.outputs()) {
-	std::string output_name = scope[output.first];
-	writer.print(" %s", output_name.c_str());
-      }
-      writer.print(" )))");
-
-      writer.print("(mk-pair outputs next_state)");
-    }
-    else {
-      writer.print(" (mk_outputs ");
-      for (const auto &output : ir.outputs()) {
-	std::string output_name = scope[output.first];
-	writer.print(" %s", output_name.c_str());
-      }
-      writer.print(" )"); // Closing mk_outputs 
-    }
-    if (stateful) {
-      writer.print(" )"); // Closing outputs let statement
-      writer.print(" )"); // Closing next_state let statement
-    }
-    // Close the nested lets
-    for (size_t i = 0; i < ir.size() - ir.inputs().size(); ++i) {
-      writer.print(" )"); // Closing each node
-    }
-    if (ir.size() == ir.inputs().size())
-      writer.print(" )"); // Corner case
-
-    writer.print(" )"); // Closing inputs let statement
-    writer.print(")\n"); // Closing step function
-  }
+		w.push();
+		w.open(list("define-fun", name,
+			list(list("inputs", input_struct.name),
+			     list("state", state_struct.name)),
+			list("Pair", output_struct.name, state_struct.name)));
+		auto inlined = [&](FunctionalIR::Node n) {
+			return n.fn() == FunctionalIR::Fn::constant ||
+				   n.fn() == FunctionalIR::Fn::undriven;
+		};
+		SmtPrintVisitor visitor(input_struct, state_struct);
+		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
+			if(inlined(n))
+				return n.visit(visitor);
+			else
+				return scope(n.id(), n.name());
+		};
+		visitor.n = node_to_sexpr;
+		for(auto n : ir)
+			if(!inlined(n)) {
+				w.open(list("let", list(list(node_to_sexpr(n), n.visit(visitor)))), false);
+				w.comment(SmtSort(n.sort()).to_sexpr().to_string(), true);
+			}
+		w.open(list("pair"));
+		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_output_node(name)); });
+		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_state_next_node(name)); });
+		w.pop();
+	}
 };
 
 struct FunctionalSmtBackend : public Backend {
-  FunctionalSmtBackend() : Backend("functional_smt2", "Generate SMT-LIB from Functional IR") {}
+	FunctionalSmtBackend() : Backend("functional_smt2", "Generate SMT-LIB from Functional IR") {}
 
-  void help() override { log("\nFunctional SMT Backend.\n\n"); }
+	void help() override { log("\nFunctional SMT Backend.\n\n"); }
 
-  void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
-  {
-    log_header(design, "Executing Functional SMT Backend.\n");
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		log_header(design, "Executing Functional SMT Backend.\n");
 
-    size_t argidx = 1;
-    extra_args(f, filename, args, argidx, design);
+		size_t argidx = 1;
+		extra_args(f, filename, args, argidx, design);
 
-    for (auto module : design->selected_modules()) {
-      log("Processing module `%s`.\n", module->name.c_str());
-      auto ir = FunctionalIR::from_module(module);
-      SmtModule smt(RTLIL::unescape_id(module->name), ir);
-      smt.write(*f);
-    }
-  }
+		for (auto module : design->selected_modules()) {
+			log("Processing module `%s`.\n", module->name.c_str());
+			SmtModule smt(module);
+			smt.write(*f);
+		}
+	}
 } FunctionalSmtBackend;
 
 PRIVATE_NAMESPACE_END
