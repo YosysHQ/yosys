@@ -174,13 +174,21 @@ template <class NodeNames> struct SmtPrintVisitor {
 
 	std::string mux(Node, Node a, Node b, Node s, int) { return format("(if (bitvector->bool %2) %1 %0)", np(a), np(b), np(s)); }
 
+	// TODO: make valid in rosette
+	std::string pmux(Node, Node a, Node b, Node s, int, int) { return format("(pmux %0 %1 %2)", np(a), np(b), np(s)); }
+
 	std::string constant(Node, RTLIL::Const value) { return format("(bv #b%0 %1)", value.as_string(), value.size()); }
 
 	std::string input(Node, IdString name) { return format("%0", scope[name]); }
 
+	// TODO: make valid in rosette
+	std::string memory_read(Node, Node mem, Node addr, int, int) { return format("(select %0 %1)", np(mem), np(addr)); }
+	std::string memory_write(Node, Node mem, Node addr, Node data, int, int) { return format("(store %0 %1 %2)", np(mem), np(addr), np(data)); }
+
 	std::string state(Node, IdString name) { return format("%0", scope[name]); }
 
 	std::string undriven(Node, int width) { return format("(bv 0 %0)", width); }
+
 };
 
 struct SmtModule {
