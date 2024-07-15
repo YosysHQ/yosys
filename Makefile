@@ -143,6 +143,11 @@ LIBS += -lrt
 endif
 endif
 
+ifeq ($(OS), Haiku)
+# Allow usage of non-posix vasprintf, mkstemps functions
+CXXFLAGS += -D_DEFAULT_SOURCE
+endif
+
 YOSYS_VER := 0.43+3
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
