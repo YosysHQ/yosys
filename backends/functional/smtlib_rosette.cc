@@ -138,7 +138,7 @@ struct SmtPrintVisitor {
 	}
 
 	SExpr buf(Node, Node a) { return n(a); }
-	SExpr slice(Node, Node a, int, int offset, int out_width) { return list("extract", n(a), offset, offset + out_width - 1); }
+	SExpr slice(Node, Node a, int, int offset, int out_width) { return list("extract", offset + out_width - 1, offset, n(a)); }
 	SExpr zero_extend(Node, Node a, int, int out_width) { return list("zero-extend", n(a), list("bitvector", out_width)); }
 	SExpr sign_extend(Node, Node a, int, int out_width) { return list("sign-extend", n(a), list("bitvector", out_width)); }
 	SExpr concat(Node, Node a, int, Node b, int) { return list("concat", n(b), n(a)); }
