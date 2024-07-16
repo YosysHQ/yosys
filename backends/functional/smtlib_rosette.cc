@@ -57,7 +57,7 @@ struct SmtSort {
 	SmtSort(FunctionalIR::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
-			return list("error", "'memory");
+			log_error("Memory not supported in Rosette printer");
 		} else if(sort.is_signal()) {
 			return list("bitvector", sort.width());
 		} else {
@@ -165,10 +165,10 @@ struct SmtPrintVisitor {
 	SExpr logical_shift_right(Node, Node a, Node b, int, int) { return list("bvlshr", n(a), n(b)); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b, int, int) { return list("bvashr", n(a), n(b)); }
 	SExpr mux(Node, Node a, Node b, Node s, int) { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr pmux(Node, Node a, Node b, Node s, int, int) { return list("error", "'pmux"); }
+	SExpr pmux(Node, Node a, Node b, Node s, int, int) { log_error("pmux not supported in Rosette printer"); }
 	SExpr constant(Node, RTLIL::Const value) { return list("bv", value.as_string(), value.size()); }
-	SExpr memory_read(Node, Node mem, Node addr, int, int) { return list("error", "'memory_read"); }
-	SExpr memory_write(Node, Node mem, Node addr, Node data, int, int) { return list("error", "'memory_write"); }
+	SExpr memory_read(Node, Node mem, Node addr, int, int) { log_error("memory_read not supported in Rosette printer"); }
+	SExpr memory_write(Node, Node mem, Node addr, Node data, int, int) { log_error("memory_write not supported in Rosette printer"); }
 
 	SExpr input(Node, IdString name) { return input_struct.access("inputs", name); }
 	SExpr state(Node, IdString name) { return state_struct.access("state", name); }
