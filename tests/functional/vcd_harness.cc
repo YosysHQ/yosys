@@ -2,15 +2,46 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include <ctype.h>
+#include <vector>
 
 #include "my_module_functional_cxx.cc"
 
+std::string vcd_name_mangle(std::string name) {
+  std::string ret = name;
+  bool escape = ret.empty() || !isalpha(ret[0]) && ret[0] != '_';
+  for(size_t i = 0; i < ret.size(); i++) {
+    if(isspace(ret[i])) ret[i] = '_';
+    if(!isalnum(ret[i]) && ret[i] != '_' && ret[i] != '$')
+      escape = true;
+  }
+  if(escape)
+    return "\\" + ret;
+  else
+    return ret;
+}
+std::unordered_map<std::string, std::string> codes; 
+
 struct DumpHeader {
   std::ofstream &ofs;
+  std::string code = "!";
   DumpHeader(std::ofstream &ofs) : ofs(ofs) {}
+  void increment_code() {
+    for(size_t i = 0; i < code.size(); i++)
+      if(code[i]++ == '~')
+        code[i] = '!';
+      else
+        return;
+    code.push_back('!');
+  }
   template <size_t n>
   void operator()(const char *name, Signal<n> value) {
-    ofs << "$var wire " << n << " " << name[0] << " " << name << " $end\n";
+    ofs << "$var wire " << n << " " << code << " " << vcd_name_mangle(name) << " $end\n";
+    codes[name] = code;
+    increment_code();
+  }
+  template <size_t n, size_t m>
+  void operator()(const char *name, Memory<n, m> value) {
   }
 };
 
@@ -22,14 +53,17 @@ struct Dump {
     // Bit
     if (n == 1) {
       ofs << (value[0] ? '1' : '0');
-      ofs << name[0] << "\n";
+      ofs << codes[name] << "\n";
       return;
     }
     // vector (multi-bit) signals
     ofs << "b";
     for (size_t i = n; i-- > 0;)
       ofs << (value[i] ? '1' : '0');
-    ofs << " " << name[0] << "\n";
+    ofs << " " << codes[name] << "\n";
+  }
+  template <size_t n, size_t m>
+  void operator()(const char *name, Memory<n, m> value) {
   }
 };
 
@@ -61,14 +95,15 @@ struct Randomize {
 
 int main(int argc, char **argv)
 {
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " <functional_vcd_filename>\n";
+  if (argc != 4) {
+    std::cerr << "Usage: " << argv[0] << " <functional_vcd_filename> <steps> <seed>\n";
     return 1;
   }
 
   const std::string functional_vcd_filename = argv[1];
+  const int steps = atoi(argv[2]);
+  const uint32_t seed = atoi(argv[3]);
 
-  constexpr int steps = 1000;
   constexpr int number_timescale = 1;
   const std::string units_timescale = "us";
   gold::Inputs inputs;
@@ -87,27 +122,12 @@ int main(int argc, char **argv)
     state.visit(d);
   }
   vcd_file << "$enddefinitions $end\n$dumpvars\n";
-  vcd_file << "#0\n";
-  // Set all signals to false
+  std::mt19937 gen(seed);
+
   inputs.visit(Reset());
 
-  gold::eval(inputs, outputs, state, next_state);
-  {
-    Dump d(vcd_file);
-    inputs.visit(d);
-    outputs.visit(d);
-    state.visit(d);
-  }
-
-  // Initialize random number generator once
-  std::random_device rd;
-  std::mt19937 gen(rd());
-
   for (int step = 0; step < steps; ++step) {
-    // Functional backend cxx
-    vcd_file << "#" << (step + 1) << "\n";
-    inputs.visit(Randomize(gen));
-
+    vcd_file << "#" << step << "\n";
     gold::eval(inputs, outputs, state, next_state);
     {
       Dump d(vcd_file);
@@ -117,6 +137,7 @@ int main(int argc, char **argv)
     }
 
     state = next_state;
+    inputs.visit(Randomize(gen));
   }
 
   vcd_file.close();

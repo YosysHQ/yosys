@@ -1,6 +1,5 @@
 import sys
 import argparse
-import random
 import os
 import smtio
 import re
@@ -40,9 +39,10 @@ class SExprParser:
         rv, self.stack[0] = self.stack[0], []
         return rv
 
-def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io):
+def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
     inputs = {}
     outputs = {}
+    states = {}
 
     def handle_datatype(lst):
         print(lst)
@@ -60,6 +60,14 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io):
                 bitvec_size = declaration[1][2]
                 assert output_name.startswith("gold_Outputs_")
                 outputs[output_name[len("gold_Outputs_"):]] = int(bitvec_size)
+        elif datatype_name.endswith("_State"):
+            for declaration in declarations:
+                state_name = declaration[0]
+                assert state_name.startswith("gold_State_")
+                if declaration[1][0] == "_":
+                    states[state_name[len("gold_State_"):]] = int(declaration[1][2])
+                else:
+                    states[state_name[len("gold_State_"):]] = (declaration[1][1][2], declaration[1][2][2])
 
     parser = SExprParser()
     with open(smt_file_path, 'r') as smt_file:
@@ -73,25 +81,44 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io):
     parser.finish()
     assert smt_io.check_sat() == 'sat'
 
+    def initial_state(states):
+        mk_state_parts = []
+        rv = []
+        for name, width in states.items():
+            if isinstance(width, int):
+                binary_string = format(0, '0{}b'.format(width))
+                mk_state_parts.append(f"#b{binary_string}")
+            else:
+                binary_string = format(0, '0{}b'.format(width[1]))
+                rv.append(f"(declare-const test_state_initial_mem_{name} (Array (_ BitVec {width[0]}) (_ BitVec {width[1]})))")
+                rv.append(f"(assert (forall ((i (_ BitVec {width[0]}))) (= (select test_state_initial_mem_{name} i) #b{binary_string})))")
+                mk_state_parts.append(f"test_state_initial_mem_{name}")
+        if len(states) == 0:
+            mk_state_call = "gold_State"
+        else:
+            mk_state_call = "(gold_State {})".format(" ".join(mk_state_parts))
+        rv.append(f"(define-const test_state_step_n0 gold_State {mk_state_call})\n")
+        return rv
+
     def set_step(inputs, step):
         # This function assumes 'inputs' is a dictionary like {"A": 5, "B": 4}
         # and 'input_values' is a dictionary like {"A": 5, "B": 13} specifying the concrete values for each input.
         
         mk_inputs_parts = []
         for input_name, width in inputs.items():
-            value = random.getrandbits(width)  # Generate a random number up to the maximum value for the bit size
+            value = rnd.getrandbits(width)  # Generate a random number up to the maximum value for the bit size
             binary_string = format(value, '0{}b'.format(width))  # Convert value to binary with leading zeros
             mk_inputs_parts.append(f"#b{binary_string}")
 
         mk_inputs_call = "gold_Inputs " + " ".join(mk_inputs_parts)
-        define_inputs = f"(define-const test_inputs_step_n{step} gold_Inputs ({mk_inputs_call}))\n"
+        return [
+            f"(define-const test_inputs_step_n{step} gold_Inputs ({mk_inputs_call}))\n",
+            f"(define-const test_results_step_n{step} (Pair gold_Outputs gold_State) (gold test_inputs_step_n{step} test_state_step_n{step}))\n",
+            f"(define-const test_outputs_step_n{step} gold_Outputs (first test_results_step_n{step}))\n",
+            f"(define-const test_state_step_n{step+1} gold_State (second test_results_step_n{step}))\n",
+        ]
 
-        define_outputs = f"(define-const test_outputs_step_n{step} gold_Outputs (first (gold test_inputs_step_n{step} gold_State)))\n"
-        smt_commands = [define_inputs, define_outputs]
-        return smt_commands
-
-    num_steps = 1000
-    smt_commands = []
+    smt_commands = initial_state(states)
     for step in range(num_steps):
         for step_command in set_step(inputs, step):
             smt_commands.append(step_command)
@@ -168,13 +195,13 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io):
 
     write_vcd(vcd_path, signals)
 
-def simulate_smt(smt_file_path, vcd_path):
+def simulate_smt(smt_file_path, vcd_path, num_steps, rnd):
     so = smtio.SmtOpts()
     so.solver = "z3"
-    so.logic = "BV"
+    so.logic = "ABV"
     so.debug_print = True
     smt_io = smtio.SmtIo(opts=so)
     try:
-        simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io)
+        simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd)
     finally:
         smt_io.p_close()
