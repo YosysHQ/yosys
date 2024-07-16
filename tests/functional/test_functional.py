@@ -61,3 +61,13 @@ def test_smt(cell, parameters, tmp_path):
             f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_yosys_sim_file)} -r {quote(vcd_functional_file)} -scope gold -timescale 1us'],
             capture_output=True, check=False)
         raise
+
+def test_rkt(cell, parameters, tmp_path):
+    rtlil_file = tmp_path / 'rtlil.il'
+    rkt_file = tmp_path / 'smtlib.rkt'
+
+    with open(rtlil_file, 'w') as f:
+        cell.write_rtlil_file(f, parameters)
+    yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_rosette {quote(rkt_file)}")
+    # raco read is a very limited smoke test, mostly looking for malformed code.
+    run(['raco', 'read', rkt_file])
