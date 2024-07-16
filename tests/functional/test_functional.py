@@ -6,11 +6,14 @@ from pathlib import Path
 
 base_path = Path(__file__).resolve().parent.parent.parent
 
+# quote a string or pathlib path so that it can be used by bash or yosys
+# TODO: is this really appropriate for yosys?
 def quote(path):
     return shlex.quote(str(path))
 
+# run a shell command and require the return code to be 0
 def run(cmd, **kwargs):
-    print(' '.join([shlex.quote(str(x)) for x in cmd]))
+    print(' '.join([quote(x) for x in cmd]))
     status = subprocess.run(cmd, **kwargs)
     assert status.returncode == 0, f"{cmd[0]} failed"
 
@@ -20,7 +23,24 @@ def yosys(script):
 def compile_cpp(in_path, out_path, args):
     run(['g++', '-g', '-std=c++17'] + args + [str(in_path), '-o', str(out_path)])
 
-def test_cxx(cell, parameters, tmp_path):
+def yosys_synth(verilog_file, rtlil_file):
+    yosys(f"read_verilog {quote(verilog_file)} ; prep ; clk2fflogic ; write_rtlil {quote(rtlil_file)}")
+
+# simulate an rtlil file with yosys, comparing with a given vcd file, and writing out the yosys simulation results into a second vcd file
+def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file):
+    try:
+        yosys(f"read_rtlil {quote(rtlil_file)}; sim -r {quote(vcd_reference_file)} -scope gold -vcd {quote(vcd_out_file)} -timescale 1us -sim-gold")
+    except:
+        # if yosys sim fails it's probably because of a simulation mismatch
+        # since yosys sim aborts on simulation mismatch to generate vcd output
+        # we have to re-run with a different set of flags
+        # on this run we ignore output and return code, we just want a best-effort attempt to get a vcd
+        subprocess.run([base_path / 'yosys', '-Q', '-p',
+            f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_out_file)} -a -r {quote(vcd_reference_file)} -scope gold -timescale 1us'],
+            capture_output=True, check=False)
+        raise
+
+def test_cxx(cell, parameters, tmp_path, num_steps, rnd):
     rtlil_file = tmp_path / 'rtlil.il'
     vcdharness_cc_file = base_path / 'tests/functional/vcd_harness.cc'
     cc_file = tmp_path / 'my_module_functional_cxx.cc'
@@ -28,20 +48,14 @@ def test_cxx(cell, parameters, tmp_path):
     vcd_functional_file = tmp_path / 'functional.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
-    with open(rtlil_file, 'w') as f:
-        cell.write_rtlil_file(f, parameters)
+    cell.write_rtlil_file(rtlil_file, parameters)
     yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_cxx {quote(cc_file)}")
     compile_cpp(vcdharness_cc_file, vcdharness_exe_file, ['-I', tmp_path, '-I', str(base_path / 'backends/functional/cxx_runtime')])
-    run([str(vcdharness_exe_file.resolve()), str(vcd_functional_file)])
-    try:
-        yosys(f"read_rtlil {quote(rtlil_file)}; sim -r {quote(vcd_functional_file)} -scope gold -vcd {quote(vcd_yosys_sim_file)} -timescale 1us -sim-gold")
-    except:
-        subprocess.run([base_path / 'yosys', '-Q', '-p',
-            f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_yosys_sim_file)} -r {quote(vcd_functional_file)} -scope gold -timescale 1us'],
-            capture_output=True, check=False)
-        raise
+    seed = str(rnd(cell.name + "-cxx").getrandbits(32))
+    run([str(vcdharness_exe_file.resolve()), str(vcd_functional_file), str(num_steps), str(seed)])
+    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file)
 
-def test_smt(cell, parameters, tmp_path):
+def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     import smt_vcd
 
     rtlil_file = tmp_path / 'rtlil.il'
@@ -49,15 +63,8 @@ def test_smt(cell, parameters, tmp_path):
     vcd_functional_file = tmp_path / 'functional.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
-    with open(rtlil_file, 'w') as f:
-        cell.write_rtlil_file(f, parameters)
+    cell.write_rtlil_file(rtlil_file, parameters)
     yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_smt2 {quote(smt_file)}")
-    run(['z3', smt_file])
-    smt_vcd.simulate_smt(smt_file, vcd_functional_file)
-    try:
-        yosys(f"read_rtlil {quote(rtlil_file)}; sim -r {quote(vcd_functional_file)} -scope gold -vcd {quote(vcd_yosys_sim_file)} -timescale 1us -sim-gold")
-    except:
-        subprocess.run([base_path / 'yosys', '-Q', '-p',
-            f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_yosys_sim_file)} -r {quote(vcd_functional_file)} -scope gold -timescale 1us'],
-            capture_output=True, check=False)
-        raise
+    run(['z3', smt_file]) # check if output is valid smtlib before continuing
+    smt_vcd.simulate_smt(smt_file, vcd_functional_file, num_steps, rnd(cell.name + "-smt"))
+    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file)

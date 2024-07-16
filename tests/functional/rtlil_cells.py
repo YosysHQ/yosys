@@ -1,30 +1,6 @@
 from itertools import chain
 import random
 
-widths = [
-    (16, 32, 48, True),
-    (16, 32, 48, False),
-    (32, 16, 48, True),
-    (32, 16, 48, False),
-    (32, 32, 16, True),
-    (32, 32, 16, False)
-]
-
-shift_widths = [
-    (32, 6, 32, True, False),
-    (32, 6, 32, False, False),
-    (32, 6, 64, True, False),
-    (32, 6, 64, False, False),
-    (32, 32, 16, True, False),
-    (32, 32, 16, False, False),
-    (32, 6, 32, True, True),
-    (32, 6, 32, False, True),
-    (32, 6, 64, True, True),
-    (32, 6, 64, False, True),
-    (32, 32, 16, True, True),
-    (32, 32, 16, False, True),
-]
-
 def write_rtlil_cell(f, cell_type, inputs, outputs, parameters):
     f.write('autoidx 1\n')
     f.write('module \\gold\n')
@@ -37,207 +13,260 @@ def write_rtlil_cell(f, cell_type, inputs, outputs, parameters):
         idx += 1
     f.write(f'\tcell ${cell_type} \\UUT\n')
     for (name, value) in parameters.items():
-        f.write(f'\t\tparameter \\{name} {value}\n')
+        if value >= 2**32:
+            f.write(f'\t\tparameter \\{name} {value.bit_length()}\'{value:b}\n')
+        else:
+            f.write(f'\t\tparameter \\{name} {value}\n')
     for name in chain(inputs.keys(), outputs.keys()):
         f.write(f'\t\tconnect \\{name} \\{name}\n')
     f.write(f'\tend\nend\n')
 
 class BaseCell:
-    def __init__(self, name):
+    def __init__(self, name, parameters, inputs, outputs, test_values):
         self.name = name
+        self.parameters = parameters
+        self.inputs = inputs
+        self.outputs = outputs
+        self.test_values = test_values
+    def get_port_width(self, port, parameters):
+        def parse_specifier(spec):
+            if isinstance(spec, int):
+                return spec
+            if isinstance(spec, str):
+                return parameters[spec]
+            if callable(spec):
+                return spec(parameters)
+            assert False, "expected int, str or lambda"
+        if port in self.inputs:
+            return parse_specifier(self.inputs[port])
+        elif port in self.outputs:
+            return parse_specifier(self.outputs[port])
+        else:
+            assert False, "expected input or output"
+    def generate_tests(self, rnd):
+        def print_parameter(v):
+            if isinstance(v, bool):
+                return "S" if v else "U"
+            else:
+                return str(v)
+        for values in self.test_values:
+            if isinstance(values, int):
+                values = [values]
+            name = '-'.join([print_parameter(v) for v in values])
+            parameters = {parameter: int(values[i]) for i, parameter in enumerate(self.parameters)}
+            if self.is_test_valid(values):
+                yield (name, parameters)
+    def write_rtlil_file(self, path, parameters):
+        inputs = {port: self.get_port_width(port, parameters) for port in self.inputs}
+        outputs = {port: self.get_port_width(port, parameters) for port in self.outputs}
+        with open(path, 'w') as f:
+            write_rtlil_cell(f, self.name, inputs, outputs, parameters)
+    def is_test_valid(self, values):
+        return True
 
 class UnaryCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (a_width, _, y_width, signed) in widths:
-            yield (f'{a_width}-{y_width}-{'S' if signed else 'U'}',
-                   {'A_WIDTH' : a_width,
-                    'A_SIGNED' : int(signed),
-                    'Y_WIDTH' : y_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['A_WIDTH']}, {'Y': parameters['Y_WIDTH']}, parameters)
+    def __init__(self, name, values):
+        super().__init__(name, ['A_WIDTH', 'Y_WIDTH', 'A_SIGNED'], {'A': 'A_WIDTH'}, {'Y': 'Y_WIDTH'}, values)
 
 class BinaryCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (a_width, b_width, y_width, signed) in widths:
-            yield (f'{a_width}-{b_width}-{y_width}-{'S' if signed else 'U'}',
-                   {'A_WIDTH' : a_width,
-                    'A_SIGNED' : int(signed),
-                    'B_WIDTH' : b_width,
-                    'B_SIGNED' : int(signed),
-                    'Y_WIDTH' : y_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['A_WIDTH'], 'B': parameters['B_WIDTH']}, {'Y': parameters['Y_WIDTH']}, parameters)
+    def __init__(self, name, values):
+        super().__init__(name, ['A_WIDTH', 'B_WIDTH', 'Y_WIDTH', 'A_SIGNED', 'B_SIGNED'], {'A': 'A_WIDTH', 'B': 'B_WIDTH'}, {'Y': 'Y_WIDTH'}, values)
 
 class ShiftCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (a_width, b_width, y_width, a_signed, b_signed) in shift_widths:
-            if not self.name in ('shift', 'shiftx') and b_signed: continue
-            if self.name == 'shiftx' and a_signed: continue
-            yield (f'{a_width}-{b_width}-{y_width}-{'S' if a_signed else 'U'}{'S' if b_signed else 'U'}',
-                   {'A_WIDTH' : a_width,
-                    'A_SIGNED' : int(a_signed),
-                    'B_WIDTH' : b_width,
-                    'B_SIGNED' : int(b_signed),
-                    'Y_WIDTH' : y_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['A_WIDTH'], 'B': parameters['B_WIDTH']}, {'Y': parameters['Y_WIDTH']}, parameters)
+    def __init__(self, name, values):
+        super().__init__(name,  ['A_WIDTH', 'B_WIDTH', 'Y_WIDTH', 'A_SIGNED', 'B_SIGNED'], {'A': 'A_WIDTH', 'B': 'B_WIDTH'}, {'Y': 'Y_WIDTH'}, values)
+    def is_test_valid(self, values):
+        (a_width, b_width, y_width, a_signed, b_signed) = values
+        if not self.name in ('shift', 'shiftx') and b_signed: return False
+        if self.name == 'shiftx' and a_signed: return False
+        return True
 
 class MuxCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for width in [10, 20, 40]:
-            yield (f'{width}', {'WIDTH' : width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['WIDTH'], 'B': parameters['WIDTH'], 'S': 1}, {'Y': parameters['WIDTH']}, parameters)
+    def __init__(self, name, values):
+        super().__init__(name, ['WIDTH'], {'A': 'WIDTH', 'B': 'WIDTH', 'S': 1}, {'Y': 'WIDTH'}, values)
 
 class BWCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for width in [10, 20, 40]:
-            yield (f'{width}', {'WIDTH' : width})
-    def write_rtlil_file(self, f, parameters):
-        inputs = {'A': parameters['WIDTH'], 'B': parameters['WIDTH']}
-        if self.name == "bwmux": inputs['S'] = parameters['WIDTH']
-        write_rtlil_cell(f, self.name, inputs, {'Y': parameters['WIDTH']}, parameters)
+    def __init__(self, name, values):
+        inputs = {'A': 'WIDTH', 'B': 'WIDTH'}
+        if name == "bwmux": inputs['S'] = 'WIDTH'
+        super().__init__(name, ['WIDTH'], inputs, {'Y': 'WIDTH'}, values)
 
 class PMuxCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (width, s_width) in [(10, 1), (10, 4), (20, 4)]:
-            yield (f'{width}-{s_width}',
-                   {'WIDTH' : width,
-                    'S_WIDTH' : s_width})
-    def write_rtlil_file(self, f, parameters):
-        s_width = parameters['S_WIDTH']
-        b_width = parameters['WIDTH'] * s_width
-        write_rtlil_cell(f, self.name, {'A': parameters['WIDTH'], 'B': b_width, 'S': s_width}, {'Y': parameters['WIDTH']}, parameters)
+    def __init__(self, name, values):
+        b_width = lambda par: par['WIDTH'] * par['S_WIDTH']
+        super().__init__(name, ['WIDTH', 'S_WIDTH'], {'A': 'WIDTH', 'B': b_width, 'S': 'S_WIDTH'}, {'Y': 'WIDTH'}, values)
 
 class BMuxCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (width, s_width) in [(10, 1), (10, 2), (10, 4)]:
-            yield (f'{width}-{s_width}', {'WIDTH' : width, 'S_WIDTH' : s_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['WIDTH'] << parameters['S_WIDTH'], 'S': parameters['S_WIDTH']}, {'Y': parameters['WIDTH']}, parameters)
+    def __init__(self, name, values):
+        a_width = lambda par: par['WIDTH'] << par['S_WIDTH']
+        super().__init__(name, ['WIDTH', 'S_WIDTH'], {'A': a_width, 'S': 'S_WIDTH'}, {'Y': 'WIDTH'}, values)
 
 class DemuxCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (width, s_width) in [(10, 1), (32, 2), (16, 4)]:
-            yield (f'{width}-{s_width}', {'WIDTH' : width, 'S_WIDTH' : s_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['WIDTH'], 'S': parameters['S_WIDTH']}, {'Y': parameters['WIDTH'] << parameters['S_WIDTH']}, parameters)
-
-def seeded_randint(seed, a, b):
-    r = random.getstate()
-    random.seed(seed)
-    n = random.randint(a, b)
-    random.setstate(r)
-    return n
+    def __init__(self, name, values):
+        y_width = lambda par: par['WIDTH'] << par['S_WIDTH']
+        super().__init__(name, ['WIDTH', 'S_WIDTH'], {'A': 'WIDTH', 'S': 'S_WIDTH'}, {'Y': y_width}, values)
 
 class LUTCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for width in [4, 6, 8]:
-            lut = seeded_randint(width, 0, 2**width - 1)
+    def __init__(self, name, values):
+        super().__init__(name, ['WIDTH', 'LUT'], {'A': 'WIDTH'}, {'Y': 1}, values)
+    def generate_tests(self, rnd):
+        for width in self.test_values:
+            lut = rnd(f'lut-{width}').getrandbits(2**width)
             yield (f'{width}', {'WIDTH' : width, 'LUT' : lut})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['WIDTH']}, {'Y': 1}, parameters)
 
 class ConcatCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (a_width, b_width) in [(16, 16), (8, 14), (20, 10)]:
-            yield (f'{a_width}-{b_width}', {'A_WIDTH' : a_width, 'B_WIDTH' : b_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['A_WIDTH'], 'B' : parameters['B_WIDTH']}, {'Y': parameters['A_WIDTH'] + parameters['B_WIDTH']}, parameters)
+    def __init__(self, name, values):
+        y_width = lambda par: par['A_WIDTH'] + par['B_WIDTH']
+        super().__init__(name, ['A_WIDTH', 'B_WIDTH'], {'A': 'A_WIDTH', 'B': 'B_WIDTH'}, {'Y': y_width}, values)
 
 class SliceCell(BaseCell):
-    def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
-        for (a_width, offset, y_width) in [(32, 10, 15), (8, 0, 4), (10, 0, 10)]:
-            yield (f'{a_width}-{offset}-{y_width}', {'A_WIDTH' : a_width, 'OFFSET' : offset, 'Y_WIDTH': y_width})
-    def write_rtlil_file(self, f, parameters):
-        write_rtlil_cell(f, self.name, {'A': parameters['A_WIDTH']}, {'Y': parameters['Y_WIDTH']}, parameters)
+    def __init__(self, name, values):
+        super().__init__(name, ['A_WIDTH', 'OFFSET', 'Y_WIDTH'], {'A': 'A_WIDTH'}, {'Y': 'Y_WIDTH'}, values)
 
 class FailCell(BaseCell):
     def __init__(self, name):
-        super().__init__(name)
-    def generate_tests(self):
+        super().__init__(name, [], {}, {})
+    def generate_tests(self, rnd):
         yield ('', {})
-    def write_rtlil_file(self, f, parameters):
+    def write_rtlil_file(self, path, parameters):
         raise Exception(f'\'{self.name}\' cell unimplemented in test generator')
 
+class FFCell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['WIDTH'], ['D'], ['Q'], values)
+    def write_rtlil_file(self, path, parameters):
+        from test_functional import yosys_synth
+        verilog_file = path.parent / 'verilog.v'
+        with open(verilog_file, 'w') as f:
+            f.write("""
+module gold(
+    input wire clk,
+    input wire [{0}:0] D,
+    output reg [{0}:0] Q
+);
+    always @(posedge clk)
+        Q <= D;
+endmodule""".format(parameters['WIDTH'] - 1))
+        yosys_synth(verilog_file, path)
+
+class MemCell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['DATA_WIDTH', 'ADDR_WIDTH'], {'WA': 'ADDR_WIDTH', 'RA': 'ADDR_WIDTH', 'WD': 'DATA_WIDTH'}, {'RD': 'DATA_WIDTH'}, values)
+    def write_rtlil_file(self, path, parameters):
+        from test_functional import yosys_synth
+        verilog_file = path.parent / 'verilog.v'
+        with open(verilog_file, 'w') as f:
+            f.write("""
+module gold(
+    input wire clk,
+    input wire [{1}:0] WA,
+    input wire [{0}:0] WD,
+    output reg [{0}:0] RD
+);
+    reg [{0}:0] mem[0:{1}];
+    always @(*)
+        RD = mem[RA];
+    always @(posedge clk)
+        mem[WA] <= WD;
+endmodule""".format(parameters['DATA_WIDTH'] - 1, parameters['ADDR_WIDTH'] - 1))
+        yosys_synth(verilog_file, path)
+
+binary_widths = [
+    # try to cover extending A operand, extending B operand, extending/truncating result
+    (16, 32, 48, True, True),
+    (16, 32, 48, False, False),
+    (32, 16, 48, True, True),
+    (32, 16, 48, False, False),
+    (32, 32, 16, True, True),
+    (32, 32, 16, False, False),
+    # have at least one test that checks small inputs, which will exercise the cornercases more
+    (4, 4, 8, True, True),
+    (4, 4, 8, False, False)
+]
+
+unary_widths = [
+    (6, 12, True),
+    (6, 12, False),
+    (32, 16, True),
+    (32, 16, False)
+]
+
+# note that meaningless combinations of signednesses are eliminated,
+# like e.g. most shift operations don't take signed shift amounts
+shift_widths = [
+    # one set of tests that definitely checks all possible shift amounts
+    # with a bigger result width to make sure it's not truncated
+    (32, 6, 64, True, False),
+    (32, 6, 64, False, False),
+    (32, 6, 64, True, True),
+    (32, 6, 64, False, True),
+    # one set that checks very oversized shifts
+    (32, 32, 64, True, False),
+    (32, 32, 64, False, False),
+    (32, 32, 64, True, True),
+    (32, 32, 64, False, True),
+    # at least one test where the result is going to be truncated
+    (32, 6, 16, False, False)
+]
+
 rtlil_cells = [
-    UnaryCell("not"),
-    UnaryCell("pos"),
-    UnaryCell("neg"),
-    BinaryCell("and"),
-    BinaryCell("or"),
-    BinaryCell("xor"),
-    BinaryCell("xnor"),
-    UnaryCell("reduce_and"),
-    UnaryCell("reduce_or"),
-    UnaryCell("reduce_xor"),
-    UnaryCell("reduce_xnor"),
-    UnaryCell("reduce_bool"),
-    ShiftCell("shl"),
-    ShiftCell("shr"),
-    ShiftCell("sshl"),
-    ShiftCell("sshr"),
-    ShiftCell("shift"),
-    ShiftCell("shiftx"),
+    UnaryCell("not", unary_widths),
+    UnaryCell("pos", unary_widths),
+    UnaryCell("neg", unary_widths),
+    BinaryCell("and", binary_widths),
+    BinaryCell("or", binary_widths),
+    BinaryCell("xor", binary_widths),
+    BinaryCell("xnor", binary_widths),
+    UnaryCell("reduce_and", unary_widths),
+    UnaryCell("reduce_or", unary_widths),
+    UnaryCell("reduce_xor", unary_widths),
+    UnaryCell("reduce_xnor", unary_widths),
+    UnaryCell("reduce_bool", unary_widths),
+    ShiftCell("shl", shift_widths),
+    ShiftCell("shr", shift_widths),
+    ShiftCell("sshl", shift_widths),
+    ShiftCell("sshr", shift_widths),
+    ShiftCell("shift", shift_widths),
+    ShiftCell("shiftx", shift_widths),
 #    ("fa", ["A", "B", "C", "X", "Y"]),
 #    ("lcu", ["P", "G", "CI", "CO"]),
 #    ("alu", ["A", "B", "CI", "BI", "X", "Y", "CO"]),
-    BinaryCell("lt"),
-    BinaryCell("le"),
-    BinaryCell("eq"),
-    BinaryCell("ne"),
-    BinaryCell("eqx"),
-    BinaryCell("nex"),
-    BinaryCell("ge"),
-    BinaryCell("gt"),
-    BinaryCell("add"),
-    BinaryCell("sub"),
-    BinaryCell("mul"),
+    BinaryCell("lt", binary_widths),
+    BinaryCell("le", binary_widths),
+    BinaryCell("eq", binary_widths),
+    BinaryCell("ne", binary_widths),
+    BinaryCell("eqx", binary_widths),
+    BinaryCell("nex", binary_widths),
+    BinaryCell("ge", binary_widths),
+    BinaryCell("gt", binary_widths),
+    BinaryCell("add", binary_widths),
+    BinaryCell("sub", binary_widths),
+    BinaryCell("mul", binary_widths),
 #    BinaryCell("macc"),
-    BinaryCell("div"),
-    BinaryCell("mod"),
-    BinaryCell("divfloor"),
-    BinaryCell("modfloor"),
-    BinaryCell("pow"),
-    UnaryCell("logic_not"),
-    BinaryCell("logic_and"),
-    BinaryCell("logic_or"),
-    SliceCell("slice"),
-    ConcatCell("concat"),
-    MuxCell("mux"),
-    BMuxCell("bmux"),
-    PMuxCell("pmux"),
-    DemuxCell("demux"),
-    LUTCell("lut"),
+    BinaryCell("div", binary_widths),
+    BinaryCell("mod", binary_widths),
+    BinaryCell("divfloor", binary_widths),
+    BinaryCell("modfloor", binary_widths),
+    BinaryCell("pow", binary_widths),
+    UnaryCell("logic_not", unary_widths),
+    BinaryCell("logic_and", binary_widths),
+    BinaryCell("logic_or", binary_widths),
+    SliceCell("slice", [(32, 10, 15), (8, 0, 4), (10, 0, 10)]),
+    ConcatCell("concat", [(16, 16), (8, 14), (20, 10)]),
+    MuxCell("mux", [10, 16, 40]),
+    BMuxCell("bmux", [(10, 1), (10, 2), (10, 4)]),
+    PMuxCell("pmux", [(10, 1), (10, 4), (20, 4)]),
+    DemuxCell("demux", [(10, 1), (32, 2), (16, 4)]),
+    LUTCell("lut", [4, 6, 8]),
 #    ("sop", ["A", "Y"]),
 #    ("tribuf", ["A", "EN", "Y"]),
 #    ("specify2", ["EN", "SRC", "DST"]),
 #    ("specify3", ["EN", "SRC", "DST", "DAT"]),
 #    ("specrule", ["EN_SRC", "EN_DST", "SRC", "DST"]),
-    BWCell("bweqx"),
-    BWCell("bwmux"),
+    BWCell("bweqx", [10, 16, 40]),
+    BWCell("bwmux", [10, 16, 40]),
+    FFCell("ff", [10, 20, 40]),
+    MemCell("mem", [(32, 4)])
 #    ("assert", ["A", "EN"]),
 #    ("assume", ["A", "EN"]),
 #    ("live", ["A", "EN"]),
@@ -260,12 +289,12 @@ rtlil_cells = [
 #    ("scopeinfo", []),
 ]
 
-def generate_test_cases(per_cell):
+def generate_test_cases(per_cell, rnd):
     tests = []
     names = []
     for cell in rtlil_cells:
         seen_names = set()
-        for (name, parameters) in cell.generate_tests():
+        for (name, parameters) in cell.generate_tests(rnd):
             if not name in seen_names:
                 seen_names.add(name)
                 tests.append((cell, parameters))
