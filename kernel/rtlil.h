@@ -68,6 +68,7 @@ namespace RTLIL
 	struct SigSpecIterator;
 	struct SigSpecConstIterator;
 	struct SigSpec;
+	struct HellVector;
 	struct CaseRule;
 	struct SwitchRule;
 	struct MemWriteAction;
@@ -838,16 +839,142 @@ struct RTLIL::SigSpecConstIterator
 	inline void operator++() { index++; }
 };
 
+// Evil
+struct RTLIL::HellVector
+{
+	private:
+		std::vector<char> backing;
+		void dump() {
+			std::cout << "Dumping, size is " << backing.size() << std::endl;
+			int i = 0;
+			for (char& c : backing) {
+				std::cout << "backing[" << +i << "] = " << +c << std::endl;
+				i++;
+			}
+		}
+	public:
+		template<typename T> class iterator {
+			private:
+				HellVector *const parent;
+				int position;
+			public:
+				typedef std::bidirectional_iterator_tag iterator_category;
+				typedef T value_type;
+				typedef ptrdiff_t difference_type;
+				typedef T* pointer;
+				typedef T& reference;
+				iterator (HellVector* parent, int position) : parent(parent), position(position) {}
+				T& operator* () {
+					char* as_char = &parent->backing[position * sizeof(T)];
+					return *(T*)as_char;
+				}
+				iterator<T>& operator++() {
+					position += 1;
+					return *this;
+				}
+				iterator<T>& operator--() {
+					position -= 1;
+					return *this;
+				}
+				bool operator==(const iterator &other) const {
+					return position == other.position;
+				}
+				bool operator!=(const iterator& other) const {
+						return !operator==(other);
+				}
+		};
+		template<typename T> class const_iterator {
+			private:
+				const HellVector *const parent;
+				int position;
+			public:
+				typedef std::input_iterator_tag iterator_category;
+				typedef T value_type;
+				typedef ptrdiff_t difference_type;
+				typedef T* pointer;
+				typedef T& reference;
+				const_iterator (const HellVector* parent, int position) : parent(parent), position(position) {}
+				const T& operator* () {
+					const char* as_char = &parent->backing[position * sizeof(T)];
+					return *(const T*)as_char;
+				}
+				const_iterator<T>& operator++() {
+					position += 1;
+					return *this;
+				}
+				const_iterator<T>& operator-() {
+					position -= 1;
+					return *this;
+				}
+				bool operator==(const const_iterator &other) const {
+					return position == other.position;
+				}
+				bool operator!=(const const_iterator& other) const {
+						return !operator==(other);
+				}
+		};
+		template<typename T> class mock_vector {
+				const HellVector *const parent;
+			public:
+				mock_vector(HellVector* parent) {parent(parent)}
+				void clear() {
+					backing.clear();
+				}
+				bool empty() const {
+					return backing.empty();
+				}
+				template<typename T> iterator<T> begin() {
+					return iterator<T>(this, 0);
+				}
+				template<typename T> iterator<T> end() {
+					return iterator<T>(this, backing.size() / sizeof(T));
+				}
+				template<typename T> const_iterator<T> begin() const {
+					return const_iterator<T>(this, 0);
+				}
+				template<typename T> const_iterator<T> end() const {
+					return const_iterator<T>(this, backing.size() / sizeof(T));
+				}
+				template<typename T> T& at(int i) {
+					char* as_char = &parent->backing[i * sizeof(T)];
+					return *(T*)as_char;
+				}
+				template<typename T> const T& at(int i) {
+					const char* as_char = &parent->backing[i * sizeof(T)];
+					return *(const T*)as_char;
+				}
+		};
+		bool empty() const {
+			return backing.empty();
+		}
+		template<typename T> size_t size() const {
+			return backing.size() / sizeof(T);
+		}
+		template<typename T> void push_back(T& thing) {
+			std::cout << "Pushing " << std::dec << sizeof(T) << " bytes" << std::endl;
+			auto size = backing.size();
+			backing.resize(size + sizeof(T));
+			memcpy((void*) &backing[size], (void*) &thing, sizeof(T));
+			// dump();
+		}
+		SigBit &bit(size_t position) const {
+			void* eee = (void*)(&backing[position * sizeof(SigBit)]);
+			return *(SigBit*) eee;
+		}
+		SigChunk &chunk(size_t position) const {
+			void* eee = (void*)(&backing[position * sizeof(SigChunk)]);
+			return *(SigChunk*) eee;
+		}
+
+};
+
 struct RTLIL::SigSpec
 {
 private:
 	int width_;
 	bool packed_;
 	unsigned long hash_;
-	union {
-		std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
-		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
-	};
+	HellVector hell_;
 
 	void pack() const;
 	void unpack() const;
@@ -860,7 +987,7 @@ private:
 	}
 
 	inline void inline_unpack() const {
-		if (packed_ && !chunks_.empty())
+		if (packed_ && !hell_.empty())
 			unpack();
 	}
 
@@ -869,42 +996,14 @@ private:
 	friend struct RTLIL::Module;
 
 public:
-	SigSpec() : width_(0), packed_(true), hash_(0), chunks_() {}
-	~SigSpec() { if (packed_) chunks_.~vector(); else bits_.~vector(); }
+	SigSpec() : width_(0), packed_(true), hash_(0), hell_(), bits_(&hell_), chunks_(&hell_) {}
+	// ~SigSpec() { if (packed_) chunks_.~vector(); else bits_.~vector(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	SigSpec(const Yosys::RTLIL::SigSpec &other)
-	{
-		packed_ = other.packed_;
-		width_ = other.width_;
-		hash_ = other.hash_;
-		if (packed_) {
-			(void)new (&this->chunks_) std::vector<SigChunk>();
-			chunks_ = other.chunks_;
-		} else {
-			(void)new (&this->bits_) std::vector<SigBit>();
-			bits_ = other.bits_;
-		}
-		check();
-	}
+	SigSpec(const Yosys::RTLIL::SigSpec &other) : width_(other.width_), packed_(other.packed_), hash_(other.hash_), hell_(other.hell_), bits_(&hell_), chunks_(&hell_) { check(); }
 	SigSpec& operator=(const Yosys::RTLIL::SigSpec & other)
 	{
-		if (packed_ != other.packed_) {
-			if (packed_) {
-				chunks_.clear();
-				switch_to_unpacked();
-				bits_ = other.bits_;
-			} else {
-				bits_.clear();
-				switch_to_packed();
-				chunks_ = other.chunks_;
-			}
-		} else {
-			if (packed_)
-				chunks_ = other.chunks_;
-			else
-				bits_ = other.bits_;
-		}
-
+		hell_ = other.hell_;
+		packed_ = other.packed_;
 		width_ = other.width_;
 		hash_ = other.hash_;
 		check();
@@ -932,20 +1031,23 @@ public:
 		return hash_;
 	}
 
-	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
-	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
+	HellVector::mock_vector<SigBit> bits_;
+	HellVector::mock_vector<SigChunk> chunks_;
 
 	inline int size() const { return width_; }
 	inline bool empty() const { return width_ == 0; }
 
 	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
+	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return chunks_.at(index); }
 
-	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
+	inline auto begin() { HellVector::iterator<SigBit> it(&hell_, 0); return it; }
+	inline auto end() { HellVector::iterator<SigBit> it(&hell_, hell_.size<SigBit>()); return it; }
+	inline auto begin() const { HellVector::const_iterator<SigBit> it(&hell_, 0); return it; }
+	inline auto end() const { HellVector::const_iterator<SigBit> it(&hell_, hell_.size<SigBit>()); return it; }
+	// inline auto end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
 
-	inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = width_; return it; }
+	// inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
+	// inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = width_; return it; }
 
 	void sort();
 	void sort_and_unify();
@@ -1034,8 +1136,8 @@ public:
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
-	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
-	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+	// operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
+	// operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
 	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
@@ -1752,17 +1854,17 @@ inline unsigned int RTLIL::SigBit::hash() const {
 	return data;
 }
 
-inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
-	return (*sig_p)[index];
-}
+// inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
+// 	return (*sig_p)[index];
+// }
 
-inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
-	return (*sig_p)[index];
-}
+// inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
+// 	return (*sig_p)[index];
+// }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
-	*this = SigBit(sig.chunks().front());
+	log_assert(sig.size() == 1);
+	*this = SigBit(*sig.chunks());
 }
 
 template<typename T>
