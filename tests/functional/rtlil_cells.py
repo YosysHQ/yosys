@@ -123,6 +123,21 @@ class SliceCell(BaseCell):
     def __init__(self, name, values):
         super().__init__(name, ['A_WIDTH', 'OFFSET', 'Y_WIDTH'], {'A': 'A_WIDTH'}, {'Y': 'Y_WIDTH'}, values)
 
+class FACell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['WIDTH'], {'A': 'WIDTH', 'B': 'WIDTH', 'C': 'WIDTH'}, {'X': 'WIDTH', 'Y': 'WIDTH'}, values)
+        self.sim_preprocessing = "techmap" # because FA is not implemented in yosys sim
+
+class LCUCell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['WIDTH'], {'P': 'WIDTH', 'G': 'WIDTH', 'CI': 1}, {'CO': 'WIDTH'}, values)
+        self.sim_preprocessing = "techmap" # because LCU is not implemented in yosys sim
+
+class ALUCell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['A_WIDTH', 'B_WIDTH', 'Y_WIDTH', 'A_SIGNED', 'B_SIGNED'], {'A': 'A_WIDTH', 'B': 'B_WIDTH', 'CI': 1, 'BI': 1}, {'X': 'Y_WIDTH', 'Y': 'Y_WIDTH', 'CO': 'Y_WIDTH'}, values)
+        self.sim_preprocessing = "techmap" # because ALU is not implemented in yosys sim
+
 class FailCell(BaseCell):
     def __init__(self, name):
         super().__init__(name, [], {}, {})
@@ -231,9 +246,9 @@ rtlil_cells = [
     ShiftCell("sshr", shift_widths),
     ShiftCell("shift", shift_widths),
     ShiftCell("shiftx", shift_widths),
-#    ("fa", ["A", "B", "C", "X", "Y"]),
-#    ("lcu", ["P", "G", "CI", "CO"]),
-#    ("alu", ["A", "B", "CI", "BI", "X", "Y", "CO"]),
+    FACell("fa", [8, 20]),
+    LCUCell("lcu", [1, 10]),
+    ALUCell("alu", binary_widths),
     BinaryCell("lt", binary_widths),
     BinaryCell("le", binary_widths),
     BinaryCell("eq", binary_widths),

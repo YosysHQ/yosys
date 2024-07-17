@@ -18,6 +18,7 @@
  */
 
 #include "kernel/functionalir.h"
+#include <optional>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -172,8 +173,38 @@ private:
 			y = factory.mux(y, factory.slice(b, a.width() * i, a.width()), factory.slice(s, i, 1));
 		return y;
 	}
+	dict<IdString, Node> handle_fa(Node a, Node b, Node c) {
+		Node t1 = factory.bitwise_xor(a, b);
+		Node t2 = factory.bitwise_and(a, b);
+		Node t3 = factory.bitwise_and(c, t1);
+		Node y = factory.bitwise_xor(c, t1);
+		Node x = factory.bitwise_or(t2, t3);
+		return {{ID(X), x}, {ID(Y), y}};
+	}
+	Node handle_lcu(Node p, Node g, Node ci) {
+		Node rv = factory.bitwise_or(factory.slice(g, 0, 1), factory.bitwise_and(factory.slice(p, 0, 1), ci));
+		Node c = rv;
+		for(int i = 1; i < p.width(); i++) {
+			c = factory.bitwise_or(factory.slice(g, i, 1), factory.bitwise_and(factory.slice(p, i, 1), c));
+			rv = factory.concat(rv, c);
+		}
+		return rv;
+	}
+	dict<IdString, Node> handle_alu(Node a_in, Node b_in, int y_width, bool is_signed, Node ci, Node bi) {
+		Node a = factory.extend(a_in, y_width, is_signed);
+		Node b_uninverted = factory.extend(b_in, y_width, is_signed);
+		Node b = factory.mux(b_uninverted, factory.bitwise_not(b_uninverted), bi);
+		Node x = factory.bitwise_xor(a, b);
+		Node a_extra = factory.extend(a, y_width + 1, false);
+		Node b_extra = factory.extend(b, y_width + 1, false);
+		Node y_extra = factory.add(factory.add(a_extra, b_extra), factory.extend(ci, a.width() + 1, false));
+		Node y = factory.slice(y_extra, 0, y_width);
+		Node carries = factory.bitwise_xor(y_extra, factory.bitwise_xor(a_extra, b_extra));
+		Node co = factory.slice(carries, 1, y_width);
+		return {{ID(X), x}, {ID(Y), y}, {ID(CO), co}};
+	}
 public:
-	Node handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
+	std::variant<dict<IdString, Node>, Node> handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
 		int b_width = parameters.at(ID(B_WIDTH), Const(-1)).as_int();
@@ -360,17 +391,23 @@ public:
 			Node s = factory.extend(inputs.at(ID(S)), b_width, false);
 			Node b = factory.mul(s, factory.constant(Const(width, b_width)));
 			return factory.logical_shift_left(a, b);
+		} else if(cellType == ID($fa)) {
+			return handle_fa(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(C)));
+		} else if(cellType == ID($lcu)) {
+			return handle_lcu(inputs.at(ID(P)), inputs.at(ID(G)), inputs.at(ID(CI)));
+		} else if(cellType == ID($alu)) {
+			return handle_alu(inputs.at(ID(A)), inputs.at(ID(B)), y_width, a_signed && b_signed, inputs.at(ID(CI)), inputs.at(ID(BI)));
 		} else {
-			log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
+			log_error("`%s' cells are not supported by the functional backend\n", cellType.c_str());
 		}
 	}
 };
 
 class FunctionalIRConstruction {
 	using Node = FunctionalIR::Node;
-	std::deque<DriveSpec> queue;
+	std::deque<std::variant<DriveSpec, Cell *>> queue;
 	dict<DriveSpec, Node> graph_nodes;
-	idict<Cell *> cells;
+	dict<std::pair<Cell *, IdString>, Node> cell_outputs;
 	DriverMap driver_map;
 	FunctionalIR::Factory& factory;
 	CellSimplifier simplifier;
@@ -388,6 +425,24 @@ class FunctionalIRConstruction {
 		}else
 			return it->second;
 	}
+	Node enqueue_cell(Cell *cell, IdString port_name)
+	{
+		auto it = cell_outputs.find({cell, port_name});
+		if(it == cell_outputs.end()) {
+			queue.emplace_back(cell);
+			std::optional<Node> rv;
+			for(auto const &[name, sigspec] : cell->connections())
+				if(driver_map.celltypes.cell_output(cell->type, name)) {
+					auto node = factory.create_pending(sigspec.size());
+					factory.suggest_name(node, cell->name.str() + "$" + name.str());
+					cell_outputs.emplace({cell, name}, node);
+					if(name == port_name)
+						rv = node;
+				}
+			return *rv;
+		} else
+			return it->second;
+	}
 public:
 	FunctionalIRConstruction(FunctionalIR::Factory &f) : factory(f), simplifier(f) {}
 	void add_module(Module *module)
@@ -395,7 +450,7 @@ public:
 		driver_map.add(module);
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($assert), ID($assume), ID($cover), ID($check)))
-				enqueue(DriveBitMarker(cells(cell), 0));
+				queue.emplace_back(cell);
 		}
 		for (auto wire : module->wires()) {
 			if (wire->port_output) {
@@ -441,10 +496,44 @@ public:
 		factory.declare_state_memory(node, mem->cell->name, addr_width, data_width);
 		return concatenate_read_results(mem, read_results);
 	}
+	void process_cell(Cell *cell)
+	{
+		if (cell->is_mem_cell()) {
+			Mem *mem = memories.at(cell, nullptr);
+			log_assert(mem != nullptr);
+			Node node = handle_memory(mem);
+			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
+		} else {
+			dict<IdString, Node> connections;
+			IdString output_name; // for the single output case
+			int n_outputs = 0;
+			for(auto const &[name, sigspec] : cell->connections()) {
+				if(driver_map.celltypes.cell_input(cell->type, name))
+					connections.insert({ name, enqueue(DriveChunkPort(cell, {name, sigspec})) });
+				if(driver_map.celltypes.cell_output(cell->type, name)) {
+					output_name = name;
+					n_outputs++;
+				}
+			}
+			std::variant<dict<IdString, Node>, Node> outputs = simplifier.handle(cell->type, cell->parameters, connections);
+			if(auto *nodep = std::get_if<Node>(&outputs); nodep != nullptr) {
+				log_assert(n_outputs == 1);
+				factory.update_pending(cell_outputs.at({cell, output_name}), *nodep);
+			} else {
+				for(auto [name, node] : std::get<dict<IdString, Node>>(outputs))
+					factory.update_pending(cell_outputs.at({cell, name}), node);
+			}
+		}
+	}
 	void process_queue()
 	{
 		for (; !queue.empty(); queue.pop_front()) {
-			DriveSpec spec = queue.front();
+			if(auto p = std::get_if<Cell *>(&queue.front()); p != nullptr) {
+				process_cell(*p);
+				continue;
+			}
+
+			DriveSpec spec = std::get<DriveSpec>(queue.front());
 			Node pending = graph_nodes.at(spec);
 
 			if (spec.chunks().size() > 1) {
@@ -492,11 +581,7 @@ public:
 							}
 							else
 							{
-								Node cell = enqueue(DriveChunkMarker(cells(port_chunk.cell), 0, port_chunk.width));
-								factory.suggest_name(cell, port_chunk.cell->name);
-								//Node node = factory.cell_output(cell, port_chunk.cell->type, port_chunk.port, port_chunk.width);
-								Node node = cell;
-								factory.suggest_name(node, port_chunk.cell->name.str() + "$" + port_chunk.port.str());
+								Node node = enqueue_cell(port_chunk.cell, port_chunk.port);
 								factory.update_pending(pending, node);
 							}
 						} else {
@@ -518,22 +603,6 @@ public:
 						args.push_back(enqueue(driver));
 					Node node = factory.multiple(args, chunk.size());
 					factory.update_pending(pending, node);
-				} else if (chunk.is_marker()) {
-					Cell *cell = cells[chunk.marker().marker];
-					if (cell->is_mem_cell()) {
-						Mem *mem = memories.at(cell, nullptr);
-						log_assert(mem != nullptr);
-						Node node = handle_memory(mem);
-						factory.update_pending(pending, node);
-					} else {
-						dict<IdString, Node> connections;
-						for(auto const &conn : cell->connections()) {
-							if(driver_map.celltypes.cell_input(cell->type, conn.first))
-								connections.insert({ conn.first, enqueue(DriveChunkPort(cell, conn)) });
-						}
-						Node node = simplifier.handle(cell->type, cell->parameters, connections);
-						factory.update_pending(pending, node);
-					}
 				} else if (chunk.is_none()) {
 					Node node = factory.undriven(chunk.size());
 					factory.update_pending(pending, node);
