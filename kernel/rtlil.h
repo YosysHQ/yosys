@@ -843,6 +843,7 @@ struct RTLIL::SigSpecConstIterator
 struct RTLIL::HellVector
 {
 	private:
+		// TODO spend at least ten seconds thinking about alignment
 		std::vector<char> backing;
 		void dump() {
 			std::cout << "Dumping, size is " << backing.size() << std::endl;
@@ -853,119 +854,243 @@ struct RTLIL::HellVector
 			}
 		}
 	public:
+		// template <typename T>
+		// using iterator = T*;
+		// template <typename T>
+		// using const_iterator = T*;
+		template<typename T> class mock_vector;
 		template<typename T> class iterator {
+			friend mock_vector<T>;
 			private:
-				HellVector *const parent;
-				int position;
+				char* position;
 			public:
-				typedef std::bidirectional_iterator_tag iterator_category;
+				typedef std::random_access_iterator_tag iterator_category;
 				typedef T value_type;
 				typedef ptrdiff_t difference_type;
 				typedef T* pointer;
 				typedef T& reference;
-				iterator (HellVector* parent, int position) : parent(parent), position(position) {}
-				T& operator* () {
-					char* as_char = &parent->backing[position * sizeof(T)];
-					return *(T*)as_char;
+				iterator (char* position) : position(position) {}
+				T& operator* () const {
+					return *(T*)position;
+				}
+				T* operator-> () const {
+					return (const T*)position;
+				}
+				iterator<T> operator+(size_t i) {
+					return iterator<T>((char*)((T*)position + i));
+				}
+				size_t operator-(iterator<T> other) {
+					return (size_t)(position - other.position) / sizeof(T);
+				}
+				iterator<T> operator-(size_t i) {
+					return iterator<T>(position - i * sizeof(T));
 				}
 				iterator<T>& operator++() {
-					position += 1;
+					position += sizeof(T);
 					return *this;
 				}
 				iterator<T>& operator--() {
-					position -= 1;
+					position -= sizeof(T);
 					return *this;
+				}
+				iterator<T>& operator++(int) {
+					position += sizeof(T);
+					return *this;
+				}
+				iterator<T>& operator--(int) {
+					position -= sizeof(T);
+					return *this;
+				}
+				bool operator<(const iterator& other) const {
+					return position < other.position;
 				}
 				bool operator==(const iterator &other) const {
 					return position == other.position;
 				}
 				bool operator!=(const iterator& other) const {
-						return !operator==(other);
+					return !operator==(other);
 				}
 		};
 		template<typename T> class const_iterator {
+			friend mock_vector<T>;
 			private:
-				const HellVector *const parent;
-				int position;
+				char* position;
 			public:
 				typedef std::input_iterator_tag iterator_category;
 				typedef T value_type;
 				typedef ptrdiff_t difference_type;
 				typedef T* pointer;
 				typedef T& reference;
-				const_iterator (const HellVector* parent, int position) : parent(parent), position(position) {}
-				const T& operator* () {
-					const char* as_char = &parent->backing[position * sizeof(T)];
-					return *(const T*)as_char;
+				const_iterator (char* position) : position(position) {}
+				const T& operator* () const {
+					return *(const T*)position;
+				}
+				const T* operator-> () const {
+					return (const T*)position;
+				}
+				const_iterator<T> operator+(size_t i) {
+					return const_iterator<T>((char*)((T*)position + i));
+				}
+				size_t operator-(const_iterator<T> other) {
+					return (size_t)(position - other.position) / sizeof(T);
+				}
+				const_iterator<T> operator-(size_t i) {
+					return const_iterator<T>(position - i * sizeof(T));
 				}
 				const_iterator<T>& operator++() {
-					position += 1;
+					position += sizeof(T);
 					return *this;
 				}
-				const_iterator<T>& operator-() {
-					position -= 1;
+				const_iterator<T>& operator--() {
+					position -= sizeof(T);
 					return *this;
+				}
+				const_iterator<T>& operator++(int) {
+					position += sizeof(T);
+					return *this;
+				}
+				const_iterator<T>& operator--(int) {
+					position -= sizeof(T);
+					return *this;
+				}
+				bool operator<(const const_iterator& other) const {
+					return position < other.position;
 				}
 				bool operator==(const const_iterator &other) const {
 					return position == other.position;
 				}
 				bool operator!=(const const_iterator& other) const {
-						return !operator==(other);
+					return !operator==(other);
 				}
 		};
+		template <typename T>
+		using reverse_iterator = std::reverse_iterator<iterator<T>>;
+		template <typename T>
+		using const_reverse_iterator = std::reverse_iterator<const_iterator<T>>;
 		template<typename T> class mock_vector {
-				const HellVector *const parent;
+				HellVector& parent;
 			public:
-				mock_vector(HellVector* parent) {parent(parent)}
-				void clear() {
-					backing.clear();
+				mock_vector(HellVector& p) : parent(p) {}
+				template<class... Args>
+				T& emplace_back(Args&&... args) {
+					// TODO optimize this
+					push_back(T(std::forward<Args>(args)...));
+					return back();
 				}
-				bool empty() const {
-					return backing.empty();
+				void reserve(size_t n) {
+					parent.backing.reserve(sizeof(T) * n);
 				}
-				template<typename T> iterator<T> begin() {
-					return iterator<T>(this, 0);
+				void push_back(T t) {
+					std::cout << "Pushing " << std::dec << sizeof(T) << " bytes" << std::endl;
+					auto size = parent.backing.size();
+					parent.backing.resize(size + sizeof(T));
+					memcpy((void*) &parent.backing[size], (void*) &t, sizeof(T));
+					// dump();
+					// parent.backing.push_back<T>(t);
 				}
-				template<typename T> iterator<T> end() {
-					return iterator<T>(this, backing.size() / sizeof(T));
-				}
-				template<typename T> const_iterator<T> begin() const {
-					return const_iterator<T>(this, 0);
-				}
-				template<typename T> const_iterator<T> end() const {
-					return const_iterator<T>(this, backing.size() / sizeof(T));
-				}
-				template<typename T> T& at(int i) {
-					char* as_char = &parent->backing[i * sizeof(T)];
+				T& operator[](size_t i) {
+					char* as_char = &parent.backing[i * sizeof(T)];
 					return *(T*)as_char;
 				}
-				template<typename T> const T& at(int i) {
-					const char* as_char = &parent->backing[i * sizeof(T)];
-					return *(const T*)as_char;
+				const T& operator[](size_t i) const {
+					const char* as_char = &parent.backing[i * sizeof(T)];
+					return *(T*)as_char;
+				}
+				T& at(size_t i) {
+					if (i >= parent.backing.size() / sizeof(T))
+						throw std::out_of_range("HellVector::mock_vector.at(size_t i)");
+					return (*this)[i];
+				}
+				const T& at(size_t i) const {
+					if (i >= parent.backing.size() / sizeof(T))
+						throw std::out_of_range("HellVector::mock_vector.at(size_t i)");
+					return (*this)[i];
+				}
+				// Unlike with std::vector, this kind of signature doesn't provide a return value because I didn't feel like it
+				void erase(iterator<T> it) {
+					size_t position = it - begin();
+					(void)parent.backing.erase(parent.backing.begin() + position * sizeof(T), parent.backing.begin() + (position + 1) * sizeof(T));
+				}
+				void erase(const_iterator<T> it) {
+					size_t position = it - begin();
+					(void)parent.backing.erase(parent.backing.begin() + position * sizeof(T), parent.backing.begin() + (position + 1) * sizeof(T));
+				}
+				void erase(iterator<T> first_it, iterator<T> last_it) {
+					size_t first = first_it - begin();
+					size_t last = last_it - begin();
+					(void)parent.backing.erase(parent.backing.begin() + first * sizeof(T), parent.backing.begin() + last * sizeof(T));
+				}
+				void erase(const_iterator<T> first_it, const_iterator<T> last_it) {
+					size_t first = first_it - begin();
+					size_t last = last_it - begin();
+					(void)parent.backing.erase(parent.backing.begin() + first * sizeof(T), parent.backing.begin() + last * sizeof(T));
+				}
+				iterator<T> insert(iterator<T> pos_it, const T& value) {
+					size_t position = pos_it - begin();
+					// vector<char> allows us to use char* as iterators for the source range of the insert
+					auto backing_it = parent.backing.insert(parent.backing.begin() + (position * sizeof(T)), &value, &value + 1);
+					size_t ret_position = (backing_it - parent.backing.begin()) / sizeof(T);
+					return begin() + ret_position;
+				}
+				iterator<T> insert(iterator<T> pos_it, const_iterator<T> first_it, const_iterator<T> last_it) {
+					size_t backing_position = (pos_it - begin()) * sizeof(T);
+					// vector<char> allows us to use char* as iterators for the source range of the insert
+					auto backing_it = parent.backing.insert(parent.backing.begin() + backing_position, first_it.position, last_it.position);
+					size_t ret_position = (backing_it - parent.backing.begin()) / sizeof(T);
+					return begin() + ret_position;
+				}
+				void swap(mock_vector<T>& other) {
+					parent.backing.swap(other.parent.backing);
+				}
+				void clear() {
+					parent.backing.clear();
+				}
+				size_t size() const {
+					return parent.backing.size() / sizeof(T);
+				}
+				bool empty() const {
+					return parent.backing.empty();
+				}
+				iterator<T> begin() {
+					return iterator<T>(&parent.backing[0]);
+				}
+				iterator<T> end() {
+					return iterator<T>(&parent.backing[parent.backing.size()]);
+				}
+				const_iterator<T> begin() const {
+					return const_iterator<T>(&parent.backing[0]);
+				}
+				const_iterator<T> end() const {
+					return const_iterator<T>(&parent.backing[parent.backing.size()]);
+				}
+				reverse_iterator<T> rbegin() {
+					return reverse_iterator<T>(end());
+				}
+				reverse_iterator<T> rend() {
+					return reverse_iterator<T>(begin());
+				}
+				const_reverse_iterator<T> rbegin() const {
+					return const_reverse_iterator<T>(end());
+				}
+				const_reverse_iterator<T> rend() const {
+					return const_reverse_iterator<T>(begin());
+				}
+				T& front() {
+					return (*this)[0];
+				}
+				T& back() {
+					return (*this)[parent.backing.size() / sizeof(T) - 1];
+				}
+				const T& front() const {
+					return (*this)[0];
+				}
+				const T& back() const {
+					return (*this)[parent.backing.size() / sizeof(T) - 1];
 				}
 		};
-		bool empty() const {
-			return backing.empty();
-		}
-		template<typename T> size_t size() const {
-			return backing.size() / sizeof(T);
-		}
-		template<typename T> void push_back(T& thing) {
-			std::cout << "Pushing " << std::dec << sizeof(T) << " bytes" << std::endl;
-			auto size = backing.size();
-			backing.resize(size + sizeof(T));
-			memcpy((void*) &backing[size], (void*) &thing, sizeof(T));
-			// dump();
-		}
-		SigBit &bit(size_t position) const {
-			void* eee = (void*)(&backing[position * sizeof(SigBit)]);
-			return *(SigBit*) eee;
-		}
-		SigChunk &chunk(size_t position) const {
-			void* eee = (void*)(&backing[position * sizeof(SigChunk)]);
-			return *(SigChunk*) eee;
-		}
-
+	void swap(HellVector& other) {
+		other.backing.swap(backing);
+	}
 };
 
 struct RTLIL::SigSpec
@@ -973,13 +1098,20 @@ struct RTLIL::SigSpec
 private:
 	int width_;
 	bool packed_;
-	unsigned long hash_;
-	HellVector hell_;
+	mutable unsigned long hash_;
+	mutable HellVector hell_;
+
+	typedef HellVector::mock_vector<SigBit> bit_vec_type;
+	typedef HellVector::mock_vector<SigChunk> chunk_vec_type;
+
+	bit_vec_type bits_;
+	chunk_vec_type chunks_;
+
 
 	void pack() const;
 	void unpack() const;
-	void switch_to_packed() const;
-	void switch_to_unpacked() const;
+	void switch_to_packed();
+	void switch_to_unpacked();
 	void updhash() const;
 
 	inline bool packed() const {
@@ -987,7 +1119,7 @@ private:
 	}
 
 	inline void inline_unpack() const {
-		if (packed_ && !hell_.empty())
+		if (packed_ && !chunks_.empty())
 			unpack();
 	}
 
@@ -996,10 +1128,10 @@ private:
 	friend struct RTLIL::Module;
 
 public:
-	SigSpec() : width_(0), packed_(true), hash_(0), hell_(), bits_(&hell_), chunks_(&hell_) {}
+	SigSpec() : width_(0), packed_(true), hash_(0), hell_(), bits_(hell_), chunks_(hell_) {}
 	// ~SigSpec() { if (packed_) chunks_.~vector(); else bits_.~vector(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	SigSpec(const Yosys::RTLIL::SigSpec &other) : width_(other.width_), packed_(other.packed_), hash_(other.hash_), hell_(other.hell_), bits_(&hell_), chunks_(&hell_) { check(); }
+	SigSpec(const Yosys::RTLIL::SigSpec &other) : width_(other.width_), packed_(other.packed_), hash_(other.hash_), hell_(other.hell_), bits_(hell_), chunks_(hell_) { check(); }
 	SigSpec& operator=(const Yosys::RTLIL::SigSpec & other)
 	{
 		hell_ = other.hell_;
@@ -1022,6 +1154,8 @@ public:
 	SigSpec(const RTLIL::SigBit &bit, int width = 1);
 	SigSpec(const std::vector<RTLIL::SigChunk> &chunks);
 	SigSpec(const std::vector<RTLIL::SigBit> &bits);
+	SigSpec(const chunk_vec_type &chunks);
+	SigSpec(const bit_vec_type &bits);
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
@@ -1031,19 +1165,19 @@ public:
 		return hash_;
 	}
 
-	HellVector::mock_vector<SigBit> bits_;
-	HellVector::mock_vector<SigChunk> chunks_;
+	inline const auto &chunks() const { pack(); return chunks_; }
+	inline const auto &bits() const { inline_unpack(); return bits_; }
 
 	inline int size() const { return width_; }
 	inline bool empty() const { return width_ == 0; }
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return chunks_.at(index); }
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack();  SigBit& bit = bits_.at(index); return bit; }
+	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); const SigBit& bit = bits_.at(index); return bit; }
 
-	inline auto begin() { HellVector::iterator<SigBit> it(&hell_, 0); return it; }
-	inline auto end() { HellVector::iterator<SigBit> it(&hell_, hell_.size<SigBit>()); return it; }
-	inline auto begin() const { HellVector::const_iterator<SigBit> it(&hell_, 0); return it; }
-	inline auto end() const { HellVector::const_iterator<SigBit> it(&hell_, hell_.size<SigBit>()); return it; }
+	inline auto begin() { return bits_.begin(); }
+	inline auto end() { return bits_.end(); }
+	inline auto begin() const { return bits_.begin(); }
+	inline auto end() const { return bits_.end(); }
 	// inline auto end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
 
 	// inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
@@ -1128,7 +1262,7 @@ public:
 
 	std::set<RTLIL::SigBit> to_sigbit_set() const;
 	pool<RTLIL::SigBit> to_sigbit_pool() const;
-	std::vector<RTLIL::SigBit> to_sigbit_vector() const;
+	bit_vec_type to_sigbit_vector() const;
 	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	dict<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_dict(const RTLIL::SigSpec &other) const;
 
@@ -1864,7 +1998,7 @@ inline unsigned int RTLIL::SigBit::hash() const {
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
 	log_assert(sig.size() == 1);
-	*this = SigBit(*sig.chunks());
+	*this = SigBit(sig.chunks().front());
 }
 
 template<typename T>
