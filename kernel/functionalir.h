@@ -385,78 +385,79 @@ public:
 		void check_shift(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && b.sort().is_signal()); }
 		void check_unary(Node const &a) { log_assert(a.sort().is_signal()); }
 	public:
-		Node slice(Node a, int, int offset, int out_width) {
+		Node slice(Node a, int offset, int out_width) {
 			log_assert(a.sort().is_signal() && offset + out_width <= a.sort().width());
 			if(offset == 0 && out_width == a.width())
 				return a;
 			return add(NodeData(Fn::slice, offset), Sort(out_width), {a});
 		}
-		Node extend(Node a, int, int out_width, bool is_signed) {
+		// extend will either extend or truncate the provided value to reach the desired width
+		Node extend(Node a, int out_width, bool is_signed) {
 			int in_width = a.sort().width();
 			log_assert(a.sort().is_signal());
 			if(in_width == out_width)
 				return a;
-			if(in_width < out_width)
-				return slice(a, in_width, 0, out_width);
+			if(in_width > out_width)
+				return slice(a, 0, out_width);
 			if(is_signed)
 				return add(Fn::sign_extend, Sort(out_width), {a});
 			else
 				return add(Fn::zero_extend, Sort(out_width), {a});
 		}
-		Node concat(Node a, int, Node b, int) {
+		Node concat(Node a, Node b) {
 			log_assert(a.sort().is_signal() && b.sort().is_signal());
 			return add(Fn::concat, Sort(a.sort().width() + b.sort().width()), {a, b});
 		}
-		Node add(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::add, a.sort(), {a, b}); }
-		Node sub(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::sub, a.sort(), {a, b}); }
-		Node mul(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::mul, a.sort(), {a, b}); }
-		Node unsigned_div(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_div, a.sort(), {a, b}); }
-		Node unsigned_mod(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_mod, a.sort(), {a, b}); }
-		Node bitwise_and(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_and, a.sort(), {a, b}); }
-		Node bitwise_or(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_or, a.sort(), {a, b}); }
-		Node bitwise_xor(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::bitwise_xor, a.sort(), {a, b}); }
-		Node bitwise_not(Node a, int) { check_unary(a); return add(Fn::bitwise_not, a.sort(), {a}); }
-		Node unary_minus(Node a, int) { check_unary(a); return add(Fn::unary_minus, a.sort(), {a}); }
-		Node reduce_and(Node a, int) {
+		Node add(Node a, Node b) { check_basic_binary(a, b); return add(Fn::add, a.sort(), {a, b}); }
+		Node sub(Node a, Node b) { check_basic_binary(a, b); return add(Fn::sub, a.sort(), {a, b}); }
+		Node mul(Node a, Node b) { check_basic_binary(a, b); return add(Fn::mul, a.sort(), {a, b}); }
+		Node unsigned_div(Node a, Node b) { check_basic_binary(a, b); return add(Fn::unsigned_div, a.sort(), {a, b}); }
+		Node unsigned_mod(Node a, Node b) { check_basic_binary(a, b); return add(Fn::unsigned_mod, a.sort(), {a, b}); }
+		Node bitwise_and(Node a, Node b) { check_basic_binary(a, b); return add(Fn::bitwise_and, a.sort(), {a, b}); }
+		Node bitwise_or(Node a, Node b) { check_basic_binary(a, b); return add(Fn::bitwise_or, a.sort(), {a, b}); }
+		Node bitwise_xor(Node a, Node b) { check_basic_binary(a, b); return add(Fn::bitwise_xor, a.sort(), {a, b}); }
+		Node bitwise_not(Node a) { check_unary(a); return add(Fn::bitwise_not, a.sort(), {a}); }
+		Node unary_minus(Node a) { check_unary(a); return add(Fn::unary_minus, a.sort(), {a}); }
+		Node reduce_and(Node a) {
 			check_unary(a);
 			if(a.width() == 1)
 				return a;
 			return add(Fn::reduce_and, Sort(1), {a});
 		}
-		Node reduce_or(Node a, int) {
+		Node reduce_or(Node a) {
 			check_unary(a);
 			if(a.width() == 1)
 				return a;
 			return add(Fn::reduce_or, Sort(1), {a});
 		}
-		Node reduce_xor(Node a, int) { 
+		Node reduce_xor(Node a) { 
 			check_unary(a);
 			if(a.width() == 1)
 				return a;
 			return add(Fn::reduce_xor, Sort(1), {a});
 		}
-		Node equal(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::equal, Sort(1), {a, b}); }
-		Node not_equal(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::not_equal, Sort(1), {a, b}); }
-		Node signed_greater_than(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::signed_greater_than, Sort(1), {a, b}); }
-		Node signed_greater_equal(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::signed_greater_equal, Sort(1), {a, b}); }
-		Node unsigned_greater_than(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_greater_than, Sort(1), {a, b}); }
-		Node unsigned_greater_equal(Node a, Node b, int) { check_basic_binary(a, b); return add(Fn::unsigned_greater_equal, Sort(1), {a, b}); }
-		Node logical_shift_left(Node a, Node b, int, int) { check_shift(a, b); return add(Fn::logical_shift_left, a.sort(), {a, b}); }
-		Node logical_shift_right(Node a, Node b, int, int) { check_shift(a, b); return add(Fn::logical_shift_right, a.sort(), {a, b}); }
-		Node arithmetic_shift_right(Node a, Node b, int, int) { check_shift(a, b); return add(Fn::arithmetic_shift_right, a.sort(), {a, b}); }
-		Node mux(Node a, Node b, Node s, int) {
+		Node equal(Node a, Node b) { check_basic_binary(a, b); return add(Fn::equal, Sort(1), {a, b}); }
+		Node not_equal(Node a, Node b) { check_basic_binary(a, b); return add(Fn::not_equal, Sort(1), {a, b}); }
+		Node signed_greater_than(Node a, Node b) { check_basic_binary(a, b); return add(Fn::signed_greater_than, Sort(1), {a, b}); }
+		Node signed_greater_equal(Node a, Node b) { check_basic_binary(a, b); return add(Fn::signed_greater_equal, Sort(1), {a, b}); }
+		Node unsigned_greater_than(Node a, Node b) { check_basic_binary(a, b); return add(Fn::unsigned_greater_than, Sort(1), {a, b}); }
+		Node unsigned_greater_equal(Node a, Node b) { check_basic_binary(a, b); return add(Fn::unsigned_greater_equal, Sort(1), {a, b}); }
+		Node logical_shift_left(Node a, Node b) { check_shift(a, b); return add(Fn::logical_shift_left, a.sort(), {a, b}); }
+		Node logical_shift_right(Node a, Node b) { check_shift(a, b); return add(Fn::logical_shift_right, a.sort(), {a, b}); }
+		Node arithmetic_shift_right(Node a, Node b) { check_shift(a, b); return add(Fn::arithmetic_shift_right, a.sort(), {a, b}); }
+		Node mux(Node a, Node b, Node s) {
 			log_assert(a.sort().is_signal() && a.sort() == b.sort() && s.sort() == Sort(1));
 			return add(Fn::mux, a.sort(), {a, b, s});
 		}
-		Node pmux(Node a, Node b, Node s, int, int) {
+		Node pmux(Node a, Node b, Node s) {
 			log_assert(a.sort().is_signal() && b.sort().is_signal() && s.sort().is_signal() && a.sort().width() * s.sort().width() == b.sort().width());
 			return add(Fn::pmux, a.sort(), {a, b, s});
 		}
-		Node memory_read(Node mem, Node addr, int, int) {
+		Node memory_read(Node mem, Node addr) {
 			log_assert(mem.sort().is_memory() && addr.sort().is_signal() && mem.sort().addr_width() == addr.sort().width());
 			return add(Fn::memory_read, Sort(mem.sort().data_width()), {mem, addr});
 		}
-		Node memory_write(Node mem, Node addr, Node data, int, int) {
+		Node memory_write(Node mem, Node addr, Node data) {
 			log_assert(mem.sort().is_memory() && addr.sort().is_signal() && data.sort().is_signal() &&
 				mem.sort().addr_width() == addr.sort().width() && mem.sort().data_width() == data.sort().width());
 			return add(Fn::memory_write, mem.sort(), {mem, addr, data});
@@ -483,9 +484,6 @@ public:
 		Node state_memory(IdString name, int addr_width, int data_width) {
 			_ir.add_state(name, Sort(addr_width, data_width));
 			return add(NodeData(Fn::state, name), Sort(addr_width, data_width), {});
-		}
-		Node cell_output(Node node, IdString, IdString, int) {
-			return node;
 		}
 		Node multiple(vector<Node> args, int width) {
 			auto node = add(Fn::multiple, Sort(width), {});
