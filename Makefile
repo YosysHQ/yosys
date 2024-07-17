@@ -579,6 +579,7 @@ S =
 endif
 
 $(eval $(call add_include_file,kernel/binding.h))
+$(eval $(call add_include_file,kernel/bitpattern.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
