@@ -109,13 +109,13 @@ public:
 		// unsigned_greater_equal(a: unsigned bit[N], b: unsigned bit[N]): bit[1] = (a >= b)
 		unsigned_greater_equal,
 		// logical_shift_left(a: bit[N], b: unsigned bit[M]): bit[N] = a << b
-		// required: M <= clog2(N + 1)
+		// required: M == clog2(N)
 		logical_shift_left,
 		// logical_shift_right(a: unsigned bit[N], b: unsigned bit[M]): unsigned bit[N] = a >> b
-		// required: M <= clog2(N + 1)
+		// required: M == clog2(N)
 		logical_shift_right,
 		// arithmetic_shift_right(a: signed bit[N], b: unsigned bit[M]): signed bit[N] = a >> b
-		// required: M <= clog2(N + 1)
+		// required: M == clog2(N)
 		arithmetic_shift_right,
 		// mux(a: bit[N], b: bit[N], s: bit[1]): bit[N] = s ? b : a
 		mux,
@@ -373,6 +373,8 @@ public:
 		friend class FunctionalIR;
 		explicit Factory(FunctionalIR &ir) : _ir(ir) {}
 		Node add(NodeData &&fn, Sort &&sort, std::initializer_list<Node> args) {
+			log_assert(!sort.is_signal() || sort.width() > 0);
+			log_assert(!sort.is_memory() || sort.addr_width() > 0 && sort.data_width() > 0);
 			Graph::Ref ref = _ir._graph.add(std::move(fn), {std::move(sort)});
 			for (auto arg : args)
 				ref.append_arg(Graph::ConstRef(arg));
@@ -382,7 +384,7 @@ public:
 			return _ir._graph[n._ref.index()];
 		}
 		void check_basic_binary(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && a.sort() == b.sort()); }
-		void check_shift(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && b.sort().is_signal()); }
+		void check_shift(Node const &a, Node const &b) { log_assert(a.sort().is_signal() && b.sort().is_signal() && b.width() == ceil_log2(a.width())); }
 		void check_unary(Node const &a) { log_assert(a.sort().is_signal()); }
 	public:
 		Node slice(Node a, int offset, int out_width) {
