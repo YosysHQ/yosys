@@ -368,25 +368,6 @@ public:
         return ret;
     }
 
-    template<size_t ns>
-    Signal<n> pmux(Signal<n*ns> const &b, Signal<ns> const &s) const
-    {
-        bool found;
-        Signal<n> ret;
-
-        found = false;
-        ret = *this;
-        for(size_t i = 0; i < ns; i++){
-            if(s._bits[i]){
-                if(found)
-                    return 0;
-                found = true;
-                ret = b.template slice<n>(n * i);
-            }
-        }
-        return ret;
-    }
-
     template<size_t m>
     Signal<n+m> concat(Signal<m> const& b) const
     {

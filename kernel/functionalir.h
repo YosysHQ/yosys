@@ -119,11 +119,6 @@ public:
 		arithmetic_shift_right,
 		// mux(a: bit[N], b: bit[N], s: bit[1]): bit[N] = s ? b : a
 		mux,
-		// pmux(a: bit[N], b: bit[N*M], s: bit[M]): bit[N]
-		// required: no more than one bit in b is set
-		// if s[i] = 1 for any i, then returns b[i * N +: N]
-		// returns a if s == 0
-		pmux,
 		// constant(a: Const[N]): bit[N] = a
 		constant,
 		// input(a: IdString): any
@@ -277,7 +272,6 @@ public:
 			case Fn::logical_shift_right: return v.logical_shift_right(*this, arg(0), arg(1)); break;
 			case Fn::arithmetic_shift_right: return v.arithmetic_shift_right(*this, arg(0), arg(1)); break;
 			case Fn::mux: return v.mux(*this, arg(0), arg(1), arg(2)); break;
-			case Fn::pmux: return v.pmux(*this, arg(0), arg(1), arg(2)); break;
 			case Fn::constant: return v.constant(*this, _ref.function().as_const()); break;
 			case Fn::input: return v.input(*this, _ref.function().as_idstring()); break;
 			case Fn::state: return v.state(*this, _ref.function().as_idstring()); break;
@@ -320,7 +314,6 @@ public:
 		virtual T logical_shift_right(Node self, Node a, Node b) = 0;
 		virtual T arithmetic_shift_right(Node self, Node a, Node b) = 0;
 		virtual T mux(Node self, Node a, Node b, Node s) = 0;
-		virtual T pmux(Node self, Node a, Node b, Node s) = 0;
 		virtual T constant(Node self, RTLIL::Const value) = 0;
 		virtual T input(Node self, IdString name) = 0;
 		virtual T state(Node self, IdString name) = 0;
@@ -359,7 +352,6 @@ public:
 		T logical_shift_right(Node self, Node, Node) override { return default_handler(self); }
 		T arithmetic_shift_right(Node self, Node, Node) override { return default_handler(self); }
 		T mux(Node self, Node, Node, Node) override { return default_handler(self); }
-		T pmux(Node self, Node, Node, Node) override { return default_handler(self); }
 		T constant(Node self, RTLIL::Const) override { return default_handler(self); }
 		T input(Node self, IdString) override { return default_handler(self); }
 		T state(Node self, IdString) override { return default_handler(self); }
@@ -450,10 +442,6 @@ public:
 		Node mux(Node a, Node b, Node s) {
 			log_assert(a.sort().is_signal() && a.sort() == b.sort() && s.sort() == Sort(1));
 			return add(Fn::mux, a.sort(), {a, b, s});
-		}
-		Node pmux(Node a, Node b, Node s) {
-			log_assert(a.sort().is_signal() && b.sort().is_signal() && s.sort().is_signal() && a.sort().width() * s.sort().width() == b.sort().width());
-			return add(Fn::pmux, a.sort(), {a, b, s});
 		}
 		Node memory_read(Node mem, Node addr) {
 			log_assert(mem.sort().is_memory() && addr.sort().is_signal() && mem.sort().addr_width() == addr.sort().width());

@@ -52,7 +52,6 @@ const char *FunctionalIR::fn_to_string(FunctionalIR::Fn fn) {
 	case FunctionalIR::Fn::logical_shift_right: return "logical_shift_right";
 	case FunctionalIR::Fn::arithmetic_shift_right: return "arithmetic_shift_right";
 	case FunctionalIR::Fn::mux: return "mux";
-	case FunctionalIR::Fn::pmux: return "pmux";
 	case FunctionalIR::Fn::constant: return "constant";
 	case FunctionalIR::Fn::input: return "input";
 	case FunctionalIR::Fn::state: return "state";
@@ -165,6 +164,14 @@ private:
 			return factory.mux(y0, y1, factory.slice(s, sn - 1, 1));
 		}
 	}
+	Node handle_pmux(Node a, Node b, Node s) {
+		// TODO : what to do about multiple b bits set ?
+		log_assert(b.width() == a.width() * s.width());
+		Node y = a;
+		for(int i = 0; i < s.width(); i++)
+			y = factory.mux(y, factory.slice(b, a.width() * i, a.width()), factory.slice(s, i, 1));
+		return y;
+	}
 public:
 	Node handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
 	{
@@ -266,7 +273,7 @@ public:
 		}else if(cellType == ID($mux)){
 			return factory.mux(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(S)));
 		}else if(cellType == ID($pmux)){
-			return factory.pmux(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(S)));
+			return handle_pmux(inputs.at(ID(A)), inputs.at(ID(B)), inputs.at(ID(S)));
 		}else if(cellType == ID($concat)){
 			Node a = inputs.at(ID(A));
 			Node b = inputs.at(ID(B));
