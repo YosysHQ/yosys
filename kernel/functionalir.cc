@@ -101,17 +101,6 @@ std::string FunctionalIR::Node::to_string(std::function<std::string(Node)> np)
 class CellSimplifier {
 	using Node = FunctionalIR::Node;
 	FunctionalIR::Factory &factory;
-	Node reduce_shift_width(Node b, int y_width) {
-		log_assert(y_width > 0);
-		int new_width = ceil_log2(y_width + 1);
-		if (b.width() <= new_width) {
-			return b;
-		} else {
-			Node lower_b = factory.slice(b, 0, new_width);
-			Node overflow = factory.unsigned_greater_than(b, factory.constant(RTLIL::Const(y_width, b.width())));
-			return factory.mux(lower_b, factory.constant(RTLIL::Const(y_width, new_width)), overflow);
-		}
-	}
 	Node sign(Node a) {
 		return factory.slice(a, a.width() - 1, 1);
 	}
@@ -121,19 +110,30 @@ class CellSimplifier {
 	Node abs(Node a) {
 		return neg_if(a, sign(a));
 	}
+	Node handle_shift(Node a, Node b, bool is_right, bool is_signed) {
+		// to prevent new_width == 0, we handle this case separately
+		if(a.width() == 1) {
+			if(!is_signed)
+				return factory.bitwise_and(a, factory.bitwise_not(factory.reduce_or(b)));
+			else
+				return a;
+		}
+		int new_width = ceil_log2(a.width());
+		Node b_truncated = factory.extend(b, new_width, false);
+		Node y =
+			!is_right ? factory.logical_shift_left(a, b_truncated) :
+			!is_signed ? factory.logical_shift_right(a, b_truncated) :
+			factory.arithmetic_shift_right(a, b_truncated);
+		if(b.width() <= new_width)
+			return y;
+		Node overflow = factory.unsigned_greater_equal(b, factory.constant(RTLIL::Const(a.width(), b.width())));
+		Node y_if_overflow = is_signed ? factory.extend(sign(a), a.width(), true) : factory.constant(RTLIL::Const(State::S0, a.width()));
+		return factory.mux(y, y_if_overflow, overflow);
+	}
 public:
-	Node logical_shift_left(Node a, Node b) {
-		Node reduced_b = reduce_shift_width(b, a.width());
-		return factory.logical_shift_left(a, reduced_b);
-	}
-	Node logical_shift_right(Node a, Node b) {
-		Node reduced_b = reduce_shift_width(b, a.width());
-		return factory.logical_shift_right(a, reduced_b);
-	}
-	Node arithmetic_shift_right(Node a, Node b) {
-		Node reduced_b = reduce_shift_width(b, a.width());
-		return factory.arithmetic_shift_right(a, reduced_b);
-	}
+	Node logical_shift_left(Node a, Node b) { return handle_shift(a, b, false, false); }
+	Node logical_shift_right(Node a, Node b) { return handle_shift(a, b, true, false); }
+	Node arithmetic_shift_right(Node a, Node b) { return handle_shift(a, b, true, true); }
 	Node bitwise_mux(Node a, Node b, Node s) {
 		Node aa = factory.bitwise_and(a, factory.bitwise_not(s));
 		Node bb = factory.bitwise_and(b, s);
@@ -348,7 +348,7 @@ public:
 			int width = parameters.at(ID(WIDTH)).as_int();
 			int s_width = parameters.at(ID(S_WIDTH)).as_int();
 			int y_width = width << s_width;
-			int b_width = ceil_log2(y_width + 1);
+			int b_width = ceil_log2(y_width);
 			Node a = factory.extend(inputs.at(ID(A)), y_width, false);
 			Node s = factory.extend(inputs.at(ID(S)), b_width, false);
 			Node b = factory.mul(s, factory.constant(Const(width, b_width)));

@@ -206,7 +206,10 @@ shift_widths = [
     (32, 32, 64, True, True),
     (32, 32, 64, False, True),
     # at least one test where the result is going to be truncated
-    (32, 6, 16, False, False)
+    (32, 6, 16, False, False),
+    # since 1-bit shifts are special cased
+    (1, 4, 1, False, False),
+    (1, 4, 1, True, False),
 ]
 
 rtlil_cells = [
