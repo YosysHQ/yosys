@@ -21,6 +21,83 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+const char *FunctionalIR::fn_to_string(FunctionalIR::Fn fn) {
+	switch(fn) {
+	case FunctionalIR::Fn::invalid: return "invalid";
+	case FunctionalIR::Fn::buf: return "buf";
+	case FunctionalIR::Fn::slice: return "slice";
+	case FunctionalIR::Fn::zero_extend: return "zero_extend";
+	case FunctionalIR::Fn::sign_extend: return "sign_extend";
+	case FunctionalIR::Fn::concat: return "concat";
+	case FunctionalIR::Fn::add: return "add";
+	case FunctionalIR::Fn::sub: return "sub";
+	case FunctionalIR::Fn::mul: return "mul";
+	case FunctionalIR::Fn::unsigned_div: return "unsigned_div";
+	case FunctionalIR::Fn::unsigned_mod: return "unsigned_mod";
+	case FunctionalIR::Fn::bitwise_and: return "bitwise_and";
+	case FunctionalIR::Fn::bitwise_or: return "bitwise_or";
+	case FunctionalIR::Fn::bitwise_xor: return "bitwise_xor";
+	case FunctionalIR::Fn::bitwise_not: return "bitwise_not";
+	case FunctionalIR::Fn::reduce_and: return "reduce_and";
+	case FunctionalIR::Fn::reduce_or: return "reduce_or";
+	case FunctionalIR::Fn::reduce_xor: return "reduce_xor";
+	case FunctionalIR::Fn::unary_minus: return "unary_minus";
+	case FunctionalIR::Fn::equal: return "equal";
+	case FunctionalIR::Fn::not_equal: return "not_equal";
+	case FunctionalIR::Fn::signed_greater_than: return "signed_greater_than";
+	case FunctionalIR::Fn::signed_greater_equal: return "signed_greater_equal";
+	case FunctionalIR::Fn::unsigned_greater_than: return "unsigned_greater_than";
+	case FunctionalIR::Fn::unsigned_greater_equal: return "unsigned_greater_equal";
+	case FunctionalIR::Fn::logical_shift_left: return "logical_shift_left";
+	case FunctionalIR::Fn::logical_shift_right: return "logical_shift_right";
+	case FunctionalIR::Fn::arithmetic_shift_right: return "arithmetic_shift_right";
+	case FunctionalIR::Fn::mux: return "mux";
+	case FunctionalIR::Fn::pmux: return "pmux";
+	case FunctionalIR::Fn::constant: return "constant";
+	case FunctionalIR::Fn::input: return "input";
+	case FunctionalIR::Fn::state: return "state";
+	case FunctionalIR::Fn::multiple: return "multiple";
+	case FunctionalIR::Fn::undriven: return "undriven";
+	case FunctionalIR::Fn::memory_read: return "memory_read";
+	case FunctionalIR::Fn::memory_write: return "memory_write";
+	}
+	log_error("fn_to_string: unknown FunctionalIR::Fn value %d", (int)fn);
+}
+
+struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
+	using Node = FunctionalIR::Node;
+	std::function<std::string(Node)> np;
+	PrintVisitor(std::function<std::string(Node)> np) : np(np) { }
+	// as a general rule the default handler is good enough iff the only arguments are of type Node
+	std::string slice(Node, Node a, int offset, int out_width) override { return "slice(" + np(a) + ", " + std::to_string(offset) + ", " + std::to_string(out_width) + ")"; }
+	std::string zero_extend(Node, Node a, int out_width) override { return "zero_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
+	std::string sign_extend(Node, Node a, int out_width) override { return "sign_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
+	std::string constant(Node, RTLIL::Const value) override { return "constant(" + value.as_string() + ")"; }
+	std::string input(Node, IdString name) override { return "input(" + name.str() + ")"; }
+	std::string state(Node, IdString name) override { return "state(" + name.str() + ")"; }
+	std::string undriven(Node, int width) override { return "undriven(" + std::to_string(width) + ")"; }
+	std::string default_handler(Node self) override {
+		std::string ret = FunctionalIR::fn_to_string(self.fn());
+		ret += "(";
+		for(size_t i = 0; i < self.arg_count(); i++) {
+			if(i > 0) ret += ", ";
+			ret += np(self.arg(i));
+		}
+		ret += ")";
+		return ret;
+	}
+};
+
+std::string FunctionalIR::Node::to_string()
+{
+	return to_string([](Node n) { return RTLIL::unescape_id(n.name()); });
+}
+
+std::string FunctionalIR::Node::to_string(std::function<std::string(Node)> np)
+{
+	return visit(PrintVisitor(np));
+}
+
 template <class T, class Factory>
 class CellSimplifier {
 	Factory &factory;
@@ -47,11 +124,6 @@ class CellSimplifier {
 		return neg_if(a, a_width, sign(a, a_width));
 	}
 public:
-	T reduce_or(T a, int width) {
-		if (width == 1)
-			return a;
-		return factory.reduce_or(a, width);
-	}
 	T extend(T a, int in_width, int out_width, bool is_signed) {
 		if(in_width == out_width)
 			return a;
@@ -153,8 +225,8 @@ public:
 			else
 				log_abort();
 		}else if(cellType.in({ID($logic_or), ID($logic_and)})){
-			T a = reduce_or(inputs.at(ID(A)), a_width);
-			T b = reduce_or(inputs.at(ID(B)), b_width);
+			T a = factory.reduce_or(inputs.at(ID(A)), a_width);
+			T b = factory.reduce_or(inputs.at(ID(B)), b_width);
 			T y = cellType == ID($logic_and) ? factory.bitwise_and(a, b, 1) : factory.bitwise_or(a, b, 1);
 			return extend(y, 1, y_width, false);
 		}else if(cellType == ID($not)){
@@ -166,11 +238,11 @@ public:
 			T a = extend(inputs.at(ID(A)), a_width, y_width, a_signed);
 			return factory.unary_minus(a, y_width);
 		}else if(cellType == ID($logic_not)){
-			T a = reduce_or(inputs.at(ID(A)), a_width);
+			T a = factory.reduce_or(inputs.at(ID(A)), a_width);
 			T y = factory.bitwise_not(a, 1);
 			return extend(y, 1, y_width, false);
 		}else if(cellType.in({ID($reduce_or), ID($reduce_bool)})){
-			T a = reduce_or(inputs.at(ID(A)), a_width);
+			T a = factory.reduce_or(inputs.at(ID(A)), a_width);
 			return extend(a, 1, y_width, false);
 		}else if(cellType == ID($reduce_and)){
 			T a = factory.reduce_and(inputs.at(ID(A)), a_width);
@@ -244,7 +316,7 @@ public:
 					// which equals the negative of (-a) / b with rounding up rather than down
 					// note that to handle the case where a = most negative value properly,
 					// we have to calculate a1_sign from the original values rather than using sign(a1, width)
-					T a1_sign = factory.bitwise_and(factory.not_equal(sign(a, width), sign(b, width), 1), reduce_or(a, width), 1);
+					T a1_sign = factory.bitwise_and(factory.not_equal(sign(a, width), sign(b, width), 1), factory.reduce_or(a, width), 1);
 					T a2 = factory.mux(a1, factory.bitwise_not(a1, width), a1_sign, width);
 					T y1 = factory.unsigned_div(a2, b1, width);
 					T y2 = extend(y1, width, y_width, false);
@@ -560,6 +632,7 @@ void FunctionalIR::forward_buf() {
     _graph.permute(perm, alias);
 }
 
+// Quoting routine to make error messages nicer
 static std::string quote_fmt(const char *fmt)
 {
 	std::string r;
