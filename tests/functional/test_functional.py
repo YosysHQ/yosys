@@ -27,9 +27,9 @@ def yosys_synth(verilog_file, rtlil_file):
     yosys(f"read_verilog {quote(verilog_file)} ; prep ; clk2fflogic ; write_rtlil {quote(rtlil_file)}")
 
 # simulate an rtlil file with yosys, comparing with a given vcd file, and writing out the yosys simulation results into a second vcd file
-def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file):
+def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file, preprocessing = ""):
     try:
-        yosys(f"read_rtlil {quote(rtlil_file)}; sim -r {quote(vcd_reference_file)} -scope gold -vcd {quote(vcd_out_file)} -timescale 1us -sim-gold")
+        yosys(f"read_rtlil {quote(rtlil_file)}; {preprocessing}; sim -r {quote(vcd_reference_file)} -scope gold -vcd {quote(vcd_out_file)} -timescale 1us -sim-gold")
     except:
         # if yosys sim fails it's probably because of a simulation mismatch
         # since yosys sim aborts on simulation mismatch to generate vcd output
@@ -53,7 +53,7 @@ def test_cxx(cell, parameters, tmp_path, num_steps, rnd):
     compile_cpp(vcdharness_cc_file, vcdharness_exe_file, ['-I', tmp_path, '-I', str(base_path / 'backends/functional/cxx_runtime')])
     seed = str(rnd(cell.name + "-cxx").getrandbits(32))
     run([str(vcdharness_exe_file.resolve()), str(vcd_functional_file), str(num_steps), str(seed)])
-    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file)
+    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     import smt_vcd
@@ -67,4 +67,4 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_smt2 {quote(smt_file)}")
     run(['z3', smt_file]) # check if output is valid smtlib before continuing
     smt_vcd.simulate_smt(smt_file, vcd_functional_file, num_steps, rnd(cell.name + "-smt"))
-    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file)
+    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
