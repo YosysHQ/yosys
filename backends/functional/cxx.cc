@@ -136,7 +136,6 @@ template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::Abstra
 	void logical_shift_right(Node, Node a, Node b) override { print("{} >> {}", a, b); }
 	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
-	void pmux(Node, Node a, Node b, Node s) override { print("{0}.pmux({1}, {2})", a, b, s); }
 	void constant(Node, RTLIL::Const value) override {
 		std::stringstream ss;
 		bool multiple = value.size() > 32;

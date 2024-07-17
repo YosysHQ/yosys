@@ -174,12 +174,6 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("ite", to_bool(n(s)), n(b), n(a)); }
-	SExpr pmux(Node, Node a, Node b, Node s) override {
-		SExpr rv = n(a);
-		for(int i = 0; i < s.width(); i++)
-			rv = list("ite", to_bool(extract(n(s), i)), extract(n(b), a.width() * i, a.width()), rv);
-		return rv;
-	}
 	SExpr constant(Node, RTLIL::Const value) override { return literal(value); }
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("select", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("store", n(mem), n(addr), n(data)); }
