@@ -4020,28 +4020,6 @@ RTLIL::SigSpec::SigSpec(bool bit)
 	check();
 }
 
-void RTLIL::SigSpec::switch_to_packed() const
-{
-	// TODO change to debug asserts
-	// log_assert(!this->packed_);
-	// log_assert(bits_.size() == 0);
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-	that->bits_.~vector();
-	that->packed_ = true;
-	(void)new (&that->chunks_) std::vector<SigChunk>();
-}
-
-void RTLIL::SigSpec::switch_to_unpacked() const
-{
-	// TODO change to debug asserts
-	// log_assert(this->packed_);
-	// log_assert(chunks_.size() == 0);
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-	that->chunks_.~vector();
-	that->packed_ = false;
-	(void)new (&that->bits_) std::vector<SigBit>();
-}
-
 void RTLIL::SigSpec::pack() const
 {
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
@@ -4075,8 +4053,9 @@ void RTLIL::SigSpec::pack() const
 		last_end_offset = bit.offset + 1;
 	}
 
-	that->switch_to_packed();
-	that->chunks_.swap(new_chunks);
+	that->bits_.~vector();
+	that->packed_ = true;
+	(void)new (&that->chunks_) std::vector<SigChunk>(std::move(new_chunks));
 
 	check();
 }
@@ -4096,10 +4075,10 @@ void RTLIL::SigSpec::unpack() const
 		for (int i = 0; i < c.width; i++)
 			new_bits.emplace_back(c, i);
 
-	that->chunks_.clear();
 	that->hash_ = 0;
-	that->switch_to_unpacked();
-	that->bits_.swap(new_bits);
+	that->chunks_.~vector();
+	that->packed_ = false;
+	(void)new (&that->bits_) std::vector<SigBit>(std::move(new_bits));
 }
 
 void RTLIL::SigSpec::updhash() const

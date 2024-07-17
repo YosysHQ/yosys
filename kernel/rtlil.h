@@ -838,7 +838,7 @@ struct RTLIL::SigSpecConstIterator
 	inline void operator++() { index++; }
 };
 
-struct RTLIL::SigSpec
+struct alignas(64) RTLIL::SigSpec
 {
 private:
 	int width_;
@@ -851,8 +851,6 @@ private:
 
 	void pack() const;
 	void unpack() const;
-	void switch_to_packed() const;
-	void switch_to_unpacked() const;
 	void updhash() const;
 
 	inline bool packed() const {
@@ -890,13 +888,13 @@ public:
 	{
 		if (packed_ != other.packed_) {
 			if (packed_) {
-				chunks_.clear();
-				switch_to_unpacked();
-				bits_ = other.bits_;
+				chunks_.~vector();
+				packed_ = false;
+				(void)new (&bits_) std::vector<SigBit>(other.bits_);
 			} else {
-				bits_.clear();
-				switch_to_packed();
-				chunks_ = other.chunks_;
+				bits_.~vector();
+				packed_ = true;
+				(void)new (&chunks_) std::vector<SigChunk>(other.chunks_);
 			}
 		} else {
 			if (packed_)
