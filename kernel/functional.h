@@ -109,7 +109,7 @@ public:
         {
             auto found = graph_->sparse_attrs.find(index_);
             log_assert(found != graph_->sparse_attrs.end());
-            return *found;
+            return found->second;
         }
     };
 

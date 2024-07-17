@@ -98,7 +98,7 @@ struct CxxStruct {
   }
 };
 
-template<class NodePrinter> struct CxxPrintVisitor {
+template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::AbstractVisitor<void> {
 	using Node = FunctionalIR::Node;
 	CxxWriter &f;
 	NodePrinter np;
@@ -108,36 +108,36 @@ template<class NodePrinter> struct CxxPrintVisitor {
 	template<typename... Args> void print(const char *fmt, Args&&... args) {
 		f.print_with(np, fmt, std::forward<Args>(args)...);
 	}
-	void buf(Node, Node n) { print("{}", n); }
-	void slice(Node, Node a, int, int offset, int out_width) { print("{0}.slice<{2}>({1})", a, offset, out_width); }
-	void zero_extend(Node, Node a, int, int out_width) { print("{}.zero_extend<{}>()", a, out_width); }
-	void sign_extend(Node, Node a, int, int out_width) { print("{}.sign_extend<{}>()", a, out_width); }
-	void concat(Node, Node a, int, Node b, int) { print("{}.concat({})", a, b); }
-	void add(Node, Node a, Node b, int) { print("{} + {}", a, b); }
-	void sub(Node, Node a, Node b, int) { print("{} - {}", a, b); }
-	void mul(Node, Node a, Node b, int) { print("{} * {}", a, b); }
-	void unsigned_div(Node, Node a, Node b, int) { print("{} / {}", a, b); }
-	void unsigned_mod(Node, Node a, Node b, int) { print("{} % {}", a, b); }
-	void bitwise_and(Node, Node a, Node b, int) { print("{} & {}", a, b); }
-	void bitwise_or(Node, Node a, Node b, int) { print("{} | {}", a, b); }
-	void bitwise_xor(Node, Node a, Node b, int) { print("{} ^ {}", a, b); }
-	void bitwise_not(Node, Node a, int) { print("~{}", a); }
-	void unary_minus(Node, Node a, int) { print("-{}", a); }
-	void reduce_and(Node, Node a, int) { print("{}.all()", a); }
-	void reduce_or(Node, Node a, int) { print("{}.any()", a); }
-	void reduce_xor(Node, Node a, int) { print("{}.parity()", a); }
-	void equal(Node, Node a, Node b, int) { print("{} == {}", a, b); }
-	void not_equal(Node, Node a, Node b, int) { print("{} != {}", a, b); }
-	void signed_greater_than(Node, Node a, Node b, int) { print("{}.signed_greater_than({})", a, b); }
-	void signed_greater_equal(Node, Node a, Node b, int) { print("{}.signed_greater_equal({})", a, b); }
-	void unsigned_greater_than(Node, Node a, Node b, int) { print("{} > {}", a, b); }
-	void unsigned_greater_equal(Node, Node a, Node b, int) { print("{} >= {}", a, b); }
-	void logical_shift_left(Node, Node a, Node b, int, int) { print("{} << {}", a, b); }
-	void logical_shift_right(Node, Node a, Node b, int, int) { print("{} >> {}", a, b); }
-	void arithmetic_shift_right(Node, Node a, Node b, int, int) { print("{}.arithmetic_shift_right({})", a, b); }
-	void mux(Node, Node a, Node b, Node s, int) { print("{2}.any() ? {1} : {0}", a, b, s); }
-	void pmux(Node, Node a, Node b, Node s, int, int) { print("{0}.pmux({1}, {2})", a, b, s); }
-	void constant(Node, RTLIL::Const value) {
+	void buf(Node, Node n) override { print("{}", n); }
+	void slice(Node, Node a, int offset, int out_width) override { print("{0}.slice<{2}>({1})", a, offset, out_width); }
+	void zero_extend(Node, Node a, int out_width) override { print("{}.zero_extend<{}>()", a, out_width); }
+	void sign_extend(Node, Node a, int out_width) override { print("{}.sign_extend<{}>()", a, out_width); }
+	void concat(Node, Node a, Node b) override { print("{}.concat({})", a, b); }
+	void add(Node, Node a, Node b) override { print("{} + {}", a, b); }
+	void sub(Node, Node a, Node b) override { print("{} - {}", a, b); }
+	void mul(Node, Node a, Node b) override { print("{} * {}", a, b); }
+	void unsigned_div(Node, Node a, Node b) override { print("{} / {}", a, b); }
+	void unsigned_mod(Node, Node a, Node b) override { print("{} % {}", a, b); }
+	void bitwise_and(Node, Node a, Node b) override { print("{} & {}", a, b); }
+	void bitwise_or(Node, Node a, Node b) override { print("{} | {}", a, b); }
+	void bitwise_xor(Node, Node a, Node b) override { print("{} ^ {}", a, b); }
+	void bitwise_not(Node, Node a) override { print("~{}", a); }
+	void unary_minus(Node, Node a) override { print("-{}", a); }
+	void reduce_and(Node, Node a) override { print("{}.all()", a); }
+	void reduce_or(Node, Node a) override { print("{}.any()", a); }
+	void reduce_xor(Node, Node a) override { print("{}.parity()", a); }
+	void equal(Node, Node a, Node b) override { print("{} == {}", a, b); }
+	void not_equal(Node, Node a, Node b) override { print("{} != {}", a, b); }
+	void signed_greater_than(Node, Node a, Node b) override { print("{}.signed_greater_than({})", a, b); }
+	void signed_greater_equal(Node, Node a, Node b) override { print("{}.signed_greater_equal({})", a, b); }
+	void unsigned_greater_than(Node, Node a, Node b) override { print("{} > {}", a, b); }
+	void unsigned_greater_equal(Node, Node a, Node b) override { print("{} >= {}", a, b); }
+	void logical_shift_left(Node, Node a, Node b) override { print("{} << {}", a, b); }
+	void logical_shift_right(Node, Node a, Node b) override { print("{} >> {}", a, b); }
+	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
+	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
+	void pmux(Node, Node a, Node b, Node s) override { print("{0}.pmux({1}, {2})", a, b, s); }
+	void constant(Node, RTLIL::Const value) override {
 		std::stringstream ss;
 		bool multiple = value.size() > 32;
 		ss << "Signal<" << value.size() << ">(" << std::hex << std::showbase;
@@ -151,11 +151,11 @@ template<class NodePrinter> struct CxxPrintVisitor {
 		ss << ")";
 		print("{}", ss.str());
 	}
-	void input(Node, IdString name) { print("input.{}", input_struct[name]); }
-	void state(Node, IdString name) { print("current_state.{}", state_struct[name]); }
-	void memory_read(Node, Node mem, Node addr, int, int) { print("{}.read({})", mem, addr); }
-	void memory_write(Node, Node mem, Node addr, Node data, int, int) { print("{}.write({}, {})", mem, addr, data); }
-	void undriven(Node, int width) { print("Signal<{}>(0)", width); }
+	void input(Node, IdString name) override { print("input.{}", input_struct[name]); }
+	void state(Node, IdString name) override { print("current_state.{}", state_struct[name]); }
+	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
+	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
+	void undriven(Node, int width) override { print("Signal<{}>(0)", width); }
 };
 
 struct CxxModule {
