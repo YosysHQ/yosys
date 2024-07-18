@@ -181,20 +181,14 @@ private:
 		Node x = factory.bitwise_or(t2, t3);
 		return {{ID(X), x}, {ID(Y), y}};
 	}
-	Node handle_lcu(Node p, Node g, Node ci) {
-		Node rv = factory.bitwise_or(factory.slice(g, 0, 1), factory.bitwise_and(factory.slice(p, 0, 1), ci));
-		Node c = rv;
-		for(int i = 1; i < p.width(); i++) {
-			c = factory.bitwise_or(factory.slice(g, i, 1), factory.bitwise_and(factory.slice(p, i, 1), c));
-			rv = factory.concat(rv, c);
-		}
-		return rv;
-	}
 	dict<IdString, Node> handle_alu(Node a_in, Node b_in, int y_width, bool is_signed, Node ci, Node bi) {
 		Node a = factory.extend(a_in, y_width, is_signed);
 		Node b_uninverted = factory.extend(b_in, y_width, is_signed);
 		Node b = factory.mux(b_uninverted, factory.bitwise_not(b_uninverted), bi);
 		Node x = factory.bitwise_xor(a, b);
+		// we can compute the carry into each bit using (a+b+c)^a^b. since we want the carry out,
+		// i.e. the carry into the next bit, we have to add an extra bit to a and b, and
+		// then slice off the bottom bit of the result.
 		Node a_extra = factory.extend(a, y_width + 1, false);
 		Node b_extra = factory.extend(b, y_width + 1, false);
 		Node y_extra = factory.add(factory.add(a_extra, b_extra), factory.extend(ci, a.width() + 1, false));
@@ -202,6 +196,9 @@ private:
 		Node carries = factory.bitwise_xor(y_extra, factory.bitwise_xor(a_extra, b_extra));
 		Node co = factory.slice(carries, 1, y_width);
 		return {{ID(X), x}, {ID(Y), y}, {ID(CO), co}};
+	}
+	Node handle_lcu(Node p, Node g, Node ci) {
+		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(ID(CO));
 	}
 public:
 	std::variant<dict<IdString, Node>, Node> handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
