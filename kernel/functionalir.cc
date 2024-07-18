@@ -56,8 +56,6 @@ const char *FunctionalIR::fn_to_string(FunctionalIR::Fn fn) {
 	case FunctionalIR::Fn::constant: return "constant";
 	case FunctionalIR::Fn::input: return "input";
 	case FunctionalIR::Fn::state: return "state";
-	case FunctionalIR::Fn::multiple: return "multiple";
-	case FunctionalIR::Fn::undriven: return "undriven";
 	case FunctionalIR::Fn::memory_read: return "memory_read";
 	case FunctionalIR::Fn::memory_write: return "memory_write";
 	}
@@ -75,7 +73,6 @@ struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
 	std::string constant(Node, RTLIL::Const value) override { return "constant(" + value.as_string() + ")"; }
 	std::string input(Node, IdString name) override { return "input(" + name.str() + ")"; }
 	std::string state(Node, IdString name) override { return "state(" + name.str() + ")"; }
-	std::string undriven(Node, int width) override { return "undriven(" + std::to_string(width) + ")"; }
 	std::string default_handler(Node self) override {
 		std::string ret = FunctionalIR::fn_to_string(self.fn());
 		ret += "(";
@@ -625,14 +622,11 @@ public:
 					factory.suggest_name(node, "$const" + std::to_string(chunk.size()) + "b" + chunk.constant().as_string());
 					factory.update_pending(pending, node);
 				} else if (chunk.is_multiple()) {
-					vector<Node> args;
-					for (auto const &driver : chunk.multiple().multiple())
-						args.push_back(enqueue(driver));
-					Node node = factory.multiple(args, chunk.size());
-					factory.update_pending(pending, node);
+					log_error("Signal %s has multiple drivers. This is not supported by the functional backend. "
+						"If tristate drivers are used, call tristate -formal to avoid this error.\n", log_signal(chunk));
 				} else if (chunk.is_none()) {
-					Node node = factory.undriven(chunk.size());
-					factory.update_pending(pending, node);
+					log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
+						"Call setundef with appropriate options to avoid this error.\n", log_signal(chunk));
 				} else {
 					log_error("unhandled drivespec: %s\n", log_signal(chunk));
 					log_abort();
