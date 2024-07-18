@@ -316,10 +316,10 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("        %s[%d] --> %s[%d]\n", log_id(from_port), from_bit,
+								message += stringf("      %s[%d] --> %s[%d]\n", log_id(from_port), from_bit,
 												   log_id(to_port), to_bit);
 							if (nhits == HITS_LIMIT)
-								message += "        ...\n";
+								message += "      ...\n";
 						}
 					};
 
