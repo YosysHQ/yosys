@@ -1681,10 +1681,6 @@ endmodule
 module ADC (...);
 endmodule
 
-module BANDGAP (...);
-input BGEN;
-endmodule
-
 module CLKDIV2 (...);
 parameter GSREN = "false"; 
 input HCLKIN, RESETN;

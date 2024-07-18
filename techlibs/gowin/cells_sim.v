@@ -867,8 +867,12 @@ module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
 	parameter INIT = 0;
 endmodule
 
+(* blackbox, keep *)
 module GSR (input GSRI);
-	wire GSRO = GSRI;
+endmodule
+
+(* blackbox, keep *)
+module BANDGAP (input BGEN);
 endmodule
 
 (* abc9_box, lib_whitebox *)
