@@ -176,14 +176,52 @@ module gold(
     input wire clk,
     input wire [{1}:0] WA,
     input wire [{0}:0] WD,
+    input wire [{1}:0] RA,
     output reg [{0}:0] RD
 );
-    reg [{0}:0] mem[0:{1}];
+    reg [{0}:0] mem[0:{2}];
     always @(*)
         RD = mem[RA];
     always @(posedge clk)
         mem[WA] <= WD;
-endmodule""".format(parameters['DATA_WIDTH'] - 1, parameters['ADDR_WIDTH'] - 1))
+endmodule""".format(parameters['DATA_WIDTH'] - 1, parameters['ADDR_WIDTH'] - 1, 2**parameters['ADDR_WIDTH'] - 1))
+        yosys_synth(verilog_file, path)
+
+class MemDualCell(BaseCell):
+    def __init__(self, name, values):
+        super().__init__(name, ['DATA_WIDTH', 'ADDR_WIDTH'],
+                         {'WA1': 'ADDR_WIDTH', 'WA2': 'ADDR_WIDTH',
+                          'RA1': 'ADDR_WIDTH', 'RA2': 'ADDR_WIDTH',
+                          'WD1': 'DATA_WIDTH', 'WD2': 'DATA_WIDTH'},
+                         {'RD1': 'DATA_WIDTH', 'RD2': 'DATA_WIDTH'}, values)
+        self.sim_preprocessing = "memory_map" # issue #4496 in yosys -sim prevents this example from working without memory_map
+    def write_rtlil_file(self, path, parameters):
+        from test_functional import yosys_synth
+        verilog_file = path.parent / 'verilog.v'
+        with open(verilog_file, 'w') as f:
+            f.write("""
+module gold(
+    input wire clk,
+    input wire [{1}:0] WA1,
+    input wire [{0}:0] WD1,
+    input wire [{1}:0] WA2,
+    input wire [{0}:0] WD2,
+    input wire [{1}:0] RA1,
+    input wire [{1}:0] RA2,
+    output reg [{0}:0] RD1,
+    output reg [{0}:0] RD2
+);
+                    (*keep*)
+    reg [{0}:0] mem[0:{2}];
+    always @(*)
+        RD1 = mem[RA1];
+    always @(*)
+        RD2 = mem[RA2];
+    always @(posedge clk) begin
+        mem[WA1] <= WD1;
+        mem[WA2] <= WD2;
+    end
+endmodule""".format(parameters['DATA_WIDTH'] - 1, parameters['ADDR_WIDTH'] - 1, 2**parameters['ADDR_WIDTH'] - 1))
         yosys_synth(verilog_file, path)
 
 binary_widths = [
@@ -284,7 +322,8 @@ rtlil_cells = [
     BWCell("bweqx", [10, 16, 40]),
     BWCell("bwmux", [10, 16, 40]),
     FFCell("ff", [10, 20, 40]),
-    MemCell("mem", [(32, 4)])
+    MemCell("mem", [(16, 4)]),
+    MemDualCell("mem-dual", [(16, 4)]),
 #    ("assert", ["A", "EN"]),
 #    ("assume", ["A", "EN"]),
 #    ("live", ["A", "EN"]),
