@@ -461,11 +461,19 @@ public:
 				memories[mem.cell] = &mem;
 		}
 	}
-	Node concatenate_read_results(Mem *, vector<Node> results)
+	Node concatenate_read_results(Mem *mem, vector<Node> results)
 	{
-        /* TODO: write code to check that this is ok to do */
-		if(results.size() == 0)
-			return factory.undriven(0);
+		// sanity check: all read ports concatenated should equal to the RD_DATA port
+		const SigSpec &rd_data = mem->cell->connections().at(ID(RD_DATA));
+		int current = 0;
+		for(size_t i = 0; i < mem->rd_ports.size(); i++) {
+			int width = mem->width << mem->rd_ports[i].wide_log2;
+			log_assert (results[i].width() == width);
+			log_assert (mem->rd_ports[i].data == rd_data.extract(current, width));
+			current += width;
+		}
+		log_assert (current == rd_data.size());
+		log_assert (!results.empty());
 		Node node = results[0];
 		for(size_t i = 1; i < results.size(); i++)
 			node = factory.concat(node, results[i]);
@@ -473,22 +481,40 @@ public:
 	}
 	Node handle_memory(Mem *mem)
 	{
+		// To simplify memory handling, the functional backend makes the following assumptions:
+		// - Since async2sync or clk2fflogic must be run to use the functional backend,
+		//   we can assume that all ports are asynchronous.
+		// - Async rd/wr are always transparent and so we must do reads after writes,
+		//   but we can ignore transparency_mask.
+		// - We ignore collision_x_mask because x is a dont care value for us anyway.
+		// - Since wr port j can only have priority over wr port i if j > i, if we do writes in
+		//   ascending index order the result will obey the priorty relation.
 		vector<Node> read_results;
 		int addr_width = ceil_log2(mem->size);
 		int data_width = mem->width;
 		Node node = factory.state_memory(mem->cell->name, addr_width, data_width);
-		for (auto &rd : mem->rd_ports) {
-			log_assert(!rd.clk_enable);
-			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
-			read_results.push_back(factory.memory_read(node, addr));
-		}
-		for (auto &wr : mem->wr_ports) {
+		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
+			const auto &wr = mem->wr_ports[i];
+			if (wr.clk_enable)
+				log_error("Write port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
+					"Call async2sync or clk2fflogic to avoid this error.\n", i, log_id(mem->module), log_id(mem->memid));
 			Node en = enqueue(driver_map(DriveSpec(wr.en)));
 			Node addr = enqueue(driver_map(DriveSpec(wr.addr)));
 			Node new_data = enqueue(driver_map(DriveSpec(wr.data)));
 			Node old_data = factory.memory_read(node, addr);
 			Node wr_data = simplifier.bitwise_mux(old_data, new_data, en);
 			node = factory.memory_write(node, addr, wr_data);
+		}
+		if (mem->rd_ports.empty())
+			log_error("Memory %s.%s has no read ports. This is not supported by the functional backend. "
+				"Call opt_clean to remove it.", log_id(mem->module), log_id(mem->memid));
+		for (size_t i = 0; i < mem->rd_ports.size(); i++) {
+			const auto &rd = mem->rd_ports[i];
+			if (rd.clk_enable)
+				log_error("Read port %zd of memory %s.%s is clocked. This is not supported by the functional backend. "
+					"Call memory_nordff to avoid this error.\n", i, log_id(mem->module), log_id(mem->memid));
+			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
+			read_results.push_back(factory.memory_read(node, addr));
 		}
 		factory.declare_state_memory(node, mem->cell->name, addr_width, data_width);
 		return concatenate_read_results(mem, read_results);
@@ -497,7 +523,11 @@ public:
 	{
 		if (cell->is_mem_cell()) {
 			Mem *mem = memories.at(cell, nullptr);
-			log_assert(mem != nullptr);
+			if (mem == nullptr) {
+				log_assert(cell->has_memid());
+				log_error("The design contains an unpacked memory at %s. This is not supported by the functional backend. "
+					"Call memory_collect to avoid this error.\n", log_const(cell->parameters.at(ID(MEMID))));
+			}
 			Node node = handle_memory(mem);
 			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
 		} else {
