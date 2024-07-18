@@ -74,6 +74,14 @@ namespace RTLIL
 	struct Process;
 	struct Binding;
 
+#ifdef _YOSYS_VAY_
+	struct CoarseCell;   // same as Cell in a NOVAY build
+	struct FineCell;     // only single-bit ports and no parameters
+	struct AYFineCell;   // cell with single-bit ports "A" and "Y" and no parameters
+	struct ABYFineCell;  // cell with single-bit ports "A", "B", and "Y" and no parameters
+	// ...
+#endif
+
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
 	struct IdString
@@ -1155,6 +1163,10 @@ struct RTLIL::Design
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
 };
 
 struct RTLIL::Module : public RTLIL::AttrObject
@@ -1497,6 +1509,10 @@ public:
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
 };
 
 struct RTLIL::Wire : public RTLIL::AttrObject
@@ -1523,6 +1539,10 @@ public:
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
 };
 
 inline int GetSize(RTLIL::Wire *wire) {
@@ -1546,23 +1566,46 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 
 struct RTLIL::Cell : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	// do not simply copy cells
+	Cell(RTLIL::Cell &other) = delete;
+	void operator=(RTLIL::Cell &other) = delete;
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
 	Cell();
-	~Cell();
+	YS_VAY_VIRTUAL ~Cell();
 
 public:
-	// do not simply copy cells
-	Cell(RTLIL::Cell &other) = delete;
-	void operator=(RTLIL::Cell &other) = delete;
-
 	RTLIL::Module *module;
 	RTLIL::IdString name;
 	RTLIL::IdString type;
+
+#ifdef _YOSYS_VAY_
+	// Virtual Coarse Cell API (abstract)
+	virtual RTLIL::SigSpec getPort(const RTLIL::IdString &portname) const = 0;
+	//...
+
+	// Virtual Fine Cell API (with default implementations)
+	virtual RTLIL::SigBit getPortBit(const RTLIL::IdString &portname) const { return getPort(portname).as_bit(); }
+	///...
+
+	// Virtual Compact Cell API (with default implementations)
+	virtual RTLIL::SigSpec getPortA() const { return getPort(ID::A); }
+	virtual RTLIL::SigBit getPortBitA() const { return getPort(ID::A).as_bit(); }
+	///...
+
+	// Memory profiling API
+	virtual int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const = 0;
+};
+
+struct RTLIL::CoarseCell final : public RTLIL::Cell
+{
+#endif
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
@@ -1570,8 +1613,8 @@ public:
 	bool hasPort(const RTLIL::IdString &portname) const;
 	void unsetPort(const RTLIL::IdString &portname);
 	void setPort(const RTLIL::IdString &portname, RTLIL::SigSpec signal);
-	const RTLIL::SigSpec &getPort(const RTLIL::IdString &portname) const;
-	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
+	YS_NOVAY_CONSTREF(RTLIL::SigSpec) getPort(const RTLIL::IdString &portname) const;
+	YS_NOVAY_CONSTREF(dict<RTLIL::IdString YS_COMMA RTLIL::SigSpec>) connections() const;
 
 	// information about cell ports
 	bool known() const;
@@ -1602,7 +1645,65 @@ public:
 
 	bool has_memid() const;
 	bool is_mem_cell() const;
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
 };
+
+#ifdef _YOSYS_VAY_
+struct RTLIL::FineCell final : public RTLIL::Cell
+{
+	dict<RTLIL::IdString, RTLIL::SigBit> connections_;
+
+	//...
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
+};
+
+struct RTLIL::AYFineCell final : public RTLIL::Cell
+{
+	SigBit portA_, portY_;
+
+	virtual RTLIL::SigSpec getPort(const RTLIL::IdString &portname) const {
+		if (portname == ID::A) return portA_;
+		if (portname == ID::Y) return portY_;
+		log_abort();
+	}
+	//...
+	RTLIL::SigSpec getPortA() const { return portA_; }
+	RTLIL::SigBit getPortBitA() const { return portA_; }
+	//...
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
+};
+
+struct RTLIL::ABYFineCell final : public RTLIL::Cell
+{
+	SigBit portA_, portB_, portY_;
+
+	virtual RTLIL::SigSpec getPort(const RTLIL::IdString &portname) const {
+		if (portname == ID::A) return portA_;
+		if (portname == ID::B) return portB_;
+		if (portname == ID::Y) return portY_;
+		log_abort();
+	}
+	//...
+	RTLIL::SigSpec getPortA() const { return portA_; }
+	RTLIL::SigBit getPortBitA() const { return portA_; }
+	//...
+
+	// Memory profiling API
+	int getAllocations(std::vector<RTLIL::IdString> tags,
+		std::vector<std::pair<int,std::vector<RTLIL::IdString>>> *allocsPtr = nullptr) const;
+};
+
+//...
+#endif
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
 {

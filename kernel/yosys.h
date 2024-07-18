@@ -166,6 +166,18 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #  define YS_FALLTHROUGH
 #endif
 
+#define YS_COMMA ,
+
+#ifdef _YOSYS_VAY_
+#  define YS_VAY_VIRTUAL virtual
+#  define YS_VAY_ABSTRACT = 0
+#  define YS_NOVAY_CONSTREF(type) type
+#else
+#  define YS_VAY_VIRTUAL
+#  define YS_VAY_ABSTRACT
+#  define YS_NOVAY_CONSTREF(type) const type &
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 // Note: All headers included in hashlib.h must be included

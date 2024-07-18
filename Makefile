@@ -25,6 +25,9 @@ ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
 
+# enable virtual APIs, create "vay" executable instead of "yosys"
+ENABLE_VIRTUAL_APIS := 0
+
 # python wrappers
 ENABLE_PYOSYS := 0
 
@@ -77,7 +80,11 @@ OBJS =
 GENFILES =
 EXTRA_OBJS =
 EXTRA_TARGETS =
+ifeq ($(ENABLE_VIRTUAL_APIS),1)
+TARGETS = $(PROGRAM_PREFIX)vay$(EXE) $(PROGRAM_PREFIX)vay-config
+else
 TARGETS = $(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)yosys-config
+endif
 
 PRETTY = 1
 SMALL = 0
@@ -100,6 +107,9 @@ ifeq ($(OS), MINGW)
 EXE_LDFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
 PLUGIN_LDFLAGS += -L"$(LIBDIR)"
 PLUGIN_LDLIBS := -lyosys_exe
+endif
+ifeq ($(ENABLE_VIRTUAL_APIS),1)
+CXXFLAGS := $(CXXFLAGS) -D_YOSYS_VAY_
 endif
 
 PKG_CONFIG ?= pkg-config
@@ -376,7 +386,11 @@ $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe,
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
+ifeq ($(ENABLE_VIRTUAL_APIS,1)
+TARGETS += libvay.so
+else
 TARGETS += libyosys.so
+endif
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
@@ -750,14 +764,14 @@ ifeq ($(CONFIG),emcc)
 yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
-$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) $(LDLIBS_VERIFIC)
+$(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)vay$(EXE): $(OBJS)
+	$(P) $(LD) -o $@ $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) $(LDLIBS_VERIFIC)
 
-libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+libyosys.so libvay.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
+	$(P) $(LD) -o $@ -shared -Wl,-install_name,$(LIBDIR)/$@ $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
 else
-	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
+	$(P) $(LD) -o $@ -shared -Wl,-soname,$(LIBDIR)/$@ $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
 endif
 
 %.o: %.cc
@@ -793,11 +807,11 @@ CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
 LDLIBS_NOVERIFIC = $(LDLIBS)
 endif
 
-$(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
+$(PROGRAM_PREFIX)yosys-config $(PROGRAM_PREFIX)vay-config: misc/yosys-config.in
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -Ilibs/dlfcn-win32,,$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC))))#;' \
 			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC) $(PLUGIN_LDLIBS))#;' \
-			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
-	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
+			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $@
+	$(Q) chmod +x $@
 
 abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
 	$(P)
