@@ -154,7 +154,6 @@ template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::Abstra
 	void state(Node, IdString name) override { print("current_state.{}", state_struct[name]); }
 	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
-	void undriven(Node, int width) override { print("Signal<{}>(0)", width); }
 };
 
 struct CxxModule {

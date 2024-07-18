@@ -180,8 +180,6 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 
 	SExpr input(Node, IdString name) override { return input_struct.access("inputs", name); }
 	SExpr state(Node, IdString name) override { return state_struct.access("state", name); }
-
-	SExpr undriven(Node, int width) override { return literal(RTLIL::Const(State::S0, width)); }
 };
 
 struct SmtModule {
@@ -227,8 +225,7 @@ struct SmtModule {
 			     list("state", state_struct.name)),
 			list("Pair", output_struct.name, state_struct.name)));
 		auto inlined = [&](FunctionalIR::Node n) {
-			return n.fn() == FunctionalIR::Fn::constant ||
-				   n.fn() == FunctionalIR::Fn::undriven;
+			return n.fn() == FunctionalIR::Fn::constant;
 		};
 		SmtPrintVisitor visitor(input_struct, state_struct);
 		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {

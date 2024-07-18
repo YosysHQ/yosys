@@ -127,12 +127,6 @@ public:
 		// state(a: IdString): any
 		// returns the current value of the state variable with the specified name
 		state,
-		// multiple(a: any, b: any, c: any, ...): any
-		// indicates a value driven by multiple inputs
-		multiple,
-		// undriven(width: int): bit[width]
-		// indicates an undriven value
-		undriven,
 		// memory_read(memory: memory[addr_width, data_width], addr: bit[addr_width]): bit[data_width] = memory[addr]
 		memory_read,
 		// memory_write(memory: memory[addr_width, data_width], addr: bit[addr_width], data: bit[data_width]): memory[addr_width, data_width]
@@ -277,8 +271,6 @@ public:
 			case Fn::state: return v.state(*this, _ref.function().as_idstring()); break;
 			case Fn::memory_read: return v.memory_read(*this, arg(0), arg(1)); break;
 			case Fn::memory_write: return v.memory_write(*this, arg(0), arg(1), arg(2)); break;
-			case Fn::multiple: log_error("multiple in visit"); break;
-			case Fn::undriven: return v.undriven(*this, width()); break;
 			}
 		}
 		std::string to_string();
@@ -319,7 +311,6 @@ public:
 		virtual T state(Node self, IdString name) = 0;
 		virtual T memory_read(Node self, Node mem, Node addr) = 0;
 		virtual T memory_write(Node self, Node mem, Node addr, Node data) = 0;
-		virtual T undriven(Node self, int width) = 0;
 	};
 	// DefaultVisitor provides defaults for all visitor methods which just calls default_handler
 	template<class T> struct DefaultVisitor : public AbstractVisitor<T> {
@@ -357,7 +348,6 @@ public:
 		T state(Node self, IdString) override { return default_handler(self); }
 		T memory_read(Node self, Node, Node) override { return default_handler(self); }
 		T memory_write(Node self, Node, Node, Node) override { return default_handler(self); }
-		T undriven(Node self, int) override { return default_handler(self); }
 	};
 	// a factory is used to modify a FunctionalIR. it creates new nodes and allows for some modification of existing nodes.
 	class Factory {
@@ -474,15 +464,6 @@ public:
 		Node state_memory(IdString name, int addr_width, int data_width) {
 			_ir.add_state(name, Sort(addr_width, data_width));
 			return add(NodeData(Fn::state, name), Sort(addr_width, data_width), {});
-		}
-		Node multiple(vector<Node> args, int width) {
-			auto node = add(Fn::multiple, Sort(width), {});
-			for(const auto &arg : args)
-				mutate(node).append_arg(arg._ref);
-			return node;
-		}
-		Node undriven(int width) {
-			return add(Fn::undriven, Sort(width), {});
 		}
 		void declare_output(Node node, IdString name, int width) {
 			_ir.add_output(name, Sort(width));
