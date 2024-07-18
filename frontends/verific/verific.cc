@@ -58,6 +58,7 @@ USING_YOSYS_NAMESPACE
 
 #ifdef VERIFIC_VHDL_SUPPORT
 #include "vhdl_file.h"
+#include "VhdlIdDef.h"
 #include "VhdlUnits.h"
 #include "NameSpace.h"
 #endif
@@ -2817,6 +2818,10 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 				if (show_message)
 					log("Adding VHDL unit '%s' to elaboration queue.\n", name);
 				vhdl_units.InsertLast(vhdl_unit);
+				if (strcmp(name, vhdl_unit->Id()->OrigName()) != 0) {
+					top_mod_names.erase(name);
+					top_mod_names.insert(vhdl_unit->Id()->OrigName());
+				}
 				continue;
 			}
 #endif
