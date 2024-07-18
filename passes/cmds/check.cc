@@ -284,10 +284,10 @@ struct CheckPass : public Pass {
 			for (auto &loop : topo.loops) {
 				string message = stringf("found logic loop in module %s:\n", log_id(module));
 
-				// `loop` only contains wire bits, or an occassional special helper node for cells for
-				// which we have done the edges fallback. The cell and its ports that led to an edge is
-				// an information we need to recover now. For that we need to have the previous wire bit
-				// of the loop at hand.
+				// `loop` only contains wire bits, or an occasional special helper node for cells for
+				// which we have done the edges fallback. The cell and its ports that led to an edge are
+				// a piece of information we need to recover now. For that we need to have the previous
+				// wire bit of the loop at hand.
 				SigBit prev;
 				for (auto it = loop.rbegin(); it != loop.rend(); it++)
 				if (it->second != -1) { // skip the fallback helper nodes
