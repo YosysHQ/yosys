@@ -125,7 +125,7 @@ jobs:
         shell: bash
         run: |
           ! make check-git-abc
-          make wget-abc
+          make curl-abc
 
       - name: Build
         shell: bash
