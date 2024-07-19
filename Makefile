@@ -790,9 +790,27 @@ check-git-abc:
 		echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
 		exit 1; \
+	elif git status 2>&1 | grep 'fatal: not a git repository'; then \
+		echo "Did 'yosys' come from a release tarball?  Try call 'make wget-abc' to download matching 'abc' tarball."; \
+		exit 1; \
 	else \
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		exit 1; \
+	fi
+
+.PHONY: wget-abc
+ABC_TAR := abc.tar.gz
+YOSYS_TAG := $(word 1,$(subst +, ,$(YOSYS_VER)))
+ABC_TAR_URL := https://github.com/YosysHQ/yosys/releases/download/yosys-$(YOSYS_TAG)/$(ABC_TAR)
+wget-abc:
+	@if [ -z "$$(find abc -type d -prune -empty 2>&1)" ]; then \
+		echo "Error: The 'abc' directory already has contents.  Clear 'abc' directory before continuing."; \
+		exit 1; \
+	else \
+		mkdir -p abc; \
+		wget -nc "$(ABC_TAR_URL)"; \
+		echo "Extracting '$(ABC_TAR)' contents."; \
+		tar xzf $(ABC_TAR) -C abc --strip-components=1; \
 	fi
 
 abc/abc$(EXE) abc/libabc.a: check-git-abc
