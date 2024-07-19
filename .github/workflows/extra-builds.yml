@@ -95,3 +95,34 @@ jobs:
         with:
           install_url: https://releases.nixos.org/nix/nix-2.18.1/install
       - run: nix build .?submodules=1
+
+  sparse-build:
+    name: "Build without abc or git" # emulate build from release tarball
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+    steps:
+      - name: Sparse checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .
+            backends
+            frontends
+            kernel
+            libs
+            misc
+            passes
+            techlibs
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+      
+      - name: Build
+        shell: bash
+        run: |
+          make config-$CC
+          make -j$procs
+
