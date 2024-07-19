@@ -867,8 +867,12 @@ module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
 	parameter INIT = 0;
 endmodule
 
+(* blackbox, keep *)
 module GSR (input GSRI);
-	wire GSRO = GSRI;
+endmodule
+
+(* blackbox, keep *)
+module BANDGAP (input BGEN);
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1901,3 +1905,14 @@ output OSCOUT;
 parameter FREQ_DIV = 100;
 parameter REGULATOR_EN = 1'b0;
 endmodule
+
+(* blackbox *)
+module DCS (CLK0, CLK1, CLK2, CLK3, CLKSEL, SELFORCE, CLKOUT);
+input CLK0, CLK1, CLK2, CLK3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";
+endmodule
+
+
+
