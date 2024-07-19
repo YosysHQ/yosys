@@ -120,7 +120,13 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
-      
+
+      - name: Check abc
+        shell: bash
+        run: |
+          ! make check-git-abc
+          make wget-abc
+
       - name: Build
         shell: bash
         run: |
