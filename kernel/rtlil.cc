@@ -4034,12 +4034,14 @@ void RTLIL::SigSpec::unpack() const
 	cover("kernel.rtlil.sigspec.convert.unpack");
 	log_assert(that->bits_.empty());
 
+	std::vector<SigChunk> disposable;
+
 	that->bits_.reserve(that->width_);
 	for (auto &c : that->chunks_)
 		for (int i = 0; i < c.width; i++)
 			that->bits_.emplace_back(c, i);
 
-	that->chunks_.clear();
+	that->chunks_.swap(disposable);
 	that->hash_ = 0;
 }
 
