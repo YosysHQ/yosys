@@ -55,7 +55,7 @@ SANITIZER =
 
 # Prefer using ENABLE_DEBUG over setting these
 OPT_LEVEL := -O3
-GCC_LTO := -flto=auto
+GCC_LTO :=
 CLANG_LTO := -flto=thin
 
 PROGRAM_PREFIX :=
