@@ -119,7 +119,7 @@ public:
 	}
 };
 
-struct SmtPrintVisitor {
+struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	using Node = FunctionalIR::Node;
 	std::function<SExpr(Node)> n;
 	SmtStruct &input_struct;
@@ -137,43 +137,40 @@ struct SmtPrintVisitor {
 		return list("bitvector->bits", std::move(arg));
 	}
 
-	SExpr buf(Node, Node a) { return n(a); }
-	SExpr slice(Node, Node a, int, int offset, int out_width) { return list("extract", offset + out_width - 1, offset, n(a)); }
-	SExpr zero_extend(Node, Node a, int, int out_width) { return list("zero-extend", n(a), list("bitvector", out_width)); }
-	SExpr sign_extend(Node, Node a, int, int out_width) { return list("sign-extend", n(a), list("bitvector", out_width)); }
-	SExpr concat(Node, Node a, int, Node b, int) { return list("concat", n(b), n(a)); }
-	SExpr add(Node, Node a, Node b, int) { return list("bvadd", n(a), n(b)); }
-	SExpr sub(Node, Node a, Node b, int) { return list("bvsub", n(a), n(b)); }
-	SExpr mul(Node, Node a, Node b, int) { return list("bvmul", n(a), n(b)); }
-	SExpr unsigned_div(Node, Node a, Node b, int) { return list("bvudiv", n(a), n(b)); }
-	SExpr unsigned_mod(Node, Node a, Node b, int) { return list("bvurem", n(a), n(b)); }
-	SExpr bitwise_and(Node, Node a, Node b, int) { return list("bvand", n(a), n(b)); }
-	SExpr bitwise_or(Node, Node a, Node b, int) { return list("bvor", n(a), n(b)); }
-	SExpr bitwise_xor(Node, Node a, Node b, int) { return list("bvxor", n(a), n(b)); }
-	SExpr bitwise_not(Node, Node a, int) { return list("bvnot", n(a)); }
-	SExpr unary_minus(Node, Node a, int) { return list("bvneg", n(a)); }
-	SExpr reduce_and(Node, Node a, int) { return list("apply", "bvand", to_list(n(a))); }
-	SExpr reduce_or(Node, Node a, int) { return list("apply", "bvor", to_list(n(a))); }
-	SExpr reduce_xor(Node, Node a, int) { return list("apply", "bvxor", to_list(n(a))); }
-	SExpr equal(Node, Node a, Node b, int) { return from_bool(list("bveq", n(a), n(b))); }
-	SExpr not_equal(Node, Node a, Node b, int) { return from_bool(list("not", list("bveq", n(a), n(b)))); }
-	SExpr signed_greater_than(Node, Node a, Node b, int) { return from_bool(list("bvsgt", n(a), n(b))); }
-	SExpr signed_greater_equal(Node, Node a, Node b, int) { return from_bool(list("bvsge", n(a), n(b))); }
-	SExpr unsigned_greater_than(Node, Node a, Node b, int) { return from_bool(list("bvugt", n(a), n(b))); }
-	SExpr unsigned_greater_equal(Node, Node a, Node b, int) { return from_bool(list("bvuge", n(a), n(b))); }
-	SExpr logical_shift_left(Node, Node a, Node b, int, int) { return list("bvshl", n(a), n(b)); }
-	SExpr logical_shift_right(Node, Node a, Node b, int, int) { return list("bvlshr", n(a), n(b)); }
-	SExpr arithmetic_shift_right(Node, Node a, Node b, int, int) { return list("bvashr", n(a), n(b)); }
-	SExpr mux(Node, Node a, Node b, Node s, int) { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr pmux(Node, Node a, Node b, Node s, int, int) { log_error("pmux not supported in Rosette printer"); }
-	SExpr constant(Node, RTLIL::Const value) { return list("bv", value.as_string(), value.size()); }
-	SExpr memory_read(Node, Node mem, Node addr, int, int) { log_error("memory_read not supported in Rosette printer"); }
-	SExpr memory_write(Node, Node mem, Node addr, Node data, int, int) { log_error("memory_write not supported in Rosette printer"); }
+	SExpr buf(Node, Node a) override { return n(a); }
+	SExpr slice(Node, Node a, int offset, int out_width) override { return list("extract", offset + out_width - 1, offset, n(a)); }
+	SExpr zero_extend(Node, Node a, int out_width) override { return list("zero-extend", n(a), list("bitvector", out_width)); }
+	SExpr sign_extend(Node, Node a, int out_width) override { return list("sign-extend", n(a), list("bitvector", out_width)); }
+	SExpr concat(Node, Node a, Node b) override { return list("concat", n(b), n(a)); }
+	SExpr add(Node, Node a, Node b) override { return list("bvadd", n(a), n(b)); }
+	SExpr sub(Node, Node a, Node b) override { return list("bvsub", n(a), n(b)); }
+	SExpr mul(Node, Node a, Node b) override { return list("bvmul", n(a), n(b)); }
+	SExpr unsigned_div(Node, Node a, Node b) override { return list("bvudiv", n(a), n(b)); }
+	SExpr unsigned_mod(Node, Node a, Node b) override { return list("bvurem", n(a), n(b)); }
+	SExpr bitwise_and(Node, Node a, Node b) override { return list("bvand", n(a), n(b)); }
+	SExpr bitwise_or(Node, Node a, Node b) override { return list("bvor", n(a), n(b)); }
+	SExpr bitwise_xor(Node, Node a, Node b) override { return list("bvxor", n(a), n(b)); }
+	SExpr bitwise_not(Node, Node a) override { return list("bvnot", n(a)); }
+	SExpr unary_minus(Node, Node a) override { return list("bvneg", n(a)); }
+	SExpr reduce_and(Node, Node a) override { return list("apply", "bvand", to_list(n(a))); }
+	SExpr reduce_or(Node, Node a) override { return list("apply", "bvor", to_list(n(a))); }
+	SExpr reduce_xor(Node, Node a) override { return list("apply", "bvxor", to_list(n(a))); }
+	SExpr equal(Node, Node a, Node b) override { return from_bool(list("bveq", n(a), n(b))); }
+	SExpr not_equal(Node, Node a, Node b) override { return from_bool(list("not", list("bveq", n(a), n(b)))); }
+	SExpr signed_greater_than(Node, Node a, Node b) override { return from_bool(list("bvsgt", n(a), n(b))); }
+	SExpr signed_greater_equal(Node, Node a, Node b) override { return from_bool(list("bvsge", n(a), n(b))); }
+	SExpr unsigned_greater_than(Node, Node a, Node b) override { return from_bool(list("bvugt", n(a), n(b))); }
+	SExpr unsigned_greater_equal(Node, Node a, Node b) override { return from_bool(list("bvuge", n(a), n(b))); }
+	SExpr logical_shift_left(Node, Node a, Node b) override { return list("bvshl", n(a), n(b)); }
+	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), n(b)); }
+	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), n(b)); }
+	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
+	SExpr constant(Node, RTLIL::Const value) override { return list("bv", value.as_string(), value.size()); }
+	SExpr memory_read(Node, Node mem, Node addr) override { log_error("memory_read not supported in Rosette printer"); }
+	SExpr memory_write(Node, Node mem, Node addr, Node data) override { log_error("memory_write not supported in Rosette printer"); }
 
-	SExpr input(Node, IdString name) { return input_struct.access("inputs", name); }
-	SExpr state(Node, IdString name) { return state_struct.access("state", name); }
-
-	SExpr undriven(Node, int width) { return list("bv", 0, width); }
+	SExpr input(Node, IdString name) override { return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name) override { return state_struct.access("state", name); }
 };
 
 struct SmtModule {
@@ -214,8 +211,7 @@ struct SmtModule {
 		w.push();
 		w.open(list("define", list(name, "inputs", "state")));
 		auto inlined = [&](FunctionalIR::Node n) {
-			return n.fn() == FunctionalIR::Fn::constant ||
-				   n.fn() == FunctionalIR::Fn::undriven;
+			return n.fn() == FunctionalIR::Fn::constant;
 		};
 		SmtPrintVisitor visitor(input_struct, state_struct);
 		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
