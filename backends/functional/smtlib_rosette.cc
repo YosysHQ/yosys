@@ -28,17 +28,13 @@ PRIVATE_NAMESPACE_BEGIN
 using SExprUtil::list;
 
 const char *reserved_keywords[] = {
-	// reserved keywords from the smtlib spec
-	"BINARY", "DECIMAL", "HEXADECIMAL", "NUMERAL", "STRING", "_", "!", "as", "let", "exists", "forall", "match", "par",
-	"assert", "check-sat", "check-sat-assuming", "declare-const", "declare-datatype", "declare-datatypes",
-	"declare-fun", "declare-sort", "define-fun", "define-fun-rec", "define-funs-rec", "define-sort",
-	"exit", "get-assertions", "symbol", "sort", "get-assignment", "get-info", "get-model",
-	"get-option", "get-proof", "get-unsat-assumptions", "get-unsat-core", "get-value",
-	"pop", "push", "reset", "reset-assertions", "set-info", "set-logic", "set-option",
+	// reserved keywords from the racket spec
+	"struct", "lambda", "values", "extract", "concat", "bv", "let", "define", "cons", "list", "read", "write",
+	"stream", "error", "raise", "exit", "for", "for/list", "begin", "when", "unless", "module", "require",
+	"provide", "apply", "if", "cond", "even", "odd", "any", "and", "or", "match", "match-define", "values",
 
 	// reserved for our own purposes
-	"pair", "Pair", "first", "second",
-	"inputs", "state",
+	"inputs", "state", "name",
 	nullptr
 };
 
