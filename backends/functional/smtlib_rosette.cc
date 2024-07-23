@@ -95,8 +95,8 @@ public:
 			w.open(list("lambda", field_list));
 			w.open(list("values"));
 			for (const auto &field : fields) {
-				auto s = field.sort.sort.width() - 1;
-				w << list("extract", s, 0, list("concat", list("bv", 0, s), field.name));
+				auto s = field.sort.sort.width();
+				w << list("extract", s-1, 0, list("concat", list("bv", 0, s), field.name));
 			}
 		}
 		w.pop();
