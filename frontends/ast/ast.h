@@ -17,7 +17,9 @@
  *
  *  ---
  *
- *  This is support code for the Verilog frontend at frontends/verilog
+ *  The AST frontend library is not a frontend on its own but provides an
+ *  abstract syntax tree (AST) abstraction for the open source Verilog frontend
+ *  at frontends/verilog.
  *
  */
 
