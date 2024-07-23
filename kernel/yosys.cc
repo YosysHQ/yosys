@@ -1133,7 +1133,9 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			command = " -vlog2k";
 		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
 			command = " -sv";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
+		else if ((filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
+			 ||
+			 (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".vhdl") == 0))
 			command = " -vhdl";
 		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
