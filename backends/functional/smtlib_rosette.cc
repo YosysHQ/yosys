@@ -157,9 +157,16 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr signed_greater_equal(Node, Node a, Node b) override { return from_bool(list("bvsge", n(a), n(b))); }
 	SExpr unsigned_greater_than(Node, Node a, Node b) override { return from_bool(list("bvugt", n(a), n(b))); }
 	SExpr unsigned_greater_equal(Node, Node a, Node b) override { return from_bool(list("bvuge", n(a), n(b))); }
-	SExpr logical_shift_left(Node, Node a, Node b) override { return list("bvshl", n(a), n(b)); }
-	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), n(b)); }
-	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), n(b)); }
+
+	SExpr extend(SExpr &&a, int in_width, int out_width) {
+		if(in_width < out_width)
+			return list("zero-extend", std::move(a), list("bitvector", out_width));
+		else
+			return std::move(a);
+	}
+	SExpr logical_shift_left(Node, Node a, Node b) override { return list("bvshl", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
+	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
 	SExpr constant(Node, RTLIL::Const value) override { return list("bv", value.as_string(), value.size()); }
 	SExpr memory_read(Node, Node mem, Node addr) override { log_error("memory_read not supported in Rosette printer"); }
