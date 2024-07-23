@@ -38,8 +38,8 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-struct SmtScope : public FunctionalTools::Scope<int> {
-	SmtScope() {
+struct SmtrScope : public FunctionalTools::Scope<int> {
+	SmtrScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
 	}
@@ -48,9 +48,9 @@ struct SmtScope : public FunctionalTools::Scope<int> {
 	}
 };
 
-struct SmtSort {
+struct SmtrSort {
 	FunctionalIR::Sort sort;
-	SmtSort(FunctionalIR::Sort sort) : sort(sort) {}
+	SmtrSort(FunctionalIR::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
 			log_error("Memory not supported in Rosette printer");
@@ -62,21 +62,21 @@ struct SmtSort {
 	}
 };
 
-class SmtStruct {
+class SmtrStruct {
 	struct Field {
-		SmtSort sort;
+		SmtrSort sort;
 		std::string accessor;
 		std::string name;
 	};
 	idict<IdString> field_names;
 	vector<Field> fields;
-	SmtScope &scope;
+	SmtrScope &scope;
 public:
 	std::string name;
 	// Not sure if this is actually necessary or not, so make it optional I guess?
 	bool guarded = true;
-	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
-	void insert(IdString field_name, SmtSort sort) {
+	SmtrStruct(std::string name, SmtrScope &scope) : scope(scope), name(name) {}
+	void insert(IdString field_name, SmtrSort sort) {
 		field_names(field_name);
 		auto base_name = RTLIL::unescape_id(field_name);
 		auto accessor = name + "-" + base_name;
@@ -115,13 +115,13 @@ public:
 	}
 };
 
-struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
+struct SmtrPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	using Node = FunctionalIR::Node;
 	std::function<SExpr(Node)> n;
-	SmtStruct &input_struct;
-	SmtStruct &state_struct;
+	SmtrStruct &input_struct;
+	SmtrStruct &state_struct;
 
-	SmtPrintVisitor(SmtStruct &input_struct, SmtStruct &state_struct) : input_struct(input_struct), state_struct(state_struct) {}
+	SmtrPrintVisitor(SmtrStruct &input_struct, SmtrStruct &state_struct) : input_struct(input_struct), state_struct(state_struct) {}
 
 	SExpr from_bool(SExpr &&arg) {
 		return list("bool->bitvector", std::move(arg));
@@ -176,16 +176,16 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr state(Node, IdString name) override { return state_struct.access("state", name); }
 };
 
-struct SmtModule {
+struct SmtrModule {
 	FunctionalIR ir;
-	SmtScope scope;
+	SmtrScope scope;
 	std::string name;
 	
-	SmtStruct input_struct;
-	SmtStruct output_struct;
-	SmtStruct state_struct;
+	SmtrStruct input_struct;
+	SmtrStruct output_struct;
+	SmtrStruct state_struct;
 
-	SmtModule(Module *module)
+	SmtrModule(Module *module)
 		: ir(FunctionalIR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
@@ -216,7 +216,7 @@ struct SmtModule {
 		auto inlined = [&](FunctionalIR::Node n) {
 			return n.fn() == FunctionalIR::Fn::constant;
 		};
-		SmtPrintVisitor visitor(input_struct, state_struct);
+		SmtrPrintVisitor visitor(input_struct, state_struct);
 		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
 			if(inlined(n))
 				return n.visit(visitor);
@@ -227,7 +227,7 @@ struct SmtModule {
 		for(auto n : ir)
 			if(!inlined(n)) {
 				w.open(list("let", list(list(node_to_sexpr(n), n.visit(visitor)))), false);
-				w.comment(SmtSort(n.sort()).to_sexpr().to_string(), true);
+				w.comment(SmtrSort(n.sort()).to_sexpr().to_string(), true);
 			}
 		w.open(list("cons"));
 		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_output_node(name)); });
@@ -237,7 +237,7 @@ struct SmtModule {
 };
 
 struct FunctionalSmtrBackend : public Backend {
-	FunctionalSmtrBackend() : Backend("functional_rosette", "Generate Rosette compatible SMT-LIB from Functional IR") {}
+	FunctionalSmtrBackend() : Backend("functional_rosette", "Generate Rosette compatible Racket from Functional IR") {}
 
 	void help() override { log("\nFunctional Rosette Backend.\n\n"); }
 
@@ -250,8 +250,8 @@ struct FunctionalSmtrBackend : public Backend {
 
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
-			SmtModule smt(module);
-			smt.write(*f);
+			SmtrModule smtr(module);
+			smtr.write(*f);
 		}
 	}
 } FunctionalSmtrBackend;
