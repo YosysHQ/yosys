@@ -74,6 +74,8 @@ def test_rkt(cell, parameters, tmp_path):
     rkt_file = tmp_path / 'smtlib.rkt'
 
     cell.write_rtlil_file(rtlil_file, parameters)
-    yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_rosette {quote(rkt_file)}")
-    # raco read is a very limited smoke test, mostly looking for malformed code.
-    run(['raco', 'read', rkt_file])
+
+    # use raco test with symbolic defines, will pickup malformed code and e.g. width mismatches
+    # still doesn't verify functionality
+    yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_rosette -symbolics {quote(rkt_file)}")
+    run(['raco', 'test', rkt_file])
