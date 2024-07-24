@@ -1,7 +1,7 @@
 read_verilog ../common/add_sub.v
 hierarchy -top top
 proc
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
@@ -30,7 +30,7 @@ EOT
 
 hierarchy -top top
 proc
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
@@ -58,7 +58,7 @@ EOT
 
 hierarchy -top top
 proc
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter

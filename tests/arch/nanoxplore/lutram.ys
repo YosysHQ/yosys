@@ -26,7 +26,7 @@ EOT
 hierarchy -top lutram_dpreg
 proc
 memory -nomap
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 memory
 opt -full
 
@@ -48,7 +48,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r -chparam A_WIDTH 5 -chparam D_WIDTH 18
 proc
 memory -nomap
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 memory
 opt -full
 
@@ -68,7 +68,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r -chparam A_WIDTH 6 -chparam D_WIDTH 18
 proc
 memory -nomap
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 memory
 opt -full
 
@@ -88,7 +88,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r -chparam A_WIDTH 5 -chparam D_WIDTH 36
 proc
 memory -nomap
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 memory
 opt -full
 
@@ -131,7 +131,7 @@ EOT
 hierarchy -top lutram_1w2r -chparam A_WIDTH 5 -chparam D_WIDTH 18
 proc
 memory -nomap
-equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
 memory
 opt -full
 
