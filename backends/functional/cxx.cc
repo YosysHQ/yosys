@@ -156,6 +156,14 @@ template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::Abstra
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
 };
 
+bool equal_def(RTLIL::Const const &a, RTLIL::Const const &b) {
+	if(a.size() != b.size()) return false;
+	for(int i = 0; i < a.size(); i++)
+		if((a[i] == State::S1) != (b[i] == State::S1))
+			return false;
+	return true;
+}
+
 struct CxxModule {
 	FunctionalIR ir;
 	CxxStruct input_struct, output_struct, state_struct;
@@ -193,11 +201,16 @@ struct CxxModule {
 			if (sort.is_signal())
 				f.print("\tstate.{} = {};\n", state_struct[name], cxx_const(ir.get_initial_state_signal(name)));
 			else if (sort.is_memory()) {
+				f.print("\t{{\n");
+				f.print("\t\tstd::array<Signal<{}>, {}> mem;\n", sort.data_width(), 1<<sort.addr_width());
 				const auto &contents = ir.get_initial_state_memory(name);
-				f.print("\tstate.{}.fill({});\n", state_struct[name], cxx_const(contents.default_value()));
+				f.print("\t\tmem.fill({});\n", cxx_const(contents.default_value()));
 				for(auto range : contents)
 					for(auto addr = range.base(); addr < range.limit(); addr++)
-						f.print("\tstate.{}[{}] = {};\n", state_struct[name], addr, cxx_const(range[addr]));
+						if(!equal_def(range[addr], contents.default_value()))
+							f.print("\t\tmem[{}] = {};\n", addr, cxx_const(range[addr]));
+				f.print("\t\tstate.{} = mem;\n", state_struct[name]);
+				f.print("\t}}\n");
 			}
 		}
 		f.print("}}\n\n");
