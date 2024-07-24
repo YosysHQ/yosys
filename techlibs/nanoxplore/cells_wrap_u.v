@@ -1,18 +1,82 @@
+
+module NX_ODDFR_U(CK,R,I1,I2,L,O);
+    input CK;
+    input R;
+    input I1;
+    input I2;
+    input L;
+    output O;
+
+    parameter location = "";
+    parameter path = 0;
+    parameter dff_type = 1'b0;
+    parameter dff_sync = 1'b0;
+    parameter dff_load = 1'b0;
+
+  NX_DDFR_U #(
+      .location(location),
+      .path(path),
+      .dff_type(dff_type),
+      .dff_sync(dff_sync),
+      .dff_load(dff_load)
+  ) _TECHMAP_REPLACE_ (
+      .CK(CK),
+      .CKF(CK),
+      .R(R),
+      .I(I1),
+      .I2(I2),
+      .L(L),
+      .O(O),
+      .O2()
+  );
+endmodule
+
+module NX_IDDFR_U(CK,R,I,L,O1,O2);
+    input CK;
+    input R;
+    input I;
+    input L;
+    output O1;
+    output O2;
+
+    parameter location = "";
+    parameter dff_type = 1'b0;
+    parameter dff_sync = 1'b0;
+    parameter dff_load = 1'b0;
+
+  NX_DDFR_U #(
+      .location(location),
+      .path(1),
+      .dff_type(dff_type),
+      .dff_sync(dff_sync),
+      .dff_load(dff_load)
+  ) _TECHMAP_REPLACE_ (
+      .CK(CK),
+      .CKF(CK),
+      .R(R),
+      .I(I),
+      .I2(1'b0),
+      .L(L),
+      .O(O1),
+      .O2(O2)
+  );
+endmodule
+
 module NX_CKS_U(CKI, CMD, CKO);
     input CKI;
     output CKO;
     input CMD;
 
-NX_GCK_U #(
-    .inv_in(1'b0),
-    .inv_out(1'b0),
-    .std_mode("CKS")
-) _TECHMAP_REPLACE_ (
-    .CMD(CMD),
-    .SI1(CKI),
-    .SI2(),
-    .SO(CKO)
-);
+  NX_GCK_U #(
+      .inv_in(1'b0),
+      .inv_out(1'b0),
+      .std_mode("CKS")
+  ) _TECHMAP_REPLACE_ (
+      .CMD(CMD),
+      .SI1(CKI),
+      .SI2(),
+      .SO(CKO)
+  );
 endmodule
 
 module NX_CMUX_U(CKI0, CKI1, SEL, CKO);
@@ -21,16 +85,16 @@ module NX_CMUX_U(CKI0, CKI1, SEL, CKO);
     output CKO;
     input SEL;
 
-NX_GCK_U #(
-    .inv_in(1'b0),
-    .inv_out(1'b0),
-    .std_mode("MUX")
-) _TECHMAP_REPLACE_ (
-    .CMD(SEL),
-    .SI1(CKI0),
-    .SI2(CKI1),
-    .SO(CKO)
-);
+  NX_GCK_U #(
+      .inv_in(1'b0),
+      .inv_out(1'b0),
+      .std_mode("MUX")
+  ) _TECHMAP_REPLACE_ (
+      .CMD(SEL),
+      .SI1(CKI0),
+      .SI2(CKI1),
+      .SO(CKO)
+  );
 endmodule
 
 module NX_CDC_U_2DFF(CK1, CK2, ADRSTI, ADRSTO, BDRSTI, BDRSTO, BI, AO, BO, AI);
@@ -3440,4 +3504,3 @@ module NX_HSSL_U_FULL(hssl_clk_user_tx_i, hssl_clk_user_rx_i, hssl_clk_ref_i, hs
     parameter rx_usrclk_use_pcs_clk_2 = 1'b0;
     parameter tx_usrclk_use_pcs_clk_2 = 1'b0;
 endmodule
-

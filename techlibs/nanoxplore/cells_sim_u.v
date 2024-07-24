@@ -250,3 +250,57 @@ module NX_WFG_U(R, SI, ZI, SO, ZO);
             $error("Unknown NX_WFG_U mode");
     endgenerate
 endmodule
+
+module NX_DDFR_U(CK,CKF,R,I,I2,L,O,O2);
+    input CK;
+    input CKF;
+    input R;
+    input I;
+    input I2;
+    input L;
+    output O;
+    output O2;
+
+    parameter location = "";
+    parameter path = 0;
+    parameter dff_type = 1'b0;
+    parameter dff_sync = 1'b0;
+    parameter dff_load = 1'b0;
+
+    wire load = dff_load ? 1'b1 : L; // reversed when compared to DFF
+    wire async_reset = !dff_sync && R;
+    wire sync_reset = dff_sync && R;
+
+    generate
+        if (path==1) begin
+            // IDDFR
+            always @(posedge CK, posedge async_reset)
+                if (async_reset) O <= dff_type;
+                else if (sync_reset) O <= dff_type;
+                else if (load) O <= I;
+
+            always @(posedge CKF, posedge async_reset)
+                if (async_reset) O2 <= dff_type;
+                else if (sync_reset) O2 <= dff_type;
+                else if (load) O2 <= I;
+        end
+        else if (path==0 || path==2) begin
+            reg q1, q2;
+            // ODDFR
+            always @(posedge CK, posedge async_reset)
+                if (async_reset) q1 <= dff_type;
+                else if (sync_reset) q1 <= dff_type;
+                else if (load) q1 <= I;
+
+            always @(posedge CKF, posedge async_reset)
+                if (async_reset) q2 <= dff_type;
+                else if (sync_reset) q2 <= dff_type;
+                else if (load) q2 <= I2;
+
+            assign O = CK ? q1 : q2;
+        end
+        else
+            $error("Unknown NX_DDFR_U path");
+    endgenerate
+
+endmodule
