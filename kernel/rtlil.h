@@ -843,7 +843,7 @@ struct RTLIL::SigSpec
 private:
 	int width_;
 	bool packed_;
-	unsigned long hash_;
+	// unsigned long hash_;
 	union {
 		std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
@@ -853,7 +853,6 @@ private:
 	void unpack() const;
 	void switch_to_packed() const;
 	void switch_to_unpacked() const;
-	void updhash() const;
 
 	inline bool packed() const {
 		return packed_;
@@ -869,14 +868,13 @@ private:
 	friend struct RTLIL::Module;
 
 public:
-	SigSpec() : width_(0), packed_(true), hash_(0), chunks_() {}
+	SigSpec() : width_(0), packed_(true), chunks_() {}
 	~SigSpec() { if (packed_) chunks_.~vector(); else bits_.~vector(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
 	SigSpec(const Yosys::RTLIL::SigSpec &other)
 	{
 		packed_ = other.packed_;
 		width_ = other.width_;
-		hash_ = other.hash_;
 		if (packed_) {
 			(void)new (&this->chunks_) std::vector<SigChunk>();
 			chunks_ = other.chunks_;
@@ -906,7 +904,6 @@ public:
 		}
 
 		width_ = other.width_;
-		hash_ = other.hash_;
 		check();
 		return *this;
 	}
@@ -927,11 +924,7 @@ public:
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
 
-	size_t get_hash() const {
-		if (!hash_) hash();
-		return hash_;
-	}
-
+	size_t hash() const;
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
@@ -1037,8 +1030,6 @@ public:
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
-
-	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
