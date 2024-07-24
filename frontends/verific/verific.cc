@@ -3681,8 +3681,12 @@ struct VerificPass : public Pass {
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
+					veri_file::Analyze("preqorsor/data/blackboxes.v");
+					FOREACH_MAP_ITEM(veri_file::AllModules(), mi, &key, &value) {
+						veri_file::AddToIgnoredParsedModuleNames(key);
+						log("AUTO-DISCOVER: will not parse module %s since found in blackboxes.v\n", key);
+					}
 					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
-					veri_file::AddVFile("preqorsor/data/blackboxes.v");
 					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
 						if (!hdl_file_sort::RegisterDir(dir_name)) {
 							verific_error_msg.clear();
@@ -3717,17 +3721,7 @@ struct VerificPass : public Pass {
 					// 	hdl_file_sort::AddLOption(key);
 					// 	log("AUTO-DISCOVER: added -L option %s\n", key);
 					// }
-					int orig_argidx = argidx;
 					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
-						bool skip = false;
-						for (argidx = orig_argidx; argidx < GetSize(args) && args[argidx] == "-i"; argidx++) {
-							string ignore_file = args[++argidx];
-							if (string(file_name) == ignore_file) {
-								log("AUTO-DISCOVER: ignoring file %s\n", ignore_file.c_str());
-								skip = true;
-							}
-						}
-						if (skip) continue;
 						if (!hdl_file_sort::RegisterFile(file_name)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not register file %s.\n", file_name);
