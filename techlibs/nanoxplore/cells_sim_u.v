@@ -181,19 +181,19 @@ module NX_RFB_U(WCK, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14
                          I9,  I8,  I7,  I6,  I5,  I4,  I3,  I2,  I1 };
     generate 
         if (mode==0) begin
-            assign O[17:0] = mem[{ RA5, RA4, RA3, RA2, RA1 }];
+            assign O = mem[{ RA5, RA4, RA3, RA2, RA1 }];
         end
         else if (mode==1) begin
-            assign O[17:0] = mem[{ WA5, WA4, WA3, WA2, WA1 }];
+            assign O = mem[{ WA5, WA4, WA3, WA2, WA1 }];
         end
         else if (mode==2) begin
-            assign O[17:0] = mem[{ RA6, RA5, RA4, RA3, RA2, RA1 }];
+            assign O = mem[{ RA6, RA5, RA4, RA3, RA2, RA1 }];
         end
         else if (mode==3) begin
-            assign O[35:0] = mem[{ RA5, RA4, RA3, RA2, RA1 }];
+            assign O = mem[{ RA5, RA4, RA3, RA2, RA1 }];
         end
         else if (mode==4) begin
-            assign O[35:0] = { mem[{ RA10, RA9, RA8, RA7, RA6 }], mem[{ RA5, RA4, RA3, RA2, RA1 }] };
+            assign O = { mem[{ RA10, RA9, RA8, RA7, RA6 }], mem[{ RA5, RA4, RA3, RA2, RA1 }] };
         end
         else 
             $error("Unknown NX_RFB_U mode");
