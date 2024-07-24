@@ -19,6 +19,8 @@
 
 #include "kernel/functionalir.h"
 #include <optional>
+#include "ff.h"
+#include "ffinit.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -70,7 +72,7 @@ struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
 	std::string slice(Node, Node a, int offset, int out_width) override { return "slice(" + np(a) + ", " + std::to_string(offset) + ", " + std::to_string(out_width) + ")"; }
 	std::string zero_extend(Node, Node a, int out_width) override { return "zero_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string sign_extend(Node, Node a, int out_width) override { return "sign_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
-	std::string constant(Node, RTLIL::Const value) override { return "constant(" + value.as_string() + ")"; }
+	std::string constant(Node, RTLIL::Const const& value) override { return "constant(" + value.as_string() + ")"; }
 	std::string input(Node, IdString name) override { return "input(" + name.str() + ")"; }
 	std::string state(Node, IdString name) override { return "state(" + name.str() + ")"; }
 	std::string default_handler(Node self) override {
@@ -407,6 +409,8 @@ class FunctionalIRConstruction {
 	CellSimplifier simplifier;
 	vector<Mem> memories_vector;
 	dict<Cell*, Mem*> memories;
+	SigMap sig_map; // TODO: this is only for FfInitVals, remove this once FfInitVals supports DriverMap
+	FfInitVals ff_initvals;
 
 	Node enqueue(DriveSpec const &spec)
 	{
@@ -438,8 +442,11 @@ class FunctionalIRConstruction {
 			return it->second;
 	}
 public:
-	FunctionalIRConstruction(FunctionalIR::Factory &f) : factory(f), simplifier(f) {}
-	void add_module(Module *module)
+	FunctionalIRConstruction(Module *module, FunctionalIR::Factory &f)
+		: factory(f)
+		, simplifier(f)
+		, sig_map(module)
+		, ff_initvals(&sig_map, module)
 	{
 		driver_map.add(module);
 		for (auto cell : module->cells()) {
@@ -447,9 +454,12 @@ public:
 				queue.emplace_back(cell);
 		}
 		for (auto wire : module->wires()) {
+			if (wire->port_input)
+				factory.add_input(wire->name, wire->width);
 			if (wire->port_output) {
-				Node node = enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width)));
-				factory.declare_output(node, wire->name, wire->width);
+				factory.add_output(wire->name, wire->width);
+				Node value = enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width)));
+				factory.set_output(wire->name, value);
 			}
 		}
 		memories_vector = Mem::get_all_memories(module);
@@ -487,9 +497,9 @@ public:
 		// - Since wr port j can only have priority over wr port i if j > i, if we do writes in
 		//   ascending index order the result will obey the priorty relation.
 		vector<Node> read_results;
-		int addr_width = ceil_log2(mem->size);
-		int data_width = mem->width;
-		Node node = factory.state_memory(mem->cell->name, addr_width, data_width);
+		factory.add_state(mem->cell->name, FunctionalIR::Sort(ceil_log2(mem->size), mem->width));
+		factory.set_initial_state(mem->cell->name, MemContents(mem));
+		Node node = factory.get_current_state(mem->cell->name);
 		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
 			const auto &wr = mem->wr_ports[i];
 			if (wr.clk_enable)
@@ -513,7 +523,7 @@ public:
 			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
 			read_results.push_back(factory.memory_read(node, addr));
 		}
-		factory.declare_state_memory(node, mem->cell->name, addr_width, data_width);
+		factory.set_next_state(mem->cell->name, node);
 		return concatenate_read_results(mem, read_results);
 	}
 	void process_cell(Cell *cell)
@@ -527,6 +537,17 @@ public:
 			}
 			Node node = handle_memory(mem);
 			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
+		} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			FfData ff(&ff_initvals, cell);
+			if (!ff.has_gclk)
+				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
+					"Call async2sync or clk2fflogic to avoid this error.\n", log_id(cell->type), log_id(cell));
+			factory.add_state(ff.name, FunctionalIR::Sort(ff.width));
+			Node q_value = factory.get_current_state(ff.name);
+			factory.suggest_name(q_value, ff.name);
+			factory.update_pending(cell_outputs.at({cell, ID(Q)}), q_value);
+			factory.set_next_state(ff.name, enqueue(ff.sig_d));
+			factory.set_initial_state(ff.name, ff.val_init);
 		} else {
 			dict<IdString, Node> connections;
 			IdString output_name; // for the single output case
@@ -572,7 +593,7 @@ public:
 					DriveChunkWire wire_chunk = chunk.wire();
 					if (wire_chunk.is_whole()) {
 						if (wire_chunk.wire->port_input) {
-							Node node = factory.input(wire_chunk.wire->name, wire_chunk.width);
+							Node node = factory.get_input(wire_chunk.wire->name);
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
 						} else {
@@ -590,24 +611,8 @@ public:
 					DriveChunkPort port_chunk = chunk.port();
 					if (port_chunk.is_whole()) {
 						if (driver_map.celltypes.cell_output(port_chunk.cell->type, port_chunk.port)) {
-							if (port_chunk.cell->type.in(ID($dff), ID($ff)))
-							{
-								Cell *cell = port_chunk.cell;
-								Node node = factory.state(cell->name, port_chunk.width);
-								factory.suggest_name(node, port_chunk.cell->name);
-								factory.update_pending(pending, node);
-								for (auto const &conn : cell->connections()) {
-									if (driver_map.celltypes.cell_input(cell->type, conn.first)) {
-										Node node = enqueue(DriveChunkPort(cell, conn));
-										factory.declare_state(node, cell->name, port_chunk.width);
-									}
-								}
-							}
-							else
-							{
-								Node node = enqueue_cell(port_chunk.cell, port_chunk.port);
-								factory.update_pending(pending, node);
-							}
+							Node node = enqueue_cell(port_chunk.cell, port_chunk.port);
+							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(port_chunk));
 							factory.update_pending(pending, enqueue(driver));
@@ -641,8 +646,7 @@ public:
 FunctionalIR FunctionalIR::from_module(Module *module) {
     FunctionalIR ir;
     auto factory = ir.factory();
-    FunctionalIRConstruction ctor(factory);
-    ctor.add_module(module);
+    FunctionalIRConstruction ctor(module, factory);
     ctor.process_queue();
     ir.topological_sort();
     ir.forward_buf();

@@ -189,24 +189,11 @@ private:
 	// the bool is true for next state values
 	using Graph = ComputeGraph<NodeData, Attr, IdString, std::pair<IdString, bool>>;
 	Graph _graph;
-	dict<IdString, Sort> _inputs;
-	dict<IdString, Sort> _outputs;
-	dict<IdString, Sort> _state;
-	void add_input(IdString name, Sort sort) {
-		auto [it, found] = _inputs.emplace(name, std::move(sort));
-		if(found)
-			log_assert(it->second == sort);
-	}
-	void add_state(IdString name, Sort sort) {
-		auto [it, found] = _state.emplace(name, std::move(sort));
-		if(found)
-			log_assert(it->second == sort);
-	}
-	void add_output(IdString name, Sort sort) {
-		auto [it, found] = _outputs.emplace(name, std::move(sort));
-		if(found)
-			log_assert(it->second == sort);
-	}
+	dict<IdString, Sort> _input_sorts;
+	dict<IdString, Sort> _output_sorts;
+	dict<IdString, Sort> _state_sorts;
+	dict<IdString, RTLIL::Const> _initial_state_signal;
+	dict<IdString, MemContents> _initial_state_memory;
 public:
 	class Factory;
 	// Node is an immutable reference to a FunctionalIR node
@@ -306,7 +293,7 @@ public:
 		virtual T logical_shift_right(Node self, Node a, Node b) = 0;
 		virtual T arithmetic_shift_right(Node self, Node a, Node b) = 0;
 		virtual T mux(Node self, Node a, Node b, Node s) = 0;
-		virtual T constant(Node self, RTLIL::Const value) = 0;
+		virtual T constant(Node self, RTLIL::Const const & value) = 0;
 		virtual T input(Node self, IdString name) = 0;
 		virtual T state(Node self, IdString name) = 0;
 		virtual T memory_read(Node self, Node mem, Node addr) = 0;
@@ -343,7 +330,7 @@ public:
 		T logical_shift_right(Node self, Node, Node) override { return default_handler(self); }
 		T arithmetic_shift_right(Node self, Node, Node) override { return default_handler(self); }
 		T mux(Node self, Node, Node, Node) override { return default_handler(self); }
-		T constant(Node self, RTLIL::Const) override { return default_handler(self); }
+		T constant(Node self, RTLIL::Const const &) override { return default_handler(self); }
 		T input(Node self, IdString) override { return default_handler(self); }
 		T state(Node self, IdString) override { return default_handler(self); }
 		T memory_read(Node self, Node, Node) override { return default_handler(self); }
@@ -452,30 +439,41 @@ public:
 			log_assert(node._ref.function() == Fn::buf && node._ref.size() == 0);
 			log_assert(node.sort() == value.sort());
 			mutate(node).append_arg(value._ref);
-		} 
-		Node input(IdString name, int width) {
-			_ir.add_input(name, Sort(width));
-			return add(NodeData(Fn::input, name), Sort(width), {});
 		}
-		Node state(IdString name, int width) {
-			_ir.add_state(name, Sort(width));
-			return add(NodeData(Fn::state, name), Sort(width), {});
+		void add_input(IdString name, int width) {
+			auto [it, inserted] = _ir._input_sorts.emplace(name, Sort(width));
+			if (!inserted) log_error("input `%s` was re-defined", name.c_str());
 		}
-		Node state_memory(IdString name, int addr_width, int data_width) {
-			_ir.add_state(name, Sort(addr_width, data_width));
-			return add(NodeData(Fn::state, name), Sort(addr_width, data_width), {});
+		void add_output(IdString name, int width) {
+			auto [it, inserted] = _ir._output_sorts.emplace(name, Sort(width));
+			if (!inserted) log_error("output `%s` was re-defined", name.c_str());
 		}
-		void declare_output(Node node, IdString name, int width) {
-			_ir.add_output(name, Sort(width));
-			mutate(node).assign_key({name, false});
+		void add_state(IdString name, Sort sort) {
+			auto [it, inserted] = _ir._state_sorts.emplace(name, sort);
+			if (!inserted) log_error("state `%s` was re-defined", name.c_str());
 		}
-		void declare_state(Node node, IdString name, int width) {
-			_ir.add_state(name, Sort(width));
-			mutate(node).assign_key({name, true});
+		Node get_input(IdString name) {
+			return add(NodeData(Fn::input, name), Sort(_ir._input_sorts.at(name)), {});
 		}
-		void declare_state_memory(Node node, IdString name, int addr_width, int data_width) {
-			_ir.add_state(name, Sort(addr_width, data_width));
-			mutate(node).assign_key({name, true});
+		Node get_current_state(IdString name) {
+			return add(NodeData(Fn::state, name), Sort(_ir._state_sorts.at(name)), {});
+		}
+		void set_output(IdString output, Node value) {
+			log_assert(_ir._output_sorts.at(output) == value.sort());
+			mutate(value).assign_key({output, false});
+		}
+		void set_initial_state(IdString state, RTLIL::Const value) {
+			Sort &sort = _ir._state_sorts.at(state);
+			value.extu(sort.width());
+			_ir._initial_state_signal.emplace(state, std::move(value));
+		}
+		void set_initial_state(IdString state, MemContents value) {
+			log_assert(Sort(value.addr_width(), value.data_width()) == _ir._state_sorts.at(state));
+			_ir._initial_state_memory.emplace(state, std::move(value));
+		}
+		void set_next_state(IdString state, Node value) {
+			log_assert(_ir._state_sorts.at(state) == value.sort());
+			mutate(value).assign_key({state, true});
 		}
 		void suggest_name(Node node, IdString name) {
 			mutate(node).sparse_attr() = name;
@@ -487,9 +485,11 @@ public:
 	Node operator[](int i) { return Node(_graph[i]); }
 	void topological_sort();
 	void forward_buf();
-	dict<IdString, Sort> inputs() const { return _inputs; }
-	dict<IdString, Sort> outputs() const { return _outputs; }
-	dict<IdString, Sort> state() const { return _state; }
+	dict<IdString, Sort> inputs() const { return _input_sorts; }
+	dict<IdString, Sort> outputs() const { return _output_sorts; }
+	dict<IdString, Sort> state() const { return _state_sorts; }
+	RTLIL::Const  const &get_initial_state_signal(IdString name) { return _initial_state_signal.at(name); }
+	MemContents const &get_initial_state_memory(IdString name) { return _initial_state_memory.at(name); }
 	Node get_output_node(IdString name) { return Node(_graph({name, false})); }
 	Node get_state_next_node(IdString name) { return Node(_graph({name, true})); }
 	class Iterator {

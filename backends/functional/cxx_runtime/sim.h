@@ -410,6 +410,9 @@ public:
         ret._contents[addr.template as_numeric<size_t>()] = data;
         return ret;
     }
+    // mutating methods for initializing a state
+    void fill(Signal<d> data) { _contents.fill(data); }
+    Signal<d> &operator[](Signal<a> addr) { return _contents[addr.template as_numeric<size_t>()]; }
 };
 
 #endif
