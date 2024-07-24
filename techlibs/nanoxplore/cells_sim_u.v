@@ -12,20 +12,21 @@ module NX_GCK_U(SI1, SI2, CMD, SO);
     wire SI2_int = inv_in ? ~SI2 : SI2;
 
     wire SO_int;
-    generate if (std_mode == "BYPASS") begin
-        assign SO_int = SI1_int;
-    end
-    else if (std_mode == "MUX") begin
-        assign SO_int = CMD ? SI1_int : SI2_int;
-    end
-    else if (std_mode == "CKS") begin
-        assign SO_int = CMD ? SI1_int : 1'b0;
-    end
-    else if (std_mode == "CSC") begin
-        assign SO_int = CMD;
-    end
-    else
-    $error("Unrecognised std_mode");
+    generate
+        if (std_mode == "BYPASS") begin
+            assign SO_int = SI1_int;
+        end
+        else if (std_mode == "MUX") begin
+            assign SO_int = CMD ? SI1_int : SI2_int;
+        end
+        else if (std_mode == "CKS") begin
+            assign SO_int = CMD ? SI1_int : 1'b0;
+        end
+        else if (std_mode == "CSC") begin
+            assign SO_int = CMD;
+        end
+        else
+            $error("Unrecognised std_mode");
     endgenerate
     assign SO = inv_out ? ~SO_int : SO_int;
 endmodule
@@ -302,5 +303,4 @@ module NX_DDFR_U(CK,CKF,R,I,I2,L,O,O2);
         else
             $error("Unknown NX_DDFR_U path");
     endgenerate
-
 endmodule
