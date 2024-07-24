@@ -85,8 +85,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nodsp\n");
 		log("        do not map multipliers to NX_DSP cells\n");
 		log("\n");
-		log("    -iopad\n");
-		log("       insert IO buffers\n");
+		log("    -noiopad\n");
+		log("        do not insert IO buffers\n");
 		log("\n");
 		log("    -no-rw-check\n");
 		log("        marks all recognized read ports as \"return don't-care value on\n");
@@ -100,7 +100,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, nodffe, norfram, nobram, nodsp, iopad, no_rw_check;
+	bool flatten, abc9, nocy, nodffe, norfram, nobram, nodsp, noiopad, no_rw_check;
 	std::string postfix;
 
 	void clear_flags() override
@@ -115,7 +115,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		norfram = false;
 		nobram = false;
 		nodsp = false;
-		iopad = false;
+		noiopad = false;
 		no_rw_check = false;
 		postfix = "";
 	}
@@ -181,7 +181,11 @@ struct SynthNanoXplorePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
-				iopad = true;
+				noiopad = false;
+				continue;
+			}
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
 				continue;
 			}
 			if (args[argidx] == "-no-rw-check") {
@@ -293,8 +297,8 @@ struct SynthNanoXplorePass : public ScriptPass
 				run("techmap -map +/techmap.v -map +/nanoxplore/arith_map.v");
 				run("nx_carry");
 			}
-			if (help_mode || iopad) {
-				run("iopadmap -bits -outpad $__BEYOND_OBUF I:PAD -toutpad $__BEYOND_TOBUF C:I:PAD -inpad $__BEYOND_IBUF O:PAD -tinoutpad $__BEYOND_IOBUF C:O:I:PAD A:top", "(only if '-iopad')");
+			if (help_mode || !noiopad) {
+				run("iopadmap -bits -outpad $__BEYOND_OBUF I:PAD -toutpad $__BEYOND_TOBUF C:I:PAD -inpad $__BEYOND_IBUF O:PAD -tinoutpad $__BEYOND_IOBUF C:O:I:PAD A:top", "(skip if '-noiopad')");
 				run("techmap -map +/nanoxplore/io_map.v");
 			}
 			run("opt -fast");
