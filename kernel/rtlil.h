@@ -842,13 +842,12 @@ struct RTLIL::SigSpec
 {
 private:
 	int width_;
-	unsigned long hash_;
+	// unsigned long hash_;
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
 
 	void pack() const;
 	void unpack() const;
-	void updhash() const;
 
 	inline bool packed() const {
 		return bits_.empty();
@@ -864,7 +863,7 @@ private:
 	friend struct RTLIL::Module;
 
 public:
-	SigSpec() : width_(0), hash_(0) {}
+	SigSpec() : width_(0) {}
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
 
 	SigSpec(const RTLIL::Const &value);
@@ -883,11 +882,7 @@ public:
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
 
-	size_t get_hash() const {
-		if (!hash_) hash();
-		return hash_;
-	}
-
+	size_t hash() const;
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
@@ -993,8 +988,6 @@ public:
 	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
-
-	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
