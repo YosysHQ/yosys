@@ -54,12 +54,12 @@ module _90_simplemap_logic_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$eq $eqx $ne $nex" *)
+(* techmap_celltype = "$eq $ne" *)
 module _90_simplemap_compare_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $slice $concat $mux $tribuf $bmux $bwmux $bweqx" *)
+(* techmap_celltype = "$pos $slice $concat $mux $tribuf $bmux $bwmux" *)
 module _90_simplemap_various;
 endmodule
 
