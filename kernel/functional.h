@@ -268,6 +268,19 @@ public:
         return added;
     }
 
+    void compact_args()
+    {
+        std::vector<int> new_args;
+        for (auto &node : nodes)
+        {
+            int new_offset = GetSize(new_args);
+            for (int i = 0; i < node.arg_count; i++)
+                new_args.push_back(args[node.arg_offset + i]);
+            node.arg_offset = new_offset;
+        }
+        std::swap(args, new_args);
+    }
+
     void permute(std::vector<int> const &perm)
     {
         log_assert(perm.size() <= nodes.size());
@@ -276,7 +289,7 @@ public:
         for (int i = 0; i < GetSize(perm); ++i)
         {
             int j = perm[i];
-            log_assert(j >= 0 && j < GetSize(perm));
+            log_assert(j >= 0 && j < GetSize(nodes));
             log_assert(inv_perm[j] == -1);
             inv_perm[j] = i;
         }
@@ -301,15 +314,18 @@ public:
         std::swap(nodes, new_nodes);
         std::swap(sparse_attrs, new_sparse_attrs);
 
+        compact_args();
         for (int &arg : args)
         {
             log_assert(arg < GetSize(inv_perm));
+            log_assert(inv_perm[arg] >= 0);
             arg = inv_perm[arg];
         }
 
         for (auto &key : keys_)
         {
             log_assert(key.second < GetSize(inv_perm));
+            log_assert(inv_perm[key.second] >= 0);
             key.second = inv_perm[key.second];
         }
     }

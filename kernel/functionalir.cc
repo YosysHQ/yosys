@@ -657,19 +657,27 @@ void FunctionalIR::topological_sort() {
     Graph::SccAdaptor compute_graph_scc(_graph);
     bool scc = false;
     std::vector<int> perm;
-    topo_sorted_sccs(compute_graph_scc, [&](int *begin, int *end) {
+    TopoSortedSccs toposort(compute_graph_scc, [&](int *begin, int *end) {
         perm.insert(perm.end(), begin, end);
         if (end > begin + 1)
         {
-            log_warning("SCC:");
-            for (int *i = begin; i != end; ++i)
-                log(" %d", *i);
+            log_warning("Combinational loop:\n");
+            for (int *i = begin; i != end; ++i) {
+				Node node(_graph[*i]);
+                log("- %s = %s\n", RTLIL::unescape_id(node.name()).c_str(), node.to_string().c_str());
+			}
             log("\n");
             scc = true;
         }
-    }, /* sources_first */ true);
+    });
+	for(const auto &[name, sort]: _state_sorts)
+		toposort.process(get_state_next_node(name).id());
+	for(const auto &[name, sort]: _output_sorts)
+		toposort.process(get_output_node(name).id());
+	// any nodes untouched by this point are dead code and will be removed by permute
     _graph.permute(perm);
-    if(scc) log_error("combinational loops, aborting\n");
+    if(scc) log_error("The design contains combinational loops. This is not supported by the functional backend. "
+		"Try `scc -select; simplemap; select -clear` to avoid this error.\n");
 }
 
 static IdString merge_name(IdString a, IdString b) {
