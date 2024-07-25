@@ -3425,7 +3425,7 @@ struct VerificPass : public Pass {
 			Message::RegisterCallBackMsg(msg_func);
 
 			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
-			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+			RuntimeFlags::SetVar("db_preserve_user_nets", 0); // SILIMATE: disable to improve optimization
 			// RuntimeFlags::SetVar("db_preserve_x", 1); // SILIMATE: comment out to improve optimization
 
 			RuntimeFlags::SetVar("db_merge_cascaded_muxes", 1); // SILIMATE: add to improve optimization
