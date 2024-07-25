@@ -295,6 +295,7 @@ namespace Functional {
 			case Fn::memory_read: return v.memory_read(*this, arg(0), arg(1)); break;
 			case Fn::memory_write: return v.memory_write(*this, arg(0), arg(1), arg(2)); break;
 			}
+			log_abort();
 		}
 		std::string to_string();
 		std::string to_string(std::function<std::string(Node)>);
@@ -384,7 +385,7 @@ namespace Functional {
 		explicit Factory(IR &ir) : _ir(ir) {}
 		Node add(IR::NodeData &&fn, Sort &&sort, std::initializer_list<Node> args) {
 			log_assert(!sort.is_signal() || sort.width() > 0);
-			log_assert(!sort.is_memory() || sort.addr_width() > 0 && sort.data_width() > 0);
+			log_assert(!sort.is_memory() || (sort.addr_width() > 0 && sort.data_width() > 0));
 			IR::Graph::Ref ref = _ir._graph.add(std::move(fn), {std::move(sort)});
 			for (auto arg : args)
 				ref.append_arg(IR::Graph::ConstRef(arg));
