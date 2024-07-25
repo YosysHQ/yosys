@@ -17,55 +17,55 @@
  *
  */
 
-#include "kernel/functionalir.h"
-#include <optional>
+#include "kernel/functional.h"
+#include "kernel/topo_scc.h"
 #include "ff.h"
 #include "ffinit.h"
 
 YOSYS_NAMESPACE_BEGIN
+namespace Functional {
 
-const char *FunctionalIR::fn_to_string(FunctionalIR::Fn fn) {
+const char *fn_to_string(Fn fn) {
 	switch(fn) {
-	case FunctionalIR::Fn::invalid: return "invalid";
-	case FunctionalIR::Fn::buf: return "buf";
-	case FunctionalIR::Fn::slice: return "slice";
-	case FunctionalIR::Fn::zero_extend: return "zero_extend";
-	case FunctionalIR::Fn::sign_extend: return "sign_extend";
-	case FunctionalIR::Fn::concat: return "concat";
-	case FunctionalIR::Fn::add: return "add";
-	case FunctionalIR::Fn::sub: return "sub";
-	case FunctionalIR::Fn::mul: return "mul";
-	case FunctionalIR::Fn::unsigned_div: return "unsigned_div";
-	case FunctionalIR::Fn::unsigned_mod: return "unsigned_mod";
-	case FunctionalIR::Fn::bitwise_and: return "bitwise_and";
-	case FunctionalIR::Fn::bitwise_or: return "bitwise_or";
-	case FunctionalIR::Fn::bitwise_xor: return "bitwise_xor";
-	case FunctionalIR::Fn::bitwise_not: return "bitwise_not";
-	case FunctionalIR::Fn::reduce_and: return "reduce_and";
-	case FunctionalIR::Fn::reduce_or: return "reduce_or";
-	case FunctionalIR::Fn::reduce_xor: return "reduce_xor";
-	case FunctionalIR::Fn::unary_minus: return "unary_minus";
-	case FunctionalIR::Fn::equal: return "equal";
-	case FunctionalIR::Fn::not_equal: return "not_equal";
-	case FunctionalIR::Fn::signed_greater_than: return "signed_greater_than";
-	case FunctionalIR::Fn::signed_greater_equal: return "signed_greater_equal";
-	case FunctionalIR::Fn::unsigned_greater_than: return "unsigned_greater_than";
-	case FunctionalIR::Fn::unsigned_greater_equal: return "unsigned_greater_equal";
-	case FunctionalIR::Fn::logical_shift_left: return "logical_shift_left";
-	case FunctionalIR::Fn::logical_shift_right: return "logical_shift_right";
-	case FunctionalIR::Fn::arithmetic_shift_right: return "arithmetic_shift_right";
-	case FunctionalIR::Fn::mux: return "mux";
-	case FunctionalIR::Fn::constant: return "constant";
-	case FunctionalIR::Fn::input: return "input";
-	case FunctionalIR::Fn::state: return "state";
-	case FunctionalIR::Fn::memory_read: return "memory_read";
-	case FunctionalIR::Fn::memory_write: return "memory_write";
+	case Fn::invalid: return "invalid";
+	case Fn::buf: return "buf";
+	case Fn::slice: return "slice";
+	case Fn::zero_extend: return "zero_extend";
+	case Fn::sign_extend: return "sign_extend";
+	case Fn::concat: return "concat";
+	case Fn::add: return "add";
+	case Fn::sub: return "sub";
+	case Fn::mul: return "mul";
+	case Fn::unsigned_div: return "unsigned_div";
+	case Fn::unsigned_mod: return "unsigned_mod";
+	case Fn::bitwise_and: return "bitwise_and";
+	case Fn::bitwise_or: return "bitwise_or";
+	case Fn::bitwise_xor: return "bitwise_xor";
+	case Fn::bitwise_not: return "bitwise_not";
+	case Fn::reduce_and: return "reduce_and";
+	case Fn::reduce_or: return "reduce_or";
+	case Fn::reduce_xor: return "reduce_xor";
+	case Fn::unary_minus: return "unary_minus";
+	case Fn::equal: return "equal";
+	case Fn::not_equal: return "not_equal";
+	case Fn::signed_greater_than: return "signed_greater_than";
+	case Fn::signed_greater_equal: return "signed_greater_equal";
+	case Fn::unsigned_greater_than: return "unsigned_greater_than";
+	case Fn::unsigned_greater_equal: return "unsigned_greater_equal";
+	case Fn::logical_shift_left: return "logical_shift_left";
+	case Fn::logical_shift_right: return "logical_shift_right";
+	case Fn::arithmetic_shift_right: return "arithmetic_shift_right";
+	case Fn::mux: return "mux";
+	case Fn::constant: return "constant";
+	case Fn::input: return "input";
+	case Fn::state: return "state";
+	case Fn::memory_read: return "memory_read";
+	case Fn::memory_write: return "memory_write";
 	}
-	log_error("fn_to_string: unknown FunctionalIR::Fn value %d", (int)fn);
+	log_error("fn_to_string: unknown Functional::Fn value %d", (int)fn);
 }
 
-struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
-	using Node = FunctionalIR::Node;
+struct PrintVisitor : DefaultVisitor<std::string> {
 	std::function<std::string(Node)> np;
 	PrintVisitor(std::function<std::string(Node)> np) : np(np) { }
 	// as a general rule the default handler is good enough iff the only arguments are of type Node
@@ -76,7 +76,7 @@ struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
 	std::string input(Node, IdString name) override { return "input(" + name.str() + ")"; }
 	std::string state(Node, IdString name) override { return "state(" + name.str() + ")"; }
 	std::string default_handler(Node self) override {
-		std::string ret = FunctionalIR::fn_to_string(self.fn());
+		std::string ret = fn_to_string(self.fn());
 		ret += "(";
 		for(size_t i = 0; i < self.arg_count(); i++) {
 			if(i > 0) ret += ", ";
@@ -87,19 +87,18 @@ struct PrintVisitor : FunctionalIR::DefaultVisitor<std::string> {
 	}
 };
 
-std::string FunctionalIR::Node::to_string()
+std::string Node::to_string()
 {
 	return to_string([](Node n) { return RTLIL::unescape_id(n.name()); });
 }
 
-std::string FunctionalIR::Node::to_string(std::function<std::string(Node)> np)
+std::string Node::to_string(std::function<std::string(Node)> np)
 {
 	return visit(PrintVisitor(np));
 }
 
 class CellSimplifier {
-	using Node = FunctionalIR::Node;
-	FunctionalIR::Factory &factory;
+	Factory &factory;
 	Node sign(Node a) {
 		return factory.slice(a, a.width() - 1, 1);
 	}
@@ -138,7 +137,7 @@ public:
 		Node bb = factory.bitwise_and(b, s);
 		return factory.bitwise_or(aa, bb);
 	}
-	CellSimplifier(FunctionalIR::Factory &f) : factory(f) {}
+	CellSimplifier(Factory &f) : factory(f) {}
 private:
 	Node handle_pow(Node a0, Node b, int y_width, bool is_signed) {
 		Node a = factory.extend(a0, y_width, is_signed);
@@ -400,12 +399,11 @@ public:
 };
 
 class FunctionalIRConstruction {
-	using Node = FunctionalIR::Node;
 	std::deque<std::variant<DriveSpec, Cell *>> queue;
 	dict<DriveSpec, Node> graph_nodes;
 	dict<std::pair<Cell *, IdString>, Node> cell_outputs;
 	DriverMap driver_map;
-	FunctionalIR::Factory& factory;
+	Factory& factory;
 	CellSimplifier simplifier;
 	vector<Mem> memories_vector;
 	dict<Cell*, Mem*> memories;
@@ -442,7 +440,7 @@ class FunctionalIRConstruction {
 			return it->second;
 	}
 public:
-	FunctionalIRConstruction(Module *module, FunctionalIR::Factory &f)
+	FunctionalIRConstruction(Module *module, Factory &f)
 		: factory(f)
 		, simplifier(f)
 		, sig_map(module)
@@ -497,7 +495,7 @@ public:
 		// - Since wr port j can only have priority over wr port i if j > i, if we do writes in
 		//   ascending index order the result will obey the priorty relation.
 		vector<Node> read_results;
-		factory.add_state(mem->cell->name, FunctionalIR::Sort(ceil_log2(mem->size), mem->width));
+		factory.add_state(mem->cell->name, Sort(ceil_log2(mem->size), mem->width));
 		factory.set_initial_state(mem->cell->name, MemContents(mem));
 		Node node = factory.current_state(mem->cell->name);
 		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
@@ -542,7 +540,7 @@ public:
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
 					"Call async2sync or clk2fflogic to avoid this error.\n", log_id(cell->type), log_id(cell));
-			factory.add_state(ff.name, FunctionalIR::Sort(ff.width));
+			factory.add_state(ff.name, Sort(ff.width));
 			Node q_value = factory.current_state(ff.name);
 			factory.suggest_name(q_value, ff.name);
 			factory.update_pending(cell_outputs.at({cell, ID(Q)}), q_value);
@@ -643,8 +641,8 @@ public:
 	}
 };
 
-FunctionalIR FunctionalIR::from_module(Module *module) {
-    FunctionalIR ir;
+IR IR::from_module(Module *module) {
+	IR ir;
     auto factory = ir.factory();
     FunctionalIRConstruction ctor(module, factory);
     ctor.process_queue();
@@ -653,7 +651,7 @@ FunctionalIR FunctionalIR::from_module(Module *module) {
     return ir;
 }
 
-void FunctionalIR::topological_sort() {
+void IR::topological_sort() {
     Graph::SccAdaptor compute_graph_scc(_graph);
     bool scc = false;
     std::vector<int> perm;
@@ -687,7 +685,7 @@ static IdString merge_name(IdString a, IdString b) {
 		return a;
 }
 
-void FunctionalIR::forward_buf() {
+void IR::forward_buf() {
     std::vector<int> perm, alias;
     perm.clear();
 
@@ -734,7 +732,7 @@ static std::string quote_fmt(const char *fmt)
 	return r;
 }
 
-void FunctionalTools::Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
+void Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
 {
 	size_t next_index = 0;
 	for(const char *p = fmt; *p != 0; p++)
@@ -770,4 +768,5 @@ void FunctionalTools::Writer::print_impl(const char *fmt, vector<std::function<v
 		}
 }
 
+}
 YOSYS_NAMESPACE_END
