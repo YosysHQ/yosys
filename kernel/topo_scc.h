@@ -194,7 +194,7 @@ public:
 };
 
 template<typename G, typename ComponentCallback>
-void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first = false)
+class TopoSortedSccs
 {
     typedef typename G::node_enumerator node_enumerator;
     typedef typename G::successor_enumerator successor_enumerator;
@@ -210,14 +210,20 @@ void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first 
         {}
     };
 
+    G &graph;
+    ComponentCallback component;
+
     std::vector<dfs_entry> dfs_stack;
     std::vector<node_type> component_stack;
     int next_index = 0;
 
+public:
+    TopoSortedSccs(G &graph, ComponentCallback component)
+    : graph(graph), component(component) {}
 
-    node_enumerator nodes = graph.enumerate_nodes();
-
-    if (sources_first) {
+    // process all sources (nodes without a successor)
+    TopoSortedSccs &process_sources() {
+        node_enumerator nodes = graph.enumerate_nodes();
         while (!nodes.finished()) {
             node_type node = nodes.next();
             successor_enumerator successors = graph.enumerate_successors(node);
@@ -231,16 +237,23 @@ void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first 
                 graph.dfs_index(node) = INT_MAX;
             }
         }
-        nodes = graph.enumerate_nodes();
+        return *this;
     }
 
-    // iterate over all nodes to ensure we process the whole graph
-    while (!nodes.finished()) {
-        node_type node = nodes.next();
+    // process all remaining nodes in the graph
+    TopoSortedSccs &process_all() {   
+        node_enumerator nodes = graph.enumerate_nodes();
+        // iterate over all nodes to ensure we process the whole graph
+        while (!nodes.finished())
+            process(nodes.next());
+        return *this;
+    }
+
+    // process all nodes that are reachable from a given start node
+    TopoSortedSccs &process(node_type node) {
         // only start a new search if the node wasn't visited yet
         if (graph.dfs_index(node) >= 0)
-            continue;
-
+            return *this;
         while (true) {
             // at this point we're visiting the node for the first time during
             // the DFS search
@@ -299,7 +312,7 @@ void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first 
                     // continues the search at the parent node or returns to
                     // the outer loop if we already are at the root node.
                     if (dfs_stack.empty())
-                        goto next_search;
+                        return *this;
                     auto &dfs_top = dfs_stack.back();
 
                     node = dfs_top.node;
@@ -336,9 +349,8 @@ void topo_sorted_sccs(G &graph, ComponentCallback component, bool sources_first 
                 }
             }
         }
-    next_search:;
     }
-}
+};
 
 YOSYS_NAMESPACE_END
 

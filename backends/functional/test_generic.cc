@@ -129,14 +129,13 @@ struct FunctionalTestGeneric : public Pass
 
 		size_t argidx = 1;
 		extra_args(args, argidx, design);
-
+/*
 		MemContentsTest test(8, 16);
 
 		std::random_device seed_dev;
 		std::mt19937 rnd(23); //seed_dev());
 		test.run(rnd, 1000);
-
-/*
+*/
 
 		for (auto module : design->selected_modules()) {
             log("Dumping module `%s'.\n", module->name.c_str());
@@ -144,11 +143,10 @@ struct FunctionalTestGeneric : public Pass
 			for(auto node : fir)
 				std::cout << RTLIL::unescape_id(node.name()) << " = " << node.to_string([](auto n) { return RTLIL::unescape_id(n.name()); }) << "\n";
 			for(auto [name, sort] : fir.outputs())
-				std::cout << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_output_node(name).name()) << "\n";
+				std::cout << "output " << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_output_node(name).name()) << "\n";
 			for(auto [name, sort] : fir.state())
-				std::cout << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_state_next_node(name).name()) << "\n";
+				std::cout << "state " << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_state_next_node(name).name()) << "\n";
 		}
-*/
 	}
 } FunctionalCxxBackend;
 
