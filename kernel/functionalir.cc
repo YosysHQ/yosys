@@ -499,7 +499,7 @@ public:
 		vector<Node> read_results;
 		factory.add_state(mem->cell->name, FunctionalIR::Sort(ceil_log2(mem->size), mem->width));
 		factory.set_initial_state(mem->cell->name, MemContents(mem));
-		Node node = factory.get_current_state(mem->cell->name);
+		Node node = factory.current_state(mem->cell->name);
 		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
 			const auto &wr = mem->wr_ports[i];
 			if (wr.clk_enable)
@@ -543,7 +543,7 @@ public:
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
 					"Call async2sync or clk2fflogic to avoid this error.\n", log_id(cell->type), log_id(cell));
 			factory.add_state(ff.name, FunctionalIR::Sort(ff.width));
-			Node q_value = factory.get_current_state(ff.name);
+			Node q_value = factory.current_state(ff.name);
 			factory.suggest_name(q_value, ff.name);
 			factory.update_pending(cell_outputs.at({cell, ID(Q)}), q_value);
 			factory.set_next_state(ff.name, enqueue(ff.sig_d));
@@ -593,7 +593,7 @@ public:
 					DriveChunkWire wire_chunk = chunk.wire();
 					if (wire_chunk.is_whole()) {
 						if (wire_chunk.wire->port_input) {
-							Node node = factory.get_input(wire_chunk.wire->name);
+							Node node = factory.input(wire_chunk.wire->name);
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
 						} else {
