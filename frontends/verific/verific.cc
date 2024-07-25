@@ -3006,6 +3006,11 @@ bool check_noverific_env()
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	void on_register() override	{ VerificExtensions::Reset(); }
+#endif
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
