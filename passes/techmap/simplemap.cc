@@ -415,7 +415,6 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($or)]          = simplemap_bitop;
 	mappers[ID($xor)]         = simplemap_bitop;
 	mappers[ID($xnor)]        = simplemap_bitop;
-	mappers[ID($bweqx)]       = simplemap_bitop;
 	mappers[ID($reduce_and)]  = simplemap_reduce;
 	mappers[ID($reduce_or)]   = simplemap_reduce;
 	mappers[ID($reduce_xor)]  = simplemap_reduce;
@@ -425,9 +424,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($logic_and)]   = simplemap_logbin;
 	mappers[ID($logic_or)]    = simplemap_logbin;
 	mappers[ID($eq)]          = simplemap_eqne;
-	mappers[ID($eqx)]         = simplemap_eqne;
 	mappers[ID($ne)]          = simplemap_eqne;
-	mappers[ID($nex)]         = simplemap_eqne;
 	mappers[ID($mux)]         = simplemap_mux;
 	mappers[ID($bwmux)]       = simplemap_bwmux;
 	mappers[ID($tribuf)]      = simplemap_tribuf;
