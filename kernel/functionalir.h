@@ -452,10 +452,10 @@ public:
 			auto [it, inserted] = _ir._state_sorts.emplace(name, sort);
 			if (!inserted) log_error("state `%s` was re-defined", name.c_str());
 		}
-		Node get_input(IdString name) {
+		Node input(IdString name) {
 			return add(NodeData(Fn::input, name), Sort(_ir._input_sorts.at(name)), {});
 		}
-		Node get_current_state(IdString name) {
+		Node current_state(IdString name) {
 			return add(NodeData(Fn::state, name), Sort(_ir._state_sorts.at(name)), {});
 		}
 		void set_output(IdString output, Node value) {
