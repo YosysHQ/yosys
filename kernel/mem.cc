@@ -1729,8 +1729,8 @@ void MemContents::check() {
 		log_assert(!it->second.empty());
 		log_assert(it->second.size() % _data_width == 0);
 		auto end1 = _range_end(it);
-		log_assert(_range_begin(it) < (1<<_addr_width));
-		log_assert(end1 <= (1<<_addr_width));
+		log_assert(_range_begin(it) < (addr_t)(1<<_addr_width));
+		log_assert(end1 <= (addr_t)(1<<_addr_width));
 		if(++it == _values.end())
 			break;
 		// check that ranges neither overlap nor touch
@@ -1760,7 +1760,7 @@ bool MemContents::_range_overlaps(std::map<addr_t, RTLIL::Const>::iterator it, a
 
 std::map<addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
 	// allow addr == 1<<_addr_width (which will just return end())
-	log_assert(addr <= 1<<_addr_width);
+	log_assert(addr <= (addr_t)(1<<_addr_width));
 	// get the first range with base > addr
 	// (we use const_cast since map::iterators are only passed around internally and not exposed to the user
 	// and using map::iterator in both the const and non-const case simplifies the code a little,
@@ -1879,8 +1879,8 @@ std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begi
 
 void MemContents::insert_concatenated(addr_t addr, RTLIL::Const const &values) {
 	addr_t words = (values.size() + _data_width - 1) / _data_width;
-	log_assert(addr < 1<<_addr_width);
-	log_assert(words <= (1<<_addr_width) - addr);
+	log_assert(addr < (addr_t)(1<<_addr_width));
+	log_assert(words <= (addr_t)(1<<_addr_width) - addr);
 	auto it = _reserve_range(addr, addr + words);
 	auto to_begin = _range_data(it, addr);
 	std::copy(values.bits.begin(), values.bits.end(), to_begin);
