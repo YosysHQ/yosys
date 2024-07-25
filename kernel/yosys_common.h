@@ -31,6 +31,7 @@
 #include <unordered_set>
 #include <initializer_list>
 #include <variant>
+#include <optional>
 #include <stdexcept>
 #include <memory>
 #include <cmath>
