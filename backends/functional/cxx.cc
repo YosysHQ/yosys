@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/functionalir.h"
+#include "kernel/functional.h"
 #include <ctype.h>
 
 USING_YOSYS_NAMESPACE
@@ -42,7 +42,7 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-template<typename Id> struct CxxScope : public FunctionalTools::Scope<Id> {
+template<typename Id> struct CxxScope : public Functional::Scope<Id> {
 	CxxScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			this->reserve(*p);
@@ -53,8 +53,8 @@ template<typename Id> struct CxxScope : public FunctionalTools::Scope<Id> {
 };
 
 struct CxxType {
-	FunctionalIR::Sort sort;
-	CxxType(FunctionalIR::Sort sort) : sort(sort) {}
+	Functional::Sort sort;
+	CxxType(Functional::Sort sort) : sort(sort) {}
 	std::string to_string() const {
 		if(sort.is_memory()) {
 			return stringf("Memory<%d, %d>", sort.addr_width(), sort.data_width());
@@ -66,7 +66,7 @@ struct CxxType {
 	}
 };
 
-using CxxWriter = FunctionalTools::Writer;
+using CxxWriter = Functional::Writer;
 
 struct CxxStruct {
 	std::string name;
@@ -111,8 +111,8 @@ std::string cxx_const(RTLIL::Const const &value) {
 	return ss.str();
 }
 
-template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::AbstractVisitor<void> {
-	using Node = FunctionalIR::Node;
+template<class NodePrinter> struct CxxPrintVisitor : public Functional::AbstractVisitor<void> {
+	using Node = Functional::Node;
 	CxxWriter &f;
 	NodePrinter np;
 	CxxStruct &input_struct;
@@ -165,12 +165,12 @@ bool equal_def(RTLIL::Const const &a, RTLIL::Const const &b) {
 }
 
 struct CxxModule {
-	FunctionalIR ir;
+	Functional::IR ir;
 	CxxStruct input_struct, output_struct, state_struct;
 	std::string module_name;
 
 	explicit CxxModule(Module *module) :
-		ir(FunctionalIR::from_module(module)),
+		ir(Functional::IR::from_module(module)),
 		input_struct("Inputs"),
 		output_struct("Outputs"),
 		state_struct("State")
@@ -222,7 +222,7 @@ struct CxxModule {
 		locals.reserve("output");
 		locals.reserve("current_state");
 		locals.reserve("next_state");
-		auto node_name = [&](FunctionalIR::Node n) { return locals(n.id(), n.name()); };
+		auto node_name = [&](Functional::Node n) { return locals(n.id(), n.name()); };
 		CxxPrintVisitor printVisitor(f, node_name, input_struct, state_struct);
 		for (auto node : ir) {
 			f.print("\t{} {} = ", CxxType(node.sort()).to_string(), node_name(node));

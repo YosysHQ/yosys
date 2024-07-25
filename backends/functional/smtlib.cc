@@ -17,7 +17,7 @@
  *
  */
 
-#include "kernel/functionalir.h"
+#include "kernel/functional.h"
 #include "kernel/yosys.h"
 #include "kernel/sexpr.h"
 #include <ctype.h>
@@ -42,7 +42,7 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-struct SmtScope : public FunctionalTools::Scope<int> {
+struct SmtScope : public Functional::Scope<int> {
 	SmtScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
@@ -53,8 +53,8 @@ struct SmtScope : public FunctionalTools::Scope<int> {
 };
 
 struct SmtSort {
-	FunctionalIR::Sort sort;
-	SmtSort(FunctionalIR::Sort sort) : sort(sort) {}
+	Functional::Sort sort;
+	SmtSort(Functional::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
 			return list("Array", list("_", "BitVec", sort.addr_width()), list("_", "BitVec", sort.data_width()));
@@ -116,8 +116,8 @@ std::string smt_const(RTLIL::Const const &c) {
 	return s;
 }
 
-struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
-	using Node = FunctionalIR::Node;
+struct SmtPrintVisitor : public Functional::AbstractVisitor<SExpr> {
+	using Node = Functional::Node;
 	std::function<SExpr(Node)> n;
 	SmtStruct &input_struct;
 	SmtStruct &state_struct;
@@ -183,7 +183,7 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 };
 
 struct SmtModule {
-	FunctionalIR ir;
+	Functional::IR ir;
 	SmtScope scope;
 	std::string name;
 	
@@ -192,7 +192,7 @@ struct SmtModule {
 	SmtStruct state_struct;
 
 	SmtModule(Module *module)
-		: ir(FunctionalIR::from_module(module))
+		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
 		, input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope)
@@ -215,11 +215,11 @@ struct SmtModule {
 			list(list("inputs", input_struct.name),
 			     list("state", state_struct.name)),
 			list("Pair", output_struct.name, state_struct.name)));
-		auto inlined = [&](FunctionalIR::Node n) {
-			return n.fn() == FunctionalIR::Fn::constant;
+		auto inlined = [&](Functional::Node n) {
+			return n.fn() == Functional::Fn::constant;
 		};
 		SmtPrintVisitor visitor(input_struct, state_struct);
-		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
+		auto node_to_sexpr = [&](Functional::Node n) -> SExpr {
 			if(inlined(n))
 				return n.visit(visitor);
 			else

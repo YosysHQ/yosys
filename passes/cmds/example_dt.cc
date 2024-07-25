@@ -1,7 +1,7 @@
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
-#include "kernel/functional.h"
+#include "kernel/compute_graph.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

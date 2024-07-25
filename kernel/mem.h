@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/ffinit.h"
+#include "kernel/utils.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -224,15 +225,6 @@ struct Mem : RTLIL::AttrObject {
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
 
-// this class is used for implementing operator-> on iterators that return values rather than references
-// it's necessary because in C++ operator-> is called recursively until a raw pointer is obtained
-template<class T>
-struct arrow_proxy {
-	T v;
-	explicit arrow_proxy(T const & v) : v(v) {}
-	T* operator->() { return &v; }
-};
-
 // MemContents efficiently represents the contents of a potentially sparse memory by storing only those segments that are actually defined
 class MemContents {
 public:
@@ -303,6 +295,7 @@ public:
 		reference operator *() const { return range(_memory->_data_width, _addr, _memory->_values.at(_addr)); }
 		pointer operator->() const { return arrow_proxy<range>(**this); }
 		bool operator !=(iterator const &other) const { return _memory != other._memory || _addr != other._addr; }
+		bool operator ==(iterator const &other) const { return !(*this != other); }
 		iterator &operator++();
 	};
 	MemContents(int addr_width, int data_width, RTLIL::Const default_value)

@@ -253,6 +253,15 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	}
 };
 
+// this class is used for implementing operator-> on iterators that return values rather than references
+// it's necessary because in C++ operator-> is called recursively until a raw pointer is obtained
+template<class T>
+struct arrow_proxy {
+	T v;
+	explicit arrow_proxy(T const & v) : v(v) {}
+	T* operator->() { return &v; }
+};
+
 YOSYS_NAMESPACE_END
 
 #endif
