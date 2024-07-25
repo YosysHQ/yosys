@@ -388,8 +388,6 @@ public:
 			case DriveType::MULTIPLE:
 				inner = multiple_.hash();
 				break;
-			default:
-				log_abort();
 		}
 		return mkhash((unsigned int)type_, inner);
 	}
@@ -1028,6 +1026,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_.size();
 		}
+		log_abort();
 	}
 };
 
