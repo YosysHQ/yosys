@@ -29,14 +29,14 @@ def yosys_synth(verilog_file, rtlil_file):
 # simulate an rtlil file with yosys, comparing with a given vcd file, and writing out the yosys simulation results into a second vcd file
 def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file, preprocessing = ""):
     try:
-        yosys(f"read_rtlil {quote(rtlil_file)}; {preprocessing}; sim -r {quote(vcd_reference_file)} -scope gold -vcd {quote(vcd_out_file)} -timescale 1us -sim-gold")
+        yosys(f"read_rtlil {quote(rtlil_file)}; {preprocessing}; sim -r {quote(vcd_reference_file)} -scope gold -vcd {quote(vcd_out_file)} -timescale 1us -sim-gold -fst-noinit")
     except:
         # if yosys sim fails it's probably because of a simulation mismatch
         # since yosys sim aborts on simulation mismatch to generate vcd output
         # we have to re-run with a different set of flags
         # on this run we ignore output and return code, we just want a best-effort attempt to get a vcd
         subprocess.run([base_path / 'yosys', '-Q', '-p',
-            f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_out_file)} -a -r {quote(vcd_reference_file)} -scope gold -timescale 1us'],
+            f'read_rtlil {quote(rtlil_file)}; sim -vcd {quote(vcd_out_file)} -a -r {quote(vcd_reference_file)} -scope gold -timescale 1us -fst-noinit'],
             capture_output=True, check=False)
         raise
 

@@ -400,6 +400,8 @@ template<size_t a, size_t d>
 class Memory {
     std::array<Signal<d>, 1<<a> _contents;
 public:
+    Memory() {}
+    Memory(std::array<Signal<d>, 1<<a> const &contents) : _contents(contents) {}
     Signal<d> read(Signal<a> addr) const
     {
         return _contents[addr.template as_numeric<size_t>()];

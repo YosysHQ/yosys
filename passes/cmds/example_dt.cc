@@ -1,7 +1,7 @@
 #include "kernel/yosys.h"
 #include "kernel/drivertools.h"
 #include "kernel/topo_scc.h"
-#include "kernel/functional.h"
+#include "kernel/compute_graph.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -183,7 +183,7 @@ struct ExampleDtPass : public Pass
 
 
 			std::vector<int> perm;
-			topo_sorted_sccs(compute_graph_scc, [&](int *begin, int *end) {
+			TopoSortedSccs(compute_graph_scc, [&](int *begin, int *end) {
 				perm.insert(perm.end(), begin, end);
 				if (end > begin + 1)
 				{
@@ -192,7 +192,7 @@ struct ExampleDtPass : public Pass
 						log(" %d", *i);
 					log("\n");
 				}
-			}, /* sources_first */ true);
+			}).process_sources().process_all();
 			compute_graph.permute(perm);
 
 

@@ -412,7 +412,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ == other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	bool operator!=(const DriveBit &other) const
@@ -958,7 +958,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ == other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	bool operator!=(const DriveChunk &other) const
@@ -985,7 +985,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ < other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	DriveType type() const { return type_; }
@@ -1026,6 +1026,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_.size();
 		}
+		log_abort();
 	}
 };
 

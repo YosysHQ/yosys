@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/functionalir.h"
+#include "kernel/functional.h"
 #include <ctype.h>
 
 USING_YOSYS_NAMESPACE
@@ -42,7 +42,7 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-template<typename Id> struct CxxScope : public FunctionalTools::Scope<Id> {
+template<typename Id> struct CxxScope : public Functional::Scope<Id> {
 	CxxScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			this->reserve(*p);
@@ -53,8 +53,8 @@ template<typename Id> struct CxxScope : public FunctionalTools::Scope<Id> {
 };
 
 struct CxxType {
-	FunctionalIR::Sort sort;
-	CxxType(FunctionalIR::Sort sort) : sort(sort) {}
+	Functional::Sort sort;
+	CxxType(Functional::Sort sort) : sort(sort) {}
 	std::string to_string() const {
 		if(sort.is_memory()) {
 			return stringf("Memory<%d, %d>", sort.addr_width(), sort.data_width());
@@ -66,40 +66,53 @@ struct CxxType {
 	}
 };
 
-using CxxWriter = FunctionalTools::Writer;
+using CxxWriter = Functional::Writer;
 
 struct CxxStruct {
-  std::string name;
-  dict<IdString, CxxType> types;
-  CxxScope<IdString> scope;
-  CxxStruct(std::string name)
-    : name(name) {
-    scope.reserve("fn");
-    scope.reserve("visit");
-  }
-  void insert(IdString name, CxxType type) {
-    scope(name, name);
-    types.insert({name, type});
-  }
-  void print(CxxWriter &f) {
-    f.print("\tstruct {} {{\n", name);
-    for (auto p : types) {
-      f.print("\t\t{} {};\n", p.second.to_string(), scope(p.first, p.first));
-    }
-    f.print("\n\t\ttemplate <typename T> void visit(T &&fn) {{\n");
-    for (auto p : types) {
-      f.print("\t\t\tfn(\"{}\", {});\n", RTLIL::unescape_id(p.first), scope(p.first, p.first));
-    }
-    f.print("\t\t}}\n");
-    f.print("\t}};\n\n");
-  };
-  std::string operator[](IdString field) {
-    return scope(field, field);
-  }
+	std::string name;
+	dict<IdString, CxxType> types;
+	CxxScope<IdString> scope;
+	CxxStruct(std::string name) : name(name)
+	{
+		scope.reserve("fn");
+		scope.reserve("visit");
+	}
+	void insert(IdString name, CxxType type) {
+		scope(name, name);
+		types.insert({name, type});
+	}
+	void print(CxxWriter &f) {
+		f.print("\tstruct {} {{\n", name);
+		for (auto p : types) {
+			f.print("\t\t{} {};\n", p.second.to_string(), scope(p.first, p.first));
+		}
+		f.print("\n\t\ttemplate <typename T> void visit(T &&fn) {{\n");
+		for (auto p : types) {
+			f.print("\t\t\tfn(\"{}\", {});\n", RTLIL::unescape_id(p.first), scope(p.first, p.first));
+		}
+		f.print("\t\t}}\n");
+		f.print("\t}};\n\n");
+	};
+	std::string operator[](IdString field) {
+		return scope(field, field);
+	}
 };
 
-template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::AbstractVisitor<void> {
-	using Node = FunctionalIR::Node;
+std::string cxx_const(RTLIL::Const const &value) {
+	std::stringstream ss;
+	ss << "Signal<" << value.size() << ">(" << std::hex << std::showbase;
+	if(value.size() > 32) ss << "{";
+	for(int i = 0; i < value.size(); i += 32) {
+		if(i > 0) ss << ", ";
+		ss << value.extract(i, 32).as_int();
+	}
+	if(value.size() > 32) ss << "}";
+	ss << ")";
+	return ss.str();
+}
+
+template<class NodePrinter> struct CxxPrintVisitor : public Functional::AbstractVisitor<void> {
+	using Node = Functional::Node;
 	CxxWriter &f;
 	NodePrinter np;
 	CxxStruct &input_struct;
@@ -136,33 +149,28 @@ template<class NodePrinter> struct CxxPrintVisitor : public FunctionalIR::Abstra
 	void logical_shift_right(Node, Node a, Node b) override { print("{} >> {}", a, b); }
 	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
-	void constant(Node, RTLIL::Const value) override {
-		std::stringstream ss;
-		bool multiple = value.size() > 32;
-		ss << "Signal<" << value.size() << ">(" << std::hex << std::showbase;
-		if(multiple) ss << "{";
-		while(value.size() > 32) {
-			ss << value.as_int() << ", ";
-			value = value.extract(32, value.size() - 32);
-		}
-		ss << value.as_int();
-		if(multiple) ss << "}";
-		ss << ")";
-		print("{}", ss.str());
-	}
+	void constant(Node, RTLIL::Const const & value) override { print("{}", cxx_const(value)); }
 	void input(Node, IdString name) override { print("input.{}", input_struct[name]); }
 	void state(Node, IdString name) override { print("current_state.{}", state_struct[name]); }
 	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
 };
 
+bool equal_def(RTLIL::Const const &a, RTLIL::Const const &b) {
+	if(a.size() != b.size()) return false;
+	for(int i = 0; i < a.size(); i++)
+		if((a[i] == State::S1) != (b[i] == State::S1))
+			return false;
+	return true;
+}
+
 struct CxxModule {
-	FunctionalIR ir;
+	Functional::IR ir;
 	CxxStruct input_struct, output_struct, state_struct;
 	std::string module_name;
 
 	explicit CxxModule(Module *module) :
-		ir(FunctionalIR::from_module(module)),
+		ir(Functional::IR::from_module(module)),
 		input_struct("Inputs"),
 		output_struct("Outputs"),
 		state_struct("State")
@@ -184,7 +192,28 @@ struct CxxModule {
 		output_struct.print(f);
 		state_struct.print(f);
 		f.print("\tstatic void eval(Inputs const &, Outputs &, State const &, State &);\n");
+		f.print("\tstatic void initialize(State &);\n");
 		f.print("}};\n\n");
+	}
+	void write_initial_def(CxxWriter &f) {
+		f.print("void {0}::initialize({0}::State &state)\n{{\n", module_name);
+		for (auto [name, sort] : ir.state()) {
+			if (sort.is_signal())
+				f.print("\tstate.{} = {};\n", state_struct[name], cxx_const(ir.get_initial_state_signal(name)));
+			else if (sort.is_memory()) {
+				f.print("\t{{\n");
+				f.print("\t\tstd::array<Signal<{}>, {}> mem;\n", sort.data_width(), 1<<sort.addr_width());
+				const auto &contents = ir.get_initial_state_memory(name);
+				f.print("\t\tmem.fill({});\n", cxx_const(contents.default_value()));
+				for(auto range : contents)
+					for(auto addr = range.base(); addr < range.limit(); addr++)
+						if(!equal_def(range[addr], contents.default_value()))
+							f.print("\t\tmem[{}] = {};\n", addr, cxx_const(range[addr]));
+				f.print("\t\tstate.{} = mem;\n", state_struct[name]);
+				f.print("\t}}\n");
+			}
+		}
+		f.print("}}\n\n");
 	}
 	void write_eval_def(CxxWriter &f) {
 		f.print("void {0}::eval({0}::Inputs const &input, {0}::Outputs &output, {0}::State const &current_state, {0}::State &next_state)\n{{\n", module_name);
@@ -193,7 +222,7 @@ struct CxxModule {
 		locals.reserve("output");
 		locals.reserve("current_state");
 		locals.reserve("next_state");
-		auto node_name = [&](FunctionalIR::Node n) { return locals(n.id(), n.name()); };
+		auto node_name = [&](Functional::Node n) { return locals(n.id(), n.name()); };
 		CxxPrintVisitor printVisitor(f, node_name, input_struct, state_struct);
 		for (auto node : ir) {
 			f.print("\t{} {} = ", CxxType(node.sort()).to_string(), node_name(node));
@@ -204,7 +233,7 @@ struct CxxModule {
 			f.print("\tnext_state.{} = {};\n", state_struct[name], node_name(ir.get_state_next_node(name)));
 		for (auto [name, sort] : ir.outputs())
 			f.print("\toutput.{} = {};\n", output_struct[name], node_name(ir.get_output_node(name)));
-		f.print("}}\n");
+		f.print("}}\n\n");
 	}
 };
 
@@ -225,6 +254,7 @@ struct FunctionalCxxBackend : public Backend
 		mod.write_header(f);
 		mod.write_struct_def(f);
 		mod.write_eval_def(f);
+		mod.write_initial_def(f);
 	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override

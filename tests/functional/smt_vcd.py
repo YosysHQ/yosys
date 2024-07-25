@@ -81,25 +81,6 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
     parser.finish()
     assert smt_io.check_sat() == 'sat'
 
-    def initial_state(states):
-        mk_state_parts = []
-        rv = []
-        for name, width in states.items():
-            if isinstance(width, int):
-                binary_string = format(0, '0{}b'.format(width))
-                mk_state_parts.append(f"#b{binary_string}")
-            else:
-                binary_string = format(0, '0{}b'.format(width[1]))
-                rv.append(f"(declare-const test_state_initial_mem_{name} (Array (_ BitVec {width[0]}) (_ BitVec {width[1]})))")
-                rv.append(f"(assert (forall ((i (_ BitVec {width[0]}))) (= (select test_state_initial_mem_{name} i) #b{binary_string})))")
-                mk_state_parts.append(f"test_state_initial_mem_{name}")
-        if len(states) == 0:
-            mk_state_call = "gold_State"
-        else:
-            mk_state_call = "(gold_State {})".format(" ".join(mk_state_parts))
-        rv.append(f"(define-const test_state_step_n0 gold_State {mk_state_call})\n")
-        return rv
-
     def set_step(inputs, step):
         # This function assumes 'inputs' is a dictionary like {"A": 5, "B": 4}
         # and 'input_values' is a dictionary like {"A": 5, "B": 13} specifying the concrete values for each input.
@@ -118,7 +99,7 @@ def simulate_smt_with_smtio(smt_file_path, vcd_path, smt_io, num_steps, rnd):
             f"(define-const test_state_step_n{step+1} gold_State (second test_results_step_n{step}))\n",
         ]
 
-    smt_commands = initial_state(states)
+    smt_commands = [f"(define-const test_state_step_n0 gold_State gold-initial)\n"]
     for step in range(num_steps):
         for step_command in set_step(inputs, step):
             smt_commands.append(step_command)

@@ -17,7 +17,7 @@
  *
  */
 
-#include "kernel/functionalir.h"
+#include "kernel/functional.h"
 #include "kernel/yosys.h"
 #include "kernel/sexpr.h"
 #include <ctype.h>
@@ -42,7 +42,7 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-struct SmtScope : public FunctionalTools::Scope<int> {
+struct SmtScope : public Functional::Scope<int> {
 	SmtScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
@@ -53,8 +53,8 @@ struct SmtScope : public FunctionalTools::Scope<int> {
 };
 
 struct SmtSort {
-	FunctionalIR::Sort sort;
-	SmtSort(FunctionalIR::Sort sort) : sort(sort) {}
+	Functional::Sort sort;
+	SmtSort(Functional::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
 			return list("Array", list("_", "BitVec", sort.addr_width()), list("_", "BitVec", sort.data_width()));
@@ -109,20 +109,20 @@ public:
 	}
 };
 
-struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
-	using Node = FunctionalIR::Node;
+std::string smt_const(RTLIL::Const const &c) {
+	std::string s = "#b";
+	for(int i = c.size(); i-- > 0; )
+		s += c[i] == State::S1 ? '1' : '0';
+	return s;
+}
+
+struct SmtPrintVisitor : public Functional::AbstractVisitor<SExpr> {
+	using Node = Functional::Node;
 	std::function<SExpr(Node)> n;
 	SmtStruct &input_struct;
 	SmtStruct &state_struct;
 
 	SmtPrintVisitor(SmtStruct &input_struct, SmtStruct &state_struct) : input_struct(input_struct), state_struct(state_struct) {}
-
-	std::string literal(RTLIL::Const c) {
-		std::string s = "#b";
-		for(int i = c.size(); i-- > 0; )
-			s += c[i] == State::S1 ? '1' : '0';
-		return s;
-	}
 
 	SExpr from_bool(SExpr &&arg) {
 		return list("ite", std::move(arg), "#b1", "#b0");
@@ -149,8 +149,8 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr bitwise_xor(Node, Node a, Node b) override { return list("bvxor", n(a), n(b)); }
 	SExpr bitwise_not(Node, Node a) override { return list("bvnot", n(a)); }
 	SExpr unary_minus(Node, Node a) override { return list("bvneg", n(a)); }
-	SExpr reduce_and(Node, Node a) override { return from_bool(list("=", n(a), literal(RTLIL::Const(State::S1, a.width())))); }
-	SExpr reduce_or(Node, Node a) override { return from_bool(list("distinct", n(a), literal(RTLIL::Const(State::S0, a.width())))); }
+	SExpr reduce_and(Node, Node a) override { return from_bool(list("=", n(a), smt_const(RTLIL::Const(State::S1, a.width())))); }
+	SExpr reduce_or(Node, Node a) override { return from_bool(list("distinct", n(a), smt_const(RTLIL::Const(State::S0, a.width())))); }
 	SExpr reduce_xor(Node, Node a) override {
 		vector<SExpr> s { "bvxor" };
 		for(int i = 0; i < a.width(); i++)
@@ -174,7 +174,7 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("ite", to_bool(n(s)), n(b), n(a)); }
-	SExpr constant(Node, RTLIL::Const value) override { return literal(value); }
+	SExpr constant(Node, RTLIL::Const const &value) override { return smt_const(value); }
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("select", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("store", n(mem), n(addr), n(data)); }
 
@@ -183,7 +183,7 @@ struct SmtPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 };
 
 struct SmtModule {
-	FunctionalIR ir;
+	Functional::IR ir;
 	SmtScope scope;
 	std::string name;
 	
@@ -192,13 +192,14 @@ struct SmtModule {
 	SmtStruct state_struct;
 
 	SmtModule(Module *module)
-		: ir(FunctionalIR::from_module(module))
+		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
 		, input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope)
 		, output_struct(scope.unique_name(module->name.str() + "_Outputs"), scope)
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
+		scope.reserve(name + "-initial");
 		for (const auto &input : ir.inputs())
 			input_struct.insert(input.first, input.second);
 		for (const auto &output : ir.outputs())
@@ -207,28 +208,18 @@ struct SmtModule {
 			state_struct.insert(state.first, state.second);
 	}
 
-	void write(std::ostream &out)
-	{    
-		SExprWriter w(out);
-
-		input_struct.write_definition(w);
-		output_struct.write_definition(w);
-		state_struct.write_definition(w);
-
-		w << list("declare-datatypes",
-			list(list("Pair", 2)),
-			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
-
+	void write_eval(SExprWriter &w)
+	{
 		w.push();
 		w.open(list("define-fun", name,
 			list(list("inputs", input_struct.name),
 			     list("state", state_struct.name)),
 			list("Pair", output_struct.name, state_struct.name)));
-		auto inlined = [&](FunctionalIR::Node n) {
-			return n.fn() == FunctionalIR::Fn::constant;
+		auto inlined = [&](Functional::Node n) {
+			return n.fn() == Functional::Fn::constant;
 		};
 		SmtPrintVisitor visitor(input_struct, state_struct);
-		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
+		auto node_to_sexpr = [&](Functional::Node n) -> SExpr {
 			if(inlined(n))
 				return n.visit(visitor);
 			else
@@ -244,6 +235,39 @@ struct SmtModule {
 		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_output_node(name)); });
 		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_state_next_node(name)); });
 		w.pop();
+	}
+
+	void write_initial(SExprWriter &w)
+	{
+		std::string initial = name + "-initial";
+		w << list("declare-const", initial, state_struct.name);
+		for (const auto &[name, sort] : ir.state()) {
+			if(sort.is_signal())
+				w << list("assert", list("=", state_struct.access(initial, name), smt_const(ir.get_initial_state_signal(name))));
+			else if(sort.is_memory()) {
+				auto contents = ir.get_initial_state_memory(name);
+				for(int i = 0; i < 1<<sort.addr_width(); i++) {
+					auto addr = smt_const(RTLIL::Const(i, sort.addr_width()));
+					w << list("assert", list("=", list("select", state_struct.access(initial, name), addr), smt_const(contents[i])));
+				}
+			}
+		}
+	}
+
+	void write(std::ostream &out)
+	{    
+		SExprWriter w(out);
+
+		input_struct.write_definition(w);
+		output_struct.write_definition(w);
+		state_struct.write_definition(w);
+
+		w << list("declare-datatypes",
+			list(list("Pair", 2)),
+			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
+		
+		write_eval(w);
+		write_initial(w);
 	}
 };
 

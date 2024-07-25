@@ -153,15 +153,17 @@ class FFCell(BaseCell):
         from test_functional import yosys_synth
         verilog_file = path.parent / 'verilog.v'
         with open(verilog_file, 'w') as f:
-            f.write("""
+            width = parameters['WIDTH']
+            f.write(f"""
 module gold(
     input wire clk,
-    input wire [{0}:0] D,
-    output reg [{0}:0] Q
+    input wire [{width-1}:0] D,
+    output reg [{width-1}:0] Q
 );
+    initial Q = {width}'b{("101" * width)[:width]};
     always @(posedge clk)
         Q <= D;
-endmodule""".format(parameters['WIDTH'] - 1))
+endmodule""")
         yosys_synth(verilog_file, path)
 
 class MemCell(BaseCell):
@@ -180,6 +182,10 @@ module gold(
     output reg [{0}:0] RD
 );
     reg [{0}:0] mem[0:{2}];
+    integer i;
+    initial
+        for(i = 0; i <= {2}; i = i + 1)
+            mem[i] = 9192 * (i + 1);
     always @(*)
         RD = mem[RA];
     always @(posedge clk)
@@ -211,8 +217,11 @@ module gold(
     output reg [{0}:0] RD1,
     output reg [{0}:0] RD2
 );
-                    (*keep*)
     reg [{0}:0] mem[0:{2}];
+    integer i;
+    initial
+        for(i = 0; i <= {2}; i = i + 1)
+            mem[i] = 9192 * (i + 1);
     always @(*)
         RD1 = mem[RA1];
     always @(*)

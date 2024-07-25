@@ -17,7 +17,7 @@
  *
  */
 
-#include "kernel/functionalir.h"
+#include "kernel/functional.h"
 #include "kernel/yosys.h"
 #include "kernel/sexpr.h"
 #include <ctype.h>
@@ -38,7 +38,7 @@ const char *reserved_keywords[] = {
 	nullptr
 };
 
-struct SmtrScope : public FunctionalTools::Scope<int> {
+struct SmtrScope : public Functional::Scope<int> {
 	SmtrScope() {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
@@ -49,8 +49,8 @@ struct SmtrScope : public FunctionalTools::Scope<int> {
 };
 
 struct SmtrSort {
-	FunctionalIR::Sort sort;
-	SmtrSort(FunctionalIR::Sort sort) : sort(sort) {}
+	Functional::Sort sort;
+	SmtrSort(Functional::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
 			log_error("Memory not supported in Rosette printer");
@@ -135,8 +135,8 @@ public:
 	}
 };
 
-struct SmtrPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
-	using Node = FunctionalIR::Node;
+struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
+	using Node = Functional::Node;
 	std::function<SExpr(Node)> n;
 	SmtrStruct &input_struct;
 	SmtrStruct &state_struct;
@@ -188,7 +188,7 @@ struct SmtrPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr constant(Node, RTLIL::Const value) override { return list("bv", value.as_string(), value.size()); }
+	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", value.as_string(), value.size()); }
 	SExpr memory_read(Node, Node mem, Node addr) override { log_error("memory_read not supported in Rosette printer"); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { log_error("memory_write not supported in Rosette printer"); }
 
@@ -197,7 +197,7 @@ struct SmtrPrintVisitor : public FunctionalIR::AbstractVisitor<SExpr> {
 };
 
 struct SmtrModule {
-	FunctionalIR ir;
+	Functional::IR ir;
 	SmtrScope scope;
 	std::string name;
 	
@@ -206,7 +206,7 @@ struct SmtrModule {
 	SmtrStruct state_struct;
 
 	SmtrModule(Module *module)
-		: ir(FunctionalIR::from_module(module))
+		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
 		, input_struct(scope.unique_name(module->name.str() + "_Inputs"), scope)
@@ -233,11 +233,11 @@ struct SmtrModule {
 
 		w.push();
 		w.open(list("define", list(name, "inputs", "state")));
-		auto inlined = [&](FunctionalIR::Node n) {
-			return n.fn() == FunctionalIR::Fn::constant;
+		auto inlined = [&](Functional::Node n) {
+			return n.fn() == Functional::Fn::constant;
 		};
 		SmtrPrintVisitor visitor(input_struct, state_struct);
-		auto node_to_sexpr = [&](FunctionalIR::Node n) -> SExpr {
+		auto node_to_sexpr = [&](Functional::Node n) -> SExpr {
 			if(inlined(n))
 				return n.visit(visitor);
 			else
