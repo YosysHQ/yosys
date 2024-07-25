@@ -388,6 +388,8 @@ public:
 			case DriveType::MULTIPLE:
 				inner = multiple_.hash();
 				break;
+			default:
+				log_abort();
 		}
 		return mkhash((unsigned int)type_, inner);
 	}
@@ -412,7 +414,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ == other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	bool operator!=(const DriveBit &other) const
@@ -958,7 +960,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ == other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	bool operator!=(const DriveChunk &other) const
@@ -985,7 +987,7 @@ public:
 			case DriveType::MULTIPLE:
 				return multiple_ < other.multiple_;
 		}
-		log_assert(false);
+		log_abort();
 	}
 
 	DriveType type() const { return type_; }

@@ -318,7 +318,7 @@ public:
 	// insert multiple words at the given address, overriding any previous assignment.
 	template<typename Iterator> void insert_range(addr_t addr, Iterator begin, Iterator end) {
 		auto words = end - begin;
-		log_assert(addr < 1<<_addr_width); log_assert(words <= (1<<_addr_width) - addr);
+		log_assert(addr < (addr_t)(1<<_addr_width)); log_assert(words <= (addr_t)(1<<_addr_width) - addr);
 		auto range = _reserve_range(addr, addr + words);
 		auto it = _range_data(range, addr);
 		for(; begin != end; ++begin)
