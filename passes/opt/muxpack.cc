@@ -180,40 +180,49 @@ struct MuxpackWorker
 		}
 	}
 
-	void find_chain_start_cells()
+	void find_chain_start_cells(bool ignore_excl)
 	{
 		for (auto cell : candidate_cells)
 		{
-			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
+			log("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
 
 			SigSpec a_sig = sigmap(cell->getPort(ID::A));
 			if (cell->type == ID($mux)) {
 				SigSpec b_sig = sigmap(cell->getPort(ID::B));
-				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
+				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1) {
+					log("  Going to start_cell: case 1...\n");
 					goto start_cell;
+				}
 
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
 			}
 			else if (cell->type == ID($pmux)) {
-				if (!sig_chain_prev.count(a_sig))
+				if (!sig_chain_prev.count(a_sig)) {
+					log("  Going to start_cell: case 2...\n");
 					goto start_cell;
+				}
 			}
 			else log_abort();
 
 			for (auto bit : a_sig.bits())
-				if (sigbit_with_non_chain_users.count(bit))
+				if (sigbit_with_non_chain_users.count(bit)) {
+					log("  Going to start_cell: case 3...\n");
 					goto start_cell;
+				}
 
 			{
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
 				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
-				if (!excl_db.query(s_sig))
+				if (!excl_db.query(s_sig) && !ignore_excl) {
+					log("  Going to start_cell: case 4...\n");
 					goto start_cell;
+				}
 			}
 
+			log("  Continuing...\n");
 			continue;
 
 		start_cell:
@@ -309,11 +318,11 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module) :
+	MuxpackWorker(Module *module, bool ignore_excl) :
 			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap)
 	{
 		make_sig_chain_next_prev();
-		find_chain_start_cells();
+		find_chain_start_cells(ignore_excl);
 
 		for (auto c : chain_start_cells) {
 			vector<Cell*> chain = create_chain(c);
@@ -330,7 +339,7 @@ struct MuxpackPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    muxpack [selection]\n");
+		log("    muxpack [options] [selection]\n");
 		log("\n");
 		log("This pass converts cascaded chains of $pmux cells (e.g. those create from case\n");
 		log("constructs) and $mux cells (e.g. those created by if-else constructs) into\n");
@@ -340,14 +349,23 @@ struct MuxpackPass : public Pass {
 		log("whose select lines are driven by '$eq' cells with other such cells if it can be\n");
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
+		log("    -ignore_excl\n");
+		log("        ignore mutually exclusive constraint when packing (less conservative)\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool ignore_excl = false;
+
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-ignore_excl") {
+				ignore_excl = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -356,7 +374,7 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module);
+			MuxpackWorker worker(module, ignore_excl);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
