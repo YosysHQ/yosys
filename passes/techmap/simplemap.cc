@@ -478,11 +478,10 @@ struct SimplemapPass : public Pass {
 		log("This pass maps a small selection of simple coarse-grain cells to yosys gate\n");
 		log("primitives. The following internal cell types are mapped by this pass:\n");
 		log("\n");
-		log("  $not, $pos, $and, $or, $xor, $xnor\n");
-		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
-		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
-		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff,\n");
-		log("  $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
+		dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
+		simplemap_get_mappers(mappers);
+		for (auto pair : mappers)
+			log("  - %s\n", log_id(pair.first));
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
