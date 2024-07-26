@@ -33,11 +33,10 @@
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $not (A, Y)
-//-
-//- A bit-wise inverter. This corresponds to the Verilog unary prefix '~' operator.
+//* ver 2
+//* title Bit-wise inverter
+//* group unary
+//- This corresponds to the Verilog unary prefix '~' operator.
 //-
 module \$not (A, Y);
 
@@ -64,6 +63,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $pos (A, Y)
+//* group unary
 //-
 //- A buffer. This corresponds to the Verilog unary prefix '+' operator.
 //-
@@ -91,6 +91,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $neg (A, Y)
+//* group unary
 //-
 //- An arithmetic inverter. This corresponds to the Verilog unary prefix '-' operator.
 //-
@@ -118,6 +119,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $and (A, B, Y)
+//* group binary
 //-
 //- A bit-wise AND. This corresponds to the Verilog '&' operator.
 //-
@@ -148,6 +150,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $or (A, B, Y)
+//* group binary
 //-
 //- A bit-wise OR. This corresponds to the Verilog '|' operator.
 //-
@@ -178,6 +181,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $xor (A, B, Y)
+//* group binary
 //-
 //- A bit-wise XOR. This corresponds to the Verilog '^' operator.
 //-
@@ -208,6 +212,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $xnor (A, B, Y)
+//* group binary
 //-
 //- A bit-wise XNOR. This corresponds to the Verilog '~^' operator.
 //-
@@ -238,6 +243,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $reduce_and (A, Y)
+//* group unary
 //-
 //- An AND reduction. This corresponds to the Verilog unary prefix '&' operator.
 //-
@@ -265,6 +271,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $reduce_or (A, Y)
+//* group unary
 //-
 //- An OR reduction. This corresponds to the Verilog unary prefix '|' operator.
 //-
@@ -292,6 +299,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $reduce_xor (A, Y)
+//* group unary
 //-
 //- A XOR reduction. This corresponds to the Verilog unary prefix '^' operator.
 //-
@@ -319,6 +327,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $reduce_xnor (A, Y)
+//* group unary
 //-
 //- A XNOR reduction. This corresponds to the Verilog unary prefix '~^' operator.
 //-
@@ -346,6 +355,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $reduce_bool (A, Y)
+//* group unary
 //-
 //- An OR reduction. This cell type is used instead of $reduce_or when a signal is
 //- implicitly converted to a boolean signal, e.g. for operands of '&&' and '||'.
@@ -371,6 +381,8 @@ endmodule
 
 // --------------------------------------------------------
 
+//* group binary
+
 module \$shl (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -394,6 +406,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$shr (A, B, Y);
 
@@ -418,6 +431,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$sshl (A, B, Y);
 
@@ -442,6 +456,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$sshr (A, B, Y);
 
@@ -466,6 +481,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$shift (A, B, Y);
 
@@ -498,6 +514,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$shiftx (A, B, Y);
 
@@ -539,6 +556,7 @@ assign Y = t1 ^ C, X = (t2 | t3) ^ (Y ^ Y);
 endmodule
 
 // --------------------------------------------------------
+//* group arith
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
@@ -575,16 +593,14 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $alu (A, B, CI, BI, X, Y, CO)
-//-
-//- Arithmetic logic unit.
+//* ver 2
+//* title Arithmetic logic unit
+//* group arith
 //- A building block supporting both binary addition/subtraction operations, and
 //- indirectly, comparison operations.
 //- Typically created by the `alumacc` pass, which transforms:
-//-   $add, $sub, $lt, $le, $ge, $gt, $eq, $eqx, $ne, $nex
-//- cells into this $alu cell.
+//- `$add`, `$sub`, `$lt`, `$le`, `$ge`, `$gt`, `$eq`, `$eqx`, `$ne`, `$nex`
+//- cells into this `$alu` cell.
 //-
 module \$alu (A, B, CI, BI, X, Y, CO);
 
@@ -638,6 +654,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$lt (A, B, Y);
 
@@ -662,6 +679,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$le (A, B, Y);
 
@@ -686,6 +704,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$eq (A, B, Y);
 
@@ -710,6 +729,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$ne (A, B, Y);
 
@@ -734,6 +754,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$eqx (A, B, Y);
 
@@ -758,6 +779,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$nex (A, B, Y);
 
@@ -782,6 +804,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$ge (A, B, Y);
 
@@ -806,6 +829,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$gt (A, B, Y);
 
@@ -830,6 +854,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$add (A, B, Y);
 
@@ -854,6 +879,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$sub (A, B, Y);
 
@@ -878,6 +904,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$mul (A, B, Y);
 
@@ -905,6 +932,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $macc (A, B, Y)
+//* group arith
 //-
 //- Multiply and accumulate.
 //- A building block for summing any number of negated and unnegated signals
@@ -1056,6 +1084,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $div (A, B, Y)
+//* group binary
 //-
 //- Division with truncated result (rounded towards 0).
 //-
@@ -1086,6 +1115,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $mod (A, B, Y)
+//* group binary
 //-
 //- Modulo/remainder of division with truncated result (rounded towards 0).
 //-
@@ -1118,6 +1148,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $divfloor (A, B, Y)
+//* group binary
 //-
 //- Division with floored result (rounded towards negative infinity).
 //-
@@ -1155,6 +1186,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $modfloor (A, B, Y)
+//* group binary
 //-
 //- Modulo/remainder of division with floored result (rounded towards negative infinity).
 //-
@@ -1193,6 +1225,7 @@ endmodule
 // --------------------------------------------------------
 `ifndef SIMLIB_NOPOW
 
+//* group binary
 module \$pow (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -1222,6 +1255,7 @@ endmodule
 `endif
 // --------------------------------------------------------
 
+//* group unary
 module \$logic_not (A, Y);
 
 parameter A_SIGNED = 0;
@@ -1242,6 +1276,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$logic_and (A, B, Y);
 
@@ -1266,6 +1301,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group binary
 
 module \$logic_or (A, B, Y);
 
@@ -1320,6 +1356,7 @@ assign Y = {B, A};
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$mux (A, B, S, Y);
 
@@ -1334,6 +1371,7 @@ assign Y = S ? B : A;
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$bmux (A, S, Y);
 
@@ -1361,6 +1399,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$pmux (A, B, S, Y);
 
@@ -1395,6 +1434,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$demux (A, S, Y);
 
@@ -1416,6 +1456,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOLUT
+//* group logic
 
 module \$lut (A, Y);
 
@@ -1431,6 +1472,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group logic
 
 module \$sop (A, Y);
 
@@ -1459,6 +1501,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mux
 
 module \$tribuf (A, EN, Y);
 
@@ -1473,6 +1516,7 @@ assign Y = EN ? A : 'bz;
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specify2 (EN, SRC, DST);
 
@@ -1511,6 +1555,7 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specify3 (EN, SRC, DST, DAT);
 
@@ -1619,6 +1664,7 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
+//* group spec
 
 module \$specrule (EN_SRC, EN_DST, SRC, DST);
 
@@ -1685,6 +1731,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$assert (A, EN);
 
@@ -1702,6 +1749,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$assume (A, EN);
 
@@ -1719,6 +1767,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$live (A, EN);
 
@@ -1727,6 +1776,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$fair (A, EN);
 
@@ -1735,6 +1785,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$cover (A, EN);
 
@@ -1743,6 +1794,7 @@ input A, EN;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$initstate (Y);
 
@@ -1760,6 +1812,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$anyconst (Y);
 
@@ -1772,6 +1825,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$anyseq (Y);
 
@@ -1788,6 +1842,7 @@ endmodule
 `ifndef SIMLIB_GLOBAL_CLOCK
 `define SIMLIB_GLOBAL_CLOCK $global_clk
 `endif
+//* group formal
 module \$anyinit (D, Q);
 
 parameter WIDTH = 0;
@@ -1804,6 +1859,7 @@ end
 endmodule
 `endif
 // --------------------------------------------------------
+//* group formal
 
 module \$allconst (Y);
 
@@ -1816,6 +1872,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$allseq (Y);
 
@@ -1828,6 +1885,7 @@ assign Y = 'bx;
 endmodule
 
 // --------------------------------------------------------
+//* group formal
 
 module \$equiv (A, B, Y);
 
@@ -1848,6 +1906,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group debug
 
 module \$print (EN, TRG, ARGS);
 
@@ -1867,6 +1926,7 @@ input [ARGS_WIDTH-1:0] ARGS;
 endmodule
 
 // --------------------------------------------------------
+//* group debug
 
 module \$check (A, EN, TRG, ARGS);
 
@@ -1889,6 +1949,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$sr (SET, CLR, Q);
 
@@ -1921,6 +1982,7 @@ endmodule
 `ifndef SIMLIB_GLOBAL_CLOCK
 `define SIMLIB_GLOBAL_CLOCK $global_clk
 `endif
+//* group formal
 
 module \$ff (D, Q);
 
@@ -1937,6 +1999,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group reg
 
 module \$dff (CLK, D, Q);
 
@@ -1955,6 +2018,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dffe (CLK, EN, D, Q);
 
@@ -1975,6 +2039,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$dffsr (CLK, SET, CLR, D, Q);
 
@@ -2007,6 +2072,7 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dffsre (CLK, SET, CLR, EN, D, Q);
 
@@ -2041,6 +2107,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group reg
 
 module \$adff (CLK, ARST, D, Q);
 
@@ -2065,6 +2132,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$aldff (CLK, ALOAD, AD, D, Q);
 
@@ -2089,6 +2157,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdff (CLK, SRST, D, Q);
 
@@ -2113,6 +2182,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$adffe (CLK, ARST, EN, D, Q);
 
@@ -2138,6 +2208,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$aldffe (CLK, ALOAD, AD, EN, D, Q);
 
@@ -2163,6 +2234,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdffe (CLK, SRST, EN, D, Q);
 
@@ -2188,6 +2260,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$sdffce (CLK, SRST, EN, D, Q);
 
@@ -2215,6 +2288,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$dlatch (EN, D, Q);
 
@@ -2233,6 +2307,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group reg
 
 module \$adlatch (EN, ARST, D, Q);
 
@@ -2256,6 +2331,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOSR
+//* group reg
 
 module \$dlatchsr (EN, SET, CLR, D, Q);
 
@@ -2289,6 +2365,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group fsm
 
 module \$fsm (CLK, ARST, CTRL_IN, CTRL_OUT);
 
@@ -2383,6 +2460,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOMEM
+//* group mem
 
 module \$memrd (CLK, EN, ADDR, DATA);
 
@@ -2406,6 +2484,8 @@ initial begin
 end
 
 endmodule
+
+//* group mem
 
 module \$memrd_v2 (CLK, EN, ARST, SRST, ADDR, DATA);
 
@@ -2436,6 +2516,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$memwr (CLK, EN, ADDR, DATA);
 
@@ -2461,6 +2542,7 @@ end
 
 endmodule
 
+//* group mem
 module \$memwr_v2 (CLK, EN, ADDR, DATA);
 
 parameter MEMID = "";
@@ -2487,6 +2569,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$meminit (ADDR, DATA);
 
@@ -2510,6 +2593,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$meminit_v2 (ADDR, DATA, EN);
 
@@ -2534,6 +2618,7 @@ end
 endmodule
 
 // --------------------------------------------------------
+//* group mem
 
 module \$mem (RD_CLK, RD_EN, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
@@ -2621,6 +2706,8 @@ always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 end
 
 endmodule
+
+//* group mem
 
 module \$mem_v2 (RD_CLK, RD_EN, RD_ARST, RD_SRST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
