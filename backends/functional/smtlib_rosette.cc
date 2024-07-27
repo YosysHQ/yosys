@@ -225,8 +225,6 @@ struct SmtrModule {
 	{    
 		SExprWriter w(out);
 
-		w << SExpr("#lang rosette\n");
-
 		input_struct.write_definition(w, guarded);
 		output_struct.write_definition(w, guarded);
 		state_struct.write_definition(w, guarded);
@@ -274,7 +272,7 @@ struct FunctionalSmtrBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		auto guarded = false, symbolics = false;
+		auto guarded = false, symbolics = false, provides = false;
 
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
@@ -285,10 +283,17 @@ struct FunctionalSmtrBackend : public Backend {
 				guarded = true;
 			else if (args[argidx] == "-symbolics")
 				symbolics = true;
+			else if (args[argidx] == "-provides")
+				provides = true;
 			else
 				break;
 		}
 		extra_args(f, filename, args, argidx);
+
+		*f << "#lang rosette\n";
+		if (provides) {
+			*f << "(provide (all-defined-out))\n";
+		}
 
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
