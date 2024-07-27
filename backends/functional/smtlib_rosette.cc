@@ -87,9 +87,8 @@ public:
 			field_list.emplace_back(field.name);
 		}
 		w.push();
-		w.open(list("struct", name, field_list));
+		w.open(list("struct", name, field_list, "#:transparent"));
 		if (field_names.size()) {
-			w << SExpr("#:transparent");
 			if (guarded && field_names.size()) {
 				w << SExpr("#:guard");
 				field_list.emplace_back("name");
@@ -213,6 +212,7 @@ struct SmtrModule {
 		, output_struct(scope.unique_name(module->name.str() + "_Outputs"), scope)
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
+		scope.reserve(name + "_initial");
 		for (const auto &input : ir.inputs())
 			input_struct.insert(input.first, input.second);
 		for (const auto &output : ir.outputs())
@@ -262,6 +262,15 @@ struct SmtrModule {
 			auto next_state = scope.unique_name("\\" + state_struct.name);
 			w << list("define", next_state, list("cdr", result));
 		}
+
+		w.push();
+		auto initial = name + "_initial";
+		w.open(list("define", initial));
+		w.open(list(state_struct.name));
+		for (const auto &[name, sort] : ir.state()) {
+			w << list("bv", ir.get_initial_state_signal(name).as_int(), sort.width());
+		}
+		w.pop();
 	}
 };
 
