@@ -187,7 +187,7 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", value.as_string(), value.size()); }
+	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", "#b" + value.as_string(), value.size()); }
 	SExpr memory_read(Node, Node mem, Node addr) override { log_error("memory_read not supported in Rosette printer"); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { log_error("memory_write not supported in Rosette printer"); }
 
