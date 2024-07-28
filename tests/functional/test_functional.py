@@ -69,13 +69,15 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     smt_vcd.simulate_smt(smt_file, vcd_functional_file, num_steps, rnd(cell.name + "-smt"))
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
-def test_rkt(cell, parameters, tmp_path):
+def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
+    import rkt_vcd
+
     rtlil_file = tmp_path / 'rtlil.il'
     rkt_file = tmp_path / 'smtlib.rkt'
+    vcd_functional_file = tmp_path / 'functional.vcd'
+    vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
     cell.write_rtlil_file(rtlil_file, parameters)
-
-    # use raco test with symbolic defines, will pickup malformed code and e.g. width mismatches
-    # still doesn't verify functionality
-    yosys(f"read_rtlil {quote(rtlil_file)} ; write_functional_rosette -symbolics {quote(rkt_file)}")
-    run(['raco', 'test', rkt_file])
+    yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_rosette -provides {quote(rkt_file)}")
+    rkt_vcd.simulate_rosette(rkt_file, vcd_functional_file, num_steps, rnd(cell.name + "-rkt"))
+    yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
