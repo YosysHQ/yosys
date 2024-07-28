@@ -268,7 +268,7 @@ struct SmtrModule {
 		w.open(list("define", initial));
 		w.open(list(state_struct.name));
 		for (const auto &[name, sort] : ir.state()) {
-			w << list("bv", ir.get_initial_state_signal(name).as_int(), sort.width());
+			w << list("bv", "#b" + ir.get_initial_state_signal(name).as_string(), sort.width());
 		}
 		w.pop();
 	}
