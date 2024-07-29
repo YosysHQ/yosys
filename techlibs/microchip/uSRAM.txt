@@ -1,0 +1,69 @@
+# ISC License
+# 
+# Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# asynchronous read
+ram block $__uSRAM_AR_ {
+
+	#(LSRAM cost)/3
+	cost 43;
+
+	# INIT supported
+	init any;
+
+	abits 6;
+	widths 12 per_port;
+
+	# single write enable wire
+	port sw "W" {
+		clock posedge;
+
+		# collision not supported, but write takes precedence and read data is invalid while writing to 
+		# the same address
+		wrtrans all new;
+		
+		optional;
+	}
+	port ar "R" {
+		optional;
+	}
+}
+
+# synchronous read
+# NOTE: synchronous read can be realized by the address pipeline register or data pipeline register.
+#		This assumes address is synchronized
+ram block $__uSRAM_SR_ {
+
+	cost 42;
+
+	init any;
+	abits 6;
+widths 12 per_port;
+
+	port sw "W" {
+		clock posedge;
+
+		# collision not supported
+		wrtrans all new;
+		
+		optional;
+	}
+	port sr "R" {
+		clock posedge;
+		rden;
+		rdinit none;
+		optional;
+	}
+}
