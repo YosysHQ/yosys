@@ -31,6 +31,10 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
+void did_something_hook() {
+	did_something = true;
+}
+
 void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 {
 	SigMap sigmap(module);
@@ -89,7 +93,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 
 		log_debug("Setting undriven signal in %s to constant: %s = %s\n", log_id(module), log_signal(sig), log_signal(val));
 		module->connect(sig, val);
-		did_something = true;
+		did_something_hook();
 	}
 
 	if (!revisit_initwires.empty())
@@ -106,11 +110,11 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			if (initval.is_fully_undef()) {
 				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
 				wire->attributes.erase(ID::init);
-				did_something = true;
+				did_something_hook();
 			} else if (initval != wire->attributes.at(ID::init)) {
 				log_debug("Updating init attribute on %s/%s: %s\n", log_id(module), log_id(wire), log_signal(initval));
 				wire->attributes[ID::init] = initval;
-				did_something = true;
+				did_something_hook();
 			}
 		}
 	}
@@ -129,7 +133,7 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
 	module->remove(cell);
-	did_something = true;
+	did_something_hook();
 }
 
 bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
@@ -300,7 +304,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	cover_list("opt.opt_expr.fine.group", "$not", "$pos", "$and", "$or", "$xor", "$xnor", cell->type.str());
 
 	module->remove(cell);
-	did_something = true;
+	did_something_hook();
 	return true;
 }
 
@@ -351,21 +355,21 @@ bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
 	bool all_bits_one = true;
 	bool last_bit_one = true;
 
-	if (GetSize(value.bits) < 1)
+	if (GetSize(value.bits()) < 1)
 		return false;
 
-	if (GetSize(value.bits) == 1) {
-		if (value.bits[0] != State::S1)
+	if (GetSize(value.bits()) == 1) {
+		if (value.bits()[0] != State::S1)
 			return false;
 		if (is_signed)
 			is_negative = true;
 		return true;
 	}
 
-	for (int i = 0; i < GetSize(value.bits); i++) {
-		if (value.bits[i] != State::S1)
+	for (int i = 0; i < GetSize(value.bits()); i++) {
+		if (value.bits()[i] != State::S1)
 			all_bits_one = false;
-		if (value.bits[i] != (i ? State::S0 : State::S1))
+		if (value.bits()[i] != (i ? State::S0 : State::S1))
 			last_bit_one = false;
 	}
 
@@ -645,7 +649,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				log_debug("Replacing %s cell `%s' in module `%s' with $not cell.\n",
 						log_id(cell->type), log_id(cell->name), log_id(module));
 				cell->type = ID($not);
-				did_something = true;
+				did_something_hook();
 			} else {
 				cover("opt.opt_expr.unary_buffer");
 				replace_cell(assign_map, module, cell, "unary_buffer", ID::Y, cell->getPort(ID::A));
@@ -729,7 +733,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				assign_map.add(y_group_x, y_new_x); module->connect(y_group_x, y_new_x);
 
 				module->remove(cell);
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -757,7 +761,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				assign_map.add(y_group_1, b_group_1); module->connect(y_group_1, b_group_1);
 
 				module->remove(cell);
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 			else if (sig_a.is_fully_def() || sig_b.is_fully_def())
@@ -790,7 +794,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				module->connect(y_group_1, y_new_1);
 
 				module->remove(cell);
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -820,7 +824,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_sig_a));
 					cell->setPort(ID::A, new_sig_a);
 					cell->parameters.at(ID::A_WIDTH) = GetSize(new_sig_a);
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -843,7 +847,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_sig_b));
 					cell->setPort(ID::B, new_sig_b);
 					cell->parameters.at(ID::B_WIDTH) = GetSize(new_sig_b);
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -869,7 +873,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort(ID::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -895,7 +899,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
 					cell->setPort(ID::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -921,7 +925,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_b));
 					cell->setPort(ID::B, sig_b = new_b);
 					cell->parameters.at(ID::B_WIDTH) = 1;
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -963,7 +967,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cell->setPort(ID::B, new_b);
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->fixup_parameters();
-					did_something = true;
+					did_something_hook();
 				}
 			}
 
@@ -1022,7 +1026,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->setPort(ID::CO, sig_co.extract_end(i));
 					cell->fixup_parameters();
-					did_something = true;
+					did_something_hook();
 				}
 			}
 		}
@@ -1074,7 +1078,7 @@ skip_fine_alu:
 				sig_a.remove(width, GetSize(sig_a)-width);
 				cell->setPort(ID::A, sig_a);
 				cell->setParam(ID::A_WIDTH, width);
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -1093,7 +1097,7 @@ skip_fine_alu:
 			cell->setPort(ID::A, cell->getPort(ID::B));
 			cell->setPort(ID::B, tmp);
 			cell->setPort(ID::S, invert_map.at(assign_map(cell->getPort(ID::S))));
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1201,7 +1205,7 @@ skip_fine_alu:
 				log_debug("Replacing data input of %s cell `%s' in module `%s' with constant undef.\n",
 					cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 				cell->setPort(ID::A, SigSpec(State::Sx, GetSize(a)));
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -1279,7 +1283,7 @@ skip_fine_alu:
 					cell->parameters.erase(ID::B_WIDTH);
 					cell->parameters.erase(ID::B_SIGNED);
 					cell->unsetPort(ID::B);
-					did_something = true;
+					did_something_hook();
 				}
 				goto next_cell;
 			}
@@ -1300,7 +1304,7 @@ skip_fine_alu:
 			cell->unsetPort(ID::B);
 			cell->unsetParam(ID::B_SIGNED);
 			cell->unsetParam(ID::B_WIDTH);
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1334,7 +1338,7 @@ skip_fine_alu:
 			module->connect(cell->getPort(ID::Y), sig_y);
 			module->remove(cell);
 
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1445,7 +1449,7 @@ skip_fine_alu:
 				cell->parameters.erase(ID::B_SIGNED);
 				cell->check();
 
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -1474,7 +1478,7 @@ skip_identity:
 				cell->type = ID($not);
 			} else
 				cell->type = ID($_NOT_);
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1494,7 +1498,7 @@ skip_identity:
 				cell->type = ID($and);
 			} else
 				cell->type = ID($_AND_);
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1514,7 +1518,7 @@ skip_identity:
 				cell->type = ID($or);
 			} else
 				cell->type = ID($_OR_);
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 
@@ -1565,7 +1569,7 @@ skip_identity:
 					cell->type = ID($mux);
 					cell->parameters.erase(ID::S_WIDTH);
 				}
-				did_something = true;
+				did_something_hook();
 			}
 		}
 
@@ -1712,7 +1716,7 @@ skip_identity:
 					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
 					module->remove(cell);
 
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 
@@ -1741,7 +1745,7 @@ skip_identity:
 					cell->setPort(ID::B, new_b);
 					cell->check();
 
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 			}
@@ -1766,7 +1770,7 @@ skip_identity:
 					module->connect(sig_y, RTLIL::SigSpec(0, GetSize(sig_y)));
 					module->remove(cell);
 
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 
@@ -1783,7 +1787,7 @@ skip_identity:
 				module->connect(RTLIL::SigSig(sig_y.extract(0, y_zeros), RTLIL::SigSpec(0, y_zeros)));
 				cell->check();
 
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -1808,7 +1812,7 @@ skip_identity:
 					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(State::Sx, sig_y.size())));
 					module->remove(cell);
 
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 
@@ -1882,7 +1886,7 @@ skip_identity:
 						}
 					}
 
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 			}
@@ -1976,7 +1980,7 @@ skip_identity:
 			cover("opt.opt_expr.alu_split");
 			module->remove(cell);
 
-			did_something = true;
+			did_something_hook();
 			goto next_cell;
 		}
 skip_alu_split:
@@ -2037,7 +2041,7 @@ skip_alu_split:
 				module->connect(y_sig, y_value);
 				module->remove(cell);
 
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 
@@ -2051,7 +2055,7 @@ skip_alu_split:
 				cell->setParam(ID::A_WIDTH, GetSize(sig_a));
 				cell->setParam(ID::B_WIDTH, GetSize(sig_b));
 
-				did_something = true;
+				did_something_hook();
 				goto next_cell;
 			}
 		}
@@ -2187,7 +2191,7 @@ skip_alu_split:
 					if (replace)
 						module->connect(cell->getPort(ID::Y), replace_sig);
 					module->remove(cell);
-					did_something = true;
+					did_something_hook();
 					goto next_cell;
 				}
 			}
@@ -2212,7 +2216,7 @@ void replace_const_connections(RTLIL::Module *module) {
 				changes.push_back({conn.first, mapped});
 		}
 		if (!changes.empty())
-			did_something = true;
+			did_something_hook();
 		for (auto &it : changes)
 			cell->setPort(it.first, it.second);
 	}

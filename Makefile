@@ -148,14 +148,14 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.43+34
+YOSYS_VER := 0.43+11
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
 # will have this file in its unexpanded form tough, in which case we fall
 # back to calling git directly.
 TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
-ifneq ($(findstring Format:,$(TARBALL_GIT_REV)),)
+ifeq ($(TARBALL_GIT_REV),$$Format:%h$$)
 GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
 else
 GIT_REV := $(TARBALL_GIT_REV)
@@ -579,7 +579,6 @@ S =
 endif
 
 $(eval $(call add_include_file,kernel/binding.h))
-$(eval $(call add_include_file,kernel/bitpattern.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
@@ -779,10 +778,10 @@ check-git-abc:
 		exit 1; \
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^ '; then \
 		exit 0; \
-	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%[hH]\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "'abc' comes from a tarball. Continuing."; \
 		exit 0; \
-	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%[hH]\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
+	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%h\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "Error: 'abc' is not configured as a git submodule."; \
 		echo "To resolve this:"; \
 		echo "1. Back up your changes: Save any modifications from the 'abc' directory to another location."; \

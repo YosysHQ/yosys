@@ -334,7 +334,7 @@ struct JnyWriter
 
             f << "\"" << escape_string(str) << "\"";
         } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) == RTLIL::ConstFlags::CONST_FLAG_SIGNED) {
-            f << stringf("\"%dsd %d\"", v.size(), v.as_int(true));
+            f << stringf("\"%zusd %d\"", v.size(), v.as_int(true));
         } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_REAL) == RTLIL::ConstFlags::CONST_FLAG_REAL) {
 
         } else {

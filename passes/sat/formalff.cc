@@ -363,7 +363,7 @@ struct PropagateWorker
 
 		for (auto wire : module->wires())
 			if (wire->has_attribute(ID::replaced_by_gclk))
-				replace_clk_bit(SigBit(wire), wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1, false);
+				replace_clk_bit(SigBit(wire), wire->attributes[ID::replaced_by_gclk].bits().at(0) == State::S1, false);
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($not), ID($_NOT_))) {
@@ -745,7 +745,7 @@ struct FormalFfPass : public Pass {
 				for (auto wire : module->wires()) {
 					if (!wire->has_attribute(ID::replaced_by_gclk))
 						continue;
-					bool clk_pol = wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1;
+					bool clk_pol = wire->attributes[ID::replaced_by_gclk].bits().at(0) == State::S1;
 
 					found.emplace_back(SigSpec(wire), clk_pol);
 				}

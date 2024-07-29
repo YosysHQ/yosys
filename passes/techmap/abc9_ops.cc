@@ -1543,7 +1543,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		// and get cleaned away
 clone_lut:
 		driver_mask = driver_lut->getParam(ID::LUT);
-		for (auto &b : driver_mask.bits) {
+		for (auto &b : driver_mask.bits()) {
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}

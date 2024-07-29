@@ -140,8 +140,13 @@ struct OptMergeWorker
 			hash_conn_strings.push_back(s + "\n");
 		}
 
-		for (auto &it : cell->parameters)
-			hash_conn_strings.push_back("P " + it.first.str() + "=" + it.second.as_string() + "\n");
+		for (auto &it : cell->parameters) {
+			Const c = it.second;
+			std::string s = "P " + it.first.str() + "=";
+			s += (c.flags & RTLIL::CONST_FLAG_STRING_COMPACT) ? c.decode_string() : c.as_string();
+			s += "\n";
+			hash_conn_strings.push_back(s);
+		}
 
 		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
 

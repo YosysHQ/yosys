@@ -20,10 +20,10 @@
  *
  *  This is the AST frontend library.
  *
- *  The AST frontend library is not a frontend on its own but provides an
- *  abstract syntax tree (AST) abstraction for the open source Verilog frontend
- *  at frontends/verilog.
- *
+ *  The AST frontend library is not a frontend on it's own but provides a
+ *  generic abstract syntax tree (AST) abstraction for HDL code and can be
+ *  used by HDL frontends. See "ast.h" for an overview of the API and the
+ *  Verilog frontend for an usage example.
  *
  */
 
@@ -933,15 +933,7 @@ RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
-	RTLIL::Const val;
-	val.bits = bits;
-
-	if (is_string) {
-		val.flags |= RTLIL::CONST_FLAG_STRING;
-		log_assert(val.decode_string() == str);
-	}
-
-	return val;
+	return is_string ? RTLIL::Const(str) : RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::asParaConst() const
@@ -987,7 +979,7 @@ uint64_t AstNode::asInt(bool is_signed)
 		uint64_t ret = 0;
 
 		for (int i = 0; i < 64; i++)
-			if (v.bits.at(i) == RTLIL::State::S1)
+			if (v.bits().at(i) == RTLIL::State::S1)
 				ret |= uint64_t(1) << i;
 
 		return ret;
@@ -1005,15 +997,15 @@ double AstNode::asReal(bool is_signed)
 	{
 		RTLIL::Const val(bits);
 
-		bool is_negative = is_signed && !val.bits.empty() && val.bits.back() == RTLIL::State::S1;
+		bool is_negative = is_signed && !val.bits().empty() && val.bits().back() == RTLIL::State::S1;
 		if (is_negative)
-			val = const_neg(val, val, false, false, val.bits.size());
+			val = const_neg(val, val, false, false, val.size());
 
 		double v = 0;
-		for (size_t i = 0; i < val.bits.size(); i++)
+		for (size_t i = 0; i < val.size(); i++)
 			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
 			// the net or the variable shall be treated as zero upon conversion.
-			if (val.bits.at(i) == RTLIL::State::S1)
+			if (val.bits().at(i) == RTLIL::State::S1)
 				v += exp2(i);
 		if (is_negative)
 			v *= -1;
@@ -1036,15 +1028,15 @@ RTLIL::Const AstNode::realAsConst(int width)
 #else
 	if (!std::isfinite(v)) {
 #endif
-		result.bits = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
+		result.bits() = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
 	} else {
 		bool is_negative = v < 0;
 		if (is_negative)
 			v *= -1;
 		for (int i = 0; i < width; i++, v /= 2)
-			result.bits.push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
+			result.bits().push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
 		if (is_negative)
-			result = const_neg(result, result, false, false, result.bits.size());
+			result = const_neg(result, result, false, false, result.size());
 	}
 	return result;
 }
@@ -1741,8 +1733,15 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 static std::string serialize_param_value(const RTLIL::Const &val) {
 	std::string res;
-	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING)
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) {
 		res.push_back('t');
+		if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING_COMPACT) {
+			res += stringf("%d", GetSize(val));
+			res.push_back('\'');
+			res.append(val.decode_string());
+			return res;
+		}
+	}
 	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED)
 		res.push_back('s');
 	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_REAL)
@@ -1750,7 +1749,7 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 	res += stringf("%d", GetSize(val));
 	res.push_back('\'');
 	for (int i = GetSize(val) - 1; i >= 0; i--) {
-		switch (val.bits[i]) {
+		switch (val.bits()[i]) {
 			case RTLIL::State::S0: res.push_back('0'); break;
 			case RTLIL::State::S1: res.push_back('1'); break;
 			case RTLIL::State::Sx: res.push_back('x'); break;
@@ -1850,7 +1849,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		} else if ((it->second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 			child->children[0] = AstNode::mkconst_str(it->second.decode_string());
 		else
-			child->children[0] = AstNode::mkconst_bits(it->second.bits, (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			child->children[0] = AstNode::mkconst_bits(it->second.bits(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
 		rewritten.insert(it->first);
 	}
 
@@ -1863,7 +1862,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 			if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 				defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
 			else
-				defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+				defparam->children.push_back(AstNode::mkconst_bits(param.second.bits(), (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
 			new_ast->children.push_back(defparam);
 		}
 

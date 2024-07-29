@@ -50,8 +50,9 @@ namespace RTLIL
 	enum ConstFlags : unsigned char {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
-		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // only used for parameters
+		CONST_FLAG_STRING_COMPACT = 2,  // internally efficient string storage
+		CONST_FLAG_SIGNED = 4,  // only used for parameters
+		CONST_FLAG_REAL   = 8,  // only used for parameters
 	};
 
 	struct Const;
@@ -657,14 +658,18 @@ namespace RTLIL
 
 struct RTLIL::Const
 {
+	private:
+	// TODO unionize
+	std::vector<RTLIL::State> bits_;
+	std::string str; // active on CONST_FLAG_STRING_COMPACT
+	public:
 	int flags;
-	std::vector<RTLIL::State> bits;
 
 	Const() : flags(RTLIL::CONST_FLAG_NONE) {}
 	Const(const std::string &str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
+	Const(const std::vector<RTLIL::State> &bits) : bits_(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &c) = default;
 	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
@@ -673,19 +678,22 @@ struct RTLIL::Const
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
+	const std::vector<RTLIL::State>& bits() const;
+	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
 	std::string as_string() const;
 	static Const from_string(const std::string &str);
+	std::vector<RTLIL::State> to_bits() const;
 
 	std::string decode_string() const;
-
-	inline int size() const { return bits.size(); }
-	inline bool empty() const { return bits.empty(); }
-	inline RTLIL::State &operator[](int index) { return bits.at(index); }
-	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
-	inline decltype(bits)::iterator begin() { return bits.begin(); }
-	inline decltype(bits)::iterator end() { return bits.end(); }
+	// (flags & CONST_FLAG_STRING_COMPACT) ? : ;
+	inline size_t size() const { return (flags & CONST_FLAG_STRING_COMPACT) ? 8 * str.size() : bits_.size(); }
+	inline bool empty() const { return (flags & CONST_FLAG_STRING_COMPACT) ? str.empty() : bits_.empty(); }
+	inline RTLIL::State &operator[](int index) { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.at(index); }
+	inline const RTLIL::State &operator[](int index) const { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.at(index); }
+	inline decltype(bits_)::iterator begin() { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.begin(); }
+	inline decltype(bits_)::iterator end() { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.end(); }
 
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
@@ -695,25 +703,34 @@ struct RTLIL::Const
 	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
+		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
 		RTLIL::Const ret;
-		ret.bits.reserve(len);
+		ret.bits_.reserve(len);
 		for (int i = offset; i < offset + len; i++)
-			ret.bits.push_back(i < GetSize(bits) ? bits[i] : padding);
+			ret.bits_.push_back(i < GetSize(bits_) ? bits_[i] : padding);
 		return ret;
 	}
 
 	void extu(int width) {
-		bits.resize(width, RTLIL::State::S0);
+		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
+		bits_.resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
+		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
+		bits_.resize(width, bits_.empty() ? RTLIL::State::Sx : bits_.back());
 	}
 
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
-		for (auto b : bits)
-			h = mkhash(h, b);
+
+		if(flags & CONST_FLAG_STRING_COMPACT) {
+			for (auto c : str)
+				h = mkhash(h, c);
+		} else {
+			for (auto b : bits_)
+				h = mkhash(h, b);
+		}
 		return h;
 	}
 };
@@ -759,8 +776,8 @@ struct RTLIL::SigChunk
 	int width, offset;
 
 	SigChunk() : wire(nullptr), width(0), offset(0) {}
-	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.bits), width(GetSize(data)), offset(0) {}
-	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(std::move(value.bits)), width(GetSize(data)), offset(0) {}
+	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
+	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}

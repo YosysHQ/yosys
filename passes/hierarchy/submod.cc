@@ -279,7 +279,7 @@ struct SubmodWorker
 
 			for (auto cell : module->cells())
 			{
-				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].bits.size() == 0) {
+				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].size() == 0) {
 					cell->attributes.erase(ID::submod);
 					continue;
 				}

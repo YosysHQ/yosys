@@ -354,7 +354,7 @@ struct BugpointPass : public Pass {
 								for (auto it2 = sy->mem_write_actions.begin(); it2 != sy->mem_write_actions.end(); ++it2) {
 									auto &mask = it2->priority_mask;
 									if (GetSize(mask) > i) {
-										mask.bits.erase(mask.bits.begin() + i);
+										mask.bits().erase(mask.bits().begin() + i);
 									}
 								}
 								return design_copy;

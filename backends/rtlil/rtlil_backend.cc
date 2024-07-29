@@ -33,13 +33,13 @@ YOSYS_NAMESPACE_BEGIN
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
 {
 	if (width < 0)
-		width = data.bits.size() - offset;
-	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
+		width = data.size() - offset;
+	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.size()) {
 		if (width == 32 && autoint) {
 			int32_t val = 0;
 			for (int i = 0; i < width; i++) {
-				log_assert(offset+i < (int)data.bits.size());
-				switch (data.bits[offset+i]) {
+				log_assert(offset+i < (int)data.size());
+				switch (data.bits()[offset+i]) {
 				case State::S0: break;
 				case State::S1: val |= 1 << i; break;
 				default: val = -1; break;
@@ -55,8 +55,8 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			f << "x";
 		} else {
 			for (int i = offset+width-1; i >= offset; i--) {
-				log_assert(i < (int)data.bits.size());
-				switch (data.bits[i]) {
+				log_assert(i < (int)data.size());
+				switch (data.bits()[i]) {
 				case State::S0: f << stringf("0"); break;
 				case State::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;

@@ -76,7 +76,7 @@ struct FfInitVals
 	{
 		RTLIL::Const res;
 		for (auto bit : sig)
-			res.bits.push_back((*this)(bit));
+			res.bits().push_back((*this)(bit));
 		return res;
 	}
 
