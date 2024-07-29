@@ -1129,6 +1129,11 @@ public:
 	const_iterator end() const { return const_iterator(*this, offset + size()); }
 };
 
+/**
+ * Union-find data structure with a promotion method
+ * mfp stands for "merge, find, promote"
+ * i-prefixed methods operate on indices in parents
+*/
 template<typename K, typename OPS>
 class mfp
 {
@@ -1142,13 +1147,18 @@ public:
 	{
 	}
 
+	// Finds a given element's index. If it isn't in the data structure,
+	// it is added as its own set
 	int operator()(const K &key) const
 	{
 		int i = database(key);
+		// If the lookup caused the database to grow,
+		// also add a corresponding entry in parents initialized to -1 (no parent)
 		parents.resize(database.size(), -1);
 		return i;
 	}
 
+	// Finds an element at given index
 	const K &operator[](int index) const
 	{
 		return database[index];
@@ -1161,6 +1171,11 @@ public:
 		while (parents[p] != -1)
 			p = parents[p];
 
+		// p is now the representative of i
+		// Now we traverse from i up to the representative again
+		// and make p the parent of all the nodes along the way.
+		// This is a side effect and doesn't affect the return value.
+		// It speeds up future find operations
 		while (k != p) {
 			int next_k = parents[k];
 			parents[k] = p;
@@ -1170,6 +1185,7 @@ public:
 		return p;
 	}
 
+	// Merge sets if the given indices belong to different sets
 	void imerge(int i, int j)
 	{
 		i = ifind(i);
