@@ -53,7 +53,7 @@ struct SmtrSort {
 	SmtrSort(Functional::Sort sort) : sort(sort) {}
 	SExpr to_sexpr() const {
 		if(sort.is_memory()) {
-			log_error("Memory not supported in Rosette printer");
+			return list("list", list("bitvector", sort.addr_width()), list("bitvector", sort.data_width()));
 		} else if(sort.is_signal()) {
 			return list("bitvector", sort.width());
 		} else {
@@ -95,12 +95,15 @@ public:
 				w.open(list("lambda", field_list));
 				w.open(list("values"));
 				for (const auto &field : fields) {
+					if (field.sort.sort.is_memory()) {
+						log_error("Memory unsupported with -guard flag");
+					}
 					auto s = field.sort.sort.width();
 					w << list("extract", s-1, 0, list("concat", list("bv", 0, s), field.name));
 				}
 			} else {
 				for (const auto &field : fields) {
-					auto bv_type = list("bitvector", field.sort.sort.width());
+					auto bv_type = field.sort.to_sexpr();
 					w.comment(field.name + " " + bv_type.to_string());
 				}
 			}
@@ -133,6 +136,13 @@ public:
 		return list(fields[i].accessor, std::move(record));
 	}
 };
+
+std::string smt_const(RTLIL::Const const &c) {
+	std::string s = "#b";
+	for(int i = c.size(); i-- > 0; )
+		s += c[i] == State::S1 ? '1' : '0';
+	return s;
+}
 
 struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	using Node = Functional::Node;
@@ -187,9 +197,9 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", "#b" + value.as_string(), value.size()); }
-	SExpr memory_read(Node, Node mem, Node addr) override { log_error("memory_read not supported in Rosette printer"); }
-	SExpr memory_write(Node, Node mem, Node addr, Node data) override { log_error("memory_write not supported in Rosette printer"); }
+	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", smt_const(value), value.size()); }
+	SExpr memory_read(Node, Node mem, Node addr) override { return list("list-ref-bv", n(mem), n(addr)); }
+	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("list-set-bv", n(mem), n(addr), n(data)); }
 
 	SExpr input(Node, IdString name) override { return input_struct.access("inputs", name); }
 	SExpr state(Node, IdString name) override { return state_struct.access("state", name); }
@@ -268,7 +278,16 @@ struct SmtrModule {
 		w.open(list("define", initial));
 		w.open(list(state_struct.name));
 		for (const auto &[name, sort] : ir.state()) {
-			w << list("bv", "#b" + ir.get_initial_state_signal(name).as_string(), sort.width());
+			if (sort.is_signal())
+				w << list("bv", smt_const(ir.get_initial_state_signal(name)), sort.width());
+			else if (sort.is_memory()) {
+				auto contents = ir.get_initial_state_memory(name);
+				w.open(list("list"));
+				for(int i = 0; i < 1<<sort.addr_width(); i++) {
+					w << list("bv", smt_const(contents[i]), sort.data_width());
+				}
+				w.close();
+			}
 		}
 		w.pop();
 	}
