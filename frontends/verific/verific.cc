@@ -2760,7 +2760,7 @@ void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *
 #endif
 }
 
-std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED, std::vector<std::string> &tops)
+std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED, std::vector<std::string> &tops, std::string *top = nullptr)
 {
 	std::set<std::string> top_mod_names;
 	Array *netlists = nullptr;
@@ -2821,6 +2821,8 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 				if (strcmp(name, vhdl_unit->Id()->OrigName()) != 0) {
 					top_mod_names.erase(name);
 					top_mod_names.insert(vhdl_unit->Id()->OrigName());
+					if (top && *top == name)
+						*top = vhdl_unit->Id()->OrigName();
 				}
 				continue;
 			}
@@ -2962,7 +2964,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		veri_file::RemoveAllLOptions();
 		veri_file::AddLOption("work");
 #endif
-		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops) ;
+		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops, &top) ;
 	}
 
 	if (!verific_error_msg.empty())
