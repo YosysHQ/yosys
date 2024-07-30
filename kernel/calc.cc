@@ -72,7 +72,7 @@ static RTLIL::Const big2const(const BigInteger &val, int result_len, int undef_b
 
 	BigUnsigned mag = val.getMagnitude();
 	RTLIL::Const result(0, result_len);
-
+	log_debug("size %d\n", result.bits().size());
 	if (!mag.isZero())
 	{
 		if (val.getSign() < 0)

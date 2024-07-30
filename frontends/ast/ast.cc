@@ -1733,31 +1733,15 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 static std::string serialize_param_value(const RTLIL::Const &val) {
 	std::string res;
-	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) {
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING)
 		res.push_back('t');
-		if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING_COMPACT) {
-			res += stringf("%d", GetSize(val));
-			res.push_back('\'');
-			res.append(val.decode_string());
-			return res;
-		}
-	}
 	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED)
 		res.push_back('s');
 	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_REAL)
 		res.push_back('r');
 	res += stringf("%d", GetSize(val));
 	res.push_back('\'');
-	for (int i = GetSize(val) - 1; i >= 0; i--) {
-		switch (val.bits()[i]) {
-			case RTLIL::State::S0: res.push_back('0'); break;
-			case RTLIL::State::S1: res.push_back('1'); break;
-			case RTLIL::State::Sx: res.push_back('x'); break;
-			case RTLIL::State::Sz: res.push_back('z'); break;
-			case RTLIL::State::Sa: res.push_back('?'); break;
-			case RTLIL::State::Sm: res.push_back('m'); break;
-		}
-	}
+	res.append(val.as_string("?"));
 	return res;
 }
 

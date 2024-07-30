@@ -22,6 +22,8 @@
 
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
+#include <variant>
+#include "kernel/utils.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -47,13 +49,20 @@ namespace RTLIL
 		STi = 7  // init
 	};
 
+	// Semantic metadata - how can this constant be interpreted?
+	// Values may be generally non-exclusive
 	enum ConstFlags : unsigned char {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
-		CONST_FLAG_STRING_COMPACT = 2,  // internally efficient string storage
-		CONST_FLAG_SIGNED = 4,  // only used for parameters
-		CONST_FLAG_REAL   = 8,  // only used for parameters
+		CONST_FLAG_SIGNED = 2,  // only used for parameters
+		CONST_FLAG_REAL   = 4,  // only used for parameters
 	};
+
+	// // Union discriminator. Values are exclusive
+	// enum ConstRepr : unsigned char {
+	// 	CONST_REPR_BITS   = 1,
+	// 	CONST_REPR_STRING = 2,
+	// };
 
 	struct Const;
 	struct AttrObject;
@@ -660,16 +669,16 @@ struct RTLIL::Const
 {
 	private:
 	// TODO unionize
-	std::vector<RTLIL::State> bits_;
-	std::string str; // active on CONST_FLAG_STRING_COMPACT
+	typedef std::vector<RTLIL::State> bitvectype;
+	mutable std::variant<bitvectype, std::string> backing;
 	public:
-	int flags;
+	short flags;
 
-	Const() : flags(RTLIL::CONST_FLAG_NONE) {}
+	Const() : backing(std::vector<RTLIL::State>()), flags(RTLIL::CONST_FLAG_NONE) {}
 	Const(const std::string &str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : bits_(bits) { flags = CONST_FLAG_NONE; }
+	Const(const std::vector<RTLIL::State> &bits) : backing(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &c) = default;
 	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
@@ -678,22 +687,68 @@ struct RTLIL::Const
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
+	bitvectype& assert_get_bits(const char* ctx) const;
+	std::string& assert_get_str(const char* ctx) const;
+
 	const std::vector<RTLIL::State>& bits() const;
 	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
-	std::string as_string() const;
+	std::string as_string(std::string any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
+	std::string pretty_fmt() const;
+	std::string pretty_fmt_undef() const;
+
 
 	std::string decode_string() const;
-	// (flags & CONST_FLAG_STRING_COMPACT) ? : ;
-	inline size_t size() const { return (flags & CONST_FLAG_STRING_COMPACT) ? 8 * str.size() : bits_.size(); }
-	inline bool empty() const { return (flags & CONST_FLAG_STRING_COMPACT) ? str.empty() : bits_.empty(); }
-	inline RTLIL::State &operator[](int index) { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.at(index); }
-	inline const RTLIL::State &operator[](int index) const { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.at(index); }
-	inline decltype(bits_)::iterator begin() { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.begin(); }
-	inline decltype(bits_)::iterator end() { log_assert(!(flags & CONST_FLAG_STRING_COMPACT)); return bits_.end(); }
+	inline size_t size() const {
+		if (auto str = std::get_if<std::string>(&backing))
+			return 8 * str->size();
+		else
+			return assert_get_bits("Const::size").size();
+	}
+
+	inline bool empty() const {
+		if (auto str = std::get_if<std::string>(&backing))
+			return str->empty();
+		else
+			return assert_get_bits("Const::empty").empty();
+	}
+
+	void bitvectorize() const {
+		if (std::get_if<bitvectype>(&backing))
+			return;
+
+		std::string& str = assert_get_str("Const::bitvectorize");
+		bitvectype bits;
+		bits.reserve(str.size() * 8);
+		for (int i = str.size() - 1; i >= 0; i--) {
+			unsigned char ch = str[i];
+			for (int j = 0; j < 8; j++) {
+				bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+				ch = ch >> 1;
+			}
+		}
+		backing = bits;
+	}
+
+	inline RTLIL::State &operator[](int index) {
+		bitvectorize();
+		return assert_get_bits("Const::operator[]").at(index);
+	}
+	inline const RTLIL::State &operator[](int index) const {
+		bitvectorize();
+		return assert_get_bits("const Const::operator[]").at(index);
+	}
+	inline bitvectype::iterator begin() {
+		bitvectorize();
+		return assert_get_bits("Const bit iterator begin()").begin();
+	}
+	inline bitvectype::iterator end() {
+		bitvectorize();
+		return assert_get_bits("Const bit iterator end()").end();
+	}
 
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
@@ -703,32 +758,35 @@ struct RTLIL::Const
 	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
-		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
-		RTLIL::Const ret;
-		ret.bits_.reserve(len);
+		bitvectorize();
+		bitvectype& bv = assert_get_bits("Const::extract");
+		bitvectype ret_bv;
+		ret_bv.reserve(len);
 		for (int i = offset; i < offset + len; i++)
-			ret.bits_.push_back(i < GetSize(bits_) ? bits_[i] : padding);
-		return ret;
+			ret_bv.push_back(i < GetSize(bv) ? bv[i] : padding);
+		return RTLIL::Const(ret_bv);
 	}
 
 	void extu(int width) {
-		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
-		bits_.resize(width, RTLIL::State::S0);
+		bitvectorize();
+		assert_get_bits("Const::extu").resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		log_assert(!(flags & CONST_FLAG_STRING_COMPACT));
-		bits_.resize(width, bits_.empty() ? RTLIL::State::Sx : bits_.back());
+		bitvectorize();
+		bitvectype& bv = assert_get_bits("Const::exts");
+		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 
-		if(flags & CONST_FLAG_STRING_COMPACT) {
-			for (auto c : str)
+		if(auto str = std::get_if<std::string>(&backing)) {
+			for (auto c : *str)
 				h = mkhash(h, c);
 		} else {
-			for (auto b : bits_)
+			bitvectype& bv = assert_get_bits("Const::hash");
+			for (auto b : bv)
 				h = mkhash(h, b);
 		}
 		return h;

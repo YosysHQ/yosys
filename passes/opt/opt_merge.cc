@@ -143,7 +143,7 @@ struct OptMergeWorker
 		for (auto &it : cell->parameters) {
 			Const c = it.second;
 			std::string s = "P " + it.first.str() + "=";
-			s += (c.flags & RTLIL::CONST_FLAG_STRING_COMPACT) ? c.decode_string() : c.as_string();
+			s += c.pretty_fmt_undef();
 			s += "\n";
 			hash_conn_strings.push_back(s);
 		}
