@@ -1,0 +1,168 @@
+// ISC License
+// 
+// Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+// 
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+// This file describes the second of three pattern matcher setups that
+//   forms the `microchip_dsp` pass described in microchip_dsp.cc
+// At a high level, it works as follows:
+//   (1) Starting from a DSP cell that (a) doesn't have a CREG already,
+//       and (b) uses the 'C' port
+//   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
+//       (attached to at most two $mux cells that implement clock-enable or
+//        reset functionality, using a subpattern discussed below)
+// Notes:
+//   - Running CREG packing after microchip_dsp_pack is necessary since there is no
+//     guarantee that the cell ordering corresponds to the "expected" case (i.e.
+//     the order in which they appear in the source) thus the possiblity existed
+//     where a register got packed as a CREG into a downstream DSP, while it should
+//     have otherwise been a PREG of an upstream DSP that had not been visited.
+//     yet.
+//   - The reason this is separated out from the microchip_dsp.pmg file is
+//     for efficiency --- each *.pmg file creates a class of the same basename,
+//     which when constructed, creates a custom database tailored to the
+//     pattern(s) contained within. Since the pattern in this file must be
+//     executed after the pattern contained in microchip_dsp.pmg, it is necessary
+//     to reconstruct this database. Separating the two patterns into
+//     independent files causes two smaller, more specific, databases.
+
+pattern microchip_dsp_packC
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+state <SigBit> clock
+state <SigSpec> sigC sigP
+state <Cell*> ffC
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+
+// (1) Starting from a DSP cell that (a) doesn't have a CREG already,
+//     and (b) uses the 'C' port
+match dsp
+	select dsp->type.in(\MACC_PA)
+	select port(dsp, \C_BYPASS, SigSpec()).is_fully_ones()
+	select nusers(port(dsp, \C, SigSpec())) > 1
+endmatch
+
+code sigC sigP clock
+	//helper function to remove unused bits
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+	sigC = unextend(port(dsp, \C, SigSpec()));
+
+	SigSpec P = port(dsp, \P);
+
+	// Only care about those bits that are used
+	int i;
+	for (i = GetSize(P)-1; i >= 0; i--)
+		if (nusers(P[i]) > 1)
+			break;
+	i++;
+	log_assert(nusers(P.extract_end(i)) <= 1);
+	sigP = P.extract(0, i);
+
+	clock = port(dsp, \CLK, SigBit());
+endcode
+
+// (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
+//     (attached to at most two $mux cells that implement clock-enable or
+//      reset functionality, using the in_dffe subpattern)
+code argQ ffC sigC clock
+	argQ = sigC;
+	subpattern(in_dffe);
+	if (dff) {
+		ffC = dff;
+		clock = dffclock;
+		sigC = dffD;
+	}
+endcode
+
+code
+	if (ffC)
+		accept;
+endcode
+
+// #######################
+
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe, $adff, $adffe)
+	// does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	// Check that reset value, if present, is fully 0.
+	bool noResetFlop = ff->type.in($dff, $dffe);
+	bool srstZero = ff->type.in($sdff, $sdffe) && param(ff, \SRST_VALUE).is_fully_zero();
+	bool arstZero = ff->type.in($adff, $adffe) && param(ff, \ARST_VALUE).is_fully_zero();
+	bool resetLegal = noResetFlop || srstZero || arstZero;
+	if (resetLegal)
+	{
+		SigSpec Q = port(ff, \Q);
+		dff = ff;
+		dffclock = port(ff, \CLK);
+		dffD = argQ;
+		SigSpec D = port(ff, \D);
+		argQ = Q;
+		dffD.replace(argQ, D);
+	}
+	
+endcode

@@ -1,0 +1,439 @@
+// ISC License
+// 
+// Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+// 
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+// This file describes the main pattern matcher setup (of three total) that
+//   forms the `microchip_dsp` pass described in microchip_dsp.cc 
+// At a high level, it works as follows:
+//   ( 1) Starting from a DSP cell. Capture DSP configurations as states
+//   ( 2) Match for pre-adder
+//   ( 3) Match for post-adder
+//   ( 4) Match register 'A', 'B', 'D', 'P' 
+//   ( 5) If post-adder and PREG both present, check if PREG feeds into post-adder.
+//        This indicates an accumulator situation like the ASCII diagram below:
+//             +--------------------------------+
+//             |_________                       |
+//                       | /-------\   +----+   |
+//            +----+     +-| post- |___|PREG|---+ 'P'
+//            |MULT|------ | adder |   +----+
+//            +----+       \-------/
+
+pattern microchip_dsp_pack
+
+state <SigBit> clock
+state <SigSpec> sigA sigB sigC sigD sigP
+state <Cell*> ffA ffB ffD ffP
+state <Cell*> preAdderStatic postAdderStatic
+state <bool> moveBtoA useFeedBack
+
+// static ports, used to detect dsp configuration
+state <SigSpec> bypassA bypassB bypassC bypassD bypassP
+state <SigSpec> bypassPASUB
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+udata <bool> allowAsync
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+udata <Cell*> u_preAdderStatic u_postAdderStatic
+udata <IdString> u_postAddAB
+state <IdString> postAddAB
+
+// (1) Starting from a DSP cell
+match dsp
+	select dsp->type.in(\MACC_PA)
+endmatch
+
+// detect existing signals connected to DSP
+// detect configuration ports
+code sigA sigB sigC sigD clock sigP
+	//helper function to remove unused bits
+	auto unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+
+	//unextend to remove unused bits
+	sigA = unextend(port(dsp, \A));
+	sigB = unextend(port(dsp, \B));
+
+	//update signals
+	sigC = port(dsp, \C, SigSpec());
+	sigD = port(dsp, \D, SigSpec());
+
+
+	SigSpec P = port(dsp, \P);
+	// Only care about bits that are used
+	int i;
+	for (i = GetSize(P)-1; i >= 0; i--)
+		if (nusers(P[i]) > 1)
+			break;
+	i++;
+	log_assert(nusers(P.extract_end(i)) <= 1);
+	// This sigP could have no users if downstream sinks (e.g. $add) is
+	//   narrower than $mul result, for example
+	if (i == 0)
+		reject;
+	sigP = P.extract(0, i);
+	clock = port(dsp, \CLK, SigBit());
+
+endcode
+
+// capture static configuration ports
+code bypassA bypassB bypassC bypassD bypassPASUB bypassP
+	bypassA = port(dsp, \A_BYPASS, SigSpec());
+	bypassB = port(dsp, \B_BYPASS, SigSpec());
+	bypassC = port(dsp, \C_BYPASS, SigSpec());
+	bypassD = port(dsp, \D_BYPASS, SigSpec());
+	bypassPASUB = port(dsp, \PASUB_BYPASS, SigSpec());
+	bypassP = port(dsp, \P_BYPASS, SigSpec());
+endcode
+
+// (2) Match for pre-adder
+// 
+code sigA sigB sigD preAdderStatic moveBtoA
+	subpattern(preAddMatching);
+	preAdderStatic = u_preAdderStatic;
+	moveBtoA = false;
+
+	if (preAdderStatic) {
+		
+		if (port(preAdderStatic, \Y) == sigA)
+		{
+			//used for packing
+			moveBtoA = true;
+
+			// sigA should be the input to the multiplier without the preAdd. sigB and sigD should be 
+			//the preAdd inputs. If our "A" input into the multiplier is from the preAdd (not sigA), then 
+			// we basically swap it.
+			sigA = sigB;
+		}
+
+		// port B of preAdderStatic must be mapped to port D of DSP for subtraction
+		sigD = port(preAdderStatic, \B);
+		sigB = port(preAdderStatic, \A);
+	}
+endcode
+
+//  (3) Match for post-adder
+//
+code postAdderStatic sigP sigC
+	u_postAdderStatic = nullptr;
+	subpattern(postAddMatching);
+	postAdderStatic = u_postAdderStatic;
+
+	if (postAdderStatic) {
+		//sigC will be whichever input to the postAdder that is NOT from the multiplier
+		// u_postAddAB is the input to the postAdder from the multiplier 
+		sigC = port(postAdderStatic, u_postAddAB == \A ? \B : \A);
+		sigP = port(postAdderStatic, \Y);
+	}
+endcode
+
+
+// (4) Matching registers
+//
+// 'A' input for REG_A
+code argQ bypassA sigA clock ffA
+	if (bypassA.is_fully_ones()){
+		argQ = sigA;
+		allowAsync = false;
+		subpattern(in_dffe);
+		if (dff) {
+			ffA = dff;
+			clock = dffclock;
+			sigA = dffD;
+		}
+	}
+endcode
+
+// 'B' input for REG_B
+code argQ bypassB sigB clock ffB
+	if (bypassB.is_fully_ones()){
+		argQ = sigB;
+		allowAsync = false;
+		subpattern(in_dffe);
+		if (dff) {
+			ffB = dff;
+			clock = dffclock;
+			sigB = dffD;
+		}
+	}
+endcode
+
+// 'D' input for REG_D
+code argQ bypassP sigD clock ffD
+	if (bypassD.is_fully_ones()){
+		argQ = sigD;
+		allowAsync = true;
+		subpattern(in_dffe);
+		if (dff) {
+			ffD = dff;
+			clock = dffclock;
+			sigD = dffD;
+		}
+	}
+endcode
+
+// 'P' output for REG_P
+code argD ffP sigP clock bypassP
+	if (bypassP.is_fully_ones() && nusers(sigP) == 2) {
+		argD = sigP;
+		allowAsync = false;
+		subpattern(out_dffe);
+		if (dff) {
+			ffP = dff;
+			clock = dffclock;
+			sigP = dffQ;
+		}
+	}
+endcode
+
+// (5) If post-adder and PREG both present, check if PREG feeds into post-adder via port C.
+//        This indicates an accumulator situation. Port C can be freed
+//             +--------------------------------+
+//             |_________                       |
+//                       | /-------\   +----+   |
+//            +----+     +-| post- |___|PREG|---+ 'P'
+//            |MULT|------ | adder |   +----+
+//            +----+       \-------/
+code useFeedBack
+	useFeedBack = false;
+	if (postAdderStatic && ffP)	{
+		if (sigC == sigP) {
+			useFeedBack = true;
+		}
+	}
+
+endcode
+
+// if any cells are absorbed, invoke the callback function
+code
+	if (preAdderStatic || postAdderStatic)
+		accept;
+	if (ffA || ffB || ffD || ffP)
+		accept;
+endcode
+
+
+// #######################
+// Subpattern for matching against post-adder
+//   Match 'P' output that exclusively drives one of two inputs to an $add
+//   cell (post-adder).
+//   The other input to the adder is assumed to come in from the 'C' input
+
+subpattern postAddMatching
+arg sigP
+
+match postAdd
+
+	select postAdd->type.in($add, $sub)
+	select GetSize(port(postAdd, \Y)) <= 48
+
+	// AB is the port that connects MUL to ADD
+	choice <IdString> AB {\A, \B}
+	select nusers(port(postAdd, AB)) == 2
+
+	// has one input coming from multiplier
+	index <SigBit> port(postAdd, AB)[0] === sigP[0]
+	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
+	filter port(postAdd, AB).extract(0, GetSize(sigP)) == sigP
+	// Check that remainder of AB is a sign- or zero-extension
+	filter port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(sigP[GetSize(sigP)-1], GetSize(port(postAdd, AB))-GetSize(sigP)) || port(postAdd, AB).extract_end(GetSize(sigP)) == SigSpec(State::S0, GetSize(port(postAdd, AB))-GetSize(sigP))
+
+	set postAddAB AB
+	// optional
+endmatch
+
+code
+	if (postAdd)
+	{
+		if (postAdd->type.in(ID($sub)) && postAddAB == \A) {
+			// if $sub, the multiplier output must match to $sub.B, otherwise no match	
+		} else {
+			u_postAddAB = postAddAB;
+			u_postAdderStatic = postAdd;
+		}
+
+	}
+endcode
+
+
+// #######################
+// Subpattern for matching against pre-adder
+//		support static PASUB only
+
+subpattern preAddMatching
+arg sigA sigB sigD bypassB bypassD bypassPASUB
+
+code 
+	u_preAdderStatic = nullptr;
+
+	// Ensure that preAdder not already used
+	// Assume we can inspect port D to see if its all zeros. 
+	if (!(sigD.empty() || sigD.is_fully_zero())) reject;
+	if (!bypassB.is_fully_ones()) reject;
+	if (!bypassD.is_fully_ones()) reject;
+	if (!bypassPASUB.is_fully_ones()) reject;
+endcode
+
+match preAdd
+
+	// can handle add or sub
+	select preAdd->type.in($add, $sub)
+
+	// Output has to be 18 bits or less, and only has single fanout
+	select GetSize(port(preAdd, \Y)) <= 18
+	select nusers(port(preAdd, \Y)) == 2
+
+	// Adder inputs must be 18 bits or less
+	select GetSize(port(preAdd, \A)) <= 18
+	select GetSize(port(preAdd, \B)) <= 18
+
+	// Output feeds into one of multiplier input
+	filter port(preAdd, \Y) == sigB || port(preAdd, \Y) == sigA
+
+	// optional
+endmatch
+
+code
+	if (preAdd)
+	{
+		u_preAdderStatic = preAdd;
+	}
+endcode
+
+// #######################
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	// reg D has async rst
+	// reg A, B has sync rst
+	select ff->type.in($dff, $dffe, $sdff, $sdffe, $adff, $adffe)
+	// does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// it is possible that only part of a dff output matches argQ
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	// only consider async rst flops when flag is set
+	filter !ff->type.in($adff, $adffe) || allowAsync
+
+	// clock must be consistent
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	// Check that reset value, if present, is fully 0.
+	bool noResetFlop = ff->type.in($dff, $dffe);
+	bool srstZero = ff->type.in($sdff, $sdffe) && param(ff, \SRST_VALUE).is_fully_zero();
+	bool arstZero = ff->type.in($adff, $adffe) && param(ff, \ARST_VALUE).is_fully_zero();
+	bool resetLegal = noResetFlop || srstZero || arstZero;
+	if (resetLegal)
+	{
+		SigSpec Q = port(ff, \Q);
+		dff = ff;
+		dffclock = port(ff, \CLK);
+		dffD = argQ;
+		SigSpec D = port(ff, \D);
+		argQ = Q;
+		dffD.replace(argQ, D);
+	}
+
+endcode
+// #######################
+
+
+subpattern out_dffe
+arg argD argQ clock
+
+code
+	dff = nullptr;
+	for (auto c : argD.chunks())
+		// Abandon matches when 'D' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	// does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	// Check that the rest of argD is present
+	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
+	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
+
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
+endmatch
+
+code argQ
+	SigSpec D = port(ff, \D);
+	SigSpec Q = port(ff, \Q);
+	argQ = argD;
+	argQ.replace(D, Q);
+
+	// Abandon matches when 'Q' has a non-zero init attribute set
+	for (auto c : argQ.chunks()) {
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+
+	dff = ff;
+	dffQ = argQ;
+	dffclock = port(ff, \CLK);
+endcode

@@ -59,6 +59,7 @@ USING_YOSYS_NAMESPACE
 
 #ifdef VERIFIC_VHDL_SUPPORT
 #include "vhdl_file.h"
+#include "VhdlIdDef.h"
 #include "VhdlUnits.h"
 #include "NameSpace.h"
 #endif
@@ -2757,7 +2758,7 @@ void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *
 #endif
 }
 
-std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED, std::vector<std::string> &tops)
+std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED, std::vector<std::string> &tops, std::string *top = nullptr)
 {
 	std::set<std::string> top_mod_names;
 	Array *netlists = nullptr;
@@ -2815,6 +2816,12 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 				if (show_message)
 					log("Adding VHDL unit '%s' to elaboration queue.\n", name);
 				vhdl_units.InsertLast(vhdl_unit);
+				if (strcmp(name, vhdl_unit->Id()->OrigName()) != 0) {
+					top_mod_names.erase(name);
+					top_mod_names.insert(vhdl_unit->Id()->OrigName());
+					if (top && *top == name)
+						*top = vhdl_unit->Id()->OrigName();
+				}
 				continue;
 			}
 #endif
@@ -2955,7 +2962,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		veri_file::RemoveAllLOptions();
 		veri_file::AddLOption("work");
 #endif
-		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops) ;
+		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops, &top) ;
 	}
 
 	if (!verific_error_msg.empty())
@@ -3041,6 +3048,11 @@ bool check_noverific_env()
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("import", "load Verilog/SystemVerilog designs using IMPORT") { }
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	void on_register() override	{ VerificExtensions::Reset(); }
+#endif
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

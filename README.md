@@ -79,7 +79,7 @@ Xdot (graphviz) is used by the ``show`` command in yosys to display schematics.
 For example on Ubuntu Linux 16.04 LTS the following commands will install all
 prerequisites for building yosys:
 
-	$ sudo apt-get install build-essential clang bison flex \
+	$ sudo apt-get install build-essential clang lld bison flex \
 		libreadline-dev gawk tcl-dev libffi-dev git \
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
