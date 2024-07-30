@@ -86,7 +86,11 @@ jobs:
     name: "Build nix flake"
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,4 +98,4 @@ jobs:
       - uses: cachix/install-nix-action@v26
         with:
           install_url: https://releases.nixos.org/nix/nix-2.18.1/install
-      - run: nix build .?submodules=1
+      - run: nix build .?submodules=1 -L
