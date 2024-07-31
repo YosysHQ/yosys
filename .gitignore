@@ -46,7 +46,6 @@ __pycache__
 /tests/unit/objtest/
 /tests/ystests
 /result
-/build
 
 # Created during tests
 /tests/arch/quicklogic/pp3/run-test.mk
@@ -56,9 +55,6 @@ __pycache__
 
 # Ignore Brewfile locks
 Brewfile.lock.json
-
-# Ignore backups
-*.bak
 
 # Ignore tmp files
 *.tmp
