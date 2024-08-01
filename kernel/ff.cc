@@ -263,7 +263,9 @@ FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initva
 }
 
 FfData FfData::slice(const std::vector<int> &bits) {
-	FfData res(module, initvals, IdString("$" + name.str()));
+	IdString new_id = IdString("$" + name.str());
+	while (module->count_id(new_id) > 0) new_id = IdString("$" + new_id.str());
+	FfData res(module, initvals, new_id);
 	res.sig_clk = sig_clk;
 	res.sig_ce = sig_ce;
 	res.sig_aload = sig_aload;
