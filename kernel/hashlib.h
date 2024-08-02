@@ -37,7 +37,7 @@ typedef uint64_t hash_t;
 // typedef hash_t acc_t;
 
 struct Hashable {
-	virtual ~Hashable() = 0;
+	~Hashable() {} // Empty implementation
 	public:
 	[[nodiscard]]
 	virtual hash_t hash_acc(hash_t acc) const = 0;
@@ -67,9 +67,31 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 }
 
 
+template <typename T, typename = void>
+struct has_hash_method : std::false_type {};
 
-template<typename T, typename = void>
-struct hash_ops: std::false_type {};
+template <typename T>
+struct has_hash_method<T, std::void_t<decltype(std::declval<T>().hash())>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool has_hash_method_v = has_hash_method<T>::value;
+
+template <typename T, typename = void> struct hash_ops {
+	static inline bool cmp(const T &a, const T &b) { return a == b; }
+
+	/**
+	 * This function exists because dict, which has a hash method, that hashes
+	 * keys as well as values, is used in Yosys with types that don't have
+	 * a hash method.
+	 */
+	template <typename U = T> static inline typename std::enable_if<!has_hash_method_v<U>, hash_t>::type hash(const U &)
+	{
+		throw std::logic_error("Unimplemented hash method");
+		return 0;
+	}
+
+	template <typename U = T> static inline typename std::enable_if<has_hash_method_v<U>, hash_t>::type hash(const U &a) { return a.hash(); }
+};
 
 template<typename T>
 struct hash_ops<T, std::enable_if_t<std::is_base_of_v<Hashable, T>>> {
@@ -94,29 +116,21 @@ template<> struct hash_ops<bool> : hash_int_ops
 		return a ? 1 : 0;
 	}
 };
-template<> struct hash_ops<int32_t> : hash_int_ops
+
+template<typename T>
+struct hash_ops<T, std::enable_if_t<std::is_integral_v<T>>> : hash_int_ops
 {
-	static inline hash_t hash(int32_t a) {
-		return a;
-	}
+    static inline hash_t hash(T a) {
+        return static_cast<hash_t>(a);
+    }
 };
-template<> struct hash_ops<int64_t> : hash_int_ops
+
+template<typename T>
+struct hash_ops<T, std::enable_if_t<std::is_pointer_v<T>>> : hash_int_ops
 {
-	static inline hash_t hash(int64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
-};
-template<> struct hash_ops<uint32_t> : hash_int_ops
-{
-	static inline hash_t hash(uint32_t a) {
-		return a;
-	}
-};
-template<> struct hash_ops<uint64_t> : hash_int_ops
-{
-	static inline hash_t hash(uint64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
+    static inline hash_t hash(T a) {
+        return (hash_t)(a);
+    }
 };
 
 template<> struct hash_ops<std::string> {
@@ -203,47 +217,47 @@ struct hash_obj_ops {
 	}
 };
 
-// Primary template
-template<typename T, typename = void>
-struct is_hashable : std::false_type {};
+// // Primary template
+// template<typename T, typename = void>
+// struct is_hashable : std::false_type {};
 
-// Helper to check if hash_ops<U> exists for a type U
-template<typename U, typename = void>
-struct has_hash_ops : std::false_type {};
+// // Helper to check if hash_ops<U> exists for a type U
+// template<typename U, typename = void>
+// struct has_hash_ops : std::false_type {};
 
-template<typename U>
-struct has_hash_ops<U, std::void_t<
-    decltype(hash_ops<U>::hash(std::declval<const U&>())),
-    decltype(hash_ops<U>::cmp(std::declval<const U&>(), std::declval<const U&>()))
->> : std::true_type {};
+// template<typename U>
+// struct has_hash_ops<U, std::void_t<
+//     decltype(hash_ops<U>::hash(std::declval<const U&>())),
+//     decltype(hash_ops<U>::cmp(std::declval<const U&>(), std::declval<const U&>()))
+// >> : std::true_type {};
 
-// Helper to check if T is convertible to U and U has hash_ops
-template<typename T, typename U>
-struct is_convertible_and_hashable :
-    std::conjunction<
-        std::is_convertible<T, U>,
-        has_hash_ops<U>
-    > {};
+// // Helper to check if T is convertible to U and U has hash_ops
+// template<typename T, typename U>
+// struct is_convertible_and_hashable :
+//     std::conjunction<
+//         std::is_convertible<T, U>,
+//         has_hash_ops<U>
+//     > {};
 
-// Helper to check convertibility to a list of types
-template<typename T, typename... Us>
-struct is_convertible_to_any_hashable :
-    std::disjunction<
-        is_convertible_and_hashable<T, Us>...
-    > {};
+// // Helper to check convertibility to a list of types
+// template<typename T, typename... Us>
+// struct is_convertible_to_any_hashable :
+//     std::disjunction<
+//         is_convertible_and_hashable<T, Us>...
+//     > {};
 
-// Specialization that checks for direct hash_ops or convertibility to hashable types
-template<typename T>
-struct is_hashable<T, 
-    std::enable_if_t<
-        has_hash_ops<T>::value || 
-        is_convertible_to_any_hashable<T, 
-            /* List your potential hashable types here */
-            int, char*, void*, /* Add more as needed */
-            std::string
-        >::value
-    >
-> : std::true_type {};
+// // Specialization that checks for direct hash_ops or convertibility to hashable types
+// template<typename T>
+// struct is_hashable<T, 
+//     std::enable_if_t<
+//         has_hash_ops<T>::value || 
+//         is_convertible_to_any_hashable<T, 
+//             /* List your potential hashable types here */
+//             int, char*, void*, /* Add more as needed */
+//             std::string
+//         >::value
+//     >
+// > : std::true_type {};
 
 template<typename T>
 inline unsigned int mkhash(const T &v) {

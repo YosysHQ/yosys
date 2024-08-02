@@ -25,10 +25,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct BitPatternPool : public Hashable
+struct BitPatternPool
 {
 	int width;
-	struct bits_t {
+	struct bits_t : public Hashable {
 		std::vector<RTLIL::State> bitdata;
 		mutable hash_t cached_hash;
 		bits_t(int width = 0) : bitdata(width), cached_hash(0) { }
