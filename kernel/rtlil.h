@@ -669,6 +669,9 @@ struct RTLIL::Const
 	Const(const RTLIL::Const &c) = default;
 	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
 
+	const std::vector<RTLIL::State>& bits() const { return bits; }
+	std::vector<RTLIL::State>& bits() { return bits; }
+
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
