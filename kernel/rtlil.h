@@ -687,9 +687,6 @@ struct RTLIL::Const
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
-	bitvectype& assert_get_bits(const char* ctx) const;
-	std::string& assert_get_str(const char* ctx) const;
-
 	const std::vector<RTLIL::State>& bits() const;
 	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
@@ -706,21 +703,21 @@ struct RTLIL::Const
 		if (auto str = std::get_if<std::string>(&backing))
 			return 8 * str->size();
 		else
-			return assert_get_bits("Const::size").size();
+			return std::get<bitvectype>(backing).size();
 	}
 
 	inline bool empty() const {
 		if (auto str = std::get_if<std::string>(&backing))
 			return str->empty();
 		else
-			return assert_get_bits("Const::empty").empty();
+			return std::get<bitvectype>(backing).empty();
 	}
 
 	void bitvectorize() const {
 		if (std::get_if<bitvectype>(&backing))
 			return;
 
-		std::string& str = assert_get_str("Const::bitvectorize");
+		auto& str = std::get<std::string>(backing);
 		bitvectype bits;
 		bits.reserve(str.size() * 8);
 		for (int i = str.size() - 1; i >= 0; i--) {
@@ -734,20 +731,16 @@ struct RTLIL::Const
 	}
 
 	inline RTLIL::State &operator[](int index) {
-		bitvectorize();
-		return assert_get_bits("Const::operator[]").at(index);
+		return bits().at(index);
 	}
 	inline const RTLIL::State &operator[](int index) const {
-		bitvectorize();
-		return assert_get_bits("const Const::operator[]").at(index);
+		return bits().at(index);
 	}
 	inline bitvectype::iterator begin() {
-		bitvectorize();
-		return assert_get_bits("Const bit iterator begin()").begin();
+		return bits().begin();
 	}
 	inline bitvectype::iterator end() {
-		bitvectorize();
-		return assert_get_bits("Const bit iterator end()").end();
+		return bits().end();
 	}
 
 	bool is_fully_zero() const;
@@ -758,8 +751,7 @@ struct RTLIL::Const
 	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
-		bitvectorize();
-		bitvectype& bv = assert_get_bits("Const::extract");
+		auto& bv = bits();
 		bitvectype ret_bv;
 		ret_bv.reserve(len);
 		for (int i = offset; i < offset + len; i++)
@@ -768,13 +760,11 @@ struct RTLIL::Const
 	}
 
 	void extu(int width) {
-		bitvectorize();
-		assert_get_bits("Const::extu").resize(width, RTLIL::State::S0);
+		bits().resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bitvectorize();
-		bitvectype& bv = assert_get_bits("Const::exts");
+		bitvectype& bv = bits();
 		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
@@ -785,8 +775,7 @@ struct RTLIL::Const
 			for (auto c : *str)
 				h = mkhash(h, c);
 		} else {
-			bitvectype& bv = assert_get_bits("Const::hash");
-			for (auto b : bv)
+			for (auto b : bits())
 				h = mkhash(h, b);
 		}
 		return h;

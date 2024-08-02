@@ -210,7 +210,7 @@ RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	backing = bitvectype();
-	bitvectype& bv = assert_get_bits("Const::Const(int, int)");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	bv.reserve(width);
 	for (int i = 0; i < width; i++) {
 		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
@@ -222,7 +222,7 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	backing = bitvectype();
-	bitvectype& bv = assert_get_bits("Const::Const(State, int)");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	bv.reserve(width);
 	for (int i = 0; i < width; i++)
 		bv.push_back(bit);
@@ -232,33 +232,22 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	backing = bitvectype();
-	bitvectype& bv = assert_get_bits("Const::Const(std::vector<bool>)");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	bv.reserve(bits.size());
 	for (const auto &b : bits)
 		bv.emplace_back(b ? State::S1 : State::S0);
 }
 
-[[nodiscard]] RTLIL::Const::bitvectype& RTLIL::Const::assert_get_bits(const char* ctx) const {
-	// return assert_get<bitvectype, decltype(backing)>(&backing, ctx);
-	return std::get<bitvectype>(backing);
-}
-
-[[nodiscard]] std::string& RTLIL::Const::assert_get_str(const char* ctx) const {
-	// return assert_get<std::string, decltype(backing)>(&backing, ctx);
-	return std::get<std::string>(backing);
-}
-
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
-	const char* ctx = "operator<";
 	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
 		return decode_string() < other.decode_string();
 
 	if (std::get_if<std::string>(&backing))
-		return assert_get_str(ctx) < other.assert_get_str(ctx);
+		return std::get<std::string>(backing) < std::get<std::string>(other.backing);
 
-	bitvectype& bv = assert_get_bits(ctx);
-	auto other_bv = other.assert_get_bits(ctx);
+	bitvectype& bv = std::get<bitvectype>(backing);
+	auto other_bv = std::get<bitvectype>(other.backing);
 
 	if (bv.size() != other_bv.size())
 		return bv.size() < other_bv.size();
@@ -271,14 +260,13 @@ bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
-	const char* ctx = "operator==";
 	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
 		return decode_string() == other.decode_string();
 
 	if (std::get_if<std::string>(&backing))
-		return assert_get_str(ctx) == other.assert_get_str(ctx);
+		return std::get<std::string>(backing) == std::get<std::string>(other.backing);
 
-	return assert_get_bits(ctx) == other.assert_get_bits(ctx);
+	return std::get<bitvectype>(backing) == std::get<bitvectype>(other.backing);
 }
 
 bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
@@ -289,13 +277,13 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 std::vector<RTLIL::State>& RTLIL::Const::bits()
 {
 	bitvectorize();
-	return assert_get_bits("Const::bits()");
+	return std::get<bitvectype>(backing);
 }
 
 const std::vector<RTLIL::State>& RTLIL::Const::bits() const
 {
 	bitvectorize();
-	return assert_get_bits("Const::bits()");
+	return std::get<bitvectype>(backing);
 }
 
 
@@ -304,7 +292,7 @@ std::vector<RTLIL::State> RTLIL::Const::to_bits() const
 	if (auto bv = std::get_if<bitvectype>(&backing)) {
 		return *bv;
 	}
-	auto str = assert_get_str("Const::to_bits");
+	auto& str = std::get<std::string>(backing);
 	bitvectype b;
 	b.reserve(str.size() * 8);
 	for (int i = str.size()-1; i >= 0; i--) {
@@ -334,7 +322,7 @@ std::string RTLIL::Const::pretty_fmt_undef() const {
 bool RTLIL::Const::as_bool() const
 {
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::as_bool");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	for (size_t i = 0; i < bv.size(); i++)
 		if (bv[i] == State::S1)
 			return true;
@@ -344,7 +332,7 @@ bool RTLIL::Const::as_bool() const
 int RTLIL::Const::as_int(bool is_signed) const
 {
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::as_int");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	int32_t ret = 0;
 	for (size_t i = 0; i < bv.size() && i < 32; i++)
 		if (bv[i] == State::S1)
@@ -358,7 +346,7 @@ int RTLIL::Const::as_int(bool is_signed) const
 std::string RTLIL::Const::as_string(std::string any) const
 {
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::as_bool");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	std::string ret;
 	ret.reserve(bv.size());
 	for (size_t i = bv.size(); i > 0; i--)
@@ -377,7 +365,7 @@ RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
 	Const c;
 	c.backing = bitvectype();
-	bitvectype& bv = c.assert_get_bits("Const::from_string");
+	bitvectype& bv = std::get<bitvectype>(c.backing);
 	bv.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
@@ -397,7 +385,7 @@ std::string RTLIL::Const::decode_string() const
 		return *str;
 
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
@@ -430,7 +418,7 @@ std::string RTLIL::Const::decode_string() const
 bool RTLIL::Const::is_fully_zero() const
 {
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	cover("kernel.rtlil.const.is_fully_zero");
 
 	for (const auto &bit : bv)
@@ -443,7 +431,7 @@ bool RTLIL::Const::is_fully_zero() const
 bool RTLIL::Const::is_fully_ones() const
 {
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 	cover("kernel.rtlil.const.is_fully_ones");
 
 	for (const auto &bit : bv)
@@ -458,7 +446,7 @@ bool RTLIL::Const::is_fully_def() const
 	cover("kernel.rtlil.const.is_fully_def");
 
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
@@ -472,7 +460,7 @@ bool RTLIL::Const::is_fully_undef() const
 	cover("kernel.rtlil.const.is_fully_undef");
 
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
@@ -486,7 +474,7 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
@@ -500,7 +488,7 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	cover("kernel.rtlil.const.is_onehot");
 
 	bitvectorize();
-	bitvectype& bv = assert_get_bits("Const::decode_string");
+	bitvectype& bv = std::get<bitvectype>(backing);
 
 	bool found = false;
 	for (int i = 0; i < GetSize(*this); i++) {
