@@ -274,7 +274,7 @@ Aig::Aig(Cell *cell)
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');
 		} else {
 			mkname_last = name;
-			name += stringf(":%d", p.second.as_int());
+			name += ":" + p.second.pretty_fmt();
 		}
 
 		mkname_a_signed = false;

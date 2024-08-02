@@ -933,15 +933,7 @@ RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
-	RTLIL::Const val;
-	val.bits = bits;
-
-	if (is_string) {
-		val.flags |= RTLIL::CONST_FLAG_STRING;
-		log_assert(val.decode_string() == str);
-	}
-
-	return val;
+	return is_string ? RTLIL::Const(str) : RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::asParaConst() const
@@ -1749,16 +1741,7 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 		res.push_back('r');
 	res += stringf("%d", GetSize(val));
 	res.push_back('\'');
-	for (int i = GetSize(val) - 1; i >= 0; i--) {
-		switch (val.bits[i]) {
-			case RTLIL::State::S0: res.push_back('0'); break;
-			case RTLIL::State::S1: res.push_back('1'); break;
-			case RTLIL::State::Sx: res.push_back('x'); break;
-			case RTLIL::State::Sz: res.push_back('z'); break;
-			case RTLIL::State::Sa: res.push_back('?'); break;
-			case RTLIL::State::Sm: res.push_back('m'); break;
-		}
-	}
+	res.append(val.as_string("?"));
 	return res;
 }
 

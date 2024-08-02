@@ -864,7 +864,7 @@ struct CxxrtlWorker {
 		if (!module->has_attribute(ID(cxxrtl_template)))
 			return {};
 
-		if (module->attributes.at(ID(cxxrtl_template)).flags != RTLIL::CONST_FLAG_STRING)
+		if (!(module->attributes.at(ID(cxxrtl_template)).flags & RTLIL::CONST_FLAG_STRING))
 			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
 
 		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");

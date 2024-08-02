@@ -22,6 +22,8 @@
 
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
+#include <variant>
+#include "kernel/utils.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -47,12 +49,20 @@ namespace RTLIL
 		STi = 7  // init
 	};
 
+	// Semantic metadata - how can this constant be interpreted?
+	// Values may be generally non-exclusive
 	enum ConstFlags : unsigned char {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // only used for parameters
+		CONST_FLAG_REAL   = 4,  // only used for parameters
 	};
+
+	// // Union discriminator. Values are exclusive
+	// enum ConstRepr : unsigned char {
+	// 	CONST_REPR_BITS   = 1,
+	// 	CONST_REPR_STRING = 2,
+	// };
 
 	struct Const;
 	struct AttrObject;
@@ -657,38 +667,88 @@ namespace RTLIL
 
 struct RTLIL::Const
 {
-	int flags;
-	std::vector<RTLIL::State> bits;
+	private:
+	// TODO unionize
+	typedef std::vector<RTLIL::State> bitvectype;
+	mutable std::variant<bitvectype, std::string> backing;
+	public:
+	short flags;
 
-	Const() : flags(RTLIL::CONST_FLAG_NONE) {}
+	Const() : backing(std::vector<RTLIL::State>()), flags(RTLIL::CONST_FLAG_NONE) {}
 	Const(const std::string &str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
+	Const(const std::vector<RTLIL::State> &bits) : backing(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &c) = default;
 	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
-
-	const std::vector<RTLIL::State>& bits() const { return bits; }
-	std::vector<RTLIL::State>& bits() { return bits; }
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
+	bitvectype& assert_get_bits(const char* ctx) const;
+	std::string& assert_get_str(const char* ctx) const;
+
+	const std::vector<RTLIL::State>& bits() const;
+	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
-	std::string as_string() const;
+	std::string as_string(std::string any = "-") const;
 	static Const from_string(const std::string &str);
+	std::vector<RTLIL::State> to_bits() const;
+	std::string pretty_fmt() const;
+	std::string pretty_fmt_undef() const;
+
 
 	std::string decode_string() const;
+	inline size_t size() const {
+		if (auto str = std::get_if<std::string>(&backing))
+			return 8 * str->size();
+		else
+			return assert_get_bits("Const::size").size();
+	}
 
-	inline int size() const { return bits.size(); }
-	inline bool empty() const { return bits.empty(); }
-	inline RTLIL::State &operator[](int index) { return bits.at(index); }
-	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
-	inline decltype(bits)::iterator begin() { return bits.begin(); }
-	inline decltype(bits)::iterator end() { return bits.end(); }
+	inline bool empty() const {
+		if (auto str = std::get_if<std::string>(&backing))
+			return str->empty();
+		else
+			return assert_get_bits("Const::empty").empty();
+	}
+
+	void bitvectorize() const {
+		if (std::get_if<bitvectype>(&backing))
+			return;
+
+		std::string& str = assert_get_str("Const::bitvectorize");
+		bitvectype bits;
+		bits.reserve(str.size() * 8);
+		for (int i = str.size() - 1; i >= 0; i--) {
+			unsigned char ch = str[i];
+			for (int j = 0; j < 8; j++) {
+				bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+				ch = ch >> 1;
+			}
+		}
+		backing = bits;
+	}
+
+	inline RTLIL::State &operator[](int index) {
+		bitvectorize();
+		return assert_get_bits("Const::operator[]").at(index);
+	}
+	inline const RTLIL::State &operator[](int index) const {
+		bitvectorize();
+		return assert_get_bits("const Const::operator[]").at(index);
+	}
+	inline bitvectype::iterator begin() {
+		bitvectorize();
+		return assert_get_bits("Const bit iterator begin()").begin();
+	}
+	inline bitvectype::iterator end() {
+		bitvectorize();
+		return assert_get_bits("Const bit iterator end()").end();
+	}
 
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
@@ -698,25 +758,37 @@ struct RTLIL::Const
 	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
-		RTLIL::Const ret;
-		ret.bits.reserve(len);
+		bitvectorize();
+		bitvectype& bv = assert_get_bits("Const::extract");
+		bitvectype ret_bv;
+		ret_bv.reserve(len);
 		for (int i = offset; i < offset + len; i++)
-			ret.bits.push_back(i < GetSize(bits) ? bits[i] : padding);
-		return ret;
+			ret_bv.push_back(i < GetSize(bv) ? bv[i] : padding);
+		return RTLIL::Const(ret_bv);
 	}
 
 	void extu(int width) {
-		bits.resize(width, RTLIL::State::S0);
+		bitvectorize();
+		assert_get_bits("Const::extu").resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
+		bitvectorize();
+		bitvectype& bv = assert_get_bits("Const::exts");
+		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
-		for (auto b : bits)
-			h = mkhash(h, b);
+
+		if(auto str = std::get_if<std::string>(&backing)) {
+			for (auto c : *str)
+				h = mkhash(h, c);
+		} else {
+			bitvectype& bv = assert_get_bits("Const::hash");
+			for (auto b : bv)
+				h = mkhash(h, b);
+		}
 		return h;
 	}
 };
@@ -762,8 +834,8 @@ struct RTLIL::SigChunk
 	int width, offset;
 
 	SigChunk() : wire(nullptr), width(0), offset(0) {}
-	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.bits), width(GetSize(data)), offset(0) {}
-	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(std::move(value.bits)), width(GetSize(data)), offset(0) {}
+	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
+	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}

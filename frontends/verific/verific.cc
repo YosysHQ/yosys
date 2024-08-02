@@ -238,19 +238,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 
 RTLIL::Const mkconst_str(const std::string &str)
 {
-	RTLIL::Const val;
-	std::vector<RTLIL::State> data;
-	data.reserve(str.size() * 8);
-	for (size_t i = 0; i < str.size(); i++) {
-		unsigned char ch = str[str.size() - i - 1];
-		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
-	val.bits = data;
-	val.flags |= RTLIL::CONST_FLAG_STRING;
-	return val;
+	return RTLIL::Const(str);
 }
 
 static const RTLIL::Const extract_vhdl_boolean(std::string &val)

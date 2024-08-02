@@ -203,22 +203,17 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 RTLIL::Const::Const(const std::string &str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
-	bits.reserve(str.size() * 8);
-	for (int i = str.size()-1; i >= 0; i--) {
-		unsigned char ch = str[i];
-		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
+	backing = str;
 }
 
 RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	backing = bitvectype();
+	bitvectype& bv = assert_get_bits("Const::Const(int, int)");
+	bv.reserve(width);
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -226,70 +221,153 @@ RTLIL::Const::Const(int val, int width)
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	backing = bitvectype();
+	bitvectype& bv = assert_get_bits("Const::Const(State, int)");
+	bv.reserve(width);
 	for (int i = 0; i < width; i++)
-		bits.push_back(bit);
+		bv.push_back(bit);
 }
 
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	this->bits.reserve(bits.size());
+	backing = bitvectype();
+	bitvectype& bv = assert_get_bits("Const::Const(std::vector<bool>)");
+	bv.reserve(bits.size());
 	for (const auto &b : bits)
-		this->bits.emplace_back(b ? State::S1 : State::S0);
+		bv.emplace_back(b ? State::S1 : State::S0);
+}
+
+[[nodiscard]] RTLIL::Const::bitvectype& RTLIL::Const::assert_get_bits(const char* ctx) const {
+	// return assert_get<bitvectype, decltype(backing)>(&backing, ctx);
+	return std::get<bitvectype>(backing);
+}
+
+[[nodiscard]] std::string& RTLIL::Const::assert_get_str(const char* ctx) const {
+	// return assert_get<std::string, decltype(backing)>(&backing, ctx);
+	return std::get<std::string>(backing);
 }
 
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
-	if (bits.size() != other.bits.size())
-		return bits.size() < other.bits.size();
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] != other.bits[i])
-			return bits[i] < other.bits[i];
+	const char* ctx = "operator<";
+	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
+		return decode_string() < other.decode_string();
+
+	if (std::get_if<std::string>(&backing))
+		return assert_get_str(ctx) < other.assert_get_str(ctx);
+
+	bitvectype& bv = assert_get_bits(ctx);
+	auto other_bv = other.assert_get_bits(ctx);
+
+	if (bv.size() != other_bv.size())
+		return bv.size() < other_bv.size();
+
+	for (size_t i = 0; i < bv.size(); i++)
+		if (bv[i] != other_bv[i])
+			return bv[i] < other_bv[i];
 	return false;
 }
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
-	return bits == other.bits;
+	const char* ctx = "operator==";
+	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
+		return decode_string() == other.decode_string();
+
+	if (std::get_if<std::string>(&backing))
+		return assert_get_str(ctx) == other.assert_get_str(ctx);
+
+	return assert_get_bits(ctx) == other.assert_get_bits(ctx);
 }
 
 bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 {
-	return bits != other.bits;
+	return !(*this == other);
+}
+
+std::vector<RTLIL::State>& RTLIL::Const::bits()
+{
+	bitvectorize();
+	return assert_get_bits("Const::bits()");
+}
+
+const std::vector<RTLIL::State>& RTLIL::Const::bits() const
+{
+	bitvectorize();
+	return assert_get_bits("Const::bits()");
+}
+
+
+std::vector<RTLIL::State> RTLIL::Const::to_bits() const
+{
+	if (auto bv = std::get_if<bitvectype>(&backing)) {
+		return *bv;
+	}
+	auto str = assert_get_str("Const::to_bits");
+	bitvectype b;
+	b.reserve(str.size() * 8);
+	for (int i = str.size()-1; i >= 0; i--) {
+		unsigned char ch = str[i];
+		for (int j = 0; j < 8; j++) {
+			b.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+			ch = ch >> 1;
+		}
+	}
+	return b;
+}
+
+std::string RTLIL::Const::pretty_fmt() const {
+	if (std::get_if<std::string>(&backing))
+		return decode_string();
+	else
+		return std::to_string(as_int());
+}
+
+std::string RTLIL::Const::pretty_fmt_undef() const {
+	if (std::get_if<std::string>(&backing))
+		return decode_string();
+	else
+		return as_string();
 }
 
 bool RTLIL::Const::as_bool() const
 {
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == State::S1)
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::as_bool");
+	for (size_t i = 0; i < bv.size(); i++)
+		if (bv[i] == State::S1)
 			return true;
 	return false;
 }
 
 int RTLIL::Const::as_int(bool is_signed) const
 {
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::as_int");
 	int32_t ret = 0;
-	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == State::S1)
+	for (size_t i = 0; i < bv.size() && i < 32; i++)
+		if (bv[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == State::S1)
-		for (size_t i = bits.size(); i < 32; i++)
+	if (is_signed && bv.back() == State::S1)
+		for (size_t i = bv.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }
 
-std::string RTLIL::Const::as_string() const
+std::string RTLIL::Const::as_string(std::string any) const
 {
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::as_bool");
 	std::string ret;
-	ret.reserve(bits.size());
-	for (size_t i = bits.size(); i > 0; i--)
-		switch (bits[i-1]) {
+	ret.reserve(bv.size());
+	for (size_t i = bv.size(); i > 0; i--)
+		switch (bv[i-1]) {
 			case S0: ret += "0"; break;
 			case S1: ret += "1"; break;
 			case Sx: ret += "x"; break;
 			case Sz: ret += "z"; break;
-			case Sa: ret += "-"; break;
+			case Sa: ret += any; break;
 			case Sm: ret += "m"; break;
 		}
 	return ret;
@@ -298,22 +376,29 @@ std::string RTLIL::Const::as_string() const
 RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
 	Const c;
-	c.bits.reserve(str.size());
+	c.backing = bitvectype();
+	bitvectype& bv = c.assert_get_bits("Const::from_string");
+	bv.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
-			case '0': c.bits.push_back(State::S0); break;
-			case '1': c.bits.push_back(State::S1); break;
-			case 'x': c.bits.push_back(State::Sx); break;
-			case 'z': c.bits.push_back(State::Sz); break;
-			case 'm': c.bits.push_back(State::Sm); break;
-			default: c.bits.push_back(State::Sa);
+			case '0': bv.push_back(State::S0); break;
+			case '1': bv.push_back(State::S1); break;
+			case 'x': bv.push_back(State::Sx); break;
+			case 'z': bv.push_back(State::Sz); break;
+			case 'm': bv.push_back(State::Sm); break;
+			default: bv.push_back(State::Sa);
 		}
 	return c;
 }
 
 std::string RTLIL::Const::decode_string() const
 {
-	const int n = GetSize(bits);
+	if (auto str = std::get_if<std::string>(&backing))
+		return *str;
+
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
+	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
 	s.reserve(n_over_8);
@@ -321,7 +406,7 @@ std::string RTLIL::Const::decode_string() const
 	if (i < n) {
 		char ch = 0;
 		for (int j = 0; j < (n - i); j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -332,7 +417,7 @@ std::string RTLIL::Const::decode_string() const
 	for (; i >= 0; i -= 8) {
 		char ch = 0;
 		for (int j = 0; j < 8; j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -344,9 +429,11 @@ std::string RTLIL::Const::decode_string() const
 
 bool RTLIL::Const::is_fully_zero() const
 {
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
 	cover("kernel.rtlil.const.is_fully_zero");
 
-	for (const auto &bit : bits)
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0)
 			return false;
 
@@ -355,9 +442,11 @@ bool RTLIL::Const::is_fully_zero() const
 
 bool RTLIL::Const::is_fully_ones() const
 {
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
 	cover("kernel.rtlil.const.is_fully_ones");
 
-	for (const auto &bit : bits)
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S1)
 			return false;
 
@@ -368,7 +457,10 @@ bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 
@@ -379,7 +471,10 @@ bool RTLIL::Const::is_fully_undef() const
 {
 	cover("kernel.rtlil.const.is_fully_undef");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
 
@@ -390,7 +485,10 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 {
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
 			return false;
 
@@ -401,9 +499,12 @@ bool RTLIL::Const::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.const.is_onehot");
 
+	bitvectorize();
+	bitvectype& bv = assert_get_bits("Const::decode_string");
+
 	bool found = false;
 	for (int i = 0; i < GetSize(*this); i++) {
-		auto &bit = bits[i];
+		auto &bit = bv[i];
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 		if (bit == RTLIL::State::S1) {
@@ -1034,6 +1135,14 @@ namespace {
 					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
+		void is_param(const RTLIL::IdString& name)
+		{
+			auto it = cell->parameters.find(name);
+			if (it == cell->parameters.end())
+				error(__LINE__);
+			expected_params.insert(name);
+		}
+
 		int param(const RTLIL::IdString& name)
 		{
 			auto it = cell->parameters.find(name);
@@ -1063,14 +1172,14 @@ namespace {
 
 		void param_bits(const RTLIL::IdString& name, int width)
 		{
-			param(name);
-			if (GetSize(cell->parameters.at(name).bits) != width)
+			is_param(name);
+			if (GetSize(cell->parameters.at(name).bits()) != width)
 				error(__LINE__);
 		}
 
 		std::string param_string(const RTLIL::IdString &name)
 		{
-			param(name);
+			is_param(name);
 			return cell->parameters.at(name).decode_string();
 		}
 
@@ -1212,8 +1321,8 @@ namespace {
 			}
 
 			if (cell->type == ID($macc)) {
-				param(ID::CONFIG);
-				param(ID::CONFIG_WIDTH);
+				is_param(ID::CONFIG);
+				is_param(ID::CONFIG_WIDTH);
 				port(ID::A, param(ID::A_WIDTH));
 				port(ID::B, param(ID::B_WIDTH));
 				port(ID::Y, param(ID::Y_WIDTH));
@@ -1241,7 +1350,7 @@ namespace {
 			}
 
 			if (cell->type == ID($slice)) {
-				param(ID::OFFSET);
+				is_param(ID::OFFSET);
 				port(ID::A, param(ID::A_WIDTH));
 				port(ID::Y, param(ID::Y_WIDTH));
 				if (param(ID::OFFSET) + param(ID::Y_WIDTH) > param(ID::A_WIDTH))
@@ -1293,7 +1402,7 @@ namespace {
 			}
 
 			if (cell->type == ID($lut)) {
-				param(ID::LUT);
+				is_param(ID::LUT);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, 1);
 				check_expected();
@@ -1301,8 +1410,8 @@ namespace {
 			}
 
 			if (cell->type == ID($sop)) {
-				param(ID::DEPTH);
-				param(ID::TABLE);
+				is_param(ID::DEPTH);
+				is_param(ID::TABLE);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, 1);
 				check_expected();
@@ -1487,15 +1596,15 @@ namespace {
 			}
 
 			if (cell->type == ID($fsm)) {
-				param(ID::NAME);
+				is_param(ID::NAME);
 				param_bool(ID::CLK_POLARITY);
 				param_bool(ID::ARST_POLARITY);
-				param(ID::STATE_BITS);
-				param(ID::STATE_NUM);
-				param(ID::STATE_NUM_LOG2);
-				param(ID::STATE_RST);
+				is_param(ID::STATE_BITS);
+				is_param(ID::STATE_NUM);
+				is_param(ID::STATE_NUM_LOG2);
+				is_param(ID::STATE_RST);
 				param_bits(ID::STATE_TABLE, param(ID::STATE_BITS) * param(ID::STATE_NUM));
-				param(ID::TRANS_NUM);
+				is_param(ID::TRANS_NUM);
 				param_bits(ID::TRANS_TABLE, param(ID::TRANS_NUM) * (2*param(ID::STATE_NUM_LOG2) + param(ID::CTRL_IN_WIDTH) + param(ID::CTRL_OUT_WIDTH)));
 				port(ID::CLK, 1);
 				port(ID::ARST, 1);
@@ -1506,7 +1615,7 @@ namespace {
 			}
 
 			if (cell->type == ID($memrd)) {
-				param(ID::MEMID);
+				is_param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
 				param_bool(ID::TRANSPARENT);
@@ -1519,11 +1628,11 @@ namespace {
 			}
 
 			if (cell->type == ID($memrd_v2)) {
-				param(ID::MEMID);
+				is_param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				param(ID::TRANSPARENCY_MASK);
-				param(ID::COLLISION_X_MASK);
+				is_param(ID::TRANSPARENCY_MASK);
+				is_param(ID::COLLISION_X_MASK);
 				param_bool(ID::CE_OVER_SRST);
 				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
 				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
@@ -1539,10 +1648,10 @@ namespace {
 			}
 
 			if (cell->type == ID($memwr)) {
-				param(ID::MEMID);
+				is_param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				param(ID::PRIORITY);
+				is_param(ID::PRIORITY);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1552,11 +1661,11 @@ namespace {
 			}
 
 			if (cell->type == ID($memwr_v2)) {
-				param(ID::MEMID);
+				is_param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				param(ID::PORTID);
-				param(ID::PRIORITY_MASK);
+				is_param(ID::PORTID);
+				is_param(ID::PRIORITY_MASK);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1566,8 +1675,8 @@ namespace {
 			}
 
 			if (cell->type == ID($meminit)) {
-				param(ID::MEMID);
-				param(ID::PRIORITY);
+				is_param(ID::MEMID);
+				is_param(ID::PRIORITY);
 				port(ID::ADDR, param(ID::ABITS));
 				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
 				check_expected();
@@ -1575,8 +1684,8 @@ namespace {
 			}
 
 			if (cell->type == ID($meminit_v2)) {
-				param(ID::MEMID);
-				param(ID::PRIORITY);
+				is_param(ID::MEMID);
+				is_param(ID::PRIORITY);
 				port(ID::ADDR, param(ID::ABITS));
 				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
 				port(ID::EN, param(ID::WIDTH));
@@ -1585,10 +1694,10 @@ namespace {
 			}
 
 			if (cell->type == ID($mem)) {
-				param(ID::MEMID);
-				param(ID::SIZE);
-				param(ID::OFFSET);
-				param(ID::INIT);
+				is_param(ID::MEMID);
+				is_param(ID::SIZE);
+				is_param(ID::OFFSET);
+				is_param(ID::INIT);
 				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_TRANSPARENT, max(1, param(ID::RD_PORTS)));
@@ -1607,10 +1716,10 @@ namespace {
 			}
 
 			if (cell->type == ID($mem_v2)) {
-				param(ID::MEMID);
-				param(ID::SIZE);
-				param(ID::OFFSET);
-				param(ID::INIT);
+				is_param(ID::MEMID);
+				is_param(ID::SIZE);
+				is_param(ID::OFFSET);
+				is_param(ID::INIT);
 				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_TRANSPARENCY_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
@@ -1701,12 +1810,12 @@ namespace {
 				param_bool(ID::FULL);
 				param_bool(ID::SRC_DST_PEN);
 				param_bool(ID::SRC_DST_POL);
-				param(ID::T_RISE_MIN);
-				param(ID::T_RISE_TYP);
-				param(ID::T_RISE_MAX);
-				param(ID::T_FALL_MIN);
-				param(ID::T_FALL_TYP);
-				param(ID::T_FALL_MAX);
+				is_param(ID::T_RISE_MIN);
+				is_param(ID::T_RISE_TYP);
+				is_param(ID::T_RISE_MAX);
+				is_param(ID::T_FALL_MIN);
+				is_param(ID::T_FALL_TYP);
+				is_param(ID::T_FALL_MAX);
 				port(ID::EN, 1);
 				port(ID::SRC, param(ID::SRC_WIDTH));
 				port(ID::DST, param(ID::DST_WIDTH));
@@ -1722,17 +1831,17 @@ namespace {
 			}
 
 			if (cell->type == ID($specrule)) {
-				param(ID::TYPE);
+				is_param(ID::TYPE);
 				param_bool(ID::SRC_PEN);
 				param_bool(ID::SRC_POL);
 				param_bool(ID::DST_PEN);
 				param_bool(ID::DST_POL);
-				param(ID::T_LIMIT_MIN);
-				param(ID::T_LIMIT_TYP);
-				param(ID::T_LIMIT_MAX);
-				param(ID::T_LIMIT2_MIN);
-				param(ID::T_LIMIT2_TYP);
-				param(ID::T_LIMIT2_MAX);
+				is_param(ID::T_LIMIT_MIN);
+				is_param(ID::T_LIMIT_TYP);
+				is_param(ID::T_LIMIT_MAX);
+				is_param(ID::T_LIMIT2_MIN);
+				is_param(ID::T_LIMIT2_TYP);
+				is_param(ID::T_LIMIT2_MAX);
 				port(ID::SRC_EN, 1);
 				port(ID::DST_EN, 1);
 				port(ID::SRC, param(ID::SRC_WIDTH));
@@ -1742,10 +1851,10 @@ namespace {
 			}
 
 			if (cell->type == ID($print)) {
-				param(ID(FORMAT));
+				is_param(ID(FORMAT));
 				param_bool(ID::TRG_ENABLE);
-				param(ID::TRG_POLARITY);
-				param(ID::PRIORITY);
+				is_param(ID::TRG_POLARITY);
+				is_param(ID::PRIORITY);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
 				port(ID::ARGS, param(ID::ARGS_WIDTH));
@@ -1757,10 +1866,10 @@ namespace {
 				std::string flavor = param_string(ID(FLAVOR));
 				if (!(flavor == "assert" || flavor == "assume" || flavor == "live" || flavor == "fair" || flavor == "cover"))
 					error(__LINE__);
-				param(ID(FORMAT));
+				is_param(ID(FORMAT));
 				param_bool(ID::TRG_ENABLE);
-				param(ID::TRG_POLARITY);
-				param(ID::PRIORITY);
+				is_param(ID::TRG_POLARITY);
+				is_param(ID::PRIORITY);
 				port(ID::A, 1);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
@@ -1770,7 +1879,7 @@ namespace {
 			}
 
 			if (cell->type == ID($scopeinfo)) {
-				param(ID::TYPE);
+				is_param(ID::TYPE);
 				check_expected();
 				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
 				if (scope_type != "module" && scope_type != "struct")
@@ -1875,8 +1984,8 @@ namespace {
 				{ port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
 
 			if (cell->type.in(ID($set_tag))) {
-				param(ID::WIDTH);
-				param(ID::TAG);
+				is_param(ID::WIDTH);
+				is_param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::SET, param(ID::WIDTH));
 				port(ID::CLR, param(ID::WIDTH));
@@ -1885,16 +1994,16 @@ namespace {
 				return;
 			}
 			if (cell->type.in(ID($get_tag),ID($original_tag))) {
-				param(ID::WIDTH);
-				param(ID::TAG);
+				is_param(ID::WIDTH);
+				is_param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();
 				return;
 			}
 			if (cell->type.in(ID($overwrite_tag))) {
-				param(ID::WIDTH);
-				param(ID::TAG);
+				is_param(ID::WIDTH);
+				is_param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::SET, param(ID::WIDTH));
 				port(ID::CLR, param(ID::WIDTH));
@@ -1902,7 +2011,7 @@ namespace {
 				return;
 			}
 			if (cell->type.in(ID($future_ff))) {
-				param(ID::WIDTH);
+				is_param(ID::WIDTH);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();
@@ -3730,7 +3839,7 @@ RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 	wire = bit.wire;
 	offset = 0;
 	if (wire == NULL)
-		data = RTLIL::Const(bit.data).bits;
+		data = RTLIL::Const(bit.data).bits();
 	else
 		offset = bit.offset;
 	width = 1;

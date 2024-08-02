@@ -243,6 +243,8 @@ struct SetundefPass : public Pass {
 			{
 				for (auto *cell : module->selected_cells()) {
 					for (auto &parameter : cell->parameters) {
+						if (parameter.second.flags & RTLIL::CONST_FLAG_STRING)
+							continue;
 						for (auto &bit : parameter.second.bits()) {
 							if (bit > RTLIL::State::S1)
 								bit = worker.next_bit();
