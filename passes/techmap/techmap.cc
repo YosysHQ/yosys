@@ -684,7 +684,7 @@ struct TechmapWorker
 							for (auto &bit : sigmap(conn.second)) {
 								int val = unique_bit_id.at(bit);
 								for (int i = 0; i < bits; i++) {
-									value.bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+									value.bits().push_back((val & 1) != 0 ? State::S1 : State::S0);
 									val = val >> 1;
 								}
 							}
@@ -1226,7 +1226,7 @@ struct TechmapPass : public Pass {
 
 		dict<IdString, pool<IdString>> celltypeMap;
 		for (auto module : map->modules()) {
-			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).bits.empty()) {
+			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).empty()) {
 				char *p = strdup(module->attributes.at(ID::techmap_celltype).decode_string().c_str());
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(nullptr, " \t\r\n")) {
 					std::vector<std::string> queue;

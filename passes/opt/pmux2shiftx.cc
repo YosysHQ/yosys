@@ -323,7 +323,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits.push_back(it.second);
+						entry.second.bits().push_back(it.second);
 					}
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
@@ -344,7 +344,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits.push_back(it.second);
+						entry.second.bits().push_back(it.second);
 					}
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
@@ -411,7 +411,7 @@ struct Pmux2ShiftxPass : public Pass {
 					for (int i : seldb.at(sig)) {
 						Const val = eqdb.at(S[i]).second;
 						int onebits = 0;
-						for (auto b : val.bits)
+						for (auto b : val.bits())
 							if (b == State::S1)
 								onebits++;
 						if (onebits > 1)

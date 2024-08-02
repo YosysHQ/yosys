@@ -1077,7 +1077,7 @@ struct Smt2Worker
 
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at(ID::init);
-				val.bits.resize(GetSize(sig), State::Sx);
+				val.bits().resize(GetSize(sig), State::Sx);
 				if (bvmode && GetSize(sig) > 1) {
 					Const mask(State::S1, GetSize(sig));
 					bool use_mask = false;

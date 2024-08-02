@@ -157,10 +157,10 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				rd_wide_continuation.bits.push_back(State(sub != 0));
-				rd_clk_enable.bits.push_back(State(port.clk_enable));
-				rd_clk_polarity.bits.push_back(State(port.clk_polarity));
-				rd_ce_over_srst.bits.push_back(State(port.ce_over_srst));
+				rd_wide_continuation.bits().push_back(State(sub != 0));
+				rd_clk_enable.bits().push_back(State(port.clk_enable));
+				rd_clk_polarity.bits().push_back(State(port.clk_polarity));
+				rd_ce_over_srst.bits().push_back(State(port.ce_over_srst));
 				rd_clk.append(port.clk);
 				rd_arst.append(port.arst);
 				rd_srst.append(port.srst);
@@ -170,17 +170,17 @@ void Mem::emit() {
 				rd_addr.append(addr);
 				log_assert(GetSize(addr) == abits);
 				for (auto idx : wr_port_xlat) {
-					rd_transparency_mask.bits.push_back(State(bool(port.transparency_mask[idx])));
-					rd_collision_x_mask.bits.push_back(State(bool(port.collision_x_mask[idx])));
+					rd_transparency_mask.bits().push_back(State(bool(port.transparency_mask[idx])));
+					rd_collision_x_mask.bits().push_back(State(bool(port.collision_x_mask[idx])));
 				}
 			}
 			rd_data.append(port.data);
 			for (auto &bit : port.arst_value)
-				rd_arst_value.bits.push_back(bit);
+				rd_arst_value.bits().push_back(bit);
 			for (auto &bit : port.srst_value)
-				rd_srst_value.bits.push_back(bit);
+				rd_srst_value.bits().push_back(bit);
 			for (auto &bit : port.init_value)
-				rd_init_value.bits.push_back(bit);
+				rd_init_value.bits().push_back(bit);
 		}
 		if (rd_ports.empty()) {
 			rd_wide_continuation = State::S0;
@@ -222,12 +222,12 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				wr_wide_continuation.bits.push_back(State(sub != 0));
-				wr_clk_enable.bits.push_back(State(port.clk_enable));
-				wr_clk_polarity.bits.push_back(State(port.clk_polarity));
+				wr_wide_continuation.bits().push_back(State(sub != 0));
+				wr_clk_enable.bits().push_back(State(port.clk_enable));
+				wr_clk_polarity.bits().push_back(State(port.clk_polarity));
 				wr_clk.append(port.clk);
 				for (auto idx : wr_port_xlat)
-					wr_priority_mask.bits.push_back(State(bool(port.priority_mask[idx])));
+					wr_priority_mask.bits().push_back(State(bool(port.priority_mask[idx])));
 				SigSpec addr = port.sub_addr(sub);
 				addr.extend_u0(abits, false);
 				wr_addr.append(addr);
@@ -427,7 +427,7 @@ void Mem::coalesce_inits() {
 			log_assert(offset + GetSize(init.data) <= GetSize(cdata));
 			for (int i = 0; i < GetSize(init.data); i++)
 				if (init.en[i % width] == State::S1)
-					cdata.bits[i+offset] = init.data.bits[i];
+					cdata.bits()[i+offset] = init.data.bits()[i];
 			init.removed = true;
 		}
 		MemInit new_init;
@@ -446,7 +446,7 @@ Const Mem::get_init_data() const {
 		int offset = (init.addr.as_int() - start_offset) * width;
 		for (int i = 0; i < GetSize(init.data); i++)
 			if (0 <= i+offset && i+offset < GetSize(init_data) && init.en[i % width] == State::S1)
-				init_data.bits[i+offset] = init.data.bits[i];
+				init_data.bits()[i+offset] = init.data.bits()[i];
 	}
 	return init_data;
 }

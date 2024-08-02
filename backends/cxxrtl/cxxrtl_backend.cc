@@ -1665,15 +1665,15 @@ struct CxxrtlWorker {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits.push_back(RTLIL::S1);
-									compare_value.bits.push_back(bit);
+									compare_mask.bits().push_back(RTLIL::S1);
+									compare_value.bits().push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits.push_back(RTLIL::S0);
-									compare_value.bits.push_back(RTLIL::S0);
+									compare_mask.bits().push_back(RTLIL::S0);
+									compare_value.bits().push_back(RTLIL::S0);
 									break;
 
 								default:

@@ -80,7 +80,7 @@ struct BitPatternPool
 	bits_t sig2bits(RTLIL::SigSpec sig)
 	{
 		bits_t bits;
-		bits.bitdata = sig.as_const().bits;
+		bits.bitdata = sig.as_const().bits();
 		for (auto &b : bits.bitdata)
 			if (b > RTLIL::State::S1)
 				b = RTLIL::State::Sa;
