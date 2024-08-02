@@ -300,7 +300,7 @@ public:
 };
 
 
-struct ModuleItem {
+struct ModuleItem : public Hashable {
 	enum class Type {
 		Wire,
 		Cell,
@@ -318,7 +318,7 @@ struct ModuleItem {
 	Cell *cell() const { return type == Type::Cell ? static_cast<Cell *>(ptr) : nullptr; }
 
 	bool operator==(const ModuleItem &other) const { return ptr == other.ptr && type == other.type; }
-	unsigned int hash() const { return (uintptr_t)ptr; }
+	hash_t hash_acc(hash_t h) const final { return mkhash((hash_t)ptr, h); }
 };
 
 static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p %s", cursor.target, log_id(cursor.scope_name)); }

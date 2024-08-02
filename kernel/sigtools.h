@@ -26,10 +26,14 @@ YOSYS_NAMESPACE_BEGIN
 
 struct SigPool
 {
-	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
+	struct bitDef_t : public std::pair<RTLIL::Wire*, int>, public Hashable {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		hash_t hash_acc(hash_t h) const final {
+			h = first->name.hash_acc(h);
+			h = mkhash(second, h);
+			return h;
+		}
 	};
 
 	pool<bitDef_t> bits;

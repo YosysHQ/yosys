@@ -33,7 +33,7 @@ YOSYS_NAMESPACE_BEGIN
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
+dict<char*, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;

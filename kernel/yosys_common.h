@@ -186,7 +186,8 @@ struct shared_str {
 
 using hashlib::mkhash;
 using hashlib::mkhash_init;
-using hashlib::mkhash_add;
+using hashlib::Hashable;
+using hashlib::hash_t;
 using hashlib::mkhash_xorshift;
 using hashlib::hash_ops;
 using hashlib::hash_cstr_ops;

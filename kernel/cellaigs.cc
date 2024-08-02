@@ -39,13 +39,13 @@ bool AigNode::operator==(const AigNode &other) const
 	return true;
 }
 
-unsigned int AigNode::hash() const
+hash_t AigNode::hash_acc(hash_t h) const
 {
-	unsigned int h = mkhash_init;
-	h = mkhash(portname.hash(), portbit);
-	h = mkhash(h, inverter);
-	h = mkhash(h, left_parent);
-	h = mkhash(h, right_parent);
+	h = portname.hash_acc(h);
+	h = mkhash(portbit, h);
+	h = mkhash(inverter, h);
+	h = mkhash(left_parent, h);
+	h = mkhash(right_parent, h);
 	return h;
 }
 

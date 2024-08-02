@@ -173,11 +173,11 @@ namespace AST
 	std::string type2str(AstNodeType type);
 
 	// The AST is built using instances of this struct
-	struct AstNode
+	struct AstNode : public Hashable
 	{
 		// for dict<> and pool<>
 		unsigned int hashidx_;
-		unsigned int hash() const { return hashidx_; }
+		hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
 
 		// this nodes type
 		AstNodeType type;

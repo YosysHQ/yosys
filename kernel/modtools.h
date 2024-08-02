@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct ModIndex : public RTLIL::Monitor
 {
-	struct PortInfo {
+	struct PortInfo : public Hashable {
 		RTLIL::Cell* cell;
 		RTLIL::IdString port;
 		int offset;
@@ -48,8 +48,14 @@ struct ModIndex : public RTLIL::Monitor
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		unsigned int hash() const {
-			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		// unsigned int hash() const {
+		// 	return mkhash(mkhash(cell->name.hash(), port.hash()), offset);
+		// }
+		hash_t hash_acc(hash_t acc) const {
+			acc = cell->name.hash_acc(acc);
+			acc = port.hash_acc(acc);
+			acc = mkhash(offset, acc);
+			return acc;
 		}
 	};
 
@@ -57,6 +63,8 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		bool is_input, is_output;
 		pool<PortInfo> ports;
+		// SigBitInfo() : SigBitInfo{} {}
+		// SigBitInfo& operator=(const SigBitInfo&) = default;
 
 		SigBitInfo() : is_input(false), is_output(false) { }
 
@@ -299,11 +307,13 @@ struct ModIndex : public RTLIL::Monitor
 
 struct ModWalker
 {
-	struct PortBit
+	struct PortBit : public Hashable
 	{
 		RTLIL::Cell *cell;
 		RTLIL::IdString port;
 		int offset;
+		PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
+		// PortBit& operator=(const PortBit&) = default;
 
 		bool operator<(const PortBit &other) const {
 			if (cell != other.cell)
@@ -317,8 +327,11 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		unsigned int hash() const {
-			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		hash_t hash_acc(hash_t h) const final {
+			h = cell->name.hash_acc(h);
+			h = port.hash_acc(h);
+			h = mkhash(offset, h);
+			return h;
 		}
 	};
 
@@ -355,7 +368,7 @@ struct ModWalker
 	{
 		for (int i = 0; i < int(bits.size()); i++)
 			if (bits[i].wire != NULL) {
-				PortBit pbit = { cell, port, i };
+				PortBit pbit {cell, port, i};
 				if (is_output) {
 					signal_drivers[bits[i]].insert(pbit);
 					cell_outputs[cell].insert(bits[i]);

@@ -48,7 +48,7 @@ struct IdBit {
     bool operator!=(const IdBit &other) const { return name != other.name || bit != other.bit; };
     unsigned hash() const
     {
-        return mkhash_add(name.hash(), bit);
+        return mkhash(name.hash(), bit);
     }
 
     IdString name;
