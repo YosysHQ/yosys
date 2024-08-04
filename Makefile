@@ -807,7 +807,7 @@ check-git-abc:
 		exit 1; \
 	fi
 
-abc/abc$(EXE) abc/libabc.a: check-git-abc
+abc/abc$(EXE) abc/libabc.a: | check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
