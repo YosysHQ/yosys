@@ -81,7 +81,7 @@ public:
 		scope.reserve(accessor);
 		fields.emplace_back(Field{sort, accessor, base_name});
 	}
-	void write_definition(SExprWriter &w, bool guarded = false) {
+	void write_definition(SExprWriter &w) {
 		vector<SExpr> field_list;
 		for(const auto &field : fields) {
 			field_list.emplace_back(field.name);
@@ -89,39 +89,12 @@ public:
 		w.push();
 		w.open(list("struct", name, field_list, "#:transparent"));
 		if (field_names.size()) {
-			if (guarded && field_names.size()) {
-				w << SExpr("#:guard");
-				field_list.emplace_back("name");
-				w.open(list("lambda", field_list));
-				w.open(list("values"));
-				for (const auto &field : fields) {
-					if (field.sort.sort.is_memory()) {
-						log_error("Memory unsupported with -guard flag");
-					}
-					auto s = field.sort.sort.width();
-					w << list("extract", s-1, 0, list("concat", list("bv", 0, s), field.name));
-				}
-			} else {
-				for (const auto &field : fields) {
-					auto bv_type = field.sort.to_sexpr();
-					w.comment(field.name + " " + bv_type.to_string());
-				}
+			for (const auto &field : fields) {
+				auto bv_type = field.sort.to_sexpr();
+				w.comment(field.name + " " + bv_type.to_string());
 			}
 		}
 		w.pop();
-	}
-	vector<SExpr> define_symbolics(SExprWriter &w) {
-		vector<SExpr> symbols;
-		symbols.emplace_back(name);
-		for(const auto &field : fields) {
-			auto symbol = scope.unique_name("\\" + field.name);
-			symbols.emplace_back(symbol);
-			auto bv_type = list("bitvector", field.sort.sort.width());
-
-			w.open(list("define-symbolic", symbol, bv_type));
-			w.close();
-		}
-		return symbols;
 	}
 	template<typename Fn> void write_value(SExprWriter &w, Fn fn) {
 		w.open(list(name));
@@ -231,13 +204,13 @@ struct SmtrModule {
 			state_struct.insert(state.first, state.second);
 	}
 
-	void write(std::ostream &out, bool guarded = false, bool symbolics = false)
+	void write(std::ostream &out)
 	{    
 		SExprWriter w(out);
 
-		input_struct.write_definition(w, guarded);
-		output_struct.write_definition(w, guarded);
-		state_struct.write_definition(w, guarded);
+		input_struct.write_definition(w);
+		output_struct.write_definition(w);
+		state_struct.write_definition(w);
 
 		w.push();
 		w.open(list("define", list(name, "inputs", "state")));
@@ -262,17 +235,6 @@ struct SmtrModule {
 		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_state_next_node(name)); });
 		w.pop();
 
-		if (symbolics) {
-			auto inputs = input_struct.define_symbolics(w);
-			auto current_state = state_struct.define_symbolics(w);
-			auto result = scope.unique_name("\\result");
-			w << list("define", result, list(name, inputs, current_state));
-			auto outputs = scope.unique_name("\\" + output_struct.name);
-			w << list("define", outputs, list("car", result));
-			auto next_state = scope.unique_name("\\" + state_struct.name);
-			w << list("define", next_state, list("cdr", result));
-		}
-
 		w.push();
 		auto initial = name + "_initial";
 		w.open(list("define", initial));
@@ -296,22 +258,28 @@ struct SmtrModule {
 struct FunctionalSmtrBackend : public Backend {
 	FunctionalSmtrBackend() : Backend("functional_rosette", "Generate Rosette compatible Racket from Functional IR") {}
 
-	void help() override { log("\nFunctional Rosette Backend.\n\n"); }
+    	void help() override {
+        	//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_functional_rosette [options] [selection] [filename]\n");
+		log("\n");
+		log("Functional Rosette Backend.\n");
+		log("\n");
+		log("    -provides\n");
+		log("        include 'provide' statement(s) for loading output as a module\n");
+		log("\n");
+	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		auto guarded = false, symbolics = false, provides = false;
+		auto provides = false;
 
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-guarded")
-				guarded = true;
-			else if (args[argidx] == "-symbolics")
-				symbolics = true;
-			else if (args[argidx] == "-provides")
+			if (args[argidx] == "-provides")
 				provides = true;
 			else
 				break;
@@ -326,7 +294,7 @@ struct FunctionalSmtrBackend : public Backend {
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
 			SmtrModule smtr(module);
-			smtr.write(*f, guarded, symbolics);
+			smtr.write(*f);
 		}
 	}
 } FunctionalSmtrBackend;
