@@ -34,7 +34,7 @@ ENABLE_PYOSYS := 0
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
-ENABLE_LTO := 1
+ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
@@ -223,7 +223,9 @@ LTOFLAGS := $(GCC_LTO)
 ifeq ($(CONFIG),clang)
 CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
+ifeq ($(ENABLE_LTO),1)
 LINKFLAGS += -fuse-ld=lld
+endif
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 LTOFLAGS := $(CLANG_LTO)
 
