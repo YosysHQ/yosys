@@ -1123,14 +1123,6 @@ namespace {
 					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 		}
 
-		void is_param(const RTLIL::IdString& name)
-		{
-			auto it = cell->parameters.find(name);
-			if (it == cell->parameters.end())
-				error(__LINE__);
-			expected_params.insert(name);
-		}
-
 		int param(const RTLIL::IdString& name)
 		{
 			auto it = cell->parameters.find(name);
@@ -1160,14 +1152,14 @@ namespace {
 
 		void param_bits(const RTLIL::IdString& name, int width)
 		{
-			is_param(name);
+			param(name);
 			if (GetSize(cell->parameters.at(name).bits()) != width)
 				error(__LINE__);
 		}
 
 		std::string param_string(const RTLIL::IdString &name)
 		{
-			is_param(name);
+			param(name);
 			return cell->parameters.at(name).decode_string();
 		}
 
@@ -1309,8 +1301,8 @@ namespace {
 			}
 
 			if (cell->type == ID($macc)) {
-				is_param(ID::CONFIG);
-				is_param(ID::CONFIG_WIDTH);
+				param(ID::CONFIG);
+				param(ID::CONFIG_WIDTH);
 				port(ID::A, param(ID::A_WIDTH));
 				port(ID::B, param(ID::B_WIDTH));
 				port(ID::Y, param(ID::Y_WIDTH));
@@ -1338,7 +1330,7 @@ namespace {
 			}
 
 			if (cell->type == ID($slice)) {
-				is_param(ID::OFFSET);
+				param(ID::OFFSET);
 				port(ID::A, param(ID::A_WIDTH));
 				port(ID::Y, param(ID::Y_WIDTH));
 				if (param(ID::OFFSET) + param(ID::Y_WIDTH) > param(ID::A_WIDTH))
@@ -1390,7 +1382,7 @@ namespace {
 			}
 
 			if (cell->type == ID($lut)) {
-				is_param(ID::LUT);
+				param(ID::LUT);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, 1);
 				check_expected();
@@ -1398,8 +1390,8 @@ namespace {
 			}
 
 			if (cell->type == ID($sop)) {
-				is_param(ID::DEPTH);
-				is_param(ID::TABLE);
+				param(ID::DEPTH);
+				param(ID::TABLE);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, 1);
 				check_expected();
@@ -1584,15 +1576,15 @@ namespace {
 			}
 
 			if (cell->type == ID($fsm)) {
-				is_param(ID::NAME);
+				param(ID::NAME);
 				param_bool(ID::CLK_POLARITY);
 				param_bool(ID::ARST_POLARITY);
-				is_param(ID::STATE_BITS);
-				is_param(ID::STATE_NUM);
-				is_param(ID::STATE_NUM_LOG2);
-				is_param(ID::STATE_RST);
+				param(ID::STATE_BITS);
+				param(ID::STATE_NUM);
+				param(ID::STATE_NUM_LOG2);
+				param(ID::STATE_RST);
 				param_bits(ID::STATE_TABLE, param(ID::STATE_BITS) * param(ID::STATE_NUM));
-				is_param(ID::TRANS_NUM);
+				param(ID::TRANS_NUM);
 				param_bits(ID::TRANS_TABLE, param(ID::TRANS_NUM) * (2*param(ID::STATE_NUM_LOG2) + param(ID::CTRL_IN_WIDTH) + param(ID::CTRL_OUT_WIDTH)));
 				port(ID::CLK, 1);
 				port(ID::ARST, 1);
@@ -1603,7 +1595,7 @@ namespace {
 			}
 
 			if (cell->type == ID($memrd)) {
-				is_param(ID::MEMID);
+				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
 				param_bool(ID::TRANSPARENT);
@@ -1616,11 +1608,11 @@ namespace {
 			}
 
 			if (cell->type == ID($memrd_v2)) {
-				is_param(ID::MEMID);
+				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				is_param(ID::TRANSPARENCY_MASK);
-				is_param(ID::COLLISION_X_MASK);
+				param(ID::TRANSPARENCY_MASK);
+				param(ID::COLLISION_X_MASK);
 				param_bool(ID::CE_OVER_SRST);
 				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
 				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
@@ -1636,10 +1628,10 @@ namespace {
 			}
 
 			if (cell->type == ID($memwr)) {
-				is_param(ID::MEMID);
+				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				is_param(ID::PRIORITY);
+				param(ID::PRIORITY);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1649,11 +1641,11 @@ namespace {
 			}
 
 			if (cell->type == ID($memwr_v2)) {
-				is_param(ID::MEMID);
+				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
-				is_param(ID::PORTID);
-				is_param(ID::PRIORITY_MASK);
+				param(ID::PORTID);
+				param(ID::PRIORITY_MASK);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1663,8 +1655,8 @@ namespace {
 			}
 
 			if (cell->type == ID($meminit)) {
-				is_param(ID::MEMID);
-				is_param(ID::PRIORITY);
+				param(ID::MEMID);
+				param(ID::PRIORITY);
 				port(ID::ADDR, param(ID::ABITS));
 				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
 				check_expected();
@@ -1672,8 +1664,8 @@ namespace {
 			}
 
 			if (cell->type == ID($meminit_v2)) {
-				is_param(ID::MEMID);
-				is_param(ID::PRIORITY);
+				param(ID::MEMID);
+				param(ID::PRIORITY);
 				port(ID::ADDR, param(ID::ABITS));
 				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
 				port(ID::EN, param(ID::WIDTH));
@@ -1682,10 +1674,10 @@ namespace {
 			}
 
 			if (cell->type == ID($mem)) {
-				is_param(ID::MEMID);
-				is_param(ID::SIZE);
-				is_param(ID::OFFSET);
-				is_param(ID::INIT);
+				param(ID::MEMID);
+				param(ID::SIZE);
+				param(ID::OFFSET);
+				param(ID::INIT);
 				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_TRANSPARENT, max(1, param(ID::RD_PORTS)));
@@ -1704,10 +1696,10 @@ namespace {
 			}
 
 			if (cell->type == ID($mem_v2)) {
-				is_param(ID::MEMID);
-				is_param(ID::SIZE);
-				is_param(ID::OFFSET);
-				is_param(ID::INIT);
+				param(ID::MEMID);
+				param(ID::SIZE);
+				param(ID::OFFSET);
+				param(ID::INIT);
 				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_TRANSPARENCY_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
@@ -1798,12 +1790,12 @@ namespace {
 				param_bool(ID::FULL);
 				param_bool(ID::SRC_DST_PEN);
 				param_bool(ID::SRC_DST_POL);
-				is_param(ID::T_RISE_MIN);
-				is_param(ID::T_RISE_TYP);
-				is_param(ID::T_RISE_MAX);
-				is_param(ID::T_FALL_MIN);
-				is_param(ID::T_FALL_TYP);
-				is_param(ID::T_FALL_MAX);
+				param(ID::T_RISE_MIN);
+				param(ID::T_RISE_TYP);
+				param(ID::T_RISE_MAX);
+				param(ID::T_FALL_MIN);
+				param(ID::T_FALL_TYP);
+				param(ID::T_FALL_MAX);
 				port(ID::EN, 1);
 				port(ID::SRC, param(ID::SRC_WIDTH));
 				port(ID::DST, param(ID::DST_WIDTH));
@@ -1819,17 +1811,17 @@ namespace {
 			}
 
 			if (cell->type == ID($specrule)) {
-				is_param(ID::TYPE);
+				param(ID::TYPE);
 				param_bool(ID::SRC_PEN);
 				param_bool(ID::SRC_POL);
 				param_bool(ID::DST_PEN);
 				param_bool(ID::DST_POL);
-				is_param(ID::T_LIMIT_MIN);
-				is_param(ID::T_LIMIT_TYP);
-				is_param(ID::T_LIMIT_MAX);
-				is_param(ID::T_LIMIT2_MIN);
-				is_param(ID::T_LIMIT2_TYP);
-				is_param(ID::T_LIMIT2_MAX);
+				param(ID::T_LIMIT_MIN);
+				param(ID::T_LIMIT_TYP);
+				param(ID::T_LIMIT_MAX);
+				param(ID::T_LIMIT2_MIN);
+				param(ID::T_LIMIT2_TYP);
+				param(ID::T_LIMIT2_MAX);
 				port(ID::SRC_EN, 1);
 				port(ID::DST_EN, 1);
 				port(ID::SRC, param(ID::SRC_WIDTH));
@@ -1839,10 +1831,10 @@ namespace {
 			}
 
 			if (cell->type == ID($print)) {
-				is_param(ID(FORMAT));
+				param(ID(FORMAT));
 				param_bool(ID::TRG_ENABLE);
-				is_param(ID::TRG_POLARITY);
-				is_param(ID::PRIORITY);
+				param(ID::TRG_POLARITY);
+				param(ID::PRIORITY);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
 				port(ID::ARGS, param(ID::ARGS_WIDTH));
@@ -1854,10 +1846,10 @@ namespace {
 				std::string flavor = param_string(ID(FLAVOR));
 				if (!(flavor == "assert" || flavor == "assume" || flavor == "live" || flavor == "fair" || flavor == "cover"))
 					error(__LINE__);
-				is_param(ID(FORMAT));
+				param(ID(FORMAT));
 				param_bool(ID::TRG_ENABLE);
-				is_param(ID::TRG_POLARITY);
-				is_param(ID::PRIORITY);
+				param(ID::TRG_POLARITY);
+				param(ID::PRIORITY);
 				port(ID::A, 1);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
@@ -1867,7 +1859,7 @@ namespace {
 			}
 
 			if (cell->type == ID($scopeinfo)) {
-				is_param(ID::TYPE);
+				param(ID::TYPE);
 				check_expected();
 				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
 				if (scope_type != "module" && scope_type != "struct")
@@ -1972,8 +1964,8 @@ namespace {
 				{ port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
 
 			if (cell->type.in(ID($set_tag))) {
-				is_param(ID::WIDTH);
-				is_param(ID::TAG);
+				param(ID::WIDTH);
+				param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::SET, param(ID::WIDTH));
 				port(ID::CLR, param(ID::WIDTH));
@@ -1982,16 +1974,16 @@ namespace {
 				return;
 			}
 			if (cell->type.in(ID($get_tag),ID($original_tag))) {
-				is_param(ID::WIDTH);
-				is_param(ID::TAG);
+				param(ID::WIDTH);
+				param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();
 				return;
 			}
 			if (cell->type.in(ID($overwrite_tag))) {
-				is_param(ID::WIDTH);
-				is_param(ID::TAG);
+				param(ID::WIDTH);
+				param(ID::TAG);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::SET, param(ID::WIDTH));
 				port(ID::CLR, param(ID::WIDTH));
@@ -1999,7 +1991,7 @@ namespace {
 				return;
 			}
 			if (cell->type.in(ID($future_ff))) {
-				is_param(ID::WIDTH);
+				param(ID::WIDTH);
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();
