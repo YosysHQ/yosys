@@ -2317,6 +2317,23 @@ struct SimWorker : SimShared
 	}
 };
 
+std::string form_vcd_name(const char *name, int size, Wire *w)
+{
+	std::string full_name = name;
+	bool have_bracket = strchr(name, '[');
+	if (w) {
+		if (have_bracket || !(w->start_offset==0 && w->width==1)) {
+			full_name += stringf(" [%d:%d]",
+				w->upto ? w->start_offset : w->start_offset + w->width - 1,
+				w->upto ? w->start_offset + w->width - 1 : w->start_offset);
+		}
+	} else {
+		// Special handling for memories
+		full_name += have_bracket ? stringf(" [%d:0]", size - 1) : std::string();
+	}
+	return full_name;
+}
+
 struct VCDWriter : public OutputWriter
 {
 	VCDWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
@@ -2342,16 +2359,14 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
-				if (use_signal.at(id)) {
-					// Works around gtkwave trying to parse everything past the last [ in a signal
-					// name. While the emitted range doesn't necessarily match the wire's range,
-					// this is consistent with the range gtkwave makes up if it doesn't find a
-					// range
-					std::string range = strchr(name, '[') ? stringf("[%d:0]", size - 1) : std::string();
-					vcdfile << stringf("$var %s %d n%d %s%s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", name, range.c_str());
-
-				}
+			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
+				if (!use_signal.at(id)) return;
+				// Works around gtkwave trying to parse everything past the last [ in a signal
+				// name. While the emitted range doesn't necessarily match the wire's range,
+				// this is consistent with the range gtkwave makes up if it doesn't find a
+				// range
+				std::string full_name = form_vcd_name(name, size, w);
+				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name.c_str());
 			}
 		);
 
@@ -2410,10 +2425,11 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
+			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
+				std::string full_name = form_vcd_name(name, size, w);
 				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, size,
-												name, 0);
+												full_name.c_str(), 0);
 				mapping.emplace(id, fst_id);
 			}
 		);
