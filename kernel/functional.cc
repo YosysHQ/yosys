@@ -65,6 +65,51 @@ const char *fn_to_string(Fn fn) {
 	log_error("fn_to_string: unknown Functional::Fn value %d", (int)fn);
 }
 
+vector<IRInput const*> IR::inputs(IdString type) const {
+	vector<IRInput const*> ret;
+	for (const auto &[name, input] : _inputs)
+		if(input.type == type)
+			ret.push_back(&input);
+	return ret;
+}
+
+vector<IROutput const*> IR::outputs(IdString type) const {
+	vector<IROutput const*> ret;
+	for (const auto &[name, output] : _outputs)
+		if(output.type == type)
+			ret.push_back(&output);
+	return ret;
+}
+
+vector<IRState const*> IR::states(IdString type) const {
+	vector<IRState const*> ret;
+	for (const auto &[name, state] : _states)
+		if(state.type == type)
+			ret.push_back(&state);
+	return ret;
+}
+
+vector<IRInput const*> IR::all_inputs() const {
+	vector<IRInput const*> ret;
+	for (const auto &[name, input] : _inputs)
+		ret.push_back(&input);
+	return ret;
+}
+
+vector<IROutput const*> IR::all_outputs() const {
+	vector<IROutput const*> ret;
+	for (const auto &[name, output] : _outputs)
+		ret.push_back(&output);
+	return ret;
+}
+
+vector<IRState const*> IR::all_states() const {
+	vector<IRState const*> ret;
+	for (const auto &[name, state] : _states)
+		ret.push_back(&state);
+	return ret;
+}
+
 struct PrintVisitor : DefaultVisitor<std::string> {
 	std::function<std::string(Node)> np;
 	PrintVisitor(std::function<std::string(Node)> np) : np(np) { }
@@ -73,8 +118,8 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 	std::string zero_extend(Node, Node a, int out_width) override { return "zero_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string sign_extend(Node, Node a, int out_width) override { return "sign_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string constant(Node, RTLIL::Const const& value) override { return "constant(" + value.as_string() + ")"; }
-	std::string input(Node, IdString name) override { return "input(" + name.str() + ")"; }
-	std::string state(Node, IdString name) override { return "state(" + name.str() + ")"; }
+	std::string input(Node, IdString name, IdString type) override { return "input(" + name.str() + ", " + type.str() + ")"; }
+	std::string state(Node, IdString name, IdString type) override { return "state(" + name.str() + ", " + type.str() + ")"; }
 	std::string default_handler(Node self) override {
 		std::string ret = fn_to_string(self.fn());
 		ret += "(";
@@ -199,7 +244,7 @@ private:
 		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(ID(CO));
 	}
 public:
-	std::variant<dict<IdString, Node>, Node> handle(IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
+	std::variant<dict<IdString, Node>, Node> handle(IdString cellName, IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
 		int b_width = parameters.at(ID(B_WIDTH), Const(-1)).as_int();
@@ -392,6 +437,26 @@ public:
 			return handle_lcu(inputs.at(ID(P)), inputs.at(ID(G)), inputs.at(ID(CI)));
 		} else if(cellType == ID($alu)) {
 			return handle_alu(inputs.at(ID(A)), inputs.at(ID(B)), y_width, a_signed && b_signed, inputs.at(ID(CI)), inputs.at(ID(BI)));
+		} else if(cellType.in({ID($assert), ID($assume), ID($live), ID($fair), ID($cover)})) {
+			Node a = factory.mux(factory.constant(Const(State::S1, 1)), inputs.at(ID(A)), inputs.at(ID(EN)));
+			auto &output = factory.add_output(cellName, cellType, Sort(1));
+			output.set_value(a);
+			return {};
+		} else if(cellType.in({ID($anyconst), ID($allconst), ID($anyseq), ID($allseq)})) {
+			int width = parameters.at(ID(WIDTH)).as_int();
+			auto &input = factory.add_input(cellName, cellType, Sort(width));
+			return factory.value(input);
+		} else if(cellType == ID($initstate)) {
+			if(factory.ir().has_state(ID($initstate), ID($state)))
+				return factory.value(factory.ir().state(ID($initstate)));
+			else {
+				auto &state = factory.add_state(ID($initstate), ID($state), Sort(1));
+				state.set_initial_value(RTLIL::Const(State::S1, 1));
+				state.set_next_value(factory.constant(RTLIL::Const(State::S0, 1)));
+				return factory.value(state);
+			}
+		} else if(cellType == ID($check)) {
+			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", cellName.c_str());
 		} else {
 			log_error("`%s' cells are not supported by the functional backend\n", cellType.c_str());
 		}
@@ -448,16 +513,15 @@ public:
 	{
 		driver_map.add(module);
 		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($assert), ID($assume), ID($cover), ID($check)))
+			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
 				queue.emplace_back(cell);
 		}
 		for (auto wire : module->wires()) {
 			if (wire->port_input)
-				factory.add_input(wire->name, wire->width);
+				factory.add_input(wire->name, ID($input), Sort(wire->width));
 			if (wire->port_output) {
-				factory.add_output(wire->name, wire->width);
-				Node value = enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width)));
-				factory.set_output(wire->name, value);
+				auto &output = factory.add_output(wire->name, ID($output), Sort(wire->width));
+				output.set_value(enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width))));
 			}
 		}
 		memories_vector = Mem::get_all_memories(module);
@@ -495,9 +559,9 @@ public:
 		// - Since wr port j can only have priority over wr port i if j > i, if we do writes in
 		//   ascending index order the result will obey the priorty relation.
 		vector<Node> read_results;
-		factory.add_state(mem->cell->name, Sort(ceil_log2(mem->size), mem->width));
-		factory.set_initial_state(mem->cell->name, MemContents(mem));
-		Node node = factory.current_state(mem->cell->name);
+		auto &state = factory.add_state(mem->cell->name, ID($state), Sort(ceil_log2(mem->size), mem->width));
+		state.set_initial_value(MemContents(mem));
+		Node node = factory.value(state);
 		for (size_t i = 0; i < mem->wr_ports.size(); i++) {
 			const auto &wr = mem->wr_ports[i];
 			if (wr.clk_enable)
@@ -521,7 +585,7 @@ public:
 			Node addr = enqueue(driver_map(DriveSpec(rd.addr)));
 			read_results.push_back(factory.memory_read(node, addr));
 		}
-		factory.set_next_state(mem->cell->name, node);
+		state.set_next_value(node);
 		return concatenate_read_results(mem, read_results);
 	}
 	void process_cell(Cell *cell)
@@ -540,25 +604,25 @@ public:
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "
 					"Call async2sync or clk2fflogic to avoid this error.\n", log_id(cell->type), log_id(cell));
-			factory.add_state(ff.name, Sort(ff.width));
-			Node q_value = factory.current_state(ff.name);
+			auto &state = factory.add_state(ff.name, ID($state), Sort(ff.width));
+			Node q_value = factory.value(state);
 			factory.suggest_name(q_value, ff.name);
 			factory.update_pending(cell_outputs.at({cell, ID(Q)}), q_value);
-			factory.set_next_state(ff.name, enqueue(ff.sig_d));
-			factory.set_initial_state(ff.name, ff.val_init);
+			state.set_next_value(enqueue(ff.sig_d));
+			state.set_initial_value(ff.val_init);
 		} else {
 			dict<IdString, Node> connections;
 			IdString output_name; // for the single output case
 			int n_outputs = 0;
 			for(auto const &[name, sigspec] : cell->connections()) {
-				if(driver_map.celltypes.cell_input(cell->type, name))
+				if(driver_map.celltypes.cell_input(cell->type, name) && sigspec.size() > 0)
 					connections.insert({ name, enqueue(DriveChunkPort(cell, {name, sigspec})) });
 				if(driver_map.celltypes.cell_output(cell->type, name)) {
 					output_name = name;
 					n_outputs++;
 				}
 			}
-			std::variant<dict<IdString, Node>, Node> outputs = simplifier.handle(cell->type, cell->parameters, connections);
+			std::variant<dict<IdString, Node>, Node> outputs = simplifier.handle(cell->name, cell->type, cell->parameters, connections);
 			if(auto *nodep = std::get_if<Node>(&outputs); nodep != nullptr) {
 				log_assert(n_outputs == 1);
 				factory.update_pending(cell_outputs.at({cell, output_name}), *nodep);
@@ -591,7 +655,7 @@ public:
 					DriveChunkWire wire_chunk = chunk.wire();
 					if (wire_chunk.is_whole()) {
 						if (wire_chunk.wire->port_input) {
-							Node node = factory.input(wire_chunk.wire->name);
+							Node node = factory.value(factory.ir().input(wire_chunk.wire->name));
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
 						} else {
@@ -668,10 +732,12 @@ void IR::topological_sort() {
             scc = true;
         }
     });
-	for(const auto &[name, sort]: _state_sorts)
-		toposort.process(get_state_next_node(name).id());
-	for(const auto &[name, sort]: _output_sorts)
-		toposort.process(get_output_node(name).id());
+	for(const auto &[name, state]: _states)
+		if(state.has_next_value())
+			toposort.process(state.next_value().id());
+	for(const auto &[name, output]: _outputs)
+		if(output.has_value())
+			toposort.process(output.value().id());
 	// any nodes untouched by this point are dead code and will be removed by permute
     _graph.permute(perm);
     if(scc) log_error("The design contains combinational loops. This is not supported by the functional backend. "

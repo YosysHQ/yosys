@@ -178,8 +178,8 @@ struct SmtPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("select", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("store", n(mem), n(addr), n(data)); }
 
-	SExpr input(Node, IdString name) override { return input_struct.access("inputs", name); }
-	SExpr state(Node, IdString name) override { return state_struct.access("state", name); }
+	SExpr input(Node, IdString name, IdString type) override { log_assert(type == ID($input)); return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name, IdString type) override { log_assert(type == ID($state)); return state_struct.access("state", name); }
 };
 
 struct SmtModule {
@@ -200,12 +200,12 @@ struct SmtModule {
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
 		scope.reserve(name + "-initial");
-		for (const auto &input : ir.inputs())
-			input_struct.insert(input.first, input.second);
-		for (const auto &output : ir.outputs())
-			output_struct.insert(output.first, output.second);
-		for (const auto &state : ir.state())
-			state_struct.insert(state.first, state.second);
+		for (auto input : ir.inputs())
+			input_struct.insert(input->name, input->sort);
+		for (auto output : ir.outputs())
+			output_struct.insert(output->name, output->sort);
+		for (auto state : ir.states())
+			state_struct.insert(state->name, state->sort);
 	}
 
 	void write_eval(SExprWriter &w)
@@ -232,8 +232,8 @@ struct SmtModule {
 				w.comment(SmtSort(n.sort()).to_sexpr().to_string(), true);
 			}
 		w.open(list("pair"));
-		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_output_node(name)); });
-		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.get_state_next_node(name)); });
+		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.output(name).value()); });
+		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.state(name).next_value()); });
 		w.pop();
 	}
 
@@ -241,14 +241,14 @@ struct SmtModule {
 	{
 		std::string initial = name + "-initial";
 		w << list("declare-const", initial, state_struct.name);
-		for (const auto &[name, sort] : ir.state()) {
-			if(sort.is_signal())
-				w << list("assert", list("=", state_struct.access(initial, name), smt_const(ir.get_initial_state_signal(name))));
-			else if(sort.is_memory()) {
-				auto contents = ir.get_initial_state_memory(name);
-				for(int i = 0; i < 1<<sort.addr_width(); i++) {
-					auto addr = smt_const(RTLIL::Const(i, sort.addr_width()));
-					w << list("assert", list("=", list("select", state_struct.access(initial, name), addr), smt_const(contents[i])));
+		for (auto state : ir.states()) {
+			if(state->sort.is_signal())
+				w << list("assert", list("=", state_struct.access(initial, state->name), smt_const(state->initial_value_signal())));
+			else if(state->sort.is_memory()) {
+				const auto &contents = state->initial_value_memory();
+				for(int i = 0; i < 1<<state->sort.addr_width(); i++) {
+					auto addr = smt_const(RTLIL::Const(i, state->sort.addr_width()));
+					w << list("assert", list("=", list("select", state_struct.access(initial, state->name), addr), smt_const(contents[i])));
 				}
 			}
 		}
