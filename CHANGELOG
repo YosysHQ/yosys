@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.43 .. Yosys 0.44-dev
+Yosys 0.43 .. Yosys 0.44
 --------------------------
+ * Various
+    - Added ENABLE_LTO compile option to enable link time
+      optimizations.
+    - Build support for Haiku OS.
+
+ * New commands and options
+    - Added "keep_hierarchy" pass to add attribute with 
+      same name to modules based on cost.
+    - Added options "-noopt","-bloat" and "-check_cost" to
+      "test_cell" pass. 
+
+ * New back-ends
+    - Added initial PolarFire support. ( synth_microchip )
 
 Yosys 0.42 .. Yosys 0.43
 --------------------------
