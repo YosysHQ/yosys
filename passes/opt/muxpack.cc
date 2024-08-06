@@ -31,8 +31,9 @@ struct ExclusiveDatabase
 
 	dict<SigBit, std::pair<SigSpec,std::vector<Const>>> sig_cmp_prev;
 
-	ExclusiveDatabase(Module *module, const SigMap &sigmap) : module(module), sigmap(sigmap)
+	ExclusiveDatabase(Module *module, const SigMap &sigmap, bool ignore_excl) : module(module), sigmap(sigmap)
 	{
+		if (ignore_excl) return;
 		SigSpec const_sig, nonconst_sig;
 		SigBit y_port;
 		pool<Cell*> reduce_or;
@@ -319,7 +320,7 @@ struct MuxpackWorker
 	}
 
 	MuxpackWorker(Module *module, bool ignore_excl) :
-			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap)
+			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, ignore_excl)
 	{
 		make_sig_chain_next_prev();
 		find_chain_start_cells(ignore_excl);
