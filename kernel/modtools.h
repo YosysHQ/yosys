@@ -327,7 +327,7 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		hash_t hash_acc(hash_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const final {
 			h = cell->name.hash_acc(h);
 			h = port.hash_acc(h);
 			h = mkhash(offset, h);

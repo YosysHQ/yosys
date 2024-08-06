@@ -43,7 +43,7 @@ struct BitPatternPool
 				return false;
 			return bitdata == other.bitdata;
 		}
-		hash_t hash_acc(hash_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const final {
 			if (!cached_hash)
 				cached_hash = hash_ops<std::vector<RTLIL::State>>::hash(bitdata);
 			return mkhash(h, cached_hash);

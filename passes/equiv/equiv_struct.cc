@@ -47,7 +47,7 @@ struct EquivStructWorker
 		}
 
 		unsigned int hash() const {
-			unsigned int h = mkhash_init;
+			unsigned int h = mkhash_init();
 			h = mkhash(h, mkhash(type));
 			h = mkhash(h, mkhash(parameters));
 			h = mkhash(h, mkhash(connections));

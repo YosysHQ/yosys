@@ -128,7 +128,7 @@ struct proc_dlatch_db_t
 		}
 
 		unsigned int hash() const {
-			unsigned int h = mkhash_init;
+			unsigned int h = mkhash_init();
 			mkhash(h, signal.hash());
 			mkhash(h, match.hash());
 			for (auto i : children) mkhash(h, i);

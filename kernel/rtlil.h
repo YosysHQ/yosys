@@ -358,7 +358,7 @@ namespace RTLIL
 			*this = IdString();
 		}
 
-		hash_t hash_acc(hash_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const final {
 			return mkhash(index_, h);
 		}
 
@@ -710,7 +710,7 @@ struct RTLIL::Const : public Hashable
 		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
 	}
 
-	inline hash_t hash_acc(hash_t h) const final {
+	inline hash_state_t hash_acc(hash_state_t h) const final {
 		for (auto b : bits)
 			h = mkhash(h, b);
 		return h;
@@ -800,7 +800,7 @@ struct RTLIL::SigBit : public Hashable
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
-	hash_t hash_acc(hash_t h) const final;
+	hash_state_t hash_acc(hash_state_t h) const final;
 };
 
 struct RTLIL::SigSpecIterator
@@ -994,7 +994,7 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
-	hash_t hash_acc(hash_t h) const final { if (!hash_) updhash(); return mkhash(h, hash_); }
+	hash_state_t hash_acc(hash_state_t h) const final { if (!hash_) updhash(); return mkhash(h, hash_); }
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1036,7 +1036,7 @@ struct RTLIL::Selection
 struct RTLIL::Monitor : public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 	Monitor() {
 		static unsigned int hashidx_count = 123456789;
@@ -1059,7 +1059,7 @@ struct define_map_t;
 struct RTLIL::Design : public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
@@ -1161,7 +1161,7 @@ struct RTLIL::Design : public Hashable
 struct RTLIL::Module : public RTLIL::AttrObject, public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -1503,7 +1503,7 @@ public:
 struct RTLIL::Wire : public RTLIL::AttrObject, public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -1533,7 +1533,7 @@ inline int GetSize(RTLIL::Wire *wire) {
 struct RTLIL::Memory : public RTLIL::AttrObject, public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 	Memory();
 
@@ -1548,7 +1548,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject, public Hashable
 struct RTLIL::Cell : public RTLIL::AttrObject, public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
@@ -1658,7 +1658,7 @@ struct RTLIL::SyncRule
 struct RTLIL::Process : public RTLIL::AttrObject, public Hashable
 {
 	hash_t hashidx_;
-	hash_t hash_acc(hash_t h) const final { return mkhash(h, hashidx_); }
+	hash_state_t hash_acc(hash_state_t h) const final { return mkhash(h, hashidx_); }
 
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes

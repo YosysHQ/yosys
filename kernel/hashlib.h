@@ -24,26 +24,36 @@ namespace hashlib {
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
+#define DJB2_BROKEN_SIZE
+
+#ifdef DJB2_BROKEN_SIZE
+// TODO ifdef this
+typedef uint64_t hash_t;
+typedef hash_t hash_state_t;
 // The XOR version of DJB2
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
-
 // traditionally 5381 is used as starting value for the djb2 hash
-const unsigned int mkhash_init = 5381;
+inline hash_state_t mkhash_init() {
+	return 5381;
+}
+inline hash_t mkhash_finish(hash_state_t s) {
+	return (hash_t)s;
+}
+#endif
 
-// TODO ifdef this
-typedef uint64_t hash_t;
-// typedef hash_t acc_t;
+// #ifdef OTHER_HASH...
+
 
 struct Hashable {
 	~Hashable() {} // Empty implementation
 	public:
 	[[nodiscard]]
-	virtual hash_t hash_acc(hash_t acc) const = 0;
+	virtual hash_state_t hash_acc(hash_state_t acc) const = 0;
 	[[nodiscard]]
 	hash_t hash() const {
-		return hash_acc(mkhash_init);
+		return mkhash_finish(hash_acc(mkhash_init()));
 	}
 };
 
@@ -160,7 +170,7 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 	}
 	template<size_t I = 0>
 	static inline typename std::enable_if<I == sizeof...(T), unsigned int>::type hash(std::tuple<T...>) {
-		return mkhash_init;
+		return mkhash_init();
 	}
 	template<size_t I = 0>
 	static inline typename std::enable_if<I != sizeof...(T), unsigned int>::type hash(std::tuple<T...> a) {
@@ -174,7 +184,7 @@ template<typename T> struct hash_ops<std::vector<T>> {
 		return a == b;
 	}
 	static inline hash_t hash(std::vector<T> a) {
-		unsigned int h = mkhash_init;
+		unsigned int h = mkhash_init();
 		for (auto k : a)
 			h = mkhash(h, hash_ops<T>::hash(k));
 		return h;
@@ -189,7 +199,7 @@ struct hash_cstr_ops {
 		return true;
 	}
 	static inline hash_t hash(const char *a) {
-		hash_t hash = mkhash_init;
+		hash_t hash = mkhash_init();
 		while (*a)
 			hash = mkhash(hash, *(a++));
 		return hash;
@@ -213,51 +223,9 @@ struct hash_obj_ops {
 	}
 	template<typename T>
 	static inline hash_t hash(const T *a) {
-		return a ? a->hash_acc(mkhash_init) : 0;
+		return a ? a->hash_acc(mkhash_init()) : 0;
 	}
 };
-
-// // Primary template
-// template<typename T, typename = void>
-// struct is_hashable : std::false_type {};
-
-// // Helper to check if hash_ops<U> exists for a type U
-// template<typename U, typename = void>
-// struct has_hash_ops : std::false_type {};
-
-// template<typename U>
-// struct has_hash_ops<U, std::void_t<
-//     decltype(hash_ops<U>::hash(std::declval<const U&>())),
-//     decltype(hash_ops<U>::cmp(std::declval<const U&>(), std::declval<const U&>()))
-// >> : std::true_type {};
-
-// // Helper to check if T is convertible to U and U has hash_ops
-// template<typename T, typename U>
-// struct is_convertible_and_hashable :
-//     std::conjunction<
-//         std::is_convertible<T, U>,
-//         has_hash_ops<U>
-//     > {};
-
-// // Helper to check convertibility to a list of types
-// template<typename T, typename... Us>
-// struct is_convertible_to_any_hashable :
-//     std::disjunction<
-//         is_convertible_and_hashable<T, Us>...
-//     > {};
-
-// // Specialization that checks for direct hash_ops or convertibility to hashable types
-// template<typename T>
-// struct is_hashable<T, 
-//     std::enable_if_t<
-//         has_hash_ops<T>::value || 
-//         is_convertible_to_any_hashable<T, 
-//             /* List your potential hashable types here */
-//             int, char*, void*, /* Add more as needed */
-//             std::string
-//         >::value
-//     >
-// > : std::true_type {};
 
 template<typename T>
 inline unsigned int mkhash(const T &v) {
@@ -299,7 +267,6 @@ template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
 class dict : public Hashable {
-	// static_assert(is_hashable<K>::value, "Key type must be derived from Hashable");
 	struct entry_t
 	{
 		std::pair<K, T> udata;
@@ -729,7 +696,7 @@ public:
 		return !operator==(other);
 	}
 
-	hash_t hash_acc(hash_t h) const final {
+	hash_state_t hash_acc(hash_state_t h) const final {
 		for (auto &entry : entries) {
 			h ^= hash_ops<K>::hash(entry.udata.first);
 			h ^= hash_ops<T>::hash(entry.udata.second);
@@ -754,7 +721,6 @@ public:
 template<typename K, typename OPS>
 class pool : public Hashable
 {
-	// static_assert(is_hashable<K>::value, "Key type must be derived from Hashable");
 	template<typename, int, typename> friend class idict;
 
 protected:
@@ -1097,7 +1063,7 @@ public:
 		return !operator==(other);
 	}
 
-	hash_t hash_acc(hash_t h) const final {
+	hash_state_t hash_acc(hash_state_t h) const final {
 		for (auto &it : entries)
 			h ^= ops.hash(it.udata);
 		return h;

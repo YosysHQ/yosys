@@ -34,7 +34,7 @@ struct AigNode : public Hashable
 
 	AigNode();
 	bool operator==(const AigNode &other) const;
-	hash_t hash_acc(hash_t h) const final;
+	hash_state_t hash_acc(hash_state_t h) const final;
 };
 
 struct Aig

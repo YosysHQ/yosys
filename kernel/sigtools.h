@@ -29,7 +29,7 @@ struct SigPool
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int>, public Hashable {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		hash_t hash_acc(hash_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const final {
 			h = first->name.hash_acc(h);
 			h = mkhash(second, h);
 			return h;

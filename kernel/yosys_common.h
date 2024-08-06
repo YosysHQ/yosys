@@ -188,6 +188,7 @@ using hashlib::mkhash;
 using hashlib::mkhash_init;
 using hashlib::Hashable;
 using hashlib::hash_t;
+using hashlib::hash_state_t;
 using hashlib::mkhash_xorshift;
 using hashlib::hash_ops;
 using hashlib::hash_cstr_ops;
