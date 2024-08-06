@@ -150,8 +150,8 @@ template<class NodePrinter> struct CxxPrintVisitor : public Functional::Abstract
 	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
 	void constant(Node, RTLIL::Const const & value) override { print("{}", cxx_const(value)); }
-	void input(Node, IdString name) override { print("input.{}", input_struct[name]); }
-	void state(Node, IdString name) override { print("current_state.{}", state_struct[name]); }
+	void input(Node, IdString name, IdString type) override { log_assert(type == ID($input)); print("input.{}", input_struct[name]); }
+	void state(Node, IdString name, IdString type) override { log_assert(type == ID($state)); print("current_state.{}", state_struct[name]); }
 	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
 };
@@ -175,12 +175,12 @@ struct CxxModule {
 		output_struct("Outputs"),
 		state_struct("State")
 	{
-		for (auto [name, sort] : ir.inputs())
-			input_struct.insert(name, sort);
-		for (auto [name, sort] : ir.outputs())
-			output_struct.insert(name, sort);
-		for (auto [name, sort] : ir.state())
-			state_struct.insert(name, sort);
+		for (auto input : ir.inputs())
+			input_struct.insert(input->name, input->sort);
+		for (auto output : ir.outputs())
+			output_struct.insert(output->name, output->sort);
+		for (auto state : ir.states())
+			state_struct.insert(state->name, state->sort);
 		module_name = CxxScope<int>().unique_name(module->name);
 	}
 	void write_header(CxxWriter &f) {
@@ -197,19 +197,19 @@ struct CxxModule {
 	}
 	void write_initial_def(CxxWriter &f) {
 		f.print("void {0}::initialize({0}::State &state)\n{{\n", module_name);
-		for (auto [name, sort] : ir.state()) {
-			if (sort.is_signal())
-				f.print("\tstate.{} = {};\n", state_struct[name], cxx_const(ir.get_initial_state_signal(name)));
-			else if (sort.is_memory()) {
+		for (auto state : ir.states()) {
+			if (state->sort.is_signal())
+				f.print("\tstate.{} = {};\n", state_struct[state->name], cxx_const(state->initial_value_signal()));
+			else if (state->sort.is_memory()) {
 				f.print("\t{{\n");
-				f.print("\t\tstd::array<Signal<{}>, {}> mem;\n", sort.data_width(), 1<<sort.addr_width());
-				const auto &contents = ir.get_initial_state_memory(name);
+				f.print("\t\tstd::array<Signal<{}>, {}> mem;\n", state->sort.data_width(), 1<<state->sort.addr_width());
+				const auto &contents = state->initial_value_memory();
 				f.print("\t\tmem.fill({});\n", cxx_const(contents.default_value()));
 				for(auto range : contents)
 					for(auto addr = range.base(); addr < range.limit(); addr++)
 						if(!equal_def(range[addr], contents.default_value()))
 							f.print("\t\tmem[{}] = {};\n", addr, cxx_const(range[addr]));
-				f.print("\t\tstate.{} = mem;\n", state_struct[name]);
+				f.print("\t\tstate.{} = mem;\n", state_struct[state->name]);
 				f.print("\t}}\n");
 			}
 		}
@@ -229,10 +229,10 @@ struct CxxModule {
 			node.visit(printVisitor);
 			f.print(";\n");
 		}
-		for (auto [name, sort] : ir.state())
-			f.print("\tnext_state.{} = {};\n", state_struct[name], node_name(ir.get_state_next_node(name)));
-		for (auto [name, sort] : ir.outputs())
-			f.print("\toutput.{} = {};\n", output_struct[name], node_name(ir.get_output_node(name)));
+		for (auto state : ir.states())
+			f.print("\tnext_state.{} = {};\n", state_struct[state->name], node_name(state->next_value()));
+		for (auto output : ir.outputs())
+			f.print("\toutput.{} = {};\n", output_struct[output->name], node_name(output->value()));
 		f.print("}}\n\n");
 	}
 };

@@ -142,10 +142,10 @@ struct FunctionalTestGeneric : public Pass
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
 				std::cout << RTLIL::unescape_id(node.name()) << " = " << node.to_string([](auto n) { return RTLIL::unescape_id(n.name()); }) << "\n";
-			for(auto [name, sort] : fir.outputs())
-				std::cout << "output " << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_output_node(name).name()) << "\n";
-			for(auto [name, sort] : fir.state())
-				std::cout << "state " << RTLIL::unescape_id(name) << " = " << RTLIL::unescape_id(fir.get_state_next_node(name).name()) << "\n";
+			for(auto output : fir.all_outputs())
+				std::cout << RTLIL::unescape_id(output->type) << " " << RTLIL::unescape_id(output->name) << " = " << RTLIL::unescape_id(output->value().name()) << "\n";
+			for(auto state : fir.all_states())
+				std::cout << RTLIL::unescape_id(state->type) << " " << RTLIL::unescape_id(state->name) << " = " << RTLIL::unescape_id(state->next_value().name()) << "\n";
 		}
 	}
 } FunctionalCxxBackend;
