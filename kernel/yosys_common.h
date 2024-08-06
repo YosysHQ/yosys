@@ -171,22 +171,9 @@ using std::get;
 using std::min;
 using std::max;
 
-// A primitive shared string implementation that does not
-// move its .c_str() when the object is copied or moved.
-struct shared_str {
-	std::shared_ptr<string> content;
-	shared_str() { }
-	shared_str(string s) { content = std::shared_ptr<string>(new string(s)); }
-	shared_str(const char *s) { content = std::shared_ptr<string>(new string(s)); }
-	const char *c_str() const { return content->c_str(); }
-	const string &str() const { return *content; }
-	bool operator==(const shared_str &other) const { return *content == *other.content; }
-	unsigned int hash() const { return hashlib::hash_ops<std::string>::hash(*content); }
-};
-
 using hashlib::mkhash;
 using hashlib::mkhash_init;
-using hashlib::Hashable;
+using hashlib::run_hash;
 using hashlib::hash_t;
 using hashlib::hash_state_t;
 using hashlib::mkhash_xorshift;
@@ -198,6 +185,21 @@ using hashlib::dict;
 using hashlib::idict;
 using hashlib::pool;
 using hashlib::mfp;
+
+// A primitive shared string implementation that does not
+// move its .c_str() when the object is copied or moved.
+struct shared_str {
+	std::shared_ptr<string> content;
+	shared_str() { }
+	shared_str(string s) { content = std::shared_ptr<string>(new string(s)); }
+	shared_str(const char *s) { content = std::shared_ptr<string>(new string(s)); }
+	const char *c_str() const { return content->c_str(); }
+	const string &str() const { return *content; }
+	bool operator==(const shared_str &other) const { return *content == *other.content; }
+	hash_state_t hash_acc(hash_state_t h) const {
+		return hashlib::hash_ops<std::string>::hash_acc(*content, h);
+	}
+};
 
 namespace RTLIL {
 	struct IdString;

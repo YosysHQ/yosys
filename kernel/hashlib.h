@@ -31,31 +31,22 @@ const int hashtable_size_factor = 3;
 typedef uint64_t hash_t;
 typedef hash_t hash_state_t;
 // The XOR version of DJB2
+[[nodiscard]]
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
 // traditionally 5381 is used as starting value for the djb2 hash
+[[nodiscard]]
 inline hash_state_t mkhash_init() {
 	return 5381;
 }
+[[nodiscard]]
 inline hash_t mkhash_finish(hash_state_t s) {
 	return (hash_t)s;
 }
 #endif
 
 // #ifdef OTHER_HASH...
-
-
-struct Hashable {
-	~Hashable() {} // Empty implementation
-	public:
-	[[nodiscard]]
-	virtual hash_state_t hash_acc(hash_state_t acc) const = 0;
-	[[nodiscard]]
-	hash_t hash() const {
-		return mkhash_finish(hash_acc(mkhash_init()));
-	}
-};
 
 [[deprecated]]
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
@@ -86,30 +77,13 @@ struct has_hash_method<T, std::void_t<decltype(std::declval<T>().hash())>> : std
 template <typename T>
 inline constexpr bool has_hash_method_v = has_hash_method<T>::value;
 
-template <typename T, typename = void> struct hash_ops {
-	static inline bool cmp(const T &a, const T &b) { return a == b; }
-
-	/**
-	 * This function exists because dict, which has a hash method, that hashes
-	 * keys as well as values, is used in Yosys with types that don't have
-	 * a hash method.
-	 */
-	template <typename U = T> static inline typename std::enable_if<!has_hash_method_v<U>, hash_t>::type hash(const U &)
-	{
-		throw std::logic_error("Unimplemented hash method");
-		return 0;
-	}
-
-	template <typename U = T> static inline typename std::enable_if<has_hash_method_v<U>, hash_t>::type hash(const U &a) { return a.hash(); }
-};
-
 template<typename T>
-struct hash_ops<T, std::enable_if_t<std::is_base_of_v<Hashable, T>>> {
+struct hash_ops {
 	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	static inline hash_t hash(const T &a) {
-		return a.hash();
+	static inline hash_state_t hash_acc(const T &a, hash_state_t h) {
+		return a.hash_acc(h);
 	}
 };
 
@@ -122,36 +96,41 @@ struct hash_int_ops {
 
 template<> struct hash_ops<bool> : hash_int_ops
 {
-	static inline hash_t hash(bool a) {
-		return a ? 1 : 0;
+	static inline hash_state_t hash_acc(bool a, hash_state_t h) {
+		return mkhash(a ? 1 : 0, h);
 	}
 };
 
-template<typename T>
-struct hash_ops<T, std::enable_if_t<std::is_integral_v<T>>> : hash_int_ops
+// TODO this isn't hash function agnostic
+template<> struct hash_ops<uint32_t> : hash_int_ops
 {
-    static inline hash_t hash(T a) {
-        return static_cast<hash_t>(a);
-    }
+	static inline hash_state_t hash_acc(uint32_t a, hash_state_t h) {
+		return mkhash(a, h);
+	}
+};
+template<> struct hash_ops<uint64_t> : hash_int_ops
+{
+	static inline hash_state_t hash_acc(uint64_t a, hash_state_t h) {
+		hash_state_t st = h;
+		st = mkhash((hash_state_t)a, st);
+		st = mkhash((hash_state_t)(a >> 32), st);
+		return st;
+	}
 };
 
-template<typename T>
-struct hash_ops<T, std::enable_if_t<std::is_pointer_v<T>>> : hash_int_ops
-{
-    static inline hash_t hash(T a) {
-        return (hash_t)(a);
-    }
-};
+// Explicit specializations to ensure the correct types are used
+template<> struct hash_ops<int32_t> : hash_ops<uint32_t> {};
+template<> struct hash_ops<int64_t> : hash_ops<uint64_t> {};
 
 template<> struct hash_ops<std::string> {
 	static inline bool cmp(const std::string &a, const std::string &b) {
 		return a == b;
 	}
-	static inline hash_t hash(const std::string &a) {
-		unsigned int v = 0;
+	static inline hash_state_t hash_acc(const std::string &a, hash_state_t h) {
+		hash_state_t st = h;
 		for (auto c : a)
-			v = mkhash(v, c);
-		return v;
+			st = mkhash(st, c);
+		return st;
 	}
 };
 
@@ -159,8 +138,11 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	static inline hash_t hash(std::pair<P, Q> a) {
-		return mkhash(hash_ops<P>::hash(a.first), hash_ops<Q>::hash(a.second));
+	static inline hash_t hash_acc(std::pair<P, Q> a, hash_state_t h) {
+		hash_state_t st = h;
+		st = hash_ops<P>::hash_acc(a.first, st);
+		st = hash_ops<Q>::hash_acc(a.second, st);
+		return st;
 	}
 };
 
@@ -169,13 +151,16 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 		return a == b;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I == sizeof...(T), unsigned int>::type hash(std::tuple<T...>) {
-		return mkhash_init();
+	static inline typename std::enable_if<I == sizeof...(T), hash_state_t>::type hash_acc(std::tuple<T...>, hash_state_t h) {
+		return h;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I != sizeof...(T), unsigned int>::type hash(std::tuple<T...> a) {
+	static inline typename std::enable_if<I != sizeof...(T), hash_state_t>::type hash_acc(std::tuple<T...> a, hash_state_t h) {
 		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
-		return mkhash(hash<I+1>(a), element_ops_t::hash(std::get<I>(a)));
+		hash_state_t st = h;
+		st = hash_acc<I+1>(a, st);
+		st = element_ops_t::hash_acc(std::get<I>(a), st);
+		return st;
 	}
 };
 
@@ -183,11 +168,12 @@ template<typename T> struct hash_ops<std::vector<T>> {
 	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	static inline hash_t hash(std::vector<T> a) {
-		unsigned int h = mkhash_init();
+	static inline hash_state_t hash_acc(std::vector<T> a, hash_state_t h) {
+		hash_state_t st = h;
+		st = mkhash(a.size(), st);
 		for (auto k : a)
-			h = mkhash(h, hash_ops<T>::hash(k));
-		return h;
+			st = hash_ops<T>::hash_acc(k, st);
+		return st;
 	}
 };
 
@@ -198,11 +184,11 @@ struct hash_cstr_ops {
 				return false;
 		return true;
 	}
-	static inline hash_t hash(const char *a) {
-		hash_t hash = mkhash_init();
+	static inline hash_state_t hash_acc(const char *a, hash_state_t h) {
+		hash_state_t st = h;
 		while (*a)
-			hash = mkhash(hash, *(a++));
-		return hash;
+			st = mkhash(st, *(a++));
+		return st;
 	}
 };
 
@@ -212,8 +198,8 @@ struct hash_ptr_ops {
 	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	static inline hash_t hash(const void *a) {
-		return (uintptr_t)a;
+	static inline hash_state_t hash_acc(const void *a, hash_state_t h) {
+		return mkhash((uintptr_t)a, h);
 	}
 };
 
@@ -222,14 +208,25 @@ struct hash_obj_ops {
 		return a == b;
 	}
 	template<typename T>
-	static inline hash_t hash(const T *a) {
-		return a ? a->hash_acc(mkhash_init()) : 0;
+	static inline hash_state_t hash_acc(const T *a, hash_state_t h) {
+		return a ? a->hash_acc(h) : h;
 	}
 };
 
-template<typename T>
-inline unsigned int mkhash(const T &v) {
-	return hash_ops<T>().hash(v);
+// template<typename T>
+// inline unsigned int mkhash(const T &v) {
+// 	return hash_ops<T>().hash_acc(v);
+// }
+
+/**
+ * If you find yourself using this function, think hard
+ * about if it's the right thing to do. Mixing finalized
+ * hashes together with XORs or worse can destroy
+ * desirable qualities of the hash function
+ */
+template<typename T, typename OPS = hash_ops<T>>
+hash_state_t run_hash(const T& obj) {
+    return mkhash_finish(OPS::hash_acc(obj, mkhash_init()));
 }
 
 inline int hashtable_size(int min_size)
@@ -266,7 +263,7 @@ template<typename K, typename OPS = hash_ops<K>> class pool;
 template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
-class dict : public Hashable {
+class dict {
 	struct entry_t
 	{
 		std::pair<K, T> udata;
@@ -294,7 +291,7 @@ class dict : public Hashable {
 	{
 		hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = run_hash<K, OPS>(key) % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -696,12 +693,14 @@ public:
 		return !operator==(other);
 	}
 
-	hash_state_t hash_acc(hash_state_t h) const final {
-		for (auto &entry : entries) {
-			h ^= hash_ops<K>::hash(entry.udata.first);
-			h ^= hash_ops<T>::hash(entry.udata.second);
+	hash_state_t hash_acc(hash_state_t h) const {
+		hash_state_t st = h;
+		st = mkhash(entries.size(), st);
+		for (auto &it : entries) {
+			st = hash_ops<K>::hash_acc(it.udata.first, st);
+			st = hash_ops<T>::hash_acc(it.udata.second, st);
 		}
-		return h;
+		return st;
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }
@@ -719,7 +718,7 @@ public:
 };
 
 template<typename K, typename OPS>
-class pool : public Hashable
+class pool
 {
 	template<typename, int, typename> friend class idict;
 
@@ -750,7 +749,7 @@ protected:
 	{
 		hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = run_hash<K, OPS>(key) % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -1063,10 +1062,12 @@ public:
 		return !operator==(other);
 	}
 
-	hash_state_t hash_acc(hash_state_t h) const final {
+	hash_state_t hash_acc(hash_state_t h) const {
+		hash_state_t st = h;
+		st = mkhash(entries.size(), st);
 		for (auto &it : entries)
-			h ^= ops.hash(it.udata);
-		return h;
+			st = ops.hash_acc(it.udata, st);
+		return st;
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }

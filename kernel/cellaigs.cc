@@ -54,9 +54,9 @@ bool Aig::operator==(const Aig &other) const
 	return name == other.name;
 }
 
-unsigned int Aig::hash() const
+hash_state_t Aig::hash_acc(hash_state_t h) const
 {
-	return hash_ops<std::string>::hash(name);
+	return hash_ops<std::string>::hash_acc(name, h);
 }
 
 struct AigMaker

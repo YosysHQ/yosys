@@ -24,7 +24,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct AigNode : public Hashable
+struct AigNode
 {
 	IdString portname;
 	int portbit;
@@ -34,7 +34,7 @@ struct AigNode : public Hashable
 
 	AigNode();
 	bool operator==(const AigNode &other) const;
-	hash_state_t hash_acc(hash_state_t h) const final;
+	hash_state_t hash_acc(hash_state_t h) const;
 };
 
 struct Aig
@@ -44,7 +44,7 @@ struct Aig
 	Aig(Cell *cell);
 
 	bool operator==(const Aig &other) const;
-	unsigned int hash() const;
+	hash_state_t hash_acc(hash_state_t h) const;
 };
 
 YOSYS_NAMESPACE_END

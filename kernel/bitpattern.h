@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 struct BitPatternPool
 {
 	int width;
-	struct bits_t : public Hashable {
+	struct bits_t {
 		std::vector<RTLIL::State> bitdata;
 		mutable hash_t cached_hash;
 		bits_t(int width = 0) : bitdata(width), cached_hash(0) { }
@@ -39,13 +39,13 @@ struct BitPatternPool
 			return bitdata[index];
 		}
 		bool operator==(const bits_t &other) const {
-			if (hash() != other.hash())
+			if (run_hash(*this) != run_hash(other))
 				return false;
 			return bitdata == other.bitdata;
 		}
-		hash_state_t hash_acc(hash_state_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const {
 			if (!cached_hash)
-				cached_hash = hash_ops<std::vector<RTLIL::State>>::hash(bitdata);
+				cached_hash = run_hash(bitdata);
 			return mkhash(h, cached_hash);
 		}
 	};

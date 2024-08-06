@@ -36,7 +36,12 @@ struct TimingInfo
 		explicit NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
-		unsigned int hash() const { return mkhash(name.hash(), offset); }
+		hash_state_t hash_acc(hash_state_t h) const {
+			hash_state_t st = h;
+			st = name.hash_acc(h);
+			st = mkhash(offset, st);
+			return st;
+		}
 	};
 	struct BitBit
 	{
@@ -44,7 +49,12 @@ struct TimingInfo
 		BitBit(const NameBit &first, const NameBit &second) : first(first), second(second) {}
 		BitBit(const SigBit &first, const SigBit &second) : first(first), second(second) {}
 		bool operator==(const BitBit& bb) const { return bb.first == first && bb.second == second; }
-		unsigned int hash() const { return mkhash(first.hash(), second.hash()); }
+		hash_state_t hash_acc(hash_state_t h) const {
+			hash_state_t st = h;
+			st = first.hash_acc(h);
+			st = second.hash_acc(h);
+			return st;
+		}
 	};
 
 	struct ModuleTiming

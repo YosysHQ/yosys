@@ -26,10 +26,10 @@ YOSYS_NAMESPACE_BEGIN
 
 struct SigPool
 {
-	struct bitDef_t : public std::pair<RTLIL::Wire*, int>, public Hashable {
+	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		hash_state_t hash_acc(hash_state_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const {
 			h = first->name.hash_acc(h);
 			h = mkhash(second, h);
 			return h;
@@ -147,7 +147,12 @@ struct SigSet
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		hash_state_t hash_acc(hash_state_t h) const {
+			hash_state_t st = h;
+			st = first->name.hash_acc(h);
+			st = mkhash(second, st);
+			return st;
+		}
 	};
 
 	dict<bitDef_t, std::set<T, Compare>> bits;

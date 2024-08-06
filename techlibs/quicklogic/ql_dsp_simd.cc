@@ -53,7 +53,7 @@ struct QlDspSimdPass : public Pass {
 		DspConfig(const DspConfig &ref) = default;
 		DspConfig(DspConfig &&ref) = default;
 
-		unsigned int hash() const { return connections.hash(); }
+		hash_state_t hash_acc(hash_state_t h) const { return connections.hash_acc(h); }
 
 		bool operator==(const DspConfig &ref) const { return connections == ref.connections; }
 	};

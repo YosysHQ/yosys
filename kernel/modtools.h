@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct ModIndex : public RTLIL::Monitor
 {
-	struct PortInfo : public Hashable {
+	struct PortInfo {
 		RTLIL::Cell* cell;
 		RTLIL::IdString port;
 		int offset;
@@ -48,9 +48,6 @@ struct ModIndex : public RTLIL::Monitor
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		// unsigned int hash() const {
-		// 	return mkhash(mkhash(cell->name.hash(), port.hash()), offset);
-		// }
 		hash_t hash_acc(hash_t acc) const {
 			acc = cell->name.hash_acc(acc);
 			acc = port.hash_acc(acc);
@@ -307,7 +304,7 @@ struct ModIndex : public RTLIL::Monitor
 
 struct ModWalker
 {
-	struct PortBit : public Hashable
+	struct PortBit
 	{
 		RTLIL::Cell *cell;
 		RTLIL::IdString port;
@@ -327,7 +324,7 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		hash_state_t hash_acc(hash_state_t h) const final {
+		hash_state_t hash_acc(hash_state_t h) const {
 			h = cell->name.hash_acc(h);
 			h = port.hash_acc(h);
 			h = mkhash(offset, h);
