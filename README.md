@@ -116,6 +116,17 @@ unless `CXX` is assigned in the call to make, e.g.
 
   $ make CXX=$CXX
 
+The Makefile has many variables influencing the build process. These can be
+adjusted by modifying the Makefile.conf file which is created at the
+`make config-...` step (see above), or they can be set by passing an option
+to the make command directly.
+
+For example, if you have clang, and (a compatible version of) `ld.lld`
+available in PATH, it's recommended to speed up incremental builds with
+lld by enabling LTO:
+
+ $ make ENABLE_LTO=1
+
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
 Makefile.
