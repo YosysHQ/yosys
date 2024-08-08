@@ -697,6 +697,9 @@ TDP with multiple read ports
 Patterns only supported with Verific
 ------------------------------------
 
+The following patterns are only supported when Yosys is built with the Verific
+front-end.
+
 Synchronous SDP with write-first behavior via blocking assignments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

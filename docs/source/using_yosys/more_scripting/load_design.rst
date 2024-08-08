@@ -27,6 +27,13 @@ keyword: Frontends
 .. todo:: more info on other ``read_*`` commands, also is this the first time we
    mention verific?
 
+.. note::
+
+   The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
+   command, requires Yosys to be built with Verific.  This is not the same as
+   simply having a Verific license when using Yosys.  Check
+   :doc:`/yosys_internals/extending_yosys/build_verific` for more.
+
 Others:
 
 - :doc:`/cmd/read`
