@@ -1,0 +1,59 @@
+pattern formal_clockgateff
+
+// Detects the most common clock gating pattern using a latch and replaces it
+// with a functionally equivalent pattern based on a flip-flop. The latch
+// based pattern has a combinational path from the enable input to output after
+// clk2fflogic, but this is a stable loop and the flip-flop based pattern does
+// not exhibit this.
+//
+// This optimization is suitable for formal to prevent false comb loops, but
+// should not be used for synthesis where the latch is an intentional choice
+//
+// Latch style:
+// always @* if (!clk_i) latched_en = en;
+// assign gated_clk_o = latched_en & clk_i;
+//
+// Flip-flop style:
+// always @(posedge clk) flopped_en <= en;
+// assign gated_clk_o = flopped_en & clk_i;
+
+state <SigSpec> clk en latched_en gated_clk
+state <IdString> latched_en_port_name
+
+match latch
+	select latch->type == $dlatch
+	select param(latch, \WIDTH) == 1
+	select param(latch, \EN_POLARITY).as_bool() == false
+	set clk port(latch, \EN)
+	set en port(latch, \D)
+	set latched_en port(latch, \Q)
+endmatch
+
+match and_gate
+	select and_gate->type.in($and, $logic_and)
+	select param(and_gate, \A_WIDTH) == 1
+	select param(and_gate, \B_WIDTH) == 1
+	select param(and_gate, \Y_WIDTH) == 1
+	choice <IdString> clk_port {\A, \B}
+	define <IdString> latch_port {clk_port == \A ? \B : \A}
+	index <SigSpec> port(and_gate, clk_port) === clk
+	index <SigSpec> port(and_gate, latch_port) === latched_en
+	set gated_clk port(and_gate, \Y)
+	set latched_en_port_name latch_port
+endmatch
+
+code
+	log("replacing clock gate pattern in %s with ff: latch=%s, and=%s\n",
+		log_id(module), log_id(latch), log_id(and_gate));
+
+	// Add a flip-flop and rewire the AND gate to use the output of this flop
+	// instead of the latch. We don't delete the latch in case its output is
+	// used to drive other nodes. If it isn't, it will be trivially removed by
+	// clean
+	SigSpec flopped_en = module->addWire(NEW_ID);
+	module->addDff(NEW_ID, clk, en, flopped_en, true, latch->get_src_attribute());
+	and_gate->setPort(latched_en_port_name, flopped_en);
+	did_something = true;
+
+	accept;
+endcode
