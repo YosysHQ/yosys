@@ -1,6 +1,3 @@
 [submodule "verific"]
 	path = verific
 	url = git@github.com:silimate/verific.git
-[submodule "abc"]
-	path = abc
-	url = https://github.com/YosysHQ/abc
