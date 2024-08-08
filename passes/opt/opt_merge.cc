@@ -148,6 +148,7 @@ struct OptMergeWorker
 		for (auto it : hash_conn_strings)
 			hash_string += it;
 
+		log("hashed string %s\n", hash_string.c_str());
 		return std::hash<std::string>{}(hash_string);
 	}
 
@@ -276,6 +277,7 @@ struct OptMergeWorker
 					continue;
 
 				uint64_t hash = hash_cell_parameters_and_connections(cell);
+				log("cell %s: hash %lX\n", cell->name.c_str(), hash);
 				auto r = sharemap.insert(std::make_pair(hash, cell));
 				if (!r.second) {
 					if (compare_cell_parameters_and_connections(cell, r.first->second)) {

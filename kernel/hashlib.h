@@ -24,18 +24,33 @@ namespace hashlib {
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
+#define DJB2_BROKEN_SIZE
+
+#ifdef DJB2_BROKEN_SIZE
+// TODO ifdef this
+typedef uint64_t hash_t;
+typedef hash_t hash_state_t;
 // The XOR version of DJB2
+[[nodiscard]]
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
-
 // traditionally 5381 is used as starting value for the djb2 hash
-const unsigned int mkhash_init = 5381;
+[[nodiscard]]
+inline hash_state_t mkhash_init() {
+	return 5381;
+}
+[[nodiscard]]
+inline hash_t mkhash_finish(hash_state_t s) {
+	return (hash_t)s;
+}
+#endif
 
-// The ADD version of DJB2
-// (use this version for cache locality in b)
+// #ifdef OTHER_HASH...
+
+[[deprecated]]
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
-	return ((a << 5) + a) + b;
+	return mkhash(a, b);
 }
 
 inline unsigned int mkhash_xorshift(unsigned int a) {
@@ -52,12 +67,23 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 	return a;
 }
 
-template<typename T> struct hash_ops {
+
+template <typename T, typename = void>
+struct has_hash_method : std::false_type {};
+
+template <typename T>
+struct has_hash_method<T, std::void_t<decltype(std::declval<T>().hash())>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool has_hash_method_v = has_hash_method<T>::value;
+
+template<typename T>
+struct hash_ops {
 	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	static inline unsigned int hash(const T &a) {
-		return a.hash();
+	static inline hash_state_t hash_acc(const T &a, hash_state_t h) {
+		return a.hash_acc(h);
 	}
 };
 
@@ -70,44 +96,41 @@ struct hash_int_ops {
 
 template<> struct hash_ops<bool> : hash_int_ops
 {
-	static inline unsigned int hash(bool a) {
-		return a ? 1 : 0;
+	static inline hash_state_t hash_acc(bool a, hash_state_t h) {
+		return mkhash(a ? 1 : 0, h);
 	}
 };
-template<> struct hash_ops<int32_t> : hash_int_ops
-{
-	static inline unsigned int hash(int32_t a) {
-		return a;
-	}
-};
-template<> struct hash_ops<int64_t> : hash_int_ops
-{
-	static inline unsigned int hash(int64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
-};
+
+// TODO this isn't hash function agnostic
 template<> struct hash_ops<uint32_t> : hash_int_ops
 {
-	static inline unsigned int hash(uint32_t a) {
-		return a;
+	static inline hash_state_t hash_acc(uint32_t a, hash_state_t h) {
+		return mkhash(a, h);
 	}
 };
 template<> struct hash_ops<uint64_t> : hash_int_ops
 {
-	static inline unsigned int hash(uint64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
+	static inline hash_state_t hash_acc(uint64_t a, hash_state_t h) {
+		hash_state_t st = h;
+		st = mkhash((hash_state_t)a, st);
+		st = mkhash((hash_state_t)(a >> 32), st);
+		return st;
 	}
 };
+
+// Explicit specializations to ensure the correct types are used
+template<> struct hash_ops<int32_t> : hash_ops<uint32_t> {};
+template<> struct hash_ops<int64_t> : hash_ops<uint64_t> {};
 
 template<> struct hash_ops<std::string> {
 	static inline bool cmp(const std::string &a, const std::string &b) {
 		return a == b;
 	}
-	static inline unsigned int hash(const std::string &a) {
-		unsigned int v = 0;
+	static inline hash_state_t hash_acc(const std::string &a, hash_state_t h) {
+		hash_state_t st = h;
 		for (auto c : a)
-			v = mkhash(v, c);
-		return v;
+			st = mkhash(st, c);
+		return st;
 	}
 };
 
@@ -115,8 +138,11 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	static inline unsigned int hash(std::pair<P, Q> a) {
-		return mkhash(hash_ops<P>::hash(a.first), hash_ops<Q>::hash(a.second));
+	static inline hash_t hash_acc(std::pair<P, Q> a, hash_state_t h) {
+		hash_state_t st = h;
+		st = hash_ops<P>::hash_acc(a.first, st);
+		st = hash_ops<Q>::hash_acc(a.second, st);
+		return st;
 	}
 };
 
@@ -125,13 +151,16 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 		return a == b;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I == sizeof...(T), unsigned int>::type hash(std::tuple<T...>) {
-		return mkhash_init;
+	static inline typename std::enable_if<I == sizeof...(T), hash_state_t>::type hash_acc(std::tuple<T...>, hash_state_t h) {
+		return h;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I != sizeof...(T), unsigned int>::type hash(std::tuple<T...> a) {
+	static inline typename std::enable_if<I != sizeof...(T), hash_state_t>::type hash_acc(std::tuple<T...> a, hash_state_t h) {
 		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
-		return mkhash(hash<I+1>(a), element_ops_t::hash(std::get<I>(a)));
+		hash_state_t st = h;
+		st = hash_acc<I+1>(a, st);
+		st = element_ops_t::hash_acc(std::get<I>(a), st);
+		return st;
 	}
 };
 
@@ -139,11 +168,12 @@ template<typename T> struct hash_ops<std::vector<T>> {
 	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	static inline unsigned int hash(std::vector<T> a) {
-		unsigned int h = mkhash_init;
+	static inline hash_state_t hash_acc(std::vector<T> a, hash_state_t h) {
+		hash_state_t st = h;
+		st = mkhash(a.size(), st);
 		for (auto k : a)
-			h = mkhash(h, hash_ops<T>::hash(k));
-		return h;
+			st = hash_ops<T>::hash_acc(k, st);
+		return st;
 	}
 };
 
@@ -154,20 +184,22 @@ struct hash_cstr_ops {
 				return false;
 		return true;
 	}
-	static inline unsigned int hash(const char *a) {
-		unsigned int hash = mkhash_init;
+	static inline hash_state_t hash_acc(const char *a, hash_state_t h) {
+		hash_state_t st = h;
 		while (*a)
-			hash = mkhash(hash, *(a++));
-		return hash;
+			st = mkhash(st, *(a++));
+		return st;
 	}
 };
+
+template <> struct hash_ops<char*> : hash_cstr_ops {};
 
 struct hash_ptr_ops {
 	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	static inline unsigned int hash(const void *a) {
-		return (uintptr_t)a;
+	static inline hash_state_t hash_acc(const void *a, hash_state_t h) {
+		return mkhash((uintptr_t)a, h);
 	}
 };
 
@@ -176,14 +208,25 @@ struct hash_obj_ops {
 		return a == b;
 	}
 	template<typename T>
-	static inline unsigned int hash(const T *a) {
-		return a ? a->hash() : 0;
+	static inline hash_state_t hash_acc(const T *a, hash_state_t h) {
+		return a ? a->hash_acc(h) : h;
 	}
 };
 
-template<typename T>
-inline unsigned int mkhash(const T &v) {
-	return hash_ops<T>().hash(v);
+// template<typename T>
+// inline unsigned int mkhash(const T &v) {
+// 	return hash_ops<T>().hash_acc(v);
+// }
+
+/**
+ * If you find yourself using this function, think hard
+ * about if it's the right thing to do. Mixing finalized
+ * hashes together with XORs or worse can destroy
+ * desirable qualities of the hash function
+ */
+template<typename T, typename OPS = hash_ops<T>>
+hash_state_t run_hash(const T& obj) {
+    return mkhash_finish(OPS::hash_acc(obj, mkhash_init()));
 }
 
 inline int hashtable_size(int min_size)
@@ -220,8 +263,7 @@ template<typename K, typename OPS = hash_ops<K>> class pool;
 template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
-class dict
-{
+class dict {
 	struct entry_t
 	{
 		std::pair<K, T> udata;
@@ -247,9 +289,9 @@ class dict
 
 	int do_hash(const K &key) const
 	{
-		unsigned int hash = 0;
+		hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = run_hash<K, OPS>(key) % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -651,13 +693,14 @@ public:
 		return !operator==(other);
 	}
 
-	unsigned int hash() const {
-		unsigned int h = mkhash_init;
-		for (auto &entry : entries) {
-			h ^= hash_ops<K>::hash(entry.udata.first);
-			h ^= hash_ops<T>::hash(entry.udata.second);
+	hash_state_t hash_acc(hash_state_t h) const {
+		hash_state_t st = h;
+		st = mkhash(entries.size(), st);
+		for (auto &it : entries) {
+			st = hash_ops<K>::hash_acc(it.udata.first, st);
+			st = hash_ops<T>::hash_acc(it.udata.second, st);
 		}
-		return h;
+		return st;
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }
@@ -704,9 +747,9 @@ protected:
 
 	int do_hash(const K &key) const
 	{
-		unsigned int hash = 0;
+		hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = run_hash<K, OPS>(key) % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -1019,11 +1062,12 @@ public:
 		return !operator==(other);
 	}
 
-	unsigned int hash() const {
-		unsigned int hashval = mkhash_init;
+	hash_state_t hash_acc(hash_state_t h) const {
+		hash_state_t st = h;
+		st = mkhash(entries.size(), st);
 		for (auto &it : entries)
-			hashval ^= ops.hash(it.udata);
-		return hashval;
+			st = ops.hash_acc(it.udata, st);
+		return st;
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }

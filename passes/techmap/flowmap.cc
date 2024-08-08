@@ -250,9 +250,9 @@ struct FlowGraph
 		{
 			return !(*this == other);
 		}
-		unsigned int hash() const
+		hash_state_t hash_acc(hash_state_t h) const
 		{
-			return hash_ops<pair<RTLIL::SigBit, int>>::hash({node, is_bottom});
+			return hash_ops<pair<RTLIL::SigBit, int>>::hash_acc({node, is_bottom}, h);
 		}
 
 		static NodePrime top(RTLIL::SigBit node)

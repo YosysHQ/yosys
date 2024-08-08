@@ -127,11 +127,11 @@ struct proc_dlatch_db_t
 			return signal == other.signal && match == other.match && children == other.children;
 		}
 
-		unsigned int hash() const {
-			unsigned int h = mkhash_init;
-			mkhash(h, signal.hash());
-			mkhash(h, match.hash());
-			for (auto i : children) mkhash(h, i);
+		hash_state_t hash_acc(hash_state_t h) const {
+			hash_state_t st = h;
+			st = signal.hash_acc(st);
+			st = match.hash_acc(st);
+			st = hash_ops<vector<int>>::hash_acc(children, st);
 			return h;
 		}
 	};

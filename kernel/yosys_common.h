@@ -171,6 +171,21 @@ using std::get;
 using std::min;
 using std::max;
 
+using hashlib::mkhash;
+using hashlib::mkhash_init;
+using hashlib::run_hash;
+using hashlib::hash_t;
+using hashlib::hash_state_t;
+using hashlib::mkhash_xorshift;
+using hashlib::hash_ops;
+using hashlib::hash_cstr_ops;
+using hashlib::hash_ptr_ops;
+using hashlib::hash_obj_ops;
+using hashlib::dict;
+using hashlib::idict;
+using hashlib::pool;
+using hashlib::mfp;
+
 // A primitive shared string implementation that does not
 // move its .c_str() when the object is copied or moved.
 struct shared_str {
@@ -181,21 +196,10 @@ struct shared_str {
 	const char *c_str() const { return content->c_str(); }
 	const string &str() const { return *content; }
 	bool operator==(const shared_str &other) const { return *content == *other.content; }
-	unsigned int hash() const { return hashlib::hash_ops<std::string>::hash(*content); }
+	hash_state_t hash_acc(hash_state_t h) const {
+		return hashlib::hash_ops<std::string>::hash_acc(*content, h);
+	}
 };
-
-using hashlib::mkhash;
-using hashlib::mkhash_init;
-using hashlib::mkhash_add;
-using hashlib::mkhash_xorshift;
-using hashlib::hash_ops;
-using hashlib::hash_cstr_ops;
-using hashlib::hash_ptr_ops;
-using hashlib::hash_obj_ops;
-using hashlib::dict;
-using hashlib::idict;
-using hashlib::pool;
-using hashlib::mfp;
 
 namespace RTLIL {
 	struct IdString;
