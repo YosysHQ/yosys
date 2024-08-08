@@ -42,7 +42,7 @@ The following commands are executed by the :cmd:ref:`prep` command:
 
 .. literalinclude:: /cmd/prep.rst
    :start-at: begin:
-   :end-before: .. raw:: latex
+   :end-before: .. only:: latex
    :dedent:
 
 :doc:`/getting_started/example_synth` covers most of these commands and what

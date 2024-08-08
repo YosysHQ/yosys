@@ -179,3 +179,40 @@ jobs:
         shell: bash
         run: |
           make -C docs test -j${{ env.procs }}
+
+  test-docs-build:
+    name: Try build docs
+    runs-on: [self-hosted, linux, x64]
+    needs: [pre_docs_job]
+    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    strategy:
+      matrix:
+        docs-target: [html, latexpdf]
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j${{ env.procs }}
+
+      - name: Build docs
+        shell: bash
+        run: |
+          make docs DOC_TARGET=${{ matrix.docs-target }}
+
+      - name: Store docs build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-build-${{ matrix.docs-target }}
+          path: docs/build/
+          retention-days: 7

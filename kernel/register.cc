@@ -781,11 +781,11 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s", title_line.c_str());
 		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
 		fprintf(f, "%s\n", title_line.c_str());
-		fprintf(f, ".. raw:: latex\n\n    \\begin{comment}\n\n");
 
 		// render html
 		fprintf(f, ".. cmd:def:: %s\n", cmd.c_str());
-		fprintf(f, "    :title: %s\n\n", title.c_str());
+		fprintf(f, "   :title: %s\n\n", title.c_str());
+		fprintf(f, "   .. only:: html\n\n");
 		std::stringstream ss;
 		std::string textcp = text;
 		ss << text;
@@ -821,32 +821,32 @@ struct HelpPass : public Pass {
 			if (IsUsage) {
 				if (stripped_line.compare(0, 4, "See ") == 0) {
 					// description refers to another function
-					fprintf(f, "\n    %s\n", stripped_line.c_str());
+					fprintf(f, "\n      %s\n", stripped_line.c_str());
 				} else {
 					// usage should be the first line of help output
-					fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+					fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 					WasDefinition = true;
 				}
 				IsUsage = false;
 			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
 				// another usage block
-				fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = 0;
 			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
 				// format definition term
-				fprintf(f, "\n\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				fprintf(f, "\n\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
 			} else {
 				if (IsDedent) {
-					fprintf(f, "\n\n    ::\n");
+					fprintf(f, "\n\n      ::\n");
 					def_strip_count = first_pos;
 				} else if (WasDefinition) {
-					fprintf(f, " ::\n");
+					fprintf(f, "::\n");
 					WasDefinition = false;
 				}
-				fprintf(f, "\n        %s", line.substr(def_strip_count, std::string::npos).c_str());
+				fprintf(f, "\n         %s", line.substr(def_strip_count, std::string::npos).c_str());
 			}
 
 			blank_count = 0;
@@ -854,13 +854,12 @@ struct HelpPass : public Pass {
 		fputc('\n', f);
 
 		// render latex
-		fprintf(f, ".. raw:: latex\n\n    \\end{comment}\n\n");
 		fprintf(f, ".. only:: latex\n\n");
-		fprintf(f, "    ::\n\n");
+		fprintf(f, "   ::\n\n");
 		std::stringstream ss2;
 		ss2 << textcp;
 		for (std::string line; std::getline(ss2, line, '\n');) {
-			fprintf(f, "        %s\n", line.c_str());
+			fprintf(f, "      %s\n", line.c_str());
 		}
 		fclose(f);
 	}
