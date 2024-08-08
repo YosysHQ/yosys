@@ -42,9 +42,9 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 			ff.sig_d.append(bit);
 			ff.sig_clr.append(State::Sx);
 			ff.sig_set.append(State::Sx);
-			ff.val_init.bits.push_back(State::Sx);
-			ff.val_srst.bits.push_back(State::Sx);
-			ff.val_arst.bits.push_back(State::Sx);
+			ff.val_init.bits().push_back(State::Sx);
+			ff.val_srst.bits().push_back(State::Sx);
+			ff.val_arst.bits().push_back(State::Sx);
 			continue;
 		}
 
@@ -147,9 +147,9 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 		ff.sig_q.append(cur_ff.sig_q[idx]);
 		ff.sig_clr.append(ff.has_sr ? cur_ff.sig_clr[idx] : State::S0);
 		ff.sig_set.append(ff.has_sr ? cur_ff.sig_set[idx] : State::S0);
-		ff.val_arst.bits.push_back(ff.has_arst ? cur_ff.val_arst[idx] : State::Sx);
-		ff.val_srst.bits.push_back(ff.has_srst ? cur_ff.val_srst[idx] : State::Sx);
-		ff.val_init.bits.push_back(cur_ff.val_init[idx]);
+		ff.val_arst.bits().push_back(ff.has_arst ? cur_ff.val_arst[idx] : State::Sx);
+		ff.val_srst.bits().push_back(ff.has_srst ? cur_ff.val_srst[idx] : State::Sx);
+		ff.val_init.bits().push_back(cur_ff.val_init[idx]);
 		found = true;
 	}
 
@@ -174,9 +174,9 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 			// These two will be fixed up later.
 			ff.sig_clr.append(State::Sx);
 			ff.sig_set.append(State::Sx);
-			ff.val_init.bits.push_back(bit.data);
-			ff.val_srst.bits.push_back(bit.data);
-			ff.val_arst.bits.push_back(bit.data);
+			ff.val_init.bits().push_back(bit.data);
+			ff.val_srst.bits().push_back(bit.data);
+			ff.val_arst.bits().push_back(bit.data);
 			continue;
 		}
 
@@ -274,9 +274,9 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 		ff.sig_q.append(cur_ff.sig_q[idx]);
 		ff.sig_clr.append(ff.has_sr ? cur_ff.sig_clr[idx] : State::S0);
 		ff.sig_set.append(ff.has_sr ? cur_ff.sig_set[idx] : State::S0);
-		ff.val_arst.bits.push_back(ff.has_arst ? cur_ff.val_arst[idx] : State::Sx);
-		ff.val_srst.bits.push_back(ff.has_srst ? cur_ff.val_srst[idx] : State::Sx);
-		ff.val_init.bits.push_back(cur_ff.val_init[idx]);
+		ff.val_arst.bits().push_back(ff.has_arst ? cur_ff.val_arst[idx] : State::Sx);
+		ff.val_srst.bits().push_back(ff.has_srst ? cur_ff.val_srst[idx] : State::Sx);
+		ff.val_init.bits().push_back(cur_ff.val_init[idx]);
 		found = true;
 	}
 

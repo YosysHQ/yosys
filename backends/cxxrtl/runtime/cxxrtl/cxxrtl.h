@@ -750,7 +750,7 @@ std::ostream &operator<<(std::ostream &os, const value<Bits> &val) {
 	auto old_flags = os.flags(std::ios::right);
 	auto old_width = os.width(0);
 	auto old_fill  = os.fill('0');
-	os << val.bits << '\'' << std::hex;
+	os << val.bits() << '\'' << std::hex;
 	for (size_t n = val.chunks - 1; n != (size_t)-1; n--) {
 		if (n == val.chunks - 1 && Bits % value<Bits>::chunk::bits != 0)
 			os.width((Bits % value<Bits>::chunk::bits + 3) / 4);

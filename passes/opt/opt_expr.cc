@@ -351,21 +351,21 @@ bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
 	bool all_bits_one = true;
 	bool last_bit_one = true;
 
-	if (GetSize(value.bits) < 1)
+	if (GetSize(value.bits()) < 1)
 		return false;
 
-	if (GetSize(value.bits) == 1) {
-		if (value.bits[0] != State::S1)
+	if (GetSize(value.bits()) == 1) {
+		if (value.bits()[0] != State::S1)
 			return false;
 		if (is_signed)
 			is_negative = true;
 		return true;
 	}
 
-	for (int i = 0; i < GetSize(value.bits); i++) {
-		if (value.bits[i] != State::S1)
+	for (int i = 0; i < GetSize(value.bits()); i++) {
+		if (value.bits()[i] != State::S1)
 			all_bits_one = false;
-		if (value.bits[i] != (i ? State::S0 : State::S1))
+		if (value.bits()[i] != (i ? State::S0 : State::S1))
 			last_bit_one = false;
 	}
 

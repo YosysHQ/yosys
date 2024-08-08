@@ -544,13 +544,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			RTLIL::Const in_value;
 			for (int i = 0; i < GetSize(gold_wire); i++)
-				in_value.bits.push_back(xorshift32(2) ? State::S1 : State::S0);
+				in_value.bits().push_back(xorshift32(2) ? State::S1 : State::S0);
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
 				for (int i = 0; i < GetSize(gold_wire); i++)
 					if (xorshift32(inv_chance) == 0)
-						in_value.bits[i] = RTLIL::Sx;
+						in_value.bits()[i] = RTLIL::Sx;
 			}
 
 			if (verbose)

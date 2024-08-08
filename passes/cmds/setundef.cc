@@ -243,7 +243,9 @@ struct SetundefPass : public Pass {
 			{
 				for (auto *cell : module->selected_cells()) {
 					for (auto &parameter : cell->parameters) {
-						for (auto &bit : parameter.second.bits) {
+						if (parameter.second.flags & RTLIL::CONST_FLAG_STRING)
+							continue;
+						for (auto &bit : parameter.second.bits()) {
 							if (bit > RTLIL::State::S1)
 								bit = worker.next_bit();
 						}
@@ -390,7 +392,7 @@ struct SetundefPass : public Pass {
 					for (auto wire : initwires)
 					{
 						Const &initval = wire->attributes[ID::init];
-						initval.bits.resize(GetSize(wire), State::Sx);
+						initval.bits().resize(GetSize(wire), State::Sx);
 
 						for (int i = 0; i < GetSize(wire); i++) {
 							SigBit bit = sigmap(SigBit(wire, i));
@@ -421,7 +423,7 @@ struct SetundefPass : public Pass {
 								continue;
 
 							Const &initval = wire->attributes[ID::init];
-							initval.bits.resize(GetSize(wire), State::Sx);
+							initval.bits().resize(GetSize(wire), State::Sx);
 
 							if (initval.is_fully_undef()) {
 								wire->attributes.erase(ID::init);
