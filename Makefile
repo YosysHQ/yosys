@@ -861,6 +861,7 @@ endif
 	+cd tests/various && bash run-test.sh
 	+cd tests/select && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
+	+cd tests/scripts && bash run-test.sh
 	+cd tests/sim && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
