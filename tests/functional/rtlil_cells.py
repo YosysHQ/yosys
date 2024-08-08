@@ -233,6 +233,16 @@ module gold(
 endmodule""".format(parameters['DATA_WIDTH'] - 1, parameters['ADDR_WIDTH'] - 1, 2**parameters['ADDR_WIDTH'] - 1))
         yosys_synth(verilog_file, path)
 
+class PicorvCell(BaseCell):
+    def __init__(self):
+        super().__init__("picorv", [], {}, {}, [()])
+        self.smt_max_steps = 50 # z3 is too slow for more steps
+    def write_rtlil_file(self, path, parameters):
+        from test_functional import yosys, base_path, quote
+        tb_file = base_path / 'tests/functional/picorv32_tb.v'
+        cpu_file = base_path / 'tests/functional/picorv32.v'
+        yosys(f"read_verilog {quote(tb_file)} {quote(cpu_file)}; prep -top gold; flatten; write_rtlil {quote(path)}")
+
 binary_widths = [
     # try to cover extending A operand, extending B operand, extending/truncating result
     (16, 32, 48, True, True),
@@ -353,6 +363,7 @@ rtlil_cells = [
 #    ("original_tag", ["A", "Y"]),
 #    ("future_ff", ["A", "Y"]),
 #    ("scopeinfo", []),
+    PicorvCell()
 ]
 
 def generate_test_cases(per_cell, rnd):

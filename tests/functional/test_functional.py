@@ -63,6 +63,9 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     vcd_functional_file = tmp_path / 'functional.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
+    if hasattr(cell, 'smt_max_steps'):
+        num_steps = min(num_steps, cell.smt_max_steps)
+
     cell.write_rtlil_file(rtlil_file, parameters)
     yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_smt2 {quote(smt_file)}")
     run(['z3', smt_file]) # check if output is valid smtlib before continuing
