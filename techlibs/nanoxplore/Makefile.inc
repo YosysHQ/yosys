@@ -1,0 +1,31 @@
+
+OBJS += techlibs/nanoxplore/synth_nanoxplore.o
+OBJS += techlibs/nanoxplore/nx_carry.o
+
+# Techmap
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/arith_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams_init.vh))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/brams.txt))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_bb.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_bb_l.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_bb_m.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_bb_u.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_sim.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_sim_l.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_sim_m.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_sim_u.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_l.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_m.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/cells_wrap_u.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/io_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/latches_map.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_init.vh))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_l.txt))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_m.txt))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_u.txt))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_map_l.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_map_m.v))
+$(eval $(call add_share_file,share/nanoxplore,techlibs/nanoxplore/rf_rams_map_u.v))
