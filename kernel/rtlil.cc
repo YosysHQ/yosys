@@ -203,14 +203,16 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 RTLIL::Const::Const(const std::string &str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
-	backing = str;
+	new ((void*)&str_) std::string(str);
+	tag = backing_tag::string;
 }
 
 RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	backing = bitvectype();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
 	bv.reserve(width);
 	for (int i = 0; i < width; i++) {
 		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
@@ -221,8 +223,9 @@ RTLIL::Const::Const(int val, int width)
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	backing = bitvectype();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
 	bv.reserve(width);
 	for (int i = 0; i < width; i++)
 		bv.push_back(bit);
@@ -231,23 +234,81 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	backing = bitvectype();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
 	bv.reserve(bits.size());
 	for (const auto &b : bits)
 		bv.emplace_back(b ? State::S1 : State::S0);
 }
 
+RTLIL::Const::Const(const RTLIL::Const &other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(other.get_str());
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(other.get_bits());
+	else
+		check(false);
+}
+
+RTLIL::Const::Const(RTLIL::Const &&other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(std::move(other.get_str()));
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(std::move(other.get_bits()));
+	else
+		check(false);
+}
+
+RTLIL::Const &RTLIL::Const::operator =(const RTLIL::Const &other) {
+	flags = other.flags;
+	if (other.is_str()) {
+		if (!is_str()) {
+			// sketchy zone
+			check(is_bits());
+			bits_.~bitvectype();
+			(void)new ((void*)&str_) std::string();
+		}
+		tag = other.tag;
+		get_str() = other.get_str();
+	} else if (other.is_bits()) {
+		if (!is_bits()) {
+			// sketchy zone
+			check(is_str());
+			str_.~string();
+			(void)new ((void*)&bits_) bitvectype();
+		}
+		tag = other.tag;
+		get_bits() = other.get_bits();
+	} else {
+		check(false);
+	}
+	return *this;
+}
+
+RTLIL::Const::~Const() {
+	if (is_bits())
+		bits_.~bitvectype();
+	else if (is_str())
+		str_.~string();
+	else
+		check(false);
+}
+
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 {
-	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
+	if (is_str() != other.is_str())
 		return decode_string() < other.decode_string();
 
-	if (std::get_if<std::string>(&backing))
-		return std::get<std::string>(backing) < std::get<std::string>(other.backing);
+	if (get_if_str())
+		return str_ < other.str_;
 
-	bitvectype& bv = std::get<bitvectype>(backing);
-	auto other_bv = std::get<bitvectype>(other.backing);
+	bitvectype& bv = get_bits();
+	auto other_bv = other.get_bits();
 
 	if (bv.size() != other_bv.size())
 		return bv.size() < other_bv.size();
@@ -260,13 +321,13 @@ bool RTLIL::Const::operator <(const RTLIL::Const &other) const
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
-	if (std::get_if<std::string>(&backing) != std::get_if<std::string>(&other.backing))
+	if (is_str() != other.is_str())
 		return decode_string() == other.decode_string();
 
-	if (std::get_if<std::string>(&backing))
-		return std::get<std::string>(backing) == std::get<std::string>(other.backing);
+	if (get_if_str())
+		return get_str() == other.get_str();
 
-	return std::get<bitvectype>(backing) == std::get<bitvectype>(other.backing);
+	return get_bits() == other.get_bits();
 }
 
 bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
@@ -277,22 +338,22 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 std::vector<RTLIL::State>& RTLIL::Const::bits()
 {
 	bitvectorize();
-	return std::get<bitvectype>(backing);
+	return get_bits();
 }
 
 const std::vector<RTLIL::State>& RTLIL::Const::bits() const
 {
 	bitvectorize();
-	return std::get<bitvectype>(backing);
+	return get_bits();
 }
 
 
 std::vector<RTLIL::State> RTLIL::Const::to_bits() const
 {
-	if (auto bv = std::get_if<bitvectype>(&backing)) {
+	if (auto bv = get_if_bits()) {
 		return *bv;
 	}
-	auto& str = std::get<std::string>(backing);
+	auto& str = get_str();
 	bitvectype b;
 	b.reserve(str.size() * 8);
 	for (int i = str.size()-1; i >= 0; i--) {
@@ -306,14 +367,14 @@ std::vector<RTLIL::State> RTLIL::Const::to_bits() const
 }
 
 std::string RTLIL::Const::pretty_fmt() const {
-	if (std::get_if<std::string>(&backing))
+	if (get_if_str())
 		return decode_string();
 	else
 		return std::to_string(as_int());
 }
 
 std::string RTLIL::Const::pretty_fmt_undef() const {
-	if (std::get_if<std::string>(&backing))
+	if (get_if_str())
 		return decode_string();
 	else
 		return as_string();
@@ -322,7 +383,7 @@ std::string RTLIL::Const::pretty_fmt_undef() const {
 bool RTLIL::Const::as_bool() const
 {
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	for (size_t i = 0; i < bv.size(); i++)
 		if (bv[i] == State::S1)
 			return true;
@@ -332,7 +393,7 @@ bool RTLIL::Const::as_bool() const
 int RTLIL::Const::as_int(bool is_signed) const
 {
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	int32_t ret = 0;
 	for (size_t i = 0; i < bv.size() && i < 32; i++)
 		if (bv[i] == State::S1)
@@ -346,7 +407,7 @@ int RTLIL::Const::as_int(bool is_signed) const
 std::string RTLIL::Const::as_string(std::string any) const
 {
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	std::string ret;
 	ret.reserve(bv.size());
 	for (size_t i = bv.size(); i > 0; i--)
@@ -364,8 +425,7 @@ std::string RTLIL::Const::as_string(std::string any) const
 RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
 	Const c;
-	c.backing = bitvectype();
-	bitvectype& bv = std::get<bitvectype>(c.backing);
+	bitvectype& bv = c.get_bits();
 	bv.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
@@ -381,11 +441,11 @@ RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 
 std::string RTLIL::Const::decode_string() const
 {
-	if (auto str = std::get_if<std::string>(&backing))
+	if (auto str = get_if_str())
 		return *str;
 
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
@@ -418,7 +478,7 @@ std::string RTLIL::Const::decode_string() const
 bool RTLIL::Const::is_fully_zero() const
 {
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_zero");
 
 	for (const auto &bit : bv)
@@ -431,7 +491,7 @@ bool RTLIL::Const::is_fully_zero() const
 bool RTLIL::Const::is_fully_ones() const
 {
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_ones");
 
 	for (const auto &bit : bv)
@@ -446,7 +506,7 @@ bool RTLIL::Const::is_fully_def() const
 	cover("kernel.rtlil.const.is_fully_def");
 
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
@@ -460,7 +520,7 @@ bool RTLIL::Const::is_fully_undef() const
 	cover("kernel.rtlil.const.is_fully_undef");
 
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
@@ -474,7 +534,7 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
@@ -488,7 +548,7 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	cover("kernel.rtlil.const.is_onehot");
 
 	bitvectorize();
-	bitvectype& bv = std::get<bitvectype>(backing);
+	bitvectype& bv = get_bits();
 
 	bool found = false;
 	for (int i = 0; i < GetSize(*this); i++) {

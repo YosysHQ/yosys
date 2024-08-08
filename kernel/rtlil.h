@@ -667,21 +667,42 @@ namespace RTLIL
 
 struct RTLIL::Const
 {
-	private:
-	// TODO unionize
-	typedef std::vector<RTLIL::State> bitvectype;
-	mutable std::variant<bitvectype, std::string> backing;
-	public:
 	short flags;
+	private:
+	typedef std::vector<RTLIL::State> bitvectype;
+	enum class backing_tag: bool { bits, string };
+	// Do not access the union or tag even in Const methods unless necessary
+	mutable backing_tag tag;
+	union {
+		mutable bitvectype bits_;
+		mutable std::string str_;
+	};
 
-	Const() : backing(std::vector<RTLIL::State>()), flags(RTLIL::CONST_FLAG_NONE) {}
+	// Use these utilities instead
+	bool is_bits() const { return tag == backing_tag::bits; }
+	bool is_str() const { return tag == backing_tag::string; }
+
+	bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
+	std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
+
+	void check(bool condition) const {
+		// TODO debug assert or throw
+		// log_assert(condition && "malformed Const union");
+	}
+
+	bitvectype& get_bits() const { check(is_bits()); return *get_if_bits(); }
+	std::string& get_str() const { check(is_str()); return *get_if_str(); }
+	public:
+	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
 	Const(const std::string &str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : backing(bits) { flags = CONST_FLAG_NONE; }
+	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
 	Const(const std::vector<bool> &bits);
-	Const(const RTLIL::Const &c) = default;
-	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
+	Const(const RTLIL::Const &other);
+	Const(RTLIL::Const &&other);
+	RTLIL::Const &operator =(const RTLIL::Const &other);
+	~Const();
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -700,34 +721,46 @@ struct RTLIL::Const
 
 	std::string decode_string() const;
 	inline size_t size() const {
-		if (auto str = std::get_if<std::string>(&backing))
-			return 8 * str->size();
-		else
-			return std::get<bitvectype>(backing).size();
+		if (tag == backing_tag::string)
+			return 8 * str_.size();
+		else {
+			check(tag == backing_tag::bits);
+			return bits_.size();
+		}
 	}
 
 	inline bool empty() const {
-		if (auto str = std::get_if<std::string>(&backing))
-			return str->empty();
-		else
-			return std::get<bitvectype>(backing).empty();
+		if (tag == backing_tag::string)
+			return str_.empty();
+		else {
+			check(tag == backing_tag::bits);
+			return bits_.empty();
+		}
 	}
 
 	void bitvectorize() const {
-		if (std::get_if<bitvectype>(&backing))
+		if (tag == backing_tag::bits)
 			return;
 
-		auto& str = std::get<std::string>(backing);
-		bitvectype bits;
-		bits.reserve(str.size() * 8);
-		for (int i = str.size() - 1; i >= 0; i--) {
-			unsigned char ch = str[i];
+		check(tag == backing_tag::string);
+
+		bitvectype new_bits;
+
+		new_bits.reserve(str_.size() * 8);
+		for (int i = str_.size() - 1; i >= 0; i--) {
+			unsigned char ch = str_[i];
 			for (int j = 0; j < 8; j++) {
-				bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+				new_bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
 				ch = ch >> 1;
 			}
 		}
-		backing = bits;
+
+		{
+			// sketchy zone
+			str_.~string();
+			(void)new ((void*)&bits_) bitvectype(std::move(new_bits));
+			tag = backing_tag::bits;
+		}
 	}
 
 	inline RTLIL::State &operator[](int index) {
@@ -771,11 +804,11 @@ struct RTLIL::Const
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 
-		if(auto str = std::get_if<std::string>(&backing)) {
-			for (auto c : *str)
+		if(is_str()) {
+			for (auto c : get_str())
 				h = mkhash(h, c);
 		} else {
-			for (auto b : bits())
+			for (auto b : get_bits())
 				h = mkhash(h, b);
 		}
 		return h;
