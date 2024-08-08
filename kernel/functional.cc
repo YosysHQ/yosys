@@ -530,6 +530,7 @@ public:
 				memories[mem.cell] = &mem;
 		}
 	}
+private:
 	Node concatenate_read_results(Mem *mem, vector<Node> results)
 	{
 		// sanity check: all read ports concatenated should equal to the RD_DATA port
@@ -632,6 +633,17 @@ public:
 			}
 		}
 	}
+	void undriven(const char *name) {
+		log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
+			"Call setundef with appropriate options to avoid this error.\n", name);
+	}
+	// we perform this check separately to give better error messages that include the wire or port name
+	void check_undriven(DriveSpec const& spec, std::string const& name) {
+		for(auto const &chunk : spec.chunks())
+			if(chunk.is_none())
+				undriven(name.c_str());
+	}
+public:
 	void process_queue()
 	{
 		for (; !queue.empty(); queue.pop_front()) {
@@ -660,6 +672,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(wire_chunk));
+							check_undriven(driver, RTLIL::unescape_id(wire_chunk.wire->name));
 							Node node = enqueue(driver);
 							factory.suggest_name(node, wire_chunk.wire->name);
 							factory.update_pending(pending, node);
@@ -677,6 +690,7 @@ public:
 							factory.update_pending(pending, node);
 						} else {
 							DriveSpec driver = driver_map(DriveSpec(port_chunk));
+							check_undriven(driver, RTLIL::unescape_id(port_chunk.cell->name) + " port " + RTLIL::unescape_id(port_chunk.port));
 							factory.update_pending(pending, enqueue(driver));
 						}
 					} else {
@@ -692,8 +706,7 @@ public:
 					log_error("Signal %s has multiple drivers. This is not supported by the functional backend. "
 						"If tristate drivers are used, call tristate -formal to avoid this error.\n", log_signal(chunk));
 				} else if (chunk.is_none()) {
-					log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
-						"Call setundef with appropriate options to avoid this error.\n", log_signal(chunk));
+					undriven(log_signal(chunk));
 				} else {
 					log_error("unhandled drivespec: %s\n", log_signal(chunk));
 					log_abort();
