@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2024  Richard Herveille <richard.herveille@roalogic.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -289,4 +290,56 @@ module fiftyfivenm_pll
    output                                   vcooverrange;
    output                                   vcounderrange;
 
-endmodule // cycloneive_pll
+endmodule // max10_pll
+
+
+/* MAX10 MULT clearbox model */
+(* blackbox *)
+module fiftyfivenm_mac_mult (
+  dataa,
+  datab,
+  dataout,
+  signa,
+  signb,
+
+  aclr,
+  clk,
+  ena
+);
+  parameter dataa_clock = "none";
+  parameter dataa_width = 18;
+  parameter datab_clock = "none";
+  parameter datab_width = 18;
+  parameter signa_clock = "none";
+  parameter signb_clock = "none";
+  parameter lpm_type    = "fiftyfivenm_mac_mult";
+
+  input  [dataa_width              -1:0] dataa;
+  input  [datab_width              -1:0] datab;
+  output [(dataa_width+datab_width)-1:0] dataout;
+  input                                  signa;
+  input                                  signb;
+  input                                  aclr;
+  input                                  clk;
+  input                                  ena;
+endmodule //fiftyfivenm_mac_mult
+
+module fiftyfivenm_mac_out (
+  dataa,
+  dataout,
+
+  aclr,
+  clk,
+  ena
+);
+
+  parameter dataa_width  = 38;
+  parameter output_clock = "none";
+  parameter lpm_type     = "fiftyfivenm_mac_out";
+
+  input  [dataa_width-1:0] dataa;
+  output [dataa_width-1:0] dataout;
+  input                    aclr;
+  input                    clk;
+  input                    ena;
+endmodule //fiftyfivenm_mac_out
