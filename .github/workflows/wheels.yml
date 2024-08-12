@@ -1,0 +1,111 @@
+name: Build Wheels for PyPI
+on:
+  workflow_dispatch:
+  push:
+    # tags: ["yosys-*"]
+jobs:
+  build_wheels:
+    strategy:
+      matrix:
+        os: [
+            # You can't cross-compile on Linux, so might as well do the emulated
+            # workload on its own
+            {
+              name: "Ubuntu 22.04",
+              family: "linux",
+              runner: "ubuntu-22.04",
+              archs: "x86_64",
+            },
+            {
+              name: "Ubuntu 22.04",
+              family: "linux",
+              runner: "ubuntu-22.04",
+              archs: "aarch64",
+            },
+            # While you can cross-compile on macOS, this is less of a headache
+            {
+              name: "macOS 13",
+              family: "macos",
+              runner: "macos-13",
+              archs: "x86_64",
+            },
+            {
+              name: "macOS 14",
+              family: "macos",
+              runner: "macos-14",
+              archs: "arm64",
+            },
+            # TODO: Make Windows Work
+            # {
+            #   name: "Windows Server 2019",
+            #   family: "windows",
+            #   runner: "windows-2019",
+            #   archs: "AMD64 ARM64",
+            # },
+          ]
+    name: Build Wheels | ${{ matrix.os.name }} | ${{ matrix.os.archs }}
+    runs-on: ${{ matrix.os.runner }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+      - if: ${{ matrix.os.family == 'linux' }}
+        name: "[Linux] Set up QEMU"
+        uses: docker/setup-qemu-action@v2
+      - uses: actions/setup-python@v3
+      - name: Get Boost Source
+        run: |
+          mkdir -p boost
+          curl -L https://sourceforge.net/projects/boost/files/boost/1.83.0/boost_1_83_0.tar.bz2 | tar --strip-components=1 -xjC boost
+      - name: Seed Makefile.bak
+        # For every sed, a .bak is created so it can be copied over Makefile to
+        # rever the change for the next Python version to be built.
+        #
+        # This creates a .bak for the first Python version's cp to consume.
+        run: |
+          cp Makefile Makefile.bak
+      - if: ${{ matrix.os.family == 'macos' }}
+        name: "[macOS] Flex/Bison"
+        run: |
+          brew install flex bison
+          echo "PATH=$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
+      - if: ${{ matrix.os.family == 'macos' && matrix.os.archs == 'arm64' }}
+        name: "[macOS/arm64] Install Python 3.8 (see: https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64)"
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.20.0
+        env:
+          # Explaining the build steps:
+          #   1. Revert previous seds (if any)
+          #   2. Delete the libboost static archives from previous builds (if any)
+          #   3. Navigate to boost source extracted in previous GHA step
+          #   4-5. Build Boost against current version of Python, only for
+          #        static linkage
+          #        (Boost is statically linked because system boost packages
+          #         wildly vary in versions, including the libboost_python3
+          #         version)
+          #   6-7. Return to package directory and sed the Makefile to point at
+          #        the newly compiled libboost_python
+          CIBW_SKIP: pp* # The Makefile requires python3-config which is not in pypy
+          CIBW_ARCHS: ${{ matrix.os.archs }}
+          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_BEFORE_ALL_LINUX: yum install -y libffi-devel flex bison || apk add libffi-dev flex bison
+          CIBW_BEFORE_ALL_MAC: brew install libffi
+          CIBW_BEFORE_BUILD: |
+            cp Makefile.bak Makefile &&\
+              cd ./boost &&\
+              rm -rf ./pfx &&\
+              ./bootstrap.sh --prefix=./pfx &&\
+              ./b2 --prefix=./pfx --with-filesystem --with-system --with-python cxxflags="$(python3-config --includes) -std=c++17 -fPIC" cflags="$(python3-config --includes) -fPIC" link=static variant=release install &&\
+              ls ./pfx/lib/libboost_python*.a &&\
+              cd {package} &&\
+              sed -i'.bak' -e "1i\\
+                LINKFLAGS = -L./boost/pfx/lib" -e "1i\\
+                CXXFLAGS = -I./boost/pfx/include" -e "s@BOOST_PYTHON_LIB ?=@BOOST_PYTHON_LIB = $(ls ./boost/pfx/lib/libboost_python*.a)\nTrash =@" Makefile
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./dist/*.whl
