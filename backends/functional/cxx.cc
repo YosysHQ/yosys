@@ -2,6 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2024  Emily Schmidt <emily@yosyshq.com>
+ *  Copyright (C) 2024 National Technology and Engineering Solutions of Sandia, LLC
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
