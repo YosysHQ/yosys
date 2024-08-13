@@ -53,47 +53,12 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 	return module->wires_.at(id);
 }
 
-static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_NOT_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_xor_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_XOR_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_and_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_AND_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_or_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_OR_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
 static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack, token_t next_token)
 {
 	int top = int(stack.size())-1;
 
 	if (0 <= top-1 && stack[top].type == 0 && stack[top-1].type == '!') {
-		token_t t = token_t(0, create_inv_cell(module, stack[top].sig));
+		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -101,7 +66,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top].type == '\'' && stack[top-1].type == 0) {
-		token_t t = token_t(0, create_inv_cell(module, stack[top-1].sig));
+		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top-1].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -116,7 +81,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 1 && stack[top-1].type == '^' && stack[top].type == 1) {
-		token_t t = token_t(1, create_xor_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(1, module->XorGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -132,7 +97,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top-1].type == 2 && stack[top].type == 2) {
-		token_t t = token_t(2, create_and_cell(module, stack[top-1].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-1].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -140,7 +105,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 2 && (stack[top-1].type == '*' || stack[top-1].type == '&') && stack[top].type == 2) {
-		token_t t = token_t(2, create_and_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -156,7 +121,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 3 && (stack[top-1].type == '+' || stack[top-1].type == '|') && stack[top].type == 3) {
-		token_t t = token_t(3, create_or_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(3, module->OrGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
