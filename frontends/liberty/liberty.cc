@@ -226,7 +226,7 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	return cell->getPort(ID::Y);
 }
 
-static void create_ff(RTLIL::Module *module, LibertyAst *node)
+static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
 	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
@@ -303,7 +303,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	log_assert(!cell->type.empty());
 }
 
-static bool create_latch(RTLIL::Module *module, LibertyAst *node, bool flag_ignore_miss_data_latch)
+static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool flag_ignore_miss_data_latch)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
 	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
@@ -422,7 +422,7 @@ static bool create_latch(RTLIL::Module *module, LibertyAst *node, bool flag_igno
 	return true;
 }
 
-void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, LibertyAst *ast)
+void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, const LibertyAst *ast)
 {
 	for (auto type_node : ast->children)
 	{
@@ -604,7 +604,7 @@ struct LibertyFrontend : public Frontend {
 			for (auto node : cell->children)
 			{
 				if (node->id == "pin" && node->args.size() == 1) {
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 					{
 						if (!flag_ignore_miss_dir)
@@ -625,10 +625,10 @@ struct LibertyFrontend : public Frontend {
 					if (!flag_lib)
 						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", log_id(cell_name));
 
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 
 					if (dir == nullptr) {
-						LibertyAst *pin = node->find("pin");
+						const LibertyAst *pin = node->find("pin");
 						if (pin != nullptr)
 							dir = pin->find("direction");
 					}
@@ -639,7 +639,7 @@ struct LibertyFrontend : public Frontend {
 					if (dir->value == "internal")
 						continue;
 
-					LibertyAst *bus_type_node = node->find("bus_type");
+					const LibertyAst *bus_type_node = node->find("bus_type");
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
 						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
@@ -681,7 +681,7 @@ struct LibertyFrontend : public Frontend {
 			{
 				if (node->id == "pin" && node->args.size() == 1)
 				{
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 
 					if (flag_lib && dir->value == "internal")
 						continue;
@@ -704,7 +704,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib)
 						continue;
 
-					LibertyAst *func = node->find("function");
+					const LibertyAst *func = node->find("function");
 					if (func == NULL)
 					{
 						if (dir->value != "inout") { // allow inout with missing function, can be used for power pins
@@ -719,7 +719,7 @@ struct LibertyFrontend : public Frontend {
 						}
 					} else {
 						RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
-						LibertyAst *three_state = node->find("three_state");
+						const LibertyAst *three_state = node->find("three_state");
 						if (three_state) {
 							out_sig = create_tristate(module, out_sig, three_state->value.c_str());
 						}

@@ -76,7 +76,7 @@ static void logmap_all()
 	logmap(ID($_DFFSR_PPP_));
 }
 
-static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name, bool &pin_pol)
+static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::string &pin_name, bool &pin_pol)
 {
 	if (cell == nullptr || attr == nullptr || attr->value.empty())
 		return false;
@@ -115,9 +115,9 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	return false;
 }
 
-static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
+static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
 {
-	LibertyAst *best_cell = nullptr;
+	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
@@ -131,7 +131,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
-		LibertyAst *dn = cell->find("dont_use");
+		const LibertyAst *dn = cell->find("dont_use");
 		if (dn != nullptr && dn->value == "true")
 			continue;
 
@@ -147,7 +147,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 		if (dont_use)
 			continue;
 
-		LibertyAst *ff = cell->find("ff");
+		const LibertyAst *ff = cell->find("ff");
 		if (ff == nullptr)
 			continue;
 
@@ -174,7 +174,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 		this_cell_ports[cell_next_pin] = 'D';
 
 		double area = 0;
-		LibertyAst *ar = cell->find("area");
+		const LibertyAst *ar = cell->find("area");
 		if (ar != nullptr && !ar->value.empty())
 			area = atof(ar->value.c_str());
 
@@ -186,7 +186,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
-			LibertyAst *dir = pin->find("direction");
+			const LibertyAst *dir = pin->find("direction");
 			if (dir == nullptr || dir->value == "internal")
 				continue;
 			num_pins++;
@@ -194,7 +194,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
 				goto continue_cell_loop;
 
-			LibertyAst *func = pin->find("function");
+			const LibertyAst *func = pin->find("function");
 			if (dir->value == "output" && func != nullptr) {
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
@@ -239,9 +239,9 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 	}
 }
 
-static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, std::vector<std::string> &dont_use_cells)
+static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, std::vector<std::string> &dont_use_cells)
 {
-	LibertyAst *best_cell = nullptr;
+	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
@@ -255,7 +255,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
-		LibertyAst *dn = cell->find("dont_use");
+		const LibertyAst *dn = cell->find("dont_use");
 		if (dn != nullptr && dn->value == "true")
 			continue;
 
@@ -271,7 +271,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		if (dont_use)
 			continue;
 
-		LibertyAst *ff = cell->find("ff");
+		const LibertyAst *ff = cell->find("ff");
 		if (ff == nullptr)
 			continue;
 
@@ -294,7 +294,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		this_cell_ports[cell_next_pin] = 'D';
 
 		double area = 0;
-		LibertyAst *ar = cell->find("area");
+		const LibertyAst *ar = cell->find("area");
 		if (ar != nullptr && !ar->value.empty())
 			area = atof(ar->value.c_str());
 
@@ -306,7 +306,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
-			LibertyAst *dir = pin->find("direction");
+			const LibertyAst *dir = pin->find("direction");
 			if (dir == nullptr || dir->value == "internal")
 				continue;
 			num_pins++;
@@ -314,7 +314,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 			if (dir->value == "input" && this_cell_ports.count(pin->args[0]) == 0)
 				goto continue_cell_loop;
 
-			LibertyAst *func = pin->find("function");
+			const LibertyAst *func = pin->find("function");
 			if (dir->value == "output" && func != nullptr) {
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
