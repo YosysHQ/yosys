@@ -186,7 +186,7 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($tribuf));
 	cell->setParam(ID::WIDTH, GetSize(func));
 	cell->setPort(ID::A, func);
-	cell->setPort(ID::EN, create_inv_cell(module, three_state));
+	cell->setPort(ID::EN, module->NotGate(NEW_ID, three_state));
 	cell->setPort(ID::Y, module->addWire(NEW_ID));
 	return cell->getPort(ID::Y);
 }
