@@ -5,6 +5,7 @@
 *.gch
 *.gcda
 *.gcno
+*.tmp
 *~
 __pycache__
 /.cproject
@@ -18,6 +19,7 @@ __pycache__
 /coverage.info
 /coverage_html
 /Makefile.conf
+/Brewfile.lock.json
 /viz.js
 /yosys
 /yosys.exe
@@ -45,16 +47,8 @@ __pycache__
 /tests/unit/bintest/
 /tests/unit/objtest/
 /tests/ystests
-/result
-
-# Created during tests
 /tests/arch/quicklogic/pp3/run-test.mk
 /tests/arch/quicklogic/qlf_k6n10f/run-test.mk
 /tests/verilog/roundtrip_proc_1.v
 /tests/verilog/roundtrip_proc_2.v
-
-# Ignore Brewfile locks
-Brewfile.lock.json
-
-# Ignore tmp files
-*.tmp
+/result
