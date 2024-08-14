@@ -98,7 +98,7 @@ struct SplitfanoutWorker
 		// Iterate over bit users and create a new cell for each one
 		log("Splitting %s cell %s/%s into %d copies based on fanout:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
-		cell->setPort(outport, module->addWire(NEW_ID, GetSize(outsig)));
+		cell->setPort(outport, module->addWire(NEW_ID, GetSize(outsig))); // disconnect the original cell (to be deleted)
 		for (auto user : bit_users)
 		{
 			// Create a new cell
@@ -107,17 +107,20 @@ struct SplitfanoutWorker
 
 			// Connect the new cell to the user
 			if (std::get<1>(user) == IdString()) {
-				Wire *old_wire = module->wire(std::get<0>(user));
-				Wire *new_wire = module->addWire(NEW_ID, old_wire);
+				IdString old_name = std::get<0>(user);
+				IdString new_name = module->uniquify(old_name.str());
+				Wire *old_wire = module->wire(old_name);
+				Wire *new_wire = module->addWire(new_name, old_wire);
 				module->swap_names(old_wire, new_wire);
-				old_wire->port_id = 0;
 				old_wire->port_input = false;
 				old_wire->port_output = false;
 				new_cell->setPort(outport, new_wire);
 			}
 			else {
 				Wire *new_wire = module->addWire(NEW_ID, GetSize(outsig));
-				module->cell(std::get<0>(user))->setPort(std::get<1>(user), new_wire);
+				SigSpec sig = module->cell(std::get<0>(user))->getPort(std::get<1>(user));
+				sig.replace(std::get<2>(user), new_wire);
+				module->cell(std::get<0>(user))->setPort(std::get<1>(user), sig);
 				new_cell->setPort(outport, new_wire);
 			}
 
