@@ -118,7 +118,9 @@ struct SplitfanoutWorker
 			}
 			else {
 				Wire *new_wire = module->addWire(NEW_ID, GetSize(outsig));
-				SigSpec sig = module->cell(std::get<0>(bit_user))->getPort(std::get<1>(bit_user));
+				Cell *target_cell = module->cell(std::get<0>(bit_user));
+				if (!target_cell) continue; // cell might no longer exist
+				SigSpec sig = target_cell->getPort(std::get<1>(bit_user));
 				sig.replace(std::get<2>(bit_user), new_wire);
 				module->cell(std::get<0>(bit_user))->setPort(std::get<1>(bit_user), sig);
 				new_cell->setPort(outport, new_wire);
