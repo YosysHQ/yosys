@@ -148,7 +148,7 @@ struct SplitfanoutPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    splitfanout [options] [selection]\n");
+		log("    splitfanout [selection]\n");
 		log("\n");
 		log("This command copies selected cells with >1 fanout into cells with fanout 1. It\n");
 		log("is effectively the opposite of the opt_merge pass.\n");
@@ -164,7 +164,7 @@ struct SplitfanoutPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// No arguments currently supported
+			// No options currently. When adding in the future make sure to update docstring with [options]
 			break;
 		}
 		extra_args(args, argidx, design);
