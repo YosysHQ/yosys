@@ -312,7 +312,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			} else if (!nodffe) {
 				dfflegalize_args += " -cell $_DFFE_?P_ 01 -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r";
 			}
-			dfflegalize_args += " -cell $_DLATCH_?_ x";
+			dfflegalize_args += " -cell $_DLATCH_?_ x -mince 8 -minsrst 8";
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
