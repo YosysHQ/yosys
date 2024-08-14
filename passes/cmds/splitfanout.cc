@@ -71,22 +71,23 @@ struct SplitfanoutWorker
 		// Get output signal/port
 		SigSpec outsig;
 		IdString outport;
-		if (cell->hasPort(ID::Y)) {
-			outsig = sigmap(cell->getPort(ID::Y));
-			outport = ID::Y;
-		}
-		else if (cell->hasPort(ID::Q)) {
-			outsig = sigmap(cell->getPort(ID::Q));
-			outport = ID::Q;
-		}
-		else
+		int output_count = 0;
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first)) {
+				output_count++;
+				outport = conn.first;
+				outsig = conn.second;
+			}
+		if (output_count != 1) {
+			log("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
 			return 0;
-
+		}
+		
 		// Check if output signal is "bit-split", skip if so
-		pool<tuple<IdString,IdString,int>> bit_users = bit_users_db[outsig[0]];
+		auto bit_users = bit_users_db[outsig[0]];
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
-				log("  Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
+				log("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
 				return 0;
 			}
 		}
@@ -98,37 +99,29 @@ struct SplitfanoutWorker
 		// Iterate over bit users and create a new cell for each one
 		log("Splitting %s cell %s/%s into %d copies based on fanout:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
-		cell->setPort(outport, module->addWire(NEW_ID, GetSize(outsig))); // disconnect the original cell (to be deleted)
-		for (auto user : bit_users)
+		cell->unsetPort(outport);
+		for (auto bit_user : bit_users)
 		{
 			// Create a new cell
 			IdString new_name = module->uniquify(cell->name.str());
 			Cell *new_cell = module->addCell(new_name, cell);
 
 			// Connect the new cell to the user
-			if (std::get<1>(user) == IdString()) {
-				IdString old_name = std::get<0>(user);
-				IdString new_name = module->uniquify(old_name.str());
-				Wire *old_wire = module->wire(old_name);
-				Wire *new_wire = module->addWire(new_name, old_wire);
-				module->swap_names(old_wire, new_wire);
-				old_wire->port_input = false;
-				old_wire->port_output = false;
-				new_cell->setPort(outport, new_wire);
+			if (std::get<1>(bit_user) == IdString()) { // is wire
+				Wire *wire = module->wire(std::get<0>(bit_user));
+				SigSpec spec(wire, std::get<2>(bit_user), GetSize(outsig));
+				new_cell->setPort(outport, spec);
 			}
 			else {
 				Wire *new_wire = module->addWire(NEW_ID, GetSize(outsig));
-				SigSpec sig = module->cell(std::get<0>(user))->getPort(std::get<1>(user));
-				sig.replace(std::get<2>(user), new_wire);
-				module->cell(std::get<0>(user))->setPort(std::get<1>(user), sig);
+				SigSpec sig = module->cell(std::get<0>(bit_user))->getPort(std::get<1>(bit_user));
+				sig.replace(std::get<2>(bit_user), new_wire);
+				module->cell(std::get<0>(bit_user))->setPort(std::get<1>(bit_user), sig);
 				new_cell->setPort(outport, new_wire);
 			}
 
 			// Log the new cell
-			log("  slice %d: %s => %s\n", foi, log_id(new_name), log_signal(new_cell->getPort(outport)));
-
-			// Increment the fanout index
-			foi++;
+			log("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
 		}
 
 		// Remove the original cell
