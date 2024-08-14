@@ -108,9 +108,13 @@ struct SplitfanoutWorker
 
 			// Connect the new cell to the user
 			if (std::get<1>(bit_user) == IdString()) { // is wire
-				Wire *wire = module->wire(std::get<0>(bit_user));
-				SigSpec spec(wire, std::get<2>(bit_user), GetSize(outsig));
-				new_cell->setPort(outport, spec);
+				Wire *old_wire = module->wire(std::get<0>(bit_user));
+				Wire *new_wire = module->addWire(NEW_ID, old_wire);
+				module->swap_names(old_wire, new_wire);
+				old_wire->port_input = false;
+				old_wire->port_output = false;
+				SigSpec sig(new_wire, std::get<2>(bit_user), GetSize(outsig));
+				new_cell->setPort(outport, sig);
 			}
 			else {
 				Wire *new_wire = module->addWire(NEW_ID, GetSize(outsig));
