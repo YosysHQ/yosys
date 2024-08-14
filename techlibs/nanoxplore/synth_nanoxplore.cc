@@ -314,6 +314,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			}
 			dfflegalize_args += " -cell $_DLATCH_?_ x -mince 8 -minsrst 8";
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
+			run("opt_merge");
 			run("techmap -map +/nanoxplore/latches_map.v");
 			run("techmap -map +/nanoxplore/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
