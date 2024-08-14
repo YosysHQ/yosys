@@ -1,0 +1,6 @@
+module XNOR2X1 (B, A, Y);
+  input B;
+  input A;
+  output Y;
+  assign Y = !(B&!A|!B&A); // !(B&!A|!B&A)
+endmodule

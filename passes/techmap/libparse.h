@@ -33,32 +33,35 @@ namespace Yosys
 		std::vector<std::string> args;
 		std::vector<LibertyAst*> children;
 		~LibertyAst();
-		LibertyAst *find(std::string name);
-		void dump(FILE *f, std::string indent = "", std::string path = "", bool path_ok = false);
-		static std::set<std::string> blacklist;
-		static std::set<std::string> whitelist;
+		const LibertyAst *find(std::string name) const;
+
+		typedef std::set<std::string> sieve;
+		void dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string indent = "", std::string path = "", bool path_ok = false) const;
 	};
 
-	struct LibertyParser
+	class LibertyParser
 	{
+	private:
 		std::istream &f;
 		int line;
-		LibertyAst *ast;
-		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
-		~LibertyParser() { if (ast) delete ast; }
-        
-        /* lexer return values:
-           'v': identifier, string, array range [...] -> str holds the token string
-           'n': newline
-           anything else is a single character.
-        */
+
+		/* lexer return values:
+		   'v': identifier, string, array range [...] -> str holds the token string
+		   'n': newline
+		   anything else is a single character.
+		*/
 		int lexer(std::string &str);
 		
-        LibertyAst *parse();
+		LibertyAst *parse();
 		void error();
-        void error(const std::string &str);
+		void error(const std::string &str);
+
+	public:
+		const LibertyAst *ast;
+
+		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
+		~LibertyParser() { if (ast) delete ast; }
 	};
 }
 
 #endif
-
