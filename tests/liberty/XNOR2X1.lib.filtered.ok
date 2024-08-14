@@ -1,0 +1,15 @@
+library(ls05_stdcells) {
+  cell(XNOR2X1) {
+    area : 206080.0 ;
+    pin(B) {
+      direction : input ;
+    }
+    pin(A) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : !(B&!A|!B&A) ;
+    }
+  }
+}

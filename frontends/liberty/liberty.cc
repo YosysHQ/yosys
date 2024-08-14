@@ -53,47 +53,12 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 	return module->wires_.at(id);
 }
 
-static RTLIL::SigSpec create_inv_cell(RTLIL::Module *module, RTLIL::SigSpec A)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_NOT_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_xor_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_XOR_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_and_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_AND_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
-static RTLIL::SigSpec create_or_cell(RTLIL::Module *module, RTLIL::SigSpec A, RTLIL::SigSpec B)
-{
-	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($_OR_));
-	cell->setPort(ID::A, A);
-	cell->setPort(ID::B, B);
-	cell->setPort(ID::Y, module->addWire(NEW_ID));
-	return cell->getPort(ID::Y);
-}
-
 static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack, token_t next_token)
 {
 	int top = int(stack.size())-1;
 
 	if (0 <= top-1 && stack[top].type == 0 && stack[top-1].type == '!') {
-		token_t t = token_t(0, create_inv_cell(module, stack[top].sig));
+		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -101,7 +66,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top].type == '\'' && stack[top-1].type == 0) {
-		token_t t = token_t(0, create_inv_cell(module, stack[top-1].sig));
+		token_t t = token_t(0, module->NotGate(NEW_ID, stack[top-1].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -116,7 +81,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 1 && stack[top-1].type == '^' && stack[top].type == 1) {
-		token_t t = token_t(1, create_xor_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(1, module->XorGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -132,7 +97,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-1 && stack[top-1].type == 2 && stack[top].type == 2) {
-		token_t t = token_t(2, create_and_cell(module, stack[top-1].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-1].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.push_back(t);
@@ -140,7 +105,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 2 && (stack[top-1].type == '*' || stack[top-1].type == '&') && stack[top].type == 2) {
-		token_t t = token_t(2, create_and_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(2, module->AndGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -156,7 +121,7 @@ static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack
 	}
 
 	if (0 <= top-2 && stack[top-2].type == 3 && (stack[top-1].type == '+' || stack[top-1].type == '|') && stack[top].type == 3) {
-		token_t t = token_t(3, create_or_cell(module, stack[top-2].sig, stack[top].sig));
+		token_t t = token_t(3, module->OrGate(NEW_ID, stack[top-2].sig, stack[top].sig));
 		stack.pop_back();
 		stack.pop_back();
 		stack.pop_back();
@@ -221,12 +186,12 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	RTLIL::Cell *cell = module->addCell(NEW_ID, ID($tribuf));
 	cell->setParam(ID::WIDTH, GetSize(func));
 	cell->setPort(ID::A, func);
-	cell->setPort(ID::EN, create_inv_cell(module, three_state));
+	cell->setPort(ID::EN, module->NotGate(NEW_ID, three_state));
 	cell->setPort(ID::Y, module->addWire(NEW_ID));
 	return cell->getPort(ID::Y);
 }
 
-static void create_ff(RTLIL::Module *module, LibertyAst *node)
+static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
 	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
@@ -303,7 +268,7 @@ static void create_ff(RTLIL::Module *module, LibertyAst *node)
 	log_assert(!cell->type.empty());
 }
 
-static bool create_latch(RTLIL::Module *module, LibertyAst *node, bool flag_ignore_miss_data_latch)
+static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool flag_ignore_miss_data_latch)
 {
 	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
 	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
@@ -422,7 +387,7 @@ static bool create_latch(RTLIL::Module *module, LibertyAst *node, bool flag_igno
 	return true;
 }
 
-void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, LibertyAst *ast)
+void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map, const LibertyAst *ast)
 {
 	for (auto type_node : ast->children)
 	{
@@ -615,7 +580,7 @@ struct LibertyFrontend : public Frontend {
 					module->attributes["\\LeakagePower"] = node->value;
 
 				if (node->id == "pin" && node->args.size() == 1) {
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 					{
 						if (!flag_ignore_miss_dir)
@@ -636,10 +601,10 @@ struct LibertyFrontend : public Frontend {
 					if (!flag_lib)
 						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", log_id(cell_name));
 
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 
 					if (dir == nullptr) {
-						LibertyAst *pin = node->find("pin");
+						const LibertyAst *pin = node->find("pin");
 						if (pin != nullptr)
 							dir = pin->find("direction");
 					}
@@ -650,7 +615,7 @@ struct LibertyFrontend : public Frontend {
 					if (dir->value == "internal")
 						continue;
 
-					LibertyAst *bus_type_node = node->find("bus_type");
+					const LibertyAst *bus_type_node = node->find("bus_type");
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
 						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
@@ -692,7 +657,7 @@ struct LibertyFrontend : public Frontend {
 			{
 				if (node->id == "pin" && node->args.size() == 1)
 				{
-					LibertyAst *dir = node->find("direction");
+					const LibertyAst *dir = node->find("direction");
 
 					if (flag_lib && dir->value == "internal")
 						continue;
@@ -715,7 +680,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib)
 						continue;
 
-					LibertyAst *func = node->find("function");
+					const LibertyAst *func = node->find("function");
 					if (func == NULL)
 					{
 						if (dir->value != "inout") { // allow inout with missing function, can be used for power pins
@@ -730,7 +695,7 @@ struct LibertyFrontend : public Frontend {
 						}
 					} else {
 						RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
-						LibertyAst *three_state = node->find("three_state");
+						const LibertyAst *three_state = node->find("three_state");
 						if (three_state) {
 							out_sig = create_tristate(module, out_sig, three_state->value.c_str());
 						}

@@ -456,7 +456,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
-		LibertyAst *ar = cell->find("area");
+		const LibertyAst *ar = cell->find("area");
 		bool is_flip_flop = cell->find("ff") != nullptr;
 		if (ar != nullptr && !ar->value.empty())
 			cell_area["\\" + cell->args[0]] = {/*area=*/atof(ar->value.c_str()), is_flip_flop};

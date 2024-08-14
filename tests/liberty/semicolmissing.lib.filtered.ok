@@ -1,0 +1,22 @@
+library(supergate) {
+  cell(fulladder) {
+    area : 8 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(CI) {
+      direction : input ;
+    }
+    pin(CO) {
+      direction : output ;
+      function : (((A * B)+(B * CI))+(CI * A)) ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : ((A^B)^CI) ;
+    }
+  }
+}
