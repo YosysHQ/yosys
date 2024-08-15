@@ -1991,7 +1991,7 @@ void fstWriterClose(void *ctx)
             fflush(xc->handle);
 
 #ifndef __MINGW32__
-            sprintf(fnam, "%s.hier", xc->filename);
+            snprintf(fnam, sizeof(fnam), "%s.hier", xc->filename);
             unlink(fnam);
             free(fnam);
 #endif
@@ -2616,7 +2616,7 @@ fstEnumHandle fstWriterCreateEnumTable(void *ctx, const char *name, uint32_t ele
         uint32_t i;
 
         name_len = strlen(name);
-        elem_count_len = sprintf(elem_count_buf, "%" PRIu32, elem_count);
+        elem_count_len = snprintf(elem_count_buf, sizeof(elem_count_buf), "%" PRIu32, elem_count);
 
         literal_lens = (unsigned int *)calloc(elem_count, sizeof(unsigned int));
         val_lens = (unsigned int *)calloc(elem_count, sizeof(unsigned int));
@@ -3594,7 +3594,7 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
             htyp = xc->contains_hier_section_lz4duo ? FST_BL_HIER_LZ4DUO : FST_BL_HIER_LZ4;
         }
 
-        sprintf(fnam, "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(fnam, sizeof(fnam), "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
         fstReaderFseeko(xc, xc->f, xc->hier_pos, SEEK_SET);
         uclen = fstReaderUint64(xc->f);
 #ifndef __MINGW32__
@@ -4241,7 +4241,7 @@ int fstReaderInit(struct fstReaderContext *xc)
 
         hf = (char *)calloc(1, flen + 16 + 32 + 1);
 
-        sprintf(hf, "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(hf, sizeof(hf), "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
         fcomp = fopen(hf, "w+b");
         if (!fcomp) {
             fcomp = tmpfile_open(&xc->f_nam);
@@ -4799,21 +4799,21 @@ int fstReaderIterBlocks2(void *ctx,
 
                     if (beg_tim) {
                         if (dumpvars_state == 1) {
-                            wx_len = sprintf(wx_buf, "$end\n");
+                            wx_len = snprintf(wx_buf, 6, "$end\n");
                             fstWritex(xc, wx_buf, wx_len);
                             dumpvars_state = 2;
                         }
-                        wx_len = sprintf(wx_buf, "#%" PRIu64 "\n", beg_tim);
+                        wx_len = snprintf(wx_buf, 20, "#%" PRIu64 "\n", beg_tim);
                         fstWritex(xc, wx_buf, wx_len);
                         if (!dumpvars_state) {
-                            wx_len = sprintf(wx_buf, "$dumpvars\n");
+                            wx_len = snprintf(wx_buf, 11, "$dumpvars\n");
                             fstWritex(xc, wx_buf, wx_len);
                             dumpvars_state = 1;
                         }
                     }
                     if ((xc->num_blackouts) && (cur_blackout != xc->num_blackouts)) {
                         if (beg_tim == xc->blackout_times[cur_blackout]) {
-                            wx_len = sprintf(wx_buf, "$dump%s $end\n",
+                            wx_len = snprintf(wx_buf, 16, "$dump%s $end\n",
                                              (xc->blackout_activity[cur_blackout++]) ? "on" : "off");
                             fstWritex(xc, wx_buf, wx_len);
                         }
@@ -4914,7 +4914,7 @@ int fstReaderIterBlocks2(void *ctx,
                                                 clone_d[j] = srcdata[7 - j];
                                             }
                                         }
-                                        sprintf((char *)xc->temp_signal_value_buf, "%.16g", d);
+                                        snprintf((char *)xc->temp_signal_value_buf, 32, "%.16g", d);
                                         value_change_callback(user_callback_data_pointer, beg_tim, idx + 1,
                                                               xc->temp_signal_value_buf);
                                     }
@@ -4936,7 +4936,7 @@ int fstReaderIterBlocks2(void *ctx,
                                         }
 
                                         fstVcdID(vcdid_buf, idx + 1);
-                                        wx_len = sprintf(wx_buf, "r%.16g %s\n", d, vcdid_buf);
+                                        wx_len = snprintf(wx_buf, sizeof(wx_buf), "r%.16g %s\n", d, vcdid_buf);
                                         fstWritex(xc, wx_buf, wx_len);
                                     }
                                 }
@@ -5179,21 +5179,21 @@ int fstReaderIterBlocks2(void *ctx,
                     }
 
                     if (dumpvars_state == 1) {
-                        wx_len = sprintf(wx_buf, "$end\n");
+                        wx_len = snprintf(wx_buf, 6, "$end\n");
                         fstWritex(xc, wx_buf, wx_len);
                         dumpvars_state = 2;
                     }
-                    wx_len = sprintf(wx_buf, "#%" PRIu64 "\n", time_table[i]);
+                    wx_len = snprintf(wx_buf, 20, "#%" PRIu64 "\n", time_table[i]);
                     fstWritex(xc, wx_buf, wx_len);
                     if (!dumpvars_state) {
-                        wx_len = sprintf(wx_buf, "$dumpvars\n");
+                        wx_len = snprintf(wx_buf, 11, "$dumpvars\n");
                         fstWritex(xc, wx_buf, wx_len);
                         dumpvars_state = 1;
                     }
 
                     if ((xc->num_blackouts) && (cur_blackout != xc->num_blackouts)) {
                         if (time_table[i] == xc->blackout_times[cur_blackout]) {
-                            wx_len = sprintf(wx_buf, "$dump%s $end\n",
+                            wx_len = snprintf(wx_buf, 16, "$dump%s $end\n",
                                              (xc->blackout_activity[cur_blackout++]) ? "on" : "off");
                             fstWritex(xc, wx_buf, wx_len);
                         }
@@ -5407,7 +5407,7 @@ int fstReaderIterBlocks2(void *ctx,
                                         clone_d[j] = srcdata[7 - j];
                                     }
                                 }
-                                sprintf((char *)xc->temp_signal_value_buf, "%.16g", d);
+                                snprintf((char *)xc->temp_signal_value_buf, 32, "%.16g", d);
                                 value_change_callback(user_callback_data_pointer, time_table[i], idx + 1,
                                                       xc->temp_signal_value_buf);
                             }
@@ -5427,7 +5427,7 @@ int fstReaderIterBlocks2(void *ctx,
                                     }
                                 }
 
-                                wx_len = sprintf(wx_buf, "r%.16g", d);
+                                wx_len = snprintf(wx_buf, sizeof(wx_buf), "r%.16g", d);
                                 fstWritex(xc, wx_buf, wx_len);
                             }
                         }
@@ -5523,7 +5523,7 @@ static char *fstExtractRvatDataFromFrame(struct fstReaderContext *xc, fstHandle 
                 }
             }
 
-            sprintf((char *)buf, "%.16g", d);
+            snprintf((char *)buf, 32, "%.16g", d);
         }
     }
 
@@ -6045,7 +6045,7 @@ process_value:
                         }
                     }
 
-                    sprintf(buf, "r%.16g", d);
+                    snprintf(buf, sizeof(buf), "r%.16g", d);
                     return (buf);
                 }
             } else {
