@@ -1907,7 +1907,8 @@ void fstWriterClose(void *ctx)
             int zfd;
             int fourpack_duo = 0;
 #ifndef __MINGW32__
-            char *fnam = (char *)malloc(strlen(xc->filename) + 5 + 1);
+            auto fnam_size = strlen(xc->filename) + 5 + 1;
+            char *fnam = (char *)malloc(fnam_size);
 #endif
 
             fixup_offs = ftello(xc->handle);
@@ -1991,7 +1992,7 @@ void fstWriterClose(void *ctx)
             fflush(xc->handle);
 
 #ifndef __MINGW32__
-            snprintf(fnam, sizeof(fnam), "%s.hier", xc->filename);
+            snprintf(fnam, fnam_size, "%s.hier", xc->filename);
             unlink(fnam);
             free(fnam);
 #endif
@@ -3579,7 +3580,8 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
 
     if (!xc->fh) {
         fst_off_t offs_cache = ftello(xc->f);
-        char *fnam = (char *)malloc(strlen(xc->filename) + 6 + 16 + 32 + 1);
+	auto fnam_size = strlen(xc->filename) + 6 + 16 + 32 + 1;
+        char *fnam = (char *)malloc(fnam_size);
         unsigned char *mem = (unsigned char *)malloc(FST_GZIO_LEN);
         fst_off_t hl, uclen;
         fst_off_t clen = 0;
@@ -3594,7 +3596,7 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
             htyp = xc->contains_hier_section_lz4duo ? FST_BL_HIER_LZ4DUO : FST_BL_HIER_LZ4;
         }
 
-        snprintf(fnam, sizeof(fnam), "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(fnam, fnam_size, "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
         fstReaderFseeko(xc, xc->f, xc->hier_pos, SEEK_SET);
         uclen = fstReaderUint64(xc->f);
 #ifndef __MINGW32__
@@ -4239,9 +4241,10 @@ int fstReaderInit(struct fstReaderContext *xc)
         if (!seclen)
             return (0); /* not finished compressing, this is a failed read */
 
-        hf = (char *)calloc(1, flen + 16 + 32 + 1);
+	size_t hf_size = flen + 16 + 32 + 1;
+        hf = (char *)calloc(1, hf_size);
 
-        snprintf(hf, sizeof(hf), "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(hf, hf_size, "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
         fcomp = fopen(hf, "w+b");
         if (!fcomp) {
             fcomp = tmpfile_open(&xc->f_nam);
@@ -6045,7 +6048,7 @@ process_value:
                         }
                     }
 
-                    snprintf(buf, sizeof(buf), "r%.16g", d);
+                    snprintf(buf, 32, "r%.16g", d);
                     return (buf);
                 }
             } else {
