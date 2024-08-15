@@ -287,7 +287,7 @@ struct WreduceWorker
 		int max_port_a_size = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : -1;
 		int max_port_b_size = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : -1;
 
-		if (cell->type.in(ID($not), ID($pos), ID($neg), ID($and), ID($or), ID($xor), ID($add), ID($sub))) {
+		if (cell->type.in(ID($not), ID($pos), ID($neg), ID($and), ID($or), ID($xor), ID($add), ID($sub), ID($shl), ID($sshl))) {
 			max_port_a_size = min(max_port_a_size, GetSize(sig));
 			max_port_b_size = min(max_port_b_size, GetSize(sig));
 		}
