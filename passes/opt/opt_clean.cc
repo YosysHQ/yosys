@@ -298,7 +298,7 @@ bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool unusedbitsattr_mode, bool verbose)
 {
 	// `register_signals` and `connected_signals` will help us decide later on
 	// on picking representatives out of groups of connected signals
@@ -485,7 +485,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				}
 				if (unused_bits.empty() || wire->port_id != 0)
 					wire->attributes.erase(ID::unused_bits);
-				else
+				else if (unusedbitsattr_mode)
 					wire->attributes[ID::unused_bits] = RTLIL::Const(unused_bits);
 			} else {
 				wire->attributes.erase(ID::unused_bits);
@@ -594,7 +594,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	return did_something;
 }
 
-void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit)
+void rmunused_module(RTLIL::Module *module, bool purge_mode, bool unusedbitsattr_mode, bool verbose, bool rminit)
 {
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name.c_str());
@@ -619,10 +619,10 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
-	while (rmunused_module_signals(module, purge_mode, verbose)) { }
+	while (rmunused_module_signals(module, purge_mode, unusedbitsattr_mode, verbose)) { }
 
 	if (rminit && rmunused_module_init(module, verbose))
-		while (rmunused_module_signals(module, purge_mode, verbose)) { }
+		while (rmunused_module_signals(module, purge_mode, unusedbitsattr_mode, verbose)) { }
 }
 
 struct OptCleanPass : public Pass {
@@ -643,10 +643,14 @@ struct OptCleanPass : public Pass {
 		log("    -purge\n");
 		log("        also remove internal nets if they have a public name\n");
 		log("\n");
+		log("    -unusedbitsattr\n");
+		log("       add an unused_bits attribute onto wires for bits that are not used\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
+		bool unusedbitsattr_mode = false;
 
 		log_header(design, "Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
@@ -655,6 +659,10 @@ struct OptCleanPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-purge") {
 				purge_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-unusedbitsattr") {
+				unusedbitsattr_mode = true;
 				continue;
 			}
 			break;
@@ -675,7 +683,7 @@ struct OptCleanPass : public Pass {
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
-			rmunused_module(module, purge_mode, true, true);
+			rmunused_module(module, purge_mode, unusedbitsattr_mode, true, true);
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
@@ -737,7 +745,7 @@ struct CleanPass : public Pass {
 		for (auto module : design->selected_whole_modules()) {
 			if (module->has_processes())
 				continue;
-			rmunused_module(module, purge_mode, ys_debug(), true);
+			rmunused_module(module, purge_mode, false, ys_debug(), true);
 		}
 
 		log_suppressed();
