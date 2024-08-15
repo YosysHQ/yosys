@@ -3,7 +3,7 @@ name: Build and run tests with Verific (Linux)
 on: [push, pull_request]
 
 jobs:
-  pre_job:
+  pre-job:
     runs-on: ubuntu-latest
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
@@ -20,8 +20,8 @@ jobs:
           skip_after_successful_duplicate: 'false'
 
   test-verific:
-    needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: pre-job
+    if: needs.pre-job.outputs.should_skip != 'true'
     runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout Yosys
@@ -73,8 +73,8 @@ jobs:
 
   prepare-docs:
     name: Generate docs artifact
-    needs: pre_job, test-verific
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: [pre-job, test-verific]
+    if: needs.pre-job.outputs.should_skip != 'true'
     runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout Yosys
