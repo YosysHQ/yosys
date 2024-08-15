@@ -76,6 +76,14 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use flipflops with L in output netlist\n");
 		log("\n");
+		log("    -min_ce_use <min_ce_use>\n");
+		log("        do not use flip-flops with load signal if the resulting count is less\n");
+		log("        than min_ce_use in output netlist\n");
+		log("\n");
+		log("    -min_srst_use <min_srst_use>\n");
+		log("        do not use flip-flops with async reset signal if the resulting count is less\n");
+		log("        than min_srst_use in output netlist\n");
+		log("\n");
 		log("    -norfram\n");
 		log("        do not use Register File RAM cells in output netlist\n");
 		log("\n");
@@ -102,6 +110,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	string top_opt, json_file, family;
 	bool flatten, abc9, nocy, nodffe, norfram, nobram, nodsp, noiopad, no_rw_check;
 	std::string postfix;
+	int min_ce_use, min_srst_use;
 
 	void clear_flags() override
 	{
@@ -118,6 +127,8 @@ struct SynthNanoXplorePass : public ScriptPass
 		noiopad = false;
 		no_rw_check = false;
 		postfix = "";
+		min_ce_use = 8;
+		min_srst_use = 8;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -166,6 +177,14 @@ struct SynthNanoXplorePass : public ScriptPass
 			}
 			if (args[argidx] == "-nodffe") {
 				nodffe = true;
+				continue;
+			}
+			if (args[argidx] == "-min_ce_use" && argidx+1 < args.size()) {
+				min_ce_use = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-min_srst_use" && argidx+1 < args.size()) {
+				min_srst_use = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-norfram") {
@@ -312,7 +331,7 @@ struct SynthNanoXplorePass : public ScriptPass
 			} else if (!nodffe) {
 				dfflegalize_args += " -cell $_DFFE_?P_ 01 -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r";
 			}
-			dfflegalize_args += " -cell $_DLATCH_?_ x -mince 8 -minsrst 8";
+			dfflegalize_args += stringf(" -cell $_DLATCH_?_ x -mince %d -minsrst %d", min_ce_use, min_srst_use);
 			run("dfflegalize" + dfflegalize_args,"($_*DFFE_* only if not -nodffe)");
 			run("opt_merge");
 			run("techmap -map +/nanoxplore/latches_map.v");
