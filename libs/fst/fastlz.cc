@@ -108,7 +108,7 @@ int fastlz_decompress(const void* input, int length, void* output, int maxout);
 #define FASTLZ_DECOMPRESSOR fastlz1_decompress
 static FASTLZ_INLINE int FASTLZ_COMPRESSOR(const void* input, int length, void* output);
 static FASTLZ_INLINE int FASTLZ_DECOMPRESSOR(const void* input, int length, void* output, int maxout);
-#include "fastlz.c"
+#include "fastlz.cc"
 
 #undef FASTLZ_LEVEL
 #define FASTLZ_LEVEL 2
@@ -123,7 +123,7 @@ static FASTLZ_INLINE int FASTLZ_DECOMPRESSOR(const void* input, int length, void
 #define FASTLZ_DECOMPRESSOR fastlz2_decompress
 static FASTLZ_INLINE int FASTLZ_COMPRESSOR(const void* input, int length, void* output);
 static FASTLZ_INLINE int FASTLZ_DECOMPRESSOR(const void* input, int length, void* output, int maxout);
-#include "fastlz.c"
+#include "fastlz.cc"
 
 int fastlz_compress(const void* input, int length, void* output)
 {
