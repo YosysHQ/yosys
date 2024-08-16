@@ -26,6 +26,11 @@ test_log "\"test\"" "test"
 test_log "\"test;\"" "test;"
 test_log "\"test;;\"" "test;;"
 test_log "\"test\" abc" "\"test\" abc"
+test_log "\"#comments\" #123" "#comments"
+test_log "\"!bang\"" "!bang"
+test_log "\"spaces are cool too\"" "spaces are cool too"
+test_log "\"log a\"; log b" "log a"
+test_log "\"log a\"; log b" "b"
 
 if [ -f quotes-*.err ] ; then
     exit 1
