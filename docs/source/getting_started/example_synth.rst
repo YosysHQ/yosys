@@ -292,8 +292,8 @@ optimizations between modules which would otherwise be missed.  Let's run
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
-   :start-at: yosys> flatten
-   :end-before: yosys> select
+   :start-at: yosys> flatten;;
+   :end-before: echo on
    :name: flat_clean
    :caption: output of :yoscrypt:`flatten;;`
 
@@ -312,13 +312,6 @@ also see that the ``addr`` output has been renamed to :file:`fifo_reader.addr`
 and merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
 merging happened during the call to :cmd:ref:`clean` which we can see in the
 :ref:`flat_clean`.
-
-.. note:: 
-
-   :cmd:ref:`flatten` and :cmd:ref:`clean` would normally be combined into a
-   single :yoterm:`yosys> flatten;;` output, but they appear separately here as
-   a side effect of using :cmd:ref:`echo` for generating the terminal style
-   output.
 
 Depending on the target architecture, this stage of synthesis might also see
 commands such as :cmd:ref:`tribuf` with the ``-logic`` option and
