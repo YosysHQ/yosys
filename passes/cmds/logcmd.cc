@@ -97,6 +97,9 @@ struct LogPass : public Pass {
 			text += args[argidx] + ' ';
 		if (!text.empty()) text.resize(text.size()-1);
 
+		if (text[0] == '"' && text[text.size()-1] == '"')
+			text = text.substr(1, text.size()-2);
+
 		const char *fmtline = newline ? "%s\n" : "%s";
 
 		if (to_stdout) fprintf(stdout, fmtline, text.c_str());
