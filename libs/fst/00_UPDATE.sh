@@ -14,3 +14,5 @@ mv config.h.bak config.h
 
 sed -i -e 's,<config.h>,"config.h",' *.cc *.h
 sed -i -e 's,"fastlz.c","fastlz.cc",' *.cc *.h
+
+patch -p0 < 00_PATCH_win_zlib.patch
