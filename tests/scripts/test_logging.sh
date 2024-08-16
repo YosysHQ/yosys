@@ -31,7 +31,10 @@ test_log "\"!bang\"" "!bang"
 test_log "\"spaces are cool too\"" "spaces are cool too"
 test_log "\"log a\"; log b" "log a"
 test_log "\"log a\"; log b" "b"
+test_log "\"" "\""
+test_log "\\\"" "\\\\\"" #\" == \"
 
-if [ -f quotes-*.err ] ; then
+errors=( quotes-*.err )
+if [ -f $errors ] ; then
     exit 1
 fi
