@@ -1,0 +1,3 @@
+*.err
+*.log
+run-test.mk
