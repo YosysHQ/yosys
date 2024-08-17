@@ -371,6 +371,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $shl (A, B, Y)
+//-
+//- A logical shift-left operation. This corresponds to the Verilog '<<' operator.
+//-
 module \$shl (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -395,6 +401,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $shr (A, B, Y)
+//-
+//- A logical shift-right operation. This corresponds to the Verilog '>>' operator.
+//-
 module \$shr (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -419,6 +431,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $sshl (A, B, Y)
+//-
+//- An arithmatic shift-left operation. This corresponds to the Verilog '<<<' operator.
+//-
 module \$sshl (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -443,6 +461,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $sshr (A, B, Y)
+//-
+//- An arithmatic shift-right operation. This corresponds to the Verilog '>>>' operator.
+//-
 module \$sshr (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -639,6 +663,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $lt (A, B, Y)
+//-
+//- A less-than comparison between inputs 'A' and 'B'. This corresponds to the Verilog '<' operator.
+//-
 module \$lt (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -663,6 +693,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $le (A, B, Y)
+//-
+//- A less-than-or-equal-to comparison between inputs 'A' and 'B'. This corresponds to the Verilog '<=' operator.
+//-
 module \$le (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -687,6 +723,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $eq (A, B, Y)
+//-
+//- An equality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '==' operator.
+//-
 module \$eq (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -711,6 +753,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $ne (A, B, Y)
+//-
+//- An inequality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '!=' operator.
+//-
 module \$ne (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -735,6 +783,13 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $eqx (A, B, Y)
+//-
+//- An exact equality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '===' operator.
+//- Unlike equality comparison that can give 'x' as output, an exact equality comparison will strictly give '0' or '1' as output.
+//-
 module \$eqx (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -759,6 +814,13 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $nex (A, B, Y)
+//-
+//- An exact inequality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '!==' operator.
+//- Unlike inequality comparison that can give 'x' as output, an exact inequality comparison will strictly give '0' or '1' as output.
+//-
 module \$nex (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -783,6 +845,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $ge (A, B, Y)
+//-
+//- A greater-than-or-equal-to comparison between inputs 'A' and 'B'. This corresponds to the Verilog '>=' operator.
+//-
 module \$ge (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -807,6 +875,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $gt (A, B, Y)
+//-
+//- A greater-than comparison between inputs 'A' and 'B'. This corresponds to the Verilog '>' operator.
+//-
 module \$gt (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -831,6 +905,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $add (A, B, Y)
+//-
+//-  Addition of inputs 'A' and 'B'. This corresponds to the Verilog '+' operator.
+//-
 module \$add (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -855,6 +935,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $sub (A, B, Y)
+//-
+//-  Subtraction between inputs 'A' and 'B'. This corresponds to the Verilog '-' operator.
+//-
 module \$sub (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -879,6 +965,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $mul (A, B, Y)
+//-
+//- Multiplication of inputs 'A' and 'B'. This corresponds to the Verilog '*' operator.
+//-
 module \$mul (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -1191,6 +1283,13 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $pow (A, B, Y)
+//-
+//-  Exponentiation of inputs (Y = A ** B). This corresponds to the Verilog '**' operator.
+//-
 `ifndef SIMLIB_NOPOW
 
 module \$pow (A, B, Y);
@@ -1222,6 +1321,12 @@ endmodule
 `endif
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $logic_not (A, Y)
+//-
+//- A logical inverter. This corresponds to the Verilog unary prefix '!' operator.
+//-
 module \$logic_not (A, Y);
 
 parameter A_SIGNED = 0;
@@ -1243,6 +1348,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $logic_and (A, B, Y)
+//-
+//- A logical AND. This corresponds to the Verilog '&&' operator.
+//-
 module \$logic_and (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -1267,6 +1378,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $logic_or (A, B, Y)
+//-
+//- A logical OR. This corresponds to the Verilog '||' operator.
+//-
 module \$logic_or (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -1306,6 +1423,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $concat (A, B, Y)
+//-
+//- Concatenation of inputs into a single output ( Y = {B, A} ).
+//-
 module \$concat (A, B, Y);
 
 parameter A_WIDTH = 0;
@@ -1321,6 +1444,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $mux (A, B, S, Y)
+//-
+//- Multiplexer i.e selecting inputs based on select signal.
+//-
 module \$mux (A, B, S, Y);
 
 parameter WIDTH = 0;
@@ -1396,6 +1525,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $demux (A, S, Y)
+//-
+//- Demultiplexer i.e routing single input to several outputs based on select signal.
+//-
 module \$demux (A, S, Y);
 
 parameter WIDTH = 1;
@@ -1460,6 +1595,12 @@ endmodule
 
 // --------------------------------------------------------
 
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $tribuf (A, EN, Y)
+//-
+//- A tri-state buffer. This buffer conditionally passes the input to the output based on the enable signal.
+//-
 module \$tribuf (A, EN, Y);
 
 parameter WIDTH = 0;
