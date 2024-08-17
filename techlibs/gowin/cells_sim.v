@@ -729,6 +729,21 @@ RESET, CALIB, D);
 	parameter LSREN = "true";
 endmodule
 
+module IDES4_MEM (Q0, Q1, Q2, Q3, D, WADDR,
+RADDR, CALIB, PCLK, FCLK, ICLK, RESET)  ;
+parameter GSREN = "";
+parameter LSREN = "";
+
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input CALIB, RESET;
+
+output Q0,Q1,Q2,Q3;
+
+parameter ID = "";
+endmodule
+
 module IDES8(Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
 RESET, CALIB, D);
 	input D;
