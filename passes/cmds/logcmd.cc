@@ -93,12 +93,15 @@ struct LogPass : public Pass {
 		if (push) { log_push(); return; }
 		if (pop)  { log_pop(); return; }
 
-		for (; argidx < args.size(); argidx++)
-			text += args[argidx] + ' ';
-		if (!text.empty()) text.resize(text.size()-1);
-
-		if (text.size() > 1 && text[0] == '"' && text[text.size()-1] == '"')
-			text = text.substr(1, text.size()-2);
+		text = args[argidx++];
+		if (argidx < args.size()) {
+			for (; argidx < args.size(); argidx++) {
+				text += ' ' + args[argidx];
+			}
+		} else {
+			if (text.size() > 1 && text[0] == '"' && text[text.size()-1] == '"')
+				text = text.substr(1, text.size()-2);
+		}
 
 		const char *fmtline = newline ? "%s\n" : "%s";
 
