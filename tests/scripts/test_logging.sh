@@ -33,6 +33,7 @@ test_log "\"log a\"; log b" "log a"
 test_log "\"log a\"; log b" "b"
 test_log "\"" "\""
 test_log "\\\"" "\\\\\"" #\" == \"
+test_log "\"abc\" \"def\"" "\"abc\" \"def\"" # don't abbreviate to abc" "def
 
 errors=( quotes-*.err )
 if [ -f $errors ] ; then
