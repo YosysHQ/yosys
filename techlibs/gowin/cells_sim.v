@@ -618,6 +618,21 @@ module OSER4(D3, D2, D1, D0, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	parameter HWL = "false";
 endmodule
 
+module OSER4_MEM (Q0, Q1, D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET)  ;
+    parameter GSREN = "";
+    parameter LSREN = "";
+    parameter HWL = "";
+    parameter TCLK_SOURCE = "";
+    parameter TXCLK_POL = "";
+
+    input D0, D1, D2, D3;
+    input TX0, TX1;
+    input PCLK, FCLK, TCLK, RESET;
+    output  Q0,  Q1;
+
+    parameter ID = "";
+endmodule
+
 module OSER8(D7, D6, D5, D4, D3, D2, D1, D0, TX3, TX2, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	output Q1;
 	output Q0;
@@ -856,6 +871,30 @@ module IDDRC(D, CLK, CLEAR, Q0, Q1);
 	parameter Q0_INIT = 1'b0;
 	parameter Q1_INIT = 1'b0;
 endmodule
+
+module DQS(DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID, RBURST, RFLAG,
+WFLAG, DQSIN, DLLSTEP, WSTEP, READ, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR,
+HOLD, RCLKSEL, PCLK, FCLK, RESET) ;
+    input DQSIN,PCLK,FCLK,RESET;
+    input [3:0] READ;
+    input [2:0] RCLKSEL;
+    input [7:0] DLLSTEP;
+    input [7:0] WSTEP;
+    input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+
+    output DQSR90, DQSW0, DQSW270; 
+    output [2:0] RPOINT, WPOINT;
+    output RVALID,RBURST, RFLAG, WFLAG;
+
+    parameter FIFO_MODE_SEL = "";
+    parameter RD_PNTR = "";
+    parameter DQS_MODE = "";
+    parameter HWL = "";
+    parameter GSREN = "";
+    parameter ID = "";
+
+endmodule    
+
 
 (* blackbox *)
 module ODDR(D0, D1, TX, CLK, Q0, Q1);
