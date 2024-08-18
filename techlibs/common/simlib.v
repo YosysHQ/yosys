@@ -435,7 +435,8 @@ endmodule
 //-
 //-     $sshl (A, B, Y)
 //-
-//- An arithmatic shift-left operation. This corresponds to the Verilog '<<<' operator.
+//- An arithmatic shift-left operation. 
+//- This corresponds to the Verilog '<<<' operator.
 //-
 module \$sshl (A, B, Y);
 
@@ -465,7 +466,8 @@ endmodule
 //-
 //-     $sshr (A, B, Y)
 //-
-//- An arithmatic shift-right operation. This corresponds to the Verilog '>>>' operator.
+//- An arithmatic shift-right operation.
+//- This corresponds to the Verilog '>>>' operator.
 //-
 module \$sshr (A, B, Y);
 
@@ -667,7 +669,8 @@ endmodule
 //-
 //-     $lt (A, B, Y)
 //-
-//- A less-than comparison between inputs 'A' and 'B'. This corresponds to the Verilog '<' operator.
+//- A less-than comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '<' operator.
 //-
 module \$lt (A, B, Y);
 
@@ -697,7 +700,8 @@ endmodule
 //-
 //-     $le (A, B, Y)
 //-
-//- A less-than-or-equal-to comparison between inputs 'A' and 'B'. This corresponds to the Verilog '<=' operator.
+//- A less-than-or-equal-to comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '<=' operator.
 //-
 module \$le (A, B, Y);
 
@@ -727,7 +731,8 @@ endmodule
 //-
 //-     $eq (A, B, Y)
 //-
-//- An equality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '==' operator.
+//- An equality comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '==' operator.
 //-
 module \$eq (A, B, Y);
 
@@ -757,7 +762,8 @@ endmodule
 //-
 //-     $ne (A, B, Y)
 //-
-//- An inequality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '!=' operator.
+//- An inequality comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '!=' operator.
 //-
 module \$ne (A, B, Y);
 
@@ -787,8 +793,10 @@ endmodule
 //-
 //-     $eqx (A, B, Y)
 //-
-//- An exact equality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '===' operator.
-//- Unlike equality comparison that can give 'x' as output, an exact equality comparison will strictly give '0' or '1' as output.
+//- An exact equality comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '===' operator.
+//- Unlike equality comparison that can give 'x' as output, 
+//- an exact equality comparison will strictly give '0' or '1' as output.
 //-
 module \$eqx (A, B, Y);
 
@@ -818,8 +826,10 @@ endmodule
 //-
 //-     $nex (A, B, Y)
 //-
-//- An exact inequality comparison between inputs 'A' and 'B'. This corresponds to the Verilog '!==' operator.
-//- Unlike inequality comparison that can give 'x' as output, an exact inequality comparison will strictly give '0' or '1' as output.
+//- An exact inequality comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '!==' operator.
+//- Unlike inequality comparison that can give 'x' as output, 
+//- an exact inequality comparison will strictly give '0' or '1' as output.
 //-
 module \$nex (A, B, Y);
 
@@ -849,7 +859,8 @@ endmodule
 //-
 //-     $ge (A, B, Y)
 //-
-//- A greater-than-or-equal-to comparison between inputs 'A' and 'B'. This corresponds to the Verilog '>=' operator.
+//- A greater-than-or-equal-to comparison between inputs 'A' and 'B'.
+//- This corresponds to the Verilog '>=' operator.
 //-
 module \$ge (A, B, Y);
 
@@ -879,7 +890,8 @@ endmodule
 //-
 //-     $gt (A, B, Y)
 //-
-//- A greater-than comparison between inputs 'A' and 'B'. This corresponds to the Verilog '>' operator.
+//- A greater-than comparison between inputs 'A' and 'B'. 
+//- This corresponds to the Verilog '>' operator.
 //-
 module \$gt (A, B, Y);
 
@@ -939,7 +951,8 @@ endmodule
 //-
 //-     $sub (A, B, Y)
 //-
-//-  Subtraction between inputs 'A' and 'B'. This corresponds to the Verilog '-' operator.
+//- Subtraction between inputs 'A' and 'B'.
+//- This corresponds to the Verilog '-' operator.
 //-
 module \$sub (A, B, Y);
 
@@ -969,7 +982,8 @@ endmodule
 //-
 //-     $mul (A, B, Y)
 //-
-//- Multiplication of inputs 'A' and 'B'. This corresponds to the Verilog '*' operator.
+//- Multiplication of inputs 'A' and 'B'.
+//- This corresponds to the Verilog '*' operator.
 //-
 module \$mul (A, B, Y);
 
@@ -1288,7 +1302,8 @@ endmodule
 //-
 //-     $pow (A, B, Y)
 //-
-//-  Exponentiation of an input (Y = A ** B). This corresponds to the Verilog '**' operator.
+//- Exponentiation of an input (Y = A ** B). 
+//- This corresponds to the Verilog '**' operator.
 //-
 `ifndef SIMLIB_NOPOW
 
@@ -1529,7 +1544,8 @@ endmodule
 //-
 //-     $demux (A, S, Y)
 //-
-//- Demultiplexer i.e routing single input to several outputs based on select signal. Unselected outputs are driven to zero.
+//- Demultiplexer i.e routing single input to several outputs based on select signal.
+//- Unselected outputs are driven to zero.
 //-
 module \$demux (A, S, Y);
 
@@ -1599,7 +1615,9 @@ endmodule
 //-
 //-     $tribuf (A, EN, Y)
 //-
-//- A tri-state buffer. This buffer conditionally drives the output with the value of the input based on the enable signal.
+//- A tri-state buffer. 
+//- This buffer conditionally drives the output with the value of the input
+//- based on the enable signal.
 //-
 module \$tribuf (A, EN, Y);
 
