@@ -1288,7 +1288,7 @@ endmodule
 //-
 //-     $pow (A, B, Y)
 //-
-//-  Exponentiation of inputs (Y = A ** B). This corresponds to the Verilog '**' operator.
+//-  Exponentiation of an input (Y = A ** B). This corresponds to the Verilog '**' operator.
 //-
 `ifndef SIMLIB_NOPOW
 
@@ -1448,7 +1448,7 @@ endmodule
 //-
 //-     $mux (A, B, S, Y)
 //-
-//- Multiplexer i.e selecting inputs based on select signal.
+//- Multiplexer i.e selecting between two inputs based on select signal.
 //-
 module \$mux (A, B, S, Y);
 
@@ -1529,7 +1529,7 @@ endmodule
 //-
 //-     $demux (A, S, Y)
 //-
-//- Demultiplexer i.e routing single input to several outputs based on select signal.
+//- Demultiplexer i.e routing single input to several outputs based on select signal. Unselected outputs are driven to zero.
 //-
 module \$demux (A, S, Y);
 
@@ -1599,7 +1599,7 @@ endmodule
 //-
 //-     $tribuf (A, EN, Y)
 //-
-//- A tri-state buffer. This buffer conditionally passes the input to the output based on the enable signal.
+//- A tri-state buffer. This buffer conditionally drives the output with the value of the input based on the enable signal.
 //-
 module \$tribuf (A, EN, Y);
 
