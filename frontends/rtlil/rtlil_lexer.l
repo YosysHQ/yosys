@@ -88,7 +88,7 @@ USING_YOSYS_NAMESPACE
 "\\"[^ \t\r\n]+		{ rtlil_frontend_yylval.string = strdup(yytext); return TOK_ID; }
 "$"[^ \t\r\n]+		{ rtlil_frontend_yylval.string = strdup(yytext); return TOK_ID; }
 
-[0-9]+'[01xzm-]*	{ rtlil_frontend_yylval.string = strdup(yytext); return TOK_VALUE; }
+[0-9]+'s?[01xzm-]*	{ rtlil_frontend_yylval.string = strdup(yytext); return TOK_VALUE; }
 -?[0-9]+		{
 	char *end = nullptr;
 	errno = 0;

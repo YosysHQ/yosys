@@ -1,0 +1,10 @@
+! mkdir -p temp
+read_rtlil <<EOT
+module \test
+  attribute \bottom_bound 3's101
+  wire width 3 output 1 \a
+  connect \a 3'001
+end
+EOT
+write_rtlil temp/rtlil_signed_attribute.il
+! grep -F -q "attribute \bottom_bound 3's101" temp/rtlil_signed_attribute.il
