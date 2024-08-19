@@ -1,3 +1,4 @@
+asdjhaslkdjaslkdj
 ```
 yosys -- Yosys Open SYnthesis Suite
 
@@ -625,7 +626,7 @@ Note that there is no need to build the manual if you just want to read it.
 Simply visit https://yosys.readthedocs.io/en/latest/ instead.
 
 In addition to those packages listed above for building Yosys from source, the
-following are used for building the website: 
+following are used for building the website:
 
 	$ sudo apt install pdf2svg faketime
 
@@ -641,5 +642,5 @@ The Python package, Sphinx, is needed along with those listed in
 
 From the root of the repository, run `make docs`.  This will build/rebuild yosys
 as necessary before generating the website documentation from the yosys help
-commands.  To build for pdf instead of html, call 
+commands.  To build for pdf instead of html, call
 `make docs DOC_TARGET=latexpdf`.
