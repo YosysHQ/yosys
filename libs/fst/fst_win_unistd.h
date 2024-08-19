@@ -26,7 +26,7 @@
 #define WIN_UNISTD_H
 
 #include <stdlib.h>
-#ifdef _WIN64
+#if defined(_MSC_VER)
 #include <io.h>
 #else
 #include <sys/io.h>
