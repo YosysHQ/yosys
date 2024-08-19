@@ -524,6 +524,10 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "{*"  { return DEFATTR_BEGIN; }
 "*}"  { return DEFATTR_END; }
 
+"'{"  { return LIST_SIZED_BEGIN; }
+"{"  { return LIST_BEGIN; }
+"}"  { return LIST_END; }
+
 "**" { return OP_POW; }
 "||" { return OP_LOR; }
 "&&" { return OP_LAND; }
