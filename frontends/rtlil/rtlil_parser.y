@@ -450,7 +450,6 @@ constant:
 			$$->bits.push_back(*it);
 		if (is_signed) {
 			$$->flags |= RTLIL::CONST_FLAG_SIGNED;
-			log("Setting SIGNED flag for constant with width %d\n", width);
 		}
 		free($1);
 	} |
