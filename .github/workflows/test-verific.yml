@@ -3,7 +3,7 @@ name: Build and run tests with Verific (Linux)
 on: [push, pull_request]
 
 jobs:
-  pre_job:
+  pre-job:
     runs-on: ubuntu-latest
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
@@ -20,8 +20,8 @@ jobs:
           skip_after_successful_duplicate: 'false'
 
   test-verific:
-    needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    needs: pre-job
+    if: needs.pre-job.outputs.should_skip != 'true'
     runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout Yosys
@@ -47,30 +47,6 @@ jobs:
         run: |
           make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
 
-      - name: Checkout Documentation
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/checkout@v4
-        with:
-          path: 'yosys-cmd-ref'
-          repository: 'YosysHQ-Docs/yosys-cmd-ref'
-          fetch-depth: 0
-          token: ${{ secrets.CI_DOCS_UPDATE_PAT }}
-          persist-credentials: true
-
-      - name: Update documentation
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          make docs
-          rm -rf docs/build
-          cd yosys-cmd-ref
-          rm -rf *
-          git checkout README.md
-          cp -R ../docs/* .
-          rm -rf util/__pycache__
-          git add -A .
-          git diff-index --quiet HEAD || git commit -m "Update"
-          git push
-
       - name: Checkout SBY
         uses: actions/checkout@v4
         with:
@@ -94,3 +70,50 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           make -C sby run_ci
+
+  prepare-docs:
+    name: Generate docs artifact
+    needs: [pre-job, test-verific]
+    if: needs.pre-job.outputs.should_skip != 'true'
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j${{ env.procs }} ENABLE_LTO=1
+
+      - name: Prepare docs
+        shell: bash
+        run:
+          make docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs TARGETS= EXTRA_TARGETS=
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmd-ref-${{ github.sha }}
+          path: |
+            docs/source/cmd
+            docs/source/generated
+            docs/source/_images
+            docs/source/code_examples
+
+      - name: Trigger RTDs build
+        uses: dfm/rtds-action@v1.1.0
+        with:
+          webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
+          webhook_token: ${{ secrets.RTDS_WEBHOOK_TOKEN }}
+          commit_ref: ${{ github.ref }}

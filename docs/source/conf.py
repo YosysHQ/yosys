@@ -41,7 +41,13 @@ html_static_path = ['_static', "_images"]
 pygments_style = 'colorful'
 highlight_language = 'none'
 
-extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
+extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex', 'rtds_action']
+
+# rtds_action
+rtds_action_github_repo = "YosysHQ/yosys"
+rtds_action_path = "."
+rtds_action_artifact_prefix = "cmd-ref-"
+rtds_action_github_token = os.environ["GITHUB_TOKEN"]
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
