@@ -153,7 +153,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.44+9
+YOSYS_VER := 0.44+20
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -814,7 +814,7 @@ check-git-abc:
 		exit 1; \
 	fi
 
-abc/abc$(EXE) abc/libabc.a: check-git-abc
+abc/abc$(EXE) abc/libabc.a: | check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
@@ -991,8 +991,8 @@ docs/guidelines docs/source/generated:
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
-docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
-	-$(Q) ./$$< --help 2> $$@
+docs/source/generated/$(1): $(TARGETS) docs/source/generated
+	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@
 endef
 DOCS_USAGE_STDERR := yosys-config yosys-filterlib
 
@@ -1005,8 +1005,8 @@ $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 
 # others print to stdout
 define DOC_USAGE_STDOUT
-docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
-	$(Q) ./$$< --help > $$@
+docs/source/generated/$(1): $(TARGETS) docs/source/generated
+	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@
 endef
 DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
 $(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))

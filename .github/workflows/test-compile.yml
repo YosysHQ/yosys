@@ -40,8 +40,8 @@ jobs:
           - os: macos-13
             compiler: 'clang'
           # oldest clang not available on ubuntu-latest
-          - os: ubuntu-22.04
-            compiler: 'clang-11'
+          - os: ubuntu-20.04
+            compiler: 'clang-10'
       fail-fast: false
     steps:
       - name: Checkout Yosys
