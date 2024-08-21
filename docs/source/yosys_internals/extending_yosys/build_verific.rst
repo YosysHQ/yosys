@@ -55,8 +55,8 @@ ENABLE_VERIFIC_EDIF               0       EDIF support
 ENABLE_VERIFIC_LIBERTY            0       Liberty file support
 ================================= ======= ===================================
 
-To find the compile options used for a given Yosys build, call `yosys-config
---cxxflags`. This documentation was built with the following compile options:
+To find the compile options used for a given Yosys build, call ``yosys-config
+--cxxflags``. This documentation was built with the following compile options:
 
 .. literalinclude:: /generated/yosys-config
     :start-at: --cxxflags
@@ -69,9 +69,10 @@ The following features, along with their corresponding Yosys build parameters,
 are required for the Yosys-Verific patch:
 
 * RTL elaboration with
-   * SystemVerilog with ENABLE_VERIFIC_SYSTEMVERILOG, and/or
-   * VHDL support with ENABLE_VERIFIC_VHDL.
-* Hierarchy tree support and static elaboration with ENABLE_VERIFIC_HIER_TREE.
+   * SystemVerilog with ``ENABLE_VERIFIC_SYSTEMVERILOG``, and/or
+   * VHDL support with ``ENABLE_VERIFIC_VHDL``.
+* Hierarchy tree support and static elaboration with
+  ``ENABLE_VERIFIC_HIER_TREE``.
 
 Please be aware that the following Verific configuration build parameter needs
 to be enabled in order to create the fully supported build:
@@ -93,8 +94,8 @@ Optional Verific features
 The following Verific features are available with TabbyCAD and can be enabled in
 Yosys builds:
 
-* EDIF support with ENABLE_VERIFIC_EDIF, and
-* Liberty file support with ENABLE_VERIFIC_LIBERTY.
+* EDIF support with ``ENABLE_VERIFIC_EDIF``, and
+* Liberty file support with ``ENABLE_VERIFIC_LIBERTY``.
 
 Partially supported builds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
