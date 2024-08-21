@@ -27,6 +27,14 @@ keyword: Frontends
 .. todo:: more info on other ``read_*`` commands, also is this the first time we
    mention verific?
 
+.. note::
+
+   The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
+   command, requires the commercial `Tabby CAD Suite`_.  This is not the same as
+   simply having a Verific license when using Yosys.
+
+.. _Tabby CAD Suite: https://www.yosyshq.com/tabby-cad-datasheet
+
 Others:
 
 - :doc:`/cmd/read`
