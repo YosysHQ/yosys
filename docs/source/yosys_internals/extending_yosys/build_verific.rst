@@ -50,10 +50,17 @@ Parameter                         Default Description
 ENABLE_VERIFIC_SYSTEMVERILOG      1       SystemVerilog support
 ENABLE_VERIFIC_VHDL               1       VHDL support
 ENABLE_VERIFIC_HIER_TREE          1       Hierarchy tree support
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 1       YosysHQ specific extensions support
+ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0       YosysHQ specific extensions support
 ENABLE_VERIFIC_EDIF               0       EDIF support
 ENABLE_VERIFIC_LIBERTY            0       Liberty file support
 ================================= ======= ===================================
+
+To find the compile options used for a given Yosys build, call `yosys-config
+--cxxflags`. This documentation was built with the following compile options:
+
+.. literalinclude:: /generated/yosys-config
+    :start-at: --cxxflags
+    :end-before: --linkflags
 
 Required Verific features
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,9 +99,9 @@ Yosys builds:
 Partially supported builds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: still unclear on the purpose of this section.
-
-   Are these the configurations we have tested as being able to compile?
+This section describes Yosys+Verific configurations which we have confirmed as
+working in the past, however they are not a part of our regular tests so we
+cannot guarantee they are still functional.
 
 To be able to compile Yosys with Verific, the Verific library must have support
 for at least one HDL language with RTL elaboration enabled.  The following table
