@@ -8,6 +8,8 @@ Writing extensions
 
 .. todo:: update to use :file:`/code_examples/extensions/test*.log`
 
+.. todo:: should this be moved to yosys_source section?
+
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
 
