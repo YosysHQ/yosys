@@ -3008,12 +3008,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			nl->MergeRamWritePorts();
 			log("    Merging RAMs for %s.\n", it->first.c_str());
 			nl->MergeRams();
-
-			log("    Balancing timing for %s.\n", it->first.c_str());
-			result = nl->BalanceTiming(0);
-			log("    Balance timing result before: %d\n", result);
-			result = nl->BalanceTiming(1);
-			log("    Balance timing result after: %d\n", result);
 		}
 
 		if (nl_done.count(it->first) == 0) {
@@ -3647,7 +3641,7 @@ struct VerificPass : public Pass {
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		// SILIMATE: auto-discover
-		if (GetSize(args) > argidx && args[argidx] == "-auto_discover")
+		if (args[argidx] == "-auto_discover" && argidx+1 < GetSize(args))
 		{
 			// Always operate in SystemVerilog mode
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
@@ -3655,14 +3649,6 @@ struct VerificPass : public Pass {
 
 			// Set relaxed language checking
 			VeriNode::SetRelaxedChecking(1);
-
-			// Define macros
-			hdl_file_sort::DefineMacro("SYNTH");
-			hdl_file_sort::DefineMacro("SYNTHESIS");
-			hdl_file_sort::DefineMacro("OVL_SVA");
-			veri_file::DefineMacro("SYNTH");
-			veri_file::DefineMacro("SYNTHESIS");
-			veri_file::DefineMacro("OVL_SVA");
 
 			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
 			hdl_file_sort::RemoveFileExt(".v");
@@ -3683,15 +3669,26 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
 
 			// Select analyze function
-			auto analyze_function = (args[argidx] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
+			auto analyze_function = (args[argidx++] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
 			
+			// Check whether to define default macros
+			if (argidx < GetSize(args) && args[argidx] == "-define_default_macros") {
+				hdl_file_sort::DefineMacro("YOSYS", "1");
+				hdl_file_sort::DefineMacro("SYNTHESIS", "1");
+				hdl_file_sort::DefineMacro("FORMAL", "1");
+				veri_file::DefineMacro("SYNTH", "1");
+				veri_file::DefineMacro("SYNTHESIS", "1");
+				veri_file::DefineMacro("OVL_SVA", "1");
+				log("AUTO-DISCOVER: defined default macros YOSYS, SYNTHESIS, and FORMAL\n");
+				argidx++;
+			}
+
 			// Remaining arguments are treated as search directories to add
 			// -f <FILE> and -F <FILE> are also supported, but must come AFTER
 			unsigned i;
 			MapIter mi;
-			// SetIter si;
     	const char *file_name, *dir_name, *key, *value;
-			for (argidx++; argidx < GetSize(args); argidx++) {
+			for (argidx; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
 					veri_file::Analyze("preqorsor/data/blackboxes.v");
@@ -3730,10 +3727,6 @@ struct VerificPass : public Pass {
 						hdl_file_sort::DefineCmdLineMacro(key, value);
 						log("AUTO-DISCOVER: registered definition of command line macro %s with value %s\n", key, value);
 					}
-					// FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, key) {
-					// 	hdl_file_sort::AddLOption(key);
-					// 	log("AUTO-DISCOVER: added -L option %s\n", key);
-					// }
 					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
 						if (!hdl_file_sort::RegisterFile(file_name)) {
 							verific_error_msg.clear();
