@@ -132,7 +132,7 @@ struct MuxpackWorker
 
 	ExclusiveDatabase excl_db;
 
-	void make_sig_chain_next_prev()
+	void make_sig_chain_next_prev(bool fanout_split)
 	{
 		for (auto wire : module->wires())
 		{
@@ -152,22 +152,31 @@ struct MuxpackWorker
 					b_sig = sigmap(cell->getPort(ID::B));
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
-				if (sig_chain_next.count(a_sig))
-					for (auto a_bit : a_sig.bits())
-						sigbit_with_non_chain_users.insert(a_bit);
-				else {
-					sig_chain_next[a_sig] = cell;
-					candidate_cells.insert(cell);
-				}
-
-				if (!b_sig.empty()) {
-					if (sig_chain_next.count(b_sig))
-						for (auto b_bit : b_sig.bits())
-							sigbit_with_non_chain_users.insert(b_bit);
+	 			if (!fanout_split) {
+					if (sig_chain_next.count(a_sig)) {
+						for (auto a_bit : a_sig.bits())
+							sigbit_with_non_chain_users.insert(a_bit);
+					}
 					else {
-						sig_chain_next[b_sig] = cell;
+						sig_chain_next[a_sig] = cell;
 						candidate_cells.insert(cell);
 					}
+
+					if (!b_sig.empty()) {
+						if (sig_chain_next.count(b_sig)) {
+							for (auto b_bit : b_sig.bits())
+								sigbit_with_non_chain_users.insert(b_bit);
+						}
+						else {
+							sig_chain_next[b_sig] = cell;
+							candidate_cells.insert(cell);
+						}
+					}
+				}
+				else {
+					sig_chain_next[a_sig] = cell;
+					sig_chain_next[b_sig] = cell;
+					candidate_cells.insert(cell);
 				}
 
 				sig_chain_prev[y_sig] = cell;
@@ -175,9 +184,10 @@ struct MuxpackWorker
 			}
 
 			for (auto conn : cell->connections())
-				if (cell->input(conn.first))
+				if (cell->input(conn.first)) {
 					for (auto bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
+				}
 		}
 	}
 
@@ -191,7 +201,6 @@ struct MuxpackWorker
 			if (cell->type == ID($mux)) {
 				SigSpec b_sig = sigmap(cell->getPort(ID::B));
 				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1) {
-					log("  Going to start_cell: case 1...\n");
 					goto start_cell;
 				}
 
@@ -200,7 +209,6 @@ struct MuxpackWorker
 			}
 			else if (cell->type == ID($pmux)) {
 				if (!sig_chain_prev.count(a_sig)) {
-					log("  Going to start_cell: case 2...\n");
 					goto start_cell;
 				}
 			}
@@ -208,7 +216,6 @@ struct MuxpackWorker
 
 			for (auto bit : a_sig.bits())
 				if (sigbit_with_non_chain_users.count(bit)) {
-					log("  Going to start_cell: case 3...\n");
 					goto start_cell;
 				}
 
@@ -218,12 +225,10 @@ struct MuxpackWorker
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
 				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
 				if (!excl_db.query(s_sig) && !ignore_excl) {
-					log("  Going to start_cell: case 4...\n");
 					goto start_cell;
 				}
 			}
 
-			log("  Continuing...\n");
 			continue;
 
 		start_cell:
@@ -319,10 +324,10 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module, bool ignore_excl) :
+	MuxpackWorker(Module *module, bool ignore_excl, bool fanout_split) :
 			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, ignore_excl)
 	{
-		make_sig_chain_next_prev();
+		make_sig_chain_next_prev(fanout_split);
 		find_chain_start_cells(ignore_excl);
 
 		for (auto c : chain_start_cells) {
@@ -357,6 +362,7 @@ struct MuxpackPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool ignore_excl = false;
+		bool fanout_split = false;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
@@ -367,6 +373,10 @@ struct MuxpackPass : public Pass {
 				ignore_excl = true;
 				continue;
 			}
+			if (args[argidx] == "-fanout_split") {
+				fanout_split = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -375,13 +385,9 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			bool done = false;
-			while (!done) {
-				MuxpackWorker worker(module, ignore_excl);
-				mux_count += worker.mux_count;
-				pmux_count += worker.pmux_count;
-				done = worker.pmux_count == 0;
-			}
+			MuxpackWorker worker(module, ignore_excl, fanout_split);
+			mux_count += worker.mux_count;
+			pmux_count += worker.pmux_count;
 		}
 
 		log("Converted %d (p)mux cells into %d pmux cells.\n", mux_count, pmux_count);
