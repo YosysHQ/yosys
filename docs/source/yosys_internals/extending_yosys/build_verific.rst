@@ -15,28 +15,19 @@ form, you may be able to compile Yosys with partial Verific support yourself.
 The Yosys-Verific patch
 -----------------------
 
-.. todo:: Fill out section on Yosys-Verific patch
-
-* Yosys-Verific patch developed for best integration
+* To provide the best integration between Yosys and Verific, some features are
+  required to be patched into the Verific library.  
+* Synthesis from RTL may be possible without this patch, however we are unable
+  to provide support for any Yosys+Verific builds without it.
 * Needed for some of the formal verification front-end tools
-* `contact YosysHQ`_ about licensing this patch for your own Yosys builds
-* Unable to provide support for builds without this patch
+* `contact YosysHQ`_ about licensing this patch for your own Yosys builds.
 
-New cells
-~~~~~~~~~
+.. warning::
 
-============== ===========
-Cell           Description
-============== ===========
-$initstate    
-$set_tag      
-$get_tag      
-$overwrite_tag
-$original_tag 
-$future_ff    
-============== ===========
-
-.. todo:: (sub)section on features only available with TabbyCAD
+   Some of the formal verification front-end tools may not be fully supported
+   without the full TabbyCAD suite.  If you are wanting to use these tools, make
+   sure to `contact YosysHQ`_ and ask us if the Yosys-Verific patch is right for
+   you.
 
 Compile options
 ---------------
@@ -65,23 +56,39 @@ ENABLE_VERIFIC_EDIF               0       EDIF support
 ENABLE_VERIFIC_LIBERTY            0       Liberty file support
 ================================= ======= ===================================
 
-Supported build
-~~~~~~~~~~~~~~~
+Required Verific features
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The default values for options represent the only fully supported configuration
-of Yosys with Verific. This build includes SystemVerilog and VHDL support with
-RTL elaboration, hierarchy tree and static elaboration for both languages.  This
-is the only configuration for which the Yosys-Verific patch is available.
+The following features, along with their corresponding Yosys build parameters,
+are required for the Yosys-Verific patch:
 
-.. note:: 
+* RTL elaboration with
+   * SystemVerilog with ENABLE_VERIFIC_SYSTEMVERILOG, and/or
+   * VHDL support with ENABLE_VERIFIC_VHDL.
+* Hierarchy tree support and static elaboration with ENABLE_VERIFIC_HIER_TREE.
 
-   TabbyCAD builds also have additional EDIF and Liberty file support enabled.
-   YosysHQ extensions library is only part of TabbyCAD as a product.
+Please be aware that the following Verific configuration build parameter needs
+to be enabled in order to create the fully supported build:
 
-.. todo:: is "YosysHQ extensions library" == "YosysHQ specific extensions support" ?
+::
 
-   If not, they need to be better distinguished.  If they are, then how is it
-   possible for someone to build the supported configuration?
+   database/DBCompileFlags.h:
+       DB_PRESERVE_INITIAL_VALUE
+
+.. note::
+
+   Yosys+Verific builds may compile without these features, but we provide no
+   guarantees and cannot offer support if they are disabled or the Yosys-Verific
+   patch is not used.
+
+Optional Verific features
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following Verific features are available with TabbyCAD and can be enabled in
+Yosys builds:
+
+* EDIF support with ENABLE_VERIFIC_EDIF, and
+* Liberty file support with ENABLE_VERIFIC_LIBERTY.
 
 Partially supported builds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,14 +122,3 @@ specific extensions of Verific library.
    In case your Verific build has EDIF and/or Liberty support, you can enable
    those options. These are not mentioned above for simplification and since
    they are disabled by default.
-
-Verific Features that should be enabled in your Verific library
----------------------------------------------------------------
-
-Please be aware that the following Verific configuration build parameter needs
-to be enabled in order to create the fully supported build.
-
-::
-
-   database/DBCompileFlags.h:
-       DB_PRESERVE_INITIAL_VALUE
