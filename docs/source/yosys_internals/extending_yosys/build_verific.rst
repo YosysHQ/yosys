@@ -17,11 +17,20 @@ The Yosys-Verific patch
 
 YosysHQ maintains and develops a patch for Verific in order to better integrate
 with Yosys and to provide features required by some of the formal verification
-front-end tools.  Synthesis from RTL may be possible without this patch, however
-we are unable to provide support for any Yosys+Verific builds without it.  To
-license this patch for your own Yosys builds, `contact YosysHQ`_.
+front-end tools.  To license this patch for your own Yosys builds, `contact
+YosysHQ`_.
 
 .. warning::
+
+   While synthesis from RTL may be possible without this patch, YosysHQ provides
+   no guarantees of correctness and is unable to provide support.
+
+We recommend against using unpatched Yosys+Verific builds in conjunction with
+the formal verification front-end tools unless you are familiar with their inner
+workings. There are cases where the tools will appear to work, while producing
+incorrect results.
+
+.. note::
 
    Some of the formal verification front-end tools may not be fully supported
    without the full TabbyCAD suite.  If you are wanting to use these tools,
@@ -61,6 +70,10 @@ To find the compile options used for a given Yosys build, call ``yosys-config
 .. literalinclude:: /generated/yosys-config
     :start-at: --cxxflags
     :end-before: --linkflags
+
+.. note::
+
+   The YosysHQ specific extensions are only available with the TabbyCAD suite.
 
 Required Verific features
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,7 +123,7 @@ lists a series of build configurations which are possible, but only provide a
 limited subset of features.  Please note that support is limited without YosysHQ
 specific extensions of Verific library.
 
-+--------------------------------------------------------------------------+---+---+---+-----------+
++--------------------------------------------------------------------------+-----+-----+-----+-----+
 |                                                                          | Configuration values  |
 +--------------------------------------------------------------------------+-----+-----+-----+-----+
 | Features                                                                 |   a |   b |   c |   d |
