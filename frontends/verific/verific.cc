@@ -3688,7 +3688,7 @@ struct VerificPass : public Pass {
 			unsigned i;
 			MapIter mi;
     	const char *file_name, *dir_name, *key, *value;
-			for (argidx; argidx < GetSize(args); argidx++) {
+			for (; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
 					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
 					veri_file::Analyze("preqorsor/data/blackboxes.v");
