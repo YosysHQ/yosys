@@ -15,18 +15,17 @@ form, you may be able to compile Yosys with partial Verific support yourself.
 The Yosys-Verific patch
 -----------------------
 
-* To provide the best integration between Yosys and Verific, some features are
-  required to be patched into the Verific library.  
-* Synthesis from RTL may be possible without this patch, however we are unable
-  to provide support for any Yosys+Verific builds without it.
-* Needed for some of the formal verification front-end tools
-* `contact YosysHQ`_ about licensing this patch for your own Yosys builds.
+YosysHQ maintains and develops a patch for Verific in order to better integrate
+with Yosys and to provide features required by some of the formal verification
+front-end tools.  Synthesis from RTL may be possible without this patch, however
+we are unable to provide support for any Yosys+Verific builds without it.  To
+license this patch for your own Yosys builds, `contact YosysHQ`_.
 
 .. warning::
 
    Some of the formal verification front-end tools may not be fully supported
-   without the full TabbyCAD suite.  If you are wanting to use these tools, make
-   sure to `contact YosysHQ`_ and ask us if the Yosys-Verific patch is right for
+   without the full TabbyCAD suite.  If you are wanting to use these tools,
+   including SBY, make sure to ask us if the Yosys-Verific patch is right for
    you.
 
 Compile options
@@ -92,6 +91,10 @@ Yosys builds:
 
 Partially supported builds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. todo:: still unclear on the purpose of this section.
+
+   Are these the configurations we have tested as being able to compile?
 
 To be able to compile Yosys with Verific, the Verific library must have support
 for at least one HDL language with RTL elaboration enabled.  The following table
