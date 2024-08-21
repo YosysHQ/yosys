@@ -875,7 +875,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
 
 	for (size_t pos = abc_script.find("{tmpdir}"); pos != std::string::npos; pos = abc_script.find("{tmpdir}", pos))
-		abc_script = abc_script.substr(0, pos) + tempdir_name.c_str() + abc_script.substr(pos+ std::strlen("{tmpdir}"));
+		abc_script = abc_script.substr(0, pos) + tempdir_name.c_str() + abc_script.substr(pos+ strlen("{tmpdir}"));
 
 	for (size_t pos = user_script.find("{D}"); pos != std::string::npos; pos = user_script.find("{D}", pos))
 		user_script = user_script.substr(0, pos) + delay_target + user_script.substr(pos+3);
@@ -890,7 +890,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		user_script = user_script.substr(0, pos) + lutin_shared + user_script.substr(pos+3);
 
 	for (size_t pos = user_script.find("{tmpdir}"); pos != std::string::npos; pos = user_script.find("{tmpdir}", pos))
-		user_script = user_script.substr(0, pos) + tempdir_name.c_str() + user_script.substr(pos+ std::strlen("{tmpdir}"));
+		user_script = user_script.substr(0, pos) + tempdir_name.c_str() + user_script.substr(pos+ strlen("{tmpdir}"));
 
 	if (abc_dress)
 		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name.c_str());
