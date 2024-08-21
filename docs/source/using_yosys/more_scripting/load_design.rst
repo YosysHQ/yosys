@@ -30,10 +30,9 @@ keyword: Frontends
 .. note::
 
    The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
-   command, requires the commercial `Tabby CAD Suite`_.  This is not the same as
-   simply having a Verific license when using Yosys.
-
-.. _Tabby CAD Suite: https://www.yosyshq.com/tabby-cad-datasheet
+   command, requires Yosys to be built with Verific.  This is not the same as
+   simply having a Verific license when using Yosys.  Check
+   :doc:`/yosys_internals/extending_yosys/build_verific` for more.
 
 Others:
 
