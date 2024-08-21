@@ -138,7 +138,8 @@ To use a compiler different than the default, use:
 
 .. seealso:: 
 
-   Refer to :doc:`/test_suites` for details on testing Yosys once compiled.
+   Refer to :doc:`/yosys_source/test_suites` for details on testing Yosys once
+   compiled.
 
 Source tree and build system
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -193,7 +194,7 @@ directories:
 
 ``tests/``
    This directory contains the suite of unit tests and regression tests used by
-   Yosys.  See :doc:`/test_suites`.
+   Yosys.  See :doc:`/yosys_source/test_suites`.
 
 The top-level Makefile includes :file:`frontends/{*}/Makefile.inc`,
 :file:`passes/{*}/Makefile.inc` and :file:`backends/{*}/Makefile.inc`. So when
