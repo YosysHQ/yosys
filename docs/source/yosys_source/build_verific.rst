@@ -1,16 +1,48 @@
 Compiling with Verific library
 ==============================
 
-YosysHQ creates build for TabbyCAD Suite that includes Verific with additional
-patches and our own extensions library. However, if you have licensed Verific
-library in source or binary form you can still compile Yosys and have at least
-partial support.
+The easiest way to get Yosys with Verific support is to `contact YosysHQ`_ for a
+`Tabby CAD Suite`_ evaluation license and download link.  The TabbyCAD Suite
+includes additional patches and a custom extensions library in order to get the
+most out of the Verific parser when using Yosys.
+
+If you already have a license for the Verific parser, in either source or binary
+form, you may be able to compile Yosys with partial Verific support yourself.
+
+.. _contact YosysHQ : https://www.yosyshq.com/contact
+.. _Tabby CAD Suite: https://www.yosyshq.com/tabby-cad-datasheet
+
+The Yosys-Verific patch
+-----------------------
+
+.. todo:: Fill out section on Yosys-Verific patch
+
+* Yosys-Verific patch developed for best integration
+* Needed for some of the formal verification front-end tools
+* `contact YosysHQ`_ about licensing this patch for your own Yosys builds
+* Unable to provide support for builds without this patch
+
+New cells
+~~~~~~~~~
+
+============== ===========
+Cell           Description
+============== ===========
+$initstate    
+$set_tag      
+$get_tag      
+$overwrite_tag
+$original_tag 
+$future_ff    
+============== ===========
+
+.. todo:: (sub)section on features only available with TabbyCAD
 
 Compile options
 ---------------
 
 To enable Verific support ``ENABLE_VERIFIC`` has to be set to ``1`` and
-``VERIFIC_DIR`` needs to point to location where library is located.
+``VERIFIC_DIR`` needs to point to the location where the library is located.
 
 ============== ========================== ===============================
 Parameter      Default                    Description
@@ -34,125 +66,63 @@ ENABLE_VERIFIC_LIBERTY            0       Liberty file support
 ================================= ======= ===================================
 
 Supported build
----------------
+~~~~~~~~~~~~~~~
 
-Default options values are created in such way to represent supported build.
-This one includes SystemVerilog and VHDL support with RTL elaboration, hierarchy
-tree and static elaboration for both languages.
+The default values for options represent the only fully supported configuration
+of Yosys with Verific. This build includes SystemVerilog and VHDL support with
+RTL elaboration, hierarchy tree and static elaboration for both languages.  This
+is the only configuration for which the Yosys-Verific patch is available.
 
-Fully supported build includes additional YosysHQ patch that can be bought for
-**only** this Verific library configuration.
+.. note:: 
 
-NOTE: TabbyCAD builds also have additional EDIF and Liberty file support enabled
-as well. YosysHQ extensions library is only part of TabbyCAD as a product.
+   TabbyCAD builds also have additional EDIF and Liberty file support enabled.
+   YosysHQ extensions library is only part of TabbyCAD as a product.
 
-Partialy supported builds
--------------------------
+.. todo:: is "YosysHQ extensions library" == "YosysHQ specific extensions support" ?
 
-Note that these builds can be used with Yosys but will miss some of important
-features.
+   If not, they need to be better distinguished.  If they are, then how is it
+   possible for someone to build the supported configuration?
 
-1. SystemVerilog + RTL elaboration
+Partially supported builds
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      1
-ENABLE_VERIFIC_VHDL               0
-ENABLE_VERIFIC_HIER_TREE          0
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
+To be able to compile Yosys with Verific, the Verific library must have support
+for at least one HDL language with RTL elaboration enabled.  The following table
+lists a series of build configurations which are possible, but only provide a
+limited subset of features.  Please note that support is limited without YosysHQ
+specific extensions of Verific library.
 
-2. VHDL + RTL elaboration
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+|                                                                          | Configuration values beginning with ENABLE_VERIFIC\_  |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| Features                                                                 | SYSTEMVERILOG | VHDL | HIER_TREE | YOSYSHQ_EXTENSIONS |
++==========================================================================+===============+======+===========+====================+
+| SystemVerilog + RTL elaboration                                          |             1 |    0 |         0 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| VHDL + RTL elaboration                                                   |             0 |    1 |         0 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| SystemVerilog + VHDL + RTL elaboration                                   |             1 |    1 |         0 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| SystemVerilog + RTL elaboration + Static elaboration + Hier tree         |             1 |    0 |         1 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| VHDL + RTL elaboration + Static elaboration + Hier tree                  |             0 |    1 |         1 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
+| SystemVerilog + VHDL + RTL elaboration + Static elaboration + Hier tree  |             1 |    1 |         1 |                  0 |
++--------------------------------------------------------------------------+---------------+------+-----------+--------------------+
 
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      0
-ENABLE_VERIFIC_VHDL               1
-ENABLE_VERIFIC_HIER_TREE          0
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
+.. note::
 
-3. SystemVerilog + VHDL + RTL elaboration
-
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      1
-ENABLE_VERIFIC_VHDL               1
-ENABLE_VERIFIC_HIER_TREE          0
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
-
-3. SystemVerilog + RTL elaboration + Static elaboration + Hier tree
-
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      1
-ENABLE_VERIFIC_VHDL               0
-ENABLE_VERIFIC_HIER_TREE          1
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
-
-3. VHDL + RTL elaboration + Static elaboration + Hier tree
-
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      0
-ENABLE_VERIFIC_VHDL               1
-ENABLE_VERIFIC_HIER_TREE          1
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
-
-4. SystemVerilog + VHDL + RTL elaboration + Static elaboration + Hier
-   tree
-
-================================= =======
-Parameter                         Default
-================================= =======
-ENABLE_VERIFIC_SYSTEMVERILOG      1
-ENABLE_VERIFIC_VHDL               1
-ENABLE_VERIFIC_HIER_TREE          1
-ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS 0
-================================= =======
-
-NOTE:
-
-In case your Verific build have EDIF and/or Liberty support, you can enable
-those options, these are not mentioned above for simplification and since they
-are disabled by default.
-
-NOTE: To be able to compile Yosys+Verific you need Verific library that have at
-least one of HDL languages support with RTL elaboration enabled. Please note
-that without YosysHQ specific extensions of Verific library, support is limited.
+   In case your Verific build has EDIF and/or Liberty support, you can enable
+   those options. These are not mentioned above for simplification and since
+   they are disabled by default.
 
 Verific Features that should be enabled in your Verific library
-===============================================================
+---------------------------------------------------------------
 
-Please be aware that next Verific configuration build parameter needs to be
-enabled in order to create fully supported build.
+Please be aware that the following Verific configuration build parameter needs
+to be enabled in order to create the fully supported build.
 
 ::
 
    database/DBCompileFlags.h:
        DB_PRESERVE_INITIAL_VALUE
-
-Additional features included with Yosys Verific patch
-=====================================================
-
-New cells
----------
-
-============== ===========
-Cell           Description
-============== ===========
-$initstate    
-$set_tag      
-$get_tag      
-$overwrite_tag
-$original_tag 
-$future_ff    
-============== ===========
