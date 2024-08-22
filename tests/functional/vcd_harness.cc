@@ -4,6 +4,7 @@
 #include <random>
 #include <ctype.h>
 #include <vector>
+#include <unordered_map>
 
 #include "my_module_functional_cxx.cc"
 

@@ -22,6 +22,7 @@
 #include "kernel/topo_scc.h"
 #include "ff.h"
 #include "ffinit.h"
+#include <deque>
 
 YOSYS_NAMESPACE_BEGIN
 namespace Functional {
