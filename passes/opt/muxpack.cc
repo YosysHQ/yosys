@@ -172,7 +172,8 @@ struct MuxpackWorker
 				}
 				else {
 					sig_chain_next[a_sig] = cell;
-					sig_chain_next[b_sig] = cell;
+					if (!b_sig.empty())
+						sig_chain_next[b_sig] = cell;
 					candidate_cells.insert(cell);
 				}
 
