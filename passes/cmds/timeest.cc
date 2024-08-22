@@ -318,9 +318,13 @@ struct TimeestPass : Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    timeest [-clk <clk_signal>] [selection]\n");
+		log("    timeest [-clk <clk_signal>] [options] [selection]\n");
 		log("\n");
 		log("Estimate the critical path in clock domain <clk_signal> by counting AIG nodes.\n");
+		log("\n");
+		log("    -all_paths\n");
+		log("        Print or select nodes from all critical paths instead of focusing on\n");
+		log("        a single illustratory path.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
