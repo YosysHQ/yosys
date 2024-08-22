@@ -132,7 +132,7 @@ struct MuxpackWorker
 
 	ExclusiveDatabase excl_db;
 
-	void make_sig_chain_next_prev(bool fanout_split)
+	void make_sig_chain_next_prev()
 	{
 		for (auto wire : module->wires())
 		{
@@ -152,7 +152,7 @@ struct MuxpackWorker
 					b_sig = sigmap(cell->getPort(ID::B));
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
-				if (sig_chain_next.count(a_sig) && !fanout_split)
+				if (sig_chain_next.count(a_sig))
 					for (auto a_bit : a_sig.bits())
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
@@ -161,7 +161,7 @@ struct MuxpackWorker
 				}
 
 				if (!b_sig.empty()) {
-					if (sig_chain_next.count(b_sig) && !fanout_split)
+					if (sig_chain_next.count(b_sig))
 						for (auto b_bit : b_sig.bits())
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
@@ -311,10 +311,10 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module, bool ignore_excl, bool fanout_split) :
+	MuxpackWorker(Module *module, bool ignore_excl) :
 			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, ignore_excl)
 	{
-		make_sig_chain_next_prev(fanout_split);
+		make_sig_chain_next_prev();
 		find_chain_start_cells(ignore_excl);
 
 		for (auto c : chain_start_cells) {
@@ -345,14 +345,10 @@ struct MuxpackPass : public Pass {
 		log("    -ignore_excl\n");
 		log("        ignore mutually exclusive constraint when packing (less conservative)\n");
 		log("\n");
-		log("    -fanout_split\n");
-		log("        fanout is already split (via splitfanout), skip non-chain user check\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool ignore_excl = false;
-		bool fanout_split = false;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
@@ -363,10 +359,6 @@ struct MuxpackPass : public Pass {
 				ignore_excl = true;
 				continue;
 			}
-			if (args[argidx] == "-fanout_split") {
-				fanout_split = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -375,7 +367,7 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module, ignore_excl, fanout_split);
+			MuxpackWorker worker(module, ignore_excl);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
