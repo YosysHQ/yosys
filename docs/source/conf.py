@@ -41,13 +41,21 @@ html_static_path = ['_static', "_images"]
 pygments_style = 'colorful'
 highlight_language = 'none'
 
-extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex', 'rtds_action']
+extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
-# rtds_action
-rtds_action_github_repo = "YosysHQ/yosys"
-rtds_action_path = "."
-rtds_action_artifact_prefix = "cmd-ref-"
-rtds_action_github_token = os.environ["GITHUB_TOKEN"]
+if os.getenv("READTHEDOCS"):
+    # Use rtds_action if we are building on read the docs and have a github token env var
+    if os.getenv("GITHUB_TOKEN"):
+        extensions += ['rtds_action']
+        rtds_action_github_repo = "YosysHQ/yosys"
+        rtds_action_path = "."
+        rtds_action_artifact_prefix = "cmd-ref-"
+        rtds_action_github_token = os.environ["GITHUB_TOKEN"]
+    else:
+        # We're on read the docs but have no github token, this is probably a PR preview build
+        html_theme_options["announcement"] = 'Missing content? Check <a class="reference internal" href="https://tyrtd--2.org.readthedocs.build/en/2/appendix/building_docs.html#pr-previews-and-limitations">PR preview limitations</a>.'
+        html_theme_options["light_css_variables"]["color-announcement-background"] = "var(--color-admonition-title-background--caution)"
+        html_theme_options["light_css_variables"]["color-announcement-text"] = "var(--color-content-foreground)"
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
