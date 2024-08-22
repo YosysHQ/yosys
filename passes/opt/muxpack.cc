@@ -207,6 +207,7 @@ struct MuxpackWorker
 					goto start_cell;
 
 			{
+				log_assert(sig_chain_prev.count(a_sig) != 0);
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
