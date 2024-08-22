@@ -203,9 +203,8 @@ struct MuxpackWorker
 					a_sig = b_sig;
 			}
 			else if (cell->type == ID($pmux)) {
-				if (!sig_chain_prev.count(a_sig)) {
+				if (!sig_chain_prev.count(a_sig))
 					goto start_cell;
-				}
 			}
 			else log_abort();
 
