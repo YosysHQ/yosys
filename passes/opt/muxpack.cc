@@ -151,30 +151,22 @@ struct MuxpackWorker
 					b_sig = sigmap(cell->getPort(ID::B));
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
-	 			if (!fanout_split) {
-					if (sig_chain_next.count(a_sig))
-						for (auto a_bit : a_sig.bits())
-							sigbit_with_non_chain_users.insert(a_bit);
-					else {
-						sig_chain_next[a_sig] = cell;
-						candidate_cells.insert(cell);
-					}
-
-					if (!b_sig.empty()) {
-						if (sig_chain_next.count(b_sig))
-							for (auto b_bit : b_sig.bits())
-								sigbit_with_non_chain_users.insert(b_bit);
-						else {
-							sig_chain_next[b_sig] = cell;
-							candidate_cells.insert(cell);
-						}
-					}
-				}
+				if (sig_chain_next.count(a_sig) && !fanout_split)
+					for (auto a_bit : a_sig.bits())
+						sigbit_with_non_chain_users.insert(a_bit);
 				else {
 					sig_chain_next[a_sig] = cell;
-					if (!b_sig.empty())
-						sig_chain_next[b_sig] = cell;
 					candidate_cells.insert(cell);
+				}
+
+				if (!b_sig.empty()) {
+					if (sig_chain_next.count(b_sig) && !fanout_split)
+						for (auto b_bit : b_sig.bits())
+							sigbit_with_non_chain_users.insert(b_bit);
+					else {
+						sig_chain_next[b_sig] = cell;
+						candidate_cells.insert(cell);
+					}
 				}
 
 				sig_chain_prev[y_sig] = cell;
@@ -218,7 +210,7 @@ struct MuxpackWorker
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
 				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
-				if (!excl_db.query(s_sig) && !ignore_excl)
+				if (!ignore_excl && !excl_db.query(s_sig))
 					goto start_cell;
 			}
 
