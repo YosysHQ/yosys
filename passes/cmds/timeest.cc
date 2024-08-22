@@ -47,6 +47,7 @@ struct EstimateSta {
 	std::vector<std::pair<Cell *, SigBit>> launchers;
 	std::vector<std::pair<Cell *, SigBit>> samplers;
 	bool all_paths = false;
+	bool select = false;
 
 	void add_seq(Cell *cell, SigSpec launch, SigSpec sample)
 	{
@@ -283,6 +284,9 @@ struct EstimateSta {
 			}
 		}
 
+		SigPool bits_to_select;
+		pool<IdString> to_select;
+
 		pool<Cell *> printed;
 		for (auto node : topo.sorted) {
 			if (!critical.count(node))
@@ -291,6 +295,7 @@ struct EstimateSta {
 			if (aig_node) {
 				Cell *cell = std::get<1>(node);
 				if (!printed.count(cell)) {
+					to_select.insert(cell->name);
 					std::string cell_src;
 					if (cell->has_attribute(ID::src)) {
 						std::string src_attr = cell->get_src_attribute();
@@ -301,6 +306,7 @@ struct EstimateSta {
 				}
 			} else {
 				SigBit bit = std::get<0>(node);
+				bits_to_select.add(bit);
 				std::string wire_src;
 				if (bit.wire && bit.wire->has_attribute(ID::src)) {
 					std::string src_attr = bit.wire->get_src_attribute();
@@ -308,6 +314,19 @@ struct EstimateSta {
 				}
 				log("    wire %s%s (level %ld)\n", log_signal(bit), wire_src.c_str(), levels[node]);
 			}
+		}
+
+		for (auto wire : m->wires()) {
+			if (bits_to_select.check_any(sigmap(wire)))
+				to_select.insert(wire->name);
+		}
+
+		if (select) {
+			RTLIL::Selection sel(false);
+			for (auto member : to_select)
+				sel.selected_members[m->name].insert(member);
+			m->design->selection_stack.back() = sel;
+			m->design->selection_stack.back().optimize(m->design);
 		}
 	}
 };
@@ -326,6 +345,9 @@ struct TimeestPass : Pass {
 		log("        Print or select nodes from all critical paths instead of focusing on\n");
 		log("        a single illustratory path.\n");
 		log("\n");
+		log("    -select\n");
+		log("        Select the nodes of a critical path\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
@@ -333,10 +355,15 @@ struct TimeestPass : Pass {
 
 		std::string clk;
 		bool all_paths = false;
+		bool select = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-all_paths") {
 				all_paths = true;
+				continue;
+			}
+			if (args[argidx] == "-select") {
+				select = true;
 				continue;
 			}
 			if (args[argidx] == "-clk" && argidx + 1 < args.size()) {
@@ -350,6 +377,9 @@ struct TimeestPass : Pass {
 		if (clk.empty())
 			log_cmd_error("No -clk argument provided\n");
 
+		if (select && d->selected_modules().size() > 1)
+			log_cmd_error("The -select option operates on a single selected module\n");
+
 		for (auto m : d->selected_modules()) {
 			if (!m->wire(RTLIL::escape_id(clk))) {
 				log_warning("No domain '%s' in module %s\n", clk.c_str(), log_id(m));
@@ -358,6 +388,7 @@ struct TimeestPass : Pass {
 
 			EstimateSta sta(m, SigBit(m->wire(RTLIL::escape_id(clk)), 0));
 			sta.all_paths = all_paths;
+			sta.select = select;
 			sta.run();
 		}
 	}
