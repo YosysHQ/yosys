@@ -344,6 +344,9 @@ struct MuxpackPass : public Pass {
 		log("    -ignore_excl\n");
 		log("        ignore mutually exclusive constraint when packing (less conservative)\n");
 		log("\n");
+		log("    -fanout_split\n");
+		log("        fanout is already split (via splitfanout), skip non-chain user check\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
