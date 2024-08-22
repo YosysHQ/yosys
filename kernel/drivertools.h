@@ -146,11 +146,8 @@ private:
 	pool<DriveBit> multiple_;
 
 public:
-	DriveBitMultiple() {}
-	DriveBitMultiple(DriveBit const &single)
-	{
-		multiple_.emplace(single);
-	}
+	DriveBitMultiple();
+	DriveBitMultiple(DriveBit const &single);
 
 	pool<DriveBit> const &multiple() const { return multiple_; }
 
@@ -467,6 +464,11 @@ public:
 
 };
 
+inline DriveBitMultiple::DriveBitMultiple() {}
+inline DriveBitMultiple::DriveBitMultiple(DriveBit const &single)
+{
+	multiple_.emplace(single);
+}
 
 struct DriveChunkWire
 {
@@ -626,10 +628,7 @@ private:
 public:
 	pool<DriveChunk> const &multiple() const { return multiple_; }
 
-	DriveChunkMultiple(DriveBitMultiple const &bit) : width_(1) {
-		for (auto const &bit : bit.multiple())
-			multiple_.emplace(bit);
-	}
+	DriveChunkMultiple(DriveBitMultiple const &bit);
 
 	int size() const { return width_; }
 
@@ -1029,6 +1028,13 @@ public:
 		log_abort();
 	}
 };
+
+inline DriveChunkMultiple::DriveChunkMultiple(DriveBitMultiple const &bit)
+	: width_(1)
+{
+	for (auto const &bit : bit.multiple())
+		multiple_.emplace(bit);
+}
 
 struct DriveSpec
 {
