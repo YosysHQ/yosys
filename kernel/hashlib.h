@@ -24,11 +24,6 @@ namespace hashlib {
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
-// The XOR version of DJB2
-inline unsigned int mkhash(unsigned int a, unsigned int b) {
-	return ((a << 5) + a) ^ b;
-}
-
 // traditionally 5381 is used as starting value for the djb2 hash
 const unsigned int mkhash_init = 5381;
 
@@ -50,6 +45,15 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 	} else
 		throw std::runtime_error("mkhash_xorshift() only implemented for 32 bit and 64 bit ints");
 	return a;
+}
+
+static int fudge = 123456;
+
+// The XOR version of DJB2
+inline unsigned int mkhash(unsigned int a, unsigned int b) {
+	unsigned int hash = ((a << 5) + a) ^ b;
+	hash = fudge ^ mkhash_xorshift(hash);
+	return hash;
 }
 
 template<typename T> struct hash_ops {
