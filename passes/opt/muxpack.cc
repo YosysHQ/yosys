@@ -136,10 +136,9 @@ struct MuxpackWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
 				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
-			}
 		}
 
 		for (auto cell : module->cells())
@@ -153,20 +152,18 @@ struct MuxpackWorker
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 	 			if (!fanout_split) {
-					if (sig_chain_next.count(a_sig)) {
+					if (sig_chain_next.count(a_sig))
 						for (auto a_bit : a_sig.bits())
 							sigbit_with_non_chain_users.insert(a_bit);
-					}
 					else {
 						sig_chain_next[a_sig] = cell;
 						candidate_cells.insert(cell);
 					}
 
 					if (!b_sig.empty()) {
-						if (sig_chain_next.count(b_sig)) {
+						if (sig_chain_next.count(b_sig))
 							for (auto b_bit : b_sig.bits())
 								sigbit_with_non_chain_users.insert(b_bit);
-						}
 						else {
 							sig_chain_next[b_sig] = cell;
 							candidate_cells.insert(cell);
@@ -184,10 +181,9 @@ struct MuxpackWorker
 			}
 
 			for (auto conn : cell->connections())
-				if (cell->input(conn.first)) {
+				if (cell->input(conn.first))
 					for (auto bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
-				}
 		}
 	}
 
@@ -200,9 +196,8 @@ struct MuxpackWorker
 			SigSpec a_sig = sigmap(cell->getPort(ID::A));
 			if (cell->type == ID($mux)) {
 				SigSpec b_sig = sigmap(cell->getPort(ID::B));
-				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1) {
+				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
 					goto start_cell;
-				}
 
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
@@ -215,18 +210,16 @@ struct MuxpackWorker
 			else log_abort();
 
 			for (auto bit : a_sig.bits())
-				if (sigbit_with_non_chain_users.count(bit)) {
+				if (sigbit_with_non_chain_users.count(bit))
 					goto start_cell;
-				}
 
 			{
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
 				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
-				if (!excl_db.query(s_sig) && !ignore_excl) {
+				if (!excl_db.query(s_sig) && !ignore_excl)
 					goto start_cell;
-				}
 			}
 
 			continue;
