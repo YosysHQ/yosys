@@ -30,8 +30,9 @@ keyword: Frontends
 .. note::
 
    The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
-   command, requires Yosys to be built with Verific.  This is not the same as
-   simply having a Verific license when using Yosys.  Check
+   command, requires Yosys to be built with Verific.  For full functionality,
+   custom modifications to the Verific source code from YosysHQ are required,
+   but limited useability can be achieved with some stock Verific builds.  Check
    :doc:`/yosys_internals/extending_yosys/build_verific` for more.
 
 Others:

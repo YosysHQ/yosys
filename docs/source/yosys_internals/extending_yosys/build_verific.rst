@@ -33,9 +33,8 @@ incorrect results.
 .. note::
 
    Some of the formal verification front-end tools may not be fully supported
-   without the full TabbyCAD suite.  If you are wanting to use these tools,
-   including SBY, make sure to ask us if the Yosys-Verific patch is right for
-   you.
+   without the full TabbyCAD suite.  If you want to use these tools, including
+   SBY, make sure to ask us if the Yosys-Verific patch is right for you.
 
 Compile options
 ---------------
@@ -123,6 +122,12 @@ lists a series of build configurations which are possible, but only provide a
 limited subset of features.  Please note that support is limited without YosysHQ
 specific extensions of Verific library.
 
+Configuration values:
+  a. ``ENABLE_VERIFIC_SYSTEMVERILOG``
+  b. ``ENABLE_VERIFIC_VHDL``
+  c. ``ENABLE_VERIFIC_HIER_TREE``
+  d. ``ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS``
+
 +--------------------------------------------------------------------------+-----+-----+-----+-----+
 |                                                                          | Configuration values  |
 +--------------------------------------------------------------------------+-----+-----+-----+-----+
@@ -140,12 +145,6 @@ specific extensions of Verific library.
 +--------------------------------------------------------------------------+-----+-----+-----+-----+
 | SystemVerilog + VHDL + RTL elaboration + Static elaboration + Hier tree  |   1 |   1 |   1 |   0 |
 +--------------------------------------------------------------------------+-----+-----+-----+-----+
-
-Configuration values:
-  a. ``ENABLE_VERIFIC_SYSTEMVERILOG``
-  b. ``ENABLE_VERIFIC_VHDL``
-  c. ``ENABLE_VERIFIC_HIER_TREE``
-  d. ``ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS``
 
 .. note::
 
