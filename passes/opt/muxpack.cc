@@ -136,9 +136,10 @@ struct MuxpackWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute(ID::keep))
+			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
+			}
 		}
 
 		for (auto cell : module->cells())
