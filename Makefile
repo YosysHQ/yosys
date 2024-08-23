@@ -1010,7 +1010,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
+docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
