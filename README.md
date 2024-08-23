@@ -629,6 +629,10 @@ following are used for building the website:
 
 	$ sudo apt install pdf2svg faketime
 
+Or for MacOS, using homebrew:
+
+  $ brew install pdf2svg libfaketime
+
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
 build process for the website.  Or, run the following:
 
