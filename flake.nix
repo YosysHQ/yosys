@@ -41,6 +41,7 @@
         packages.default = yosys;
         defaultPackage = yosys;
         devShell = pkgs.mkShell {
+          LOCALE_ARCHIVE = "${pkgs.glibcLocales}/lib/locale/locale-archive";
           buildInputs = with pkgs; [ clang llvmPackages.bintools bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
         };
       }
