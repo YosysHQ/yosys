@@ -13,7 +13,7 @@ jobs:
         with:
           paths_ignore: '["**/README.md"]'
           # don't cancel previous builds
-          cancel_others: 'true'
+          cancel_others: 'false'
           # only run on push *or* pull_request, not both
           concurrent_skipping: 'same_content_newer'
           # we have special actions when running on main, so this should be off
