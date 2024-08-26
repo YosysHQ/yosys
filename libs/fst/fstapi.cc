@@ -1907,7 +1907,8 @@ void fstWriterClose(void *ctx)
             int zfd;
             int fourpack_duo = 0;
 #ifndef __MINGW32__
-            char *fnam = (char *)malloc(strlen(xc->filename) + 5 + 1);
+            auto fnam_size = strlen(xc->filename) + 5 + 1;
+            char *fnam = (char *)malloc(fnam_size);
 #endif
 
             fixup_offs = ftello(xc->handle);
@@ -1991,7 +1992,7 @@ void fstWriterClose(void *ctx)
             fflush(xc->handle);
 
 #ifndef __MINGW32__
-            sprintf(fnam, "%s.hier", xc->filename);
+            snprintf(fnam, fnam_size, "%s.hier", xc->filename);
             unlink(fnam);
             free(fnam);
 #endif
@@ -2616,7 +2617,7 @@ fstEnumHandle fstWriterCreateEnumTable(void *ctx, const char *name, uint32_t ele
         uint32_t i;
 
         name_len = strlen(name);
-        elem_count_len = sprintf(elem_count_buf, "%" PRIu32, elem_count);
+        elem_count_len = snprintf(elem_count_buf, sizeof(elem_count_buf), "%" PRIu32, elem_count);
 
         literal_lens = (unsigned int *)calloc(elem_count, sizeof(unsigned int));
         val_lens = (unsigned int *)calloc(elem_count, sizeof(unsigned int));
@@ -3579,7 +3580,8 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
 
     if (!xc->fh) {
         fst_off_t offs_cache = ftello(xc->f);
-        char *fnam = (char *)malloc(strlen(xc->filename) + 6 + 16 + 32 + 1);
+	auto fnam_size = strlen(xc->filename) + 6 + 16 + 32 + 1;
+        char *fnam = (char *)malloc(fnam_size);
         unsigned char *mem = (unsigned char *)malloc(FST_GZIO_LEN);
         fst_off_t hl, uclen;
         fst_off_t clen = 0;
@@ -3594,7 +3596,7 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
             htyp = xc->contains_hier_section_lz4duo ? FST_BL_HIER_LZ4DUO : FST_BL_HIER_LZ4;
         }
 
-        sprintf(fnam, "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(fnam, fnam_size, "%s.hier_%d_%p", xc->filename, getpid(), (void *)xc);
         fstReaderFseeko(xc, xc->f, xc->hier_pos, SEEK_SET);
         uclen = fstReaderUint64(xc->f);
 #ifndef __MINGW32__
@@ -4239,9 +4241,10 @@ int fstReaderInit(struct fstReaderContext *xc)
         if (!seclen)
             return (0); /* not finished compressing, this is a failed read */
 
-        hf = (char *)calloc(1, flen + 16 + 32 + 1);
+	size_t hf_size = flen + 16 + 32 + 1;
+        hf = (char *)calloc(1, hf_size);
 
-        sprintf(hf, "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
+        snprintf(hf, hf_size, "%s.upk_%d_%p", xc->filename, getpid(), (void *)xc);
         fcomp = fopen(hf, "w+b");
         if (!fcomp) {
             fcomp = tmpfile_open(&xc->f_nam);
@@ -4799,21 +4802,21 @@ int fstReaderIterBlocks2(void *ctx,
 
                     if (beg_tim) {
                         if (dumpvars_state == 1) {
-                            wx_len = sprintf(wx_buf, "$end\n");
+                            wx_len = snprintf(wx_buf, 6, "$end\n");
                             fstWritex(xc, wx_buf, wx_len);
                             dumpvars_state = 2;
                         }
-                        wx_len = sprintf(wx_buf, "#%" PRIu64 "\n", beg_tim);
+                        wx_len = snprintf(wx_buf, 20, "#%" PRIu64 "\n", beg_tim);
                         fstWritex(xc, wx_buf, wx_len);
                         if (!dumpvars_state) {
-                            wx_len = sprintf(wx_buf, "$dumpvars\n");
+                            wx_len = snprintf(wx_buf, 11, "$dumpvars\n");
                             fstWritex(xc, wx_buf, wx_len);
                             dumpvars_state = 1;
                         }
                     }
                     if ((xc->num_blackouts) && (cur_blackout != xc->num_blackouts)) {
                         if (beg_tim == xc->blackout_times[cur_blackout]) {
-                            wx_len = sprintf(wx_buf, "$dump%s $end\n",
+                            wx_len = snprintf(wx_buf, 16, "$dump%s $end\n",
                                              (xc->blackout_activity[cur_blackout++]) ? "on" : "off");
                             fstWritex(xc, wx_buf, wx_len);
                         }
@@ -4914,7 +4917,7 @@ int fstReaderIterBlocks2(void *ctx,
                                                 clone_d[j] = srcdata[7 - j];
                                             }
                                         }
-                                        sprintf((char *)xc->temp_signal_value_buf, "%.16g", d);
+                                        snprintf((char *)xc->temp_signal_value_buf, 32, "%.16g", d);
                                         value_change_callback(user_callback_data_pointer, beg_tim, idx + 1,
                                                               xc->temp_signal_value_buf);
                                     }
@@ -4936,7 +4939,7 @@ int fstReaderIterBlocks2(void *ctx,
                                         }
 
                                         fstVcdID(vcdid_buf, idx + 1);
-                                        wx_len = sprintf(wx_buf, "r%.16g %s\n", d, vcdid_buf);
+                                        wx_len = snprintf(wx_buf, sizeof(wx_buf), "r%.16g %s\n", d, vcdid_buf);
                                         fstWritex(xc, wx_buf, wx_len);
                                     }
                                 }
@@ -5179,21 +5182,21 @@ int fstReaderIterBlocks2(void *ctx,
                     }
 
                     if (dumpvars_state == 1) {
-                        wx_len = sprintf(wx_buf, "$end\n");
+                        wx_len = snprintf(wx_buf, 6, "$end\n");
                         fstWritex(xc, wx_buf, wx_len);
                         dumpvars_state = 2;
                     }
-                    wx_len = sprintf(wx_buf, "#%" PRIu64 "\n", time_table[i]);
+                    wx_len = snprintf(wx_buf, 20, "#%" PRIu64 "\n", time_table[i]);
                     fstWritex(xc, wx_buf, wx_len);
                     if (!dumpvars_state) {
-                        wx_len = sprintf(wx_buf, "$dumpvars\n");
+                        wx_len = snprintf(wx_buf, 11, "$dumpvars\n");
                         fstWritex(xc, wx_buf, wx_len);
                         dumpvars_state = 1;
                     }
 
                     if ((xc->num_blackouts) && (cur_blackout != xc->num_blackouts)) {
                         if (time_table[i] == xc->blackout_times[cur_blackout]) {
-                            wx_len = sprintf(wx_buf, "$dump%s $end\n",
+                            wx_len = snprintf(wx_buf, 16, "$dump%s $end\n",
                                              (xc->blackout_activity[cur_blackout++]) ? "on" : "off");
                             fstWritex(xc, wx_buf, wx_len);
                         }
@@ -5407,7 +5410,7 @@ int fstReaderIterBlocks2(void *ctx,
                                         clone_d[j] = srcdata[7 - j];
                                     }
                                 }
-                                sprintf((char *)xc->temp_signal_value_buf, "%.16g", d);
+                                snprintf((char *)xc->temp_signal_value_buf, 32, "%.16g", d);
                                 value_change_callback(user_callback_data_pointer, time_table[i], idx + 1,
                                                       xc->temp_signal_value_buf);
                             }
@@ -5427,7 +5430,7 @@ int fstReaderIterBlocks2(void *ctx,
                                     }
                                 }
 
-                                wx_len = sprintf(wx_buf, "r%.16g", d);
+                                wx_len = snprintf(wx_buf, sizeof(wx_buf), "r%.16g", d);
                                 fstWritex(xc, wx_buf, wx_len);
                             }
                         }
@@ -5523,7 +5526,7 @@ static char *fstExtractRvatDataFromFrame(struct fstReaderContext *xc, fstHandle 
                 }
             }
 
-            sprintf((char *)buf, "%.16g", d);
+            snprintf((char *)buf, 32, "%.16g", d);
         }
     }
 
@@ -5536,7 +5539,9 @@ char *fstReaderGetValueFromHandleAtTime(void *ctx, uint64_t tim, fstHandle facid
     fst_off_t blkpos = 0, prev_blkpos;
     uint64_t beg_tim, end_tim, beg_tim2, end_tim2;
     int sectype;
+#ifdef FST_DEBUG
     unsigned int secnum = 0;
+#endif
     uint64_t seclen;
     uint64_t tsec_uclen = 0, tsec_clen = 0;
     uint64_t tsec_nitems;
@@ -5620,7 +5625,9 @@ char *fstReaderGetValueFromHandleAtTime(void *ctx, uint64_t tim, fstHandle facid
         }
 
         blkpos += seclen;
+#ifdef FST_DEBUG
         secnum++;
+#endif
     }
 
     xc->rvat_beg_tim = beg_tim;
@@ -6041,7 +6048,7 @@ process_value:
                         }
                     }
 
-                    sprintf(buf, "r%.16g", d);
+                    snprintf(buf, 32, "r%.16g", d);
                     return (buf);
                 }
             } else {
