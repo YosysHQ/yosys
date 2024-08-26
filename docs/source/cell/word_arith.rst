@@ -1,6 +1,8 @@
 Coarse arithmetics
 ------------------
 
+.. todo:: Add information about `$alu`, `$fa`, and `$lcu` cells.
+
 Multiply-accumulate
 ~~~~~~~~~~~~~~~~~~~
 

@@ -4,6 +4,8 @@
 Binary operators
 ~~~~~~~~~~~~~~~~
 
+.. todo:: Add detail on ``$*x`` cells, `$eqx`, `$nex`, `$bweqx`, `$shiftx`
+
 All binary RTL cells have two input ports ``A`` and ``B`` and one output port
 ``Y``. They also have the following parameters:
 

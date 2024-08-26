@@ -27,10 +27,10 @@ Simulation models for the RTL cells can be found in the file
    /cell/word_spec
    /cell/word_formal
    /cell/word_debug
+   /cell/word_wire
 
-.. todo:: Add information about `$slice` and `$concat` cells.
-
-.. todo:: Add information about `$alu`, `$fa`, and `$lcu` cells.
+.. this should raise a warning, otherwise there are word-level cells without a
+   'group' tag
 
 .. autocellgroup:: word_other
    :caption: Other word-level cells

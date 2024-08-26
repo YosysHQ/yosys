@@ -12,3 +12,11 @@ Formal verification cells
    :members:
    :source:
    :linenos:
+
+Formal support cells
+~~~~~~~~~~~~~~~~~~~~
+
+.. autocellgroup:: formal_tag
+   :members:
+   :source:
+   :linenos:
