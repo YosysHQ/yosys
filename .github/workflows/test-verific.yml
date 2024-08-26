@@ -112,7 +112,7 @@ jobs:
             docs/source/code_examples
 
       - name: Trigger RTDs build
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
         uses: dfm/rtds-action@v1.1.0
         with:
           webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
