@@ -36,12 +36,14 @@ struct CutpointPass : public Pass {
 		log("    -undef\n");
 		log("        set cupoint nets to undef (x). the default behavior is to create a\n");
 		log("        $anyseq cell and drive the cutpoint net from that\n");
+		log("    -blackbox\n");
+		log("        select all black/whiteboxes as cutpoints and remove the black/whitebox attribute of each module\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		 bool flag_undef = false;
-
+		bool flag_undef = false;
+		bool flag_blackbox = false;
 		log_header(design, "Executing CUTPOINT pass.\n");
 
 		size_t argidx;
@@ -51,10 +53,38 @@ struct CutpointPass : public Pass {
 				flag_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-blackbox") {
+			  flag_blackbox = true;
+			  continue;
+			}
 			break;
 		}
-		extra_args(args, argidx, design);
 
+		if (flag_blackbox) {
+			std::vector<RTLIL::IdString> blackbox_module_names;
+			for (auto module : design->modules()) {
+				if (module->get_blackbox_attribute()) {
+					blackbox_module_names.push_back(module->name);
+					if (module->attributes.count(ID::blackbox))
+						module->attributes.erase(ID::blackbox);
+					if (module->attributes.count(ID::whitebox))
+						module->attributes.erase(ID::whitebox);
+				}
+			}
+			std::ostringstream pattern;
+
+			for (size_t i = 0; i < blackbox_module_names.size(); ++i) {
+				pattern << blackbox_module_names[i].str();
+				if (i != blackbox_module_names.size() - 1) {
+					pattern << "|";
+				}
+			}
+			if (!pattern.str().empty()) {
+				args.push_back(pattern.str());
+			}
+		}
+
+		extra_args(args, argidx, design);
 		for (auto module : design->selected_modules())
 		{
 			if (design->selected_whole_module(module->name)) {

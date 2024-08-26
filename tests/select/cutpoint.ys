@@ -1,0 +1,30 @@
+read_verilog <<EOT
+module passthrough(
+    input wire in,  // Input signal
+    output wire out // Output signal
+);
+
+    // Assign the output to be the same as the input
+    assign out = in;
+
+endmodule
+EOT
+cutpoint -blackbox =*
+select -assert-count 1 =t:$anyseq
+
+design -reset
+
+read_verilog <<EOT
+(* blackbox *)
+module passthrough(
+    input wire in,  // Input signal
+    output wire out // Output signal
+);
+
+    // Assign the output to be the same as the input
+    assign out = in;
+
+endmodule
+EOT
+cutpoint -blackbox =*
+select -assert-count 1 =t:$anyseq
