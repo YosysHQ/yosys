@@ -62,8 +62,12 @@ autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
 
 # set version
-if os.getenv("READTHEDOCS") and os.getenv("READTHEDOCS_VERSION") == "latest":
-    release = yosys_ver + "-dev"
+if os.getenv("READTHEDOCS"):
+    rtds_version = os.getenv("READTHEDOCS_VERSION")
+    if rtds_version == "latest":
+        release = yosys_ver + "-dev"
+    else:
+        release = rtds_version
 else:
     release = yosys_ver
 
