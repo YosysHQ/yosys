@@ -832,7 +832,7 @@ std::string Fmt::render() const
 						}
 					} else log_abort();
 					if (part.justify == FmtPart::NUMERIC && part.group && part.padding == '0') {
-						int group_size = part.base == 10 ? 3 : 4;
+						size_t group_size = part.base == 10 ? 3 : 4;
 						while (prefix.size() + buf.size() < part.width) {
 							if (buf.size() % (group_size + 1) == group_size)
 								buf += '_';
