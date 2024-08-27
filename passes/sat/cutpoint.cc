@@ -72,7 +72,6 @@ struct CutpointPass : public Pass {
 				}
 			}
 			std::ostringstream pattern;
-
 			for (size_t i = 0; i < blackbox_module_names.size(); ++i) {
 				pattern << blackbox_module_names[i].str();
 				if (i != blackbox_module_names.size() - 1) {
@@ -81,6 +80,7 @@ struct CutpointPass : public Pass {
 			}
 			if (!pattern.str().empty()) {
 				args.push_back(pattern.str());
+				args.push_back("t:" + pattern.str());
 			}
 		}
 
