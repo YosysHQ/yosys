@@ -53,8 +53,32 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
+/**
+ * Container storing key,std::set(value) pairs in insertion order
+ * and provides a linear search.
+ */
+template<typename Key, typename Value>
+class InsertOrderedSetMap {
+	using entry = std::pair<Key, std::set<Value>>;
+	std::vector<entry> backing;
+public:
+	std::set<Value>& operator[] (Key key) {
+		auto entry_has_key = [key](entry e) { return e.first == key; };
+		if (auto it = std::find_if(backing.begin(), backing.end(), entry_has_key); it != std::end(backing)) {
+			return (*it).second;
+		} else {
+			backing.push_back(entry(key, std::set<Value>{}));
+			return backing.back().second;
+		}
+	}
+	typename std::vector<entry>::iterator begin() { return backing.begin(); }
+	typename std::vector<entry>::iterator end() { return backing.end(); }
+	typename std::vector<entry>::size_type size() { return backing.size(); }
+	void clear() { return backing.clear(); }
+};
+
 void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
-		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
+		InsertOrderedSetMap<RTLIL::SigSpec, RTLIL::SyncRule*> &async_rules, RTLIL::Process *proc)
 {
 	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sig_d.size());
 	RTLIL::SigSpec sig_sr_clr = RTLIL::SigSpec(0, sig_d.size());
@@ -219,7 +243,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		RTLIL::SyncRule *sync_always = NULL;
 		bool global_clock = false;
 
-		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> many_async_rules;
+		InsertOrderedSetMap<RTLIL::SigSpec, RTLIL::SyncRule*> many_async_rules;
 
 		for (auto sync : proc->syncs)
 		for (auto &action : sync->actions)
