@@ -576,7 +576,7 @@ namespace Functional {
 	template<class Id> class Scope {
 	protected:
 		char substitution_character = '_';
-		virtual bool is_character_legal(char) = 0;
+		virtual bool is_character_legal(char, int) = 0;
 	private:
 		pool<std::string> _used_names;
 		dict<Id, std::string> _by_id;
@@ -587,7 +587,7 @@ namespace Functional {
 		std::string unique_name(IdString suggestion) {
 			std::string str = RTLIL::unescape_id(suggestion);
 			for(size_t i = 0; i < str.size(); i++)
-				if(!is_character_legal(str[i]))
+				if(!is_character_legal(str[i], i))
 					str[i] = substitution_character;
 			if(_used_names.count(str) == 0) {
 				_used_names.insert(str);

@@ -48,8 +48,8 @@ template<typename Id> struct CxxScope : public Functional::Scope<Id> {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			this->reserve(*p);
 	}
-	bool is_character_legal(char c) override {
-		return isascii(c) && (isalnum(c) || c == '_' || c == '$');
+	bool is_character_legal(char c, int index) override {
+		return isascii(c) && (isalpha(c) || (isdigit(c) && index > 0) || c == '_' || c == '$');
 	}
 };
 

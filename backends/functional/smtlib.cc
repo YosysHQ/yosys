@@ -48,8 +48,8 @@ struct SmtScope : public Functional::Scope<int> {
 		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
 	}
-	bool is_character_legal(char c) override {
-		return isascii(c) && (isalnum(c) || strchr("~!@$%^&*_-+=<>.?/", c));
+	bool is_character_legal(char c, int index) override {
+		return isascii(c) && (isalpha(c) || (isdigit(c) && index > 0) || strchr("~!@$%^&*_-+=<>.?/", c));
 	}
 };
 
