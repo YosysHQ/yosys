@@ -27,13 +27,17 @@ PRIVATE_NAMESPACE_BEGIN
 
 
 struct OptBalanceTreeWorker {
+	// Module and signal map
 	Module *module;
 	SigMap sigmap;
 
+	// Counts of each cell type that are getting balanced
 	dict<IdString, int> cell_count;
 
+	// Cells to remove
 	pool<Cell*> remove_cells;
 
+	// Signal chain data structures
 	dict<SigSpec, Cell*> sig_chain_next;
 	dict<SigSpec, Cell*> sig_chain_prev;
 	pool<SigBit> sigbit_with_non_chain_users;
@@ -59,7 +63,7 @@ struct OptBalanceTreeWorker {
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 	 			// If a_sig already has a chain user, mark its bits as having non-chain users
-				if (sig_chain_next.count(a_sig) && !a_sig.is_fully_const()) // also ok if a_sig is fully const
+				if (sig_chain_next.count(a_sig) && !a_sig.is_fully_const()) // ok if a_sig is fully const
 					for (auto a_bit : a_sig.bits())
 						sigbit_with_non_chain_users.insert(a_bit);
 				// Otherwise, mark cell as the next in the chain relative to a_sig
@@ -70,7 +74,7 @@ struct OptBalanceTreeWorker {
 
 				if (!b_sig.empty()) {
 					// If b_sig already has a chain user, mark its bits as having non-chain users
-					if (sig_chain_next.count(b_sig) && !b_sig.is_fully_const()) // also ok if b_sig is fully const
+					if (sig_chain_next.count(b_sig) && !b_sig.is_fully_const()) // ok if b_sig is fully const
 						for (auto b_bit : b_sig.bits())
 							sigbit_with_non_chain_users.insert(b_bit);
 					// Otherwise, mark cell as the next in the chain relative to b_sig
@@ -152,6 +156,8 @@ struct OptBalanceTreeWorker {
 		Cell *mid_cell = chain[GetSize(chain) / 2];
 		Cell *midnext_cell = chain[GetSize(chain) / 2 + 1];
 		Cell *end_cell = chain.back();
+		log("Balancing chain of %d cells: mid=%s, midnext=%s, endcell=%s\n",
+		    GetSize(chain), log_id(mid_cell), log_id(midnext_cell), log_id(end_cell));
 
 		// Get mid signals
 		SigSpec mid_a_sig = sigmap(mid_cell->getPort(ID::A));
@@ -173,10 +179,14 @@ struct OptBalanceTreeWorker {
 		midnext_cell->unsetPort(midnext_chain_port);
 		end_cell->unsetPort(ID::Y);
 
+		// Create new mid wire
+		Wire *mid_wire = module->addWire(NEW_ID, GetSize(mid_non_chain_sig));
+
 		// Perform rotation
+		mid_cell->setPort(mid_non_chain_port, mid_wire);
 		mid_cell->setPort(ID::Y, end_y_sig);
 		midnext_cell->setPort(midnext_chain_port, mid_non_chain_sig);
-		end_cell->setPort(ID::Y, mid_cell->getPort(mid_non_chain_port));
+		end_cell->setPort(ID::Y, mid_wire);
 
 		// Recurse on subtrees
 		vector<Cell*> left_chain(chain.begin(), chain.begin() + GetSize(chain) / 2);
@@ -213,6 +223,7 @@ struct OptBalanceTreeWorker {
 			for (auto c : chain_start_cells) {
 				vector<Cell*> chain = create_chain(c);
 				process_chain(chain);
+				cell_count[cell_type] += GetSize(chain);
 			}
 
 			// Clean up
@@ -252,10 +263,8 @@ struct OptBalanceTreePass : public Pass {
 		extra_args(args, argidx, design);
 
 		// Run splitfanout pass first
-		if (splitfanout) {
-			string cmd = "splitfanout t:$and t:$or t:$xor t:$add t:$mul";
-			Pass::call(design, cmd);
-		}
+		if (splitfanout)
+			Pass::call(design, "splitfanout t:$and t:$or t:$xor t:$add t:$mul");
 
 		// Count of all cells that were packed
 		dict<IdString, int> cell_count;
@@ -269,7 +278,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Log stats
 		for (auto cell_type : cell_types)
-			log("Converted %d %s cells into %s trees.\n", cell_count[cell_type], log_id(cell_type), log_id(cell_type.str() + "_tree"));
+			log("Converted %d %s cells into trees.\n", cell_count[cell_type], log_id(cell_type));
 	}
 } OptBalanceTreePass;
 

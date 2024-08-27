@@ -191,6 +191,8 @@ struct SplitfanoutPass : public Pass {
 				log("Split %d cells in module '%s' into %d copies based on fanout.\n",
 					count_split_pre, log_id(module), count_split_post);
 		}
+
+		Pass::call(design, "clean");
 	}
 } SplitfanoutPass;
 

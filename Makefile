@@ -702,6 +702,8 @@ include $(YOSYS_SRC)/frontends/rtlil/Makefile.inc
 include $(YOSYS_SRC)/frontends/ast/Makefile.inc
 include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
+include $(YOSYS_SRC)/frontends/liberty/Makefile.inc
+
 OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
@@ -710,7 +712,10 @@ OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
+OBJS += passes/cmds/clean_zerowidth.o
 OBJS += passes/cmds/splitfanout.o
+
+include $(YOSYS_SRC)/passes/memory/Makefile.inc
 
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc

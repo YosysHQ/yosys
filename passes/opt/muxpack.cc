@@ -31,9 +31,9 @@ struct ExclusiveDatabase
 
 	dict<SigBit, std::pair<SigSpec,std::vector<Const>>> sig_cmp_prev;
 
-	ExclusiveDatabase(Module *module, const SigMap &sigmap, bool ignore_excl) : module(module), sigmap(sigmap)
+	ExclusiveDatabase(Module *module, const SigMap &sigmap, bool assume_excl) : module(module), sigmap(sigmap)
 	{
-		if (ignore_excl) return;
+		if (assume_excl) return;
 		SigSpec const_sig, nonconst_sig;
 		SigBit y_port;
 		pool<Cell*> reduce_or;
@@ -181,7 +181,7 @@ struct MuxpackWorker
 		}
 	}
 
-	void find_chain_start_cells(bool ignore_excl)
+	void find_chain_start_cells(bool assume_excl)
 	{
 		for (auto cell : candidate_cells)
 		{
@@ -211,7 +211,7 @@ struct MuxpackWorker
 				log_assert(prev_cell);
 				SigSpec s_sig = sigmap(cell->getPort(ID::S));
 				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
-				if (!ignore_excl && !excl_db.query(s_sig))
+				if (!assume_excl && !excl_db.query(s_sig))
 					goto start_cell;
 			}
 
@@ -310,11 +310,11 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module, bool ignore_excl) :
-			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, ignore_excl)
+	MuxpackWorker(Module *module, bool assume_excl) :
+			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl)
 	{
 		make_sig_chain_next_prev();
-		find_chain_start_cells(ignore_excl);
+		find_chain_start_cells(assume_excl);
 
 		for (auto c : chain_start_cells) {
 			vector<Cell*> chain = create_chain(c);
@@ -341,32 +341,43 @@ struct MuxpackPass : public Pass {
 		log("whose select lines are driven by '$eq' cells with other such cells if it can be\n");
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
-		log("    -ignore_excl\n");
-		log("        ignore mutually exclusive constraint when packing (less conservative)\n");
+		log("    -splitfanout\n");
+		log("        run splitfanout pass first\n");
+		log("\n");
+		log("    -assume_excl\n");
+		log("        assume mutually exclusive constraint when packing (may result in inequivalence)\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		bool ignore_excl = false;
+		bool splitfanout = false;
+		bool assume_excl = false;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-ignore_excl") {
-				ignore_excl = true;
+			if (args[argidx] == "-splitfanout") {
+				splitfanout = true;
+				continue;
+			}
+			if (args[argidx] == "-assume_excl") {
+				assume_excl = true;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
+		if (splitfanout)
+			Pass::call(design, "splitfanout t:$mux t:$pmux");
+
 		int mux_count = 0;
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module, ignore_excl);
+			MuxpackWorker worker(module, assume_excl);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
