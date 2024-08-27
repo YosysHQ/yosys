@@ -537,7 +537,7 @@ struct WreducePass : public Pass {
 					}
 				}
 
-				if (c->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
+				if (c->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
 				{
 					SigSpec A = c->getPort(ID::A);
 					int original_a_width = GetSize(A);
