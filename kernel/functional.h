@@ -287,7 +287,6 @@ namespace Functional {
 			bool operator!=(iterator const &other) const { return _ir != other._ir || _index != other._index; }
 			bool operator==(iterator const &other) const { return !(*this != other); }
 			pointer operator->();
-			// TODO: implement operator-> using the arrow_proxy class currently in mem.h
 		};
 		iterator begin() { return iterator(this, 0); }
 		iterator end() { return iterator(this, _graph.size()); }
