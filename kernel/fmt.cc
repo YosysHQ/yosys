@@ -634,10 +634,11 @@ std::string escape_cxx_string(const std::string &input)
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
-			char l = c & 0xf, h = (c >> 4) & 0xf;
-			output.append("\\x");
-			output.push_back((h < 10 ? '0' + h : 'a' + h - 10));
-			output.push_back((l < 10 ? '0' + l : 'a' + l - 10));
+			char l = c & 0x7, m = (c >> 3) & 0x7, h = (c >> 6) & 0x3;
+			output.push_back('\\');
+			output.push_back('0' + h);
+			output.push_back('0' + m);
+			output.push_back('0' + l);
 		}
 	}
 	output.push_back('"');
