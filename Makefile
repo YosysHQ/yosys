@@ -87,7 +87,7 @@ EXTRA_TARGETS =
 TARGETS = $(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)yosys-config
 
 PRETTY = 1
-SMALL = 0
+SMALL = 1
 
 # Unit test
 UNITESTPATH := tests/unit
@@ -709,6 +709,8 @@ OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
+
+OBJS += passes/cmds/splitfanout.o
 
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
