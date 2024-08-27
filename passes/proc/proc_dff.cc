@@ -54,7 +54,7 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 }
 
 /**
- * Container storing key,std::set(value) pairs in insertion order
+ * Container storing key,std::set(value) pairs in reverse insertion order
  * and provides a linear search.
  */
 template<typename Key, typename Value>
@@ -71,8 +71,8 @@ public:
 			return backing.back().second;
 		}
 	}
-	typename std::vector<entry>::iterator begin() { return backing.begin(); }
-	typename std::vector<entry>::iterator end() { return backing.end(); }
+	typename std::vector<entry>::reverse_iterator begin() { return backing.rbegin(); }
+	typename std::vector<entry>::reverse_iterator end() { return backing.rend(); }
 	typename std::vector<entry>::size_type size() { return backing.size(); }
 	void clear() { return backing.clear(); }
 };
