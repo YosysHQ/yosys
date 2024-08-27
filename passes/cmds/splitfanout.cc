@@ -192,7 +192,7 @@ struct SplitfanoutPass : public Pass {
 					count_split_pre, log_id(module), count_split_post);
 		}
 
-		Pass::call(design, "clean");
+		Pass::call(design, "clean *");
 	}
 } SplitfanoutPass;
 
