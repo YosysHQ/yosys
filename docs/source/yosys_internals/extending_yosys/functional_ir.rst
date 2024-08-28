@@ -26,11 +26,11 @@ The `Functional::IR` class supports the syntax `for(auto node : ir)` to iterate 
 `Functional::IR` also keeps track of inputs, outputs and states.
 By a "state" we mean a pair of a "current state" input and a "next state" output.
 One such pair is created for every register and for every memory.
-Every input, output and state has a name (equal to their name in RTLIL), a sort and a "type".
-The "type" field usually remains as the default value `$input`, `$output` or `$state`, however some RTLIL cells such as `$assert` or `$anyseq` generate auxiliary inputs/outputs/states that are given a different type to distinguish them from ordinary RTLIL inputs/outputs/states.
-- To access an individual input/output/state, use `ir.input(name, type)`, `ir.output(name, type)` or `ir.state(name, type)`. `type` defaults to the default type.
-- To iterate over all inputs/outputs/states of a certain "type", methods `ir.inputs`, `ir.outputs`, `ir.states` are provided. Their argument defaults to the default types mentioned.
-- To iterate over inputs/outputs/states of any "type", use `ir.all_inputs`, `ir.all_outputs` and `ir.all_states`.
+Every input, output and state has a name (equal to their name in RTLIL), a sort and a kind.
+The kind field usually remains as the default value `$input`, `$output` or `$state`, however some RTLIL cells such as `$assert` or `$anyseq` generate auxiliary inputs/outputs/states that are given a different kind to distinguish them from ordinary RTLIL inputs/outputs/states.
+- To access an individual input/output/state, use `ir.input(name, kind)`, `ir.output(name, kind)` or `ir.state(name, kind)`. `kind` defaults to the default kind.
+- To iterate over all inputs/outputs/states of a certain kind, methods `ir.inputs`, `ir.outputs`, `ir.states` are provided. Their argument defaults to the default kinds mentioned.
+- To iterate over inputs/outputs/states of any kind, use `ir.all_inputs`, `ir.all_outputs` and `ir.all_states`.
 - Outputs have a node that indicate the value of the output, this can be retrieved via `output.value()`.
 - States have a node that indicate the next value of the state, this can be retrieved via `state.next_value()`.
   They also have an initial value that is accessed as either `state.initial_value_signal()` or `state.initial_value_memory()`, depending on their sort.

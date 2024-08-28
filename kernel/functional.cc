@@ -67,26 +67,26 @@ const char *fn_to_string(Fn fn) {
 	log_error("fn_to_string: unknown Functional::Fn value %d", (int)fn);
 }
 
-vector<IRInput const*> IR::inputs(IdString type) const {
+vector<IRInput const*> IR::inputs(IdString kind) const {
 	vector<IRInput const*> ret;
 	for (const auto &[name, input] : _inputs)
-		if(input.type == type)
+		if(input.kind == kind)
 			ret.push_back(&input);
 	return ret;
 }
 
-vector<IROutput const*> IR::outputs(IdString type) const {
+vector<IROutput const*> IR::outputs(IdString kind) const {
 	vector<IROutput const*> ret;
 	for (const auto &[name, output] : _outputs)
-		if(output.type == type)
+		if(output.kind == kind)
 			ret.push_back(&output);
 	return ret;
 }
 
-vector<IRState const*> IR::states(IdString type) const {
+vector<IRState const*> IR::states(IdString kind) const {
 	vector<IRState const*> ret;
 	for (const auto &[name, state] : _states)
-		if(state.type == type)
+		if(state.kind == kind)
 			ret.push_back(&state);
 	return ret;
 }
@@ -120,8 +120,8 @@ struct PrintVisitor : DefaultVisitor<std::string> {
 	std::string zero_extend(Node, Node a, int out_width) override { return "zero_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string sign_extend(Node, Node a, int out_width) override { return "sign_extend(" + np(a) + ", " + std::to_string(out_width) + ")"; }
 	std::string constant(Node, RTLIL::Const const& value) override { return "constant(" + value.as_string() + ")"; }
-	std::string input(Node, IdString name, IdString type) override { return "input(" + name.str() + ", " + type.str() + ")"; }
-	std::string state(Node, IdString name, IdString type) override { return "state(" + name.str() + ", " + type.str() + ")"; }
+	std::string input(Node, IdString name, IdString kind) override { return "input(" + name.str() + ", " + kind.str() + ")"; }
+	std::string state(Node, IdString name, IdString kind) override { return "state(" + name.str() + ", " + kind.str() + ")"; }
 	std::string default_handler(Node self) override {
 		std::string ret = fn_to_string(self.fn());
 		ret += "(";

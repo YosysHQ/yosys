@@ -34,7 +34,7 @@ namespace Functional {
 	// each function is documented with a short pseudocode declaration or definition
 	// standard C/Verilog operators are used to describe the result
 	// 
-	// the types used in this are:
+	// the sorts used in this are:
 	// - bit[N]: a bitvector of N bits
 	//   bit[N] can be indicated as signed or unsigned. this is not tracked by the functional backend
 	//   but is meant to indicate how the value is interpreted
@@ -43,12 +43,12 @@ namespace Functional {
 	// - int: C++ int
 	// - Const[N]: yosys RTLIL::Const (with size() == N)
 	// - IdString: yosys IdString
-	// - any: used in documentation to indicate that the type is unconstrained
+	// - any: used in documentation to indicate that the sort is unconstrained
 	//
-	// nodes in the functional backend are either of type bit[N] or memory[N,M] (for some N, M: int)
-	// additionally, they can carry a constant of type int, Const[N] or IdString
-	// each node has a 'sort' field that stores the type of the node
-	// slice, zero_extend, sign_extend use the type field to store out_width
+	// nodes in the functional backend are either of sort bit[N] or memory[N,M] (for some N, M: int)
+	// additionally, they can carry a constant of sort int, Const[N] or IdString
+	// each node has a 'sort' field that stores the sort of the node
+	// slice, zero_extend, sign_extend use the sort field to store out_width
 	enum class Fn {
 		// invalid() = known-invalid/shouldn't happen value
 		// TODO: maybe remove this and use e.g. std::optional instead?
@@ -136,7 +136,7 @@ namespace Functional {
 	// returns the name of a Fn value, as a string literal
 	const char *fn_to_string(Fn);
 	// Sort represents the sort or type of a node
-	// currently the only two types are signal/bit and memory
+	// currently the only two sorts are signal/bit and memory
 	class Sort {
 		std::variant<int, std::pair<int, int>> _v;
 	public:
@@ -144,11 +144,11 @@ namespace Functional {
 		Sort(int addr_width, int data_width) : _v(std::make_pair(addr_width, data_width)) { }
 		bool is_signal() const { return _v.index() == 0; }
 		bool is_memory() const { return _v.index() == 1; }
-		// returns the width of a bitvector type, errors out for other types
+		// returns the width of a bitvector sort, errors out for other sorts
 		int width() const { return std::get<0>(_v); }
-		// returns the address width of a bitvector type, errors out for other types
+		// returns the address width of a bitvector sort, errors out for other sorts
 		int addr_width() const { return std::get<1>(_v).first; }
-		// returns the data width of a bitvector type, errors out for other types
+		// returns the data width of a bitvector sort, errors out for other sorts
 		int data_width() const { return std::get<1>(_v).second; }
 		bool operator==(Sort const& other) const { return _v == other._v; }
 		unsigned int hash() const { return mkhash(_v); }
@@ -160,22 +160,22 @@ namespace Functional {
 		friend class Factory;
 	public:
 		IdString name;
-		IdString type;
+		IdString kind;
 		Sort sort;
 	private:
-		IRInput(IR &, IdString name, IdString type, Sort sort)
-		: name(name), type(type), sort(std::move(sort)) {}
+		IRInput(IR &, IdString name, IdString kind, Sort sort)
+		: name(name), kind(kind), sort(std::move(sort)) {}
 	};
 	class IROutput {
 		friend class Factory;
 		IR &_ir;
 	public:
 		IdString name;
-		IdString type;
+		IdString kind;
 		Sort sort;
 	private:
-		IROutput(IR &ir, IdString name, IdString type, Sort sort)
-		: _ir(ir), name(name), type(type), sort(std::move(sort)) {}
+		IROutput(IR &ir, IdString name, IdString kind, Sort sort)
+		: _ir(ir), name(name), kind(kind), sort(std::move(sort)) {}
 	public:
 		Node value() const;
 		bool has_value() const;
@@ -186,12 +186,12 @@ namespace Functional {
 		IR &_ir;
 	public:
 		IdString name;
-		IdString type;
+		IdString kind;
 		Sort sort;
 	private:
 		std::variant<RTLIL::Const, MemContents> _initial;
-		IRState(IR &ir, IdString name, IdString type, Sort sort)
-		: _ir(ir), name(name), type(type), sort(std::move(sort)) {}
+		IRState(IR &ir, IdString name, IdString kind, Sort sort)
+		: _ir(ir), name(name), kind(kind), sort(std::move(sort)) {}
 	public:
 		Node next_value() const;
 		bool has_next_value() const;
@@ -253,20 +253,20 @@ namespace Functional {
 		Node operator[](int i);
 		void topological_sort();
 		void forward_buf();
-		IRInput const& input(IdString name, IdString type) const { return _inputs.at({name, type}); }
+		IRInput const& input(IdString name, IdString kind) const { return _inputs.at({name, kind}); }
 		IRInput const& input(IdString name) const { return input(name, ID($input)); }
-		IROutput const& output(IdString name, IdString type) const { return _outputs.at({name, type}); }
+		IROutput const& output(IdString name, IdString kind) const { return _outputs.at({name, kind}); }
 		IROutput const& output(IdString name) const { return output(name, ID($output)); }
-		IRState const& state(IdString name, IdString type) const { return _states.at({name, type}); }
+		IRState const& state(IdString name, IdString kind) const { return _states.at({name, kind}); }
 		IRState const& state(IdString name) const { return state(name, ID($state)); }
-		bool has_input(IdString name, IdString type) const { return _inputs.count({name, type}); }
-		bool has_output(IdString name, IdString type) const { return _outputs.count({name, type}); }
-		bool has_state(IdString name, IdString type) const { return _states.count({name, type}); }
-		vector<IRInput const*> inputs(IdString type) const;
+		bool has_input(IdString name, IdString kind) const { return _inputs.count({name, kind}); }
+		bool has_output(IdString name, IdString kind) const { return _outputs.count({name, kind}); }
+		bool has_state(IdString name, IdString kind) const { return _states.count({name, kind}); }
+		vector<IRInput const*> inputs(IdString kind) const;
 		vector<IRInput const*> inputs() const { return inputs(ID($input)); }
-		vector<IROutput const*> outputs(IdString type) const;
+		vector<IROutput const*> outputs(IdString kind) const;
 		vector<IROutput const*> outputs() const { return outputs(ID($output)); }
-		vector<IRState const*> states(IdString type) const;
+		vector<IRState const*> states(IdString kind) const;
 		vector<IRState const*> states() const { return states(ID($state)); }
 		vector<IRInput const*> all_inputs() const;
 		vector<IROutput const*> all_outputs() const;
@@ -364,12 +364,12 @@ namespace Functional {
 	};
 	inline IR::Graph::Ref IR::mutate(Node n) { return _graph[n._ref.index()]; }
 	inline Node IR::operator[](int i) { return Node(_graph[i]); }
-	inline Node IROutput::value() const { return Node(_ir._graph({name, type, false})); }
-	inline bool IROutput::has_value() const { return _ir._graph.has_key({name, type, false}); }
-	inline void IROutput::set_value(Node value) { log_assert(sort == value.sort()); _ir.mutate(value).assign_key({name, type, false}); }
-	inline Node IRState::next_value() const { return Node(_ir._graph({name, type, true})); }
-	inline bool IRState::has_next_value() const { return _ir._graph.has_key({name, type, true}); }
-	inline void IRState::set_next_value(Node value) { log_assert(sort == value.sort()); _ir.mutate(value).assign_key({name, type, true}); }
+	inline Node IROutput::value() const { return Node(_ir._graph({name, kind, false})); }
+	inline bool IROutput::has_value() const { return _ir._graph.has_key({name, kind, false}); }
+	inline void IROutput::set_value(Node value) { log_assert(sort == value.sort()); _ir.mutate(value).assign_key({name, kind, false}); }
+	inline Node IRState::next_value() const { return Node(_ir._graph({name, kind, true})); }
+	inline bool IRState::has_next_value() const { return _ir._graph.has_key({name, kind, true}); }
+	inline void IRState::set_next_value(Node value) { log_assert(sort == value.sort()); _ir.mutate(value).assign_key({name, kind, true}); }
 	inline Node IR::iterator::operator*() { return Node(_ir->_graph[_index]); }
 	inline arrow_proxy<Node> IR::iterator::operator->() { return arrow_proxy<Node>(**this); }
 	// AbstractVisitor provides an abstract base class for visitors
@@ -403,8 +403,8 @@ namespace Functional {
 		virtual T arithmetic_shift_right(Node self, Node a, Node b) = 0;
 		virtual T mux(Node self, Node a, Node b, Node s) = 0;
 		virtual T constant(Node self, RTLIL::Const const & value) = 0;
-		virtual T input(Node self, IdString name, IdString type) = 0;
-		virtual T state(Node self, IdString name, IdString type) = 0;
+		virtual T input(Node self, IdString name, IdString kind) = 0;
+		virtual T state(Node self, IdString name, IdString kind) = 0;
 		virtual T memory_read(Node self, Node mem, Node addr) = 0;
 		virtual T memory_write(Node self, Node mem, Node addr, Node data) = 0;
 	};
@@ -547,26 +547,26 @@ namespace Functional {
 			log_assert(node.sort() == value.sort());
 			_ir.mutate(node).append_arg(value._ref);
 		}
-		IRInput &add_input(IdString name, IdString type, Sort sort) {
-			auto [it, inserted] = _ir._inputs.emplace({name, type}, IRInput(_ir, name, type, std::move(sort)));
+		IRInput &add_input(IdString name, IdString kind, Sort sort) {
+			auto [it, inserted] = _ir._inputs.emplace({name, kind}, IRInput(_ir, name, kind, std::move(sort)));
 			if (!inserted) log_error("input `%s` was re-defined", name.c_str());
 			return it->second;
 		}
-		IROutput &add_output(IdString name, IdString type, Sort sort) {
-			auto [it, inserted] = _ir._outputs.emplace({name, type}, IROutput(_ir, name, type, std::move(sort)));
+		IROutput &add_output(IdString name, IdString kind, Sort sort) {
+			auto [it, inserted] = _ir._outputs.emplace({name, kind}, IROutput(_ir, name, kind, std::move(sort)));
 			if (!inserted) log_error("output `%s` was re-defined", name.c_str());
 			return it->second;
 		}
-		IRState &add_state(IdString name, IdString type, Sort sort) {
-			auto [it, inserted] = _ir._states.emplace({name, type}, IRState(_ir, name, type, std::move(sort)));
+		IRState &add_state(IdString name, IdString kind, Sort sort) {
+			auto [it, inserted] = _ir._states.emplace({name, kind}, IRState(_ir, name, kind, std::move(sort)));
 			if (!inserted) log_error("state `%s` was re-defined", name.c_str());
 			return it->second;
 		}
 		Node value(IRInput const& input) {
-			return add(IR::NodeData(Fn::input, std::pair(input.name, input.type)), input.sort, {});
+			return add(IR::NodeData(Fn::input, std::pair(input.name, input.kind)), input.sort, {});
 		}
 		Node value(IRState const& state) {
-			return add(IR::NodeData(Fn::state, std::pair(state.name, state.type)), state.sort, {});
+			return add(IR::NodeData(Fn::state, std::pair(state.name, state.kind)), state.sort, {});
 		}
 		void suggest_name(Node node, IdString name) {
 			_ir.mutate(node).sparse_attr() = name;
