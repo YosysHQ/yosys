@@ -67,7 +67,7 @@ struct SplitfanoutWorker
 		}
 	}
 
-	int split(Cell *cell, int fanoutlimit)
+	int split(Cell *cell)
 	{
 		// Get output signal/port
 		SigSpec outsig;
@@ -93,8 +93,8 @@ struct SplitfanoutWorker
 			}
 		}
 
-		// Skip if output signal has only one user or too many users
-		if (GetSize(bit_users) <= 1 || GetSize(bit_users) > fanoutlimit)
+		// Skip if output signal has only one user
+		if (GetSize(bit_users) <= 1)
 			return 0;
 
 		// Iterate over bit users and create a new cell for each one
@@ -148,7 +148,7 @@ struct SplitfanoutPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    splitfanout [options] [selection]\n");
+		log("    splitfanout [selection]\n");
 		log("\n");
 		log("This command copies selected cells with >1 fanout into cells with fanout 1. It\n");
 		log("is effectively the opposite of the opt_merge pass.\n");
@@ -156,23 +156,16 @@ struct SplitfanoutPass : public Pass {
 		log("This command operates only on cells with 1 output and no \"bit split\" on that\n");
 		log("output.\n");
 		log("\n");
-		log("    -fanoutlimit\n");
-		log("        fanout limit for splitfanout, beyond which no split (default: 10)\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		int fanoutlimit = 10;
-
 		log_header(design, "Executing SPLITFANOUT pass (splitting up cells with >1 fanout into copies).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if ((args[argidx] == "-fanoutlimit") && ((argidx + 1) < args.size())) {
-				fanoutlimit = std::stoi(args[++argidx]);
-				continue;
-			}
+			// No options currently. When adding in the future make sure to update docstring with [options]
+			break;
 		}
 		extra_args(args, argidx, design);
 
@@ -185,7 +178,7 @@ struct SplitfanoutPass : public Pass {
 				SplitfanoutWorker worker(module);
 				bool did_something = false;
 				for (auto cell : module->selected_cells()) {
-					int n = worker.split(cell, fanoutlimit);
+					int n = worker.split(cell);
 					did_something |= (n != 0);
 					count_split_pre += (n != 0);
 					count_split_post += n;

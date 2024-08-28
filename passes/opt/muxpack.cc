@@ -344,9 +344,6 @@ struct MuxpackPass : public Pass {
 		log("    -splitfanout\n");
 		log("        run splitfanout pass first\n");
 		log("\n");
-		log("    -fanoutlimit\n");
-		log("        fanout limit for splitfanout, beyond which no split (default: 10)\n");
-		log("\n");
 		log("    -assume_excl\n");
 		log("        assume mutually exclusive constraint when packing (may result in inequivalence)\n");
 		log("\n");
@@ -355,7 +352,6 @@ struct MuxpackPass : public Pass {
 	{
 		bool splitfanout = false;
 		bool assume_excl = false;
-		int fanoutlimit = 10;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
@@ -364,10 +360,6 @@ struct MuxpackPass : public Pass {
 		{
 			if (args[argidx] == "-splitfanout") {
 				splitfanout = true;
-				continue;
-			}
-			if ((args[argidx] == "-fanoutlimit") && ((argidx + 1) < args.size())) {
-				fanoutlimit = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-assume_excl") {
@@ -379,7 +371,7 @@ struct MuxpackPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (splitfanout)
-			Pass::call(design, stringf("splitfanout -fanoutlimit %d t:$mux t:$pmux", fanoutlimit));
+			Pass::call(design, "splitfanout t:$mux t:$pmux");
 
 		int mux_count = 0;
 		int pmux_count = 0;
