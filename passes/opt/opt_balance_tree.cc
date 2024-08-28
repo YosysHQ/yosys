@@ -218,16 +218,10 @@ struct OptBalanceTreeWorker {
 		// Get midnext signals
 		SigSpec midnext_a_sig = sigmap(midnext_cell->getPort(ID::A));
 		SigSpec midnext_b_sig = sigmap(midnext_cell->getPort(ID::B));
-		IdString midnext_chain_port = sig_chain_next.count(midnext_a_sig) ? ID::A : ID::B;
+		IdString midnext_chain_port = sig_chain_prev.count(midnext_a_sig) ? ID::A : ID::B;
 
 		// Get output signal
 		SigSpec end_y_sig = sigmap(end_cell->getPort(ID::Y));
-
-		// Unset ports involved in rotation
-		mid_cell->unsetPort(mid_non_chain_port);
-		mid_cell->unsetPort(ID::Y);
-		midnext_cell->unsetPort(midnext_chain_port);
-		end_cell->unsetPort(ID::Y);
 
 		// Create new mid wire
 		Wire *mid_wire = module->addWire(NEW_ID, GetSize(end_y_sig));
@@ -238,6 +232,9 @@ struct OptBalanceTreeWorker {
 		midnext_cell->setPort(midnext_chain_port, mid_non_chain_sig);
 		end_cell->setPort(ID::Y, mid_wire);
 
+		// Recreate sigmap
+		sigmap.set(module);
+
 		// Get subtrees
 		vector<Cell*> left_chain(chain.begin(), chain.begin() + GetSize(chain) / 2);
 		vector<Cell*> right_chain(chain.begin() + GetSize(chain) / 2 + 1, chain.end());
@@ -245,9 +242,6 @@ struct OptBalanceTreeWorker {
 		// Recurse on subtrees
 		process_chain(left_chain);
 		process_chain(right_chain);
-
-		// Recreate sigmap
-		sigmap.set(module);
 		
 		// Width reduce left subtree
 		for (auto c : left_chain)
