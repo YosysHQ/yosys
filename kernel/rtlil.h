@@ -1150,8 +1150,8 @@ struct RTLIL::Design
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules() const;
+	std::vector<RTLIL::Module*> selected_modules(bool include_bw_box = false) const;
+	std::vector<RTLIL::Module*> selected_whole_modules(bool include_bw_box = false) const;
 	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const;
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);

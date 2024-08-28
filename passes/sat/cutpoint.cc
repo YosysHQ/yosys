@@ -55,7 +55,7 @@ struct CutpointPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
+		for (auto module : design->selected_modules(true))
 		{
 			if (design->selected_whole_module(module->name)) {
 				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));

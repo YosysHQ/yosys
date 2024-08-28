@@ -884,22 +884,22 @@ bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 	return selected_whole_module(mod->name);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
+std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(bool include_bw_box) const
 {
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_module(it.first) && !it.second->get_blackbox_attribute())
+		if (selected_module(it.first) && (include_bw_box ? true : !it.second->get_blackbox_attribute()))
 			result.push_back(it.second);
 	return result;
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
+std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules(bool include_bw_box) const
 {
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_whole_module(it.first) && !it.second->get_blackbox_attribute())
+		if (selected_whole_module(it.first) && (include_bw_box ? true : !it.second->get_blackbox_attribute()))
 			result.push_back(it.second);
 	return result;
 }
