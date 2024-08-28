@@ -1,6 +1,10 @@
 Formal verification cells
 -------------------------
 
+.. TODO:: note on `$check`
+
+   If only I remembered what the note was...
+
 .. TODO:: Describe formal cells
 
    `$check`, `$assert`, `$assume`, `$live`, `$fair`, `$cover`, `$equiv`,
