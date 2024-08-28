@@ -105,7 +105,7 @@ jobs:
         if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
         shell: bash
         run:
-          make docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs TARGETS= EXTRA_TARGETS=
+          make docs/prep TARGETS= EXTRA_TARGETS=
 
       - name: Upload artifact
         if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
