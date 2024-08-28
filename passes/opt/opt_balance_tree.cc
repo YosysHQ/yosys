@@ -314,9 +314,13 @@ struct OptBalanceTreePass : public Pass {
 		log("    -splitfanout\n");
 		log("        run splitfanout pass first\n");
 		log("\n");
+		log("    -fanoutlimit\n");
+		log("        fanout limit for splitfanout, beyond which no split (default: 10)\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		bool splitfanout = false;
+		int fanoutlimit = 10;
 
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
 
@@ -327,13 +331,17 @@ struct OptBalanceTreePass : public Pass {
 				splitfanout = true;
 				continue;
 			}
+			if ((args[argidx] == "-fanoutlimit") && ((argidx + 1) < args.size())) {
+				fanoutlimit = std::stoi(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		// Run splitfanout pass first
 		if (splitfanout)
-			Pass::call(design, "splitfanout t:$and t:$or t:$xor t:$add t:$mul");
+			Pass::call(design, stringf("splitfanout -fanoutlimit %d t:$and t:$or t:$xor t:$add t:$mul", fanoutlimit));
 
 		// Count of all cells that were packed
 		dict<IdString, int> cell_count;
