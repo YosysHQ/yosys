@@ -1009,8 +1009,11 @@ docs/usage: $(addprefix docs/source/generated/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE
 docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
+.PHONY: docs/prep
+docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs: docs/prep
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
