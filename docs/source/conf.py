@@ -61,15 +61,24 @@ if os.getenv("READTHEDOCS"):
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
 
+# include todos for previews
+extensions.append('sphinx.ext.todo')
+
 # set version
 if os.getenv("READTHEDOCS"):
     rtds_version = os.getenv("READTHEDOCS_VERSION")
     if rtds_version == "latest":
         release = yosys_ver + "-dev"
+        todo_include_todos = False
+    elif rtds_version.startswith("yosys-"):
+        release = yosys_ver
+        todo_include_todos = False
     else:
         release = rtds_version
+        todo_include_todos = True
 else:
     release = yosys_ver
+    todo_include_todos = True
 
 # assign figure numbers
 numfig = True
@@ -83,10 +92,6 @@ latex_elements = {
 
 '''
 }
-
-# include todos during rewrite
-extensions.append('sphinx.ext.todo')
-todo_include_todos = False
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]
