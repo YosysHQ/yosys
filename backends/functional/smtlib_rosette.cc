@@ -287,7 +287,7 @@ struct FunctionalSmtrBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		*f << "#lang rosette\n";
+		*f << "#lang rosette/safe\n";
 		if (provides) {
 			*f << "(provide (all-defined-out))\n";
 		}
