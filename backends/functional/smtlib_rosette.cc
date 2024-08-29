@@ -31,8 +31,12 @@ using SExprUtil::list;
 const char *reserved_keywords[] = {
 	// reserved keywords from the racket spec
 	"struct", "lambda", "values", "extract", "concat", "bv", "let", "define", "cons", "list", "read", "write",
-	"stream", "error", "raise", "exit", "for", "for/list", "begin", "when", "unless", "module", "require",
-	"provide", "apply", "if", "cond", "even", "odd", "any", "and", "or", "match", "match-define", "values",
+	"stream", "error", "raise", "exit", "for", "begin", "when", "unless", "module", "require", "provide", "apply",
+	"if", "cond", "even", "odd", "any", "and", "or", "match", "command-line", "ffi-lib", "thread", "kill", "sync",
+	"future", "touch", "subprocess", "make-custodian", "custodian-shutdown-all", "current-custodian", "make", "tcp",
+	"connect", "prepare", "malloc", "free", "_fun", "_cprocedure", "build", "path", "file", "peek", "bytes",
+	"flush", "with", "lexer", "parser", "syntax", "interface", "send", "make-object", "new", "instantiate",
+	"define-generics", "set",
 
 	// reserved for our own purposes
 	"inputs", "state", "name",
@@ -45,7 +49,7 @@ struct SmtrScope : public Functional::Scope<int> {
 			reserve(*p);
 	}
 	bool is_character_legal(char c, int index) override {
-		return isascii(c) && (isalpha(c) || (isdigit(c) && index > 0) || strchr("~!@$%^&*_-+=<>.?/", c));
+		return isascii(c) && (isalpha(c) || (isdigit(c) && index > 0) || strchr("@$%^&_+=.", c));
 	}
 };
 
