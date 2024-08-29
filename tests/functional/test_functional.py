@@ -71,3 +71,9 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     run(['z3', smt_file]) # check if output is valid smtlib before continuing
     smt_vcd.simulate_smt(smt_file, vcd_functional_file, num_steps, rnd(cell.name + "-smt"))
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
+
+def test_print_graph(tmp_path):
+    tb_file = base_path / 'tests/functional/picorv32_tb.v'
+    cpu_file = base_path / 'tests/functional/picorv32.v'
+    # currently we only check that we can print the graph without getting an error, not that it prints anything sensibl
+    yosys(f"read_verilog {quote(tb_file)} {quote(cpu_file)}; prep -top gold; flatten; clk2fflogic; test_generic")
