@@ -1,0 +1,16 @@
+scratchpad -set script.relative_path_resolution_enabled 1
+read_verilog design.v
+design -reset
+
+read_verilog ./design.v
+design -reset
+
+read_verilog ../script_relative_path_files/design.v
+write_rtlil design.il
+design -reset
+read_rtlil design.il
+design -reset
+
+scratchpad -set script.relative_path_resolution_enabled 0
+logger -expect error "Can't open input file `design.v' for reading: No such file or directory" 1
+read_verilog design.v

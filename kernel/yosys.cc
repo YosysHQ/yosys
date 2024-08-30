@@ -74,7 +74,9 @@
 #include <errno.h>
 
 #include "libs/json11/json11.hpp"
-
+#if !defined(__wasm)
+#include <filesystem>
+#endif
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -712,6 +714,20 @@ void rewrite_filename(std::string &filename)
 	if (filename.compare(0, 2, "~/") == 0)
 		filename = filename.replace(0, 1, getenv("HOME"));
 #endif
+#if !defined(__wasm)
+	if (yosys_get_design()->scratchpad_get_bool("script.relative_path_resolution_enabled")) {
+		std::filesystem::path file_path(filename);
+		if (file_path.is_relative()) {
+			const std::string script_dir = yosys_get_design()->scratchpad_get_string("script.dir", "");
+			if (!script_dir.empty()) {
+				std::filesystem::path script_dir_path(script_dir);
+				// Use std::filesystem::path operator/= for portable path concatenation
+				file_path = script_dir_path / file_path;
+				filename = file_path.string();
+			}
+		}
+	}
+#endif
 }
 
 #ifdef YOSYS_ENABLE_TCL
@@ -1193,7 +1209,13 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 
 		FILE *backup_script_file = Frontend::current_script_file;
 		Frontend::current_script_file = f;
-
+#if !defined(__wasm)
+		const std::filesystem::path input_file_path(filename);
+		const std::filesystem::path script_dir = input_file_path.parent_path();
+		if (!script_dir.string().empty()) {
+			yosys_get_design()->scratchpad_set_string("script.dir", script_dir.string());
+		}
+#endif
 		try {
 			std::string command;
 			while (fgetline(f, command)) {
