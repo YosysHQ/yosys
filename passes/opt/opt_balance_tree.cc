@@ -63,26 +63,27 @@ struct OptBalanceTreeWorker {
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 	 			// If a_sig already has a chain user, mark its bits as having non-chain users
-				if (sig_chain_next.count(a_sig) && !a_sig.is_fully_const()) // ok if a_sig is fully const
+				if (sig_chain_next.count(a_sig))
 					for (auto a_bit : a_sig.bits())
 						sigbit_with_non_chain_users.insert(a_bit);
 				// Otherwise, mark cell as the next in the chain relative to a_sig
 				else {
 					sig_chain_next[a_sig] = cell;
-					candidate_cells.insert(cell);
 				}
 
 				if (!b_sig.empty()) {
 					// If b_sig already has a chain user, mark its bits as having non-chain users
-					if (sig_chain_next.count(b_sig) && !b_sig.is_fully_const()) // ok if b_sig is fully const
+					if (sig_chain_next.count(b_sig))
 						for (auto b_bit : b_sig.bits())
 							sigbit_with_non_chain_users.insert(b_bit);
 					// Otherwise, mark cell as the next in the chain relative to b_sig
 					else {
 						sig_chain_next[b_sig] = cell;
-						candidate_cells.insert(cell);
 					}
 				}
+				
+				// Add cell as candidate
+				candidate_cells.insert(cell);
 
 				// Mark cell as the previous in the chain relative to y_sig
 				sig_chain_prev[y_sig] = cell;

@@ -152,23 +152,22 @@ struct MuxpackWorker
 					b_sig = sigmap(cell->getPort(ID::B));
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
-				if (sig_chain_next.count(a_sig) && !a_sig.is_fully_const())
+				if (sig_chain_next.count(a_sig))
 					for (auto a_bit : a_sig.bits())
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
 					sig_chain_next[a_sig] = cell;
-					candidate_cells.insert(cell);
 				}
 
 				if (!b_sig.empty()) {
-					if (sig_chain_next.count(b_sig) && !b_sig.is_fully_const())
+					if (sig_chain_next.count(b_sig))
 						for (auto b_bit : b_sig.bits())
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
 						sig_chain_next[b_sig] = cell;
-						candidate_cells.insert(cell);
 					}
 				}
+				candidate_cells.insert(cell);
 
 				sig_chain_prev[y_sig] = cell;
 				continue;
