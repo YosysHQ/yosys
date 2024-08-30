@@ -42,6 +42,8 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("This pass employs the following rules:\n");
 		log("\n");
+		log("   * muxadd - Replace S?(A+B):A with A+(S?B:0)\n");
+		log("\n");
 		log("   * muldiv - Replace (A*B)/B with A\n");
 		log("\n");
 		log("   * shiftmul - Replace A>>(B*C) with A'>>(B<<K) where C and K are constants\n");
@@ -90,6 +92,7 @@ struct PeepoptPass : public Pass {
 				pm.run_shiftmul_right();
 				pm.run_shiftmul_left();
 				pm.run_muldiv();
+				pm.run_muxadd();
 			}
 		}
 	}

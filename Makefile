@@ -716,6 +716,7 @@ OBJS += passes/cmds/clean_zerowidth.o
 OBJS += passes/cmds/splitfanout.o
 
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
+include $(YOSYS_SRC)/passes/pmgen/Makefile.inc
 
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
