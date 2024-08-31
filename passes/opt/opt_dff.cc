@@ -571,11 +571,23 @@ struct OptDffWorker
 				}
 			}
 
-			if (ff.has_aload && !ff.has_clk && ff.sig_ad == ff.sig_q) {
-				log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
-						log_id(cell), log_id(cell->type), log_id(module));
-				ff.has_aload = false;
-				changed = true;
+			if (ff.has_aload && ff.sig_ad == ff.sig_q) {
+				if (ff.has_clk) {
+					log_assert(!ff.has_ce);
+					log("Handling AD = Q on %s (%s) from module %s (turning async load feedback into CE).\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.sig_ce = ff.sig_aload;
+					ff.pol_ce = !ff.pol_aload;
+					ff.has_ce = true;
+					ff.has_aload = false;
+					ff.has_ce = true;
+					changed = true;
+				} else {
+					log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.has_aload = false;
+					changed = true;
+				}
 			}
 
 			// The cell has been simplified as much as possible already.  Now try to spice it up with enables / sync resets.
