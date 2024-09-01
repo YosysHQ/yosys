@@ -475,7 +475,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_WIRETYPE:
-		fprintf(f, id2vl(str).c_str());
+		fprintf(f, "%s", id2vl(str).c_str());
 		break;
 
 	case AST_MEMORY:
@@ -700,13 +700,11 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 			if (children[0]->children.size() > 0)
 				children[0]->children[0]->dumpVlog(f, "");
 			else
-				fprintf(f, "%d'", children[0]->range_left - children[0]->range_right +1);
+				fprintf(f, "%d'", children[0]->range_left - children[0]->range_right + 1);
 			break;
-
-		default: //AST_IDENTIFIER
+		default:
 			children[0]->dumpVlog(f, "");
 		}
-
 		fprintf(f, "'(");
 		children[1]->dumpVlog(f, "");
 		fprintf(f, ")");

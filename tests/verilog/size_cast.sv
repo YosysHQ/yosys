@@ -19,12 +19,12 @@ module top;
     typedef logic signed       s1bit_t;
     typedef logic        [1:0] u2bit_t;
     typedef logic signed [1:0] s2bit_t;
-    typedef logic        [2:0] u3bit_t; 
+    typedef logic        [2:0] u3bit_t;
 
     typedef struct packed {
-	    u1bit_t sign;
-	    u3bit_t msbs;
-	    byte    lsbs;
+        u1bit_t sign;
+        u3bit_t msbs;
+        byte    lsbs;
     } s12bit_packed_struct_t;
 
     logic y = 1;
@@ -200,7 +200,7 @@ module top;
         assert (u3bit_t'(L2sb10 | '0) == 3'b010);
         assert (u3bit_t'(L2sb11 | '0) == 3'b011);
 
-	assert (byte'(L1b0   | '0) == 8'h00);
+        assert (byte'(L1b0   | '0) == 8'h00);
         assert (byte'(L1b1   | '0) == 8'h01);
         assert (byte'(L1sb0  | '0) == 8'h00);
         assert (byte'(L1sb1  | '0) == 8'h01);
@@ -265,7 +265,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : '1) == 3'b010);
         assert (u3bit_t'(y ? L2sb11 : '1) == 3'b011);
 
-	assert (byte'(y ? L1b0   : '1) == 8'h00);
+        assert (byte'(y ? L1b0   : '1) == 8'h00);
         assert (byte'(y ? L1b1   : '1) == 8'h01);
         assert (byte'(y ? L1sb0  : '1) == 8'h00);
         assert (byte'(y ? L1sb1  : '1) == 8'h01);
@@ -330,7 +330,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : '0) == 3'b010);
         assert (u3bit_t'(y ? L2sb11 : '0) == 3'b011);
 
-	assert (byte'(y ? L1b0   : '0) == 8'h00);
+        assert (byte'(y ? L1b0   : '0) == 8'h00);
         assert (byte'(y ? L1b1   : '0) == 8'h01);
         assert (byte'(y ? L1sb0  : '0) == 8'h00);
         assert (byte'(y ? L1sb1  : '0) == 8'h01);
@@ -342,7 +342,7 @@ module top;
         assert (byte'(y ? L2sb01 : '0) == 8'h01);
         assert (byte'(y ? L2sb10 : '0) == 8'h02);
         assert (byte'(y ? L2sb11 : '0) == 8'h03);
-	
+
         assert (int'(y ? L1b0   : '0) == 32'h0000_0000);
         assert (int'(y ? L1b1   : '0) == 32'h0000_0001);
         assert (int'(y ? L1sb0  : '0) == 32'h0000_0000);
@@ -395,7 +395,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : 1'sb0) == 3'b110);
         assert (u3bit_t'(y ? L2sb11 : 1'sb0) == 3'b111);
 
-	assert (byte'(y ? L1b0   : 1'sb0) == 8'h00);
+        assert (byte'(y ? L1b0   : 1'sb0) == 8'h00);
         assert (byte'(y ? L1b1   : 1'sb0) == 8'h01);
         assert (byte'(y ? L1sb0  : 1'sb0) == 8'h00);
         assert (byte'(y ? L1sb1  : 1'sb0) == 8'hff);
@@ -460,7 +460,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : s1bit_t'(0)) == 3'b110);
         assert (u3bit_t'(y ? L2sb11 : s1bit_t'(0)) == 3'b111);
 
-	assert (byte'(y ? L1b0   : s1bit_t'(0)) == 8'h00);
+        assert (byte'(y ? L1b0   : s1bit_t'(0)) == 8'h00);
         assert (byte'(y ? L1b1   : s1bit_t'(0)) == 8'h01);
         assert (byte'(y ? L1sb0  : s1bit_t'(0)) == 8'h00);
         assert (byte'(y ? L1sb1  : s1bit_t'(0)) == 8'hff);
@@ -525,7 +525,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : 1'sb1) == 3'b110);
         assert (u3bit_t'(y ? L2sb11 : 1'sb1) == 3'b111);
 
-	assert (byte'(y ? L1b0   : 1'sb1) == 8'h00);
+        assert (byte'(y ? L1b0   : 1'sb1) == 8'h00);
         assert (byte'(y ? L1b1   : 1'sb1) == 8'h01);
         assert (byte'(y ? L1sb0  : 1'sb1) == 8'h00);
         assert (byte'(y ? L1sb1  : 1'sb1) == 8'hff);
@@ -590,7 +590,7 @@ module top;
         assert (u3bit_t'(y ? L2sb10 : s1bit_t'(1)) == 3'b110);
         assert (u3bit_t'(y ? L2sb11 : s1bit_t'(1)) == 3'b111);
 
-	assert (byte'(y ? L1b0   : s1bit_t'(1)) == 8'h00);
+        assert (byte'(y ? L1b0   : s1bit_t'(1)) == 8'h00);
         assert (byte'(y ? L1b1   : s1bit_t'(1)) == 8'h01);
         assert (byte'(y ? L1sb0  : s1bit_t'(1)) == 8'h00);
         assert (byte'(y ? L1sb1  : s1bit_t'(1)) == 8'hff);
