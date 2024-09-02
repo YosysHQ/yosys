@@ -1,6 +1,10 @@
 name: Build and run tests with Verific (Linux)
 
 on: [push, pull_request]
+# docs builds are needed for anything on main, any tagged versions, and any tag
+# or branch starting with docs-preview
+env:
+  is_docs_job: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   pre-job:
@@ -16,8 +20,8 @@ jobs:
           cancel_others: 'false'
           # only run on push *or* pull_request, not both
           concurrent_skipping: 'same_content_newer'
-          # we have special actions when running on main, so this should be off
-          skip_after_successful_duplicate: 'false'
+          # we can skip testing if it has already passed
+          skip_after_successful_duplicate: 'true'
 
   test-verific:
     needs: pre-job
@@ -74,7 +78,6 @@ jobs:
   prepare-docs:
     name: Generate docs artifact
     needs: [pre-job, test-verific]
-    if: needs.pre-job.outputs.should_skip != 'true'
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
@@ -82,11 +85,13 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
+
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
 
       - name: Build Yosys
+        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
         run: |
           make config-clang
           echo "ENABLE_VERIFIC := 1" >> Makefile.conf
@@ -97,11 +102,13 @@ jobs:
           make -j${{ env.procs }} ENABLE_LTO=1
 
       - name: Prepare docs
+        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
         shell: bash
         run:
           make docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs TARGETS= EXTRA_TARGETS=
 
       - name: Upload artifact
+        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
         uses: actions/upload-artifact@v4
         with:
           name: cmd-ref-${{ github.sha }}
@@ -112,7 +119,7 @@ jobs:
             docs/source/code_examples
 
       - name: Trigger RTDs build
-        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ env.is_docs_job }}
         uses: dfm/rtds-action@v1.1.0
         with:
           webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
