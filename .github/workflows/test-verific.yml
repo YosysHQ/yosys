@@ -1,10 +1,6 @@
 name: Build and run tests with Verific (Linux)
 
 on: [push, pull_request]
-# docs builds are needed for anything on main, any tagged versions, and any tag
-# or branch starting with docs-preview
-env:
-  is_docs_job: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   pre-job:
@@ -74,54 +70,3 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           make -C sby run_ci
-
-  prepare-docs:
-    name: Generate docs artifact
-    needs: [pre-job, test-verific]
-    runs-on: [self-hosted, linux, x64, fast]
-    steps:
-      - name: Checkout Yosys
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          submodules: true
-
-      - name: Runtime environment
-        run: |
-          echo "procs=$(nproc)" >> $GITHUB_ENV
-
-      - name: Build Yosys
-        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
-        run: |
-          make config-clang
-          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
-          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
-          echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j${{ env.procs }} ENABLE_LTO=1
-
-      - name: Prepare docs
-        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
-        shell: bash
-        run:
-          make docs/prep TARGETS= EXTRA_TARGETS=
-
-      - name: Upload artifact
-        if: ${{ (needs.pre-job.outputs.should_skip != 'true') || env.is_docs_job }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cmd-ref-${{ github.sha }}
-          path: |
-            docs/source/cmd
-            docs/source/generated
-            docs/source/_images
-            docs/source/code_examples
-
-      - name: Trigger RTDs build
-        if: ${{ env.is_docs_job }}
-        uses: dfm/rtds-action@v1.1.0
-        with:
-          webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
-          webhook_token: ${{ secrets.RTDS_WEBHOOK_TOKEN }}
-          commit_ref: ${{ github.ref }}
