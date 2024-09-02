@@ -90,8 +90,10 @@ Mapping to hardware
 For this example, we are using a Liberty file to describe a cell library which
 our internal cell library will be mapped to:
 
+.. todo:: find a Liberty pygments style?
+
 .. literalinclude:: /code_examples/intro/mycells.lib
-   :language: Liberty
+   :language: text
    :linenos:
    :name: mycells-lib
    :caption: :file:`mycells.lib`
