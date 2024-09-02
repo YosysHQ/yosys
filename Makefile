@@ -712,6 +712,7 @@ OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
+OBJS += passes/cmds/check.o
 OBJS += passes/cmds/clean_zerowidth.o
 OBJS += passes/cmds/splitfanout.o
 
