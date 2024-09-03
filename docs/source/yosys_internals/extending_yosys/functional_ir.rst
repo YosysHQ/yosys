@@ -82,7 +82,7 @@ For prettyprinting, ``SExprWriter`` wraps an ``std::ostream`` and provides the f
 - ``writer << sexpr`` writes the provided expression to the output, breaking long lines and adding appropriate indentation.
 - ``writer.open(sexpr)`` is similar to ``writer << sexpr`` but will omit the last closing parenthesis.
   Further arguments can then be added separately with ``<<`` or ``open``.
-  This allows for printing large s-expressions without needing the construct the whole expression in memory first.
+  This allows for printing large s-expressions without needing to construct the whole expression in memory first.
 - ``writer.open(sexpr, false)`` is similar to ``writer.open(sexpr)`` but further arguments will not be indented.
   This is used to avoid unlimited indentation on structures with unlimited nesting.
 - ``writer.close(n = 1)`` closes the last ``n`` open s-expressions.
@@ -90,3 +90,5 @@ For prettyprinting, ``SExprWriter`` wraps an ``std::ostream`` and provides the f
   ``writer.pop()`` closes all s-expressions opened since the last call to ``writer.push()``.
 - ``writer.comment(string)`` writes a comment on a separate-line.
   ``writer.comment(string, true)`` appends a comment to the last printed s-expression.
+- ``writer.flush()`` flushes any buffering and should be called before any direct access to the underlying ``std::ostream``. It does not close unclosed parentheses.
+- The destructor calls ``flush`` but also closes all unclosed parentheses.
