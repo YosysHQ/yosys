@@ -110,7 +110,7 @@ struct FsmData
 			auto off_end = off_state_in + state_num_log2;
 
 			RTLIL::Const state_in, state_out, ctrl_in, ctrl_out;
-			ctrl_out.bits.insert(state_in.bits.begin(), off_ctrl_out, off_state_out);
+			ctrl_out.bits.insert(ctrl_out.bits.begin(), off_ctrl_out, off_state_out);
 			state_out.bits.insert(state_out.bits.begin(), off_state_out, off_ctrl_in);
 			ctrl_in.bits.insert(ctrl_in.bits.begin(), off_ctrl_in, off_state_in);
 			state_in.bits.insert(state_in.bits.begin(), off_state_in, off_end);
