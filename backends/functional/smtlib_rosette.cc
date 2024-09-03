@@ -81,7 +81,7 @@ public:
 	SmtrStruct(std::string name, SmtrScope &scope) : scope(scope), name(name) {}
 	void insert(IdString field_name, SmtrSort sort) {
 		field_names(field_name);
-		auto base_name = RTLIL::unescape_id(field_name);
+		auto base_name = scope.unique_name("\\" + RTLIL::unescape_id(field_name));
 		auto accessor = name + "-" + base_name;
 		scope.reserve(accessor);
 		fields.emplace_back(Field{sort, accessor, base_name});
