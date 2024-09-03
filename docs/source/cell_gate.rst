@@ -23,14 +23,4 @@ file via ABC using the abc pass.
    /cell/gate_comb_combined
    /cell/gate_reg_ff
    /cell/gate_reg_latch
-
-.. TODO:: Find a home for `$_TBUF_`
-
-.. this should raise a warning, otherwise there are gate-level cells without a
-   'group' tag
-
-.. autocellgroup:: gate_other
-   :caption: Other gate-level cells
-   :members:
-   :source:
-   :linenos:
+   /cell/gate_other

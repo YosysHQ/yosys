@@ -29,11 +29,4 @@ Simulation models for the RTL cells can be found in the file
    /cell/word_debug
    /cell/word_wire
 
-.. this should raise a warning, otherwise there are word-level cells without a
-   'group' tag
-
-.. autocellgroup:: word_other
-   :caption: Other word-level cells
-   :members:
-   :source:
-   :linenos:
+.. todo:: Add check for unexpected ``word_other`` cells
