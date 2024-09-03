@@ -1,0 +1,50 @@
+ram block $__NX_RAM_ {
+	option "STD_MODE" "NOECC_48kx1" {
+		# only 32k used
+		abits 15;
+		widths 1 per_port;
+	}
+	option "STD_MODE" "NOECC_24kx2" {
+		# only 16k used
+		abits 14;
+		widths 2 per_port;
+	}
+	ifndef IS_NG_MEDIUM {
+		option "STD_MODE" "NOECC_16kx3" {
+			abits 14;
+			widths 3 per_port;
+		}
+	}
+	option "STD_MODE" "NOECC_12kx4" {
+		# only 8k used
+		abits 13;
+		widths 4 per_port;
+	}
+	ifndef IS_NG_MEDIUM {
+		option "STD_MODE" "NOECC_8kx6" {
+			abits 13;
+			widths 6 per_port;
+		}
+	}
+	option "STD_MODE" "NOECC_6kx8" {
+		# only 4k used
+		abits 12;
+		widths 8 per_port;
+	}
+	option "STD_MODE" "NOECC_4kx12" {
+		abits 12;
+		widths 12 per_port;
+	}
+	option "STD_MODE" "NOECC_2kx24" {
+		abits 11;
+		widths 24 per_port;
+	}
+	cost 64;
+	init no_undef;
+	port srsw "A" "B" {
+		clock anyedge;
+		clken;
+		rdwr no_change;
+		rdinit none;
+	}
+}
