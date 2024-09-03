@@ -53,7 +53,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("        - medium: NG-Medium\n");
 		log("        - large: NG-Large\n");
 		log("        - ultra: NG-Ultra\n");
-		log("        - u300: NG-Ultra300\n");
 		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");
@@ -90,9 +89,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use block NX_RAM cells in output netlist\n");
 		log("\n");
-		log("    -nodsp\n");
-		log("        do not map multipliers to NX_DSP cells\n");
-		log("\n");
 		log("    -noiopad\n");
 		log("        do not insert IO buffers\n");
 		log("\n");
@@ -108,7 +104,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family;
-	bool flatten, abc9, nocy, nodffe, norfram, nobram, nodsp, noiopad, no_rw_check;
+	bool flatten, abc9, nocy, nodffe, norfram, nobram, noiopad, no_rw_check;
 	std::string postfix;
 	int min_ce_use, min_srst_use;
 
@@ -123,7 +119,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		nodffe = false;
 		norfram = false;
 		nobram = false;
-		nodsp = false;
 		noiopad = false;
 		no_rw_check = false;
 		postfix = "";
@@ -195,10 +190,6 @@ struct SynthNanoXplorePass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodsp") {
-				nodsp = true;
-				continue;
-			}
 			if (args[argidx] == "-iopad") {
 				noiopad = false;
 				continue;
@@ -221,8 +212,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		}
 
 		if (family == "ultra") {
-			postfix = "_u";
-		} else if (family == "u300") {
 			postfix = "_u";
 		} else if (family == "medium") {
 			postfix = "_m";
