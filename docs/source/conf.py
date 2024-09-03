@@ -70,12 +70,12 @@ if os.getenv("READTHEDOCS"):
     if rtds_version == "latest":
         release = yosys_ver + "-dev"
         todo_include_todos = False
-    elif rtds_version.startswith("yosys-"):
-        release = yosys_ver
-        todo_include_todos = False
-    else:
+    elif rtds_version.startswith("docs"):
         release = rtds_version
         todo_include_todos = True
+    else:
+        release = yosys_ver
+        todo_include_todos = False
 else:
     release = yosys_ver
     todo_include_todos = True
