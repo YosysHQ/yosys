@@ -638,6 +638,12 @@ build process for the website.  Or, run the following:
 
 	$ sudo apt install texlive-latex-base texlive-latex-extra latexmk
 
+Or for MacOS, using homebrew:
+
+  $ brew install basictex
+  $ sudo tlmgr update --self   
+  $ sudo tlmgr install collection-latexextra latexmk tex-gyre
+
 The Python package, Sphinx, is needed along with those listed in
 `docs/source/requirements.txt`:
 
