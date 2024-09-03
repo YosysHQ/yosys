@@ -4,7 +4,17 @@
 Binary operators
 ~~~~~~~~~~~~~~~~
 
-.. todo:: Add detail on ``$*x`` cells, `$eqx`, `$nex`, `$bweqx`, `$shiftx`
+.. todo:: 'x' aware warning
+
+   some passes will treat cell as the non 'x' aware cell, i.e. synthesis; `$eqx`
+   `$nex` `$bweqx`
+
+.. todo:: 'x' output
+
+   shiftx, div, mod, pmux (less-so) can produce 'x' output even if all inputs
+   are defined
+
+.. todo:: `$eqx` is the case equality operator
 
 All binary RTL cells have two input ports ``A`` and ``B`` and one output port
 ``Y``. They also have the following parameters:
