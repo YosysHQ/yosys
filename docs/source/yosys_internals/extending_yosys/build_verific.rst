@@ -81,8 +81,10 @@ The following features, along with their corresponding Yosys build parameters,
 are required for the Yosys-Verific patch:
 
 * RTL elaboration with
-   * SystemVerilog with ``ENABLE_VERIFIC_SYSTEMVERILOG``, and/or
-   * VHDL support with ``ENABLE_VERIFIC_VHDL``.
+
+  * SystemVerilog with ``ENABLE_VERIFIC_SYSTEMVERILOG``, and/or
+  * VHDL support with ``ENABLE_VERIFIC_VHDL``.
+
 * Hierarchy tree support and static elaboration with
   ``ENABLE_VERIFIC_HIER_TREE``.
 

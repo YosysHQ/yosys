@@ -2,8 +2,16 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.44 .. Yosys 0.45-dev
+Yosys 0.45 .. Yosys 0.46-dev
 --------------------------
+
+Yosys 0.44 .. Yosys 0.45
+--------------------------
+ * Various
+    - Added cell types help messages.
+
+ * New back-ends
+    - Added initial NG-Ultra support. ( synth_nanoxplore )
 
 Yosys 0.43 .. Yosys 0.44
 --------------------------
