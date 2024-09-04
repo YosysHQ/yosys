@@ -1,0 +1,29 @@
+read_verilog <<EOF
+module gcd(I, D);
+
+  output [2:0] I;
+  input [3:0] D;
+
+  assign I = D[0]+D[1]+D[2]+D[3];
+endmodule
+EOF
+design -save input
+
+prep
+
+design -stash gold
+
+design -load input
+
+synth  -top gcd -flatten
+
+extract_fa -v
+
+design -stash gate
+
+design -copy-from gold -as gold gcd
+design -copy-from gate -as gate gcd
+
+miter -equiv -make_assert -flatten gold gate miter
+
+sat -verify -prove-asserts -show-all miter
