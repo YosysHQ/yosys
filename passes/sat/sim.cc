@@ -2053,6 +2053,32 @@ struct SimWorker : SimShared
 		write_output_files();
 	}
 
+	int count_unreached_covers(SimInstance *instance, bool verbose, pool<Cell *> &reached)
+	{
+		int total = 0;
+
+		for (auto pair : instance->children)
+			total += count_unreached_covers(pair.second, verbose, reached);
+
+		for (auto cell : instance->formal_database)
+		if (cell->type == ID($cover) && !reached.count(cell)) {
+			total += 1;
+			if (verbose)
+				instance->log_cell_w_hierarchy("Unreached cover", cell);
+		}
+
+		return total;
+	}
+
+	int count_unreached_covers(bool verbose=true)
+	{
+		pool<Cell *> reached;
+		for (auto ta : triggered_assertions)
+		if (ta.cell->type == ID($cover))
+			reached.insert(ta.cell);
+		return count_unreached_covers(top, verbose, reached);
+	}
+
 	void write_summary()
 	{
 		if (summary_filename.empty())
@@ -2685,8 +2711,12 @@ struct SimPass : public Pass {
 		log("        co-simulation, x in FST can match any value in simulation\n");
 		log("\n");
 		log("    -assert\n");
-		log("        fail the simulation command if, in the course of simulating,\n");
-		log("        any of the asserts in the design fail\n");
+		log("        fail the simulation command if, in the course of simulation,\n");
+		log("        any of the assertions in the design fail\n");
+		log("\n");
+		log("    -assert-cover\n");
+		log("        keep track of reached covers and fail the simulation command\n");
+		log("        if some covers weren't reached\n");
 		log("\n");
 		log("    -q\n");
 		log("        disable per-cycle/sample log message\n");
@@ -2707,6 +2737,7 @@ struct SimPass : public Pass {
 		SimWorker worker;
 		int numcycles = 20;
 		int append = 0;
+		bool assert_cover = false;
 		bool start_set = false, stop_set = false, at_set = false;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
@@ -2850,6 +2881,10 @@ struct SimPass : public Pass {
 				worker.serious_asserts = true;
 				continue;
 			}
+			if (args[argidx] == "-assert-cover") {
+				assert_cover = true;
+				continue;
+			}
 			if (args[argidx] == "-x") {
 				worker.ignore_x = true;
 				continue;
@@ -2905,6 +2940,10 @@ struct SimPass : public Pass {
 		}
 
 		worker.write_summary();
+		if (assert_cover) {
+			if (worker.count_unreached_covers())
+				log_error("Unreached covers in design.");
+		}
 	}
 } SimPass;
 
