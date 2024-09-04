@@ -1052,11 +1052,12 @@ coverage:
 clean_coverage:
 	find . -name "*.gcda" -type f -delete
 
+FUNC_KERNEL := functional.cc functional.h sexpr.cc sexpr.h compute_graph.h
+FUNC_INCLUDES := $(addprefix --include *,functional/* $(FUNC_KERNEL))
 coverage_functional:
-	rm -rf coverage.info coverage2.info coverage_html
-	lcov --capture -d backends/functional --no-external -o coverage.info
-	lcov --capture -d kernel --include kernel/functional.cc --include kernel/functional.h --include kernel/sexpr.cc --include kernel/sexpr.h --include kernel/compute_graph.h --no-external -o coverage2.info
-	genhtml coverage.info coverage2.info --output-directory coverage_html
+	rm -rf coverage.info coverage_html
+	lcov --capture -d backends/functional -d kernel $(FUNC_INCLUDES) --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
 
 qtcreator:
 	echo "$(CXXFLAGS)" | grep -o '\-D[^ ]*' | tr ' ' '\n' | sed 's/-D/#define /' | sed 's/=/ /'> qtcreator.config
