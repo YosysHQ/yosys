@@ -4268,7 +4268,7 @@ replace_fcall_later:;
 							newNode->realvalue = choice->asReal(sign_hint);
 						} else {
 							RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
-							if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
+							if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false && choice->bits.size() == y.bits.size())
 								newNode = mkconst_str(y.bits);
 							else
 								newNode = mkconst_bits(y.bits, sign_hint);
