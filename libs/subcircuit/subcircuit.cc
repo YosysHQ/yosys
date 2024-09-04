@@ -911,6 +911,10 @@ class SubCircuit::SolverWorker
 	bool pruneEnumerationMatrix(std::vector<std::set<int>> &enumerationMatrix, const GraphData &needle, const GraphData &haystack, int &nextRow, bool allowOverlap)
 	{
 		bool didSomething = true;
+
+		// Map of j:[i where j is used]
+		std::map<int, std::set<int>> usedNodes;
+
 		while (didSomething)
 		{
 			nextRow = -1;
@@ -922,13 +926,23 @@ class SubCircuit::SolverWorker
 						didSomething = true;
 					else if (!allowOverlap && haystack.usedNodes[j])
 						didSomething = true;
-					else
+					else {
 						newRow.insert(j);
+						usedNodes[j].insert(i); // Store the needle index by haystack node index
+					}
 				}
+
+				// This indicates there are no available haystack nodes to assign to the needle
 				if (newRow.size() == 0)
 					return false;
+
+				// If there are multiple needles assigned to the haystack node, the solution is invalid
+				if (newRow.size() == 1 && usedNodes[*newRow.begin()].size() > 1)
+					return false;
+
 				if (newRow.size() >= 2 && (nextRow < 0 || needle.adjMatrix.at(nextRow).size() < needle.adjMatrix.at(i).size()))
 					nextRow = i;
+
 				enumerationMatrix[i].swap(newRow);
 			}
 		}
