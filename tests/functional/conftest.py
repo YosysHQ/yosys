@@ -4,6 +4,10 @@ import random
 
 random_seed = random.getrandbits(32)
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "smt: test uses smtlib/z3")
+    config.addinivalue_line("markers", "rkt: test uses racket/rosette")
+
 def pytest_addoption(parser):
     parser.addoption("--per-cell", type=int, default=None, help="run only N tests per cell")
     parser.addoption("--steps", type=int, default=1000, help="run each test for N steps")

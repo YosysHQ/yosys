@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-pytest -v "$@"
+pytest -v -m "not smt and not rkt" "$@"

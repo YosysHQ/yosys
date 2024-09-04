@@ -55,6 +55,7 @@ def test_cxx(cell, parameters, tmp_path, num_steps, rnd):
     run([str(vcdharness_exe_file.resolve()), str(vcd_functional_file), str(num_steps), str(seed)])
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
+@pytest.mark.smt
 def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     import smt_vcd
 
@@ -72,6 +73,7 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     smt_vcd.simulate_smt(smt_file, vcd_functional_file, num_steps, rnd(cell.name + "-smt"))
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
+@pytest.mark.rkt
 def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
     import rkt_vcd
 
