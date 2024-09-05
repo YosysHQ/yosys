@@ -828,11 +828,10 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $eqx (A, B, Y)
+//* ver 2
+//* title Case equality
 //* group binary
-//-
+//* tags x-aware
 //- An exact equality comparison between inputs 'A' and 'B'. Also known as the
 //- case equality operator. This corresponds to the Verilog '===' operator.
 //- Unlike equality comparison that can give 'x' as output, an exact equality
@@ -863,15 +862,13 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $nex (A, B, Y)
+//* ver 2
+//* title Case inequality
 //* group binary
-//-
-//- An exact inequality comparison between inputs 'A' and 'B'. 
+//* tags x-aware
 //- This corresponds to the Verilog '!==' operator.
-//- Unlike inequality comparison that can give 'x' as output, 
-//- an exact inequality comparison will strictly give '0' or '1' as output.
+//-
+//- Refer to `$eqx` for more details.
 //-
 module \$nex (A, B, Y);
 
@@ -1871,7 +1868,13 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
+
+//* ver 2
+//* title Bit-wise case equality
 //* group binary
+//* tags x-aware
+//- A bit-wise version of `$eqx`.
+//-
 module \$bweqx (A, B, Y);
 
 parameter WIDTH = 0;
