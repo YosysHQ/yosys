@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+#include "kernel/whereami.h"
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
@@ -3659,6 +3660,8 @@ struct VerificPass : public Pass {
 			hdl_file_sort::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			hdl_file_sort::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
 			hdl_file_sort::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
+			hdl_file_sort::AddFileExtMode(".vhd", veri_file::VHDL);
+			hdl_file_sort::AddFileExtMode(".vhdl", veri_file::VHDL);
 			veri_file::RemoveFileExt(".v");
 			veri_file::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
@@ -3667,6 +3670,11 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
+			veri_file::AddFileExtMode(".vhd", veri_file::VHDL);
+			veri_file::AddFileExtMode(".vhdl", veri_file::VHDL);
+
+			// Delete VHDL artifacts
+			FileSystem::Remove("preqorsor/data/vhdl.v");
 
 			// Select analyze function
 			auto analyze_function = (args[argidx++] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
@@ -3728,7 +3736,40 @@ struct VerificPass : public Pass {
 						log("AUTO-DISCOVER: registered definition of command line macro %s with value %s\n", key, value);
 					}
 					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
-						if (!hdl_file_sort::RegisterFile(file_name)) {
+						std::string file_name_str = file_name;
+						if (file_name_str.length() > 5 && (file_name_str.substr(file_name_str.length() - 4) == ".vhd" || file_name_str.substr(file_name_str.length() - 5) == ".vhdl")) {
+							// Convert VHDL to Verilog
+							log("Converting VHDL to Verilog for file %s\n", file_name);
+							
+							// Get exe path using whereami
+							int length = wai_getExecutablePath(NULL, 0, NULL);
+							char* exe_path = new char[length];
+							wai_getExecutablePath(exe_path, length, NULL);
+							exe_path[length] = '\0';
+
+							// Get dirname of exe path
+							std::string ghdl_path = std::string(FileSystem::Dirname(exe_path)) + "/ghdl";
+
+							// Check if GHDL binary exists, else use system path
+							if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
+
+							// Run command to convert VHDL to Verilog
+							std::string top = file_name_str.substr(0, std::string(FileSystem::Basename(file_name)).find_last_of("."));
+							std::string outfile = "preqorsor/data/" + top + ".v";
+							std::string ghdl_cmd = ghdl_path + " --synth --no-formal --out=verilog " + file_name_str + " -e " + top + " > " + outfile;
+							log("Running command: %s\n", ghdl_cmd.c_str());
+							if (system(ghdl_cmd.c_str()) != 0) {
+								verific_error_msg.clear();
+								log_cmd_error("Could not convert VHDL file %s to Verilog.\n", file_name);
+							}
+							
+							// Add file
+							if (!hdl_file_sort::RegisterFile(outfile.c_str())) {
+								verific_error_msg.clear();
+								log_cmd_error("Could not register file %s.\n", outfile.c_str());
+							}
+						}
+						else if (!hdl_file_sort::RegisterFile(file_name)) {
 							verific_error_msg.clear();
 							log_cmd_error("Could not register file %s.\n", file_name);
 						}

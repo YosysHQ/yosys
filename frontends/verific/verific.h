@@ -20,6 +20,7 @@
 #ifdef YOSYS_ENABLE_VERIFIC
 
 #include "DataBase.h"
+#include "FileSystem.h"
 
 YOSYS_NAMESPACE_BEGIN
 
