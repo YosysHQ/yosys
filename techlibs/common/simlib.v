@@ -833,10 +833,11 @@ endmodule
 //-     $eqx (A, B, Y)
 //* group binary
 //-
-//- An exact equality comparison between inputs 'A' and 'B'. 
-//- This corresponds to the Verilog '===' operator.
-//- Unlike equality comparison that can give 'x' as output, 
-//- an exact equality comparison will strictly give '0' or '1' as output.
+//- An exact equality comparison between inputs 'A' and 'B'. Also known as the
+//- case equality operator. This corresponds to the Verilog '===' operator.
+//- Unlike equality comparison that can give 'x' as output, an exact equality
+//- comparison will strictly give '0' or '1' as output, even if input includes
+//- 'x' or 'z' values.
 //-
 module \$eqx (A, B, Y);
 

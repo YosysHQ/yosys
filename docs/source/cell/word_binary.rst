@@ -14,8 +14,6 @@ Binary operators
    shiftx, div, mod, pmux (less-so) can produce 'x' output even if all inputs
    are defined
 
-.. todo:: `$eqx` is the case equality operator
-
 All binary RTL cells have two input ports ``A`` and ``B`` and one output port
 ``Y``. They also have the following parameters:
 
