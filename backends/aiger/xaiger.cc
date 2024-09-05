@@ -18,32 +18,6 @@
  *
  */
 
-// https://stackoverflow.com/a/46137633
-#ifdef _MSC_VER
-#include <stdlib.h>
-#define bswap32 _byteswap_ulong
-#elif defined(__APPLE__)
-#include <libkern/OSByteOrder.h>
-#define bswap32 OSSwapInt32
-#elif defined(__GNUC__)
-#define bswap32 __builtin_bswap32
-#else
-#include <cstdint>
-inline static uint32_t bswap32(uint32_t x)
-{
-	// https://stackoverflow.com/a/27796212
-	register uint32_t value = number_to_be_reversed;
-	uint8_t lolo = (value >> 0) & 0xFF;
-	uint8_t lohi = (value >> 8) & 0xFF;
-	uint8_t hilo = (value >> 16) & 0xFF;
-	uint8_t hihi = (value >> 24) & 0xFF;
-	return (hihi << 24)
-		| (hilo << 16)
-		| (lohi << 8)
-		| (lolo << 0);
-}
-#endif
-
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
@@ -51,16 +25,6 @@ inline static uint32_t bswap32(uint32_t x)
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-inline int32_t to_big_endian(int32_t i32) {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	return bswap32(i32);
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	return i32;
-#else
-#error "Unknown endianness"
-#endif
-}
 
 void aiger_encode(std::ostream &f, int x)
 {
@@ -537,9 +501,12 @@ struct XAigerWriter
 
 		f << "c";
 
-		auto write_buffer = [](std::stringstream &buffer, int i32) {
-			int32_t i32_be = to_big_endian(i32);
-			buffer.write(reinterpret_cast<const char*>(&i32_be), sizeof(i32_be));
+		auto write_buffer = [](std::ostream &buffer, unsigned int u32) {
+			typedef unsigned char uchar;
+			unsigned char u32_be[4] = {
+				(uchar) (u32 >> 24), (uchar) (u32 >> 16), (uchar) (u32 >> 8), (uchar) u32
+			};
+			buffer.write((char *) u32_be, sizeof(u32_be));
 		};
 		std::stringstream h_buffer;
 		auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
@@ -640,14 +607,12 @@ struct XAigerWriter
 
 			f << "r";
 			std::string buffer_str = r_buffer.str();
-			int32_t buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			write_buffer(f, buffer_str.size());
 			f.write(buffer_str.data(), buffer_str.size());
 
 			f << "s";
 			buffer_str = s_buffer.str();
-			buffer_size_be = to_big_endian(buffer_str.size());
-			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+			write_buffer(f, buffer_str.size());
 			f.write(buffer_str.data(), buffer_str.size());
 
 			RTLIL::Design *holes_design;
@@ -664,22 +629,19 @@ struct XAigerWriter
 
 				f << "a";
 				std::string buffer_str = a_buffer.str();
-				int32_t buffer_size_be = to_big_endian(buffer_str.size());
-				f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+				write_buffer(f, buffer_str.size());
 				f.write(buffer_str.data(), buffer_str.size());
 			}
 		}
 
 		f << "h";
 		std::string buffer_str = h_buffer.str();
-		int32_t buffer_size_be = to_big_endian(buffer_str.size());
-		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		write_buffer(f, buffer_str.size());
 		f.write(buffer_str.data(), buffer_str.size());
 
 		f << "i";
 		buffer_str = i_buffer.str();
-		buffer_size_be = to_big_endian(buffer_str.size());
-		f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
+		write_buffer(f, buffer_str.size());
 		f.write(buffer_str.data(), buffer_str.size());
 		//f << "o";
 		//buffer_str = o_buffer.str();
