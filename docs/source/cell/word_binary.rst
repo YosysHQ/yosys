@@ -4,6 +4,8 @@
 Binary operators
 ~~~~~~~~~~~~~~~~
 
+.. TODO:: display cell titles
+
 .. todo:: 'x' aware warning
 
    some passes will treat cell as the non 'x' aware cell, i.e. synthesis; `$eqx`
