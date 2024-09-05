@@ -16,6 +16,7 @@ ENABLE_PLUGINS := 1
 ENABLE_READLINE := 0
 ENABLE_EDITLINE := 1
 ENABLE_GHDL := 0
+ENABLE_SLANG := 1
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
 ENABLE_VERIFIC_VHDL := 0
@@ -682,6 +683,11 @@ ifeq ($(ENABLE_ZLIB),1)
 OBJS += libs/fst/fstapi.o
 OBJS += libs/fst/fastlz.o
 OBJS += libs/fst/lz4.o
+endif
+
+ifeq ($(ENABLE_SLANG),1)
+OBJS += yosys-slang/build/*.o
+OBJS += yosys-slang/build/slang_install/lib/*.a
 endif
 
 ifneq ($(SMALL),1)
