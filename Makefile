@@ -714,7 +714,9 @@ OBJS += passes/cmds/plugin.o
 
 OBJS += passes/cmds/check.o
 OBJS += passes/cmds/clean_zerowidth.o
+OBJS += passes/cmds/splitcells.o
 OBJS += passes/cmds/splitfanout.o
+OBJS += passes/cmds/splitnets.o
 
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
 include $(YOSYS_SRC)/passes/pmgen/Makefile.inc
