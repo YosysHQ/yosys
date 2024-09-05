@@ -5,7 +5,7 @@ Formal verification cells
 
    If only I remembered what the note was...
 
-.. TODO:: Describe formal cells
+.. todo:: Describe formal cells
 
    `$check`, `$assert`, `$assume`, `$live`, `$fair`, `$cover`, `$equiv`,
    `$initstate`, `$anyconst`, `$anyseq`, `$anyinit`, `$allconst`, and `$allseq`.

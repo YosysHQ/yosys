@@ -1,7 +1,7 @@
 Finite state machines
 ---------------------
 
-.. TODO:: Describe `$fsm` cell
+.. todo:: Describe `$fsm` cell
 
 .. autocellgroup:: fsm
    :members:

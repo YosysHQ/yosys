@@ -1,7 +1,7 @@
 Specify rules
 -------------
 
-.. TODO:: `$specify2`, `$specify3`, and `$specrule` cells.
+.. todo:: `$specify2`, `$specify3`, and `$specrule` cells.
 
 .. autocellgroup:: spec
    :members:
