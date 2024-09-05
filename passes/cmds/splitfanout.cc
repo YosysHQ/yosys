@@ -80,7 +80,7 @@ struct SplitfanoutWorker
 				outsig = conn.second;
 			}
 		if (output_count != 1) {
-			log("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
+			log_debug("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
 			return 0;
 		}
 		
@@ -88,7 +88,7 @@ struct SplitfanoutWorker
 		auto bit_users = bit_users_db[outsig[0]];
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
-				log("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
+				log_debug("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
 				return 0;
 			}
 		}
@@ -98,7 +98,7 @@ struct SplitfanoutWorker
 			return 0;
 
 		// Iterate over bit users and create a new cell for each one
-		log("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
+		log_debug("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
 		cell->unsetPort(outport);
 		for (auto bit_user : bit_users)

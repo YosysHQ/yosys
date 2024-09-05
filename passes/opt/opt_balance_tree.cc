@@ -101,7 +101,7 @@ struct OptBalanceTreeWorker {
 	void find_chain_start_cells() {
 		for (auto cell : candidate_cells) {
 			// Log candidate cell
-			log("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
+			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
 
 			// Get signals for cell ports
 			SigSpec a_sig = sigmap(cell->getPort(ID::A));
@@ -172,7 +172,7 @@ struct OptBalanceTreeWorker {
 				}
 				cell->setPort(inport, inport_sig);
 				cell->setParam(inport_width, GetSize(inport_sig));
-				log("Width reduced %s/%s by %d bits\n", log_id(cell), log_id(inport), bits_removed);
+				log_debug("Width reduced %s/%s by %d bits\n", log_id(cell), log_id(inport), bits_removed);
 			}
 
 			// Record number of bits removed from output
@@ -194,7 +194,7 @@ struct OptBalanceTreeWorker {
 			}
 			cell->setPort(ID::Y, y_sig);
 			cell->setParam(ID::Y_WIDTH, GetSize(y_sig));
-			log("Width reduced %s/Y by %d bits\n", log_id(cell), bits_removed);
+			log_debug("Width reduced %s/Y by %d bits\n", log_id(cell), bits_removed);
 		}
 	}
 
@@ -207,7 +207,7 @@ struct OptBalanceTreeWorker {
 		Cell *mid_cell = chain[GetSize(chain) / 2];
 		Cell *midnext_cell = chain[GetSize(chain) / 2 + 1];
 		Cell *end_cell = chain.back();
-		log("Balancing chain of %d cells: mid=%s, midnext=%s, endcell=%s\n",
+		log_debug("Balancing chain of %d cells: mid=%s, midnext=%s, endcell=%s\n",
 		    GetSize(chain), log_id(mid_cell), log_id(midnext_cell), log_id(end_cell));
 
 		// Get mid signals
