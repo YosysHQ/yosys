@@ -461,6 +461,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_TBUF_ (A, E, Y)
+//* group gate_other
 //-
 //- A tri-state buffer.
 //-

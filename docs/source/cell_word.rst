@@ -28,5 +28,3 @@ Simulation models for the RTL cells can be found in the file
    /cell/word_formal
    /cell/word_debug
    /cell/word_wire
-
-.. todo:: Add check for unexpected ``word_other`` cells

@@ -88,12 +88,7 @@ for line in fileinput.input():
             simHelper.desc.pop(1)
 
         # check group
-        if not simHelper.group:
-            if short_filename == 'simcells.v':
-                simHelper.group = "gate_"
-            elif short_filename == 'simlib.v':
-                simHelper.group = "word_"
-            simHelper.group += "other"
+        assert simHelper.group, f"techlibs/common/{simHelper.source}: {simHelper.name} cell missing group"
 
         # dump
         print(simHelper)
