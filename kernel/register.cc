@@ -766,6 +766,7 @@ struct SimHelper {
 	string code;
 	string group;
 	string ver;
+	string tags;
 };
 
 static bool is_code_getter(string name) {
@@ -1013,12 +1014,20 @@ struct HelpPass : public Pass {
 			for (auto &output : ct.outputs)
 				outputs.push_back(output.str());
 			json.name("outputs"); json.value(outputs);
-			dict<string, bool> prop_dict = {
-				{"is_evaluable", ct.is_evaluable},
-				{"is_combinatorial", ct.is_combinatorial},
-				{"is_synthesizable", ct.is_synthesizable},
-			};
-			json.name("properties"); json.value(prop_dict);
+			vector<string> properties;
+			// CellType properties
+			if (ct.is_evaluable) properties.push_back("is_evaluable");
+			if (ct.is_combinatorial) properties.push_back("is_combinatorial");
+			if (ct.is_synthesizable) properties.push_back("is_synthesizable");
+			// SimHelper properties
+			size_t last = 0; size_t next = 0;
+			while ((next = ch.tags.find(", ", last)) != string::npos) {
+				properties.push_back(ch.tags.substr(last, next-last));
+				last = next + 2;
+			}
+			auto final_tag = ch.tags.substr(last);
+			if (final_tag.size()) properties.push_back(final_tag);
+			json.name("properties"); json.value(properties);
 			json.end_object();
 		}
 		json.end_object();

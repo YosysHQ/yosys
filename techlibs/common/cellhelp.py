@@ -14,13 +14,16 @@ class SimHelper:
     code: list[str]
     group: str = ""
     ver: str = "1"
+    tags: list[str]
 
     def __init__(self) -> None:
         self.desc = []
+        self.tags = []
     
     def __str__(self) -> str:
         printed_fields = [
             "name", "title", "ports", "source", "desc", "code", "group", "ver",
+            "tags",
         ]
         # generate C++ struct
         val = f"cell_help[{json.dumps(self.name)}] = "
