@@ -526,7 +526,13 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+
+//* ver 2
+//* title Indexed part-select
 //* group binary
+//* tags x-output
+//- Same as the `$shift` cell, but fills with 'x'.
+//-
 
 module \$shift (A, B, Y);
 
@@ -559,7 +565,13 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+
+//* ver 2
+//* title Variable shifter
 //* group binary
+//- Performs a right logical shift if the second operand is positive (or
+//- unsigned), and a left logical shift if it is negative.
+//-
 
 module \$shiftx (A, B, Y);
 
@@ -1204,12 +1216,12 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $div (A, B, Y)
+//* ver 2
+//* title Divider
 //* group binary
-//-
-//- Division with truncated result (rounded towards 0).
+//* tags x-output
+//- This corresponds to the Verilog '/' operator, performing division and
+//- truncating the result (rounding towards 0).
 //-
 module \$div (A, B, Y);
 
@@ -1235,12 +1247,12 @@ endmodule
 
 // --------------------------------------------------------
 
-//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-//-
-//-     $mod (A, B, Y)
+//* ver 2
+//* title Modulo
 //* group binary
-//-
-//- Modulo/remainder of division with truncated result (rounded towards 0).
+//* tags x-output
+//- This corresponds to the Verilog '%' operator, giving the module (or
+//- remainder) of division and truncating the result (rounding towards 0).
 //-
 //- Invariant: $div(A, B) * B + $mod(A, B) == A
 //-
@@ -1561,6 +1573,7 @@ endmodule
 
 // --------------------------------------------------------
 //* group mux
+//* tags x-output
 
 module \$pmux (A, B, S, Y);
 
