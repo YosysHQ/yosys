@@ -647,7 +647,6 @@ OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/cal
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 OBJS += kernel/whereami.o
-kernel/whereami.o: CXXFLAGS += -fPIC
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
