@@ -51,3 +51,4 @@ OBJS += passes/cmds/xprop.o
 OBJS += passes/cmds/dft_tag.o
 OBJS += passes/cmds/future.o
 OBJS += passes/cmds/box_derive.o
+OBJS += passes/cmds/example_dt.o

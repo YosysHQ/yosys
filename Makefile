@@ -39,6 +39,7 @@ ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
+ENABLE_FUNCTIONAL_TESTS := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -154,7 +155,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.45+3
+YOSYS_VER := 0.45+11
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -606,6 +607,7 @@ $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/cost.h))
+$(eval $(call add_include_file,kernel/drivertools.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
 $(eval $(call add_include_file,kernel/ffmerge.h))
@@ -624,6 +626,7 @@ $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/satgen.h))
 $(eval $(call add_include_file,kernel/scopeinfo.h))
+$(eval $(call add_include_file,kernel/sexpr.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
@@ -645,8 +648,9 @@ $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/whereami.o
+OBJS += kernel/drivertools.o kernel/functional.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -915,6 +919,9 @@ endif
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
 	+cd tests/cxxrtl && bash run-test.sh
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+	+cd tests/functional && bash run-test.sh
+endif
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -1073,6 +1080,16 @@ coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage.info coverage_html
 	lcov --capture -d . --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
+
+clean_coverage:
+	find . -name "*.gcda" -type f -delete
+
+FUNC_KERNEL := functional.cc functional.h sexpr.cc sexpr.h compute_graph.h
+FUNC_INCLUDES := $(addprefix --include *,functional/* $(FUNC_KERNEL))
+coverage_functional:
+	rm -rf coverage.info coverage_html
+	lcov --capture -d backends/functional -d kernel $(FUNC_INCLUDES) --no-external -o coverage.info
 	genhtml coverage.info --output-directory coverage_html
 
 qtcreator:

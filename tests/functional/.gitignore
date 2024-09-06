@@ -1,0 +1,6 @@
+my_module_cxxrtl.cc
+my_module_functional_cxx.cc
+vcd_harness
+*.vcd
+*.smt2
+*.rkt
