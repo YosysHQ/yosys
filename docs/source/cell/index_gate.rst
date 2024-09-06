@@ -16,7 +16,6 @@ The combinatorial logic cells can be mapped to physical cells from a Liberty
 file via ABC using the abc pass.
 
 .. toctree::
-   :caption: Gate-level cells
    :maxdepth: 2
 
    /cell/gate_comb_simple

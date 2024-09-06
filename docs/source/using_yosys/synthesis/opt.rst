@@ -27,7 +27,7 @@ Constant folding and simple expression rewriting - `opt_expr`
 .. todo:: unsure if this is too much detail and should be in :doc:`/yosys_internals/index`
 
 This pass performs constant folding on the internal combinational cell types
-described in :doc:`/cell_gate` and :doc:`/cell_word`. This means a cell with all
+described in :doc:`/cell_index`. This means a cell with all
 constant inputs is replaced with the constant value this cell drives. In some
 cases this pass can also optimize cells with some constant inputs.
 

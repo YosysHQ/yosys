@@ -50,6 +50,5 @@ available, go to :ref:`commandindex`.
 
    bib
 
-   cell_word
-   cell_gate
+   cell_index
    cmd_ref

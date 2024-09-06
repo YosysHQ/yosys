@@ -15,7 +15,6 @@ Simulation models for the RTL cells can be found in the file
 
 .. toctree::
    :maxdepth: 2
-   :glob:
 
    /cell/word_unary
    /cell/word_binary
