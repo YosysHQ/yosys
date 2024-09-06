@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+import re
+from typing import cast
+
 from docutils import nodes
-from docutils.nodes import Node, Element
+from docutils.nodes import Node, Element, system_message
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.states import Inliner
 from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
 from sphinx.domains.std import StandardDomain
+from sphinx.environment import BuildEnvironment
 from sphinx.roles import XRefRole
 from sphinx.directives import ObjectDescription
 from sphinx.directives.code import container_wrapper
 from sphinx.util.nodes import make_refnode
+from sphinx.util.docfields import Field
 from sphinx import addnodes
 
 class TocNode(ObjectDescription):    
@@ -70,7 +75,8 @@ class CommandNode(TocNode):
         return signode['fullname']
 
     def add_target_and_index(self, name_cls, sig, signode):
-        signode['ids'].append(type(self).name + '-' + sig)
+        idx = type(self).name + '-' + sig
+        signode['ids'].append(idx)
         if 'noindex' not in self.options:
             name = "{}.{}.{}".format(self.name, type(self).__name__, sig)
             tagmap = self.env.domaindata[type(self).name]['obj2tag']
@@ -79,12 +85,80 @@ class CommandNode(TocNode):
             titlemap = self.env.domaindata[type(self).name]['obj2title']
             titlemap[name] = title
             objs = self.env.domaindata[type(self).name]['objects']
+            # (name, sig, typ, docname, anchor, prio)
             objs.append((name,
                          sig,
-                         title,
+                         type(self).name,
                          self.env.docname,
-                         type(self).name + '-' + sig,
+                         idx,
                          0))
+
+class PropNode(TocNode):
+    name = 'prop'
+    fieldname = 'props'
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        signode['fullname'] = sig
+        signode['tocname'] = tocname = sig.split('::')[-1]
+        signode += addnodes.desc_name(text=tocname)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         1))
+
+class CellGroupedField(Field):
+    """Custom version of GroupedField which doesn't require content."""
+    is_grouped = True
+    list_type = nodes.bullet_list
+
+    def __init__(self, name: str, names: tuple[str, ...] = (), label: str = None,
+                 rolename: str = None, can_collapse: bool = False) -> None:
+        super().__init__(name, names, label, True, rolename)
+        self.can_collapse = can_collapse
+
+    def make_field(self, types: dict[str, list[Node]], domain: str,
+                   items: tuple, env: BuildEnvironment = None,
+                   inliner: Inliner = None, location: Node = None) -> nodes.field:
+        fieldname = nodes.field_name('', self.label)
+        listnode = self.list_type()
+        for fieldarg, content in items:
+            par = nodes.paragraph()
+            if fieldarg:
+                par.extend(self.make_xrefs(self.rolename, domain,
+                                           fieldarg, nodes.Text,
+                                           env=env, inliner=inliner, location=location))
+
+            if len(content) == 1 and (
+                    isinstance(content[0], nodes.Text) or
+                    (isinstance(content[0], nodes.inline) and len(content[0]) == 1 and
+                    isinstance(content[0][0], nodes.Text))):
+                par += nodes.Text(' -- ')
+                par += content
+            listnode += nodes.list_item('', par)
+
+        if len(items) == 1 and self.can_collapse:
+            list_item = cast(nodes.list_item, listnode[0])
+            fieldbody = nodes.field_body('', list_item[0])
+            return nodes.field('', fieldname, fieldbody)
+
+        fieldbody = nodes.field_body('', listnode)
+        return nodes.field('', fieldname, fieldbody)
 
 class CellNode(TocNode):
     """A custom node that describes an internal cell."""
@@ -94,7 +168,14 @@ class CellNode(TocNode):
     option_spec = {
         'title': directives.unchanged,
         'ports': directives.unchanged,
+        'properties': directives.unchanged,
     }
+
+    doc_field_types = [
+        CellGroupedField('props', label='Properties', rolename='prop',
+                       names=('properties', 'property', 'tag', 'tags'),
+                       can_collapse=True),
+    ]
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         signode['fullname'] = sig
@@ -113,16 +194,18 @@ class CellNode(TocNode):
         signode['ids'].append(idx)
         if 'noindex' not in self.options:
             tocname: str = signode.get('tocname', name)
-            tagmap = self.env.domaindata[self.domain]['obj2tag']
-            tagmap[name] = list(self.options.get('tags', '').split(' '))
             title: str = self.options.get('title', sig)
             titlemap = self.env.domaindata[self.domain]['obj2title']
             titlemap[name] = title
+            props = self.options.get('properties', '')
+            if props:
+                propmap = self.env.domaindata[self.domain]['obj2prop']
+                propmap[name] = props.split(' ')
             objs = self.env.domaindata[self.domain]['objects']
             # (name, sig, typ, docname, anchor, prio)
             objs.append((name,
                          tocname,
-                         title,
+                         type(self).name,
                          self.env.docname,
                          idx,
                          0))
@@ -288,7 +371,7 @@ class TagIndex(Index):
                 in self.domain.get_objects()}
         
         tmap = {}
-        tags = self.domain.data['obj2tag']
+        tags = self.domain.data[f'obj2{self.name}']
         for name, tags in tags.items():
             for tag in tags:
                 tmap.setdefault(tag,[])
@@ -304,10 +387,9 @@ class TagIndex(Index):
                     anchor,
                     docname, '', typ
                 ))
-        re = [(k, v) for k, v in sorted(content.items())]
+        ret = [(k, v) for k, v in sorted(content.items())]
 
-        return (re, True)
-
+        return (ret, True)
 
 class CommandIndex(Index):    
     name = 'cmd'
@@ -345,7 +427,8 @@ class CommandIndex(Index):
         content = {}
         items = ((name, dispname, typ, docname, anchor)
                  for name, dispname, typ, docname, anchor, prio
-                 in self.domain.get_objects())
+                 in self.domain.get_objects()
+                 if typ == self.name)
         items = sorted(items, key=lambda item: item[0])
         for name, dispname, typ, docname, anchor in items:
             lis = content.setdefault(self.shortname, [])
@@ -354,14 +437,67 @@ class CommandIndex(Index):
                 anchor,
                 '', '', typ
             ))
-        re = [(k, v) for k, v in sorted(content.items())]
+        ret = [(k, v) for k, v in sorted(content.items())]
 
-        return (re, True)
+        return (ret, True)
 
 class CellIndex(CommandIndex):
     name = 'cell'
     localname = 'Internal cell reference'
     shortname = 'Internal cell'
+
+class PropIndex(TagIndex):
+    """A custom directive that creates a properties matrix."""
+    
+    name = 'prop'
+    localname = 'Property Index'
+    shortname = 'Prop'
+    fieldname = 'props'
+
+    def generate(self, docnames=None):
+        content = {}
+
+        cells = {name: (dispname, docname, anchor)
+                for name, dispname, typ, docname, anchor, _
+                in self.domain.get_objects()
+                if typ == 'cell'}
+        props = {name: (dispname, docname, anchor)
+                for name, dispname, typ, docname, anchor, _
+                in self.domain.get_objects()
+                if typ == 'prop'}
+
+        tmap: dict[str, list[str]] = {}
+        tags: dict[str, list[str]] = self.domain.data[f'obj2{self.name}']
+        for name, tags in tags.items():
+            for tag in tags:
+                tmap.setdefault(tag,[])
+                tmap[tag].append(name)
+
+        for tag in sorted(tmap.keys()):
+            test = re.match(r'^(\w+[_-])', tag)
+            tag_prefix = test.group(1)
+            lis = content.setdefault(tag_prefix, [])
+            try:
+                dispname, docname, anchor = props[tag]
+            except KeyError:
+                dispname = tag
+                docname = anchor = ''
+            lis.append((
+                dispname, 1, docname,
+                anchor,
+                '', '', docname or 'unavailable'
+            ))
+            objlis = tmap[tag]
+            for objname in sorted(objlis):
+                dispname, docname, anchor = cells[objname]
+                lis.append((
+                    dispname, 2, docname,
+                    anchor,
+                    '', '', docname
+                ))
+        ret = [(k, v) for k, v in sorted(content.items())]
+
+        return (ret, True)
 
 class CommandDomain(Domain):
     name = 'cmd'
@@ -419,16 +555,32 @@ class CellDomain(CommandDomain):
     name = 'cell'
     label = 'Yosys internal cells'
 
+    roles = CommandDomain.roles.copy()
+    roles.update({
+        'prop': XRefRole()
+    })
+
     directives = {
         'def': CellNode,
+        'defprop': PropNode,
         'source': CellSourceNode,
         'group': CellGroupNode,
     }
 
     indices = {
         CellIndex,
-        TagIndex
+        PropIndex
     }
+
+    initial_data = {
+        'objects': [],      # object list
+        'obj2prop': {},     # name -> properties
+        'obj2title': {},    # name -> title
+    }
+
+    def get_objects(self):
+        for obj in self.data['objects']:
+            yield(obj)
 
 def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
@@ -448,8 +600,8 @@ def setup(app: Sphinx):
         ('cmd-tag', '', 'Tag Index')
     StandardDomain.initial_data['labels']['cellindex'] =\
         ('cell-cell', '', 'Internal cell reference')
-    StandardDomain.initial_data['labels']['tagindex'] =\
-        ('cell-tag', '', 'Tag Index')
+    StandardDomain.initial_data['labels']['propindex'] =\
+        ('cell-prop', '', 'Property Index')
 
     StandardDomain.initial_data['anonlabels']['commandindex'] =\
         ('cmd-cmd', '')
@@ -457,8 +609,8 @@ def setup(app: Sphinx):
         ('cmd-tag', '')
     StandardDomain.initial_data['anonlabels']['cellindex'] =\
         ('cell-cell', '')
-    StandardDomain.initial_data['anonlabels']['tagindex'] =\
-        ('cell-tag', '')
+    StandardDomain.initial_data['anonlabels']['propindex'] =\
+        ('cell-prop', '')
 
     app.add_role('autoref', autoref)
     

@@ -33,7 +33,7 @@ class YosysCell:
     code: str
     inputs: list[str]
     outputs: list[str]
-    properties: dict[str, bool]
+    properties: list[str]
     
 class YosysCellGroupDocumenter(Documenter):
     objtype = 'cellgroup'
@@ -298,11 +298,22 @@ class YosysCellDocumenter(YosysCellGroupDocumenter):
         self.add_line(f'.. {domain}:{directive}:: {sig}', sourcename)
 
         # options
-        opt_attrs = ["title", ]
+        opt_attrs = ["title", "properties", ]
         for attr in opt_attrs:
             val = getattr(cell, attr, None)
+            if isinstance(val, list):
+                val = ' '.join(val)
             if val:
                 self.add_line(f'   :{attr}: {val}', sourcename)
+        
+        self.add_line('\n', sourcename)
+
+        # fields
+        field_attrs = ["properties", ]
+        for field in field_attrs:
+            attr = getattr(cell, field, [])
+            for val in attr:
+                self.add_line(f'   :{field} {val}:', sourcename)
 
         if self.options.noindex:
             self.add_line('   :noindex:', sourcename)
