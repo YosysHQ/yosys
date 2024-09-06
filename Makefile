@@ -27,6 +27,7 @@ ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_FUNC := 0
 
 # python wrappers
 ENABLE_PYOSYS := 1
@@ -650,7 +651,9 @@ OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/cal
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/whereami.o
+ifeq ($(ENABLE_FUNC),1)
 OBJS += kernel/drivertools.o kernel/functional.o
+endif
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
