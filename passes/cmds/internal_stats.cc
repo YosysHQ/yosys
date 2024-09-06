@@ -70,11 +70,11 @@ std::optional<uint64_t> current_mem_bytes() {
 }
 
 struct InternalStatsPass : public Pass {
-	InternalStatsPass() : Pass("internal_stats", "print some internal statistics") { }
+	InternalStatsPass() : Pass("internal_stats", "print internal statistics") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n"); // TODO
+		log("Print internal statistics for developers (experimental)\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{

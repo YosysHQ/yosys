@@ -131,9 +131,11 @@ struct FfData {
 	bool is_fine;
 	// True if this FF is an $anyinit cell.  Depends on has_gclk.
 	bool is_anyinit;
-	// Polarities, corresponding to sig_*.  True means active-high, false
-	// means active-low.
+	// Polarities, corresponding to sig_*.
+	// True means rising edge, false means falling edge.
 	bool pol_clk;
+	// True means active-high, false
+	// means active-low.
 	bool pol_ce;
 	bool pol_aload;
 	bool pol_arst;
