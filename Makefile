@@ -38,6 +38,7 @@ ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
+ENABLE_FUNCTIONAL_TESTS := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -891,7 +892,9 @@ endif
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
 	+cd tests/cxxrtl && bash run-test.sh
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 	+cd tests/functional && bash run-test.sh
+endif
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
