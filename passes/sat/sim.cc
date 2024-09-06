@@ -123,6 +123,7 @@ struct SimShared
 	std::vector<TriggeredAssertion> triggered_assertions;
 	std::vector<DisplayOutput> display_output;
 	bool serious_asserts = false;
+	bool fst_noinit = false;
 	bool initstate = true;
 };
 
@@ -1553,7 +1554,7 @@ struct SimWorker : SimShared
 				bool did_something = top->setInputs();
 
 				if (initial) {
-					did_something |= top->setInitState();
+					if (!fst_noinit) did_something |= top->setInitState();
 					initialize_stable_past();
 					initial = false;
 				}
@@ -2688,6 +2689,10 @@ struct SimPass : public Pass {
 		log("        fail the simulation command if, in the course of simulating,\n");
 		log("        any of the asserts in the design fail\n");
 		log("\n");
+		log("    -fst-noinit\n");
+		log("        do not initialize latches and memories from an input FST or VCD file\n");
+		log("        (use the initial defined by the design instead)\n");
+		log("\n");
 		log("    -q\n");
 		log("        disable per-cycle/sample log message\n");
 		log("\n");
@@ -2848,6 +2853,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-assert") {
 				worker.serious_asserts = true;
+				continue;
+			}
+			if (args[argidx] == "-fst-noinit") {
+				worker.fst_noinit = true;
 				continue;
 			}
 			if (args[argidx] == "-x") {
