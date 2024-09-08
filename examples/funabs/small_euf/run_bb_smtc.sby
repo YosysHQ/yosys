@@ -4,7 +4,7 @@ depth 100
 smtc ../../theory.smtc
 
 [engines]
-smtbmc --nounroll --dumpsmt2
+smtbmc --nounroll --dumpsmt2 z3
 
 [script]
 read -formal euf.v
