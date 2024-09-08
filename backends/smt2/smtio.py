@@ -226,12 +226,21 @@ class SmtIo:
                 print('timeout option is not supported for mathsat.')
                 sys.exit(1)
 
-        if self.solver in ["boolector", "bitwuzla"]:
+        if self.solver == "boolector":
             if self.noincr:
                 self.popen_vargs = [self.solver, '--smt2'] + self.solver_opts
             else:
                 self.popen_vargs = [self.solver, '--smt2', '-i'] + self.solver_opts
             self.unroll = True
+            if self.timeout != 0:
+                print('timeout option is not supported for %s.' % self.solver)
+                sys.exit(1)
+
+        if self.solver == "bitwuzla":
+            self.popen_vargs = [self.solver, '--lang', 'smt2'] + self.solver_opts
+            self.unroll = True
+            # Bitwuzla always uses incremental solving
+            self.noincr = False
             if self.timeout != 0:
                 print('timeout option is not supported for %s.' % self.solver)
                 sys.exit(1)
