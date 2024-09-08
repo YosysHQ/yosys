@@ -44,8 +44,8 @@ struct statdata_t
 	#define X(_name) unsigned int _name;
 	STAT_INT_MEMBERS
 	#undef X
-	double area;
-	double sequential_area;
+	double area = 0;
+	double sequential_area = 0;
 	string tech;
 
 	std::map<RTLIL::IdString, int> techinfo;
