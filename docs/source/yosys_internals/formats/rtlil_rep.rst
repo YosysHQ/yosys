@@ -24,7 +24,7 @@ create an additional ``RTLIL::Design`` object and call the Verilog frontend with
 this other object to parse the cell library.
 
 .. figure:: /_images/internals/overview_rtlil.*
-	:class: width-helper
+	:class: width-helper invert-helper
 	:name: fig:Overview_RTLIL
 
 	Simplified RTLIL Entity-Relationship Diagram

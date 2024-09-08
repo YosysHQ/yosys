@@ -618,6 +618,21 @@ module OSER4(D3, D2, D1, D0, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	parameter HWL = "false";
 endmodule
 
+module OSER4_MEM (Q0, Q1, D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET)  ;
+    parameter GSREN = "";
+    parameter LSREN = "";
+    parameter HWL = "";
+    parameter TCLK_SOURCE = "";
+    parameter TXCLK_POL = "";
+
+    input D0, D1, D2, D3;
+    input TX0, TX1;
+    input PCLK, FCLK, TCLK, RESET;
+    output  Q0,  Q1;
+
+    parameter ID = "";
+endmodule
+
 module OSER8(D7, D6, D5, D4, D3, D2, D1, D0, TX3, TX2, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	output Q1;
 	output Q0;
@@ -727,6 +742,21 @@ RESET, CALIB, D);
 
 	parameter GSREN = "false";
 	parameter LSREN = "true";
+endmodule
+
+module IDES4_MEM (Q0, Q1, Q2, Q3, D, WADDR,
+RADDR, CALIB, PCLK, FCLK, ICLK, RESET)  ;
+parameter GSREN = "";
+parameter LSREN = "";
+
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input CALIB, RESET;
+
+output Q0,Q1,Q2,Q3;
+
+parameter ID = "";
 endmodule
 
 module IDES8(Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
@@ -842,6 +872,28 @@ module IDDRC(D, CLK, CLEAR, Q0, Q1);
 	parameter Q1_INIT = 1'b0;
 endmodule
 
+module DQS(DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID, RBURST, RFLAG,
+WFLAG, DQSIN, DLLSTEP, WSTEP, READ, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR,
+HOLD, RCLKSEL, PCLK, FCLK, RESET) ;
+    input DQSIN,PCLK,FCLK,RESET;
+    input [3:0] READ;
+    input [2:0] RCLKSEL;
+    input [7:0] DLLSTEP;
+    input [7:0] WSTEP;
+    input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+
+    output DQSR90, DQSW0, DQSW270;
+    output [2:0] RPOINT, WPOINT;
+    output RVALID,RBURST, RFLAG, WFLAG;
+
+    parameter FIFO_MODE_SEL = "";
+    parameter RD_PNTR = "";
+    parameter DQS_MODE = "";
+    parameter HWL = "";
+    parameter GSREN = "";
+    parameter ID = "";
+endmodule
+
 (* blackbox *)
 module ODDR(D0, D1, TX, CLK, Q0, Q1);
 	input D0;
@@ -867,8 +919,12 @@ module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
 	parameter INIT = 0;
 endmodule
 
+(* blackbox, keep *)
 module GSR (input GSRI);
-	wire GSRO = GSRI;
+endmodule
+
+(* blackbox, keep *)
+module BANDGAP (input BGEN);
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1901,3 +1957,14 @@ output OSCOUT;
 parameter FREQ_DIV = 100;
 parameter REGULATOR_EN = 1'b0;
 endmodule
+
+(* blackbox *)
+module DCS (CLK0, CLK1, CLK2, CLK3, CLKSEL, SELFORCE, CLKOUT);
+input CLK0, CLK1, CLK2, CLK3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";
+endmodule
+
+
+

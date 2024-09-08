@@ -230,8 +230,6 @@ struct statdata_t
 
 			if (gate_costs.count(ctype))
 				tran_cnt += cnum * gate_costs.at(ctype);
-			else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
-				tran_cnt += cnum * 16;
 			else
 				*tran_cnt_exact = false;
 		}
@@ -363,7 +361,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
-		LibertyAst *ar = cell->find("area");
+		const LibertyAst *ar = cell->find("area");
 		bool is_flip_flop = cell->find("ff") != nullptr;
 		if (ar != nullptr && !ar->value.empty())
 			cell_area["\\" + cell->args[0]] = {/*area=*/atof(ar->value.c_str()), is_flip_flop};

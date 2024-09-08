@@ -1,0 +1,51 @@
+# ISC License
+# 
+# Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# regular unsigned multiply
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
+hierarchy -top top
+proc
+synth_microchip -family polarfire -noiopad
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MACC_PA
+select -assert-none t:MACC_PA %% t:* %D
+
+# regular signed multiply
+design -reset
+read_verilog <<EOT
+module signed_mult(
+	input signed [17:0] in_A,
+	input signed [17:0] in_B,
+	output signed [35:0] out_Y
+);
+assign out_Y = in_A * in_B;
+endmodule
+EOT
+synth_microchip -top signed_mult -family polarfire -noiopad
+select -assert-count 1 t:MACC_PA
+select -assert-none t:MACC_PA %% t:* %D
+
+# wide multiply
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 30 -set Y_WIDTH 16 -set A_WIDTH 46
+hierarchy -top top
+proc
+synth_microchip -family polarfire -noiopad
+cd top # Constrain all select calls below inside the top module
+select -assert-count 2 t:MACC_PA
+select -assert-none t:MACC_PA %% t:* %D

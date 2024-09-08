@@ -270,8 +270,11 @@ struct VerilogFrontend : public Frontend {
 		frontend_verilog_yydebug = false;
 		sv_mode = false;
 		formal_mode = false;
+		noassert_mode = false;
+		noassume_mode = false;
 		norestrict_mode = false;
 		assume_asserts_mode = false;
+		assert_assumes_mode = false;
 		lib_mode = false;
 		specify_mode = false;
 		default_nettype_wire = true;

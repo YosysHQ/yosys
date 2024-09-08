@@ -24,3 +24,17 @@ a.external {
 th {
     text-align: left;
 }
+
+body[data-theme="dark"] {
+    .invert-helper {
+        filter: url("data:image/svg+xml,<svg xmlns='http%3A//www.w3.org/2000/svg'><filter id='f'><feColorMatrix color-interpolation-filters='sRGB' type='matrix' values='1.47 -1.73 -0.467 0 0.867 -0.733 0.467 -0.467 0 0.867 -0.667 -1.07 1.07 0 0.867 0 0 0 1.0 0'></feColorMatrix></filter></svg>#f");
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+        .invert-helper {
+            filter: url("data:image/svg+xml,<svg xmlns='http%3A//www.w3.org/2000/svg'><filter id='f'><feColorMatrix color-interpolation-filters='sRGB' type='matrix' values='1.47 -1.73 -0.467 0 0.867 -0.733 0.467 -0.467 0 0.867 -0.667 -1.07 1.07 0 0.867 0 0 0 1.0 0'></feColorMatrix></filter></svg>#f");
+        }
+    }
+}

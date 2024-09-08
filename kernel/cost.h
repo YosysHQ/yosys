@@ -26,7 +26,17 @@ YOSYS_NAMESPACE_BEGIN
 
 struct CellCosts
 {
+
+	private:
+	dict<RTLIL::IdString, int> mod_cost_cache_;
+	Design *design_ = nullptr;
+
+	public:
+	CellCosts(RTLIL::Design *design) : design_(design) { }
+
 	static const dict<RTLIL::IdString, int>& default_gate_cost() {
+		// Default size heuristics for several common PDK standard cells
+		// used by abc and stat
 		static const dict<RTLIL::IdString, int> db = {
 			{ ID($_BUF_),    1 },
 			{ ID($_NOT_),    2 },
@@ -43,12 +53,14 @@ struct CellCosts
 			{ ID($_AOI4_),   7 },
 			{ ID($_OAI4_),   7 },
 			{ ID($_MUX_),    4 },
-			{ ID($_NMUX_),   4 }
+			{ ID($_NMUX_),   4 },
 		};
 		return db;
 	}
 
 	static const dict<RTLIL::IdString, int>& cmos_gate_cost() {
+		// Estimated CMOS transistor counts for several common PDK standard cells
+		// used by stat and optionally by abc
 		static const dict<RTLIL::IdString, int> db = {
 			{ ID($_BUF_),     1 },
 			{ ID($_NOT_),     2 },
@@ -65,50 +77,21 @@ struct CellCosts
 			{ ID($_AOI4_),    8 },
 			{ ID($_OAI4_),    8 },
 			{ ID($_MUX_),    12 },
-			{ ID($_NMUX_),   10 }
+			{ ID($_NMUX_),   10 },
+			{ ID($_DFF_P_),  16 },
+			{ ID($_DFF_N_),  16 },
 		};
 		return db;
 	}
 
-	dict<RTLIL::IdString, int> mod_cost_cache;
-	const dict<RTLIL::IdString, int> *gate_cost = nullptr;
-	Design *design = nullptr;
-
-	int get(RTLIL::IdString type) const
-	{
-		if (gate_cost && gate_cost->count(type))
-			return gate_cost->at(type);
-
-		log_warning("Can't determine cost of %s cell.\n", log_id(type));
-		return 1;
-	}
-
-	int get(RTLIL::Cell *cell)
-	{
-		if (gate_cost && gate_cost->count(cell->type))
-			return gate_cost->at(cell->type);
-
-		if (design && design->module(cell->type) && cell->parameters.empty())
-		{
-			RTLIL::Module *mod = design->module(cell->type);
-
-			if (mod->attributes.count(ID(cost)))
-				return mod->attributes.at(ID(cost)).as_int();
-
-			if (mod_cost_cache.count(mod->name))
-				return mod_cost_cache.at(mod->name);
-
-			int module_cost = 1;
-			for (auto c : mod->cells())
-				module_cost += get(c);
-
-			mod_cost_cache[mod->name] = module_cost;
-			return module_cost;
-		}
-
-		log_warning("Can't determine cost of %s cell (%d parameters).\n", log_id(cell->type), GetSize(cell->parameters));
-		return 1;
-	}
+	// Get the cell cost for a cell based on its parameters.
+	// This cost is an *approximate* upper bound for the number of gates that
+	// the cell will get mapped to with "opt -fast; techmap"
+	// The intended usage is for flattening heuristics and similar situations
+	unsigned int get(RTLIL::Cell *cell);
+	// Sum up the cell costs of all cells in the module
+	// and all its submodules recursively
+	unsigned int get(RTLIL::Module *mod);
 };
 
 YOSYS_NAMESPACE_END

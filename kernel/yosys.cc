@@ -967,7 +967,7 @@ std::string proc_self_dirname()
 {
 	return "/";
 }
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__HAIKU__)
 char yosys_path[PATH_MAX];
 char *yosys_argv0;
 
@@ -1126,31 +1126,40 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		design = yosys_design;
 
 	if (command == "auto") {
-		std::string filename_trim = filename;
-		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
-			filename_trim.erase(filename_trim.size()-3);
-		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
-			command = " -vlog2k";
-		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
-			command = " -sv";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
-			command = " -vhdl";
-		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
-			command = "blif";
-		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
-			command = "blif";
-		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
-			command = "json";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
-			command = "rtlil";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
-			command = "script";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
-			command = "tcl";
-		else if (filename == "-")
-			command = "script";
-		else
-			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+	  std::string filename_trim = filename;
+	  
+	  auto has_extension = [](const std::string& filename, const std::string& extension) {
+	    if (filename.size() >= extension.size()) {
+	      return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
+	    }
+	    return false;
+	  };
+
+	  if (has_extension(filename_trim, ".gz")) {
+	    filename_trim.erase(filename_trim.size() - 3);
+	  }
+	  
+	  if (has_extension(filename_trim, ".v")) {
+	    command = " -vlog2k";
+	  } else if (has_extension(filename_trim, ".sv")) {
+	    command = " -sv";
+	  } else if (has_extension(filename_trim, ".vhd") || has_extension(filename_trim, ".vhdl")) {
+	    command = " -vhdl";
+	  } else if (has_extension(filename_trim, ".blif") || has_extension(filename_trim, ".eblif")) {
+	    command = "blif";
+	  } else if (has_extension(filename_trim, ".json")) {
+	    command = "json";
+	  } else if (has_extension(filename_trim, ".il")) {
+	    command = "rtlil";
+	  } else if (has_extension(filename_trim, ".ys")) {
+	    command = "script";
+	  } else if (has_extension(filename_trim, ".tcl")) {
+	    command = "tcl";
+	  } else if (filename == "-") {
+	    command = "script";
+	  } else {
+	    log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+	  }
 	}
 
 	if (command == "script")

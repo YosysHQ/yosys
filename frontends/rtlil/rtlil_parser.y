@@ -412,8 +412,16 @@ constant:
 	TOK_VALUE {
 		char *ep;
 		int width = strtol($1, &ep, 10);
+		bool is_signed = false;
+		if (*ep == '\'') {
+			ep++;
+		}
+		if (*ep == 's') {
+			is_signed = true;
+			ep++;
+		}
 		std::list<RTLIL::State> bits;
-		while (*(++ep) != 0) {
+		while (*ep != 0) {
 			RTLIL::State bit = RTLIL::Sx;
 			switch (*ep) {
 			case '0': bit = RTLIL::S0; break;
@@ -424,7 +432,9 @@ constant:
 			case 'm': bit = RTLIL::Sm; break;
 			}
 			bits.push_front(bit);
+			ep++;
 		}
+
 		if (bits.size() == 0)
 			bits.push_back(RTLIL::Sx);
 		while ((int)bits.size() < width) {
@@ -438,6 +448,9 @@ constant:
 		$$ = new RTLIL::Const;
 		for (auto it = bits.begin(); it != bits.end(); it++)
 			$$->bits.push_back(*it);
+		if (is_signed) {
+			$$->flags |= RTLIL::CONST_FLAG_SIGNED;
+		}
 		free($1);
 	} |
 	TOK_INT {

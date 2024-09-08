@@ -10,7 +10,7 @@ is then passed to the AST frontend that converts it to RTLIL data, as
 illustrated in :numref:`Fig. %s <fig:Verilog_flow>`.
 
 .. figure:: /_images/internals/verilog_flow.*
-	:class: width-helper
+	:class: width-helper invert-helper
 	:name: fig:Verilog_flow
 
 	Simplified Verilog to RTLIL data flow

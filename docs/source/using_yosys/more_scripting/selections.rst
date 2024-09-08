@@ -160,7 +160,7 @@ Selecting ``a:sumstuff`` in this module will yield the following circuit
 diagram:
 
 .. figure:: /_images/code_examples/selections/sumprod_00.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: sumprod_00
 
    Output of ``show a:sumstuff`` on :numref:`sumprod`
@@ -177,7 +177,7 @@ selected wire it selects all cells connected to the wire and vice versa. So
 :yoscrypt:`show a:sumstuff %x` yields the diagram shown in :numref:`sumprod_01`:
 
 .. figure:: /_images/code_examples/selections/sumprod_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: sumprod_01
 
    Output of ``show a:sumstuff %x`` on :numref:`sumprod`
@@ -200,22 +200,22 @@ input ports.
 The following sequence of diagrams demonstrates this step-wise expansion:
 
 .. figure:: /_images/code_examples/selections/sumprod_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Output of :yoscrypt:`show prod` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_03.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Output of :yoscrypt:`show prod %ci` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_04.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Output of :yoscrypt:`show prod %ci %ci` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_05.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
    Output of :yoscrypt:`show prod %ci %ci %ci` on :numref:`sumprod`
 
@@ -280,7 +280,7 @@ provided :file:`memdemo.v` is in the same directory. We can now change to the
 diagram in :numref:`memdemo_00`.
 
 .. figure:: /_images/code_examples/selections/memdemo_00.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_00
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
@@ -291,7 +291,7 @@ output signal, ``y``, and its immediate predecessors. Remember `Selecting logic
 cones`_ from above, we can use :yoscrypt:`show y %ci2`:
 
 .. figure:: /_images/code_examples/selections/memdemo_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_01
    
    Output of :yoscrypt:`show y %ci2`
@@ -303,7 +303,7 @@ wire into the input ``D`` of the flip-flop cell (indicated by the ``$`` at the
 start of the name).  Let's go a bit further now and try :yoscrypt:`show y %ci5`:
 
 .. figure:: /_images/code_examples/selections/memdemo_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_02
    
    Output of :yoscrypt:`show y %ci5`
@@ -317,7 +317,7 @@ brackets.  In this case, we want to exclude the ``S`` port of the ``$mux`` cell
 type with :yoscrypt:`show y %ci5:-$mux[S]`:
 
 .. figure:: /_images/code_examples/selections/memdemo_03.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_03
    
    Output of :yoscrypt:`show y %ci5:-$mux[S]`
@@ -328,7 +328,7 @@ flip-flop and the 2nd action selects the entire input cone without going over
 multiplexer select inputs and flip-flop cells:
 
 .. figure:: /_images/code_examples/selections/memdemo_05.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_05
    
    Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
@@ -340,7 +340,7 @@ ignoring any ports named ``CLK`` or ``S``:
 .. TODO:: pending discussion on whether rule ordering is a bug or a feature
 
 .. figure:: /_images/code_examples/selections/memdemo_04.*
-   :class: width-helper
+   :class: width-helper invert-helper
    :name: memdemo_04
    
    Output of :yoscrypt:`show y %ci*:-[CLK,S]:+$dff,$mux`
@@ -417,6 +417,6 @@ Example code from |code_examples/selections|_:
    :name: select_ys
 
 .. figure:: /_images/code_examples/selections/select.*
-    :class: width-helper
+    :class: width-helper invert-helper
 
     Circuit diagram produced by :numref:`select_ys`

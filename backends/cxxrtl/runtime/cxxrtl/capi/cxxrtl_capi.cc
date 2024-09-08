@@ -47,7 +47,7 @@ cxxrtl_handle cxxrtl_create_at(cxxrtl_toplevel design, const char *top_path_) {
 
 	cxxrtl_handle handle = new _cxxrtl_handle;
 	handle->module = std::move(design->module);
-	handle->module->debug_info(handle->objects, top_path);
+	handle->module->debug_info(&handle->objects, nullptr, top_path);
 	delete design;
 	return handle;
 }

@@ -63,10 +63,12 @@ match add
 
 	define <bool> constport_signed param(add, !varport_A ? \A_SIGNED : \B_SIGNED).as_bool()
 	define <bool> varport_signed param(add, varport_A ? \A_SIGNED : \B_SIGNED).as_bool();
-	define <bool> offset_negative ((port(add, constport).bits().back() == State::S1) ^ (is_sub && varport_A))
+	define <bool> const_negative (constport_signed && (port(add, constport).bits().back() == State::S1))
+	define <bool> offset_negative ((is_sub && varport_A) ^ const_negative)
 
 	// checking some value boundaries as well:
-	// data[...-c +:W1] is fine for +/-var (pad at LSB, all data still accessible)
+	// data[...-c +:W1] is fine for any signed var (pad at LSB, all data still accessible)
+	// unsigned shift may underflow (eg var-3 with var<3) -> cannot be converted
 	// data[...+c +:W1] is only fine for +var(add) and var unsigned
 	// (+c cuts lower C bits, making them inaccessible, a signed var could try to access them)
 	// either its an add or the variable port is A (it must be positive)
@@ -74,6 +76,8 @@ match add
 
 	// -> data[var+c +:W1] (with var signed) is illegal
 	filter !(!offset_negative && varport_signed)
+	// -> data >> (var-c) (with var unsigned) is illegal
+	filter !(offset_negative && !varport_signed)
 
 	// state-variables are assigned at the end only:
 	// shift the log2scale offset in-front of add to get true value: (var+c)<<N -> (var<<N)+(c<<N)
@@ -91,11 +95,21 @@ code
 	// it should only differ if previous passes create invalid data
 	log_assert(!(offset>0 && var_signed));
 
+	SigSpec old_a = port(shift, \A); // data
+	std::string location = shift->get_src_attribute();
+
+	if(shiftadd_max_ratio>0 && offset<0 && -offset*shiftadd_max_ratio > old_a.size()) {
+		log_warning("at %s: candiate for shiftadd optimization (shifting '%s' by '%s - %d' bits) " 
+					"was ignored to avoid high resource usage, see help peepopt\n", 
+					location.c_str(), log_signal(old_a), log_signal(var_signal), -offset);
+		reject;
+	}
+
 	did_something = true;
 	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
 			log_id(module), log_id(shift), log_id(add), offset);
 
-	SigSpec old_a = port(shift, \A), new_a;
+	SigSpec new_a;
 	if(offset<0) {
 		// data >> (...-c) transformed to {data, c'X} >> (...)
 		SigSpec padding( (shift->type.in($shiftx) ? State::Sx : State::S0), -offset );
@@ -107,14 +121,13 @@ code
 			new_a.append(old_a.extract_end(offset));
 		} else {
 			// warn user in case data is empty (no bits left)
-			std::string location = shift->get_src_attribute();
 			if (location.empty())
 				location = shift->name.str();
 			if(shift->type.in($shiftx))
 				log_warning("at %s: result of indexed part-selection is always constant (selecting from '%s' with index '%s + %d')\n", \
 							location.c_str(), log_signal(old_a), log_signal(var_signal), offset);
 			else
-				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d'-bits)\n", \
+				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d' bits)\n", \
 							location.c_str(), log_signal(old_a), log_signal(var_signal), offset);
 		}
 	}

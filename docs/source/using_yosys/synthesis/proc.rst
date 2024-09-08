@@ -42,10 +42,10 @@ Example
    :caption: :file:`proc_01.ys`
 
 .. figure:: /_images/code_examples/synth_flow/proc_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. figure:: /_images/code_examples/synth_flow/proc_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/proc_02.v
    :language: verilog
@@ -56,7 +56,7 @@ Example
    :caption: :file:`proc_02.ys`
 
 .. figure:: /_images/code_examples/synth_flow/proc_03.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/proc_03.ys
    :language: yoscrypt

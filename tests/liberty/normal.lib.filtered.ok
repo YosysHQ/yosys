@@ -1,0 +1,211 @@
+library(supergate) {
+  cell(inv) {
+    area : 1 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : A' ;
+    }
+  }
+  cell(tri_inv) {
+    area : 4 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(S) {
+      direction : input ;
+    }
+    pin(Z) {
+      direction : output ;
+      function : A' ;
+    }
+  }
+  cell(buffer) {
+    area : 5 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : A ;
+    }
+  }
+  cell(nand2) {
+    area : 3 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : (A * B)' ;
+    }
+  }
+  cell(nor2) {
+    area : 3 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : (A + B)' ;
+    }
+  }
+  cell(xor2) {
+    area : 6 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : (A *B') + (A' * B) ;
+    }
+  }
+  cell(imux2) {
+    area : 5 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(S) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : ( (A * S) + (B * S') )' ;
+    }
+  }
+  cell(dff) {
+    area : 6 ;
+    ff(IQ, IQN) {
+      next_state : D ;
+      clocked_on : CLK ;
+      clear : RESET ;
+      preset : PRESET ;
+      clear_preset_var1 : L ;
+      clear_preset_var2 : L ;
+    }
+    pin(D) {
+      direction : input ;
+    }
+    pin(CLK) {
+      direction : input ;
+    }
+    pin(RESET) {
+      direction : input ;
+    }
+    pin(PRESET) {
+      direction : input ;
+    }
+    pin(Q) {
+      direction : output ;
+      function : IQ ;
+    }
+    pin(QN) {
+      direction : output ;
+      function : IQN ;
+    }
+  }
+  cell(latch) {
+    area : 5 ;
+    latch(IQ, IQN) {
+      enable : G ;
+      data_in : D ;
+    }
+    pin(D) {
+      direction : input ;
+    }
+    pin(G) {
+      direction : input ;
+    }
+    pin(Q) {
+      direction : output ;
+      function : IQ ;
+    }
+    pin(QN) {
+      direction : output ;
+      function : IQN ;
+    }
+  }
+  cell(aoi211) {
+    area : 3 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(C) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : ((A * B) + C)' ;
+    }
+  }
+  cell(oai211) {
+    area : 3 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(C) {
+      direction : input ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : ((A + B) * C)' ;
+    }
+  }
+  cell(halfadder) {
+    area : 5 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(C) {
+      direction : output ;
+      function : (A * B) ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : (A *B') + (A' * B) ;
+    }
+  }
+  cell(fulladder) {
+    area : 8 ;
+    pin(A) {
+      direction : input ;
+    }
+    pin(B) {
+      direction : input ;
+    }
+    pin(CI) {
+      direction : input ;
+    }
+    pin(CO) {
+      direction : output ;
+      function : (((A * B)+(B * CI))+(CI * A)) ;
+    }
+    pin(Y) {
+      direction : output ;
+      function : ((A^B)^CI) ;
+    }
+  }
+}

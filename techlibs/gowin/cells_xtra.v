@@ -1564,12 +1564,6 @@ parameter IDLE    =  4'd0,
 		  RD_S2   =  4'd12;
 endmodule
 
-module DCS (...);
-input CLK0, CLK1, CLK2, CLK3, SELFORCE;
-input [3:0] CLKSEL;
-output CLKOUT;
-endmodule
-
 module DQCE (...);
 input CLKIN;
 input CE;
@@ -1685,10 +1679,6 @@ output       SCANOUT6;
 endmodule
 
 module ADC (...);
-endmodule
-
-module BANDGAP (...);
-input BGEN;
 endmodule
 
 module CLKDIV2 (...);

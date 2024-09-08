@@ -1,0 +1,79 @@
+name: Compiler testing
+
+on: [push, pull_request]
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+          # cancel previous builds if a new commit is pushed
+          cancel_others: 'true'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: 'same_content_newer'
+
+  test-compile:
+    runs-on: ${{ matrix.os }}
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CXXFLAGS: ${{ startsWith(matrix.compiler, 'gcc') && '-Wp,-D_GLIBCXX_ASSERTIONS' || ''}}
+      CC_SHORT: ${{ startsWith(matrix.compiler, 'gcc') && 'gcc' || 'clang' }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        compiler:
+          # oldest supported
+          - 'clang-14'
+          - 'gcc-10'
+          # newest
+          - 'clang'
+          - 'gcc'
+        include:
+          # macOS
+          - os: macos-13
+            compiler: 'clang'
+          # oldest clang not available on ubuntu-latest
+          - os: ubuntu-20.04
+            compiler: 'clang-10'
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          $CC --version
+          $CXX --version
+
+      # minimum standard
+      - name: Build C++17
+        shell: bash
+        run: |
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=c++17 compile-only
+
+      # maximum standard, only on newest compilers
+      - name: Build C++20
+        if: ${{ matrix.compiler == 'clang' || matrix.compiler == 'gcc'}}
+        shell: bash
+        run: |
+          make config-$CC_SHORT
+          make -j$procs CXXSTD=c++20 compile-only

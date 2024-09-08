@@ -1,0 +1,191 @@
+# ISC License
+# 
+# Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+
+
+# LSRAM true dual-port
+ram block $__LSRAM_TDP_ {
+
+	# Cost of a given cell is assumed to be:
+	#   (cost-widthscale) + [widthscale * (used_bits/14)]
+	cost 129;
+
+	# INIT is supported
+	init any;
+
+	# port A and port B are allowed to have different widths, but they MUST have
+	# 	WIDTH values of the same set. 
+	#      Example: Port A has a Data Width of 1. Then Port B's Data Width must be either
+	#      1, 2, 4, 8, or 16 (both values are in the 'WIDTH_1' set).	
+	# 	WIDTH_1 = {1, 2, 4, 8, 16}
+	# 	WIDTH_2 = {5, 10, 20}
+
+	# "byte" specifies how many data bits correspond to one write enable bit.
+	#		"byte" must be larger than width, or width must be a multipler of "byte"
+	#		if "byte" > WIDTH, a single enable wire is inferred
+	#		otherwise, WIDTH/byte number of enable wires are inferred
+	# 		
+	# 		WIDTH = {1, 2, 4, 5, 8, 10} requires 1 enable wire
+	# 		WIDTH = {16, 20} requires 2 enable wire
+
+	option "WIDTH_CONFIG" "REGULAR" {
+
+		# Data-Width| Address bits
+		# 1 		| 14
+		# 2 		| 13
+		# 4 		| 12
+		# 8 		| 11
+		# 16		| 10
+
+		# 14 address bits
+		abits 14;
+
+		widths 1 2 4 8 16 per_port;
+		byte 8;
+	}
+	option "WIDTH_CONFIG" "ALIGN" {
+		
+		# Data-Width| Address bits
+		# 5 		| 12
+		# 10		| 11
+		# 20		| 10
+
+		# Quick "hack" to fix address bit alignment by setting address bits to 12.
+		#   If abits=14, tool will think there are 14 bits for width=5, 13 bits for width=10, 12 bits for width=20
+		#   THe LSRAM_map.v file detects if this option is being used, and adjusts the address port alignments accordingly.
+		abits 12;
+
+		widths 5 10 20 per_port;
+		byte 10;
+	}
+	
+	
+
+	port srsw "A" "B" {
+
+		# read & write width must be same
+		width tied;
+		
+		# clock polarity is rising
+		clock posedge;
+
+		# A/B read-enable
+		rden;
+
+
+		# initial value of read port data (not supported)
+		rdinit none;
+
+		# write modes (<A/B>_WMODE)
+		# 	1. Simple Write: read-data port holds prev value (similar to "NO_CHANGE" for RAMB18E1)
+		# 	2. Feed-through: read-data port takes new write value (similar to "WRITE_FIRST" for RAMB18E1)
+		# 	3. Read-Before-Write: read-data port holds old value while being written (similar to "READ_FIRST" for RAMB18E1)
+
+		portoption "WRITE_MODE" "NO_CHANGE" {
+
+			# Read-write interaction
+			rdwr no_change;
+
+			# Write transparency:
+			#   For write ports, define behaviour when another synchronous read port 
+			#   reads from the same memory cell that said write port is writing to at the same time. 
+			wrtrans all old;
+		}
+		portoption "WRITE_MODE" "WRITE_FIRST" {
+			# bits corresponding to high A/B_WEN are updated
+			rdwr new_only;
+			wrtrans all new;
+		}
+		portoption "WRITE_MODE" "READ_FIRST" {
+			rdwr old;
+
+			wrtrans all old;
+		}
+
+		# generate params to indicate if read or write is used for each port
+		optional_rw;
+	}
+}
+
+# two-port configuration
+ram block $__LSRAM_SDP_ {
+	
+	# since two-port configuration is dedicated for wide-read/write,
+	#	we want to prioritize this configuration over TDP to avoid tool picking multiple TDP RAMs 
+	#	inplace of a single SDP RAM for wide read/write. This means the cost of a single SDP should
+	#	be less than 2 TDP.
+	cost 129;
+	init any;
+
+	option "WIDTH_CONFIG" "REGULAR" {
+
+		# Data-Width| Address bits
+		# 1 		| 14
+		# 2 		| 13
+		# 4 		| 12
+		# 8 		| 11
+		# 16		| 10
+		# 32		| 9
+
+		abits 14;
+
+		widths 1 2 4 8 16 32 per_port;
+
+		# width = 32, byte-write size is 8, ignore other widths
+		byte 8;
+		
+	}
+	option "WIDTH_CONFIG" "ALIGN" {
+		
+		# Data-Width| Address bits
+		# 5 		| 12
+		# 10		| 11
+		# 20		| 10
+		# 40		| 9
+
+		# Same trick as TSP RAM for alignment
+		abits 12;
+		widths 5 10 20 40 per_port;
+		byte 10;
+	}
+
+	port sw "W" {
+
+		# only consider wide write
+		
+		option "WIDTH_CONFIG" "REGULAR" width 32;
+		option "WIDTH_CONFIG" "ALIGN" width 40;
+
+		clock posedge;
+
+		# only simple write supported for two-port mode
+		wrtrans all old;
+		
+		optional;
+	}
+	port sr "R" {
+
+		option "WIDTH_CONFIG" "REGULAR" width 32;
+		option "WIDTH_CONFIG" "ALIGN" width 40;
+
+
+		clock posedge;
+		rden;
+		rdinit none;
+		optional;
+	}
+}

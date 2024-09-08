@@ -1,0 +1,20 @@
+library(supergate) {
+  cell(DFF) {
+    cell_footprint : dff ;
+    area : 50 ;
+    pin(D) {
+      direction : input ;
+    }
+    pin(CK) {
+      direction : input ;
+      clock : true ;
+    }
+    ff(IQ, IQN) {
+      clocked_on : CK ;
+      next_state : D ;
+    }
+    pin(Q) {
+      direction : output ;
+    }
+  }
+}

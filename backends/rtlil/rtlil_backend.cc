@@ -51,6 +51,9 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			}
 		}
 		f << stringf("%d'", width);
+		if (data.flags & RTLIL::CONST_FLAG_SIGNED) {
+			f << stringf("s");
+		}
 		if (data.is_fully_undef_x_only()) {
 			f << "x";
 		} else {

@@ -32,9 +32,6 @@
 
 using namespace Yosys;
 
-std::set<std::string> LibertyAst::blacklist;
-std::set<std::string> LibertyAst::whitelist;
-
 LibertyAst::~LibertyAst()
 {
 	for (auto child : children)
@@ -42,7 +39,7 @@ LibertyAst::~LibertyAst()
 	children.clear();
 }
 
-LibertyAst *LibertyAst::find(std::string name)
+const LibertyAst *LibertyAst::find(std::string name) const
 {
 	for (auto child : children)
 		if (child->id == name)
@@ -50,7 +47,7 @@ LibertyAst *LibertyAst::find(std::string name)
 	return NULL;
 }
 
-void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_ok)
+void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string indent, std::string path, bool path_ok) const
 {
 	if (whitelist.count(path + "/*") > 0)
 		path_ok = true;
@@ -77,7 +74,7 @@ void LibertyAst::dump(FILE *f, std::string indent, std::string path, bool path_o
 	if (!children.empty()) {
 		fprintf(f, " {\n");
 		for (size_t i = 0; i < children.size(); i++)
-			children[i]->dump(f, indent + "  ", path, path_ok);
+			children[i]->dump(f, blacklist, whitelist, indent + "  ", path, path_ok);
 		fprintf(f, "%s}\n", indent.c_str());
 	} else
 		fprintf(f, " ;\n");
@@ -406,9 +403,9 @@ void LibertyParser::error(const std::string &str)
 
 /**** END: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
-LibertyAst *find_non_null(LibertyAst *node, const char *name)
+const LibertyAst *find_non_null(const LibertyAst *node, const char *name)
 {
-	LibertyAst *ret = node->find(name);
+	const LibertyAst *ret = node->find(name);
 	if (ret == NULL)
 		fprintf(stderr, "Error: expected to find `%s' node.\n", name);
 	return ret;
@@ -455,7 +452,7 @@ std::string func2vl(std::string str)
 	return str;
 }
 
-void event2vl(LibertyAst *ast, std::string &edge, std::string &expr)
+void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 {
 	edge.clear();
 	expr.clear();
@@ -489,7 +486,7 @@ void clear_preset_var(std::string var, std::string type)
 	}
 }
 
-void gen_verilogsim_cell(LibertyAst *ast)
+void gen_verilogsim_cell(const LibertyAst *ast)
 {
 	if (ast->find("statetable") != NULL)
 		return;
@@ -522,8 +519,8 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		LibertyAst *dir = find_non_null(child, "direction");
-		LibertyAst *func = child->find("function");
+		const LibertyAst *dir = find_non_null(child, "direction");
+		const LibertyAst *func = child->find("function");
 		printf("  %s %s;\n", dir->value.c_str(), child->args[0].c_str());
 		if (func != NULL)
 			printf("  assign %s = %s; // %s\n", child->args[0].c_str(), func2vl(func->value).c_str(), func->value.c_str());
@@ -649,7 +646,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 	printf("endmodule\n");
 }
 
-void gen_verilogsim(LibertyAst *ast)
+void gen_verilogsim(const LibertyAst *ast)
 {
 	CHECK_COND(ast->id == "library");
 
@@ -668,6 +665,7 @@ void usage()
 int main(int argc, char **argv)
 {
 	bool flag_verilogsim = false;
+	std::set<std::string> whitelist, blacklist;
 
 	if (argc > 3)
 		usage();
@@ -678,26 +676,26 @@ int main(int argc, char **argv)
 			flag_verilogsim = true;
 		if (!strcmp(argv[1], "-") || !strcmp(argv[1], "-verilogsim"))
 		{
-			LibertyAst::whitelist.insert("/library");
-			LibertyAst::whitelist.insert("/library/cell");
-			LibertyAst::whitelist.insert("/library/cell/area");
-			LibertyAst::whitelist.insert("/library/cell/cell_footprint");
-			LibertyAst::whitelist.insert("/library/cell/dont_touch");
-			LibertyAst::whitelist.insert("/library/cell/dont_use");
-			LibertyAst::whitelist.insert("/library/cell/ff");
-			LibertyAst::whitelist.insert("/library/cell/ff/*");
-			LibertyAst::whitelist.insert("/library/cell/latch");
-			LibertyAst::whitelist.insert("/library/cell/latch/*");
-			LibertyAst::whitelist.insert("/library/cell/pin");
-			LibertyAst::whitelist.insert("/library/cell/pin/clock");
-			LibertyAst::whitelist.insert("/library/cell/pin/direction");
-			LibertyAst::whitelist.insert("/library/cell/pin/driver_type");
-			LibertyAst::whitelist.insert("/library/cell/pin/function");
-			LibertyAst::whitelist.insert("/library/cell/pin_opposite");
-			LibertyAst::whitelist.insert("/library/cell/pin/state_function");
-			LibertyAst::whitelist.insert("/library/cell/pin/three_state");
-			LibertyAst::whitelist.insert("/library/cell/statetable");
-			LibertyAst::whitelist.insert("/library/cell/statetable/*");
+			whitelist.insert("/library");
+			whitelist.insert("/library/cell");
+			whitelist.insert("/library/cell/area");
+			whitelist.insert("/library/cell/cell_footprint");
+			whitelist.insert("/library/cell/dont_touch");
+			whitelist.insert("/library/cell/dont_use");
+			whitelist.insert("/library/cell/ff");
+			whitelist.insert("/library/cell/ff/*");
+			whitelist.insert("/library/cell/latch");
+			whitelist.insert("/library/cell/latch/*");
+			whitelist.insert("/library/cell/pin");
+			whitelist.insert("/library/cell/pin/clock");
+			whitelist.insert("/library/cell/pin/direction");
+			whitelist.insert("/library/cell/pin/driver_type");
+			whitelist.insert("/library/cell/pin/function");
+			whitelist.insert("/library/cell/pin_opposite");
+			whitelist.insert("/library/cell/pin/state_function");
+			whitelist.insert("/library/cell/pin/three_state");
+			whitelist.insert("/library/cell/statetable");
+			whitelist.insert("/library/cell/statetable/*");
 		}
 		else
 		{
@@ -723,10 +721,10 @@ int main(int argc, char **argv)
 					if (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == '#') {
 						if (!id.empty()) {
 							if (mode == '-')
-								LibertyAst::blacklist.insert(id);
+								blacklist.insert(id);
 							else
 							if (mode == '+')
-								LibertyAst::whitelist.insert(id);
+								whitelist.insert(id);
 							else
 								goto syntax_error;
 						}
@@ -764,7 +762,7 @@ int main(int argc, char **argv)
 		if (flag_verilogsim)
 			gen_verilogsim(parser.ast);
 		else
-			parser.ast->dump(stdout);
+			parser.ast->dump(stdout, blacklist, whitelist);
 	}
 
 	if (argc == 3)

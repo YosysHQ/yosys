@@ -39,7 +39,7 @@ Example
 .. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/synth_flow
 
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_01.ys
    :language: yoscrypt
@@ -50,7 +50,7 @@ Example
    :caption: :file:`memory_01.v`
 
 .. figure:: /_images/code_examples/synth_flow/memory_02.*
-   :class: width-helper
+   :class: width-helper invert-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_02.v
    :language: verilog
@@ -696,6 +696,9 @@ TDP with multiple read ports
 
 Patterns only supported with Verific
 ------------------------------------
+
+The following patterns are only supported when the design is read in using the
+Verific front-end.
 
 Synchronous SDP with write-first behavior via blocking assignments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

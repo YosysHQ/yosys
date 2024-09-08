@@ -183,6 +183,12 @@ struct RomWorker
 		mem.rd_ports.push_back(std::move(rd));
 
 		mem.emit();
+
+		if (sw->has_attribute(ID::src)) {
+			mem.inits[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+			mem.rd_ports[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+		}
+
 		for (auto cs: sw->cases)
 			delete cs;
 		sw->cases.clear();

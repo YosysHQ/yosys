@@ -512,9 +512,10 @@ public:
 	spool &operator=(const spool &) = delete;
 
 	~spool() {
-		if (int fd = writefd.exchange(-1))
+		int fd;
+		if ((fd = writefd.exchange(-1)) != -1)
 			close(fd);
-		if (int fd = readfd.exchange(-1))
+		if ((fd = readfd.exchange(-1)) != -1)
 			close(fd);
 	}
 

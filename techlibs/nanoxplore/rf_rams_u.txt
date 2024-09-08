@@ -1,0 +1,66 @@
+# Register-File  RAMs for NanoXplore NG-ULTRA
+
+# Dual-port RAMs.
+# NX_RFB_U in mode 0 (DPREG)
+# NX_RFB_U in mode 2 (NX_XRFB_64x18)
+# NX_RFB_U in mode 3 (NX_XRFB_32x36)
+
+ram distributed $__NX_RFB_U_DPREG_ {
+	option "MODE" 0 {
+        cost 30;
+        widthscale 30;
+		abits 5;
+		widths 18 global;
+	}
+	option "MODE" 2 {
+        cost 50;
+        widthscale 30;
+		abits 6;
+		widths 18 global;
+	}
+	option "MODE" 3 {
+        cost 50;
+        widthscale 30;
+		abits 5;
+		widths 36 global;
+	}
+    init no_undef;
+
+    port sw "W" {
+        clock anyedge;
+    }
+    port ar "R" {
+    }
+}
+
+# Single-port RAMs.
+# NX_RFB_U in mode 1 (SPREG)
+
+ram distributed $__NX_RFB_U_SPREG_ {
+	cost 30;
+    widthscale;
+    abits 5;
+    width 18;
+	init no_undef;
+	port arsw "RW" {
+		clock anyedge;
+	}
+}
+
+# Single write dual read RAMs.
+# NX_RFB_U in mode 4 (NX_XRFB_2R_1W)
+
+ram distributed $__NX_XRFB_2R_1W_ {
+	cost 40;
+    widthscale 30;
+    abits 5;
+    width 18;
+	init no_undef;
+    port sw "W" {
+        clock anyedge;
+    }
+    port ar "A" {
+    }
+    port ar "B" {
+    }
+}
