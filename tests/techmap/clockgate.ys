@@ -36,6 +36,15 @@ module dffe_11( input clk, en,
 	end
 endmodule
 
+module dffe_wide_11( input clk, en,
+			input [3:0] d1, output reg [3:0] q1,
+		);
+	always @( posedge clk ) begin
+		if ( en )
+			q1 <= d1;
+	end
+endmodule
+
 EOT
 
 proc
@@ -44,6 +53,8 @@ opt
 design -save before
 
 #------------------------------------------------------------------------------
+
+# Test -pos
 
 clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
 
@@ -58,7 +69,12 @@ select -module dffe_11 -assert-count 1 t:\\pdk_icg
 select -module dffe_10 -assert-count 1 t:\$_NOT_
 select -module dffe_11 -assert-count 0 t:\$_NOT_
 
+# Extra credit: multi-bit FFs work fine as well
+select -module dffe_wide_11 -assert-count 1 t:\\pdk_icg
+
 #------------------------------------------------------------------------------
+
+# Test -neg
 
 design -load before
 clockgate -min_net_size 1 -neg pdk_icg ce:clkin:clkout -tie_lo scanen
@@ -73,6 +89,30 @@ select -module dffe_11 -assert-count 0 t:\\pdk_icg
 # is assumed to have an active-high EN
 select -module dffe_00 -assert-count 1 t:\$_NOT_
 select -module dffe_01 -assert-count 0 t:\$_NOT_
+
+#------------------------------------------------------------------------------
+
+# Same as first case, but on fine-grained cells
+
+design -load before
+
+techmap
+
+clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
+
+# falling edge clock flops don't get matched on -pos
+select -module dffe_00 -assert-count 0 t:\\pdk_icg
+select -module dffe_01 -assert-count 0 t:\\pdk_icg
+# falling edge clock flops do get matched on -pos
+select -module dffe_10 -assert-count 1 t:\\pdk_icg
+select -module dffe_11 -assert-count 1 t:\\pdk_icg
+# if necessary, EN is inverted, since the given ICG
+# is assumed to have an active-high EN
+select -module dffe_10 -assert-count 1 t:\$_NOT_
+select -module dffe_11 -assert-count 0 t:\$_NOT_
+
+# Extra credit: multi-bit FFs work fine as well
+select -module dffe_wide_11 -assert-count 1 t:\\pdk_icg
 
 #------------------------------------------------------------------------------
 
