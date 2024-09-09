@@ -151,7 +151,8 @@ struct ClockgatePass : public Pass {
 					continue;
 
 				FfData ff(&initvals, cell);
-				if (ff.has_ce) {
+				// It would be odd to get constants, but we better handle it
+				if (ff.has_ce && ff.sig_clk.is_wire() && ff.sig_ce.is_wire()) {
 					ce_ffs.insert(cell);
 
 					ClkNetInfo info = clk_info_from_ff(ff);
