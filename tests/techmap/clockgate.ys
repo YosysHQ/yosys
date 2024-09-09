@@ -1,0 +1,88 @@
+read_verilog << EOT
+
+module dffe_00( input clk, en,
+			input d1, output reg q1,
+		);
+	always @( negedge clk ) begin
+		if ( ~en )
+			q1 <= d1;
+	end
+endmodule
+
+module dffe_01( input clk, en,
+			input d1, output reg q1,
+		);
+	always @( negedge clk ) begin
+		if ( en )
+			q1 <= d1;
+	end
+endmodule
+
+module dffe_10( input clk, en,
+			input d1, output reg q1,
+		);
+	always @( posedge clk ) begin
+		if ( ~en )
+			q1 <= d1;
+	end
+endmodule
+
+module dffe_11( input clk, en,
+			input d1, output reg q1,
+		);
+	always @( posedge clk ) begin
+		if ( en )
+			q1 <= d1;
+	end
+endmodule
+
+EOT
+
+proc
+opt
+
+design -save before
+
+#------------------------------------------------------------------------------
+
+clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
+
+# falling edge clock flops don't get matched on -pos
+select -module dffe_00 -assert-count 0 t:\\pdk_icg
+select -module dffe_01 -assert-count 0 t:\\pdk_icg
+# falling edge clock flops do get matched on -pos
+select -module dffe_10 -assert-count 1 t:\\pdk_icg
+select -module dffe_11 -assert-count 1 t:\\pdk_icg
+# if necessary, EN is inverted, since the given ICG
+# is assumed to have an active-high EN
+select -module dffe_10 -assert-count 1 t:\$_NOT_
+select -module dffe_11 -assert-count 0 t:\$_NOT_
+
+#------------------------------------------------------------------------------
+
+design -load before
+clockgate -min_net_size 1 -neg pdk_icg ce:clkin:clkout -tie_lo scanen
+
+# rising edge clock flops don't get matched on -neg
+select -module dffe_00 -assert-count 1 t:\\pdk_icg
+select -module dffe_01 -assert-count 1 t:\\pdk_icg
+# rising edge clock flops do get matched on -neg
+select -module dffe_10 -assert-count 0 t:\\pdk_icg
+select -module dffe_11 -assert-count 0 t:\\pdk_icg
+# if necessary, EN is inverted, since the given ICG
+# is assumed to have an active-high EN
+select -module dffe_00 -assert-count 1 t:\$_NOT_
+select -module dffe_01 -assert-count 0 t:\$_NOT_
+
+#------------------------------------------------------------------------------
+
+design -load before
+clockgate -min_net_size 2 -neg pdk_icg ce:clkin:clkout -tie_lo scanen
+
+# No FF set sharing a (clock, clock enable) pair is large enough
+select -module dffe_00 -assert-count 0 t:\\pdk_icg
+select -module dffe_01 -assert-count 0 t:\\pdk_icg
+select -module dffe_10 -assert-count 0 t:\\pdk_icg
+select -module dffe_11 -assert-count 0 t:\\pdk_icg
+
+# TODO test -tie_lo
