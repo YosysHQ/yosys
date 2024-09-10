@@ -660,11 +660,13 @@ int main(int argc, char **argv)
 			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
 			for (int i = optind; i < argc; ++i)
 				PyList_SetItem(new_argv, i - optind + 1, PyUnicode_FromString(argv[i]));
-				
+
 			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
 			PyObject_SetAttrString(sys, "argv", new_argv);
 			Py_DECREF(old_argv);
-			
+
+			PyRun_SimpleString(("import os;sys.path.insert(0, os.path.dirname(os.path.abspath(\""+scriptfile+"\")))").c_str());
+
 			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
 			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
 				log_error("Python interpreter encountered an error:\n");
