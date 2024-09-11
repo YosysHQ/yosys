@@ -550,7 +550,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 		f->seekp(data_end);
 		int i = 0;
 		for (auto pair : outputs) {
-			if (pair.first.is_wire()) {
+			if (SigSpec(pair.first).is_wire()) {
 				char buf[32];
 				snprintf(buf, sizeof(buf) - 1, "o%d ", i);
 				f->write(buf, strlen(buf));
@@ -562,7 +562,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 		}
 		i = 0;
 		for (auto bit : inputs) {
-			if (bit.is_wire()) {
+			if (SigSpec(bit).is_wire()) {
 				char buf[32];
 				snprintf(buf, sizeof(buf) - 1, "i%d ", i);
 				f->write(buf, strlen(buf));
