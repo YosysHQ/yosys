@@ -171,4 +171,26 @@ select -module bad2 -assert-count 0 t:\\pdk_icg
 
 #------------------------------------------------------------------------------
 
+# Regression test: EN is a bit from a multi-bit wire
+design -reset
+read_verilog << EOT
+module dffe_wide_11( input clk, input [1:0] en,
+			input [3:0] d1, output reg [3:0] q1,
+		);
+	always @( posedge clk ) begin
+		if ( en[0] )
+			q1 <= d1;
+	end
+endmodule
+
+EOT
+
+proc
+opt
+
+clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
+select -assert-count 1 t:\\pdk_icg
+
+#------------------------------------------------------------------------------
+
 # TODO test -tie_lo

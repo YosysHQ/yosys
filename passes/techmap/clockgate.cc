@@ -73,20 +73,20 @@ struct ClockgatePass : public Pass {
 	// if the number of FFs associated with it is sufficent
 	struct ClkNetInfo {
 		// Original, ungated clock into enabled FF
-		Wire* clk_net;
+		SigBit clk_bit;
 		// Original clock enable into enabled FF
-		Wire* ce_net;
+		SigBit ce_bit;
 		bool pol_clk;
 		bool pol_ce;
 		unsigned int hash() const {
-			auto t = std::make_tuple(clk_net, ce_net, pol_clk, pol_ce);
+			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce);
 			unsigned int h = mkhash_init;
 			h = mkhash(h, hash_ops<decltype(t)>::hash(t));
 			return h;
 		}
 		bool operator==(const ClkNetInfo& other) const {
-			return (clk_net == other.clk_net) &&
-			       (ce_net == other.ce_net) &&
+			return (clk_bit == other.clk_bit) &&
+			       (ce_bit == other.ce_bit) &&
 			       (pol_clk == other.pol_clk) &&
 			       (pol_ce == other.pol_ce);
 		}
@@ -100,8 +100,8 @@ struct ClockgatePass : public Pass {
 	};
 
 	ClkNetInfo clk_info_from_ff(FfData& ff) {
-		Wire* clk = ff.sig_clk.as_wire();
-		Wire* ce = ff.sig_ce.as_wire();
+		SigBit clk = ff.sig_clk[0];
+		SigBit ce = ff.sig_ce[0];
 		ClkNetInfo info{clk, ce, ff.pol_clk, ff.pol_ce};
 		return info;
 	}
@@ -147,7 +147,12 @@ struct ClockgatePass : public Pass {
 
 				FfData ff(nullptr, cell);
 				// It would be odd to get constants, but we better handle it
-				if (ff.has_ce && ff.sig_clk.is_wire() && ff.sig_ce.is_wire()) {
+				if (ff.has_ce) {
+					if (!ff.sig_clk.is_bit() || !ff.sig_ce.is_bit())
+						continue;
+					if (!ff.sig_clk[0].is_wire() || !ff.sig_ce[0].is_wire())
+						continue;
+
 					ce_ffs.insert(cell);
 
 					ClkNetInfo info = clk_info_from_ff(ff);
@@ -159,7 +164,6 @@ struct ClockgatePass : public Pass {
 			}
 
 			for (auto& clk_net : clk_nets) {
-				log_debug("checking clk net %s\n", clk_net.first.clk_net->name.c_str());
 				auto& clk = clk_net.first;
 				auto& gclk = clk_net.second;
 
@@ -176,10 +180,9 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				log_debug("building ICG for clk net %s\n", clk_net.first.clk_net->name.c_str());
 				Cell* icg = module->addCell(NEW_ID, matching_icg_desc->name);
-				icg->setPort(matching_icg_desc->ce_pin, clk.ce_net);
-				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_net);
+				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
+				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID);
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
@@ -187,7 +190,7 @@ struct ClockgatePass : public Pass {
 					icg->setPort(port, Const(0));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
-					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_net);
+					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_bit);
 					icg->setPort(matching_icg_desc->ce_pin, ce_fixed_pol);
 				}
 			}
