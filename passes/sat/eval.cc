@@ -375,10 +375,15 @@ struct EvalPass : public Pass {
 		log("        show the value for the specified signal. if no -show option is passed\n");
 		log("        then all output ports of the current module are used.\n");
 		log("\n");
+		log("    -assert <signal> <value>\n");
+		log("        assert the specified signal evaluates to the specified value. If -table\n");
+		log("        is used, the assert is done for all entries in the truth table\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
+		std::vector<std::pair<std::string, std::string>> asserts;
 		std::vector<std::string> shows, tables;
 		bool set_undef = false;
 
@@ -390,6 +395,13 @@ struct EvalPass : public Pass {
 				std::string lhs = args[++argidx].c_str();
 				std::string rhs = args[++argidx].c_str();
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				continue;
+			}
+			if (args[argidx] == "-assert" && argidx + 2 < args.size()) {
+				std::string lhs = args[++argidx].c_str();
+				std::string rhs = args[++argidx].c_str();
+				asserts.push_back(std::pair<std::string, std::string>(lhs, rhs));
+				shows.push_back(lhs);
 				continue;
 			}
 			if (args[argidx] == "-set-undef") {
@@ -488,6 +500,29 @@ struct EvalPass : public Pass {
 						log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
 				}
 			}
+
+			for (auto &it : asserts) {
+				RTLIL::SigSpec lhs, rhs, undef;
+
+				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, it.first))
+					log_cmd_error("Failed to parse show expression `%s'.\n", it.first.c_str());
+				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
+
+				while (!ce.eval(lhs, undef)) {
+					log_error("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n", log_signal(lhs),
+						  log_signal(undef));
+					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
+					undef = RTLIL::SigSpec();
+				}
+
+				if (!lhs.is_fully_const())
+					log_cmd_error("Left-hand-side assert expression `%s' is not constant.\n", it.first.c_str());
+				if (!rhs.is_fully_const())
+					log_cmd_error("Right-hand-side assert expression `%s' is not constant.\n", it.second.c_str());
+				if (lhs.as_const() != rhs.as_const())
+					log_error("Assertion failed: %s != %s\n", log_signal(lhs), log_signal(rhs));
+			}
 		} else {
 			RTLIL::SigSpec tabsigs, signal, value, undef;
 			std::vector<std::vector<std::string>> tab;
@@ -517,9 +552,37 @@ struct EvalPass : public Pass {
 			tab_line.clear();
 
 			RTLIL::Const tabvals(0, tabsigs.size());
+
+			std::ostringstream assert_failures;
+
 			do {
 				ce.push();
 				ce.set(tabsigs, tabvals);
+
+				for (auto &it : asserts) {
+					RTLIL::SigSpec lhs, rhs, undef;
+
+					if (!RTLIL::SigSpec::parse_sel(lhs, design, module, it.first))
+						log_cmd_error("Failed to parse show expression `%s'.\n", it.first.c_str());
+					if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
+						log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
+
+					while (!ce.eval(lhs, undef)) {
+						log_error("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n",
+							  log_signal(lhs), log_signal(undef));
+						ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
+						undef = RTLIL::SigSpec();
+					}
+
+					if (!lhs.is_fully_const())
+						assert_failures << "Left-hand-side assert expression `" << it.first.c_str() << "` is not constant.\n";
+					else if (!rhs.is_fully_const())
+						assert_failures << "Right-hand-side assert expression `" << it.first.c_str()
+								<< "` is not constant.\n";
+					else if (lhs.as_const() != rhs.as_const())
+						assert_failures << "Assertion failed: " << log_signal(lhs) << " != " << log_signal(rhs) << "\n";
+				}
+
 				value = signal;
 
 				RTLIL::SigSpec this_undef;
@@ -585,6 +648,11 @@ struct EvalPass : public Pass {
 			if (undef.size() > 0) {
 				undef.sort_and_unify();
 				log("Assumed undef (x) value for the following signals: %s\n\n", log_signal(undef));
+			}
+
+			std::string assert_failures_str = assert_failures.str();
+			if (assert_failures_str.size() > 0) {
+				log_error("%s", assert_failures_str.c_str());
 			}
 		}
 	}
