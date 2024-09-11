@@ -21,6 +21,7 @@
 //  - gracefully handling inout ports (an error message probably)
 
 #include "kernel/register.h"
+#include "kernel/celltypes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -641,7 +642,51 @@ struct Aiger2Backend : Backend {
 		experimental();
 	}
 
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_aiger2 [options] [filename]\n");
+		log("\n");
+		log("Write the current design to an AIGER file.\n");
+		log("\n");
+		log("This command is able to ingest all combinational cells except for:\n");
+		log("\n");
+		pool<IdString> supported = {KNOWN_OPS};
+		CellTypes ct;
+		ct.setup_internals_eval();
+		log("    ");
+		int col = 0;
+		for (auto pair : ct.cell_types)
+		if (!supported.count(pair.first)) {
+			if (col + pair.first.size() + 2 > 72) {
+				log("\n    ");
+				col = 0;
+			}
+			col += pair.first.size() + 2;
+			log("%s, ", log_id(pair.first));
+		}
+		log("\n");
+		log("\n");
+		log("And all combinational gates except for:\n");
+		log("\n");
+		CellTypes ct2;
+		ct2.setup_stdcells();
+		log("    ");
+		col = 0;
+		for (auto pair : ct2.cell_types)
+		if (!supported.count(pair.first)) {
+			if (col + pair.first.size() + 2 > 72) {
+				log("\n    ");
+				col = 0;
+			}
+			col += pair.first.size() + 2;
+			log("%s, ", log_id(pair.first));
+		}
+		log("\n");
+	}
+
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, Design *design) override
 	{
 		log_header(design, "Executing AIGER2 backend.\n");
 
