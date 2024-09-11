@@ -613,4 +613,68 @@ struct Aiger2Backend : Backend {
 	}
 } Aiger2Backend;
 
+struct AIGCounter : Index<AIGCounter, int> {
+	typedef int Lit;
+	const static Lit CONST_FALSE = -1;
+	const static Lit CONST_TRUE = 1;
+	static Lit empty_lit() { return 0; }
+	static Lit negate(Lit lit) { return -lit; }
+	int nvars = 1;
+	int ngates = 0;
+
+	Lit emit_gate([[maybe_unused]] Lit a, [[maybe_unused]] Lit b)
+	{
+		ngates++;
+		return ++nvars;
+	}
+
+	void count() {
+		// populate inputs
+		for (auto w : top->wires())
+		if (w->port_input)
+		for (int i = 0; i < w->width; i++)
+			set_top_port(SigBit(w, i), ++nvars);
+
+		for (auto w : top->wires())
+		if (w->port_output) {
+			for (auto bit : SigSpec(w))
+				(void) get_top_port(bit);
+		}
+	}
+};
+
+struct AigsizePass : Pass {
+	AigsizePass() : Pass("aigsize", "estimate AIG size for design") {}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		log_header(design, "Executing AIGSIZE pass. (size design AIG)\n");
+
+		size_t argidx;
+		AIGCounter counter;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-strash")
+				counter.strashing = true;
+			else
+				break;
+		}
+		extra_args(args, argidx, design);
+
+		Module *top = design->top_module();
+
+		if (!top || !design->selected_whole_module(top))
+			log_cmd_error("No top module selected\n");
+
+		design->bufNormalize(true);
+		counter.setup(top);
+		counter.count();
+		log("Counted %d gates\n", counter.ngates);
+
+		// we are leaving the sacred land, un-bufnormalize
+		// (if not, this will lead to bugs: the buf-normalized
+		// flag must not be kept on past the code that can work
+		// with it)
+		design->bufNormalize(false);
+	}
+} AigsizePass;
+
 PRIVATE_NAMESPACE_END
