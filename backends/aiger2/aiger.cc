@@ -38,7 +38,7 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($lt), ID($le), ID($ge), ID($gt), ID($neg)
 
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS /*, ARITH_OPS*/
+#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos) /*, ARITH_OPS*/
 
 template<typename Writer, typename Lit>
 struct Index {
@@ -203,7 +203,7 @@ struct Index {
 				return OR(a, b);
 			else
 				log_abort();
-		} else if (cell->type.in(BITWISE_OPS, GATE_OPS)) {
+		} else if (cell->type.in(BITWISE_OPS, GATE_OPS, ID($pos))) {
 			SigSpec aport = cell->getPort(ID::A);
 			Lit a;
 			if (obit < aport.size()) {
@@ -215,7 +215,7 @@ struct Index {
 					a = Writer::CONST_FALSE;
 			}
 
-			if (cell->type.in(ID($buf), ID($_BUF_))) {
+			if (cell->type.in(ID($buf), ID($pos), ID($_BUF_))) {
 				return a;
 			} else if (cell->type.in(ID($not), ID($_NOT_))) {
 				return NOT(a);
