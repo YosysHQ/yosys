@@ -42,6 +42,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 template<typename Writer, typename Lit>
 struct Index {
+	static constexpr Lit CFALSE = Writer::CONST_FALSE;
+	static constexpr Lit CTRUE = Writer::CONST_TRUE;
+
 	struct HierCursor;
 	struct ModuleInfo {
 		Module *module;
@@ -122,11 +125,11 @@ struct Index {
 	Lit AND(Lit a, Lit b)
 	{
 		if (const_folding) {
-			if (a == Writer::CONST_FALSE || b == Writer::CONST_FALSE)
-				return Writer::CONST_FALSE;
-			if (a == Writer::CONST_TRUE)
+			if (a == CFALSE || b == CFALSE)
+				return CFALSE;
+			if (a == CTRUE)
 				return b;
-			if (b == Writer::CONST_TRUE)
+			if (b == CTRUE)
 				return a;
 		}
 
@@ -161,9 +164,9 @@ struct Index {
 		if (const_folding) {
 			if (a == b)
 				return a;
-			if (s == Writer::CONST_FALSE)
+			if (s == CFALSE)
 				return a;
-			if (s == Writer::CONST_TRUE)
+			if (s == CTRUE)
 				return b;
 		}
 
@@ -233,7 +236,7 @@ struct Index {
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 					a = visit(cursor, aport.msb());
 				else
-					a = Writer::CONST_FALSE;
+					a = CFALSE;
 			}
 
 			if (cell->type.in(ID($buf), ID($pos), ID($_BUF_))) {
@@ -249,7 +252,7 @@ struct Index {
 					if (cell->getParam(ID::B_SIGNED).as_bool())
 						b = visit(cursor, bport.msb());
 					else
-						b = Writer::CONST_FALSE;
+						b = CFALSE;
 				}
 
 				if (cell->type.in(ID($and), ID($_AND_))) {
@@ -357,9 +360,9 @@ struct Index {
 	{
 		if (!bit.wire) {
 			if (bit == State::S1)
-				return Writer::CONST_TRUE;
+				return CTRUE;
 			else if (bit == State::S0)
-				return Writer::CONST_FALSE;
+				return CFALSE;
 			else
 				log_error("Unhandled state %s\n", log_signal(bit));
 		}
