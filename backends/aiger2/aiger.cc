@@ -118,7 +118,7 @@ struct Index {
 		modules.reserve(top->design->modules().size());
 		int nlits = index_module(top);
 		log_debug("allocating for %d literals\n", nlits);
-		lits.resize(nlits, Writer::empty_lit());
+		lits.resize(nlits, Writer::EMPTY_LIT);
 		top_minfo = &modules.at(top);
 	}
 
@@ -426,7 +426,7 @@ struct Index {
 		}
 
 		int idx = cursor.bitwire_index(bit);
-		if (lits[idx] != Writer::empty_lit()) {
+		if (lits[idx] != Writer::EMPTY_LIT) {
 			// literal already assigned
 			return lits[idx];
 		}
@@ -503,13 +503,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 
 	const static Lit CONST_FALSE = 0;
 	const static Lit CONST_TRUE = 1;
-
-	// for some reason having a 'const static int EMPTY_LIT'
-	// led to linkage errors
-	static Lit empty_lit()
-	{
-		return 0x80000000;
-	}
+	const static constexpr Lit EMPTY_LIT = std::numeric_limits<Lit>::max();
 
 	static Lit negate(Lit lit) {
 		return lit ^ 1;
@@ -722,7 +716,7 @@ struct AIGCounter : Index<AIGCounter, int> {
 	typedef int Lit;
 	const static Lit CONST_FALSE = -1;
 	const static Lit CONST_TRUE = 1;
-	static Lit empty_lit() { return 0; }
+	const static constexpr Lit EMPTY_LIT = 0;
 	static Lit negate(Lit lit) { return -lit; }
 	int nvars = 1;
 	int ngates = 0;
