@@ -69,9 +69,6 @@ struct ClockgatePass : public Pass {
 		// log("        \n");
 	}
 
-	SigMap sigmap;
-	FfInitVals initvals;
-
 	// One ICG will be generated per ClkNetInfo
 	// if the number of FFs associated with it is sufficent
 	struct ClkNetInfo {
@@ -144,13 +141,11 @@ struct ClockgatePass : public Pass {
 
 		int gated_flop_count = 0;
 		for (auto module : design->selected_whole_modules()) {
-			sigmap.set(module);
-			initvals.set(&sigmap, module);
 			for (auto cell : module->cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 
-				FfData ff(&initvals, cell);
+				FfData ff(nullptr, cell);
 				// It would be odd to get constants, but we better handle it
 				if (ff.has_ce && ff.sig_clk.is_wire() && ff.sig_ce.is_wire()) {
 					ce_ffs.insert(cell);
@@ -198,7 +193,7 @@ struct ClockgatePass : public Pass {
 			}
 
 			for (auto cell : ce_ffs) {
-				FfData ff(&initvals, cell);
+				FfData ff(nullptr, cell);
 				ClkNetInfo info = clk_info_from_ff(ff);
 				auto it = clk_nets.find(info);
 				log_assert(it != clk_nets.end() && "Bug: desync ce_ffs and clk_nets");
