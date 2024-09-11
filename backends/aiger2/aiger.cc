@@ -99,9 +99,15 @@ struct Index {
 	ModuleInfo *top_minfo;
 	std::vector<Lit> lits;
 
-	Index(RTLIL::Module *top)
-		: design(top->design), top(top)
+	Index()
 	{
+	}
+
+	void setup(RTLIL::Module *top)
+	{
+		design = top->design;
+		this->top = top;
+
 		modules.reserve(top->design->modules().size());
 		int nlits = index_module(top);
 		log_debug("allocating for %d literals\n", nlits);
@@ -109,7 +115,9 @@ struct Index {
 		top_minfo = &modules.at(top);
 	}
 
-	bool const_folding = false;
+	bool const_folding = true;
+	bool strashing = false;
+	dict<std::pair<int, int>, int> cache;
 
 	Lit AND(Lit a, Lit b)
 	{
@@ -122,7 +130,20 @@ struct Index {
 				return a;
 		}
 
-		return (static_cast<Writer*>(this))->emit_gate(a, b);
+		if (!strashing) {
+			return (static_cast<Writer*>(this))->emit_gate(a, b);
+		} else {
+			if (a < b) std::swap(a, b);
+			auto pair = std::make_pair(a, b);
+
+			if (!cache.count(pair)) {
+				Lit nl = (static_cast<Writer*>(this))->emit_gate(a, b);
+				cache[pair] = nl;
+				return nl;
+			} else {
+				return cache.at(pair);
+			}
+		}
 	}
 
 	Lit NOT(Lit lit)
@@ -552,9 +573,6 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 			i++;
 		}
 	}
-
-	AigerWriter(RTLIL::Module *top)
-		: Index(top) {}
 };
 
 struct Aiger2Backend : Backend {
@@ -568,8 +586,13 @@ struct Aiger2Backend : Backend {
 		log_header(design, "Executing AIGER2 backend.\n");
 
 		size_t argidx;
+		AigerWriter writer;
+		writer.const_folding = true;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			break;
+			if (args[argidx] == "-strash")
+				writer.strashing = true;
+			else
+				break;
 		}
 		extra_args(f, filename, args, argidx);
 
@@ -579,7 +602,7 @@ struct Aiger2Backend : Backend {
 			log_cmd_error("No top module selected\n");
 
 		design->bufNormalize(true);
-		AigerWriter writer(top);
+		writer.setup(top);
 		writer.write(f);
 
 		// we are leaving the sacred land, un-bufnormalize
