@@ -83,6 +83,12 @@ assign name``_y2 = op name``_a2;
 `BIOP(xnor, ~^, 3, 3, 3)
 `BIOP(logic_and, &&, 4, 3, 1)
 `BIOP(logic_or, ||, 3, 3, 2)
+`BIOP(eq, ==, 3, 3, 1)
+`BIOP(ne, !=, 3, 3, 1)
+`BIOP(lt, <, 3, 3, 1)
+`BIOP(le, <=, 3, 3, 1)
+`BIOP(gt, >, 3, 3, 1)
+`BIOP(ge, >=, 3, 3, 1)
 `UNOP(not, ~, 3)
 `UNOP_REDUCE(logic_not, !, 3)
 `UNOP_REDUCE(reduce_and, &, 3)
@@ -97,6 +103,11 @@ wire [1:0] fa_a, fa_b, fa_c, fa_x, fa_y;
 \$fa #(
 	.WIDTH(2)
 ) fa(.A(fa_a), .B(fa_b), .C(fa_c), .X(fa_x), .Y(fa_y));
+
+wire [1:0] bwmux_a, bwmux_b, bwmux_s, bwmux_y;
+\$bwmux #(
+	.WIDTH(2)
+) bwmux(.A(bwmux_a), .B(bwmux_b), .S(bwmux_s), .Y(bwmux_y));
 endmodule
 EOF
 
@@ -110,8 +121,8 @@ select -clear
 delete test
 read_aiger -module_name test aiger2_ops.aig
 select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
-miter -equiv -flatten gold test miter
-sat -verify -prove trigger 0 miter
+miter -equiv -make_outcmp -flatten gold test miter
+sat -verify -show-ports -prove trigger 0 miter
 
 design -reset
 read_verilog -icells <<EOF

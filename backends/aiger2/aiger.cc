@@ -25,7 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define BITWISE_OPS ID($buf), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), ID($fa)
+#define BITWISE_OPS ID($buf), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), ID($fa), \
+					ID($bwmux)
 
 #define REDUCE_OPS ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)
 
@@ -35,10 +36,12 @@ PRIVATE_NAMESPACE_BEGIN
 				 ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_), \
 				 ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)
 
-// TODO
-//#define ARITH_OPS ID($add), ID($sub), ID($lt), ID($le), ID($ge), ID($gt), ID($neg)
+#define CMP_OPS ID($eq), ID($ne), ID($lt), ID($le), ID($ge), ID($gt)
 
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos) /*, ARITH_OPS*/
+// TODO
+//#define ARITH_OPS ID($add), ID($sub), ID($neg)
+
+#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS /*, ARITH_OPS*/
 
 template<typename Writer, typename Lit>
 struct Index {
@@ -178,10 +181,61 @@ struct Index {
 		return OR(AND(a, NOT(b)), AND(NOT(a), b));
 	}
 
+	Lit XNOR(Lit a, Lit b)
+	{
+		return NOT(OR(AND(a, NOT(b)), AND(NOT(a), b)));
+	}
+
+	Lit CARRY(Lit a, Lit b, Lit c)
+	{
+		if (const_folding) {
+			if (c == CTRUE) {
+				return OR(a, b);
+			} else if (c == CFALSE) {
+				return AND(a, b);
+			}
+		}
+		return OR(AND(a, b), AND(c, OR(a, b)));
+	}
+
 	Lit impl_op(HierCursor &cursor, Cell *cell, IdString oport, int obit)
 	{
-		if (cell->type.in(REDUCE_OPS, LOGIC_OPS) && obit != 0) {
-			return Writer::CONST_FALSE;
+		if (cell->type.in(REDUCE_OPS, LOGIC_OPS, CMP_OPS) && obit != 0) {
+			return CFALSE;
+		} else if (cell->type.in(CMP_OPS)) {
+			SigSpec aport = cell->getPort(ID::A);
+			bool asigned = cell->getParam(ID::A_SIGNED).as_bool();
+			SigSpec bport = cell->getPort(ID::B);
+			bool bsigned = cell->getParam(ID::B_SIGNED).as_bool();
+
+			int width = std::max(aport.size(), bport.size()) + 1;
+			aport.extend_u0(width, asigned);
+			bport.extend_u0(width, bsigned);
+
+			if (cell->type.in(ID($eq), ID($ne))) {
+				int carry = CTRUE;
+				for (int i = 0; i < width; i++) {
+					Lit a = visit(cursor, aport[i]);
+					Lit b = visit(cursor, bport[i]);
+					carry = AND(carry, XNOR(a, b));
+				}
+				return (cell->type == ID($eq)) ? carry : /* $ne */ NOT(carry);
+			} else if (cell->type.in(ID($lt), ID($le), ID($gt), ID($ge))) {
+				if (cell->type.in(ID($gt), ID($ge)))
+					std::swap(aport, bport);
+				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE; 
+				Lit a, b;
+				// TODO: this might not be the most economic structure; revisit at a later date
+				for (int i = 0; i < width; i++) {
+					a = visit(cursor, aport[i]);
+					b = visit(cursor, bport[i]);
+					if (i != width - 1)
+						carry = CARRY(a, NOT(b), carry);
+				}
+				return XOR(carry, XNOR(a, b));
+			} else {
+				log_abort();
+			}
 		} else if (cell->type.in(REDUCE_OPS, ID($logic_not))) {
 			SigSpec inport = cell->getPort(ID::A);
 
@@ -273,6 +327,9 @@ struct Index {
 					return OR(a, NOT(b));
 				} else if (cell->type.in(ID($mux), ID($_MUX_))) {
 					Lit s = visit(cursor, cell->getPort(ID::S));
+					return MUX(a, b, s);
+				} else if (cell->type.in(ID($bwmux))) {
+					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
 					return MUX(a, b, s);
 				} else if (cell->type.in(ID($_NMUX_))) {
 					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
