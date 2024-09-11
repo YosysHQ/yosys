@@ -41,6 +41,8 @@ namespace AST {
 	std::string current_filename;
 	void (*set_line_num)(int) = NULL;
 	int (*get_line_num)() = NULL;
+	unsigned long long astnodes = 0;
+	unsigned long long astnode_count() { return astnodes; }
 }
 
 // instantiate global variables (private API)
@@ -204,6 +206,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+	astnodes++;
 
 	this->type = type;
 	filename = current_filename;
@@ -292,6 +295,7 @@ void AstNode::delete_children()
 // AstNode destructor
 AstNode::~AstNode()
 {
+	astnodes--;
 	delete_children();
 }
 
