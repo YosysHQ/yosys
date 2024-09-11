@@ -305,12 +305,12 @@ int main(int argc, char **argv)
 		printf("        execute the commands in the tcl script file (see 'help tcl' for details)\n");
 		printf("\n");
 		printf("    -C\n");
-		printf("        enters TCL interatcive shell mode\n");
+		printf("        enters TCL interactive shell mode\n");
 #endif
 #ifdef WITH_PYTHON
 		printf("\n");
 		printf("    -y python_scriptfile\n");
-		printf("        execute the python script");
+		printf("        execute a python script with libyosys available as a built-in module\n");
 #endif
 		printf("\n");
 		printf("    -p command\n");
