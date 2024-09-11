@@ -413,7 +413,7 @@ struct Index {
 		}
 	};
 
-	int visit(HierCursor &cursor, SigBit bit)
+	Lit visit(HierCursor &cursor, SigBit bit)
 	{
 		if (!bit.wire) {
 			if (bit == State::S1)
