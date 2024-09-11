@@ -1699,9 +1699,6 @@ input CLKIN, CE;
 output CLKOUT, CLKOUTN;
 endmodule
 
-module EMCU (...);
-endmodule
-
 module FLASH64K (...);
 input[4:0]XADR;
 input[5:0]YADR;
