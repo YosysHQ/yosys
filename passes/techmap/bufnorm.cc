@@ -24,7 +24,9 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct BufnormPass : public Pass {
-	BufnormPass() : Pass("bufnorm", "convert design into buffered-normalized form") { }
+	BufnormPass() : Pass("bufnorm", "(experimental) convert design into buffered-normalized form") {
+		experimental();
+	}
 	void help() override
 	{
 		log("\n");
