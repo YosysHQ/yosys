@@ -213,7 +213,7 @@ RTLIL::Const::Const(const std::string &str)
 	}
 }
 
-RTLIL::Const::Const(int val, int width)
+RTLIL::Const::Const(long long val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	bits.reserve(width);
