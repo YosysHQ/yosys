@@ -1,0 +1,6 @@
+read -vhdl bounds.vhd
+verific -import work
+select -assert-count 1 a:bottom_bound=5'bs11011
+select -assert-count 1 a:top_bound=5'bs01010
+select -assert-count 1 a:bottom_bound=5'bs11010
+select -assert-count 1 a:top_bound=5'bs01011
