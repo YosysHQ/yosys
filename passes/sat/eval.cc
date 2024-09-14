@@ -20,23 +20,22 @@
 // [[CITE]] VlogHammer Verilog Regression Test Suite
 // https://yosyshq.net/yosys/vloghammer.html
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
-#include "kernel/sigtools.h"
-#include "kernel/satgen.h"
 #include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "kernel/register.h"
+#include "kernel/satgen.h"
+#include "kernel/sigtools.h"
 #include <algorithm>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 /* this should only be used for regression testing of ConstEval -- see vloghammer */
-struct BruteForceEquivChecker
-{
+struct BruteForceEquivChecker {
 	RTLIL::Module *mod1, *mod2;
 	RTLIL::SigSpec mod1_inputs, mod1_outputs;
 	RTLIL::SigSpec mod2_inputs, mod2_outputs;
@@ -62,11 +61,11 @@ struct BruteForceEquivChecker
 		RTLIL::SigSpec sig2 = mod2_outputs, undef2;
 
 		if (!ce1.eval(sig1, undef1))
-			log("Failed ConstEval of module 1 outputs at signal %s (input: %s = %s).\n",
-					log_signal(undef1), log_signal(mod1_inputs), log_signal(inputs));
+			log("Failed ConstEval of module 1 outputs at signal %s (input: %s = %s).\n", log_signal(undef1), log_signal(mod1_inputs),
+			    log_signal(inputs));
 		if (!ce2.eval(sig2, undef2))
-			log("Failed ConstEval of module 2 outputs at signal %s (input: %s = %s).\n",
-					log_signal(undef2), log_signal(mod1_inputs), log_signal(inputs));
+			log("Failed ConstEval of module 2 outputs at signal %s (input: %s = %s).\n", log_signal(undef2), log_signal(mod1_inputs),
+			    log_signal(inputs));
 
 		if (ignore_x_mod1) {
 			for (int i = 0; i < GetSize(sig1); i++)
@@ -76,20 +75,21 @@ struct BruteForceEquivChecker
 
 		if (sig1 != sig2) {
 			log("Found counter-example (ignore_x_mod1 = %s):\n", ignore_x_mod1 ? "active" : "inactive");
-			log("  Module 1:  %s = %s  =>  %s = %s\n", log_signal(mod1_inputs), log_signal(inputs), log_signal(mod1_outputs), log_signal(sig1));
-			log("  Module 2:  %s = %s  =>  %s = %s\n", log_signal(mod2_inputs), log_signal(inputs), log_signal(mod2_outputs), log_signal(sig2));
+			log("  Module 1:  %s = %s  =>  %s = %s\n", log_signal(mod1_inputs), log_signal(inputs), log_signal(mod1_outputs),
+			    log_signal(sig1));
+			log("  Module 2:  %s = %s  =>  %s = %s\n", log_signal(mod2_inputs), log_signal(inputs), log_signal(mod2_outputs),
+			    log_signal(sig2));
 			errors++;
 		}
 
 		counter++;
 	}
 
-	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2, bool ignore_x_mod1) :
-			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
+	BruteForceEquivChecker(RTLIL::Module *mod1, RTLIL::Module *mod2, bool ignore_x_mod1)
+	    : mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
 		log("Checking for equivalence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
-		for (auto w : mod1->wires())
-		{
+		for (auto w : mod1->wires()) {
 			if (w->port_id == 0)
 				continue;
 
@@ -115,10 +115,9 @@ struct BruteForceEquivChecker
 };
 
 /* this should only be used for regression testing of ConstEval -- see vloghammer */
-struct VlogHammerReporter
-{
+struct VlogHammerReporter {
 	RTLIL::Design *design;
-	std::vector<RTLIL::Module*> modules;
+	std::vector<RTLIL::Module *> modules;
 	std::vector<std::string> module_names;
 	std::vector<RTLIL::IdString> inputs;
 	std::vector<int> input_widths;
@@ -138,7 +137,8 @@ struct VlogHammerReporter
 		return list;
 	}
 
-	void sat_check(RTLIL::Module *module, RTLIL::SigSpec recorded_set_vars, RTLIL::Const recorded_set_vals, RTLIL::SigSpec expected_y, bool model_undef)
+	void sat_check(RTLIL::Module *module, RTLIL::SigSpec recorded_set_vars, RTLIL::Const recorded_set_vals, RTLIL::SigSpec expected_y,
+		       bool model_undef)
 	{
 		log("Verifying SAT model (%s)..\n", model_undef ? "with undef" : "without undef");
 
@@ -161,8 +161,7 @@ struct VlogHammerReporter
 			y_vec.insert(y_vec.end(), y_undef_vec.begin(), y_undef_vec.end());
 		}
 
-		log("  Created SAT problem with %d variables and %d clauses.\n",
-				ez->numCnfVariables(), ez->numCnfClauses());
+		log("  Created SAT problem with %d variables and %d clauses.\n", ez->numCnfVariables(), ez->numCnfClauses());
 
 		if (!ez->solve(y_vec, y_values))
 			log_error("Failed to find solution to SAT problem.\n");
@@ -171,7 +170,7 @@ struct VlogHammerReporter
 			RTLIL::State solution_bit = y_values.at(i) ? RTLIL::State::S1 : RTLIL::State::S0;
 			RTLIL::State expected_bit = expected_y[i].data;
 			if (model_undef) {
-				if (y_values.at(expected_y.size()+i))
+				if (y_values.at(expected_y.size() + i))
 					solution_bit = RTLIL::State::Sx;
 			} else {
 				if (expected_bit == RTLIL::State::Sx)
@@ -179,38 +178,34 @@ struct VlogHammerReporter
 			}
 			if (solution_bit != expected_bit) {
 				std::string sat_bits, rtl_bits;
-				for (int k = expected_y.size()-1; k >= 0; k--) {
-					if (model_undef && y_values.at(expected_y.size()+k))
+				for (int k = expected_y.size() - 1; k >= 0; k--) {
+					if (model_undef && y_values.at(expected_y.size() + k))
 						sat_bits += "x";
 					else
 						sat_bits += y_values.at(k) ? "1" : "0";
 					rtl_bits += expected_y[k] == RTLIL::State::Sx ? "x" : expected_y[k] == RTLIL::State::S1 ? "1" : "0";
 				}
-				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
-						int(i), log_signal(solution_bit), log_signal(expected_bit),
-						sat_bits.c_str(), rtl_bits.c_str(), expected_y.size()-i-1, "");
+				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n", int(i),
+					  log_signal(solution_bit), log_signal(expected_bit), sat_bits.c_str(), rtl_bits.c_str(),
+					  expected_y.size() - i - 1, "");
 			}
 		}
 
-		if (model_undef)
-		{
+		if (model_undef) {
 			std::vector<int> cmp_vars;
 			std::vector<bool> cmp_vals;
 
 			std::vector<bool> y_undef(y_values.begin() + expected_y.size(), y_values.end());
 
 			for (int i = 0; i < expected_y.size(); i++)
-				if (y_undef.at(i))
-				{
+				if (y_undef.at(i)) {
 					log("    Toggling undef bit %d to test undef gating.\n", i);
 					if (!ez->solve(y_vec, y_values, ez->IFF(y_vec.at(i), y_values.at(i) ? ez->CONST_FALSE : ez->CONST_TRUE)))
 						log_error("Failed to find solution with toggled bit!\n");
 
 					cmp_vars.push_back(y_vec.at(expected_y.size() + i));
 					cmp_vals.push_back(true);
-				}
-				else
-				{
+				} else {
 					cmp_vars.push_back(y_vec.at(i));
 					cmp_vals.push_back(y_values.at(i));
 
@@ -222,9 +217,7 @@ struct VlogHammerReporter
 			ez->assume(ez->vec_ne(cmp_vars, ez->vec_const(cmp_vals)));
 			if (ez->solve(y_vec, y_values))
 				log_error("Found two distinct solutions to SAT problem.\n");
-		}
-		else
-		{
+		} else {
 			log("    Testing if SAT solution is unique.\n");
 			ez->assume(ez->vec_ne(y_vec, ez->vec_const(y_values)));
 			if (ez->solve(y_vec, y_values))
@@ -236,14 +229,12 @@ struct VlogHammerReporter
 
 	void run()
 	{
-		for (int idx = 0; idx < int(patterns.size()); idx++)
-		{
+		for (int idx = 0; idx < int(patterns.size()); idx++) {
 			log("Creating report for pattern %d: %s\n", idx, log_signal(patterns[idx]));
 			std::string input_pattern_list;
 			RTLIL::SigSpec rtl_sig;
 
-			for (int mod = 0; mod < int(modules.size()); mod++)
-			{
+			for (int mod = 0; mod < int(modules.size()); mod++) {
 				RTLIL::SigSpec recorded_set_vars;
 				RTLIL::Const recorded_set_vals;
 				RTLIL::Module *module = modules[mod];
@@ -253,7 +244,7 @@ struct VlogHammerReporter
 				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
 				for (int i = 0; i < int(inputs.size()); i++) {
 					RTLIL::Wire *wire = module->wire(inputs[i]);
-					for (int j = input_widths[i]-1; j >= 0; j--) {
+					for (int j = input_widths[i] - 1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
 						recorded_set_vals.bits.push_back(bits.back());
@@ -275,7 +266,8 @@ struct VlogHammerReporter
 				RTLIL::SigSpec undef;
 
 				while (!ce.eval(sig, undef)) {
-					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", log_id(module->name), log_signal(sig), log_signal(undef));
+					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", log_id(module->name), log_signal(sig),
+					// log_signal(undef));
 					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), log_id(module->name));
 					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
@@ -302,7 +294,9 @@ struct VlogHammerReporter
 		log("++OK++\n");
 	}
 
-	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list, std::string pattern_list) : design(design)
+	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list,
+			   std::string pattern_list)
+	    : design(design)
 	{
 		for (auto name : split(module_list, ",")) {
 			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
@@ -358,7 +352,7 @@ struct VlogHammerReporter
 };
 
 struct EvalPass : public Pass {
-	EvalPass() : Pass("eval", "evaluate the circuit given an input") { }
+	EvalPass() : Pass("eval", "evaluate the circuit given an input") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -392,7 +386,7 @@ struct EvalPass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-set" && argidx+2 < args.size()) {
+			if (args[argidx] == "-set" && argidx + 2 < args.size()) {
 				std::string lhs = args[++argidx].c_str();
 				std::string rhs = args[++argidx].c_str();
 				sets.push_back(std::pair<std::string, std::string>(lhs, rhs));
@@ -402,15 +396,16 @@ struct EvalPass : public Pass {
 				set_undef = true;
 				continue;
 			}
-			if (args[argidx] == "-show" && argidx+1 < args.size()) {
+			if (args[argidx] == "-show" && argidx + 1 < args.size()) {
 				shows.push_back(args[++argidx]);
 				continue;
 			}
-			if (args[argidx] == "-table" && argidx+1 < args.size()) {
+			if (args[argidx] == "-table" && argidx + 1 < args.size()) {
 				tables.push_back(args[++argidx]);
 				continue;
 			}
-			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") && argidx+3 == args.size()) {
+			if ((args[argidx] == "-brute_force_equiv_checker" || args[argidx] == "-brute_force_equiv_checker_x") &&
+			    argidx + 3 == args.size()) {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
@@ -418,14 +413,15 @@ struct EvalPass : public Pass {
 					log_error("Can't find module `%s'!\n", mod1_name.c_str());
 				if (design->module(mod2_name) == nullptr)
 					log_error("Can't find module `%s'!\n", mod2_name.c_str());
-				BruteForceEquivChecker checker(design->module(mod1_name), design->module(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
+				BruteForceEquivChecker checker(design->module(mod1_name), design->module(mod2_name),
+							       args[argidx - 2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
-				log("Verified %s = %s (using brute-force check on %d cases).\n",
-						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
+				log("Verified %s = %s (using brute-force check on %d cases).\n", mod1_name.c_str(), mod2_name.c_str(),
+				    checker.counter);
 				return;
 			}
-			if (args[argidx] == "-vloghammer_report" && argidx+5 == args.size()) {
+			if (args[argidx] == "-vloghammer_report" && argidx + 5 == args.size()) {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string module_prefix = args[++argidx];
 				std::string module_list = args[++argidx];
@@ -442,8 +438,8 @@ struct EvalPass : public Pass {
 		RTLIL::Module *module = NULL;
 		for (auto mod : design->selected_modules()) {
 			if (module)
-				log_cmd_error("Only one module must be selected for the EVAL pass! (selected: %s and %s)\n",
-						log_id(module->name), log_id(mod->name));
+				log_cmd_error("Only one module must be selected for the EVAL pass! (selected: %s and %s)\n", log_id(module->name),
+					      log_id(mod->name));
 			module = mod;
 		}
 		if (module == NULL)
@@ -461,7 +457,7 @@ struct EvalPass : public Pass {
 				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second.c_str());
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
+					      it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
 			ce.set(lhs, rhs.as_const());
 		}
 
@@ -471,8 +467,7 @@ struct EvalPass : public Pass {
 					shows.push_back(w->name.str());
 		}
 
-		if (tables.empty())
-		{
+		if (tables.empty()) {
 			for (auto &it : shows) {
 				RTLIL::SigSpec signal, value, undef;
 				if (!RTLIL::SigSpec::parse_sel(signal, design, module, it))
@@ -480,7 +475,8 @@ struct EvalPass : public Pass {
 				value = signal;
 				if (set_undef) {
 					while (!ce.eval(value, undef)) {
-						log("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n", log_signal(signal), log_signal(undef));
+						log("Failed to evaluate signal %s: Missing value for %s. -> setting to undef\n", log_signal(signal),
+						    log_signal(undef));
 						ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 						undef = RTLIL::SigSpec();
 					}
@@ -492,9 +488,7 @@ struct EvalPass : public Pass {
 						log("Eval result: %s = %s.\n", log_signal(signal), log_signal(value));
 				}
 			}
-		}
-		else
-		{
+		} else {
 			RTLIL::SigSpec tabsigs, signal, value, undef;
 			std::vector<std::vector<std::string>> tab;
 			int tab_sep_colidx = 0;
@@ -523,8 +517,7 @@ struct EvalPass : public Pass {
 			tab_line.clear();
 
 			RTLIL::Const tabvals(0, tabsigs.size());
-			do
-			{
+			do {
 				ce.push();
 				ce.set(tabsigs, tabvals);
 				value = signal;
@@ -533,7 +526,7 @@ struct EvalPass : public Pass {
 				while (!ce.eval(value, this_undef)) {
 					if (!set_undef) {
 						log("Failed to evaluate signal %s at %s = %s: Missing value for %s.\n", log_signal(signal),
-								log_signal(tabsigs), log_signal(tabvals), log_signal(this_undef));
+						    log_signal(tabsigs), log_signal(tabvals), log_signal(this_undef));
 						return;
 					}
 					ce.set(this_undef, RTLIL::Const(RTLIL::State::Sx, this_undef.size()));
@@ -558,8 +551,7 @@ struct EvalPass : public Pass {
 				ce.pop();
 
 				tabvals = RTLIL::const_add(tabvals, RTLIL::Const(1), false, false, tabvals.bits.size());
-			}
-			while (tabvals.as_bool());
+			} while (tabvals.as_bool());
 
 			std::vector<int> tab_column_width;
 			for (auto &row : tab) {
