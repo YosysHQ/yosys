@@ -42,7 +42,8 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, ID($pmux) /*, ARITH_OPS*/
+#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, \
+				  ID($pmux), ID($bmux) /*, ARITH_OPS*/
 
 template<typename Writer, typename Lit>
 struct Index {
@@ -399,6 +400,25 @@ struct Index {
 			}
 
 			return OR(AND(REDUCE(sels), a), NOT(REDUCE(bar)));
+		} else if (cell->type == ID($bmux)) {
+			SigSpec aport = cell->getPort(ID::A);
+			SigSpec sport = cell->getPort(ID::S);
+			int width = cell->getParam(ID::WIDTH).as_int();
+
+			std::vector<Lit> data;
+			for (int i = obit; i < aport.size(); i += width)
+				data.push_back(visit(cursor, aport[i]));
+
+			std::vector<Lit> next;
+			for (int i = 0; i < sport.size(); i++) {
+				Lit s = visit(cursor, sport[i]);
+				next.clear();
+				for (int j = 0; j < data.size(); j += 2)
+					next.push_back(MUX(data[j], data[j + 1], s));
+				data.swap(next);
+			}
+			log_assert(data.size() == 1);
+			return data[0];
 		} else {
 			log_abort();
 		}
