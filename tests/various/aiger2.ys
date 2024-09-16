@@ -165,3 +165,31 @@ read_aiger -module_name test aiger2_ops.aig
 select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
 miter -equiv -flatten gold test miter
 sat -verify -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module test();
+wire [1:0] pmux_a, pmux_s, pmux_y;
+wire [3:0] pmux_b;
+\$pmux #(
+	.S_WIDTH(2),
+	.WIDTH(2)
+) pmux(.A(pmux_a), .B(pmux_b), .S(pmux_s), .Y(pmux_y));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+opt_clean
+copy test gold
+select test
+write_aiger2 aiger2_xmodel.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_xmodel.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+
+equiv_make gold test equiv
+equiv_induct -undef equiv
+equiv_status -assert equiv

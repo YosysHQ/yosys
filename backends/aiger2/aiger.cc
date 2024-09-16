@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
-#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS /*, ARITH_OPS*/
+#define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, ID($pmux) /*, ARITH_OPS*/
 
 template<typename Writer, typename Lit>
 struct Index {
@@ -197,6 +197,28 @@ struct Index {
 			}
 		}
 		return OR(AND(a, b), AND(c, OR(a, b)));
+	}
+
+	Lit REDUCE(std::vector<Lit> lits, bool op_xor=false)
+	{
+		std::vector<Lit> next;
+		while (lits.size() > 1) {
+			next.clear();
+			for (int i = 0; i < lits.size(); i += 2) {
+				if (i + 1 >= lits.size()) {
+					next.push_back(lits[i]);
+				} else {
+					Lit a = lits[i], b = lits[i + 1];
+					next.push_back(op_xor ? XOR(a, b) : AND(a, b));
+				}
+			}
+			next.swap(lits);
+		}
+
+		if (lits.empty())
+			return op_xor ? CFALSE : CTRUE;
+		else
+			return lits.front();
 	}
 
 	Lit impl_op(HierCursor &cursor, Cell *cell, IdString oport, int obit)
@@ -360,6 +382,23 @@ struct Index {
 					log_abort();
 				}
 			}
+		} else if (cell->type == ID($pmux)) {
+			SigSpec aport = cell->getPort(ID::A);
+			SigSpec bport = cell->getPort(ID::B);
+			SigSpec sport = cell->getPort(ID::S);
+			int width = aport.size();
+
+			Lit a = visit(cursor, aport[obit]);
+
+			std::vector<Lit> bar, sels;
+			for (int i = 0; i < sport.size(); i++) {
+				Lit s = visit(cursor, sport[i]);
+				Lit b = visit(cursor, bport[width * i + obit]);
+				bar.push_back(NOT(AND(s, b)));
+				sels.push_back(NOT(s));
+			}
+
+			return OR(AND(REDUCE(sels), a), NOT(REDUCE(bar)));
 		} else {
 			log_abort();
 		}
