@@ -262,21 +262,21 @@ struct Index {
 		} else if (cell->type.in(REDUCE_OPS, ID($logic_not))) {
 			SigSpec inport = cell->getPort(ID::A);
 
-			log_assert(inport.size() > 0); // TODO
-
-			Lit acc = visit(cursor, inport[0]);
-			for (int i = 1; i < inport.size(); i++) {
-				Lit l = visit(cursor, inport[i]);
-				if (cell->type == ID($reduce_and)) {
-					acc = AND(acc, l);
+			std::vector<Lit> lits;
+			for (int i = 0; i < inport.size(); i++) {
+				Lit lit = visit(cursor, inport[i]);
+				if (cell->type.in(ID($reduce_and), ID($reduce_xor), ID($reduce_xnor))) {
+					lits.push_back(lit);
 				} else if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not))) {
-					acc = OR(acc, l);
-				} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-					acc = XOR(acc, l);
+					lits.push_back(NOT(lit));
+				} else {
+					log_abort();
 				}
 			}
 
-			if (!cell->type.in(ID($reduce_xnor), ID($logic_not)))
+			Lit acc = REDUCE(lits, cell->type.in(ID($reduce_xor), ID($reduce_xnor)));
+
+			if (!cell->type.in(ID($reduce_xnor), ID($reduce_or), ID($reduce_bool)))
 				return acc;
 			else
 				return NOT(acc);
