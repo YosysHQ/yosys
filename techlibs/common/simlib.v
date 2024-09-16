@@ -528,10 +528,10 @@ endmodule
 // --------------------------------------------------------
 
 //* ver 2
-//* title Indexed part-select
+//* title Variable shifter
 //* group binary
-//* tags x-output
-//- Same as the `$shift` cell, but fills with 'x'.
+//- Performs a right logical shift if the second operand is positive (or
+//- unsigned), and a left logical shift if it is negative.
 //-
 
 module \$shift (A, B, Y);
@@ -567,10 +567,10 @@ endmodule
 // --------------------------------------------------------
 
 //* ver 2
-//* title Variable shifter
+//* title Indexed part-select
 //* group binary
-//- Performs a right logical shift if the second operand is positive (or
-//- unsigned), and a left logical shift if it is negative.
+//* tags x-output
+//- Same as the `$shift` cell, but fills with 'x'.
 //-
 
 module \$shiftx (A, B, Y);

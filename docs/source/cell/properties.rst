@@ -15,6 +15,7 @@ Cell properties
 .. cell:defprop:: x-output
 
    These cells can produce 'x' output even if all inputs are defined.  For
-   example, a `$div` cell with ``B=0`` has undefined output.
+   example, a `$div` cell with divisor (``B``) equal to zero has undefined
+   output.
 
 Refer to the :ref:`propindex` for the list of cells with a given property.

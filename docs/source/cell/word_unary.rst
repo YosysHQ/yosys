@@ -38,11 +38,11 @@ For the unary cells that output a logical value (`$reduce_and`, `$reduce_or`,
 ``Y_WIDTH`` parameter is greater than 1, the output is zero-extended, and only
 the least significant bit varies.
 
-Note that `$reduce_or` and `$reduce_bool` actually represent the same logic
-function. But the HDL frontends generate them in different situations. A
-`$reduce_or` cell is generated when the prefix ``|`` operator is being used. A
-`$reduce_bool` cell is generated when a bit vector is used as a condition in an
-``if``-statement or ``?:``-expression.
+Note that `$reduce_or` and `$reduce_bool` generally represent the same logic
+function. But the `read_verilog` frontend will generate them in different
+situations. A `$reduce_or` cell is generated when the prefix ``|`` operator is
+being used. A `$reduce_bool` cell is generated when a bit vector is used as a
+condition in an ``if``-statement or ``?:``-expression.
 
 .. autocellgroup:: unary
    :members:

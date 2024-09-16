@@ -66,8 +66,8 @@ Division and modulo cells are available in two rounding modes. The original
 `$div` and `$mod` cells are based on truncating division, and correspond to the
 semantics of the verilog ``/`` and ``%`` operators. The `$divfloor` and
 `$modfloor` cells represent flooring division and flooring modulo, the latter of
-which is also known as "remainder" in several languages. See the following table
-for a side-by-side comparison between the different semantics.
+which corresponds to the ``%`` operator in Python. See the following table for a
+side-by-side comparison between the different semantics.
 
 .. table:: Comparison between different rounding modes for division and modulo cells.
 
