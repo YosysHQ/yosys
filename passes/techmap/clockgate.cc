@@ -44,10 +44,9 @@ struct ClockgatePass : public Pass {
 		log("\n");
 		log("    clockgate [options] [selection]\n");
 		log("\n");
-		log("Creates gated clock nets for sets of FFs with clock enable\n");
-		log("sharing a clock and replaces the FFs with versions without\n");
-		log("clock enable inputs. Intended to reduce power consumption\n");
-		log("in ASIC designs.\n");
+		log("This pass transforms each set of FFs sharing the same clock and\n");
+		log("enable signal into a clock-gating cell and a set of enable-less FFs.\n");
+		log("Primarily a power-saving transformation on ASIC designs.\n");
 		log("\n");
 		log("    -pos <celltype> <ce>:<clk>:<gclk>\n");
 		log("        If specified, rising-edge FFs will have CE inputs\n");
