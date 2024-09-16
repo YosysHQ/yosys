@@ -50,6 +50,7 @@ OBJS += passes/techmap/dffunmap.o
 OBJS += passes/techmap/flowmap.o
 OBJS += passes/techmap/extractinv.o
 OBJS += passes/techmap/cellmatch.o
+OBJS += passes/techmap/clockgate.o
 endif
 
 ifeq ($(DISABLE_SPAWN),0)
