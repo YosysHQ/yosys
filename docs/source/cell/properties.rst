@@ -1,9 +1,11 @@
 Cell properties
 ---------------
 
-.. TODO:: Fill :cell:ref:`is_evaluable`
-
 .. cell:defprop:: is_evaluable
+
+   These cells are able to be used in conjunction with the `eval` command.  Some
+   passes, such as `opt_expr`, may also be able to perform additional
+   optimizations on cells which are evaluable.
 
 .. cell:defprop:: x-aware
 
