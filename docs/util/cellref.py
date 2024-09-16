@@ -305,15 +305,8 @@ class YosysCellDocumenter(YosysCellGroupDocumenter):
                 val = ' '.join(val)
             if val:
                 self.add_line(f'   :{attr}: {val}', sourcename)
-        
-        self.add_line('\n', sourcename)
 
-        # fields
-        field_attrs = ["properties", ]
-        for field in field_attrs:
-            attr = getattr(cell, field, [])
-            for val in attr:
-                self.add_line(f'   :{field} {val}:', sourcename)
+        self.add_line('\n', sourcename)
 
         if self.options.noindex:
             self.add_line('   :noindex:', sourcename)
@@ -330,6 +323,14 @@ class YosysCellDocumenter(YosysCellGroupDocumenter):
         if more_content:
             for line, src in zip(more_content.data, more_content.items):
                 self.add_line(line, src[0], src[1])
+
+        # fields
+        self.add_line('\n', sourcename)
+        field_attrs = ["properties", ]
+        for field in field_attrs:
+            attr = getattr(self.object, field, [])
+            for val in attr:
+                self.add_line(f':{field} {val}:', sourcename)
 
     def get_object_members(
         self,

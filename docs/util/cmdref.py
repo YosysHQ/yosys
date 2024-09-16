@@ -209,6 +209,14 @@ class CellNode(TocNode):
                          self.env.docname,
                          idx,
                          0))
+            
+    def transform_content(self, contentnode: addnodes.desc_content) -> None:
+        # Add the cell title to the body
+        if 'title' in self.options:
+            titlenode = nodes.paragraph()
+            titlenode += nodes.strong()
+            titlenode[-1] += nodes.Text(self.options['title'])
+            contentnode.insert(0, titlenode)
 
 class CellSourceNode(TocNode):
     """A custom code block for including cell source."""

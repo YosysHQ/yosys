@@ -4,8 +4,6 @@
 Binary operators
 ~~~~~~~~~~~~~~~~
 
-.. TODO:: display cell titles
-
 All binary RTL cells have two input ports ``A`` and ``B`` and one output port
 ``Y``. They also have the following parameters:
 
