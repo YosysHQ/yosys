@@ -65,7 +65,7 @@ struct ClockgatePass : public Pass {
 		log("        Port <port_name> of the ICG will be tied to zero.\n");
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
-		log("        Only work on clocks with at least <n> eligible FFs.\n");
+		log("        Only transform sets of at least <n> eligible FFs.\n");
 		// log("        \n");
 	}
 
