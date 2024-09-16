@@ -187,7 +187,7 @@ struct ClockgatePass : public Pass {
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
 				for (auto port : tie_lo_ports)
-					icg->setPort(port, Const(0));
+					icg->setPort(port, Const(0, 1));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
 					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_bit);
