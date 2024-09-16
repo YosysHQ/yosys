@@ -1,9 +1,14 @@
 Formal verification cells
 -------------------------
 
-.. TODO:: note on `$check`
+.. role:: yoscrypt(code)
+   :language: yoscrypt
 
-   If only I remembered what the note was...
+.. note::
+
+   Some front-ends may not support the generic `$check` cell, in such cases
+   calling :yoscrypt:`chformal -lower` will convert each `$check` cell into it's
+   equivalent.  See `chformal` for more.
 
 .. todo:: Describe formal cells
 
