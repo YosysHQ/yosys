@@ -497,9 +497,6 @@ struct DumpPass : public Pass {
 		log("    -n\n");
 		log("        only dump the module headers if the entire module is selected\n");
 		log("\n");
-		log("    -d\n");
-		log("        include driver cell and port info on wires in dump format\n");
-		log("\n");
 		log("    -o <filename>\n");
 		log("        write to the specified file.\n");
 		log("\n");
