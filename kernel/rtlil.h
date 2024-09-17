@@ -503,6 +503,7 @@ namespace RTLIL
 	RTLIL::Const const_pow         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 
 	RTLIL::Const const_pos         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_buf         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 	RTLIL::Const const_neg         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 
 	RTLIL::Const const_mux         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3);
@@ -1065,6 +1066,9 @@ struct RTLIL::Design
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
 
+	bool flagBufferedNormalized = false;
+	void bufNormalize(bool enable=true);
+
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 	std::vector<RTLIL::Binding*> bindings_;
@@ -1209,6 +1213,9 @@ public:
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
+	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	void bufNormalize();
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
@@ -1280,6 +1287,7 @@ public:
 
 	RTLIL::Cell* addNot (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 	RTLIL::Cell* addPos (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
+	RTLIL::Cell* addBuf (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 	RTLIL::Cell* addNeg (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 
 	RTLIL::Cell* addAnd  (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
@@ -1414,6 +1422,7 @@ public:
 
 	RTLIL::SigSpec Not (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 	RTLIL::SigSpec Pos (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
+	RTLIL::SigSpec Buf (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 	RTLIL::SigSpec Neg (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 
 	RTLIL::SigSpec And  (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed = false, const std::string &src = "");
@@ -1501,6 +1510,10 @@ public:
 #endif
 };
 
+namespace RTLIL_BACKEND {
+void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+}
+
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
@@ -1512,6 +1525,12 @@ protected:
 	Wire();
 	~Wire();
 
+	friend struct RTLIL::Design;
+	friend struct RTLIL::Cell;
+	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+	RTLIL::Cell *driverCell_ = nullptr;
+	RTLIL::IdString driverPort_;
+
 public:
 	// do not simply copy wires
 	Wire(RTLIL::Wire &other) = delete;
@@ -1521,6 +1540,9 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
+
+	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
+	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);

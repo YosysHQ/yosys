@@ -58,7 +58,6 @@ endgenerate
 
 endmodule
 
-
 // --------------------------------------------------------
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -83,6 +82,27 @@ generate
 		assign Y = A;
 	end
 endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $buf (A, Y)
+//-
+//- A simple coarse-grain buffer cell type for the experimental buffered-normalized
+//- mode. Note this cell does't get removed by 'opt_clean' and is not recommended
+//- for general use.
+//-
+module \$buf (A, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
 
 endmodule
 
