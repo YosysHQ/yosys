@@ -193,6 +193,7 @@ namespace AST
 		std::string str;
 		std::vector<RTLIL::State> bits;
 		bool is_input, is_output, is_reg, is_logic, is_signed, is_string, is_wand, is_wor, range_valid, range_swapped, was_checked, is_unsized, is_custom_type;
+		bool blackbox;
 		int port_id, range_left, range_right;
 		uint32_t integer;
 		double realvalue;
@@ -236,6 +237,7 @@ namespace AST
 		// creating and deleting nodes
 		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
+        AstNode *setInLvalue();
 		void cloneInto(AstNode *other) const;
 		void delete_children();
 		~AstNode();
@@ -263,7 +265,7 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, int stage, int width_hint, bool sign_hint);
+		bool simplify(bool const_fold, int stage, int width_hint, bool sign_hint, bool in_param, bool aux_modules = false);
 		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
 		void expand_genblock(const std::string &prefix);
@@ -276,6 +278,7 @@ namespace AST
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 		bool detect_latch(const std::string &var);
 		const RTLIL::Module* lookup_cell_module();
+        void collect_references();
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t {
@@ -287,6 +290,12 @@ namespace AST
 			bool explicitly_sized;
 		};
 		bool has_const_only_constructs();
+		AstNode *subst_ident(std::string v, std::string sub);
+		AstNode *subst_ident(std::string v, AstNode *sub);
+		AstNode *subst_term(AstNode *v, AstNode *sub);
+        AstNode *find_function(std::string f);
+		
+        bool isAssigned(AstNode *term);
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
@@ -312,6 +321,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
+		void extractFunctions();
 		RTLIL::SigSpec genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
@@ -384,6 +394,7 @@ namespace AST
 		[[noreturn]] void input_error(const char *format, ...) const YS_ATTRIBUTE(format(printf, 2, 3));
 	};
 
+        // Auxiliary function used by process--process a module and insert it in the design
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
 	void process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil, bool nolatches, bool nomeminit,
 			bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire);
@@ -402,6 +413,7 @@ namespace AST
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
+    AstModule *insert_a_module(RTLIL::Design *design, AstNode *module, bool defer, bool nooverwrite, bool overwrite);
 
 	// this must be set by the language frontend before parsing the sources
 	// the AstNode constructor then uses current_filename and get_line_num()
@@ -453,6 +465,7 @@ namespace AST_INTERNAL
 	extern dict<std::string, pool<int>> current_memwr_visible;
 	struct LookaheadRewriter;
 	struct ProcessGenerator;
+        extern vector<AST::AstNode *> aux_modules;
 
 	// Create and add a new AstModule from new_ast, then use it to replace
 	// old_module in design, renaming old_module to move it out of the way.

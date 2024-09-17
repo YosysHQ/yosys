@@ -843,6 +843,11 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 				if (wire->port_output && match_ids(wire->name, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 		} else
+		if (arg_memb.compare(0, 2, "f:") == 0) {
+			for (auto f : mod->functions())
+				if (match_ids(f->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(f->name);
+		} else
 		if (arg_memb.compare(0, 2, "x:") == 0) {
 			for (auto wire : mod->wires())
 				if ((wire->port_input || wire->port_output) && match_ids(wire->name, arg_memb.substr(2)))
@@ -927,6 +932,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					sel.selected_members[mod->name].insert(it.first);
 					arg_memb_found[orig_arg_memb] = true;
 				}
+			for (auto f : mod->functions()) {
+			    if (match_ids(f->name, arg_memb)) {
+					sel.selected_members[mod->name].insert(f->name);
+					arg_memb_found[orig_arg_memb] = true;
+				}
+			}
 		}
 	}
 

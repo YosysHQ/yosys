@@ -1,0 +1,13 @@
+[options]
+mode bmc
+depth 100
+
+[engines]
+smtbmc
+
+[script]
+read -formal multiplier_orig.v
+prep -top mult_4x4
+
+[files]
+multiplier_orig.v

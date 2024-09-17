@@ -58,6 +58,7 @@ namespace AST_INTERNAL {
 	bool current_always_clocked;
 	dict<std::string, int> current_memwr_count;
 	dict<std::string, pool<int>> current_memwr_visible;
+        vector<AST::AstNode *> aux_modules;
 }
 
 // convert node types to string
@@ -211,6 +212,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	this->type = type;
 	filename = current_filename;
 	is_input = false;
+	blackbox = false;
 	is_output = false;
 	is_reg = false;
 	is_logic = false;
@@ -266,6 +268,14 @@ AstNode *AstNode::clone() const
 	return that;
 }
 
+AstNode *AstNode::setInLvalue()
+{
+	this->in_lvalue = true;
+	for (auto &it : this->children) {
+		it->setInLvalue();
+	}
+	return this;
+}
 // create a (deep recursive) copy of a node use 'other' as target root node
 void AstNode::cloneInto(AstNode *other) const
 {
@@ -299,6 +309,19 @@ AstNode::~AstNode()
 	delete_children();
 }
 
+AstNode *AstNode::find_function(std::string n)
+{
+    if (type==AST_FUNCTION && str==n) {
+		return this;
+	}
+
+	for (auto c: children) {
+		AstNode *cc = c->find_function(n);
+		if (cc != NULL) return cc;
+	}
+	return NULL;
+}
+
 // create a nice text representation of the node
 // (traverse tree by recursion, use 'other' pointer for diffing two AST trees)
 void AstNode::dumpAst(FILE *f, std::string indent) const
@@ -330,6 +353,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 					bits[i-1] == RTLIL::Sz ? 'z' : '?');
 		fprintf(f, "'(%d)", GetSize(bits));
 	}
+	if (blackbox)
+	    fprintf(f, " blackbox");
 	if (is_input)
 		fprintf(f, " input");
 	if (is_output)
@@ -888,7 +913,7 @@ AstNode *AstNode::mktemp_logic(const std::string &name, AstNode *mod, bool nosyn
 	wire->is_signed = is_signed;
 	wire->is_logic = true;
 	mod->children.push_back(wire);
-	while (wire->simplify(true, 1, -1, false)) { }
+	while (wire->simplify(true, 1, -1, false, false, true)) { }
 
 	AstNode *ident = new AstNode(AST_IDENTIFIER);
 	ident->str = wire->str;
@@ -1071,7 +1096,7 @@ static bool param_has_no_default(const AstNode *param) {
 		(children.size() == 1 && children[0]->type == AST_RANGE);
 }
 
-static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
+static AstModule *process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
 	log_assert(current_scope.empty());
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
@@ -1097,19 +1122,32 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	else
 		ast_before_simplify = ast->clone();
 
-	if (flag_dump_ast1) {
+	//if (flag_dump_ast1) {
 		log("Dumping AST before simplification:\n");
 		ast->dumpAst(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
-	}
-	if (flag_dump_vlog1) {
+	//}
+	//if (flag_dump_vlog1) {
 		log("Dumping Verilog AST before simplification:\n");
 		ast->dumpVlog(NULL, "    ");
 		log("--- END OF AST DUMP ---\n");
-	}
+	//}
 
-	if (!defer)
-	{
+    log("Here\n");
+
+	if (defer) {
+        log("Here defer\n");
+		ast->extractFunctions();
+		for (auto &attr : ast->attributes) {
+			if (attr.second->type != AST_CONSTANT)
+				continue;
+			module->attributes[attr.first] = attr.second->asAttrConst();
+		}
+		for (const AstNode *node : ast->children)
+			if (node->type == AST_PARAMETER)
+				current_module->avail_parameters(node->str);
+	} else {
+		log("Here no defer\n");
 		for (const AstNode *node : ast->children)
 			if (node->type == AST_PARAMETER && param_has_no_default(node))
 				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
@@ -1134,27 +1172,29 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		// simplify this module or interface using the current design as context
 		// for lookup up ports and wires within cells
 		set_simplify_design_context(design);
-		while (ast->simplify(!flag_noopt, 0, -1, false)) { }
+		while (ast->simplify(!flag_noopt, 0, -1, false, false, true)) { }
 		set_simplify_design_context(nullptr);
 
-		if (flag_dump_ast2) {
+		//if (flag_dump_ast2) {
 			log("Dumping AST after simplification:\n");
 			ast->dumpAst(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
-		}
+		//}
 
-		if (flag_dump_vlog2) {
+		//if (flag_dump_vlog2) {
 			log("Dumping Verilog AST after simplification:\n");
 			ast->dumpVlog(NULL, "    ");
 			log("--- END OF AST DUMP ---\n");
-		}
+		//}
 
 		if (flag_nowb && ast->attributes.count(ID::whitebox)) {
+			log("White box\n");
 			delete ast->attributes.at(ID::whitebox);
 			ast->attributes.erase(ID::whitebox);
 		}
 
 		if (ast->attributes.count(ID::lib_whitebox)) {
+			log("lib_white box\n");
 			if (!flag_lib || flag_nowb) {
 				delete ast->attributes.at(ID::lib_whitebox);
 				ast->attributes.erase(ID::lib_whitebox);
@@ -1170,6 +1210,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		}
 
 		if (!blackbox_module && ast->attributes.count(ID::blackbox)) {
+			log("!blackbox_module\n");
 			AstNode *n = ast->attributes.at(ID::blackbox);
 			if (n->type != AST_CONSTANT)
 				ast->input_error("Got blackbox attribute with non-constant value!\n");
@@ -1177,6 +1218,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		}
 
 		if (blackbox_module && ast->attributes.count(ID::whitebox)) {
+			log("blackbox_module\n");
 			AstNode *n = ast->attributes.at(ID::whitebox);
 			if (n->type != AST_CONSTANT)
 				ast->input_error("Got whitebox attribute with non-constant value!\n");
@@ -1184,6 +1226,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		}
 
 		if (ast->attributes.count(ID::noblackbox)) {
+			log("noblackbox_module\n");
 			if (blackbox_module) {
 				AstNode *n = ast->attributes.at(ID::noblackbox);
 				if (n->type != AST_CONSTANT)
@@ -1196,6 +1239,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		if (blackbox_module)
 		{
+			log("blackbox_module\n");
 			if (ast->attributes.count(ID::whitebox)) {
 				delete ast->attributes.at(ID::whitebox);
 				ast->attributes.erase(ID::whitebox);
@@ -1229,6 +1273,12 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 
+		log("Generating RTLIL for nodes\n");
+
+    	for (auto f : log_files) {
+			ast->dumpAst(f, "rtlil ast>");
+		}
+
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
@@ -1236,35 +1286,37 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type == AST_WIRE || node->type == AST_MEMORY)
+			log("Node 1 %zu %d\n", i, node->type);
+			if (node->type == AST_WIRE || node->type == AST_MEMORY) {
+				log("    gen\n");
 				node->genRTLIL();
+			}
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL)
+			log("Node 2 %zu %d\n", i, node->type);
+			if (node->type != AST_WIRE && node->type != AST_MEMORY && node->type != AST_INITIAL) {
+				log("    gen\n");
+    			for (auto f : log_files) {
+					node->dumpAst(f, "node>");
+				}
 				node->genRTLIL();
+			}
 		}
 
 		ignoreThisSignalsInInitial.sort_and_unify();
 
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type == AST_INITIAL)
+			log("Node 3 %zu %d\n", i, node->type);
+			if (node->type == AST_INITIAL) {
+				log("    gen\n");
 				node->genRTLIL();
+			}
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
 		current_scope.clear();
-	}
-	else {
-		for (auto &attr : ast->attributes) {
-			if (attr.second->type != AST_CONSTANT)
-				continue;
-			module->attributes[attr.first] = attr.second->asAttrConst();
-		}
-		for (const AstNode *node : ast->children)
-			if (node->type == AST_PARAMETER)
-				current_module->avail_parameters(node->str);
 	}
 
 	if (ast->type == AST_INTERFACE)
@@ -1290,7 +1342,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	}
 
 	design->add(current_module);
-	return current_module;
+	return module;
 }
 
 RTLIL::Module *
@@ -1299,6 +1351,7 @@ AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
                                          AstNode *new_ast,
                                          AstNode *original_ast)
 {
+	log("Process and replace module %s\n", new_ast->str.c_str());
 	// The old module will be deleted. Rename and mark for deletion, using
 	// a static counter to make sure we get a unique name.
 	static unsigned counter;
@@ -1347,6 +1400,67 @@ static void rename_in_package_stmts(AstNode *pkg)
 			rename(item);
 }
 
+AstModule *AST::insert_a_module(RTLIL::Design *design, AstNode *module, bool defer, bool nooverwrite, bool overwrite)
+{
+	log("insert_a_module `%s'.\n", module->str.c_str());
+	for (auto n : design->verilog_globals)
+		module->children.push_back(n->clone());
+
+	// append nodes from previous packages using package-qualified names
+	for (auto &n : design->verilog_packages) {
+		for (auto &o : n->children) {
+			AstNode *cloned_node = o->clone();
+			// log("cloned node %s\n", type2str(cloned_node->type).c_str());
+			if (cloned_node->type == AST_ENUM) {
+				for (auto &e : cloned_node->children) {
+					log_assert(e->type == AST_ENUM_ITEM);
+					e->str = n->str + std::string("::") + e->str.substr(1);
+				}
+			} else {
+				cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
+			}
+			module->children.push_back(cloned_node);
+		}
+	}
+
+	if (flag_icells && module->str.compare(0, 2, "\\$") == 0)
+		module->str = module->str.substr(1);
+
+	bool defer_local = defer;
+	if (!defer_local)
+		for (const AstNode *node : module->children)
+			if (node->type == AST_PARAMETER && param_has_no_default(node))
+			{
+				log("Deferring `%s' because it contains parameter(s) without defaults.\n", module->str.c_str());
+				defer_local = true;
+				break;
+			}
+
+
+	if (defer_local)
+		module->str = "$abstract" + module->str;
+
+	if (design->has(module->str)) {
+		RTLIL::Module *existing_mod = design->module(module->str);
+		if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
+			log_file_error(module->filename, module->location.first_line, "Re---definition of module `%s'!\n", module->str.c_str());
+		} else if (nooverwrite) {
+			log("Ignoring re-definition of module `%s' at %s.\n",
+					module->str.c_str(), module->loc_string().c_str());
+			return nullptr;
+		} else {
+			log("Replacing existing%s module `%s' at %s.\n",
+					existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
+					module->str.c_str(), module->loc_string().c_str());
+			design->remove(existing_mod);
+		}
+	}
+
+	AstModule *r = process_module(design, module, defer_local);
+	current_ast_mod = nullptr;
+	return r;
+}
+
 // create AstModule instances for all modules in the AST tree and add them to 'design'
 void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
 		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire)
@@ -1372,6 +1486,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 	flag_pwires = pwires;
 	flag_autowire = autowire;
 
+    log("process %s\n", current_ast->str.c_str());
 	ast->fixup_hierarchy_flags(true);
 
 	log_assert(current_ast->type == AST_DESIGN);
@@ -1379,65 +1494,12 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 	{
 		if (child->type == AST_MODULE || child->type == AST_INTERFACE)
 		{
-			for (auto n : design->verilog_globals)
-				child->children.push_back(n->clone());
-
-			// append nodes from previous packages using package-qualified names
-			for (auto &n : design->verilog_packages) {
-				for (auto &o : n->children) {
-					AstNode *cloned_node = o->clone();
-					// log("cloned node %s\n", type2str(cloned_node->type).c_str());
-					if (cloned_node->type == AST_ENUM) {
-						for (auto &e : cloned_node->children) {
-							log_assert(e->type == AST_ENUM_ITEM);
-							e->str = n->str + std::string("::") + e->str.substr(1);
-						}
-					} else {
-						cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
-					}
-					child->children.push_back(cloned_node);
-				}
-			}
-
-			if (flag_icells && child->str.compare(0, 2, "\\$") == 0)
-				child->str = child->str.substr(1);
-
-			bool defer_local = defer;
-			if (!defer_local)
-				for (const AstNode *node : child->children)
-					if (node->type == AST_PARAMETER && param_has_no_default(node))
-					{
-						log("Deferring `%s' because it contains parameter(s) without defaults.\n", child->str.c_str());
-						defer_local = true;
-						break;
-					}
-
-
-			if (defer_local)
-				child->str = "$abstract" + child->str;
-
-			if (design->has(child->str)) {
-				RTLIL::Module *existing_mod = design->module(child->str);
-				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
-					log_file_error(child->filename, child->location.first_line, "Re-definition of module `%s'!\n", child->str.c_str());
-				} else if (nooverwrite) {
-					log("Ignoring re-definition of module `%s' at %s.\n",
-							child->str.c_str(), child->loc_string().c_str());
-					continue;
-				} else {
-					log("Replacing existing%s module `%s' at %s.\n",
-							existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
-							child->str.c_str(), child->loc_string().c_str());
-					design->remove(existing_mod);
-				}
-			}
-
-			process_module(design, child, defer_local);
-			current_ast_mod = nullptr;
+			log("Processing\n");
+			insert_a_module(design, child, defer, nooverwrite, overwrite);
 		}
 		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
-			child->simplify(true, 1, -1, false);
+			child->simplify(true, 1, -1, false, false, true);
 			rename_in_package_stmts(child);
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
@@ -1641,6 +1703,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 {
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast);
+        log("derive2 %s\n", modname.c_str());
 
 	// Since interfaces themselves may be instantiated with different parameters,
 	// "modname" must also take those into account, so that unique modules
@@ -1731,6 +1794,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
+        log("derive1 %s\n", modname.c_str());
 	if (!design->has(modname) && new_ast) {
 		new_ast->str = modname;
 		process_module(design, new_ast, false, NULL, quiet);

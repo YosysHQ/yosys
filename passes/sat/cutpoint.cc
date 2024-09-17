@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "frontends/ast/ast.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -99,6 +100,12 @@ struct CutpointPass : public Pass {
 				log("Making wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
 				for (auto bit : sigmap(wire))
 					cutpoint_bits.insert(bit);
+			}
+
+			for (auto f : module->selected_functions()) {
+				AST::AstNode *def = ((AST::AstModule *)module)->ast->find_function(f->name.c_str());
+				log("Blackboxing function %s.%s (%s) %p\n", log_id(module), def->str.c_str(), f->name.c_str(), def);
+				def->blackbox = true;
 			}
 
 			if (!cutpoint_bits.empty())
