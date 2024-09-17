@@ -91,7 +91,9 @@ endmodule
 //-
 //-     $buf (A, Y)
 //-
-//- A simple coarse-grain buffer cell type.
+//- A simple coarse-grain buffer cell type for the experimental buffered-normalized
+//- mode. Note this cell does't get removed by 'opt_clean' and is not recommended
+//- for general use.
 //-
 module \$buf (A, Y);
 
