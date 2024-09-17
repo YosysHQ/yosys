@@ -21,6 +21,7 @@
 #include "kernel/macc.h"
 #include "kernel/celltypes.h"
 #include "kernel/binding.h"
+#include "kernel/sigtools.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
@@ -1107,6 +1108,13 @@ namespace {
 			if (!cell->type.begins_with("$") || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
 					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
+
+			if (cell->type == ID($buf)) {
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 
 			if (cell->type.in(ID($not), ID($pos), ID($neg))) {
 				param_bool(ID::A_SIGNED);
@@ -2494,6 +2502,23 @@ DEF_METHOD(LogicNot,   1, ID($logic_not))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool /* is_signed */, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);           \
+		cell->parameters[ID::WIDTH] = sig_a.size();         \
+		cell->setPort(ID::A, sig_a);                        \
+		cell->setPort(ID::Y, sig_y);                        \
+		cell->set_src_attribute(src);                       \
+		return cell;                                        \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
+		add ## _func(name, sig_a, sig_y, is_signed, src);   \
+		return sig_y;                                       \
+	}
+DEF_METHOD(Buf, sig_a.size(), ID($buf))
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
 		cell->parameters[ID::A_SIGNED] = is_signed;         \
@@ -3540,6 +3565,110 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 	}
 }
 
+void RTLIL::Design::bufNormalize(bool enable)
+{
+	if (!enable)
+	{
+		if (!flagBufferedNormalized)
+			return;
+
+		for (auto module : modules()) {
+			module->bufNormQueue.clear();
+			for (auto wire : module->wires()) {
+				wire->driverCell_ = nullptr;
+				wire->driverPort_ = IdString();
+			}
+		}
+
+		flagBufferedNormalized = false;
+		return;
+	}
+
+	if (!flagBufferedNormalized)
+	{
+		for (auto module : modules())
+		{
+			for (auto cell : module->cells())
+			for (auto &conn : cell->connections()) {
+				if (!cell->output(conn.first) || GetSize(conn.second) == 0)
+					continue;
+				if (conn.second.is_wire()) {
+					Wire *wire = conn.second.as_wire();
+					log_assert(wire->driverCell_ == nullptr);
+					wire->driverCell_ = cell;
+					wire->driverPort_ = conn.first;
+				} else {
+					pair<RTLIL::Cell*, RTLIL::IdString> key(cell, conn.first);
+					module->bufNormQueue.insert(key);
+				}
+			}
+		}
+
+		flagBufferedNormalized = true;
+	}
+
+	for (auto module : modules())
+		module->bufNormalize();
+}
+
+void RTLIL::Module::bufNormalize()
+{
+	if (!design->flagBufferedNormalized)
+		return;
+
+	while (GetSize(bufNormQueue) || !connections_.empty())
+	{
+		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
+		bufNormQueue.swap(queue);
+
+		pool<Wire*> outWires;
+		for (auto &conn : connections())
+		for (auto &chunk : conn.first.chunks())
+			if (chunk.wire) outWires.insert(chunk.wire);
+
+		SigMap sigmap(this);
+		new_connections({});
+
+		for (auto &key : queue)
+		{
+			Cell *cell = key.first;
+			const IdString &portname = key.second;
+			const SigSpec &sig = cell->getPort(portname);
+			if (GetSize(sig) == 0) continue;
+
+			if (sig.is_wire()) {
+				Wire *wire = sig.as_wire();
+				if (wire->driverCell_) {
+					log_error("Conflict between %s %s in module %s\n",
+										log_id(cell), log_id(wire->driverCell_), log_id(this));
+				}
+				log_assert(wire->driverCell_ == nullptr);
+				wire->driverCell_ = cell;
+				wire->driverPort_ = portname;
+				continue;
+			}
+
+			for (auto &chunk : sig.chunks())
+				if (chunk.wire) outWires.insert(chunk.wire);
+
+			Wire *wire = addWire(NEW_ID, GetSize(sig));
+			sigmap.add(sig, wire);
+			cell->setPort(portname, wire);
+
+			// FIXME: Move init attributes from old 'sig' to new 'wire'
+		}
+
+		for (auto wire : outWires)
+		{
+			SigSpec outsig = wire, insig = sigmap(wire);
+			for (int i = 0; i < GetSize(wire); i++)
+				if (insig[i] == outsig[i])
+					insig[i] = State::Sx;
+			addBuf(NEW_ID, insig, outsig);
+		}
+	}
+}
+
 void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
 {
 	auto r = connections_.insert(portname);
@@ -3557,6 +3686,40 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 	if (yosys_xtrace) {
 		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	while (module->design && module->design->flagBufferedNormalized && output(portname))
+	{
+		pair<RTLIL::Cell*, RTLIL::IdString> key(this, portname);
+
+		if (conn_it->second.is_wire()) {
+			Wire *w = conn_it->second.as_wire();
+			if (w->driverCell_ == this && w->driverPort_ == portname) {
+				w->driverCell_ = nullptr;
+				w->driverPort_ = IdString();
+			}
+		}
+
+		if (GetSize(signal) == 0) {
+			module->bufNormQueue.erase(key);
+			break;
+		}
+
+		if (!signal.is_wire()) {
+			module->bufNormQueue.insert(key);
+			break;
+		}
+
+		Wire *w = signal.as_wire();
+		if (w->driverCell_ != nullptr) {
+			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
+			module->bufNormQueue.insert(other_key);
+		}
+		w->driverCell_ = this;
+		w->driverPort_ = portname;
+
+		module->bufNormQueue.erase(key);
+		break;
 	}
 
 	conn_it->second = std::move(signal);
@@ -3654,9 +3817,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
-	if (type == ID($mux) || type == ID($pmux) || type == ID($bmux)) {
+	if (type == ID($buf) || type == ID($mux) || type == ID($pmux) || type == ID($bmux)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::Y]);
-		if (type != ID($mux))
+		if (type != ID($buf) && type != ID($mux))
 			parameters[ID::S_WIDTH] = GetSize(connections_[ID::S]);
 		check();
 		return;
