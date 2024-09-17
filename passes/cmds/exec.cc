@@ -141,7 +141,7 @@ struct ExecPass : public Pass {
 					}
 
 				} else
-					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.", args[argidx].c_str());
+					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.\n", args[argidx].c_str());
 			}
 		}
 

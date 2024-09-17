@@ -51,6 +51,9 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			}
 		}
 		f << stringf("%d'", width);
+		if (data.flags & RTLIL::CONST_FLAG_SIGNED) {
+			f << stringf("s");
+		}
 		if (data.is_fully_undef_x_only()) {
 			f << "x";
 		} else {
@@ -121,6 +124,10 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
 		dump_const(f, it.second);
 		f << stringf("\n");
+	}
+	if (wire->driverCell_) {
+		f << stringf("%s" "# driver %s %s\n", indent.c_str(),
+				wire->driverCell()->name.c_str(), wire->driverPort().c_str());
 	}
 	f << stringf("%s" "wire ", indent.c_str());
 	if (wire->width != 1)

@@ -41,6 +41,7 @@ OBJS += passes/techmap/nlutmap.o
 OBJS += passes/techmap/shregmap.o
 OBJS += passes/techmap/deminout.o
 OBJS += passes/techmap/insbuf.o
+OBJS += passes/techmap/bufnorm.o
 OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
@@ -49,6 +50,7 @@ OBJS += passes/techmap/dffunmap.o
 OBJS += passes/techmap/flowmap.o
 OBJS += passes/techmap/extractinv.o
 OBJS += passes/techmap/cellmatch.o
+OBJS += passes/techmap/clockgate.o
 endif
 
 ifeq ($(DISABLE_SPAWN),0)

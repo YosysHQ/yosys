@@ -290,7 +290,7 @@ Aig::Aig(Cell *cell)
 		}
 	}
 
-	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($_BUF_)))
+	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($buf), ID($_BUF_)))
 	{
 		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
 			int A = mk.inport(ID::A, i);

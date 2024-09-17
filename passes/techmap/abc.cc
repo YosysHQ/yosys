@@ -1718,7 +1718,7 @@ struct AbcPass : public Pass {
 			show_tempdir = true;
 		}
 
-		size_t argidx, g_argidx;
+		size_t argidx, g_argidx = -1;
 		bool g_arg_from_cmd = false;
 #if defined(__wasm)
 		const char *pwd = ".";

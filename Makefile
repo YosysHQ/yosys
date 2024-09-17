@@ -34,10 +34,11 @@ ENABLE_PYOSYS := 0
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
-ENABLE_LTO := 1
+ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
+ENABLE_FUNCTIONAL_TESTS := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -153,7 +154,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.43+86
+YOSYS_VER := 0.45+126
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -169,7 +170,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline ead4718.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9ed031d.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -223,7 +224,9 @@ LTOFLAGS := $(GCC_LTO)
 ifeq ($(CONFIG),clang)
 CXX = clang++
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
+ifeq ($(ENABLE_LTO),1)
 LINKFLAGS += -fuse-ld=lld
+endif
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 LTOFLAGS := $(CLANG_LTO)
 
@@ -596,6 +599,7 @@ $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/cost.h))
+$(eval $(call add_include_file,kernel/drivertools.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
 $(eval $(call add_include_file,kernel/ffmerge.h))
@@ -614,6 +618,7 @@ $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/satgen.h))
 $(eval $(call add_include_file,kernel/scopeinfo.h))
+$(eval $(call add_include_file,kernel/sexpr.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
@@ -635,7 +640,8 @@ $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
+OBJS += kernel/drivertools.o kernel/functional.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -805,7 +811,7 @@ check-git-abc:
 		exit 1; \
 	fi
 
-abc/abc$(EXE) abc/libabc.a: check-git-abc
+abc/abc$(EXE) abc/libabc.a: | check-git-abc
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
@@ -875,6 +881,7 @@ endif
 	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/nanoxplore && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/nexus && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/quicklogic/pp3 && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/quicklogic/qlf_k6n10f && bash run-test.sh $(SEEDOPT)
@@ -886,6 +893,9 @@ endif
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
 	+cd tests/cxxrtl && bash run-test.sh
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+	+cd tests/functional && bash run-test.sh
+endif
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -982,8 +992,8 @@ docs/guidelines docs/source/generated:
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
-docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
-	-$(Q) ./$$< --help 2> $$@
+docs/source/generated/$(1): $(TARGETS) docs/source/generated
+	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@
 endef
 DOCS_USAGE_STDERR := yosys-config yosys-filterlib
 
@@ -996,8 +1006,8 @@ $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 
 # others print to stdout
 define DOC_USAGE_STDOUT
-docs/source/generated/$(1): $(PROGRAM_PREFIX)$(1) docs/source/generated
-	$(Q) ./$$< --help > $$@
+docs/source/generated/$(1): $(TARGETS) docs/source/generated
+	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@
 endef
 DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
 $(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
@@ -1007,8 +1017,11 @@ docs/usage: $(addprefix docs/source/generated/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE
 docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
+.PHONY: docs/prep
+docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
+docs: docs/prep
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 clean:
@@ -1041,6 +1054,16 @@ coverage:
 	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage.info coverage_html
 	lcov --capture -d . --no-external -o coverage.info
+	genhtml coverage.info --output-directory coverage_html
+
+clean_coverage:
+	find . -name "*.gcda" -type f -delete
+
+FUNC_KERNEL := functional.cc functional.h sexpr.cc sexpr.h compute_graph.h
+FUNC_INCLUDES := $(addprefix --include *,functional/* $(FUNC_KERNEL))
+coverage_functional:
+	rm -rf coverage.info coverage_html
+	lcov --capture -d backends/functional -d kernel $(FUNC_INCLUDES) --no-external -o coverage.info
 	genhtml coverage.info --output-directory coverage_html
 
 qtcreator:

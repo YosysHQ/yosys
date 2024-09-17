@@ -116,6 +116,17 @@ unless `CXX` is assigned in the call to make, e.g.
 
   $ make CXX=$CXX
 
+The Makefile has many variables influencing the build process. These can be
+adjusted by modifying the Makefile.conf file which is created at the
+`make config-...` step (see above), or they can be set by passing an option
+to the make command directly.
+
+For example, if you have clang, and (a compatible version of) `ld.lld`
+available in PATH, it's recommended to speed up incremental builds with
+lld by enabling LTO:
+
+ $ make ENABLE_LTO=1
+
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
 Makefile.
@@ -618,10 +629,20 @@ following are used for building the website:
 
 	$ sudo apt install pdf2svg faketime
 
+Or for MacOS, using homebrew:
+
+  $ brew install pdf2svg libfaketime
+
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
 build process for the website.  Or, run the following:
 
 	$ sudo apt install texlive-latex-base texlive-latex-extra latexmk
+
+Or for MacOS, using homebrew:
+
+  $ brew install basictex
+  $ sudo tlmgr update --self   
+  $ sudo tlmgr install collection-latexextra latexmk tex-gyre
 
 The Python package, Sphinx, is needed along with those listed in
 `docs/source/requirements.txt`:

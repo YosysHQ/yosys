@@ -1,0 +1,71 @@
+read_verilog ../common/add_sub.v
+hierarchy -top top
+proc
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 2 t:NX_CY
+select -assert-count 4 t:NX_LUT
+select -assert-none t:NX_CY t:NX_LUT %% t:* %D
+
+design -reset
+read_verilog <<EOT
+module top
+(
+    input [5:0] x,
+    input [5:0] y,
+
+    output [5:0] A,
+    input CI,
+    output CO
+);
+
+    assign {CO, A} =  x + y + CI;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd top
+stat
+select -assert-count 2 t:NX_CY
+select -assert-none t:NX_CY %% t:* %D
+
+design -reset
+read_verilog <<EOT
+module top
+(
+    input [189:0] x,
+    input [189:0] y,
+
+    output [189:0] A
+);
+
+    assign A =  x + y;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+equiv_opt -run :prove -map +/nanoxplore/cells_sim.v -map +/nanoxplore/cells_sim_u.v synth_nanoxplore -noiopad
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd top
+stat
+select -assert-count 48 t:NX_CY
+select -assert-none t:NX_CY %% t:* %D

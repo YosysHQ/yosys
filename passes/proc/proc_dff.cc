@@ -54,90 +54,35 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 }
 
 void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
-		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
+		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
 {
+	// A signal should be set/cleared if there is a load trigger that is enabled
+	// such that the load value is 1/0 and it is the highest priority trigger
 	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sig_d.size());
 	RTLIL::SigSpec sig_sr_clr = RTLIL::SigSpec(0, sig_d.size());
 
-	for (auto &it : async_rules)
+	// Reverse iterate through the rules as the first ones are the highest priority
+	// so need to be at the top of the mux trees
+	for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++)
 	{
-		RTLIL::SigSpec sync_value = it.first;
-		RTLIL::SigSpec sync_value_inv;
-		RTLIL::SigSpec sync_high_signals;
-		RTLIL::SigSpec sync_low_signals;
+		const auto& [sync_value, rule] = *it;
+		const auto pos_trig = rule->type == RTLIL::SyncType::ST1 ? rule->signal : mod->Not(NEW_ID, rule->signal);
 
-		for (auto &it2 : it.second)
-			if (it2->type == RTLIL::SyncType::ST0)
-				sync_low_signals.append(it2->signal);
-			else if (it2->type == RTLIL::SyncType::ST1)
-				sync_high_signals.append(it2->signal);
-			else
-				log_abort();
+		// If pos_trig is true, we have priority at this point in the tree so
+		// set a bit if sync_value has a set bit. Otherwise, defer to the rest
+		// of the priority tree
+		sig_sr_set = mod->Mux(NEW_ID, sig_sr_set, sync_value, pos_trig);
 
-		if (sync_low_signals.size() > 1) {
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($reduce_or));
-			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_low_signals.size());
-			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-			cell->setPort(ID::A, sync_low_signals);
-			cell->setPort(ID::Y, sync_low_signals = mod->addWire(NEW_ID));
-		}
-
-		if (sync_low_signals.size() > 0) {
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($not));
-			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_low_signals.size());
-			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-			cell->setPort(ID::A, sync_low_signals);
-			cell->setPort(ID::Y, mod->addWire(NEW_ID));
-			sync_high_signals.append(cell->getPort(ID::Y));
-		}
-
-		if (sync_high_signals.size() > 1) {
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($reduce_or));
-			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_high_signals.size());
-			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-			cell->setPort(ID::A, sync_high_signals);
-			cell->setPort(ID::Y, sync_high_signals = mod->addWire(NEW_ID));
-		}
-
-		RTLIL::Cell *inv_cell = mod->addCell(NEW_ID, ID($not));
-		inv_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-		inv_cell->parameters[ID::A_WIDTH] = RTLIL::Const(sig_d.size());
-		inv_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(sig_d.size());
-		inv_cell->setPort(ID::A, sync_value);
-		inv_cell->setPort(ID::Y, sync_value_inv = mod->addWire(NEW_ID, sig_d.size()));
-
-		RTLIL::Cell *mux_set_cell = mod->addCell(NEW_ID, ID($mux));
-		mux_set_cell->parameters[ID::WIDTH] = RTLIL::Const(sig_d.size());
-		mux_set_cell->setPort(ID::A, sig_sr_set);
-		mux_set_cell->setPort(ID::B, sync_value);
-		mux_set_cell->setPort(ID::S, sync_high_signals);
-		mux_set_cell->setPort(ID::Y, sig_sr_set = mod->addWire(NEW_ID, sig_d.size()));
-
-		RTLIL::Cell *mux_clr_cell = mod->addCell(NEW_ID, ID($mux));
-		mux_clr_cell->parameters[ID::WIDTH] = RTLIL::Const(sig_d.size());
-		mux_clr_cell->setPort(ID::A, sig_sr_clr);
-		mux_clr_cell->setPort(ID::B, sync_value_inv);
-		mux_clr_cell->setPort(ID::S, sync_high_signals);
-		mux_clr_cell->setPort(ID::Y, sig_sr_clr = mod->addWire(NEW_ID, sig_d.size()));
+		// Same deal with clear bit
+		const auto sync_value_inv = mod->Not(NEW_ID, sync_value);
+		sig_sr_clr = mod->Mux(NEW_ID, sig_sr_clr, sync_value_inv, pos_trig);
 	}
 
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($dffsr));
+	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
 	cell->attributes = proc->attributes;
-	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_d.size());
-	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
-	cell->parameters[ID::SET_POLARITY] = RTLIL::Const(true, 1);
-	cell->parameters[ID::CLR_POLARITY] = RTLIL::Const(true, 1);
-	cell->setPort(ID::D, sig_d);
-	cell->setPort(ID::Q, sig_q);
-	cell->setPort(ID::CLK, clk);
-	cell->setPort(ID::SET, sig_sr_set);
-	cell->setPort(ID::CLR, sig_sr_clr);
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
@@ -204,7 +149,6 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 	while (1)
 	{
 		RTLIL::SigSpec sig = find_any_lvalue(proc);
-		bool free_sync_level = false;
 
 		if (sig.size() == 0)
 			break;
@@ -213,13 +157,17 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 				mod->name.c_str(), log_signal(sig), mod->name.c_str(), proc->name.c_str());
 
 		RTLIL::SigSpec insig = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-		RTLIL::SigSpec rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-		RTLIL::SyncRule *sync_level = NULL;
 		RTLIL::SyncRule *sync_edge = NULL;
 		RTLIL::SyncRule *sync_always = NULL;
 		bool global_clock = false;
 
-		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> many_async_rules;
+		// A priority ordered set of rules, pairing the value to be assigned for
+		// that rule to the rule
+		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> async_rules;
+
+		// Needed when the async rules are collapsed into one as async_rules
+		// works with pointers to SyncRule
+		RTLIL::SyncRule single_async_rule;
 
 		for (auto sync : proc->syncs)
 		for (auto &action : sync->actions)
@@ -228,14 +176,9 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 				continue;
 
 			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
-				if (sync_level != NULL && sync_level != sync) {
-					// log_error("Multiple level sensitive events found for this signal!\n");
-					many_async_rules[rstval].insert(sync_level);
-					rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-				}
-				rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
+				RTLIL::SigSpec rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
 				sig.replace(action.first, action.second, &rstval);
-				sync_level = sync;
+				async_rules.emplace_back(rstval, sync);
 			}
 			else if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
 				if (sync_edge != NULL && sync_edge != sync)
@@ -260,59 +203,51 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			action.first.remove2(sig, &action.second);
 		}
 
-		if (many_async_rules.size() > 0)
+		// If all async rules assign the same value, priority ordering between
+		// them doesn't matter so they can be collapsed together into one rule
+		// with the disjunction of triggers
+		if (!async_rules.empty() &&
+		    std::all_of(async_rules.begin(), async_rules.end(), [&](auto& p) {
+		        return p.first == async_rules.front().first;
+		    }))
 		{
-			many_async_rules[rstval].insert(sync_level);
-			if (many_async_rules.size() == 1)
-			{
-				sync_level = new RTLIL::SyncRule;
-				sync_level->type = RTLIL::SyncType::ST1;
-				sync_level->signal = mod->addWire(NEW_ID);
-				sync_level->actions.push_back(RTLIL::SigSig(sig, rstval));
-				free_sync_level = true;
+			const auto rstval = async_rules.front().first;
 
-				RTLIL::SigSpec inputs, compare;
-				for (auto &it : many_async_rules[rstval]) {
-					inputs.append(it->signal);
-					compare.append(it->type == RTLIL::SyncType::ST0 ? RTLIL::State::S1 : RTLIL::State::S0);
-				}
-				log_assert(inputs.size() == compare.size());
+			// The trigger is the disjunction of existing triggers
+			// (with appropriate negation)
+			RTLIL::SigSpec triggers;
+			for (const auto &[_, it] : async_rules)
+				triggers.append(it->type == RTLIL::SyncType::ST1 ? it->signal : mod->Not(NEW_ID, it->signal));
 
-				RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($ne));
-				cell->parameters[ID::A_SIGNED] = RTLIL::Const(false, 1);
-				cell->parameters[ID::B_SIGNED] = RTLIL::Const(false, 1);
-				cell->parameters[ID::A_WIDTH] = RTLIL::Const(inputs.size());
-				cell->parameters[ID::B_WIDTH] = RTLIL::Const(inputs.size());
-				cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-				cell->setPort(ID::A, inputs);
-				cell->setPort(ID::B, compare);
-				cell->setPort(ID::Y, sync_level->signal);
+			// Put this into the dummy sync rule so it can be treated the same
+			// as ones coming from the module
+			single_async_rule.type = RTLIL::SyncType::ST1;
+			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
+			single_async_rule.actions.push_back(RTLIL::SigSig(sig, rstval));
 
-				many_async_rules.clear();
-			}
-			else
-			{
-				rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-				sync_level = NULL;
-			}
+			// Replace existing rules with this new rule
+			async_rules.clear();
+			async_rules.emplace_back(rstval, &single_async_rule);
 		}
 
 		SigSpec sig_q = sig;
 		ce.assign_map.apply(insig);
-		ce.assign_map.apply(rstval);
 		ce.assign_map.apply(sig);
 
-		if (rstval == sig && sync_level) {
-			if (sync_level->type == RTLIL::SyncType::ST1)
-				insig = mod->Mux(NEW_ID, insig, sig, sync_level->signal);
+		// If the reset value assigns the reg to itself, add this as part of
+		// the input signal and delete the rule
+		if (async_rules.size() == 1 && async_rules.front().first == sig) {
+			const auto& [_, rule] = async_rules.front();
+			if (rule->type == RTLIL::SyncType::ST1)
+				insig = mod->Mux(NEW_ID, insig, sig, rule->signal);
 			else
-				insig = mod->Mux(NEW_ID, sig, insig, sync_level->signal);
-			rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-			sync_level = NULL;
+				insig = mod->Mux(NEW_ID, sig, insig, rule->signal);
+
+			async_rules.clear();
 		}
 
 		if (sync_always) {
-			if (sync_edge || sync_level || many_async_rules.size() > 0)
+			if (sync_edge || !async_rules.empty())
 				log_error("Mixed always event with edge and/or level sensitive events!\n");
 			log("  created direct connection (no actual register cell created).\n");
 			mod->connect(RTLIL::SigSig(sig, insig));
@@ -322,28 +257,34 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		if (!sync_edge && !global_clock)
 			log_error("Missing edge-sensitive event for this signal!\n");
 
-		if (many_async_rules.size() > 0)
+		// More than one reset value so we derive a dffsr formulation
+		if (async_rules.size() > 1)
 		{
 			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
-			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, many_async_rules, proc);
+			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, async_rules, proc);
+			return;
 		}
-		else if (!rstval.is_fully_const() && !ce.eval(rstval))
+
+		// If there is a reset condition in the async rules, use it
+		SigSpec rstval = async_rules.empty() ? RTLIL::SigSpec(RTLIL::State::Sz, sig.size()) : async_rules.front().first;
+		RTLIL::SyncRule* sync_level = async_rules.empty() ? nullptr : async_rules.front().second;
+		ce.assign_map.apply(rstval);
+
+		if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
 			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
 			gen_aldff(mod, insig, rstval, sig_q,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level->signal, proc);
+			return;
 		}
-		else
-			gen_dff(mod, insig, rstval.as_const(), sig_q,
-					sync_edge && sync_edge->type == RTLIL::SyncType::STp,
-					sync_level && sync_level->type == RTLIL::SyncType::ST1,
-					sync_edge ? sync_edge->signal : SigSpec(),
-					sync_level ? &sync_level->signal : NULL, proc);
 
-		if (free_sync_level)
-			delete sync_level;
+		gen_dff(mod, insig, rstval.as_const(), sig_q,
+				sync_edge && sync_edge->type == RTLIL::SyncType::STp,
+				sync_level && sync_level->type == RTLIL::SyncType::ST1,
+				sync_edge ? sync_edge->signal : SigSpec(),
+				sync_level ? &sync_level->signal : NULL, proc);
 	}
 }
 

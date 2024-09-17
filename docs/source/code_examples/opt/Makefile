@@ -13,7 +13,7 @@ dots: $(DOTS)
 	$(YOSYS) $<
 
 %.dot: %_full.dot
-	gvpack -u $*_full.dot -o $@
+	gvpack -u -o $@ $*_full.dot
 
 .PHONY: clean
 clean:
