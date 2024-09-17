@@ -3000,6 +3000,11 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Removing buffers for %s.\n", it->first.c_str());
 			nl->RemoveBuffers();
 
+			log("    Merging RAM write ports for %s.\n", it->first.c_str());
+			nl->MergeRamWritePorts();
+			log("    Merging RAMs for %s.\n", it->first.c_str());
+			nl->MergeRams();
+
 			log("    Balancing timing for %s.\n", it->first.c_str());
 			unsigned result = nl->BalanceTiming(0);
 			log("    Balance timing result before: %d\n", result);
@@ -3018,10 +3023,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Performing final resource merging for %s.\n", it->first.c_str());
 			nl->OptimizeSameInputSubstractorComparator();
 
-			log("    Merging RAM write ports for %s.\n", it->first.c_str());
-			nl->MergeRamWritePorts();
-			log("    Merging RAMs for %s.\n", it->first.c_str());
-			nl->MergeRams();
+			log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
+			nl->InferClockEnableMux();
 		}
 
 		if (nl_done.count(it->first) == 0) {
