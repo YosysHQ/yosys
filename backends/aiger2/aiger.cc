@@ -700,12 +700,13 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 		char buf[128];
 		snprintf(buf, sizeof(buf) - 1, "aig %08d %08d %08d %08d %08d\n",
 				 ninputs + nlatches + nands, ninputs, nlatches, noutputs, nands);
-		f->seekp(0);
 		f->write(buf, strlen(buf));
 	}
 
 	void write(std::ostream *f) {
 		reset_counters();
+
+		auto file_start = f->tellp();
 
 		// populate inputs
 		std::vector<SigBit> inputs;
@@ -750,6 +751,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 		auto data_end = f->tellp();
 
 		// revisit header and the list of outputs
+		f->seekp(file_start);
 		write_header();
 		for (auto pair : outputs) {
 			char buf[16];
@@ -785,6 +787,390 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 			}
 			i++;
 		}
+	}
+};
+
+struct XAigerWriter : AigerWriter {
+	XAigerWriter()
+	{
+		allow_blackboxes = true;
+	}
+
+	bool mapping_prep = false;
+	pool<Wire *> keep_wires;
+	std::ofstream map_file;
+
+	typedef std::pair<SigBit, HierCursor> HierBit;
+	std::vector<HierBit> pos;
+	std::vector<HierBit> pis;
+	int proper_pos_counter = 0;
+
+	pool<SigBit> driven_by_opaque_box;
+
+	void ensure_pi(SigBit bit, HierCursor cursor={},
+				   bool box_port=false)
+	{
+		Lit &lit = pi_literal(bit, &cursor);
+		if (lit == EMPTY_LIT) {
+			lit = lit_counter;
+			pis.push_back(std::make_pair(bit, cursor));
+			lit_counter += 2;
+			if (map_file.is_open() && !box_port) {
+				log_assert(cursor.is_top()); // TODO
+				driven_by_opaque_box.insert(bit);
+				map_file << "pi " << pis.size() - 1 << " " << bit.offset
+						<< " " << bit.wire->name.c_str() << "\n";
+			}
+		} else {
+			log_assert(!box_port);
+		}
+	}
+
+	bool is_pi(SigBit bit, HierCursor cursor={})
+	{
+		return pi_literal(bit, &cursor) != EMPTY_LIT;
+	}
+
+	void pad_pi()
+	{
+		pis.push_back(std::make_pair(RTLIL::Sx, HierCursor{}));
+		lit_counter += 2;
+	}
+
+	void append_box_ports(Cell *box, HierCursor &cursor, bool inputs)
+	{
+		for (auto &conn : box->connections_) {
+			bool is_input = box->input(conn.first);
+			bool is_output = box->output(conn.first);
+
+			if (!(is_input || is_output) || (is_input && is_output))
+				log_error("Ambiguous port direction on %s/%s\n",
+						  log_id(box->type), log_id(conn.first));
+
+			if (is_input && inputs) {
+				int bitp = 0;
+				for (auto bit : conn.second) {
+					if (!bit.wire) {
+						bitp++;
+						continue;
+					}
+
+					if (map_file.is_open()) {
+						log_assert(cursor.is_top());
+						map_file << "pseudopo " << proper_pos_counter++ << " " << bitp
+							<< " " << box->name.c_str()
+							<< " " << conn.first.c_str() << "\n";
+					}
+
+					pos.push_back(std::make_pair(bit, cursor));
+
+					if (mapping_prep)
+						conn.second[bitp] = RTLIL::Sx;
+
+					bitp++;
+				}
+			} else if (is_output && !inputs) { 
+				for (auto &bit : conn.second) {
+					if (!bit.wire || bit.wire->port_input)
+						log_error("Bad connection");
+
+
+					ensure_pi(bit, cursor);
+					keep_wires.insert(bit.wire);
+				}
+			}
+		}
+	}
+
+	RTLIL::Module *holes_module;
+
+	std::stringstream h_buffer;
+	static void write_be32(std::ostream &buffer, uint32_t u32)
+	{
+		typedef unsigned char uchar;
+		unsigned char u32_be[4] = {
+			(uchar) (u32 >> 24), (uchar) (u32 >> 16), (uchar) (u32 >> 8), (uchar) u32
+		};
+		buffer.write((char *) u32_be, sizeof(u32_be));
+	}
+
+	void prep_boxes(int pending_pos_num)
+	{
+		// boxes which have timing data, maybe a whitebox model
+		std::vector<std::tuple<HierCursor, Cell *, Module *>> nonopaque_boxes;
+		// boxes which are fully opaque
+		std::vector<std::tuple<HierCursor, Cell *, Module *>> opaque_boxes;
+
+		log_debug("found boxes:\n");
+		visit_hierarchy([&](HierCursor &cursor) {
+			auto &minfo = cursor.leaf_minfo(*this);
+
+			for (auto box : minfo.found_blackboxes) {
+				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
+						  RTLIL::unescape_id(box->name).c_str(),
+						  log_id(box->type));
+
+				Module *box_module = design->module(box->type), *box_derived;
+
+				if (box_module && !box->parameters.empty()) {
+					// TODO: This is potentially costly even if a cached derivation exists
+					box_derived = design->module(box_module->derive(design, box->parameters));
+					log_assert(box_derived);
+				} else {
+					box_derived = box_module;
+				}
+
+				if (box_derived && box_derived->has_attribute(ID::abc9_box_id)) {
+					// This is an ABC9 box, we have timing data, maybe even a whitebox model
+					// These need to go last in the AIGER port list.
+					nonopaque_boxes.push_back(std::make_tuple(cursor, box, box_derived));
+					log_debug("non-opaque\n");
+				} else {
+					opaque_boxes.push_back(std::make_tuple(cursor, box, box_derived));
+					log_debug("opaque\n");
+				}
+			}
+		});
+
+		for (auto [cursor, box, def] : opaque_boxes)
+			append_box_ports(box, cursor, true);
+
+		holes_module = design->addModule(NEW_ID);
+		std::vector<RTLIL::Wire *> holes_pis;
+		int boxes_ci_num = 0, boxes_co_num = 0;
+
+		int box_seq = 0;
+
+		for (auto [cursor, box, def] : nonopaque_boxes) {
+			// use `def->name` not `box->type` as we want the derived type
+			Cell *holes_wb = holes_module->addCell(NEW_ID, def->name);
+			int holes_pi_idx = 0;
+
+			if (map_file.is_open()) {
+				log_assert(cursor.is_top());
+				map_file << "box " << box_seq << " " << box->name.c_str() << "\n";
+			}
+			box_seq++;
+
+			for (auto port_id : def->ports) {
+				Wire *port = def->wire(port_id);
+				log_assert(port);
+
+				SigSpec conn = box->hasPort(port_id) ? box->getPort(port_id) : SigSpec{};
+
+				if (port->port_input && !port->port_output) {
+					// primary
+					for (int i = 0; i < port->width; i++) {
+						SigBit bit;
+						if (i < conn.size()) {
+							bit = conn[i];
+						} else {
+							// FIXME: hierarchical path
+							log_warning("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
+										log_id(port_id), i, log_id(box), log_id(box->type));
+							bit = RTLIL::Sx;
+						}
+
+						pos.push_back(std::make_pair(bit, cursor));
+					}
+					boxes_co_num += port->width;
+
+					if (mapping_prep && !conn.empty())
+						box->setPort(port_id, SigSpec(RTLIL::Sx, conn.size()));
+
+					// holes
+					SigSpec in_conn;
+					for (int i = 0; i < port->width; i++) {
+						while (holes_pi_idx >= (int) holes_pis.size()) {
+							Wire *w = holes_module->addWire(NEW_ID, 1);
+							w->port_input = true;
+							holes_module->ports.push_back(w->name);
+							holes_pis.push_back(w);
+						}
+						in_conn.append(holes_pis[i]);
+						holes_pi_idx++;
+					}
+					holes_wb->setPort(port_id, in_conn);
+				} else if (port->port_output && !port->port_input) {
+					// primary
+					for (int i = 0; i < port->width; i++) {
+						SigBit bit;
+						if (i < conn.size() && conn[i].is_wire()) {
+							bit = conn[i];
+						} else {
+							// FIXME: hierarchical path
+							log_warning("connection on port %s[%d] of instance %s (type %s) missing\n",
+										log_id(port_id), i, log_id(box), log_id(box->type));
+							pad_pi();
+							continue;
+						}
+
+						ensure_pi(bit, cursor, true);
+						keep_wires.insert(bit.wire);
+					}
+					boxes_ci_num += port->width;
+
+					// holes
+					Wire *w = holes_module->addWire(NEW_ID, port->width);
+					w->port_output = true;
+					holes_module->ports.push_back(w->name);
+					holes_wb->setPort(port_id, w);
+				} else {
+					log_error("Ambiguous port direction on %s/%s\n",
+							  log_id(box->type), log_id(port_id));
+				}
+			}
+		}
+
+		for (auto [cursor, box, def] : opaque_boxes)
+			append_box_ports(box, cursor, false);
+
+		write_be32(h_buffer, 1);
+		write_be32(h_buffer, pis.size());
+		log_debug("ciNum = %zu\n", pis.size());
+		write_be32(h_buffer, pending_pos_num + pos.size());
+		log_debug("coNum = %zu\n", boxes_co_num + pos.size());
+		write_be32(h_buffer, pis.size() - boxes_ci_num);
+		log_debug("piNum = %zu\n", pis.size() - boxes_ci_num);
+		write_be32(h_buffer, pending_pos_num + pos.size() - boxes_co_num);
+		log_debug("poNum = %zu\n", pending_pos_num + pos.size() - boxes_co_num);
+		write_be32(h_buffer, nonopaque_boxes.size());
+
+		box_seq = 0;
+		for (auto [cursor, box, def] : nonopaque_boxes) {
+			int box_ci_num = 0, box_co_num = 0;
+			for (auto port_id : def->ports) {
+				Wire *port = def->wire(port_id);
+				log_assert(port);
+				if (port->port_input && !port->port_output) {
+					box_co_num += port->width;
+				} else if (port->port_output && !port->port_input) {
+					box_ci_num += port->width;
+				} else {
+					log_abort();
+				}
+			}
+
+			write_be32(h_buffer, box_co_num);
+			write_be32(h_buffer, box_ci_num);
+			write_be32(h_buffer, def->attributes.at(ID::abc9_box_id).as_int());
+			write_be32(h_buffer, box_seq++);
+		}
+	}
+
+	void clear_boxes()
+	{
+		design->remove(holes_module);
+	}
+
+	void write(std::ostream *f) {
+		reset_counters();
+
+		for (auto w : top->wires())
+		if (w->port_input)
+		for (int i = 0; i < w->width; i++)
+			ensure_pi(SigBit(w, i));
+
+		int proper_po_num = 0;
+		for (auto w : top->wires())
+		if (w->port_output)
+			proper_po_num += w->width;
+
+		prep_boxes(proper_po_num);
+		for (auto w : top->wires())
+		if (w->port_output)
+		for (int i = 0; i < w->width; i++) {
+			if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
+				map_file << "po " << proper_pos_counter++ << " " << i
+							<< " " << w->name.c_str() << "\n";
+			}
+			pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+		}
+
+		this->f = f;
+		// start with the header
+		ninputs = pis.size();
+		noutputs = pos.size();
+		write_header();
+		// insert padding where output literals will go (once known)
+		for (auto _ : pos) {
+			char buf[16];
+			snprintf(buf, sizeof(buf) - 1, "%08d\n", 0);
+			f->write(buf, strlen(buf));
+		}
+		auto data_start = f->tellp();
+
+		// now the guts
+		std::vector<Lit> outlits;
+		for (auto &pair : pos)
+			outlits.push_back(eval_po(pair.first, &pair.second));
+
+		// revisit header and the list of outputs
+		f->seekp(0);
+		ninputs = pis.size();
+		noutputs = pos.size();
+		write_header();
+		for (auto lit : outlits) {
+			char buf[16];
+			snprintf(buf, sizeof(buf) - 1, "%08d\n", lit);
+			f->write(buf, strlen(buf));
+		}
+		// double check we arrived at the same offset for the
+		// main data section
+		log_assert(data_start == f->tellp());
+
+		// extensions
+		f->seekp(0, std::ios::end);
+
+		f->put('c');
+
+		// insert empty 'r' and 's' sections (abc crashes if we provide 'a' without those)
+		f->put('r');
+		write_be32(*f, 4);
+		write_be32(*f, 0);
+		f->put('s');
+		write_be32(*f, 4);
+		write_be32(*f, 0);
+
+		f->put('h');
+		// TODO: get rid of std::string copy
+		std::string h_buffer_str = h_buffer.str();
+		write_be32(*f, h_buffer_str.size());
+		f->write(h_buffer_str.data(), h_buffer_str.size());
+
+#if 1
+		f->put('a');
+		write_be32(*f, 0); // size to be filled later
+		auto holes_aiger_start = f->tellp();
+		{
+			AigerWriter holes_writer;
+			holes_writer.flatten = true;
+			holes_writer.inline_whiteboxes = true;
+			holes_writer.setup(holes_module);
+			holes_writer.write(f);
+		}
+		auto holes_aiger_size = f->tellp() - holes_aiger_start;
+		f->seekp(holes_aiger_start, std::ios::beg);
+		f->seekp(-4, std::ios::cur);
+		write_be32(*f, holes_aiger_size);
+#endif
+		f->seekp(0, std::ios::end);
+
+		if (mapping_prep) {
+			std::vector<Cell *> to_remove_cells;
+			for (auto cell : top->cells())
+				if (!top_minfo->found_blackboxes.count(cell))
+					to_remove_cells.push_back(cell);
+			for (auto cell : to_remove_cells)
+				top->remove(cell);
+			pool<Wire *> to_remove;
+			for (auto wire : top->wires())
+				if (!wire->port_input && !wire->port_output && !keep_wires.count(wire))
+					to_remove.insert(wire);
+			top->remove(to_remove);
+		}
+
+		clear_boxes();
 	}
 };
 
@@ -871,6 +1257,57 @@ struct Aiger2Backend : Backend {
 		design->bufNormalize(false);
 	}
 } Aiger2Backend;
+
+struct XAiger2Backend : Backend {
+	XAiger2Backend() : Backend("xaiger2", "write design to XAIGER file (new)")
+	{
+		experimental();
+	}
+
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, Design *design) override
+	{
+		log_header(design, "Executing XAIGER2 backend.\n");
+
+		size_t argidx;
+		XAigerWriter writer;
+		std::string map_filename;
+		writer.const_folding = true;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-strash")
+				writer.strashing = true;
+			else if (args[argidx] == "-flatten")
+				writer.flatten = true;
+			else if (args[argidx] == "-mapping_prep")
+				writer.mapping_prep = true;
+			else if (args[argidx] == "-map2" && argidx + 1 < args.size())
+				map_filename = args[++argidx];
+			else
+				break;
+		}
+		extra_args(f, filename, args, argidx);
+
+		Module *top = design->top_module();
+
+		if (!top || !design->selected_whole_module(top))
+			log_cmd_error("No top module selected\n");
+
+		if (!map_filename.empty()) {
+			writer.map_file.open(map_filename);
+			if (!writer.map_file)
+				log_cmd_error("Failed to open '%s' for writing\n", map_filename.c_str());
+		}
+
+		design->bufNormalize(true);
+		writer.setup(top);
+		writer.write(f);
+
+		// we are leaving the sacred land, un-bufnormalize
+		// (if not, this will lead to bugs: the buf-normalized
+		// flag must not be kept on past the code that can work
+		// with it)
+		design->bufNormalize(false);
+	}
+} XAiger2Backend;
 
 struct AIGCounter : Index<AIGCounter, int> {
 	typedef int Lit;
