@@ -8,3 +8,8 @@ for x in *.lib; do
 	../../yosys-filterlib -verilogsim $x > $x.verilogsim
 	diff $x.filtered $x.filtered.ok && diff $x.verilogsim $x.verilogsim.ok
 done
+
+for x in *.ys; do
+  echo "Running $x.."
+  ../../yosys -q -s $x -l ${x%.ys}.log
+done
