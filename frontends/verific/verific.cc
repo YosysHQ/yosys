@@ -459,8 +459,8 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 				bottom_const.flags |= RTLIL::CONST_FLAG_SIGNED;
 				top_const.flags |= RTLIL::CONST_FLAG_SIGNED;
 			}
-			attributes.emplace(ID(bottom_bound), bottom_const);
-			attributes.emplace(ID(top_bound), top_const);
+			// attributes.emplace(ID(bottom_bound), bottom_const);
+			// attributes.emplace(ID(top_bound), top_const);
 		}
 		if (!type_range->IsTypeEnum())
 			return;
