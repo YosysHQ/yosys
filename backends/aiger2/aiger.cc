@@ -19,6 +19,7 @@
 
 // TODOs:
 //  - gracefully handling inout ports (an error message probably)
+//  - undriven wires
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
@@ -56,6 +57,7 @@ struct Index {
 		int len;
 		dict<Wire *, int> windices;
 		dict<Cell *, int> suboffsets;
+		pool<Cell *> found_blackboxes;
 
 		bool indexing = false;
 		bool indexed = false;
@@ -72,6 +74,10 @@ struct Index {
 		}
 		return sum;
 	}
+
+	bool flatten = false;
+	bool inline_whiteboxes = false;
+	bool allow_blackboxes = false;
 
 	int index_module(RTLIL::Module *m)
 	{
@@ -91,11 +97,21 @@ struct Index {
 				continue;
 
 			Module *submodule = m->design->module(cell->type);
-			if (!submodule || submodule->get_blackbox_attribute())
-				log_error("Unsupported cell type: %s (%s in %s)\n",
-						  log_id(cell->type), log_id(cell), log_id(m));
-			info.suboffsets[cell] = pos;
-			pos += index_module(submodule);
+
+			if (submodule && flatten &&
+					!submodule->get_bool_attribute(ID::keep_hierarchy) &&
+					!submodule->get_blackbox_attribute(inline_whiteboxes)) {
+				info.suboffsets[cell] = pos;
+				pos += index_module(submodule);
+			} else {
+				if (allow_blackboxes) {
+					info.found_blackboxes.insert(cell);	
+				} else {
+					if (!submodule || submodule->get_blackbox_attribute())
+						log_error("Unsupported cell type: %s (%s in %s)\n",
+								  log_id(cell->type), log_id(cell), log_id(m));
+				}
+			}
 		}
 
 		info.len = pos;
@@ -429,30 +445,36 @@ struct Index {
 		std::vector<Level> levels;
 		int instance_offset = 0;
 
-		HierCursor(ModuleInfo &top)
+		HierCursor()
 		{
-			levels.push_back(Level(top, nullptr));	
 		}
 
-		ModuleInfo &current_minfo()
+		ModuleInfo &leaf_minfo(Index &index)
 		{
-			log_assert(!levels.empty());
-			return levels.back().first;
+			if (levels.empty())
+				return *index.top_minfo;
+			else
+				return levels.back().first;
 		}
 
-		int bitwire_index(SigBit bit)
+		Module *leaf_module(Index &index)
+		{
+			return leaf_minfo(index).module;
+		}
+
+		int bitwire_index(Index &index, SigBit bit)
 		{
 			log_assert(bit.wire != nullptr);
-			return instance_offset + current_minfo().windices[bit.wire] + bit.offset;
+			return instance_offset + leaf_minfo(index).windices[bit.wire] + bit.offset;
 		}
 
-		Cell *exit()
+		Cell *exit(Index &index)
 		{
-			log_assert(levels.size() > 1);
+			log_assert(!levels.empty());
 			Cell *instance = levels.back().second;
 
 			levels.pop_back();
-			instance_offset -= current_minfo().suboffsets.at(instance);
+			instance_offset -= leaf_minfo(index).suboffsets.at(instance);
 
 			// return the instance we just exited
 			return instance;
@@ -461,7 +483,7 @@ struct Index {
 		Module *enter(Index &index, Cell *cell)
 		{
 			Design *design = index.design;
-			auto &minfo = current_minfo();
+			auto &minfo = leaf_minfo(index);
 			log_assert(minfo.suboffsets.count(cell));
 			Module *def = design->module(cell->type);
 			log_assert(def);
@@ -470,6 +492,47 @@ struct Index {
 
 			// return the module definition we just entered
 			return def;
+		}
+
+		bool is_top()
+		{
+			return levels.empty();
+		}
+
+		std::string path()
+		{
+			std::string ret;
+			bool first = true;
+			for (auto pair : levels) {
+				if (!first)
+					ret += ".";
+				if (!pair.second)
+					ret += RTLIL::unescape_id(pair.first.module->name);
+				else
+					ret += RTLIL::unescape_id(pair.second->name);
+				first = false;
+			}
+			return ret;
+		}
+
+		int hash() const
+		{
+			int hash = 0;
+			for (auto pair : levels)
+				hash += (uintptr_t) pair.second;
+			return hash;
+		}
+
+		bool operator==(const HierCursor &other) const
+		{
+			if (levels.size() != other.levels.size())
+				return false;
+
+			for (int i = 0; i < levels.size(); i++)
+				if (levels[i].second != other.levels[i].second)
+					return false;
+
+			return true;
 		}
 	};
 
@@ -484,7 +547,7 @@ struct Index {
 				log_error("Unhandled state %s\n", log_signal(bit));
 		}
 
-		int idx = cursor.bitwire_index(bit);
+		int idx = cursor.bitwire_index(*this, bit);
 		if (lits[idx] != Writer::EMPTY_LIT) {
 			// literal already assigned
 			return lits[idx];
@@ -510,16 +573,15 @@ struct Index {
 								  bit.offset, log_id(portname), log_id(driver), log_id(def), w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
 				}
-				cursor.exit();
+				cursor.exit(*this);
 			}
-			
 		} else {
 			// a module input: we cannot be the top module, otherwise
 			// the branch for pre-existing literals would have been taken
-			log_assert(cursor.levels.size() > 1);
+			log_assert(!cursor.is_top());
 
 			// step into the upper module
-			Cell *instance = cursor.exit();
+			Cell *instance = cursor.exit(*this);
 			{
 				IdString portname = bit.wire->name;
 				if (!instance->hasPort(portname))
@@ -538,22 +600,53 @@ struct Index {
 		return ret;
 	}
 
-	void set_top_port(SigBit bit, Lit lit)
+	Lit &pi_literal(SigBit bit, HierCursor *cursor=nullptr)
 	{
 		log_assert(bit.wire);
-		log_assert(bit.wire->module == top);
-		log_assert(bit.wire->port_input);
 
-		lits[top_minfo->windices[bit.wire] + bit.offset] = lit;
+		if (!cursor) {
+			log_assert(bit.wire->module == top);
+			log_assert(bit.wire->port_input);
+			return lits[top_minfo->windices[bit.wire] + bit.offset];
+		} else {
+			log_assert(bit.wire->module == cursor->leaf_module(*this));
+			return lits[cursor->bitwire_index(*this, bit)];
+		}
 	}
 
-	Lit get_top_port(SigBit bit)
+	Lit eval_po(SigBit bit, HierCursor *cursor=nullptr)
 	{
-		HierCursor cursor(*top_minfo);
-		Lit ret = visit(cursor, bit);
-		log_assert(cursor.levels.size() == 1);
-		log_assert(cursor.instance_offset == 0);
+		Lit ret;
+		if (!cursor) {
+			HierCursor cursor_;
+			ret = visit(cursor_, bit);
+			log_assert(cursor_.is_top());
+			log_assert(cursor_.instance_offset == 0);
+		} else {
+			ret = visit(*cursor, bit);
+		}
 		return ret;
+	}
+
+	void visit_hierarchy(std::function<void(HierCursor&)> f,
+						 HierCursor &cursor)
+	{
+		f(cursor);
+
+		ModuleInfo &minfo = cursor.leaf_minfo(*this);
+		for (auto cell : minfo.module->cells()) {
+			if (minfo.suboffsets.count(cell)) {
+				cursor.enter(*this, cell);
+				visit_hierarchy(f, cursor);
+				cursor.exit(*this);
+			}
+		}
+	}
+
+	void visit_hierarchy(std::function<void(HierCursor&)> f)
+	{
+		HierCursor cursor;
+		visit_hierarchy(f, cursor);
 	}
 };
 
@@ -616,20 +709,25 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 
 		// populate inputs
 		std::vector<SigBit> inputs;
-		for (auto w : top->wires())
+		for (auto id : top->ports) {
+		Wire *w = top->wire(id);
+		log_assert(w);
 		if (w->port_input)
 		for (int i = 0; i < w->width; i++) {
-			set_top_port(SigBit(w, i), lit_counter);
+			pi_literal(SigBit(w, i)) = lit_counter;
 			inputs.push_back(SigBit(w, i));
 			lit_counter += 2;
 			ninputs++;
+		}
 		}
 
 		this->f = f;
 		// start with the header
 		write_header();
 		// insert padding where output literals will go (once known)
-		for (auto w : top->wires())
+		for (auto id : top->ports) {
+		Wire *w = top->wire(id);
+		log_assert(w);
 		if (w->port_output) {
 			for (auto bit : SigSpec(w)) {
 				(void) bit;
@@ -639,6 +737,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 				noutputs++;
 			}
 		}
+		}
 		auto data_start = f->tellp();
 
 		// now the guts
@@ -646,7 +745,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 		for (auto w : top->wires())
 		if (w->port_output) {
 			for (auto bit : SigSpec(w))
-				outputs.push_back({bit, get_top_port(bit)});
+				outputs.push_back({bit, eval_po(bit)});
 		}
 		auto data_end = f->tellp();
 
@@ -749,6 +848,8 @@ struct Aiger2Backend : Backend {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-strash")
 				writer.strashing = true;
+			else if (args[argidx] == "-flatten")
+				writer.flatten = true;
 			else
 				break;
 		}
@@ -791,12 +892,12 @@ struct AIGCounter : Index<AIGCounter, int> {
 		for (auto w : top->wires())
 		if (w->port_input)
 		for (int i = 0; i < w->width; i++)
-			set_top_port(SigBit(w, i), ++nvars);
+			pi_literal(SigBit(w, i)) = ++nvars;
 
 		for (auto w : top->wires())
 		if (w->port_output) {
 			for (auto bit : SigSpec(w))
-				(void) get_top_port(bit);
+				(void) eval_po(bit);
 		}
 	}
 };
@@ -808,10 +909,12 @@ struct AigsizePass : Pass {
 		log_header(design, "Executing AIGSIZE pass. (size design AIG)\n");
 
 		size_t argidx;
-		AIGCounter counter;
+		AIGCounter writer;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-strash")
-				counter.strashing = true;
+				writer.strashing = true;
+			else if (args[argidx] == "-flatten")
+				writer.flatten = true;
 			else
 				break;
 		}
@@ -823,9 +926,9 @@ struct AigsizePass : Pass {
 			log_cmd_error("No top module selected\n");
 
 		design->bufNormalize(true);
-		counter.setup(top);
-		counter.count();
-		log("Counted %d gates\n", counter.ngates);
+		writer.setup(top);
+		writer.count();
+		log("Counted %d gates\n", writer.ngates);
 
 		// we are leaving the sacred land, un-bufnormalize
 		// (if not, this will lead to bugs: the buf-normalized

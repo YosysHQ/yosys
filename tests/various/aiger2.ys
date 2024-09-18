@@ -158,7 +158,7 @@ copy test gold
 flatten gold
 techmap submodule1
 select test
-write_aiger2 aiger2_ops.aig
+write_aiger2 -flatten aiger2_ops.aig
 select -clear
 delete test
 read_aiger -module_name test aiger2_ops.aig
