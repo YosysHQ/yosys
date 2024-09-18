@@ -275,6 +275,9 @@ int main(int argc, char **argv)
 		printf("    -d\n");
 		printf("        print more detailed timing stats at exit\n");
 		printf("\n");
+		printf("    -B perffile\n");
+		printf("        write more detailed timing stats at exit in JSON into perffile\n");
+		printf("\n");
 		printf("    -l logfile\n");
 		printf("        write log messages to the specified file\n");
 		printf("\n");
