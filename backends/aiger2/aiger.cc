@@ -125,7 +125,7 @@ struct Index {
 
 	bool const_folding = true;
 	bool strashing = false;
-	dict<std::pair<int, int>, int> cache;
+	dict<std::pair<Lit, Lit>, Lit> cache;
 
 	Lit AND(Lit a, Lit b)
 	{
@@ -602,7 +602,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 	}
 
 	void write_header() {
-		log_assert(lit_counter == (ninputs + nlatches + nands) * 2 + 2);
+		log_assert(lit_counter == (Lit) (ninputs + nlatches + nands) * 2 + 2);
 
 		char buf[128];
 		snprintf(buf, sizeof(buf) - 1, "aig %08d %08d %08d %08d %08d\n",
