@@ -694,7 +694,7 @@ endif
 
 ifeq ($(ENABLE_SLANG),1)
 OBJS += yosys-slang/build/*.o
-OBJS += yosys-slang/build/slang_install/lib*/*.a
+OBJS += yosys-slang/build/slang*/lib*/*.a
 endif
 
 ifneq ($(SMALL),1)
