@@ -1032,6 +1032,8 @@ void init_share_dirname()
 		return;
 	}
 #    ifdef YOSYS_DATDIR
+	if (std::getenv("YOSYS_DATDIR"))
+		return std::getenv("YOSYS_DATDIR");
 	proc_share_path = YOSYS_DATDIR "/";
 	if (check_file_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
