@@ -224,16 +224,6 @@ RTLIL::Const::Const(int val, int width)
 	}
 }
 
-RTLIL::Const::Const(long long val, int width)
-{
-	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
-	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
-		val = val >> 1;
-	}
-}
-
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
