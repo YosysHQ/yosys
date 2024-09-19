@@ -449,19 +449,19 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		auto type_range = nl->GetTypeRange(obj->Name());
 		if (!type_range)
 			return;
-		if (type_range->IsTypeScalar()) {
-			const long long bottom_bound = type_range->GetScalarRangeLeftBound();
-			const long long top_bound = type_range->GetScalarRangeRightBound();
-			const unsigned bit_width = type_range->NumElements();
-			RTLIL::Const bottom_const(bottom_bound, bit_width);
-			RTLIL::Const top_const(top_bound, bit_width);
-			if (bottom_bound < 0 || top_bound < 0) {
-				bottom_const.flags |= RTLIL::CONST_FLAG_SIGNED;
-				top_const.flags |= RTLIL::CONST_FLAG_SIGNED;
-			}
-			// attributes.emplace(ID(bottom_bound), bottom_const);
-			// attributes.emplace(ID(top_bound), top_const);
-		}
+		// if (type_range->IsTypeScalar()) {
+		// 	const long long bottom_bound = type_range->GetScalarRangeLeftBound();
+		// 	const long long top_bound = type_range->GetScalarRangeRightBound();
+		// 	const unsigned bit_width = type_range->NumElements();
+		// 	RTLIL::Const bottom_const(bottom_bound, bit_width);
+		// 	RTLIL::Const top_const(top_bound, bit_width);
+		// 	if (bottom_bound < 0 || top_bound < 0) {
+		// 		bottom_const.flags |= RTLIL::CONST_FLAG_SIGNED;
+		// 		top_const.flags |= RTLIL::CONST_FLAG_SIGNED;
+		// 	}
+		// 	attributes.emplace(ID(bottom_bound), bottom_const);
+		// 	attributes.emplace(ID(top_bound), top_const);
+		// }
 		if (!type_range->IsTypeEnum())
 			return;
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -3005,18 +3005,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			log("    Merging RAMs for %s.\n", it->first.c_str());
 			nl->MergeRams();
 
-			log("    Balancing timing for %s.\n", it->first.c_str());
-			unsigned result = nl->BalanceTiming(0);
-			log("    Balance timing result before: %d\n", result);
-			result = nl->BalanceTiming(1);
-			log("    Balance timing result after: %d\n", result);
-
-			log("    Running post-elaboration for %s.\n", it->first.c_str());
-			nl->PostElaborationProcess();
-
-			log("    Running operator optimization for %s.\n", it->first.c_str());
-			nl->OperatorOptimization(1, 1);
-			
 			log("    Performing resource sharing for %s.\n", it->first.c_str());
 			result = nl->ResourceSharing();
 			log("      Shared %d resources.\n", result);
@@ -3025,6 +3013,12 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 			log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
 			nl->InferClockEnableMux();
+
+			log("    Running post-elaboration for %s.\n", it->first.c_str());
+			nl->PostElaborationProcess();
+
+			log("    Running operator optimization for %s.\n", it->first.c_str());
+			nl->OperatorOptimization(1, 1);
 		}
 
 		if (nl_done.count(it->first) == 0) {

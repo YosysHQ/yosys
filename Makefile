@@ -35,7 +35,7 @@ ENABLE_PYOSYS := 1
 # other configuration flags
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
-ENABLE_DEBUG := 0
+ENABLE_DEBUG := 1
 ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
