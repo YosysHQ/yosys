@@ -56,6 +56,7 @@
 #include <sstream>
 #include <climits>
 #include <vector>
+#include <filesystem>
 
 #ifndef _WIN32
 #  include <unistd.h>
@@ -711,7 +712,7 @@ void substitute(std::string &str, const std::string &placeholder, const std::str
 }
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string exe_flags,
-		std::string input_file, std::string output_file, std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files,
+		std::string input_file, std::string output_file, std::vector<std::string> &helper_files, std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files,
 		std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells,
@@ -841,6 +842,41 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
+
+	for (const std::string &hfile : helper_files) {
+        std::ifstream fstream(hfile);
+        if (!fstream) {
+            std::cerr << "Error: Unable to open file " << hfile << std::endl;
+            continue;
+        }
+
+        std::string hscript((std::istreambuf_iterator<char>(fstream)),
+                               std::istreambuf_iterator<char>());
+        fstream.close();
+
+        // Substitute placeholders
+        substitute(hscript, "{D}", delay_target);
+        substitute(hscript, "{I}", sop_inputs);
+        substitute(hscript, "{P}", sop_products);
+        substitute(hscript, "{S}", lutin_shared);
+        substitute(hscript, "{tmpdir}", tempdir_name.c_str());
+		substitute(hscript, "{input}", input_file.c_str());
+		substitute(hscript, "{output}", output_file.c_str());
+
+        // Get filename only (strip the directory path)
+        std::string filename = std::filesystem::path(hfile).filename().string();
+
+        // Write to tempdir
+        std::string hpath = tempdir_name + "/" + filename;
+        std::ofstream tmp_hstream(hpath);
+        if (!tmp_hstream) {
+            std::cerr << "Error: Unable to write tmpfile" << hpath << std::endl;
+            continue;
+        }
+
+        tmp_hstream << hscript;
+        tmp_hstream.close();
+    }
 
 	// parse clock domain
 	if (clk_str != "$")
@@ -1713,6 +1749,7 @@ struct AbcPass : public Pass {
 		std::string input_file = "input.blif";
 		std::string output_file = "output.blif";
 		std::string exe_flags = "-s -f";
+		std::vector<std::string> helper_files;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1796,6 +1833,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
 				liberty_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-helper" && argidx+1 < args.size()) {
+				helper_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (arg == "-dont_use" && argidx+1 < args.size()) {
@@ -2116,7 +2157,7 @@ struct AbcPass : public Pass {
 			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, helper_files, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells, custom_flow);
 				continue;
 			}
@@ -2278,7 +2319,7 @@ struct AbcPass : public Pass {
 				arst_sig = assign_map(std::get<5>(it.first));
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
-				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$", keepff,
+				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, helper_files, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$", keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells, custom_flow);
 				assign_map.set(mod);
 			}
