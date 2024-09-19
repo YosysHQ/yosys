@@ -831,6 +831,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	substitute(abc_script, "{P}", sop_products);
 	substitute(abc_script, "{S}", lutin_shared);
 	substitute(abc_script, "{tmpdir}", tempdir_name.c_str());
+	substitute(abc_script, "{input}", input_file.c_str());
+	substitute(abc_script, "{output}", output_file.c_str());
 
 	// write script file
 	std::string buffer = stringf("%s/abc.script", tempdir_name.c_str());
