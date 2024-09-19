@@ -266,7 +266,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_gates")) {
 			if (inferAdder && family == "qlf_k6n10f") {
-				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v", "(unless -no_adder)");
+				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v -D NODIV", "(unless -no_adder)");
+				run("techmap", "(unless -no_adder)");
 			} else {
 				run("techmap");
 			}
