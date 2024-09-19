@@ -703,6 +703,9 @@ struct RTLIL::Const
 		return ret;
 	}
 
+	// compress representation to the minimum required bits
+	void compress(bool is_signed = false);
+
 	void extu(int width) {
 		bits.resize(width, RTLIL::State::S0);
 	}

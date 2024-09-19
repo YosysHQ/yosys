@@ -280,6 +280,30 @@ int RTLIL::Const::as_int(bool is_signed) const
 	return ret;
 }
 
+void RTLIL::Const::compress(bool is_signed)
+{
+	if (bits.empty()) return;
+
+	// back to front (MSB to LSB)
+	RTLIL::State leading_bit;
+	if(is_signed)
+		leading_bit = (bits.back() == RTLIL::State::Sx) ? RTLIL::State::S0 : bits.back();
+	else
+		leading_bit = RTLIL::State::S0;
+
+    size_t idx = bits.size();
+    while (idx > 0 && bits[idx -1] == leading_bit) {
+        --idx;
+    }
+
+	// signed needs one leading bit
+	if (is_signed && idx < bits.size()) {
+        ++idx;
+    }
+
+	bits.erase(bits.begin() + idx, bits.end());
+}
+
 std::string RTLIL::Const::as_string() const
 {
 	std::string ret;
