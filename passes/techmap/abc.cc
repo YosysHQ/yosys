@@ -710,8 +710,8 @@ void substitute(std::string &str, const std::string &placeholder, const std::str
     }
 }
 
-void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, 
-		std::string input_file, std::string output_file, std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, 
+void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file, std::string exe_flags,
+		std::string input_file, std::string output_file, std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files,
 		std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells,
@@ -1142,7 +1142,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fclose(f);
 		}
 
-		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+		buffer = stringf("\"%s\" %s %s/abc.script 2>&1", exe_file.c_str(), exe_flags.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
@@ -1712,6 +1712,7 @@ struct AbcPass : public Pass {
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
 		std::string input_file = "input.blif";
 		std::string output_file = "output.blif";
+		std::string exe_flags = "-s -f";
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1729,6 +1730,7 @@ struct AbcPass : public Pass {
 		// get arguments from scratchpad first, then override by command arguments
 		std::string lut_arg, luts_arg, g_arg;
 		exe_file = design->scratchpad_get_string("abc.exe", exe_file /* inherit default value if not set */);
+		exe_flags = design->scratchpad_get_string("abc.exeflags", exe_flags);
 		script_file = design->scratchpad_get_string("abc.script", script_file);
 		default_liberty_file = design->scratchpad_get_string("abc.liberty", default_liberty_file);
 		constr_file = design->scratchpad_get_string("abc.constr", constr_file);
@@ -2114,7 +2116,7 @@ struct AbcPass : public Pass {
 			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells, custom_flow);
 				continue;
 			}
@@ -2276,7 +2278,7 @@ struct AbcPass : public Pass {
 				arst_sig = assign_map(std::get<5>(it.first));
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
-				abc_module(design, mod, script_file, exe_file, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$", keepff,
+				abc_module(design, mod, script_file, exe_file, exe_flags, input_file, output_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$", keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells, custom_flow);
 				assign_map.set(mod);
 			}
