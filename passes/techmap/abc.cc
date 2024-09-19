@@ -48,6 +48,7 @@
 #include "kernel/ff.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
+#include "frontends/verilog/verilog_frontend.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -727,7 +728,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	po_map.clear();
 
 	std::string tempdir_name;
-	if (cleanup) 
+	if (cleanup)
 		tempdir_name = get_base_tmpdir() + "/";
 	else
 		tempdir_name = "_tmp_";
@@ -758,8 +759,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				log_error("Opening %s for reading failed\n", script_file.c_str());
 			}
 		}
-	}	
-	
+	}
+
 	std::string abc_script;
 	// in a custom flow the user-script handles everything itself
 	if(custom_flow == false) {
@@ -1239,7 +1240,30 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 		bool builtin_lib = liberty_files.empty() && genlib_files.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
-		parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
+
+		// verilog?
+		if (output_file.rfind(".v") == (output_file.length() - 2)) {
+			AST::current_filename = output_file.c_str();
+			AST::set_line_num = &frontend_verilog_yyset_lineno;
+			AST::get_line_num = &frontend_verilog_yyget_lineno;
+
+			VERILOG_FRONTEND::current_ast = new AST::AstNode(AST::AST_DESIGN);
+			VERILOG_FRONTEND::lexin = &ifs;
+
+			frontend_verilog_yyset_lineno(1);
+			frontend_verilog_yyrestart(NULL);
+			frontend_verilog_yyparse();
+			frontend_verilog_yylex_destroy();
+
+			AST::process(mapped_design, VERILOG_FRONTEND::current_ast, true, false, false, false, false, false, true /*dump rtlil*/, true,
+					true, true, false, false, false, false, true, true, false, false, false, false, false);
+
+			VERILOG_FRONTEND::lexin = NULL;
+			VERILOG_FRONTEND::current_ast = NULL;
+		} else {
+			// default to blif
+			parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
+		}
 
 		ifs.close();
 
