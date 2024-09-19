@@ -3006,7 +3006,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			nl->MergeRams();
 
 			log("    Performing resource sharing for %s.\n", it->first.c_str());
-			result = nl->ResourceSharing();
+			unsigned int result = nl->ResourceSharing();
 			log("      Shared %d resources.\n", result);
 			log("    Performing final resource merging for %s.\n", it->first.c_str());
 			nl->OptimizeSameInputSubstractorComparator();
