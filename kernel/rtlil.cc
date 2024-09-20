@@ -286,20 +286,22 @@ void RTLIL::Const::compress(bool is_signed)
 
 	// back to front (MSB to LSB)
 	RTLIL::State leading_bit;
-	if(is_signed)
+	if (is_signed)
 		leading_bit = (bits.back() == RTLIL::State::Sx) ? RTLIL::State::S0 : bits.back();
 	else
 		leading_bit = RTLIL::State::S0;
 
-    size_t idx = bits.size();
-    while (idx > 0 && bits[idx -1] == leading_bit) {
-        --idx;
-    }
+	size_t idx = bits.size();
+	while (idx > 0 && bits[idx -1] == leading_bit) {
+		idx--;
+	}
 
 	// signed needs one leading bit
 	if (is_signed && idx < bits.size()) {
-        ++idx;
-    }
+		idx++;
+	}
+	// must be at least one bit
+	idx = (idx == 0) ? 1 : idx;
 
 	bits.erase(bits.begin() + idx, bits.end());
 }
