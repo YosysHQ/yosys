@@ -3740,6 +3740,14 @@ struct VerificPass : public Pass {
 			int i;
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
 				std::string file_name_str = filename;
+
+				// Check if file is VHDL
+				if (file_name_str.substr(file_name_str.find_last_of(".") + 1) == "vhd") goto is_vhdl;
+				if (file_name_str.substr(file_name_str.find_last_of(".") + 1) == "vhdl") goto is_vhdl;
+				continue;
+
+				// Convert to Verilog
+				is_vhdl:
 				log("Converting VHDL to Verilog for file %s\n", filename);
 
 				// Get exe path using whereami
@@ -3765,7 +3773,7 @@ struct VerificPass : public Pass {
 				}
 
 				// Add file
-				file_names->Insert(i, strdup(outfile.c_str()));
+				file_names->Insert(i, outfile.c_str());
 			}
 
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
