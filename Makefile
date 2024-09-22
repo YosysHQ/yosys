@@ -12,11 +12,11 @@ CONFIG := none
 ENABLE_TCL := 0
 ENABLE_ABC := 0
 ENABLE_GLOB := 1
-ENABLE_PLUGINS := 1
+ENABLE_PLUGINS := 0
 ENABLE_READLINE := 0
 ENABLE_EDITLINE := 1
 ENABLE_GHDL := 0
-ENABLE_SLANG := 1
+ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
 ENABLE_VERIFIC_VHDL := 0
@@ -35,7 +35,7 @@ ENABLE_PYOSYS := 1
 # other configuration flags
 ENABLE_GCOV := 0
 ENABLE_GPROF := 0
-ENABLE_DEBUG := 1
+ENABLE_DEBUG := 0
 ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
@@ -718,7 +718,6 @@ include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
 include $(YOSYS_SRC)/frontends/liberty/Makefile.inc
 
-OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
