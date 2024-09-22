@@ -27,7 +27,6 @@ ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
-ENABLE_FUNC := 0
 
 # python wrappers
 ENABLE_PYOSYS := 1
@@ -40,7 +39,7 @@ ENABLE_LTO := 0
 ENABLE_CCACHE := 0
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
-ENABLE_FUNCTIONAL_TESTS := 0
+ENABLE_FUNCTIONAL_TESTS := 1
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -500,7 +499,7 @@ endif
 LIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= ./verific
-VERIFIC_COMPONENTS ?= database util containers hdl_file_sort
+VERIFIC_COMPONENTS ?= database util containers
 ifeq ($(ENABLE_VERIFIC_HIER_TREE),1)
 VERIFIC_COMPONENTS += hier_tree
 CXXFLAGS += -DVERIFIC_HIER_TREE_SUPPORT
@@ -650,9 +649,7 @@ $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
-ifeq ($(ENABLE_FUNC),1)
 OBJS += kernel/drivertools.o kernel/functional.o
-endif
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif

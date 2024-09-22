@@ -3809,6 +3809,7 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
+			RuntimeFlags::SetVar("veri_ignore_assertion_statements", args[argidx] != "-formal");
 
 			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].compare(0, 2, "-D") == 0; argidx++) {
 				std::string name = args[argidx].substr(2);
@@ -4457,7 +4458,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 			} else {
 				args[0] = "read_verilog";
 				args[1] = "-defer";
@@ -4468,11 +4469,13 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv" || args[1] == "-formal") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 			} else {
 				args[0] = "read_verilog";
-				if (args[1] == "-formal")
+				if (args[1] == "-formal") {
 					args.insert(args.begin()+1, std::string());
+					RuntimeFlags::SetVar("veri_ignore_assertion_statements", 0);
+				}
 				args[1] = "-sv";
 				args.insert(args.begin()+1, "-defer");
 			}
@@ -4483,7 +4486,7 @@ struct ReadPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl2019" || args[1] == "-vhdl") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4494,7 +4497,7 @@ struct ReadPass : public Pass {
 #ifdef VERIFIC_EDIF_SUPPORT
 		if (args[1] == "-edif") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4504,7 +4507,7 @@ struct ReadPass : public Pass {
 #endif
 		if (args[1] == "-liberty") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 			} else {
 				args[0] = "read_liberty";
 			}
@@ -4513,7 +4516,7 @@ struct ReadPass : public Pass {
 		}
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4523,7 +4526,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-define") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				args[1] = "-vlog-define";
 				Pass::call(design, args);
 			}
@@ -4537,7 +4540,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-undef") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				args[1] = "-vlog-undef";
 				Pass::call(design, args);
 			}
@@ -4551,7 +4554,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-incdir") {
 			if (use_verific) {
-				args[0] = "verific";
+				args[0] = "import";
 				args[1] = "-vlog-incdir";
 				Pass::call(design, args);
 			}
