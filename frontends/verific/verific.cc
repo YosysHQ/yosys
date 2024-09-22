@@ -3736,14 +3736,15 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 			*/
 
-			// SILIMATE: VHDL processing
+			// SILIMATE: VHDL processing using GHDL
 			int i;
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
-				std::string file_name_str = filename;
+				// Convert filename to std::string
+				std::string filename_str = filename;
 
 				// Check if file is VHDL
-				if (file_name_str.substr(file_name_str.find_last_of(".") + 1) == "vhd") goto is_vhdl;
-				if (file_name_str.substr(file_name_str.find_last_of(".") + 1) == "vhdl") goto is_vhdl;
+				if (filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") goto is_vhdl;
+				if (filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl") goto is_vhdl;
 				continue;
 
 				// Convert to Verilog
@@ -3763,9 +3764,9 @@ struct VerificPass : public Pass {
 				if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
 
 				// Run command to convert VHDL to Verilog
-				std::string top = file_name_str.substr(0, std::string(FileSystem::Basename(filename)).find_last_of("."));
+				std::string top = filename_str.substr(0, std::string(FileSystem::Basename(filename)).find_last_of("."));
 				std::string outfile = "preqorsor/data/" + top + ".v";
-				std::string ghdl_cmd = ghdl_path + " --synth --no-formal --out=verilog " + file_name_str + " -e " + top + " > " + outfile;
+				std::string ghdl_cmd = ghdl_path + " --synth --no-formal --out=verilog " + filename_str + " -e " + top + " > " + outfile;
 				log("Running command: %s\n", ghdl_cmd.c_str());
 				if (system(ghdl_cmd.c_str()) != 0) {
 					verific_error_msg.clear();
@@ -3773,7 +3774,7 @@ struct VerificPass : public Pass {
 				}
 
 				// Add file
-				file_names->Insert(i, outfile.c_str());
+				file_names->Insert(i, Strings::save(outfile.c_str()));
 			}
 
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
