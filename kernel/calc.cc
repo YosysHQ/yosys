@@ -721,5 +721,16 @@ RTLIL::Const RTLIL::const_bwmux(const RTLIL::Const &arg1, const RTLIL::Const &ar
 	return result;
 }
 
+RTLIL::Const RTLIL::const_equiv(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
+{
+	log_assert(arg2.size() == arg1.size());
+	RTLIL::Const result(RTLIL::State::S1, 1);
+	for (int i = 0; i < arg1.size(); i++)
+		if (arg1[i] != arg2[i])
+			result[i] = RTLIL::State::S0;
+
+	return result;
+}
+
 YOSYS_NAMESPACE_END
 
