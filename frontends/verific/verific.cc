@@ -230,7 +230,7 @@ bool is_blackbox(Netlist *nl)
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
 	std::string s = stringf("$%s", obj->Name());
-	if (seen_ids.count(s)) s += stringf("$%d", autoidx++);
+	while (seen_ids.count(s) > 0) s = "$"	+ s;
 	seen_ids.insert(s);
 	return s;
 }
@@ -449,19 +449,21 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		auto type_range = nl->GetTypeRange(obj->Name());
 		if (!type_range)
 			return;
-		// if (type_range->IsTypeScalar()) {
-		// 	const long long bottom_bound = type_range->GetScalarRangeLeftBound();
-		// 	const long long top_bound = type_range->GetScalarRangeRightBound();
-		// 	const unsigned bit_width = type_range->NumElements();
-		// 	RTLIL::Const bottom_const(bottom_bound, bit_width);
-		// 	RTLIL::Const top_const(top_bound, bit_width);
-		// 	if (bottom_bound < 0 || top_bound < 0) {
-		// 		bottom_const.flags |= RTLIL::CONST_FLAG_SIGNED;
-		// 		top_const.flags |= RTLIL::CONST_FLAG_SIGNED;
-		// 	}
-		// 	attributes.emplace(ID(bottom_bound), bottom_const);
-		// 	attributes.emplace(ID(top_bound), top_const);
-		// }
+		/* SILIMATE: causes issues with OpenSTA attribute parsing
+		if (type_range->IsTypeScalar()) {
+			const long long bottom_bound = type_range->GetScalarRangeLeftBound();
+			const long long top_bound = type_range->GetScalarRangeRightBound();
+			const unsigned bit_width = type_range->NumElements();
+			RTLIL::Const bottom_const(bottom_bound, bit_width);
+			RTLIL::Const top_const(top_bound, bit_width);
+			if (bottom_bound < 0 || top_bound < 0) {
+				bottom_const.flags |= RTLIL::CONST_FLAG_SIGNED;
+				top_const.flags |= RTLIL::CONST_FLAG_SIGNED;
+			}
+			attributes.emplace(ID(bottom_bound), bottom_const);
+			attributes.emplace(ID(top_bound), top_const);
+		}
+		*/
 		if (!type_range->IsTypeEnum())
 			return;
 #ifdef VERIFIC_VHDL_SUPPORT
