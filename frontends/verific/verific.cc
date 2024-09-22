@@ -42,8 +42,6 @@ USING_YOSYS_NAMESPACE
 #pragma clang diagnostic ignored "-Woverloaded-virtual"
 #endif
 
-#include "hdl_file_sort.h"
-#include "veri_file.h"
 #include "Array.h"
 #include "RuntimeFlags.h"
 #ifdef VERIFIC_HIER_TREE_SUPPORT
@@ -3496,9 +3494,11 @@ struct VerificPass : public Pass {
 #endif
 			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
-// #ifndef DB_PRESERVE_INITIAL_VALUE
-// #  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
-// #endif
+/* SILIMATE: do not warn about initial value preservation
+#ifndef DB_PRESERVE_INITIAL_VALUE
+#  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
+#endif
+*/
 
 			set_verific_global_flags = false;
 		}
@@ -3653,27 +3653,17 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		// SILIMATE: auto-discover
-		if (args[argidx] == "-auto_discover" && argidx+1 < GetSize(args))
-		{
-			// Always operate in SystemVerilog mode
-			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
-			const char* arg = args[argidx].c_str();
+		if (GetSize(args) > argidx && args[argidx] == "-set_ignore_translate_off") {
+			veri_file::SetIgnoreTranslateOff(1);
+			goto check_error;
+		}
 
-			// Set relaxed language checking
+		if (GetSize(args) > argidx && args[argidx] == "-set_relaxed_checking") {
 			VeriNode::SetRelaxedChecking(1);
+			goto check_error;
+		}
 
-			// Treat .v as SystemVerilog too (overriding default behavior to treat it as VERILOG_2000)
-			hdl_file_sort::RemoveFileExt(".v");
-			hdl_file_sort::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".sv", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
-			hdl_file_sort::AddFileExtMode(".vhd", veri_file::VHDL);
-			hdl_file_sort::AddFileExtMode(".vhdl", veri_file::VHDL);
+		if (GetSize(args) > argidx && args[argidx] == "-set_relaxed_file_ext_modes") {
 			veri_file::RemoveFileExt(".v");
 			veri_file::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
@@ -3684,143 +3674,24 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".vhd", veri_file::VHDL);
 			veri_file::AddFileExtMode(".vhdl", veri_file::VHDL);
-
-			// Delete VHDL artifacts
-			FileSystem::Remove("preqorsor/data/vhdl.v");
-
-			// Select analyze function
-			auto analyze_function = (args[argidx++] == "-auto_discover") ? hdl_file_sort::AnalyzeDiscoveredFiles : hdl_file_sort::AnalyzeSortedFiles;
-			
-			// Check whether to define default macros
-			if (argidx < GetSize(args) && args[argidx] == "-define_default_macros") {
-				hdl_file_sort::DefineMacro("YOSYS", "1");
-				hdl_file_sort::DefineMacro("SYNTHESIS", "1");
-				hdl_file_sort::DefineMacro("FORMAL", "1");
-				veri_file::DefineMacro("SYNTH", "1");
-				veri_file::DefineMacro("SYNTHESIS", "1");
-				veri_file::DefineMacro("OVL_SVA", "1");
-				log("AUTO-DISCOVER: defined default macros YOSYS, SYNTHESIS, and FORMAL\n");
-				argidx++;
-			}
-
-			// Remaining arguments are treated as search directories to add
-			// -f <FILE> and -F <FILE> are also supported, but must come AFTER
-			unsigned i;
-			MapIter mi;
-    	const char *file_name, *dir_name, *key, *value;
-			for (; argidx < GetSize(args); argidx++) {
-				if (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF") {
-					veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : ((args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_CAPITAL_NESTED);
-					veri_file::Analyze("preqorsor/data/blackboxes.v");
-					FOREACH_MAP_ITEM(veri_file::AllModules(), mi, &key, &value) {
-						veri_file::AddToIgnoredParsedModuleNames(key);
-						log("AUTO-DISCOVER: will not parse module %s since found in blackboxes.v\n", key);
-					}
-					Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
-					FOREACH_ARRAY_ITEM(veri_file::IncludeDirs(), i, dir_name) {
-						if (!hdl_file_sort::RegisterDir(dir_name)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not register include directory %s.\n", dir_name);
-						}
-						hdl_file_sort::AddIncludeDir(dir_name);
-						log("AUTO-DISCOVER: registered include directory %s\n", dir_name);
-					}
-					FOREACH_ARRAY_ITEM(veri_file::GetAllYDirs(), i, dir_name) {
-						if (!hdl_file_sort::RegisterDir(dir_name)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not register -y directory %s.\n", dir_name);
-						}
-						log("AUTO-DISCOVER: registered -y directory %s\n", dir_name);
-					}
-					FOREACH_ARRAY_ITEM(veri_file::GetAllVFiles(), i, file_name) {
-						if (!hdl_file_sort::RegisterFile(file_name)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not register -v file %s.\n", file_name);
-						}
-						log("AUTO-DISCOVER: registered -v file %s\n", file_name);
-					}
-					FOREACH_MAP_ITEM(veri_file::AllMacroDefs(), mi, &key, &value) {
-						hdl_file_sort::DefineMacro(key, value, veri_file::MacroArgs(key));
-						log("AUTO-DISCOVER: registered definition of macro %s with value %s\n", key, value);
-					}
-					FOREACH_MAP_ITEM(veri_file::AllCmdLineMacros(), mi, &key, &value) {
-						hdl_file_sort::DefineCmdLineMacro(key, value);
-						log("AUTO-DISCOVER: registered definition of command line macro %s with value %s\n", key, value);
-					}
-					FOREACH_ARRAY_ITEM(file_names, i, file_name) {
-						std::string file_name_str = file_name;
-						if (file_name_str.length() > 5 && (file_name_str.substr(file_name_str.length() - 4) == ".vhd" || file_name_str.substr(file_name_str.length() - 5) == ".vhdl")) {
-							// Convert VHDL to Verilog
-							log("Converting VHDL to Verilog for file %s\n", file_name);
-							
-							// Get exe path using whereami
-							int length = wai_getExecutablePath(NULL, 0, NULL);
-							char* exe_path = new char[length];
-							wai_getExecutablePath(exe_path, length, NULL);
-							exe_path[length] = '\0';
-
-							// Get dirname of exe path
-							std::string ghdl_path = std::string(FileSystem::Dirname(exe_path)) + "/ghdl";
-
-							// Check if GHDL binary exists, else use system path
-							if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
-
-							// Run command to convert VHDL to Verilog
-							std::string top = file_name_str.substr(0, std::string(FileSystem::Basename(file_name)).find_last_of("."));
-							std::string outfile = "preqorsor/data/" + top + ".v";
-							std::string ghdl_cmd = ghdl_path + " --synth --no-formal --out=verilog " + file_name_str + " -e " + top + " > " + outfile;
-							log("Running command: %s\n", ghdl_cmd.c_str());
-							if (system(ghdl_cmd.c_str()) != 0) {
-								verific_error_msg.clear();
-								log_cmd_error("Could not convert VHDL file %s to Verilog.\n", file_name);
-							}
-							
-							// Add file
-							if (!hdl_file_sort::RegisterFile(outfile.c_str())) {
-								verific_error_msg.clear();
-								log_cmd_error("Could not register file %s.\n", outfile.c_str());
-							}
-						}
-						else if (!hdl_file_sort::RegisterFile(file_name)) {
-							verific_error_msg.clear();
-							log_cmd_error("Could not register file %s.\n", file_name);
-						}
-						log("AUTO-DISCOVER: registered file %s from .f file processing\n", file_name);
-					}
-					delete file_names;
-				} else if (args[argidx] == "-ignore_translate_off") {
-					// Ignore translate_off statements
-					log("AUTO-DISCOVER: ignoring translate_off directives\n");
-					hdl_file_sort::SetIgnoreTranslateOff(1);
-					veri_file::SetIgnoreTranslateOff(1);
-				} else {
-					veri_file::AddIncludeDir(args[argidx].c_str());
-					if (!hdl_file_sort::RegisterDir(args[argidx].c_str())) {
-						verific_error_msg.clear();
-						log_cmd_error("Could not register directory %s.\n", args[argidx].c_str());
-					}
-					log("AUTO-DISCOVER: registered directory %s specified in config.options.search_dirs\n", args[argidx].c_str());
-				}
-			}
-
-			// Analyze discovered/sorted files
-			if (!analyze_function(veri_file::MFCU)) {
-				verific_error_msg.clear();
-				log_cmd_error("Reading Verilog/SystemVerilog sources during %s failed.\n", arg);
-			}
-
-			// Check error
-			verific_import_pending = true;
 			goto check_error;
 		}
 
-		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
+		if (GetSize(args) > argidx && args[argidx] == "-ignore_module") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				string name = args[argidx];
+				veri_file::AddToIgnoredParsedModuleNames(name.c_str());
+			}
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
-			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+			unsigned verilog_mode = veri_file::UNDEFINED;
 			bool is_formal = false;
 			const char* filename = nullptr;
 
-			Verific::veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
+			Verific::veri_file::f_file_flags flags = (args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : (args[argidx] == "-FF" ? veri_file::F_FILE_CAPITAL_NESTED : veri_file::F_FILE_NONE);
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-vlog95") {
@@ -3859,9 +3730,43 @@ struct VerificPass : public Pass {
 			if (analysis_mode != verilog_mode)
 				log_warning("Provided verilog mode differs from one specified in file.\n");
 
+			/* SILIMATE: set these in define default macros
 			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
+			*/
+
+			// SILIMATE: VHDL processing
+			int i;
+			FOREACH_ARRAY_ITEM(file_names, i, filename) {
+				std::string file_name_str = filename;
+				log("Converting VHDL to Verilog for file %s\n", filename);
+
+				// Get exe path using whereami
+				int length = wai_getExecutablePath(NULL, 0, NULL);
+				char* exe_path = new char[length];
+				wai_getExecutablePath(exe_path, length, NULL);
+				exe_path[length] = '\0';
+
+				// Get dirname of exe path
+				std::string ghdl_path = std::string(FileSystem::Dirname(exe_path)) + "/ghdl";
+
+				// Check if GHDL binary exists, else use system path
+				if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
+
+				// Run command to convert VHDL to Verilog
+				std::string top = file_name_str.substr(0, std::string(FileSystem::Basename(filename)).find_last_of("."));
+				std::string outfile = "preqorsor/data/" + top + ".v";
+				std::string ghdl_cmd = ghdl_path + " --synth --no-formal --out=verilog " + file_name_str + " -e " + top + " > " + outfile;
+				log("Running command: %s\n", ghdl_cmd.c_str());
+				if (system(ghdl_cmd.c_str()) != 0) {
+					verific_error_msg.clear();
+					log_cmd_error("Could not convert VHDL file %s to Verilog.\n", filename);
+				}
+
+				// Add file
+				file_names->Insert(i, strdup(outfile.c_str()));
+			}
 
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
