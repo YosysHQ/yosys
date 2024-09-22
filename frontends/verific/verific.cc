@@ -16,12 +16,12 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#include "kernel/whereami.h"
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
+#include "libs/whereami/whereami.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
