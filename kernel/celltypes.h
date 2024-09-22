@@ -495,6 +495,9 @@ struct CellTypes
 			return default_ret;
 		}
 
+		if (cell->type == ID($equiv))
+			return const_equiv(arg1, arg2);
+
 		bool signed_a = cell->parameters.count(ID::A_SIGNED) > 0 && cell->parameters[ID::A_SIGNED].as_bool();
 		bool signed_b = cell->parameters.count(ID::B_SIGNED) > 0 && cell->parameters[ID::B_SIGNED].as_bool();
 		int result_len = cell->parameters.count(ID::Y_WIDTH) > 0 ? cell->parameters[ID::Y_WIDTH].as_int() : -1;
