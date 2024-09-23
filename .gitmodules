@@ -4,3 +4,6 @@
 [submodule "yosys-slang"]
 	path = yosys-slang
 	url = git@github.com:silimate/yosys-slang.git
+[submodule "abc"]
+	path = abc
+	url = https://github.com/YosysHQ/abc.git
