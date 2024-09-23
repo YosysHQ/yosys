@@ -703,8 +703,13 @@ struct RTLIL::Const
 		return ret;
 	}
 
+	// find the MSB without redundant leading bits
+	size_t get_min_size(bool is_signed) const;
+
 	// compress representation to the minimum required bits
 	void compress(bool is_signed = false);
+
+	std::optional<int> as_int_compress(bool is_signed) const;
 
 	void extu(int width) {
 		bits.resize(width, RTLIL::State::S0);
