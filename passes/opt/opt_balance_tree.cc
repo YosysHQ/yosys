@@ -196,6 +196,8 @@ struct OptBalanceTreeWorker {
 			cell->setParam(ID::Y_WIDTH, GetSize(y_sig));
 			log_debug("Width reduced %s/Y by %d bits\n", log_id(cell), bits_removed);
 		}
+
+		cell->fixup_parameters();
 	}
 
 	void process_chain(vector<Cell*> &chain) {
