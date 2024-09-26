@@ -206,7 +206,34 @@ int main(int argc, char **argv)
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
 
-	options.add_options()
+	options.add_options("functional")
+		("b,backend", "use <backend> for the output file specified on the command line",
+			cxxopts::value<std::string>(), "<backend>")
+		("f,frontend", "use <frontend> for the input files on the command line",
+			cxxopts::value<std::string>(), "<frontend>")
+		("s,scriptfile", "execute the commands in <scriptfile>",
+			cxxopts::value<std::string>(), "<scriptfile>")
+		("c,tcl-scriptfile", "execute the commands in the TCL <tcl_scriptfile> (see 'help tcl' for details)",
+			cxxopts::value<std::string>(),"<tcl_scriptfile>")
+		("C,tcl-interactive", "enters TCL interactive shell mode")
+		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
+			cxxopts::value<std::vector<std::string>>(), "<commands>")
+		("m,plugin", "load the specified <plugin> module",
+			cxxopts::value<std::vector<std::string>>(), "<plugin>")
+		("D,define", "set the specified Verilog define to <value> if supplied via command \"read -define\"",
+			cxxopts::value<std::vector<std::string>>(), "<define>[=<value>]")
+		("S,synth", "shortcut for calling the \"synth\" command, a default script for transforming " \
+					"the Verilog input to a gate-level netlist. For example: " \
+					"yosys -o output.blif -S input.v " \
+					"For more complex synthesis jobs it is recommended to use the read_* and write_* " \
+					"commands in a script file instead of specifying input and output files on the " \
+					"command line.")
+		("infile", "input files", cxxopts::value<std::vector<std::string>>())
+	;
+	options.add_options("logging")
+		("H", "print the command list")
+		("h,help", "print this help message. If given, print help for <command>.",
+			cxxopts::value<std::string>(), "[<command>]")
 		("Q", "suppress printing of banner (copyright, disclaimer, version)")
 		("T", "suppress printing of footer (log hash, version, timing statistics)")
 		("q,quiet", "quiet operation. Only write warnings and error messages to console. " \
@@ -222,29 +249,6 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<logfile>")
 		("o,outfile", "write the design to <outfile> on exit",
 			cxxopts::value<std::string>(), "<outfile>")
-		("b,backend", "use <backend> for the output file specified on the command line",
-			cxxopts::value<std::string>(), "<backend>")
-		("f,frontend", "use <frontend> for the input files on the command line",
-			cxxopts::value<std::string>(), "<frontend>")
-		("H", "print the command list")
-		("h,help", "print this help message. If given, print help for <command>.",
-			cxxopts::value<std::string>(), "[<command>]")
-		("s,scriptfile", "execute the commands in <scriptfile>",
-			cxxopts::value<std::string>(), "<scriptfile>")
-		("c,tcl-scriptfile", "execute the commands in the TCL <tcl_scriptfile> (see 'help tcl' for details)",
-			cxxopts::value<std::string>(),"<tcl_scriptfile>")
-		("C,tcl-interactive", "enters TCL interactive shell mode")
-		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
-			cxxopts::value<std::vector<std::string>>(), "<commands>")
-		("m,plugin", "load the specified <plugin> module",
-			cxxopts::value<std::vector<std::string>>(), "<plugin>")
-		("X,trace", "enable tracing of core data structure changes. for debugging")
-		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
-		("A,abort", "will call abort() at the end of the script. for debugging")
-		("r,top", "elaborate the specified HDL <top> module",
-			cxxopts::value<std::string>(), "<top>")
-		("D,define", "set the specified Verilog define to <value> if supplied via command \"read -define\"",
-			cxxopts::value<std::vector<std::string>>(), "<define>[=<value>]")
 		("P,dump-design", "dump the design when printing the specified log header to a file. " \
 						   "yosys_dump_<header_id>.il is used as filename if none is specified. " \
 						   "Use 'ALL' as <header_id> to dump at every header.",
@@ -257,19 +261,19 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<regex>")
 		("E,deps-file", "write a Makefile dependencies file <depsfile> with input and output file names",
 			cxxopts::value<std::string>(), "<depsfile>")
+		("V,version", "print version information and exit")
+	;
+	options.add_options("developer")
+		("X,trace", "enable tracing of core data structure changes. for debugging")
+		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
+		("A,abort", "will call abort() at the end of the script. for debugging")
+		("r,top", "elaborate the specified HDL <top> module",
+			cxxopts::value<std::string>(), "<top>")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
 		("g,debug", "globally enable debug log messages")
-		("V,version", "print version information and exit")
-		("S,synth", "shortcut for calling the \"synth\" command, a default script for transforming " \
-					"the Verilog input to a gate-level netlist. For example: " \
-					"yosys -o output.blif -S input.v " \
-					"For more complex synthesis jobs it is recommended to use the read_* and write_* " \
-					"commands in a script file instead of specifying input and output files on the " \
-					"command line.")
 		("perffile", "write a JSON performance log to <perffile>", cxxopts::value<std::string>(), "<perffile>")
-		("infile", "input files", cxxopts::value<std::vector<std::string>>())
-		;
+	;
 
 	options.parse_positional({"infile"});
 	options.positional_help("[<infile> [..]]");
