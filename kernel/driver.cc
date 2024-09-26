@@ -227,8 +227,8 @@ int main(int argc, char **argv)
 		("f,frontend", "use <frontend> for the input files on the command line",
 			cxxopts::value<std::string>(), "<frontend>")
 		("H", "print the command list")
-		("h,help", "print the help message for <command>",
-			cxxopts::value<std::string>(), "<command>")
+		("h,help", "print this help message. If given, print help for <command>.",
+			cxxopts::value<std::string>(), "[<command>]")
 		("s,scriptfile", "execute the commands in <scriptfile>",
 			cxxopts::value<std::string>(), "<scriptfile>")
 		("c,tcl-scriptfile", "execute the commands in the TCL <tcl_scriptfile> (see 'help tcl' for details)",
