@@ -3758,7 +3758,11 @@ struct VerificPass : public Pass {
 				exe_path[length] = '\0';
 
 				// Get dirname of exe path
-				std::string ghdl_path = std::string(FileSystem::Dirname(exe_path)) + "/ghdl";
+				const char *dirname = FileSystem::Dirname(exe_path).c_str();
+				std::string ghdl_path = std::string(dirname) + "/bin/ghdl";
+				log("Exe path: %s\n", exe_path);
+				log("Exe dirname: %s\n", dirname);
+				log("GHDL path: %s\n", ghdl_path.c_str());
 
 				// Check if GHDL binary exists, else use system path
 				if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
