@@ -4,39 +4,52 @@ pattern muxadd
 // y = s ? (a + b) : a   ===>   y = a + (s ? b : 0)
 //
 
-state <SigSpec> add_y add_a add_b
+state <SigSpec> add_a add_b add_y
 
 match add
+	// Select adder
 	select add->type == $add
 endmatch
 
 code add_y add_a add_b
-	add_y = port(add, \Y);
+	// Get adder signals
 	add_a = port(add, \A);
 	add_b = port(add, \B);
+	add_y = port(add, \Y);
+
+	// Fanout of each adder Y bit should be 1 (no bit-split)
+	for (auto bit : add_y)
+		if (nusers(bit) != 2)
+			reject;
+
+	// A and B can be interchanged
 	branch;
 	std::swap(add_a, add_b);
 endcode
 
 match mux
+	// Select mux of form s ? (a + b) : a, allow leading 0s when A_WIDTH != Y_WIDTH
 	select mux->type == $mux
 	index <SigSpec> port(mux, \A) === SigSpec({Const(State::S0, GetSize(add_y)-GetSize(add_a)), add_a})
 	index <SigSpec> port(mux, \B) === add_y
 endmatch
 
 code
+	// Get mux signal
 	SigSpec mux_y = port(mux, \Y);
+
+	// Create new mid wire
 	SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
 
+	// Rewire
 	mux->setPort(\A, Const(State::S0, GetSize(add_b)));
 	mux->setPort(\B, add_b);
 	mux->setPort(\Y, mid);
 	add->setPort(\B, mid);
 	add->setPort(\Y, mux_y);
 
+	// Log, fixup, accept
 	log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
-
 	mux->fixup_parameters();
 	accept;
 endcode
-  
