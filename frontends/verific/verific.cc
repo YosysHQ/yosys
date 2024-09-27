@@ -3769,7 +3769,7 @@ struct VerificPass : public Pass {
 
 				// Run command to convert VHDL to Verilog
 				std::string basename = FileSystem::Basename(filename);
-				std::string top = filename_str.substr(basename.find_last_of("/")+1, basename.find_last_of(".")-basename.find_last_of("/")-1);
+				std::string top = basename.substr(0, basename.find_last_of("."));
 				std::string outfile = "preqorsor/data/" + top + ".v";
 				std::string ghdl_cmd = ghdl_path + " --synth --no-formal -fsynopsys --out=verilog " + filename_str + " -e " + top + " > " + outfile;
 				log("Running command: %s\n", ghdl_cmd.c_str());
