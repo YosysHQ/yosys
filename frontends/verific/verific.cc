@@ -3758,7 +3758,7 @@ struct VerificPass : public Pass {
 				exe_path[length] = '\0';
 
 				// Get dirname of exe path
-				const char *dirname = FileSystem::Dirname(exe_path).c_str();
+				const char *dirname = FileSystem::Dirname(exe_path);
 				std::string ghdl_path = std::string(dirname) + "/bin/ghdl";
 				log("Exe path: %s\n", exe_path);
 				log("Exe dirname: %s\n", dirname);
