@@ -24,7 +24,7 @@ import subprocess
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
-workflow = yaml.safe_load(open(os.path.join(__dir__, "wheels.yml")))
+workflow = yaml.safe_load(open(os.path.join(os.path.dirname(__dir__), "wheels.yml")))
 
 env = os.environ.copy()
 

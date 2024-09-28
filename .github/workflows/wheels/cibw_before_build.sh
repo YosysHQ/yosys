@@ -1,6 +1,13 @@
 set -e
 set -x
 
+# Don't use objects from previous compiles on Windows/macOS
+make clean
+
+# DEBUG: show python3 and python3-config outputs
+python3 --version
+python3-config --includes
+
 # Build boost
 cd ./boost
 ## Delete the artefacts from previous builds (if any)

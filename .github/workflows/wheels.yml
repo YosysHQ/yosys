@@ -91,7 +91,7 @@ jobs:
           # manylinux2014 (default) does not have a modern enough C++ compiler for Yosys
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
-          CIBW_BEFORE_ALL: bash ./.github/workflows/cibw_before_all.sh
+          CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
           CIBW_ENVIRONMENT: >
             CXXFLAGS=-I./boost/pfx/include
             LINKFLAGS=-L./boost/pfx/lib
@@ -103,7 +103,8 @@ jobs:
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
-          CIBW_BEFORE_BUILD: bash ./.github/workflows/cibw_before_build.sh
+          CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
+          CIBW_TEST_COMMAND: python3 -c "from pyosys import libyosys as ys;d=ys.Design();ys.run_pass('help', d)"
       - uses: actions/upload-artifact@v3
         with:
           path: ./dist/*.whl
