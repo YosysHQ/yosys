@@ -51,3 +51,4 @@ __pycache__
 /build
 /venv
 /boost
+/ffi
