@@ -101,11 +101,30 @@ struct SplitfanoutWorker
 		log_debug("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
 		cell->unsetPort(outport);
+		int num_new_cells = GetSize(bit_users)-1;
+		int bit_user_i = num_new_cells;
 		for (auto bit_user : bit_users)
 		{
-			// Create a new cell
-			IdString new_name = module->uniquify(cell->name.str());
-			Cell *new_cell = module->addCell(new_name, cell);
+			// Configure the driver cell
+			IdString new_name;
+			Cell *new_cell;
+			if (bit_user_i-- != 0) { // create a new cell
+				new_name = module->uniquify(cell->name.str());
+				new_cell = module->addCell(new_name, cell);
+				// Add new cell to the bit_users_db
+				for (auto conn : new_cell->connections()) {
+					if (!new_cell->input(conn.first)) continue;
+					for (int i = 0; i < GetSize(conn.second); i++) {
+						SigBit bit(sigmap(conn.second[i]));
+						if (!bit_drivers_db.count(bit)) continue;
+						bit_users_db[bit].insert(tuple<IdString,IdString,int>(new_cell->name,
+								conn.first, i-std::get<2>(bit_drivers_db[bit])));
+					}
+				}
+			} else { // if last cell, reuse the original cell
+				new_name = cell->name;
+				new_cell = cell;
+			}
 
 			// Connect the new cell to the user
 			if (std::get<1>(bit_user) == IdString()) { // is wire
@@ -120,7 +139,6 @@ struct SplitfanoutWorker
 			else {
 				Wire *new_wire = module->addWire(NEW_ID, GetSize(outsig));
 				Cell *target_cell = module->cell(std::get<0>(bit_user));
-				if (!target_cell) continue; // cell might no longer exist
 				SigSpec sig = target_cell->getPort(std::get<1>(bit_user));
 				sig.replace(std::get<2>(bit_user), new_wire);
 				module->cell(std::get<0>(bit_user))->setPort(std::get<1>(bit_user), sig);
@@ -131,14 +149,11 @@ struct SplitfanoutWorker
 			log_debug("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
 		}
 
-		// Remove the original cell
-		module->remove(cell);
-
 		// Fix up ports
 		module->fixup_ports();
 
 		// Return the number of new cells created
-		return GetSize(bit_users)-1;
+		return num_new_cells;
 	}
 };
 
@@ -153,7 +168,7 @@ struct SplitfanoutPass : public Pass {
 		log("This command copies selected cells with >1 fanout into cells with fanout 1. It\n");
 		log("is effectively the opposite of the opt_merge pass.\n");
 		log("\n");
-		log("This command operates only on cells with 1 output and no \"bit split\" on that\n");
+		log("This command operates only on cells with 1 output and no 'bit split' on that\n");
 		log("output.\n");
 		log("\n");
 	}
