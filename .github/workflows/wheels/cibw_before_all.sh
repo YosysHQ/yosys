@@ -18,6 +18,6 @@ cd ffi
 ## Ultimate libyosys.so will be shared, so we need fPIC for the static libraries
 CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure --prefix=$PWD/pfx
 ## Without this, SHELL has a space in its path which breaks the makefile
-make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu) SHELL=bash
+make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)
 ## Forces static library to be used in all situations
 sed -i.bak 's@-L${toolexeclibdir} -lffi@${toolexeclibdir}/libffi.a@' ./pfx/lib/pkgconfig/libffi.pc

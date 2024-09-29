@@ -85,7 +85,11 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.1
         env:
-          CIBW_SKIP: pp* # The Makefile requires python3-config which is not in pypy
+          # * APIs not supported by PyPy
+          # * Musllinux temporarily disabled because it takes too much time
+          CIBW_SKIP: >
+            pp*
+            *musllinux*
           CIBW_ARCHS: ${{ matrix.os.archs }}
           CIBW_BUILD_VERBOSITY: "1"
           # manylinux2014 (default) does not have a modern enough C++ compiler for Yosys
@@ -107,4 +111,4 @@ jobs:
           CIBW_TEST_COMMAND: python3 -c "from pyosys import libyosys as ys;d=ys.Design();ys.run_pass('help', d)"
       - uses: actions/upload-artifact@v3
         with:
-          path: ./dist/*.whl
+          path: ./wheelhouse/*.whl
