@@ -205,8 +205,9 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
+	options.set_width(SIZE_MAX);
 
-	options.add_options("functional")
+	options.add_options("operation")
 		("b,backend", "use <backend> for the output file specified on the command line",
 			cxxopts::value<std::string>(), "<backend>")
 		("f,frontend", "use <frontend> for the input files on the command line",
@@ -218,6 +219,8 @@ int main(int argc, char **argv)
 		("C,tcl-interactive", "enters TCL interactive shell mode")
 		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
 			cxxopts::value<std::vector<std::string>>(), "<commands>")
+		("r,top", "elaborate the specified HDL <top> module",
+			cxxopts::value<std::string>(), "<top>")
 		("m,plugin", "load the specified <plugin> module",
 			cxxopts::value<std::vector<std::string>>(), "<plugin>")
 		("D,define", "set the specified Verilog define to <value> if supplied via command \"read -define\"",
@@ -228,12 +231,13 @@ int main(int argc, char **argv)
 					"For more complex synthesis jobs it is recommended to use the read_* and write_* " \
 					"commands in a script file instead of specifying input and output files on the " \
 					"command line.")
-		("infile", "input files", cxxopts::value<std::vector<std::string>>())
-	;
-	options.add_options("logging")
 		("H", "print the command list")
 		("h,help", "print this help message. If given, print help for <command>.",
 			cxxopts::value<std::string>(), "[<command>]")
+		("V,version", "print version information and exit")
+		("infile", "input files", cxxopts::value<std::vector<std::string>>())
+	;
+	options.add_options("logging")
 		("Q", "suppress printing of banner (copyright, disclaimer, version)")
 		("T", "suppress printing of footer (log hash, version, timing statistics)")
 		("q,quiet", "quiet operation. Only write warnings and error messages to console. " \
@@ -261,14 +265,11 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<regex>")
 		("E,deps-file", "write a Makefile dependencies file <depsfile> with input and output file names",
 			cxxopts::value<std::string>(), "<depsfile>")
-		("V,version", "print version information and exit")
 	;
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
 		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
 		("A,abort", "will call abort() at the end of the script. for debugging")
-		("r,top", "elaborate the specified HDL <top> module",
-			cxxopts::value<std::string>(), "<top>")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
 		("g,debug", "globally enable debug log messages")
