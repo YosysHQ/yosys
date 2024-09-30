@@ -100,6 +100,16 @@ jobs:
           cd iverilog
           echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
+      - name: Get vcd2fst
+        shell: bash
+        run: |
+          git clone https://github.com/mmicko/libwave.git
+          mkdir -p ${{ github.workspace }}/.local/
+          cd libwave
+          cmake . -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/.local
+          make -j$procs
+          make install
+
       - name: Cache iverilog
         id: cache-iverilog
         uses: actions/cache@v4
