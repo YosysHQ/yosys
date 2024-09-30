@@ -665,13 +665,19 @@ int main(int argc, char **argv)
 			PyObject_SetAttrString(sys, "argv", new_argv);
 			Py_DECREF(old_argv);
 
-			PyRun_SimpleString(("import os;sys.path.insert(0, os.path.dirname(os.path.abspath(\""+scriptfile+"\")))").c_str());
+			PyObject *py_path = PyUnicode_FromString(scriptfile.c_str());
+			PyObject_SetAttrString(sys, "_yosys_script_path", py_path);
+			Py_DECREF(py_path);
+			PyRun_SimpleString("import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(sys._yosys_script_path)))");
 
 			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
+			if (scriptfp == nullptr) {
+				log_error("Failed to open file '%s' for reading.\n", scriptfile.c_str());
+			}
 			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
-				log_error("Python interpreter encountered an error:\n");
 				log_flush();
 				PyErr_Print();
+				log_error("Python interpreter encountered an exception.");
 			}
 #else
 			log_error("Can't execute Python script: this version of yosys is not built with Python support enabled.\n");
