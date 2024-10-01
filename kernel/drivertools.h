@@ -863,39 +863,7 @@ public:
 	bool try_append(DriveBit const &bit);
 	bool try_append(DriveChunk const &chunk);
 
-<<<<<<< HEAD
-	unsigned int hash() const
-	{
-		unsigned int inner = 0;
-		switch (type_)
-		{
-			case DriveType::NONE:
-				inner = 0;
-				break;
-			case DriveType::CONSTANT:
-				inner = constant_.hash();
-				break;
-			case DriveType::WIRE:
-				inner = wire_.hash();
-				break;
-			case DriveType::PORT:
-				inner = port_.hash();
-				break;
-			case DriveType::MARKER:
-				inner = marker_.hash();
-				break;
-			case DriveType::MULTIPLE:
-				inner = multiple_.hash();
-				break;
-			default:
-				log_abort();
-				break;
-		}
-		return mkhash((unsigned int)type_, inner);
-	}
-=======
 	Hasher hash_acc(Hasher h) const;
->>>>>>> 898d04260 (hashlib: redo interface for flexibility)
 
 	bool operator==(const DriveChunk &other) const
 	{

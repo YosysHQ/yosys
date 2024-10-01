@@ -169,8 +169,11 @@ public:
 			return !(*this == other);
 		}
 
-		int hash() const {
-			return mkhash(scope_name.hash(), hash_ptr_ops::hash(target));
+		Hasher hash_acc(Hasher h) const
+		{
+			h.acc(scope_name);
+			h.acc(target);
+			return h;
 		}
 
 		bool valid() const {

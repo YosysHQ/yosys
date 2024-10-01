@@ -81,13 +81,20 @@ class Hasher {
 		// traditionally 5381 is used as starting value for the djb2 hash
 		state = 5381;
 	}
+	static void set_fudge(uint32_t f) {
+		fudge = f;
+	}
 
 	private:
 	uint32_t state;
+	static uint32_t fudge;
 	// The XOR version of DJB2
 	[[nodiscard]]
 	static uint32_t mkhash(uint32_t a, uint32_t b) {
-		return ((a << 5) + a) ^ b;
+		uint32_t hash = ((a << 5) + a) ^ b;
+		if (fudge)
+			hash = fudge ^ mkhash_xorshift(hash);
+		return hash;
 	}
 	public:
 	void hash32(uint32_t i) {
