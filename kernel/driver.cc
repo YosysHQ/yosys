@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/hashlib.h"
 #include "libs/sha1/sha1.h"
 #include "libs/cxxopts/include/cxxopts.hpp"
 #include <iostream>
@@ -269,6 +270,8 @@ int main(int argc, char **argv)
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
 		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
+		("hash-seed", "mix up hashing values with <seed>, for extreme optimization and testing",
+			cxxopts::value<int>(), "<seed>")
 		("A,abort", "will call abort() at the end of the script. for debugging")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
@@ -414,6 +417,10 @@ int main(int argc, char **argv)
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
 		if (result.count("infile")) {
 			frontend_files = result["infile"].as<std::vector<std::string>>();
+		}
+		if (result.count("hash-seed")) {
+			int seed = result["hash-seed"].as<int>();
+			Hasher::set_fudge(seed);
 		}
 
 		if (log_errfile == NULL) {
