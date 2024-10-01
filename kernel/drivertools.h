@@ -74,9 +74,11 @@ struct DriveBitWire
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(wire->name.hash(), offset);
+		h.acc(wire->name);
+		h.acc(offset);
+		return h;
 	}
 
 	operator SigBit() const
@@ -107,9 +109,12 @@ struct DriveBitPort
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		h.acc(cell->name);
+		h.acc(port);
+		h.acc(offset);
+		return h;
 	}
 };
 
@@ -133,9 +138,11 @@ struct DriveBitMarker
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(marker, offset);
+		h.acc(marker);
+		h.acc(offset);
+		return h;
 	}
 
 };
@@ -171,9 +178,10 @@ public:
 		return multiple_ == other.multiple_;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-	   return multiple_.hash();
+		h.acc(multiple_);
+		return h;
 	}
 };
 
@@ -362,31 +370,31 @@ public:
 		return *this;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		unsigned int inner;
 		switch (type_)
 		{
 			case DriveType::NONE:
-				inner = 0;
+				h.acc(0);
 				break;
 			case DriveType::CONSTANT:
-				inner = constant_;
+				h.acc(constant_);
 				break;
 			case DriveType::WIRE:
-				inner = wire_.hash();
+				h.acc(wire_);
 				break;
 			case DriveType::PORT:
-				inner = port_.hash();
+				h.acc(port_);
 				break;
 			case DriveType::MARKER:
-				inner = marker_.hash();
+				h.acc(marker_);
 				break;
 			case DriveType::MULTIPLE:
-				inner = multiple_.hash();
+				h.acc(multiple_);
 				break;
 		}
-		return mkhash((unsigned int)type_, inner);
+		h.acc(type_);
+		return h;
 	}
 
 	bool operator==(const DriveBit &other) const
@@ -508,9 +516,12 @@ struct DriveChunkWire
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(mkhash(wire->name.hash(), width), offset);
+		h.acc(wire->name);
+		h.acc(width);
+		h.acc(offset);
+		return h;
 	}
 
 	explicit operator SigChunk() const
@@ -569,9 +580,13 @@ struct DriveChunkPort
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(mkhash(mkhash(cell->name.hash(), port.hash()), width), offset);
+		h.acc(cell->name);
+		h.acc(port);
+		h.acc(width);
+		h.acc(offset);
+		return h;
 	}
 };
 
@@ -613,9 +628,12 @@ struct DriveChunkMarker
 		return offset < other.offset;
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		return mkhash_add(mkhash(marker, width), offset);
+		h.acc(marker);
+		h.acc(width);
+		h.acc(offset);
+		return h;
 	}
 };
 
@@ -656,9 +674,11 @@ public:
 		return false; // TODO implement, canonicalize order
 	}
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-	   return mkhash(width_, multiple_.hash());
+		h.acc(width_);
+		h.acc(multiple_);
+		return h;
 	}
 };
 
@@ -910,31 +930,31 @@ public:
 	bool try_append(DriveBit const &bit);
 	bool try_append(DriveChunk const &chunk);
 
-	unsigned int hash() const
+	Hasher hash_acc(Hasher h) const
 	{
-		unsigned int inner;
 		switch (type_)
 		{
 			case DriveType::NONE:
-				inner = 0;
+				h.acc(0);
 				break;
 			case DriveType::CONSTANT:
-				inner = constant_.hash();
+				h.acc(constant_);
 				break;
 			case DriveType::WIRE:
-				inner = wire_.hash();
+				h.acc(wire_);
 				break;
 			case DriveType::PORT:
-				inner = port_.hash();
+				h.acc(port_);
 				break;
 			case DriveType::MARKER:
-				inner = marker_.hash();
+				h.acc(marker_);
 				break;
 			case DriveType::MULTIPLE:
-				inner = multiple_.hash();
+				h.acc(multiple_);
 				break;
 		}
-		return mkhash((unsigned int)type_, inner);
+		h.acc(type_);
+		return h;
 	}
 
 	bool operator==(const DriveChunk &other) const
@@ -1138,17 +1158,25 @@ public:
 	DriveSpec &operator=(DriveBitMarker const &bit) { return *this = DriveBit(bit); }
 	DriveSpec &operator=(DriveBitMultiple const &bit) { return *this = DriveBit(bit); }
 
-	unsigned int hash() const {
-		if (hash_ != 0) return hash_;
-
+	void updhash() const {
+		DriveSpec *that = (DriveSpec*)this;
 		pack();
-		hash_ = hash_ops<std::vector<DriveChunk>>().hash(chunks_);
-		hash_ |= (hash_ == 0);
-		return hash_;
+		that->hash_ = run_hash(chunks_);
+		that->hash_ |= (that->hash_ == 0);
+	}
+
+	Hasher hash_acc(Hasher h) const {
+		if (hash_ == 0)
+			updhash();
+
+		h.acc(hash_);
+		return h;
 	}
 
 	bool operator==(DriveSpec const &other) const {
-		if (size() != other.size() || hash() != other.hash())
+		updhash();
+		other.updhash();
+		if (size() != other.size() || hash_ != other.hash_)
 			return false;
 		return chunks() == other.chunks();
 	}
@@ -1181,7 +1209,8 @@ private:
 		bool operator==(const DriveBitId &other) const { return id == other.id; }
 		bool operator!=(const DriveBitId &other) const { return id != other.id; }
 		bool operator<(const DriveBitId &other) const { return id < other.id; }
-		unsigned int hash() const { return id; }
+		// unsigned int hash() const { return id; }
+		Hasher hash_acc(Hasher h) const { h.acc(id); return h; }
 	};
 	// Essentially a dict<DriveBitId, pool<DriveBitId>> but using less memory
 	// and fewer allocations

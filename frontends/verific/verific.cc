@@ -628,7 +628,7 @@ RTLIL::SigSpec VerificImporter::operatorInportCase(Instance *inst, const char *p
 	}
 }
 
-RTLIL::SigSpec VerificImporter::operatorOutput(Instance *inst, const pool<Net*, hash_ptr_ops> *any_all_nets)
+RTLIL::SigSpec VerificImporter::operatorOutput(Instance *inst, const pool<Net*> *any_all_nets)
 {
 	RTLIL::SigSpec sig;
 	RTLIL::Wire *dummy_wire = NULL;
@@ -1584,9 +1584,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	module->fixup_ports();
 
-	dict<Net*, char, hash_ptr_ops> init_nets;
-	pool<Net*, hash_ptr_ops> anyconst_nets, anyseq_nets;
-	pool<Net*, hash_ptr_ops> allconst_nets, allseq_nets;
+	dict<Net*, char> init_nets;
+	pool<Net*> anyconst_nets, anyseq_nets;
+	pool<Net*> allconst_nets, allseq_nets;
 	any_all_nets.clear();
 
 	FOREACH_NET_OF_NETLIST(nl, mi, net)
@@ -1849,10 +1849,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		module->connect(net_map_at(net), module->Anyseq(new_verific_id(net)));
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-	pool<Instance*, hash_ptr_ops> sva_asserts;
-	pool<Instance*, hash_ptr_ops> sva_assumes;
-	pool<Instance*, hash_ptr_ops> sva_covers;
-	pool<Instance*, hash_ptr_ops> sva_triggers;
+	pool<Instance*> sva_asserts;
+	pool<Instance*> sva_assumes;
+	pool<Instance*> sva_covers;
+	pool<Instance*> sva_triggers;
 #endif
 
 	pool<RTLIL::Cell*> past_ffs;

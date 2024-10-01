@@ -77,10 +77,9 @@ struct ClockgatePass : public Pass {
 		SigBit ce_bit;
 		bool pol_clk;
 		bool pol_ce;
-		unsigned int hash() const {
+		Hasher hash_acc(Hasher h) const {
 			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce);
-			unsigned int h = mkhash_init;
-			h = mkhash(h, hash_ops<decltype(t)>::hash(t));
+			h.acc(t);
 			return h;
 		}
 		bool operator==(const ClkNetInfo& other) const {

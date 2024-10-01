@@ -177,7 +177,7 @@ namespace AST
 	{
 		// for dict<> and pool<>
 		unsigned int hashidx_;
-		unsigned int hash() const { return hashidx_; }
+		Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 		// this nodes type
 		AstNodeType type;

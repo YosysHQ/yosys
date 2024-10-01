@@ -93,7 +93,7 @@ namespace RTLIL
 		} destruct_guard;
 
 		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, hash_cstr_ops> global_id_index_;
+		static dict<char*, int> global_id_index_;
 	#ifndef YOSYS_NO_IDS_REFCNT
 		static std::vector<int> global_refcount_storage_;
 		static std::vector<int> global_free_idx_list_;
@@ -358,8 +358,8 @@ namespace RTLIL
 			*this = IdString();
 		}
 
-		unsigned int hash() const {
-			return index_;
+		Hasher hash_acc(Hasher h) const {
+			return hash_ops<int>::hash_acc(index_, h);
 		}
 
 		// The following is a helper key_compare class. Instead of for example std::set<Cell*>
@@ -711,10 +711,10 @@ struct RTLIL::Const
 		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
 	}
 
-	inline unsigned int hash() const {
-		unsigned int h = mkhash_init;
+	inline Hasher hash_acc(Hasher h) const {
+		// TODO hash size
 		for (auto b : bits)
-			h = mkhash(h, b);
+			h.acc(b);
 		return h;
 	}
 };
@@ -803,7 +803,7 @@ struct RTLIL::SigBit
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
-	unsigned int hash() const;
+	Hasher hash_acc(Hasher h) const;
 };
 
 struct RTLIL::SigSpecIterator
@@ -844,7 +844,7 @@ struct RTLIL::SigSpec
 {
 private:
 	int width_;
-	unsigned long hash_;
+	Hasher::hash_t hash_;
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
 
@@ -885,9 +885,10 @@ public:
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
 
+	[[deprecated]]
 	size_t get_hash() const {
-		if (!hash_) hash();
-		return hash_;
+		log_assert(false && "deprecated");
+		return 0;
 	}
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
@@ -996,7 +997,7 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
-	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
+	Hasher hash_acc(Hasher h) const { if (!hash_) updhash(); h.acc(hash_); return h; }
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1037,8 +1038,8 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 	Monitor() {
 		static unsigned int hashidx_count = 123456789;
@@ -1060,8 +1061,8 @@ struct define_map_t;
 
 struct RTLIL::Design
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
@@ -1165,8 +1166,8 @@ struct RTLIL::Design
 
 struct RTLIL::Module : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -1516,8 +1517,8 @@ void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -1555,8 +1556,8 @@ inline int GetSize(RTLIL::Wire *wire) {
 
 struct RTLIL::Memory : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 	Memory();
 
@@ -1570,8 +1571,8 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 
 struct RTLIL::Cell : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
@@ -1680,8 +1681,8 @@ struct RTLIL::SyncRule
 
 struct RTLIL::Process : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_acc(Hasher h) const { h.acc(hashidx_); return h; }
 
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes
@@ -1725,10 +1726,14 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 	return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
 }
 
-inline unsigned int RTLIL::SigBit::hash() const {
-	if (wire)
-		return mkhash_add(wire->name.hash(), offset);
-	return data;
+inline Hasher RTLIL::SigBit::hash_acc(Hasher h) const {
+	if (wire) {
+		h = wire->name.hash_acc(h);
+		h.acc(offset);
+		return h;
+	}
+	h.acc(data);
+	return h;
 }
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {

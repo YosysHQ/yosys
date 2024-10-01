@@ -39,13 +39,13 @@ bool AigNode::operator==(const AigNode &other) const
 	return true;
 }
 
-unsigned int AigNode::hash() const
+Hasher AigNode::hash_acc(Hasher h) const
 {
-	unsigned int h = mkhash_init;
-	h = mkhash(portname.hash(), portbit);
-	h = mkhash(h, inverter);
-	h = mkhash(h, left_parent);
-	h = mkhash(h, right_parent);
+	h.acc(portname);
+	h.acc(portbit);
+	h.acc(inverter);
+	h.acc(left_parent);
+	h.acc(right_parent);
 	return h;
 }
 
@@ -54,9 +54,10 @@ bool Aig::operator==(const Aig &other) const
 	return name == other.name;
 }
 
-unsigned int Aig::hash() const
+Hasher Aig::hash_acc(Hasher h) const
 {
-	return hash_ops<std::string>::hash(name);
+	h.acc(name);
+	return h;
 }
 
 struct AigMaker
