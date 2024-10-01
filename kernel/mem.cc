@@ -782,7 +782,7 @@ namespace {
 			mwr.en = cell->getPort(ID::WR_EN).extract(i * res.width, (ni - i) * res.width);
 			mwr.addr = cell->getPort(ID::WR_ADDR).extract(i * abits, abits);
 			mwr.data = cell->getPort(ID::WR_DATA).extract(i * res.width, (ni - i) * res.width);
-#ifndef ENABLE_VERIFIC_SYSTEMVERILOG
+#ifndef SILIMATE_DISABLE_MEM_PRIORITY_MASK
 			if (!is_compat) {
 				Const priority_mask = cell->parameters.at(ID::WR_PRIORITY_MASK).extract(i * n_wr_ports, n_wr_ports);
 				for (int j = 0; j < n_wr_ports; j++)

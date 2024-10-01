@@ -8,6 +8,9 @@ CONFIG := none
 # CONFIG := msys2-32
 # CONFIG := msys2-64
 
+# silimate
+DISABLE_MEM_PRIORITY_MASK := 1 # not logically equivalent!
+
 # features (the more the better)
 ENABLE_TCL := 0
 ENABLE_ABC := 0
@@ -486,6 +489,10 @@ ifeq ($(ABCEXTERNAL),)
 TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
 endif
+endif
+
+ifeq ($(DISABLE_MEM_PRIORITY_MASK),1)
+CXXFLAGS += -DSILIMATE_DISABLE_MEM_PRIORITY_MASK
 endif
 
 ifeq ($(ENABLE_GHDL),1)
