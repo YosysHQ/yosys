@@ -8,10 +8,6 @@ CONFIG := none
 # CONFIG := msys2-32
 # CONFIG := msys2-64
 
-# silimate features and settings
-ENABLE_SLANG := 1
-DISABLE_MEM_INIT := 1 # does not preserve logic equivalence!
-
 # features (the more the better)
 ENABLE_TCL := 0
 ENABLE_ABC := 0
@@ -20,6 +16,7 @@ ENABLE_PLUGINS := 0
 ENABLE_READLINE := 0
 ENABLE_EDITLINE := 1
 ENABLE_GHDL := 0
+ENABLE_SLANG := 1
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
 ENABLE_VERIFIC_VHDL := 0
@@ -489,10 +486,6 @@ ifeq ($(ABCEXTERNAL),)
 TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
 endif
-endif
-
-ifeq ($(DISABLE_MEM_INIT),1)
-CXXFLAGS += -DSILIMATE_DISABLE_MEM_INIT
 endif
 
 ifeq ($(ENABLE_GHDL),1)
