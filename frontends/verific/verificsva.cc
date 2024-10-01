@@ -1051,7 +1051,7 @@ struct VerificSvaImporter
 				msg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
-	dict<Net*, bool, hash_ptr_ops> check_expression_cache;
+	dict<Net*, bool> check_expression_cache;
 
 	bool check_expression(Net *net, bool raise_error = false)
 	{

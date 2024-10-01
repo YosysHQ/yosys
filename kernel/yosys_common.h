@@ -153,6 +153,15 @@ using std::get;
 using std::min;
 using std::max;
 
+using hashlib::Hasher;
+using hashlib::run_hash;
+using hashlib::hash_ops;
+using hashlib::mkhash_xorshift;
+using hashlib::dict;
+using hashlib::idict;
+using hashlib::pool;
+using hashlib::mfp;
+
 // A primitive shared string implementation that does not
 // move its .c_str() when the object is copied or moved.
 struct shared_str {
@@ -163,21 +172,11 @@ struct shared_str {
 	const char *c_str() const { return content->c_str(); }
 	const string &str() const { return *content; }
 	bool operator==(const shared_str &other) const { return *content == *other.content; }
-	unsigned int hash() const { return hashlib::hash_ops<std::string>::hash(*content); }
+	Hasher hash_acc(Hasher h) const {
+		h.acc(*content);
+		return h;
+	}
 };
-
-using hashlib::mkhash;
-using hashlib::mkhash_init;
-using hashlib::mkhash_add;
-using hashlib::mkhash_xorshift;
-using hashlib::hash_ops;
-using hashlib::hash_cstr_ops;
-using hashlib::hash_ptr_ops;
-using hashlib::hash_obj_ops;
-using hashlib::dict;
-using hashlib::idict;
-using hashlib::pool;
-using hashlib::mfp;
 
 namespace RTLIL {
 	struct IdString;
@@ -216,26 +215,6 @@ using RTLIL::Design;
 using RTLIL::State;
 using RTLIL::SigChunk;
 using RTLIL::SigSig;
-
-namespace hashlib {
-	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Memory*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Process*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
-	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
-	template<> struct hash_ops<AST::AstNode*> : hash_obj_ops {};
-
-	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Memory*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Process*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
-	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
-	template<> struct hash_ops<const AST::AstNode*> : hash_obj_ops {};
-}
 
 void memhasher_on();
 void memhasher_off();
@@ -346,10 +325,6 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 #define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
         static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
 namespace ID = RTLIL::ID;
-
-namespace hashlib {
-	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};
-}
 
 
 YOSYS_NAMESPACE_END
