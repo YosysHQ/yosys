@@ -703,7 +703,6 @@ namespace {
 		res.packed = true;
 		res.cell = cell;
 		res.attributes = cell->attributes;
-#ifndef SILIMATE_DISABLE_MEM_INIT
 		Const &init = cell->parameters.at(ID::INIT);
 		if (!init.is_fully_undef()) {
 			int pos = 0;
@@ -727,7 +726,6 @@ namespace {
 				}
 			}
 		}
-#endif
 		int n_rd_ports = cell->parameters.at(ID::RD_PORTS).as_int();
 		int n_wr_ports = cell->parameters.at(ID::WR_PORTS).as_int();
 		Const rd_wide_continuation = is_compat ? Const(State::S0, n_rd_ports) : cell->parameters.at(ID::RD_WIDE_CONTINUATION);
