@@ -287,7 +287,7 @@ struct WreduceWorker
 		int max_port_a_size = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : -1;
 		int max_port_b_size = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : -1;
 
-		if (cell->type.in(ID($not), ID($pos), ID($neg), ID($and), ID($or), ID($xor), ID($add), ID($sub))) { // TODO: see if we can add shl, shr, sshl, sshr
+		if (cell->type.in(ID($not), ID($pos), ID($neg), ID($and), ID($or), ID($xor), ID($add), ID($sub))) {
 			max_port_a_size = min(max_port_a_size, GetSize(sig));
 			max_port_b_size = min(max_port_b_size, GetSize(sig));
 		}
@@ -539,7 +539,7 @@ struct WreducePass : public Pass {
 					}
 				}
 
-				if (c->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow))) // TODO: see if we can add add, sub, mul
+				if (c->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
 				{
 					SigSpec A = c->getPort(ID::A);
 					int original_a_width = GetSize(A);
