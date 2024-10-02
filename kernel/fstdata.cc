@@ -258,7 +258,8 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 
 std::string FstData::valueOf(fstHandle signal)
 {
-	if (past_data.find(signal) == past_data.end())
-		log_error("Signal id %d not found\n", (int)signal);
+	if (past_data.find(signal) == past_data.end()) {
+		return std::string(handle_to_var[signal].width, 'x');
+	}
 	return past_data[signal];
 }
