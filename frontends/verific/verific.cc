@@ -3019,6 +3019,14 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 			log("    Running operator optimization for %s.\n", it->first.c_str());
 			nl->OperatorOptimization(1, 1);
+
+			log("    Pruning RAM dimensions for %s.\n", it->first.c_str());
+			while (nl->PruneRamDimensions());
+
+			log("    Merging RAM write ports for %s.\n", it->first.c_str());
+			nl->MergeRamWritePorts();
+			log("    Merging RAMs for %s.\n", it->first.c_str());
+			nl->MergeRams();
 		}
 
 		if (nl_done.count(it->first) == 0) {
