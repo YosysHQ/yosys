@@ -20,6 +20,7 @@
 // TODOs:
 //  - gracefully handling inout ports (an error message probably)
 //  - undriven wires
+//  - zero-width operands
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
