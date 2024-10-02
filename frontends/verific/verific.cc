@@ -1649,7 +1649,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
 						cell->parameters[ID::ABITS] = 32;
 						cell->parameters[ID::WIDTH] = memory->width;
-						cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+						cell->parameters[ID::PRIORITY] = 0;
 					}
 				}
 			}
