@@ -785,9 +785,9 @@ namespace {
 			if (!is_compat) {
 				// Const priority_mask = cell->parameters.at(ID::WR_PRIORITY_MASK).extract(i * n_wr_ports, n_wr_ports);
 				for (int j = 0; j < n_wr_ports; j++)
-					mwr.priority_mask.push_back(false);
-					// if (wr_wide_continuation[j] != State::S1)
-					// 	mwr.priority_mask.push_back(priority_mask[j] == State::S1);
+					if (wr_wide_continuation[j] != State::S1)
+						mwr.priority_mask.push_back(false);
+						// mwr.priority_mask.push_back(priority_mask[j] == State::S1);
 			}
 			res.wr_ports.push_back(mwr);
 		}
