@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -28,7 +28,8 @@ struct TribufConfig {
 	bool logic_mode;
 	bool formal_mode;
 
-	TribufConfig() {
+	TribufConfig()
+	{
 		merge_mode = false;
 		logic_mode = false;
 		formal_mode = false;
@@ -40,9 +41,7 @@ struct TribufWorker {
 	SigMap sigmap;
 	const TribufConfig &config;
 
-	TribufWorker(Module *module, const TribufConfig &config) : module(module), sigmap(module), config(config)
-	{
-	}
+	TribufWorker(Module *module, const TribufConfig &config) : module(module), sigmap(module), config(config) {}
 
 	static bool is_all_z(SigSpec sig)
 	{
@@ -54,7 +53,7 @@ struct TribufWorker {
 
 	void run()
 	{
-		dict<SigSpec, vector<Cell*>> tribuf_cells;
+		dict<SigSpec, vector<Cell *>> tribuf_cells;
 		pool<SigBit> output_bits;
 
 		if (config.logic_mode || config.formal_mode)
@@ -63,16 +62,14 @@ struct TribufWorker {
 					for (auto bit : sigmap(wire))
 						output_bits.insert(bit);
 
-		for (auto cell : module->selected_cells())
-		{
+		for (auto cell : module->selected_cells()) {
 			if (cell->type == ID($tribuf))
 				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 			if (cell->type == ID($_TBUF_))
 				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
-			if (cell->type.in(ID($mux), ID($_MUX_)))
-			{
+			if (cell->type.in(ID($mux), ID($_MUX_))) {
 				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
 				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
@@ -104,10 +101,8 @@ struct TribufWorker {
 			}
 		}
 
-		if (config.merge_mode || config.logic_mode || config.formal_mode)
-		{
-			for (auto &it : tribuf_cells)
-			{
+		if (config.merge_mode || config.logic_mode || config.formal_mode) {
+			for (auto &it : tribuf_cells) {
 				bool no_tribuf = false;
 
 				if (config.logic_mode && !config.formal_mode) {
@@ -162,7 +157,8 @@ struct TribufWorker {
 					module->remove(cell);
 				}
 
-				SigSpec muxout = GetSize(pmux_s) > 1 ? module->Pmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), pmux_b, pmux_s) : pmux_b;
+				SigSpec muxout =
+				  GetSize(pmux_s) > 1 ? module->Pmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), pmux_b, pmux_s) : pmux_b;
 
 				if (no_tribuf)
 					module->connect(it.first, muxout);
@@ -176,7 +172,7 @@ struct TribufWorker {
 };
 
 struct TribufPass : public Pass {
-	TribufPass() : Pass("tribuf", "infer tri-state buffers") { }
+	TribufPass() : Pass("tribuf", "infer tri-state buffers") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
