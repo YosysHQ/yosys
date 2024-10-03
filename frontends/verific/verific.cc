@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
