@@ -2997,36 +2997,11 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		if (opt) {
 			log("  Optimizing netlist for %s.\n", it->first.c_str());
 
-			log("    Removing buffers for %s.\n", it->first.c_str());
-			nl->RemoveBuffers();
-
-			log("    Merging RAM write ports for %s.\n", it->first.c_str());
-			nl->MergeRamWritePorts();
-			log("    Merging RAMs for %s.\n", it->first.c_str());
-			nl->MergeRams();
-
-			log("    Performing resource sharing for %s.\n", it->first.c_str());
-			unsigned int result = nl->ResourceSharing();
-			log("      Shared %d resources.\n", result);
-			log("    Performing final resource merging for %s.\n", it->first.c_str());
-			nl->OptimizeSameInputSubstractorComparator();
-
 			log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
 			nl->InferClockEnableMux();
 
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
-
-			log("    Running operator optimization for %s.\n", it->first.c_str());
-			nl->OperatorOptimization(1, 1);
-
-			log("    Pruning RAM dimensions for %s.\n", it->first.c_str());
-			while (nl->PruneRamDimensions());
-
-			log("    Merging RAM write ports for %s.\n", it->first.c_str());
-			nl->MergeRamWritePorts();
-			log("    Merging RAMs for %s.\n", it->first.c_str());
-			nl->MergeRams();
 		}
 
 		if (nl_done.count(it->first) == 0) {
@@ -3458,17 +3433,17 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: add to use Synopsys register names
 			RuntimeFlags::SetVar("db_stop_cse_on_ram_ports", 0); // SILIMATE: perform CSE on RAM ports to improve optimization
 
+			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: optionally add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			// Properly respect order of read and write for rams
-			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 0); // SILIMATE: disable this to speed up result
+			RuntimeFlags::SetVar("db_change_inplace_ram_blocking_write_before_read", 1);
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
-			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
+			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this outside
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
 			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
