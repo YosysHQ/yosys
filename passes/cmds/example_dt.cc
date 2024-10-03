@@ -50,8 +50,10 @@ struct ExampleDtPass : public Pass
 					return name == other.name && parameters == other.parameters;
 				}
 
-				unsigned int hash() const {
-					return mkhash(name.hash(), parameters.hash());
+				Hasher hash_acc(Hasher h) const {
+					h.acc(name);
+					h.acc(parameters);
+					return h;
 				}
 			};
 

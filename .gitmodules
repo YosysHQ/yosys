@@ -1,3 +1,6 @@
 [submodule "abc"]
 	path = abc
 	url = https://github.com/YosysHQ/abc
+[submodule "libs/cxxopts"]
+	path = libs/cxxopts
+	url = git@github.com:jarro2783/cxxopts.git
