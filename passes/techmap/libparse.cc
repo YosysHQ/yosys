@@ -251,6 +251,13 @@ LibertyAst *LibertyParser::parse()
 			// instead of the ';' too..
 			if ((tok == ';') || (tok == 'n'))
 				break;
+			else if (tok == '[') {
+				while (tok != ']') {
+					tok = lexer(str);
+				}
+				ast->value += '[' + str + ']';
+				continue;
+			}
 			else
 				error();
 			continue;
