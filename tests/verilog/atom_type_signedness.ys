@@ -16,4 +16,4 @@ endmodule
 EOT
 hierarchy; proc; opt; async2sync
 select -module dut
-sat -verify -seq 1 -tempinduct -prove-asserts -show-all
+sat -verify -tempinduct -prove-asserts -show-all
