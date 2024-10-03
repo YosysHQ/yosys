@@ -52,6 +52,3 @@ __pycache__
 /tests/verilog/roundtrip_proc_1.v
 /tests/verilog/roundtrip_proc_2.v
 /result
-
-# Preqorsor
-preqorsor
