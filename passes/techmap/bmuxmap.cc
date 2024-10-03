@@ -75,6 +75,8 @@ struct BmuxmapPass : public Pass {
 					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
 				}
 				IdString new_id = IdString("$" + cell->name.str());
+				// SILIMATE: Use uniquified ID with $
+				// TODO: improve this
 				while (module->count_id(new_id) > 0) new_id = IdString("$" + new_id.str());
 				RTLIL::Cell *pmux = module->addPmux(new_id, new_a, data, new_s, new_data);
 				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));

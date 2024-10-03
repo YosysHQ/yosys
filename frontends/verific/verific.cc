@@ -228,6 +228,8 @@ bool is_blackbox(Netlist *nl)
 
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
+	// SILIMATE: Use uniquified Verific ID as Yosys ID
+	// TODO: improve this
 	std::string s = stringf("$%s", obj->Name());
 	while (seen_ids.count(s)) s += stringf("$%d", autoidx++);
 	seen_ids.insert(s);
@@ -3037,7 +3039,7 @@ bool check_noverific_env()
 #endif
 
 struct VerificPass : public Pass {
-	VerificPass() : Pass("import", "load Verilog/SystemVerilog designs using IMPORT") { }
+	VerificPass() : Pass("import", "load Verilog and VHDL designs using IMPORT") { }
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	void on_register() override	{ VerificExtensions::Reset(); }
@@ -3058,7 +3060,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
 		log("the language version (and before file names) to set additional verilog defines.\n");
-		log("The macros YOSYS and SYNTHESIS are defined implicitly.\n");
+		log("The macro SYNTHESIS is defined implicitly.\n");
 		log("\n");
 		log("\n");
 		log("    import -formal <verilog-file>..\n");
@@ -3099,7 +3101,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Load and execute the specified command file.\n");
 		log("Override verilog parsing mode can be set.\n");
-		log("The macros YOSYS and SYNTHESIS/FORMAL are defined implicitly.\n");
+		log("The macro SYNTHESIS/FORMAL is defined implicitly.\n");
 		log("\n");
 		log("Command file parser supports following commands in file:\n");
 		log("    +define+<MACRO>=<VALUE> - defines macro\n");
@@ -3167,6 +3169,26 @@ struct VerificPass : public Pass {
 		log("Remove Verilog defines previously set with -vlog-define.\n");
 		log("\n");
 		log("\n");
+		log("    import -set_ignore_translate_off\n");
+		log("\n");
+		log("Ignore translate_off pragmas/comments.\n");
+		log("\n");
+		log("\n");
+		log("    import -set_relaxed_checking\n");
+		log("\n");
+		log("Set relaxed language feature checking.\n");
+		log("\n");
+		log("\n");
+		log("    import -set_relaxed_file_ext_modes\n");
+		log("\n");
+		log("Set relaxed language standard checking by using latest VHDL/SystemVerilog.\n");
+		log("\n");
+		log("\n");
+		log("    import -ignore_module <module>..\n");
+		log("\n");
+		log("Add module to list of modules to ignore during parsing.\n");
+		log("\n");
+		log("\n");
 #endif
 		log("    import -set-error <msg_id>..\n");
 		log("    import -set-warning <msg_id>..\n");
@@ -3182,7 +3204,7 @@ struct VerificPass : public Pass {
 		log("    import -import [options] <top>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules or configurations, import to\n");
-		log("Yosys and reset the internal state of IMPORT.\n");
+		log("Preqorsor and reset the internal state of IMPORT.\n");
 		log("\n");
 		log("Import options:\n");
 		log("\n");
@@ -3228,7 +3250,7 @@ struct VerificPass : public Pass {
 		log("    Pretty print design after elaboration to specified file.\n");
 		log("\n");
 		log("The following additional import options are useful for debugging the IMPORT\n");
-		log("bindings (for Yosys and/or IMPORT developers):\n");
+		log("bindings (for Preqorsor and/or IMPORT developers):\n");
 		log("\n");
 		log("  -k\n");
 		log("    Keep going after an unsupported IMPORT primitive is found. The\n");
@@ -3237,7 +3259,7 @@ struct VerificPass : public Pass {
 		log("    the checker logic inferred by it.\n");
 		log("\n");
 		log("  -V\n");
-		log("    Import IMPORT netlist as-is without translating to Yosys cell types. \n");
+		log("    Import IMPORT netlist as-is without translating to Preqorsor cell types. \n");
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("  -nosva\n");
@@ -3444,7 +3466,7 @@ struct VerificPass : public Pass {
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
-			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this outside
+			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this externally
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
 			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector

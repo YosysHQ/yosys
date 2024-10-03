@@ -263,6 +263,8 @@ FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initva
 }
 
 FfData FfData::slice(const std::vector<int> &bits) {
+	// SILIMATE: Use uniquified ID with $
+	// TODO: improve this
 	IdString new_id = IdString("$" + name.str());
 	while (module->count_id(new_id) > 0) new_id = IdString("$" + new_id.str());
 	FfData res(module, initvals, new_id);

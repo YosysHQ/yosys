@@ -458,6 +458,8 @@ struct WreduceWorker
 				continue;
 
 			log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
+			// SILIMATE: Use uniquified ID with $
+			// TODO: improve this
 			IdString nw_name = IdString("$" + w->name.str());
 			while (module->count_id(nw_name)) nw_name = IdString("$" + nw_name.str());
 			Wire *nw = module->addWire(nw_name, GetSize(w) - unused_top_bits);
