@@ -437,6 +437,19 @@ void log_experimental(const char *format, ...)
 	}
 }
 
+void log_deprecated(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	string s = vstringf(format, ap);
+	va_end(ap);
+
+	if (log_experimentals_ignored.count(s) == 0 && log_experimentals.count(s) == 0) {
+		log_warning("Feature '%s' is deprecated.\n", s.c_str());
+		log_experimentals.insert(s);
+	}
+}
+
 void log_warning_noprefix(const char *format, ...)
 {
 	va_list ap;

@@ -130,6 +130,7 @@ void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_deprecated(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);

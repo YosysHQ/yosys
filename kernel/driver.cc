@@ -273,7 +273,7 @@ int main(int argc, char **argv)
 		("hash-seed", "mix up hashing values with <seed>, for extreme optimization and testing",
 			cxxopts::value<uint64_t>(), "<seed>")
 		("A,abort", "will call abort() at the end of the script. for debugging")
-		("x,experimental", "do not print warnings for the experimental <feature>",
+		("x,experimental", "do not print warnings for the experimental or deprecated <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
 		("g,debug", "globally enable debug log messages")
 		("perffile", "write a JSON performance log to <perffile>", cxxopts::value<std::string>(), "<perffile>")

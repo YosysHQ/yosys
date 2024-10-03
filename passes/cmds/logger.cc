@@ -145,7 +145,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-experimental" && argidx+1 < args.size()) {
 				std::string value = args[++argidx];
-				log("Added '%s' experimental ignore list.\n", value.c_str());
+				log("Added '%s' experimental/deprecated ignore list.\n", value.c_str());
 				log_experimentals_ignored.insert(value);
 				continue;
 			}
