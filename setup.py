@@ -25,7 +25,7 @@ yosys_version_rx = re.compile(r"YOSYS_VER\s*:=\s*([\w\-\+\.]+)")
 
 version = yosys_version_rx.search(
     open(os.path.join(__dir__, "Makefile"), encoding="utf8").read()
-)[1]
+)[1].replace("+", ".post")
 
 
 class libyosys_so_ext(Extension):
