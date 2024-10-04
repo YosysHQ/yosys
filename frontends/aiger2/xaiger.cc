@@ -219,6 +219,8 @@ struct Xaiger2Frontend : public Frontend {
 				log_assert(pi_num + ci_counter == ci_num);
 			} else if (c == '\n') {
 				break;
+			} else if (c == 'c') {
+				break;
 			} else {
 				uint32_t len = read_be32(*f);
 				f->ignore(len);
@@ -282,6 +284,8 @@ struct Xaiger2Frontend : public Frontend {
 					}
 				}
 			} else if (c == '\n') {
+				break;
+			} else if (c == 'c') {
 				break;
 			} else {
 				uint32_t len = read_be32(*f);
@@ -353,6 +357,8 @@ struct Xaiger2Frontend : public Frontend {
 				}
 				log_assert(po_num + co_counter == co_num);
 			} else if (c == '\n') {
+				break;
+			} else if (c == 'c') {
 				break;
 			} else {
 				uint32_t len = read_be32(*f);
