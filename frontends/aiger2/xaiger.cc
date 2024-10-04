@@ -222,9 +222,11 @@ struct Xaiger2Frontend : public Frontend {
 			} else {
 				uint32_t len = read_be32(*f);
 				f->ignore(len);
-				log_debug("section '%c' (%d): ignoring %d bytes\n", c, c, len);
+				log_debug("  section '%c' (%d): ignoring %d bytes\n", c, c, len);
 			}
 		}
+
+		log_debug("reading 'M' (second pass)\n");
 
 		f->seekg(extensions_start);
 		bool read_mapping = false;
@@ -272,7 +274,6 @@ struct Xaiger2Frontend : public Frontend {
 					auto out_w = module->addWire(module->uniquify(stringf("$lit%d", out_lit)));
 					instance->setPort(cell.out, out_w);
 					bits[out_lit] = out_w;
-					log_debug("setting %d (driven by %s)\n", out_lit, log_id(cell.type));
 					for (auto in : cell.ins) {
 						uint32_t in_lit = read_be32(*f);
 						log_assert(out_lit < bits.size());
@@ -285,7 +286,7 @@ struct Xaiger2Frontend : public Frontend {
 			} else {
 				uint32_t len = read_be32(*f);
 				f->ignore(len);
-				log_debug("section '%c' (%d): ignoring %d bytes\n", c, c, len);
+				log_debug("  section '%c' (%d): ignoring %d bytes\n", c, c, len);
 			}
 		}
 
@@ -356,7 +357,7 @@ struct Xaiger2Frontend : public Frontend {
 			} else {
 				uint32_t len = read_be32(*f);
 				f->ignore(len);
-				log_debug("section '%c' (%d): ignoring %d bytes\n", c, c, len);
+				log_debug("  section '%c' (%d): ignoring %d bytes\n", c, c, len);
 			}
 		}
 
@@ -387,7 +388,6 @@ struct Xaiger2Frontend : public Frontend {
 				int lit = outputs[po_idx];
 				if (lit < 0 || lit >= bits.size())
 					log_error("Bad map file (5)\n");
-				log("output=%d lit=%d\n", po_idx, lit);
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file (6)\n");
 				Wire *w = module->wire(name);
