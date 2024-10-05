@@ -537,6 +537,11 @@ struct Index {
 		}
 	};
 
+	bool visit_hook(int idx, HierCursor &cursor, SigBit bit)
+	{
+		return false;
+	}
+
 	Lit visit(HierCursor &cursor, SigBit bit)
 	{
 		if (!bit.wire) {
@@ -551,6 +556,12 @@ struct Index {
 		int idx = cursor.bitwire_index(*this, bit);
 		if (lits[idx] != Writer::EMPTY_LIT) {
 			// literal already assigned
+			return lits[idx];
+		}
+
+		// provide means for the derived class to override
+		// the visit behavior
+		if ((static_cast<Writer*>(this))->visit_hook(idx, cursor, bit)) {
 			return lits[idx];
 		}
 
@@ -791,6 +802,102 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 	}
 };
 
+struct XAigerAnalysis : Index<XAigerAnalysis, int> {
+	const static int CONST_FALSE = 0;
+	const static int CONST_TRUE = 0;
+	const static constexpr int EMPTY_LIT = -1;
+
+	XAigerAnalysis()
+	{
+		allow_blackboxes = true;
+
+		// Disable const folding and strashing as literal values are not unique
+		const_folding = false;
+		strashing = false;
+	}
+
+	static int negate(int lit)
+	{
+		return lit;
+	}
+
+	int emit_gate(int a, int b)
+	{
+		return max(a, b) + 1;
+	}
+
+	pool<Cell *> seen;
+
+	bool visit_hook(int idx, HierCursor &cursor, SigBit bit)
+	{
+		log_assert(cursor.is_top()); // TOOD: fix analyzer to work with hierarchy
+
+		if (bit.wire->port_input)
+			return false;
+
+		Cell *driver = bit.wire->driverCell();
+		if (!driver->type.isPublic())
+			return false;
+
+		Module *mod = design->module(driver->type);
+		log_assert(mod);
+		if (!mod->has_attribute(ID::abc9_box_id))
+			return false;
+
+		int max = 1;
+		for (auto wire : mod->wires())
+		if (wire->port_input)
+		for (int i = 0; i < wire->width; i++) {
+			int ilevel = visit(cursor, driver->getPort(wire->name)[i]);
+			max = std::max(max, ilevel + 1);
+		}
+		lits[idx] = max;
+
+		if (!seen.count(driver))
+			seen.insert(driver);
+
+		return true;
+	}
+
+	void analyze(Module *top)
+	{
+		setup(top);
+
+		for (auto id : top->ports) {
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_input)
+			for (int i = 0; i < w->width; i++)
+				pi_literal(SigBit(w, i)) = 0;
+		}
+
+		HierCursor cursor;
+		for (auto box : top_minfo->found_blackboxes) {
+			Module *def = design->module(box->type);
+			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			for (auto &conn : box->connections_)
+			if (box->output(conn.first))
+			for (auto bit : conn.second)
+				pi_literal(bit, &cursor) = 0;
+		}
+
+		for (auto w : top->wires())
+		if (w->port_output) {
+			for (auto bit : SigSpec(w))
+				(void) eval_po(bit);
+		}
+
+		for (auto box : top_minfo->found_blackboxes) {
+			Module *def = design->module(box->type);
+			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			for (auto &conn : box->connections_)
+			if (box->input(conn.first))
+			for (auto bit : conn.second)
+				(void) eval_po(bit);
+		}
+	}
+};
+
 struct XAigerWriter : AigerWriter {
 	XAigerWriter()
 	{
@@ -897,6 +1004,11 @@ struct XAigerWriter : AigerWriter {
 
 	void prep_boxes(int pending_pos_num)
 	{
+		XAigerAnalysis analysis;
+		log_debug("preforming analysis on '%s'\n", log_id(top));
+		analysis.analyze(top);
+		log_debug("analysis on '%s' done\n", log_id(top));
+
 		// boxes which have timing data, maybe a whitebox model
 		std::vector<std::tuple<HierCursor, Cell *, Module *>> nonopaque_boxes;
 		// boxes which are fully opaque
@@ -941,6 +1053,16 @@ struct XAigerWriter : AigerWriter {
 		int boxes_ci_num = 0, boxes_co_num = 0;
 
 		int box_seq = 0;
+
+		std::vector<Cell *> boxes_order(analysis.seen.begin(), analysis.seen.end());
+		std::reverse(boxes_order.begin(), boxes_order.end());
+
+		nonopaque_boxes.clear();
+		for (auto box : boxes_order) {
+			HierCursor cursor;
+			Module *def = design->module(box->type);
+			nonopaque_boxes.push_back(std::make_tuple(cursor, box, def));
+		}
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
 			// use `def->name` not `box->type` as we want the derived type
