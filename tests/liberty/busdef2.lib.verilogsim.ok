@@ -1,5 +1,4 @@
-module not_cell (A, Y);
-  input A;
+module not_cell (Y);
   output Y;
   assign Y = !A[0]; // !A[0]
 endmodule

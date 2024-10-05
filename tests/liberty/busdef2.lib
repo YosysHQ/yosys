@@ -1,3 +1,6 @@
+/* Tests two things:                                                      */
+/* (1) Bus without any individual pin definition                          */
+/* (2) Having a custom field with define, which can allow square brackets */
 library (liberty_define) {
   delay_model : "table_lookup" ;
   simulation : false ;
@@ -30,7 +33,6 @@ library (liberty_define) {
   define (original_pin, pin, string) ;
   cell (not_cell) {
     bus (A) {
-      capacitance : 1 ;
       bus_type : "bus8" ;
       direction : "input" ;
     }
