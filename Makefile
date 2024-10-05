@@ -921,6 +921,8 @@ endif
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
 	# +cd tests/cxxrtl && bash run-test.sh
+	+cd tests/liberty && bash run-test.sh
+	+cd tests/liberty_verilog && bash run-test.sh
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 	+cd tests/functional && bash run-test.sh
 endif
