@@ -529,7 +529,7 @@ struct LibertyFrontend : public Frontend {
 		std::map<std::string, std::tuple<int, int, bool>> global_type_map;
 		parse_type_map(global_type_map, parser.ast);
 
-		string leakage_power_unit;
+		string leakage_power_unit = "";
 		for (auto cell : parser.ast->children)
 		{
 			if (cell->id == "leakage_power_unit")
@@ -560,7 +560,8 @@ struct LibertyFrontend : public Frontend {
 
 			RTLIL::Module *module = new RTLIL::Module;
 			module->name = cell_name;
-			module->attributes["\\leakage_power_unit"] = leakage_power_unit;
+			if (leakage_power_unit != "")
+				module->attributes["\\leakage_power_unit"] = leakage_power_unit;
 
 			if (flag_lib)
 				module->set_bool_attribute(ID::blackbox);
@@ -634,6 +635,52 @@ struct LibertyFrontend : public Frontend {
 
 					if (dir->value == "output" || dir->value == "inout")
 						wire->port_output = true;
+				}
+
+				if (node->id == "bundle" && node->args.size() == 1)
+				{
+					if (!flag_lib)
+						log_error("Error in cell %s: bundle interfaces are only supported in -lib mode.\n", log_id(cell_name));
+
+					const LibertyAst *dir = node->find("direction");
+
+					if (dir == nullptr) {
+						const LibertyAst *pin = node->find("pin");
+						if (pin != nullptr)
+							dir = pin->find("direction");
+					}
+
+					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
+						log_error("Missing or invalid direction for bundle %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+
+					if (dir->value == "internal")
+						continue;
+
+					const LibertyAst *members = node->find("members");
+
+					if (!members)
+						log_error("Missing members for bundle %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+
+					for (auto member : members->args)
+					{
+						Wire *wire = module->addWire(RTLIL::escape_id(member));
+
+						if (dir && dir->value == "inout") {
+							wire->port_input = true;
+							wire->port_output = true;
+						}
+
+						if (dir && dir->value == "input") {
+							wire->port_input = true;
+							continue;
+						}
+
+						if (dir && dir->value == "output")
+							wire->port_output = true;
+
+						if (flag_lib)
+							continue;
+					}
 				}
 			}
 
