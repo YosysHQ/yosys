@@ -1311,8 +1311,15 @@ struct Aiger2Backend : Backend {
 		log("\n");
 		log("    write_aiger2 [options] [filename]\n");
 		log("\n");
-		log("Write the current design to an AIGER file.\n");
+		log("Write the selected module to an AIGER file.\n");
 		log("\n");
+		log("    -strash\n");
+		log("        perform structural hashing while writing\n");
+		log("\n");
+		log("    -flatten\n");
+        log("        allow descending into submodules and write a flattened view of the design\n");
+        log("        hierarchy starting at the selected top\n");
+        log("\n");
 		log("This command is able to ingest all combinational cells except for:\n");
 		log("\n");
 		pool<IdString> supported = {KNOWN_OPS};
@@ -1384,9 +1391,39 @@ struct Aiger2Backend : Backend {
 } Aiger2Backend;
 
 struct XAiger2Backend : Backend {
-	XAiger2Backend() : Backend("xaiger2", "(experimental) write design to XAIGER file")
+	XAiger2Backend() : Backend("xaiger2", "(experimental) write module to XAIGER file")
 	{
 		experimental();
+	}
+
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    write_xaiger2 [options] [filename]\n");
+		log("\n");
+		log("Write the selected module to a XAIGER file including the 'h' and 'a' extensions\n");
+		log("with box information for ABC.\n");
+		log("\n");
+		log("    -strash\n");
+		log("        perform structural hashing while writing\n");
+		log("\n");
+		log("    -flatten\n");
+        log("        allow descending into submodules and write a flattened view of the design\n");
+        log("        hierarchy starting at the selected top\n");
+        log("\n");
+        log("    -mapping_prep\n");
+        log("        after the file is written, prepare the module for reintegration of\n");
+        log("        a mapping in a subsequent command. all cells which are not blackboxed nor\n");
+        log("        whiteboxed are removed from the design as well as all wires which only\n");
+        log("        connect to removed cells\n");
+        log("        (conflicts with -flatten)\n");
+        log("\n");
+        log("    -map2 <file>\n");
+        log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
+        log("        reintegrate a mapping\n");
+        log("        (conflicts with -flatten)\n");
+		log("\n");
 	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, Design *design) override
