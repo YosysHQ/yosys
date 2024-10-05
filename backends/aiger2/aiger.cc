@@ -549,6 +549,8 @@ struct Index {
 				return CTRUE;
 			else if (bit == State::S0)
 				return CFALSE;
+			else if (bit == State::Sx)
+				return CFALSE;
 			else
 				log_error("Unhandled state %s\n", log_signal(bit));
 		}
