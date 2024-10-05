@@ -222,8 +222,8 @@ struct Index {
 		std::vector<Lit> next;
 		while (lits.size() > 1) {
 			next.clear();
-			for (int i = 0; i < lits.size(); i += 2) {
-				if (i + 1 >= lits.size()) {
+			for (int i = 0; i < (int) lits.size(); i += 2) {
+				if (i + 1 >= (int) lits.size()) {
 					next.push_back(lits[i]);
 				} else {
 					Lit a = lits[i], b = lits[i + 1];
@@ -430,7 +430,7 @@ struct Index {
 			for (int i = 0; i < sport.size(); i++) {
 				Lit s = visit(cursor, sport[i]);
 				next.clear();
-				for (int j = 0; j < data.size(); j += 2)
+				for (int j = 0; j < (int) data.size(); j += 2)
 					next.push_back(MUX(data[j], data[j + 1], s));
 				data.swap(next);
 			}
@@ -537,7 +537,7 @@ struct Index {
 		}
 	};
 
-	bool visit_hook(int idx, HierCursor &cursor, SigBit bit)
+	bool visit_hook(int, HierCursor&, SigBit)
 	{
 		return false;
 	}
