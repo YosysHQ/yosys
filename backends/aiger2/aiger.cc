@@ -1300,7 +1300,7 @@ struct XAigerWriter : AigerWriter {
 };
 
 struct Aiger2Backend : Backend {
-	Aiger2Backend() : Backend("aiger2", "write design to AIGER file (new)")
+	Aiger2Backend() : Backend("aiger2", "(experimental) write design to AIGER file")
 	{
 		experimental();
 	}
@@ -1384,7 +1384,7 @@ struct Aiger2Backend : Backend {
 } Aiger2Backend;
 
 struct XAiger2Backend : Backend {
-	XAiger2Backend() : Backend("xaiger2", "write design to XAIGER file (new)")
+	XAiger2Backend() : Backend("xaiger2", "(experimental) write design to XAIGER file")
 	{
 		experimental();
 	}
