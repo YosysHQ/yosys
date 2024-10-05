@@ -1154,7 +1154,7 @@ struct XAigerWriter : AigerWriter {
 		write_be32(h_buffer, pis.size());
 		log_debug("ciNum = %zu\n", pis.size());
 		write_be32(h_buffer, pending_pos_num + pos.size());
-		log_debug("coNum = %zu\n", boxes_co_num + pos.size());
+		log_debug("coNum = %zu\n", pending_pos_num + pos.size());
 		write_be32(h_buffer, pis.size() - boxes_ci_num);
 		log_debug("piNum = %zu\n", pis.size() - boxes_ci_num);
 		write_be32(h_buffer, pending_pos_num + pos.size() - boxes_co_num);
