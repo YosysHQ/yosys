@@ -934,7 +934,7 @@ struct XAigerWriter : AigerWriter {
 		});
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, true);
+			append_box_ports(box, cursor, false);
 
 		holes_module = design->addModule(NEW_ID);
 		std::vector<RTLIL::Wire *> holes_pis;
@@ -1024,7 +1024,7 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, false);
+			append_box_ports(box, cursor, true);
 
 		write_be32(h_buffer, 1);
 		write_be32(h_buffer, pis.size());
