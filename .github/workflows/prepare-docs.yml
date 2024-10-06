@@ -32,7 +32,7 @@ jobs:
       - name: Prepare docs
         shell: bash
         run:
-          make docs/prep TARGETS= EXTRA_TARGETS=
+          make docs/prep -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
