@@ -979,16 +979,17 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 
 PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
-docs/gen_examples:
+docs/gen_examples: $(TARGETS)
 	$(Q) $(MAKE) -C docs examples
 
-docs/gen_images:
+docs/gen_images: $(TARGETS)
 	$(Q) $(MAKE) -C docs images
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-docs/guidelines docs/source/generated:
+DOCS_GUIDELINE_SOURCE := $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES))
+docs/guidelines docs/source/generated: $(DOCS_GUIDELINE_SOURCE)
 	$(Q) mkdir -p docs/source/generated
-	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/generated
+	$(Q) cp -f $(DOCS_GUIDELINE_SOURCE) docs/source/generated
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
