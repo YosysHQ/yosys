@@ -28,3 +28,4 @@ $(CMOS_DOTS): cmos.v cmos.ys
 .PHONY: clean
 clean:
 	rm -rf *.dot
+	rm -f example.out

@@ -24,3 +24,4 @@ $(MAPDOTS) fifo.stat: fifo.v fifo_map.ys
 .PHONY: clean
 clean:
 	rm -f *.dot
+	rm -f fifo.out fifo.stat
