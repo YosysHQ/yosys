@@ -1,0 +1,3 @@
+# Nothing gets imported: the file lacks timing data
+read_liberty -wb -unit_delay normal.lib
+select -assert-none =*/t:$specify*
