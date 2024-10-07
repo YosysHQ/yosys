@@ -193,4 +193,4 @@ jobs:
       - name: Test build docs
         shell: bash
         run: |
-          make -C docs -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
+          make docs -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
