@@ -241,6 +241,7 @@ int main(int argc, char **argv)
 	std::string topmodule = "";
 	std::string perffile = "";
 	bool scriptfile_tcl = false;
+	bool scriptfile_python = false;
 	bool print_banner = true;
 	bool print_stats = true;
 	bool call_abort = false;
@@ -304,7 +305,12 @@ int main(int argc, char **argv)
 		printf("        execute the commands in the tcl script file (see 'help tcl' for details)\n");
 		printf("\n");
 		printf("    -C\n");
-		printf("        enters TCL interatcive shell mode\n");
+		printf("        enters TCL interactive shell mode\n");
+#endif
+#ifdef WITH_PYTHON
+		printf("\n");
+		printf("    -y python_scriptfile\n");
+		printf("        execute a python script with libyosys available as a built-in module\n");
 #endif
 		printf("\n");
 		printf("    -p command\n");
@@ -379,7 +385,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVCSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:r:D:P:E:x:B:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVCSgm:f:Hh:b:o:p:l:L:qv:tds:c:y:W:w:e:r:D:P:E:x:B:")) != -1)
 	{
 		switch (opt)
 		{
@@ -464,11 +470,19 @@ int main(int argc, char **argv)
 		case 's':
 			scriptfile = optarg;
 			scriptfile_tcl = false;
+			scriptfile_python = false;
 			run_shell = false;
 			break;
 		case 'c':
 			scriptfile = optarg;
 			scriptfile_tcl = true;
+			scriptfile_python = false;
+			run_shell = false;
+			break;
+		case 'y':
+			scriptfile = optarg;
+			scriptfile_tcl = false;
+			scriptfile_python = true;
 			run_shell = false;
 			break;
 		case 'W':
@@ -607,8 +621,9 @@ int main(int argc, char **argv)
 		run_pass(vdef_cmd);
 	}
 
-	if (scriptfile.empty() || !scriptfile_tcl) {
-		// Without a TCL script, arguments following '--' are also treated as frontend files
+	if (scriptfile.empty() || (!scriptfile_tcl && !scriptfile_python)) {
+		// Without a TCL or Python script, arguments following '--' are also
+		// treated as frontend files
 		for (int i = optind; i < argc; ++i)
 			frontend_files.push_back(argv[i]);
 	}
@@ -636,7 +651,36 @@ int main(int argc, char **argv)
 			if (Tcl_EvalFile(interp, scriptfile.c_str()) != TCL_OK)
 				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
 #else
-			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
+			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
+#endif
+		} else if (scriptfile_python) {
+#ifdef WITH_PYTHON
+			PyObject *sys = PyImport_ImportModule("sys");
+			PyObject *new_argv = PyList_New(argc - optind + 1);
+			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
+			for (int i = optind; i < argc; ++i)
+				PyList_SetItem(new_argv, i - optind + 1, PyUnicode_FromString(argv[i]));
+
+			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
+			PyObject_SetAttrString(sys, "argv", new_argv);
+			Py_DECREF(old_argv);
+
+			PyObject *py_path = PyUnicode_FromString(scriptfile.c_str());
+			PyObject_SetAttrString(sys, "_yosys_script_path", py_path);
+			Py_DECREF(py_path);
+			PyRun_SimpleString("import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(sys._yosys_script_path)))");
+
+			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
+			if (scriptfp == nullptr) {
+				log_error("Failed to open file '%s' for reading.\n", scriptfile.c_str());
+			}
+			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
+				log_flush();
+				PyErr_Print();
+				log_error("Python interpreter encountered an exception.");
+			}
+#else
+			log_error("Can't execute Python script: this version of yosys is not built with Python support enabled.\n");
 #endif
 		} else
 			run_frontend(scriptfile, "script");
