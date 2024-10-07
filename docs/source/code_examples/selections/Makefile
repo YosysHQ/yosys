@@ -11,9 +11,10 @@ MEMDEMO_DOTS := $(addsuffix .dot,$(MEMDEMO))
 SUBMOD = submod_00 submod_01 submod_02 submod_03
 SUBMOD_DOTS := $(addsuffix .dot,$(SUBMOD))
 
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS) $(SUBMOD_DOTS)
+examples:
 
 select.dot: select.v select.ys
 	$(YOSYS) select.ys

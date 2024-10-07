@@ -2,9 +2,10 @@ PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-.PHONY: all dots
-all: dots test0.log test1.log test2.log
+.PHONY: all dots examples
+all: dots examples
 dots: test1.dot
+examples: test0.log test1.log test2.log
 
 CXXFLAGS=$(shell $(YOSYS)-config --cxxflags)
 DATDIR=$(shell $(YOSYS)-config --datdir)
