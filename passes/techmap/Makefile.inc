@@ -12,10 +12,12 @@ OBJS += passes/techmap/abc.o
 OBJS += passes/techmap/abc9.o
 OBJS += passes/techmap/abc9_exe.o
 OBJS += passes/techmap/abc9_ops.o
+OBJS += passes/techmap/abc_new.o
 ifneq ($(ABCEXTERNAL),)
 passes/techmap/abc.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 passes/techmap/abc9.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 passes/techmap/abc9_exe.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
+passes/techmap/abc_new.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 endif
 endif
 

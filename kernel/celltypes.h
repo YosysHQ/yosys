@@ -381,11 +381,10 @@ struct CellTypes
 		HANDLE_CELL_TYPE(modfloor)
 		HANDLE_CELL_TYPE(pow)
 		HANDLE_CELL_TYPE(pos)
-		HANDLE_CELL_TYPE(buf)
 		HANDLE_CELL_TYPE(neg)
 #undef HANDLE_CELL_TYPE
 
-		if (type == ID($_BUF_))
+		if (type.in(ID($_BUF_), ID($buf)))
 			return arg1;
 		if (type == ID($_NOT_))
 			return eval_not(arg1);
