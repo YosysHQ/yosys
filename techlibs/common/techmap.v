@@ -304,6 +304,7 @@ endmodule
 // Divide and Modulo
 // --------------------------------------------------------
 
+`ifndef NODIV
 module \$__div_mod_u (A, B, Y, R);
 	parameter WIDTH = 1;
 
@@ -531,7 +532,7 @@ module _90_modfloor (A, B, Y);
 		.R(Y)
 	);
 endmodule
-
+`endif
 
 // --------------------------------------------------------
 // Power
