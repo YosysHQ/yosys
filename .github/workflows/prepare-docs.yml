@@ -67,7 +67,7 @@ jobs:
       - name: Test build docs
         shell: bash
         run: |
-          make docs -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
+          make -C docs html -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
 
       - name: Trigger RTDs build
         if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' }}
