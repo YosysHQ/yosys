@@ -193,3 +193,32 @@ select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
 equiv_make gold test equiv
 equiv_induct -undef equiv
 equiv_status -assert equiv
+
+design -reset
+read_verilog -icells <<EOF
+module sm2(input wire [1:0] a, output wire [1:0] y);
+	assign y = a + 1;
+endmodule
+
+module sm1(input wire [2:0] a, output wire [2:0] y);
+	sm2 inst(a[1:0], y[2:1]);
+	assign y[0] = !a[2];
+endmodule
+
+module top(input wire [4:0] a, output wire [4:0] y);
+	sm1 i1(.a(a[2:0]), .y(y[2:0]));
+	sm2 i2(.a(a[4:3]), .y(y[4:3]));
+endmodule
+EOF
+
+prep -top top
+# deal with arithmetic which is unsupported inside aiger2
+techmap t:$add
+
+splitnets -ports top
+write_aiger2 -flatten aiger2_flatten.aig
+flatten
+rename top gold
+read_aiger -module_name gate aiger2_flatten.aig
+miter -equiv -flatten gold gate miter
+sat -verify -prove trigger 0 miter
