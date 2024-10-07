@@ -38,7 +38,26 @@ IdString read_idstring(std::istream &f)
 }
 
 struct Xaiger2Frontend : public Frontend {
-	Xaiger2Frontend() : Frontend("xaiger2", "read XAIGER file (new)") {}
+	Xaiger2Frontend() : Frontend("xaiger2", "(experimental) read XAIGER file")
+	{
+		experimental();
+	}
+
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_xaiger2 -sc_mapping [options] <filename>\n");
+		log("\n");
+		log("Read a standard cell mapping from a XAIGER file into an existing module.\n");
+		log("\n");
+		log("    -module_name <name>\n");
+		log("        name of the target module\n");
+		log("\n");
+		log("    -map2 <filename>\n");
+        log("        read file with symbol information\n");
+        log("\n");
+	}
 
 	void read_sc_mapping(std::istream *&f, std::string filename, std::vector<std::string> args, Design *design)
 	{
