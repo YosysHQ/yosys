@@ -25,7 +25,9 @@ yosys_version_rx = re.compile(r"YOSYS_VER\s*:=\s*([\w\-\+\.]+)")
 
 version = yosys_version_rx.search(
     open(os.path.join(__dir__, "Makefile"), encoding="utf8").read()
-)[1].replace("+", ".post")
+)[1].replace(
+    "+", "."
+)  # Convert to patch version
 
 
 class libyosys_so_ext(Extension):
@@ -78,8 +80,6 @@ setup(
     description="Python access to libyosys",
     long_description=open(os.path.join(__dir__, "README.md")).read(),
     long_description_content_type="text/markdown",
-    author="Claire Xenia Wolf",
-    author_email="claire@yosyshq.com",
     install_requires=["wheel", "setuptools"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
