@@ -88,7 +88,7 @@ struct Xaiger2Frontend : public Frontend {
 			log_error("Inconsistent header\n");
 
 		std::vector<int> outputs;
-		for (int i = 0; i < O; i++) {
+		for (int i = 0; i < (int) O; i++) {
 			int po;
 			*f >> po;
 			log_assert(f->get() == '\n');
@@ -110,7 +110,7 @@ struct Xaiger2Frontend : public Frontend {
 				if (!(map_file >> pi_idx >> woffset >> name))
 					log_error("Bad map file (1)\n");
 				int lit = (2 * pi_idx) + 2;
-				if (lit < 0 || lit >= bits.size())
+				if (lit < 0 || lit >= (int) bits.size())
 					log_error("Bad map file (2)\n");
 				Wire *w = module->wire(name);
 				if (!w || woffset < 0 || woffset >= w->width)
@@ -140,7 +140,7 @@ struct Xaiger2Frontend : public Frontend {
 				if (!def)
 					log_error("Bad map file (22)\n");
 
-				if (box_seq >= boxes.size()) {
+				if (box_seq >= (int) boxes.size()) {
 					boxes.resize(box_seq + 1);
 					retained_boxes.resize(box_seq + 1);
 				}
@@ -151,7 +151,7 @@ struct Xaiger2Frontend : public Frontend {
 			}
 		}
 
-		for (int i = 0; i < A; i++) {
+		for (int i = 0; i < (int) A; i++) {
 			while (f->get() & 0x80 && !f->eof());
 			while (f->get() & 0x80 && !f->eof());
 		}
@@ -185,7 +185,7 @@ struct Xaiger2Frontend : public Frontend {
 					box_id = read_be32(*f);
 					box_seq = read_be32(*f);
 
-					log("box_seq=%d boxes.size=%d\n", box_seq, boxes.size());
+					log("box_seq=%d boxes.size=%d\n", box_seq, (int) boxes.size());
 					log_assert(box_seq < boxes.size());
 
 					auto [cell, def] = boxes[box_seq];
@@ -213,7 +213,7 @@ struct Xaiger2Frontend : public Frontend {
 						}
 					}
 
-					log_assert(box_ci_idx == box_outputs);
+					log_assert(box_ci_idx == (int) box_outputs);
 					ci_counter += box_ci_idx;
 				}
 				log_assert(pi_num + ci_counter == ci_num);
@@ -324,7 +324,7 @@ struct Xaiger2Frontend : public Frontend {
 					box_id = read_be32(*f);
 					box_seq = read_be32(*f);
 
-					log("box_seq=%d boxes.size=%d\n", box_seq, boxes.size());
+					log("box_seq=%d boxes.size=%d\n", box_seq, (int) boxes.size());
 					log_assert(box_seq < boxes.size());
 
 					auto [cell, def] = boxes[box_seq];
@@ -340,9 +340,9 @@ struct Xaiger2Frontend : public Frontend {
 
 							SigSpec conn;
 							for (int j = 0; j < port->width; j++) {
-								log_assert(co_counter + box_co_idx < outputs.size());
+								log_assert(co_counter + box_co_idx < (int) outputs.size());
 								int lit = outputs[co_counter + box_co_idx++];
-								log_assert(lit >= 0 && lit < bits.size());
+								log_assert(lit >= 0 && lit < (int) bits.size());
 								SigBit bit = bits[lit];
 								if (bit == RTLIL::Sm)
 									log_error("Malformed mapping (1)\n");
@@ -352,7 +352,7 @@ struct Xaiger2Frontend : public Frontend {
 						}
 					}
 
-					log_assert(box_co_idx == box_inputs);
+					log_assert(box_co_idx == (int) box_inputs);
 					co_counter += box_co_idx;
 				}
 				log_assert(po_num + co_counter == co_num);
@@ -389,10 +389,10 @@ struct Xaiger2Frontend : public Frontend {
 				if (!(map_file >> po_idx >> woffset >> name))
 					log_error("Bad map file (3)\n");
 				po_idx += co_counter;
-				if (po_idx < 0 || po_idx >= outputs.size())
+				if (po_idx < 0 || po_idx >= (int) outputs.size())
 					log_error("Bad map file (4)\n");
 				int lit = outputs[po_idx];
-				if (lit < 0 || lit >= bits.size())
+				if (lit < 0 || lit >= (int) bits.size())
 					log_error("Bad map file (5)\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file (6)\n");
@@ -409,10 +409,10 @@ struct Xaiger2Frontend : public Frontend {
 				if (!(map_file >> po_idx >> poffset >> box_name >> box_port))
 					log_error("Bad map file (7)\n");
 				po_idx += co_counter;
-				if (po_idx < 0 || po_idx >= outputs.size())
+				if (po_idx < 0 || po_idx >= (int) outputs.size())
 					log_error("Bad map file (8)\n");
 				int lit = outputs[po_idx];
-				if (lit < 0 || lit >= bits.size())
+				if (lit < 0 || lit >= (int) bits.size())
 					log_error("Bad map file (9)\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file (10)\n");
