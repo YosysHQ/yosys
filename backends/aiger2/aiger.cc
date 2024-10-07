@@ -47,11 +47,8 @@ PRIVATE_NAMESPACE_BEGIN
 #define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, \
 				  ID($pmux), ID($bmux) /*, ARITH_OPS*/
 
-template<typename Writer, typename Lit>
+template<typename Writer, typename Lit, Lit CFALSE, Lit CTRUE>
 struct Index {
-	static constexpr Lit CFALSE = Writer::CONST_FALSE;
-	static constexpr Lit CTRUE = Writer::CONST_TRUE;
-
 	struct HierCursor;
 	struct ModuleInfo {
 		Module *module;
@@ -664,7 +661,7 @@ struct Index {
 	}
 };
 
-struct AigerWriter : Index<AigerWriter, unsigned int> {
+struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 	typedef unsigned int Lit;
 
 	const static Lit CONST_FALSE = 0;
@@ -804,7 +801,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int> {
 	}
 };
 
-struct XAigerAnalysis : Index<XAigerAnalysis, int> {
+struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 	const static int CONST_FALSE = 0;
 	const static int CONST_TRUE = 0;
 	const static constexpr int EMPTY_LIT = -1;
