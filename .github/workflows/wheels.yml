@@ -113,7 +113,7 @@ jobs:
           CIBW_TEST_COMMAND: python3 -c "from pyosys import libyosys as ys;d=ys.Design();ys.run_pass('help', d)"
       - uses: actions/upload-artifact@v4
         with:
-          name: python-wheels
+          name: python-wheels-${{ matrix.os.runner }}
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
@@ -122,8 +122,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: python-wheels
           path: "."
+          pattern: python-wheels-*
+          merge-multiple: true
       - run: |
           ls
           mkdir -p ./dist
