@@ -64,6 +64,11 @@ jobs:
             docs/source/_images
             docs/source/code_examples
 
+      - name: Test build docs
+        shell: bash
+        run: |
+          make docs -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
+
       - name: Trigger RTDs build
         if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' }}
         uses: dfm/rtds-action@v1.1.0
