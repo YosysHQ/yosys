@@ -1,6 +1,7 @@
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots:
+examples:
 
 .PHONY: test
 test: stubnets.so

@@ -238,7 +238,7 @@ Makefile-%: FORCE
 	$(MAKE) -C $(@D) $(*F)
 
 CODE_EXAMPLES := $(wildcard source/code_examples/*/Makefile)
-TEST_EXAMPLES := $(addsuffix -all,$(CODE_EXAMPLES))
+TEST_EXAMPLES := $(addsuffix -examples,$(CODE_EXAMPLES))
 CLEAN_EXAMPLES := $(addsuffix -clean,$(CODE_EXAMPLES))
 test-examples: $(TEST_EXAMPLES)
 clean-examples: $(CLEAN_EXAMPLES)
