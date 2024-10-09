@@ -155,7 +155,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.45+153
+YOSYS_VER := 0.46+0
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -171,7 +171,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9ed031d.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline e97731b.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -765,12 +765,18 @@ compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
 	@echo "  Compile successful."
 	@echo ""
 
+.PHONY: share
+share: $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Share directory created."
+	@echo ""
+
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 else
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif

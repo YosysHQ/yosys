@@ -1,2 +1,5 @@
 *.dot
 *.pdf
+*.out
+*.log
+*.stat

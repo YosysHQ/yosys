@@ -555,14 +555,17 @@ void yosys_setup()
 #include "kernel/constids.inc"
 #undef X
 
-	#ifdef WITH_PYTHON
-		if (!Py_IsInitialized()) {
-			PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
-			Py_Initialize();
-		}
+#ifdef WITH_PYTHON
+	// With Python 3.12, calling PyImport_AppendInittab on an already
+	// initialized platform fails (such as when libyosys is imported
+	// from a Python interpreter)
+	if (!Py_IsInitialized()) {
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		Py_Initialize();
 		PyRun_SimpleString("import sys");
 		signal(SIGINT, SIG_DFL);
-	#endif
+	}
+#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -1011,6 +1014,16 @@ void init_share_dirname()
 #else
 void init_share_dirname()
 {
+#  ifdef WITH_PYTHON
+	PyObject *sys_obj = PyImport_ImportModule("sys");
+
+	if (PyObject_HasAttrString(sys_obj, "_pyosys_share_dirname")) {
+		PyObject *share_path_obj = PyObject_GetAttrString(sys_obj, "_pyosys_share_dirname");
+		const char *share_path = PyUnicode_AsUTF8(share_path_obj);
+		yosys_share_dirname = std::string(share_path);
+		return;
+	}
+#  endif
 	std::string proc_self_path = proc_self_dirname();
 #  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
 	std::string proc_share_path = proc_self_path + "share\\";
@@ -1056,12 +1069,20 @@ void init_abc_executable_name()
 	}
 #else
 	yosys_abc_executable = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
-#endif
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
+#  ifdef _WIN32
 	if (!check_file_exists(yosys_abc_executable + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
 		yosys_abc_executable = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
+#  endif
+
+#  ifdef WITH_PYTHON
+	PyObject *sys_obj = PyImport_ImportModule("sys");
+
+	if (PyObject_HasAttrString(sys_obj, "_pyosys_abc")) {
+		PyObject *abc_path_obj = PyObject_GetAttrString(sys_obj, "_pyosys_abc");
+		const char *abc_path = PyUnicode_AsUTF8(abc_path_obj);
+		yosys_abc_executable = std::string(abc_path);
+	}
+#  endif
 #endif
 }
 
@@ -1130,7 +1151,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 
 	if (command == "auto") {
 	  std::string filename_trim = filename;
-	  
+
 	  auto has_extension = [](const std::string& filename, const std::string& extension) {
 	    if (filename.size() >= extension.size()) {
 	      return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
@@ -1141,7 +1162,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	  if (has_extension(filename_trim, ".gz")) {
 	    filename_trim.erase(filename_trim.size() - 3);
 	  }
-	  
+
 	  if (has_extension(filename_trim, ".v")) {
 	    command = " -vlog2k";
 	  } else if (has_extension(filename_trim, ".sv")) {

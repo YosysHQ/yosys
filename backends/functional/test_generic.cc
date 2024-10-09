@@ -122,6 +122,8 @@ struct FunctionalTestGeneric : public Pass
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
+		log("TODO: add help message\n");
+		log("\n");
     }
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

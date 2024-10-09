@@ -49,4 +49,12 @@ int main()
         cxxrtl::value<1> sel(0u);
         assert(val.template bmux<4>(sel).get<uint64_t>() == 0xfu);
     }
+
+    {
+        // stream operator smoke test
+        cxxrtl::value<8> val(0x1fu);
+        std::ostringstream oss;
+        oss << val;
+        assert(oss.str() == "8'1f");
+    }
 }

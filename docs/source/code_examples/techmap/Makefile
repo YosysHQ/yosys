@@ -2,9 +2,10 @@ PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: red_or3x1.dot sym_mul.dot mymul.dot mulshift.dot addshift.dot
+examples:
 
 red_or3x1.dot: red_or3x1_*
 	$(YOSYS) red_or3x1_test.ys

@@ -1,0 +1,136 @@
+name: Build Wheels for PyPI
+on:
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [
+            {
+              name: "Ubuntu 22.04",
+              family: "linux",
+              runner: "ubuntu-22.04",
+              archs: "x86_64",
+            },
+            ## Aarch64 is disabled for now: GitHub is committing to EOY
+            ## for free aarch64 runners for open-source projects and
+            ## emulation times out:
+            ## https://github.com/orgs/community/discussions/19197#discussioncomment-10550689
+            # {
+            #   name: "Ubuntu 22.04",
+            #   family: "linux",
+            #   runner: "ubuntu-22.04",
+            #   archs: "aarch64",
+            # },
+            {
+              name: "macOS 13",
+              family: "macos",
+              runner: "macos-13",
+              archs: "x86_64",
+            },
+            {
+              name: "macOS 14",
+              family: "macos",
+              runner: "macos-14",
+              archs: "arm64",
+            },
+            ## Windows is disabled because of an issue with compiling FFI as
+            ## under MinGW in the GitHub Actions environment (SHELL variable has
+            ## whitespace.)
+            # {
+            #   name: "Windows Server 2019",
+            #   family: "windows",
+            #   runner: "windows-2019",
+            #   archs: "AMD64",
+            # },
+          ]
+    name: Build Wheels | ${{ matrix.os.name }} | ${{ matrix.os.archs }}
+    runs-on: ${{ matrix.os.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+      - if: ${{ matrix.os.family == 'linux' }}
+        name: "[Linux] Set up QEMU"
+        uses: docker/setup-qemu-action@v3
+      - uses: actions/setup-python@v5
+      - name: Get Boost Source
+        shell: bash
+        run: |
+          mkdir -p boost
+          curl -L https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.gz | tar --strip-components=1 -xzC boost
+      - name: Get FFI
+        shell: bash
+        run: |
+          mkdir -p ffi
+          curl -L https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz | tar --strip-components=1 -xzC ffi
+      ## Software installed by default in GitHub Action Runner VMs:
+      ##  https://github.com/actions/runner-images
+      - if: ${{ matrix.os.family == 'macos' }}
+        name: "[macOS] Flex/Bison"
+        run: |
+          brew install flex bison
+          echo "PATH=$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
+      - if: ${{ matrix.os.family == 'windows' }}
+        name: "[Windows] Flex/Bison"
+        run: |
+          choco install winflexbison3
+      - if: ${{ matrix.os.family == 'macos' && matrix.os.archs == 'arm64' }}
+        name: "[macOS/arm64] Install Python 3.8 (see: https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64)"
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.1
+        env:
+          # * APIs not supported by PyPy
+          # * Musllinux disabled because it increases build time from 48m to ~3h
+          CIBW_SKIP: >
+            pp*
+            *musllinux*
+          CIBW_ARCHS: ${{ matrix.os.archs }}
+          CIBW_BUILD_VERBOSITY: "1"
+          # manylinux2014 (default) does not have a modern enough C++ compiler for Yosys
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
+          CIBW_ENVIRONMENT: >
+            CXXFLAGS=-I./boost/pfx/include
+            LINKFLAGS=-L./boost/pfx/lib
+            PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
+            makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a'
+          CIBW_ENVIRONMENT_MACOS: >
+            CXXFLAGS=-I./boost/pfx/include
+            LINKFLAGS=-L./boost/pfx/lib
+            PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
+            MACOSX_DEPLOYMENT_TARGET=11
+            makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
+          CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
+          CIBW_TEST_COMMAND: python3 {project}/tests/arch/ecp5/add_sub.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels-${{ matrix.os.runner }}
+          path: ./wheelhouse/*.whl
+  upload_wheels:
+    name: Upload Wheels
+    runs-on: ubuntu-latest
+    needs: build_wheels
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: "."
+          pattern: python-wheels-*
+          merge-multiple: true
+      - run: |
+          ls
+          mkdir -p ./dist
+          mv *.whl ./dist
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          repository-url: ${{ vars.PYPI_INDEX || 'https://upload.pypi.org/legacy/' }}
