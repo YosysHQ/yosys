@@ -219,7 +219,7 @@ struct IFExpander
 	                  const RTLIL::SigSpec &conn_signals)
 	{
 		// Check if the connected wire is a potential interface in the parent module
-		std::string interface_name_str = conn_signals.bits()[0].wire->name.str();
+		std::string interface_name_str = conn_signals[0].wire->name.str();
 		// Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 		interface_name_str.replace(0,23,"");
 		interface_name_str = "\\" + interface_name_str;
@@ -289,7 +289,7 @@ struct IFExpander
 			return;
 
 		// If the connection looks like an interface, handle it.
-		const auto &bits = conn_signals.bits();
+		const auto &bits = conn_signals;
 		if (bits.size() == 1 && bits[0].wire->get_bool_attribute(ID::is_interface))
 			on_interface(submodule, conn_name, conn_signals);
 	}

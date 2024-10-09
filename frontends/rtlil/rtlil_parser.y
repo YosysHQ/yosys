@@ -447,7 +447,7 @@ constant:
 			bits.pop_back();
 		$$ = new RTLIL::Const;
 		for (auto it = bits.begin(); it != bits.end(); it++)
-			$$->bits.push_back(*it);
+			$$->bits().push_back(*it);
 		if (is_signed) {
 			$$->flags |= RTLIL::CONST_FLAG_SIGNED;
 		}

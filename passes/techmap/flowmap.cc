@@ -1399,7 +1399,7 @@ struct FlowmapWorker
 					          log_signal(node), log_signal(undef), env.c_str());
 				}
 
-				lut_table[i] = value.as_bool() ? State::S1 : State::S0;
+				lut_table.bits()[i] = value.as_bool() ? State::S1 : State::S0;
 				ce.pop();
 			}
 
