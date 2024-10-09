@@ -111,7 +111,12 @@ class Hasher {
 	}
 
 	template<typename T>
-	void acc(T t) {
+	void acc(T&& t) {
+		*this = hash_ops<std::remove_cv_t<std::remove_reference_t<T>>>::hash_acc(std::forward<T>(t), *this);
+	}
+
+	template<typename T>
+	void acc(const T& t) {
 		*this = hash_ops<T>::hash_acc(t, *this);
 	}
 
