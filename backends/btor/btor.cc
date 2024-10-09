@@ -832,7 +832,10 @@ struct BtorWorker
 					}
 				}
 
-				if (constword)
+				// If not fully defined, undef bits should be able to take a
+				// different value for each address so we can't initialise from
+				// one value (and btor2parser doesn't like it)
+				if (constword && firstword.is_fully_def())
 				{
 					if (verbose)
 						btorf("; initval = %s\n", log_signal(firstword));
