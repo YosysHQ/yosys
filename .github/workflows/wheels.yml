@@ -110,7 +110,7 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET=11
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
-          CIBW_TEST_COMMAND: python3 -c "from pyosys import libyosys as ys;d=ys.Design();ys.run_pass('help', d)"
+          CIBW_TEST_COMMAND: python3 {project}/tests/arch/ecp5/add_sub.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-wheels-${{ matrix.os.runner }}

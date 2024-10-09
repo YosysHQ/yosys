@@ -737,6 +737,12 @@ compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
 	@echo "  Compile successful."
 	@echo ""
 
+.PHONY: share
+share: $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Share directory created."
+	@echo ""
+
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
 

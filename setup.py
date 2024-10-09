@@ -44,26 +44,50 @@ class libyosys_so_ext(Extension):
             "ENABLE_PYTHON_CONFIG_EMBED=0",
             # Would need to be installed separately by the user
             "ENABLE_TCL=0",
-            # Would need to be installed separately by the user
             "ENABLE_READLINE=0",
+            "ENABLE_EDITLINE=0",
+            # Always compile and include ABC in wheel
+            "ABCEXTERNAL=",
             # Show compile commands
             "PRETTY=0",
         ]
 
     def custom_build(self, bext: build_ext):
         bext.spawn(
-            ["make", f"-j{os.cpu_count() or 1}", self.name]
+            [
+                "make",
+                f"-j{os.cpu_count() or 1}",
+                self.name,
+                "yosys-abc",
+                "share",
+            ]
             + shlex.split(os.getenv("makeFlags", ""))
             + self.args
         )
         build_path = os.path.dirname(os.path.dirname(bext.get_ext_fullpath(self.name)))
         pyosys_path = os.path.join(build_path, "pyosys")
-        target = os.path.join(pyosys_path, os.path.basename(self.name))
         os.makedirs(pyosys_path, exist_ok=True)
-        shutil.copyfile(self.name, target)
+
+        # libyosys.so
+        target = os.path.join(pyosys_path, os.path.basename(self.name))
+        shutil.copy(self.name, target)
+        bext.spawn(["strip", "-S", target])
+
+        # yosys-abc
+        yosys_abc_target = os.path.join(pyosys_path, "yosys-abc")
+        shutil.copy("yosys-abc", yosys_abc_target)
+        bext.spawn(["strip", "-S", "yosys-abc"])
+
+        # share directory
+        share_target = os.path.join(pyosys_path, "share")
+        try:
+            shutil.rmtree(share_target)
+        except FileNotFoundError:
+            pass
+
+        shutil.copytree("share", share_target)
 
         # I don't know how debug info is getting here.
-        bext.spawn(["strip", "-S", target])
 
 
 class custom_build_ext(build_ext):
