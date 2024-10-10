@@ -1486,6 +1486,12 @@ struct SharePass : public Pass {
 		config.generic_cbin_ops.insert(ID($logic_and));
 		config.generic_cbin_ops.insert(ID($logic_or));
 
+		config.generic_uni_ops.insert(ID($reduce_and));
+		config.generic_uni_ops.insert(ID($reduce_or));
+		config.generic_uni_ops.insert(ID($reduce_xor));
+		config.generic_uni_ops.insert(ID($reduce_xnor));
+		config.generic_uni_ops.insert(ID($reduce_bool));
+
 		config.generic_other_ops.insert(ID($alu));
 		config.generic_other_ops.insert(ID($macc));
 
