@@ -313,6 +313,9 @@ Verilog Attributes and non-standard features
 - The ``nowrshmsk`` attribute on a register prohibits the generation of
   shift-and-mask type circuits for writing to bit slices of that register.
 
+- The ``nordshift`` attribute on a net or variable prohibits the generation of
+  shift type circuits for reading bit slices from that data object.
+
 - The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
