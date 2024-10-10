@@ -60,7 +60,7 @@ struct QlDspSimdPass : public Pass {
 
 	// ..........................................
 
-	const int m_ModeBitsSize = 80;
+	const size_t m_ModeBitsSize = 80;
 
 	// DSP parameters
 	const std::vector<std::string> m_DspParams = {"COEFF_3", "COEFF_2", "COEFF_1", "COEFF_0"};
@@ -176,7 +176,7 @@ struct QlDspSimdPass : public Pass {
 								sigspec.append(sig);
 							}
 
-							int padding = width / 2 - sigspec.bits().size();
+							int padding = width / 2 - sigspec.size();
 
 							if (padding) {
 								if (!isOutput)
@@ -200,8 +200,10 @@ struct QlDspSimdPass : public Pass {
 						auto val_a = dsp_a->getParam(it);
 						auto val_b = dsp_b->getParam(it);
 
-						mode_bits.bits.insert(mode_bits.end(), val_a.begin(), val_a.end());
-						mode_bits.bits.insert(mode_bits.end(), val_b.begin(), val_b.end());
+						mode_bits.bits().insert(mode_bits.bits().end(),
+							val_a.begin(), val_a.end());
+						mode_bits.bits().insert(mode_bits.bits().end(),
+							val_b.begin(), val_b.end());
 					}
 
 					// Enable the fractured mode by connecting the control

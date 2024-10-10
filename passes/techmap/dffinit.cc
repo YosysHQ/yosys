@@ -118,13 +118,13 @@ struct DffinitPass : public Pass {
 					for (int i = 0; i < GetSize(sig); i++) {
 						if (initval[i] == State::Sx)
 							continue;
-						while (GetSize(value.bits) <= i)
-							value.bits.push_back(State::S0);
-						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != initval[i])
+						while (GetSize(value) <= i)
+							value.bits().push_back(State::S0);
+						if (noreinit && value[i] != State::Sx && value[i] != initval[i])
 							log_error("Trying to assign a different init value for %s.%s.%s which technically "
 									"have a conflicted init value.\n",
 									log_id(module), log_id(cell), log_id(it.second));
-						value.bits[i] = initval[i];
+						value.bits()[i] = initval[i];
 					}
 
 					if (highlow_mode && GetSize(value) != 0) {

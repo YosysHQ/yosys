@@ -323,7 +323,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits.push_back(it.second);
+						entry.second.bits().push_back(it.second);
 					}
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
@@ -344,7 +344,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 					for (auto it : bits) {
 						entry.first.append(it.first);
-						entry.second.bits.push_back(it.second);
+						entry.second.bits().push_back(it.second);
 					}
 
 					eqdb[sigmap(cell->getPort(ID::Y)[0])] = entry;
@@ -411,7 +411,7 @@ struct Pmux2ShiftxPass : public Pass {
 					for (int i : seldb.at(sig)) {
 						Const val = eqdb.at(S[i]).second;
 						int onebits = 0;
-						for (auto b : val.bits)
+						for (auto b : val)
 							if (b == State::S1)
 								onebits++;
 						if (onebits > 1)
@@ -590,7 +590,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 							used_src_columns[best_src_col] = true;
 							perm_new_from_old[dst_col] = best_src_col;
-							perm_xormask[dst_col] = best_inv ? State::S1 : State::S0;
+							perm_xormask.bits()[dst_col] = best_inv ? State::S1 : State::S0;
 						}
 					}
 
@@ -613,7 +613,7 @@ struct Pmux2ShiftxPass : public Pass {
 						Const new_c(State::S0, GetSize(old_c));
 
 						for (int i = 0; i < GetSize(old_c); i++)
-							new_c[i] = old_c[perm_new_from_old[i]];
+							new_c.bits()[i] = old_c[perm_new_from_old[i]];
 
 						Const new_c_before_xor = new_c;
 						new_c = const_xor(new_c, perm_xormask, false, false, GetSize(new_c));
@@ -686,7 +686,7 @@ struct Pmux2ShiftxPass : public Pass {
 					if (!full_case) {
 						Const enable_mask(State::S0, max_choice+1);
 						for (auto &it : perm_choices)
-							enable_mask[it.first.as_int()] = State::S1;
+							enable_mask.bits()[it.first.as_int()] = State::S1;
 						en = module->addWire(NEW_ID);
 						module->addShift(NEW_ID, enable_mask, cmp, en, false, src);
 					}

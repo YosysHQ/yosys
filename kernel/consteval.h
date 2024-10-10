@@ -76,7 +76,7 @@ struct ConstEval
 #ifndef NDEBUG
 		RTLIL::SigSpec current_val = values_map(sig);
 		for (int i = 0; i < GetSize(current_val); i++)
-			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
+			log_assert(current_val[i].wire != NULL || current_val[i] == value[i]);
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
 	}
@@ -115,7 +115,7 @@ struct ConstEval
 
 				for (int i = 0; i < GetSize(coval); i++) {
 					carry = (sig_g[i] == State::S1) || (sig_p[i] == RTLIL::S1 && carry);
-					coval.bits[i] = carry ? State::S1 : State::S0;
+					coval.bits()[i] = carry ? State::S1 : State::S0;
 				}
 
 				set(sig_co, coval);
@@ -153,7 +153,7 @@ struct ConstEval
 
 			for (int i = 0; i < sig_s.size(); i++)
 			{
-				RTLIL::State s_bit = sig_s.extract(i, 1).as_const().bits.at(0);
+				RTLIL::State s_bit = sig_s.extract(i, 1).as_const().at(0);
 				RTLIL::SigSpec b_slice = sig_b.extract(sig_y.size()*i, sig_y.size());
 
 				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
@@ -180,10 +180,10 @@ struct ConstEval
 
 			if (y_values.size() > 1)
 			{
-				std::vector<RTLIL::State> master_bits = y_values.at(0).bits;
+				std::vector<RTLIL::State> master_bits = y_values.at(0).to_bits();
 
 				for (size_t i = 1; i < y_values.size(); i++) {
-					std::vector<RTLIL::State> &slave_bits = y_values.at(i).bits;
+					std::vector<RTLIL::State> slave_bits = y_values.at(i).to_bits();
 					log_assert(master_bits.size() == slave_bits.size());
 					for (size_t j = 0; j < master_bits.size(); j++)
 						if (master_bits[j] != slave_bits[j])
@@ -248,8 +248,8 @@ struct ConstEval
 			RTLIL::Const val_x = const_or(t2, t3, false, false, width);
 
 			for (int i = 0; i < GetSize(val_y); i++)
-				if (val_y.bits[i] == RTLIL::Sx)
-					val_x.bits[i] = RTLIL::Sx;
+				if (val_y[i] == RTLIL::Sx)
+					val_x.bits()[i] = RTLIL::Sx;
 
 			set(sig_y, val_y);
 			set(sig_x, val_x);

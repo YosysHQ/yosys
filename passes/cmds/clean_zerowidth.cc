@@ -160,7 +160,7 @@ struct CleanZeroWidthPass : public Pass {
 							memwr.address = State::S0;
 						Const priority_mask;
 						for (auto x : swizzle) {
-							priority_mask.bits.push_back(memwr.priority_mask.bits[x]);
+							priority_mask.bits().push_back(memwr.priority_mask[x]);
 						}
 						memwr.priority_mask = priority_mask;
 						swizzle.push_back(i);

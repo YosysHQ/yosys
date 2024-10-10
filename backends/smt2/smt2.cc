@@ -1077,14 +1077,14 @@ struct Smt2Worker
 
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at(ID::init);
-				val.bits.resize(GetSize(sig), State::Sx);
+				val.bits().resize(GetSize(sig), State::Sx);
 				if (bvmode && GetSize(sig) > 1) {
 					Const mask(State::S1, GetSize(sig));
 					bool use_mask = false;
 					for (int i = 0; i < GetSize(sig); i++)
 						if (val[i] != State::S0 && val[i] != State::S1) {
-							val[i] = State::S0;
-							mask[i] = State::S0;
+							val.bits()[i] = State::S0;
+							mask.bits()[i] = State::S0;
 							use_mask = true;
 						}
 					if (use_mask)
@@ -1359,10 +1359,10 @@ struct Smt2Worker
 					for (int k = 0; k < GetSize(initword); k++) {
 						if (initword[k] == State::S0 || initword[k] == State::S1) {
 							gen_init_constr = true;
-							initmask[k] = State::S1;
+							initmask.bits()[k] = State::S1;
 						} else {
-							initmask[k] = State::S0;
-							initword[k] = State::S0;
+							initmask.bits()[k] = State::S0;
+							initword.bits()[k] = State::S0;
 						}
 					}
 

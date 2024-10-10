@@ -325,7 +325,7 @@ struct CellTypes
 
 	static RTLIL::Const eval_not(RTLIL::Const v)
 	{
-		for (auto &bit : v.bits)
+		for (auto &bit : v.bits())
 			if (bit == State::S0) bit = State::S1;
 			else if (bit == State::S1) bit = State::S0;
 		return v;
@@ -419,13 +419,13 @@ struct CellTypes
 			RTLIL::Const ret;
 			int width = cell->parameters.at(ID::Y_WIDTH).as_int();
 			int offset = cell->parameters.at(ID::OFFSET).as_int();
-			ret.bits.insert(ret.bits.end(), arg1.bits.begin()+offset, arg1.bits.begin()+offset+width);
+			ret.bits().insert(ret.bits().end(), arg1.begin()+offset, arg1.begin()+offset+width);
 			return ret;
 		}
 
 		if (cell->type == ID($concat)) {
 			RTLIL::Const ret = arg1;
-			ret.bits.insert(ret.bits.end(), arg2.bits.begin(), arg2.bits.end());
+			ret.bits().insert(ret.bits().end(), arg2.begin(), arg2.end());
 			return ret;
 		}
 
@@ -448,7 +448,7 @@ struct CellTypes
 		{
 			int width = cell->parameters.at(ID::WIDTH).as_int();
 
-			std::vector<RTLIL::State> t = cell->parameters.at(ID::LUT).bits;
+			std::vector<RTLIL::State> t = cell->parameters.at(ID::LUT).to_bits();
 			while (GetSize(t) < (1 << width))
 				t.push_back(State::S0);
 			t.resize(1 << width);
@@ -460,7 +460,7 @@ struct CellTypes
 		{
 			int width = cell->parameters.at(ID::WIDTH).as_int();
 			int depth = cell->parameters.at(ID::DEPTH).as_int();
-			std::vector<RTLIL::State> t = cell->parameters.at(ID::TABLE).bits;
+			std::vector<RTLIL::State> t = cell->parameters.at(ID::TABLE).to_bits();
 
 			while (GetSize(t) < width*depth*2)
 				t.push_back(State::S0);
@@ -473,7 +473,7 @@ struct CellTypes
 				bool match_x = true;
 
 				for (int j = 0; j < width; j++) {
-					RTLIL::State a = arg1.bits.at(j);
+					RTLIL::State a = arg1.at(j);
 					if (t.at(2*width*i + 2*j + 0) == State::S1) {
 						if (a == State::S1) match_x = false;
 						if (a != State::S0) match = false;
@@ -513,7 +513,7 @@ struct CellTypes
 		if (cell->type == ID($_OAI3_))
 			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), arg3, false, false, 1));
 
-		log_assert(arg3.bits.size() == 0);
+		log_assert(arg3.size() == 0);
 		return eval(cell, arg1, arg2, errp);
 	}
 
@@ -524,7 +524,7 @@ struct CellTypes
 		if (cell->type == ID($_OAI4_))
 			return eval_not(const_and(const_or(arg1, arg2, false, false, 1), const_or(arg3, arg4, false, false, 1), false, false, 1));
 
-		log_assert(arg4.bits.size() == 0);
+		log_assert(arg4.size() == 0);
 		return eval(cell, arg1, arg2, arg3, errp);
 	}
 };

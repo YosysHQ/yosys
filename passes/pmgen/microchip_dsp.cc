@@ -128,7 +128,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 					continue;
 				for (int i = c.offset; i < c.offset + c.width; i++) {
 					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second[i] = State::Sx;
+					it->second.bits()[i] = State::Sx;
 				}
 			}
 		};
@@ -244,7 +244,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 					continue;
 				for (int i = c.offset; i < c.offset + c.width; i++) {
 					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second[i] = State::Sx;
+					it->second.bits()[i] = State::Sx;
 				}
 			}
 		};

@@ -629,9 +629,9 @@ struct SatHelper
 			bool found_undef = false;
 
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx, found_undef = true;
+					value.bits().back() = RTLIL::State::Sx, found_undef = true;
 			}
 
 			if (info.timestep != last_timestep) {
@@ -740,9 +740,9 @@ struct SatHelper
 			RTLIL::Const value;
 
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx;
+					value.bits().back() = RTLIL::State::Sx;
 			}
 
 			if (info.timestep != last_timestep) {
@@ -754,11 +754,11 @@ struct SatHelper
 			}
 
 			if(info.width == 1) {
-				fprintf(f, "%c%s\n", bitvals[value.bits[0]], vcdnames[info.description].c_str());
+				fprintf(f, "%c%s\n", bitvals[value[0]], vcdnames[info.description].c_str());
 			} else {
 				fprintf(f, "b");
 				for(int k=info.width-1; k >= 0; k --)	//need to flip bit ordering for VCD
-					fprintf(f, "%c", bitvals[value.bits[k]]);
+					fprintf(f, "%c", bitvals[value[k]]);
 				fprintf(f, " %s\n", vcdnames[info.description].c_str());
 			}
 		}
@@ -786,9 +786,9 @@ struct SatHelper
 		{
 			Const value;
 			for (int i = 0; i < info.width; i++) {
-				value.bits.push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits.back() = RTLIL::State::Sx;
+					value.bits().back() = RTLIL::State::Sx;
 			}
 
 			wavedata[info.description].first = info.width;

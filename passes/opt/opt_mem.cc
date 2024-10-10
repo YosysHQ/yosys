@@ -90,7 +90,7 @@ struct OptMemPass : public Pass {
 				}
 				for (auto &init : mem.inits) {
 					for (int i = 0; i < GetSize(init.data); i++) {
-						State bit = init.data.bits[i];
+						State bit = init.data[i];
 						int lane = i % mem.width;
 						if (bit != State::Sx && bit != State::S0) {
 							always_0[lane] = false;
@@ -182,9 +182,9 @@ struct OptMemPass : public Pass {
 							for (auto i: swizzle) {
 								int bidx = sub * mem.width + i;
 								new_data.append(port.data[bidx]);
-								new_init.bits.push_back(port.init_value.bits[bidx]);
-								new_arst.bits.push_back(port.arst_value.bits[bidx]);
-								new_srst.bits.push_back(port.srst_value.bits[bidx]);
+								new_init.bits().push_back(port.init_value[bidx]);
+								new_arst.bits().push_back(port.arst_value[bidx]);
+								new_srst.bits().push_back(port.srst_value[bidx]);
 							}
 						}
 						port.data = new_data;
@@ -197,11 +197,11 @@ struct OptMemPass : public Pass {
 						Const new_en;
 						for (int s = 0; s < GetSize(init.data); s += mem.width) {
 							for (auto i: swizzle) {
-								new_data.bits.push_back(init.data.bits[s + i]);
+								new_data.bits().push_back(init.data[s + i]);
 							}
 						}
 						for (auto i: swizzle) {
-							new_en.bits.push_back(init.en.bits[i]);
+							new_en.bits().push_back(init.en[i]);
 						}
 						init.data = new_data;
 						init.en = new_en;

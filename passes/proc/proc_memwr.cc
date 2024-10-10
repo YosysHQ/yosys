@@ -39,7 +39,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 			Const priority_mask(State::S0, port_id);
 			for (int i = 0; i < GetSize(prev_port_ids); i++)
 				if (memwr.priority_mask[i] == State::S1)
-					priority_mask[prev_port_ids[i]] = State::S1;
+					priority_mask.bits()[prev_port_ids[i]] = State::S1;
 			prev_port_ids.push_back(port_id);
 
 			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));

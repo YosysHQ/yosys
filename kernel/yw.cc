@@ -185,7 +185,7 @@ RTLIL::Const ReadWitness::get_bits(int t, int bits_offset, int width) const
 	const std::string &bits = steps[t].bits;
 
 	RTLIL::Const result(State::Sa, width);
-	result.bits.reserve(width);
+	result.bits().reserve(width);
 
 	int read_begin = GetSize(bits) - 1 - bits_offset;
 	int read_end = max(-1, read_begin - width);
@@ -200,7 +200,7 @@ RTLIL::Const ReadWitness::get_bits(int t, int bits_offset, int width) const
 			default:
 				log_abort();
 		}
-		result.bits[j] = bit;
+		result.bits()[j] = bit;
 	}
 
 	return result;

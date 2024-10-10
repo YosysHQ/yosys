@@ -922,7 +922,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
 
 		std::vector<int> lut;
-		for (auto bit : cell->getParam(ID::LUT).bits)
+		for (auto bit : cell->getParam(ID::LUT))
 			lut.push_back(bit == State::S1 ? ez->CONST_TRUE : ez->CONST_FALSE);
 		while (GetSize(lut) < (1 << GetSize(a)))
 			lut.push_back(ez->CONST_FALSE);
@@ -974,7 +974,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		int width = cell->getParam(ID::WIDTH).as_int();
 		int depth = cell->getParam(ID::DEPTH).as_int();
 
-		vector<State> table_raw = cell->getParam(ID::TABLE).bits;
+		vector<State> table_raw = cell->getParam(ID::TABLE).to_bits();
 		while (GetSize(table_raw) < 2*width*depth)
 			table_raw.push_back(State::S0);
 

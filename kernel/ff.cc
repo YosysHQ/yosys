@@ -298,11 +298,11 @@ FfData FfData::slice(const std::vector<int> &bits) {
 			res.sig_set.append(sig_set[i]);
 		}
 		if (has_arst)
-			res.val_arst.bits.push_back(val_arst[i]);
+			res.val_arst.bits().push_back(val_arst[i]);
 		if (has_srst)
-			res.val_srst.bits.push_back(val_srst[i]);
+			res.val_srst.bits().push_back(val_srst[i]);
 		if (initvals)
-			res.val_init.bits.push_back(val_init[i]);
+			res.val_init.bits().push_back(val_init[i]);
 	}
 	res.width = GetSize(res.sig_q);
 	return res;
@@ -688,10 +688,10 @@ void FfData::flip_rst_bits(const pool<int> &bits) {
 
 	for (auto bit: bits) {
 		if (has_arst)
-			val_arst[bit] = invert(val_arst[bit]);
+			val_arst.bits()[bit] = invert(val_arst[bit]);
 		if (has_srst)
-			val_srst[bit] = invert(val_srst[bit]);
-		val_init[bit] = invert(val_init[bit]);
+			val_srst.bits()[bit] = invert(val_srst[bit]);
+		val_init.bits()[bit] = invert(val_init[bit]);
 	}
 }
 
@@ -760,7 +760,7 @@ void FfData::flip_bits(const pool<int> &bits) {
 
 		Const mask = Const(State::S0, width);
 		for (auto bit: bits)
-			mask.bits[bit] = State::S1;
+			mask.bits()[bit] = State::S1;
 
 		if (has_clk || has_gclk)
 			sig_d = module->Xor(NEW_ID, sig_d, mask);

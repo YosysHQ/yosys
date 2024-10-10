@@ -94,7 +94,7 @@ struct ExclusiveDatabase
 		SigSpec nonconst_sig;
 		pool<Const> const_values;
 
-		for (auto bit : sig.bits()) {
+		for (auto bit : sig) {
 			auto it = sig_cmp_prev.find(bit);
 			if (it == sig_cmp_prev.end())
 				return false;
@@ -152,7 +152,7 @@ struct MuxpackWorker
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 				if (sig_chain_next.count(a_sig))
-					for (auto a_bit : a_sig.bits())
+					for (auto a_bit : a_sig)
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
 					sig_chain_next[a_sig] = cell;
@@ -161,7 +161,7 @@ struct MuxpackWorker
 
 				if (!b_sig.empty()) {
 					if (sig_chain_next.count(b_sig))
-						for (auto b_bit : b_sig.bits())
+						for (auto b_bit : b_sig)
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
 						sig_chain_next[b_sig] = cell;
@@ -201,7 +201,7 @@ struct MuxpackWorker
 			}
 			else log_abort();
 
-			for (auto bit : a_sig.bits())
+			for (auto bit : a_sig)
 				if (sigbit_with_non_chain_users.count(bit))
 					goto start_cell;
 

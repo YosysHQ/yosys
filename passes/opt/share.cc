@@ -781,18 +781,18 @@ struct ShareWorker
 		std::vector<RTLIL::SigBit> p_first_bits = p.first;
 		for (int i = 0; i < GetSize(p_first_bits); i++) {
 			RTLIL::SigBit b = p_first_bits[i];
-			RTLIL::State v = p.second.bits[i];
+			RTLIL::State v = p.second[i];
 			if (p_bits.count(b) && p_bits.at(b) != v)
 				return false;
 			p_bits[b] = v;
 		}
 
 		p.first = RTLIL::SigSpec();
-		p.second.bits.clear();
+		p.second.bits().clear();
 
 		for (auto &it : p_bits) {
 			p.first.append(it.first);
-			p.second.bits.push_back(it.second);
+			p.second.bits().push_back(it.second);
 		}
 
 		return true;
@@ -815,10 +815,10 @@ struct ShareWorker
 			{
 				auto otherval = val;
 
-				if (otherval.bits[i] == State::S0)
-					otherval.bits[i] = State::S1;
-				else if (otherval.bits[i] == State::S1)
-					otherval.bits[i] = State::S0;
+				if (otherval[i] == State::S0)
+					otherval.bits()[i] = State::S1;
+				else if (otherval[i] == State::S1)
+					otherval.bits()[i] = State::S0;
 				else
 					continue;
 
@@ -828,7 +828,7 @@ struct ShareWorker
 					newsig.remove(i);
 
 					auto newval = val;
-					newval.bits.erase(newval.bits.begin() + i);
+					newval.bits().erase(newval.bits().begin() + i);
 
 					db[newsig].insert(newval);
 					db[sig].erase(otherval);
@@ -907,14 +907,14 @@ struct ShareWorker
 			if (used_in_a)
 				for (auto p : c_patterns) {
 					for (int i = 0; i < GetSize(sig_s); i++)
-						p.first.append(sig_s[i]), p.second.bits.push_back(RTLIL::State::S0);
+						p.first.append(sig_s[i]), p.second.bits().push_back(RTLIL::State::S0);
 					if (sort_check_activation_pattern(p))
 						activation_patterns_cache[cell].insert(p);
 				}
 
 			for (int idx : used_in_b_parts)
 				for (auto p : c_patterns) {
-					p.first.append(sig_s[idx]), p.second.bits.push_back(RTLIL::State::S1);
+					p.first.append(sig_s[idx]), p.second.bits().push_back(RTLIL::State::S1);
 					if (sort_check_activation_pattern(p))
 						activation_patterns_cache[cell].insert(p);
 				}
@@ -965,7 +965,7 @@ struct ShareWorker
 			for (int i = 0; i < GetSize(p_first); i++)
 				if (filter_bits.count(p_first[i]) == 0) {
 					new_p.first.append(p_first[i]);
-					new_p.second.bits.push_back(p.second.bits.at(i));
+					new_p.second.bits().push_back(p.second.at(i));
 				}
 
 			out.insert(new_p);

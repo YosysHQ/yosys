@@ -78,7 +78,7 @@ struct OptLutInsPass : public Pass {
 				if (techname == "") {
 					if (cell->type != ID($lut))
 						continue;
-					inputs = cell->getPort(ID::A).bits();
+					inputs = cell->getPort(ID::A);
 					output = cell->getPort(ID::Y);
 					lut = cell->getParam(ID::LUT);
 				} else if (techname == "xilinx" || techname == "gowin") {
@@ -213,7 +213,7 @@ struct OptLutInsPass : public Pass {
 						}
 						lidx |= val << j;
 					}
-					new_lut[i] = lut[lidx];
+					new_lut.bits()[i] = lut[lidx];
 				}
 				// For lattice, and gowin do not replace with a const driver — the nextpnr
 				// packer requires a complete set of LUTs for wide LUT muxes.

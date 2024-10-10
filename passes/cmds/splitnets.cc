@@ -77,7 +77,7 @@ struct SplitnetsWorker
 		if (it != wire->attributes.end()) {
 			Const old_init = it->second, new_init;
 			for (int i = offset; i < offset+width; i++)
-				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
+				new_init.bits().push_back(i < GetSize(old_init) ? old_init.at(i) : State::Sx);
 			new_wire->attributes.emplace(ID::init, new_init);
 		}
 

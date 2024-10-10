@@ -250,13 +250,13 @@ struct VlogHammerReporter
 				std::string module_name = module_names[mod].c_str();
 				ConstEval ce(module);
 
-				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
+				std::vector<RTLIL::State> bits(patterns[idx].begin(), patterns[idx].begin() + total_input_width);
 				for (int i = 0; i < int(inputs.size()); i++) {
 					RTLIL::Wire *wire = module->wire(inputs[i]);
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
-						recorded_set_vals.bits.push_back(bits.back());
+						recorded_set_vals.bits().push_back(bits.back());
 						bits.pop_back();
 					}
 					if (module == modules.front()) {
@@ -346,7 +346,7 @@ struct VlogHammerReporter
 				log_error("Pattern %s is to short!\n", pattern.c_str());
 			patterns.push_back(sig.as_const());
 			if (invert_pattern) {
-				for (auto &bit : patterns.back().bits)
+				for (auto &bit : patterns.back().bits())
 					if (bit == RTLIL::State::S0)
 						bit = RTLIL::State::S1;
 					else if (bit == RTLIL::State::S1)
@@ -557,7 +557,7 @@ struct EvalPass : public Pass {
 				tab_line.clear();
 				ce.pop();
 
-				tabvals = RTLIL::const_add(tabvals, RTLIL::Const(1), false, false, tabvals.bits.size());
+				tabvals = RTLIL::const_add(tabvals, RTLIL::Const(1), false, false, tabvals.size());
 			}
 			while (tabvals.as_bool());
 

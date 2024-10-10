@@ -104,7 +104,7 @@ struct Macc
 		ports.clear();
 		bit_ports = cell->getPort(ID::B);
 
-		std::vector<RTLIL::State> config_bits = cell->getParam(ID::CONFIG).bits;
+		auto config_bits = cell->getParam(ID::CONFIG);
 		int config_cursor = 0;
 
 		int config_width = cell->getParam(ID::CONFIG_WIDTH).as_int();
@@ -199,7 +199,7 @@ struct Macc
 
 	bool eval(RTLIL::Const &result) const
 	{
-		for (auto &bit : result.bits)
+		for (auto &bit : result.bits())
 			bit = State::S0;
 
 		for (auto &port : ports)

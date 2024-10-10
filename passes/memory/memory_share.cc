@@ -60,11 +60,11 @@ struct MemoryShareWorker
 	bool merge_rst_value(Mem &mem, Const &res, int wide_log2, const Const &src1, int sub1, const Const &src2, int sub2) {
 		res = Const(State::Sx, mem.width << wide_log2);
 		for (int i = 0; i < GetSize(src1); i++)
-			res[i + sub1 * mem.width] = src1[i];
+			res.bits()[i + sub1 * mem.width] = src1[i];
 		for (int i = 0; i < GetSize(src2); i++) {
 			if (src2[i] == State::Sx)
 				continue;
-			auto &dst = res[i + sub2 * mem.width];
+			auto &dst = res.bits()[i + sub2 * mem.width];
 			if (dst == src2[i])
 				continue;
 			if (dst != State::Sx)

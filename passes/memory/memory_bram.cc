@@ -848,9 +848,9 @@ grow_read_ports:;
 		for (int i = 0; i < mem.width; i++)
 			if (shuffle_map[i] != -1) {
 				module->connect(port.data[shuffle_map[i]], new_data[i]);
-				new_init_value[i] = port.init_value[shuffle_map[i]];
-				new_arst_value[i] = port.arst_value[shuffle_map[i]];
-				new_srst_value[i] = port.srst_value[shuffle_map[i]];
+				new_init_value.bits()[i] = port.init_value[shuffle_map[i]];
+				new_arst_value.bits()[i] = port.arst_value[shuffle_map[i]];
+				new_srst_value.bits()[i] = port.srst_value[shuffle_map[i]];
 			}
 		port.data = new_data;
 		port.init_value = new_init_value;
@@ -887,9 +887,9 @@ grow_read_ports:;
 				for (int i = 0; i < init_size; i++)
 					for (int j = 0; j < bram.dbits; j++)
 						if (init_offset+i < GetSize(initdata) && init_offset+i >= 0)
-							initparam[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
+							initparam.bits()[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
 						else
-							initparam[i*bram.dbits+j] = State::Sx;
+							initparam.bits()[i*bram.dbits+j] = State::Sx;
 				c->setParam(ID::INIT, initparam);
 			}
 
