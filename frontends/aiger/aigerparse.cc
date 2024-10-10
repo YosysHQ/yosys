@@ -336,12 +336,32 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 	return from_big_endian(l);
 }
 
-RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
+static RTLIL::IdString parse_xaiger_idstring(std::istream &f)
+{
+	std::string str;
+	std::getline(f, str, '\0');
+	if (!f.good())
+#if defined(_WIN32) && defined(__MINGW32__)
+		log_error("Offset %I64d: unable to read string!\n", static_cast<int64_t>(f.tellg()));
+#else
+		log_error("Offset %" PRId64 ": unable to read string!\n", static_cast<int64_t>(f.tellg()));
+#endif
+	return RTLIL::escape_id(str);
+}
+
+RTLIL::IdString AigerReader::litName(unsigned literal)
 {
 	const unsigned variable = literal >> 1;
 	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
+	return stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : "");
+}
+
+RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
+{
+	RTLIL::IdString wire_name = litName(literal);
 	RTLIL::Wire *wire = module->wire(wire_name);
+	const unsigned variable = literal >> 1;
+	const bool invert = literal & 1;
 	if (wire) return wire;
 	log_debug2("Creating %s\n", wire_name.c_str());
 	wire = module->addWire(wire_name);
@@ -454,6 +474,59 @@ void AigerReader::parse_xaiger()
 				log_assert(output_cell);
 				module->remove(output_cell);
 				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+			}
+		}
+		if (c == 'M') {
+			uint32_t dataSize = parse_xaiger_literal(f);
+			uint32_t nCells = parse_xaiger_literal(f);
+			uint32_t nInstances = parse_xaiger_literal(f);
+			log_debug("M: dataSize=%u nCells=%u nInstances=%u\n", dataSize, nCells, nInstances);
+
+			struct MappingCell {
+				RTLIL::IdString type;
+				RTLIL::IdString out;
+				std::vector<RTLIL::IdString> ins;
+			};
+			std::vector<MappingCell> cells;
+			cells.resize(nCells);
+
+			for (unsigned i = 0; i < nCells; ++i) {
+				auto &cell = cells[i];
+				cell.type = parse_xaiger_idstring(f);
+				cell.out = parse_xaiger_idstring(f);
+				uint32_t nins = parse_xaiger_literal(f);
+				for (uint32_t j = 0; j < nins; j++)
+					cell.ins.push_back(parse_xaiger_idstring(f));
+				log_debug("Cell %s (out %s, ins", log_id(cell.type), log_id(cell.out));
+				for (auto in : cell.ins)
+					log_debug(" %s", log_id(in));
+				log_debug(")\n");
+			}
+
+			for (unsigned i = 0; i < nInstances; ++i) {
+				uint32_t cellId = parse_xaiger_literal(f);
+				uint32_t outLit = parse_xaiger_literal(f);
+				log_debug("outLit=%u cellId=%u %s\n", outLit, cellId, log_id(litName(outLit)));
+				RTLIL::Wire *outW = module->wire(litName(outLit));
+				if (!outW)
+					outW = module->addWire(litName(outLit), 1);
+				log_assert(outW);
+				log_assert(cellId < cells.size());
+				auto &cell = cells[cellId];
+				RTLIL::Cell *instance = module->addCell(NEW_ID, cell.type);
+				instance->setPort(cell.out, outW);
+				for (auto in : cell.ins) {
+					uint32_t inLit = parse_xaiger_literal(f);
+					RTLIL::Wire *inW = module->wire(litName(inLit));
+					//log_assert(inW);
+					if (!inW)
+						inW = module->addWire(litName(inLit), 1);
+					instance->setPort(in, inW);
+				}
+				RTLIL::Cell *output_cell = module->cell(stringf("%s$aiger%d$%d", (outLit & 1 ? "$not" : "$and"),
+																aiger_autoidx, outLit >> 1));
+				if (output_cell)
+					module->remove(output_cell);
 			}
 		}
 		else if (c == 'r') {

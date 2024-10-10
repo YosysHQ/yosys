@@ -54,6 +54,7 @@ struct AigerReader
     void parse_aiger_binary();
     void post_process();
 
+    RTLIL::IdString litName(unsigned literal);
     RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal);
 };
 
