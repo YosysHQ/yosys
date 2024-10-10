@@ -188,6 +188,9 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 
 static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
 {
+	if (range_node && type_node->is_unpacked)
+		frontend_verilog_yyerror("Cannot extend unpacked type `%s' with packed dimensions\n", type_node->str.c_str());
+
 	if (type_node->range_left >= 0 && type_node->range_right >= 0) {
 		// type already restricts the range
 		if (range_node) {
@@ -214,24 +217,33 @@ static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
 	return range_node;
 }
 
-static void rewriteRange(AstNode *rangeNode)
+static void rewriteUnpackedRange(AstNode *rangeNode)
 {
 	if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
 		// SV array size [n], rewrite as [0:n-1]
 		rangeNode->children.push_back(new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true)));
 		rangeNode->children[0] = AstNode::mkconst_int(0, false);
+		rangeNode->is_unpacked = true;
 	}
+}
+
+static void rewriteUnpackedRanges(AstNode *node, AstNode *rangeNode)
+{
+	if (rangeNode->type == AST_MULTIRANGE) {
+		rangeNode->is_unpacked = true;
+		for (auto *itr : rangeNode->children) {
+			rewriteUnpackedRange(itr);
+		}
+	} else
+		rewriteUnpackedRange(rangeNode);
+	node->children.push_back(rangeNode);
 }
 
 static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 {
-	node->type = AST_MEMORY;
-	if (rangeNode->type == AST_MULTIRANGE) {
-		for (auto *itr : rangeNode->children)
-			rewriteRange(itr);
-	} else
-		rewriteRange(rangeNode);
-	node->children.push_back(rangeNode);
+	if (node->type == AST_WIRE)
+		node->type = AST_MEMORY;
+	rewriteUnpackedRanges(node, rangeNode);
 }
 
 static void checkLabelsMatch(const char *element, const std::string *before, const std::string *after)
@@ -1847,8 +1859,13 @@ enum_decl: enum_type enum_var_list ';'		{ delete $1; }
 //////////////////
 
 struct_decl:
-	attr struct_type {
-		append_attr($2, $1);
+	attr struct_type range_or_multirange {
+		AstNode *node = $2;
+		append_attr(node, $1);
+		AstNode *range = checkRange(node, $3);
+		if (range)
+			frontend_verilog_yyerror("Arrays of structs/unions are currently not supported");
+			// node->children.push_back(range);
 	} struct_var_list ';' {
 		delete astbuf2;
 	}
@@ -1866,8 +1883,8 @@ struct_body: opt_packed '{' struct_member_list '}'
 	;
 
 opt_packed:
-	TOK_PACKED opt_signed_struct |
-	%empty { frontend_verilog_yyerror("Only PACKED supported at this time"); };
+	TOK_PACKED	{ astbuf2->is_unpacked = false; } opt_signed_struct
+	| %empty	{ astbuf2->is_unpacked = true; }
 
 opt_signed_struct:
 	  TOK_SIGNED		{ astbuf2->is_signed = true; }
@@ -1887,13 +1904,18 @@ member_name_list:
 	| member_name_list ',' member_name
 	;
 
-member_name: TOK_ID {
+member_name: TOK_ID range_or_multirange {
 			astbuf1->str = $1->substr(1);
 			delete $1;
 			astbuf3 = astbuf1->clone();
+			if ($2) {
+				if (!astbuf2->is_unpacked)
+					frontend_verilog_yyerror("A packed struct/union cannot contain unpacked members");
+				rewriteUnpackedRanges(astbuf3, $2);
+			}
 			SET_AST_NODE_LOC(astbuf3, @1, @1);
 			astbuf2->children.push_back(astbuf3);
-		} range { if ($3) astbuf3->children.push_back($3); }
+		}
 	;
 
 struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token
@@ -1905,6 +1927,11 @@ member_type_token:
 		if (range)
 			astbuf1->children.push_back(range);
 	}
+	;
+
+member_type: type_atom type_signing
+	| type_vec type_signing
+	| hierarchical_type_id { addWiretypeNode($1, astbuf1); }
 	| {
 		delete astbuf1;
 	} struct_union {
@@ -1919,21 +1946,20 @@ member_type_token:
 		}
 	;
 
-member_type: type_atom type_signing
-	| type_vec type_signing
-	| hierarchical_type_id { addWiretypeNode($1, astbuf1); }
-	;
-
 struct_var_list: struct_var
 	| struct_var_list ',' struct_var
 	;
 
-struct_var: TOK_ID	{	auto *var_node = astbuf2->clone();
-				var_node->str = *$1;
-				delete $1;
-				SET_AST_NODE_LOC(var_node, @1, @1);
-				ast_stack.back()->children.push_back(var_node);
-			}
+struct_var: TOK_ID range_or_multirange	{
+		auto var_node = astbuf2->clone();
+		var_node->str = *$1;
+		delete $1;
+		if ($2)
+			frontend_verilog_yyerror("Arrays of structs/unions are currently not supported");
+			// rewriteUnpackedRanges(var_node, $2);
+		SET_AST_NODE_LOC(var_node, @1, @1);
+		ast_stack.back()->children.push_back(var_node);
+	}
 	;
 
 /////////

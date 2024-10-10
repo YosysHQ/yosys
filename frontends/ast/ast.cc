@@ -215,6 +215,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	is_reg = false;
 	is_logic = false;
 	is_signed = false;
+	is_unpacked = false;
 	is_string = false;
 	is_enum = false;
 	is_wand = false;
@@ -340,6 +341,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " reg");
 	if (is_signed)
 		fprintf(f, " signed");
+	if (is_unpacked)
+		fprintf(f, " unpacked");
 	if (is_unsized)
 		fprintf(f, " unsized");
 	if (basic_prep)
@@ -363,6 +366,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 				std::swap(left, right);
 			fprintf(f, "[%d:%d]", left, right);
 		}
+		if (unpacked_dimensions)
+			fprintf(f, " unpacked_dimensions=%d", unpacked_dimensions);
 	}
 	if (is_enum) {
 		fprintf(f, " type=enum");
