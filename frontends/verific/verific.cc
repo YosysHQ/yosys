@@ -450,7 +450,6 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		auto type_range = nl->GetTypeRange(obj->Name());
 		if (!type_range)
 			return;
-		/* SILIMATE: causes issues with OpenSTA attribute parsing
 		if (type_range->IsTypeScalar()) {
 			const long long bottom_bound = type_range->GetScalarRangeLeftBound();
 			const long long top_bound = type_range->GetScalarRangeRightBound();
@@ -464,7 +463,6 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			attributes.emplace(ID(bottom_bound), bottom_const);
 			attributes.emplace(ID(top_bound), top_const);
 		}
-		*/
 		if (!type_range->IsTypeEnum())
 			return;
 #ifdef VERIFIC_VHDL_SUPPORT
