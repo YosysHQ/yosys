@@ -20,7 +20,7 @@ given in :doc:`/yosys_internals/formats/rtlil_rep`.
 
 There is also a text representation of the RTLIL data structure that can be
 parsed using the RTLIL Frontend which is described in
-:doc:`/yosys_internals/formats/rtlil_text`.
+:doc:`/appendix/rtlil_text`.
 
 The design data may then be transformed using a series of passes that all
 operate on the RTLIL representation of the design.

@@ -5,23 +5,23 @@ Converting process blocks
    :language: yoscrypt
 
 The Verilog frontend converts ``always``-blocks to RTL netlists for the
-expressions and "processess" for the control- and memory elements. The
-:cmd:ref:`proc` command then transforms these "processess" to netlists of RTL
-multiplexer and register cells. It also is a macro command that calls the other
-``proc_*`` commands in a sensible order:
+expressions and "processess" for the control- and memory elements. The `proc`
+command then transforms these "processess" to netlists of RTL multiplexer and
+register cells. It also is a macro command that calls the other ``proc_*``
+commands in a sensible order:
 
 .. literalinclude:: /code_examples/macro_commands/proc.ys
    :language: yoscrypt
    :start-after: #end:
-   :caption: Passes called by :cmd:ref:`proc`
+   :caption: Passes called by `proc`
 
-After all the ``proc_*`` commands, :cmd:ref:`opt_expr` is called. This can be
-disabled by calling :yoscrypt:`proc -noopt`.  For more information about
-:cmd:ref:`proc`, such as disabling certain sub commands, see :doc:`/cmd/proc`.
+After all the ``proc_*`` commands, `opt_expr` is called. This can be disabled by
+calling :yoscrypt:`proc -noopt`.  For more information about `proc`, such as
+disabling certain sub commands, see :doc:`/cmd/proc`.
 
 Many commands can not operate on modules with "processess" in them. Usually a
-call to :cmd:ref:`proc` is the first command in the actual synthesis procedure
-after design elaboration.
+call to `proc` is the first command in the actual synthesis procedure after
+design elaboration.
 
 Example
 ^^^^^^^

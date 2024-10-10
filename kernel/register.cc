@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
+#include "kernel/json.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -747,14 +748,44 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 		design->selection_stack.pop_back();
 }
 
+struct SimHelper {
+	string name;
+	inline string filesafe_name() {
+		if (name.at(0) == '$')
+			if (name.at(1) == '_')
+				return "gate" + name.substr(1);
+			else
+				return "word_" + name.substr(1);
+		else
+			return name;
+	}
+	string title;
+	string ports;
+	string source;
+	string desc;
+	string code;
+	string group;
+	string ver;
+	string tags;
+};
+
+static bool is_code_getter(string name) {
+	return *(--(name.end())) == '+';
+}
+
+static string get_cell_name(string name) {
+	return is_code_getter(name) ? name.substr(0, name.length()-1) : name;
+}
+
 static struct CellHelpMessages {
-	dict<string, string> cell_help, cell_code;
+	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
 #include "techlibs/common/simlib_help.inc"
 #include "techlibs/common/simcells_help.inc"
 		cell_help.sort();
-		cell_code.sort();
 	}
+	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }
+	SimHelper get(string name) { return cell_help[get_cell_name(name)]; }
 } cell_help_messages;
 
 struct HelpPass : public Pass {
@@ -771,7 +802,7 @@ struct HelpPass : public Pass {
 		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
-	void write_rst(std::string cmd, std::string title, std::string text)
+	void write_cmd_rst(std::string cmd, std::string title, std::string text)
 	{
 		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
 		// make header
@@ -864,6 +895,146 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
+	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType ct)
+	{
+		// open
+		FILE *f = fopen(stringf("docs/source/cell/%s.rst", cell.filesafe_name().c_str()).c_str(), "wt");
+
+		// make header
+		string title_line;
+		if (cell.title.length())
+			title_line = stringf("%s - %s", cell.name.c_str(), cell.title.c_str());
+		else title_line = cell.name;
+		string underline = "\n";
+		underline.insert(0, title_line.length(), '=');
+		fprintf(f, "%s\n", title_line.c_str());
+		fprintf(f, "%s\n", underline.c_str());
+
+		// help text, with cell def for links
+		fprintf(f, ".. cell:def:: %s\n", cell.name.c_str());
+		if (cell.title.length())
+			fprintf(f, "   :title: %s\n\n", cell.title.c_str());
+		else
+			fprintf(f, "   :title: %s\n\n", cell.name.c_str());
+		std::stringstream ss;
+		ss << cell.desc;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			fprintf(f, "   %s\n", line.c_str());
+		}
+
+		// properties
+		fprintf(f, "\nProperties");
+		fprintf(f, "\n----------\n\n");
+		dict<string, bool> prop_dict = {
+			{"is_evaluable", ct.is_evaluable},
+			{"is_combinatorial", ct.is_combinatorial},
+			{"is_synthesizable", ct.is_synthesizable},
+		};
+		for (auto &it : prop_dict) {
+			fprintf(f, "- %s: %s\n", it.first.c_str(), it.second ? "true" : "false");
+		}
+
+		// source code
+		fprintf(f, "\nSimulation model (Verilog)");
+		fprintf(f, "\n--------------------------\n\n");
+		fprintf(f, ".. code-block:: verilog\n");
+		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
+		std::stringstream ss2;
+		ss2 << cell.code;
+		for (std::string line; std::getline(ss2, line, '\n');) {
+			fprintf(f, "   %s\n", line.c_str());
+		}
+
+		// footer
+		fprintf(f, "\n.. note::\n\n");
+		fprintf(f, "   This page was auto-generated from the output of\n");
+		fprintf(f, "   ``help %s``.\n", cell.name.c_str());
+
+		// close
+		fclose(f);
+	}
+	bool dump_cells_json(PrettyJson &json) {
+		// init json
+		json.begin_object();
+		json.entry("version", "Yosys internal cells");
+		json.entry("generator", yosys_version_str);
+
+		dict<string, vector<string>> groups;
+		dict<string, pair<SimHelper, CellType>> cells;
+
+		// iterate over cells
+		bool raise_error = false;
+		for (auto &it : yosys_celltypes.cell_types) {
+			auto name = it.first.str();
+			if (cell_help_messages.contains(name)) {
+				auto cell_help = cell_help_messages.get(name);
+				if (groups.count(cell_help.group) != 0) {
+					auto group_cells = &groups.at(cell_help.group);
+					group_cells->push_back(name);
+				} else {
+					auto group_cells = new vector<string>(1, name);
+					groups.emplace(cell_help.group, *group_cells);
+				}
+				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
+				cells.emplace(name, cell_pair);
+			} else {
+				log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
+				raise_error |= true;
+			}
+		}
+		for (auto &it : cell_help_messages.cell_help) {
+			if (cells.count(it.first) == 0) {
+				log_warning("Found cell model '%s' without matching cell type.\n", it.first.c_str());
+			}
+		}
+
+		// write to json
+		json.name("groups"); json.begin_object();
+		groups.sort();
+		for (auto &it : groups) {
+			json.name(it.first.c_str()); json.value(it.second);
+		}
+		json.end_object();
+
+		json.name("cells"); json.begin_object();
+		cells.sort();
+		for (auto &it : cells) {
+			auto ch = it.second.first;
+			auto ct = it.second.second;
+			json.name(ch.name.c_str()); json.begin_object();
+			json.name("title"); json.value(ch.title);
+			json.name("ports"); json.value(ch.ports);
+			json.name("source"); json.value(ch.source);
+			json.name("desc"); json.value(ch.desc);
+			json.name("code"); json.value(ch.code);
+			vector<string> inputs, outputs;
+			for (auto &input : ct.inputs)
+				inputs.push_back(input.str());
+			json.name("inputs"); json.value(inputs);
+			for (auto &output : ct.outputs)
+				outputs.push_back(output.str());
+			json.name("outputs"); json.value(outputs);
+			vector<string> properties;
+			// CellType properties
+			if (ct.is_evaluable) properties.push_back("is_evaluable");
+			if (ct.is_combinatorial) properties.push_back("is_combinatorial");
+			if (ct.is_synthesizable) properties.push_back("is_synthesizable");
+			// SimHelper properties
+			size_t last = 0; size_t next = 0;
+			while ((next = ch.tags.find(", ", last)) != string::npos) {
+				properties.push_back(ch.tags.substr(last, next-last));
+				last = next + 2;
+			}
+			auto final_tag = ch.tags.substr(last);
+			if (final_tag.size()) properties.push_back(final_tag);
+			json.name("properties"); json.value(properties);
+			json.end_object();
+		}
+		json.end_object();
+
+		json.end_object();
+		return raise_error;
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
@@ -896,9 +1067,8 @@ struct HelpPass : public Pass {
 			else if (args[1] == "-cells") {
 				log("\n");
 				for (auto &it : cell_help_messages.cell_help) {
-					string line = split_tokens(it.second, "\n").at(0);
-					string cell_name = next_token(line);
-					log("    %-15s %s\n", cell_name.c_str(), line.c_str());
+					SimHelper help_cell = it.second;
+					log("    %-15s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
 				}
 				log("\n");
 				log("Type 'help <cell_type>' for more information on a cell type.\n");
@@ -917,7 +1087,23 @@ struct HelpPass : public Pass {
 						log("\n");
 					}
 					log_streams.pop_back();
-					write_rst(it.first, it.second->short_help, buf.str());
+					write_cmd_rst(it.first, it.second->short_help, buf.str());
+				}
+			}
+			// this option is also undocumented as it is for internal use only
+			else if (args[1] == "-write-rst-cells-manual") {
+				bool raise_error = false;
+				for (auto &it : yosys_celltypes.cell_types) {
+					auto name = it.first.str();
+					if (cell_help_messages.contains(name)) {
+						write_cell_rst(cell_help_messages.get(name), it.second);
+					} else {
+						log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
+						raise_error |= true;
+					}
+				}
+				if (raise_error) {
+					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
 				}
 			}
 			else if (pass_register.count(args[1])) {
@@ -928,17 +1114,41 @@ struct HelpPass : public Pass {
 					log("\n");
 				}
 			}
-			else if (cell_help_messages.cell_help.count(args[1])) {
-				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());
-				log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
-				log("\n");
-			}
-			else if (cell_help_messages.cell_code.count(args[1])) {
-				log("\n");
-				log("%s", cell_help_messages.cell_code.at(args[1]).c_str());
+			else if (cell_help_messages.contains(args[1])) {
+				auto help_cell = cell_help_messages.get(args[1]);
+				if (is_code_getter(args[1])) {
+						log("\n");
+						log("%s\n", help_cell.code.c_str());
+				} else {
+					log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
+					if (help_cell.ver == "2" || help_cell.ver == "2a") {
+						if (help_cell.title != "") log("%s:\n", help_cell.title.c_str());
+						std::stringstream ss;
+						ss << help_cell.desc;
+						for (std::string line; std::getline(ss, line, '\n');) {
+							if (line != "::") log("%s\n", line.c_str());
+						}
+					} else if (help_cell.desc.length()) {
+						log("%s\n", help_cell.desc.c_str());
+					} else {
+						log("No help message for this cell type found.\n");
+					}
+					log("\nRun 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+					log("\n");
+				}
 			}
 			else
 				log("No such command or cell type: %s\n", args[1].c_str());
+			return;
+		} else if (args.size() == 3) {
+			if (args[1] == "-dump-cells-json") {
+				PrettyJson json;
+				if (!json.write_to_file(args[2]))
+					log_error("Can't open file `%s' for writing: %s\n", args[2].c_str(), strerror(errno));
+				if (dump_cells_json(json)) {
+					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
+				}
+			}
 			return;
 		}
 

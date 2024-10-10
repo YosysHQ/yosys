@@ -27,18 +27,28 @@ available, go to :ref:`commandindex`.
 
 .. todolist::
 
-.. only:: html
-
-   Table of contents
-   -----------------
-
 .. toctree::
    :maxdepth: 3
    :includehidden:
 
+   Yosys (index) <self>
    introduction
+
    getting_started/index
    using_yosys/index
    yosys_internals/index
 
-   appendix
+.. toctree::
+   :caption: Appendix
+   :titlesonly:
+   :includehidden:
+
+   appendix/primer
+   appendix/rtlil_text
+   appendix/auxlibs
+   appendix/auxprogs
+
+   bib
+
+   cell_index
+   cmd_ref
