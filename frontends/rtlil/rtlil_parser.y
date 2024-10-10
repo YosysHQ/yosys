@@ -187,7 +187,11 @@ wire_stmt:
 
 wire_options:
 	wire_options TOK_WIDTH TOK_INT {
-		current_wire->width = $3;
+		if ($3 > 0x1000000) {
+			rtlil_frontend_yyerror("RTLIL error: invalid wire width, must be less than 2^24");
+		} else {
+			current_wire->width = $3;
+		}
 	} |
 	wire_options TOK_WIDTH TOK_INVALID {
 		rtlil_frontend_yyerror("RTLIL error: invalid wire width");
