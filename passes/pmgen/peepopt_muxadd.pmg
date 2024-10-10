@@ -50,6 +50,7 @@ code
 
 	// Log, fixup, accept
 	log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
+	add->fixup_parameters();
 	mux->fixup_parameters();
 	accept;
 endcode
