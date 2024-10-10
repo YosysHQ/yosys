@@ -263,12 +263,12 @@ struct AttrmapPass : public Pass {
 
 		if (modattr_mode)
 		{
-			for (auto module : design->selected_whole_modules())
+			for (auto module : design->selected_whole_modules(true))
 				attrmap_apply(stringf("%s", log_id(module)), actions, module->attributes);
 		}
 		else
 		{
-			for (auto module : design->selected_modules())
+			for (auto module : design->selected_modules(true))
 			{
 				for (auto wire : module->selected_wires())
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(wire)), actions, wire->attributes);
