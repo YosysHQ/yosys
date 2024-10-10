@@ -223,7 +223,7 @@ struct CellmatchPass : Pass {
 				for (auto bit : outputs) {
 					log_assert(bit.is_wire());
 					bit.wire->attributes[ID(p_class)] = p_class(inputs.size(), luts[no]);
-					bit.wire->attributes[ID(lut)] = luts[no++];
+					bit.wire->attributes[ID(lut)] = Const(luts[no++], 1 << inputs.size());
 				}
 			}
 
