@@ -876,9 +876,20 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					sel.selected_members[mod->name].insert(cell->name);
 		} else
 		if (arg_memb.compare(0, 2, "t:") == 0) {
-			for (auto cell : mod->cells())
-				if (match_ids(cell->type, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(cell->name);
+			if (arg_memb.compare(2, 1, "@") == 0) {
+				std::string set_name = RTLIL::escape_id(arg_memb.substr(3));
+				if (!design->selection_vars.count(set_name))
+					log_cmd_error("Selection @%s is not defined!\n", RTLIL::unescape_id(set_name).c_str());
+
+				auto &muster = design->selection_vars[set_name];
+				for (auto cell : mod->cells())
+					if (muster.selected_modules.count(cell->type))
+						sel.selected_members[mod->name].insert(cell->name);
+			} else {
+				for (auto cell : mod->cells())
+					if (match_ids(cell->type, arg_memb.substr(2)))
+						sel.selected_members[mod->name].insert(cell->name);
+			}
 		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
@@ -1163,6 +1174,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    t:<pattern>\n");
 		log("        all cells with a type matching the given pattern\n");
+		log("\n");
+		log("    t:@<name>\n");
+		log("        all cells with a type matching a module in the saved selection <name>\n");
 		log("\n");
 		log("    p:<pattern>\n");
 		log("        all processes with a name matching the given pattern\n");
