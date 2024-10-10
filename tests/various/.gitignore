@@ -1,5 +1,6 @@
 /*.log
 /*.out
+/aiger2*.aig
 /write_gzip.v
 /write_gzip.v.gz
 /run-test.mk
