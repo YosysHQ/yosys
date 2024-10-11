@@ -1394,7 +1394,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 		if (child->type == AST_MODULE || child->type == AST_INTERFACE)
 		{
 			for (auto n : design->verilog_globals)
-				child->children.push_back(n->clone());
+				child->children.insert(child->children.begin(), n->clone());
 
 			// append nodes from previous packages using package-qualified names
 			for (auto &n : design->verilog_packages) {
