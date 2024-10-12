@@ -50,9 +50,13 @@ class vcd_writer {
 
 	void emit_scope(const std::vector<std::string> &scope) {
 		assert(!streaming);
-		while (current_scope.size() > scope.size() ||
-		       (current_scope.size() > 0 &&
-			current_scope[current_scope.size() - 1] != scope[current_scope.size() - 1])) {
+		size_t same_scope_count = 0;
+		while ((same_scope_count < current_scope.size()) &&
+			   (same_scope_count < scope.size()) &&
+			   (current_scope[same_scope_count] == scope[same_scope_count])) {
+			same_scope_count++;
+		}
+		while (current_scope.size() > same_scope_count) {
 			buffer += "$upscope $end\n";
 			current_scope.pop_back();
 		}
