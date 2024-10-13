@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <optional>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -276,6 +277,52 @@ int RTLIL::Const::as_int(bool is_signed) const
 			ret |= 1 << i;
 	if (is_signed && bits.back() == State::S1)
 		for (size_t i = bits.size(); i < 32; i++)
+			ret |= 1 << i;
+	return ret;
+}
+
+size_t RTLIL::Const::get_min_size(bool is_signed) const
+{
+	if (bits.empty()) return 0;
+
+	// back to front (MSB to LSB)
+	RTLIL::State leading_bit;
+	if (is_signed)
+		leading_bit = (bits.back() == RTLIL::State::Sx) ? RTLIL::State::S0 : bits.back();
+	else
+		leading_bit = RTLIL::State::S0;
+
+	size_t idx = bits.size();
+	while (idx > 0 && bits[idx -1] == leading_bit) {
+		idx--;
+	}
+
+	// signed needs one leading bit
+	if (is_signed && idx < bits.size()) {
+		idx++;
+	}
+	// must be at least one bit
+	return (idx == 0) ? 1 : idx;
+}
+
+void RTLIL::Const::compress(bool is_signed)
+{
+	size_t idx = get_min_size(is_signed);
+	bits.erase(bits.begin() + idx, bits.end());
+}
+
+std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
+{
+	size_t size = get_min_size(is_signed);
+	if(size == 0 || size > 32)
+		return std::nullopt;
+		
+	int32_t ret = 0;
+	for (size_t i = 0; i < size && i < 32; i++)
+		if (bits[i] == State::S1)
+			ret |= 1 << i;
+	if (is_signed && bits[size-1] == State::S1)
+		for (size_t i = size; i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }

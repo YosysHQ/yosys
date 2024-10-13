@@ -127,6 +127,8 @@ class vcd_writer {
 			bool bit_curr = var.curr[bit / (8 * sizeof(chunk_t))] & (1 << (bit % (8 * sizeof(chunk_t))));
 			buffer += (bit_curr ? '1' : '0');
 		}
+		if (var.width == 0)
+			buffer += '0';
 		buffer += ' ';
 		emit_ident(var.ident);
 		buffer += '\n';
