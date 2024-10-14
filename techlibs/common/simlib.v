@@ -32,7 +32,6 @@
  */
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Bit-wise inverter
 //* group unary
@@ -526,14 +525,12 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Variable shifter
 //* group binary
 //- Performs a right logical shift if the second operand is positive (or
 //- unsigned), and a left logical shift if it is negative.
 //-
-
 module \$shift (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -565,14 +562,12 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Indexed part-select
 //* group binary
 //* tags x-output
 //- Same as the `$shift` cell, but fills with 'x'.
 //-
-
 module \$shiftx (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -649,7 +644,6 @@ end
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Arithmetic logic unit
 //* group arith
@@ -839,7 +833,6 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Case equality
 //* group binary
@@ -873,7 +866,6 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Case inequality
 //* group binary
@@ -1215,7 +1207,6 @@ end
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Divider
 //* group binary
@@ -1246,7 +1237,6 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Modulo
 //* group binary
@@ -1544,8 +1534,12 @@ assign Y = S ? B : A;
 endmodule
 
 // --------------------------------------------------------
+//* ver 2
+//* title Binary-encoded multiplexer
 //* group mux
-
+//- Selects between 'slices' of A where each value of S corresponds to a unique
+//- slice.
+//-
 module \$bmux (A, S, Y);
 
 parameter WIDTH = 0;
@@ -1572,9 +1566,13 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* ver 2
+//* title Priority-encoded multiplexer
 //* group mux
 //* tags x-output
-
+//- Selects between 'slices' of B where each slice corresponds to a single bit
+//- of S. Outputs A when all bits of S are low.
+//-
 module \$pmux (A, B, S, Y);
 
 parameter WIDTH = 0;
@@ -1881,7 +1879,6 @@ endspecify
 endmodule
 
 // --------------------------------------------------------
-
 //* ver 2
 //* title Bit-wise case equality
 //* group binary
@@ -1905,7 +1902,11 @@ endgenerate
 endmodule
 
 // --------------------------------------------------------
+//* ver 2
+//* title Bit-wise multiplexer
 //* group mux
+//- Equivalent to a series of 1-bit wide `$mux` cells.
+//-
 module \$bwmux (A, B, S, Y);
 
 parameter WIDTH = 0;
