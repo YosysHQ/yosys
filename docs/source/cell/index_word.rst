@@ -23,6 +23,7 @@ Simulation models for the RTL cells can be found in the file
    /cell/word_mem
    /cell/word_fsm
    /cell/word_arith
+   /cell/word_logic
    /cell/word_spec
    /cell/word_formal
    /cell/word_debug
