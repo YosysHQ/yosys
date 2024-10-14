@@ -236,23 +236,6 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
-RTLIL::Const mkconst_str(const std::string &str)
-{
-	RTLIL::Const val;
-	std::vector<RTLIL::State> data;
-	data.reserve(str.size() * 8);
-	for (size_t i = 0; i < str.size(); i++) {
-		unsigned char ch = str[str.size() - i - 1];
-		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
-	val.bits = data;
-	val.flags |= RTLIL::CONST_FLAG_STRING;
-	return val;
-}
-
 static const RTLIL::Const extract_vhdl_boolean(std::string &val)
 {
 	if (val == "false")
@@ -295,7 +278,7 @@ static const RTLIL::Const extract_vhdl_char(std::string &val)
 
 static const RTLIL::Const extract_real_value(std::string &val)
 {
-	RTLIL::Const c = mkconst_str(val);
+	RTLIL::Const c(val);
 	c.flags |= RTLIL::CONST_FLAG_REAL;
 	return c;
 }
@@ -333,7 +316,7 @@ static const  RTLIL::Const extract_vhdl_const(const char *value, bool output_sig
 	} else if (val == "true") {
 		c = RTLIL::Const::from_string("1");
 	} else {
-		c = mkconst_str(val);
+		c = RTLIL::Const(val);
 		log_warning("encoding value '%s' as string.\n", value);
 	}
 	if (is_signed)
@@ -364,7 +347,7 @@ static const  RTLIL::Const extract_verilog_const(const char *value, bool allow_s
 	} else if (allow_string) {
 		c = RTLIL::Const(val);
 	} else {
-		c = mkconst_str(val);
+		c = RTLIL::Const(val);
 		log_warning("encoding value '%s' as string.\n", value);
 	}
 	if (is_signed)
@@ -1634,7 +1617,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						if (*ascii_initdata == 0)
 							break;
 						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+							initval.bits()[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
 							initval_valid = true;
 						}
 						ascii_initdata++;
@@ -1756,9 +1739,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 					if (init_nets.count(net)) {
 						if (init_nets.at(net) == '0')
-							initval.bits.at(bitidx) = State::S0;
+							initval.bits().at(bitidx) = State::S0;
 						if (init_nets.at(net) == '1')
-							initval.bits.at(bitidx) = State::S1;
+							initval.bits().at(bitidx) = State::S1;
 						initval_valid = true;
 						init_nets.erase(net);
 					}
@@ -1832,12 +1815,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			initval = bit.wire->attributes.at(ID::init);
 
 		while (GetSize(initval) < GetSize(bit.wire))
-			initval.bits.push_back(State::Sx);
+			initval.bits().push_back(State::Sx);
 
 		if (it.second == '0')
-			initval.bits.at(bit.offset) = State::S0;
+			initval.bits().at(bit.offset) = State::S0;
 		if (it.second == '1')
-			initval.bits.at(bit.offset) = State::S1;
+			initval.bits().at(bit.offset) = State::S1;
 
 		bit.wire->attributes[ID::init] = initval;
 	}
@@ -2024,7 +2007,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			Const qx_init = Const(State::S1, width);
-			qx_init.bits.resize(2 * width, State::S0);
+			qx_init.bits().resize(2 * width, State::S0);
 
 			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, qx_init);
 			module->addXnor(new_verific_id(inst), sig_dx, sig_qx, sig_ox);
@@ -2142,13 +2125,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (verific_verbose)
 				log("    assert condition %s.\n", log_signal(cond));
 
-			const char *assume_attr = nullptr; // inst->GetAttValue("assume");
-
-			Cell *cell = nullptr;
-			if (assume_attr != nullptr && !strcmp(assume_attr, "1"))
-				cell = module->addAssume(new_verific_id(inst), cond, State::S1);
-			else
-				cell = module->addAssert(new_verific_id(inst), cond, State::S1);
+			Cell *cell = module->addAssert(new_verific_id(inst), cond, State::S1);
+			// Initialize FF feeding condition  to 1, in case it is not
+			// used by rest of design logic, to prevent failing on
+			// initial uninitialized state
+			if (cond.is_wire() && !cond.wire->name.isPublic())
+				cond.wire->attributes[ID::init] = Const(1,1);
 
 			import_attributes(cell->attributes, inst);
 			continue;
@@ -2295,7 +2277,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					continue;
 
 				if (non_ff_bits.count(SigBit(wire, i)))
-					initval[i] = State::Sx;
+					initval.bits()[i] = State::Sx;
 			}
 
 			if (wire->port_input) {
@@ -2482,7 +2464,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 				if (c.wire && c.wire->attributes.count(ID::init)) {
 					Const val = c.wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(c); i++)
-						initval[offset+i] = val[c.offset+i];
+						initval.bits()[offset+i] = val[c.offset+i];
 				}
 				offset += GetSize(c);
 			}
@@ -2553,7 +2535,7 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 			if (c.wire && c.wire->attributes.count(ID::init)) {
 				Const val = c.wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(c); i++)
-					initval[offset+i] = val[c.offset+i];
+					initval.bits()[offset+i] = val[c.offset+i];
 			}
 			offset += GetSize(c);
 		}

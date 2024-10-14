@@ -43,8 +43,8 @@ static void fm_set_fsm_print(RTLIL::Cell *cell, RTLIL::Module *module, FsmData &
 	fprintf(f, "set_fsm_encoding {");
 	for (int i = 0; i < GetSize(fsm_data.state_table); i++) {
 		fprintf(f, " s%d=2#", i);
-		for (int j = GetSize(fsm_data.state_table[i].bits)-1; j >= 0; j--)
-			fprintf(f, "%c", fsm_data.state_table[i].bits[j] == RTLIL::State::S1 ? '1' : '0');
+		for (int j = GetSize(fsm_data.state_table[i])-1; j >= 0; j--)
+			fprintf(f, "%c", fsm_data.state_table[i][j] == RTLIL::State::S1 ? '1' : '0');
 	}
 	fprintf(f, " } -name {%s_%s} {%s:/WORK/%s}\n",
 			prefix, RTLIL::unescape_id(name).c_str(),
@@ -105,7 +105,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 
 		if (encoding == "one-hot") {
 			new_code = RTLIL::Const(RTLIL::State::Sa, fsm_data.state_bits);
-			new_code.bits[state_idx] = RTLIL::State::S1;
+			new_code.bits()[state_idx] = RTLIL::State::S1;
 		} else
 		if (encoding == "binary") {
 			new_code = RTLIL::Const(state_idx, fsm_data.state_bits);

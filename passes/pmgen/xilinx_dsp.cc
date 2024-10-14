@@ -339,11 +339,11 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 		if (st.overflow->type == ID($ge)) {
 			Const B = st.overflow->getPort(ID::B).as_const();
-			log_assert(std::count(B.bits.begin(), B.bits.end(), State::S1) == 1);
+			log_assert(std::count(B.begin(), B.end(), State::S1) == 1);
 			// Since B is an exact power of 2, subtract 1
 			//   by inverting all bits up until hitting
 			//   that one hi bit
-			for (auto &b : B.bits)
+			for (auto &b : B.bits())
 				if (b == State::S0) b = State::S1;
 				else if (b == State::S1) {
 					b = State::S0;
@@ -392,7 +392,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 					continue;
 				for (int i = c.offset; i < c.offset+c.width; i++) {
 					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second[i] = State::Sx;
+					it->second.bits()[i] = State::Sx;
 				}
 			}
 		};
@@ -579,7 +579,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 					continue;
 				for (int i = c.offset; i < c.offset+c.width; i++) {
 					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second[i] = State::Sx;
+					it->second.bits()[i] = State::Sx;
 				}
 			}
 		};
@@ -702,7 +702,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 					continue;
 				for (int i = c.offset; i < c.offset+c.width; i++) {
 					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second[i] = State::Sx;
+					it->second.bits()[i] = State::Sx;
 				}
 			}
 		};

@@ -83,7 +83,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			auto cursor = initbits.find(bit);
 			if (cursor != initbits.end()) {
 				revisit_initwires.insert(cursor->second.first);
-				val[i] = cursor->second.second;
+				val.bits()[i] = cursor->second.second;
 			}
 		}
 
@@ -101,7 +101,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			Const initval = wire->attributes.at(ID::init);
 			for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++) {
 				if (SigBit(initval[i]) == sig[i])
-					initval[i] = State::Sx;
+					initval.bits()[i] = State::Sx;
 			}
 			if (initval.is_fully_undef()) {
 				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
@@ -351,21 +351,21 @@ bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
 	bool all_bits_one = true;
 	bool last_bit_one = true;
 
-	if (GetSize(value.bits) < 1)
+	if (GetSize(value) < 1)
 		return false;
 
-	if (GetSize(value.bits) == 1) {
-		if (value.bits[0] != State::S1)
+	if (GetSize(value) == 1) {
+		if (value[0] != State::S1)
 			return false;
 		if (is_signed)
 			is_negative = true;
 		return true;
 	}
 
-	for (int i = 0; i < GetSize(value.bits); i++) {
-		if (value.bits[i] != State::S1)
+	for (int i = 0; i < GetSize(value); i++) {
+		if (value[i] != State::S1)
 			all_bits_one = false;
-		if (value.bits[i] != (i ? State::S0 : State::S1))
+		if (value[i] != (i ? State::S0 : State::S1))
 			last_bit_one = false;
 	}
 

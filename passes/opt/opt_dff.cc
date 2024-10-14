@@ -361,9 +361,9 @@ struct OptDffWorker
 					bool failed = false;
 					for (int i = 0; i < ff.width; i++) {
 						if (ff.sig_clr[i] == sig_arst && ff.sig_set[i] == val_neutral)
-							val_arst.bits.push_back(State::S0);
+							val_arst.bits().push_back(State::S0);
 						else if (ff.sig_set[i] == sig_arst && ff.sig_clr[i] == val_neutral)
-							val_arst.bits.push_back(State::S1);
+							val_arst.bits().push_back(State::S1);
 						else
 							failed = true;
 					}
@@ -626,7 +626,7 @@ struct OptDffWorker
 							groups[resets].push_back(i);
 						} else
 							remaining_indices.push_back(i);
-						val_srst.bits.push_back(reset_val);
+						val_srst.bits().push_back(reset_val);
 					}
 
 					for (auto &it : groups) {
@@ -634,7 +634,7 @@ struct OptDffWorker
 						new_ff.val_srst = Const();
 						for (int i = 0; i < new_ff.width; i++) {
 							int j = it.second[i];
-							new_ff.val_srst.bits.push_back(val_srst[j]);
+							new_ff.val_srst.bits().push_back(val_srst[j]);
 						}
 						ctrl_t srst = combine_resets(it.first, ff.is_fine);
 

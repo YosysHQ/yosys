@@ -1217,7 +1217,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			auto Qi = initmap(Q);
 			auto it = Qi.wire->attributes.find(ID::init);
 			if (it != Qi.wire->attributes.end())
-				it->second[Qi.offset] = State::Sx;
+				it->second.bits()[Qi.offset] = State::Sx;
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
@@ -1528,7 +1528,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			int i = 0;
 			while (i < GetSize(mask)) {
 				for (int j = 0; j < (1 << index); j++)
-					std::swap(mask[i+j], mask[i+j+(1 << index)]);
+					std::swap(mask.bits()[i+j], mask.bits()[i+j+(1 << index)]);
 				i += 1 << (index+1);
 			}
 			A[index] = y_bit;
@@ -1543,7 +1543,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		// and get cleaned away
 clone_lut:
 		driver_mask = driver_lut->getParam(ID::LUT);
-		for (auto &b : driver_mask.bits) {
+		for (auto &b : driver_mask.bits()) {
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}

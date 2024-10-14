@@ -97,10 +97,10 @@ struct RomWorker
 						log_debug("rejecting switch: lhs not uniform\n");
 						return;
 					}
-					val[it2->second] = it.second[i].data;
+					val.bits()[it2->second] = it.second[i].data;
 				}
 			}
-			for (auto bit: val.bits) {
+			for (auto bit: val) {
 				if (bit == State::Sm) {
 					log_debug("rejecting switch: lhs not uniform\n");
 					return;
@@ -113,8 +113,8 @@ struct RomWorker
 					return;
 				}
 				Const c = addr.as_const();
-				while (GetSize(c) && c.bits.back() == State::S0)
-					c.bits.pop_back();
+				while (GetSize(c) && c.back() == State::S0)
+					c.bits().pop_back();
 				if (GetSize(c) > swsigbits)
 					continue;
 				if (GetSize(c) > 30) {
@@ -160,11 +160,11 @@ struct RomWorker
 			auto it = vals.find(i);
 			if (it == vals.end()) {
 				log_assert(got_default);
-				for (auto bit: default_val.bits)
-					init_data.bits.push_back(bit);
+				for (auto bit: default_val)
+					init_data.bits().push_back(bit);
 			} else {
-				for (auto bit: it->second.bits)
-					init_data.bits.push_back(bit);
+				for (auto bit: it->second)
+					init_data.bits().push_back(bit);
 			}
 		}
 

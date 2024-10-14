@@ -219,10 +219,10 @@ struct WreduceWorker
 
 		// Narrow ARST_VALUE parameter to new size.
 		if (cell->parameters.count(ID::ARST_VALUE)) {
-			rst_value.bits.resize(GetSize(sig_q));
+			rst_value.bits().resize(GetSize(sig_q));
 			cell->setParam(ID::ARST_VALUE, rst_value);
 		} else if (cell->parameters.count(ID::SRST_VALUE)) {
-			rst_value.bits.resize(GetSize(sig_q));
+			rst_value.bits().resize(GetSize(sig_q));
 			cell->setParam(ID::SRST_VALUE, rst_value);
 		}
 
