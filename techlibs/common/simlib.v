@@ -89,6 +89,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $buf (A, Y)
+//* group unary
 //-
 //- A simple coarse-grain buffer cell type for the experimental buffered-normalized
 //- mode. Note this cell does't get removed by 'opt_clean' and is not recommended
@@ -1635,6 +1636,7 @@ endmodule
 
 // --------------------------------------------------------
 `ifndef SIMLIB_NOLUT
+//* group logic
 
 module \$lut (A, Y);
 
@@ -1650,6 +1652,7 @@ endmodule
 
 `endif
 // --------------------------------------------------------
+//* group logic
 
 module \$sop (A, Y);
 
