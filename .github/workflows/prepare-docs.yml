@@ -64,6 +64,11 @@ jobs:
             docs/source/_images
             docs/source/code_examples
 
+      - name: Install doc prereqs
+        shell: bash
+        run: |
+          make docs/reqs
+
       - name: Test build docs
         shell: bash
         run: |
