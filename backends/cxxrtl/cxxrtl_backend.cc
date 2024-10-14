@@ -328,7 +328,7 @@ struct FlowGraph {
 					node_comb_defs[node].insert(chunk.wire);
 				}
 			}
-		for (auto bit : sig.bits())
+		for (auto bit : sig)
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
 		if (!is_ff && sig.is_wire()) {
@@ -864,7 +864,7 @@ struct CxxrtlWorker {
 		if (!module->has_attribute(ID(cxxrtl_template)))
 			return {};
 
-		if (module->attributes.at(ID(cxxrtl_template)).flags != RTLIL::CONST_FLAG_STRING)
+		if (!(module->attributes.at(ID(cxxrtl_template)).flags & RTLIL::CONST_FLAG_STRING))
 			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
 
 		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");
@@ -1665,15 +1665,15 @@ struct CxxrtlWorker {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits.push_back(RTLIL::S1);
-									compare_value.bits.push_back(bit);
+									compare_mask.bits().push_back(RTLIL::S1);
+									compare_value.bits().push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits.push_back(RTLIL::S0);
-									compare_value.bits.push_back(RTLIL::S0);
+									compare_mask.bits().push_back(RTLIL::S0);
+									compare_value.bits().push_back(RTLIL::S0);
 									break;
 
 								default:
@@ -3028,7 +3028,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init[bit.offset] = port.init_value[i];
+								init.bits()[bit.offset] = port.init_value[i];
 							}
 						}
 					}

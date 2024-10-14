@@ -1019,7 +1019,7 @@ void MemMapping::handle_priority() {
 }
 
 bool is_all_zero(const Const &val) {
-	for (auto bit: val.bits)
+	for (auto bit: val)
 		if (bit == State::S1)
 			return false;
 	return true;
@@ -1913,7 +1913,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(val.bits[bit.bit]);
+								hw_val.push_back(val[bit.bit]);
 							}
 						}
 						if (pdef.rdinitval == ResetValKind::NoUndef)
@@ -1926,7 +1926,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(rport.arst_value.bits[bit.bit]);
+								hw_val.push_back(rport.arst_value[bit.bit]);
 							}
 						}
 						if (pdef.rdarstval == ResetValKind::NoUndef)
@@ -1939,7 +1939,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 							if (!bit.valid) {
 								hw_val.push_back(State::Sx);
 							} else {
-								hw_val.push_back(rport.srst_value.bits[bit.bit]);
+								hw_val.push_back(rport.srst_value[bit.bit]);
 							}
 						}
 						if (pdef.rdsrstval == ResetValKind::NoUndef)
@@ -2103,7 +2103,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 								if (hwa & 1 << i)
 									addr += 1 << hw_addr_swizzle[i];
 							if (addr >= mem.start_offset && addr < mem.start_offset + mem.size)
-								initval.push_back(init_data.bits[(addr - mem.start_offset) * mem.width + bit.bit]);
+								initval.push_back(init_data[(addr - mem.start_offset) * mem.width + bit.bit]);
 							else
 								initval.push_back(State::Sx);
 						}

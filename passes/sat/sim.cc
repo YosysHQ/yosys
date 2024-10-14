@@ -135,7 +135,7 @@ void zinit(State &v)
 
 void zinit(Const &v)
 {
-	for (auto &bit : v.bits)
+	for (auto &bit : v.bits())
 		zinit(bit);
 }
 
@@ -423,11 +423,11 @@ struct SimInstance
 
 		for (auto bit : sigmap(sig))
 			if (bit.wire == nullptr)
-				value.bits.push_back(bit.data);
+				value.bits().push_back(bit.data);
 			else if (state_nets.count(bit))
-				value.bits.push_back(state_nets.at(bit));
+				value.bits().push_back(state_nets.at(bit));
 			else
-				value.bits.push_back(State::Sz);
+				value.bits().push_back(State::Sz);
 
 		if (shared->debug)
 			log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
@@ -486,9 +486,9 @@ struct SimInstance
 
 		int offset = (addr - state.mem->start_offset) * state.mem->width;
 		for (int i = 0; i < GetSize(data); i++)
-			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data.bits[i] != State::Sa)
-				if (state.data.bits[i+offset] != data.bits[i])
-					dirty = true, state.data.bits[i+offset] = data.bits[i];
+			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data[i] != State::Sa)
+				if (state.data[i+offset] != data[i])
+					dirty = true, state.data.bits()[i+offset] = data[i];
 
 		if (dirty)
 			dirty_memories.insert(memid);
@@ -499,8 +499,8 @@ struct SimInstance
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
 			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
-		if (state.data.bits[offset] != data) {
-			state.data.bits[offset] = data;
+		if (state.data[offset] != data) {
+			state.data.bits()[offset] = data;
 			dirty_memories.insert(memid);
 		}
 	}
@@ -717,10 +717,10 @@ struct SimInstance
 
 				for(int i=0;i<ff.past_d.size();i++) {
 					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-						current_q[i] = State::S0;
+						current_q.bits()[i] = State::S0;
 					}
 					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-						current_q[i] = State::S1;
+						current_q.bits()[i] = State::S1;
 					}
 				}
 			}
@@ -769,8 +769,8 @@ struct SimInstance
 					int index = addr_int - mem.start_offset;
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
-							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
-								mdb.data.bits.at(index*mem.width+i) = data[i];
+							if (enable[i] == State::S1 && mdb.data.at(index*mem.width+i) != data[i]) {
+								mdb.data.bits().at(index*mem.width+i) = data[i];
 								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
@@ -971,7 +971,7 @@ struct SimInstance
 				if (w->attributes.count(ID::init) == 0)
 					w->attributes[ID::init] = Const(State::Sx, GetSize(w));
 
-				w->attributes[ID::init][sig_q[i].offset] = initval[i];
+				w->attributes[ID::init].bits()[sig_q[i].offset] = initval[i];
 			}
 		}
 
@@ -2542,7 +2542,7 @@ struct AIWWriter : public OutputWriter
 			{
 				auto val = it.second ? State::S1 : State::S0;
 				SigBit bit = aiw_inputs.at(it.first);
-				auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+				auto v = current[mapping[bit.wire]].at(bit.offset);
 				if (v == val)
 					skip = true;
 			}
@@ -2552,7 +2552,7 @@ struct AIWWriter : public OutputWriter
 			{
 				if (aiw_inputs.count(i)) {
 					SigBit bit = aiw_inputs.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else
@@ -2561,7 +2561,7 @@ struct AIWWriter : public OutputWriter
 				}
 				if (aiw_inits.count(i)) {
 					SigBit bit = aiw_inits.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else

@@ -363,7 +363,7 @@ match overflow
 	select GetSize(port(overflow, \Y)) <= 48
 	select port(overflow, \B).is_fully_const()
 	define <Const> B port(overflow, \B).as_const()
-	select std::count(B.bits.begin(), B.bits.end(), State::S1) == 1
+	select std::count(B.begin(), B.end(), State::S1) == 1
 	index <SigSpec> port(overflow, \A) === sigP
 	optional
 endmatch
