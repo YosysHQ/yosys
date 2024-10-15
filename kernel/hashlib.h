@@ -34,6 +34,8 @@ namespace hashlib {
  * Hashlib doesn't know how to hash silly Yosys-specific types.
  * Hashlib doesn't depend on Yosys and can be used standalone.
  * Please don't use hashlib standalone for new projects.
+ * Never directly include kernel/hashlib.h in Yosys code.
+ * Instead include kernel/yosys_common.h
  *
  * The hash_ops type is now always left to its default value, derived
  * from templated functions through SFINAE. Providing custom ops is
