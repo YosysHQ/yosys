@@ -464,6 +464,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %%
 
 input: {
+	(void)frontend_verilog_yynerrs;
 	ast_stack.clear();
 	ast_stack.push_back(current_ast);
 } design {
