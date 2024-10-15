@@ -1,0 +1,71 @@
+pattern muldiv_c
+//
+// Transforms mul->div into div->mul when b and c are divisible constants:
+// y = (a * b_const) / c_const   ===>   a * (b_const / c_const)
+//
+
+state <SigSpec> a b_const mul_y
+
+match mul
+	// Select multiplier
+	select mul->type == $mul
+endmatch
+
+code a b_const mul_y
+	printf("CODING MUL!!!\n");
+
+	// Get multiplier signals
+	a = port(mul, \A);
+	b_const = port(mul, \B);
+	mul_y = port(mul, \Y);
+
+	// Fanout of each multiplier Y bit should be 1 (no bit-split)
+	for (auto bit : mul_y)
+		if (nusers(bit) != 2)
+			reject;
+
+	// A and B can be interchanged
+	branch;
+	std::swap(a, b_const);
+endcode
+
+match div
+	// Select div of form (a * b_const) / c_const
+	select div->type == $div
+	index <SigSpec> port(div, \A) === port(mul, \Y)
+
+	// Check that b_const and c_const is constant
+	filter port(mul, \B).is_fully_const()
+	filter port(div, \B).is_fully_const()
+endmatch
+
+code
+	printf("CODING DIV!!!\n");
+
+	// Get div signals
+	SigSpec c_const = port(div, \B);
+	SigSpec div_y = port(div, \Y);
+
+	// Get properties and values of b_const and c_const
+	int b_const_width = mul->getParam(ID::B_WIDTH).as_int();
+	bool b_const_signed = mul->getParam(ID::B_SIGNED).as_bool();
+	bool c_const_signed = div->getParam(ID::B_SIGNED).as_bool();
+	int b_const_int = b_const.as_int(b_const_signed);
+	int c_const_int = c_const.as_int(c_const_signed);
+
+	// Check that b is divisible by c
+	if (b_const_int % c_const_int != 0)
+		reject;
+
+	// Rewire to only keep multiplier
+	mul->setPort(\B, Const(b_const_int / c_const_int, b_const_width));
+	mul->setPort(\Y, div_y);
+
+	// Remove divider
+	autoremove(div);
+
+	// Log, fixup, accept
+	log("muldiv_const pattern in %s: mul=%s, div=%s\n", log_id(module), log_id(mul), log_id(div));
+	mul->fixup_parameters();
+	accept;
+endcode
