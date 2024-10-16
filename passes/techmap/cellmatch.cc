@@ -155,18 +155,22 @@ struct CellmatchPass : Pass {
 		log("equivalent as long as their truth tables are identical upto a permutation of\n");
 		log("inputs and outputs. The supported number of inputs is limited to 6.\n");
 		log("\n");
+		log("    cellmatch -derive_luts [module selection]\n");
+		log("\n");
+		log("For every port in each selected module, characterize its combinational\n");
+		log("function with a 'lut' attribute if possible.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
 		log_header(d, "Executing CELLMATCH pass. (match cells)\n");
 
 		size_t argidx;
-		bool lut_attrs = false;
+		bool derive_luts = false;
 		Design *lib = NULL;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-lut_attrs") {
-				// an undocumented debugging option
-				lut_attrs = true;
+			if (args[argidx] == "-derive_luts") {
+				derive_luts = true;
 			} else if (args[argidx] == "-lib" && argidx + 1 < args.size()) {
 				if (!saved_designs.count(args[++argidx]))
 					log_cmd_error("No design '%s' found!\n", args[argidx].c_str());
@@ -177,8 +181,8 @@ struct CellmatchPass : Pass {
 		}
 		extra_args(args, argidx, d);
 
-		if (!lib && !lut_attrs)
-			log_cmd_error("Missing required -lib option.\n");
+		if (!lib && !derive_luts)
+			log_cmd_error("Missing required -lib or -derive_luts option.\n");
 
 		struct Target {
 			Module *module;
@@ -218,7 +222,7 @@ struct CellmatchPass : Pass {
 			SigSpec inputs = module_inputs(m);
 			SigSpec outputs = module_outputs(m);
 
-			if (lut_attrs) {
+			if (derive_luts) {
 				int no = 0;
 				for (auto bit : outputs) {
 					log_assert(bit.is_wire());
