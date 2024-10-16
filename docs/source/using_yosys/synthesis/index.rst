@@ -8,17 +8,16 @@ coarse-grain optimizations before being mapped to hard blocks and fine-grain
 cells.  Most commands in Yosys will target either coarse-grain representation or
 fine-grain representation, with only a select few compatible with both states.
 
-Commands such as :cmd:ref:`proc`, :cmd:ref:`fsm`, and :cmd:ref:`memory` rely on
-the additional information in the coarse-grain representation, along with a
-number of optimizations such as :cmd:ref:`wreduce`, :cmd:ref:`share`, and
-:cmd:ref:`alumacc`.  :cmd:ref:`opt` provides optimizations which are useful in
-both states, while :cmd:ref:`techmap` is used to convert coarse-grain cells
-to the corresponding fine-grain representation.
+Commands such as `proc`, `fsm`, and `memory` rely on the additional information
+in the coarse-grain representation, along with a number of optimizations such as
+`wreduce`, `share`, and `alumacc`.  `opt` provides optimizations which are
+useful in both states, while `techmap` is used to convert coarse-grain cells to
+the corresponding fine-grain representation.
 
 Single-bit cells (logic gates, FFs) as well as LUTs, half-adders, and
 full-adders make up the bulk of the fine-grain representation and are necessary
-for commands such as :cmd:ref:`abc`\ /:cmd:ref:`abc9`, :cmd:ref:`simplemap`,
-:cmd:ref:`dfflegalize`, and :cmd:ref:`memory_map`.
+for commands such as `abc`\ /`abc9`, `simplemap`, `dfflegalize`, and
+`memory_map`.
 
 .. toctree::
    :maxdepth: 3

@@ -29,7 +29,7 @@ ezSAT
 
 The files in ``libs/ezsat`` provide a library for simplifying generating CNF
 formulas for SAT solvers. It also contains bindings of MiniSAT. The ezSAT
-library is written by C. Wolf. It is used by the :cmd:ref:`sat` pass (see
+library is written by C. Wolf. It is used by the `sat` pass (see
 :doc:`/cmd/sat`).
 
 fst
@@ -37,22 +37,22 @@ fst
 
 ``libfst`` files from `gtkwave`_ are included in ``libs/fst`` to support
 reading/writing signal traces from/to the GTKWave developed FST format.  This is
-primarily used in the :cmd:ref:`sim` command.
+primarily used in the `sim` command.
 
 .. _gtkwave: https://github.com/gtkwave/gtkwave
 
 json11
 ------
 
-For reading/writing designs from/to JSON, :cmd:ref:`read_json` and
-:cmd:ref:`write_json` should be used.  For everything else there is the `json11
+For reading/writing designs from/to JSON, `read_json` and
+`write_json` should be used.  For everything else there is the `json11
 library`_:
 
    json11 is a tiny JSON library for C++11, providing JSON parsing and
    serialization.
 
-This library is used for outputting machine-readable statistics (:cmd:ref:`stat`
-with ``-json`` flag), using the RPC frontend (:cmd:ref:`connect_rpc`), and the
+This library is used for outputting machine-readable statistics (`stat`
+with ``-json`` flag), using the RPC frontend (`connect_rpc`), and the
 yosys-witness ``yw`` format.
 
 .. _json11 library: https://github.com/dropbox/json11
@@ -61,7 +61,7 @@ MiniSAT
 -------
 
 The files in ``libs/minisat`` provide a high-performance SAT solver, used by the
-:cmd:ref:`sat` command.
+`sat` command.
 
 SHA1
 ----

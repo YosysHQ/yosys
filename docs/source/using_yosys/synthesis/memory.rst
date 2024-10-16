@@ -1,32 +1,32 @@
 Memory handling
 ===============
 
-The :cmd:ref:`memory` command
+The `memory` command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the RTL netlist, memory reads and writes are individual cells. This makes
-consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
-pass transforms memories to an implementation. Per default that is logic for
-address decoders and registers. It also is a macro command that calls the other
-common ``memory_*`` passes in a sensible order:
+consolidating the number of ports for a memory easier. The `memory` pass
+transforms memories to an implementation. Per default that is logic for address
+decoders and registers. It also is a macro command that calls the other common
+``memory_*`` passes in a sensible order:
 
 .. literalinclude:: /code_examples/macro_commands/memory.ys
    :language: yoscrypt
    :start-after: #end:
-   :caption: Passes called by :cmd:ref:`memory`
+   :caption: Passes called by `memory`
 
 .. todo:: Make ``memory_*`` notes less quick
 
 Some quick notes:
 
--  :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
--  :cmd:ref:`memory_collect` collects all read and write cells for a memory and
+-  `memory_dff` merges registers into the memory read- and write cells.
+-  `memory_collect` collects all read and write cells for a memory and
    transforms them into one multi-port memory cell.
--  :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
-   address decoder logic and registers.
+-  `memory_map` takes the multi-port memory cell and transforms it to address
+   decoder logic and registers.
 
-For more information about :cmd:ref:`memory`, such as disabling certain sub
-commands, see :doc:`/cmd/memory`.
+For more information about `memory`, such as disabling certain sub commands, see
+:doc:`/cmd/memory`.
 
 Example
 -------
@@ -75,22 +75,22 @@ For example:
     techmap -map my_memory_map.v
     memory_map
 
-:cmd:ref:`memory_libmap` attempts to convert memory cells (``$mem_v2`` etc) into
-hardware supported memory using a provided library (:file:`my_memory_map.txt` in the
+`memory_libmap` attempts to convert memory cells (`$mem_v2` etc) into hardware
+supported memory using a provided library (:file:`my_memory_map.txt` in the
 example above).  Where necessary, emulation logic is added to ensure functional
 equivalence before and after this conversion. :yoscrypt:`techmap -map
-my_memory_map.v` then uses :cmd:ref:`techmap` to map to hardware primitives. Any
-leftover memory cells unable to be converted are then picked up by
-:cmd:ref:`memory_map` and mapped to DFFs and address decoders.
+my_memory_map.v` then uses `techmap` to map to hardware primitives. Any leftover
+memory cells unable to be converted are then picked up by `memory_map` and
+mapped to DFFs and address decoders.
 
 .. note::
 
    More information about what mapping options are available and associated
    costs of each can be found by enabling debug outputs.  This can be done with
-   the :cmd:ref:`debug` command, or by using the ``-g`` flag when calling Yosys
-   to globally enable debug messages.
+   the `debug` command, or by using the ``-g`` flag when calling Yosys to
+   globally enable debug messages.
 
-For more on the lib format for :cmd:ref:`memory_libmap`, see
+For more on the lib format for `memory_libmap`, see
 `passes/memory/memlib.md
 <https://github.com/YosysHQ/yosys/blob/main/passes/memory/memlib.md>`_
 
@@ -110,13 +110,15 @@ Notes
 Memory kind selection
 ~~~~~~~~~~~~~~~~~~~~~
 
-The memory inference code will automatically pick target memory primitive based on memory geometry
-and features used.  Depending on the target, there can be up to four memory primitive classes
-available for selection:
+The memory inference code will automatically pick target memory primitive based
+on memory geometry and features used.  Depending on the target, there can be up
+to four memory primitive classes available for selection:
 
-- FF RAM (aka logic): no hardware primitive used, memory lowered to a bunch of FFs and multiplexers
+- FF RAM (aka logic): no hardware primitive used, memory lowered to a bunch of
+  FFs and multiplexers
 
-  - Can handle arbitrary number of write ports, as long as all write ports are in the same clock domain
+  - Can handle arbitrary number of write ports, as long as all write ports are
+    in the same clock domain
   - Can handle arbitrary number and kind of read ports
 
 - LUT RAM (aka distributed RAM): uses LUT storage as RAM
@@ -131,7 +133,8 @@ available for selection:
   - Supported on basically all FPGAs
   - Supports only synchronous reads
   - Two ports with separate clocks
-  - Usually supports true dual port (with notable exception of ice40 that only supports SDP)
+  - Usually supports true dual port (with notable exception of ice40 that only
+    supports SDP)
   - Usually supports asymmetric memories and per-byte write enables
   - Several kilobits in size
 
@@ -155,38 +158,43 @@ available for selection:
       - Two ports, both with mutually exclusive synchronous read and write
       - Single clock
 
-  - Will not be automatically selected by memory inference code, needs explicit opt-in via
-    ram_style attribute
+  - Will not be automatically selected by memory inference code, needs explicit
+    opt-in via ram_style attribute
 
-In general, you can expect the automatic selection process to work roughly like this:
+In general, you can expect the automatic selection process to work roughly like
+this:
 
 - If any read port is asynchronous, only LUT RAM (or FF RAM) can be used.
-- If there is more than one write port, only block RAM can be used, and this needs to be a
-  hardware-supported true dual port pattern
+- If there is more than one write port, only block RAM can be used, and this
+  needs to be a hardware-supported true dual port pattern
 
-  - … unless all write ports are in the same clock domain, in which case FF RAM can also be used,
-    but this is generally not what you want for anything but really small memories
+  - … unless all write ports are in the same clock domain, in which case FF RAM
+    can also be used, but this is generally not what you want for anything but
+    really small memories
 
-- Otherwise, either FF RAM, LUT RAM, or block RAM will be used, depending on memory size
+- Otherwise, either FF RAM, LUT RAM, or block RAM will be used, depending on
+  memory size
 
 This process can be overridden by attaching a ram_style attribute to the memory:
 
-- `(* ram_style = "logic" *)` selects FF RAM
-- `(* ram_style = "distributed" *)` selects LUT RAM
-- `(* ram_style = "block" *)` selects block RAM
-- `(* ram_style = "huge" *)` selects huge RAM
+- ``(* ram_style = "logic" *)`` selects FF RAM
+- ``(* ram_style = "distributed" *)`` selects LUT RAM
+- ``(* ram_style = "block" *)`` selects block RAM
+- ``(* ram_style = "huge" *)`` selects huge RAM
 
 It is an error if this override cannot be realized for the given target.
 
-Many alternate spellings of the attribute are also accepted, for compatibility with other software.
+Many alternate spellings of the attribute are also accepted, for compatibility
+with other software.
 
 Initial data
 ~~~~~~~~~~~~
 
-Most FPGA targets support initializing all kinds of memory to user-provided values.  If explicit
-initialization is not used the initial memory value is undefined.  Initial data can be provided by
-either initial statements writing memory cells one by one of ``$readmemh`` or ``$readmemb`` system
-tasks.  For an example pattern, see `sr_init`_.
+Most FPGA targets support initializing all kinds of memory to user-provided
+values.  If explicit initialization is not used the initial memory value is
+undefined.  Initial data can be provided by either initial statements writing
+memory cells one by one of ``$readmemh`` or ``$readmemb`` system tasks.  For an
+example pattern, see `sr_init`_.
 
 .. _wbe:
 
@@ -194,12 +202,13 @@ Write port with byte enables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Byte enables can be used with any supported pattern
-- To ensure that multiple writes will be merged into one port, they need to have disjoint bit
-  ranges, have the same address, and the same clock
-- Any write enable granularity will be accepted (down to per-bit write enables), but using smaller
-  granularity than natively supported by the target is very likely to be inefficient (eg. using
-  4-bit bytes on ECP5 will result in either padding the bytes with 5 dummy bits to native 9-bit
-  units or splitting the RAM into two block RAMs)
+- To ensure that multiple writes will be merged into one port, they need to have
+  disjoint bit ranges, have the same address, and the same clock
+- Any write enable granularity will be accepted (down to per-bit write enables),
+  but using smaller granularity than natively supported by the target is very
+  likely to be inefficient (eg. using 4-bit bytes on ECP5 will result in either
+  padding the bytes with 5 dummy bits to native 9-bit units or splitting the RAM
+  into two block RAMs)
 
 .. code:: verilog
 
@@ -240,7 +249,8 @@ Synchronous SDP with clock domain crossing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Will result in block RAM or LUT RAM depending on size
-- No behavior guarantees in case of simultaneous read and write to the same address
+- No behavior guarantees in case of simultaneous read and write to the same
+  address
 
 .. code:: verilog
 
@@ -261,9 +271,9 @@ Synchronous SDP read first
 
 - The read and write parts can be in the same or different processes.
 - Will result in block RAM or LUT RAM depending on size
-- As long as the same clock is used for both, yosys will ensure read-first behavior.  This may
-  require extra circuitry on some targets for block RAM.  If this is not necessary, use one of the
-  patterns below.
+- As long as the same clock is used for both, yosys will ensure read-first
+  behavior.  This may require extra circuitry on some targets for block RAM.  If
+  this is not necessary, use one of the patterns below.
 
 .. code:: verilog
 
@@ -281,8 +291,8 @@ Synchronous SDP read first
 Synchronous SDP with undefined collision behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Like above, but the read value is undefined when read and write ports target the same address in
-  the same cycle
+- Like above, but the read value is undefined when read and write ports target
+  the same address in the same cycle
 
 .. code:: verilog
 
@@ -322,8 +332,8 @@ Synchronous SDP with write-first behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Will result in block RAM or LUT RAM depending on size
-- May use additional circuitry for block RAM if write-first is not natively supported. Will always
-  use additional circuitry for LUT RAM.
+- May use additional circuitry for block RAM if write-first is not natively
+  supported. Will always use additional circuitry for LUT RAM.
 
 .. code:: verilog
 
@@ -343,7 +353,8 @@ Synchronous SDP with write-first behavior
 Synchronous SDP with write-first behavior (alternate pattern)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- This pattern is supported for compatibility, but is much less flexible than the above
+- This pattern is supported for compatibility, but is much less flexible than
+  the above
 
 .. code:: verilog
 
@@ -378,8 +389,10 @@ Synchronous single-port RAM with mutually exclusive read/write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Will result in single-port block RAM or LUT RAM depending on size
-- This is the correct pattern to infer ice40 SPRAM (with manual ram_style selection)
-- On targets that don't support read/write block RAM ports (eg. ice40), will result in SDP block RAM instead
+- This is the correct pattern to infer ice40 SPRAM (with manual ram_style
+  selection)
+- On targets that don't support read/write block RAM ports (eg. ice40), will
+  result in SDP block RAM instead
 - For block RAM, will use "NO_CHANGE" mode if available
 
 .. code:: verilog
@@ -396,12 +409,14 @@ Synchronous single-port RAM with mutually exclusive read/write
 Synchronous single-port RAM with read-first behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Will only result in single-port block RAM when read-first behavior is natively supported;
-  otherwise, SDP RAM with additional circuitry will be used
-- Many targets (Xilinx, ECP5, …) can only natively support read-first/write-first single-port RAM
-  (or TDP RAM) where the write_enable signal implies the read_enable signal (ie. can never write
-  without reading). The memory inference code will run a simple SAT solver on the control signals to
-  determine if this is the case, and insert emulation circuitry if it cannot be easily proven.
+- Will only result in single-port block RAM when read-first behavior is natively
+  supported; otherwise, SDP RAM with additional circuitry will be used
+- Many targets (Xilinx, ECP5, …) can only natively support
+  read-first/write-first single-port RAM (or TDP RAM) where the write_enable
+  signal implies the read_enable signal (ie. can never write without reading).
+  The memory inference code will run a simple SAT solver on the control signals
+  to determine if this is the case, and insert emulation circuitry if it cannot
+  be easily proven.
 
 .. code:: verilog
 
@@ -418,7 +433,8 @@ Synchronous single-port RAM with write-first behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Will result in single-port block RAM or LUT RAM when supported
-- Block RAMs will require extra circuitry if write-first behavior not natively supported
+- Block RAMs will require extra circuitry if write-first behavior not natively
+  supported
 
 .. code:: verilog
 
@@ -440,8 +456,8 @@ Synchronous read port with initial value
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Initial read port values can be combined with any other supported pattern
-- If block RAM is used and initial read port values are not natively supported by the target, small
-  emulation circuit will be inserted
+- If block RAM is used and initial read port values are not natively supported
+  by the target, small emulation circuit will be inserted
 
 .. code:: verilog
 
@@ -459,10 +475,11 @@ Synchronous read port with initial value
 Read register reset patterns
 ----------------------------
 
-Resets can be combined with any other supported pattern (except that synchronous reset and
-asynchronous reset cannot both be used on a single read port).  If block RAM is used and the
-selected reset (synchronous or asynchronous) is used but not natively supported by the target, small
-emulation circuitry will be inserted.
+Resets can be combined with any other supported pattern (except that synchronous
+reset and asynchronous reset cannot both be used on a single read port).  If
+block RAM is used and the selected reset (synchronous or asynchronous) is used
+but not natively supported by the target, small emulation circuitry will be
+inserted.
 
 Synchronous reset, reset priority over enable
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -520,22 +537,26 @@ Synchronous read port with asynchronous reset
 Asymmetric memory patterns
 --------------------------
 
-To construct an asymmetric memory (memory with read/write ports of differing widths):
+To construct an asymmetric memory (memory with read/write ports of differing
+widths):
 
 - Declare the memory with the width of the narrowest intended port
 - Split all wide ports into multiple narrow ports
 - To ensure the wide ports will be correctly merged:
 
-  - For the address, use a concatenation of actual address in the high bits and a constant in the
-    low bits
-  - Ensure the actual address is identical for all ports belonging to the wide port
+  - For the address, use a concatenation of actual address in the high bits and
+    a constant in the low bits
+  - Ensure the actual address is identical for all ports belonging to the wide
+    port
   - Ensure that clock is identical
-  - For read ports, ensure that enable/reset signals are identical (for write ports, the enable
-    signal may vary — this will result in using the byte enable functionality)
+  - For read ports, ensure that enable/reset signals are identical (for write
+    ports, the enable signal may vary — this will result in using the byte
+    enable functionality)
 
-Asymmetric memory is supported on all targets, but may require emulation circuitry where not
-natively supported.  Note that when the memory is larger than the underlying block RAM primitive,
-hardware asymmetric memory support is likely not to be used even if present as it is more expensive.
+Asymmetric memory is supported on all targets, but may require emulation
+circuitry where not natively supported.  Note that when the memory is larger
+than the underlying block RAM primitive, hardware asymmetric memory support is
+likely not to be used even if present as it is more expensive.
 
 .. _wide_sr:
 
@@ -615,20 +636,25 @@ Wide write port
 True dual port (TDP) patterns
 -----------------------------
 
-- Many different variations of true dual port memory can be created by combining two single-port RAM
-  patterns on the same memory
-- When TDP memory is used, memory inference code has much less maneuver room to create requested
-  semantics compared to individual single-port patterns (which can end up lowered to SDP memory
-  where necessary) — supported patterns depend strongly on the target
-- In particular, when both ports have the same clock, it's likely that "undefined collision" mode
-  needs to be manually selected to enable TDP memory inference
-- The examples below are non-exhaustive — many more combinations of port types are possible
-- Note: if two write ports are in the same process, this defines a priority relation between them
-  (if both ports are active in the same clock, the later one wins). On almost all targets, this will
-  result in a bit of extra circuitry to ensure the priority semantics. If this is not what you want,
-  put them in separate processes.
+- Many different variations of true dual port memory can be created by combining
+  two single-port RAM patterns on the same memory
+- When TDP memory is used, memory inference code has much less maneuver room to
+  create requested semantics compared to individual single-port patterns (which
+  can end up lowered to SDP memory where necessary) — supported patterns depend
+  strongly on the target
+- In particular, when both ports have the same clock, it's likely that
+  "undefined collision" mode needs to be manually selected to enable TDP memory
+  inference
+- The examples below are non-exhaustive — many more combinations of port types
+  are possible
+- Note: if two write ports are in the same process, this defines a priority
+  relation between them (if both ports are active in the same clock, the later
+  one wins). On almost all targets, this will result in a bit of extra circuitry
+  to ensure the priority semantics. If this is not what you want, put them in
+  separate processes.
 
-  - Priority is not supported when using the verific front end and any priority semantics are ignored.
+  - Priority is not supported when using the verific front end and any priority
+    semantics are ignored.
 
 TDP with different clocks, exclusive read/write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -654,7 +680,8 @@ TDP with different clocks, exclusive read/write
 TDP with same clock, read-first behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- This requires hardware inter-port read-first behavior, and will only work on some targets (Xilinx, Nexus)
+- This requires hardware inter-port read-first behavior, and will only work on
+  some targets (Xilinx, Nexus)
 
 .. code:: verilog
 
@@ -677,9 +704,10 @@ TDP with same clock, read-first behavior
 TDP with multiple read ports
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- The combination of a single write port with an arbitrary amount of read ports is supported on all
-  targets — if a multi-read port primitive is available (like Xilinx RAM64M), it'll be used as
-  appropriate.  Otherwise, the memory will be automatically split into multiple primitives.
+- The combination of a single write port with an arbitrary amount of read ports
+  is supported on all targets — if a multi-read port primitive is available
+  (like Xilinx RAM64M), it'll be used as appropriate.  Otherwise, the memory
+  will be automatically split into multiple primitives.
 
 .. code:: verilog
 

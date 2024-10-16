@@ -1012,8 +1012,20 @@ endif
 
 # also others, but so long as it doesn't fail this is enough to know we tried
 docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	mkdir -p docs/source/cmd
-	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) mkdir -p docs/source/cmd
+	$(Q) mkdir -p temp/docs/source/cmd
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) rsync -rc temp/docs/source/cmd docs/source
+	$(Q) rm -rf temp
+docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) mkdir -p docs/source/cell
+	$(Q) mkdir -p temp/docs/source/cell
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
+	$(Q) rsync -rc temp/docs/source/cell docs/source
+	$(Q) rm -rf temp
+
+docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
 PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
 docs/gen_examples: $(TARGETS)
@@ -1056,7 +1068,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen_examples docs/gen_images docs/guidelines docs/usage
 
 DOC_TARGET ?= html
 docs: docs/prep
