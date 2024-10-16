@@ -571,6 +571,10 @@ struct LibertyFrontend : public Frontend {
 			if (flag_wb)
 				module->set_bool_attribute(ID::whitebox);
 
+			const LibertyAst *area = cell->find("area");
+			if (area)
+				module->attributes[ID::area] = area->value;
+
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
 
@@ -661,6 +665,10 @@ struct LibertyFrontend : public Frontend {
 
 					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
 					log_assert(wire);
+
+					const LibertyAst *capacitance = node->find("capacitance");
+					if (capacitance)
+						wire->attributes[ID::capacitance] = capacitance->value;
 
 					if (dir && dir->value == "inout") {
 						wire->port_input = true;
