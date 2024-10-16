@@ -641,7 +641,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func)
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s@%d@%s$%d", file.c_str(), line, func.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%d", file.c_str(), line, func.c_str(), autoidx++);
 }
 
 RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
@@ -658,7 +658,7 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s@%d@%s$%s$%d", file.c_str(), line, func.c_str(), suffix.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%s$%d", file.c_str(), line, func.c_str(), suffix.c_str(), autoidx++);
 }
 
 RTLIL::Design *yosys_get_design()
