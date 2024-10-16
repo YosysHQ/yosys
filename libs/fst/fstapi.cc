@@ -550,8 +550,9 @@ return(rc);
 
 static uint32_t fstReaderVarint32(FILE *f)
 {
-int chk_len = 5; /* TALOS-2023-1783 */
-unsigned char buf[chk_len];
+const int chk_len_max = 5; /* TALOS-2023-1783 */
+int chk_len = chk_len_max;
+unsigned char buf[chk_len_max];
 unsigned char *mem = buf;
 uint32_t rc = 0;
 int ch;
@@ -582,8 +583,9 @@ return(rc);
 
 static uint32_t fstReaderVarint32WithSkip(FILE *f, uint32_t *skiplen)
 {
-int chk_len = 5; /* TALOS-2023-1783 */
-unsigned char buf[chk_len];
+const int chk_len_max = 5; /* TALOS-2023-1783 */
+int chk_len = chk_len_max;
+unsigned char buf[chk_len_max];
 unsigned char *mem = buf;
 uint32_t rc = 0;
 int ch;
@@ -615,8 +617,9 @@ return(rc);
 
 static uint64_t fstReaderVarint64(FILE *f)
 {
-int chk_len = 16; /* TALOS-2023-1783 */
-unsigned char buf[chk_len];
+const int chk_len_max = 16; /* TALOS-2023-1783 */
+int chk_len = chk_len_max;
+unsigned char buf[chk_len_max];
 unsigned char *mem = buf;
 uint64_t rc = 0;
 int ch;
