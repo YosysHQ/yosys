@@ -3,6 +3,7 @@ TEMPLATES = [
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SR_{S:N|P}{R:N|P}_ (S, R, Q)
+//* group reg_latch
 //-
 //- A set-reset latch with {S:negative|positive} polarity SET and {R:negative|positive} polarity RESET.
 //-
@@ -28,6 +29,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_FF_ (D, Q)
+//* group reg_ff
 //-
 //- A D-type flip-flop that is clocked from the implicit global clock. (This cell
 //- type is usually only used in netlists for formal verification.)
@@ -45,6 +47,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_{C:N|P}_ (D, C, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop.
 //-
@@ -65,6 +68,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_{C:N|P}{E:N|P}_ (D, C, E, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {E:negative|positive} polarity enable.
 //-
@@ -85,6 +89,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_{C:N|P}{R:N|P}{V:0|1}_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity {V:reset|set}.
 //-
@@ -109,6 +114,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity {V:reset|set} and {E:negative|positive}
 //- polarity clock enable.
@@ -134,6 +140,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFF_{C:N|P}{L:N|P}_ (D, C, L, AD, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {L:negative|positive} polarity async load.
 //-
@@ -158,6 +165,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_{C:N|P}{L:N|P}{E:N|P}_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {L:negative|positive} polarity async load and {E:negative|positive}
 //- polarity clock enable.
@@ -183,6 +191,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_{C:N|P}{S:N|P}{R:N|P}_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {S:negative|positive} polarity set and {R:negative|positive}
 //- polarity reset.
@@ -211,6 +220,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_{C:N|P}{S:N|P}{R:N|P}{E:N|P}_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {S:negative|positive} polarity set, {R:negative|positive}
 //- polarity reset and {E:negative|positive} polarity clock enable.
@@ -239,6 +249,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_{C:N|P}{R:N|P}{V:0|1}_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set}.
 //-
@@ -263,6 +274,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set} and {E:negative|positive}
 //- polarity clock enable (with {V:reset|set} having priority).
@@ -288,6 +300,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set} and {E:negative|positive}
 //- polarity clock enable (with clock enable having priority).
@@ -315,6 +328,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_{E:N|P}_ (E, D, Q)
+//* group reg_latch
 //-
 //- A {E:negative|positive} enable D-type latch.
 //-
@@ -336,6 +350,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_{E:N|P}{R:N|P}{V:0|1}_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A {E:negative|positive} enable D-type latch with {R:negative|positive} polarity {V:reset|set}.
 //-
@@ -360,6 +375,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_{E:N|P}{S:N|P}{R:N|P}_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A {E:negative|positive} enable D-type latch with {S:negative|positive} polarity set and {R:negative|positive}
 //- polarity reset.
