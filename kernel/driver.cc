@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 #endif // YOSYS_ENABLE_TCL
 #ifdef WITH_PYTHON
 		("y,py-scriptfile", "execute the Python <script>",
-			cxxopts::value<std::vector<std::string>>(), "<script>")
+			cxxopts::value<std::string>(), "<script>")
 #endif // WITH_PYTHON
 		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
 			cxxopts::value<std::vector<std::string>>(), "<commands>")
@@ -530,11 +530,11 @@ int main(int argc, char **argv)
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
 #ifdef YOSYS_ENABLE_TCL
-			int tcl_argc = argc - optind;
+			int tcl_argc = special_args.size();
 			std::vector<Tcl_Obj*> script_args;
 			Tcl_Interp *interp = yosys_get_tcl_interp();
-			for (int i = optind; i < argc; ++i)
-				script_args.push_back(Tcl_NewStringObj(argv[i], strlen(argv[i])));
+			for (auto arg : special_args)
+				script_args.push_back(Tcl_NewStringObj(arg.c_str(), arg.length()));
 
 			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(tcl_argc), 0);
 			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(tcl_argc, script_args.data()), 0);
@@ -548,10 +548,11 @@ int main(int argc, char **argv)
 		} else if (scriptfile_python) {
 #ifdef WITH_PYTHON
 			PyObject *sys = PyImport_ImportModule("sys");
-			PyObject *new_argv = PyList_New(argc - optind + 1);
+			int py_argc = special_args.size() + 1;
+			PyObject *new_argv = PyList_New(py_argc);
 			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
-			for (int i = optind; i < argc; ++i)
-				PyList_SetItem(new_argv, i - optind + 1, PyUnicode_FromString(argv[i]));
+			for (int i = 1; i < py_argc; ++i)
+				PyList_SetItem(new_argv, i, PyUnicode_FromString(special_args[i - 1].c_str()));
 
 			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
 			PyObject_SetAttrString(sys, "argv", new_argv);
