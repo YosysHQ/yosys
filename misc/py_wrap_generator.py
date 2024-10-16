@@ -1979,7 +1979,7 @@ def parse_header(source):
 	i = 0
 
 	namespaces = []
-	class_ = None
+	classes = []
 	private_segment = False
 
 	while i < len(source_text):
@@ -2015,7 +2015,7 @@ def parse_header(source):
 				i += 1
 				continue
 
-		if class_ == None and (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
+		if (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
 			# Opening a record declaration which isn't a forward declaration
 			struct_name = ugly_line.split(" ")[1].split("::")[-1]
 			impl_namespaces = ugly_line.split(" ")[1].split("::")[:-1]
@@ -2034,27 +2034,30 @@ def parse_header(source):
 				debug("\t  " + struct_name + " is derived from " + base_class_name,2)
 			base_class = class_by_name(base_class_name)
 
-			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
+			c = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
 			debug(f"switch to {struct_name} in namespace {namespaces}", 2)
 			if struct_name in classnames:
-				class_[0].namespace = complete_namespace
-				class_[0].base_class = base_class
+				c[0].namespace = complete_namespace
+				c[0].base_class = base_class
+			classes.append(c)
 			i += 1
 			continue
 
-		if class_ != None:
-			class_ = (class_[0], class_[1] + nesting_delta(ugly_line))
-			debug(f"switch to uhh depth {class_[1]}", 2)
-			if class_[1] == 0:
-				if class_[0] == None:
+		if len(classes):
+			c = (classes[-1][0], classes[-1][1] + nesting_delta(ugly_line))
+			debug(f"switch to uhh depth {c[1]}", 2)
+			if c[1] == 0:
+				if c[0] == None:
 					debug("\tExiting unknown class", 3)
 				else:
-					debug("\tExiting class " + class_[0].name, 3)
+					debug("\tExiting class " + c[0].name, 3)
 				debug(f"nevermind!", 2)
-				class_ = None
+				classes.pop()
 				private_segment = False
 				i += 1
 				continue
+
+		class_ = classes[-1] if classes else None
 
 		if class_ != None and (line.find("private:") != -1 or line.find("protected:") != -1):
 			private_segment = True
@@ -2167,14 +2170,14 @@ def parse_header(source):
 					if namespaces[-1][1] == 0:
 						debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
 						namespaces.pop()
-				if class_ != None:
-					class_ = (class_[0] , class_[1] + nesting_delta(ugly_line))
-					if class_[1] == 0:
-						if class_[0] == None:
+				if len(classes):
+					c = (classes[-1][0] , classes[-1][1] + nesting_delta(ugly_line))
+					if c[1] == 0:
+						if c[0] == None:
 							debug("\tExiting unknown class", 3)
 						else:
-							debug("\tExiting class " + class_[0].name, 3)
-						class_ = None
+							debug("\tExiting class " + c[0].name, 3)
+						classes.pop()
 						private_segment = False
 			i += 1
 		else:
