@@ -2045,6 +2045,7 @@ def parse_header(source):
 
 		if len(classes):
 			c = (classes[-1][0], classes[-1][1] + nesting_delta(ugly_line))
+			classes[-1] = c
 			debug(f"switch to uhh depth {c[1]}", 2)
 			if c[1] == 0:
 				if c[0] == None:
@@ -2172,6 +2173,7 @@ def parse_header(source):
 						namespaces.pop()
 				if len(classes):
 					c = (classes[-1][0] , classes[-1][1] + nesting_delta(ugly_line))
+					classes[-1] = c
 					if c[1] == 0:
 						if c[0] == None:
 							debug("\tExiting unknown class", 3)
