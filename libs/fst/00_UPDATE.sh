@@ -11,3 +11,6 @@ for src in *.c; do
     mv -- "$src" "${src%.c}.cc"
 done
 mv config.h.bak config.h
+
+sed -i -e 's,<config.h>,"config.h",' *.cc *.h
+sed -i -e 's,"fastlz.c","fastlz.cc",' *.cc *.h
