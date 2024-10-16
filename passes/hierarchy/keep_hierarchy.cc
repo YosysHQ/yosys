@@ -23,13 +23,61 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct ThresholdHiearchyKeeping {
+	Design *design;
+	CellCosts costs;
+	dict<Module *, int> done;
+	pool<Module *> in_progress;
+	uint64_t threshold;
+
+	ThresholdHiearchyKeeping(Design *design, uint64_t threshold)
+		: design(design), costs(design), threshold(threshold) {}
+
+	uint64_t visit(RTLIL::Module *module) {
+		if (module->has_attribute(ID(gate_cost_equivalent)))
+			return module->attributes[ID(gate_cost_equivalent)].as_int();
+
+		if (done.count(module))
+			return done.at(module);
+
+		if (in_progress.count(module))
+			log_error("Circular hierarchy\n");
+		in_progress.insert(module);
+
+		uint64_t size = 0;
+		module->has_processes_warn();
+
+		for (auto cell : module->cells()) {
+			if (!cell->type.isPublic()) {
+				size += costs.get(cell);
+			} else {
+				RTLIL::Module *submodule = design->module(cell->type);
+				if (!submodule)
+					log_error("Hierarchy contains unknown module '%s' (instanced as %s in %s)\n",
+							  log_id(cell->type), log_id(cell), log_id(module));
+				size += visit(submodule);
+			}
+		}
+
+		if (size > threshold) {
+			log("Marking %s (module too big: %llu > %llu).\n", log_id(module), size, threshold);
+			module->set_bool_attribute(ID::keep_hierarchy);
+			size = 0;
+		}
+
+		in_progress.erase(module);
+		done[module] = size;
+		return size;
+	}
+};
+
 struct KeepHierarchyPass : public Pass {
 	KeepHierarchyPass() : Pass("keep_hierarchy", "add the keep_hierarchy attribute") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    keep_hierarchy [options]\n");
+		log("    keep_hierarchy [options] [selection]\n");
 		log("\n");
 		log("Add the keep_hierarchy attribute.\n");
 		log("\n");
@@ -54,16 +102,15 @@ struct KeepHierarchyPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		CellCosts costs(design);
+		if (min_cost) {
+			RTLIL::Module *top = design->top_module();
+			if (!top)
+				log_cmd_error("'-min_cost' mode requires a single top module in the design\n");
 
-		for (auto module : design->selected_modules()) {
-			if (min_cost) {
-				unsigned int cost = costs.get(module);
-				if (cost > min_cost) {
-					log("Marking %s (module too big: %d > %d).\n", log_id(module), cost, min_cost);
-					module->set_bool_attribute(ID::keep_hierarchy);
-				}
-			} else {
+			ThresholdHiearchyKeeping worker(design, min_cost);
+			worker.visit(top);
+		} else {
+			for (auto module : design->selected_modules()) {
 				log("Marking %s.\n", log_id(module));
 				module->set_bool_attribute(ID::keep_hierarchy);
 			}
