@@ -1958,7 +1958,10 @@ def assure_length(text, length, left = False):
 	if left:
 		return text + " "*(length - len(text))
 	return " "*(length - len(text)) + text
-	
+
+def nesting_delta(s):
+	return s.count("{") - s.count("}")
+
 def parse_header(source):
 	debug("Parsing " + source.name + ".pyh",1)
 	source_file = open(source.name + ".pyh", "r")
@@ -1982,6 +1985,7 @@ def parse_header(source):
 	while i < len(source_text):
 		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 		ugly_line = unpretty_string(line)
+		debug(f"READ:>> {line}", 2)
 
 		# for anonymous unions, ignore union enclosure by skipping start line and replacing end line with new line
 		if 'union {' in line:
@@ -2004,15 +2008,15 @@ def parse_header(source):
 			continue
 
 		if len(namespaces) != 0:
-			namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + ugly_line.count("{") - ugly_line.count("}"))
+			namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + nesting_delta(ugly_line))
 			if namespaces[-1][1] == 0:
 				debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
-				del namespaces[-1]
+				namespaces.pop()
 				i += 1
 				continue
 
 		if class_ == None and (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
-
+			# Opening a record declaration which isn't a forward declaration
 			struct_name = ugly_line.split(" ")[1].split("::")[-1]
 			impl_namespaces = ugly_line.split(" ")[1].split("::")[:-1]
 			complete_namespace = concat_namespace(namespaces)
@@ -2031,6 +2035,7 @@ def parse_header(source):
 			base_class = class_by_name(base_class_name)
 
 			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
+			debug(f"switch to {struct_name} in namespace {namespaces}", 2)
 			if struct_name in classnames:
 				class_[0].namespace = complete_namespace
 				class_[0].base_class = base_class
@@ -2038,12 +2043,14 @@ def parse_header(source):
 			continue
 
 		if class_ != None:
-			class_ = (class_[0], class_[1] + ugly_line.count("{") - ugly_line.count("}"))
+			class_ = (class_[0], class_[1] + nesting_delta(ugly_line))
+			debug(f"switch to uhh depth {class_[1]}", 2)
 			if class_[1] == 0:
 				if class_[0] == None:
 					debug("\tExiting unknown class", 3)
 				else:
 					debug("\tExiting class " + class_[0].name, 3)
+				debug(f"nevermind!", 2)
 				class_ = None
 				private_segment = False
 				i += 1
@@ -2156,12 +2163,12 @@ def parse_header(source):
 				line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 				ugly_line = unpretty_string(line)
 				if len(namespaces) != 0:
-					namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + ugly_line.count("{") - ugly_line.count("}"))
+					namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + nesting_delta(ugly_line))
 					if namespaces[-1][1] == 0:
 						debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
-						del namespaces[-1]
+						namespaces.pop()
 				if class_ != None:
-					class_ = (class_[0] , class_[1] + ugly_line.count("{") - ugly_line.count("}"))
+					class_ = (class_[0] , class_[1] + nesting_delta(ugly_line))
 					if class_[1] == 0:
 						if class_[0] == None:
 							debug("\tExiting unknown class", 3)
