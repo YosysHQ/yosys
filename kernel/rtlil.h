@@ -53,14 +53,8 @@ namespace RTLIL
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
 		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4,  // only used for parameters
+		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
-
-	// // Union discriminator. Values are exclusive
-	// enum ConstRepr : unsigned char {
-	// 	CONST_REPR_BITS   = 1,
-	// 	CONST_REPR_STRING = 2,
-	// };
 
 	struct Const;
 	struct AttrObject;
