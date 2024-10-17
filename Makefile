@@ -39,7 +39,7 @@ ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_LTO := 0
-ENABLE_CCACHE := 0
+ENABLE_CCACHE := 1
 # sccache is not always a drop-in replacement for ccache in practice
 ENABLE_SCCACHE := 0
 ENABLE_FUNCTIONAL_TESTS := 0
