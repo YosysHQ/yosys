@@ -137,7 +137,7 @@ void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint3
 #include <sys/sysctl.h>
 #endif
 
-#if defined(FST_MACOSX) || defined(__MINGW32__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(FST_MACOSX) || defined(__MINGW32__) || defined(_MSC_VER) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__)
 #define FST_UNBUFFERED_IO
 #endif
 
@@ -4638,7 +4638,7 @@ if(sectype == FST_BL_ZWRAPPER)
 #endif
 
         fstReaderFseeko(xc, xc->f, FST_ZWRAPPER_HDR_SIZE, SEEK_SET);
-#ifndef __MINGW32__
+#if !defined(__MINGW32__) && !defined(_MSC_VER)
         fflush(xc->f);
 #else
 	/* Windows UCRT runtime library reads one byte ahead in the file
