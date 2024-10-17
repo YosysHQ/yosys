@@ -3658,8 +3658,10 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
+#ifdef VERIFIC_GHDL_SUPPORT
 			veri_file::AddFileExtMode(".vhd", veri_file::VHDL);
 			veri_file::AddFileExtMode(".vhdl", veri_file::VHDL);
+#endif
 			goto check_error;
 		}
 
@@ -3677,8 +3679,11 @@ struct VerificPass : public Pass {
 			bool is_formal = false;
 			const char* filename = nullptr;
 
+#ifndef SILIMATE_VERIFIC_EXTENSIONS
 			Verific::veri_file::f_file_flags flags = (args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : (args[argidx] == "-FF" ? veri_file::F_FILE_CAPITAL_NESTED : veri_file::F_FILE_NONE);
-
+#else
+			Verific::veri_file::f_file_flags flags = (args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_NONE;
+#endif
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				if (args[argidx] == "-vlog95") {
 					verilog_mode = veri_file::VERILOG_95;
@@ -3723,6 +3728,7 @@ struct VerificPass : public Pass {
 			*/
 
 			// SILIMATE: VHDL processing using GHDL
+#ifdef VERIFIC_GHDL_SUPPORT
 			int i;
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
 				// Convert filename to std::string
@@ -3767,6 +3773,7 @@ struct VerificPass : public Pass {
 				// Add file
 				file_names->Insert(i, Strings::save(outfile.c_str()));
 			}
+#endif
 
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
