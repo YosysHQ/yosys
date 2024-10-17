@@ -26,6 +26,7 @@
  *
  */
 
+#include "kernel/yosys.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -272,11 +273,6 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 	return width;
 }
 
-[[noreturn]] static void struct_array_packing_error(AstNode *node)
-{
-	node->input_error("Unpacked array in packed struct/union member %s\n", node->str.c_str());
-}
-
 static int size_packed_struct(AstNode *snode, int base_offset)
 {
 	// Struct members will be laid out in the structure contiguously from left to right.
@@ -295,64 +291,20 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 		}
 		else {
 			log_assert(node->type == AST_STRUCT_ITEM);
-			if (node->children.size() > 0 && node->children[0]->type == AST_RANGE) {
-				// member width e.g. bit [7:0] a
-				width = range_width(node, node->children[0]);
-				if (node->children.size() == 2) {
-					// Unpacked array. Note that this is a Yosys extension; only packed data types
-					// and integer data types are allowed in packed structs / unions in SystemVerilog.
-					if (node->children[1]->type == AST_RANGE) {
-						// Unpacked array, e.g. bit [63:0] a [0:3]
-						// Pretend it's declared as a packed array, e.g. bit [0:3][63:0] a
-						auto rnode = node->children[1];
-						if (rnode->children.size() == 1) {
-							// C-style array size, e.g. bit [63:0] a [4]
-							node->dimensions.push_back({ 0, rnode->range_left, true });
-							width *= rnode->range_left;
-						} else {
-							width *= add_dimension(node, rnode);
-						}
-						add_dimension(node, node->children[0]);
-					}
-					else {
-						// The Yosys extension for unpacked arrays in packed structs / unions
-						// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
-						struct_array_packing_error(node);
-					}
-				} else {
-					// Vector
-					add_dimension(node, node->children[0]);
-				}
-				// range nodes are now redundant
-				for (AstNode *child : node->children)
-					delete child;
-				node->children.clear();
+			// Pretend it's just a wire in order to resolve the type.
+			node->type = AST_WIRE;
+			while (node->simplify(true, 1, -1, false)) { }
+			node->type = AST_STRUCT_ITEM;
+			width = 1;
+			for (int i = 0; i < GetSize(node->dimensions); i++) {
+				width *= node->dimensions[i].range_width;
 			}
-			else if (node->children.size() > 0 && node->children[0]->type == AST_MULTIRANGE) {
-				// Packed array, e.g. bit [3:0][63:0] a
-				if (node->children.size() != 1) {
-					// The Yosys extension for unpacked arrays in packed structs / unions
-					// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
-					struct_array_packing_error(node);
-				}
-				width = 1;
-				for (auto rnode : node->children[0]->children) {
-					width *= add_dimension(node, rnode);
-				}
-				// range nodes are now redundant
-				for (AstNode *child : node->children)
-					delete child;
-				node->children.clear();
-			}
-			else if (node->range_left < 0) {
-				// 1 bit signal: bit, logic or reg
-				width = 1;
-				node->dimensions.push_back({ 0, width, false });
-			}
-			else {
-				// already resolved and compacted
-				width = node->range_left - node->range_right + 1;
-			}
+
+			// range nodes are now redundant
+			for (AstNode *child : node->children)
+				delete child;
+			node->children.clear();
+
 			if (is_union) {
 				node->range_right = base_offset;
 				node->range_left = base_offset + width - 1;
@@ -361,8 +313,10 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				node->range_right = base_offset + offset;
 				node->range_left = base_offset + offset + width - 1;
 			}
+
 			node->range_valid = true;
 		}
+
 		if (is_union) {
 			// check that all members have the same size
 			if (packed_width == -1) {
@@ -1382,6 +1336,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	case AST_ASSIGN:
 		while (!children[0]->basic_prep && children[0]->simplify(false, stage, -1, false) == true)
 			did_something = true;
+		if (type == AST_ASSIGN && children[0]->type == AST_IDENTIFIER && children[0]->children.size() > 0 && !children[0]->children[0]->range_valid)
+			log_error("Non-constant range in continuous assignment to %s at %s.\n", children[0]->str.c_str(), loc_string().c_str());
 		while (!children[1]->basic_prep && children[1]->simplify(false, stage, -1, false) == true)
 			did_something = true;
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
@@ -1422,6 +1378,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					did_something = true;
 				}
 			}
+
 			// determine member offsets and widths
 			size_packed_struct(this, 0);
 
@@ -1443,7 +1400,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			// Pretend it's just a wire in order to resolve the type.
 			type = AST_WIRE;
-			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) { }
 			if (type == AST_WIRE)
 				type = AST_STRUCT_ITEM;
 
@@ -1914,7 +1871,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Resolve the typedef from the bottom up, recursing within the current
 			// block of code. Defer further simplification until the complete type is
 			// resolved.
-			while (template_node->is_custom_type && template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (template_node->is_custom_type && template_node->simplify(const_fold, stage, width_hint, sign_hint)) { }
 
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
@@ -1941,10 +1898,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// if an enum then add attributes to support simulator tracing
 			newNode->annotateTypedEnums(template_node);
 
-			bool add_packed_dimensions = (type == AST_WIRE && GetSize(children) > 1) || (type == AST_MEMORY && GetSize(children) > 2);
+			bool unpacked_base_type = newNode->is_unpacked || newNode->type == AST_MEMORY;
+			bool add_unpacked_dimensions = is_unpacked || type == AST_MEMORY;
+			bool add_packed_dimensions = (!add_unpacked_dimensions && GetSize(children) > 1) || (add_unpacked_dimensions && GetSize(children) > 2);
 
 			// Cannot add packed dimensions if unpacked dimensions are already specified.
-			if (add_packed_dimensions && newNode->type == AST_MEMORY)
+			if (unpacked_base_type && add_packed_dimensions)
 				input_error("Cannot extend unpacked type `%s' with packed dimensions\n", type_name.c_str());
 
 			// Add packed dimensions.
@@ -1957,7 +1916,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 
 			// Add unpacked dimensions.
-			if (type == AST_MEMORY) {
+			if (add_unpacked_dimensions) {
 				AstNode *unpacked = children.back();
 				if (GetSize(newNode->children) < 2)
 					newNode->children.push_back(unpacked->clone());
@@ -1985,7 +1944,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			type = AST_WIRE;
 			AstNode *expr = children[0];
 			children.erase(children.begin());
-			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) { }
 			type = param_type;
 			children.insert(children.begin(), expr);
 
@@ -2098,79 +2057,29 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children.empty()) {
 			// Unpacked ranges first, then packed ranges.
 			for (int i = std::min(GetSize(children), 2) - 1; i >= 0; i--) {
+				int unpacked = i || children[i]->is_unpacked;
 				if (children[i]->type == AST_MULTIRANGE) {
 					int width = 1;
 					for (auto range : children[i]->children) {
 						width *= add_dimension(this, range);
-						if (i) unpacked_dimensions++;
+						if (unpacked) unpacked_dimensions++;
 					}
 					delete children[i];
 					int left = width - 1, right = 0;
-					if (i)
+					if (unpacked)
 						std::swap(left, right);
 					children[i] = new AstNode(AST_RANGE, mkconst_int(left, true), mkconst_int(right, true));
 					fixup_hierarchy_flags();
 					did_something = true;
 				} else if (children[i]->type == AST_RANGE) {
 					add_dimension(this, children[i]);
-					if (i) unpacked_dimensions++;
+					if (unpacked) unpacked_dimensions++;
 				}
 			}
 		} else {
 			// 1 bit signal: bit, logic or reg
 			dimensions.push_back({ 0, 1, false });
 		}
-	}
-
-	// Resolve multidimensional array access.
-	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
-	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
-	{
-		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
-		// Save original number of dimensions for $size() etc.
-		integer = dims_sel;
-
-		// Split access into unpacked and packed parts.
-		AstNode *unpacked_range = nullptr;
-		AstNode *packed_range = nullptr;
-
-		if (id2ast->unpacked_dimensions) {
-			if (id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to unpacked dimensions.
-				unpacked_range = make_index_range(id2ast, true);
-			} else {
-				// Index into one-dimensional unpacked part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
-				unpacked_range = range;
-				range = nullptr;
-			}
-		}
-
-		if (dims_sel > id2ast->unpacked_dimensions) {
-			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to packed dimensions.
-				packed_range = make_index_range(id2ast, false);
-			} else {
-				// Index into one-dimensional packed part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
-				packed_range = range;
-				range = nullptr;
-			}
-		}
-
-		for (auto &it : children)
-			delete it;
-		children.clear();
-
-		if (unpacked_range)
-			children.push_back(unpacked_range);
-
-		if (packed_range)
-			children.push_back(packed_range);
-
-		fixup_hierarchy_flags();
-		basic_prep = true;
-		did_something = true;
 	}
 
 	// trim/extend parameters
@@ -2235,8 +2144,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				if (found_sname) {
 					// structure member, rewrite this node to reference the packed struct wire
-					auto range = make_index_range(item_node);
-					newNode = new AstNode(AST_IDENTIFIER, range);
+					// Merge unpacked ranges with packed ranges.
+					int tmp_unpacked_dimensions = item_node->unpacked_dimensions;
+					item_node->unpacked_dimensions = 0;
+					newNode = new AstNode(AST_IDENTIFIER, make_index_range(item_node));
+					item_node->unpacked_dimensions = tmp_unpacked_dimensions;
 					newNode->str = sname;
 					// save type and original number of dimensions for $size() etc.
 					newNode->set_attribute(ID::wiretype, item_node->clone());
@@ -2254,6 +2166,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 		}
 	}
+
 	// annotate identifiers using scope resolution and create auto-wires as needed
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
@@ -2311,6 +2224,69 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 	}
 
+	// Resolve multidimensional array access.
+	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
+	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
+	{
+		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
+		// Save original number of dimensions for $size() etc.
+		integer = dims_sel;
+
+		int tmp_unpacked_dimensions = id2ast->unpacked_dimensions;
+
+		if (id2ast->type != AST_MEMORY) {
+			// Merge unpacked ranges with packed ranges.
+			id2ast->unpacked_dimensions = 0;
+		}
+
+		// Split access into unpacked and packed parts.
+		AstNode *unpacked_range = nullptr;
+		AstNode *packed_range = nullptr;
+
+		if (id2ast->unpacked_dimensions) {
+			if (id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to unpacked dimensions.
+				unpacked_range = make_index_range(id2ast, true);
+			} else {
+				// Index into one-dimensional unpacked part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
+				unpacked_range = range;
+				range = nullptr;
+			}
+		}
+
+		if (dims_sel > id2ast->unpacked_dimensions) {
+			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to packed dimensions.
+				packed_range = make_index_range(id2ast, false);
+			} else {
+				// Index into one-dimensional packed part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
+				packed_range = range;
+				range = nullptr;
+			}
+		}
+
+		id2ast->unpacked_dimensions = tmp_unpacked_dimensions;
+
+		for (auto &it : children)
+			delete it;
+		children.clear();
+
+		if (unpacked_range)
+			children.push_back(unpacked_range);
+
+		if (packed_range)
+			children.push_back(packed_range);
+
+		for (auto child : children)
+			while (child->simplify(true, 1, -1, false)) { }
+
+		fixup_hierarchy_flags();
+		basic_prep = true;
+		did_something = true;
+	}
+
 	// split memory access with bit select to individual statements
 	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue && stage == 2)
 	{
@@ -2365,6 +2341,188 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		newNode->str = wire_id;
 		newNode->integer = integer; // save original number of dimensions for $size() etc.
 		newNode->id2ast = wire;
+		goto apply_newNode;
+	}
+
+	// Rewrite dynamic indexing of rvalue packed dimensions.
+	if (type == AST_IDENTIFIER && id2ast != NULL && id2ast->type != AST_MEMORY && !in_lvalue &&
+	    GetSize(children) == 1 && children[0]->type == AST_RANGE && !children[0]->range_valid)
+	{
+		AST::AstNode *member_node = get_struct_member();
+		int wire_width = member_node ?
+			member_node->range_left - member_node->range_right + 1 :
+			id2ast->range_left - id2ast->range_right + 1;
+		int wire_offset = id2ast->range_right;
+
+		AstNode *range = children[0];
+		int result_width;
+		if (!try_determine_range_width(range, result_width))
+			input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+		AstNode *shift_expr = range->children.size() >= 2 ? range->children[1]->clone() : range->children[0]->clone();
+
+		int shift_expr_width_hint;
+		bool shift_expr_sign_hint;
+		shift_expr->detectSignWidth(shift_expr_width_hint, shift_expr_sign_hint);
+
+		bool use_case_method = id2ast->get_bool_attribute(ID::nordshift);
+
+		if (use_case_method) {
+			// AST_CASE with an AST_COND for each possible bit slice.
+
+			int stride = 1;
+			long long bitno_div = stride;
+			int shift_expr_width_max = shift_expr_width_hint;
+
+			if (member_node) {
+				// Clamp chunk to range of member within struct/union.
+				log_assert(wire_offset == 0 && !id2ast->range_swapped);
+
+				// When the (* nordshift *) attribute is set, a CASE block is generated below
+				// to select the indexed bit slice. When a multirange array is indexed, the
+				// start of each possible slice is separated by the bit stride of the last
+				// index dimension, and we can optimize the CASE block accordingly.
+				// The dimension of the original array expression is saved in the 'integer' field.
+				int dims = integer;
+				stride = wire_width;
+				for (int dim = 0; dim < dims; dim++) {
+					stride /= member_node->dimensions[dim].range_width;
+				}
+				bitno_div = stride;
+			} else {
+				// Extract (index)*(width) from non_opt_range pattern (@selfsz@((index)*(width)))+(0).
+				AstNode *lsb_expr =
+					shift_expr->type == AST_ADD && shift_expr->children[0]->type == AST_SELFSZ &&
+					shift_expr->children[1]->type == AST_CONSTANT && shift_expr->children[1]->integer == 0 ?
+					shift_expr->children[0]->children[0] :
+					shift_expr;
+
+				// Extract stride from indexing of two-dimensional packed arrays and
+				// variable slices on the form src[i*stride +: width].
+				if (lsb_expr->type == AST_MUL &&
+				    (lsb_expr->children[0]->type == AST_CONSTANT ||
+				     lsb_expr->children[1]->type == AST_CONSTANT))
+				{
+					int stride_ix = lsb_expr->children[1]->type == AST_CONSTANT;
+					stride = (int)lsb_expr->children[stride_ix]->integer;
+					bitno_div = stride != 0 ? stride : 1;
+
+					// Check whether i*stride can overflow.
+					int i_width;
+					bool i_sign;
+					lsb_expr->children[1 - stride_ix]->detectSignWidth(i_width, i_sign);
+					int stride_width;
+					bool stride_sign;
+					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
+					shift_expr_width_max = std::max(i_width, stride_width);
+					// Stride width calculated from actual stride value.
+					stride_width = ceil_log2(std::abs(stride));
+
+					if (i_width + stride_width > shift_expr_width_max) {
+						// For (truncated) i*stride to be within the range of dst, the following must hold:
+						//   i*stride ≡ bitno (mod shift_mod), i.e.
+						//   i*stride = k*shift_mod + bitno
+						//
+						// The Diophantine equation on the form ax + by = c:
+						//   stride*i - shift_mod*k = bitno
+						// has solutions iff c is a multiple of d = gcd(a, b), i.e.
+						//   bitno mod gcd(stride, shift_mod) = 0
+						//
+						// long long is at least 64 bits in C++11
+						long long shift_mod = 1ll << (shift_expr_width_max - shift_expr_sign_hint);
+						// std::gcd requires C++17
+						// bitno_div = std::gcd(stride, shift_mod);
+						bitno_div = gcd((long long)stride, shift_mod);
+					}
+				}
+			}
+
+			// long long is at least 64 bits in C++11
+			long long max_offset = (1ll << (shift_expr_width_max - shift_expr_sign_hint)) - 1;
+			long long min_offset = shift_expr_sign_hint ? -(1ll << (shift_expr_width_max - 1)) : 0;
+
+			if (!shift_expr_sign_hint && max_offset >= wire_offset + wire_width) {
+				// When an unsigned address expression can go beyond the address range,
+				// we must handle potential overflows causing the lower bits of the wire
+				// to be selected.
+				min_offset = -((max_offset + 1) >> 1);
+			}
+
+			// Temporary register to replace the current rvalue; used as lvalue in AST_COND assignments.
+			AstNode	*lvalue = mktemp_logic("$bitsel$"+str+"$", current_ast_mod, current_block, result_width - 1, 0, false);
+
+			AstNode *assign = new AstNode(AST_CASE, shift_expr);
+			for (int i = 1 - result_width; i < wire_width; i++) {
+				// Out of range indexes are handled in genrtlil.cc
+				int start_bit = wire_offset + i;
+				int end_bit = start_bit + result_width - 1;
+				// Check whether the current index can be generated by shift_expr.
+				if (start_bit < min_offset || start_bit > max_offset)
+					continue;
+				if (start_bit%bitno_div != 0 || (stride == 0 && start_bit != 0))
+					continue;
+				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, shift_expr_sign_hint, shift_expr_width_max));
+				AstNode *rvalue = clone();
+				rvalue->delete_children();
+				if (member_node)
+					rvalue->set_attribute(ID::wiretype, member_node->clone());
+				rvalue->children.push_back(new AstNode(AST_RANGE,
+						node_int(end_bit), node_int(start_bit)));
+				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_EQ, lvalue->clone(), rvalue)));
+				assign->children.push_back(cond);
+			}
+
+			// Default to x bits for out of range addresses.
+			std::vector<RTLIL::State> x_const(result_width, RTLIL::State::Sx);
+			assign->children.push_back(new AstNode(AST_COND,
+							       new AstNode(AST_DEFAULT),
+							       new AstNode(AST_BLOCK,
+									   new AstNode(AST_ASSIGN_EQ,
+										       lvalue->clone(), AstNode::mkconst_bits(x_const, false)))));
+
+			if (current_block) {
+				size_t assign_idx = 0;
+				while (assign_idx < current_block->children.size() && current_block->children[assign_idx] != current_block_child)
+					assign_idx++;
+				log_assert(assign_idx < current_block->children.size());
+				current_block->children.insert(current_block->children.begin()+assign_idx, assign);
+			} else {
+				AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK, assign));
+				current_ast_mod->children.push_back(proc);
+			}
+
+			newNode = lvalue;
+		} else {
+			// Shift to access the indexed bit slice.
+			AstNode *rvalue = clone();
+			rvalue->delete_children();
+			if (member_node)
+				rvalue->set_attribute(ID::wiretype, member_node->clone());
+
+			// Insert a self-sizing barrier to prevent the rewritten AST from
+			// influencing the size of the operators in `shift_expr`
+			shift_expr = new AstNode(AST_SELFSZ, shift_expr);
+
+			// Decode the index based on wire dimensions
+			int idx_signed_nbits = shift_expr_width_hint + !shift_expr_sign_hint;
+			int offset = !id2ast->range_swapped ? wire_offset : wire_width - result_width + wire_offset;
+			int offset_signed_nbits = min_bit_width(offset, true);
+			int raw_idx_nbits = 1 + std::max(idx_signed_nbits, offset_signed_nbits);
+			AstNode *node_offset = mkconst_int(offset, true, offset_signed_nbits);
+			shift_expr = new AstNode(AST_TO_SIGNED,
+						 new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
+						 );
+			if (!id2ast->range_swapped) {
+				shift_expr = new AstNode(AST_SUB, shift_expr, node_offset);
+			} else {
+				shift_expr = new AstNode(AST_SUB, node_offset, shift_expr);
+			}
+
+			// Shift rvalue to the right so that the bit slice starts at bit 0.
+			newNode = new AstNode(AST_CAST_SIZE,
+					      node_int(result_width),
+					      new AstNode(AST_SHIFTX, rvalue, shift_expr));
+		}
+
 		goto apply_newNode;
 	}
 
@@ -2860,7 +3018,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children[0]->id2ast->range_valid)
 			goto skip_dynamic_range_lvalue_expansion;
 
-		AST::AstNode *member_node = children[0]->get_struct_member();
+		AstNode *member_node = children[0]->get_struct_member();
 		int wire_width = member_node ?
 			member_node->range_left - member_node->range_right + 1 :
 			children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
@@ -2936,7 +3094,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
 					max_width = std::max(i_width, stride_width);
 					// Stride width calculated from actual stride value.
-					stride_width = std::ceil(std::log2(std::abs(stride)));
+					stride_width = ceil_log2(std::abs(stride));
 
 					if (i_width + stride_width > max_width) {
 						// For (truncated) i*stride to be within the range of dst, the following must hold:
