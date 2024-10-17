@@ -23,7 +23,7 @@ available, go to :ref:`commandindex`.
    - Search bar with live drop down suggestions for matching on title /
      autocompleting commands
    - Scroll the left sidebar to the current location on page load
-   - Also the formatting/linking in pdf is broken
+   - Also the formatting in pdf uses link formatting instead of code formatting
 
 .. todolist::
 
