@@ -547,12 +547,6 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-	init_share_dirname();
-	init_abc_executable_name();
-
-#define X(_id) RTLIL::ID::_id = "\\" # _id;
-#include "kernel/constids.inc"
-#undef X
 
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
@@ -565,6 +559,13 @@ void yosys_setup()
 		signal(SIGINT, SIG_DFL);
 	}
 #endif
+
+	init_share_dirname();
+	init_abc_executable_name();
+
+#define X(_id) RTLIL::ID::_id = "\\" # _id;
+#include "kernel/constids.inc"
+#undef X
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
