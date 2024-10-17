@@ -28,6 +28,8 @@ struct ActivityProp {
 	Module *module;
 	SigMap sigmap;
 
+	// Split a string based on separator, returns a vector of tokens as reference argument
+	// If skipEmpty is true, return "" for string "    ", when separator is " "
 	void tokenize(std::string_view str, std::string_view separator, std::vector<std::string> &result, bool skipEmpty)
 	{
 		std::string::size_type pos{0};
@@ -49,6 +51,8 @@ struct ActivityProp {
 		}
 	}
 
+	// Split a string based on separator, returns a vector of tokens
+	// If skipEmpty is true, return "" for string "    ", when separator is " "
 	std::vector<std::string> tokenize(std::string_view str, std::string_view separator, bool skipEmpty)
 	{
 		std::vector<std::string> result;
@@ -63,10 +67,14 @@ struct ActivityProp {
 		// Build {signal bit - activity} map from the wire activities calculated in the sim pass
 		for (Wire *wire : module->wires()) {
 			SigSpec sig(sigmap(wire));
+			// Retrieve the activity/dutycycle attributes created in the sim pass, attached to wires, in the form:
+			// $ACKT: 0.1 0.2 .... (Each bit in a bus has its own activity, index 0 of the bus is left most)
 			std::string act = wire->get_string_attribute("$ACKT");
 			std::string duty = wire->get_string_attribute("$DUTY");
+			// Split the activity lists
 			std::vector<std::string> activities = tokenize(act, " ", true);
 			std::vector<std::string> duties = tokenize(duty, " ", true);
+			// Assign them to each SigBit (1 signal bit)
 			for (int i = 0; i < GetSize(sig); i++) {
 				SigBit bit(sig[i]);
 				ActivityMap.emplace(bit, activities[i]);
@@ -78,6 +86,7 @@ struct ActivityProp {
 			std::string cell_ports_activity;
 			std::string cell_ports_duty;
 			for (auto conn : cell->connections()) {
+				// Recombine individual bit activities for all cell ports into a list attached to the cell
 				for (int i = 0; i < GetSize(conn.second); i++) {
 					SigBit bit(sigmap(conn.second[i]));
 					std::string port_name = std::string(conn.first.c_str()) + "[" + std::to_string(i) + "]";
@@ -109,6 +118,8 @@ struct ActivityProp {
 					}
 				}
 			}
+			// Annotate on cells the complete list of ports activities and dutycycles in the form:
+			// $ACKT: \P1=0.1 \P2=0.2 ....
 			cell->set_string_attribute("$ACKT:", cell_ports_activity);
 			cell->set_string_attribute("$DUTY:", cell_ports_duty);
 		}

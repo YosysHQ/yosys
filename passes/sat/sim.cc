@@ -2449,9 +2449,9 @@ struct AnnotateActivity : public OutputWriter {
 					continue;
 				Const value = data.second;
 				SignalActivityDataMap::iterator itr = dataMap.find(sig);
-				std::vector<uint32_t> &lastVals = (*itr).second.lastValues;
-				std::vector<uint32_t> &toggleCounts = (*itr).second.toggleCounts;
-				std::vector<uint32_t> &highTimes = (*itr).second.highTimes;
+				std::vector<uint32_t> &lastVals = itr->second.lastValues;
+				std::vector<uint32_t> &toggleCounts = itr->second.toggleCounts;
+				std::vector<uint32_t> &highTimes = itr->second.highTimes;
 				for (int i = GetSize(value) - 1; i >= 0; i--) {
 					int val = '-';
 					switch (value[i]) {
@@ -2467,6 +2467,7 @@ struct AnnotateActivity : public OutputWriter {
 					default:
 						val = 'z';
 					}
+					// If signal toggled
 					if (val != lastVals[i]) {
 						toggleCounts[i]++;
 						if (toggleCounts[i] > highest_toggle) {
@@ -2492,11 +2493,12 @@ struct AnnotateActivity : public OutputWriter {
 		if (timescale == "fs")
 			real_timescale = 1e-15;
 
+		// TODO: remove all debug sections when dev is completed
 		bool debug = false;
 
 		// Compute clock period, find the highest toggling signal and compute its average period
 		SignalActivityDataMap::iterator itr = dataMap.find(clk);
-		std::vector<uint32_t> &clktoggleCounts = (*itr).second.toggleCounts;
+		std::vector<uint32_t> &clktoggleCounts = itr->second.toggleCounts;
 		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2);
 		if (debug) {
 			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
@@ -2518,8 +2520,8 @@ struct AnnotateActivity : public OutputWriter {
 					return;
 				std::string full_name = form_vcd_name(name, size, w);
 				SignalActivityDataMap::const_iterator itr = dataMap.find(id);
-				const std::vector<uint32_t> &toggleCounts = (*itr).second.toggleCounts;
-				const std::vector<uint32_t> &highTimes = (*itr).second.highTimes;
+				const std::vector<uint32_t> &toggleCounts = itr->second.toggleCounts;
+				const std::vector<uint32_t> &highTimes = itr->second.highTimes;
 				if (debug) {
 					std::cout << full_name << ":\n";
 					std::cout << "     TC: ";
