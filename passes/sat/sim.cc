@@ -2419,7 +2419,7 @@ struct AnnotateActivity : public OutputWriter {
 				int sig = data.first;
 				if (!use_signal.at(sig))
 					continue;
-			  // Create an entry in the map with all zeros for all bits of the signal
+				// Create an entry in the map with all zeros for all bits of the signal
 				SignalActivityDataMap::iterator itr = dataMap.find(sig);
 				if (itr == dataMap.end()) {
 					Const value = data.second;
