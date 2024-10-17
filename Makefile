@@ -24,6 +24,7 @@ ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
+ENABLE_VERIFIC_UPF := 1
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
@@ -47,6 +48,11 @@ LINK_ABC := 0
 DISABLE_SPAWN := 0
 # Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
 DISABLE_ABC_THREADS := 0
+
+# UPF requires TCL
+ifeq ($(ENABLE_VERIFIC_UPF),1)
+ENABLE_TCL := 1
+endif
 
 # clang sanitizers
 SANITIZER =
@@ -155,7 +161,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.46+32
+YOSYS_VER := 0.46+107
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -531,6 +537,11 @@ endif
 ifeq ($(ENABLE_VERIFIC_LIBERTY),1)
 VERIFIC_COMPONENTS += synlib
 CXXFLAGS += -DVERIFIC_LIBERTY_SUPPORT
+endif
+ifeq ($(ENABLE_VERIFIC_UPF),1)
+VERIFIC_COMPONENTS += hdl_file_sort verilog_nl 
+VERIFIC_COMPONENTS += commands upf
+CXXFLAGS += -DVERIFIC_UPF_SUPPORT
 endif
 ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
