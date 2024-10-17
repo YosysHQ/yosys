@@ -2516,7 +2516,7 @@ struct AnnotateActivity : public OutputWriter {
 			},
 			[this, use_signal, dataMap, max_time, real_timescale, clk_period, debug]
 			  (const char *name, int size, Wire *w, int id, bool is_reg) {
-				if (!use_signal.at(id))
+				if (!use_signal.at(id) || (w == nullptr))
 					return;
 				std::string full_name = form_vcd_name(name, size, w);
 				SignalActivityDataMap::const_iterator itr = dataMap.find(id);

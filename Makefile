@@ -749,8 +749,8 @@ OBJS += passes/cmds/splitcells.o
 OBJS += passes/cmds/splitfanout.o
 OBJS += passes/cmds/splitnets.o
 OBJS += passes/cmds/tee.o
+OBJS += passes/cmds/activity.o
 OBJS += passes/sat/sim.o
-OBJS += passes/sat/activity.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
