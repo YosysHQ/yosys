@@ -215,6 +215,11 @@ jobs:
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
           make -j${{ env.procs }}
 
+      - name: Install doc prereqs
+        shell: bash
+        run: |
+          make docs/reqs
+
       - name: Build docs
         shell: bash
         run: |
