@@ -2533,7 +2533,7 @@ struct AnnotateActivity : public OutputWriter {
 					}
 					std::cout << "\n";
 					std::cout << "     ACK: ";
-			  }
+				}
 				std::string activity_str;
 				for (uint32_t i = 0; i < (uint32_t)size; i++) {
 					// Compute Activity
