@@ -89,6 +89,9 @@ struct OptReduceWorker
 		RTLIL::SigSpec new_sig_a(new_sig_a_bits);
 		new_sig_a.sort_and_unify();
 
+		if (GetSize(new_sig_a) == 0)
+			new_sig_a = (cell->type == ID($reduce_or)) ? State::S0 : State::S1;
+
 		if (new_sig_a != sig_a || sig_a.size() != cell->getPort(ID::A).size()) {
 			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));
 			did_something = true;
