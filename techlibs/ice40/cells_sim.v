@@ -2678,6 +2678,37 @@ module SB_HFOSC(
 );
 parameter TRIM_EN = "0b0";
 parameter CLKHF_DIV = "0b00";
+
+`ifndef BLACKBOX
+	// 96mhz hidden clock
+	reg hidden_clock = 0;
+
+	// all 4 options for the clock divider
+	reg [3:0] divisions = 0;
+
+	always begin
+		while (CLKHFPU) begin
+			#5208 hidden_clock = 0;
+			#5208 hidden_clock = 1;
+		end
+		// when PowerUp is deasserted, wait to resynchronize the clock on it's edge
+		@(posedge CLKHFPU);
+	end
+
+	// TODO: simulate the 100us of "not yet ready"/power stability early on
+
+	always @(posedge hidden_clock) begin
+		divisions <= divisions + 1;
+	end
+
+	localparam index = CLKHF_DIV == "0b00" ? 0 : 
+				   CLKHF_DIV == "0b01" ? 1 : 
+				   CLKHF_DIV == "0b10" ? 2 : 
+				   CLKHF_DIV == "0b11" ? 3 : 0;
+
+	assign CLKHF = CLKHFEN && CLKHFPU && divisions[index];
+
+`endif
 endmodule
 
 (* blackbox *)
@@ -2686,6 +2717,23 @@ module SB_LFOSC(
 	input CLKLFEN,
 	output CLKLF
 );
+
+`ifndef BLACKBOX
+	reg clock = 0;
+	always begin
+		while (CLKLFPU) begin
+			#100000000 clock = 0;
+			#100000000 clock = 1;
+		end
+		// when PowerUp is deasserted, wait to resynchronize the clock on its edge
+		@(posedge CLKLFPU);
+	end
+
+	// TODO: simulate the 100us of "not yet ready"/power stability early on
+
+	assign CLKLF = CLKLFEN && CLKLFPU && clock;
+
+`endif
 endmodule
 
 (* blackbox *)
