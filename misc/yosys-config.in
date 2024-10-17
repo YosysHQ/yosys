@@ -44,7 +44,7 @@ if [ $# -eq 0 ]; then
 	help
 fi
 
-if [ "$1" == "--build" ]; then
+if [ "$1" = "--build" ]; then
 	modname="$2"; shift 2
 	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --libs
 fi
