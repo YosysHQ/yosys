@@ -39,6 +39,10 @@ void demorgan_worker(
 		return;
 
 	auto insig = sigmap(cell->getPort(ID::A));
+
+	if (GetSize(insig) < 1)
+		return;
+
 	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
