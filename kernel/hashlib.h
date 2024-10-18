@@ -54,9 +54,9 @@ namespace hashlib {
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
-#define DJB2_BROKEN_SIZE
+#define DJB2_32
 
-#ifdef DJB2_BROKEN_SIZE
+
 
 template<typename T>
 struct hash_ops;
@@ -76,8 +76,13 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 }
 
 class Hasher {
-	public: //TODO
+	public:
+	#ifdef DJB2_32
 	using hash_t = uint32_t;
+	#endif
+	#ifdef DJB2_64
+	using hash_t = uint64_t;
+	#endif
 
 	Hasher() {
 		// traditionally 5381 is used as starting value for the djb2 hash
@@ -128,7 +133,6 @@ class Hasher {
 	}
 
 };
-#endif
 
 template<typename T>
 struct hash_ops {
@@ -199,6 +203,17 @@ template<typename T> struct hash_ops<std::vector<T>> {
 			h.acc(k);
 		return h;
 	}
+};
+
+template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
+    static inline bool cmp(std::array<T, N> a, std::array<T, N> b) {
+        return a == b;
+    }
+    static inline Hasher hash_acc(std::array<T, N> a, Hasher h) {
+        for (const auto& k : a)
+            h = hash_ops<T>::hash_acc(k, h);
+        return h;
+    }
 };
 
 struct hash_cstr_ops {
