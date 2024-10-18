@@ -76,7 +76,7 @@ class libyosys_so_ext(Extension):
         # yosys-abc
         yosys_abc_target = os.path.join(pyosys_path, "yosys-abc")
         shutil.copy("yosys-abc", yosys_abc_target)
-        bext.spawn(["strip", "-S", "yosys-abc"])
+        bext.spawn(["strip", "-S", yosys_abc_target])
 
         # share directory
         share_target = os.path.join(pyosys_path, "share")
