@@ -48,8 +48,11 @@ struct ModIndex : public RTLIL::Monitor
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		unsigned int hash() const {
-			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		Hasher hash_acc(Hasher h) const {
+			h.acc(cell->name);
+			h.acc(port);
+			h.acc(offset);
+			return h;
 		}
 	};
 
@@ -57,6 +60,8 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		bool is_input, is_output;
 		pool<PortInfo> ports;
+		// SigBitInfo() : SigBitInfo{} {}
+		// SigBitInfo& operator=(const SigBitInfo&) = default;
 
 		SigBitInfo() : is_input(false), is_output(false) { }
 
@@ -304,6 +309,8 @@ struct ModWalker
 		RTLIL::Cell *cell;
 		RTLIL::IdString port;
 		int offset;
+		PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
+		// PortBit& operator=(const PortBit&) = default;
 
 		bool operator<(const PortBit &other) const {
 			if (cell != other.cell)
@@ -317,8 +324,11 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		unsigned int hash() const {
-			return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+		Hasher hash_acc(Hasher h) const {
+			h.acc(cell->name);
+			h.acc(port);
+			h.acc(offset);
+			return h;
 		}
 	};
 
@@ -355,7 +365,7 @@ struct ModWalker
 	{
 		for (int i = 0; i < int(bits.size()); i++)
 			if (bits[i].wire != NULL) {
-				PortBit pbit = { cell, port, i };
+				PortBit pbit {cell, port, i};
 				if (is_output) {
 					signal_drivers[bits[i]].insert(pbit);
 					cell_outputs[cell].insert(bits[i]);

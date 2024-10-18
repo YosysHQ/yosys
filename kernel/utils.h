@@ -31,17 +31,17 @@ YOSYS_NAMESPACE_BEGIN
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template<typename Key, typename T, typename OPS = hash_ops<Key>>
+template<typename Key, typename T>
 struct stackmap
 {
 private:
-	std::vector<dict<Key, T*, OPS>> backup_state;
-	dict<Key, T, OPS> current_state;
+	std::vector<dict<Key, T*>> backup_state;
+	dict<Key, T> current_state;
 	static T empty_tuple;
 
 public:
 	stackmap() { }
-	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
+	stackmap(const dict<Key, T> &other) : current_state(other) { }
 
 	template<typename Other>
 	void operator=(const Other &other)
@@ -94,7 +94,7 @@ public:
 		current_state.erase(k);
 	}
 
-	const dict<Key, T, OPS> &stdmap()
+	const dict<Key, T> &stdmap()
 	{
 		return current_state;
 	}
@@ -128,7 +128,7 @@ public:
 // A simple class for topological sorting
 // ------------------------------------------------
 
-template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> class TopoSort
+template <typename T, typename C = std::less<T>> class TopoSort
 {
       public:
 	// We use this ordering of the edges in the adjacency matrix for

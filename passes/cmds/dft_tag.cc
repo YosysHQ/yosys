@@ -47,7 +47,7 @@ struct DftTagWorker {
 		bool operator<(const tag_set &other) const { return index < other.index; }
 		bool operator==(const tag_set &other) const { return index == other.index; }
 
-		unsigned int hash() const { return hash_ops<int>::hash(index); }
+		Hasher hash_acc(Hasher h) const { h.acc(index); return h; }
 
 		bool empty() const { return index == 0; }
 	};
