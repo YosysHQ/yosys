@@ -2360,7 +2360,7 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
+			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
 				// Works around gtkwave trying to parse everything past the last [ in a signal
 				// name. While the emitted range doesn't necessarily match the wire's range,
@@ -2406,7 +2406,7 @@ struct AnnotateActivity : public OutputWriter {
 		std::vector<uint32_t> highTimes;
 	};
 
-	typedef std::map<int, SignalActivityData> SignalActivityDataMap;
+	typedef std::unordered_map<int, SignalActivityData> SignalActivityDataMap;
 
 	void write(std::map<int, bool> &use_signal) override
 	{
@@ -2514,15 +2514,15 @@ struct AnnotateActivity : public OutputWriter {
 				if (debug)
 					std::cout << "endmodule\n";
 			},
-			[this, use_signal, dataMap, max_time, real_timescale, clk_period, debug]
+			[this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug]
 			  (const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id) || (w == nullptr))
 					return;
-				std::string full_name = form_vcd_name(name, size, w);
 				SignalActivityDataMap::const_iterator itr = dataMap.find(id);
 				const std::vector<uint32_t> &toggleCounts = itr->second.toggleCounts;
 				const std::vector<uint32_t> &highTimes = itr->second.highTimes;
 				if (debug) {
+					std::string full_name = form_vcd_name(name, size, w);
 					std::cout << full_name << ":\n";
 					std::cout << "     TC: ";
 					for (uint32_t i = 0; i < (uint32_t)size; i++) {
@@ -2592,7 +2592,7 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
+			[this,&use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
 				std::string full_name = form_vcd_name(name, size, w);
 				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, size,
