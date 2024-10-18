@@ -254,6 +254,11 @@ struct OptMergeWorker
 		initvals.set(&assign_map, module);
 
 		bool did_something = true;
+		bool warned_collisions = false;
+		// A cell may have to go through a lot of collisions if the hash
+		// function is performing poorly, but it's a symptom of something bad
+		// beyond the user's control.
+		int threshold = 1000; // adjust to taste
 		while (did_something)
 		{
 			std::vector<RTLIL::Cell*> cells;
@@ -273,7 +278,10 @@ struct OptMergeWorker
 			}
 
 			did_something = false;
-			dict<Hasher::hash_t, RTLIL::Cell*> sharemap;
+			// INVARIANT: All cells associated with the same hash in sharemap
+			// are distinct as far as compare_cell_parameters_and_connections
+			// can tell.
+			std::unordered_multimap<Hasher::hash_t, RTLIL::Cell*> sharemap;
 			for (auto cell : cells)
 			{
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
@@ -283,21 +291,30 @@ struct OptMergeWorker
 					continue;
 
 				Hasher::hash_t hash = hash_cell_function(cell, Hasher()).yield();
-				auto r = sharemap.insert(std::make_pair(hash, cell));
-				if (!r.second) {
-					if (compare_cell_parameters_and_connections(cell, r.first->second)) {
+				// Get all cells with matching hashes
+				auto matching = sharemap.equal_range(hash);
+				int collisions = 0;
+				bool found = false;
+				for (auto it = matching.first; it != matching.second && !found; ++it) {
+					if (collisions > threshold && !warned_collisions) {
+						log_warning("High hash collision counts. opt_merge runtime may be excessive.\n" \
+									"Please report to maintainers.\n");
+						warned_collisions = true;
+					}
+					auto other_cell = it->second;
+					if (compare_cell_parameters_and_connections(cell, other_cell)) {
+						found = true;
 						if (cell->has_keep_attr()) {
-							if (r.first->second->has_keep_attr())
+							if (other_cell->has_keep_attr())
 								continue;
-							std::swap(r.first->second, cell);
+							std::swap(other_cell, cell);
 						}
 
-
 						did_something = true;
-						log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), r.first->second->name.c_str());
+						log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
 						for (auto &it : cell->connections()) {
 							if (cell->output(it.first)) {
-								RTLIL::SigSpec other_sig = r.first->second->getPort(it.first);
+								RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
 								log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 										log_signal(it.second), log_signal(other_sig));
 								Const init = initvals(other_sig);
@@ -311,7 +328,17 @@ struct OptMergeWorker
 						log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 						module->remove(cell);
 						total_count++;
+						break;
+					} else {
+						collisions++;
+						log_debug("  False hash match: `%s' and `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
 					}
+				}
+				if (!did_something) {
+					// This cell isn't represented yet in the sharemap.
+					// Either it's the first of its hash,
+					// or falsely matches all cells in sharemap sharing its hash.
+					sharemap.insert(std::make_pair(hash, cell));
 				}
 			}
 		}
