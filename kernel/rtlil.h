@@ -660,7 +660,7 @@ namespace RTLIL
 
 struct RTLIL::Const
 {
-	short flags;
+	short int flags;
 private:
 	friend class KernelRtlilTest;
 	FRIEND_TEST(KernelRtlilTest, ConstStr);
