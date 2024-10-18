@@ -2046,13 +2046,11 @@ def parse_header(source):
 		if len(classes):
 			c = (classes[-1][0], classes[-1][1] + nesting_delta(ugly_line))
 			classes[-1] = c
-			debug(f"switch to uhh depth {c[1]}", 2)
 			if c[1] == 0:
 				if c[0] == None:
 					debug("\tExiting unknown class", 3)
 				else:
 					debug("\tExiting class " + c[0].name, 3)
-				debug(f"nevermind!", 2)
 				classes.pop()
 				private_segment = False
 				i += 1
