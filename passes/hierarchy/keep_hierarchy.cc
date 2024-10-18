@@ -37,6 +37,9 @@ struct ThresholdHiearchyKeeping {
 		if (module->has_attribute(ID(gate_cost_equivalent)))
 			return module->attributes[ID(gate_cost_equivalent)].as_int();
 
+		if (module->get_blackbox_attribute())
+			log_error("Missing cost information on instanced blackbox %s\n", log_id(module));
+
 		if (done.count(module))
 			return done.at(module);
 
