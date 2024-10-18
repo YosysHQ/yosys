@@ -214,7 +214,7 @@ struct CellmatchPass : Pass {
 			r.first->second = new Design;
 		Design *map_design = r.first->second;
 
-		for (auto m : d->selected_whole_modules_warn()) {
+		for (auto m : d->selected_whole_modules_warn(/* visit whiteboxes */derive_luts)) {
 			std::vector<uint64_t> luts;
 			if (!derive_module_luts(m, luts))
 				continue;
