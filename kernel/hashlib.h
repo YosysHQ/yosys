@@ -99,8 +99,7 @@ class Hasher {
 	[[nodiscard]]
 	static uint32_t mkhash(uint32_t a, uint32_t b) {
 		uint32_t hash = ((a << 5) + a) ^ b;
-		if (fudge)
-			hash = fudge ^ mkhash_xorshift(hash);
+		hash = mkhash_xorshift(fudge ^ hash);
 		return hash;
 	}
 	public:
