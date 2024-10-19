@@ -204,7 +204,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -C docs test -j${{ env.procs }}
+          make -C docs test -j${{ env.procs }} ENABLE_PLUGINS=1
 
   test-docs-build:
     name: Try build docs
