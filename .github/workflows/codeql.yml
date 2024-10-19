@@ -25,7 +25,7 @@ jobs:
         queries: security-extended,security-and-quality
 
     - name: Build
-      run: make yosys -j6 ENABLE_PYOSYS=0
+      run: make yosys -j6 ENABLE_PYOSYS=0 ENABLE_CCACHE=0
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

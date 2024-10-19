@@ -146,7 +146,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC ENABLE_PYOSYS=0
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC ENABLE_PYOSYS=0 ENABLE_CCACHE=0
 
       - name: Report errors
         if: ${{ failure() }}
