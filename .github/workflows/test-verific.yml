@@ -27,7 +27,6 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
