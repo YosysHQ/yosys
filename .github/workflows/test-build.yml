@@ -90,6 +90,9 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
+        with:
+          submodules: true
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -168,6 +171,9 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
+        with:
+          submodules: true
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
