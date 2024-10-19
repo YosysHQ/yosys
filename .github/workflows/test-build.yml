@@ -59,8 +59,8 @@ jobs:
         run: |
           mkdir build
           cd build
-          make -f ../Makefile config-$CC ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
-          make -f ../Makefile -j$procs ENABLE_LTO=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
+          make -f ../Makefile config-$CC ENABLE=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
+          make -f ../Makefile -j$procs ENABLE_LTO=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
 
       - name: Log yosys-config output
         run: |
@@ -155,7 +155,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
 
       - name: Report errors
         if: ${{ failure() }}
