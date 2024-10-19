@@ -24,7 +24,10 @@ jobs:
         languages: cpp
         queries: security-extended,security-and-quality
 
-    - name: Build
+    - name: Build Verific
+      run: cd verific/tclmain && make -j6
+
+    - name: Build Yosys
       run: make yosys -j6 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
 
     - name: Perform CodeQL Analysis

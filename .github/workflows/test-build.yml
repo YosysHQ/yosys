@@ -51,6 +51,9 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
 
+      - name: Build Verific
+        run: cd verific/tclmain && make -j$procs
+
       - name: Build
         shell: bash
         run: |
@@ -146,6 +149,9 @@ jobs:
         run: |
           ./yosys-config || true
 
+      - name: Build Verific
+        run: cd verific/tclmain && make -j$procs
+
       - name: Run tests
         shell: bash
         run: |
@@ -192,6 +198,9 @@ jobs:
         run: |
           ./yosys-config || true
 
+      - name: Build Verific
+        run: cd verific/tclmain && make -j$procs
+
       - name: Run tests
         shell: bash
         run: |
@@ -216,6 +225,9 @@ jobs:
       - name: Runtime environment
         run: |
           echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Verific
+        run: cd verific/tclmain && make -j$procs
 
       - name: Build Yosys
         run: |
