@@ -373,7 +373,7 @@ BOOST_PYTHON_LIB ?= $(shell \
 )
 
 # Inside CentOS 7
-ifeq (${IS_CENTOS7},1)
+ifeq (${PLATFORM},centos7)
 BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38
 CXXFLAGS += -I/opt/boost/include
 endif
