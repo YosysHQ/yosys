@@ -380,11 +380,8 @@ struct BoothPassWorker {
 #ifdef DEBUG_CSA
 		DebugDumpAlignPP(aligned_pp);
 #endif
-		// SigSig wtree_sum =  WallaceSum(z_sz, aligned_pp);
-
 		SigSpec s_vec;
 		SigSpec c_vec;
-
 		std::vector<std::vector<RTLIL::Cell *>> debug_csa_trees;
 		BuildCSATree(module, aligned_pp, s_vec, c_vec, debug_csa_trees);
 #ifdef DEBUG_CSA
@@ -393,6 +390,7 @@ struct BoothPassWorker {
 		printf("Carry Vec %s \n", c_vec.as_string().c_str());
 		printf("Size of Sum %d Size of Result %d\n", s_vec.size(), Z.size());
 #endif
+
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
 		//		BuildCPA(module, s_vec, c_vec, Z);
@@ -411,8 +409,9 @@ struct BoothPassWorker {
 		SigSpec g = module->addWire(NEW_ID, s_vec.size());
 		SigSpec p = module->addWire(NEW_ID, s_vec.size());
 		SigSpec co = module->addWire(NEW_ID, s_vec.size());
-		module->addAnd(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, g);
-		module->addXor(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, p);
+		module->addAnd(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, g); // generate
+		module->addXor(NEW_ID, s_vec, {c_vec.extract(0, c_vec.size() - 1), State::S0}, p); // propagate
+
 		auto lcu = module->addCell(NEW_ID, ID($lcu));
 		auto lcu_int = module->addWire(NEW_ID, s_vec.size());
 		lcu->setParam(ID::WIDTH, s_vec.size());
@@ -746,7 +745,6 @@ struct BoothPassWorker {
 				SigSpec &carry_bits_to_sum, std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
 	{
 		(void)column_ix;
-
 #ifdef DEBUG_CSA
 		if (column_bits.size() > 0)
 			printf("Parallel Column %d reduce bits parallel given %d bits (%s) to reduce\n", column_ix, column_bits.size(),
@@ -842,10 +840,9 @@ struct BoothPassWorker {
 			}
 			printf("\n");
 #endif
+			// Build parallel reduction tree
 			SigBit s, c;
-
 			ReduceBitsParallel(module, column_ix, column_bits, s, c, carry_bits_to_add_to_next_column, debug_csa_trees);
-
 			s_vec.append(s);
 			c_vec.append(c);
 
@@ -1020,7 +1017,7 @@ struct BoothPassWorker {
 
 	// Sum the bits in the current column
 	// Pass the carry bits from each csa to the next
-	// column for summation.
+	// column for summation. Build serial tree
 
 	void ReduceBits(RTLIL::Module *module, int column_ix, SigSpec column_bits, SigBit &s_result, SigBit &c_result, SigSpec &carry_bits_to_sum,
 			std::vector<std::vector<RTLIL::Cell *>> &debug_csa_trees)
@@ -1396,8 +1393,7 @@ struct BoothPass : public Pass {
 	}
 	void execute(vector<string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing BOOTH pass (map to Booth multipliers).\n");
-
+		log_header(design, "**Executing BOOTH pass (map to Booth multipliers).\n");
 		size_t argidx;
 		bool mapped_cpa = false;
 		bool lowpower = false;
@@ -1424,8 +1420,7 @@ struct BoothPass : public Pass {
 				total += worker.booth_counter;
 			}
 		}
-
-		log("Mapped %d multipliers.\n", total);
+		log_header(design, "Mapped %d multipliers.\n", total);
 	}
 } MultPass;
 
