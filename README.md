@@ -33,6 +33,9 @@ Yosys is free software licensed under the ISC license (a GPL
 compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
+Third-party software distributed alongside this software
+is licensed under compatible licenses.
+Please refer to `abc` and `libs` subdirectories for their license terms.
 
 Web Site and Other Resources
 ============================
