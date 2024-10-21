@@ -1,0 +1,9 @@
+read_verilog cutpoint_blackbox.v
+check
+select -assert-mod-count 1 =A:blackbox
+select -assert-count 0 =t:$anyseq
+cutpoint =A:blackbox
+attrmap -modattr -remove blackbox
+check
+select -assert-mod-count 0 =A:blackbox
+select -assert-count 1 =t:$anyseq
