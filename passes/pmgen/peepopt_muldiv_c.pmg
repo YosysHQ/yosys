@@ -12,8 +12,6 @@ match mul
 endmatch
 
 code a b_const mul_y
-	printf("CODING MUL!!!\n");
-
 	// Get multiplier signals
 	a = port(mul, \A);
 	b_const = port(mul, \B);
@@ -32,19 +30,20 @@ endcode
 match div
 	// Select div of form (a * b_const) / c_const
 	select div->type == $div
-	index <SigSpec> port(div, \A) === port(mul, \Y)
 
 	// Check that b_const and c_const is constant
-	filter port(mul, \B).is_fully_const()
+	filter b_const.is_fully_const()
 	filter port(div, \B).is_fully_const()
 endmatch
 
 code
-	printf("CODING DIV!!!\n");
-
 	// Get div signals
+	SigSpec div_a = port(div, \A);
 	SigSpec c_const = port(div, \B);
 	SigSpec div_y = port(div, \Y);
+
+	// Get offset of multiplier result chunk in divider
+	int offset = GetSize(div_a) - GetSize(mul_y);
 
 	// Get properties and values of b_const and c_const
 	int b_const_width = mul->getParam(ID::B_WIDTH).as_int();
@@ -52,13 +51,18 @@ code
 	bool c_const_signed = div->getParam(ID::B_SIGNED).as_bool();
 	int b_const_int = b_const.as_int(b_const_signed);
 	int c_const_int = c_const.as_int(c_const_signed);
+	int b_const_int_shifted = b_const_int << offset;
+
+	// Check that there are only zeros before offset
+	if (offset < 0 || !div_a.extract(0, offset).is_fully_zero())
+		reject;
 
 	// Check that b is divisible by c
-	if (b_const_int % c_const_int != 0)
+	if (b_const_int_shifted % c_const_int != 0)
 		reject;
 
 	// Rewire to only keep multiplier
-	mul->setPort(\B, Const(b_const_int / c_const_int, b_const_width));
+	mul->setPort(\B, Const(b_const_int_shifted / c_const_int, b_const_width));
 	mul->setPort(\Y, div_y);
 
 	// Remove divider
