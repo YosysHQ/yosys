@@ -19,7 +19,6 @@ ENABLE_GHDL := 0
 ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
-ENABLE_VERIFIC_GHDL := 0
 ENABLE_VERIFIC_VHDL := 1
 ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
@@ -524,9 +523,6 @@ ifneq ($(wildcard $(VERIFIC_DIR)/verilog),)
 VERIFIC_COMPONENTS += verilog
 endif
 endif
-ifeq ($(ENABLE_VERIFIC_GHDL),1)
-CXXFLAGS += -DVERIFIC_GHDL_SUPPORT
-endif
 ifeq ($(ENABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
@@ -700,8 +696,6 @@ OBJS += libs/minisat/Options.o
 OBJS += libs/minisat/SimpSolver.o
 OBJS += libs/minisat/Solver.o
 OBJS += libs/minisat/System.o
-
-OBJS += libs/whereami/whereami.o
 
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += libs/fst/fstapi.o
