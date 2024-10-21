@@ -3672,6 +3672,13 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		if (GetSize(args) > argidx && args[argidx] == "-set_vhdl_default_library_path") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
+			}
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
@@ -3733,7 +3740,6 @@ struct VerificPass : public Pass {
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
 				std::string filename_str = filename;
 				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") || filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl") {
-					vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2019").c_str());
 					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_file::VHDL_2019)) {
 						verific_error_msg.clear();
 						log_cmd_error("Reading VHDL sources failed.\n");
