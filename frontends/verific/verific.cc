@@ -22,7 +22,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
-#include "libs/whereami/whereami.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -3673,6 +3672,13 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		if (GetSize(args) > argidx && args[argidx] == "-set_vhdl_default_library_path") {
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
+			}
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
@@ -3727,58 +3733,28 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 			*/
 
-			// SILIMATE: VHDL processing using GHDL
-#ifdef VERIFIC_GHDL_SUPPORT
+			// SILIMATE: Mixed SV-VHDL support
+#ifdef VERIFIC_VHDL_SUPPORT
 			int i;
+			Array *file_names_vhdl = new Array(POINTER_HASH);
 			FOREACH_ARRAY_ITEM(file_names, i, filename) {
-				// Convert filename to std::string
 				std::string filename_str = filename;
-
-				// Check if file is VHDL
-				if (filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") goto is_vhdl;
-				if (filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl") goto is_vhdl;
-				continue;
-
-				// Convert to Verilog
-				is_vhdl:
-				log("Converting VHDL to Verilog for file %s\n", filename);
-
-				// Get exe path using whereami
-				int length = wai_getExecutablePath(NULL, 0, NULL);
-				char* exe_path = new char[length];
-				wai_getExecutablePath(exe_path, length, NULL);
-				exe_path[length] = '\0';
-
-				// Get dirname of exe path
-				const char *dirname = FileSystem::Dirname(exe_path);
-				std::string ghdl_path = std::string(dirname) + "/bin/ghdl";
-				log("Exe path: %s\n", exe_path);
-				log("Exe dirname: %s\n", dirname);
-				log("GHDL path: %s\n", ghdl_path.c_str());
-
-				// Check if GHDL binary exists, else use system path
-				if (!FileSystem::PathExists(ghdl_path.c_str())) ghdl_path = "ghdl";
-
-				// Run command to convert VHDL to Verilog
-				std::string basename = FileSystem::Basename(filename);
-				std::string top = basename.substr(0, basename.find_last_of("."));
-				std::string outfile = "preqorsor/data/" + top + ".v";
-				std::string ghdl_cmd = ghdl_path + " --synth --no-formal -fsynopsys --out=verilog " + filename_str + " -e " + top + " > " + outfile;
-				log("Running command: %s\n", ghdl_cmd.c_str());
-				if (system(ghdl_cmd.c_str()) != 0) {
+				if ((filename_str.substr(filename_str.find_last_of(".") + 1) == "vhd") || filename_str.substr(filename_str.find_last_of(".") + 1) == "vhdl") {
+					if (!vhdl_file::Analyze(filename, work.c_str(), vhdl_file::VHDL_2019)) {
+						verific_error_msg.clear();
+						log_cmd_error("Reading VHDL sources failed.\n");
+					}
+				} else if (!veri_file::Analyze(filename, analysis_mode, work.c_str())) {
 					verific_error_msg.clear();
-					log_cmd_error("Could not convert VHDL file %s to Verilog.\n", filename);
+					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 				}
-
-				// Add file
-				file_names->Insert(i, Strings::save(outfile.c_str()));
 			}
-#endif
-
+#else
 			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
 				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}
+#endif
 
 			delete file_names;
 			verific_import_pending = true;
