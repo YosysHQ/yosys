@@ -542,27 +542,13 @@ struct LibertyFrontend : public Frontend {
 			if (cell->id != "cell" || cell->args.size() != 1)
 				continue;
 
-			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-
-			if (design->has(cell_name)) {
-				Module *existing_mod = design->module(cell_name);
-				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
-					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
-				} else if (flag_nooverwrite) {
-					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
-					continue;
-				} else {
-					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", log_id(cell_name));
-					design->remove(existing_mod);
-				}
-			}
-
 			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
 
 			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
 			parse_type_map(type_map, cell);
 
 			RTLIL::Module *module = new RTLIL::Module;
+			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 			module->name = cell_name;
 
 			if (flag_lib)
@@ -744,6 +730,20 @@ struct LibertyFrontend : public Frontend {
 							done.insert(related);
 						}
 					}
+				}
+			}
+
+			if (design->has(cell_name)) {
+				Module *existing_mod = design->module(cell_name);
+				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
+					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
+				} else if (flag_nooverwrite) {
+					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
+					delete module;
+					goto skip_cell;
+				} else {
+					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", log_id(cell_name));
+					design->remove(existing_mod);
 				}
 			}
 
