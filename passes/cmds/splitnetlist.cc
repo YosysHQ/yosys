@@ -236,7 +236,7 @@ struct SplitNetlist : public ScriptPass {
 			// std::cout << std::endl;
 		}
 		// Execute the submod command
-		Pass::call(design, "submod -copy -noclean");
+		Pass::call(design, "submod -copy");
 	}
 } SplitNetlist;
 
