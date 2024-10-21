@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <set>
 #include <unordered_map>
+#include <array>
 
 
 USING_YOSYS_NAMESPACE
