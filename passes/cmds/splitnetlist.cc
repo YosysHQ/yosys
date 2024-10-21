@@ -5,20 +5,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-int sigIsConstant(RTLIL::SigSpec sig)
-{
-	if (sig.is_chunk()) {
-		if ((sig.as_chunk()).wire == NULL) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
+// Recursively traverses backward from a sig, record if a cell was traversed, and push onto the cell's inputs.
+// Similarly with assign statements traverses lhs -> rhs
 void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *> *> &sig2CellsInFanin,
 		      dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, std::set<Cell *> &visitedCells, std::set<RTLIL::SigSpec> &visitedSigSpec)
 {
-	if (sigIsConstant(sig)) {
+	if (sig.is_fully_const()) {
 		return;
 	}
 	if (visitedSigSpec.count(sig)) {
@@ -43,7 +35,6 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 							RTLIL::SigSpec sub_actual = *it;
 							recordTransFanin(sub_actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 						}
-
 					} else {
 						recordTransFanin(actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 					}
@@ -57,7 +48,7 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 	}
 }
 
-// Signal cell driver(s)
+// Signal cell driver(s), precompute a cell output signal to a cell map
 void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *> *> &sig2CellsInFanin)
 {
 	for (auto cell : design->top_module()->cells()) {
@@ -91,13 +82,13 @@ void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>
 	}
 }
 
-// Assign statements fanin
+// Assign statements fanin, traces the lhs to rhs sigspecs and precompute a map
 void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2rhsSig)
 {
 	for (auto it = design->top_module()->connections().begin(); it != design->top_module()->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
 		RTLIL::SigSpec rhs = it->second;
-		if (sigIsConstant(rhs)) {
+		if (rhs.is_fully_const()) {
 			continue;
 		}
 		if (!lhs.is_chunk()) {
@@ -106,7 +97,7 @@ void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig
 				long unsigned rhsSize = 0;
 				while (rit != rhs.chunks().rend()) {
 					RTLIL::SigSpec sub_rhs = *rit;
-					if (sigIsConstant(sub_rhs)) {
+					if (sub_rhs.is_fully_const()) {
 						rhsSize += (sub_rhs.as_chunk()).width;
 					} else {
 						rhsSize++;
@@ -122,7 +113,7 @@ void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig
 			while (rit != rhs.chunks().rend()) {
 				RTLIL::SigSpec sub_lhs = *lit;
 				RTLIL::SigSpec sub_rhs = *rit;
-				if (sigIsConstant(sub_rhs)) {
+				if (sub_rhs.is_fully_const()) {
 					int constSize = (sub_rhs.as_chunk()).width;
 					while (constSize--) {
 						lit++;
@@ -167,7 +158,11 @@ std::string replaceAll(std::string_view str, std::string_view from, std::string_
 }
 
 struct SplitNetlist : public ScriptPass {
-	SplitNetlist() : ScriptPass("splitnetlist", "Splits a netlist into multiple modules using transitive fanin grouping") {}
+	SplitNetlist()
+	    : ScriptPass("splitnetlist", "Splits a netlist into multiple modules using transitive fanin grouping. \
+	       The output names that belong in the same logical cluster have to have the same prefix: <prefix>_<name>")
+	{
+	}
 	void script() {}
 
 	void execute(std::vector<std::string>, RTLIL::Design *design) override
@@ -176,16 +171,21 @@ struct SplitNetlist : public ScriptPass {
 			log_error("No design object");
 			return;
 		}
+		// Precompute cell output sigspec to cell map
 		dict<RTLIL::SigSpec, std::set<Cell *> *> sig2CellsInFanin;
 		sigCellDrivers(design, sig2CellsInFanin);
+		// Precompute lhs to rhs sigspec map
 		dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
 		lhs2rhs(design, lhsSig2RhsSig);
+		// Struct representing a cluster
 		typedef struct CellsAndSigs {
 			std::set<Cell *> visitedCells;
 			std::set<RTLIL::SigSpec> visitedSigSpec;
 		} CellsAndSigs;
+		// Cluster mapped by prefix
 		typedef std::map<std::string, CellsAndSigs> CellName_ObjectMap;
 		CellName_ObjectMap cellName_ObjectMap;
+		// Record logic cone by output sharing the same prefix
 		for (auto wire : design->top_module()->wires()) {
 			if (!wire->port_output)
 				continue;
@@ -194,12 +194,14 @@ struct SplitNetlist : public ScriptPass {
 			std::set<Cell *> visitedCells;
 			std::set<RTLIL::SigSpec> visitedSigSpec;
 			RTLIL::SigSpec actual = wire;
+			// Visit the output sigspec
 			recordTransFanin(actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+			// Visit the output sigspec bits
 			for (int i = 0; i < actual.size(); i++) {
 				SigSpec bit_sig = actual.extract(i, 1);
 				recordTransFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 			}
-
+			// Record the visited objects in the corresponding cluster
 			CellName_ObjectMap::iterator itr = cellName_ObjectMap.find(std::string(po_prefix));
 			if (itr == cellName_ObjectMap.end()) {
 				CellsAndSigs components;
@@ -211,7 +213,7 @@ struct SplitNetlist : public ScriptPass {
 				}
 				cellName_ObjectMap.emplace(std::string(po_prefix), components);
 			} else {
-				CellsAndSigs &components = (*itr).second;
+				CellsAndSigs &components = itr->second;
 				for (auto cell : visitedCells) {
 					components.visitedCells.insert(cell);
 				}
@@ -220,31 +222,21 @@ struct SplitNetlist : public ScriptPass {
 				}
 			}
 		}
+		// Create submod attributes for the submod command
 		for (CellName_ObjectMap::iterator itr = cellName_ObjectMap.begin(); itr != cellName_ObjectMap.end(); itr++) {
-			// std::cout << "Cluster name: " << (*itr).first << std::endl;
-			CellsAndSigs &components = (*itr).second;
+			// std::cout << "Cluster name: " << itr->first << std::endl;
+			CellsAndSigs &components = itr->second;
 			for (auto cell : components.visitedCells) {
-				cell->set_string_attribute(RTLIL::escape_id("submod"), (*itr).first);
+				cell->set_string_attribute(RTLIL::escape_id("submod"), itr->first);
 				// std::cout << "  CELL: " << cell->name.c_str() << std::endl;
 			}
-			//for (auto sigspec : components.visitedSigSpec) {
-			// std::cout << "  SIG: " << SigName(sigspec) << std::endl;
-			//}
+			// for (auto sigspec : components.visitedSigSpec) {
+			//  std::cout << "  SIG: " << SigName(sigspec) << std::endl;
+			// }
 			// std::cout << std::endl;
 		}
+		// Execute the submod command
 		Pass::call(design, "submod -copy -noclean");
-		// Rename all the modules
-		std::set<Module *> modules;
-		for (Module *module : design->modules()) {
-			modules.insert(module);
-		}
-		std::string topmodule_name = id2String(design->top_module()->name);
-		for (Module *module : modules) {
-			std::string name = id2String(module->name);
-			name = replaceAll(name, "\\" + topmodule_name + "_\\fast_", "\\");
-			name = replaceAll(name, "\\" + topmodule_name + "_\\slow_", "\\");
-			design->rename(module, name);
-		}
 	}
 } SplitNetlist;
 
