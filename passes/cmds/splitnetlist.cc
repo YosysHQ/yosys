@@ -241,9 +241,8 @@ struct SplitNetlist : public ScriptPass {
 		std::string topmodule_name = id2String(design->top_module()->name);
 		for (Module *module : modules) {
 			std::string name = id2String(module->name);
-			name = replaceAll(name, topmodule_name + "_\\fast_", "");
-			name = replaceAll(name, topmodule_name + "_\\slow_", "");
-			name = "\\" + name;
+			name = replaceAll(name, "\\" + topmodule_name + "_\\fast_", "\\");
+			name = replaceAll(name, "\\" + topmodule_name + "_\\slow_", "\\");
 			design->rename(module, name);
 		}
 	}
