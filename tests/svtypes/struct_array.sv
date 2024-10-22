@@ -211,11 +211,12 @@ module top;
 	always_comb assert(s3_off==80'hFC00_4200_0012_3400_FFFC);
 
 `ifndef VERIFIC
-	// Note that the tests below for unpacked arrays in structs rely on the
-	// fact that they are actually packed in Yosys.
+	// Note that the tests below for unpacked arrays in unpacked structs
+	// rely on the fact that Yosys always stores structs in packed format.
+	// The LRM doesn't allow treating unpacked structs as single vectors.
 
-	// Same as s2, but using unpacked array syntax
-	struct packed {
+	// Same as s2, but using unpacked struct
+	struct {
 		bit [7:0] a [7:0];	// 8 element unpacked array of bytes
 		bit [15:0] b;		// filler for non-zero offset
 	} s4;
@@ -235,8 +236,8 @@ module top;
 
 	always_comb assert(s4==80'hFC00_4200_0012_3400_FFFC);
 
-	// Same as s3, but using unpacked array syntax
-	struct packed {
+	// Same as s3, but using unpacked struct
+	struct {
 		bit [7:0] a [0:7];	// 8 element unpacked array of bytes
 		bit [0:15] b;		// filler for non-zero offset
 	} s5;
@@ -257,7 +258,7 @@ module top;
 	always_comb assert(s5==80'hFC00_4200_0012_3400_FFFC);
 
 	// Same as s5, but with little endian bit addressing
-	struct packed {
+	struct {
 		bit [0:7] a [0:7];	// 8 element unpacked array of bytes
 		bit [0:15] b;		// filler for non-zero offset
 	} s5_b;
@@ -278,7 +279,7 @@ module top;
 	always_comb assert(s5_b==80'hFC00_4200_0012_3400_FFFC);
 
 	// Same as s5, but using C-type unpacked array syntax
-	struct packed {
+	struct {
 		bit [7:0] a [8];	// 8 element unpacked array of bytes
 		bit [0:15] b;		// filler for non-zero offset
 	} s6;

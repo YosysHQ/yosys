@@ -316,6 +316,9 @@ Verilog Attributes and non-standard features
 - The ``nowrshmsk`` attribute on a register prohibits the generation of
   shift-and-mask type circuits for writing to bit slices of that register.
 
+- The ``nordshift`` attribute on a net or variable prohibits the generation of
+  shift type circuits for reading bit slices from that data object.
+
 - The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
@@ -607,8 +610,8 @@ from SystemVerilog:
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
 
-- packed structs and unions are supported
-	- arrays of packed structs/unions are currently not supported
+- structs and unions are supported
+	- arrays of structs/unions are currently not supported
 	- structure literals are currently not supported
 
 - multidimensional arrays are supported
