@@ -118,6 +118,7 @@ AWK ?= awk
 
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
+LINKFLAGS += -rdynamic
 
 # homebrew search paths
 ifneq ($(shell :; command -v brew),)
