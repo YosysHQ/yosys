@@ -2400,9 +2400,11 @@ struct AnnotateActivity : public OutputWriter {
 	AnnotateActivity(SimWorker *worker) : OutputWriter(worker) {}
 
 	struct SignalActivityData {
-		std::vector<uint32_t> lastValues;
-		std::vector<uint32_t> toggleCounts;
-		std::vector<uint32_t> highTimes;
+		std::vector<uint64_t> lastValues;
+		std::vector<uint64_t> prevTimes;
+		std::vector<double_t> toggleCounts;
+		std::vector<uint64_t> highTimes;
+		std::vector<uint64_t> totalEventCounts;
 	};
 
 	typedef std::unordered_map<int, SignalActivityData> SignalActivityDataMap;
@@ -2422,11 +2424,14 @@ struct AnnotateActivity : public OutputWriter {
 				SignalActivityDataMap::iterator itr = dataMap.find(sig);
 				if (itr == dataMap.end()) {
 					Const value = data.second;
-					std::vector<uint32_t> vals(GetSize(value), 0);
+					std::vector<uint64_t> vals(GetSize(value), 0);
+					std::vector<double_t> dvals(GetSize(value), 0);
 					SignalActivityData data;
 					data.highTimes = vals;
+					data.prevTimes = vals;
 					data.lastValues = vals;
-					data.toggleCounts = vals;
+					data.totalEventCounts = vals;
+					data.toggleCounts = dvals;
 					dataMap.emplace(sig, data);
 				}
 			}
@@ -2435,12 +2440,12 @@ struct AnnotateActivity : public OutputWriter {
 		int max_time = 0;
 		// clock pin id (highest toggling signal)
 		int clk = 0;
-		int highest_toggle = 0;
-		// Used to compute time intervals
-		int prev_time = 0;
-		// For each event (new time when a value changed)
+		double_t highest_toggle = 0;
+		// Inititalization of lastVal and max_time
 		for (auto &d : worker->output_data) {
 			int time = d.first;
+			if (time > max_time)
+				max_time = time;
 			// For each signal/values in that time slice
 			for (auto &data : d.second) {
 				int sig = data.first;
@@ -2448,9 +2453,8 @@ struct AnnotateActivity : public OutputWriter {
 					continue;
 				Const value = data.second;
 				SignalActivityDataMap::iterator itr = dataMap.find(sig);
-				std::vector<uint32_t> &lastVals = itr->second.lastValues;
-				std::vector<uint32_t> &toggleCounts = itr->second.toggleCounts;
-				std::vector<uint32_t> &highTimes = itr->second.highTimes;
+				std::vector<uint64_t> &lastVals = itr->second.lastValues;
+				std::vector<uint64_t> &totalEventCounts = itr->second.totalEventCounts;
 				for (int i = GetSize(value) - 1; i >= 0; i--) {
 					int val = '-';
 					switch (value[i]) {
@@ -2466,22 +2470,69 @@ struct AnnotateActivity : public OutputWriter {
 					default:
 						val = 'z';
 					}
+					totalEventCounts[i]++;
+					if (lastVals[i] == 0) {
+						lastVals[i] = val;
+					}
+				}
+			}
+		}
+
+		// For each event (new time when a value changed)
+		for (auto &d : worker->output_data) {
+			uint64_t time = d.first;
+			// For each signal/values in that time slice
+			for (auto &data : d.second) {
+				int sig = data.first;
+				if (!use_signal.at(sig))
+					continue;
+				Const value = data.second;
+				SignalActivityDataMap::iterator itr = dataMap.find(sig);
+				std::vector<uint64_t> &lastVals = itr->second.lastValues;
+				std::vector<double_t> &toggleCounts = itr->second.toggleCounts;
+				std::vector<uint64_t> &prevTimes = itr->second.prevTimes;
+				std::vector<uint64_t> &highTimes = itr->second.highTimes;
+				std::vector<uint64_t> &totalEventCounts = itr->second.totalEventCounts;
+				for (int i = GetSize(value) - 1; i >= 0; i--) {
+					int val = '-';
+					switch (value[i]) {
+					case State::S0:
+						val = '0';
+						break;
+					case State::S1:
+						val = '1';
+						break;
+					case State::Sx:
+						val = 'x';
+						break;
+					default:
+						val = 'z';
+					}
+					if (lastVals[i] == '1') {
+						highTimes[i] += time - prevTimes[i];
+					}
+					prevTimes[i] = time;
+					// Final high time for last event
+					totalEventCounts[i]--;
+					if (totalEventCounts[i] == 0) {
+						if (val == '1') {
+							highTimes[i] += max_time - prevTimes[i];
+						}
+					}
 					// If signal toggled
 					if (val != lastVals[i]) {
-						toggleCounts[i]++;
+						if (val == 'x' || val == 'z' || lastVals[i] == 'x' || lastVals[i] == 'z')
+							toggleCounts[i] += 0.5;
+						else
+							toggleCounts[i] += 1.0;
 						if (toggleCounts[i] > highest_toggle) {
 							highest_toggle = toggleCounts[i];
 							clk = sig;
 						}
 						lastVals[i] = val;
 					}
-					if (lastVals[i] == '1') {
-						highTimes[i] += time - prev_time;
-					}
 				}
 			}
-			prev_time = time;
-			max_time = time;
 		}
 
 		// Retrieve VCD timescale
@@ -2497,70 +2548,71 @@ struct AnnotateActivity : public OutputWriter {
 
 		// Compute clock period, find the highest toggling signal and compute its average period
 		SignalActivityDataMap::iterator itr = dataMap.find(clk);
-		std::vector<uint32_t> &clktoggleCounts = itr->second.toggleCounts;
-		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2);
-		double frequency = 1 / clk_period;
+		std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
+		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+		double frequency = 1.0 / clk_period;
 		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
 		if (debug) {
 			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
 			std::cout << "Max time: " << max_time << "\n";
 			std::cout << "Clock period: " << clk_period << "\n";
+			std::cout << "Frequency: " << frequency << "\n";
 		}
 		worker->top->write_output_header(
 		  [this, debug](IdString name) {
 			  if (debug)
 				  std::cout << stringf("module %s\n", log_id(name));
 		  },
-			[this, debug]() {
-				if (debug)
-					std::cout << "endmodule\n";
-			},
-			[this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug]
-			  (const char *name, int size, Wire *w, int id, bool is_reg) {
-				if (!use_signal.at(id) || (w == nullptr))
-					return;
-				SignalActivityDataMap::const_iterator itr = dataMap.find(id);
-				const std::vector<uint32_t> &toggleCounts = itr->second.toggleCounts;
-				const std::vector<uint32_t> &highTimes = itr->second.highTimes;
-				if (debug) {
-					std::string full_name = form_vcd_name(name, size, w);
-					std::cout << full_name << ":\n";
-					std::cout << "     TC: ";
-					for (uint32_t i = 0; i < (uint32_t)size; i++) {
-						std::cout << toggleCounts[i] << " ";
-					}
-					std::cout << "\n";
-					std::cout << "     HT: ";
-					for (uint32_t i = 0; i < (uint32_t)size; i++) {
-						std::cout << highTimes[i] << " ";
-					}
-					std::cout << "\n";
-					std::cout << "     ACK: ";
-				}
-				std::string activity_str;
-				for (uint32_t i = 0; i < (uint32_t)size; i++) {
-					// Compute Activity
-					double activity = toggleCounts[i] / ((double)max_time * real_timescale / clk_period);
-					activity_str += std::to_string(activity) + " ";
-				}
-				if (debug) {
-					std::cout << activity_str;
-					std::cout << "\n";
-					std::cout << "     DUTY: ";
-				}
-				std::string duty_str;
-				for (uint32_t i = 0; i < (uint32_t)size; i++) {
-					// Compute Duty cycle
-					double duty = (double)highTimes[i] / (double)max_time;
-					duty_str += std::to_string(duty) + " ";
-				}
-				if (debug) {
-					std::cout << duty_str;
-					std::cout << "\n";
-				}
-				w->set_string_attribute("$ACKT", activity_str);
-				w->set_string_attribute("$DUTY", duty_str);
-			});
+		  [this, debug]() {
+			  if (debug)
+				  std::cout << "endmodule\n";
+		  },
+		  [this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug](const char *name, int size, Wire *w, int id,
+											     bool is_reg) {
+			  if (!use_signal.at(id) || (w == nullptr))
+				  return;
+			  SignalActivityDataMap::const_iterator itr = dataMap.find(id);
+			  const std::vector<double_t> &toggleCounts = itr->second.toggleCounts;
+			  const std::vector<uint64_t> &highTimes = itr->second.highTimes;
+			  if (debug) {
+				  std::string full_name = form_vcd_name(name, size, w);
+				  std::cout << full_name << " " << id << ":\n";
+				  std::cout << "     TC: ";
+				  for (uint32_t i = 0; i < (uint32_t)size; i++) {
+					  std::cout << toggleCounts[i] << " ";
+				  }
+				  std::cout << "\n";
+				  std::cout << "     HT: ";
+				  for (uint32_t i = 0; i < (uint32_t)size; i++) {
+					  std::cout << highTimes[i] << " ";
+				  }
+				  std::cout << "\n";
+				  std::cout << "     ACK: ";
+			  }
+			  std::string activity_str;
+			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
+				  // Compute Activity
+				  double activity = toggleCounts[i] / (((double)max_time * real_timescale / clk_period) * 2.0);
+				  activity_str += std::to_string(activity) + " ";
+			  }
+			  if (debug) {
+				  std::cout << activity_str;
+				  std::cout << "\n";
+				  std::cout << "     DUTY: ";
+			  }
+			  std::string duty_str;
+			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
+				  // Compute Duty cycle
+				  double duty = (double)highTimes[i] / (double)max_time;
+				  duty_str += std::to_string(duty) + " ";
+			  }
+			  if (debug) {
+				  std::cout << duty_str;
+				  std::cout << "\n";
+			  }
+			  w->set_string_attribute("$ACKT", activity_str);
+			  w->set_string_attribute("$DUTY", duty_str);
+		  });
 	}
 };
 
