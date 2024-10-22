@@ -46,9 +46,11 @@ struct IdBit {
 
     bool operator==(const IdBit &other) const { return name == other.name && bit == other.bit; };
     bool operator!=(const IdBit &other) const { return name != other.name || bit != other.bit; };
-    unsigned hash() const
+    Hasher hash_acc(Hasher h) const
     {
-        return mkhash_add(name.hash(), bit);
+        h.acc(name);
+        h.acc(bit);
+        return h;
     }
 
     IdString name;
@@ -62,9 +64,11 @@ struct InvBit {
 
     bool operator==(const InvBit &other) const { return bit == other.bit && inverted == other.inverted; };
     bool operator!=(const InvBit &other) const { return bit != other.bit || inverted != other.inverted; };
-    unsigned hash() const
+    Hasher hash_acc(Hasher h) const
     {
-        return mkhash(bit.hash(), inverted);
+        h.acc(bit);
+        h.acc(inverted);
+        return h;
     }
 
     IdBit bit;
