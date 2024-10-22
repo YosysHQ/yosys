@@ -2355,8 +2355,7 @@ struct VCDWriter : public OutputWriter
 		}
 
 		if (!worker->timescale.empty())
-			vcdfile << stringf("$timescale %s $end\n", worker->timescale.c_str());
-
+			vcdfile << stringf("$timescale 1%s $end\n", worker->timescale.c_str());
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
@@ -2500,6 +2499,8 @@ struct AnnotateActivity : public OutputWriter {
 		SignalActivityDataMap::iterator itr = dataMap.find(clk);
 		std::vector<uint32_t> &clktoggleCounts = itr->second.toggleCounts;
 		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2);
+		double frequency = 1 / clk_period;
+		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
 		if (debug) {
 			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
 			std::cout << "Max time: " << max_time << "\n";
