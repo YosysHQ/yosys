@@ -2436,12 +2436,10 @@ struct AnnotateActivity : public OutputWriter {
 				}
 			}
 		}
+
 		// Max simulation time
 		int max_time = 0;
-		// clock pin id (highest toggling signal)
-		int clk = 0;
-		double_t highest_toggle = 0;
-		// Inititalization of lastVal and max_time
+		// Inititalization of totalEventCounts and max_time
 		for (auto &d : worker->output_data) {
 			int time = d.first;
 			if (time > max_time)
@@ -2453,31 +2451,16 @@ struct AnnotateActivity : public OutputWriter {
 					continue;
 				Const value = data.second;
 				SignalActivityDataMap::iterator itr = dataMap.find(sig);
-				std::vector<uint64_t> &lastVals = itr->second.lastValues;
 				std::vector<uint64_t> &totalEventCounts = itr->second.totalEventCounts;
 				for (int i = GetSize(value) - 1; i >= 0; i--) {
-					int val = '-';
-					switch (value[i]) {
-					case State::S0:
-						val = '0';
-						break;
-					case State::S1:
-						val = '1';
-						break;
-					case State::Sx:
-						val = 'x';
-						break;
-					default:
-						val = 'z';
-					}
 					totalEventCounts[i]++;
-					if (lastVals[i] == 0) {
-						lastVals[i] = val;
-					}
 				}
 			}
 		}
 
+		// clock pin id (highest toggling signal)
+		int clk = 0;
+		double_t highest_toggle = 0;
 		// For each event (new time when a value changed)
 		for (auto &d : worker->output_data) {
 			uint64_t time = d.first;
@@ -2494,7 +2477,7 @@ struct AnnotateActivity : public OutputWriter {
 				std::vector<uint64_t> &highTimes = itr->second.highTimes;
 				std::vector<uint64_t> &totalEventCounts = itr->second.totalEventCounts;
 				for (int i = GetSize(value) - 1; i >= 0; i--) {
-					int val = '-';
+					uint64_t val = '-';
 					switch (value[i]) {
 					case State::S0:
 						val = '0';
@@ -2508,11 +2491,14 @@ struct AnnotateActivity : public OutputWriter {
 					default:
 						val = 'z';
 					}
+					if (lastVals[i] == 0) {
+						lastVals[i] = val;
+					}
 					if (lastVals[i] == '1') {
 						highTimes[i] += time - prevTimes[i];
 					}
 					prevTimes[i] = time;
-					// Final high time for last event
+					// Final high time for last event of the given sig
 					totalEventCounts[i]--;
 					if (totalEventCounts[i] == 0) {
 						if (val == '1') {
@@ -2568,7 +2554,7 @@ struct AnnotateActivity : public OutputWriter {
 				  std::cout << "endmodule\n";
 		  },
 		  [this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug](const char *name, int size, Wire *w, int id,
-											     bool is_reg) {
+											     bool) {
 			  if (!use_signal.at(id) || (w == nullptr))
 				  return;
 			  SignalActivityDataMap::const_iterator itr = dataMap.find(id);
