@@ -367,9 +367,12 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 		dump_sigchunk(f, sig.as_chunk());
 	} else {
 		f << stringf("{ ");
+		int i = 0;
 		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); ++it) {
 			if (it != sig.chunks().rbegin())
 				f << stringf(", ");
+			if (i++ % 20 == 19)
+				f << stringf("\n");
 			dump_sigchunk(f, *it, true);
 		}
 		f << stringf(" }");
