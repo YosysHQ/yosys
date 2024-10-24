@@ -3653,14 +3653,11 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".v", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".vh", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".sv", veri_file::SYSTEM_VERILOG);
+			veri_file::AddFileExtMode(".sv1", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".svh", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
-#ifdef VERIFIC_GHDL_SUPPORT
-			veri_file::AddFileExtMode(".vhd", veri_file::VHDL);
-			veri_file::AddFileExtMode(".vhdl", veri_file::VHDL);
-#endif
 			goto check_error;
 		}
 
@@ -3672,16 +3669,18 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+#ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-set_vhdl_default_library_path") {
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
 			}
 			goto check_error;
 		}
+#endif
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
-			unsigned verilog_mode = veri_file::UNDEFINED;
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
 			bool is_formal = false;
 			const char* filename = nullptr;
 
