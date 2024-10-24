@@ -3168,6 +3168,11 @@ struct VerificPass : public Pass {
 		log("Add module to list of modules to ignore during parsing.\n");
 		log("\n");
 		log("\n");
+		log("    import -set_vhdl_default_library_path <path>\n");
+		log("\n");
+		log("VHDL default library path.\n");
+		log("\n");
+		log("\n");
 #endif
 		log("    import -set-error <msg_id>..\n");
 		log("    import -set-warning <msg_id>..\n");
