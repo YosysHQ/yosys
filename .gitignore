@@ -58,3 +58,4 @@ __pycache__
 /venv
 /boost
 /ffi
+/doxygen
