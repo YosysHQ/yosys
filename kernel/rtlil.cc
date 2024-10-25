@@ -715,7 +715,7 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(const RTLIL::IdString &id)
 	return data;
 }
 
-void RTLIL::AttrObject::set_hdlname_attribute(const vector<string> &hierarchy)
+void RTLIL::AttrObject::set_hdlname_attribute(const std::vector<string> &hierarchy)
 {
 	string attrval;
 	for (const auto &ident : hierarchy) {
@@ -731,7 +731,7 @@ vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
 	return split_tokens(get_string_attribute(ID::hdlname), " ");
 }
 
-void RTLIL::AttrObject::set_intvec_attribute(const RTLIL::IdString& id, const vector<int> &data)
+void RTLIL::AttrObject::set_intvec_attribute(const RTLIL::IdString& id, const std::vector<int> &data)
 {
 	std::stringstream attrval;
 	for (auto &i : data) {
