@@ -20,6 +20,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -30,9 +31,15 @@ struct SplitfanoutWorker
 	SigMap sigmap;
 	dict<SigBit, tuple<IdString,IdString,int>> bit_drivers_db;
 	dict<SigBit, pool<tuple<IdString,IdString,int>>> bit_users_db;
+	TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 
 	SplitfanoutWorker(Module *module) : module(module), sigmap(module)
 	{
+		// Add nodes to topological sorter for all selected cells
+		for (auto cell : module->selected_cells())
+			toposort.node(cell->name);
+
+		// Build bit_drivers_db
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->output(conn.first)) continue;
@@ -43,6 +50,7 @@ struct SplitfanoutWorker
 			}
 		}
 
+		// Build bit_users_db and add edges to topological sorter
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->input(conn.first)) continue;
@@ -51,10 +59,15 @@ struct SplitfanoutWorker
 					if (!bit_drivers_db.count(bit)) continue;
 					bit_users_db[bit].insert(tuple<IdString,IdString,int>(cell->name,
 							conn.first, i-std::get<2>(bit_drivers_db[bit])));
+					IdString driver_cell = std::get<0>(bit_drivers_db[bit]);
+					if (toposort.has_node(driver_cell) && toposort.has_node(cell->name))
+						// toposort.edge(driver_cell, cell->name);
+						toposort.edge(cell->name, driver_cell);
 				}
 			}
 		}
 
+		// Build bit_users_db for output ports
 		for (auto wire : module->wires()) {
 			if (!wire->port_output) continue;
 			SigSpec sig(sigmap(wire));
@@ -65,6 +78,10 @@ struct SplitfanoutWorker
 						IdString(), i-std::get<2>(bit_drivers_db[bit])));
 			}
 		}
+
+		// Sort using the topological sorter
+		toposort.analyze_loops = false;
+		toposort.sort();
 	}
 
 	int split(Cell *cell)
@@ -89,6 +106,7 @@ struct SplitfanoutWorker
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
 				log_debug("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
+				cell->set_bool_attribute(IdString("\\bitsplit"));
 				return 0;
 			}
 		}
@@ -192,8 +210,8 @@ struct SplitfanoutPass : public Pass {
 			while (1) {
 				SplitfanoutWorker worker(module);
 				bool did_something = false;
-				for (auto cell : module->selected_cells()) {
-					int n = worker.split(cell);
+				for (auto cell : worker.toposort.sorted) {
+					int n = worker.split(module->cell(cell));
 					did_something |= (n != 0);
 					count_split_pre += (n != 0);
 					count_split_post += n;
