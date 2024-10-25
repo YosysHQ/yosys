@@ -3674,14 +3674,14 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-#ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-set_vhdl_default_library_path") {
 			for (argidx++; argidx < GetSize(args); argidx++) {
+#ifdef VERIFIC_VHDL_SUPPORT
 				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
+#endif
 			}
 			goto check_error;
 		}
-#endif
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
