@@ -363,6 +363,19 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 		f << "{0{1'b0}}";
 		return;
 	}
+	if (sig.is_fully_const() && GetSize(sig) > 8192) {
+		f << stringf("{ ");
+		int i = 0;
+		for (auto it = sig.bits().rbegin(); it != sig.bits().rend(); ++it) {
+			dump_const(f, it->data, 1, 0);
+			if (it != sig.bits().rend() - 1)
+				f << stringf(", ");
+			if (i++ % 20 == 19)
+				f << stringf("\n");
+		}
+		f << stringf(" }");
+		return;
+	}
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk());
 	} else {
