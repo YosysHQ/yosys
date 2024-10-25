@@ -207,17 +207,11 @@ struct SplitfanoutPass : public Pass {
 			int count_split_pre = 0;
 			int count_split_post = 0;
 
-			while (1) {
-				SplitfanoutWorker worker(module);
-				bool did_something = false;
-				for (auto cell : worker.toposort.sorted) {
-					int n = worker.split(module->cell(cell));
-					did_something |= (n != 0);
-					count_split_pre += (n != 0);
-					count_split_post += n;
-				}
-				if (!did_something)
-					break;
+			SplitfanoutWorker worker(module);
+			for (auto cell : worker.toposort.sorted) {
+				int n = worker.split(module->cell(cell));
+				count_split_pre += (n != 0);
+				count_split_post += n;
 			}
 
 			if (count_split_pre)
