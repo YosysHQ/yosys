@@ -36,10 +36,12 @@ struct SplitfanoutWorker
 	SplitfanoutWorker(Module *module) : module(module), sigmap(module)
 	{
 		// Add nodes to topological sorter for all selected cells
+		log_debug("Making toposort nodes for module %s...", log_id(module));
 		for (auto cell : module->selected_cells())
 			toposort.node(cell->name);
 
 		// Build bit_drivers_db
+		log_debug("Building bit_drivers_db...");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->output(conn.first)) continue;
@@ -51,6 +53,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db and add edges to topological sorter
+		log_debug("Building bit_users_db and adding edges to toposort...");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->input(conn.first)) continue;
@@ -68,6 +71,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db for output ports
+		log_debug("Building bit_users_db for output ports...");
 		for (auto wire : module->wires()) {
 			if (!wire->port_output) continue;
 			SigSpec sig(sigmap(wire));
@@ -80,6 +84,7 @@ struct SplitfanoutWorker
 		}
 
 		// Sort using the topological sorter
+		log_debug("Sorting using toposort...");
 		toposort.analyze_loops = false;
 		toposort.sort();
 	}
@@ -106,7 +111,6 @@ struct SplitfanoutWorker
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
 				log_debug("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
-				cell->set_bool_attribute(IdString("\\bitsplit"));
 				return 0;
 			}
 		}
