@@ -36,12 +36,12 @@ struct SplitfanoutWorker
 	SplitfanoutWorker(Module *module) : module(module), sigmap(module)
 	{
 		// Add nodes to topological sorter for all selected cells
-		log("Making toposort nodes for module %s...", log_id(module));
+		log("Making toposort nodes for module %s...\n", log_id(module));
 		for (auto cell : module->selected_cells())
 			toposort.node(cell->name);
 
 		// Build bit_drivers_db
-		log("Building bit_drivers_db...");
+		log("Building bit_drivers_db...\n");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->output(conn.first)) continue;
@@ -53,7 +53,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db and add edges to topological sorter
-		log("Building bit_users_db and adding edges to toposort...");
+		log("Building bit_users_db and adding edges to toposort...\n");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->input(conn.first)) continue;
@@ -71,7 +71,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db for output ports
-		log("Building bit_users_db for output ports...");
+		log("Building bit_users_db for output ports...\n");
 		for (auto wire : module->wires()) {
 			if (!wire->port_output) continue;
 			SigSpec sig(sigmap(wire));
@@ -84,7 +84,7 @@ struct SplitfanoutWorker
 		}
 
 		// Sort using the topological sorter
-		log("Sorting using toposort...");
+		log("Sorting using toposort...\n");
 		toposort.analyze_loops = false;
 		toposort.sort();
 	}
