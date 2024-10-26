@@ -370,7 +370,7 @@ struct MuxpackPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (splitfanout)
-			Pass::call(design, "splitfanout t:$mux t:$pmux");
+			Pass::call(design, "splitfanout -limit 512 t:$mux t:$pmux");
 
 		int mux_count = 0;
 		int pmux_count = 0;

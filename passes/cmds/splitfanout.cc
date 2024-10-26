@@ -89,7 +89,7 @@ struct SplitfanoutWorker
 		toposort.sort();
 	}
 
-	int split(Cell *cell)
+	int split(Cell *cell, int limit)
 	{
 		// Get output signal/port
 		SigSpec outsig;
@@ -118,6 +118,12 @@ struct SplitfanoutWorker
 		// Skip if output signal has only one user
 		if (GetSize(bit_users) <= 1)
 			return 0;
+
+		// Skip if fanout is above limit
+		if (limit != -1 && GetSize(bit_users) > limit) {
+			log("Skipping %s cell %s/%s with high fanout %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
+			return 0;
+		}
 
 		// Iterate over bit users and create a new cell for each one
 		log("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
@@ -193,15 +199,23 @@ struct SplitfanoutPass : public Pass {
 		log("This command operates only on cells with 1 output and no 'bit split' on that\n");
 		log("output.\n");
 		log("\n");
+		log("    -limit n\n");
+		log("        max fanout to split.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		int limit = -1;
 		log_header(design, "Executing SPLITFANOUT pass (splitting up cells with >1 fanout into copies).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			// No options currently. When adding in the future make sure to update docstring with [options]
+			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
+				limit = std::stoi(args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -213,7 +227,7 @@ struct SplitfanoutPass : public Pass {
 
 			SplitfanoutWorker worker(module);
 			for (auto cell : worker.toposort.sorted) {
-				int n = worker.split(module->cell(cell));
+				int n = worker.split(module->cell(cell), limit);
 				count_split_pre += (n != 0);
 				count_split_post += n;
 			}

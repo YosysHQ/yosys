@@ -330,7 +330,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Run splitfanout pass first
 		if (splitfanout)
-			Pass::call(design, "splitfanout t:$and t:$or t:$xor t:$xnor t:$add t:$mul");
+			Pass::call(design, "splitfanout -limit 512 t:$and t:$or t:$xor t:$xnor t:$add t:$mul");
 
 		// Count of all cells that were packed
 		dict<IdString, int> cell_count;
