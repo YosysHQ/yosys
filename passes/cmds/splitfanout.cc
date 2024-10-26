@@ -174,7 +174,7 @@ struct SplitfanoutWorker
 			}
 
 			// Log the new cell
-			log("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
+			log_debug("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
 		}
 
 		// Fix up ports
