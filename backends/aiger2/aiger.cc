@@ -387,7 +387,7 @@ struct Index {
 					if (/* 4 input types */ cell->type.in(ID($_AOI4_), ID($_OAI4_)))
 						d = visit(cursor, cell->getPort(ID::D)[obit]);
 					else
-						d = cell->type == ID($_AOI3_) ? 1 : 0;
+						d = cell->type == ID($_AOI3_) ? CTRUE : CFALSE;
 
 					if (/* aoi */ cell->type.in(ID($_AOI3_), ID($_AOI4_)))
 						return NOT(OR(AND(a, b), AND(c, d)));
