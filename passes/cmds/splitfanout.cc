@@ -36,12 +36,12 @@ struct SplitfanoutWorker
 	SplitfanoutWorker(Module *module) : module(module), sigmap(module)
 	{
 		// Add nodes to topological sorter for all selected cells
-		log_debug("Making toposort nodes for module %s...", log_id(module));
+		log("Making toposort nodes for module %s...", log_id(module));
 		for (auto cell : module->selected_cells())
 			toposort.node(cell->name);
 
 		// Build bit_drivers_db
-		log_debug("Building bit_drivers_db...");
+		log("Building bit_drivers_db...");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->output(conn.first)) continue;
@@ -53,7 +53,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db and add edges to topological sorter
-		log_debug("Building bit_users_db and adding edges to toposort...");
+		log("Building bit_users_db and adding edges to toposort...");
 		for (auto cell : module->cells()) {
 			for (auto conn : cell->connections()) {
 				if (!cell->input(conn.first)) continue;
@@ -71,7 +71,7 @@ struct SplitfanoutWorker
 		}
 
 		// Build bit_users_db for output ports
-		log_debug("Building bit_users_db for output ports...");
+		log("Building bit_users_db for output ports...");
 		for (auto wire : module->wires()) {
 			if (!wire->port_output) continue;
 			SigSpec sig(sigmap(wire));
@@ -84,7 +84,7 @@ struct SplitfanoutWorker
 		}
 
 		// Sort using the topological sorter
-		log_debug("Sorting using toposort...");
+		log("Sorting using toposort...");
 		toposort.analyze_loops = false;
 		toposort.sort();
 	}
@@ -102,7 +102,7 @@ struct SplitfanoutWorker
 				outsig = conn.second;
 			}
 		if (output_count != 1) {
-			log_debug("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
+			log("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
 			return 0;
 		}
 		
@@ -110,7 +110,7 @@ struct SplitfanoutWorker
 		auto bit_users = bit_users_db[outsig[0]];
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
-				log_debug("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
+				log("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
 				return 0;
 			}
 		}
@@ -120,7 +120,7 @@ struct SplitfanoutWorker
 			return 0;
 
 		// Iterate over bit users and create a new cell for each one
-		log_debug("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
+		log("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
 		cell->unsetPort(outport);
 		int num_new_cells = GetSize(bit_users)-1;
@@ -168,7 +168,7 @@ struct SplitfanoutWorker
 			}
 
 			// Log the new cell
-			log_debug("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
+			log("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
 		}
 
 		// Fix up ports
