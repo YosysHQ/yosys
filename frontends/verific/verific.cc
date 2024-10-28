@@ -3173,6 +3173,11 @@ struct VerificPass : public Pass {
 		log("VHDL default library path.\n");
 		log("\n");
 		log("\n");
+		log("    import -reset_autoidx\n");
+		log("\n");
+		log("Reset auto-index.\n");
+		log("\n");
+		log("\n");
 #endif
 		log("    import -set-error <msg_id>..\n");
 		log("    import -set-warning <msg_id>..\n");
@@ -3680,6 +3685,11 @@ struct VerificPass : public Pass {
 				vhdl_file::SetDefaultLibraryPath(args[argidx].c_str());
 #endif
 			}
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-reset_autoidx") {
+			autoidx = 1;
 			goto check_error;
 		}
 
