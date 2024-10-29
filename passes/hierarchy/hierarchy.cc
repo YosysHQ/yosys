@@ -797,6 +797,9 @@ struct HierarchyPass : public Pass {
 		log("    -opt\n");
 		log("        optimize all modules in design hierarchy.\n");
 		log("\n");
+		log("    -no_split_complex_ports\n");
+		log("        Complex ports (structs or arrays) are not split and remain packed as a single port.\n");
+		log("\n");
 		log("    -chparam name value \n");
 		log("       elaborate the top module using this parameter value. Modules on which\n");
 		log("       this parameter does not exist may cause a warning message to be output.\n");
