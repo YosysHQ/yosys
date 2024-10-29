@@ -825,6 +825,7 @@ struct HierarchyPass : public Pass {
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
 		bool flag_opt = false;
+		bool flag_no_split_complex_ports = false;
 		bool flag_check = false;
 		bool flag_simcheck = false;
 		bool flag_smtcheck = false;
@@ -940,6 +941,10 @@ struct HierarchyPass : public Pass {
 				flag_opt = true;
 				continue;
 			}
+			if (args[argidx] == "-no_split_complex_ports") {
+				flag_no_split_complex_ports = true;
+				continue;
+			}
 			if (args[argidx] == "-chparam"  && argidx+2 < args.size()) {
 				const std::string &key = args[++argidx];
 				const std::string &value = args[++argidx];
@@ -989,7 +994,7 @@ struct HierarchyPass : public Pass {
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
-				load_top_mod = verific_import(design, parameters, load_top_mod, flag_opt);
+				load_top_mod = verific_import(design, parameters, load_top_mod, flag_opt, flag_no_split_complex_ports);
 				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
@@ -998,7 +1003,7 @@ struct HierarchyPass : public Pass {
 		} else {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending)
-				verific_import(design, parameters, std::string(), flag_opt);
+				verific_import(design, parameters, std::string(), flag_opt, flag_no_split_complex_ports);
 #endif
 		}
 
