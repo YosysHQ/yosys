@@ -51,3 +51,5 @@ OBJS += passes/cmds/dft_tag.o
 OBJS += passes/cmds/future.o
 OBJS += passes/cmds/box_derive.o
 OBJS += passes/cmds/example_dt.o
+OBJS += passes/cmds/activity.o
+OBJS += passes/cmds/splitnetlist.o

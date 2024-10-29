@@ -77,8 +77,13 @@ struct ActivityProp {
 			// Assign them to each SigBit (1 signal bit)
 			for (int i = 0; i < GetSize(sig); i++) {
 				SigBit bit(sig[i]);
-				ActivityMap.emplace(bit, activities[i]);
-				DutyMap.emplace(bit, duties[i]);
+				if (i < activities.size() -1) {
+					ActivityMap.emplace(bit, activities[i]);
+					DutyMap.emplace(bit, duties[i]);
+				} else {
+					ActivityMap.emplace(bit, "0.0");
+					DutyMap.emplace(bit, "0.0");
+				}
 			}
 		}
 		// Attach port activity to cell using sigmap

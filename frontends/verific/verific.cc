@@ -2938,7 +2938,7 @@ void verific_cleanup()
 	verific_import_pending = false;
 }
 
-std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt)
+std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt, bool no_split_complex_port)
 {
 	verific_sva_fsm_limit = 16;
 
@@ -2964,8 +2964,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
-	for (auto nl : nl_todo)
-		nl.second->ChangePortBusStructures(1 /* hierarchical */);
+	if (!no_split_complex_port)
+		for (auto nl : nl_todo)
+			nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
