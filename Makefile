@@ -410,12 +410,11 @@ ifeq ($(CONFIG),mxe)
 LIBS += -ltermcap
 endif
 else
+ABCMKARGS += "ABC_USE_NO_READLINE=1"
+
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
 LIBS += -ledit
-else
-ABCMKARGS += "ABC_USE_NO_READLINE=1"
-endif
 endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
@@ -1003,6 +1002,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
 	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
