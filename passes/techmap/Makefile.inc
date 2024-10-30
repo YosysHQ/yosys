@@ -10,6 +10,9 @@ OBJS += passes/techmap/libparse.o
 OBJS += passes/techmap/bmuxmap.o
 OBJS += passes/techmap/demuxmap.o
 OBJS += passes/techmap/pmuxtree.o
+OBJS += passes/techmap/alumacc.o
+OBJS += passes/techmap/extract.o
+OBJS += passes/techmap/extract_reduce.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
@@ -29,11 +32,8 @@ ifneq ($(SMALL),1)
 OBJS += passes/techmap/iopadmap.o
 OBJS += passes/techmap/clkbufmap.o
 OBJS += passes/techmap/hilomap.o
-OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_fa.o
 OBJS += passes/techmap/extract_counter.o
-OBJS += passes/techmap/extract_reduce.o
-OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/dffinit.o
 OBJS += passes/techmap/bwmuxmap.o
 OBJS += passes/techmap/muxcover.o
