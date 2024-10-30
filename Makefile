@@ -10,7 +10,7 @@ CONFIG := none
 
 # features (the more the better)
 ENABLE_TCL := 0
-ENABLE_ABC := 0
+ENABLE_ABC := 1
 ENABLE_GLOB := 1
 ENABLE_PLUGINS := 0
 ENABLE_READLINE := 0
@@ -708,9 +708,9 @@ OBJS += yosys-slang/build/*.o
 OBJS += yosys-slang/build/slang*/lib*/*.a
 endif
 
-ifneq ($(SMALL),1)
-
 OBJS += libs/subcircuit/subcircuit.o
+
+ifneq ($(SMALL),1)
 
 include $(YOSYS_SRC)/frontends/*/Makefile.inc
 include $(YOSYS_SRC)/passes/*/Makefile.inc
