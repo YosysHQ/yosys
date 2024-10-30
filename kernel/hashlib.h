@@ -99,17 +99,18 @@ class Hasher {
 	[[nodiscard]]
 	static uint32_t mkhash(uint32_t a, uint32_t b) {
 		uint32_t hash = ((a << 5) + a) ^ b;
-		hash = mkhash_xorshift(fudge ^ hash);
 		return hash;
 	}
 	public:
 	void hash32(uint32_t i) {
 		state = mkhash(i, state);
+		state = mkhash_xorshift(fudge ^ state);
 		return;
 	}
 	void hash64(uint64_t i) {
 		state = mkhash((uint32_t)(i % (1ULL << 32ULL)), state);
 		state = mkhash((uint32_t)(i >> 32ULL), state);
+		state = mkhash_xorshift(fudge ^ state);
 		return;
 	}
 	[[nodiscard]]
