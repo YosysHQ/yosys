@@ -344,13 +344,6 @@ struct ExtractFaWorker
 				if (func3.at(key).count(func) == 0)
 					continue;
 
-				if (func3.at(key).count(xor3_func) == 0 && func3.at(key).count(xnor3_func) != 0) {
-					f3i.inv_a = !f3i.inv_a;
-					f3i.inv_b = !f3i.inv_b;
-					f3i.inv_c = !f3i.inv_c;
-					f3i.inv_y = !f3i.inv_y;
-				}
-
 				if (!f3i.inv_a && !f3i.inv_b && !f3i.inv_c && !f3i.inv_y) {
 					log("    Majority without inversions:\n");
 				} else {
