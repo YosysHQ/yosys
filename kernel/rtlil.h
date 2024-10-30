@@ -1824,8 +1824,10 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 
 inline Hasher RTLIL::SigBit::hash_acc(Hasher h) const {
 	if (wire) {
-		h = wire->name.hash_acc(h);
 		h.acc(offset);
+		// hash_acc isn't allowed to come first, or it might hash trivially
+		// and possibly ruin things
+		h = wire->name.hash_acc(h);
 		return h;
 	}
 	h.acc(data);
