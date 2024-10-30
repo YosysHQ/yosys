@@ -411,6 +411,7 @@ LIBS += -ltermcap
 endif
 else
 ABCMKARGS += "ABC_USE_NO_READLINE=1"
+endif
 
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
