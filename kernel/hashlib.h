@@ -132,6 +132,13 @@ class Hasher {
 		state ^= t;
 	}
 
+	void force(hash_t new_state) {
+		state = new_state;
+	}
+
+	bool is_new() const {
+		return state == Hasher().state;
+	}
 };
 
 template<typename T>
