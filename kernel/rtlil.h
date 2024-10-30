@@ -361,6 +361,12 @@ namespace RTLIL
 		}
 
 		Hasher hash_acc(Hasher h) const {
+			// If we're starting a hashing sequence, simply start with unhashed ID
+			if (h.is_new()) {
+				h.force((Hasher::hash_t) index_);
+				return h;
+			}
+
 			return hash_ops<int>::hash_acc(index_, h);
 		}
 
