@@ -308,9 +308,6 @@ struct OptBalanceTreePass : public Pass {
 		log("This pass converts cascaded chains of $and/$or/$xor/$xnor/$add/$mul cells into\n");
 		log("trees of cells to improve timing.\n");
 		log("\n");
-		log("    -splitfanout\n");
-		log("        run splitfanout pass first\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		bool splitfanout = false;
@@ -327,12 +324,6 @@ struct OptBalanceTreePass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		// Run splitfanout pass first
-		if (splitfanout) {
-			// Pass::call(design, "splitfanout -limit 512 t:$and t:$or t:$xor t:$xnor t:$add t:$mul");
-			Pass::call(design, "splitfanout -limit 512 t:$add t:$mul");
-		}
 
 		// Count of all cells that were packed
 		dict<IdString, int> cell_count;
