@@ -96,7 +96,7 @@ EXTRA_TARGETS =
 TARGETS = $(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)yosys-config
 
 PRETTY = 1
-SMALL = 1
+SMALL = 0
 
 # Unit test
 UNITESTPATH := tests/unit
