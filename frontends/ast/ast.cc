@@ -877,16 +877,25 @@ AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
 // create an AST node for a constant (using a string as value)
 AstNode *AstNode::mkconst_str(const std::string &str)
 {
-	std::vector<RTLIL::State> data;
-	data.reserve(str.size() * 8);
-	for (size_t i = 0; i < str.size(); i++) {
-		unsigned char ch = str[str.size() - i - 1];
-		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? State::S1 : State::S0);
-			ch = ch >> 1;
+	AstNode *node;
+
+	// LRM 1364-2005 5.2.3.3 The empty string literal ("") shall be considered
+	// equivalent to the ASCII NUL ("\0")
+	if (str.empty()) {
+		node = AstNode::mkconst_int(0, false, 8);
+	} else {
+		std::vector<RTLIL::State> data;
+		data.reserve(str.size() * 8);
+		for (size_t i = 0; i < str.size(); i++) {
+			unsigned char ch = str[str.size() - i - 1];
+			for (int j = 0; j < 8; j++) {
+				data.push_back((ch & 1) ? State::S1 : State::S0);
+				ch = ch >> 1;
+			}
 		}
+		node = AstNode::mkconst_bits(data, false);
 	}
-	AstNode *node = AstNode::mkconst_bits(data, false);
+
 	node->is_string = true;
 	node->str = str;
 	return node;
