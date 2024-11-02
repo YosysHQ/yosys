@@ -319,12 +319,16 @@ LibertyAst *LibertyParser::parse()
 					{
 					case 'n':
 					  continue;
+					case ':': // SILIMATE HACK: eat up the ':' and the next thing too
+						tok = lexer(arg);
+						if (tok != 'v')
+							error("Expecting string after ':'.");
+						break;
 					case '[':
 					case ']':
 					case '}':
 					case '{':
 					case '\"':
-					case ':':
 						eReport = "Unexpected '";
 						eReport += static_cast<char>(tok);
 						eReport += "'.";
