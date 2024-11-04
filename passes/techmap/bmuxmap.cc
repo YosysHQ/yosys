@@ -36,10 +36,14 @@ struct BmuxmapPass : public Pass {
 		log("    -pmux\n");
 		log("        transform to $pmux instead of $mux cells.\n");
 		log("\n");
+		log("    -fewunq\n");
+		log("        only transform $bmux cells that have few unique A bits.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool pmux_mode = false;
+		bool fewunq_mode = false;
 
 		log_header(design, "Executing BMUXMAP pass.\n");
 
@@ -47,6 +51,10 @@ struct BmuxmapPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-pmux") {
 				pmux_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-fewunq") {
+				fewunq_mode = true;
 				continue;
 			}
 			break;
@@ -58,6 +66,17 @@ struct BmuxmapPass : public Pass {
 		{
 			if (cell->type != ID($bmux))
 				continue;
+			
+			if (fewunq_mode) {
+				SigSpec data = cell->getPort(ID::A);
+				SigMap sigmap(module);
+				pool<SigBit> unqbits;
+				for (auto bit : data)
+					if (bit.wire != nullptr)
+						unqbits.insert(sigmap(bit));
+				if (GetSize(unqbits) > GetSize(data)/2)
+					continue;
+			}
 
 			SigSpec sel = cell->getPort(ID::S);
 			SigSpec data = cell->getPort(ID::A);
