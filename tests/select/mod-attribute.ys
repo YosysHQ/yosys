@@ -41,7 +41,7 @@ module \top
 end
 EOT
 
-cellmatch -lut_attrs *
+cellmatch -derive_luts *
 
 select -set buffers a:lut=2'b10 %m
 select -set inverters a:lut=2'b01 %m
