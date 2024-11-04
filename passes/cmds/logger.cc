@@ -162,7 +162,8 @@ struct LoggerPass : public Pass {
 					log_cmd_error("Number of expected messages must be higher then 0 !\n");
 				if (type=="error" && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
-				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
+				log("Added regex '%s' to expected %s messages list.\n",
+					pattern.c_str(), type.c_str());
 				try {
 					if (type == "error")
 						log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
