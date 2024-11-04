@@ -896,6 +896,19 @@ struct RTLIL::SigBit
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
 	Hasher hash_acc(Hasher h) const;
+	Hasher hash_top() const;
+};
+
+namespace hashlib {
+	template <>
+	struct hash_top_ops<RTLIL::SigBit> {
+		static inline bool cmp(const RTLIL::SigBit &a, const RTLIL::SigBit &b) {
+			return a == b;
+		}
+		static inline Hasher hash(const RTLIL::SigBit sb) {
+			return sb.hash_top();
+		}
+	};
 };
 
 struct RTLIL::SigSpecIterator
@@ -1825,12 +1838,21 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 inline Hasher RTLIL::SigBit::hash_acc(Hasher h) const {
 	if (wire) {
 		h.acc(offset);
-		// hash_acc isn't allowed to come first, or it might hash trivially
-		// and possibly ruin things
-		h = wire->name.hash_acc(h);
+		h.acc(wire->name);
 		return h;
 	}
 	h.acc(data);
+	return h;
+}
+
+
+inline Hasher RTLIL::SigBit::hash_top() const {
+	Hasher h;
+	if (wire) {
+		h.force(hashlib::legacy::mkhash_add(wire->name.index_, offset));
+		return h;
+	}
+	h.force(data);
 	return h;
 }
 
