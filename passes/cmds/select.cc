@@ -1041,7 +1041,7 @@ struct SelectPass : public Pass {
 		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
 		log("    select [ -unset <name> ]\n");
 		log("    select [ <assert_option> ] {-read <filename> | <selection>}\n");
-		log("    select [ -list | -write <filename> | -count | -clear ]\n");
+		log("    select [ -list | -list-mod | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
 		log("Most commands use the list of currently selected objects to determine which part\n");
@@ -1277,6 +1277,7 @@ struct SelectPass : public Pass {
 		bool clear_mode = false;
 		bool none_mode = false;
 		bool list_mode = false;
+		bool list_mod_mode = false;
 		bool count_mode = false;
 		bool got_module = false;
 		bool assert_none = false;
@@ -1336,6 +1337,11 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-list") {
 				list_mode = true;
+				continue;
+			}
+			if (arg == "-list-mod") {
+				list_mode = true;
+				list_mod_mode = true;
 				continue;
 			}
 			if (arg == "-write" && argidx+1 < args.size()) {
@@ -1416,7 +1422,7 @@ struct SelectPass : public Pass {
 			log_cmd_error("Options %s can not be combined.\n", common_flagset);                
 
 		if ((list_mode || !write_file.empty() || count_mode) && common_flagset_tally)
-			log_cmd_error("Options -list, -write and -count can not be combined with %s.\n", common_flagset);
+			log_cmd_error("Options -list, -list-mod, -write and -count can not be combined with %s.\n", common_flagset);
 
 		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || !unset_name.empty() || common_flagset_tally))
 			log_cmd_error("Option -set can not be combined with -list, -write, -count, -unset, %s.\n", common_flagset);
@@ -1467,7 +1473,7 @@ struct SelectPass : public Pass {
 			{
 				if (sel->selected_whole_module(mod->name) && list_mode)
 					log("%s\n", id2cstr(mod->name));
-				if (sel->selected_module(mod->name)) {
+				if (sel->selected_module(mod->name) && !list_mod_mode) {
 					for (auto wire : mod->wires())
 						if (sel->selected_member(mod->name, wire->name))
 							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name))
