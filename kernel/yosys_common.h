@@ -215,6 +215,26 @@ using RTLIL::State;
 using RTLIL::SigChunk;
 using RTLIL::SigSig;
 
+namespace hashlib {
+	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Memory*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Process*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<AST::AstNode*> : hash_obj_ops {};
+
+	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Memory*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Process*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};
+	template<> struct hash_ops<const AST::AstNode*> : hash_obj_ops {};
+}
+
 void memhasher_on();
 void memhasher_off();
 void memhasher_do();
