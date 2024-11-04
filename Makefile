@@ -754,6 +754,7 @@ include $(YOSYS_SRC)/passes/pmgen/Makefile.inc
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
 include $(YOSYS_SRC)/passes/techmap/Makefile.inc
+include $(YOSYS_SRC)/passes/fsm/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
 include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
