@@ -188,7 +188,7 @@ equiv_opt -assert -run prepare: dummy
 
 design -reset
 
-read_ilang <<EOT
+read_rtlil <<EOT
 
 module \m
   wire width 3 input 1 \a

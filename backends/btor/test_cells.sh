@@ -10,11 +10,11 @@ cd test_cells.tmp
 
 for fn in test_*.il; do
 	../../../yosys -p "
-		read_ilang $fn
+		read_rtlil $fn
 		rename gold gate
 		synth
 
-		read_ilang $fn
+		read_rtlil $fn
 		miter -equiv -make_assert -flatten gold gate main
 		hierarchy -top main
 		write_btor ${fn%.il}.btor
