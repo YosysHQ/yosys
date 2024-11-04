@@ -56,10 +56,24 @@ const int hashtable_size_factor = 3;
 
 #define DJB2_32
 
+namespace legacy {
+	inline uint32_t mkhash_add(uint32_t a, uint32_t b) {
+		return ((a << 5) + a) + b;
+	}
+};
 
-
+/**
+ * Hash a type with an accumulator in a record or array context
+ */
 template<typename T>
 struct hash_ops;
+
+/**
+ * Hash a single instance in isolation.
+ * Can have explicit specialization, but the default redirects to hash_ops
+ */
+template<typename T>
+struct hash_top_ops;
 
 inline unsigned int mkhash_xorshift(unsigned int a) {
 	if (sizeof(a) == 4) {
@@ -138,6 +152,16 @@ class Hasher {
 
 	bool is_new() const {
 		return state == Hasher().state;
+	}
+};
+
+template<typename T>
+struct hash_top_ops {
+	static inline bool cmp(const T &a, const T &b) {
+		return hash_ops<T>::cmp(a, b);
+	}
+	static inline Hasher hash(const T &a) {
+		return hash_ops<T>::hash_acc(a, Hasher());
 	}
 };
 
@@ -339,12 +363,12 @@ inline int hashtable_size(int min_size)
 	throw std::length_error("hash table exceeded maximum size.");
 }
 
-template<typename K, typename T> class dict;
-template<typename K, int offset = 0> class idict;
-template<typename K> class pool;
-template<typename K> class mfp;
+template<typename K, typename T, typename OPS = hash_top_ops<K>> class dict;
+template<typename K, int offset = 0, typename OPS = hash_top_ops<K>> class idict;
+template<typename K, typename OPS = hash_top_ops<K>> class pool;
+template<typename K, typename OPS = hash_top_ops<K>> class mfp;
 
-template<typename K, typename T>
+template<typename K, typename T, typename OPS>
 class dict {
 	struct entry_t
 	{
@@ -359,7 +383,7 @@ class dict {
 
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
-	hash_ops<K> ops;
+	OPS ops;
 
 #ifdef NDEBUG
 	static inline void do_assert(bool) { }
@@ -373,7 +397,7 @@ class dict {
 	{
 		Hasher::hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = run_hash<K>(key) % (unsigned int)(hashtable.size());
+			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -800,10 +824,10 @@ public:
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
-template<typename K>
+template<typename K, typename OPS>
 class pool
 {
-	template<typename, int> friend class idict;
+	template<typename, int, typename> friend class idict;
 
 protected:
 	struct entry_t
@@ -818,7 +842,7 @@ protected:
 
 	std::vector<int> hashtable;
 	std::vector<entry_t> entries;
-	hash_ops<K> ops;
+	OPS ops;
 
 #ifdef NDEBUG
 	static inline void do_assert(bool) { }
@@ -832,7 +856,7 @@ protected:
 	{
 		Hasher::hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = run_hash<K>(key) % (unsigned int)(hashtable.size());
+			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -1148,7 +1172,7 @@ public:
 	Hasher hash_acc(Hasher h) const {
 		h.acc(entries.size());
 		for (auto &it : entries) {
-			h.commutative_acc(run_hash(it.udata));
+			h.commutative_acc(ops.hash(it.udata).yield());
 		}
 		return h;
 	}
@@ -1167,10 +1191,10 @@ public:
 	const_iterator end() const { return const_iterator(nullptr, -1); }
 };
 
-template<typename K, int offset>
+template<typename K, int offset, typename OPS>
 class idict
 {
-	pool<K> database;
+	pool<K, OPS> database;
 
 public:
 	class const_iterator
@@ -1264,10 +1288,10 @@ public:
  * mfp stands for "merge, find, promote"
  * i-prefixed methods operate on indices in parents
 */
-template<typename K>
+template<typename K, typename OPS>
 class mfp
 {
-	mutable idict<K, 0> database;
+	mutable idict<K, 0, OPS> database;
 	mutable std::vector<int> parents;
 
 public:
