@@ -1569,10 +1569,15 @@ class WFunction:
 		return_stmt = "return " if self.ret_type.name != "void" else ""
 
 		text += ")\n\t\t{"
-		text += "\n\t\t\tif (boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\"))"
-		text += f"\n\t\t\t\t{return_stmt}" + call_string
-		text += "\n\t\t\telse"
+		text += "\n\t\t\tif (boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\")) {"
+		text += "\n\t\t\t\ttry {"
+		text += f"\n\t\t\t\t\t{return_stmt}" + call_string
+		text += "\n\t\t\t\t} catch (boost::python::error_already_set &) {"
+		text += "\n\t\t\t\t\tlog_python_exception_as_error();"
+		text += "\n\t\t\t\t}"
+		text += "\n\t\t\t} else {"
 		text += f"\n\t\t\t\t{return_stmt}" + self.member_of.name + "::" + call_string
+		text += "\n\t\t\t}"
 		text += "\n\t\t}"
 
 		text += "\n\n\t\t" + self.ret_type.gen_text() + " default_py_" + self.alias + "("
@@ -2324,6 +2329,11 @@ def gen_wrappers(filename, debug_level_ = 0):
 USING_YOSYS_NAMESPACE
 
 namespace YOSYS_PYTHON {
+
+	[[noreturn]] static void log_python_exception_as_error() {
+		PyErr_Print();
+		log_error("Python interpreter encountered an exception.\\n");
+	}
 
 	struct YosysStatics{};
 """)
