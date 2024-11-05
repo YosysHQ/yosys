@@ -236,9 +236,12 @@ LibertyAst *LibertyParser::parse()
 			if (tok == 'v') {
     				tok = lexer(str);
 			}
-			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
+			while (tok == '(' || tok == ')' || tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') { // SILIMATE: added parentheses
 				ast->value += tok;
-				tok = lexer(str);
+				if (tok == ')') { // SILIMATE: semicolon may follow close parenthesis
+					tok = lexer(str);
+					if (tok == ';') break;
+				} else tok = lexer(str);
 				if (tok != 'v')
 					error();
 				ast->value += str;
