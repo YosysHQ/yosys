@@ -69,9 +69,14 @@ Things you can't do
 
   - Check out `nextpnr`_ for that
 
+- Rely on built-in syntax checking
+
+   - Use an external tool like `verilator`_ instead
+
 .. todo:: nextpnr for FPGAs, consider mentioning openlane, vpr, coriolis
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
+.. _verilator: https://www.veripool.org/verilator/
 
 The Yosys family
 ----------------
