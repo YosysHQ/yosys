@@ -76,13 +76,13 @@ struct ActivityProp {
 			std::vector<std::string> activities = tokenize(act, " ", true);
 			std::vector<std::string> duties = tokenize(duty, " ", true);
 			// Assign them to each SigBit (1 signal bit)
-			for (int i = 0; i < GetSize(sig); i++) {
+			for (uint32_t i = 0; i < (uint32_t)GetSize(sig); i++) {
 				SigBit bit(sig[i]);
-				if (i <= activities.size() -1) {
+				if (i < activities.size()) {
 					ActivityMap.emplace(bit, activities[i]);
 					DutyMap.emplace(bit, duties[i]);
 				} else {
-					log_warning("Zeroing out activity for module: %s, wire: %s, wiresize: %d, actisize: %d", module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
+					log_warning("Zeroing out activity for module: %s, wire: %s, wiresize: %d, actisize: %ld", module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
 				}
