@@ -48,7 +48,6 @@ struct statdata_t
 	double sequential_area = 0;
 	string tech;
 
-	std::map<RTLIL::IdString, int> techinfo;
 	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
 	std::set<RTLIL::IdString> unknown_cell_area;
 
