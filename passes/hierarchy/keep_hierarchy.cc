@@ -63,7 +63,7 @@ struct ThresholdHiearchyKeeping {
 		}
 
 		if (size > threshold) {
-			log("Marking %s (module too big: %llu > %llu).\n", log_id(module), size, threshold);
+			log("Keeping %s (estimated size above threshold: %llu > %llu).\n", log_id(module), size, threshold);
 			module->set_bool_attribute(ID::keep_hierarchy);
 			size = 0;
 		}
@@ -75,7 +75,7 @@ struct ThresholdHiearchyKeeping {
 };
 
 struct KeepHierarchyPass : public Pass {
-	KeepHierarchyPass() : Pass("keep_hierarchy", "add the keep_hierarchy attribute") {}
+	KeepHierarchyPass() : Pass("keep_hierarchy", "selectively add the keep_hierarchy attribute") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -85,9 +85,15 @@ struct KeepHierarchyPass : public Pass {
 		log("Add the keep_hierarchy attribute.\n");
 		log("\n");
 		log("    -min_cost <min_cost>\n");
-		log("        only add the attribute to modules estimated to have more\n");
-		log("        than <min_cost> gates after simple techmapping. Intended\n");
-		log("        for tuning trade-offs between quality and yosys runtime.\n");
+		log("        only add the attribute to modules estimated to have more than <min_cost>\n");
+		log("        gates after simple techmapping. Intended for tuning trade-offs between\n");
+		log("        quality and yosys runtime.\n");
+		log("\n");
+		log("        When evaluating a module's cost, gates which are within a submodule\n");
+		log("        which is marked with the keep_hierarchy attribute are not counted\n");
+		log("        towards the upper module's cost. This applies to both when the attribute\n");
+		log("        was added by this command or was pre-existing.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
