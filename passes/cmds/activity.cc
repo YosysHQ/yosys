@@ -84,8 +84,8 @@ struct ActivityProp {
 					DutyMap.emplace(bit, duties[i]);
 					nbBitsWithActivity++;
 				} else {
-					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld", module->name.c_str(),
-						wire->name.c_str(), GetSize(sig), activities.size());
+					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld", 
+						module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
 				}
