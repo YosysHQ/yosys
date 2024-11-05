@@ -66,7 +66,7 @@ struct SplitcellsWorker
 		}
 	}
 
-	int split(Cell *cell, const std::string &format)
+	int split(Cell *cell, const std::string &format, int limit)
 	{
 		if (cell->type.in("$and", "$mux", "$not", "$or", "$pmux", "$xnor", "$xor"))
 		{
@@ -87,6 +87,10 @@ struct SplitcellsWorker
 				if (last_users != this_users) slices.push_back(i);
 			}
 			if (GetSize(slices) <= 1) return 0;
+			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
+				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				return 0;
+			}
 			slices.push_back(GetSize(outsig));
 
 			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
@@ -154,6 +158,10 @@ struct SplitcellsWorker
 			}
 
 			if (GetSize(slices) <= 1) return 0;
+			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
+				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				return 0;
+			}
 			slices.push_back(GetSize(outsig));
 
 			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
@@ -217,10 +225,14 @@ struct SplitcellsPass : public Pass {
 		log("        names like 'mycell(42)'. the 3rd character is the range separation\n");
 		log("        character when creating multi-bit cells. the default is '[]:'.\n");
 		log("\n");
+		log("    -limit n\n");
+		log("        max number of slices to split.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string format;
+		int limit = -1;
 
 		log_header(design, "Executing SPLITCELLS pass (splitting up multi-bit cells).\n");
 
@@ -229,6 +241,10 @@ struct SplitcellsPass : public Pass {
 		{
 			if (args[argidx] == "-format" && argidx+1 < args.size()) {
 				format = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
+				limit = std::stoi(args[++argidx]);
 				continue;
 			}
 			break;
@@ -248,7 +264,7 @@ struct SplitcellsPass : public Pass {
 				SplitcellsWorker worker(module);
 				bool did_something = false;
 				for (auto cell : module->selected_cells()) {
-					int n = worker.split(cell, format);
+					int n = worker.split(cell, format, limit);
 					did_something |= (n != 0);
 					count_split_pre += (n != 0);
 					count_split_post += n;
