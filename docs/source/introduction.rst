@@ -71,7 +71,7 @@ Things you can't do
 
 - Rely on built-in syntax checking
 
-   - Use an external tool like `verilator`_ instead
+  - Use an external tool like `verilator`_ instead
 
 .. todo:: nextpnr for FPGAs, consider mentioning openlane, vpr, coriolis
 
