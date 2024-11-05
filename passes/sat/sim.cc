@@ -1576,7 +1576,7 @@ struct SimWorker : SimShared
 		} catch(fst_end_of_data_exception) {
 			// end of data detected
 		}
-
+		log_flush();
 		write_output_files();
 		delete fst;
 	}
@@ -2414,6 +2414,7 @@ struct AnnotateActivity : public OutputWriter {
 		// Init map
 		SignalActivityDataMap dataMap;
 		// For each event (new time when a value changed)
+		uint32_t nbTotalBits = 0;
 		for (auto &d : worker->output_data) {
 			// For each signal/values in that time slice
 			for (auto &data : d.second) {
@@ -2425,6 +2426,7 @@ struct AnnotateActivity : public OutputWriter {
 				if (itr == dataMap.end()) {
 					Const value = data.second;
 					std::vector<uint64_t> vals(GetSize(value), 0);
+					nbTotalBits += GetSize(value);
 					std::vector<double_t> dvals(GetSize(value), 0);
 					SignalActivityData data;
 					data.highTimes = vals;
@@ -2436,7 +2438,8 @@ struct AnnotateActivity : public OutputWriter {
 				}
 			}
 		}
-
+		log("Computing signal activity for %ld signals (%d bits)", use_signal.size(), nbTotalBits);
+		log_flush();
 		// Max simulation time
 		int max_time = 0;
 		// Inititalization of totalEventCounts and max_time
@@ -2544,6 +2547,8 @@ struct AnnotateActivity : public OutputWriter {
 			std::cout << "Clock period: " << clk_period << "\n";
 			std::cout << "Frequency: " << frequency << "\n";
 		}
+		double totalActivity = 0.0f;
+		double totalDuty = 0.0f;
 		worker->top->write_output_header(
 		  [this, debug](IdString name) {
 			  if (debug)
@@ -2553,8 +2558,8 @@ struct AnnotateActivity : public OutputWriter {
 			  if (debug)
 				  std::cout << "endmodule\n";
 		  },
-		  [this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug](const char *name, int size, Wire *w, int id,
-											     bool) {
+		  [this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug, &totalActivity, &totalDuty]
+			(const char *name, int size, Wire *w, int id, bool) {
 			  if (!use_signal.at(id) || (w == nullptr))
 				  return;
 			  SignalActivityDataMap::const_iterator itr = dataMap.find(id);
@@ -2576,9 +2581,14 @@ struct AnnotateActivity : public OutputWriter {
 				  std::cout << "     ACK: ";
 			  }
 			  std::string activity_str;
+			  if ((uint32_t) size != toggleCounts.size()) {
+				  std::string full_name = form_vcd_name(name, size, w);
+				  log_warning("Signal size/value mismatch for %s: %d vs %ld", full_name.c_str(), size, toggleCounts.size());
+			  }
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
 				  // Compute Activity
 				  double activity = toggleCounts[i] / (((double)max_time * real_timescale / clk_period) * 2.0);
+				  totalActivity += activity;
 				  activity_str += std::to_string(activity) + " ";
 			  }
 			  if (debug) {
@@ -2590,6 +2600,7 @@ struct AnnotateActivity : public OutputWriter {
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
 				  // Compute Duty cycle
 				  double duty = (double)highTimes[i] / (double)max_time;
+					totalDuty += duty;
 				  duty_str += std::to_string(duty) + " ";
 			  }
 			  if (debug) {
@@ -2599,6 +2610,9 @@ struct AnnotateActivity : public OutputWriter {
 			  w->set_string_attribute("$ACKT", activity_str);
 			  w->set_string_attribute("$DUTY", duty_str);
 		  });
+		log("Average activity: %f\n", totalActivity / nbTotalBits);
+		log("Average duty    : %f\n", totalDuty / nbTotalBits);
+		log_flush();
 	}
 };
 
