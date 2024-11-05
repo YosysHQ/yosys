@@ -909,7 +909,7 @@ endif
 	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
-	# +cd tests/fsm && bash run-test.sh $(SEEDOPT)
+	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	# +cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/memlib && bash run-test.sh $(SEEDOPT)
