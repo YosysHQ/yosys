@@ -260,6 +260,16 @@ The command ``prep`` provides a good default word-level synthesis script, as
 used in SMT-based formal verification.
 
 
+Additional information
+======================
+
+The ``read_verilog`` command, used by default when calling ``read`` with Verilog
+source input, does not perform any syntax checking.  You should instead lint
+your source with another tool such as
+[Verilator](https://www.veripool.org/verilator/) first, e.g. by calling
+``verilator --lint-only``.
+
+
 Unsupported Verilog-2005 Features
 =================================
 
