@@ -6,7 +6,7 @@ import os
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2024 YosysHQ GmbH'
-yosys_ver = "0.46"
+yosys_ver = "0.47"
 
 # select HTML theme
 html_theme = 'furo-ys'
