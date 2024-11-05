@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.46 .. Yosys 0.47-dev
+Yosys 0.46 .. Yosys 0.47
 --------------------------
+ * Various
+    - Added cxxopts library for handling command line arguments.
+    - Added docs generation from cells help output.
+
+ * New commands and options
+    - Added "-json" option to "synth_xilinx" pass.
+    - Added "-derive_luts" option to "cellmatch" pass.
+    - Added "t:@<name>" syntax to "select" pass.
+    - Added "-list-mod" option to "select" pass.
+    - Removed deprecated "qwp" pass.
+
+ * Verific support
+    - Initial state handling for VHDL assertions.
 
 Yosys 0.45 .. Yosys 0.46
 --------------------------
