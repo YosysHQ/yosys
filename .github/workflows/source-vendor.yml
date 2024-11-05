@@ -9,7 +9,8 @@ jobs:
       - name: Checkout repository with submodules
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: true
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Create clean tarball
         run: |
