@@ -575,6 +575,9 @@ Non-standard or SystemVerilog features for formal verification
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
 
+- The `gate_cost_equivalent` attribute on a module can be used to specify
+  the estimated cost of a module as an equivalent number of basic gate
+  instances.
 
 Supported features from SystemVerilog
 =====================================
