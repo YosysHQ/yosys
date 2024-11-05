@@ -154,7 +154,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.47
+YOSYS_VER := 0.47+0
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -170,7 +170,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-#	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline e97731b.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 647d61d.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
