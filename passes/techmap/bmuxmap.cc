@@ -99,6 +99,7 @@ struct BmuxmapPass : public Pass {
 				while (module->count_id(new_id) > 0) new_id = IdString("$" + new_id.str());
 				RTLIL::Cell *pmux = module->addPmux(new_id, new_a, data, new_s, new_data);
 				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+				pmux->set_bool_attribute(IdString("\\bmuxmap"));
 				data = new_data;
 			}
 			else
@@ -112,6 +113,7 @@ struct BmuxmapPass : public Pass {
 							sel[idx],
 							new_data.extract(i, width));
 						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+						mux->set_bool_attribute(IdString("\\bmuxmap"));
 					}
 					data = new_data;
 				}
