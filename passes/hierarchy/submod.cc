@@ -351,9 +351,6 @@ struct SubmodPass : public Pass {
 		log("        private names so that a subsequent 'flatten; clean' call will restore\n");
 		log("        the original module with original public names.\n");
 		log("\n");
-		log("    -noclean\n");
-		log("        by default opt_clean is run after. call with -noclean to skip this pass.\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -363,7 +360,6 @@ struct SubmodPass : public Pass {
 		std::string opt_name;
 		bool copy_mode = false;
 		bool hidden_mode = false;
-		bool noclean_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -379,18 +375,13 @@ struct SubmodPass : public Pass {
 				hidden_mode = true;
 				continue;
 			}
-			if (args[argidx] == "-noclean") {
-				noclean_mode = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (opt_name.empty())
 		{
-			if (!noclean_mode)
-				Pass::call(design, "opt_clean");
+			Pass::call(design, "opt_clean");
 			log_header(design, "Continuing SUBMOD pass.\n");
 
 			std::set<RTLIL::IdString> handled_modules;
@@ -410,8 +401,7 @@ struct SubmodPass : public Pass {
 					}
 			}
 
-			if (!noclean_mode)
-				Pass::call(design, "opt_clean");
+			Pass::call(design, "opt_clean");
 		}
 		else
 		{
@@ -424,8 +414,7 @@ struct SubmodPass : public Pass {
 			if (module == nullptr)
 				log("Nothing selected -> do nothing.\n");
 			else {
-				if (!noclean_mode)
-					Pass::call_on_module(design, module, "opt_clean");
+				Pass::call_on_module(design, module, "opt_clean");
 				log_header(design, "Continuing SUBMOD pass.\n");
 				SubmodWorker worker(design, module, copy_mode, hidden_mode, opt_name);
 			}
