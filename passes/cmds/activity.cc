@@ -71,16 +71,18 @@ struct ActivityProp {
 			// $ACKT: 0.1 0.2 .... (Each bit in a bus has its own activity, index 0 of the bus is left most)
 			std::string act = wire->get_string_attribute("$ACKT");
 			std::string duty = wire->get_string_attribute("$DUTY");
+			//std::cout << "WIRE: " << wire->name.c_str() << " act: " << act << std::endl;
 			// Split the activity lists
 			std::vector<std::string> activities = tokenize(act, " ", true);
 			std::vector<std::string> duties = tokenize(duty, " ", true);
 			// Assign them to each SigBit (1 signal bit)
-			for (int i = 0; i < GetSize(sig); i++) {
+			for (uint32_t i = 0; i < (uint32_t)GetSize(sig); i++) {
 				SigBit bit(sig[i]);
-				if (i < activities.size() -1) {
+				if (i < activities.size()) {
 					ActivityMap.emplace(bit, activities[i]);
 					DutyMap.emplace(bit, duties[i]);
 				} else {
+					log_warning("Zeroing out activity for module: %s, wire: %s, wiresize: %d, actisize: %ld", module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
 				}
