@@ -25,6 +25,8 @@ namespace hashlib {
 /**
  * HASHING
  *
+ * Also refer to docs/source/yosys_internals/hashing.rst
+ *
  * The Hasher knows how to hash 32 and 64-bit integers. That's it.
  * In the future, it could be expanded to do vectors with SIMD.
  *
