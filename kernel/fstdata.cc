@@ -137,14 +137,22 @@ void FstData::extractVarNames()
 				if (!var.is_alias)
 					handle_to_var[h->u.var.handle] = var;
 				std::string clean_name;
+				bool has_space = false;
 				for(size_t i=0;i<strlen(h->u.var.name);i++) 
 				{
 					char c = h->u.var.name[i];
-					if(c==' ') break;
+					if(c==' ') { has_space = true; break; }
 					clean_name += c;
 				}
 				if (clean_name[0]=='\\')
 					clean_name = clean_name.substr(1);
+				if (!has_space) {
+					size_t pos = clean_name.find_last_of("[");
+					std::string index_or_range = clean_name.substr(pos+1);
+					if (index_or_range.find(":") != std::string::npos) {
+						clean_name = clean_name.substr(0,pos);
+					}
+				}
 				size_t pos = clean_name.find_last_of("<");
 				if (pos != std::string::npos && clean_name.back() == '>') {
 					std::string mem_cell = clean_name.substr(0, pos);
