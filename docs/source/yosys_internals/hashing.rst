@@ -9,7 +9,9 @@ The hash function
 
 The hash function generally used in Yosys is the XOR version of DJB2:
 
-``state = ((state << 5) + state) ^ value``
+::
+
+   state = ((state << 5) + state) ^ value
 
 This is an old-school hash designed to hash ASCII characters. Yosys doesn't hash
 a lot of ASCII text, but it still happens to be a local optimum due to factors
