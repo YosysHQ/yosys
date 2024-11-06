@@ -1,0 +1,13 @@
+$version Yosys $end
+$scope module simple_assign $end
+$var wire 1 n2 in $end
+$var wire 1 n1 out $end
+$upscope $end
+$enddefinitions $end
+#0
+#5
+b1 n1
+b1 n2
+#10
+b0 n1
+b0 n2
