@@ -278,17 +278,8 @@ struct hash_obj_ops {
 template<typename T>
 [[nodiscard]]
 Hasher::hash_t run_hash(const T& obj) {
-	Hasher h;
-	h.acc(obj);
-	return h.yield();
+	return hash_top_ops<T>::hash(obj).yield();
 }
-
-// #ifdef OTHER_HASH...
-
-// [[deprecated]]
-// inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
-// 	return mkhash(a, b);
-// }
 
 template<> struct hash_ops<std::monostate> {
 	static inline bool cmp(std::monostate a, std::monostate b) {
