@@ -48,13 +48,8 @@ namespace hashlib {
  * instead of pointers.
  */
 
-// TODO describe how comparison hashes are special
-// TODO draw the line between generic and hash function specific code
-
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
-
-#define DJB2_32
 
 namespace legacy {
 	inline uint32_t mkhash_add(uint32_t a, uint32_t b) {
@@ -89,16 +84,11 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 	return a;
 }
 
-class Hasher {
-	public:
-	#ifdef DJB2_32
+class HasherDJB32 {
+public:
 	using hash_t = uint32_t;
-	#endif
-	#ifdef DJB2_64
-	using hash_t = uint64_t;
-	#endif
 
-	Hasher() {
+	HasherDJB32() {
 		// traditionally 5381 is used as starting value for the djb2 hash
 		state = 5381;
 	}
@@ -106,7 +96,7 @@ class Hasher {
 		fudge = f;
 	}
 
-	private:
+private:
 	uint32_t state;
 	static uint32_t fudge;
 	// The XOR version of DJB2
@@ -142,18 +132,16 @@ class Hasher {
 		*this = hash_ops<T>::hash_acc(t, *this);
 	}
 
-	void commutative_acc(uint32_t t) {
+	void commutative_acc(hash_t t) {
 		state ^= t;
 	}
 
 	void force(hash_t new_state) {
 		state = new_state;
 	}
-
-	bool is_new() const {
-		return state == Hasher().state;
-	}
 };
+
+using Hasher = HasherDJB32;
 
 template<typename T>
 struct hash_top_ops {
