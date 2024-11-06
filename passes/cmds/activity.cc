@@ -27,6 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct ActivityProp {
 	Module *module;
 	SigMap sigmap;
+	uint32_t nbBitsWithActivity = 0;
 
 	// Split a string based on separator, returns a vector of tokens as reference argument
 	// If skipEmpty is true, return "" for string "    ", when separator is " "
@@ -81,8 +82,10 @@ struct ActivityProp {
 				if (i < activities.size()) {
 					ActivityMap.emplace(bit, activities[i]);
 					DutyMap.emplace(bit, duties[i]);
+					nbBitsWithActivity++;
 				} else {
-					log_warning("Zeroing out activity for module: %s, wire: %s, wiresize: %d, actisize: %ld", module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
+					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld", 
+						module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
 				}
@@ -131,6 +134,8 @@ struct ActivityProp {
 			cell->set_string_attribute("$DUTY:", cell_ports_duty);
 		}
 	}
+
+	uint32_t getNbBitsWithActivity() { return nbBitsWithActivity; }
 };
 
 struct ActivityClear {
@@ -168,10 +173,13 @@ struct ActivityPropPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-
+		uint32_t totalNbBitsWithActivity = 0;
 		for (auto module : design->modules()) {
 			ActivityProp worker(module);
+			totalNbBitsWithActivity += worker.getNbBitsWithActivity();
 		}
+		log("Collected %d bits with activity", totalNbBitsWithActivity);
+		log_flush();
 	}
 } ActivityPropPass;
 
