@@ -438,8 +438,13 @@ struct BufnormPass : public Pass {
 				bool chain_this_wire = chain_this_wire_f(wire);
 
 				SigSpec keysig = sigmap(wire), insig = wire, outsig = wire;
-				for (int i = 0; i < GetSize(insig); i++)
-					insig[i] = mapped_bits.at(keysig[i], State::Sx);
+				for (int i = 0; i < GetSize(insig); i++) {
+					if (keysig[i].is_wire())
+						insig[i] = mapped_bits.at(keysig[i], State::Sx);
+					else
+						insig[i] = keysig[i];
+				}
+
 				if (chain_this_wire) {
 					for (int i = 0; i < GetSize(outsig); i++)
 						mapped_bits[keysig[i]] = outsig[i];
