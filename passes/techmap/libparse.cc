@@ -80,6 +80,152 @@ void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string i
 		fprintf(f, " ;\n");
 }
 
+#ifndef FILTERLIB
+// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
+	if (s.empty())
+		return LibertyExpression{};
+
+	char c = s.peek();
+	auto lhs = LibertyExpression{};
+
+	while (isspace(c)) {
+		if (s.empty())
+			return lhs;
+		s.next();
+		c = s.peek();
+	}
+
+	if (isalpha(c)) { // pin
+		lhs.kind = Kind::PIN;
+		lhs.name = s.pin();
+	} else if (c == '(') { // parens
+		s.next();
+		lhs = parse(s);
+		if (s.peek() != ')') {
+			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr().c_str());
+			return lhs;
+		}
+		s.next();
+	} else if (c == '!') { // prefix NOT
+		s.next();
+		lhs.kind = Kind::NOT;
+		lhs.children.push_back(parse(s, 7));
+	} else {
+		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr().c_str());
+		return lhs;
+	}
+
+	while (true) {
+		if (s.empty())
+			break;
+		
+		c = s.peek();
+
+		while (isspace(c)) {
+			if (s.empty())
+				return lhs;
+			s.next();
+			c = s.peek();
+		}
+
+		if (c == '\'') { // postfix NOT
+			if (min_prio > 7)
+				break;
+			s.next();
+
+			auto n = LibertyExpression{};
+			n.kind = Kind::NOT;
+			n.children.push_back(lhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '^') { // infix XOR
+			if (min_prio > 5)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 6);
+			auto n = LibertyExpression{};
+			n.kind = Kind::XOR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '&' || c == '*') { // infix AND
+			// technically space should be considered infix AND. it seems rare in practice.
+			if (min_prio > 3)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 4);
+			auto n = LibertyExpression{};
+			n.kind = Kind::AND;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '+' || c == '|') { // infix OR
+			if (min_prio > 1)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 2);
+			auto n = LibertyExpression{};
+			n.kind = Kind::OR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		}
+		break;
+	}
+
+	return lhs;
+}
+
+void LibertyExpression::get_pin_names(pool<std::string>& names) {
+	if (kind == Kind::PIN) {
+		names.insert(name);
+	} else {
+		for (auto& child : children)
+			child.get_pin_names(names);
+	}
+}
+
+bool LibertyExpression::eval(dict<std::string, bool>& values) {
+	bool result = false;
+	switch (kind) {
+	case Kind::AND:
+		result = true;
+		for (auto& child : children)
+			result &= child.eval(values);
+		return result;
+	case Kind::OR:
+		result = false;
+		for (auto& child : children)
+			result |= child.eval(values);
+		return result;
+	case Kind::NOT:
+		log_assert(children.size() == 1);
+		return !children[0].eval(values);
+	case Kind::XOR:
+		result = false;
+		for (auto& child : children)
+			result ^= child.eval(values);
+		return result;
+	case Kind::PIN:
+		return values.at(name);
+	case Kind::EMPTY:
+		log_assert(false);
+	}
+	return false;
+}
+#endif
+
 int LibertyParser::lexer(std::string &str)
 {
 	int c;

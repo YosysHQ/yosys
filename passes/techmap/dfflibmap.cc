@@ -26,248 +26,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct string_helper {
-	std::string s, expr;
-
-	string_helper(std::string s) : s{s}, expr{s} {}
-
-	bool empty() {
-		return s.empty();
-	}
-
-	char peek() {
-		return s[0];
-	}
-
-	char next() {
-		char c = s[0];
-		s = s.substr(1, s.size());
-		return c;
-	}
-
-	std::string pin() {
-		auto length = s.find_first_of("\t()'!^*& +|");
-		auto pin = s.substr(0, length);
-		s = s.substr(length, s.size());
-		return pin;
-	}
-
-	std::string full_expr() {
-		return expr;
-	}
-};
-
-enum expression_kind {
-	AND,
-	OR,
-	NOT,
-	XOR,
-	// the standard specifies constants, but they're probably rare in practice.
-	PIN,
-	EMPTY
-};
-
-struct expression_tree {
-	expression_kind kind;
-	std::string name;
-	std::vector<expression_tree> children;
-
-	expression_tree() : kind(expression_kind::EMPTY) {}
-
-	void get_pin_names(pool<std::string>& names) {
-		if (kind == expression_kind::PIN) {
-			names.insert(name);
-		} else {
-			for (auto& child : children)
-				child.get_pin_names(names);
-		}
-	}
-
-	bool eval(dict<std::string, bool>& values) {
-		bool result = false;
-		switch (kind) {
-		case expression_kind::AND:
-			result = true;
-			for (auto& child : children)
-				result &= child.eval(values);
-			return result;
-		case expression_kind::OR:
-			result = false;
-			for (auto& child : children)
-				result |= child.eval(values);
-			return result;
-		case expression_kind::NOT:
-			log_assert(children.size() == 1);
-			return !children[0].eval(values);
-		case expression_kind::XOR:
-			result = false;
-			for (auto& child : children)
-				result ^= child.eval(values);
-			return result;
-		case expression_kind::PIN:
-			return values.at(name);
-		case expression_kind::EMPTY:
-			log_assert(false);
-		}
-		return false;
-	}
-
-	std::string enable_pin(const std::string& ff_output, std::string &data_name, bool &data_not_inverted, bool &enable_not_inverted) {
-		auto pin_name_pool = pool<std::string>{};
-		get_pin_names(pin_name_pool);
-		if (pin_name_pool.size() != 3)
-			return "";
-		if (!pin_name_pool.count(ff_output))
-			return "";
-		pin_name_pool.erase(ff_output);
-		auto pins = std::vector<std::string>(pin_name_pool.begin(), pin_name_pool.end());
-		int lut = 0;
-		for (int n = 0; n < 8; n++) {
-			auto values = dict<std::string, bool>{};
-			values.insert(std::make_pair(pins[0], (n & 1) == 1));
-			values.insert(std::make_pair(pins[1], (n & 2) == 2));
-			values.insert(std::make_pair(ff_output, (n & 4) == 4));
-			if (eval(values))
-				lut |= 1 << n;
-		}
-		// the ff output Q is in a known bit location, so we now just have to compare the LUT mask to known values to find the enable pin and polarity.
-		if (lut == 0xD8) {
-			data_not_inverted = true;
-			data_name = pins[1];
-			enable_not_inverted = true;
-			return pins[0];
-		}
-		if (lut == 0xB8) {
-			data_not_inverted = true;
-			data_name = pins[0];
-			enable_not_inverted = true;
-			return pins[1];
-		}
-		if (lut == 0xE4) {
-			data_not_inverted = true;
-			data_name = pins[1];
-			enable_not_inverted = false;
-			return pins[0];
-		}
-		if (lut == 0xE2) {
-			data_not_inverted = true;
-			data_name = pins[0];
-			enable_not_inverted = false;
-			return pins[1];
-		}
-		// this does not match an enable flop.
-		data_not_inverted = false;
-		data_name = "";
-		enable_not_inverted = false;
-		return "";
-	}
-};
-
-// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-expression_tree parse_expression(string_helper &s, int min_prio = 0) {
-	if (s.empty())
-		return expression_tree{};
-
-	char c = s.peek();
-	auto lhs = expression_tree{};
-
-	while (isspace(c)) {
-		if (s.empty())
-			return lhs;
-		s.next();
-		c = s.peek();
-	}
-
-	if (isalpha(c)) { // pin
-		lhs.kind = expression_kind::PIN;
-		lhs.name = s.pin();
-	} else if (c == '(') { // parens
-		s.next();
-		lhs = parse_expression(s);
-		if (s.peek() != ')') {
-			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr().c_str());
-			return lhs;
-		}
-		s.next();
-	} else if (c == '!') { // prefix NOT
-		s.next();
-		lhs.kind = expression_kind::NOT;
-		lhs.children.push_back(parse_expression(s, 7));
-	} else {
-		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr().c_str());
-		return lhs;
-	}
-
-	do {
-		if (s.empty())
-			break;
-		
-		c = s.peek();
-
-		while (isspace(c)) {
-			if (s.empty())
-				return lhs;
-			s.next();
-			c = s.peek();
-		}
-
-		if (c == '\'') { // postfix NOT
-			if (min_prio > 7)
-				break;
-			s.next();
-
-			auto n = expression_tree{};
-			n.kind = expression_kind::NOT;
-			n.children.push_back(lhs);
-			lhs = std::move(n);
-
-			continue;
-		} else if (c == '^') { // infix XOR
-			if (min_prio > 5)
-				break;
-			s.next();
-
-			auto rhs = parse_expression(s, 6);
-			auto n = expression_tree{};
-			n.kind = expression_kind::XOR;
-			n.children.push_back(lhs);
-			n.children.push_back(rhs);
-			lhs = std::move(n);
-
-			continue;
-		} else if (c == '&' || c == '*') { // infix AND
-			// technically space should be considered infix AND. it seems rare in practice.
-			if (min_prio > 3)
-				break;
-			s.next();
-
-			auto rhs = parse_expression(s, 4);
-			auto n = expression_tree{};
-			n.kind = expression_kind::AND;
-			n.children.push_back(lhs);
-			n.children.push_back(rhs);
-			lhs = std::move(n);
-
-			continue;
-		} else if (c == '+' || c == '|') { // infix OR
-			if (min_prio > 1)
-				break;
-			s.next();
-
-			auto rhs = parse_expression(s, 2);
-			auto n = expression_tree{};
-			n.kind = expression_kind::OR;
-			n.children.push_back(lhs);
-			n.children.push_back(rhs);
-			lhs = std::move(n);
-
-			continue;
-		}
-	} while (false);
-
-	return lhs;
-}
-
 struct cell_mapping {
 	IdString cell_name;
 	std::map<std::string, char> ports;
@@ -325,10 +83,13 @@ static void logmap_all()
 
 static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std::string &data_name, bool &data_not_inverted, std::string &enable_name, bool &enable_not_inverted)
 {
+	static pool<std::string> warned_cells{};
+
 	if (cell == nullptr || attr == nullptr || attr->value.empty())
 		return false;
 
-	std::string expr = attr->value;
+	auto expr = attr->value;
+	auto cell_name = cell->args[0];
 
 	for (size_t pos = expr.find_first_of("\" \t"); pos != std::string::npos; pos = expr.find_first_of("\" \t"))
 		expr.erase(pos, 1);
@@ -350,11 +111,14 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 			return true;
 
 	// the next_state variable isn't just a pin name; perhaps this is an enable?
-	auto helper = string_helper(expr);
-	auto tree = parse_expression(helper);
+	auto helper = LibertyExpression::Lexer(expr);
+	auto tree = LibertyExpression::parse(helper);
 
-	if (tree.kind == expression_kind::EMPTY) {
-		log_warning("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell->args[0].c_str());
+	if (tree.kind == LibertyExpression::Kind::EMPTY) {
+		if (!warned_cells.count(cell_name)) {
+			log_warning("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell_name.c_str());
+			warned_cells.insert(cell_name);
+		}
 		return false;
 	}
 
@@ -370,17 +134,60 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	// This test is redundant with the one in enable_pin, but we're in a
 	// position that gives better diagnostics here.
 	if (!pin_names.count(ff_output)) {
-		log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell->args[0].c_str(), ff_output.c_str());
+		if (!warned_cells.count(cell_name)) {
+			log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell_name.c_str(), ff_output.c_str());
+			warned_cells.insert(cell_name);
+		}
 		return false;
 	}
 
-	enable_name = tree.enable_pin(ff_output, data_name, data_not_inverted, enable_not_inverted);
-	if (enable_name.empty()) {
-		log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell->args[0].c_str());
-		return false;
+	data_not_inverted = true;
+	data_name = "";
+	enable_not_inverted = true;
+	enable_name = "";
+
+	if (pin_names.size() == 3 && pin_names.count(ff_output)) {
+		pin_names.erase(ff_output);
+		auto pins = std::vector<std::string>(pin_names.begin(), pin_names.end());
+		int lut = 0;
+		for (int n = 0; n < 8; n++) {
+			auto values = dict<std::string, bool>{};
+			values.insert(std::make_pair(pins[0], (n & 1) == 1));
+			values.insert(std::make_pair(pins[1], (n & 2) == 2));
+			values.insert(std::make_pair(ff_output, (n & 4) == 4));
+			if (tree.eval(values))
+				lut |= 1 << n;
+		}
+		// the ff output Q is in a known bit location, so we now just have to compare the LUT mask to known values to find the enable pin and polarity.
+		if (lut == 0xD8) {
+			data_name = pins[1];
+			enable_name = pins[0];	
+			return true;
+		}
+		if (lut == 0xB8) {
+			data_name = pins[0];
+			enable_name = pins[1];	
+			return true;
+		}
+		enable_not_inverted = false;
+		if (lut == 0xE4) {
+			data_name = pins[1];
+			enable_name = pins[0];	
+			return true;
+		}
+		if (lut == 0xE2) {
+			data_name = pins[0];
+			enable_name = pins[1];	
+			return true;
+		}
+		// this does not match an enable flop.
 	}
 
-	return true;
+	if (!warned_cells.count(cell_name)) {
+		log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell_name.c_str());
+		warned_cells.insert(cell_name);
+	}
+	return false;
 }
 
 static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::string &pin_name, bool &pin_pol)
@@ -555,6 +362,8 @@ static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol,
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
 	double best_cell_area = 0;
+
+	log_assert(!enapol && "set/reset cell with enable is unimplemented due to lack of cells for testing");
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");

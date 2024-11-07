@@ -20,6 +20,7 @@
 #ifndef LIBPARSE_H
 #define LIBPARSE_H
 
+#include "kernel/yosys.h"
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -37,6 +38,52 @@ namespace Yosys
 
 		typedef std::set<std::string> sieve;
 		void dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string indent = "", std::string path = "", bool path_ok = false) const;
+	};
+
+	struct LibertyExpression
+	{
+		struct Lexer {
+			std::string s, expr;
+
+			Lexer(std::string s) : s{s}, expr{s} {}
+
+			bool empty() { return s.empty();}
+			char peek() { return s[0]; }
+			std::string full_expr() { return expr; }
+
+			char next() {
+				char c = s[0];
+				s = s.substr(1, s.size());
+				return c;
+			}
+
+			std::string pin() {
+				auto length = s.find_first_of("\t()'!^*& +|");
+				auto pin = s.substr(0, length);
+				s = s.substr(length, s.size());
+				return pin;
+			}
+		};
+
+		enum Kind {
+			AND,
+			OR,
+			NOT,
+			XOR,
+			// the standard specifies constants, but they're probably rare in practice.
+			PIN,
+			EMPTY
+		};
+
+		Kind kind;
+		std::string name;
+		std::vector<LibertyExpression> children;
+
+		LibertyExpression() : kind(Kind::EMPTY) {}
+
+		static LibertyExpression parse(Lexer &s, int min_prio = 0);
+		void get_pin_names(pool<std::string>& names);
+		bool eval(dict<std::string, bool>& values);
 	};
 
 	class LibertyParser
