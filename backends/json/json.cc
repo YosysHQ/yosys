@@ -353,6 +353,9 @@ struct JsonBackend : public Backend {
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
+		log("    -selected\n");
+		log("        output only select module\n");
+		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
 		log("\n");
@@ -597,6 +600,7 @@ struct JsonBackend : public Backend {
 	{
 		bool aig_mode = false;
 		bool compat_int_mode = false;
+		bool use_selection = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -609,13 +613,17 @@ struct JsonBackend : public Backend {
 				compat_int_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-selected") {
+				use_selection = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, false, aig_mode, compat_int_mode);
+		JsonWriter json_writer(*f, use_selection, aig_mode, compat_int_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
