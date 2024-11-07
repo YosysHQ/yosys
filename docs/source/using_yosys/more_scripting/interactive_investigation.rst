@@ -323,9 +323,9 @@ tools).
   design into an equivalent design that is easier to analyse.
 - Commands such as `eval` and `sat` can be used to investigate the behavior of
   the circuit.
-- :doc:`/cmd/show`.
-- :doc:`/cmd/dump`.
-- :doc:`/cmd/add` and :doc:`/cmd/delete` can be used to modify and reorganize a
+- :doc:`/cmd/passes/show`.
+- :doc:`/cmd/backends/dump`.
+- :doc:`/cmd/passes/add` and :doc:`/cmd/passes/delete` can be used to modify and reorganize a
   design dynamically.
   
 The code used is included in the Yosys code base under
@@ -358,7 +358,7 @@ reorganizing a module in Yosys and checking the resulting circuit.
 .. figure:: /_images/code_examples/scrambler/scrambler_p02.*
     :class: width-helper invert-helper
 
-Analyzing the resulting circuit with :doc:`/cmd/eval`:
+Analyzing the resulting circuit with :doc:`/cmd/passes/eval`:
 
 .. todo:: replace inline code
 

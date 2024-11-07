@@ -12,7 +12,8 @@ The `opt` macro command
 The Yosys pass `opt` runs a number of simple optimizations. This includes
 removing unused signals and cells and const folding. It is recommended to run
 this pass after each major step in the synthesis script.  As listed in
-:doc:`/cmd/opt`, this macro command calls the following ``opt_*`` commands:
+:doc:`/cmd/passes/opt`, this macro command calls the following ``opt_*``
+commands:
 
 .. literalinclude:: /code_examples/macro_commands/opt.ys
    :language: yoscrypt
@@ -226,7 +227,7 @@ Other optimizations
 
 .. todo:: more on the other optimizations
 
-- :doc:`/cmd/wreduce`
-- :doc:`/cmd/peepopt`
-- :doc:`/cmd/share`
+- :doc:`/cmd/passes/wreduce`
+- :doc:`/cmd/passes/peepopt`
+- :doc:`/cmd/passes/share`
 - `abc` and `abc9`, see also: :doc:`abc`.

@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <filesystem>
 
 #ifdef YOSYS_ENABLE_SOURCE_LOCATION
 #include <experimental/source_location>
@@ -829,9 +830,14 @@ struct HelpPass : public Pass {
 		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
-	void write_cmd_rst(std::string cmd, std::string title, std::string text)
+	void write_cmd_rst(std::string cmd, std::string title, std::string text, std::string group = "")
 	{
-		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
+		std::filesystem::path rst_path = "docs/source/cmd";
+		if (group.length())
+			rst_path /= group;
+		std::filesystem::create_directories(rst_path);
+		rst_path /= cmd + ".rst";
+		FILE *f = fopen(rst_path.c_str(), "wt");
 		// make header
 		size_t char_len = cmd.length() + 3 + title.length();
 		std::string title_line = "\n";
@@ -1113,7 +1119,14 @@ struct HelpPass : public Pass {
 						log("\n");
 					}
 					log_streams.pop_back();
+					#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+					auto p = std::filesystem::path(it.second->source_file.file_name()).parent_path();
+					if (p.has_parent_path())
+						p = p.parent_path();
+					write_cmd_rst(it.first, it.second->short_help, buf.str(), p.string());
+					#else
 					write_cmd_rst(it.first, it.second->short_help, buf.str());
+					#endif
 				}
 			}
 			// this option is also undocumented as it is for internal use only
@@ -1133,8 +1146,12 @@ struct HelpPass : public Pass {
 				}
 			}
 			else if (pass_register.count(args[1])) {
-				pass_register.at(args[1])->help();
-				if (pass_register.at(args[1])->experimental_flag) {
+				auto pass = pass_register.at(args[1]);
+				#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+				log("'%s' defined in '%s:%d'.\n", pass->pass_name.c_str(), pass->source_file.file_name(), pass->source_file.line());
+				#endif
+				pass->help();
+				if (pass->experimental_flag) {
 					log("\n");
 					log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", args[1].c_str());
 					log("\n");

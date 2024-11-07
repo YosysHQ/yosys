@@ -5,12 +5,16 @@ Command line reference
 ================================================================================
 
 .. literalinclude:: /generated/yosys
-    :start-at: Usage
+   :start-at: Usage
 
 .. toctree::
-	:caption: Command reference
-	:maxdepth: 1
-	:glob:
+   :caption: Command reference
+   :maxdepth: 2
+   :glob:
 
-	/appendix/env_vars
-	/cmd/*
+   /appendix/env_vars
+   cmd_frontends
+   cmd_backends
+   cmd_techlibs
+   cmd_passes
+   cmd_kernel
