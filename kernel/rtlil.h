@@ -1592,7 +1592,7 @@ public:
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
 	std::string rtlil_dump();
-	std::string rtlil_hash();
+	unsigned int rtlil_hash();
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
