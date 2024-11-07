@@ -23,12 +23,24 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+#include <experimental/source_location>
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 struct Pass
 {
 	std::string pass_name, short_help;
-	Pass(std::string name, std::string short_help = "** document me **");
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	std::experimental::source_location source_file;
+	#endif
+
+	Pass(std::string name, std::string short_help = "** document me **"
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	, std::experimental::source_location location=std::experimental::source_location::current()
+	#endif
+	);
 	virtual ~Pass();
 
 	virtual void help();
@@ -80,7 +92,15 @@ struct ScriptPass : Pass
 	RTLIL::Design *active_design;
 	std::string active_run_from, active_run_to;
 
-	ScriptPass(std::string name, std::string short_help = "** document me **") : Pass(name, short_help) { }
+	ScriptPass(std::string name, std::string short_help = "** document me **"
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	, std::experimental::source_location location=std::experimental::source_location::current()
+	#endif
+	) : Pass(name, short_help
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	, location
+	#endif
+	) { }
 
 	virtual void script() = 0;
 
@@ -98,7 +118,11 @@ struct Frontend : Pass
 	static std::string last_here_document;
 
 	std::string frontend_name;
-	Frontend(std::string name, std::string short_help = "** document me **");
+	Frontend(std::string name, std::string short_help = "** document me **"
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	, std::experimental::source_location location=std::experimental::source_location::current()
+	#endif
+	);
 	void run_register() override;
 	~Frontend() override;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
@@ -114,7 +138,11 @@ struct Frontend : Pass
 struct Backend : Pass
 {
 	std::string backend_name;
-	Backend(std::string name, std::string short_help = "** document me **");
+	Backend(std::string name, std::string short_help = "** document me **"
+	#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+	, std::experimental::source_location location=std::experimental::source_location::current()
+	#endif
+	);
 	void run_register() override;
 	~Backend() override;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
