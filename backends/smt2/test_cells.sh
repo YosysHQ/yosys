@@ -21,7 +21,7 @@ EOT
 for x in $(set +x; ls test_*.il | sort -R); do
 	x=${x%.il}
 	cat > $x.ys <<- EOT
-		read_ilang $x.il
+		read_rtlil $x.il
 		copy gold gate
 
 		cd gate
