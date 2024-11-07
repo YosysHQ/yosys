@@ -28,9 +28,6 @@
 
 #include <string.h>
 #include <strstream>
-#include <unordered_map>
-#include <locale>
-#include <codecvt>
 #include <algorithm>
 #include <optional>
 
@@ -2514,24 +2511,17 @@ void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
 
 // Returns the RTLIL dump of a module
 std::string RTLIL::Module::rtlil_dump() {
-	std::stringstream stream;
 	// Sorting the module to have a canonical RTLIL
 	sort();
-	// Dumping the RTLIL in an in-memory stringstream 
+	// Dumping the RTLIL in an in-memory stringstream
+	std::stringstream stream;
 	RTLIL_BACKEND::dump_module(stream, " ", this, design, false, true, false);
-	std::string origstring = stream.str();
-	//RTLIL contains non utf-8 characters, converting to utf-8
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
-	std::u32string orig(origstring.begin(), origstring.end());
-	std::string utf8String = converter.to_bytes(orig);
-	return utf8String;
+	return stream.str();
 }
 
 // Returns a hash of the RTLIL dump
 std::string RTLIL::Module::rtlil_hash() {
-	std::hash<std::string> hasher;
-	size_t hash = hasher(rtlil_dump());
-	return std::to_string(hash);
+	return std::to_string(hash_ops<std::string>::hash(rtlil_dump()));
 }
 
 void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
