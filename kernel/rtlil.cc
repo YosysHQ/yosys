@@ -27,6 +27,7 @@
 #include "backends/rtlil/rtlil_backend.h"
 
 #include <string.h>
+#include <strstream>
 #include <algorithm>
 #include <optional>
 
@@ -2506,6 +2507,21 @@ void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
 
 	wires_[w1->name] = w1;
 	wires_[w2->name] = w2;
+}
+
+// Returns the RTLIL dump of a module
+std::string RTLIL::Module::rtlil_dump() {
+	// Sorting the module to have a canonical RTLIL
+	sort();
+	// Dumping the RTLIL in an in-memory stringstream
+	std::stringstream stream;
+	RTLIL_BACKEND::dump_module(stream, " ", this, design, false, true, false);
+	return stream.str();
+}
+
+// Returns a hash of the RTLIL dump
+unsigned int RTLIL::Module::rtlil_hash() {
+	return hash_ops<std::string>::hash(rtlil_dump());
 }
 
 void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
