@@ -464,21 +464,6 @@ struct RTLILBackend : public Backend {
 	}
 } RTLILBackend;
 
-struct IlangBackend : public Backend {
-	IlangBackend() : Backend("ilang", "(deprecated) alias of write_rtlil") { }
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("See `help write_rtlil`.\n");
-		log("\n");
-	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		RTLILBackend.execute(f, filename, args, design);
-	}
-} IlangBackend;
-
 struct DumpPass : public Pass {
 	DumpPass() : Pass("dump", "print parts of the design in RTLIL format") { }
 	void help() override

@@ -130,9 +130,15 @@ lld by enabling LTO:
 
  $ make ENABLE_LTO=1
 
+On macOS, LTO requires using clang from homebrew which isn't in PATH
+rather than xcode clang.
+
+$ make ENABLE_LTO=1 CXX=$(brew --prefix)/opt/llvm/bin/clang++
+
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
-Makefile.
+Makefile. It's also an alternative way to set the make variables
+mentioned above.
 
 	$ vi Makefile            # ..or..
 	$ vi Makefile.conf
