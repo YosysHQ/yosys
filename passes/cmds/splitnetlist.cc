@@ -139,31 +139,13 @@ std::string_view rtrim_until(std::string_view str, char c)
 	return str;
 }
 
-std::string id2String(RTLIL::IdString internal_id)
-{
-	const char *str = internal_id.c_str();
-	std::string result = str;
-	return result;
-}
-
-std::string replaceAll(std::string_view str, std::string_view from, std::string_view to)
-{
-	size_t start_pos = 0;
-	std::string result(str);
-	while ((start_pos = result.find(from, start_pos)) != std::string::npos) {
-		result.replace(start_pos, from.length(), to);
-		start_pos += to.length(); // Handles case where 'to' is a substr of 'from'
-	}
-	return result;
-}
-
 struct SplitNetlist : public ScriptPass {
 	SplitNetlist()
 	    : ScriptPass("splitnetlist", "Splits a netlist into multiple modules using transitive fanin grouping. \
 	       The output names that belong in the same logical cluster have to have the same prefix: <prefix>_<name>")
 	{
 	}
-	void script() {}
+	void script() override {}
 
 	void execute(std::vector<std::string>, RTLIL::Design *design) override
 	{
