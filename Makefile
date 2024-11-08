@@ -755,7 +755,6 @@ include $(YOSYS_SRC)/passes/pmgen/Makefile.inc
 include $(YOSYS_SRC)/passes/proc/Makefile.inc
 include $(YOSYS_SRC)/passes/opt/Makefile.inc
 include $(YOSYS_SRC)/passes/techmap/Makefile.inc
-include $(YOSYS_SRC)/passes/fsm/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
 include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
@@ -909,7 +908,7 @@ endif
 	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
 	+cd tests/share && bash run-test.sh $(SEEDOPT)
 	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
-	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
+	# +cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	# +cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/memlib && bash run-test.sh $(SEEDOPT)
