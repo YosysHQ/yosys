@@ -26,6 +26,7 @@
  *
  */
 
+#include "kernel/yosys.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -1382,6 +1383,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	case AST_ASSIGN:
 		while (!children[0]->basic_prep && children[0]->simplify(false, stage, -1, false) == true)
 			did_something = true;
+		if (type == AST_ASSIGN && children[0]->type == AST_IDENTIFIER && children[0]->children.size() > 0 && !children[0]->children[0]->range_valid)
+			log_error("Non-constant range in continuous assignment to %s at %s.\n", children[0]->str.c_str(), loc_string().c_str());
 		while (!children[1]->basic_prep && children[1]->simplify(false, stage, -1, false) == true)
 			did_something = true;
 		children[0]->detectSignWidth(backup_width_hint, backup_sign_hint);
@@ -2122,57 +2125,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 	}
 
-	// Resolve multidimensional array access.
-	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
-	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
-	{
-		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
-		// Save original number of dimensions for $size() etc.
-		integer = dims_sel;
-
-		// Split access into unpacked and packed parts.
-		AstNode *unpacked_range = nullptr;
-		AstNode *packed_range = nullptr;
-
-		if (id2ast->unpacked_dimensions) {
-			if (id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to unpacked dimensions.
-				unpacked_range = make_index_range(id2ast, true);
-			} else {
-				// Index into one-dimensional unpacked part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
-				unpacked_range = range;
-				range = nullptr;
-			}
-		}
-
-		if (dims_sel > id2ast->unpacked_dimensions) {
-			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to packed dimensions.
-				packed_range = make_index_range(id2ast, false);
-			} else {
-				// Index into one-dimensional packed part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
-				packed_range = range;
-				range = nullptr;
-			}
-		}
-
-		for (auto &it : children)
-			delete it;
-		children.clear();
-
-		if (unpacked_range)
-			children.push_back(unpacked_range);
-
-		if (packed_range)
-			children.push_back(packed_range);
-
-		fixup_hierarchy_flags();
-		basic_prep = true;
-		did_something = true;
-	}
-
 	// trim/extend parameters
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
@@ -2311,6 +2263,60 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 	}
 
+	// Resolve multidimensional array access.
+	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
+	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
+	{
+		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
+		// Save original number of dimensions for $size() etc.
+		integer = dims_sel;
+
+		// Split access into unpacked and packed parts.
+		AstNode *unpacked_range = nullptr;
+		AstNode *packed_range = nullptr;
+
+		if (id2ast->unpacked_dimensions) {
+			if (id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to unpacked dimensions.
+				unpacked_range = make_index_range(id2ast, true);
+			} else {
+				// Index into one-dimensional unpacked part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
+				unpacked_range = range;
+				range = nullptr;
+			}
+		}
+
+		if (dims_sel > id2ast->unpacked_dimensions) {
+			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to packed dimensions.
+				packed_range = make_index_range(id2ast, false);
+			} else {
+				// Index into one-dimensional packed part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
+				packed_range = range;
+				range = nullptr;
+			}
+		}
+
+		for (auto &it : children)
+			delete it;
+		children.clear();
+
+		if (unpacked_range)
+			children.push_back(unpacked_range);
+
+		if (packed_range)
+			children.push_back(packed_range);
+
+		for (auto child : children)
+			while (child->simplify(true, 1, -1, false)) { }
+
+		fixup_hierarchy_flags();
+		basic_prep = true;
+		did_something = true;
+	}
+
 	// split memory access with bit select to individual statements
 	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue && stage == 2)
 	{
@@ -2365,6 +2371,188 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		newNode->str = wire_id;
 		newNode->integer = integer; // save original number of dimensions for $size() etc.
 		newNode->id2ast = wire;
+		goto apply_newNode;
+	}
+
+	// Rewrite dynamic indexing of rvalue packed dimensions.
+	if (type == AST_IDENTIFIER && id2ast != NULL && id2ast->type != AST_MEMORY && !in_lvalue &&
+	    GetSize(children) == 1 && children[0]->type == AST_RANGE && !children[0]->range_valid)
+	{
+		AST::AstNode *member_node = get_struct_member();
+		int wire_width = member_node ?
+			member_node->range_left - member_node->range_right + 1 :
+			id2ast->range_left - id2ast->range_right + 1;
+		int wire_offset = id2ast->range_right;
+
+		AstNode *range = children[0];
+		int result_width;
+		if (!try_determine_range_width(range, result_width))
+			input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+		AstNode *shift_expr = range->children.size() >= 2 ? range->children[1]->clone() : range->children[0]->clone();
+
+		int shift_expr_width_hint;
+		bool shift_expr_sign_hint;
+		shift_expr->detectSignWidth(shift_expr_width_hint, shift_expr_sign_hint);
+
+		bool use_case_method = id2ast->get_bool_attribute(ID::nordshift);
+
+		if (use_case_method) {
+			// AST_CASE with an AST_COND for each possible bit slice.
+
+			int stride = 1;
+			long long bitno_div = stride;
+			int shift_expr_width_max = shift_expr_width_hint;
+
+			if (member_node) {
+				// Clamp chunk to range of member within struct/union.
+				log_assert(wire_offset == 0 && !id2ast->range_swapped);
+
+				// When the (* nordshift *) attribute is set, a CASE block is generated below
+				// to select the indexed bit slice. When a multirange array is indexed, the
+				// start of each possible slice is separated by the bit stride of the last
+				// index dimension, and we can optimize the CASE block accordingly.
+				// The dimension of the original array expression is saved in the 'integer' field.
+				int dims = integer;
+				stride = wire_width;
+				for (int dim = 0; dim < dims; dim++) {
+					stride /= member_node->dimensions[dim].range_width;
+				}
+				bitno_div = stride;
+			} else {
+				// Extract (index)*(width) from non_opt_range pattern (@selfsz@((index)*(width)))+(0).
+				AstNode *lsb_expr =
+					shift_expr->type == AST_ADD && shift_expr->children[0]->type == AST_SELFSZ &&
+					shift_expr->children[1]->type == AST_CONSTANT && shift_expr->children[1]->integer == 0 ?
+					shift_expr->children[0]->children[0] :
+					shift_expr;
+
+				// Extract stride from indexing of two-dimensional packed arrays and
+				// variable slices on the form src[i*stride +: width].
+				if (lsb_expr->type == AST_MUL &&
+				    (lsb_expr->children[0]->type == AST_CONSTANT ||
+				     lsb_expr->children[1]->type == AST_CONSTANT))
+				{
+					int stride_ix = lsb_expr->children[1]->type == AST_CONSTANT;
+					stride = (int)lsb_expr->children[stride_ix]->integer;
+					bitno_div = stride != 0 ? stride : 1;
+
+					// Check whether i*stride can overflow.
+					int i_width;
+					bool i_sign;
+					lsb_expr->children[1 - stride_ix]->detectSignWidth(i_width, i_sign);
+					int stride_width;
+					bool stride_sign;
+					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
+					shift_expr_width_max = std::max(i_width, stride_width);
+					// Stride width calculated from actual stride value.
+					stride_width = ceil_log2(std::abs(stride));
+
+					if (i_width + stride_width > shift_expr_width_max) {
+						// For (truncated) i*stride to be within the range of dst, the following must hold:
+						//   i*stride ≡ bitno (mod shift_mod), i.e.
+						//   i*stride = k*shift_mod + bitno
+						//
+						// The Diophantine equation on the form ax + by = c:
+						//   stride*i - shift_mod*k = bitno
+						// has solutions iff c is a multiple of d = gcd(a, b), i.e.
+						//   bitno mod gcd(stride, shift_mod) = 0
+						//
+						// long long is at least 64 bits in C++11
+						long long shift_mod = 1ll << (shift_expr_width_max - shift_expr_sign_hint);
+						// std::gcd requires C++17
+						// bitno_div = std::gcd(stride, shift_mod);
+						bitno_div = gcd((long long)stride, shift_mod);
+					}
+				}
+			}
+
+			// long long is at least 64 bits in C++11
+			long long max_offset = (1ll << (shift_expr_width_max - shift_expr_sign_hint)) - 1;
+			long long min_offset = shift_expr_sign_hint ? -(1ll << (shift_expr_width_max - 1)) : 0;
+
+			if (!shift_expr_sign_hint && max_offset >= wire_offset + wire_width) {
+				// When an unsigned address expression can go beyond the address range,
+				// we must handle potential overflows causing the lower bits of the wire
+				// to be selected.
+				min_offset = -((max_offset + 1) >> 1);
+			}
+
+			// Temporary register to replace the current rvalue; used as lvalue in AST_COND assignments.
+			AstNode	*lvalue = mktemp_logic("$bitsel$"+str+"$", current_ast_mod, current_block, result_width - 1, 0, false);
+
+			AstNode *assign = new AstNode(AST_CASE, shift_expr);
+			for (int i = 1 - result_width; i < wire_width; i++) {
+				// Out of range indexes are handled in genrtlil.cc
+				int start_bit = wire_offset + i;
+				int end_bit = start_bit + result_width - 1;
+				// Check whether the current index can be generated by shift_expr.
+				if (start_bit < min_offset || start_bit > max_offset)
+					continue;
+				if (start_bit%bitno_div != 0 || (stride == 0 && start_bit != 0))
+					continue;
+				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, shift_expr_sign_hint, shift_expr_width_max));
+				AstNode *rvalue = clone();
+				rvalue->delete_children();
+				if (member_node)
+					rvalue->set_attribute(ID::wiretype, member_node->clone());
+				rvalue->children.push_back(new AstNode(AST_RANGE,
+						node_int(end_bit), node_int(start_bit)));
+				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_EQ, lvalue->clone(), rvalue)));
+				assign->children.push_back(cond);
+			}
+
+			// Default to x bits for out of range addresses.
+			std::vector<RTLIL::State> x_const(result_width, RTLIL::State::Sx);
+			assign->children.push_back(new AstNode(AST_COND,
+							       new AstNode(AST_DEFAULT),
+							       new AstNode(AST_BLOCK,
+									   new AstNode(AST_ASSIGN_EQ,
+										       lvalue->clone(), AstNode::mkconst_bits(x_const, false)))));
+
+			if (current_block) {
+				size_t assign_idx = 0;
+				while (assign_idx < current_block->children.size() && current_block->children[assign_idx] != current_block_child)
+					assign_idx++;
+				log_assert(assign_idx < current_block->children.size());
+				current_block->children.insert(current_block->children.begin()+assign_idx, assign);
+			} else {
+				AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK, assign));
+				current_ast_mod->children.push_back(proc);
+			}
+
+			newNode = lvalue;
+		} else {
+			// Shift to access the indexed bit slice.
+			AstNode *rvalue = clone();
+			rvalue->delete_children();
+			if (member_node)
+				rvalue->set_attribute(ID::wiretype, member_node->clone());
+
+			// Insert a self-sizing barrier to prevent the rewritten AST from
+			// influencing the size of the operators in `shift_expr`
+			shift_expr = new AstNode(AST_SELFSZ, shift_expr);
+
+			// Decode the index based on wire dimensions
+			int idx_signed_nbits = shift_expr_width_hint + !shift_expr_sign_hint;
+			int offset = !id2ast->range_swapped ? wire_offset : wire_width - result_width + wire_offset;
+			int offset_signed_nbits = min_bit_width(offset, true);
+			int raw_idx_nbits = 1 + std::max(idx_signed_nbits, offset_signed_nbits);
+			AstNode *node_offset = mkconst_int(offset, true, offset_signed_nbits);
+			shift_expr = new AstNode(AST_TO_SIGNED,
+						 new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
+						 );
+			if (!id2ast->range_swapped) {
+				shift_expr = new AstNode(AST_SUB, shift_expr, node_offset);
+			} else {
+				shift_expr = new AstNode(AST_SUB, node_offset, shift_expr);
+			}
+
+			// Shift rvalue to the right so that the bit slice starts at bit 0.
+			newNode = new AstNode(AST_CAST_SIZE,
+					      node_int(result_width),
+					      new AstNode(AST_SHIFTX, rvalue, shift_expr));
+		}
+
 		goto apply_newNode;
 	}
 
@@ -2936,7 +3124,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
 					max_width = std::max(i_width, stride_width);
 					// Stride width calculated from actual stride value.
-					stride_width = std::ceil(std::log2(std::abs(stride)));
+					stride_width = ceil_log2(std::abs(stride));
 
 					if (i_width + stride_width > max_width) {
 						// For (truncated) i*stride to be within the range of dst, the following must hold:

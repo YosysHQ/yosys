@@ -269,6 +269,7 @@ inline void memhasher() { if (memhasher_active) memhasher_do(); }
 
 void yosys_banner();
 int ceil_log2(int x) YS_ATTRIBUTE(const);
+int min_bit_width(int x, bool is_signed);
 
 inline std::string vstringf(const char *fmt, va_list ap)
 {
