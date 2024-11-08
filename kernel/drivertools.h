@@ -364,7 +364,7 @@ public:
 
 	unsigned int hash() const
 	{
-		unsigned int inner;
+		unsigned int inner = 0;
 		switch (type_)
 		{
 			case DriveType::NONE:
@@ -384,6 +384,9 @@ public:
 				break;
 			case DriveType::MULTIPLE:
 				inner = multiple_.hash();
+				break;
+			default:
+				log_assert(0);
 				break;
 		}
 		return mkhash((unsigned int)type_, inner);
@@ -912,7 +915,7 @@ public:
 
 	unsigned int hash() const
 	{
-		unsigned int inner;
+		unsigned int inner = 0;
 		switch (type_)
 		{
 			case DriveType::NONE:
@@ -932,6 +935,9 @@ public:
 				break;
 			case DriveType::MULTIPLE:
 				inner = multiple_.hash();
+				break;
+			default:
+				log_assert(0);
 				break;
 		}
 		return mkhash((unsigned int)type_, inner);
