@@ -384,6 +384,25 @@ std::string escape_filename_spaces(const std::string& filename)
 	return out;
 }
 
+#ifdef _WIN32
+const char* const OS_PATH_SEP = "/\\";
+#else
+const char* const OS_PATH_SEP = "/";
+#endif
+
+std::string name_from_file_path(std::string path) {
+	size_t sep_pos = path.find_last_of(OS_PATH_SEP);
+	if (sep_pos != std::string::npos)
+		return path.substr(sep_pos + 1);
+	else
+		return path;
+}
+
+// Includes OS_PATH_SEP at the end if present
+std::string parent_from_file_path(std::string path) {
+	return path.substr(0, path.find_last_of(OS_PATH_SEP)+1);
+}
+
 void format_emit_unescaped(std::string &result, std::string_view fmt)
 {
 	result.reserve(result.size() + fmt.size());
