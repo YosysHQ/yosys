@@ -386,7 +386,7 @@ public:
 				inner = multiple_.hash();
 				break;
 			default:
-				log_assert(0);
+				log_abort();
 				break;
 		}
 		return mkhash((unsigned int)type_, inner);
@@ -937,7 +937,7 @@ public:
 				inner = multiple_.hash();
 				break;
 			default:
-				log_assert(0);
+				log_abort();
 				break;
 		}
 		return mkhash((unsigned int)type_, inner);
