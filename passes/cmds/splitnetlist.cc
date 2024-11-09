@@ -172,7 +172,33 @@ struct SplitNetlist : public ScriptPass {
 			if (!wire->port_output)
 				continue;
 			std::string output_port_name = wire->name.c_str();
-			std::string_view po_prefix = rtrim_until(std::string_view(output_port_name), '_');
+			// We want to truncate the final _<index>_ part of the string
+			// Example: "add_Y_0_"
+			// Result:  "add_Y"
+			bool bitblastedIndex = false;
+			std::string::iterator end = output_port_name.end()-1;
+			for (; end !=  output_port_name.begin(); end--) {
+				char c = (*end);
+				if ((end == output_port_name.end()-1) && (c == '_')) {
+					// bit blasted index
+					bitblastedIndex = true;
+					continue;
+				}
+				if (bitblastedIndex) {
+					if (c != '_') {
+						continue;
+					} else {
+						end--;
+						break;
+					}
+				}
+			}
+			if (!bitblastedIndex)
+				end = output_port_name.end()-1;
+			std::string no_bitblast_prefix;
+			std::copy(output_port_name.begin(), end, std::back_inserter(no_bitblast_prefix));
+			// We then truncate the port name, Result: "add"
+			std::string_view po_prefix = rtrim_until(std::string_view(no_bitblast_prefix), '_');
 			std::set<Cell *> visitedCells;
 			std::set<RTLIL::SigSpec> visitedSigSpec;
 			RTLIL::SigSpec actual = wire;
