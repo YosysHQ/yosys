@@ -172,29 +172,25 @@ struct SplitNetlist : public ScriptPass {
 			if (!wire->port_output)
 				continue;
 			std::string output_port_name = wire->name.c_str();
+			if (output_port_name.empty())
+				continue;
 			// We want to truncate the final _<index>_ part of the string
 			// Example: "add_Y_0_"
 			// Result:  "add_Y"
-			bool bitblastedIndex = false;
 			std::string::iterator end = output_port_name.end()-1;
-			for (; end !=  output_port_name.begin(); end--) {
-				char c = (*end);
-				if ((end == output_port_name.end()-1) && (c == '_')) {
-					// bit blasted index
-					bitblastedIndex = true;
-					continue;
-				}
-				if (bitblastedIndex) {
-					if (c != '_') {
+			if ((*end) == '_') {
+				// Last character is an _, it is a bit blasted index
+				end--;
+				for (; end !=  output_port_name.begin(); end--) {
+					if ((*end) != '_') {
+						// Truncate until the next _
 						continue;
 					} else {
-						end--;
+						// Truncate the _
 						break;
 					}
 				}
 			}
-			if (!bitblastedIndex)
-				end = output_port_name.end()-1;
 			std::string no_bitblast_prefix;
 			std::copy(output_port_name.begin(), end, std::back_inserter(no_bitblast_prefix));
 			// We then truncate the port name, Result: "add"
