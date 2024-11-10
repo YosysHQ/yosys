@@ -76,6 +76,16 @@ void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>
 						sig2CellsInFanin[actual] = newSet;
 					}
 					newSet->insert(cell);
+					for (int i = 0; i < actual.size(); i++) {
+						SigSpec bit_sig = actual.extract(i, 1);
+						if (sig2CellsInFanin.count(bit_sig)) {
+							newSet = sig2CellsInFanin[bit_sig];
+						} else {
+							newSet = new std::set<Cell *>;
+							sig2CellsInFanin[bit_sig] = newSet;
+						}
+						newSet->insert(cell);
+					}
 				}
 			}
 		}
@@ -92,38 +102,19 @@ void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig
 			continue;
 		}
 		if (!lhs.is_chunk()) {
-			if (lhs.chunks().size() != rhs.chunks().size()) {
-				auto rit = rhs.chunks().rbegin();
-				long unsigned rhsSize = 0;
-				while (rit != rhs.chunks().rend()) {
-					RTLIL::SigSpec sub_rhs = *rit;
-					if (sub_rhs.is_fully_const()) {
-						rhsSize += (sub_rhs.as_chunk()).width;
-					} else {
-						rhsSize++;
-					}
-					rit++;
-				}
-				if (lhs.chunks().size() != rhsSize) {
-					continue;
-				}
+			std::vector<SigSpec> lhsBits;
+			for (int i = 0; i < lhs.size(); i++) {
+				SigSpec bit_sig = lhs.extract(i, 1);
+				lhsBits.push_back(bit_sig);
 			}
-			auto lit = lhs.chunks().rbegin();
-			auto rit = rhs.chunks().rbegin();
-			while (rit != rhs.chunks().rend()) {
-				RTLIL::SigSpec sub_lhs = *lit;
-				RTLIL::SigSpec sub_rhs = *rit;
-				if (sub_rhs.is_fully_const()) {
-					int constSize = (sub_rhs.as_chunk()).width;
-					while (constSize--) {
-						lit++;
-					}
-					rit++;
-					continue;
-				}
-				lhsSig2rhsSig[sub_lhs] = sub_rhs;
-				lit++;
-				rit++;
+			std::vector<SigSpec> rhsBits;
+			for (int i = 0; i < rhs.size(); i++) {
+				SigSpec bit_sig = rhs.extract(i, 1);
+				rhsBits.push_back(bit_sig);
+			}
+			for (uint32_t i = 0; i < lhsBits.size(); i++) {
+				if (i < rhsBits.size())
+				  lhsSig2rhsSig[lhsBits[i]] = rhsBits[i];
 			}
 		} else {
 			lhsSig2rhsSig[lhs] = rhs;
