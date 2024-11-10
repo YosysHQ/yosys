@@ -102,6 +102,7 @@ void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig
 			continue;
 		}
 		if (!lhs.is_chunk()) {
+			// If lhs is not a chunk (leaf) ie: assign {a,b} = ..., then bitblast both lhs and rhs
 			std::vector<SigSpec> lhsBits;
 			for (int i = 0; i < lhs.size(); i++) {
 				SigSpec bit_sig = lhs.extract(i, 1);
