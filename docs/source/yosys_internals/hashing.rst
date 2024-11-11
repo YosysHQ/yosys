@@ -1,8 +1,58 @@
 Hashing and associative data structures in Yosys
 ------------------------------------------------
 
-Yosys heavily relies on custom data structures such as dict or pool defined in
-kernel/hashlib.h. There are various reasons for this.
+Container classes based on hashing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Yosys uses ``dict<K, T>`` and ``pool<T>`` as main container classes.
+``dict<K, T>`` is essentially a replacement for ``std::unordered_map<K, T>``
+and ``pool<T>`` is a replacement for ``std::unordered_set<T>``.
+The main characteristics are:
+
+* ``dict<K, T>`` and ``pool<T>`` are about 2x faster than the std containers
+   (though this claim hasn't been verified for over 10 years)
+
+* references to elements in a ``dict<K, T>`` or ``pool<T>`` are invalidated by
+   insert and remove operations (similar to ``std::vector<T>`` on ``push_back()``).
+
+* some iterators are invalidated by ``erase()``. specifically, iterators
+   that have not passed the erased element yet are invalidated. (``erase()``
+   itself returns valid iterator to the next element.)
+
+* no iterators are invalidated by ``insert()``. elements are inserted at
+   ``begin()``. i.e. only a new iterator that starts at ``begin()`` will see the
+   inserted elements.
+
+* the method ``.count(key, iterator)`` is like ``.count(key)`` but only
+   considers elements that can be reached via the iterator.
+
+* iterators can be compared. ``it1 < it2`` means that the position of ``t2``
+   can be reached via ``t1`` but not vice versa.
+
+* the method ``.sort()`` can be used to sort the elements in the container
+   the container stays sorted until elements are added or removed.
+
+* ``dict<K, T>`` and ``pool<T>`` will have the same order of iteration across
+   all compilers, standard libraries and architectures.
+
+In addition to ``dict<K, T>`` and ``pool<T>`` there is also an ``idict<K>`` that
+creates a bijective map from ``K`` to the integers. For example:
+
+::
+
+   idict<string, 42> si;
+   log("%d\n", si("hello"));      // will print 42
+   log("%d\n", si("world"));      // will print 43
+   log("%d\n", si.at("world"));   // will print 43
+   log("%d\n", si.at("dummy"));   // will throw exception
+   log("%s\n", si[42].c_str()));  // will print hello
+   log("%s\n", si[43].c_str()));  // will print world
+   log("%s\n", si[44].c_str()));  // will throw exception
+
+It is not possible to remove elements from an idict.
+
+Finally ``mfp<K>`` implements a merge-find set data structure (aka. disjoint-set
+or union-find) over the type ``K`` ("mfp" = merge-find-promote).
 
 The hash function
 ~~~~~~~~~~~~~~~~~
