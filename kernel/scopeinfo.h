@@ -171,8 +171,8 @@ public:
 
 		Hasher hash_acc(Hasher h) const
 		{
-			h.acc(scope_name);
-			h.acc(target);
+			h.eat(scope_name);
+			h.eat(target);
 			return h;
 		}
 
@@ -325,7 +325,7 @@ struct ModuleItem {
 	Cell *cell() const { return type == Type::Cell ? static_cast<Cell *>(ptr) : nullptr; }
 
 	bool operator==(const ModuleItem &other) const { return ptr == other.ptr && type == other.type; }
-	Hasher hash_acc(Hasher h) const { h.acc(ptr); return h; }
+	Hasher hash_eat(Hasher h) const { h.eat(ptr); return h; }
 };
 
 static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p %s", cursor.target, log_id(cursor.scope_name)); }

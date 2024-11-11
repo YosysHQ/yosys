@@ -4480,11 +4480,11 @@ void RTLIL::SigSpec::updhash() const
 	for (auto &c : that->chunks_)
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
-				h.acc(v);
+				h.eat(v);
 		} else {
-			h.acc(c.wire->name.index_);
-			h.acc(c.offset);
-			h.acc(c.width);
+			h.eat(c.wire->name.index_);
+			h.eat(c.offset);
+			h.eat(c.width);
 		}
 	that->hash_ = h.yield();
 	if (that->hash_ == 0)

@@ -52,9 +52,9 @@ struct ExampleDtPass : public Pass
 					return name == other.name && parameters == other.parameters;
 				}
 
-				Hasher hash_acc(Hasher h) const {
-					h.acc(name);
-					h.acc(parameters);
+				Hasher hash_eat(Hasher h) const {
+					h.eat(name);
+					h.eat(parameters);
 					return h;
 				}
 			};

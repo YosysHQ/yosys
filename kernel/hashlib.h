@@ -125,16 +125,16 @@ private:
 	}
 
 	template<typename T>
-	void acc(T&& t) {
-		*this = hash_ops<std::remove_cv_t<std::remove_reference_t<T>>>::hash_acc(std::forward<T>(t), *this);
+	void eat(T&& t) {
+		*this = hash_ops<std::remove_cv_t<std::remove_reference_t<T>>>::hash_eat(std::forward<T>(t), *this);
 	}
 
 	template<typename T>
-	void acc(const T& t) {
-		*this = hash_ops<T>::hash_acc(t, *this);
+	void eat(const T& t) {
+		*this = hash_ops<T>::hash_eat(t, *this);
 	}
 
-	void commutative_acc(hash_t t) {
+	void commutative_eat(hash_t t) {
 		state ^= t;
 	}
 
@@ -151,7 +151,7 @@ struct hash_top_ops {
 		return hash_ops<T>::cmp(a, b);
 	}
 	static inline Hasher hash(const T &a) {
-		return hash_ops<T>::hash_acc(a, Hasher());
+		return hash_ops<T>::hash_eat(a, Hasher());
 	}
 };
 
@@ -160,7 +160,7 @@ struct hash_ops {
 	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(const T &a, Hasher h) {
+	static inline Hasher hash_eat(const T &a, Hasher h) {
 		if constexpr (std::is_same_v<T, bool>) {
 			h.hash32(a ? 1 : 0);
 			return h;
@@ -173,15 +173,15 @@ struct hash_ops {
 			return h;
 		} else if constexpr (std::is_enum_v<T>) {
 			using u_type = std::underlying_type_t<T>;
-			return hash_ops<u_type>::hash_acc((u_type) a, h);
+			return hash_ops<u_type>::hash_eat((u_type) a, h);
 		} else if constexpr (std::is_pointer_v<T>) {
-			return hash_ops<uintptr_t>::hash_acc((uintptr_t) a, h);
+			return hash_ops<uintptr_t>::hash_eat((uintptr_t) a, h);
 		} else if constexpr (std::is_same_v<T, std::string>) {
 			for (auto c : a)
 				h.hash32(c);
 			return h;
 		} else {
-			return a.hash_acc(h);
+			return a.hash_eat(h);
 		}
 	}
 };
@@ -190,9 +190,9 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(std::pair<P, Q> a, Hasher h) {
-		h = hash_ops<P>::hash_acc(a.first, h);
-		h = hash_ops<Q>::hash_acc(a.second, h);
+	static inline Hasher hash_eat(std::pair<P, Q> a, Hasher h) {
+		h = hash_ops<P>::hash_eat(a.first, h);
+		h = hash_ops<Q>::hash_eat(a.second, h);
 		return h;
 	}
 };
@@ -202,14 +202,14 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 		return a == b;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I == sizeof...(T), Hasher>::type hash_acc(std::tuple<T...>, Hasher h) {
+	static inline typename std::enable_if<I == sizeof...(T), Hasher>::type hash_eat(std::tuple<T...>, Hasher h) {
 		return h;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I != sizeof...(T), Hasher>::type hash_acc(std::tuple<T...> a, Hasher h) {
+	static inline typename std::enable_if<I != sizeof...(T), Hasher>::type hash_eat(std::tuple<T...> a, Hasher h) {
 		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
-		h = hash_acc<I+1>(a, h);
-		h = element_ops_t::hash_acc(std::get<I>(a), h);
+		h = hash_eat<I+1>(a, h);
+		h = element_ops_t::hash_eat(std::get<I>(a), h);
 		return h;
 	}
 };
@@ -218,10 +218,10 @@ template<typename T> struct hash_ops<std::vector<T>> {
 	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(std::vector<T> a, Hasher h) {
-		h.acc(a.size());
+	static inline Hasher hash_eat(std::vector<T> a, Hasher h) {
+		h.eat(a.size());
 		for (auto k : a)
-			h.acc(k);
+			h.eat(k);
 		return h;
 	}
 };
@@ -230,9 +230,9 @@ template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
     static inline bool cmp(std::array<T, N> a, std::array<T, N> b) {
         return a == b;
     }
-    static inline Hasher hash_acc(std::array<T, N> a, Hasher h) {
+    static inline Hasher hash_eat(std::array<T, N> a, Hasher h) {
         for (const auto& k : a)
-            h = hash_ops<T>::hash_acc(k, h);
+            h = hash_ops<T>::hash_eat(k, h);
         return h;
     }
 };
@@ -244,7 +244,7 @@ struct hash_cstr_ops {
 				return false;
 		return true;
 	}
-	static inline Hasher hash_acc(const char *a, Hasher h) {
+	static inline Hasher hash_eat(const char *a, Hasher h) {
 		while (*a)
 			h.hash32(*(a++));
 		return h;
@@ -257,8 +257,8 @@ struct hash_ptr_ops {
 	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(const void *a, Hasher h) {
-		return hash_ops<uintptr_t>::hash_acc((uintptr_t)a, h);
+	static inline Hasher hash_eat(const void *a, Hasher h) {
+		return hash_ops<uintptr_t>::hash_eat((uintptr_t)a, h);
 	}
 };
 
@@ -267,8 +267,8 @@ struct hash_obj_ops {
 		return a == b;
 	}
 	template<typename T>
-	static inline Hasher hash_acc(const T *a, Hasher h) {
-		return a ? a->hash_acc(h) : h;
+	static inline Hasher hash_eat(const T *a, Hasher h) {
+		return a ? a->hash_eat(h) : h;
 	}
 };
 /**
@@ -295,7 +295,7 @@ template<> struct hash_ops<std::monostate> {
 	static inline bool cmp(std::monostate a, std::monostate b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(std::monostate, Hasher h) {
+	static inline Hasher hash_eat(std::monostate, Hasher h) {
 		return h;
 	}
 };
@@ -304,9 +304,9 @@ template<typename... T> struct hash_ops<std::variant<T...>> {
 	static inline bool cmp(std::variant<T...> a, std::variant<T...> b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(std::variant<T...> a, Hasher h) {
-		std::visit([& h](const auto &v) { h.acc(v); }, a);
-		h.acc(a.index());
+	static inline Hasher hash_eat(std::variant<T...> a, Hasher h) {
+		std::visit([& h](const auto &v) { h.eat(v); }, a);
+		h.eat(a.index());
 		return h;
 	}
 };
@@ -315,11 +315,11 @@ template<typename T> struct hash_ops<std::optional<T>> {
 	static inline bool cmp(std::optional<T> a, std::optional<T> b) {
 		return a == b;
 	}
-	static inline Hasher hash_acc(std::optional<T> a, Hasher h) {
+	static inline Hasher hash_eat(std::optional<T> a, Hasher h) {
 		if(a.has_value())
-			h.acc(*a);
+			h.eat(*a);
 		else
-			h.acc(0);
+			h.eat(0);
 		return h;
 	}
 };
@@ -788,13 +788,13 @@ public:
 		return !operator==(other);
 	}
 
-	Hasher hash_acc(Hasher h) const {
-		h.acc(entries.size());
+	Hasher hash_eat(Hasher h) const {
+		h.eat(entries.size());
 		for (auto &it : entries) {
 			Hasher entry_hash;
-			entry_hash.acc(it.udata.first);
-			entry_hash.acc(it.udata.second);
-			h.commutative_acc(entry_hash.yield());
+			entry_hash.eat(it.udata.first);
+			entry_hash.eat(it.udata.second);
+			h.commutative_eat(entry_hash.yield());
 		}
 		return h;
 	}
@@ -1158,10 +1158,10 @@ public:
 		return !operator==(other);
 	}
 
-	Hasher hash_acc(Hasher h) const {
-		h.acc(entries.size());
+	Hasher hash_eat(Hasher h) const {
+		h.eat(entries.size());
 		for (auto &it : entries) {
-			h.commutative_acc(ops.hash(it.udata).yield());
+			h.commutative_eat(ops.hash(it.udata).yield());
 		}
 		return h;
 	}

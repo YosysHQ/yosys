@@ -43,10 +43,10 @@ struct BitPatternPool
 				return false;
 			return bitdata == other.bitdata;
 		}
-		Hasher hash_acc(Hasher h) const {
+		Hasher hash_eat(Hasher h) const {
 			if (!cached_hash)
 				cached_hash = run_hash(bitdata);
-			h.acc(cached_hash);
+			h.eat(cached_hash);
 			return h;
 		}
 	};

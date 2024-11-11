@@ -127,10 +127,10 @@ struct proc_dlatch_db_t
 			return signal == other.signal && match == other.match && children == other.children;
 		}
 
-		Hasher hash_acc(Hasher h) const {
-			h.acc(signal);
-			h.acc(match);
-			h.acc(children);
+		Hasher hash_eat(Hasher h) const {
+			h.eat(signal);
+			h.eat(match);
+			h.eat(children);
 			return h;
 		}
 	};

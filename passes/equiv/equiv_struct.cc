@@ -46,11 +46,11 @@ struct EquivStructWorker
 					parameters == other.parameters && port_sizes == other.port_sizes;
 		}
 
-		Hasher hash_acc(Hasher h) const {
-			h.acc(type);
-			h.acc(parameters);
-			h.acc(port_sizes);
-			h.acc(connections);
+		Hasher hash_eat(Hasher h) const {
+			h.eat(type);
+			h.eat(parameters);
+			h.eat(port_sizes);
+			h.eat(connections);
 			return h;
 		}
 	};
