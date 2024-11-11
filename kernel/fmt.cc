@@ -630,7 +630,7 @@ std::string escape_cxx_string(const std::string &input)
 	std::string output = "\"";
 	for (auto c : input) {
 		if (::isprint(c)) {
-			if (c == '\\')
+			if (c == '\\' || c == '"')
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
