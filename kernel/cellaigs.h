@@ -34,7 +34,7 @@ struct AigNode
 
 	AigNode();
 	bool operator==(const AigNode &other) const;
-	Hasher hash_acc(Hasher h) const;
+	Hasher hash_eat(Hasher h) const;
 };
 
 struct Aig
@@ -44,7 +44,7 @@ struct Aig
 	Aig(Cell *cell);
 
 	bool operator==(const Aig &other) const;
-	Hasher hash_acc(Hasher h) const;
+	Hasher hash_eat(Hasher h) const;
 };
 
 YOSYS_NAMESPACE_END
