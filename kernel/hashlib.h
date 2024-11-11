@@ -103,19 +103,19 @@ private:
 	static uint32_t fudge;
 	// The XOR version of DJB2
 	[[nodiscard]]
-	static uint32_t mkhash(uint32_t a, uint32_t b) {
+	static uint32_t djb2_xor(uint32_t a, uint32_t b) {
 		uint32_t hash = ((a << 5) + a) ^ b;
 		return hash;
 	}
 	public:
 	void hash32(uint32_t i) {
-		state = mkhash(i, state);
+		state = djb2_xor(i, state);
 		state = mkhash_xorshift(fudge ^ state);
 		return;
 	}
 	void hash64(uint64_t i) {
-		state = mkhash((uint32_t)(i % (1ULL << 32ULL)), state);
-		state = mkhash((uint32_t)(i >> 32ULL), state);
+		state = djb2_xor((uint32_t)(i % (1ULL << 32ULL)), state);
+		state = djb2_xor((uint32_t)(i >> 32ULL), state);
 		state = mkhash_xorshift(fudge ^ state);
 		return;
 	}
@@ -281,6 +281,14 @@ template<typename T>
 [[nodiscard]]
 Hasher::hash_t run_hash(const T& obj) {
 	return hash_top_ops<T>::hash(obj).yield();
+}
+
+/** Refer to docs/source/yosys_internals/hashing.rst */
+template<typename T>
+[[nodiscard]]
+[[deprecated]]
+inline unsigned int mkhash(const T &v) {
+	return (unsigned int) run_hash<T>(v);
 }
 
 template<> struct hash_ops<std::monostate> {
