@@ -728,10 +728,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	po_map.clear();
 
 	std::string tempdir_name;
-	if (cleanup)
-		tempdir_name = get_base_tmpdir() + "/";
-	else
-		tempdir_name = "_tmp_";
+	tempdir_name = get_base_tmpdir() + "/";
 	tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 	tempdir_name = make_temp_dir(tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/%s'..\n",
