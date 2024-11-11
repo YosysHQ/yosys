@@ -1077,6 +1077,7 @@ struct BtorWorker
 							btorf("%d input %d\n", nid, sid);
 							ywmap_input(s);
 							nid_width[nid] = GetSize(s);
+							add_nid_sig(nid, s);
 
 							for (int j = 0; j < GetSize(s); j++)
 								nidbits.push_back(make_pair(nid, j));
