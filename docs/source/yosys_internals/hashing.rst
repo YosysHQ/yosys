@@ -145,3 +145,9 @@ redirecting to ``hash_ops<T>``
        Hasher h;
        return (unsigned int)hash_acc(h).yield();
    }
+
+To get hashes for Yosys types, you can temporarily use the templated deprecated
+``mkhash`` function until the majority of your plugin's users switch to a newer
+version and live with the warnings, or set up a custom ``#ifdef``-based solution
+if you really need to.
+Feel free to contact Yosys maintainers with related issues.
