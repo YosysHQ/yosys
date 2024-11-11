@@ -98,13 +98,13 @@ Making a type hashable
 Let's first take a look at the external interface on a simplified level.
 Generally, to get the hash for ``T obj``, you would call the utility function
 ``run_hash<T>(const T& obj)``, corresponding to ``hash_top_ops<T>::hash(obj)``,
-the default implementation of which is ``hash_ops<T>::hash_acc(Hasher(), obj)``.
+the default implementation of which is ``hash_ops<T>::hash_eat(Hasher(), obj)``.
 ``Hasher`` is the class actually implementing the hash function, hiding its
 initialized internal state, and passing it out on ``hash_t yield()`` with
 perhaps some finalization steps.
 
 ``hash_ops<T>`` is the star of the show. By default it pulls the ``Hasher h``
-through a ``Hasher T::hash_acc(Hasher h)`` method. That's the method you have to
+through a ``Hasher T::hash_eat(Hasher h)`` method. That's the method you have to
 implement to make a record (class or struct) type easily hashable with Yosys
 hashlib associative data structures.
 
@@ -113,13 +113,13 @@ treats pointers the same as integers, so it doesn't dereference pointers. Since
 many RTLIL data structures like ``RTLIL::Wire`` carry their own unique index
 ``Hasher::hash_t hashidx_;``, there are specializations for ``hash_ops<Wire*>``
 and others in ``kernel/hashlib.h`` that actually dereference the pointers and
-call ``hash_acc`` on the instances pointed to.
+call ``hash_eat`` on the instances pointed to.
 
 ``hash_ops<T>`` is also specialized for simple compound types like
-``std::pair<U>`` by calling hash_acc in sequence on its members. For flexible
+``std::pair<U>`` by calling hash_eat in sequence on its members. For flexible
 size containers like ``std::vector<U>`` the size of the container is hashed
 first. That is also how implementing hashing for a custom record data type
-should be - unless there is strong reason to do otherwise, call ``h.acc(m)`` on
+should be - unless there is strong reason to do otherwise, call ``h.eat(m)`` on
 the ``Hasher h`` you have received for each member in sequence and ``return
 h;``. If you do have a strong reason to do so, look at how
 ``hash_top_ops<RTLIL::SigBit>`` is implemented in ``kernel/rtlil.h``.
@@ -134,7 +134,7 @@ operations thrown in to mix bits together somewhat. A plugin can stay compatible
 with both versions prior and after the break by implementing the aforementioned
 current interface and redirecting the legacy one:
 
-``void Hasher::acc(const T& t)`` hashes ``t`` into its internal state by also
+``void Hasher::eat(const T& t)`` hashes ``t`` into its internal state by also
 redirecting to ``hash_ops<T>``
 
 .. code-block:: cpp
@@ -143,7 +143,7 @@ redirecting to ``hash_ops<T>``
 
    inline unsigned int T::hash() const {
        Hasher h;
-       return (unsigned int)hash_acc(h).yield();
+       return (unsigned int)hash_eat(h).yield();
    }
 
 To get hashes for Yosys types, you can temporarily use the templated deprecated

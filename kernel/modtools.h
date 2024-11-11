@@ -48,10 +48,10 @@ struct ModIndex : public RTLIL::Monitor
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		Hasher hash_acc(Hasher h) const {
-			h.acc(cell->name);
-			h.acc(port);
-			h.acc(offset);
+		Hasher hash_eat(Hasher h) const {
+			h.eat(cell->name);
+			h.eat(port);
+			h.eat(offset);
 			return h;
 		}
 	};
@@ -324,10 +324,10 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		Hasher hash_acc(Hasher h) const {
-			h.acc(cell->name);
-			h.acc(port);
-			h.acc(offset);
+		Hasher hash_eat(Hasher h) const {
+			h.eat(cell->name);
+			h.eat(port);
+			h.eat(offset);
 			return h;
 		}
 	};
