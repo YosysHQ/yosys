@@ -1862,7 +1862,7 @@ inline Hasher RTLIL::SigBit::hash_eat(Hasher h) const {
 inline Hasher RTLIL::SigBit::hash_top() const {
 	Hasher h;
 	if (wire) {
-		h.force(hashlib::legacy::mkhash_add(wire->name.index_, offset));
+		h.force(hashlib::legacy::djb2_add(wire->name.index_, offset));
 		return h;
 	}
 	h.force(data);
