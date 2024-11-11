@@ -118,6 +118,7 @@ AWK ?= awk
 
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
+LINKFLAGS += -rdynamic
 
 # homebrew search paths
 ifneq ($(shell :; command -v brew),)
@@ -154,7 +155,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.45+139
+YOSYS_VER := 0.47+22
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -170,7 +171,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9ed031d.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 647d61d.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -737,12 +738,18 @@ compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
 	@echo "  Compile successful."
 	@echo ""
 
+.PHONY: share
+share: $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Share directory created."
+	@echo ""
+
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
 	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 else
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif
@@ -924,8 +931,8 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 
 # Unit test
 unit-test: libyosys.so
-	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
-		CXXFLAGS="$(CXXFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
+	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
+		CXXFLAGS="$(CXXFLAGS)" LINKFLAGS="$(LINKFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
@@ -975,20 +982,30 @@ endif
 
 # also others, but so long as it doesn't fail this is enough to know we tried
 docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	mkdir -p docs/source/cmd
-	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) mkdir -p docs/source/cmd
+	$(Q) mkdir -p temp/docs/source/cmd
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) rsync -rc temp/docs/source/cmd docs/source
+	$(Q) rm -rf temp
+docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) mkdir -p docs/source/cell
+	$(Q) mkdir -p temp/docs/source/cell
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
+	$(Q) rsync -rc temp/docs/source/cell docs/source
+	$(Q) rm -rf temp
 
-PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
-docs/gen_examples:
-	$(Q) $(MAKE) -C docs examples
+docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
-docs/gen_images:
-	$(Q) $(MAKE) -C docs images
+PHONY: docs/gen docs/guidelines docs/usage docs/reqs
+docs/gen: $(TARGETS)
+	$(Q) $(MAKE) -C docs gen
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-docs/guidelines docs/source/generated:
+DOCS_GUIDELINE_SOURCE := $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES))
+docs/guidelines docs/source/generated: $(DOCS_GUIDELINE_SOURCE)
 	$(Q) mkdir -p docs/source/generated
-	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/generated
+	$(Q) cp -f $(DOCS_GUIDELINE_SOURCE) docs/source/generated
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
@@ -1018,7 +1035,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/guidelines docs/usage
 
 DOC_TARGET ?= html
 docs: docs/prep
@@ -1078,6 +1095,7 @@ vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
 		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
 	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
 	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
 	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc

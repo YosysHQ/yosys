@@ -876,9 +876,20 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					sel.selected_members[mod->name].insert(cell->name);
 		} else
 		if (arg_memb.compare(0, 2, "t:") == 0) {
-			for (auto cell : mod->cells())
-				if (match_ids(cell->type, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(cell->name);
+			if (arg_memb.compare(2, 1, "@") == 0) {
+				std::string set_name = RTLIL::escape_id(arg_memb.substr(3));
+				if (!design->selection_vars.count(set_name))
+					log_cmd_error("Selection @%s is not defined!\n", RTLIL::unescape_id(set_name).c_str());
+
+				auto &muster = design->selection_vars[set_name];
+				for (auto cell : mod->cells())
+					if (muster.selected_modules.count(cell->type))
+						sel.selected_members[mod->name].insert(cell->name);
+			} else {
+				for (auto cell : mod->cells())
+					if (match_ids(cell->type, arg_memb.substr(2)))
+						sel.selected_members[mod->name].insert(cell->name);
+			}
 		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
@@ -1030,7 +1041,7 @@ struct SelectPass : public Pass {
 		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
 		log("    select [ -unset <name> ]\n");
 		log("    select [ <assert_option> ] {-read <filename> | <selection>}\n");
-		log("    select [ -list | -write <filename> | -count | -clear ]\n");
+		log("    select [ -list | -list-mod | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
 		log("\n");
 		log("Most commands use the list of currently selected objects to determine which part\n");
@@ -1164,6 +1175,9 @@ struct SelectPass : public Pass {
 		log("    t:<pattern>\n");
 		log("        all cells with a type matching the given pattern\n");
 		log("\n");
+		log("    t:@<name>\n");
+		log("        all cells with a type matching a module in the saved selection <name>\n");
+		log("\n");
 		log("    p:<pattern>\n");
 		log("        all processes with a name matching the given pattern\n");
 		log("\n");
@@ -1263,6 +1277,7 @@ struct SelectPass : public Pass {
 		bool clear_mode = false;
 		bool none_mode = false;
 		bool list_mode = false;
+		bool list_mod_mode = false;
 		bool count_mode = false;
 		bool got_module = false;
 		bool assert_none = false;
@@ -1322,6 +1337,11 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-list") {
 				list_mode = true;
+				continue;
+			}
+			if (arg == "-list-mod") {
+				list_mode = true;
+				list_mod_mode = true;
 				continue;
 			}
 			if (arg == "-write" && argidx+1 < args.size()) {
@@ -1402,7 +1422,7 @@ struct SelectPass : public Pass {
 			log_cmd_error("Options %s can not be combined.\n", common_flagset);                
 
 		if ((list_mode || !write_file.empty() || count_mode) && common_flagset_tally)
-			log_cmd_error("Options -list, -write and -count can not be combined with %s.\n", common_flagset);
+			log_cmd_error("Options -list, -list-mod, -write and -count can not be combined with %s.\n", common_flagset);
 
 		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || !unset_name.empty() || common_flagset_tally))
 			log_cmd_error("Option -set can not be combined with -list, -write, -count, -unset, %s.\n", common_flagset);
@@ -1453,7 +1473,7 @@ struct SelectPass : public Pass {
 			{
 				if (sel->selected_whole_module(mod->name) && list_mode)
 					log("%s\n", id2cstr(mod->name));
-				if (sel->selected_module(mod->name)) {
+				if (sel->selected_module(mod->name) && !list_mod_mode) {
 					for (auto wire : mod->wires())
 						if (sel->selected_member(mod->name, wire->name))
 							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name))

@@ -1500,11 +1500,69 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 		break;
 
+	case AST_CAST_SIZE: {
+		int width = 1;
+		AstNode *node;
+		AstNode *child = children[0];
+
+		if (child->type == AST_WIRE) {
+			if (child->children.size() == 0) {
+				// Base type (e.g., int)
+				width = child->range_left - child->range_right +1;
+				node = mkconst_int(width, child->is_signed);
+			} else {
+				// User defined type
+				log_assert(child->children[0]->type == AST_WIRETYPE);
+
+				const std::string &type_name = child->children[0]->str;
+				if (!current_scope.count(type_name))
+					input_error("Unknown identifier `%s' used as type name\n", type_name.c_str());
+				AstNode *resolved_type_node = current_scope.at(type_name);
+				if (resolved_type_node->type != AST_TYPEDEF)
+					input_error("`%s' does not name a type\n", type_name.c_str());
+				log_assert(resolved_type_node->children.size() == 1);
+				AstNode *template_node = resolved_type_node->children[0];
+
+				// Ensure typedef itself is fully simplified
+				while (template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
+
+				switch (template_node->type)
+				{
+				case AST_WIRE: {
+					if (template_node->children.size() > 0 && template_node->children[0]->type == AST_RANGE)
+						width = range_width(this, template_node->children[0]);
+					child->delete_children();
+					node = mkconst_int(width, true);
+					break;
+				}
+
+				case AST_STRUCT:
+				case AST_UNION: {
+					child->delete_children();
+					width = size_packed_struct(template_node, 0);
+					node = mkconst_int(width, false);
+					break;
+				}
+
+				default:
+					log_error("Don't know how to translate static cast of type %s\n", type2str(template_node->type).c_str());
+				}
+			}
+
+			delete child;
+			children.erase(children.begin());
+			children.insert(children.begin(), node);
+		}
+
+		detect_width_simple = true;
+		children_are_self_determined = true;
+		break;
+	}
+
 	case AST_TO_BITS:
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_SELFSZ:
-	case AST_CAST_SIZE:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:
@@ -1660,8 +1718,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (v->type == AST_CONSTANT && v->bits_only_01()) {
 						RTLIL::Const case_item_expr = v->bitsAsConst(width_hint, sign_hint);
 						RTLIL::Const match = const_eq(case_expr, case_item_expr, sign_hint, sign_hint, 1);
-						log_assert(match.bits.size() == 1);
-						if (match.bits.front() == RTLIL::State::S1) {
+						log_assert(match.size() == 1);
+						if (match.front() == RTLIL::State::S1) {
 							while (i+1 < GetSize(children))
 								delete children[++i];
 							goto keep_const_cond;
@@ -1963,7 +2021,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (children[1]->type != AST_CONSTANT)
 			input_error("Right operand of to_bits expression is not constant!\n");
 		RTLIL::Const new_value = children[1]->bitsAsConst(children[0]->bitsAsConst().as_int(), children[1]->is_signed);
-		newNode = mkconst_bits(new_value.bits, children[1]->is_signed);
+		newNode = mkconst_bits(new_value.to_bits(), children[1]->is_signed);
 		goto apply_newNode;
 	}
 
@@ -2126,7 +2184,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				log_file_warning(filename, location.first_line, "converting real value %e to binary %s.\n",
 						children[0]->realvalue, log_signal(constvalue));
 				delete children[0];
-				children[0] = mkconst_bits(constvalue.bits, sign_hint);
+				children[0] = mkconst_bits(constvalue.to_bits(), sign_hint);
 				fixup_hierarchy_flags();
 				did_something = true;
 			}
@@ -2135,7 +2193,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					RTLIL::SigSpec sig(children[0]->bits);
 					sig.extend_u0(width, children[0]->is_signed);
 					AstNode *old_child_0 = children[0];
-					children[0] = mkconst_bits(sig.as_const().bits, is_signed);
+					children[0] = mkconst_bits(sig.as_const().to_bits(), is_signed);
 					delete old_child_0;
 					fixup_hierarchy_flags();
 				}
@@ -3435,8 +3493,8 @@ skip_dynamic_range_lvalue_expansion:;
 				delete buf;
 
 				uint32_t result = 0;
-				for (size_t i = 0; i < arg_value.bits.size(); i++)
-					if (arg_value.bits.at(i) == RTLIL::State::S1)
+				for (size_t i = 0; i < arg_value.size(); i++)
+					if (arg_value.at(i) == RTLIL::State::S1)
 						result = i + 1;
 
 				newNode = mkconst_int(result, true);
@@ -4115,14 +4173,14 @@ replace_fcall_later:;
 		case AST_BIT_NOT:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = RTLIL::const_not(children[0]->bitsAsConst(width_hint, sign_hint), dummy_arg, sign_hint, false, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = mkconst_bits(y.to_bits(), sign_hint);
 			}
 			break;
 		case AST_TO_SIGNED:
 		case AST_TO_UNSIGNED:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = children[0]->bitsAsConst(width_hint, sign_hint);
-				newNode = mkconst_bits(y.bits, type == AST_TO_SIGNED);
+				newNode = mkconst_bits(y.to_bits(), type == AST_TO_SIGNED);
 			}
 			break;
 		if (0) { case AST_BIT_AND:  const_func = RTLIL::const_and;  }
@@ -4132,7 +4190,7 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = mkconst_bits(y.to_bits(), sign_hint);
 			}
 			break;
 		if (0) { case AST_REDUCE_AND:  const_func = RTLIL::const_reduce_and;  }
@@ -4142,13 +4200,13 @@ replace_fcall_later:;
 		if (0) { case AST_REDUCE_BOOL: const_func = RTLIL::const_reduce_bool; }
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), dummy_arg, false, false, -1);
-				newNode = mkconst_bits(y.bits, false);
+				newNode = mkconst_bits(y.to_bits(), false);
 			}
 			break;
 		case AST_LOGIC_NOT:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = RTLIL::const_logic_not(RTLIL::Const(children[0]->bits), dummy_arg, children[0]->is_signed, false, -1);
-				newNode = mkconst_bits(y.bits, false);
+				newNode = mkconst_bits(y.to_bits(), false);
 			} else
 			if (children[0]->isConst()) {
 				newNode = mkconst_int(children[0]->asReal(sign_hint) == 0, false, 1);
@@ -4159,7 +4217,7 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), RTLIL::Const(children[1]->bits),
 						children[0]->is_signed, children[1]->is_signed, -1);
-				newNode = mkconst_bits(y.bits, false);
+				newNode = mkconst_bits(y.to_bits(), false);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				if (type == AST_LOGIC_AND)
@@ -4176,7 +4234,7 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						RTLIL::Const(children[1]->bits), sign_hint, type == AST_POW ? children[1]->is_signed : false, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = mkconst_bits(y.to_bits(), sign_hint);
 			} else
 			if (type == AST_POW && children[0]->isConst() && children[1]->isConst()) {
 				newNode = new AstNode(AST_REALVALUE);
@@ -4196,7 +4254,7 @@ replace_fcall_later:;
 				bool cmp_signed = children[0]->is_signed && children[1]->is_signed;
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(cmp_width, cmp_signed),
 						children[1]->bitsAsConst(cmp_width, cmp_signed), cmp_signed, cmp_signed, 1);
-				newNode = mkconst_bits(y.bits, false);
+				newNode = mkconst_bits(y.to_bits(), false);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				bool cmp_signed = (children[0]->type == AST_REALVALUE || children[0]->is_signed) && (children[1]->type == AST_REALVALUE || children[1]->is_signed);
@@ -4221,7 +4279,7 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = mkconst_bits(y.to_bits(), sign_hint);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				newNode = new AstNode(AST_REALVALUE);
@@ -4240,7 +4298,7 @@ replace_fcall_later:;
 		if (0) { case AST_NEG: const_func = RTLIL::const_neg; }
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint), dummy_arg, sign_hint, false, width_hint);
-				newNode = mkconst_bits(y.bits, sign_hint);
+				newNode = mkconst_bits(y.to_bits(), sign_hint);
 			} else
 			if (children[0]->isConst()) {
 				newNode = new AstNode(AST_REALVALUE);
@@ -4268,10 +4326,10 @@ replace_fcall_later:;
 							newNode->realvalue = choice->asReal(sign_hint);
 						} else {
 							RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
-							if (choice->is_string && y.bits.size() % 8 == 0 && sign_hint == false)
-								newNode = mkconst_str(y.bits);
+							if (choice->is_string && y.size() % 8 == 0 && sign_hint == false)
+								newNode = mkconst_str(y.to_bits());
 							else
-								newNode = mkconst_bits(y.bits, sign_hint);
+								newNode = mkconst_bits(y.to_bits(), sign_hint);
 						}
 					} else
 					if (choice->isConst()) {
@@ -4280,11 +4338,11 @@ replace_fcall_later:;
 				} else if (children[1]->type == AST_CONSTANT && children[2]->type == AST_CONSTANT) {
 					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
 					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
-					log_assert(a.bits.size() == b.bits.size());
-					for (size_t i = 0; i < a.bits.size(); i++)
-						if (a.bits[i] != b.bits[i])
-							a.bits[i] = RTLIL::State::Sx;
-					newNode = mkconst_bits(a.bits, sign_hint);
+					log_assert(a.size() == b.size());
+					for (size_t i = 0; i < a.size(); i++)
+						if (a[i] != b[i])
+							a.bits()[i] = RTLIL::State::Sx;
+					newNode = mkconst_bits(a.to_bits(), sign_hint);
 				} else if (children[1]->isConst() && children[2]->isConst()) {
 					newNode = new AstNode(AST_REALVALUE);
 					if (children[1]->asReal(sign_hint) == children[2]->asReal(sign_hint))
@@ -4305,7 +4363,7 @@ replace_fcall_later:;
 					val = children[1]->bitsAsUnsizedConst(width);
 				else
 					val = children[1]->bitsAsConst(width);
-				newNode = mkconst_bits(val.bits, children[1]->is_signed);
+				newNode = mkconst_bits(val.to_bits(), children[1]->is_signed);
 			}
 			break;
 		case AST_CONCAT:
@@ -4890,7 +4948,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 						target->str = str;
 						target->id2ast = id2ast;
 						target->was_checked = true;
-						block->children.push_back(new AstNode(AST_ASSIGN_EQ, target, mkconst_bits(data.extract(i*wordsz + pos, clen).bits, false)));
+						block->children.push_back(new AstNode(AST_ASSIGN_EQ, target, mkconst_bits(data.extract(i*wordsz + pos, clen).to_bits(), false)));
 						pos = epos;
 					}
 				}
@@ -5245,7 +5303,7 @@ bool AstNode::is_simple_const_expr()
 bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &variables, AstNode *fcall, bool must_succeed)
 {
 	if (type == AST_IDENTIFIER && variables.count(str)) {
-		int offset = variables.at(str).offset, width = variables.at(str).val.bits.size();
+		int offset = variables.at(str).offset, width = variables.at(str).val.size();
 		if (!children.empty()) {
 			if (children.size() != 1 || children.at(0)->type != AST_RANGE) {
 				if (!must_succeed)
@@ -5268,7 +5326,7 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 		offset -= variables.at(str).offset;
 		if (variables.at(str).range_swapped)
 			offset = -offset;
-		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits;
+		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits();
 		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
 		AstNode *newNode = mkconst_bits(new_bits, variables.at(str).is_signed);
 		newNode->cloneInto(this);
@@ -5399,7 +5457,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			}
 
 			if (stmt->children.at(0)->children.empty()) {
-				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.bits.size());
+				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.size());
 			} else {
 				AstNode *range = stmt->children.at(0)->children.at(0);
 				if (!range->range_valid) {
@@ -5410,12 +5468,12 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
-				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.bits.size());
+				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.size());
 				for (int i = 0; i < width; i++) {
 					int index = i + offset - v.offset;
 					if (v.range_swapped)
 						index = -index;
-					v.val.bits.at(index) = r.bits.at(i);
+					v.val.bits().at(index) = r.at(i);
 				}
 			}
 
@@ -5558,7 +5616,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 		log_abort();
 	}
 
-	result = AstNode::mkconst_bits(variables.at(str).val.bits, variables.at(str).is_signed);
+	result = AstNode::mkconst_bits(variables.at(str).val.to_bits(), variables.at(str).is_signed);
 
 finished:
 	delete block;

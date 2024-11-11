@@ -33,6 +33,9 @@ Yosys is free software licensed under the ISC license (a GPL
 compatible license that is similar in terms to the MIT license
 or the 2-clause BSD license).
 
+Third-party software distributed alongside this software
+is licensed under compatible licenses.
+Please refer to `abc` and `libs` subdirectories for their license terms.
 
 Web Site and Other Resources
 ============================
@@ -127,9 +130,15 @@ lld by enabling LTO:
 
  $ make ENABLE_LTO=1
 
+On macOS, LTO requires using clang from homebrew which isn't in PATH
+rather than xcode clang.
+
+$ make ENABLE_LTO=1 CXX=$(brew --prefix)/opt/llvm/bin/clang++
+
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
-Makefile.
+Makefile. It's also an alternative way to set the make variables
+mentioned above.
 
 	$ vi Makefile            # ..or..
 	$ vi Makefile.conf

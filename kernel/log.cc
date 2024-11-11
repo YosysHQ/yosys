@@ -459,8 +459,21 @@ void log_cmd_error(const char *format, ...)
 
 	if (log_cmd_error_throw) {
 		log_last_error = vstringf(format, ap);
+
+		// Make sure the error message gets through any selective silencing
+		// of log output
+		bool pop_errfile = false;
+		if (log_errfile != NULL) {
+			log_files.push_back(log_errfile);
+			pop_errfile = true;
+		}
+
 		log("ERROR: %s", log_last_error.c_str());
 		log_flush();
+
+		if (pop_errfile)
+			log_files.pop_back();
+
 		throw log_cmd_error_exception();
 	}
 

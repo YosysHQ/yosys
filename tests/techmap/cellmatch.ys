@@ -77,3 +77,11 @@ opt_clean
 equiv_induct equiv
 equiv_status -assert
 
+design -reset
+design -load gatelib
+cellmatch -derive_luts
+select -assert-any bufgate/w:Y a:lut=2'b10 %i
+select -assert-any reducegate/w:X a:lut=8'b10000000 %i
+select -assert-any reducegate/w:Y a:lut=8'b11111110 %i
+select -assert-any fagate/w:X a:lut=8'b10010110 %i
+select -assert-any fagate/w:Y a:lut=8'b11101000 %i

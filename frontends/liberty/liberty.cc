@@ -465,6 +465,9 @@ struct LibertyFrontend : public Frontend {
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
+		log("    -unit_delay\n");
+		log("        import combinational timing arcs under the unit delay model\n");
+		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -475,6 +478,7 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
 		bool flag_ignore_miss_data_latch = false;
+		bool flag_unit_delay = false;
 		std::vector<std::string> attributes;
 
 		size_t argidx;
@@ -512,6 +516,10 @@ struct LibertyFrontend : public Frontend {
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (arg == "-unit_delay") {
+				flag_unit_delay = true;
 				continue;
 			}
 			break;
@@ -652,6 +660,7 @@ struct LibertyFrontend : public Frontend {
 						continue;
 
 					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
+					log_assert(wire);
 
 					if (dir && dir->value == "inout") {
 						wire->port_input = true;
@@ -689,6 +698,43 @@ struct LibertyFrontend : public Frontend {
 							out_sig = create_tristate(module, out_sig, three_state->value.c_str());
 						}
 						module->connect(RTLIL::SigSig(wire, out_sig));
+					}
+
+					if (flag_unit_delay) {
+						pool<Wire *> done;
+
+						for (auto timing : node->children)
+						if (timing->id == "timing" && timing->args.empty()) {
+							auto type = timing->find("timing_type");
+							auto related_pin = timing->find("related_pin");
+							if (!type || type->value != "combinational" || !related_pin)
+								continue;
+
+							Wire *related = module->wire(RTLIL::escape_id(related_pin->value));
+							if (!related)
+								log_error("Failed to find related pin %s for timing of pin %s on %s\n",
+										  related_pin->value.c_str(), log_id(wire), log_id(module));
+
+							if (done.count(related))
+								continue;
+
+							RTLIL::Cell *spec = module->addCell(NEW_ID, ID($specify2));
+							spec->setParam(ID::SRC_WIDTH, 1);
+							spec->setParam(ID::DST_WIDTH, 1);
+							spec->setParam(ID::T_FALL_MAX, 1000);
+							spec->setParam(ID::T_FALL_TYP, 1000);
+							spec->setParam(ID::T_FALL_MIN, 1000);
+							spec->setParam(ID::T_RISE_MAX, 1000);
+							spec->setParam(ID::T_RISE_TYP, 1000);
+							spec->setParam(ID::T_RISE_MIN, 1000);
+							spec->setParam(ID::SRC_DST_POL, false);
+							spec->setParam(ID::SRC_DST_PEN, false);
+							spec->setParam(ID::FULL, false);
+							spec->setPort(ID::EN, Const(1, 1));
+							spec->setPort(ID::SRC, related);
+							spec->setPort(ID::DST, wire);
+							done.insert(related);
+						}
 					}
 				}
 			}

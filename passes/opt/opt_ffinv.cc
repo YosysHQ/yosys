@@ -98,7 +98,7 @@ struct OptFfInvWorker
 				Const mask = lut->getParam(ID::LUT);
 				Const new_mask;
 				for (int j = 0; j < (1 << GetSize(sig_a)); j++) {
-					new_mask.bits.push_back(mask.bits[j ^ flip_mask]);
+					new_mask.bits().push_back(mask[j ^ flip_mask]);
 				}
 				if (GetSize(sig_a) == 1 && new_mask.as_int() == 2) {
 					module->connect(lut->getPort(ID::Y), ff.sig_q);
@@ -180,10 +180,10 @@ struct OptFfInvWorker
 			Const mask = d_lut->getParam(ID::LUT);
 			Const new_mask;
 			for (int i = 0; i < GetSize(mask); i++) {
-				if (mask.bits[i] == State::S0)
-					new_mask.bits.push_back(State::S1);
+				if (mask[i] == State::S0)
+					new_mask.bits().push_back(State::S1);
 				else
-					new_mask.bits.push_back(State::S0);
+					new_mask.bits().push_back(State::S0);
 			}
 			d_lut->setParam(ID::LUT, new_mask);
 			if (d_lut->getParam(ID::WIDTH) == 1 && new_mask.as_int() == 2) {

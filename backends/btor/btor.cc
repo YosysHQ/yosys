@@ -711,9 +711,9 @@ struct BtorWorker
 			Const initval;
 			for (int i = 0; i < GetSize(sig_q); i++)
 				if (initbits.count(sig_q[i]))
-					initval.bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
+					initval.bits().push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
 				else
-					initval.bits.push_back(State::Sx);
+					initval.bits().push_back(State::Sx);
 
 			int nid_init_val = -1;
 
@@ -832,7 +832,10 @@ struct BtorWorker
 					}
 				}
 
-				if (constword)
+				// If not fully defined, undef bits should be able to take a
+				// different value for each address so we can't initialise from
+				// one value (and btor2parser doesn't like it)
+				if (constword && firstword.is_fully_def())
 				{
 					if (verbose)
 						btorf("; initval = %s\n", log_signal(firstword));
@@ -1042,7 +1045,7 @@ struct BtorWorker
 						Const c(bit.data);
 
 						while (i+GetSize(c) < GetSize(sig) && sig[i+GetSize(c)].wire == nullptr)
-							c.bits.push_back(sig[i+GetSize(c)].data);
+							c.bits().push_back(sig[i+GetSize(c)].data);
 
 						if (consts.count(c) == 0) {
 							int sid = get_bv_sid(GetSize(c));
@@ -1077,6 +1080,7 @@ struct BtorWorker
 							btorf("%d input %d\n", nid, sid);
 							ywmap_input(s);
 							nid_width[nid] = GetSize(s);
+							add_nid_sig(nid, s);
 
 							for (int j = 0; j < GetSize(s); j++)
 								nidbits.push_back(make_pair(nid, j));

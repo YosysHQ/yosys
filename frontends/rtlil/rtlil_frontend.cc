@@ -96,20 +96,5 @@ struct RTLILFrontend : public Frontend {
 	}
 } RTLILFrontend;
 
-struct IlangFrontend : public Frontend {
-	IlangFrontend() : Frontend("ilang", "(deprecated) alias of read_rtlil") { }
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("See `help read_rtlil`.\n");
-		log("\n");
-	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		RTLILFrontend.execute(f, filename, args, design);
-	}
-} IlangFrontend;
-
 YOSYS_NAMESPACE_END
 

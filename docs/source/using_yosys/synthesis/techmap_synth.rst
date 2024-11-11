@@ -29,8 +29,8 @@ provided implementation.
 
 When no map file is provided, techmap uses a built-in map file that maps the
 Yosys RTL cell types to the internal gate library used by Yosys. The curious
-reader may find this map file as `techlibs/common/techmap.v` in the Yosys source
-tree.
+reader may find this map file as :file:`techlibs/common/techmap.v` in the Yosys
+source tree.
 
 Additional features have been added to techmap to allow for conditional mapping
 of cells (see :doc:`/cmd/techmap`). This can for example be useful if the target

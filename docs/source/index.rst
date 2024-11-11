@@ -23,22 +23,32 @@ available, go to :ref:`commandindex`.
    - Search bar with live drop down suggestions for matching on title /
      autocompleting commands
    - Scroll the left sidebar to the current location on page load
-   - Also the formatting/linking in pdf is broken
+   - Also the formatting in pdf uses link formatting instead of code formatting
 
 .. todolist::
-
-.. only:: html
-
-   Table of contents
-   -----------------
 
 .. toctree::
    :maxdepth: 3
    :includehidden:
 
+   Yosys (index) <self>
    introduction
+
    getting_started/index
    using_yosys/index
    yosys_internals/index
 
-   appendix
+.. toctree::
+   :caption: Appendix
+   :titlesonly:
+   :includehidden:
+
+   appendix/primer
+   appendix/rtlil_text
+   appendix/auxlibs
+   appendix/auxprogs
+
+   bib
+
+   cell_index
+   cmd_ref

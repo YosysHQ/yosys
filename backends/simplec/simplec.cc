@@ -657,7 +657,7 @@ struct SimplecWorker
 			{
 				SigSpec sig = sigmaps.at(module)(w);
 				Const val = w->attributes.at(ID::init);
-				val.bits.resize(GetSize(sig), State::Sx);
+				val.bits().resize(GetSize(sig), State::Sx);
 
 				for (int i = 0; i < GetSize(sig); i++)
 					if (val[i] == State::S0 || val[i] == State::S1) {

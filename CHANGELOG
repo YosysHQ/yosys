@@ -2,8 +2,47 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.45 .. Yosys 0.46-dev
+Yosys 0.47 .. Yosys 0.48-dev
 --------------------------
+
+Yosys 0.46 .. Yosys 0.47
+--------------------------
+ * Various
+    - Added cxxopts library for handling command line arguments.
+    - Added docs generation from cells help output.
+
+ * New commands and options
+    - Added "-json" option to "synth_xilinx" pass.
+    - Added "-derive_luts" option to "cellmatch" pass.
+    - Added "t:@<name>" syntax to "select" pass.
+    - Added "-list-mod" option to "select" pass.
+    - Removed deprecated "qwp" pass.
+
+ * Verific support
+    - Initial state handling for VHDL assertions.
+
+Yosys 0.45 .. Yosys 0.46
+--------------------------
+ * Various
+    - Added new "functional backend" infrastructure with three example
+      backends (C++, SMTLIB and Rosette).
+    - Added new coarse-grain buffer cell type "$buf" to RTLIL.
+    - Added "-y" command line option to execute a Python script with 
+      libyosys available as a built-in module.
+    - Added support for casting to type in Verilog frontend.
+
+ * New commands and options
+    - Added "clockgate" pass for automatic clock gating cell insertion.
+    - Added "bufnorm" experimental pass to convert design into
+      buffered-normalized form.
+    - Added experimental "aiger2" and "xaiger2" backends, and an 
+      experimental "abc_new" command
+    - Added "-force-detailed-loop-check" option to "check" pass.
+    - Added "-unit_delay" option to "read_liberty" pass.
+
+ * Verific support
+    - Added left and right bound properties to wires when using
+      specific VHDL types.
 
 Yosys 0.44 .. Yosys 0.45
 --------------------------

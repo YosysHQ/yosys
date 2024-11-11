@@ -27,6 +27,8 @@ struct ExampleDtPass : public Pass
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
+		log("TODO: add help message\n");
+		log("\n");
     }
 
 

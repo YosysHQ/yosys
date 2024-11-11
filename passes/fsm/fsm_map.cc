@@ -30,11 +30,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 static bool pattern_is_subset(const RTLIL::Const &super_pattern, const RTLIL::Const &sub_pattern)
 {
-	log_assert(GetSize(super_pattern.bits) == GetSize(sub_pattern.bits));
-	for (int i = 0; i < GetSize(super_pattern.bits); i++)
-		if (sub_pattern.bits[i] == RTLIL::State::S0 || sub_pattern.bits[i] == RTLIL::State::S1) {
-			if (super_pattern.bits[i] == RTLIL::State::S0 || super_pattern.bits[i] == RTLIL::State::S1) {
-					if (super_pattern.bits[i] != sub_pattern.bits[i])
+	log_assert(GetSize(super_pattern) == GetSize(sub_pattern));
+	for (int i = 0; i < GetSize(super_pattern); i++)
+		if (sub_pattern[i] == RTLIL::State::S0 || sub_pattern[i] == RTLIL::State::S1) {
+			if (super_pattern[i] == RTLIL::State::S0 || super_pattern[i] == RTLIL::State::S1) {
+					if (super_pattern[i] != sub_pattern[i])
 						return false;
 			} else
 				return false;
@@ -54,10 +54,10 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 		RTLIL::Const pattern = it.first;
 		RTLIL::SigSpec eq_sig_a, eq_sig_b, or_sig;
 
-		for (size_t j = 0; j < pattern.bits.size(); j++)
-			if (pattern.bits[j] == RTLIL::State::S0 || pattern.bits[j] == RTLIL::State::S1) {
+		for (size_t j = 0; j < pattern.size(); j++)
+			if (pattern[j] == RTLIL::State::S0 || pattern[j] == RTLIL::State::S1) {
 				eq_sig_a.append(ctrl_in.extract(j, 1));
-				eq_sig_b.append(RTLIL::SigSpec(pattern.bits[j]));
+				eq_sig_b.append(RTLIL::SigSpec(pattern[j]));
 			}
 
 		for (int in_state : it.second)
@@ -176,7 +176,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		state_dff->type = ID($adff);
 		state_dff->parameters[ID::ARST_POLARITY] = fsm_cell->parameters[ID::ARST_POLARITY];
 		state_dff->parameters[ID::ARST_VALUE] = fsm_data.state_table[fsm_data.reset_state];
-		for (auto &bit : state_dff->parameters[ID::ARST_VALUE].bits)
+		for (auto &bit : state_dff->parameters[ID::ARST_VALUE].bits())
 			if (bit != RTLIL::State::S1)
 				bit = RTLIL::State::S0;
 		state_dff->setPort(ID::ARST, fsm_cell->getPort(ID::ARST));
@@ -198,10 +198,10 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		RTLIL::Const state = fsm_data.state_table[i];
 		RTLIL::SigSpec sig_a, sig_b;
 
-		for (size_t j = 0; j < state.bits.size(); j++)
-			if (state.bits[j] == RTLIL::State::S0 || state.bits[j] == RTLIL::State::S1) {
+		for (size_t j = 0; j < state.size(); j++)
+			if (state[j] == RTLIL::State::S0 || state[j] == RTLIL::State::S1) {
 				sig_a.append(RTLIL::SigSpec(state_wire, j));
-				sig_b.append(RTLIL::SigSpec(state.bits[j]));
+				sig_b.append(RTLIL::SigSpec(state[j]));
 			}
 
 		if (sig_b == RTLIL::SigSpec(RTLIL::State::S1))
@@ -261,8 +261,8 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 			for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
 				RTLIL::Const state = fsm_data.state_table[i];
 				int bit_idx = -1;
-				for (size_t j = 0; j < state.bits.size(); j++)
-					if (state.bits[j] == RTLIL::State::S1)
+				for (size_t j = 0; j < state.size(); j++)
+					if (state[j] == RTLIL::State::S1)
 						bit_idx = j;
 				if (bit_idx >= 0)
 					next_state_sig.replace(bit_idx, RTLIL::SigSpec(next_state_onehot, i));
@@ -306,7 +306,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 			fullstate_cache.insert(j);
 
 		for (auto &tr : fsm_data.transition_table) {
-			if (tr.ctrl_out.bits[i] == RTLIL::State::S1)
+			if (tr.ctrl_out[i] == RTLIL::State::S1)
 				pattern_cache[tr.ctrl_in].insert(tr.state_in);
 			else
 				fullstate_cache.erase(tr.state_in);

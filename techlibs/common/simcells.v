@@ -28,6 +28,7 @@
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_BUF_ (A, Y)
+//* group comb_simple
 //-
 //- A buffer. This cell type is always optimized away by the opt_clean pass.
 //-
@@ -45,6 +46,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_NOT_ (A, Y)
+//* group comb_simple
 //-
 //- An inverter gate.
 //-
@@ -62,6 +64,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_AND_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input AND gate.
 //-
@@ -81,6 +84,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_NAND_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input NAND gate.
 //-
@@ -100,6 +104,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_OR_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input OR gate.
 //-
@@ -119,6 +124,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_NOR_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input NOR gate.
 //-
@@ -138,6 +144,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_XOR_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input XOR gate.
 //-
@@ -157,6 +164,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_XNOR_ (A, B, Y)
+//* group comb_simple
 //-
 //- A 2-input XNOR gate.
 //-
@@ -176,6 +184,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ANDNOT_ (A, B, Y)
+//* group comb_combined
 //-
 //- A 2-input AND-NOT gate.
 //-
@@ -195,6 +204,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ORNOT_ (A, B, Y)
+//* group comb_combined
 //-
 //- A 2-input OR-NOT gate.
 //-
@@ -214,6 +224,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_MUX_ (A, B, S, Y)
+//* group comb_simple
 //-
 //- A 2-input MUX gate.
 //-
@@ -233,6 +244,7 @@ endmodule
 //-     $_NMUX_ (A, B, S, Y)
 //-
 //- A 2-input inverting MUX gate.
+//* group comb_combined
 //-
 //- Truth table:    A B S | Y
 //-                -------+---
@@ -250,6 +262,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_MUX4_ (A, B, C, D, S, T, Y)
+//* group comb_combined
 //-
 //- A 4-input MUX gate.
 //-
@@ -270,6 +283,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_MUX8_ (A, B, C, D, E, F, G, H, S, T, U, Y)
+//* group comb_combined
 //-
 //- An 8-input MUX gate.
 //-
@@ -296,6 +310,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_MUX16_ (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, S, T, U, V, Y)
+//* group comb_combined
 //-
 //- A 16-input MUX gate.
 //-
@@ -334,6 +349,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_AOI3_ (A, B, C, Y)
+//* group comb_combined
 //-
 //- A 3-input And-Or-Invert gate.
 //-
@@ -357,6 +373,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_OAI3_ (A, B, C, Y)
+//* group comb_combined
 //-
 //- A 3-input Or-And-Invert gate.
 //-
@@ -380,6 +397,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_AOI4_ (A, B, C, Y)
+//* group comb_combined
 //-
 //- A 4-input And-Or-Invert gate.
 //-
@@ -411,6 +429,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_OAI4_ (A, B, C, Y)
+//* group comb_combined
 //-
 //- A 4-input Or-And-Invert gate.
 //-
@@ -442,6 +461,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_TBUF_ (A, E, Y)
+//* group gate_other
 //-
 //- A tri-state buffer.
 //-
@@ -464,6 +484,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SR_NN_ (S, R, Q)
+//* group reg_latch
 //-
 //- A set-reset latch with negative polarity SET and negative polarity RESET.
 //-
@@ -487,6 +508,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SR_NP_ (S, R, Q)
+//* group reg_latch
 //-
 //- A set-reset latch with negative polarity SET and positive polarity RESET.
 //-
@@ -510,6 +532,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SR_PN_ (S, R, Q)
+//* group reg_latch
 //-
 //- A set-reset latch with positive polarity SET and negative polarity RESET.
 //-
@@ -533,6 +556,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SR_PP_ (S, R, Q)
+//* group reg_latch
 //-
 //- A set-reset latch with positive polarity SET and positive polarity RESET.
 //-
@@ -557,6 +581,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_FF_ (D, Q)
+//* group reg_ff
 //-
 //- A D-type flip-flop that is clocked from the implicit global clock. (This cell
 //- type is usually only used in netlists for formal verification.)
@@ -573,6 +598,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_N_ (D, C, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop.
 //-
@@ -592,6 +618,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_P_ (D, C, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop.
 //-
@@ -611,6 +638,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NN_ (D, C, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity enable.
 //-
@@ -630,6 +658,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NP_ (D, C, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity enable.
 //-
@@ -649,6 +678,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PN_ (D, C, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity enable.
 //-
@@ -668,6 +698,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PP_ (D, C, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity enable.
 //-
@@ -687,6 +718,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_NN0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity reset.
 //-
@@ -710,6 +742,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_NN1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set.
 //-
@@ -733,6 +766,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_NP0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity reset.
 //-
@@ -756,6 +790,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_NP1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set.
 //-
@@ -779,6 +814,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_PN0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity reset.
 //-
@@ -802,6 +838,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_PN1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set.
 //-
@@ -825,6 +862,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_PP0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity reset.
 //-
@@ -848,6 +886,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFF_PP1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set.
 //-
@@ -871,6 +910,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity reset and negative
 //- polarity clock enable.
@@ -895,6 +935,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity reset and positive
 //- polarity clock enable.
@@ -919,6 +960,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set and negative
 //- polarity clock enable.
@@ -943,6 +985,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set and positive
 //- polarity clock enable.
@@ -967,6 +1010,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity reset and negative
 //- polarity clock enable.
@@ -991,6 +1035,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity reset and positive
 //- polarity clock enable.
@@ -1015,6 +1060,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set and negative
 //- polarity clock enable.
@@ -1039,6 +1085,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_NP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set and positive
 //- polarity clock enable.
@@ -1063,6 +1110,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity reset and negative
 //- polarity clock enable.
@@ -1087,6 +1135,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity reset and positive
 //- polarity clock enable.
@@ -1111,6 +1160,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set and negative
 //- polarity clock enable.
@@ -1135,6 +1185,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set and positive
 //- polarity clock enable.
@@ -1159,6 +1210,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity reset and negative
 //- polarity clock enable.
@@ -1183,6 +1235,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity reset and positive
 //- polarity clock enable.
@@ -1207,6 +1260,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set and negative
 //- polarity clock enable.
@@ -1231,6 +1285,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFE_PP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set and positive
 //- polarity clock enable.
@@ -1255,6 +1310,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFF_NN_ (D, C, L, AD, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity async load.
 //-
@@ -1278,6 +1334,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFF_NP_ (D, C, L, AD, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity async load.
 //-
@@ -1301,6 +1358,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFF_PN_ (D, C, L, AD, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity async load.
 //-
@@ -1324,6 +1382,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFF_PP_ (D, C, L, AD, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity async load.
 //-
@@ -1347,6 +1406,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_NNN_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity async load and negative
 //- polarity clock enable.
@@ -1371,6 +1431,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_NNP_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity async load and positive
 //- polarity clock enable.
@@ -1395,6 +1456,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_NPN_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity async load and negative
 //- polarity clock enable.
@@ -1419,6 +1481,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_NPP_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity async load and positive
 //- polarity clock enable.
@@ -1443,6 +1506,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_PNN_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity async load and negative
 //- polarity clock enable.
@@ -1467,6 +1531,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_PNP_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity async load and positive
 //- polarity clock enable.
@@ -1491,6 +1556,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_PPN_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity async load and negative
 //- polarity clock enable.
@@ -1515,6 +1581,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_ALDFFE_PPP_ (D, C, L, AD, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity async load and positive
 //- polarity clock enable.
@@ -1539,6 +1606,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_NNN_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set and negative
 //- polarity reset.
@@ -1566,6 +1634,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_NNP_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set and positive
 //- polarity reset.
@@ -1593,6 +1662,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_NPN_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set and negative
 //- polarity reset.
@@ -1620,6 +1690,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_NPP_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set and positive
 //- polarity reset.
@@ -1647,6 +1718,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_PNN_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set and negative
 //- polarity reset.
@@ -1674,6 +1746,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_PNP_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set and positive
 //- polarity reset.
@@ -1701,6 +1774,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_PPN_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set and negative
 //- polarity reset.
@@ -1728,6 +1802,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSR_PPP_ (C, S, R, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set and positive
 //- polarity reset.
@@ -1755,6 +1830,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NNNN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set, negative
 //- polarity reset and negative polarity clock enable.
@@ -1782,6 +1858,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NNNP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set, negative
 //- polarity reset and positive polarity clock enable.
@@ -1809,6 +1886,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NNPN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set, positive
 //- polarity reset and negative polarity clock enable.
@@ -1836,6 +1914,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NNPP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity set, positive
 //- polarity reset and positive polarity clock enable.
@@ -1863,6 +1942,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NPNN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set, negative
 //- polarity reset and negative polarity clock enable.
@@ -1890,6 +1970,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NPNP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set, negative
 //- polarity reset and positive polarity clock enable.
@@ -1917,6 +1998,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NPPN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set, positive
 //- polarity reset and negative polarity clock enable.
@@ -1944,6 +2026,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_NPPP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity set, positive
 //- polarity reset and positive polarity clock enable.
@@ -1971,6 +2054,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PNNN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set, negative
 //- polarity reset and negative polarity clock enable.
@@ -1998,6 +2082,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PNNP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set, negative
 //- polarity reset and positive polarity clock enable.
@@ -2025,6 +2110,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PNPN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set, positive
 //- polarity reset and negative polarity clock enable.
@@ -2052,6 +2138,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PNPP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity set, positive
 //- polarity reset and positive polarity clock enable.
@@ -2079,6 +2166,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PPNN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set, negative
 //- polarity reset and negative polarity clock enable.
@@ -2106,6 +2194,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PPNP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set, negative
 //- polarity reset and positive polarity clock enable.
@@ -2133,6 +2222,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PPPN_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set, positive
 //- polarity reset and negative polarity clock enable.
@@ -2160,6 +2250,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DFFSRE_PPPP_ (C, S, R, E, D, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity set, positive
 //- polarity reset and positive polarity clock enable.
@@ -2187,6 +2278,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_NN0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous reset.
 //-
@@ -2210,6 +2302,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_NN1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous set.
 //-
@@ -2233,6 +2326,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_NP0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous reset.
 //-
@@ -2256,6 +2350,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_NP1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous set.
 //-
@@ -2279,6 +2374,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_PN0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous reset.
 //-
@@ -2302,6 +2398,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_PN1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous set.
 //-
@@ -2325,6 +2422,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_PP0_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous reset.
 //-
@@ -2348,6 +2446,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFF_PP1_ (D, C, R, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous set.
 //-
@@ -2371,6 +2470,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous reset and negative
 //- polarity clock enable (with reset having priority).
@@ -2395,6 +2495,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous reset and positive
 //- polarity clock enable (with reset having priority).
@@ -2419,6 +2520,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous set and negative
 //- polarity clock enable (with set having priority).
@@ -2443,6 +2545,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous set and positive
 //- polarity clock enable (with set having priority).
@@ -2467,6 +2570,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous reset and negative
 //- polarity clock enable (with reset having priority).
@@ -2491,6 +2595,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous reset and positive
 //- polarity clock enable (with reset having priority).
@@ -2515,6 +2620,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous set and negative
 //- polarity clock enable (with set having priority).
@@ -2539,6 +2645,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_NP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous set and positive
 //- polarity clock enable (with set having priority).
@@ -2563,6 +2670,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous reset and negative
 //- polarity clock enable (with reset having priority).
@@ -2587,6 +2695,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous reset and positive
 //- polarity clock enable (with reset having priority).
@@ -2611,6 +2720,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous set and negative
 //- polarity clock enable (with set having priority).
@@ -2635,6 +2745,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous set and positive
 //- polarity clock enable (with set having priority).
@@ -2659,6 +2770,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous reset and negative
 //- polarity clock enable (with reset having priority).
@@ -2683,6 +2795,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous reset and positive
 //- polarity clock enable (with reset having priority).
@@ -2707,6 +2820,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous set and negative
 //- polarity clock enable (with set having priority).
@@ -2731,6 +2845,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFE_PP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous set and positive
 //- polarity clock enable (with set having priority).
@@ -2755,6 +2870,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous reset and negative
 //- polarity clock enable (with clock enable having priority).
@@ -2781,6 +2897,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous reset and positive
 //- polarity clock enable (with clock enable having priority).
@@ -2807,6 +2924,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous set and negative
 //- polarity clock enable (with clock enable having priority).
@@ -2833,6 +2951,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with negative polarity synchronous set and positive
 //- polarity clock enable (with clock enable having priority).
@@ -2859,6 +2978,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous reset and negative
 //- polarity clock enable (with clock enable having priority).
@@ -2885,6 +3005,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous reset and positive
 //- polarity clock enable (with clock enable having priority).
@@ -2911,6 +3032,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous set and negative
 //- polarity clock enable (with clock enable having priority).
@@ -2937,6 +3059,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_NP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A negative edge D-type flip-flop with positive polarity synchronous set and positive
 //- polarity clock enable (with clock enable having priority).
@@ -2963,6 +3086,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PN0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous reset and negative
 //- polarity clock enable (with clock enable having priority).
@@ -2989,6 +3113,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PN0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous reset and positive
 //- polarity clock enable (with clock enable having priority).
@@ -3015,6 +3140,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PN1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous set and negative
 //- polarity clock enable (with clock enable having priority).
@@ -3041,6 +3167,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PN1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with negative polarity synchronous set and positive
 //- polarity clock enable (with clock enable having priority).
@@ -3067,6 +3194,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PP0N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous reset and negative
 //- polarity clock enable (with clock enable having priority).
@@ -3093,6 +3221,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PP0P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous reset and positive
 //- polarity clock enable (with clock enable having priority).
@@ -3119,6 +3248,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PP1N_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous set and negative
 //- polarity clock enable (with clock enable having priority).
@@ -3145,6 +3275,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_SDFFCE_PP1P_ (D, C, R, E, Q)
+//* group reg_ff
 //-
 //- A positive edge D-type flip-flop with positive polarity synchronous set and positive
 //- polarity clock enable (with clock enable having priority).
@@ -3171,6 +3302,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_N_ (E, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch.
 //-
@@ -3191,6 +3323,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_P_ (E, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch.
 //-
@@ -3211,6 +3344,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_NN0_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with negative polarity reset.
 //-
@@ -3234,6 +3368,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_NN1_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with negative polarity set.
 //-
@@ -3257,6 +3392,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_NP0_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with positive polarity reset.
 //-
@@ -3280,6 +3416,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_NP1_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with positive polarity set.
 //-
@@ -3303,6 +3440,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_PN0_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with negative polarity reset.
 //-
@@ -3326,6 +3464,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_PN1_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with negative polarity set.
 //-
@@ -3349,6 +3488,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_PP0_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with positive polarity reset.
 //-
@@ -3372,6 +3512,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCH_PP1_ (E, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with positive polarity set.
 //-
@@ -3395,6 +3536,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_NNN_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with negative polarity set and negative
 //- polarity reset.
@@ -3422,6 +3564,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_NNP_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with negative polarity set and positive
 //- polarity reset.
@@ -3449,6 +3592,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_NPN_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with positive polarity set and negative
 //- polarity reset.
@@ -3476,6 +3620,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_NPP_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A negative enable D-type latch with positive polarity set and positive
 //- polarity reset.
@@ -3503,6 +3648,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_PNN_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with negative polarity set and negative
 //- polarity reset.
@@ -3530,6 +3676,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_PNP_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with negative polarity set and positive
 //- polarity reset.
@@ -3557,6 +3704,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_PPN_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with positive polarity set and negative
 //- polarity reset.
@@ -3584,6 +3732,7 @@ endmodule
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
 //-     $_DLATCHSR_PPP_ (E, S, R, D, Q)
+//* group reg_latch
 //-
 //- A positive enable D-type latch with positive polarity set and positive
 //- polarity reset.

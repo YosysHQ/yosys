@@ -70,9 +70,9 @@ struct BufnormPass : public Pass {
 		log("        to chain 'keep' wires first, then ports in declaration order,\n");
 		log("        and then the other wires in alphanumeric sort order.)\n");
 		log("\n");
-		log("    -noinit\n");
-		log("        Do not move 'init' attributes to the wires on FF output ports.\n");
-		log("\n");
+		// log("    -noinit\n");
+		// log("        Do not move 'init' attributes to the wires on FF output ports.\n");
+		// log("\n");
 		log("Run 'bufnorm' with -pos, -bits, or -conn on the whole design to remove all\n");
 		log("$buf buffer cells and exit 'buffered-normalized mode' again.\n");
 		log("\n");
@@ -108,7 +108,7 @@ struct BufnormPass : public Pass {
 		bool nokeep_mode = false;
 		bool nosticky_mode = false;
 		bool alphasort_mode = false;
-		bool noinit_mode = false; // FIXME: Actually move init attributes
+		// bool noinit_mode = false; // FIXME: Actually move init attributes
 		bool nomode_mode = false;
 
 		bool pos_mode = false;
@@ -169,11 +169,11 @@ struct BufnormPass : public Pass {
 				got_non_update_reset_opt = true;
 				continue;
 			}
-			if (arg == "-noinit") {
-				noinit_mode = true;
-				got_non_update_reset_opt = true;
-				continue;
-			}
+			// if (arg == "-noinit") {
+			// 	noinit_mode = true;
+			// 	got_non_update_reset_opt = true;
+			// 	continue;
+			// }
 			if (arg == "-pos") {
 				pos_mode = true;
 				got_non_update_reset_opt = true;
@@ -438,8 +438,13 @@ struct BufnormPass : public Pass {
 				bool chain_this_wire = chain_this_wire_f(wire);
 
 				SigSpec keysig = sigmap(wire), insig = wire, outsig = wire;
-				for (int i = 0; i < GetSize(insig); i++)
-					insig[i] = mapped_bits.at(keysig[i], State::Sx);
+				for (int i = 0; i < GetSize(insig); i++) {
+					if (keysig[i].is_wire())
+						insig[i] = mapped_bits.at(keysig[i], State::Sx);
+					else
+						insig[i] = keysig[i];
+				}
+
 				if (chain_this_wire) {
 					for (int i = 0; i < GetSize(outsig); i++)
 						mapped_bits[keysig[i]] = outsig[i];

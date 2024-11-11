@@ -246,6 +246,8 @@ struct FunctionalCxxBackend : public Backend
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
+		log("TODO: add help message\n");
+		log("\n");
     }
 
 	void printCxx(std::ostream &stream, std::string, Module *module)

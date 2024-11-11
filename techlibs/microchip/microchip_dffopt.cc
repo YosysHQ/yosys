@@ -80,7 +80,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 		for (int j = 0; j < GetSize(select.second); j++)
 			if (i & 1 << idx_sel[j])
 				sel_lut_idx |= 1 << j;
-		bool select_val = (select.first.bits[sel_lut_idx] == State::S1);
+		bool select_val = (select.first[sel_lut_idx] == State::S1);
 		bool new_bit;
 		if (select_val ^ select_inv) {
 			// Use alt_data.
@@ -91,9 +91,9 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 		} else {
 			// Use original LUT.
 			int lut_idx = i >> idx_data & ((1 << GetSize(data.second)) - 1);
-			new_bit = data.first.bits[lut_idx] == State::S1;
+			new_bit = data.first[lut_idx] == State::S1;
 		}
-		result.first.bits[i] = new_bit ? State::S1 : State::S0;
+		result.first.bits()[i] = new_bit ? State::S1 : State::S0;
 	}
 	return true;
 }

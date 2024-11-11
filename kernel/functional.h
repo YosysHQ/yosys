@@ -537,7 +537,8 @@ namespace Functional {
 			return add(Fn::memory_write, mem.sort(), {mem, addr, data});
 		}
 		Node constant(RTLIL::Const value) {
-			return add(IR::NodeData(Fn::constant, std::move(value)), Sort(value.size()), {});
+			int s = value.size();
+			return add(IR::NodeData(Fn::constant, std::move(value)), Sort(s), {});
 		}
 		Node create_pending(int width) {
 			return add(Fn::buf, Sort(width), {});

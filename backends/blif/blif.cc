@@ -387,7 +387,7 @@ struct BlifDumper
 				auto &inputs = cell->getPort(ID::A);
 				auto width = cell->parameters.at(ID::WIDTH).as_int();
 				auto depth = cell->parameters.at(ID::DEPTH).as_int();
-				vector<State> table = cell->parameters.at(ID::TABLE).bits;
+				vector<State> table = cell->parameters.at(ID::TABLE).to_bits();
 				while (GetSize(table) < 2*width*depth)
 					table.push_back(State::S0);
 				log_assert(inputs.size() == width);

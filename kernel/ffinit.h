@@ -76,7 +76,7 @@ struct FfInitVals
 	{
 		RTLIL::Const res;
 		for (auto bit : sig)
-			res.bits.push_back((*this)(bit));
+			res.bits().push_back((*this)(bit));
 		return res;
 	}
 
@@ -93,12 +93,12 @@ struct FfInitVals
 		initbits[mbit] = std::make_pair(val,abit);
 		auto it2 = abit.wire->attributes.find(ID::init);
 		if (it2 != abit.wire->attributes.end()) {
-			it2->second[abit.offset] = val;
+			it2->second.bits()[abit.offset] = val;
 			if (it2->second.is_fully_undef())
 				abit.wire->attributes.erase(it2);
 		} else if (val != State::Sx) {
 			Const cval(State::Sx, GetSize(abit.wire));
-			cval[abit.offset] = val;
+			cval.bits()[abit.offset] = val;
 			abit.wire->attributes[ID::init] = cval;
 		}
 	}

@@ -1127,7 +1127,7 @@ struct fmt_part {
 			}
 
 			case UNICHAR: {
-				uint32_t codepoint = val.template get<uint32_t>();
+				uint32_t codepoint = val.template zcast<32>().template get<uint32_t>();
 				if (codepoint >= 0x10000)
 					buf += (char)(0xf0 |  (codepoint >> 18));
 				else if (codepoint >= 0x800)

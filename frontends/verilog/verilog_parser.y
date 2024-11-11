@@ -464,6 +464,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %%
 
 input: {
+	(void)frontend_verilog_yynerrs;
 	ast_stack.clear();
 	ast_stack.push_back(current_ast);
 } design {
@@ -3501,6 +3502,12 @@ basic_expr:
 		SET_AST_NODE_LOC($$, @1, @4);
 	} |
 	basic_expr OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
+	typedef_base_type OP_CAST '(' expr ')' {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
 		$$ = new AstNode(AST_CAST_SIZE, $1, $4);

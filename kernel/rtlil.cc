@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <optional>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -201,25 +202,34 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 	return res;
 }
 
+#define check(condition) log_assert(condition && "malformed Const union")
+
+Const::bitvectype& Const::get_bits() const {
+	check(is_bits());
+	return *get_if_bits();
+}
+
+std::string& Const::get_str() const {
+	check(is_str());
+	return *get_if_str();
+}
+
 RTLIL::Const::Const(const std::string &str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
-	bits.reserve(str.size() * 8);
-	for (int i = str.size()-1; i >= 0; i--) {
-		unsigned char ch = str[i];
-		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
+	new ((void*)&str_) std::string(str);
+	tag = backing_tag::string;
 }
 
 RTLIL::Const::Const(long long val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(width);
 	for (int i = 0; i < width; i++) {
-		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
 	}
 }
@@ -227,70 +237,208 @@ RTLIL::Const::Const(long long val, int width)
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	bits.reserve(width);
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(width);
 	for (int i = 0; i < width; i++)
-		bits.push_back(bit);
+		bv.push_back(bit);
 }
 
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
-	this->bits.reserve(bits.size());
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(bits.size());
 	for (const auto &b : bits)
-		this->bits.emplace_back(b ? State::S1 : State::S0);
+		bv.emplace_back(b ? State::S1 : State::S0);
 }
 
-bool RTLIL::Const::operator <(const RTLIL::Const &other) const
+RTLIL::Const::Const(const RTLIL::Const &other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(other.get_str());
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(other.get_bits());
+	else
+		check(false);
+}
+
+RTLIL::Const::Const(RTLIL::Const &&other) {
+	tag = other.tag;
+	flags = other.flags;
+	if (is_str())
+		new ((void*)&str_) std::string(std::move(other.get_str()));
+	else if (is_bits())
+		new ((void*)&bits_) bitvectype(std::move(other.get_bits()));
+	else
+		check(false);
+}
+
+RTLIL::Const &RTLIL::Const::operator =(const RTLIL::Const &other) {
+	flags = other.flags;
+	if (other.is_str()) {
+		if (!is_str()) {
+			// sketchy zone
+			check(is_bits());
+			bits_.~bitvectype();
+			(void)new ((void*)&str_) std::string();
+		}
+		tag = other.tag;
+		get_str() = other.get_str();
+	} else if (other.is_bits()) {
+		if (!is_bits()) {
+			// sketchy zone
+			check(is_str());
+			str_.~string();
+			(void)new ((void*)&bits_) bitvectype();
+		}
+		tag = other.tag;
+		get_bits() = other.get_bits();
+	} else {
+		check(false);
+	}
+	return *this;
+}
+
+RTLIL::Const::~Const() {
+	if (is_bits())
+		bits_.~bitvectype();
+	else if (is_str())
+		str_.~string();
+	else
+		check(false);
+}
+
+bool RTLIL::Const::operator<(const RTLIL::Const &other) const
 {
-	if (bits.size() != other.bits.size())
-		return bits.size() < other.bits.size();
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] != other.bits[i])
-			return bits[i] < other.bits[i];
+	if (size() != other.size())
+		return size() < other.size();
+
+	for (int i = 0; i < size(); i++)
+		if ((*this)[i] != other[i])
+			return (*this)[i] < other[i];
+
 	return false;
 }
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
-	return bits == other.bits;
+	if (size() != other.size())
+		return false;
+
+	for (int i = 0; i < size(); i++)
+	if ((*this)[i] != other[i])
+		return false;
+
+	return true;
 }
 
 bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 {
-	return bits != other.bits;
+	return !(*this == other);
+}
+
+std::vector<RTLIL::State>& RTLIL::Const::bits()
+{
+	bitvectorize();
+	return get_bits();
+}
+
+std::vector<RTLIL::State> RTLIL::Const::to_bits() const
+{
+	std::vector<State> v;
+	for (auto bit : *this)
+		v.push_back(bit);
+	return v;
 }
 
 bool RTLIL::Const::as_bool() const
 {
-	for (size_t i = 0; i < bits.size(); i++)
-		if (bits[i] == State::S1)
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	for (size_t i = 0; i < bv.size(); i++)
+		if (bv[i] == State::S1)
 			return true;
 	return false;
 }
 
 int RTLIL::Const::as_int(bool is_signed) const
 {
+	bitvectorize();
+	bitvectype& bv = get_bits();
 	int32_t ret = 0;
-	for (size_t i = 0; i < bits.size() && i < 32; i++)
-		if (bits[i] == State::S1)
+	for (size_t i = 0; i < bv.size() && i < 32; i++)
+		if (bv[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bits.back() == State::S1)
-		for (size_t i = bits.size(); i < 32; i++)
+	if (is_signed && bv.back() == State::S1)
+		for (size_t i = bv.size(); i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }
 
-std::string RTLIL::Const::as_string() const
+size_t RTLIL::Const::get_min_size(bool is_signed) const
 {
+	if (empty()) return 0;
+
+	// back to front (MSB to LSB)
+	RTLIL::State leading_bit;
+	if (is_signed)
+		leading_bit = (back() == RTLIL::State::Sx) ? RTLIL::State::S0 : back();
+	else
+		leading_bit = RTLIL::State::S0;
+
+	size_t idx = size();
+	while (idx > 0 && (*this)[idx -1] == leading_bit) {
+		idx--;
+	}
+
+	// signed needs one leading bit
+	if (is_signed && idx < size()) {
+		idx++;
+	}
+	// must be at least one bit
+	return (idx == 0) ? 1 : idx;
+}
+
+void RTLIL::Const::compress(bool is_signed)
+{
+	size_t idx = get_min_size(is_signed);
+	bits().erase(bits().begin() + idx, bits().end());
+}
+
+std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
+{
+	size_t size = get_min_size(is_signed);
+	if(size == 0 || size > 32)
+		return std::nullopt;
+
+	int32_t ret = 0;
+	for (size_t i = 0; i < size && i < 32; i++)
+		if ((*this)[i] == State::S1)
+			ret |= 1 << i;
+	if (is_signed && (*this)[size-1] == State::S1)
+		for (size_t i = size; i < 32; i++)
+			ret |= 1 << i;
+	return ret;
+}
+
+std::string RTLIL::Const::as_string(const char* any) const
+{
+	bitvectorize();
+	bitvectype& bv = get_bits();
 	std::string ret;
-	ret.reserve(bits.size());
-	for (size_t i = bits.size(); i > 0; i--)
-		switch (bits[i-1]) {
+	ret.reserve(bv.size());
+	for (size_t i = bv.size(); i > 0; i--)
+		switch (bv[i-1]) {
 			case S0: ret += "0"; break;
 			case S1: ret += "1"; break;
 			case Sx: ret += "x"; break;
 			case Sz: ret += "z"; break;
-			case Sa: ret += "-"; break;
+			case Sa: ret += any; break;
 			case Sm: ret += "m"; break;
 		}
 	return ret;
@@ -299,22 +447,28 @@ std::string RTLIL::Const::as_string() const
 RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
 	Const c;
-	c.bits.reserve(str.size());
+	bitvectype& bv = c.get_bits();
+	bv.reserve(str.size());
 	for (auto it = str.rbegin(); it != str.rend(); it++)
 		switch (*it) {
-			case '0': c.bits.push_back(State::S0); break;
-			case '1': c.bits.push_back(State::S1); break;
-			case 'x': c.bits.push_back(State::Sx); break;
-			case 'z': c.bits.push_back(State::Sz); break;
-			case 'm': c.bits.push_back(State::Sm); break;
-			default: c.bits.push_back(State::Sa);
+			case '0': bv.push_back(State::S0); break;
+			case '1': bv.push_back(State::S1); break;
+			case 'x': bv.push_back(State::Sx); break;
+			case 'z': bv.push_back(State::Sz); break;
+			case 'm': bv.push_back(State::Sm); break;
+			default: bv.push_back(State::Sa);
 		}
 	return c;
 }
 
 std::string RTLIL::Const::decode_string() const
 {
-	const int n = GetSize(bits);
+	if (auto str = get_if_str())
+		return *str;
+
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
 	s.reserve(n_over_8);
@@ -322,7 +476,7 @@ std::string RTLIL::Const::decode_string() const
 	if (i < n) {
 		char ch = 0;
 		for (int j = 0; j < (n - i); j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -333,7 +487,7 @@ std::string RTLIL::Const::decode_string() const
 	for (; i >= 0; i -= 8) {
 		char ch = 0;
 		for (int j = 0; j < 8; j++) {
-			if (bits[i + j] == RTLIL::State::S1) {
+			if (bv[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -343,11 +497,65 @@ std::string RTLIL::Const::decode_string() const
 	return s;
 }
 
+int RTLIL::Const::size() const {
+	if (is_str())
+		return 8 * str_.size();
+	else {
+		check(is_bits());
+		return bits_.size();
+	}
+}
+
+bool RTLIL::Const::empty() const {
+	if (is_str())
+		return str_.empty();
+	else {
+		check(is_bits());
+		return bits_.empty();
+	}
+}
+
+void RTLIL::Const::bitvectorize() const {
+	if (tag == backing_tag::bits)
+		return;
+
+	check(is_str());
+
+	bitvectype new_bits;
+
+	new_bits.reserve(str_.size() * 8);
+	for (int i = str_.size() - 1; i >= 0; i--) {
+		unsigned char ch = str_[i];
+		for (int j = 0; j < 8; j++) {
+			new_bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
+			ch = ch >> 1;
+		}
+	}
+
+	{
+		// sketchy zone
+		str_.~string();
+		(void)new ((void*)&bits_) bitvectype(std::move(new_bits));
+		tag = backing_tag::bits;
+	}
+}
+
+RTLIL::State RTLIL::Const::const_iterator::operator*() const {
+	if (auto bv = parent.get_if_bits())
+		return (*bv)[idx];
+
+	int char_idx = parent.get_str().size() - idx / 8 - 1;
+	bool bit = (parent.get_str()[char_idx] & (1 << (idx % 8)));
+	return bit ? State::S1 : State::S0;
+}
+
 bool RTLIL::Const::is_fully_zero() const
 {
+	bitvectorize();
+	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_zero");
 
-	for (const auto &bit : bits)
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0)
 			return false;
 
@@ -356,9 +564,11 @@ bool RTLIL::Const::is_fully_zero() const
 
 bool RTLIL::Const::is_fully_ones() const
 {
+	bitvectorize();
+	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_ones");
 
-	for (const auto &bit : bits)
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S1)
 			return false;
 
@@ -369,7 +579,10 @@ bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = get_bits();
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 
@@ -380,7 +593,10 @@ bool RTLIL::Const::is_fully_undef() const
 {
 	cover("kernel.rtlil.const.is_fully_undef");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = get_bits();
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
 
@@ -391,7 +607,10 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 {
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
-	for (const auto &bit : bits)
+	bitvectorize();
+	bitvectype& bv = get_bits();
+
+	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
 			return false;
 
@@ -402,9 +621,12 @@ bool RTLIL::Const::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.const.is_onehot");
 
+	bitvectorize();
+	bitvectype& bv = get_bits();
+
 	bool found = false;
 	for (int i = 0; i < GetSize(*this); i++) {
-		auto &bit = bits[i];
+		auto &bit = bv[i];
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 		if (bit == RTLIL::State::S1) {
@@ -417,6 +639,15 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	}
 	return found;
 }
+
+RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) const {
+	bitvectype ret_bv;
+	ret_bv.reserve(len);
+	for (int i = offset; i < offset + len; i++)
+		ret_bv.push_back(i < GetSize(*this) ? (*this)[i] : padding);
+	return RTLIL::Const(ret_bv);
+}
+#undef check /* check(condition) for Const */
 
 bool RTLIL::AttrObject::has_attribute(const RTLIL::IdString &id) const
 {
@@ -1065,7 +1296,7 @@ namespace {
 		void param_bits(const RTLIL::IdString& name, int width)
 		{
 			param(name);
-			if (GetSize(cell->parameters.at(name).bits) != width)
+			if (GetSize(cell->parameters.at(name)) != width)
 				error(__LINE__);
 		}
 
@@ -3893,7 +4124,7 @@ RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 	wire = bit.wire;
 	offset = 0;
 	if (wire == NULL)
-		data = RTLIL::Const(bit.data).bits;
+		data = {bit.data};
 	else
 		offset = bit.offset;
 	width = 1;
