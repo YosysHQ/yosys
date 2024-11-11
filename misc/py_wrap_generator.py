@@ -375,6 +375,10 @@ class PoolTranslator(PythonListTranslator):
 	insert_name = ".insert"
 	orig_name = "pool"
 
+#Sub-type for ObjRange
+class ObjRangeTranslator(PythonListTranslator):
+	orig_name = "RTLIL::ObjRange"
+
 #Translates dict-types (dict, std::map), that only differ in their name and
 #the name of the insertion function
 class PythonDictTranslator(Translator):
@@ -536,13 +540,14 @@ class TupleTranslator(PythonDictTranslator):
 
 #Associate the Translators with their c++ type
 known_containers = {
-	"std::set"		:	SetTranslator,
-	"std::vector"	:	VectorTranslator,
-	"pool"			:	PoolTranslator,
-	"idict"			:	IDictTranslator,
-	"dict"			:	DictTranslator,
-	"std::pair"		:	TupleTranslator,
-	"std::map"		:	MapTranslator
+	"std::set"        : SetTranslator,
+	"std::vector"     : VectorTranslator,
+	"pool"            : PoolTranslator,
+	"idict"           : IDictTranslator,
+	"dict"            : DictTranslator,
+	"std::pair"       : TupleTranslator,
+	"std::map"        : MapTranslator,
+	"RTLIL::ObjRange" : ObjRangeTranslator
 }
 
 class Attribute:

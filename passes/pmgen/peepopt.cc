@@ -40,7 +40,7 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("This pass applies a collection of peephole optimizers to the current design.\n");
 		log("\n");
-		log("This pass employs the following rules:\n");
+		log("This pass employs the following rules by default:\n");
 		log("\n");
 		log("   * muxadd - Replace S?(A+B):A with A+(S?B:0)\n");
 		log("\n");
@@ -61,14 +61,26 @@ struct PeepoptPass : public Pass {
 		log("                limits the amount of padding to a multiple of the data, \n");
 		log("                to avoid high resource usage from large temporary MUX trees.\n");
 		log("\n");
+		log("If -formalclk is specified it instead employs the following rules:\n");
+		log("\n");
+		log("   * clockgateff - Replace latch based clock gating patterns with a flip-flop\n");
+		log("                   based pattern to prevent combinational paths from the\n");
+		log("                   output to the enable input after running clk2fflogic.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
+		bool formalclk = false;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-formalclk") {
+				formalclk = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -90,12 +102,16 @@ struct PeepoptPass : public Pass {
 
 				pm.setup(module->selected_cells());
 
-				pm.run_shiftadd();
-				pm.run_shiftmul_right();
-				pm.run_shiftmul_left();
-				pm.run_muldiv();
-				pm.run_muldiv_c();
-				pm.run_muxadd();
+				if (formalclk) {
+					pm.run_formal_clockgateff();
+				} else {
+					pm.run_shiftadd();
+					pm.run_shiftmul_right();
+					pm.run_shiftmul_left();
+					pm.run_muldiv();
+					pm.run_muldiv_c();
+					pm.run_muxadd();
+				}
 			}
 		}
 	}
