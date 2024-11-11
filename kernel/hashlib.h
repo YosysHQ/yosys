@@ -54,7 +54,7 @@ const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
 namespace legacy {
-	inline uint32_t mkhash_add(uint32_t a, uint32_t b) {
+	inline uint32_t djb2_add(uint32_t a, uint32_t b) {
 		return ((a << 5) + a) + b;
 	}
 };
