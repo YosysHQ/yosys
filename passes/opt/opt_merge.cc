@@ -83,7 +83,7 @@ struct OptMergeWorker
 		}
 	}
 
-	Hasher hash_cell_inputs(const RTLIL::Cell *cell, Hasher h)
+	Hasher hash_cell_inputs(const RTLIL::Cell *cell, Hasher h) const
 	{
 		// TODO: when implemented, use celltypes to match:
 		// (builtin || stdcell) && (unary || binary) && symmetrical
@@ -94,26 +94,26 @@ struct OptMergeWorker
 				assign_map(cell->getPort(ID::B))
 			};
 			std::sort(inputs.begin(), inputs.end());
-			h = hash_ops<std::array<RTLIL::SigSpec, 2>>::hash_acc(inputs, h);
-			h = assign_map(cell->getPort(ID::Y)).hash_acc(h);
+			h = hash_ops<std::array<RTLIL::SigSpec, 2>>::hash_into(inputs, h);
+			h = assign_map(cell->getPort(ID::Y)).hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort();
-			h = a.hash_acc(h);
+			h = a.hash_into(h);
 		} else if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort_and_unify();
-			h = a.hash_acc(h);
+			h = a.hash_into(h);
 		} else if (cell->type == ID($pmux)) {
 			dict<RTLIL::IdString, RTLIL::SigSpec> conn = cell->connections();
 			assign_map.apply(conn.at(ID::A));
 			assign_map.apply(conn.at(ID::B));
 			assign_map.apply(conn.at(ID::S));
 			for (const auto& [s_bit, b_chunk] : sorted_pmux_in(conn)) {
-				h = s_bit.hash_acc(h);
-				h = b_chunk.hash_acc(h);
+				h = s_bit.hash_into(h);
+				h = b_chunk.hash_into(h);
 			}
-			h = assign_map(cell->getPort(ID::A)).hash_acc(h);
+			h = assign_map(cell->getPort(ID::A)).hash_into(h);
 		} else {
 			std::vector<std::pair<IdString, SigSpec>> conns;
 			for (const auto& conn : cell->connections()) {
@@ -122,13 +122,13 @@ struct OptMergeWorker
 			std::sort(conns.begin(), conns.end());
 			for (const auto& [port, sig] : conns) {
 				if (!cell->output(port)) {
-					h = port.hash_acc(h);
-					h = assign_map(sig).hash_acc(h);
+					h = port.hash_into(h);
+					h = assign_map(sig).hash_into(h);
 				}
 			}
 
 			if (RTLIL::builtin_ff_cell_types().count(cell->type))
-				h = initvals(cell->getPort(ID::Q)).hash_acc(h);
+				h = initvals(cell->getPort(ID::Q)).hash_into(h);
 
 		}
 		return h;
@@ -142,10 +142,10 @@ struct OptMergeWorker
 			params.push_back(param);
 		}
 		std::sort(params.begin(), params.end());
-		return hash_ops<Paramvec>::hash_acc(params, h);
+		return hash_ops<Paramvec>::hash_into(params, h);
 	}
 
-	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h)
+	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h) const
 	{
 		h.eat(cell->type);
 		h = hash_cell_inputs(cell, h);
@@ -153,7 +153,7 @@ struct OptMergeWorker
 		return h;
 	}
 
-	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2)
+	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2) const
 	{
 		log_assert(cell1 != cell2);
 		if (cell1->type != cell2->type) return false;
@@ -254,11 +254,9 @@ struct OptMergeWorker
 		initvals.set(&assign_map, module);
 
 		bool did_something = true;
-		bool warned_collisions = false;
 		// A cell may have to go through a lot of collisions if the hash
 		// function is performing poorly, but it's a symptom of something bad
 		// beyond the user's control.
-		int threshold = 1000; // adjust to taste
 		while (did_something)
 		{
 			std::vector<RTLIL::Cell*> cells;
@@ -278,10 +276,29 @@ struct OptMergeWorker
 			}
 
 			did_something = false;
-			// INVARIANT: All cells associated with the same hash in sharemap
-			// are distinct as far as compare_cell_parameters_and_connections
-			// can tell.
-			std::unordered_multimap<Hasher::hash_t, RTLIL::Cell*> sharemap;
+
+			// We keep a set of known cells. They're hashed with our hash_cell_function
+			// and compared with our compare_cell_parameters_and_connections.
+			// Both need to capture OptMergeWorker to access initvals
+			struct CellPtrHash {
+				const OptMergeWorker& worker;
+				CellPtrHash(const OptMergeWorker& w) : worker(w) {}
+				std::size_t operator()(const Cell* c) const {
+					return (std::size_t)worker.hash_cell_function(c, Hasher()).yield();
+				}
+			};
+			struct CellPtrEqual {
+				const OptMergeWorker& worker;
+				CellPtrEqual(const OptMergeWorker& w) : worker(w) {}
+				bool operator()(const Cell* lhs, const Cell* rhs) const {
+					return worker.compare_cell_parameters_and_connections(lhs, rhs);
+				}
+			};
+			std::unordered_set<
+				RTLIL::Cell*,
+				CellPtrHash,
+				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
+
 			for (auto cell : cells)
 			{
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
@@ -290,55 +307,34 @@ struct OptMergeWorker
 				if (cell->type == ID($scopeinfo))
 					continue;
 
-				Hasher::hash_t hash = hash_cell_function(cell, Hasher()).yield();
-				// Get all cells with matching hashes
-				auto matching = sharemap.equal_range(hash);
-				int collisions = 0;
-				bool found = false;
-				for (auto it = matching.first; it != matching.second && !found; ++it) {
-					if (collisions > threshold && !warned_collisions) {
-						log_warning("High hash collision counts. opt_merge runtime may be excessive.\n" \
-									"Please report to maintainers.\n");
-						warned_collisions = true;
+				auto [cell_in_map, inserted] = known_cells.insert(cell);
+				if (!inserted) {
+					// We've failed to insert since we already have an equivalent cell
+					Cell* other_cell = *cell_in_map;
+					if (cell->has_keep_attr()) {
+						if (other_cell->has_keep_attr())
+							continue;
+						std::swap(other_cell, cell);
 					}
-					auto other_cell = it->second;
-					if (compare_cell_parameters_and_connections(cell, other_cell)) {
-						found = true;
-						if (cell->has_keep_attr()) {
-							if (other_cell->has_keep_attr())
-								continue;
-							std::swap(other_cell, cell);
-						}
 
-						did_something = true;
-						log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
-						for (auto &it : cell->connections()) {
-							if (cell->output(it.first)) {
-								RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
-								log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
-										log_signal(it.second), log_signal(other_sig));
-								Const init = initvals(other_sig);
-								initvals.remove_init(it.second);
-								initvals.remove_init(other_sig);
-								module->connect(RTLIL::SigSig(it.second, other_sig));
-								assign_map.add(it.second, other_sig);
-								initvals.set_init(other_sig, init);
-							}
+					did_something = true;
+					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
+					for (auto &it : cell->connections()) {
+						if (cell->output(it.first)) {
+							RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
+							log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
+									log_signal(it.second), log_signal(other_sig));
+							Const init = initvals(other_sig);
+							initvals.remove_init(it.second);
+							initvals.remove_init(other_sig);
+							module->connect(RTLIL::SigSig(it.second, other_sig));
+							assign_map.add(it.second, other_sig);
+							initvals.set_init(other_sig, init);
 						}
-						log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
-						module->remove(cell);
-						total_count++;
-						break;
-					} else {
-						collisions++;
-						log_debug("  False hash match: `%s' and `%s'.\n", cell->name.c_str(), other_cell->name.c_str());
 					}
-				}
-				if (!did_something) {
-					// This cell isn't represented yet in the sharemap.
-					// Either it's the first of its hash,
-					// or falsely matches all cells in sharemap sharing its hash.
-					sharemap.insert(std::make_pair(hash, cell));
+					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					module->remove(cell);
+					total_count++;
 				}
 			}
 		}
