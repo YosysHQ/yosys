@@ -4184,7 +4184,7 @@ struct VerificPass : public Pass {
 				}
 				if (v[0] == '"') {
 					std::string s = v.substr(1, GetSize(v)-2);
-					RuntimeFlags::SetStringVar(k.c_str(), v.c_str());
+					RuntimeFlags::SetStringVar(k.c_str(), s.c_str());
 					goto check_error;
 				}
 				char *endptr;
