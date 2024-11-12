@@ -311,17 +311,12 @@ struct OptBalanceTreePass : public Pass {
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
-		bool splitfanout = false;
-
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
 
 		// Handle arguments
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-splitfanout") {
-				splitfanout = true;
-				continue;
-			}
+			// No arguments yet
 			break;
 		}
 		extra_args(args, argidx, design);
