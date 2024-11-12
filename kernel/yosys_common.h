@@ -362,10 +362,10 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 	module->uniquify(cell->name.str())
 #define NEW_ID2_SUFFIX(suffix) \
 	module->uniquify(cell->name.str() + "_" + suffix)
-#define NEW_ID2_SUFFIX2(suffix) \
+#define NEW_ID3 \
+	module->uniquify(cell_name.str())
+#define NEW_ID3_SUFFIX(suffix) \
 	module->uniquify(cell_name.str() + "_" + suffix)
-#define NEW_ABC_ID \
-	module->uniquify(IdString("\\boolopt"))
 #define NEW_MEM_ID_SUFFIX(suffix) \
 	mem.mem ? module->uniquify(mem.mem->name.str() + "_" + suffix) : module->uniquify(string("\\mem_") + suffix)
 

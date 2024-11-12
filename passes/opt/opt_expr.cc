@@ -275,7 +275,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		// SILIMATE: New cell takes on old cell's name
 		RTLIL::IdString cell_name = cell->name;
 		module->rename(cell->name, NEW_ID);
-		RTLIL::Cell *c = module->addCell(cell_name, cell->type);
+		RTLIL::Cell *c = module->addCell(NEW_ID3, cell->type);
 		c->set_src_attribute(cell->get_src_attribute());
 
 		c->setPort(ID::A, new_a);
@@ -705,7 +705,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (!y_group_1.empty()) y_new_1 = b_group_1;
 					if (!y_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->And(cell_name, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							y_new_x = module->And(NEW_ID3, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						else
 							y_new_x = Const(State::S0, GetSize(y_group_x));
 					}
@@ -714,16 +714,16 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					if (!y_group_1.empty()) y_new_1 = Const(State::S1, GetSize(y_group_1));
 					if (!y_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->Or(cell_name, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							y_new_x = module->Or(NEW_ID3, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						else
 							y_new_x = Const(State::S1, GetSize(y_group_x));
 					}
 				} else if (cell->type.in(ID($xor), ID($xnor))) {
 					if (!y_group_0.empty()) y_new_0 = b_group_0;
-					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID2_SUFFIX2("inv"), b_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID3_SUFFIX("inv"), b_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 					if (!y_group_x.empty()) {
 						if (keepdc)
-							y_new_x = module->Xor(cell_name, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							y_new_x = module->Xor(NEW_ID3, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						else // This should be fine even with keepdc, but opt_expr_xor.ys wants to keep the xor
 							y_new_x = Const(State::Sx, GetSize(y_group_x));
 					}
@@ -790,11 +790,11 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec y_new_0, y_new_1;
 
 				if (flip) {
-					if (!y_group_0.empty()) y_new_0 = module->And(cell_name, b_group_0, module->Not(NEW_ID2_SUFFIX2("inv"), s_group_0, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-					if (!y_group_1.empty()) y_new_1 = module->Or(cell_name, b_group_1, s_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID3, b_group_0, module->Not(NEW_ID3_SUFFIX("inv"), s_group_0, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID3, b_group_1, s_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				} else {
-					if (!y_group_0.empty()) y_new_0 = module->And(cell_name, b_group_0, s_group_0, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-					if (!y_group_1.empty()) y_new_1 = module->Or(cell_name, b_group_1, module->Not(NEW_ID2_SUFFIX2("inv"), s_group_1, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID3, b_group_0, s_group_0, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID3, b_group_1, module->Not(NEW_ID3_SUFFIX("inv"), s_group_1, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				}
 
 				module->connect(y_group_0, y_new_0);
@@ -1964,7 +1964,7 @@ skip_identity:
 				RTLIL::IdString cell_name = cell->name;
 				module->rename(cell->name, NEW_ID);
 
-				RTLIL::Cell *c = module->addCell(cell_name, cell->type); // SILIMATE: Improve the naming
+				RTLIL::Cell *c = module->addCell(NEW_ID3, cell->type); // SILIMATE: Improve the naming
 				c->set_src_attribute(cell->get_src_attribute());
 				c->setPort(ID::A, sig_a.extract(prev, sz));
 				c->setPort(ID::B, sig_b.extract(prev, sz));
@@ -1975,7 +1975,7 @@ skip_identity:
 				RTLIL::SigSpec new_co = sig_co.extract(prev, sz);
 				if (p.second != State::Sx) {
 					module->connect(new_co[sz-1], p.second);
-					RTLIL::Wire *dummy = module->addWire(NEW_ID2_SUFFIX2("dummy")); // SILIMATE: Improve the naming
+					RTLIL::Wire *dummy = module->addWire(NEW_ID3_SUFFIX("dummy")); // SILIMATE: Improve the naming
 					new_co[sz-1] = dummy;
 				}
 				c->setPort(ID::CO, new_co);
@@ -2146,7 +2146,7 @@ skip_alu_split:
 
 							condition   = stringf("unsigned X<%s", log_signal(const_sig));
 							replacement = stringf("!X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addLogicNot(cell_name, var_high_sig, cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							module->addLogicNot(NEW_ID3, var_high_sig, cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 							remove = true;
 						}
 						if (cmp_type == ID($ge))
@@ -2157,7 +2157,7 @@ skip_alu_split:
 
 							condition   = stringf("unsigned X>=%s", log_signal(const_sig));
 							replacement = stringf("|X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addReduceOr(cell_name, var_high_sig, cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							module->addReduceOr(NEW_ID3, var_high_sig, cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 							remove = true;
 						}
 					}
@@ -2203,7 +2203,7 @@ skip_alu_split:
 
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						module->addLogicNot(cell_name, var_sig[var_width - 1], cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						module->addLogicNot(NEW_ID3, var_sig[var_width - 1], cell->getPort(ID::Y), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						remove = true;
 					}
 				}
