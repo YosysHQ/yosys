@@ -1002,7 +1002,7 @@ public:
 	constexpr pool()
 	{
 	}
-
+	pool (OPS ops) : ops(ops) { }
 	pool(const pool &other)
 	{
 		entries = other.entries;
