@@ -395,7 +395,6 @@ struct OptDffWorker
 					// Always-active enable.  Make a comb circuit, nuke the FF/latch.
 					log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					ff.remove();
 					if (ff.has_sr) {
 						SigSpec tmp;
 						if (ff.is_fine) {
@@ -432,6 +431,7 @@ struct OptDffWorker
 					} else {
 						module->connect(ff.sig_q, ff.sig_ad);
 					}
+					ff.remove();
 					did_something = true;
 					continue;
 				} else if (ff.sig_ad.is_fully_const() && !ff.has_arst && !ff.has_sr) {
