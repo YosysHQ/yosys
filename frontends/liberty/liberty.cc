@@ -462,7 +462,7 @@ struct LibertyFrontend : public Frontend {
 		log("    -ignore_miss_data_latch\n");
 		log("        ignore latches with missing data and/or enable pins\n");
 		log("\n");
-		log("    -ignore_busses\n");
+		log("    -ignore_buses\n");
 		log("        ignore cells with bus interfaces (wide ports)\n");
 		log("\n");
 		log("    -setattr <attribute_name>\n");
@@ -481,7 +481,7 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
 		bool flag_ignore_miss_data_latch = false;
-		bool flag_ignore_busses = false;
+		bool flag_ignore_buses = false;
 		bool flag_unit_delay = false;
 		std::vector<std::string> attributes;
 
@@ -518,8 +518,8 @@ struct LibertyFrontend : public Frontend {
 				flag_ignore_miss_data_latch = true;
 				continue;
 			}
-			if (arg == "-ignore_busses") {
-				flag_ignore_busses = true;
+			if (arg == "-ignore_buses") {
+				flag_ignore_buses = true;
 				continue;
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
@@ -593,7 +593,7 @@ struct LibertyFrontend : public Frontend {
 
 				if (node->id == "bus" && node->args.size() == 1)
 				{
-					if (flag_ignore_busses) {
+					if (flag_ignore_buses) {
 						log("Ignoring cell %s with a bus interface %s.\n", log_id(module->name), node->args.at(0).c_str());
 						delete module;
 						goto skip_cell;

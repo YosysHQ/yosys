@@ -1,11 +1,11 @@
-# Test memory macro gets ignored due to -ignore_busses
+# Test memory macro gets ignored due to -ignore_buses
 read_verilog -noblackbox <<EOF
 module RM_IHPSG13_1P_64x64_c2_bm_bist();
 endmodule
 EOF
-read_liberty -lib -ignore_busses foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
+read_liberty -lib -ignore_buses foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
 
-# Test memory macro doesn't get ignored without -ignore_busses
+# Test memory macro doesn't get ignored without -ignore_buses
 # and check the area and capacitance attributes are populated
 design -reset
 read_liberty -lib foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
