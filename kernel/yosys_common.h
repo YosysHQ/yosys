@@ -367,7 +367,7 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 #define NEW_ABC_ID \
 	module->uniquify(IdString("\\boolopt"))
 #define NEW_MEM_ID_SUFFIX(suffix) \
-	module->uniquify(mem.mem->name.str() + "_" + suffix)
+	mem.mem ? module->uniquify(mem.mem->name.str() + "_" + suffix) : module->uniquify(string("\\mem_") + suffix)
 
 // Create a statically allocated IdString object, using for example ID::A or ID($add).
 //
