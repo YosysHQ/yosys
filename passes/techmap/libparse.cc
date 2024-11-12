@@ -115,12 +115,19 @@ int LibertyParser::lexer(std::string &str)
 	// maybe it's a string?
 	if (c == '"') {
 		str = "";
+#ifdef FILTERLIB
+		str += c;
+#endif
 		while (1) {
 			c = f.get();
 			if (c == '\n')
 				line++;
-			if (c == '"')
+			if (c == '"') {
+#ifdef FILTERLIB
+				str += c;
+#endif
 				break;
+			}
 			str += c;
 		}
 		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
