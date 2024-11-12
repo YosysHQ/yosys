@@ -1,4 +1,4 @@
-# Simple tests
+# Various tests
 
 ## Disabled
 
