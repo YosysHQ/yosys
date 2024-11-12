@@ -13,6 +13,7 @@ OBJS += passes/techmap/pmuxtree.o
 OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
+OBJS += passes/techmap/aigmap.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
@@ -37,7 +38,6 @@ OBJS += passes/techmap/extract_counter.o
 OBJS += passes/techmap/dffinit.o
 OBJS += passes/techmap/bwmuxmap.o
 OBJS += passes/techmap/muxcover.o
-OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/tribuf.o
 OBJS += passes/techmap/lut2mux.o
 OBJS += passes/techmap/nlutmap.o
