@@ -1869,7 +1869,6 @@ skip_identity:
 						// the sign bits are those of A (except when R=0)
 						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0)
 						{
-							module->remove(cell);
 							SigSpec truncating = sig_a.extract(0, exp);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
@@ -1878,6 +1877,7 @@ skip_identity:
 
 							truncating.append(extend_bit);
 							module->addPos(NEW_ID2_SUFFIX("pos"), truncating, sig_y, true, cell->get_src_attribute()); // SILIMATE: Improve the naming
+							module->remove(cell);
 						}
 						else
 						{
