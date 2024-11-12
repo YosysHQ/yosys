@@ -87,33 +87,34 @@ struct BmuxmapPass : public Pass {
 			{
 				int num_cases = 1 << s_width;
 				SigSpec new_a = SigSpec(State::Sx, width);
-				SigSpec new_s = module->addWire(NEW_ID, num_cases);
-				SigSpec new_data = module->addWire(NEW_ID, width);
-				for (int val = 0; val < num_cases; val++)
-				{
-					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
+				SigSpec new_s = module->addWire(NEW_ID2_SUFFIX("sel"), num_cases); // SILIMATE: Improve the naming
+				SigSpec new_data = module->addWire(NEW_ID2_SUFFIX("data"), width); // SILIMATE: Improve the naming
+				for (int val = 0; val < num_cases; val++) {
+					RTLIL::Cell *eq = module->addEq(NEW_ID2_SUFFIX("eq"), sel, SigSpec(val, GetSize(sel)), new_s[val]); // SILIMATE: Improve the naming
+					for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
+						eq->attributes[attr.first] = attr.second;
 				}
-				IdString new_id = IdString("$" + cell->name.str());
-				// SILIMATE: Use uniquified ID with $
-				// TODO: improve this
-				while (module->count_id(new_id) > 0) new_id = IdString("$" + new_id.str());
-				RTLIL::Cell *pmux = module->addPmux(new_id, new_a, data, new_s, new_data);
-				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-				pmux->set_bool_attribute(IdString("\\bmuxmap"));
+				IdString cell_name = cell->name; // SILIMATE: Save the original cell name
+				module->rename(cell_name, NEW_ID); // SILIMATE: Rename the original cell, which will be deleted
+				RTLIL::Cell *pmux = module->addPmux(cell_name, new_a, data, new_s, new_data); // SILIMATE: Improve the naming
+				for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
+					pmux->attributes[attr.first] = attr.second;
+				pmux->set_bool_attribute("\\bmuxmap"); // SILIMATE: Mark the cell as created by bmuxmap
 				data = new_data;
 			}
 			else
 			{
 				for (int idx = 0; idx < GetSize(sel); idx++) {
-					SigSpec new_data = module->addWire(NEW_ID, GetSize(data)/2);
+					SigSpec new_data = module->addWire(NEW_ID2_SUFFIX("data"), GetSize(data)/2); // SILIMATE: Improve the naming
 					for (int i = 0; i < GetSize(new_data); i += width) {
-						RTLIL::Cell *mux = module->addMux(NEW_ID,
+						RTLIL::Cell *mux = module->addMux(NEW_ID2, // SILIMATE: Improve the naming
 							data.extract(i*2, width),
 							data.extract(i*2+width, width),
 							sel[idx],
 							new_data.extract(i, width));
-						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-						mux->set_bool_attribute(IdString("\\bmuxmap"));
+						for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
+							mux->attributes[attr.first] = attr.second;
+						mux->set_bool_attribute("\\bmuxmap"); // SILIMATE: Mark the cell as created by bmuxmap
 					}
 					data = new_data;
 				}

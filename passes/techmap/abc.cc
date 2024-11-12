@@ -400,7 +400,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 				auto sig = signal_list.at(sid);
 				if (sig.bit.wire != nullptr)
 				{
-					std::string s = stringf("$abc$%d$%s", map_autoidx, sig.bit.wire->name.c_str()+1);
+					std::string s = stringf("\\%s_ix%d", sig.bit.wire->name.c_str()+1, map_autoidx); // SILIMATE: Improve the naming
 					if (sig.bit.wire->width != 1)
 						s += stringf("[%d]", sig.bit.offset);
 					if (isnew)
@@ -413,7 +413,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 			}
 		}
 	}
-	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
+	return stringf("\\%s_ix%d", abc_name.c_str()+1, map_autoidx); // SILIMATE: Improve the naming
 }
 
 void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)

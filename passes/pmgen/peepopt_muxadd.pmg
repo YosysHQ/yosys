@@ -38,8 +38,11 @@ code
 	// Get mux signal
 	SigSpec mux_y = port(mux, \Y);
 
+	// SILIMATE: Alias cell to mux for mid wire
+	Cell *cell = mux;
+
 	// Create new mid wire
-	SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
+	SigSpec mid = module->addWire(NEW_ID2_SUFFIX("mid"), GetSize(add_b)); // SILIMATE: Improve the naming
 
 	// Rewire
 	mux->setPort(\A, Const(State::S0, GetSize(add_b)));

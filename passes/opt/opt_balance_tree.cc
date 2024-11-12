@@ -207,6 +207,7 @@ struct OptBalanceTreeWorker {
 
 		// Get mid, midnext (at index mid+1) and end of chain
 		Cell *mid_cell = chain[GetSize(chain) / 2];
+		Cell *cell = mid_cell; // SILIMATE: Set cell to mid_cell for better naming
 		Cell *midnext_cell = chain[GetSize(chain) / 2 + 1];
 		Cell *end_cell = chain.back();
 		log_debug("Balancing chain of %d cells: mid=%s, midnext=%s, endcell=%s\n",
@@ -227,7 +228,7 @@ struct OptBalanceTreeWorker {
 		SigSpec end_y_sig = sigmap(end_cell->getPort(ID::Y));
 
 		// Create new mid wire
-		Wire *mid_wire = module->addWire(NEW_ID, GetSize(end_y_sig));
+		Wire *mid_wire = module->addWire(NEW_ID2_SUFFIX("mid"), GetSize(end_y_sig)); // SILIMATE: Improve the naming
 
 		// Perform rotation
 		mid_cell->setPort(mid_non_chain_port, mid_wire);

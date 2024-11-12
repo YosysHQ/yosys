@@ -276,6 +276,7 @@ struct MuxpackWorker
 			for (int i = 1; i < cases; i++) {
 				Cell* prev_cell = chain[cursor+i-1];
 				Cell* cursor_cell = chain[cursor+i];
+				Cell* cell = cursor_cell; // SILIMATE: Set cell to cursor cell for better naming
 				if (sigmap(prev_cell->getPort(ID::Y)) == sigmap(cursor_cell->getPort(ID::A))) {
 					b_sig.append(cursor_cell->getPort(ID::B));
 					s_sig.append(cursor_cell->getPort(ID::S));
@@ -283,7 +284,7 @@ struct MuxpackWorker
 				else {
 					log_assert(cursor_cell->type == ID($mux));
 					b_sig.append(cursor_cell->getPort(ID::A));
-					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
+					s_sig.append(module->LogicNot(NEW_ID2_SUFFIX("sel"), cursor_cell->getPort(ID::S), false, cell->get_src_attribute())); // SILIMATE: Improve the naming
 				}
 				remove_cells.insert(cursor_cell);
 			}

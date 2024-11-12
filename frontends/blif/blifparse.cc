@@ -362,19 +362,19 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto no_latch_clock;
 
 				if (!strcmp(edge, "re"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDff(NEW_ABC_ID, blif_wire(clock), blif_wire(d), blif_wire(q)); // SILIMATE: Improve the naming
 				else if (!strcmp(edge, "fe"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDff(NEW_ABC_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false); // SILIMATE: Improve the naming
 				else if (!strcmp(edge, "ah"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDlatch(NEW_ABC_ID, blif_wire(clock), blif_wire(d), blif_wire(q)); // SILIMATE: Improve the naming
 				else if (!strcmp(edge, "al"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDlatch(NEW_ABC_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false); // SILIMATE: Improve the naming
 				else {
 			no_latch_clock:
 					if (dff_name.empty()) {
-						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
+						cell = module->addFf(NEW_ABC_ID, blif_wire(d), blif_wire(q)); // SILIMATE: Improve the naming
 					} else {
-						cell = module->addCell(NEW_ID, dff_name);
+						cell = module->addCell(NEW_ABC_ID, dff_name); // SILIMATE: Improve the naming
 						cell->setPort(ID::D, blif_wire(d));
 						cell->setPort(ID::Q, blif_wire(q));
 					}
@@ -393,7 +393,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto error;
 
 				IdString celltype = RTLIL::escape_id(p);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
+				RTLIL::Cell *cell = module->addCell(NEW_ABC_ID, celltype); // SILIMATE: Improve the naming
 				RTLIL::Module *cell_mod = design->module(celltype);
 
 				dict<RTLIL::IdString, dict<int, SigBit>> cell_wideports_cache;
@@ -440,7 +440,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 						if (it.second.count(idx))
 							sig.append(it.second.at(idx));
 						else
-							sig.append(module->addWire(NEW_ID));
+							sig.append(module->addWire(NEW_ABC_ID)); // SILIMATE: Improve the naming
 					}
 
 					cell->setPort(it.first, sig);
@@ -516,7 +516,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 				if (sop_mode)
 				{
-					sopcell = module->addCell(NEW_ID, ID($sop));
+					sopcell = module->addCell(NEW_ABC_ID, ID($sop)); // SILIMATE: Improve the naming
 					sopcell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
 					sopcell->parameters[ID::DEPTH] = 0;
 					sopcell->parameters[ID::TABLE] = RTLIL::Const();
@@ -532,7 +532,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				}
 				else
 				{
-					RTLIL::Cell *cell = module->addCell(NEW_ID, ID($lut));
+					RTLIL::Cell *cell = module->addCell(NEW_ABC_ID, ID($lut)); // SILIMATE: Improve the naming
 					cell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
 					cell->parameters[ID::LUT] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
 					cell->setPort(ID::A, input_sig);
@@ -583,8 +583,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				sopmode = (*output == '1');
 				if (!sopmode) {
 					SigSpec outnet = sopcell->getPort(ID::Y);
-					SigSpec tempnet = module->addWire(NEW_ID);
-					module->addNotGate(NEW_ID, tempnet, outnet);
+					SigSpec tempnet = module->addWire(NEW_ABC_ID); // SILIMATE: Improve the naming
+					module->addNotGate(NEW_ABC_ID, tempnet, outnet); // SILIMATE: Improve the naming
 					sopcell->setPort(ID::Y, tempnet);
 				}
 			} else

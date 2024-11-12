@@ -227,10 +227,10 @@ bool is_blackbox(Netlist *nl)
 
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
-	// SILIMATE: Use uniquified Verific ID as Yosys ID
-	// TODO: improve this
+	// SILIMATE: Uniquify by adding _<autoidx> suffix
 	std::string s = stringf("$%s", obj->Name());
-	while (seen_ids.count(s)) s += stringf("$%d", autoidx++);
+	while (seen_ids.count(s + stringf("_ix%d", autoidx))) autoidx++;
+	s += stringf("_ix%d", autoidx++);
 	seen_ids.insert(s);
 	return s;
 }

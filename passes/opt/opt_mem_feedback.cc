@@ -106,7 +106,7 @@ struct OptMemFeedbackWorker
 		find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, wrport_idx, data_bit_idx, paths);
 	}
 
-	RTLIL::SigBit conditions_to_logic(pool<dict<RTLIL::SigBit, bool>> &conditions, SigBit olden)
+	RTLIL::SigBit conditions_to_logic(pool<dict<RTLIL::SigBit, bool>> &conditions, SigBit olden, Module *module, Mem &mem)
 	{
 		auto key = make_pair(conditions, olden);
 
@@ -120,7 +120,7 @@ struct OptMemFeedbackWorker
 				sig1.append(it.first);
 				sig2.append(it.second ? RTLIL::State::S1 : RTLIL::State::S0);
 			}
-			terms.append(module->Ne(NEW_ID, sig1, sig2));
+			terms.append(module->Ne(NEW_MEM_ID_SUFFIX("cond_ne"), sig1, sig2, false, mem.get_src_attribute())); // SILIMATE: Improve the naming
 		}
 
 		if (olden != State::S1)
@@ -130,7 +130,7 @@ struct OptMemFeedbackWorker
 			terms = State::S1;
 
 		if (GetSize(terms) > 1)
-			terms = module->ReduceAnd(NEW_ID, terms);
+			terms = module->ReduceAnd(NEW_MEM_ID_SUFFIX("cond_reduce_and"), terms, false, mem.get_src_attribute()); // SILIMATE: Improve the naming
 
 		return conditions_logic_cache[key] = terms;
 	}
@@ -255,7 +255,7 @@ struct OptMemFeedbackWorker
 			int bit = it.first.second;
 			auto &port = mem.wr_ports[wrport_idx];
 
-			port.en[bit] = conditions_to_logic(it.second, port.en[bit]);
+			port.en[bit] = conditions_to_logic(it.second, port.en[bit], module, mem);
 			log("    Port %d bit %d: added enable logic for %d different cases.\n", wrport_idx, bit, GetSize(it.second));
 		}
 

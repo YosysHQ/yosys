@@ -358,6 +358,16 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
+#define NEW_ID2 \
+	module->uniquify(cell->name.str())
+#define NEW_ID2_SUFFIX(suffix) \
+	module->uniquify(cell->name.str() + "_" + suffix)
+#define NEW_ID2_SUFFIX2(suffix) \
+	module->uniquify(cell_name.str() + "_" + suffix)
+#define NEW_ABC_ID \
+	module->uniquify(IdString("\\boolopt"))
+#define NEW_MEM_ID_SUFFIX(suffix) \
+	module->uniquify(mem.mem->name.str() + "_" + suffix)
 
 // Create a statically allocated IdString object, using for example ID::A or ID($add).
 //

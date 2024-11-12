@@ -270,11 +270,11 @@ struct ExtractReducePass : public Pass
 						}
 
 						if (head_cell->type == ID($_AND_)) {
-							module->addReduceAnd(NEW_ID, input, output);
+							module->addReduceAnd(NEW_ID2_SUFFIX("reduce_and"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else if (head_cell->type == ID($_OR_)) {
-							module->addReduceOr(NEW_ID, input, output);
+							module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else if (head_cell->type == ID($_XOR_)) {
-							module->addReduceXor(NEW_ID, input, output);
+							module->addReduceXor(NEW_ID2_SUFFIX("reduce_xor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else {
 							log_assert(false);
 						}

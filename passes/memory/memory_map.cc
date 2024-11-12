@@ -82,19 +82,18 @@ struct MemoryMapWorker
 		return sstr.str();
 	}
 
-	RTLIL::Wire *addr_decode(RTLIL::SigSpec addr_sig, RTLIL::SigSpec addr_val)
+	RTLIL::Wire *addr_decode(RTLIL::SigSpec addr_sig, RTLIL::SigSpec addr_val, Module *module, Mem &mem)
 	{
 		std::pair<RTLIL::SigSpec, RTLIL::SigSpec> key(addr_sig, addr_val);
 		log_assert(GetSize(addr_sig) == GetSize(addr_val));
-
 		if (decoder_cache.count(key) == 0) {
 			if (GetSize(addr_sig) < 2) {
-				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
+				decoder_cache[key] = module->Eq(NEW_MEM_ID_SUFFIX("addr_decode"), addr_sig, addr_val, false, mem.get_src_attribute()); // SILIMATE: Improve the naming
 			} else {
 				int split_at = GetSize(addr_sig) / 2;
-				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
-				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
-				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
+				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at), module, mem);
+				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at), module, mem);
+				decoder_cache[key] = module->And(NEW_MEM_ID_SUFFIX("addr_decode"), left_eq, right_eq, false, mem.get_src_attribute()); // SILIMATE: Improve the naming
 			}
 		}
 
@@ -329,7 +328,7 @@ struct MemoryMapWorker
 				{
 					auto &port = mem.wr_ports[j];
 					RTLIL::SigSpec wr_addr = port.addr.extract_end(port.wide_log2);
-					RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(addr >> port.wide_log2, GetSize(wr_addr)));
+					RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(addr >> port.wide_log2, GetSize(wr_addr)), module, mem);
 
 					int sub = addr & ((1 << port.wide_log2) - 1);
 
