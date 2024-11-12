@@ -87,5 +87,9 @@ def setup(app: Sphinx) -> None:
     from util.RtlilLexer import RtlilLexer
     app.add_lexer("RTLIL", RtlilLexer)
 
-    from furo_ys.lexers.YoscryptLexer import YoscryptLexer
-    app.add_lexer("yoscrypt", YoscryptLexer)
+    try:
+        from furo_ys.lexers.YoscryptLexer import YoscryptLexer
+        app.add_lexer("yoscrypt", YoscryptLexer)
+    except ModuleNotFoundError:
+        from pygments.lexers.special import TextLexer
+        app.add_lexer("yoscrypt", TextLexer)
