@@ -3443,7 +3443,8 @@ struct VerificPass : public Pass {
 			// RuntimeFlags::SetVar("db_preserve_x", 1); // SILIMATE: comment out to improve optimization
 
 			RuntimeFlags::SetVar("db_merge_cascaded_muxes", 1); // SILIMATE: add to improve optimization
-			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: add to use Synopsys register names
+			RuntimeFlags::SetVar("db_preserve_register_names", 1); // SILIMATE: optionally add to use preserve register names
+			// RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: optionally add to use Synopsys register names
 			RuntimeFlags::SetVar("db_stop_cse_on_ram_ports", 0); // SILIMATE: perform CSE on RAM ports to improve optimization
 
 			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: optionally add to improve optimization (QoR)
