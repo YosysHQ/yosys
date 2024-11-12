@@ -279,6 +279,10 @@ struct OptMergeWorker
 				auto r = sharemap.insert(std::make_pair(hash, cell));
 				if (!r.second) {
 					if (compare_cell_parameters_and_connections(cell, r.first->second)) {
+						// SILIMATE: Keep the shorter name always
+						if (cell->name.str() < r.first->second->name.str())
+							std::swap(r.first->second, cell);
+
 						if (cell->has_keep_attr()) {
 							if (r.first->second->has_keep_attr())
 								continue;
