@@ -1102,7 +1102,7 @@ struct XAigerWriter : AigerWriter {
 							holes_module->ports.push_back(w->name);
 							holes_pis.push_back(w);
 						}
-						in_conn.append(holes_pis[i]);
+						in_conn.append(holes_pis[holes_pi_idx]);
 						holes_pi_idx++;
 					}
 					holes_wb->setPort(port_id, in_conn);
