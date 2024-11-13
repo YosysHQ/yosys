@@ -330,7 +330,6 @@ struct OptMergeWorker
 					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
 					module->remove(cell);
 					total_count++;
-					break;
 				}
 			}
 		}
