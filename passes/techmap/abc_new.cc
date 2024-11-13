@@ -161,7 +161,7 @@ struct AbcNewPass : public ScriptPass {
 				}
 
 				std::string script_save;
-				if (mod->has_attribute(ID(abc9_script))) {
+				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
 					script_save = active_design->scratchpad_get_string("abc9.script");
 					active_design->scratchpad_set_string("abc9.script",
 						mod->get_string_attribute(ID(abc9_script)));
@@ -173,7 +173,7 @@ struct AbcNewPass : public ScriptPass {
 				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
 							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));
 
-				if (mod->has_attribute(ID(abc9_script))) {
+				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
 					if (script_save.empty())
 						active_design->scratchpad_unset("abc9.script");
 					else
