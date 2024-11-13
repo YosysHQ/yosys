@@ -54,3 +54,4 @@ OBJS += passes/cmds/box_derive.o
 OBJS += passes/cmds/example_dt.o
 OBJS += passes/cmds/activity.o
 OBJS += passes/cmds/splitnetlist.o
+OBJS += passes/cmds/reconstructbusses.o
