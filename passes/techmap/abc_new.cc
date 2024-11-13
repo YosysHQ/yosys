@@ -19,9 +19,28 @@
 
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
+{
+	std::set<Module *> modules_set(modules.begin(), modules.end());
+	TopoSort<Module*> sort;
+
+	for (auto m : modules) {
+		sort.node(m);
+
+		for (auto cell : m->cells()) {
+			Module *submodule = design->module(cell->type);
+			if (modules_set.count(submodule))
+				sort.edge(submodule, m);
+		}
+	}
+	log_assert(sort.sort());
+	return sort.sorted;
+}
 
 struct AbcNewPass : public ScriptPass {
 	AbcNewPass() : ScriptPass("abc_new", "(experimental) use ABC for SC technology mapping (new)")
@@ -101,6 +120,15 @@ struct AbcNewPass : public ScriptPass {
 		}
 
 		if (check_label("prep_boxes")) {
+			if (!help_mode) {
+				for (auto mod : active_design->selected_whole_modules_warn()) {
+					if (mod->get_bool_attribute(ID::abc9_box)) {
+						mod->set_bool_attribute(ID::abc9_box, false);
+						mod->set_bool_attribute(ID(abc9_deferred_box), true);
+					}
+				}
+			}
+
 			run("box_derive");
 			run("abc9_ops -prep_box");
 		}
@@ -109,7 +137,8 @@ struct AbcNewPass : public ScriptPass {
 			std::vector<Module *> selected_modules;
 
 			if (!help_mode) {
-				selected_modules = active_design->selected_whole_modules_warn();
+				selected_modules = order_modules(active_design,
+												 active_design->selected_whole_modules_warn());
 				active_design->selection_stack.emplace_back(false);
 			} else {
 				selected_modules = {nullptr};
@@ -154,6 +183,13 @@ struct AbcNewPass : public ScriptPass {
 				if (!help_mode) {
 					active_design->selection().selected_modules.clear();
 					log_pop();
+
+					if (mod->get_bool_attribute(ID(abc9_deferred_box))) {
+						mod->set_bool_attribute(ID(abc9_deferred_box), false);
+						mod->set_bool_attribute(ID::abc9_box, true);
+						Pass::call_on_module(active_design, mod, "portarcs -draw -write");
+						run("abc9_ops -prep_box");
+					}
 				}
 			}
 
