@@ -147,6 +147,7 @@ struct OptMergeWorker
 
 	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h) const
 	{
+		h.eat(cell->type);
 		h = hash_cell_inputs(cell, h);
 		h = hash_cell_parameters(cell, h);
 		return h;
