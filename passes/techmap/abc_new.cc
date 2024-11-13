@@ -131,11 +131,25 @@ struct AbcNewPass : public ScriptPass {
 					active_design->selection().select(mod);
 				}
 
+				std::string script_save;
+				if (mod->has_attribute(ID(abc9_script))) {
+					script_save = active_design->scratchpad_get_string("abc9.script");
+					active_design->scratchpad_set_string("abc9.script",
+						mod->get_string_attribute(ID(abc9_script)));
+				}
+
 				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir.c_str()));
 				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir.c_str(), tmpdir.c_str()));
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options.c_str(), tmpdir.c_str(), tmpdir.c_str()));
 				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
 							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));
+
+				if (mod->has_attribute(ID(abc9_script))) {
+					if (script_save.empty())
+						active_design->scratchpad_unset("abc9.script");
+					else
+						active_design->scratchpad_set_string("abc9.script", script_save);
+				}
 
 				if (!help_mode) {
 					active_design->selection().selected_modules.clear();
