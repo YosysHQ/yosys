@@ -282,17 +282,24 @@ struct OptMergeWorker
 			// We keep a set of known cells. They're hashed with our hash_cell_function
 			// and compared with our compare_cell_parameters_and_connections.
 			// Both need to capture OptMergeWorker to access initvals
-			struct CellPtrOps {
+			struct CellPtrHash {
 				const OptMergeWorker& worker;
-				CellPtrOps(const OptMergeWorker& w) : worker(w) {}
-				Hasher hash(const Cell* c) const {
-					return worker.hash_cell_function(c, Hasher());
+				CellPtrHash(const OptMergeWorker& w) : worker(w) {}
+				std::size_t operator()(const Cell* c) const {
+					return (std::size_t)worker.hash_cell_function(c, Hasher()).yield();
 				}
-				bool cmp(const Cell* lhs, const Cell* rhs) const {
+			};
+			struct CellPtrEqual {
+				const OptMergeWorker& worker;
+				CellPtrEqual(const OptMergeWorker& w) : worker(w) {}
+				bool operator()(const Cell* lhs, const Cell* rhs) const {
 					return worker.compare_cell_parameters_and_connections(lhs, rhs);
 				}
 			};
-			pool<RTLIL::Cell*, CellPtrOps> known_cells (CellPtrOps(*this));
+			std::unordered_set<
+				RTLIL::Cell*,
+				CellPtrHash,
+				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
 
 			for (auto cell : cells)
 			{
