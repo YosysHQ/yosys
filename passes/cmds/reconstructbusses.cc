@@ -15,6 +15,8 @@ struct ReconstructBusses : public ScriptPass {
 			log_error("No design object");
 			return;
 		}
+		log("Running reconstructbusses pass\n");
+		log_flush();
 		for (auto module : design->modules()) {
 			// Collect all wires with a common prefix
 			dict<std::string, std::vector<RTLIL::Wire *>> wire_groups;
@@ -47,7 +49,8 @@ struct ReconstructBusses : public ScriptPass {
 					wire_groups[no_bitblast_prefix].push_back(wire);
 				}
 			}
-
+			std::map<std::string, RTLIL::Wire *> wirenames_to_remove;
+			pool<RTLIL::Wire *> wires_to_remove;
 			// Reconstruct vectors
 			for (auto &it : wire_groups) {
 				std::string prefix = it.first;
@@ -83,100 +86,103 @@ struct ReconstructBusses : public ScriptPass {
 						new_wire->port_output = 1;
 					break;
 				}
-				RTLIL::SigSpec new_wire_s(new_wire);
-				// Reconnect cells
-				for (auto cell : module->cells()) {
-					for (auto &conn : cell->connections_) {
-						RTLIL::SigSpec new_sig;
-						bool modified = false;
-						for (auto chunk : conn.second.chunks()) {
-							// std::cout << "Port:" << conn.first.c_str() << std::endl;
-							// std::cout << "Conn:" << chunk.wire->name.c_str() << std::endl;
-							// Find the connections that match the wire group prefix
-							if (chunk.wire->name.begins_with((prefix + "_").c_str())) {
-								std::string ch_name = chunk.wire->name.c_str();
-								std::string::iterator ch_end = ch_name.end() - 1;
-								if ((*ch_end) == '_') {
-									ch_name = ch_name.substr(0, ch_name.size() - 1);
-									std::string ch_index_str = ch_name.substr(ch_name.find_last_of('_') + 1);
-									// std::cout << "ch_name: " << ch_name << std::endl;
-									if (!ch_index_str.empty()) {
-										// Create a new connection sigspec that matches the previous bit index
-										int ch_index = std::stoi(ch_index_str);
-										RTLIL::SigSpec bit = RTLIL::SigSpec(new_wire, ch_index, 1);									
-										new_sig.append(bit);
-										modified = true;
-									}
-								}
-							} else {
-								new_sig.append(chunk);
-								modified = true;
-							}
-						}
-						// Replace the previous connection
-						if (modified)
-							conn.second = new_sig;
-					}
-				}
 
-				// Reconnect top connections before removing the old wires
 				for (auto wire : wires) {
 					std::string wire_name = wire->name.c_str();
-					// std::cout << "Wire to remove: " << wire_name << std::endl;
-					for (auto &conn : module->connections()) {
-						RTLIL::SigSpec lhs = conn.first;
-						RTLIL::SigSpec rhs = conn.second;
-						auto lit = lhs.chunks().rbegin();
-						if (lit == lhs.chunks().rend())
-							continue;
-						auto rit = rhs.chunks().rbegin();
-						if (rit == rhs.chunks().rend())
-							continue;
-						RTLIL::SigChunk sub_rhs = *rit;
-						while (lit != lhs.chunks().rend()) {
-							RTLIL::SigChunk sub_lhs = *lit;
-							std::string conn_lhs = sub_lhs.wire->name.c_str();
-							std::string conn_rhs = sub_rhs.wire->name.c_str();
-							// The connection LHS matches a wire that is replaced by a bus
-							// std::cout << "Conn: " << conn_lhs << " to: " << conn_rhs << std::endl;
-							if (wire_name == conn_lhs) {
-								std::string::iterator conn_lhs_end = conn_lhs.end() - 1;
-								if ((*conn_lhs_end) == '_') {
-									conn_lhs = conn_lhs.substr(0, conn_lhs.size() - 1);
-									std::string ch_index_str = conn_lhs.substr(conn_lhs.find_last_of('_') + 1);
-									if (!ch_index_str.empty()) {
-										// std::cout << "Conn LHS: " << conn_lhs << std::endl;
-										// std::string conn_rhs = sub_rhs.wire->name.c_str();
-										// std::cout << "Conn RHS: " << conn_rhs << std::endl;
-										int ch_index = std::stoi(ch_index_str);
-										// Create the LHS sigspec of the desired bit
-										RTLIL::SigSpec bit = RTLIL::SigSpec(new_wire, ch_index, 1);
-										if (sub_rhs.size() > 1) {
-											// If RHS has width > 1, replace with the bitblasted RHS corresponding to the connected bit
-											RTLIL::SigSpec rhs_bit =
-											  RTLIL::SigSpec(sub_rhs.wire, ch_index, 1);
-											// And connect it
-											module->connect(bit, rhs_bit);
-										} else {
-											// Else, directly connect
-											module->connect(bit, sub_rhs);
-										}
-									}
-								}
-							}
-							lit++;
-							if (++rit != rhs.chunks().rend())
-								rit++;
-						}
-					}
-				}
-				// Remove old wires
-				pool<RTLIL::Wire *> wires_to_remove;
-				for (auto wire : wires) {
+					wirenames_to_remove.emplace(wire_name, new_wire);
 					wires_to_remove.insert(wire);
 				}
-				module->remove(wires_to_remove);
 			}
+
+			// Reconnect cells
+			for (auto cell : module->cells()) {
+				for (auto &conn : cell->connections_) {
+					RTLIL::SigSpec new_sig;
+					bool modified = false;
+					for (auto chunk : conn.second.chunks()) {
+						// std::cout << "Port:" << conn.first.c_str() << std::endl;
+						// std::cout << "Conn:" << chunk.wire->name.c_str() << std::endl;
+						// Find the connections that match the wire group prefix
+						std::string lhs_name = chunk.wire->name.c_str();
+						std::map<std::string, RTLIL::Wire *>::iterator itr =  wirenames_to_remove.find(lhs_name);
+						if (itr != wirenames_to_remove.end()) {
+							std::string ch_name = chunk.wire->name.c_str();
+							std::string::iterator ch_end = ch_name.end() - 1;
+							if ((*ch_end) == '_') {
+								ch_name = ch_name.substr(0, ch_name.size() - 1);
+								std::string ch_index_str = ch_name.substr(ch_name.find_last_of('_') + 1);
+								// std::cout << "ch_name: " << ch_name << std::endl;
+								if (!ch_index_str.empty()) {
+									// Create a new connection sigspec that matches the previous bit index
+									int ch_index = std::stoi(ch_index_str);
+									RTLIL::SigSpec bit = RTLIL::SigSpec(itr->second, ch_index, 1);
+									new_sig.append(bit);
+									modified = true;
+								}
+							}
+						} else {
+							new_sig.append(chunk);
+							modified = true;
+						}
+					}
+					// Replace the previous connection
+					if (modified)
+						conn.second = new_sig;
+				}
+			}
+
+			// Reconnect top connections before removing the old wires
+			// std::cout << "Wire to remove: " << wire_name << std::endl;
+			for (auto &conn : module->connections()) {
+				RTLIL::SigSpec lhs = conn.first;
+				RTLIL::SigSpec rhs = conn.second;
+				auto lit = lhs.chunks().rbegin();
+				if (lit == lhs.chunks().rend())
+					continue;
+				auto rit = rhs.chunks().rbegin();
+				if (rit == rhs.chunks().rend())
+					continue;
+				RTLIL::SigChunk sub_rhs = *rit;
+				while (lit != lhs.chunks().rend()) {
+					RTLIL::SigChunk sub_lhs = *lit;
+					std::string conn_lhs = sub_lhs.wire->name.c_str();
+					std::string conn_rhs = sub_rhs.wire->name.c_str();
+					// The connection LHS matches a wire that is replaced by a bus
+					// std::cout << "Conn: " << conn_lhs << " to: " << conn_rhs << std::endl;
+					std::map<std::string, RTLIL::Wire *>::iterator itr =  wirenames_to_remove.find(conn_lhs);
+					if (itr != wirenames_to_remove.end()) {
+						std::string::iterator conn_lhs_end = conn_lhs.end() - 1;
+						if ((*conn_lhs_end) == '_') {
+							conn_lhs = conn_lhs.substr(0, conn_lhs.size() - 1);
+							std::string ch_index_str = conn_lhs.substr(conn_lhs.find_last_of('_') + 1);
+							if (!ch_index_str.empty()) {
+								// std::cout << "Conn LHS: " << conn_lhs << std::endl;
+								// std::string conn_rhs = sub_rhs.wire->name.c_str();
+								// std::cout << "Conn RHS: " << conn_rhs << std::endl;
+								int ch_index = std::stoi(ch_index_str);
+								// Create the LHS sigspec of the desired bit
+								RTLIL::SigSpec bit = RTLIL::SigSpec(itr->second, ch_index, 1);
+								if (sub_rhs.size() > 1) {
+									// If RHS has width > 1, replace with the bitblasted RHS corresponding to the
+									// connected bit
+									RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(sub_rhs.wire, ch_index, 1);
+									// And connect it
+									module->connect(bit, rhs_bit);
+								} else {
+									// Else, directly connect
+									module->connect(bit, sub_rhs);
+								}
+							}
+						}
+					}
+					lit++;
+					if (++rit != rhs.chunks().rend())
+						rit++;
+				}
+			}
+
+			// Remove old wires
+			module->remove(wires_to_remove);
 			// Update module port list
 			module->fixup_ports();
 		}
