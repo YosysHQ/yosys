@@ -6,7 +6,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ReconstructBusses : public ScriptPass {
-	ReconstructBusses() : ScriptPass("reconstructbusses", "Reconstruct busses from wire with the same prefix: <prefix>_<index>_") {}
+	ReconstructBusses() : ScriptPass("reconstructbusses", "Reconstruct busses from wires with the same prefix following the convention: <prefix>_<index>_") {}
 	void script() override {}
 
 	void execute(std::vector<std::string>, RTLIL::Design *design) override
@@ -92,6 +92,7 @@ struct ReconstructBusses : public ScriptPass {
 						for (auto chunk : conn.second.chunks()) {
 							// std::cout << "Port:" << conn.first.c_str() << std::endl;
 							// std::cout << "Conn:" << chunk.wire->name.c_str() << std::endl;
+							// Find the connections that match the wire group prefix
 							if (chunk.wire->name.begins_with((prefix + "_").c_str())) {
 								std::string ch_name = chunk.wire->name.c_str();
 								std::string::iterator ch_end = ch_name.end() - 1;
@@ -100,6 +101,7 @@ struct ReconstructBusses : public ScriptPass {
 									std::string ch_index_str = ch_name.substr(ch_name.find_last_of('_') + 1);
 									// std::cout << "ch_name: " << ch_name << std::endl;
 									if (!ch_index_str.empty()) {
+										// Create a new connection sigspec that matches the previous bit index
 										int ch_index = std::stoi(ch_index_str);
 										RTLIL::SigSpec bit = RTLIL::SigSpec(new_wire, ch_index, 1);									
 										new_sig.append(bit);
@@ -111,6 +113,7 @@ struct ReconstructBusses : public ScriptPass {
 								modified = true;
 							}
 						}
+						// Replace the previous connection
 						if (modified)
 							conn.second = new_sig;
 					}
@@ -119,7 +122,7 @@ struct ReconstructBusses : public ScriptPass {
 				// Reconnect top connections before removing the old wires
 				for (auto wire : wires) {
 					std::string wire_name = wire->name.c_str();
-					//std::cout << "Wire to remove: " << wire_name << std::endl;
+					// std::cout << "Wire to remove: " << wire_name << std::endl;
 					for (auto &conn : module->connections()) {
 						RTLIL::SigSpec lhs = conn.first;
 						RTLIL::SigSpec rhs = conn.second;
@@ -134,23 +137,28 @@ struct ReconstructBusses : public ScriptPass {
 							RTLIL::SigChunk sub_lhs = *lit;
 							std::string conn_lhs = sub_lhs.wire->name.c_str();
 							std::string conn_rhs = sub_rhs.wire->name.c_str();
-							//std::cout << "Conn: " << conn_lhs << " to: " << conn_rhs << std::endl;
+							// The connection LHS matches a wire that is replaced by a bus
+							// std::cout << "Conn: " << conn_lhs << " to: " << conn_rhs << std::endl;
 							if (wire_name == conn_lhs) {
 								std::string::iterator conn_lhs_end = conn_lhs.end() - 1;
 								if ((*conn_lhs_end) == '_') {
 									conn_lhs = conn_lhs.substr(0, conn_lhs.size() - 1);
 									std::string ch_index_str = conn_lhs.substr(conn_lhs.find_last_of('_') + 1);
 									if (!ch_index_str.empty()) {
-										//std::cout << "Conn LHS: " << conn_lhs << std::endl;
-										std::string conn_rhs = sub_rhs.wire->name.c_str();
-										//std::cout << "Conn RHS: " << conn_rhs << std::endl;
+										// std::cout << "Conn LHS: " << conn_lhs << std::endl;
+										// std::string conn_rhs = sub_rhs.wire->name.c_str();
+										// std::cout << "Conn RHS: " << conn_rhs << std::endl;
 										int ch_index = std::stoi(ch_index_str);
+										// Create the LHS sigspec of the desired bit
 										RTLIL::SigSpec bit = RTLIL::SigSpec(new_wire, ch_index, 1);
 										if (sub_rhs.size() > 1) {
+											// If RHS has width > 1, replace with the bitblasted RHS corresponding to the connected bit
 											RTLIL::SigSpec rhs_bit =
 											  RTLIL::SigSpec(sub_rhs.wire, ch_index, 1);
+											// And connect it
 											module->connect(bit, rhs_bit);
 										} else {
+											// Else, directly connect
 											module->connect(bit, sub_rhs);
 										}
 									}
@@ -169,6 +177,7 @@ struct ReconstructBusses : public ScriptPass {
 				}
 				module->remove(wires_to_remove);
 			}
+			// Update module port list
 			module->fixup_ports();
 		}
 	}
