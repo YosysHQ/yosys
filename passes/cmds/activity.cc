@@ -84,7 +84,7 @@ struct ActivityProp {
 					DutyMap.emplace(bit, duties[i]);
 					nbBitsWithActivity++;
 				} else {
-					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld", 
+					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld\n",
 						module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
@@ -107,7 +107,7 @@ struct ActivityProp {
 						} else {
 							RTLIL::SigSpec sigspec(bit);
 							if (!sigspec.is_fully_const()) {
-							  log_warning("No activity found for : %s/%s/%s", module->name.c_str(), cell->name.c_str(), port_name.c_str());
+							  log_warning("No activity found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
 							}
 							// constants have no activity
 							cell_ports_activity += port_name + "=" + "0.0 ";
@@ -120,7 +120,7 @@ struct ActivityProp {
 						} else {
 							RTLIL::SigSpec sigspec(bit);
 							if (!sigspec.is_fully_const()) {
-							  log_warning("No dutycycle found for : %s/%s/%s", module->name.c_str(), cell->name.c_str(), port_name.c_str());
+							  log_warning("No dutycycle found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
 							}
 							// constant 1 has duty cycle 1, constant 0 has duty cycle 0
 							cell_ports_duty += port_name + "=" + (sigspec.as_bool() ? "1.0" : "0.0") + " ";

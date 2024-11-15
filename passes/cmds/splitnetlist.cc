@@ -51,6 +51,10 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 // Signal cell driver(s), precompute a cell output signal to a cell map
 void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *> *> &sig2CellsInFanin)
 {
+	if (!design->top_module())
+		return;
+	if (design->top_module()->cells().size() == 0)
+		return;
 	for (auto cell : design->top_module()->cells()) {
 		for (auto &conn : cell->connections()) {
 			IdString portName = conn.first;
@@ -95,6 +99,10 @@ void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>
 // Assign statements fanin, traces the lhs to rhs sigspecs and precompute a map
 void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2rhsSig)
 {
+	if (!design->top_module())
+		return;
+	if (design->top_module()->connections().size() == 0)
+		return;
 	for (auto it = design->top_module()->connections().begin(); it != design->top_module()->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
 		RTLIL::SigSpec rhs = it->second;
@@ -145,9 +153,15 @@ struct SplitNetlist : public ScriptPass {
 			log_error("No design object");
 			return;
 		}
+		log("Running splitnetlist pass\n");
+		log_flush();
+		log("Mapping signals to cells\n");
+		log_flush();
 		// Precompute cell output sigspec to cell map
 		dict<RTLIL::SigSpec, std::set<Cell *> *> sig2CellsInFanin;
 		sigCellDrivers(design, sig2CellsInFanin);
+		log("Mapping assignments\n");
+		log_flush();
 		// Precompute lhs to rhs sigspec map
 		dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
 		lhs2rhs(design, lhsSig2RhsSig);
@@ -160,6 +174,12 @@ struct SplitNetlist : public ScriptPass {
 		typedef std::map<std::string, CellsAndSigs> CellName_ObjectMap;
 		CellName_ObjectMap cellName_ObjectMap;
 		// Record logic cone by output sharing the same prefix
+		if (!design->top_module())
+			return;
+		if (design->top_module()->wires().size() == 0)
+			return;
+		log("Cells grouping\n");
+		log_flush();
 		for (auto wire : design->top_module()->wires()) {
 			if (!wire->port_output)
 				continue;
@@ -219,6 +239,8 @@ struct SplitNetlist : public ScriptPass {
 			}
 		}
 		// Create submod attributes for the submod command
+		log("Creating submods\n");
+		log_flush();
 		for (CellName_ObjectMap::iterator itr = cellName_ObjectMap.begin(); itr != cellName_ObjectMap.end(); itr++) {
 			// std::cout << "Cluster name: " << itr->first << std::endl;
 			CellsAndSigs &components = itr->second;
@@ -233,6 +255,8 @@ struct SplitNetlist : public ScriptPass {
 		}
 		// Execute the submod command
 		Pass::call(design, "submod -copy");
+		log("End splitnetlist pass\n");
+		log_flush();
 	}
 } SplitNetlist;
 
