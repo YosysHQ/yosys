@@ -123,7 +123,7 @@ void lhs2rhs(RTLIL::Design *design, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig
 			}
 			for (uint32_t i = 0; i < lhsBits.size(); i++) {
 				if (i < rhsBits.size())
-				  lhsSig2rhsSig[lhsBits[i]] = rhsBits[i];
+					lhsSig2rhsSig[lhsBits[i]] = rhsBits[i];
 			}
 		} else {
 			lhsSig2rhsSig[lhs] = rhs;
@@ -153,8 +153,21 @@ struct SplitNetlist : public ScriptPass {
 			log_error("No design object");
 			return;
 		}
+
+		bool debug = false;
+		if (std::getenv("DEBUG_SPLITNETLIST")) {
+			debug = true;
+		}
 		log("Running splitnetlist pass\n");
 		log_flush();
+
+		// Add buffers for pass-through and connections to constants
+		// so we can find cells that can be used by submod
+		Pass::call(design, "bufnorm -buf");
+
+		if (debug)
+			run_pass("write_rtlil post_buf.rtlil");
+
 		log("Mapping signals to cells\n");
 		log_flush();
 		// Precompute cell output sigspec to cell map
@@ -183,17 +196,17 @@ struct SplitNetlist : public ScriptPass {
 		for (auto wire : design->top_module()->wires()) {
 			if (!wire->port_output)
 				continue;
-			std::string output_port_name = wire->name.c_str();
+			std::string output_port_name = wire ? wire->name.c_str() : "";
 			if (output_port_name.empty())
 				continue;
 			// We want to truncate the final _<index>_ part of the string
 			// Example: "add_Y_0_"
 			// Result:  "add_Y"
-			std::string::iterator end = output_port_name.end()-1;
+			std::string::iterator end = output_port_name.end() - 1;
 			if ((*end) == '_') {
 				// Last character is an _, it is a bit blasted index
 				end--;
-				for (; end !=  output_port_name.begin(); end--) {
+				for (; end != output_port_name.begin(); end--) {
 					if ((*end) != '_') {
 						// Truncate until the next _
 						continue;
@@ -242,19 +255,23 @@ struct SplitNetlist : public ScriptPass {
 		log("Creating submods\n");
 		log_flush();
 		for (CellName_ObjectMap::iterator itr = cellName_ObjectMap.begin(); itr != cellName_ObjectMap.end(); itr++) {
-			// std::cout << "Cluster name: " << itr->first << std::endl;
+			if (debug)
+				std::cout << "Cluster name: " << itr->first << std::endl;
 			CellsAndSigs &components = itr->second;
 			for (auto cell : components.visitedCells) {
 				cell->set_string_attribute(RTLIL::escape_id("submod"), itr->first);
-				// std::cout << "  CELL: " << cell->name.c_str() << std::endl;
+				if (debug)
+					std::cout << "  CELL: " << cell->name.c_str() << std::endl;
 			}
-			// for (auto sigspec : components.visitedSigSpec) {
-			//  std::cout << "  SIG: " << SigName(sigspec) << std::endl;
-			// }
-			// std::cout << std::endl;
 		}
+
 		// Execute the submod command
 		Pass::call(design, "submod -copy");
+
+		// Remove buffers introduced by bufnorm
+		Pass::call(design, "techmap -D SIMLIB_NOCHECKS -map +/simlib.v t:$buf");
+		Pass::call(design, "clean");
+
 		log("End splitnetlist pass\n");
 		log_flush();
 	}

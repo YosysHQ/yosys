@@ -241,7 +241,7 @@ LTOFLAGS := $(CLANG_LTO)
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
-CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
+CXXFLAGS += -g -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LINKFLAGS += -g -fsanitize=$(SANITIZER)
 ifneq ($(findstring address,$(SANITIZER)),)
 ENABLE_COVER := 0
@@ -749,6 +749,7 @@ OBJS += passes/cmds/activity.o
 OBJS += passes/cmds/splitnetlist.o
 OBJS += passes/cmds/reconstructbusses.o
 OBJS += passes/sat/sim.o
+OBJS += passes/techmap/bufnorm.o
 
 OBJS += passes/cmds/segv.o
 
