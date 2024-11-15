@@ -14,17 +14,41 @@ struct ReconstructBusses : public ScriptPass {
 
 	bool is_digits(const std::string &str) { return std::all_of(str.begin(), str.end(), ::isdigit); }
 
+	// Get the index <index> from the signal name "prefix_<index>_"
+	int getIndex(std::string name, std::map<std::string, RTLIL::Wire *> &wirenames_to_remove)
+	{
+		std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(name);
+		if (itr_lhs != wirenames_to_remove.end()) {
+			std::string::iterator conn_lhs_end = name.end() - 1;
+			if ((*conn_lhs_end) == '_') {
+				name = name.substr(0, name.size() - 1);
+				if (name.find("_") != std::string::npos) {
+					std::string ch_index_str = name.substr(name.find_last_of('_') + 1);
+					if (!ch_index_str.empty() && is_digits(ch_index_str)) {
+						int ch_index = std::stoi(ch_index_str);
+						return ch_index;
+					}
+				}
+			}
+		}
+		return -1;
+	}
+
 	void execute(std::vector<std::string>, RTLIL::Design *design) override
 	{
 		if (design == nullptr) {
 			log_error("No design object");
 			return;
 		}
+		bool debug = false;
+		if (std::getenv("DEBUG_RECONSTRUCT_BUSSES")) {
+			debug = true;
+		}
 		log("Running reconstructbusses pass\n");
 		log_flush();
-		log("Creating bus groups\n");
-		log_flush();
 		for (auto module : design->modules()) {
+			log("Creating bus groups for module %s\n", module->name.str().c_str());
+			log_flush();
 			// Collect all wires with a common prefix
 			dict<std::string, std::vector<RTLIL::Wire *>> wire_groups;
 			for (auto wire : module->wires()) {
@@ -83,6 +107,8 @@ struct ReconstructBusses : public ScriptPass {
 			// Reconstruct vectors
 			for (auto &it : wire_groups) {
 				std::string prefix = it.first;
+				if (debug)
+					std::cout << "Wire group:" << prefix << std::endl;
 				std::vector<RTLIL::Wire *> &wires = it.second;
 
 				// Create a new vector wire
@@ -107,39 +133,34 @@ struct ReconstructBusses : public ScriptPass {
 			log_flush();
 			// Reconnect cells
 			for (auto cell : module->cells()) {
+				if (debug)
+					std::cout << "Cell:" << cell->name.c_str() << std::endl;
 				for (auto &conn : cell->connections_) {
 					RTLIL::SigSpec new_sig;
 					bool modified = false;
 					for (auto chunk : conn.second.chunks()) {
-						// std::cout << "Port:" << conn.first.c_str() << std::endl;
-						// std::cout << "Conn:" << chunk.wire->name.c_str() << std::endl;
+						if (debug) {
+							std::cout << "  Port:" << conn.first.c_str() << std::endl;
+							std::cout << "  Conn:" << (chunk.wire ? chunk.wire->name.c_str() : "constant") << std::endl;
+						}
 						// Find the connections that match the wire group prefix
-						std::string lhs_name = chunk.wire->name.c_str();
-						std::map<std::string, RTLIL::Wire *>::iterator itr = wirenames_to_remove.find(lhs_name);
-						if (itr != wirenames_to_remove.end()) {
-							std::string ch_name = chunk.wire->name.c_str();
-							if (!ch_name.empty()) {
-								std::string::iterator ch_end = ch_name.end() - 1;
-								if ((*ch_end) == '_') {
-									ch_name = ch_name.substr(0, ch_name.size() - 1);
-									if (ch_name.find("_") != std::string::npos) {
-										std::string ch_index_str =
-										  ch_name.substr(ch_name.find_last_of('_') + 1);
-										// std::cout << "ch_name: " << ch_name << std::endl;
-										if ((!ch_index_str.empty() && is_digits(ch_index_str))) {
-											// Create a new connection sigspec that matches the previous
-											// bit index
-											int ch_index = std::stoi(ch_index_str);
-											RTLIL::SigSpec bit = RTLIL::SigSpec(itr->second, ch_index, 1);
-											new_sig.append(bit);
-											modified = true;
-										}
-									}
-								}
+						if (chunk.wire == nullptr) {
+							continue;
+						}
+						std::string lhs_name = chunk.wire ? chunk.wire->name.c_str() : "";
+						int lhsIndex = getIndex(lhs_name, wirenames_to_remove);
+						std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(lhs_name);
+						if (itr_lhs != wirenames_to_remove.end()) {
+							if (lhsIndex >= 0) {
+								// Create a new connection sigspec that matches the previous
+								// bit index
+								RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
+								new_sig.append(bit);
+								modified = true;
+							} else {
+								new_sig.append(chunk);
+								modified = true;
 							}
-						} else {
-							new_sig.append(chunk);
-							modified = true;
 						}
 					}
 					// Replace the previous connection
@@ -147,10 +168,17 @@ struct ReconstructBusses : public ScriptPass {
 						conn.second = new_sig;
 				}
 			}
+			if (debug)
+				run_pass("write_rtlil post_reconnect_cells.rtlil");
 			log("Reconnecting top connections\n");
 			log_flush();
 			// Reconnect top connections before removing the old wires
+			std::vector<RTLIL::SigSig> newConnections;
 			for (auto &conn : module->connections()) {
+				// Keep all the connections that won't get rewired
+				newConnections.push_back(conn);
+			}
+			for (auto &conn : newConnections) {
 				RTLIL::SigSpec lhs = conn.first;
 				RTLIL::SigSpec rhs = conn.second;
 				auto lit = lhs.chunks().rbegin();
@@ -162,40 +190,40 @@ struct ReconstructBusses : public ScriptPass {
 				RTLIL::SigChunk sub_rhs = *rit;
 				while (lit != lhs.chunks().rend()) {
 					RTLIL::SigChunk sub_lhs = *lit;
-					std::string conn_lhs = sub_lhs.wire->name.c_str();
-					if (!conn_lhs.empty()) {
-						// std::cout << "Conn LHS: " << conn_lhs << std::endl;
-						// std::string conn_rhs = sub_rhs.wire->name.c_str();
-						// std::cout << "Conn RHS: " << conn_rhs << std::endl;
-
-						std::map<std::string, RTLIL::Wire *>::iterator itr = wirenames_to_remove.find(conn_lhs);
-						if (itr != wirenames_to_remove.end()) {
-							std::string::iterator conn_lhs_end = conn_lhs.end() - 1;
-							if ((*conn_lhs_end) == '_') {
-								conn_lhs = conn_lhs.substr(0, conn_lhs.size() - 1);
-								if (conn_lhs.find("_") != std::string::npos) {
-									std::string ch_index_str = conn_lhs.substr(conn_lhs.find_last_of('_') + 1);
-									if (!ch_index_str.empty() && is_digits(ch_index_str)) {
-										int ch_index = std::stoi(ch_index_str);
-										// Create the LHS sigspec of the desired bit
-										RTLIL::SigSpec bit = RTLIL::SigSpec(itr->second, ch_index, 1);
-										if (sub_rhs.size() > 1) {
-											// If RHS has width > 1, replace with the bitblasted RHS
-											// corresponding to the connected bit
-											RTLIL::SigSpec rhs_bit =
-											  RTLIL::SigSpec(sub_rhs.wire, ch_index, 1);
-											// And connect it
-											module->connect(bit, rhs_bit);
-										} else {
-											// Else, directly connect
-											module->connect(bit, sub_rhs);
-										}
+					std::string conn_lhs_s = sub_lhs.wire ? sub_lhs.wire->name.c_str() : "";
+					std::string conn_rhs_s = sub_rhs.wire ? sub_rhs.wire->name.c_str() : "";
+					if (!conn_lhs_s.empty()) {
+						if (debug) {
+							std::cout << "Conn LHS: " << conn_lhs_s << std::endl;
+							std::cout << "Conn RHS: " << conn_rhs_s << std::endl;
+						}
+						int lhsIndex = getIndex(conn_lhs_s, wirenames_to_remove);
+						int rhsIndex = getIndex(conn_rhs_s, wirenames_to_remove);
+						std::map<std::string, RTLIL::Wire *>::iterator itr_lhs = wirenames_to_remove.find(conn_lhs_s);
+						std::map<std::string, RTLIL::Wire *>::iterator itr_rhs = wirenames_to_remove.find(conn_rhs_s);
+						if (itr_lhs != wirenames_to_remove.end() || itr_rhs != wirenames_to_remove.end()) {
+							if (lhsIndex >= 0) {
+								// Create the LHS sigspec of the desired bit
+								RTLIL::SigSpec lbit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
+								if (sub_rhs.size() > 1) {
+									// If RHS has width > 1, replace with the bitblasted RHS
+									// corresponding to the connected bit
+									RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(sub_rhs.wire, lhsIndex, 1);
+									// And connect it
+									module->connect(lbit, rhs_bit);
+								} else {
+									// Else, directly connect
+									if (rhsIndex >= 0) {
+										RTLIL::SigSpec rbit = RTLIL::SigSpec(itr_rhs->second, rhsIndex, 1);
+										module->connect(lbit, rbit);
 									} else {
-										// Else, directly connect
-										RTLIL::SigSpec bit = RTLIL::SigSpec(itr->second, 0, 1);
-										module->connect(bit, sub_rhs);
+										module->connect(lbit, sub_rhs);
 									}
 								}
+							} else {
+								// Else, directly connect
+								RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, 0, 1);
+								module->connect(bit, sub_rhs);
 							}
 						}
 					}
@@ -204,7 +232,10 @@ struct ReconstructBusses : public ScriptPass {
 						rit++;
 				}
 			}
+			if (debug)
+				run_pass("write_rtlil post_reconnect_top.rtlil");
 			// Remove old wires
+			// Cleans the dangling connections too
 			log("Removing old wires\n");
 			log_flush();
 			module->remove(wires_to_remove);
@@ -213,6 +244,8 @@ struct ReconstructBusses : public ScriptPass {
 			log_flush();
 			module->fixup_ports();
 		}
+		if (debug)
+			run_pass("write_rtlil post_reconstructbusses.rtlil");
 		log("End reconstructbusses pass\n");
 		log_flush();
 	}
