@@ -508,7 +508,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($not), ID($neg), ID($_NOT_), ID($pos), ID($buf)))
+		if (cell->type.in(ID($not), ID($neg), ID($_NOT_), ID($pos), ID($buf), ID($_BUF_)))
 		{
 			string btor_op;
 			if (cell->type.in(ID($not), ID($_NOT_))) btor_op = "not";
@@ -522,7 +522,7 @@ struct BtorWorker
 
 			// the $pos/$buf cells just pass through, all other cells need an actual operation applied
 			int nid = nid_a;
-			if (!cell->type.in(ID($pos), ID($buf)))
+			if (!cell->type.in(ID($pos), ID($buf), ID($_BUF_)))
 			{
 				log_assert(!btor_op.empty());
 				int sid = get_bv_sid(width);
