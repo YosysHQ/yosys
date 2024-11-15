@@ -49,6 +49,8 @@ struct ReconstructBusses : public ScriptPass {
 						}
 					}
 					if (!valid_index) {
+						log_warning("Invalid net name %s\n", prefix.c_str());
+						log_flush();
 						continue;
 					}
 
@@ -62,9 +64,12 @@ struct ReconstructBusses : public ScriptPass {
 							break;
 						}
 					}
-					if (end == prefix.begin())
+					if (end == prefix.begin()) {
 						// Last _ didn't mean there was another _
+						log_warning("Invalid net name %s\n", prefix.c_str());
+						log_flush();
 						continue;
+					}
 					std::string no_bitblast_prefix;
 					std::copy(prefix.begin(), end, std::back_inserter(no_bitblast_prefix));
 					wire_groups[no_bitblast_prefix].push_back(wire);
