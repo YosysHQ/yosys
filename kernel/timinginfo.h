@@ -37,6 +37,14 @@ struct TimingInfo
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
 		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
+		std::optional<SigBit> get_connection(RTLIL::Cell *cell) {
+			if (!cell->hasPort(name))
+				return {};
+			auto &port = cell->getPort(name);
+			if (offset >= port.size())
+				return {};
+			return port[offset];
+		}
 	};
 	struct BitBit
 	{

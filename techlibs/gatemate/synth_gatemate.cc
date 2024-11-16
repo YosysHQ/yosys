@@ -301,6 +301,7 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			run("muxcover " + muxcover_args);
 			run("opt -full");
+			run("simplemap");
 			run("techmap -map +/gatemate/mux_map.v");
 		}
 

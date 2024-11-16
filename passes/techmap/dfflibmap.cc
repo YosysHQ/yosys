@@ -66,6 +66,11 @@ static void logmap_all()
 	logmap(ID($_DFF_PP0_));
 	logmap(ID($_DFF_PP1_));
 
+	logmap(ID($_DFFE_NN_));
+	logmap(ID($_DFFE_NP_));
+	logmap(ID($_DFFE_PN_));
+	logmap(ID($_DFFE_PP_));
+
 	logmap(ID($_DFFSR_NNN_));
 	logmap(ID($_DFFSR_NNP_));
 	logmap(ID($_DFFSR_NPN_));
@@ -74,6 +79,115 @@ static void logmap_all()
 	logmap(ID($_DFFSR_PNP_));
 	logmap(ID($_DFFSR_PPN_));
 	logmap(ID($_DFFSR_PPP_));
+}
+
+static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std::string &data_name, bool &data_not_inverted, std::string &enable_name, bool &enable_not_inverted)
+{
+	static pool<std::string> warned_cells{};
+
+	if (cell == nullptr || attr == nullptr || attr->value.empty())
+		return false;
+
+	auto expr = attr->value;
+	auto cell_name = cell->args[0];
+
+	for (size_t pos = expr.find_first_of("\" \t"); pos != std::string::npos; pos = expr.find_first_of("\" \t"))
+		expr.erase(pos, 1);
+
+	// if this isn't an enable flop, the next_state variable is usually just the input pin name.
+	if (expr[expr.size()-1] == '\'') {
+		data_name = expr.substr(0, expr.size()-1);
+		data_not_inverted = false;
+	} else if (expr[0] == '!') {
+		data_name = expr.substr(1, expr.size()-1);
+		data_not_inverted = false;
+	} else {
+		data_name = expr;
+		data_not_inverted = true;
+	}
+
+	for (auto child : cell->children)
+		if (child->id == "pin" && child->args.size() == 1 && child->args[0] == data_name)
+			return true;
+
+	// the next_state variable isn't just a pin name; perhaps this is an enable?
+	auto helper = LibertyExpression::Lexer(expr);
+	auto tree = LibertyExpression::parse(helper);
+
+	if (tree.kind == LibertyExpression::Kind::EMPTY) {
+		if (!warned_cells.count(cell_name)) {
+			log_warning("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell_name.c_str());
+			warned_cells.insert(cell_name);
+		}
+		return false;
+	}
+
+	auto pin_names = pool<std::string>{};
+	tree.get_pin_names(pin_names);
+
+	// from the `ff` block, we know the flop output signal name for loopback.
+	auto ff = cell->find("ff");
+	if (ff == nullptr || ff->args.size() != 2)
+		return false;
+	auto ff_output = ff->args.at(0);
+	
+	// This test is redundant with the one in enable_pin, but we're in a
+	// position that gives better diagnostics here.
+	if (!pin_names.count(ff_output)) {
+		if (!warned_cells.count(cell_name)) {
+			log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell_name.c_str(), ff_output.c_str());
+			warned_cells.insert(cell_name);
+		}
+		return false;
+	}
+
+	data_not_inverted = true;
+	data_name = "";
+	enable_not_inverted = true;
+	enable_name = "";
+
+	if (pin_names.size() == 3 && pin_names.count(ff_output)) {
+		pin_names.erase(ff_output);
+		auto pins = std::vector<std::string>(pin_names.begin(), pin_names.end());
+		int lut = 0;
+		for (int n = 0; n < 8; n++) {
+			auto values = dict<std::string, bool>{};
+			values.insert(std::make_pair(pins[0], (n & 1) == 1));
+			values.insert(std::make_pair(pins[1], (n & 2) == 2));
+			values.insert(std::make_pair(ff_output, (n & 4) == 4));
+			if (tree.eval(values))
+				lut |= 1 << n;
+		}
+		// the ff output Q is in a known bit location, so we now just have to compare the LUT mask to known values to find the enable pin and polarity.
+		if (lut == 0xD8) {
+			data_name = pins[1];
+			enable_name = pins[0];	
+			return true;
+		}
+		if (lut == 0xB8) {
+			data_name = pins[0];
+			enable_name = pins[1];	
+			return true;
+		}
+		enable_not_inverted = false;
+		if (lut == 0xE4) {
+			data_name = pins[1];
+			enable_name = pins[0];	
+			return true;
+		}
+		if (lut == 0xE2) {
+			data_name = pins[0];
+			enable_name = pins[1];	
+			return true;
+		}
+		// this does not match an enable flop.
+	}
+
+	if (!warned_cells.count(cell_name)) {
+		log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell_name.c_str());
+		warned_cells.insert(cell_name);
+	}
+	return false;
 }
 
 static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::string &pin_name, bool &pin_pol)
@@ -115,7 +229,7 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
 	return false;
 }
 
-static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
+static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
 	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
@@ -151,12 +265,12 @@ static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bo
 		if (ff == nullptr)
 			continue;
 
-		std::string cell_clk_pin, cell_rst_pin, cell_next_pin;
-		bool cell_clk_pol, cell_rst_pol, cell_next_pol;
+		std::string cell_clk_pin, cell_rst_pin, cell_next_pin, cell_enable_pin;
+		bool cell_clk_pol, cell_rst_pol, cell_next_pol, cell_enable_pol;
 
 		if (!parse_pin(cell, ff->find("clocked_on"), cell_clk_pin, cell_clk_pol) || cell_clk_pol != clkpol)
 			continue;
-		if (!parse_pin(cell, ff->find("next_state"), cell_next_pin, cell_next_pol))
+		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
 		if (has_reset && rstval == false) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
@@ -171,6 +285,8 @@ static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bo
 		this_cell_ports[cell_clk_pin] = 'C';
 		if (has_reset)
 			this_cell_ports[cell_rst_pin] = 'R';
+		if (has_enable)
+			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
 		double area = 0;
@@ -239,13 +355,15 @@ static void find_cell(const LibertyAst *ast, IdString cell_type, bool clkpol, bo
 	}
 }
 
-static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, std::vector<std::string> &dont_use_cells)
+static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool has_enable, bool enapol, std::vector<std::string> &dont_use_cells)
 {
 	const LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
 	double best_cell_area = 0;
+
+	log_assert(!enapol && "set/reset cell with enable is unimplemented due to lack of cells for testing");
 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
@@ -275,12 +393,12 @@ static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol,
 		if (ff == nullptr)
 			continue;
 
-		std::string cell_clk_pin, cell_set_pin, cell_clr_pin, cell_next_pin;
-		bool cell_clk_pol, cell_set_pol, cell_clr_pol, cell_next_pol;
+		std::string cell_clk_pin, cell_set_pin, cell_clr_pin, cell_next_pin, cell_enable_pin;
+		bool cell_clk_pol, cell_set_pol, cell_clr_pol, cell_next_pol, cell_enable_pol;
 
 		if (!parse_pin(cell, ff->find("clocked_on"), cell_clk_pin, cell_clk_pol) || cell_clk_pol != clkpol)
 			continue;
-		if (!parse_pin(cell, ff->find("next_state"), cell_next_pin, cell_next_pol))
+		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol))
 			continue;
 		if (!parse_pin(cell, ff->find("preset"), cell_set_pin, cell_set_pol) || cell_set_pol != setpol)
 			continue;
@@ -291,6 +409,8 @@ static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol,
 		this_cell_ports[cell_clk_pin] = 'C';
 		this_cell_ports[cell_set_pin] = 'S';
 		this_cell_ports[cell_clr_pin] = 'R';
+		if (has_enable)
+			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_next_pin] = 'D';
 
 		double area = 0;
@@ -526,26 +646,31 @@ struct DfflibmapPass : public Pass {
 		LibertyParser libparser(f);
 		f.close();
 
-		find_cell(libparser.ast, ID($_DFF_N_), false, false, false, false, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_P_), true, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_N_), false, false, false, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_P_), true, false, false, false, false, false, dont_use_cells);
 
-		find_cell(libparser.ast, ID($_DFF_NN0_), false, true, false, false, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_NN1_), false, true, false, true, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_NP0_), false, true, true, false, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_NP1_), false, true, true, true, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_PN0_), true, true, false, false, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_PN1_), true, true, false, true, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_PP0_), true, true, true, false, dont_use_cells);
-		find_cell(libparser.ast, ID($_DFF_PP1_), true, true, true, true, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_NN0_), false, true, false, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_NN1_), false, true, false, true, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_NP0_), false, true, true, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_NP1_), false, true, true, true, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_PN0_), true, true, false, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_PN1_), true, true, false, true, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_PP0_), true, true, true, false, false, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFF_PP1_), true, true, true, true, false, false, dont_use_cells);
 
-		find_cell_sr(libparser.ast, ID($_DFFSR_NNN_), false, false, false, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_NNP_), false, false, true, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_NPN_), false, true, false, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_NPP_), false, true, true, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_PNN_), true, false, false, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_PNP_), true, false, true, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_PPN_), true, true, false, dont_use_cells);
-		find_cell_sr(libparser.ast, ID($_DFFSR_PPP_), true, true, true, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFFE_NN_), false, false, false, false, true, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFFE_NP_), false, false, false, false, true, true, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFFE_PN_), true, false, false, false, true, false, dont_use_cells);
+		find_cell(libparser.ast, ID($_DFFE_PP_), true, false, false, false, true, true, dont_use_cells);
+
+		find_cell_sr(libparser.ast, ID($_DFFSR_NNN_), false, false, false, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_NNP_), false, false, true, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_NPN_), false, true, false, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_NPP_), false, true, true, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_PNN_), true, false, false, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_PNP_), true, false, true, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_PPN_), true, true, false, false, false, dont_use_cells);
+		find_cell_sr(libparser.ast, ID($_DFFSR_PPP_), true, true, true, false, false, dont_use_cells);
 
 		log("  final dff cell mappings:\n");
 		logmap_all();

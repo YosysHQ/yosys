@@ -404,6 +404,17 @@ struct BufnormPass : public Pass {
 
 			pool<Cell*> added_buffers;
 
+			const auto lookup_mapping = [&mapped_bits](const SigBit bit, bool default_sx = false)
+			{
+				if (!bit.is_wire())
+					return bit;
+
+				if (default_sx)
+					return mapped_bits.at(bit, State::Sx);
+
+				return mapped_bits.at(bit);
+			};
+
 			auto make_buffer_f = [&](const IdString &type, const SigSpec &src, const SigSpec &dst)
 			{
 				auto it = old_buffers.find(pair<IdString, SigSpec>(type, dst));
@@ -438,12 +449,8 @@ struct BufnormPass : public Pass {
 				bool chain_this_wire = chain_this_wire_f(wire);
 
 				SigSpec keysig = sigmap(wire), insig = wire, outsig = wire;
-				for (int i = 0; i < GetSize(insig); i++) {
-					if (keysig[i].is_wire())
-						insig[i] = mapped_bits.at(keysig[i], State::Sx);
-					else
-						insig[i] = keysig[i];
-				}
+				for (int i = 0; i < GetSize(insig); i++)
+					insig[i] = lookup_mapping(keysig[i], true);
 
 				if (chain_this_wire) {
 					for (int i = 0; i < GetSize(outsig); i++)
@@ -491,7 +498,7 @@ struct BufnormPass : public Pass {
 
 					SigSpec newsig = conn.second;
 					for (auto &bit : newsig)
-						bit = mapped_bits[sigmap(bit)];
+						bit = lookup_mapping(sigmap(bit));
 
 					if (conn.second != newsig) {
 						log("  fixing input signal on cell %s port %s: %s\n",
