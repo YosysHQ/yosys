@@ -19,9 +19,8 @@ code add_y add_a add_b
 	add_y = port(add, \Y);
 
 	// Fanout of each adder Y bit should be 1 (no bit-split)
-	for (auto bit : add_y)
-		if (nusers(bit) != 2)
-			reject;
+        if (nusers(add_y) != 2)
+            reject;
 
 	// A and B can be interchanged
 	branch;
