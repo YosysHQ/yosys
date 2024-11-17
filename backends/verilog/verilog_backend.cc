@@ -2332,7 +2332,6 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
-	bool keep_running = true;
 	int cnt = 0;
 	int max_port_id = 0;
 	for (auto wire : module->wires()) {
@@ -2348,7 +2347,6 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 			if (port_id != 1)
 				f << stringf(", ");
 			f << stringf("%s", id(wire->name).c_str());
-			keep_running = true;
 			if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
 			continue;
 		}
