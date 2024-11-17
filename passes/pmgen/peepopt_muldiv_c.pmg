@@ -19,9 +19,8 @@ code a b_const mul_y
 	mul_y = port(mul, \Y);
 
 	// Fanout of each multiplier Y bit should be 1 (no bit-split)
-	for (auto bit : mul_y)
-		if (nusers(bit) != 2)
-			reject;
+	if (nusers(mul_y) != 2)
+		reject;
 
 	// A and B can be interchanged
 	branch;
