@@ -396,12 +396,12 @@ ifeq ($(CONFIG),mxe)
 LIBS += -ltermcap
 endif
 else
-ifeq ($(ENABLE_EDITLINE),1)
-CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
-LIBS += -ledit -ltinfo -lbsd
-else
 ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
+
+ifeq ($(ENABLE_EDITLINE),1)
+CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
+LIBS += -ledit
 endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
