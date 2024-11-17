@@ -14,6 +14,7 @@ OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
 OBJS += passes/techmap/aigmap.o
+OBJS += passes/techmap/breaksop.o
 
 ifeq ($(ENABLE_ABC),1)
 OBJS += passes/techmap/abc.o
