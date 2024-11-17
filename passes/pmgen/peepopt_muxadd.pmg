@@ -10,6 +10,13 @@ state <SigSpec> add_a add_b add_y
 match add
 	// Select adder
 	select add->type == $add
+	choice <IdString> A {\A, \B}
+        define <IdString> B (A == \A ? \B : \A)
+        set add_y port(add, \Y)
+        set add_a port(add, A)
+        set add_b port(add, B)
+        set add_a_signed param(add, (A == \A) ? \A_SIGNED : \B_SIGNED))
+        set add_a_id A
 endmatch
 
 code add_y add_a add_b
