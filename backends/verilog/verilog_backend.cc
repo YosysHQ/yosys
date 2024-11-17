@@ -2359,7 +2359,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	for (auto wire : module->wires()) {
 		wires[wire->port_id] = wire;
 	}
-	for (int port_id = 1; port_id < max_port_id; port_id++) {
+	for (int port_id = 1; port_id <= max_port_id; port_id++) {
 		Wire *wire = wires[port_id];
 		if (wire) {
 			if (port_id != 1)
