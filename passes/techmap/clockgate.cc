@@ -40,7 +40,7 @@ ClockGateCell icg_from_arg(std::string& name, std::string& str) {
 }
 
 static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
-	find_icgs(std::string filename) {
+	find_icgs(std::string filename, std::vector<std::string> const& dont_use_cells) {
 	std::ifstream f;
 	f.open(filename.c_str());
 	if (f.fail())
@@ -67,7 +67,17 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 		if (dn != nullptr && dn->value == "true")
 			continue;
 
-		// TODO Should we have user-specified dont_use_cells here?
+		bool dont_use = false;
+		for (auto dont_use_cell : dont_use_cells)
+		{
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
+			{
+				dont_use = true;
+				break;
+			}
+		}
+		if (dont_use)
+			continue;
 
 		const LibertyAst *icg_kind_ast = cell->find("clock_gating_integrated_cell");
 		if (icg_kind_ast == nullptr)
@@ -254,8 +264,9 @@ struct ClockgatePass : public Pass {
 		std::optional<ClockGateCell> pos_icg_desc;
 		std::optional<ClockGateCell> neg_icg_desc;
 		std::vector<std::string> tie_lo_pins;
-		int min_net_size = 0;
 		std::string liberty_file;
+		std::vector<std::string> dont_use_cells;
+		int min_net_size = 0;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -269,12 +280,16 @@ struct ClockgatePass : public Pass {
 				auto rest = args[++argidx];
 				neg_icg_desc = icg_from_arg(name, rest);
 			}
+			if (args[argidx] == "-tie_lo" && argidx+1 < args.size()) {
+				tie_lo_pins.push_back(RTLIL::escape_id(args[++argidx]));
+			}
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
 			}
-			if (args[argidx] == "-tie_lo" && argidx+1 < args.size()) {
-				tie_lo_pins.push_back(RTLIL::escape_id(args[++argidx]));
+			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {
+				dont_use_cells.push_back(args[++argidx]);
+				continue;
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
@@ -282,7 +297,8 @@ struct ClockgatePass : public Pass {
 		}
 
 		if (!liberty_file.empty())
-			std::tie(pos_icg_desc, neg_icg_desc) = find_icgs(liberty_file);
+			std::tie(pos_icg_desc, neg_icg_desc) =
+				find_icgs(liberty_file, dont_use_cells);
 		else {
 			for (auto pin : tie_lo_pins) {
 				if (pos_icg_desc)
