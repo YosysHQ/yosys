@@ -61,7 +61,7 @@ clockgate -pos pdk_icg ce:clkin:clkout -tie_lo scanen
 # falling edge clock flops don't get matched on -pos
 select -module dffe_00 -assert-count 0 t:\\pdk_icg
 select -module dffe_01 -assert-count 0 t:\\pdk_icg
-# falling edge clock flops do get matched on -pos
+# rising edge clock flops do get matched on -pos
 select -module dffe_10 -assert-count 1 t:\\pdk_icg
 select -module dffe_11 -assert-count 1 t:\\pdk_icg
 # if necessary, EN is inverted, since the given ICG
@@ -79,10 +79,10 @@ select -module dffe_wide_11 -assert-count 1 t:\\pdk_icg
 design -load before
 clockgate -min_net_size 1 -neg pdk_icg ce:clkin:clkout -tie_lo scanen
 
-# rising edge clock flops don't get matched on -neg
+# falling edge clock flops do get matched on -neg
 select -module dffe_00 -assert-count 1 t:\\pdk_icg
 select -module dffe_01 -assert-count 1 t:\\pdk_icg
-# rising edge clock flops do get matched on -neg
+# rising edge clock flops don't get matched on -neg
 select -module dffe_10 -assert-count 0 t:\\pdk_icg
 select -module dffe_11 -assert-count 0 t:\\pdk_icg
 # if necessary, EN is inverted, since the given ICG
