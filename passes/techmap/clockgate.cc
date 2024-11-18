@@ -212,13 +212,20 @@ struct ClockgatePass : public Pass {
 		log("        user-specified <celltype> ICG (integrated clock gating)\n");
 		log("        cell with ports named <ce>, <clk>, <gclk>.\n");
 		log("        The ICG's clock enable pin must be active high.\n");
-		// TODO -liberty
+		log("    -liberty <filename>\n");
+		log("        If specified, ICGs will be selected from the liberty file\n");
+		log("        if available. Priority is given to cells with fewer tie_lo\n");
+		log("        inputs and smaller size. This removes the need to manually\n");
+		log("        specify -pos or -neg and -tie_lo.\n");
+		log("    -dont_use <celltype>\n");
+		log("        Cells <celltype> won't be considered when searching for ICGs\n");
+		log("        in the liberty file specified by -liberty.\n");
 		log("    -tie_lo <port_name>\n");
 		log("        Port <port_name> of the ICG will be tied to zero.\n");
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
 		log("        Only transform sets of at least <n> eligible FFs.\n");
-		// log("        \n");
+		log("        \n");
 	}
 
 	// One ICG will be generated per ClkNetInfo
