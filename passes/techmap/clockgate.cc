@@ -50,10 +50,7 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	auto ast = libparser.ast;
 
 	// We will pick the most suitable ICG absed on tie_lo count and area
-	struct ICGRankable {
-		ClockGateCell icg;
-		double area;
-	};
+	struct ICGRankable : public ClockGateCell { double area; };
 	std::optional<ICGRankable> best_pos;
 	std::optional<ICGRankable> best_neg;
 
@@ -78,32 +75,19 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 
 		auto cell_name = cell->args[0];
 		auto icg_kind = icg_kind_ast->value;
-		std::vector<std::string> kind_tags;
-		std::stringstream ss(icg_kind);
-		std::string tag;
-		while (std::getline(ss, tag, '_')) {
-			kind_tags.push_back(tag);
-		}
-		if ((kind_tags.size() < 2) || (kind_tags.size() > 4))
-			log_error("Malformed liberty file - invalid clock_gating_integrated_cell value %s in cell %s\n",
-				icg_kind.c_str(), cell_name.c_str());
-		auto internal = kind_tags[0];
-		if (internal != "latch") {
-			// TODO Is this expected behavior?
-			log_warning("Skipping ICG cell %s - not latch-based\n", cell_name.c_str());
-			continue;
-		}
-		auto clk_pol_tag = kind_tags[1];
+		auto starts_with = [&](std::string prefix) {
+			return icg_kind.compare(0, prefix.size(), prefix) == 0;
+		};
 		bool clk_pol;
-		if (clk_pol_tag == "posedge") {
+		if (icg_kind == "latch_posedge" || starts_with("latch_posedge_")) {
 			clk_pol = true;
-		} else if (clk_pol_tag == "negedge") {
+		} else if (icg_kind == "latch_negedge" || starts_with("latch_negedge_")) {
 			clk_pol = false;
 		} else {
-			log_error("Malformed liberty file - invalid clock_gating_integrated_cell value %s in cell %s\n",
-				icg_kind.c_str(), cell_name.c_str());
+			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name.c_str(), icg_kind.c_str());
 			continue;
 		}
+
 		log_debug("maybe valid icg: %s\n", cell_name.c_str());
 		ClockGateCell icg_interface;
 		icg_interface.name = RTLIL::escape_id(cell_name);
@@ -112,7 +96,6 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
-			log("Check pin %s\n", pin->args[0].c_str());
 			if (auto clk = pin->find("clock_gate_clock_pin")) {
 				if (!icg_interface.clk_in_pin.empty())
 					log_error("Malformed liberty file - multiple clock_gate_clock_pin in cell %s\n",
@@ -162,15 +145,17 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 
 		bool winning = false;
 		if (icg_to_beat) {
-			log_debug("ties: %zu ? %zu\n", icg_to_beat->icg.tie_lo_pins.size(),
+			log_debug("ties: %zu ? %zu\n", icg_to_beat->tie_lo_pins.size(),
 				icg_interface.tie_lo_pins.size());
 			log_debug("area: %f ? %f\n", icg_to_beat->area, area);
-			if (icg_to_beat->icg.tie_lo_pins.size() != icg_interface.tie_lo_pins.size())
-				winning = icg_to_beat->icg.tie_lo_pins.size() > icg_interface.tie_lo_pins.size();
-			else
-				winning = icg_to_beat->area > area;
+
+			// Prefer fewer test enables over area reduction (unlikely to matter)
+			auto goal = std::make_pair(icg_to_beat->tie_lo_pins.size(), icg_to_beat->area);
+			auto cost = std::make_pair(icg_interface.tie_lo_pins.size(), area);
+			winning = cost < goal;
+
 			if (winning)
-				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->icg.name.c_str());
+				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->name.c_str());
 		} else {
 			log_debug("%s is the first of its polarity\n", icg_interface.name.c_str());
 			winning = true;
@@ -184,12 +169,12 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	std::optional<ClockGateCell> pos;
 	std::optional<ClockGateCell> neg;
 	if (best_pos) {
-		log("Selected rising edge ICG %s\n", best_pos->icg.name.c_str());
-		pos.emplace(best_pos->icg);
+		log("Selected rising edge ICG %s\n", best_pos->name.c_str());
+		pos.emplace(*best_pos);
 	}
 	if (best_neg) {
-		log("Selected falling edge ICG %s\n", best_neg->icg.name.c_str());
-		neg.emplace(best_neg->icg);
+		log("Selected falling edge ICG %s\n", best_neg->name.c_str());
+		neg.emplace(*best_neg);
 	}
 	return std::make_pair(pos, neg);
 }
