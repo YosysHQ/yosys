@@ -193,4 +193,42 @@ select -assert-count 1 t:\\pdk_icg
 
 #------------------------------------------------------------------------------
 
-# TODO test -tie_lo
+design -load before
+clockgate -liberty clockgate.lib
+
+# rising edge ICGs
+select -module dffe_00 -assert-count 0 t:\\pos_small
+select -module dffe_01 -assert-count 0 t:\\pos_small
+
+select -module dffe_10 -assert-count 1 t:\\pos_small
+select -module dffe_11 -assert-count 1 t:\\pos_small
+
+# falling edge ICGs
+select -module dffe_00 -assert-count 1 t:\\neg_small
+select -module dffe_01 -assert-count 1 t:\\neg_small
+
+select -module dffe_10 -assert-count 0 t:\\neg_small
+select -module dffe_11 -assert-count 0 t:\\neg_small
+
+# and nothing else
+select -module dffe_00 -assert-count 0 t:\\pos_big
+select -module dffe_01 -assert-count 0 t:\\pos_big
+select -module dffe_10 -assert-count 0 t:\\pos_big
+select -module dffe_11 -assert-count 0 t:\\pos_big
+select -module dffe_00 -assert-count 0 t:\\pos_small_tielo
+select -module dffe_01 -assert-count 0 t:\\pos_small_tielo
+select -module dffe_10 -assert-count 0 t:\\pos_small_tielo
+select -module dffe_11 -assert-count 0 t:\\pos_small_tielo
+select -module dffe_00 -assert-count 0 t:\\neg_big
+select -module dffe_01 -assert-count 0 t:\\neg_big
+select -module dffe_10 -assert-count 0 t:\\neg_big
+select -module dffe_11 -assert-count 0 t:\\neg_big
+select -module dffe_00 -assert-count 0 t:\\neg_small_tielo
+select -module dffe_01 -assert-count 0 t:\\neg_small_tielo
+select -module dffe_10 -assert-count 0 t:\\neg_small_tielo
+select -module dffe_11 -assert-count 0 t:\\neg_small_tielo
+
+# if necessary, EN is inverted, since the given ICG
+# is assumed to have an active-high EN
+select -module dffe_10 -assert-count 1 t:\$_NOT_
+select -module dffe_11 -assert-count 0 t:\$_NOT_
