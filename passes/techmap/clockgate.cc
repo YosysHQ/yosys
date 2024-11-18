@@ -107,22 +107,25 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 				continue;
 
 			if (auto clk = pin->find("clock_gate_clock_pin")) {
-				if (!icg_interface.clk_in_pin.empty())
-					log_error("Malformed liberty file - multiple clock_gate_clock_pin in cell %s\n",
+				if (!icg_interface.clk_in_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_clock_pin in cell %s\n",
 						cell_name.c_str());
-				else
+					continue;
+				} else
 					icg_interface.clk_in_pin = RTLIL::escape_id(pin->args[0]);
 			} else if (auto gclk = pin->find("clock_gate_out_pin")) {
-				if (!icg_interface.clk_out_pin.empty())
-					log_error("Malformed liberty file - multiple clock_gate_out_pin in cell %s\n",
+				if (!icg_interface.clk_out_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_out_pin in cell %s\n",
 						cell_name.c_str());
-				else
+					continue;
+				} else
 					icg_interface.clk_out_pin = RTLIL::escape_id(pin->args[0]);
 			} else if (auto en = pin->find("clock_gate_enable_pin")) {
-				if (!icg_interface.ce_pin.empty())
-					log_error("Malformed liberty file - multiple clock_gate_enable_pin in cell %s\n",
+				if (!icg_interface.ce_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_enable_pin in cell %s\n",
 						cell_name.c_str());
-				else
+					continue;
+				} else
 					icg_interface.ce_pin = RTLIL::escape_id(pin->args[0]);
 			} else if (auto se = pin->find("clock_gate_test_pin")) {
 				icg_interface.tie_lo_pins.push_back(RTLIL::escape_id(pin->args[0]));
@@ -131,20 +134,27 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 				if (dir->value == "internal")
 					continue;
 
-				log_error("Malformed liberty file - extra pin %s in cell %s\n",
+				log_warning("Malformed liberty file - extra pin %s in cell %s\n",
 					pin->args[0].c_str(), cell_name.c_str());
+				continue;
 			}
 		}
 
-		if (icg_interface.clk_in_pin.empty())
-			log_error("Malformed liberty file - missing clock_gate_clock_pin in cell %s",
+		if (icg_interface.clk_in_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_clock_pin in cell %s",
 				cell_name.c_str());
-		if (icg_interface.clk_out_pin.empty())
-			log_error("Malformed liberty file - missing clock_gate_out_pin in cell %s",
+			continue;
+		}
+		if (icg_interface.clk_out_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_out_pin in cell %s",
 				cell_name.c_str());
-		if (icg_interface.ce_pin.empty())
-			log_error("Malformed liberty file - missing clock_gate_enable_pin in cell %s",
+			continue;
+		}
+		if (icg_interface.ce_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_enable_pin in cell %s",
 				cell_name.c_str());
+			continue;
+		}
 
 		double area = 0;
 		const LibertyAst *ar = cell->find("area");
@@ -179,11 +189,11 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	std::optional<ClockGateCell> pos;
 	std::optional<ClockGateCell> neg;
 	if (best_pos) {
-		log("Selected rising edge ICG %s\n", best_pos->name.c_str());
+		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name.c_str());
 		pos.emplace(*best_pos);
 	}
 	if (best_neg) {
-		log("Selected falling edge ICG %s\n", best_neg->name.c_str());
+		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name.c_str());
 		neg.emplace(*best_neg);
 	}
 	return std::make_pair(pos, neg);
