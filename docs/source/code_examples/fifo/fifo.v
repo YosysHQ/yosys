@@ -5,7 +5,7 @@ module addr_gen
 ) ( input en, clk, rst,
 	output reg [AWIDTH-1:0] addr
 );
-	initial addr <= 0;
+	initial addr = 0;
 
 	// async reset
 	// increment address when enabled
@@ -13,7 +13,7 @@ module addr_gen
 		if (rst)
 			addr <= 0;
 		else if (en) begin
-			if (addr == MAX_DATA-1)
+			if ({'0, addr} == MAX_DATA-1)
 				addr <= 0;
 			else
 				addr <= addr + 1;
@@ -57,7 +57,7 @@ module fifo
 	);
 
 	// status signals
-	initial count <= 0;
+	initial count = 0;
 
 	always @(posedge clk or posedge rst) begin
 		if (rst)
