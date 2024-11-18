@@ -2347,29 +2347,16 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	}
 
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
-	f << stringf("%s"
-		     "module %s(",
-		     indent.c_str(), id(module->name, false).c_str());
+	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	int cnt = 0;
-	int max_port_id = 0;
-	for (auto wire : module->wires()) {
-		max_port_id = std::max(wire->port_id, max_port_id);
-	}
-	std::vector<Wire *> wires(max_port_id + 1, nullptr);
-	for (auto wire : module->wires()) {
-		wires[wire->port_id] = wire;
-	}
-	for (int port_id = 1; port_id <= max_port_id; port_id++) {
-		Wire *wire = wires[port_id];
+	for (auto port : module->ports) {
+		Wire *wire = module->wire(port);
 		if (wire) {
-			if (port_id != 1)
+			if (port != module->ports[0])
 				f << stringf(", ");
 			f << stringf("%s", id(wire->name).c_str());
-			if (cnt == 20) {
-				f << stringf("\n");
-				cnt = 0;
-			} else
-				cnt++;
+			if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
+			continue;
 		}
 	}
 	f << stringf(");\n");
