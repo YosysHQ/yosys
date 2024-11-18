@@ -24,6 +24,7 @@
 #include "passes/techmap/libparse.h"
 #include "kernel/cost.h"
 #include "libs/json11/json11.hpp"
+#include "libs/nlohmann_json/json.hpp"
 
 #ifdef YOSYS_ENABLE_ZLIB
 #include <zlib.h>
@@ -462,6 +463,83 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 	}
 }
 
+void read_libjson_cellarea(dict<IdString, cell_area_t> &cell_area, string liberty_file)
+{
+	std::istream *f;
+	std::ifstream *ff = new std::ifstream;
+	ff->open(liberty_file.c_str(), (liberty_file.substr(liberty_file.size() - 3) == ".gz") ? std::ifstream::binary : std::ifstream::in);
+	yosys_input_files.insert(liberty_file);
+	if (ff->fail()) {
+		delete ff;
+		ff = nullptr;
+	}
+	f = ff;
+	if (f != NULL) {
+		// Check for gzip magic
+		unsigned char magic[3];
+		int n = 0;
+		while (n < 3)
+		{
+			int c = ff->get();
+			if (c != EOF) {
+				magic[n] = (unsigned char) c;
+			}
+			n++;
+		}
+		if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
+#ifdef YOSYS_ENABLE_ZLIB
+			// log("Found gzip magic in file `%s', decompressing using zlib.\n", liberty_file.c_str());
+			if (magic[2] != 8)
+				log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
+					liberty_file.c_str(), unsigned(magic[2]));
+			delete ff;
+			std::stringstream *df = new std::stringstream();
+			decompress_gzip(liberty_file, *df);
+			f = df;
+#else
+			log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", liberty_file.c_str());
+#endif
+		} else {
+			ff->clear();
+			ff->seekg(0, std::ios::beg);
+		}
+	}
+	if (f == NULL)
+		log_cmd_error("Can't open input file `%s' for reading: %s\n", liberty_file.c_str(), strerror(errno));
+
+  nlohmann::json data = nlohmann::json::parse(*f);
+	nlohmann::json library = data["library"];
+	if (library.contains("groups")) {
+		nlohmann::json groups = library["groups"];
+		for (nlohmann::json::iterator it = groups.begin(); it != groups.end(); ++it) {
+			nlohmann::json group = it.value();
+			if (group.contains("cell")) {
+				nlohmann::json cell = group["cell"];
+				if (cell.contains("names")) {
+					nlohmann::json names = cell["names"];
+					names = names[0];
+					if (cell.contains("area")) {
+						nlohmann::json area = cell["area"];
+						bool ff = false;
+						nlohmann::json cell_groups = cell["groups"];
+						for (nlohmann::json::iterator it = cell_groups.begin(); it != cell_groups.end(); ++it) {
+							nlohmann::json cell_group = *it;
+							if (cell_group.contains("ff")) {
+								ff = true;
+								break;
+							}
+						}
+						std::string name_s = names.template get<std::string>();
+						float area_f = area.template get<std::float_t>();
+						std::cout << name_s <<  " : " <<area_f << " " << ff << "\n" << std::endl;
+						cell_area["\\" + name_s] = {/*area=*/area_f, ff};
+					}
+				}
+			}
+		}
+	}
+}
+
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
 	void help() override
@@ -480,6 +558,9 @@ struct StatPass : public Pass {
 		log("\n");
 		log("    -liberty <liberty_file>\n");
 		log("        use cell area information from the provided liberty file\n");
+		log("\n");
+		log("    -libjson <liberty_file.json>\n");
+		log("        use cell area information from the provided JSON liberty file\n");
 		log("\n");
 		log("    -tech <technology>\n");
 		log("        print area estimate for the specified technology. Currently supported\n");
@@ -513,6 +594,12 @@ struct StatPass : public Pass {
 				string liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
 				read_liberty_cellarea(cell_area, liberty_file);
+				continue;
+			}
+			if (args[argidx] == "-libjson" && argidx+1 < args.size()) {
+				string liberty_file = args[++argidx];
+				rewrite_filename(liberty_file);
+				read_libjson_cellarea(cell_area, liberty_file);
 				continue;
 			}
 			if (args[argidx] == "-tech" && argidx+1 < args.size()) {
