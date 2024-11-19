@@ -105,7 +105,7 @@ struct ReconstructBusses : public ScriptPass {
 			log("Found %ld groups\n", wire_groups.size());
 			if (wire_groups.size() == 0) {
 				std::cout << "No busses to reconstruct. Done." << std::endl;
-				return;
+				continue;
 			}
 			log("Creating busses\n");
 			log_flush();
@@ -166,10 +166,10 @@ struct ReconstructBusses : public ScriptPass {
 									new_sig.append(bit);
 									modified = true;
 								} else {
-									log_warning("Attempting to reconnect cell %s, port: %s of size %d with out-of-bound index %d\n",
-										cell->name.c_str(),
-										conn.first.c_str(),
-										itr_lhs->second->width, lhsIndex);
+									log_warning("Attempting to reconnect cell %s, port: %s of size %d with "
+										    "out-of-bound index %d\n",
+										    cell->name.c_str(), conn.first.c_str(), itr_lhs->second->width,
+										    lhsIndex);
 									for (RTLIL::Wire *w : wires_to_remove) {
 										if (strcmp(w->name.c_str(), itr_lhs->second->name.c_str()) == 0) {
 											wires_to_remove.erase(w);
@@ -269,10 +269,10 @@ struct ReconstructBusses : public ScriptPass {
 										} else {
 											log_warning("Attempting to reconnect signal %s, of "
 												    "size %d with out-of-bound index %d\n",
-												    conn_lhs_s.c_str(),
-												    itr_lhs->second->width, rhsIndex);
+												    conn_rhs_s.c_str(),
+												    itr_rhs->second->width, rhsIndex);
 											for (RTLIL::Wire *w : wires_to_remove) {
-												if (strcmp(w->name.c_str(), conn_lhs_s.c_str()) == 0) {
+												if (strcmp(w->name.c_str(), conn_rhs_s.c_str()) == 0) {
 													wires_to_remove.erase(w);
 													break;
 												}
@@ -283,9 +283,13 @@ struct ReconstructBusses : public ScriptPass {
 									}
 								}
 							} else {
-								// Else, directly connect
-								RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, 0, 1);
-								module->connect(bit, sub_rhs);
+								// LHS is not a bus
+								if (itr_rhs->second->width > 1) {
+									RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(itr_rhs->second, 0, 1);
+									module->connect(sub_lhs, rhs_bit);
+								} else {
+									module->connect(sub_lhs, sub_rhs);
+								}
 							}
 						}
 					}
@@ -301,7 +305,7 @@ struct ReconstructBusses : public ScriptPass {
 			log("Removing bit blasted wires\n");
 			log_flush();
 			if (debug) {
-				for (RTLIL::Wire* w : wires_to_remove) {
+				for (RTLIL::Wire *w : wires_to_remove) {
 					std::cout << "  " << w->name.c_str() << std::endl;
 				}
 			}
