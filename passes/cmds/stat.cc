@@ -355,9 +355,7 @@ struct statdata_t
 		log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
 		log("         \"num_processes\":     %u,\n", num_processes);
 		log("         \"num_cells\":         %u,\n", num_cells);
-		if (area != 0) {
-			log("         \"area\":              %f,\n", area);
-		}
+		log("         \"area\":              %f,\n", area);
 		log("         \"num_cells_by_type\": {\n");
 		bool first_line = true;
 		for (auto &it : num_cells_by_type)
@@ -507,7 +505,7 @@ void read_libjson_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 	if (f == NULL)
 		log_cmd_error("Can't open input file `%s' for reading: %s\n", liberty_file.c_str(), strerror(errno));
 
-  nlohmann::json data = nlohmann::json::parse(*f);
+	nlohmann::json data = nlohmann::json::parse(*f);
 	nlohmann::json library = data["library"];
 	if (library.contains("groups")) {
 		nlohmann::json groups = library["groups"];
