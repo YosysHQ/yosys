@@ -302,8 +302,8 @@ struct ReconstructBusses : public ScriptPass {
 			log_flush();
 			if (debug) {
 				for (RTLIL::Wire* w : wires_to_remove) {
-				  std::cout << "  " << w->name.c_str() << std::endl;
-			  }
+					std::cout << "  " << w->name.c_str() << std::endl;
+				}
 			}
 			module->remove(wires_to_remove);
 			// Update module port list
