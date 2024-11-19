@@ -39,7 +39,7 @@ bool AigNode::operator==(const AigNode &other) const
 	return true;
 }
 
-Hasher AigNode::hash_eat(Hasher h) const
+Hasher AigNode::hash_into(Hasher h) const
 {
 	h.eat(portname);
 	h.eat(portbit);
@@ -54,7 +54,7 @@ bool Aig::operator==(const Aig &other) const
 	return name == other.name;
 }
 
-Hasher Aig::hash_eat(Hasher h) const
+Hasher Aig::hash_into(Hasher h) const
 {
 	h.eat(name);
 	return h;

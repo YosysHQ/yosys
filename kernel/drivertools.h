@@ -74,7 +74,7 @@ struct DriveBitWire
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 
 	operator SigBit() const
@@ -105,7 +105,7 @@ struct DriveBitPort
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 };
 
@@ -129,7 +129,7 @@ struct DriveBitMarker
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 };
 
@@ -164,7 +164,7 @@ public:
 		return multiple_ == other.multiple_;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 };
 
 struct DriveBit
@@ -352,7 +352,7 @@ public:
 		return *this;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 	bool operator==(const DriveBit &other) const
 	{
@@ -473,7 +473,7 @@ struct DriveChunkWire
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 	explicit operator SigChunk() const
 	{
@@ -531,7 +531,7 @@ struct DriveChunkPort
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 };
 
 
@@ -572,7 +572,7 @@ struct DriveChunkMarker
 		return offset < other.offset;
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 };
 
 struct DriveChunkMultiple
@@ -612,7 +612,7 @@ public:
 		return false; // TODO implement, canonicalize order
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 };
 
 struct DriveChunk
@@ -863,7 +863,7 @@ public:
 	bool try_append(DriveBit const &bit);
 	bool try_append(DriveChunk const &chunk);
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 	bool operator==(const DriveChunk &other) const
 	{
@@ -1073,7 +1073,7 @@ public:
 		that->hash_ |= (that->hash_ == 0);
 	}
 
-	Hasher hash_eat(Hasher h) const;
+	Hasher hash_into(Hasher h) const;
 
 	bool operator==(DriveSpec const &other) const {
 		updhash();
@@ -1112,7 +1112,7 @@ private:
 		bool operator!=(const DriveBitId &other) const { return id != other.id; }
 		bool operator<(const DriveBitId &other) const { return id < other.id; }
 		// unsigned int hash() const { return id; }
-		Hasher hash_eat(Hasher h) const;
+		Hasher hash_into(Hasher h) const;
 	};
 	// Essentially a dict<DriveBitId, pool<DriveBitId>> but using less memory
 	// and fewer allocations
@@ -1258,14 +1258,14 @@ private:
 	}
 };
 
-inline Hasher DriveBitWire::hash_eat(Hasher h) const
+inline Hasher DriveBitWire::hash_into(Hasher h) const
 {
 	h.eat(wire->name);
 	h.eat(offset);
 	return h;
 }
 
-inline Hasher DriveBitPort::hash_eat(Hasher h) const
+inline Hasher DriveBitPort::hash_into(Hasher h) const
 {
 	h.eat(cell->name);
 	h.eat(port);
@@ -1273,20 +1273,20 @@ inline Hasher DriveBitPort::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveBitMarker::hash_eat(Hasher h) const
+inline Hasher DriveBitMarker::hash_into(Hasher h) const
 {
 	h.eat(marker);
 	h.eat(offset);
 	return h;
 }
 
-inline Hasher DriveBitMultiple::hash_eat(Hasher h) const
+inline Hasher DriveBitMultiple::hash_into(Hasher h) const
 {
 	h.eat(multiple_);
 	return h;
 }
 
-inline Hasher DriveBit::hash_eat(Hasher h) const
+inline Hasher DriveBit::hash_into(Hasher h) const
 {
 	switch (type_) {
 	case DriveType::NONE:
@@ -1312,7 +1312,7 @@ inline Hasher DriveBit::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveChunkWire::hash_eat(Hasher h) const
+inline Hasher DriveChunkWire::hash_into(Hasher h) const
 {
 	h.eat(wire->name);
 	h.eat(width);
@@ -1320,7 +1320,7 @@ inline Hasher DriveChunkWire::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveChunkPort::hash_eat(Hasher h) const
+inline Hasher DriveChunkPort::hash_into(Hasher h) const
 {
 	h.eat(cell->name);
 	h.eat(port);
@@ -1329,7 +1329,7 @@ inline Hasher DriveChunkPort::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveChunkMarker::hash_eat(Hasher h) const
+inline Hasher DriveChunkMarker::hash_into(Hasher h) const
 {
 	h.eat(marker);
 	h.eat(width);
@@ -1337,14 +1337,14 @@ inline Hasher DriveChunkMarker::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveChunkMultiple::hash_eat(Hasher h) const
+inline Hasher DriveChunkMultiple::hash_into(Hasher h) const
 {
 	h.eat(width_);
 	h.eat(multiple_);
 	return h;
 }
 
-inline Hasher DriveChunk::hash_eat(Hasher h) const
+inline Hasher DriveChunk::hash_into(Hasher h) const
 {
 	switch (type_) {
 	case DriveType::NONE:
@@ -1370,7 +1370,7 @@ inline Hasher DriveChunk::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriveSpec::hash_eat(Hasher h) const
+inline Hasher DriveSpec::hash_into(Hasher h) const
 {
 	if (hash_ == 0)
 		updhash();
@@ -1379,7 +1379,7 @@ inline Hasher DriveSpec::hash_eat(Hasher h) const
 	return h;
 }
 
-inline Hasher DriverMap::DriveBitId::hash_eat(Hasher h) const
+inline Hasher DriverMap::DriveBitId::hash_into(Hasher h) const
 {
 	h.eat(id);
 	return h;

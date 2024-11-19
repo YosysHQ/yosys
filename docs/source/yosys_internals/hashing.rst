@@ -98,13 +98,13 @@ Making a type hashable
 Let's first take a look at the external interface on a simplified level.
 Generally, to get the hash for ``T obj``, you would call the utility function
 ``run_hash<T>(const T& obj)``, corresponding to ``hash_top_ops<T>::hash(obj)``,
-the default implementation of which is ``hash_ops<T>::hash_eat(Hasher(), obj)``.
+the default implementation of which is ``hash_ops<T>::hash_into(Hasher(), obj)``.
 ``Hasher`` is the class actually implementing the hash function, hiding its
 initialized internal state, and passing it out on ``hash_t yield()`` with
 perhaps some finalization steps.
 
 ``hash_ops<T>`` is the star of the show. By default it pulls the ``Hasher h``
-through a ``Hasher T::hash_eat(Hasher h)`` method. That's the method you have to
+through a ``Hasher T::hash_into(Hasher h)`` method. That's the method you have to
 implement to make a record (class or struct) type easily hashable with Yosys
 hashlib associative data structures.
 
@@ -113,10 +113,10 @@ treats pointers the same as integers, so it doesn't dereference pointers. Since
 many RTLIL data structures like ``RTLIL::Wire`` carry their own unique index
 ``Hasher::hash_t hashidx_;``, there are specializations for ``hash_ops<Wire*>``
 and others in ``kernel/hashlib.h`` that actually dereference the pointers and
-call ``hash_eat`` on the instances pointed to.
+call ``hash_into`` on the instances pointed to.
 
 ``hash_ops<T>`` is also specialized for simple compound types like
-``std::pair<U>`` by calling hash_eat in sequence on its members. For flexible
+``std::pair<U>`` by calling hash_into in sequence on its members. For flexible
 size containers like ``std::vector<U>`` the size of the container is hashed
 first. That is also how implementing hashing for a custom record data type
 should be - unless there is strong reason to do otherwise, call ``h.eat(m)`` on
@@ -143,7 +143,7 @@ based on the existance and value of `YS_HASHING_VERSION`.
       return mkhash(a, b);
    }
    #elif YS_HASHING_VERSION == 1
-   Hasher T::hash_eat(Hasher h) const {
+   Hasher T::hash_into(Hasher h) const {
       h.eat(a);
       h.eat(b);
       return h;

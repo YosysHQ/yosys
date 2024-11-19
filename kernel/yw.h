@@ -35,7 +35,7 @@ struct IdPath : public std::vector<RTLIL::IdString>
 	bool has_address() const { int tmp; return get_address(tmp); };
 	bool get_address(int &addr) const;
 
-	Hasher hash_eat(Hasher h) const { h.eat(*this); return h; }
+	Hasher hash_into(Hasher h) const { h.eat(*this); return h; }
 };
 
 struct WitnessHierarchyItem {
