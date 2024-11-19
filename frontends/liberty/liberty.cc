@@ -462,6 +462,9 @@ struct LibertyFrontend : public Frontend {
 		log("    -ignore_miss_data_latch\n");
 		log("        ignore latches with missing data and/or enable pins\n");
 		log("\n");
+		log("    -ignore_buses\n");
+		log("        ignore cells with bus interfaces (wide ports)\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -478,6 +481,7 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
 		bool flag_ignore_miss_data_latch = false;
+		bool flag_ignore_buses = false;
 		bool flag_unit_delay = false;
 		std::vector<std::string> attributes;
 
@@ -514,6 +518,10 @@ struct LibertyFrontend : public Frontend {
 				flag_ignore_miss_data_latch = true;
 				continue;
 			}
+			if (arg == "-ignore_buses") {
+				flag_ignore_buses = true;
+				continue;
+			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
@@ -546,27 +554,13 @@ struct LibertyFrontend : public Frontend {
 			if (cell->id != "cell" || cell->args.size() != 1)
 				continue;
 
-			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-
-			if (design->has(cell_name)) {
-				Module *existing_mod = design->module(cell_name);
-				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
-					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
-				} else if (flag_nooverwrite) {
-					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
-					continue;
-				} else {
-					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", log_id(cell_name));
-					design->remove(existing_mod);
-				}
-			}
-
 			// log("Processing cell type %s.\n", RTLIL::unescape_id(cell_name).c_str());
 
 			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
 			parse_type_map(type_map, cell);
 
 			RTLIL::Module *module = new RTLIL::Module;
+			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 			module->name = cell_name;
 			if (leakage_power_unit != "")
 				module->attributes["\\leakage_power_unit"] = leakage_power_unit;
@@ -576,6 +570,10 @@ struct LibertyFrontend : public Frontend {
 
 			if (flag_wb)
 				module->set_bool_attribute(ID::whitebox);
+
+			const LibertyAst *area = cell->find("area");
+			if (area)
+				module->attributes[ID::area] = area->value;
 
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
@@ -607,6 +605,12 @@ struct LibertyFrontend : public Frontend {
 
 				if (node->id == "bus" && node->args.size() == 1)
 				{
+					if (flag_ignore_buses) {
+						log("Ignoring cell %s with a bus interface %s.\n", log_id(module->name), node->args.at(0).c_str());
+						delete module;
+						goto skip_cell;
+					}
+
 					if (!flag_lib)
 						log_error("Error in cell %s: bus interfaces are only supported in -lib mode.\n", log_id(cell_name));
 
@@ -720,6 +724,10 @@ struct LibertyFrontend : public Frontend {
 					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
 					log_assert(wire);
 
+					const LibertyAst *capacitance = node->find("capacitance");
+					if (capacitance)
+						wire->attributes[ID::capacitance] = capacitance->value;
+
 					if (dir && dir->value == "inout") {
 						wire->port_input = true;
 						wire->port_output = true;
@@ -794,6 +802,20 @@ struct LibertyFrontend : public Frontend {
 							done.insert(related);
 						}
 					}
+				}
+			}
+
+			if (design->has(cell_name)) {
+				Module *existing_mod = design->module(cell_name);
+				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
+					log_error("Re-definition of cell/module %s!\n", log_id(cell_name));
+				} else if (flag_nooverwrite) {
+					log("Ignoring re-definition of module %s.\n", log_id(cell_name));
+					delete module;
+					goto skip_cell;
+				} else {
+					log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", log_id(cell_name));
+					design->remove(existing_mod);
 				}
 			}
 
