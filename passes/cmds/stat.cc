@@ -507,7 +507,7 @@ void read_libjson_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 	if (f == NULL)
 		log_cmd_error("Can't open input file `%s' for reading: %s\n", liberty_file.c_str(), strerror(errno));
 
-  nlohmann::json data = nlohmann::json::parse(*f);
+	nlohmann::json data = nlohmann::json::parse(*f);
 	nlohmann::json library = data["library"];
 	if (library.contains("groups")) {
 		nlohmann::json groups = library["groups"];
