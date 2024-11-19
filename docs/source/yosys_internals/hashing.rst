@@ -131,23 +131,25 @@ Previously, the interface to implement hashing on custom types was just
 ``unsigned int T::hash() const``. This meant hashes for members were computed
 independently and then ad-hoc combined with the hash function with some xorshift
 operations thrown in to mix bits together somewhat. A plugin can stay compatible
-with both versions prior and after the break by implementing the aforementioned
-current interface and redirecting the legacy one:
-
-``void Hasher::eat(const T& t)`` hashes ``t`` into its internal state by also
-redirecting to ``hash_ops<T>``
+with both versions prior and after the break by implementing both interfaces
+based on the existance and value of `YS_HASHING_VERSION`.
 
 .. code-block:: cpp
    :caption: Example hash compatibility wrapper
    :name: hash_plugin_compat
 
-   inline unsigned int T::hash() const {
-       Hasher h;
-       return (unsigned int)hash_eat(h).yield();
+   #ifndef YS_HASHING_VERSION
+   unsigned int T::hash() const {
+      return mkhash(a, b);
    }
+   #elif YS_HASHING_VERSION == 1
+   Hasher T::hash_eat(Hasher h) const {
+      h.eat(a);
+      h.eat(b);
+      return h;
+   }
+   #else
+   #error "Unsupported hashing interface"
+   #endif
 
-To get hashes for Yosys types, you can temporarily use the templated deprecated
-``mkhash`` function until the majority of your plugin's users switch to a newer
-version and live with the warnings, or set up a custom ``#ifdef``-based solution
-if you really need to.
 Feel free to contact Yosys maintainers with related issues.

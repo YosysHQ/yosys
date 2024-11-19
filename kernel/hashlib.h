@@ -20,6 +20,8 @@
 #include <type_traits>
 #include <stdint.h>
 
+#define YS_HASHING_VERSION 1
+
 namespace hashlib {
 
 /**
