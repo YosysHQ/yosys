@@ -56,7 +56,7 @@ if os.getenv("READTHEDOCS"):
     else:
         release = yosys_ver
         todo_include_todos = False
-elif os.getenv("YOSYS_DOCS_RELEASE"):
+elif os.getenv("YOSYS_DOCS_RELEASE") is not None:
     release = yosys_ver
     todo_include_todos = False
 else:
