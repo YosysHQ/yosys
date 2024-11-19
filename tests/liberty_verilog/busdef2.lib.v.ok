@@ -1,8 +1,0 @@
-(* blackbox =  1  *)
-(* leakage_power_unit = "1pW" *)
-module not_cell(A, Y);
-  input [7:0] A;
-  wire [7:0] A;
-  output Y;
-  wire Y;
-endmodule

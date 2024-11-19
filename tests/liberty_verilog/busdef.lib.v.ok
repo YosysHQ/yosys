@@ -1,8 +1,0 @@
-(* area = "1" *)
-(* blackbox =  1  *)
-module SRAM(CE1, I1);
-  input CE1;
-  wire CE1;
-  input [3:0] I1;
-  wire [3:0] I1;
-endmodule

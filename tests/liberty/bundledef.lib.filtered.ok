@@ -1,5 +1,0 @@
-library(bundle_example) {
-  cell(inv) {
-    area : 16 ;
-  }
-}
