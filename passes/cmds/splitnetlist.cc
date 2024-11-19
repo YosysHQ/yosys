@@ -266,7 +266,7 @@ struct SplitNetlist : public ScriptPass {
 		}
 
 		// Execute the submod command
-		Pass::call(design, "submod -copy");
+		Pass::call(design, "submod");
 
 		// Remove buffers introduced by bufnorm
 		Pass::call(design, "techmap -D SIMLIB_NOCHECKS -map +/simlib.v t:$buf");
