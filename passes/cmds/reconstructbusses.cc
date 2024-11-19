@@ -54,6 +54,9 @@ struct ReconstructBusses : public ScriptPass {
 			for (auto wire : module->wires()) {
 				if (wire->name[0] == '$') // Skip internal wires
 					continue;
+				if ((!wire->port_input) && (!wire->port_output)) {
+					continue;
+				}
 				std::string prefix = wire->name.str();
 
 				if (prefix.empty())
@@ -100,6 +103,10 @@ struct ReconstructBusses : public ScriptPass {
 				}
 			}
 			log("Found %ld groups\n", wire_groups.size());
+			if (wire_groups.size() == 0) {
+				std::cout << "No busses to reconstruct. Done." << std::endl;
+				return;
+			}
 			log("Creating busses\n");
 			log_flush();
 			std::map<std::string, RTLIL::Wire *> wirenames_to_remove;
@@ -154,9 +161,22 @@ struct ReconstructBusses : public ScriptPass {
 							if (lhsIndex >= 0) {
 								// Create a new connection sigspec that matches the previous
 								// bit index
-								RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
-								new_sig.append(bit);
-								modified = true;
+								if (lhsIndex < itr_lhs->second->width) {
+									RTLIL::SigSpec bit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
+									new_sig.append(bit);
+									modified = true;
+								} else {
+									log_warning("Attempting to reconnect cell %s, port: %s of size %d with out-of-bound index %d\n",
+										cell->name.c_str(),
+										conn.first.c_str(),
+										itr_lhs->second->width, lhsIndex);
+									for (RTLIL::Wire *w : wires_to_remove) {
+										if (strcmp(w->name.c_str(), itr_lhs->second->name.c_str()) == 0) {
+											wires_to_remove.erase(w);
+											break;
+										}
+									}
+								}
 							} else {
 								new_sig.append(chunk);
 								modified = true;
@@ -203,19 +223,61 @@ struct ReconstructBusses : public ScriptPass {
 						std::map<std::string, RTLIL::Wire *>::iterator itr_rhs = wirenames_to_remove.find(conn_rhs_s);
 						if (itr_lhs != wirenames_to_remove.end() || itr_rhs != wirenames_to_remove.end()) {
 							if (lhsIndex >= 0) {
+								RTLIL::SigSpec lbit;
 								// Create the LHS sigspec of the desired bit
-								RTLIL::SigSpec lbit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
+								if (lhsIndex < itr_lhs->second->width) {
+									lbit = RTLIL::SigSpec(itr_lhs->second, lhsIndex, 1);
+								} else {
+									lbit = itr_lhs->second;
+									log_warning("Attempting to reconnect signal %s, of "
+												    "size %d with out-of-bound index %d\n",
+												    conn_lhs_s.c_str(),
+												    itr_lhs->second->width, lhsIndex);
+									for (RTLIL::Wire *w : wires_to_remove) {
+										if (strcmp(w->name.c_str(),conn_lhs_s.c_str()) == 0) {
+											wires_to_remove.erase(w);
+											break;
+										}
+									}
+								}
 								if (sub_rhs.size() > 1) {
 									// If RHS has width > 1, replace with the bitblasted RHS
 									// corresponding to the connected bit
-									RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(sub_rhs.wire, lhsIndex, 1);
-									// And connect it
-									module->connect(lbit, rhs_bit);
+									if (lhsIndex < sub_rhs.wire->width) {
+										RTLIL::SigSpec rhs_bit = RTLIL::SigSpec(sub_rhs.wire, lhsIndex, 1);
+										// And connect it
+										module->connect(lbit, rhs_bit);
+									} else {
+										log_warning("Attempting to reconnect signal %s, of "
+												    "size %d with out-of-bound index %d\n",
+												    conn_rhs_s.c_str(),
+												    sub_rhs.wire->width, lhsIndex);
+										for (RTLIL::Wire *w : wires_to_remove) {
+											if (strcmp(w->name.c_str(), conn_rhs_s.c_str()) == 0) {
+												wires_to_remove.erase(w);
+												break;
+											}
+										}
+									}
 								} else {
 									// Else, directly connect
 									if (rhsIndex >= 0) {
-										RTLIL::SigSpec rbit = RTLIL::SigSpec(itr_rhs->second, rhsIndex, 1);
-										module->connect(lbit, rbit);
+										if (rhsIndex < itr_rhs->second->width) {
+											RTLIL::SigSpec rbit =
+											  RTLIL::SigSpec(itr_rhs->second, rhsIndex, 1);
+											module->connect(lbit, rbit);
+										} else {
+											log_warning("Attempting to reconnect signal %s, of "
+												    "size %d with out-of-bound index %d\n",
+												    conn_lhs_s.c_str(),
+												    itr_lhs->second->width, rhsIndex);
+											for (RTLIL::Wire *w : wires_to_remove) {
+												if (strcmp(w->name.c_str(), conn_lhs_s.c_str()) == 0) {
+													wires_to_remove.erase(w);
+													break;
+												}
+											}
+										}
 									} else {
 										module->connect(lbit, sub_rhs);
 									}
@@ -234,10 +296,15 @@ struct ReconstructBusses : public ScriptPass {
 			}
 			if (debug)
 				run_pass("write_rtlil post_reconnect_top.rtlil");
-			// Remove old wires
+			// Remove old bit blasted wires
 			// Cleans the dangling connections too
-			log("Removing old wires\n");
+			log("Removing bit blasted wires\n");
 			log_flush();
+			if (debug) {
+				for (RTLIL::Wire* w : wires_to_remove) {
+				  std::cout << "  " << w->name.c_str() << std::endl;
+			  }
+			}
 			module->remove(wires_to_remove);
 			// Update module port list
 			log("Re-creating ports\n");
