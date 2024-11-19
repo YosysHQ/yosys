@@ -233,7 +233,7 @@ struct ClockgatePass : public Pass {
 		SigBit ce_bit;
 		bool pol_clk;
 		bool pol_ce;
-		Hasher hash_eat(Hasher h) const {
+		Hasher hash_into(Hasher h) const {
 			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce);
 			h.eat(t);
 			return h;

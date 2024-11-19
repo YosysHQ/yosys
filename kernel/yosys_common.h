@@ -171,7 +171,7 @@ struct shared_str {
 	const char *c_str() const { return content->c_str(); }
 	const string &str() const { return *content; }
 	bool operator==(const shared_str &other) const { return *content == *other.content; }
-	Hasher hash_eat(Hasher h) const {
+	Hasher hash_into(Hasher h) const {
 		h.eat(*content);
 		return h;
 	}

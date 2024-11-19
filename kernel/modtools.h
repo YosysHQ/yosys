@@ -48,7 +48,7 @@ struct ModIndex : public RTLIL::Monitor
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		Hasher hash_eat(Hasher h) const {
+		Hasher hash_into(Hasher h) const {
 			h.eat(cell->name);
 			h.eat(port);
 			h.eat(offset);
@@ -324,7 +324,7 @@ struct ModWalker
 			return cell == other.cell && port == other.port && offset == other.offset;
 		}
 
-		Hasher hash_eat(Hasher h) const {
+		Hasher hash_into(Hasher h) const {
 			h.eat(cell->name);
 			h.eat(port);
 			h.eat(offset);
