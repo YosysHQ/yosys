@@ -88,6 +88,8 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
+		setup_type(ID($barrier), {ID::A}, {ID::Y});
+
 		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y});
 
 		setup_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>());

@@ -67,6 +67,9 @@ struct CellTableBuilder {
 		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
 
 		features = {};
+		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
+
+		features = {};
 		setup_type(ID($assert), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($assume), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($live), {ID::A, ID::EN}, {}, features);
