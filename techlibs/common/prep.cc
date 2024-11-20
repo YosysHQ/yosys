@@ -67,6 +67,11 @@ struct PrepPass : public ScriptPass
 		log("    -nokeepdc\n");
 		log("        do not call opt_* with -keepdc\n");
 		log("\n");
+		log("    -barriers\n");
+		log("        add optimization barriers to all public wires to preserve their structure.\n");
+		log("        this limits the optimizations that can be applied to the design to only\n");
+		log("        those involving private wires.\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -79,7 +84,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers;
 
 	void clear_flags() override
 	{
@@ -92,6 +97,7 @@ struct PrepPass : public ScriptPass
 		nomemmode = false;
 		nokeepdc = false;
 		rdff = false;
+		barriers = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -148,6 +154,10 @@ struct PrepPass : public ScriptPass
 				nokeepdc = true;
 				continue;
 			}
+			if (args[argidx] == "-barriers") {
+				barriers = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -183,12 +193,16 @@ struct PrepPass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
+			if (help_mode || barriers)
+				run("optbarriers", "(if -barriers)");
 			if (help_mode)
 				run("proc [-ifx]");
 			else
 				run(ifxmode ? "proc -ifx" : "proc");
-			if (help_mode || flatten)
-				run("flatten", "(if -flatten)");
+			if (help_mode)
+				run("flatten [-barriers]", "(if -flatten)");
+			else if (flatten)
+				run(barriers ? "flatten -barriers" : "flatten");
 			run("future");
 			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
 			run("opt_clean");
