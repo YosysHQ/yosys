@@ -60,8 +60,6 @@ struct ModIndex : public RTLIL::Monitor
 	{
 		bool is_input, is_output;
 		pool<PortInfo> ports;
-		// SigBitInfo() : SigBitInfo{} {}
-		// SigBitInfo& operator=(const SigBitInfo&) = default;
 
 		SigBitInfo() : is_input(false), is_output(false) { }
 
@@ -310,7 +308,6 @@ struct ModWalker
 		RTLIL::IdString port;
 		int offset;
 		PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
-		// PortBit& operator=(const PortBit&) = default;
 
 		bool operator<(const PortBit &other) const {
 			if (cell != other.cell)

@@ -1112,7 +1112,6 @@ private:
 		bool operator==(const DriveBitId &other) const { return id == other.id; }
 		bool operator!=(const DriveBitId &other) const { return id != other.id; }
 		bool operator<(const DriveBitId &other) const { return id < other.id; }
-		// unsigned int hash() const { return id; }
 		Hasher hash_into(Hasher h) const;
 	};
 	// Essentially a dict<DriveBitId, pool<DriveBitId>> but using less memory
