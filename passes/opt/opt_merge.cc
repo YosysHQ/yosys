@@ -559,6 +559,7 @@ struct OptMergePass : public Pass {
 		ct.cell_types.erase(ID($anyconst));
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
+		ct.cell_types.erase(ID($barrier));
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
