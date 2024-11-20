@@ -264,7 +264,11 @@ struct hash_obj_ops {
 	}
 	template<typename T>
 	static inline Hasher hash_into(const T *a, Hasher h) {
-		return a ? a->hash_into(h) : h;
+		if (a)
+			a->hash_into(h);
+		else
+			h.eat(0);
+		return h;
 	}
 };
 /**
@@ -785,13 +789,13 @@ public:
 	}
 
 	Hasher hash_into(Hasher h) const {
-		h.eat(entries.size());
 		for (auto &it : entries) {
 			Hasher entry_hash;
 			entry_hash.eat(it.udata.first);
 			entry_hash.eat(it.udata.second);
 			h.commutative_eat(entry_hash.yield());
 		}
+		h.eat(entries.size());
 		return h;
 	}
 
@@ -1155,10 +1159,10 @@ public:
 	}
 
 	Hasher hash_into(Hasher h) const {
-		h.eat(entries.size());
 		for (auto &it : entries) {
 			h.commutative_eat(ops.hash(it.udata).yield());
 		}
+		h.eat(entries.size());
 		return h;
 	}
 

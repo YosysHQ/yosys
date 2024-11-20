@@ -408,8 +408,14 @@ namespace hashlib {
 	};
 };
 
-// TODO deprecate this
+/**
+ * How to not use these methods:
+ * 1. if(celltype.in({...})) -> if(celltype.in(...))
+ * 2. pool<IdString> p; ... a.in(p) -> (bool)p.count(a)
+ */
+[[deprecated]]
 inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+[[deprecated]]
 inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
 
 namespace RTLIL {
@@ -816,7 +822,7 @@ public:
 	}
 
 	inline Hasher hash_into(Hasher h) const {
-		// TODO hash size
+		h.eat(size());
 		for (auto b : *this)
 			h.eat(b);
 		return h;
@@ -1002,12 +1008,6 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
-
-	[[deprecated]]
-	size_t get_hash() const {
-		log_assert(false && "deprecated");
-		return 0;
-	}
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
