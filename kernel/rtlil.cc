@@ -1685,7 +1685,7 @@ namespace {
 					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
-			if (cell->type == ID($buf)) {
+			if (cell->type.in(ID($buf), ID($barrier))) {
 				port(ID::A, param(ID::WIDTH));
 				port(ID::Y, param(ID::WIDTH));
 				check_expected();
@@ -3256,7 +3256,8 @@ DEF_METHOD(LogicNot,   1, ID($logic_not))
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
-DEF_METHOD(Buf, sig_a.size(), ID($buf))
+DEF_METHOD(Buf,     sig_a.size(), ID($buf))
+DEF_METHOD(Barrier, sig_a.size(), ID($barrier))
 #undef DEF_METHOD
 
 #define DEF_METHOD(_func, _y_size, _type) \
@@ -4428,7 +4429,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
-	if (type == ID($buf) || type == ID($mux) || type == ID($pmux) || type == ID($bmux) || type == ID($bwmux) || type == ID($bweqx)) {
+	if (type == ID($buf) || type == ID($barrier) || type == ID($mux) || type == ID($pmux) || type == ID($bmux) || type == ID($bwmux) || type == ID($bweqx)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::Y]);
 		if (type.in(ID($pmux), ID($bmux)))
 			parameters[ID::S_WIDTH] = GetSize(connections_[ID::S]);
