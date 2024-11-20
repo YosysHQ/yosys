@@ -65,6 +65,8 @@ if __name__ == '__main__':
 
     dirs = [
         os.path.join(args.gowin_dir, 'IDE/simlib/gw1n/'),
+        os.path.join(args.gowin_dir, 'IDE/simlib/gw2a/'),
+        os.path.join(args.gowin_dir, 'IDE/simlib/gw5a/'),
     ]
 
     with open('cells_xtra.v', 'w') as fout:
