@@ -1067,10 +1067,11 @@ public:
 	DriveSpec &operator=(DriveBitMultiple const &bit) { return *this = DriveBit(bit); }
 
 	void updhash() const {
-		DriveSpec *that = (DriveSpec*)this;
+		if (hash_ != 0)
+			return;
 		pack();
-		that->hash_ = run_hash(chunks_);
-		that->hash_ |= (that->hash_ == 0);
+		hash_ = run_hash(chunks_);
+		hash_ |= (hash_ == 0);
 	}
 
 	Hasher hash_into(Hasher h) const;
@@ -1372,9 +1373,7 @@ inline Hasher DriveChunk::hash_into(Hasher h) const
 
 inline Hasher DriveSpec::hash_into(Hasher h) const
 {
-	if (hash_ == 0)
-		updhash();
-
+	updhash();
 	h.eat(hash_);
 	return h;
 }

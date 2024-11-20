@@ -116,7 +116,7 @@ private:
 		return;
 	}
 	void hash64(uint64_t i) {
-		state = djb2_xor((uint32_t)(i % (1ULL << 32ULL)), state);
+		state = djb2_xor((uint32_t)(i & 0xFFFFFFFFULL), state);
 		state = djb2_xor((uint32_t)(i >> 32ULL), state);
 		state = mkhash_xorshift(fudge ^ state);
 		return;
@@ -163,10 +163,7 @@ struct hash_ops {
 		return a == b;
 	}
 	static inline Hasher hash_into(const T &a, Hasher h) {
-		if constexpr (std::is_same_v<T, bool>) {
-			h.hash32(a ? 1 : 0);
-			return h;
-		} else if constexpr (std::is_integral_v<T>) {
+		if constexpr (std::is_integral_v<T>) {
 			static_assert(sizeof(T) <= sizeof(uint64_t));
 			if (sizeof(T) == sizeof(uint64_t))
 				h.hash64(a);
@@ -221,7 +218,7 @@ template<typename T> struct hash_ops<std::vector<T>> {
 		return a == b;
 	}
 	static inline Hasher hash_into(std::vector<T> a, Hasher h) {
-		h.eat(a.size());
+		h.eat((uint32_t)a.size());
 		for (auto k : a)
 			h.eat(k);
 		return h;
@@ -241,10 +238,7 @@ template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
 
 struct hash_cstr_ops {
 	static inline bool cmp(const char *a, const char *b) {
-		for (int i = 0; a[i] || b[i]; i++)
-			if (a[i] != b[i])
-				return false;
-		return true;
+		return strcmp(a, b) == 0;
 	}
 	static inline Hasher hash_into(const char *a, Hasher h) {
 		while (*a)
