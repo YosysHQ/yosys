@@ -966,7 +966,7 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
-			if (cell->type == ID($pos)) {
+			if (cell->type.in(ID($pos), ID($buf), ID($barrier))) {
 				// assign y = a;
 //				printCell(cell);
 				string a_expr = make_expr(cell->getPort(ID::A));
