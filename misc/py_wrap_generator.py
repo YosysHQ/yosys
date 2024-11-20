@@ -1273,6 +1273,11 @@ class WFunction:
 		func.duplicate = False
 		func.namespace = namespace
 		str_def = str_def.replace("operator ","operator")
+
+		# remove attributes from the start
+		if str.startswith(str_def, "[[") and "]]" in str_def:
+			str_def = str_def[str_def.find("]]")+2:]
+
 		if str.startswith(str_def, "static "):
 			func.is_static = True
 			str_def = str_def[7:]
