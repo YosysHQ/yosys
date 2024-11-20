@@ -48,6 +48,9 @@ yosys_pass(autoname
 yosys_pass(connect
 	connect.cc
 )
+yosys_pass(optbarriers
+	optbarriers.cc
+)
 yosys_pass(scatter
 	scatter.cc
 )
