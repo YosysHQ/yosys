@@ -3010,7 +3010,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	}
 
 #ifdef VERIFIC_UPF_SUPPORT
-	upf_file::Elaborate(top.c_str());
+	if (upf_file::GetActiveScope())
+		upf_file::Elaborate(top.c_str());
 #endif
 
 	if (!verific_error_msg.empty())
@@ -3535,9 +3536,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			// RuntimeFlags::SetVar("veri_preserve_assignments", 1); // SILIMATE: disable to improve optimization
+			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
 			RuntimeFlags::SetVar("veri_preserve_comments", 1);
-			// RuntimeFlags::SetVar("veri_preserve_drivers", 1); // SILIMATE: disable to improve optimization
+			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
