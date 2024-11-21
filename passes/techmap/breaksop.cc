@@ -61,7 +61,6 @@ struct BreakSopPass : public Pass {
 
 					// Construct $reduce_and cells
 					pool<SigBit> intermed_wires;
-					Cell *and_cell;
 					for (int i = 0; i < sop_depth; i++) {
 						// Wire for the output
 						auto and_out = module->addWire(NEW_ID2_SUFFIX("andterm_out"));
