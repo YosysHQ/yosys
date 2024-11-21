@@ -72,6 +72,11 @@ USING_YOSYS_NAMESPACE
 #include "SynlibGroup.h"
 #endif
 
+#ifdef VERIFIC_UPF_SUPPORT
+#include "upf_file.h"
+#include "UpfRuntimeFlags.h"
+#endif
+
 #include "VerificStream.h"
 #include "FileSystem.h"
 
@@ -1288,6 +1293,49 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 		return true;
 	}
+
+#ifdef VERIFIC_UPF_SUPPORT
+	if (inst->Type() == PRIM_UPF_POWER_SWITCH)
+	{
+		log("TODO: PRIM_UPF_POWER_SWITCH\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_RETENTION_DLATCH)
+	{
+		log("TODO: PRIM_UPF_RETENTION_DLATCH\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_RETENTION_DLATCHRS)
+	{
+		log("TODO: PRIM_UPF_RETENTION_DLATCHRS\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_RETENTION_DFF)
+	{
+		log("TODO: PRIM_UPF_RETENTION_DFF\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_RETENTION_DFFRS)
+	{
+		log("TODO: PRIM_UPF_RETENTION_DFFRS\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_ISOLATION)
+	{
+		log("TODO: PRIM_UPF_ISOLATION\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_LEVEL_SHIFTER)
+	{
+		log("TODO: PRIM_UPF_LEVEL_SHIFTER\n");
+		return true;
+	}
+	if (inst->Type() == PRIM_UPF_REPEATER)
+	{
+		log("TODO: PRIM_UPF_REPEATER\n");
+		return true;
+	}
+#endif
 
 #ifdef YOSYSHQ_VERIFIC_API_VERSION
 	if (inst->Type() == OPER_YOSYSHQ_SET_TAG)
@@ -2961,6 +3009,10 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		top_mod_names = import_tops("work", &nl_todo, &verific_params, false, "", tops, &top) ;
 	}
 
+#ifdef VERIFIC_UPF_SUPPORT
+	upf_file::Elaborate(top.c_str());
+#endif
+
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
@@ -3072,6 +3124,13 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("    -lib\n");
 		log("        only create empty blackbox modules\n");
+		log("\n");
+		log("\n");
+#endif
+#ifdef VERIFIC_UPF_SUPPORT
+		log("    import {-upf} <upf-file>..\n");
+		log("\n");
+		log("Load the specified UPF files into IMPORT.\n");
 		log("\n");
 		log("\n");
 #endif
@@ -3694,6 +3753,17 @@ struct VerificPass : public Pass {
 			autoidx = 1;
 			goto check_error;
 		}
+
+#ifdef VERIFIC_UPF_SUPPORT
+		if (GetSize(args) > argidx && (args[argidx] == "-upf")) {
+			if (++argidx >= GetSize(args))
+				log_cmd_error("Missing UPF file name.\n");
+			const char *top = args[argidx].c_str();
+			for (argidx++; argidx < GetSize(args); argidx++)
+				upf_file::Analyze(args[argidx].c_str(), top);
+			goto check_error;
+		}
+#endif
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
