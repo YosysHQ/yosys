@@ -3011,7 +3011,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
 #ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-    VeriLibrary* veri_lib = veri_file::GetLibrary("work", 1);
+		VeriLibrary* veri_lib = veri_file::GetLibrary("work", 1);
 		// Decorate AST with loop scope id
 		VeriModule *module;
 		MapIter mi;
