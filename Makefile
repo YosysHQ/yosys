@@ -19,6 +19,7 @@ ENABLE_GHDL := 0
 ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
+VERIFIC_LINEFILE_INCLUDES_LOOPS := 1
 ENABLE_VERIFIC_VHDL := 0
 ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
@@ -163,7 +164,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.47+116
+YOSYS_VER := 0.47+86
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -514,6 +515,9 @@ else
 ifneq ($(wildcard $(VERIFIC_DIR)/hier_tree),)
 VERIFIC_COMPONENTS += hier_tree
 endif
+endif
+ifeq ($(VERIFIC_LINEFILE_INCLUDES_LOOPS),1)
+CXXFLAGS += -DVERIFIC_LINEFILE_INCLUDES_LOOPS
 endif
 ifeq ($(ENABLE_VERIFIC_SYSTEMVERILOG),1)
 VERIFIC_COMPONENTS += verilog
