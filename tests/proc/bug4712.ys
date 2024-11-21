@@ -1,0 +1,31 @@
+read_rtlil <<EOT
+autoidx 1
+module \top
+  wire input 1 \clk
+  wire input 2 \rst
+
+  wire input 3 \a_r
+  wire input 4 \a_n
+  wire input 5 \b_n
+
+  wire \a
+  wire \b
+
+  process $proc
+    sync high \rst
+      update \a \a_r
+      update \b \b
+    sync posedge \clk
+      update \a \a_n
+      update \b \b_n
+  end
+end
+EOT
+
+proc_dff
+proc_clean
+
+# Processes should have been converted to one aldff and one dff
+select -assert-none p:*
+select -assert-count 1 t:$aldff
+select -assert-count 1 t:$dff
