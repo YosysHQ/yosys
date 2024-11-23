@@ -2881,6 +2881,8 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 				}
 				continue;
 			}
+#else
+			(void) top; // silience warnings
 #endif
 			log_error("Can't find module/unit '%s'.\n", name);
 		}
@@ -3794,7 +3796,9 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F" || args[argidx] == "-FF"))
 		{
 			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			bool is_formal = false;
+#endif
 			const char* filename = nullptr;
 
 #ifndef SILIMATE_VERIFIC_EXTENSIONS
@@ -3817,7 +3821,9 @@ struct VerificPass : public Pass {
 					continue;
 				} else if (args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal") {
 					verilog_mode = veri_file::SYSTEM_VERILOG;
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 					if (args[argidx] == "-formal") is_formal = true;
+#endif
 					continue;
 				} else if (args[argidx].compare(0, 1, "-") == 0) {
 					cmd_error(args, argidx, "unknown option");
