@@ -33,8 +33,8 @@ jobs:
           - 'clang-14'
           - 'gcc-10'
           # newest
-          - 'clang'
-          - 'gcc'
+          - 'clang-18'
+          - 'gcc-14'
         include:
           # macOS
           - os: macos-13
@@ -72,7 +72,7 @@ jobs:
 
       # maximum standard, only on newest compilers
       - name: Build C++20
-        if: ${{ matrix.compiler == 'clang' || matrix.compiler == 'gcc'}}
+        if: ${{ matrix.compiler == 'clang-18' || matrix.compiler == 'gcc-14' }}
         shell: bash
         run: |
           make config-$CC_SHORT
