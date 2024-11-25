@@ -3422,6 +3422,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
 			RuntimeFlags::SetVar("veri_preserve_comments", 1);
 			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
+			RuntimeFlags::SetVar("veri_create_empty_box", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
