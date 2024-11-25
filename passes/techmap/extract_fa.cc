@@ -344,13 +344,6 @@ struct ExtractFaWorker
 				if (func3.at(key).count(func) == 0)
 					continue;
 
-				if (func3.at(key).count(xor3_func) == 0 && func3.at(key).count(xnor3_func) != 0) {
-					f3i.inv_a = !f3i.inv_a;
-					f3i.inv_b = !f3i.inv_b;
-					f3i.inv_c = !f3i.inv_c;
-					f3i.inv_y = !f3i.inv_y;
-				}
-
 				if (!f3i.inv_a && !f3i.inv_b && !f3i.inv_c && !f3i.inv_y) {
 					log("    Majority without inversions:\n");
 				} else {
@@ -412,14 +405,15 @@ struct ExtractFaWorker
 					facache[fakey] = make_tuple(X, Y, cell);
 				}
 
+				bool invert_y = f3i.inv_a ^ f3i.inv_b ^ f3i.inv_c;
 				if (func3.at(key).count(xor3_func)) {
-					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func3.at(key).at(xor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
-					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func3.at(key).at(xnor3_func))
 						assign_new_driver(bit, YY);
 				}
@@ -516,14 +510,15 @@ struct ExtractFaWorker
 					cell->setPort(ID::Y, Y);
 				}
 
+				auto invert_y = f2i.inv_a ^ f2i.inv_b;
 				if (func2.at(key).count(xor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
