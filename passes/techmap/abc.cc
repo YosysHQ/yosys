@@ -1591,6 +1591,8 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -sop\n");
 		log("        map to sum-of-product cells and inverters\n");
+		log("    -map_src <source location>\n");
+		log("        source attribution for cells created by ABC\n");
 		log("\n");
 		// log("    -mux4, -mux8, -mux16\n");
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
