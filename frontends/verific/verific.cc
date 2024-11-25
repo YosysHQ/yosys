@@ -55,6 +55,7 @@ USING_YOSYS_NAMESPACE
 #include "VeriLibrary.h"
 #include "VeriExpression.h"
 #ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
+#include "VeriStatement.h"
 #include "VeriConstVal.h"
 #endif
 #endif
@@ -430,8 +431,8 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	if (obj->Linefile()) {
 		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
 #ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-		if (uint32_t loopid = obj->Linefile()->GetInLoop()) {
-			attributes[RTLIL::escape_id("in_loop_" + std::to_string(loopid))] = std::to_string(loopid);
+		if (linefile_type loopid = obj->Linefile()->GetInLoop()) {
+			attributes[RTLIL::escape_id("in_for_loop")] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(loopid), loopid->GetLeftLine(), loopid->GetLeftCol(), loopid->GetRightLine(), loopid->GetRightCol());
 		}
 #endif
 	}
