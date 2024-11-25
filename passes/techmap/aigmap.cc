@@ -135,7 +135,7 @@ struct AigmapPass : public Pass {
 						SigBit new_bit = module->addWire(NEW_ID2_SUFFIX("new_bit"));
 						auto gate = module->addNotGate(NEW_ID2_SUFFIX("inv"), bit, new_bit);
 						for (auto attr : cell->attributes)
-								gate->attributes[attr.first] = attr.second; 
+							gate->attributes[attr.first] = attr.second; 
 						bit = new_bit;
 						if (select_mode)
 							new_sel.insert(gate->name);
