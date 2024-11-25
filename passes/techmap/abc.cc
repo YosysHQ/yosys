@@ -1213,7 +1213,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					for (auto name : {ID::A, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1224,7 +1224,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1236,7 +1236,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type.in(ID(MUX), ID(NMUX))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1248,7 +1248,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type == ID(MUX4)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1260,7 +1260,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type == ID(MUX8)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1272,7 +1272,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type == ID(MUX16)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
 							ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
@@ -1285,7 +1285,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type.in(ID(AOI3), ID(OAI3))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
 					if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1405,7 +1405,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
 			if (!map_src.empty())
-						 cell->attributes[ID::src] = map_src;
+				cell->attributes[ID::src] = map_src;
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
@@ -1685,7 +1685,7 @@ struct AbcPass : public Pass {
 		bool abc_dress = false;
 		vector<int> lut_costs;
 		markgroups = false;
-    std::string map_src;
+  	std::string map_src;
 		map_mux4 = false;
 		map_mux8 = false;
 		map_mux16 = false;
