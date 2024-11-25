@@ -2126,12 +2126,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				log("    assert condition %s.\n", log_signal(cond));
 
 			Cell *cell = module->addAssert(new_verific_id(inst), cond, State::S1);
-			// Initialize FF feeding condition  to 1, in case it is not
-			// used by rest of design logic, to prevent failing on
-			// initial uninitialized state
-			if (cond.is_wire() && !cond.wire->name.isPublic())
-				cond.wire->attributes[ID::init] = Const(1,1);
-
 			import_attributes(cell->attributes, inst);
 			continue;
 		}
