@@ -164,7 +164,7 @@ struct TechmapWorker
 				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 				break;
 			}
-
+		// SILIMATE: Improve the naming
 		for (auto tpl_cell : tpl->cells())
 			for (auto attr : cell->attributes) {
 				tpl_cell->attributes[attr.first] = attr.second;
@@ -393,6 +393,7 @@ struct TechmapWorker
 						c->attributes[attr.first] = attr.second;
 				c->attributes.erase(ID::reprocess_after);
 			}
+			// SILIMATE: Improve the naming
 			for (auto attr : tpl_cell->attributes) {
 				c->attributes[attr.first] = attr.second;
 			}
@@ -535,6 +536,7 @@ struct TechmapWorker
 						{
 							extmapper_module = extmapper_design->addModule(m_name);
 							RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
+							// SILIMATE: Improve the naming
 							for (auto attr : cell->attributes) {
 								extmapper_cell->attributes[attr.first] = attr.second;
 							}
