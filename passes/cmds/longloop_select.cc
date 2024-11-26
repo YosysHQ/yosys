@@ -206,7 +206,7 @@ struct LongLoopSelect : public ScriptPass {
 							log_flush();
 							Pass::call(design, command);
 						} else {
-							std::string command = "abc -map_src " + src_info + src_info + " -script " + abc_script;
+							std::string command = "abc -map_src " + src_info + " -script " + abc_script;
 							log("  Executing: %s\n", command.c_str());
 							log_flush();
 							Pass::call(design, command);
