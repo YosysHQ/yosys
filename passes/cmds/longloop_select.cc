@@ -27,8 +27,17 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct LongLoopSelect : public ScriptPass {
 	LongLoopSelect()
-	    : ScriptPass("longloop_select", "Selects long for-loops (Creating logic above a certain logic depth) for further optimization")
+	    : ScriptPass("longloop_select", "Selects long for-loops (Creating logic above a certain logic depth) for further optimizations")
 	{
+	}
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    longloop_select [-depth <for-loop threshold depth>] [-abc <ABC script>]\n");
+		log("    If no ABC script is provided, this pass simply selects cells in for-loops\n");
+		log("    If an ABC script is provided, this pass selects cells in a per for-loop basis and runs ABC with the given script\n");
+		log("\n");
 	}
 	void script() override {}
 
@@ -142,19 +151,20 @@ struct LongLoopSelect : public ScriptPass {
 				log("  Found %ld for-loop clusters in module %s\n", loopIndexCellMap.size(), module->name.c_str());
 				log_flush();
 			}
-			
+
 			for (std::map<std::string, std::vector<Cell *>>::iterator itrCluster = loopIndexCellMap.begin();
 			     itrCluster != loopIndexCellMap.end(); itrCluster++) {
 				std::string loopInd = itrCluster->first;
 				if (itrCluster->second.size() < threshold_depth) {
 					if (debug) {
-						log("  Skipping loop id %s as it contains only %ld cells\n", loopInd.c_str(), itrCluster->second.size());
+						log("  Skipping loop location %s as it contains only %ld cells\n", loopInd.c_str(),
+						    itrCluster->second.size());
 						log_flush();
 					}
 					continue;
 				}
 				if (debug) {
-					log("  Analyzing loop id %s containing %ld cells\n", loopInd.c_str(), itrCluster->second.size());
+					log("  Analyzing loop location %s containing %ld cells\n", loopInd.c_str(), itrCluster->second.size());
 					log_flush();
 				}
 				// For a given for-loop cell group, perform topological sorting to get the logic depth of the ending cell in
@@ -168,8 +178,8 @@ struct LongLoopSelect : public ScriptPass {
 					log_flush();
 				}
 				if (logicdepth > (int)threshold_depth) {
-					log("  Selecting %ld cells in for-loop id %s of depth %d ending with cell %s\n", itrCluster->second.size(),
-					    loopInd.c_str(), logicdepth, log_id((*itrLastCell)));
+					log("  Selecting %ld cells in for-loop location %s of depth %d ending with cell %s\n",
+					    itrCluster->second.size(), loopInd.c_str(), logicdepth, log_id((*itrLastCell)));
 					log_flush();
 					std::string src_info = (*itrLastCell)->get_src_attribute();
 					if (!(*itrLastCell)->get_string_attribute("\\in_for_loop").empty()) {
@@ -177,6 +187,7 @@ struct LongLoopSelect : public ScriptPass {
 					}
 					// Select all cells in the loop cluster
 					if (!abc_script.empty()) {
+						// If an ABC script is provided, select on a per-loop basis
 						Pass::call(design, "select -none");
 					}
 					for (auto cell : itrCluster->second) {
@@ -190,18 +201,17 @@ struct LongLoopSelect : public ScriptPass {
 					if (!abc_script.empty()) {
 						if (abc_script.find("map") == std::string::npos) {
 							abc_script.erase(std::remove(abc_script.begin(), abc_script.end(), '"'), abc_script.end());
-							std::string command =  "abc -map_src " + src_info + " " + abc_script;
+							std::string command = "abc -map_src " + src_info + " " + abc_script;
 							log("  Executing: %s\n", command.c_str());
 							log_flush();
 							Pass::call(design, command);
 						} else {
-							std::string command = "abc -map_src " + src_info+ src_info + " -script " + abc_script;
+							std::string command = "abc -map_src " + src_info + src_info + " -script " + abc_script;
 							log("  Executing: %s\n", command.c_str());
 							log_flush();
 							Pass::call(design, command);
 						}
 					}
-
 				}
 			}
 		}
