@@ -855,7 +855,11 @@ class WClass:
 		if self.hash_id != None:
 			text += "\n\t\tunsigned int get_hash_py()"
 			text += "\n\t\t{"
-			text += "\n\t\t\treturn get_cpp_obj()->" + self.hash_id + ";"
+			suffix = f"->{self.hash_id}" if self.hash_id else f"->{self.hash_id}"
+			if self.hash_id == "":
+				text += f"\n\t\t\treturn run_hash(*(get_cpp_obj()));"
+			else:
+				text += f"\n\t\t\treturn run_hash(get_cpp_obj()->{self.hash_id});"
 			text += "\n\t\t}"
 
 		text += "\n\t};\n"
@@ -956,7 +960,7 @@ class WClass:
 
 sources = [
 	Source("kernel/celltypes",[
-		WClass("CellType", link_types.pointer, None, None, "type.hash()", True),
+		WClass("CellType", link_types.pointer, None, None, "type", True),
 		WClass("CellTypes", link_types.pointer, None, None, None, True)
 		]
 		),
@@ -970,23 +974,23 @@ sources = [
 		]
 		),
 	Source("kernel/rtlil",[
-		WClass("IdString", link_types.ref_copy, None, "str()", "hash()"),
-		WClass("Const", link_types.ref_copy, None, "as_string()", "hash()"),
+		WClass("IdString", link_types.ref_copy, None, "str()", ""),
+		WClass("Const", link_types.ref_copy, None, "as_string()", ""),
 		WClass("AttrObject", link_types.ref_copy, None, None, None),
 		WClass("Selection", link_types.ref_copy, None, None, None),
 		WClass("Monitor", link_types.derive, None, None, None),
 		WClass("CaseRule",link_types.ref_copy, None, None, None, True),
 		WClass("SwitchRule",link_types.ref_copy, None, None, None, True),
 		WClass("SyncRule", link_types.ref_copy, None, None, None, True),
-		WClass("Process",  link_types.ref_copy, None, "name.c_str()", "name.hash()"),
+		WClass("Process",  link_types.ref_copy, None, "name.c_str()", "name"),
 		WClass("SigChunk", link_types.ref_copy, None, None, None),
-		WClass("SigBit", link_types.ref_copy, None, None, "hash()"),
-		WClass("SigSpec", link_types.ref_copy, None, None, "hash()"),
-		WClass("Cell", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Wire", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Memory", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Module", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Design", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "hashidx_", "hash()")
+		WClass("SigBit", link_types.ref_copy, None, None, ""),
+		WClass("SigSpec", link_types.ref_copy, None, None, ""),
+		WClass("Cell", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Wire", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Memory", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Module", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Design", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "hashidx_", "")
 		]
 		),
 	#Source("kernel/satgen",[

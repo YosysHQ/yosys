@@ -176,7 +176,7 @@ struct coverdb_t
 
 struct mutate_queue_t
 {
-	pool<mutate_t*, hash_ptr_ops> db;
+	pool<mutate_t*> db;
 
 	mutate_t *pick(xs128_t &rng, coverdb_t &coverdb, const mutate_opts_t &opts) {
 		mutate_t *m = nullptr;

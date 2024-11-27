@@ -318,7 +318,7 @@ struct ModuleItem {
 	Cell *cell() const { return type == Type::Cell ? static_cast<Cell *>(ptr) : nullptr; }
 
 	bool operator==(const ModuleItem &other) const { return ptr == other.ptr && type == other.type; }
-	unsigned int hash() const { return (uintptr_t)ptr; }
+	Hasher hash_into(Hasher h) const { h.eat(ptr); return h; }
 };
 
 static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p %s", cursor.target, log_id(cursor.scope_name)); }

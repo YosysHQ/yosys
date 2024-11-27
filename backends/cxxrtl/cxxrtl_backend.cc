@@ -47,7 +47,7 @@ struct Scheduler {
 	struct Vertex {
 		T *data;
 		Vertex *prev, *next;
-		pool<Vertex*, hash_ptr_ops> preds, succs;
+		pool<Vertex*> preds, succs;
 
 		Vertex() : data(NULL), prev(this), next(this) {}
 		Vertex(T *data) : data(data), prev(NULL), next(NULL) {}
@@ -300,10 +300,10 @@ struct FlowGraph {
 	};
 
 	std::vector<Node*> nodes;
-	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
-	dict<Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_comb_defs, node_sync_defs, node_uses;
+	dict<const RTLIL::Wire*, pool<Node*>> wire_comb_defs, wire_sync_defs, wire_uses;
+	dict<Node*, pool<const RTLIL::Wire*>> node_comb_defs, node_sync_defs, node_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_inlinable;
-	dict<const RTLIL::Wire*, dict<Node*, bool, hash_ptr_ops>> wire_use_inlinable;
+	dict<const RTLIL::Wire*, dict<Node*, bool>> wire_use_inlinable;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
@@ -365,7 +365,7 @@ struct FlowGraph {
 		return false;
 	}
 
-	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*, hash_ptr_ops> &nodes) const
+	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*> &nodes) const
 	{
 		// Can the wire be inlined, knowing that the given nodes are reachable?
 		if (nodes.size() != 1)
@@ -3080,7 +3080,7 @@ struct CxxrtlWorker {
 			// without feedback arcs can generally be evaluated in a single pass, i.e. it always requires only
 			// a single delta cycle.
 			Scheduler<FlowGraph::Node> scheduler;
-			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_vertex_map;
+			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*> node_vertex_map;
 			for (auto node : flow.nodes)
 				node_vertex_map[node] = scheduler.add(node);
 			for (auto node_comb_def : flow.node_comb_defs) {
@@ -3095,7 +3095,7 @@ struct CxxrtlWorker {
 
 			// Find out whether the order includes any feedback arcs.
 			std::vector<FlowGraph::Node*> node_order;
-			pool<FlowGraph::Node*, hash_ptr_ops> evaluated_nodes;
+			pool<FlowGraph::Node*> evaluated_nodes;
 			pool<const RTLIL::Wire*> feedback_wires;
 			for (auto vertex : scheduler.schedule()) {
 				auto node = vertex->data;
@@ -3139,7 +3139,7 @@ struct CxxrtlWorker {
 			}
 
 			// Discover nodes reachable from primary outputs (i.e. members) and collect reachable wire users.
-			pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+			pool<FlowGraph::Node*> worklist;
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && !is_internal_cell(node->cell->type))
 					worklist.insert(node); // node evaluates a submodule
@@ -3159,8 +3159,8 @@ struct CxxrtlWorker {
 							worklist.insert(node); // node drives public wires
 				}
 			}
-			dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> live_wires;
-			pool<FlowGraph::Node*, hash_ptr_ops> live_nodes;
+			dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> live_wires;
+			pool<FlowGraph::Node*> live_nodes;
 			while (!worklist.empty()) {
 				auto node = worklist.pop();
 				live_nodes.insert(node);
@@ -3290,15 +3290,15 @@ struct CxxrtlWorker {
 
 				// Discover nodes reachable from primary outputs (i.e. outlines) up until primary inputs (i.e. members)
 				// and collect reachable wire users.
-				pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+				pool<FlowGraph::Node*> worklist;
 				for (auto node : flow.nodes) {
 					if (flow.node_comb_defs.count(node))
 						for (auto wire : flow.node_comb_defs[node])
 							if (debug_wire_types[wire].is_outline())
 								worklist.insert(node); // node drives outline
 				}
-				dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> debug_live_wires;
-				pool<FlowGraph::Node*, hash_ptr_ops> debug_live_nodes;
+				dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> debug_live_wires;
+				pool<FlowGraph::Node*> debug_live_nodes;
 				while (!worklist.empty()) {
 					auto node = worklist.pop();
 					debug_live_nodes.insert(node);
