@@ -31,6 +31,11 @@ void rtlil_frontend_yyerror(char const *s)
 	YOSYS_NAMESPACE_PREFIX log_error("Parser error in line %d: %s\n", rtlil_frontend_yyget_lineno(), s);
 }
 
+void rtlil_frontend_yywarning(char const *s)
+{
+	YOSYS_NAMESPACE_PREFIX log_warning("In line %d: %s\n", rtlil_frontend_yyget_lineno(), s);
+}
+
 YOSYS_NAMESPACE_BEGIN
 
 struct RTLILFrontend : public Frontend {
