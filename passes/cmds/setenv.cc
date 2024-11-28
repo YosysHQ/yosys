@@ -41,8 +41,12 @@ struct SetenvPass : public Pass {
 		if(args.size() != 3)
 			log_cmd_error("Wrong number of arguments given.\n");
 		
+#if defined(_WIN32)
+		_putenv_s(args[1].c_str(), args[2].c_str());
+#else
 		setenv(args[1].c_str(), args[2].c_str(), 1);
-		
+#endif
+
 	}
 } SetenvPass;
 
