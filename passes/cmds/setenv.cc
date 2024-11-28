@@ -32,21 +32,26 @@ struct SetenvPass : public Pass {
 		log("\n");
 		log("    setenv name value\n");
 		log("\n");
-		log("Set the given environment variable on the current process. String values must be\n");
-		log("passed in double quotes (\").\n");
+		log("Set the given environment variable on the current process. Values containing\n");
+		log("whitespace must be passed in double quotes (\").\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, [[maybe_unused]] RTLIL::Design *design) override
 	{
 		if(args.size() != 3)
 			log_cmd_error("Wrong number of arguments given.\n");
+
+		std::string name = args[1];
+		std::string value = args[2];
+		if (value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
 		
 #if defined(_WIN32)
-		_putenv_s(args[1].c_str(), args[2].c_str());
+		_putenv_s(name.c_str(), value.c_str());
 #else
-		setenv(args[1].c_str(), args[2].c_str(), 1);
+		if (setenv(name.c_str(), value.c_str(), 1))
+			log_cmd_error("Invalid name \"%s\".\n", name.c_str());
 #endif
-
+		
 	}
 } SetenvPass;
 
