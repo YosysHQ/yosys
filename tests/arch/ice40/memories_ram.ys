@@ -1,0 +1,26 @@
+# ================================ RAM ================================
+# RAM bits <= 4K; Data width <= 16; Address width <= 11: -> SB_RAM40_4K
+
+design -reset; read_verilog -defer ../common/blockram.v
+chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 2 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:SB_RAM40_4K
+
+design -reset; read_verilog -defer ../common/blockram.v
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:SB_RAM40_4K
+
+design -reset; read_verilog -defer ../common/blockram.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 8 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:SB_RAM40_4K
+
+design -reset; read_verilog -defer ../common/blockram.v
+chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 16 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:SB_RAM40_4K
