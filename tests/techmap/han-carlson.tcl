@@ -1,7 +1,7 @@
 yosys -import
 
 read_verilog +/choices/han-carlson.v
-read_verilog lcu_refined.v
+read_verilog -icells lcu_refined.v
 design -save init
 
 for {set i 1} {$i <= 16} {incr i} {
