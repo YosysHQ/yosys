@@ -154,10 +154,24 @@ public:
 
 	// Combine adjacent async rules that assign the same value into one rule
 	// with a disjunction of triggers. The resulting trigger is optimized by
-	// constant evaluation.
+	// constant evaluation. We apply all of these optimizations that can be
+	// done to the LSB and shrink the size of the signal we are considering if
+	// higher bits cannot be optimized in the same way.
 	void optimize_same_value(ConstEval& ce) {
 		for (size_t i = 0; i + 1 < async_rules.size();) {
-			if (async_rules[i].value != async_rules[i + 1].value) {
+			const auto bit_optimizable = [&](const size_t bit) {
+				return async_rules[i].value[bit] == async_rules[i + 1].value[bit];
+			};
+
+			const bool lsb_optimizable = bit_optimizable(0);
+
+			size_t new_size;
+			for (new_size = 1; new_size < size(); new_size++)
+				if (bit_optimizable(new_size) != lsb_optimizable)
+					break;
+			resize(new_size);
+
+			if (!lsb_optimizable) {
 				i++;
 				continue;
 			}
