@@ -178,28 +178,50 @@ public:
 	}
 
 	// If the lowest priority async rule assigns the output value to itself,
-	// remove the rule and fold this into the input signal.
+	// remove the rule and fold this into the input signal. If the LSB assigns
+	// the output to itself but higher bits don't, we resize down to just the
+	// LSBs that assign to themselves, allowing more optimized representations
+	// for those bits.
 	void optimize_self_assign(ConstEval& ce) {
 		SigSpec sig_out_mapped = sig_out;
 		ce.assign_map.apply(sig_out_mapped);
 
-		size_t new_size = async_rules.size();
-		for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++) {
-			const auto& [value, trigger] = *it;
+		// Calculate the number of low priority rules that can be folded into
+		// the input signal for a given bit position
+		const auto foldable_rules = [&](const size_t i) {
+			size_t foldable = 0;
+			for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++, foldable++) {
+				const auto& [value, trigger] = *it;
+				if (value[i] != sig_out_mapped[i])
+					break;
+			}
+			return foldable;
+		};
 
-			if (value != sig_out_mapped)
+		// Work out how many bits from the lsb can be folded into the same
+		// number of rules
+		const size_t lsb_foldable_rules = foldable_rules(0);
+
+		size_t new_size;
+		for (new_size = 1; new_size < size(); new_size++)
+			if (foldable_rules(new_size) != lsb_foldable_rules)
 				break;
 
-			if (!trigger.inverted)
-				sig_in = mod.Mux(NEW_ID, sig_in, value, trigger.sig);
-			else
-				sig_in = mod.Mux(NEW_ID, value, sig_in, trigger.sig);
+		resize(new_size);
 
-			ce.eval(sig_in);
-			new_size--;
-		}
+		if (lsb_foldable_rules == 0)
+			return;
 
-		async_rules.resize(new_size);
+		// Calculate the disjunction of triggers
+		SigSpec triggers;
+		for (size_t i = 0; i < lsb_foldable_rules; i++)
+			triggers.append(async_rules.crbegin()[i].trigger.positive_trigger(mod));
+
+		const auto trigger = mod.ReduceOr(NEW_ID, triggers);
+		sig_in = mod.Mux(NEW_ID, sig_in, sig_out, trigger);
+		ce.eval(sig_in);
+
+		async_rules.resize(async_rules.size() - lsb_foldable_rules);
 	}
 
 	// If we have only a single rule, this means we will generate either an $aldff
