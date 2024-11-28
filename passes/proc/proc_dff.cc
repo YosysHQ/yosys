@@ -24,25 +24,26 @@
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
+RTLIL::SigSpec find_any_lvalue(const RTLIL::Process& proc)
 {
 	RTLIL::SigSpec lvalue;
 
-	for (auto sync : proc->syncs)
-	for (auto &action : sync->actions)
+	for (const auto* sync : proc.syncs)
+	for (const auto& action : sync->actions)
 		if (action.first.size() > 0) {
 			lvalue = action.first;
 			lvalue.sort_and_unify();
 			break;
 		}
 
-	for (auto sync : proc->syncs) {
+	for (const auto* sync : proc.syncs) {
 		RTLIL::SigSpec this_lvalue;
-		for (auto &action : sync->actions)
+		for (const auto& action : sync->actions)
 			this_lvalue.append(action.first);
 		this_lvalue.sort_and_unify();
 		RTLIL::SigSpec common_sig = this_lvalue.extract(lvalue);
@@ -53,238 +54,390 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
-void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
-		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
-{
-	// A signal should be set/cleared if there is a load trigger that is enabled
-	// such that the load value is 1/0 and it is the highest priority trigger
-	RTLIL::SigSpec sig_sr_set = RTLIL::SigSpec(0, sig_d.size());
-	RTLIL::SigSpec sig_sr_clr = RTLIL::SigSpec(0, sig_d.size());
+std::string new_dff_name() {
+	std::stringstream sstr;
+	sstr << "$procdff$" << (autoidx++);
+	return sstr.str();
+}
 
-	// Reverse iterate through the rules as the first ones are the highest priority
-	// so need to be at the top of the mux trees
-	for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++)
+class Dff {
+public:
+	// Extract the relevant signals from a process that drives sig as a DFF
+	Dff(RTLIL::Module& mod, const SigSpec& sig_out, RTLIL::Process& proc) :
+		proc{proc}, mod{mod}, sig_in(RTLIL::State::Sz, sig_out.size()), sig_out{sig_out}
 	{
-		const auto& [sync_value, rule] = *it;
-		const auto pos_trig = rule->type == RTLIL::SyncType::ST1 ? rule->signal : mod->Not(NEW_ID, rule->signal);
+		// We gather sync rules corresponding to always/edge first to check
+		// whether they are conflicting before actually updating clk
+		const RTLIL::SyncRule* sync_edge = nullptr;
+		const RTLIL::SyncRule* sync_always = nullptr;
+		bool global_clock = false;
 
-		// If pos_trig is true, we have priority at this point in the tree so
-		// set a bit if sync_value has a set bit. Otherwise, defer to the rest
-		// of the priority tree
-		sig_sr_set = mod->Mux(NEW_ID, sig_sr_set, sync_value, pos_trig);
+		for (const auto* sync : proc.syncs)
+		for (const auto& action : sync->actions) {
+			if (action.first.extract(sig_out).empty())
+				continue;
 
-		// Same deal with clear bit
-		const auto sync_value_inv = mod->Not(NEW_ID, sync_value);
-		sig_sr_clr = mod->Mux(NEW_ID, sig_sr_clr, sync_value_inv, pos_trig);
+			// Level sensitive assignments (set/reset/aload)
+			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
+				RTLIL::SigSpec rstval(RTLIL::State::Sz, sig_out.size());
+				sig_out.replace(action.first, action.second, &rstval);
+				async_rules.emplace_back(rstval, *sync);
+				continue;
+			}
+
+			// Edge sensitive assignments (clock)
+			if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
+				if (sync_edge != NULL && sync_edge != sync)
+					log_error("Multiple edge sensitive events found for this signal!\n");
+				sig_out.replace(action.first, action.second, &sig_in);
+				sync_edge = sync;
+				continue;
+			}
+
+			// Always assignments
+			if (sync->type == RTLIL::SyncType::STa) {
+				if (sync_always != NULL && sync_always != sync)
+					log_error("Multiple always events found for this signal!\n");
+				sig_out.replace(action.first, action.second, &sig_in);
+				sync_always = sync;
+				continue;
+			}
+
+			// Global clock assignments
+			if (sync->type == RTLIL::SyncType::STg) {
+				sig_out.replace(action.first, action.second, &sig_in);
+				global_clock = true;
+				continue;
+			}
+
+			log_error("Event with any-edge sensitivity found for this signal!\n");
+		}
+
+		if (sync_always && (sync_edge || !async_rules.empty()))
+			log_error("Mixed always event with edge and/or level sensitive events!\n");
+
+		if (!sync_edge && !global_clock && !sync_always)
+			log_error("Missing edge-sensitive event for this signal!\n");
+
+		// Update our internal versions of these signals to track whether things
+		// are edge sensitive
+		if (sync_edge)
+			clk = *sync_edge;
+		always = sync_always != nullptr;
 	}
 
-	std::stringstream sstr;
-	sstr << "$procdff$" << (autoidx++);
-
-	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
-	cell->attributes = proc->attributes;
-
-	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
-			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
-}
-
-void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
-		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
-{
-	std::stringstream sstr;
-	sstr << "$procdff$" << (autoidx++);
-
-	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
-	cell->attributes = proc->attributes;
-
-	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
-	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
-	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
-	cell->setPort(ID::D, sig_in);
-	cell->setPort(ID::Q, sig_out);
-	cell->setPort(ID::AD, sig_set);
-	cell->setPort(ID::CLK, clk);
-	cell->setPort(ID::ALOAD, set);
-
-	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type, cell->name,
-			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
-}
-
-void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RTLIL::SigSpec sig_out,
-		bool clk_polarity, bool arst_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *arst, RTLIL::Process *proc)
-{
-	std::stringstream sstr;
-	sstr << "$procdff$" << (autoidx++);
-
-	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? ID($ff) : arst ? ID($adff) : ID($dff));
-	cell->attributes = proc->attributes;
-
-	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
-	if (arst) {
-		cell->parameters[ID::ARST_POLARITY] = RTLIL::Const(arst_polarity, 1);
-		cell->parameters[ID::ARST_VALUE] = val_rst;
-	}
-	if (!clk.empty()) {
-		cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
+	void optimize(ConstEval& ce) {
+		optimize_const_eval(ce);
+		optimize_same_value(ce);
+		optimize_self_assign(ce);
 	}
 
-	cell->setPort(ID::D, sig_in);
-	cell->setPort(ID::Q, sig_out);
-	if (arst)
-		cell->setPort(ID::ARST, *arst);
-	if (!clk.empty())
-		cell->setPort(ID::CLK, clk);
+	// Const evaluate async rule values and triggers, and remove those that
+	// have triggers that are always false
+	void optimize_const_eval(ConstEval& ce) {
+		ce.eval(sig_in);
+		ce.eval(clk.sig);
 
-	if (!clk.empty())
-		log("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");
-	else
-		log("  created %s cell `%s' with global clock", cell->type, cell->name);
-	if (arst)
-		log(" and %s level reset", arst_polarity ? "positive" : "negative");
-	log(".\n");
-}
+		for (auto& [value, trigger] : async_rules) {
+			ce.eval(value);
+			ce.eval(trigger.sig);
+		}
 
-void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
-{
-	while (1)
-	{
-		RTLIL::SigSpec sig = find_any_lvalue(proc);
+		async_rules.erase(
+			std::remove_if(async_rules.begin(), async_rules.end(),
+				[](const auto& rule) { return rule.trigger.is_never_triggered(); }
+			),
+			async_rules.end()
+		);
+	}
 
-		if (sig.size() == 0)
+	// Combine adjacent async rules that assign the same value into one rule
+	// with a disjunction of triggers. The resulting trigger is optimized by
+	// constant evaluation.
+	void optimize_same_value(ConstEval& ce) {
+		for (size_t i = 0; i + 1 < async_rules.size();) {
+			if (async_rules[i].value != async_rules[i + 1].value) {
+				i++;
+				continue;
+			}
+
+			// i and i + 1 assign the same value so can be merged by taking
+			// the disjunction of triggers and deleting the second
+			async_rules[i].trigger = mod.ReduceOr(
+				NEW_ID,
+				SigSpec{
+					async_rules[i].trigger.positive_trigger(mod),
+					async_rules[i + 1].trigger.positive_trigger(mod)
+				}
+			);
+			async_rules.erase(async_rules.begin() + i + 1);
+
+			ce.eval(async_rules[i].trigger.sig);
+		}
+	}
+
+	// If the lowest priority async rule assigns the output value to itself,
+	// remove the rule and fold this into the input signal.
+	void optimize_self_assign(ConstEval& ce) {
+		SigSpec sig_out_mapped = sig_out;
+		ce.assign_map.apply(sig_out_mapped);
+
+		size_t new_size = async_rules.size();
+		for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++) {
+			const auto& [value, trigger] = *it;
+
+			if (value != sig_out_mapped)
+				break;
+
+			if (!trigger.inverted)
+				sig_in = mod.Mux(NEW_ID, sig_in, value, trigger.sig);
+			else
+				sig_in = mod.Mux(NEW_ID, value, sig_in, trigger.sig);
+
+			ce.eval(sig_in);
+			new_size--;
+		}
+
+		async_rules.resize(new_size);
+	}
+
+	void generate() {
+		// Progressively attempt more complex formulations, preferring the
+		// simpler ones. These rules should be able to cover all representable
+		// DFF patterns.
+		if (try_generate_always())
+			return;
+
+		if (try_generate_dff())
+			return;
+
+		if (try_generate_single_async_dff())
+			return;
+
+		if (try_generate_dffsr())
+			return;
+
+		log_error("unable to match a dff type to this signal's rules.\n");
+	}
+
+	// Generates a connection if this dff is an always connection
+	// Returns true if successful
+	bool try_generate_always() {
+		if (!always)
+			return false;
+
+		log_assert(async_rules.empty());
+		log_assert(clk.empty());
+
+		log("  created direct connection (no actual register cell created).\n");
+		mod.connect(sig_out, sig_in);
+		return true;
+	}
+
+	// Generates a $dff if this dff has no async rules and a clock of a $ff
+	// if this dff has no async rules and is globally clocked
+	// Returns true if succesful
+	bool try_generate_dff() {
+		if (always || !async_rules.empty())
+			return false;
+
+		RTLIL::Cell* cell;
+		const char* edge;
+		if (clk.empty()) {
+			edge = "global";
+			cell = mod.addFf(new_dff_name(), sig_in, sig_out);
+		} else {
+			edge = clk.polarity_str();
+			cell = mod.addDff(
+				/*         name */ new_dff_name(),
+				/*      sig_clk */ clk.sig,
+				/*        sig_d */ sig_in,
+				/*        sig_q */ sig_out,
+				/* clk_polarity */ clk.polarity()
+			);
+		}
+		cell->attributes = proc.attributes;
+
+		log("  created %s cell `%s' with %s edge clock.", cell->type, cell->name, edge);
+		return true;
+	}
+
+	// Generates an $adff or $aldff if this dff has a single async rule that
+	// is constant or non-constant respectively
+	// Returns true if successful
+	bool try_generate_single_async_dff() {
+		if (!explicitly_clocked() || async_rules.size() != 1)
+			return false;
+
+		const auto& aload = async_rules.front();
+		const bool is_const = aload.value.is_fully_const();
+
+		RTLIL::Cell* cell;
+		if (is_const) {
+			cell = mod.addAdff(
+				/*           name */ new_dff_name(),
+				/*        sig_clk */ clk.sig,
+				/*       sig_arst */ aload.trigger.sig,
+				/*          sig_d */ sig_in,
+				/*          sig_q */ sig_out,
+				/*     arst_value */ aload.value.as_const(),
+				/*   clk_polarity */ clk.polarity(),
+				/*  arst_polarity */ aload.trigger.polarity()
+			);
+		} else {
+			log_warning("Async reset value `%s' is not constant!\n", log_signal(aload.value));
+			cell = mod.addAldff(
+				/*           name */ new_dff_name(),
+				/*        sig_clk */ clk.sig,
+				/*      sig_aload */ aload.trigger.sig,
+				/*          sig_d */ sig_in,
+				/*          sig_q */ sig_out,
+				/*         sig_ad */ aload.value,
+				/*   clk_polarity */ clk.polarity(),
+				/* aload_polarity */ aload.trigger.polarity()
+			);
+		}
+		cell->attributes = proc.attributes;
+
+		log(
+			"  created %s cell `%s' with %s edge clock and %s level %sconst reset.\n",
+			cell->type, cell->name, clk.polarity_str(), aload.trigger.polarity_str(),
+			is_const ? "" : "non-"
+		);
+
+		return true;
+	}
+
+	// Generates a $dffsr cell from a complex set of async rules that are converted
+	// into driving conditions for set and reset signals
+	// Returns true if successful
+	bool try_generate_dffsr() {
+		if (!explicitly_clocked())
+			return false;
+
+		// A signal should be set/cleared if there is a load trigger that is enabled
+		// such that the load value is 1/0 and it is the highest priority trigger
+		RTLIL::SigSpec sig_set(0, size()), sig_clr(0, size());
+
+		// Reverse iterate through the rules as the first ones are the highest priority
+		// so need to be at the top of the mux trees
+		for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++) {
+			const auto& [sync_value, trigger] = *it;
+			const auto pos_trig = trigger.positive_trigger(mod);
+
+			// If pos_trig is true, we have priority at this point in the tree so
+			// set a bit if value has a set bit. Otherwise, defer to the rest
+			// of the priority tree
+			sig_set = mod.Mux(NEW_ID, sig_set, sync_value, pos_trig);
+
+			// Same deal with clear bit
+			const auto sync_value_inv = mod.Not(NEW_ID, sync_value);
+			sig_clr = mod.Mux(NEW_ID, sig_clr, sync_value_inv, pos_trig);
+		}
+
+		auto* cell = mod.addDffsr(
+			/*           name */ new_dff_name(),
+			/*        sig_clk */ clk.sig,
+			/*        sig_set */ sig_set,
+			/*        sig_clr */ sig_clr,
+			/*          sig_d */ sig_in,
+			/*          sig_q */ sig_out,
+			/*   clk_polarity */ clk.polarity()
+		);
+		cell->attributes = proc.attributes;
+
+		log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
+			cell->type, cell->name, clk.polarity_str());
+		return true;
+	}
+
+	bool empty() const { return sig_out.empty(); }
+	size_t size() const { return sig_out.size(); }
+	const SigSpec& output() const { return sig_out; }
+
+	// True if there is an explicit clock signal, false if driven by an always
+	// or global clock
+	bool explicitly_clocked() const { return !always && !clk.empty(); }
+
+private:
+	RTLIL::Process& proc;
+	RTLIL::Module& mod;
+
+	// A clock or reset trigger that is active when sig goes high (low) when
+	// inverted is false (true)
+	struct TriggerSig {
+		SigSpec sig;
+		bool inverted = false;
+
+		TriggerSig() = default;
+		TriggerSig(const RTLIL::SyncRule& sync) : sig{sync.signal},
+			inverted{sync.type == RTLIL::SyncType::ST0 || sync.type == RTLIL::SyncType::STn} {}
+
+		TriggerSig(const RTLIL::SigSpec& signal) : sig{signal} {}
+
+		bool empty() const { return sig.empty(); }
+		bool polarity() const { return !inverted; }
+		const char* polarity_str() const { return polarity() ? "positive" : "negative"; }
+
+		bool is_never_triggered() const {
+			return inverted ? sig.is_fully_ones() : sig.is_fully_zero();
+		}
+
+		SigSpec positive_trigger(RTLIL::Module& mod) const {
+			if (!inverted)
+				return sig;
+			return mod.Not(NEW_ID, sig);
+		}
+	};
+
+	// An update rule to update sig_q to value when trigger is triggered
+	struct AsyncRule {
+		SigSpec value;
+		TriggerSig trigger;
+
+		AsyncRule() = default;
+		AsyncRule(const SigSpec& value, const RTLIL::SyncRule& sync) : value{value}, trigger{sync} {}
+	};
+
+	// The d input (used when no async rules apply) and q output
+	SigSpec sig_in, sig_out;
+
+	// A priority ordered list of asynchronous rules used for set/reset/aload.
+	// A rule that comes earlier in this vector has higher priority than a later
+	// one (if both of their trigger conditions are met the higher priority
+	// value is taken)
+	std::vector<AsyncRule> async_rules;
+
+	// The clock signal with its polarity. If clk is empty, the DFF is driven
+	// by a global clock (and should have no async rules)
+	TriggerSig clk;
+
+	// If this is true, this isn't really a DFF but instead an always assignment
+	// that can be made with a connection. clk and async_rules should be empty
+	// in this case
+	bool always = false;
+};
+
+void proc_dff(RTLIL::Module& mod, RTLIL::Process& proc, ConstEval &ce) {
+	while (1) {
+		// Find a new signal assigned by this process
+		const auto sig = find_any_lvalue(proc);
+		if (sig.empty())
 			break;
 
 		log("Creating register for signal `%s.%s' using process `%s.%s'.\n",
-				mod->name.c_str(), log_signal(sig), mod->name.c_str(), proc->name.c_str());
+			mod.name, log_signal(sig), mod.name, proc.name);
 
-		RTLIL::SigSpec insig = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-		RTLIL::SyncRule *sync_edge = NULL;
-		RTLIL::SyncRule *sync_always = NULL;
-		bool global_clock = false;
+		Dff dff{mod, sig, proc};
+		dff.optimize(ce);
+		dff.generate();
 
-		// A priority ordered set of rules, pairing the value to be assigned for
-		// that rule to the rule
-		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> async_rules;
-
-		// Needed when the async rules are collapsed into one as async_rules
-		// works with pointers to SyncRule
-		RTLIL::SyncRule single_async_rule;
-
-		for (auto sync : proc->syncs)
-		for (auto &action : sync->actions)
-		{
-			if (action.first.extract(sig).size() == 0)
-				continue;
-
-			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
-				RTLIL::SigSpec rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-				sig.replace(action.first, action.second, &rstval);
-				async_rules.emplace_back(rstval, sync);
-			}
-			else if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
-				if (sync_edge != NULL && sync_edge != sync)
-					log_error("Multiple edge sensitive events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
-				sync_edge = sync;
-			}
-			else if (sync->type == RTLIL::SyncType::STa) {
-				if (sync_always != NULL && sync_always != sync)
-					log_error("Multiple always events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
-				sync_always = sync;
-			}
-			else if (sync->type == RTLIL::SyncType::STg) {
-				sig.replace(action.first, action.second, &insig);
-				global_clock = true;
-			}
-			else {
-				log_error("Event with any-edge sensitivity found for this signal!\n");
-			}
-
-			action.first.remove2(sig, &action.second);
-		}
-
-		// If all async rules assign the same value, priority ordering between
-		// them doesn't matter so they can be collapsed together into one rule
-		// with the disjunction of triggers
-		if (!async_rules.empty() &&
-		    std::all_of(async_rules.begin(), async_rules.end(), [&](auto& p) {
-		        return p.first == async_rules.front().first;
-		    }))
-		{
-			const auto rstval = async_rules.front().first;
-
-			// The trigger is the disjunction of existing triggers
-			// (with appropriate negation)
-			RTLIL::SigSpec triggers;
-			for (const auto &[_, it] : async_rules)
-				triggers.append(it->type == RTLIL::SyncType::ST1 ? it->signal : mod->Not(NEW_ID, it->signal));
-
-			// Put this into the dummy sync rule so it can be treated the same
-			// as ones coming from the module
-			single_async_rule.type = RTLIL::SyncType::ST1;
-			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
-			single_async_rule.actions.push_back(RTLIL::SigSig(sig, rstval));
-
-			// Replace existing rules with this new rule
-			async_rules.clear();
-			async_rules.emplace_back(rstval, &single_async_rule);
-		}
-
-		SigSpec sig_q = sig;
-		ce.assign_map.apply(insig);
-		ce.assign_map.apply(sig);
-
-		// If the reset value assigns the reg to itself, add this as part of
-		// the input signal and delete the rule
-		if (async_rules.size() == 1 && async_rules.front().first == sig) {
-			const auto& [_, rule] = async_rules.front();
-			if (rule->type == RTLIL::SyncType::ST1)
-				insig = mod->Mux(NEW_ID, insig, sig, rule->signal);
-			else
-				insig = mod->Mux(NEW_ID, sig, insig, rule->signal);
-
-			async_rules.clear();
-		}
-
-		if (sync_always) {
-			if (sync_edge || !async_rules.empty())
-				log_error("Mixed always event with edge and/or level sensitive events!\n");
-			log("  created direct connection (no actual register cell created).\n");
-			mod->connect(RTLIL::SigSig(sig, insig));
-			continue;
-		}
-
-		if (!sync_edge && !global_clock)
-			log_error("Missing edge-sensitive event for this signal!\n");
-
-		// More than one reset value so we derive a dffsr formulation
-		if (async_rules.size() > 1)
-		{
-			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
-			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, async_rules, proc);
-			continue;
-		}
-
-		// If there is a reset condition in the async rules, use it
-		SigSpec rstval = async_rules.empty() ? RTLIL::SigSpec(RTLIL::State::Sz, sig.size()) : async_rules.front().first;
-		RTLIL::SyncRule* sync_level = async_rules.empty() ? nullptr : async_rules.front().second;
-		ce.assign_map.apply(rstval);
-
-		if (!rstval.is_fully_const() && !ce.eval(rstval))
-		{
-			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
-			gen_aldff(mod, insig, rstval, sig_q,
-					sync_edge->type == RTLIL::SyncType::STp,
-					sync_level && sync_level->type == RTLIL::SyncType::ST1,
-					sync_edge->signal, sync_level->signal, proc);
-			continue;
-		}
-
-		gen_dff(mod, insig, rstval.as_const(), sig_q,
-				sync_edge && sync_edge->type == RTLIL::SyncType::STp,
-				sync_level && sync_level->type == RTLIL::SyncType::ST1,
-				sync_edge ? sync_edge->signal : SigSpec(),
-				sync_level ? &sync_level->signal : NULL, proc);
+		// Now that we are done with the signal remove it from the process
+		// We must do this after optimizing the dff as to emit an optimal dff
+		// type we might not actually use all bits of sig in this iteration
+		for (auto* sync : proc.syncs)
+		for (auto& action : sync->actions)
+			action.first.remove2(dff.output(), &action.second);
 	}
 }
 
@@ -309,7 +462,7 @@ struct ProcDffPass : public Pass {
 		for (auto mod : design->all_selected_modules()) {
 			ConstEval ce(mod);
 			for (auto proc : mod->selected_processes())
-				proc_dff(mod, proc, ce);
+				proc_dff(*mod, *proc, ce);
 		}
 	}
 } ProcDffPass;
