@@ -34,9 +34,9 @@ struct LongLoopSelect : public ScriptPass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    longloop_select [-depth <for-loop threshold depth>] [-abc <ABC script>]\n");
-		log("    If no ABC script is provided, this pass simply selects cells in for-loops\n");
-		log("    If an ABC script is provided, this pass selects cells in a per for-loop basis and runs ABC with the given script\n");
+		log("    longloop_select [-depth <for-loop threshold depth>] [-abc_opt <ABC options>] [-abc_script <ABC script>]\n");
+		log("    If no ABC script/option is provided, this pass simply selects cells in for-loops\n");
+		log("    If an ABC script/option is provided, this pass selects cells in a per for-loop basis and runs ABC with the given script\n");
 		log("\n");
 	}
 	void script() override {}
@@ -99,15 +99,19 @@ struct LongLoopSelect : public ScriptPass {
 		bool debug = false;
 		size_t argidx;
 		std::string abc_script;
+		std::string abc_options;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-depth") {
 				argidx++;
 				threshold_depth = std::stoul(args[argidx], nullptr, 10);
 			} else if (args[argidx] == "-debug") {
 				debug = true;
-			} else if (args[argidx] == "-abc") {
+			} else if (args[argidx] == "-abc_script") {
 				argidx++;
 				abc_script = args[argidx];
+			} else if (args[argidx] == "-abc_opt") {
+				argidx++;
+				abc_options = args[argidx];
 			} else {
 				break;
 			}
@@ -134,6 +138,7 @@ struct LongLoopSelect : public ScriptPass {
 				log("  Creating sorting datastructures\n");
 				log_flush();
 			}
+
 			for (auto cell : module->cells()) {
 				std::string loopIndex = cell->get_string_attribute("\\in_for_loop");
 				if (!loopIndex.empty()) {
@@ -147,6 +152,7 @@ struct LongLoopSelect : public ScriptPass {
 					}
 				}
 			}
+
 			if (!loopIndexCellMap.empty()) {
 				log("  Found %ld for-loop clusters in module %s\n", loopIndexCellMap.size(), module->name.c_str());
 				log_flush();
@@ -199,18 +205,16 @@ struct LongLoopSelect : public ScriptPass {
 						}
 					}
 					if (!abc_script.empty()) {
-						if (abc_script.find("map") == std::string::npos) {
-							abc_script.erase(std::remove(abc_script.begin(), abc_script.end(), '"'), abc_script.end());
-							std::string command = "abc -map_src " + src_info + " " + abc_script;
-							log("  Executing: %s\n", command.c_str());
-							log_flush();
-							Pass::call(design, command);
-						} else {
-							std::string command = "abc -map_src " + src_info + " -script " + abc_script;
-							log("  Executing: %s\n", command.c_str());
-							log_flush();
-							Pass::call(design, command);
-						}
+						std::string command = "abc -map_src " + src_info + " -script " + abc_script;
+						log("  Executing: %s\n", command.c_str());
+						log_flush();
+						Pass::call(design, command);
+					} else if (!abc_options.empty()) {
+						abc_options.erase(std::remove(abc_options.begin(), abc_options.end(), '"'), abc_options.end());
+						std::string command = "abc -map_src " + src_info + " " + abc_options;
+						log("  Executing: %s\n", command.c_str());
+						log_flush();
+						Pass::call(design, command);
 					}
 				}
 			}
