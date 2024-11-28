@@ -130,6 +130,7 @@ public:
 		optimize_const_eval(ce);
 		optimize_same_value(ce);
 		optimize_self_assign(ce);
+		optimize_single_rule_consts();
 	}
 
 	// Const evaluate async rule values and triggers, and remove those that
@@ -199,6 +200,31 @@ public:
 		}
 
 		async_rules.resize(new_size);
+	}
+
+	// If we have only a single rule, this means we will generate either an $aldff
+	// or an $adff if the reset value is constant or non-constant respectively.
+	// If there are any non-constant bits in the rule value, an $aldff will be
+	// used for all bits, but we would like to use an $adff for as many
+	// bits as possible. This optimization therefore calculates the longest run
+	// of bits starting at the LSB of the value with the same constness and
+	// removes the rest from consideration in this pass. This means that const
+	// and non-const sections can be separately mapped to $adff and $aldff.
+	void optimize_single_rule_consts() {
+		if (async_rules.size() != 1)
+			return;
+
+		const auto& [val, trigger] = async_rules.front();
+		log_assert(GetSize(val) > 0);
+
+		const bool lsb_wire = val[0].is_wire();
+
+		size_t new_size;
+		for (new_size = 1; new_size < size(); new_size++)
+			if (val[new_size].is_wire() != lsb_wire)
+				break;
+
+		resize(new_size);
 	}
 
 	void generate() {
@@ -360,6 +386,16 @@ public:
 	bool explicitly_clocked() const { return !always && !clk.empty(); }
 
 private:
+	void resize(const size_t new_size) {
+		if (new_size >= size())
+			return;
+
+		sig_in = sig_in.extract(0, new_size);
+		sig_out = sig_out.extract(0, new_size);
+		for (auto& [value, _] : async_rules)
+			value = value.extract(0, new_size);
+	}
+
 	RTLIL::Process& proc;
 	RTLIL::Module& mod;
 
