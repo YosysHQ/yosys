@@ -411,7 +411,7 @@ private:
 	// from the function as the LSB. This function also returns the value
 	// calculated for the LSB.
 	template <typename F>
-	typename std::result_of<F(size_t)>::type shrink_while_matching_values(F f) {
+	typename std::invoke_result_t<F, size_t> shrink_while_matching_values(F f) {
 		const auto base_val = f(0);
 
 		size_t new_size;
