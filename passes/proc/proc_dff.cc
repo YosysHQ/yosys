@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <algorithm>
+#include <type_traits>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -159,17 +160,9 @@ public:
 	// higher bits cannot be optimized in the same way.
 	void optimize_same_value(ConstEval& ce) {
 		for (size_t i = 0; i + 1 < async_rules.size();) {
-			const auto bit_optimizable = [&](const size_t bit) {
+			const bool lsb_optimizable = shrink_while_matching_values([&](const size_t bit) {
 				return async_rules[i].value[bit] == async_rules[i + 1].value[bit];
-			};
-
-			const bool lsb_optimizable = bit_optimizable(0);
-
-			size_t new_size;
-			for (new_size = 1; new_size < size(); new_size++)
-				if (bit_optimizable(new_size) != lsb_optimizable)
-					break;
-			resize(new_size);
+			});
 
 			if (!lsb_optimizable) {
 				i++;
@@ -202,7 +195,7 @@ public:
 
 		// Calculate the number of low priority rules that can be folded into
 		// the input signal for a given bit position
-		const auto foldable_rules = [&](const size_t i) {
+		const size_t lsb_foldable_rules = shrink_while_matching_values([&](const size_t i) {
 			size_t foldable = 0;
 			for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++, foldable++) {
 				const auto& [value, trigger] = *it;
@@ -210,18 +203,7 @@ public:
 					break;
 			}
 			return foldable;
-		};
-
-		// Work out how many bits from the lsb can be folded into the same
-		// number of rules
-		const size_t lsb_foldable_rules = foldable_rules(0);
-
-		size_t new_size;
-		for (new_size = 1; new_size < size(); new_size++)
-			if (foldable_rules(new_size) != lsb_foldable_rules)
-				break;
-
-		resize(new_size);
+		});
 
 		if (lsb_foldable_rules == 0)
 			return;
@@ -250,17 +232,9 @@ public:
 		if (async_rules.size() != 1)
 			return;
 
-		const auto& [val, trigger] = async_rules.front();
-		log_assert(GetSize(val) > 0);
-
-		const bool lsb_wire = val[0].is_wire();
-
-		size_t new_size;
-		for (new_size = 1; new_size < size(); new_size++)
-			if (val[new_size].is_wire() != lsb_wire)
-				break;
-
-		resize(new_size);
+		shrink_while_matching_values([&](const size_t i) {
+			return async_rules.front().value[i].is_wire();
+		});
 	}
 
 	void generate() {
@@ -430,6 +404,23 @@ private:
 		sig_out = sig_out.extract(0, new_size);
 		for (auto& [value, _] : async_rules)
 			value = value.extract(0, new_size);
+	}
+
+	// Given some function that maps from an index to a value, this resizes
+	// the dff to a range starting at the LSB that all return the same value
+	// from the function as the LSB. This function also returns the value
+	// calculated for the LSB.
+	template <typename F>
+	typename std::result_of<F(size_t)>::type shrink_while_matching_values(F f) {
+		const auto base_val = f(0);
+
+		size_t new_size;
+		for (new_size = 1; new_size < size(); new_size++)
+			if (f(new_size) != base_val)
+				break;
+
+		resize(new_size);
+		return base_val;
 	}
 
 	RTLIL::Process& proc;
