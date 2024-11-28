@@ -931,7 +931,7 @@ bool AstNode::bits_only_01() const
 RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 {
 	RTLIL::State extbit = bits.back();
-	while (width > int(bits.size()))
+	while (width > GetSize(bits))
 		bits.push_back(extbit);
 	return RTLIL::Const(bits);
 }
@@ -939,13 +939,13 @@ RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;
-	if (width >= 0 && width < int(bits.size()))
+	if (width >= 0 && width < GetSize(bits))
 		bits.resize(width);
-	if (width >= 0 && width > int(bits.size())) {
+	if (width >= 0 && width > GetSize(bits)) {
 		RTLIL::State extbit = RTLIL::State::S0;
 		if ((is_signed || is_unsized) && !bits.empty())
 			extbit = bits.back();
-		while (width > int(bits.size()))
+		while (width > GetSize(bits))
 			bits.push_back(extbit);
 	}
 	return RTLIL::Const(bits);
@@ -1029,7 +1029,7 @@ double AstNode::asReal(bool is_signed)
 			val = const_neg(val, val, false, false, val.size());
 
 		double v = 0;
-		for (size_t i = 0; i < val.size(); i++)
+		for (auto i = 0; i < val.size(); i++)
 			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
 			// the net or the variable shall be treated as zero upon conversion.
 			if (val.at(i) == RTLIL::State::S1)
