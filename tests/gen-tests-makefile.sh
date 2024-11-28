@@ -20,6 +20,13 @@ generate_ys_test() {
 	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file%.*}.log $yosys_args_ $ys_file"
 }
 
+# $ generate_tcl_test tcl_file [yosys_args]
+generate_tcl_test() {
+	tcl_file=$1
+	yosys_args_=${2:-}
+	generate_target "$tcl_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${tcl_file%.*}.log $yosys_args_ $tcl_file"
+}
+
 # $ generate_bash_test bash_file
 generate_bash_test() {
 	bash_file=$1
@@ -29,6 +36,7 @@ generate_bash_test() {
 # $ generate_tests [-y|--yosys-scripts] [-s|--prove-sv] [-b|--bash] [-a|--yosys-args yosys_args]
 generate_tests() {
 	do_ys=false
+	do_tcl=false
 	do_sv=false
 	do_sh=false
 	yosys_args=""
@@ -38,6 +46,10 @@ generate_tests() {
 		case "$arg" in
 			-y|--yosys-scripts)
 				do_ys=true
+				shift
+				;;
+			-t|--tcl-scripts)
+				do_tcl=true
 				shift
 				;;
 			-s|--prove-sv)
@@ -59,7 +71,7 @@ generate_tests() {
 		esac
 	done
 
-	if [[ ! ( $do_ys = true || $do_sv = true || $do_sh = true ) ]]; then
+	if [[ ! ( $do_ys = true || $do_tcl = true || $do_sv = true || $do_sh = true ) ]]; then
 		echo >&2 "Error: No file types selected"
 		exit 1
 	fi
@@ -70,6 +82,11 @@ generate_tests() {
 	if [[ $do_ys = true ]]; then
 		for x in *.ys; do
 			generate_ys_test "$x" "$yosys_args"
+		done
+	fi;
+	if [[ $do_tcl = true ]]; then
+		for x in *.tcl; do
+			generate_tcl_test "$x" "$yosys_args"
 		done
 	fi;
 	if [[ $do_sv = true ]]; then
