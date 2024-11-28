@@ -8,7 +8,7 @@ for {set i 1} {$i <= 16} {incr i} {
     design -load init
     chparam -set WIDTH $i
     yosys proc
-    equiv_make -blacklist ppa.nomatch lcu _85_lcu_han_carlson equiv
+    equiv_make -blacklist ppa.nomatch lcu _80_lcu_han_carlson equiv
     equiv_simple equiv
     equiv_status -assert equiv
 }

@@ -1,5 +1,5 @@
 (* techmap_celltype = "$lcu" *)
-module _85_lcu_han_carlson (P, G, CI, CO);
+module _80_lcu_han_carlson (P, G, CI, CO);
 	parameter WIDTH = 2;
 
 	(* force_downto *)
