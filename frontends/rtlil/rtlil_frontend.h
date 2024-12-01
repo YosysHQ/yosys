@@ -42,6 +42,7 @@ YOSYS_NAMESPACE_END
 extern int rtlil_frontend_yydebug;
 int rtlil_frontend_yylex(void);
 void rtlil_frontend_yyerror(char const *s);
+void rtlil_frontend_yywarning(char const *s);
 void rtlil_frontend_yyrestart(FILE *f);
 int rtlil_frontend_yyparse(void);
 int rtlil_frontend_yylex_destroy(void);
