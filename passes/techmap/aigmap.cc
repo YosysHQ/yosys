@@ -110,6 +110,8 @@ struct AigmapPass : public Pass {
 						if (nand_mode && node.inverter) {
 							bit = module->addWire(NEW_ID2_SUFFIX("bit"));
 							auto gate = module->addNandGate(NEW_ID2_SUFFIX("nand"), A, B, bit);
+							for (auto attr : cell->attributes)
+								gate->attributes[attr.first] = attr.second; 
 							if (select_mode)
 								new_sel.insert(gate->name);
 
@@ -121,6 +123,8 @@ struct AigmapPass : public Pass {
 							else {
 								bit = module->addWire(NEW_ID2_SUFFIX("bit"));
 								auto gate = module->addAndGate(NEW_ID2_SUFFIX("and"), A, B, bit);
+								for (auto attr : cell->attributes)
+									gate->attributes[attr.first] = attr.second; 
 								if (select_mode)
 									new_sel.insert(gate->name);
 							}
@@ -130,6 +134,8 @@ struct AigmapPass : public Pass {
 					if (node.inverter) {
 						SigBit new_bit = module->addWire(NEW_ID2_SUFFIX("new_bit"));
 						auto gate = module->addNotGate(NEW_ID2_SUFFIX("inv"), bit, new_bit);
+						for (auto attr : cell->attributes)
+							gate->attributes[attr.first] = attr.second; 
 						bit = new_bit;
 						if (select_mode)
 							new_sel.insert(gate->name);

@@ -707,7 +707,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells, const std::string& map_src)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -1212,6 +1212,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				if (c->type == ID(NOT)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					for (auto name : {ID::A, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1221,6 +1223,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1231,6 +1235,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type.in(ID(MUX), ID(NMUX))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1241,6 +1247,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX4)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1251,6 +1259,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX8)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1261,6 +1271,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX16)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
 							ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
@@ -1272,6 +1284,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type.in(ID(AOI3), ID(OAI3))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					if (!map_src.empty())
+						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1282,6 +1296,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type.in(ID(AOI4), ID(OAI4))) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					if (!map_src.empty())
+						 cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
@@ -1388,6 +1404,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			}
 
 			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+			if (!map_src.empty())
+				cell->attributes[ID::src] = map_src;
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
@@ -1573,6 +1591,8 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -sop\n");
 		log("        map to sum-of-product cells and inverters\n");
+		log("    -map_src <source location>\n");
+		log("        source attribution for cells created by ABC\n");
 		log("\n");
 		// log("    -mux4, -mux8, -mux16\n");
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
@@ -1667,7 +1687,7 @@ struct AbcPass : public Pass {
 		bool abc_dress = false;
 		vector<int> lut_costs;
 		markgroups = false;
-
+		std::string map_src;
 		map_mux4 = false;
 		map_mux8 = false;
 		map_mux16 = false;
@@ -1773,6 +1793,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				lut_arg = args[++argidx];
+				continue;
+			}
+			if (arg == "-map_src" && argidx+1 < args.size()) {
+				map_src = args[++argidx];
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
@@ -2053,7 +2077,7 @@ struct AbcPass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells, map_src);
 				continue;
 			}
 
@@ -2215,7 +2239,7 @@ struct AbcPass : public Pass {
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
 				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells);
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells, map_src);
 				assign_map.set(mod);
 			}
 		}

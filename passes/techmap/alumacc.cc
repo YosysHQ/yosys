@@ -368,8 +368,9 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", log_id(n->cell), log_id(cell));
 
-			cell->set_src_attribute(n->cell->get_src_attribute());
-
+			for (auto attr: n->cell->attributes) {
+				cell->attributes[attr.first] = attr.second;
+			}
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
 			cell->setPort(ID::Y, n->y);
@@ -473,6 +474,10 @@ struct AlumaccWorker
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
 				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
+				if (n->cells.size() > 0) {
+					for (auto attr : n->cells[0]->attributes)
+						n->alu_cell->attributes[attr.first] = attr.second; 
+				}
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -490,8 +495,10 @@ struct AlumaccWorker
 				log("%s%s", i ? ", ": "", log_id(n->cells[i]));
 			log(": %s\n", log_id(n->alu_cell));
 
-			if (n->cells.size() > 0)
-				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
+			if (n->cells.size() > 0) {
+				for (auto attr : n->cells[0]->attributes)
+					n->alu_cell->attributes[attr.first] = attr.second; 
+			}
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);

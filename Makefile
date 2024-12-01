@@ -516,9 +516,6 @@ ifneq ($(wildcard $(VERIFIC_DIR)/hier_tree),)
 VERIFIC_COMPONENTS += hier_tree
 endif
 endif
-ifeq ($(VERIFIC_LINEFILE_INCLUDES_LOOPS),1)
-CXXFLAGS += -DVERIFIC_LINEFILE_INCLUDES_LOOPS
-endif
 ifeq ($(ENABLE_VERIFIC_SYSTEMVERILOG),1)
 VERIFIC_COMPONENTS += verilog
 CXXFLAGS += -DVERIFIC_SYSTEMVERILOG_SUPPORT
@@ -752,6 +749,7 @@ OBJS += passes/cmds/tee.o
 OBJS += passes/cmds/activity.o
 OBJS += passes/cmds/splitnetlist.o
 OBJS += passes/cmds/reconstructbusses.o
+OBJS += passes/cmds/longloop_select.o
 OBJS += passes/sat/sim.o
 OBJS += passes/techmap/bufnorm.o
 
