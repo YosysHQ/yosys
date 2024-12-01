@@ -17,6 +17,7 @@
  *
  */
 #ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
+#include <stack>
 /*
     This Visitor decorates the AST with a loop ID attribute for all outer for loops.
     All AST nodes contained within the subtree of an outer for-loop
