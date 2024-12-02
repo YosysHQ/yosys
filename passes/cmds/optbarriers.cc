@@ -33,6 +33,7 @@ struct OptBarriersPass : public Pass {
 	OptBarriersPass() : Pass("optbarriers", "insert optimization barriers") {}
 
 	void help() override {
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    optbarriers [options] [selection]\n");
 		log("\n");
@@ -44,6 +45,9 @@ struct OptBarriersPass : public Pass {
 		log("\n");
 		log("    -noprocs\n");
 		log("        don't add optimization barriers to the outputs of processes\n");
+		log("\n");
+		log("    -noconns\n");
+		log("        don't add optimization barriers to the left hand sides of connections\n");
 		log("\n");
 		log("    -private\n");
 		log("        also add optimization barriers to private wires\n");
@@ -58,6 +62,7 @@ struct OptBarriersPass : public Pass {
 
 		bool nocells_mode = false;
 		bool noprocs_mode = false;
+		bool noconns_mode = false;
 		bool private_mode = false;
 		bool remove_mode = false;
 
@@ -70,6 +75,10 @@ struct OptBarriersPass : public Pass {
 			}
 			if (arg == "-noprocs") {
 				noprocs_mode = true;
+				continue;
+			}
+			if (arg == "-noconns") {
+				noconns_mode = true;
 				continue;
 			}
 			if (arg == "-private") {
@@ -187,23 +196,25 @@ struct OptBarriersPass : public Pass {
 			}
 
 			// Rewrite connections
-			std::vector<RTLIL::SigSig> new_connections;
-			for (const auto& conn : module->connections()) {
-				RTLIL::SigSig skip_conn, barrier_conn;
+			if (!noconns_mode) {
+				std::vector<RTLIL::SigSig> new_connections;
+				for (const auto& conn : module->connections()) {
+					RTLIL::SigSig skip_conn, barrier_conn;
 
-				for (int i = 0; i < GetSize(conn.first); i++) {
-					auto& sigsig = skip(conn.first[i]) ? skip_conn : barrier_conn;
-					sigsig.first.append(conn.first[i]);
-					sigsig.second.append(conn.second[i]);
+					for (int i = 0; i < GetSize(conn.first); i++) {
+						auto& sigsig = skip(conn.first[i]) ? skip_conn : barrier_conn;
+						sigsig.first.append(conn.first[i]);
+						sigsig.second.append(conn.second[i]);
+					}
+
+					if (!skip_conn.first.empty())
+						new_connections.emplace_back(std::move(skip_conn));
+
+					if (!barrier_conn.first.empty())
+						module->addBarrier(NEW_ID, barrier_conn.second, barrier_conn.first);
 				}
-
-				if (!skip_conn.first.empty())
-					new_connections.emplace_back(std::move(skip_conn));
-
-				if (!barrier_conn.first.empty())
-					module->addBarrier(NEW_ID, barrier_conn.second, barrier_conn.first);
+				module->new_connections(new_connections);
 			}
-			module->new_connections(new_connections);
 		}
 	}
 
