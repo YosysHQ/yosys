@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include <algorithm>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -28,6 +29,121 @@ template<class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
+
+// This computes a graph of assignment dependencies in a process, which is used
+// to preserve SCCs in the process which are useful for DFF inference
+struct ProcessDependencyWorker {
+	ProcessDependencyWorker(const RTLIL::Process& proc) {
+		add_process(proc);
+	}
+
+	void add_process(const RTLIL::Process& proc) {
+		add_caserule(proc.root_case);
+
+		for (const auto* sync : proc.syncs)
+			add_syncrule(*sync);
+	}
+
+	void add_syncrule(const RTLIL::SyncRule& sync) {
+		for (const auto& sigsig : sync.actions)
+			add_sigsig(sigsig);
+	}
+
+	void add_caserule(const RTLIL::CaseRule& caserule) {
+		for (const auto& sigsig : caserule.actions)
+			add_sigsig(sigsig);
+
+		for (const auto* rule : caserule.switches)
+			add_switchrule(*rule);
+	}
+
+	void add_switchrule(const RTLIL::SwitchRule& switchrule) {
+		for (const auto* rule : switchrule.cases)
+			add_caserule(*rule);
+	}
+
+	void add_sigsig(const RTLIL::SigSig& sigsig) {
+		for (int i = 0; i < GetSize(sigsig.first); i++) {
+			const auto lhs = sigsig.first[i], rhs = sigsig.second[i];
+			if (rhs.is_wire())
+				dependencies[lhs].emplace(rhs);
+		}
+	}
+
+	// Returns the set of nodes that appear in an SCC with this bit
+	pool<SigBit> scc_nodes(const SigBit bit) {
+		pool<SigBit> scc_nodes;
+
+		// This uses a DFS to iterate through the graph stopping when it detects
+		// SCCs
+		struct StackElem {
+			const SigBit lhs;
+			pool<SigBit>::const_iterator current_rhs;
+			const pool<SigBit>::const_iterator end;
+
+			StackElem(
+				const SigBit lhs,
+				pool<SigBit>::const_iterator current_rhs,
+				const pool<SigBit>::const_iterator end
+			) : lhs{lhs}, current_rhs{current_rhs}, end{end} {}
+		};
+		std::vector<StackElem> node_stack;
+
+		// Try to add a new node to the stack. Returns false if it is already
+		// in the stack (we have found an SCC) or doesn't exist in the dependency
+		// map (has no children), otherwise true
+		const auto try_add_node = [&](const SigBit node) {
+			const auto stack_it = std::find_if(
+				node_stack.cbegin(), node_stack.cend(),
+				[&](const auto& elem){ return elem.lhs == node; }
+			);
+
+			if (stack_it != node_stack.cend())
+				return false;
+
+			const auto it = dependencies.find(node);
+
+			if (it == dependencies.end())
+				return false;
+
+			node_stack.emplace_back(node, it->second.begin(), it->second.end());
+			return true;
+		};
+
+		try_add_node(bit);
+
+		while (!node_stack.empty()) {
+			auto& top = node_stack.back();
+
+			// If we have explored all children of this node backtrack
+			if (top.current_rhs == top.end) {
+				node_stack.pop_back();
+				if (!node_stack.empty())
+					++node_stack.back().current_rhs;
+				continue;
+			}
+
+			// Not yet at an SCC so try to add this top node to the stack. If
+			// it doesn't form an SCC and has children, carry on (with the new top node)
+			if (try_add_node(*top.current_rhs))
+				continue;
+
+			// We have found an SCC or a node without children. If it loops back
+			// to the starting bit, add the whole stack as it is all in the SCC
+			// being searched for
+			if (*top.current_rhs == bit)
+				for (const auto& elem : node_stack)
+					scc_nodes.emplace(elem.lhs);
+
+			// Increment the iterator to keep going
+			++top.current_rhs;
+		}
+
+		return scc_nodes;
+	}
+
+	dict<SigBit, pool<SigBit>> dependencies;
+};
 
 struct OptBarriersPass : public Pass {
 	OptBarriersPass() : Pass("optbarriers", "insert optimization barriers") {}
@@ -139,7 +255,7 @@ struct OptBarriersPass : public Pass {
 					// Add a wire to drive if one does not already exist
 					auto* new_wire = new_wires.at(chunk.wire, nullptr);
 					if (!new_wire) {
-						new_wire = module->addWire(NEW_ID, GetSize(chunk.wire));
+						new_wire = module->addWire(NEW_ID_SUFFIX(chunk.wire->name.str()), GetSize(chunk.wire));
 						new_wires.emplace(chunk.wire, new_wire);
 					}
 
@@ -156,6 +272,145 @@ struct OptBarriersPass : public Pass {
 				return new_output;
 			};
 
+			// Rewrite processes. It is not as simple as changing all LHS
+			// expressions to drive barriers if required, as this prevents
+			// proc passes from optimizing self feedback which is important to
+			// prevent false comb paths when generating FFs. We only care about
+			// the assignments/connections within processes, and want to maintain
+			// the property that if a bit that is to be rewritten to use a
+			// barrier can be assigned transitively to itself, the value that is
+			// assigned should be the value before the barrier.
+			//
+			// To do this we first enumerate the assignment dependency graph
+			// for the process - marking which bits drive any other bit. We
+			// then look for strongly connected components containing barrier
+			// bits. These correspond to potential paths where the bit can be
+			// driven by itself and so should see the pre-barrier value. For
+			// each of the bits on this path we want to construct a parallel
+			// version that appears in all the same process assignments but is
+			// driven originally by the pre-barrier value.
+			//
+			// For example, consider the following set of assignments appear
+			// somewhere in the process and we want to add a barrier to b:
+			// a <- b
+			// b <- a
+			// There is a path from b to itself through $a, so we add wire b\b to
+			// represent the pre-barrier version of b and a\b to represent
+			// the version of a that sees a pre-barrier version of b. We then
+			// correspondingly add these paths to the assignments and a barrier:
+			// {a\b, a} <- {b\b, b}
+			// b\b <- a\b
+			// b\b -$barrier> b
+			//
+			// This has retained that b\b is transitively driven by itself, but
+			// a is still driven by b, the post-barrier version of b
+			if (!noprocs_mode)
+			for (const auto& proc : module->processes) {
+				// A map from each bit driven by the original process to the
+				// set of variants required for it. If a bit doesn't appear in
+				// variants it is only needed in the original form it appears
+				// in the process.
+				//
+				// To get bit a\b from the above example you would index
+				// variants[a][b]
+				dict<SigBit, dict<SigBit, SigBit>> variants;
+
+				{
+					// We want to minimize the number of wires we have to create
+					// for each bit in variants, so for variants[a][b] we create
+					// a unique wire with size GetSize(a.wire) for each tuple
+					// of a.wire, b.wire, a.offset - b.offset rather than for
+					// every pair (a, b).
+					using IdxTuple = std::tuple<Wire*, Wire*, int>;
+					dict<IdxTuple, Wire*> variant_wires;
+
+					// Collect all assignment dependencies in the process
+					ProcessDependencyWorker dep_worker(*proc.second);
+
+					// Enumerate driven bits that need barriers added
+					for (const auto& [variant_bit, _] : dep_worker.dependencies) {
+						if (skip(variant_bit))
+							continue;
+
+						// Collect the bits that are in an SCC with this bit and
+						// thus need to have variants constructed that see the
+						// pre-barrier value
+						for (const auto& lhs_bit : dep_worker.scc_nodes(variant_bit)) {
+							// Don't add a new wire for the variant_bit itself as this
+							// should be driven by a wire generated by rewrite_sigspec below
+							if (lhs_bit == variant_bit)
+								continue;
+
+							const int offset = lhs_bit.offset - variant_bit.offset;
+							const IdxTuple idx{lhs_bit.wire, variant_bit.wire, offset};
+							auto it = variant_wires.find(idx);
+
+							// Create a new wire to represent this offset combination
+							// if needed
+							if (it == variant_wires.end()) {
+								const auto name = NEW_ID_SUFFIX(lhs_bit.wire->name.str());
+								auto* new_wire = module->addWire(name, GetSize(lhs_bit.wire));
+								it = variant_wires.emplace(idx, new_wire).first;
+							}
+
+							variants[lhs_bit].emplace(variant_bit, SigBit(it->second, lhs_bit.offset));
+						}
+
+						// Even if a bit doesn't appear in any SCCs we want to rewrite it if it
+						// isn't skipped
+						variants[variant_bit].emplace(variant_bit, rewrite_sigspec(variant_bit));
+					}
+				}
+
+				const auto variant = [&](const SigBit a, const SigBit b) {
+					const auto it1 = variants.find(a);
+					// There are no variants of a required, so a definitely isn't
+					// transitively driven by b
+					if (it1 == variants.end())
+						return a;
+
+					const auto it2 = it1->second.find(b);
+					// a isn't be transitively driven by b
+					if (it2 == it1->second.end())
+						return a;
+
+					// a can be transitively driven by b so return the variant
+					// of a that sees pre-barrier b
+					return it2->second;
+				};
+
+				const auto proc_rewriter = overloaded{
+					// Don't do anything for input sigspecs, these are not connections
+					[&](const SigSpec&) {},
+					// Rewrite connections to drive barrier and see pre-barrier
+					// values if needed
+					[&](SigSpec& lhs, SigSpec& rhs) {
+						for (int i = 0; i < GetSize(lhs); i++) {
+							const auto lhs_bit = lhs[i], rhs_bit = rhs[i];
+
+							for (const auto& [variant_bit, variant_lhs_bit] : variants[lhs_bit]) {
+								// For the existing connections, update the lhs to be pre-barrier
+								// variant_lhs_bit and rhs to be the variant of itself that sees
+								// the pre-barrier version of variant_bit
+								if (variant_bit == lhs_bit) {
+									lhs[i] = variant_lhs_bit;
+									rhs[i] = variant(rhs_bit, variant_bit);
+									continue;
+								}
+
+								// For new variants of lhs_bit that we need to exist, set the
+								// rhs bit to the variant of rhs_bit that sees the pre_barrier
+								// version of variant_bit
+								lhs.append(variant_lhs_bit);
+								rhs.append(variant(rhs_bit, variant_bit));
+							}
+						}
+					}
+				};
+
+				proc.second->rewrite_sigspecs2(proc_rewriter);
+			}
+
 			// Rewrite cell outputs
 			if (!nocells_mode)
 			for (auto* cell : module->cells())
@@ -163,21 +418,6 @@ struct OptBarriersPass : public Pass {
 				for (const auto& [name, sig] : cell->connections())
 					if (cell->output(name))
 						cell->setPort(name, rewrite_sigspec(sig));
-
-			// Rewrite connections in processes
-			if (!noprocs_mode) {
-				const auto proc_rewriter = overloaded{
-					// Don't do anything for input sigspecs
-					[&](const SigSpec&) {},
-					// Rewrite connections to drive barrier if needed
-					[&](SigSpec& lhs, const SigSpec&) {
-						lhs = rewrite_sigspec(lhs);
-					}
-				};
-
-				for (auto& proc : module->processes)
-					proc.second->rewrite_sigspecs2(proc_rewriter);
-			}
 
 			// Add all the scheduled barriers. To minimize the number of cells,
 			// first construct a sigspec of all bits, then sort and unify before
