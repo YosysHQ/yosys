@@ -21,6 +21,11 @@
 #include "kernel/rtlil.h"
 #include "libs/json11/json11.hpp"
 
+#ifdef YOSYS_ENABLE_TCL
+#include "tclTomMath.h"
+#include "tclTomMathDecls.h"
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 #ifdef YOSYS_ENABLE_TCL
@@ -145,29 +150,106 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		continue; \
 	} \
 
+#define FLAG2(name) \
+	if (!strcmp(Tcl_GetString(objv[i]), "-" #name)) { \
+		name##_flag = true; \
+		continue; \
+	} \
+
 #define ERROR(str) \
 	{ \
 		Tcl_SetResult(interp, (char *)(str), TCL_STATIC); \
 		return TCL_ERROR; \
 	}
 
+bool const_to_mp_int(const Const &a, mp_int *b, bool force_signed, bool force_unsigned)
+{
+	if (!a.is_fully_def())
+		return false;
+
+	if (mp_init(b))
+		return false;
+
+	bool negative = ((a.flags & RTLIL::CONST_FLAG_SIGNED) || force_signed) &&
+					!force_unsigned &&
+					!a.empty() && (a.back() == RTLIL::S1);
+
+	for (int i = a.size() - 1; i >= 0; i--) {
+		if (mp_mul_2d(b, 1, b)) {
+			mp_clear(b);
+			return false;
+		}
+
+		if ((a[i] == RTLIL::S1) ^ negative) {
+			if (mp_add_d(b, 1, b)) {
+				mp_clear(b);
+				return false;
+			}
+		}
+	}
+
+	if (negative) {
+		if (mp_add_d(b, 1, b) || mp_neg(b, b)) {
+			mp_clear(b);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool mp_int_to_const(mp_int *a, Const &b, bool is_signed)
+{
+	bool negative = (mp_cmp_d(a, 0) == MP_LT);
+	if (negative && !is_signed)
+		return false;
+
+	if (negative) {
+		mp_neg(a, a);
+		mp_sub_d(a, 1, a);
+	}
+
+	std::vector<unsigned char> buf;
+	buf.resize(mp_ubin_size(a));
+	size_t written; // dummy
+	mp_to_ubin(a, buf.data(), buf.size(), &written);
+
+	b.bits().reserve(mp_count_bits(a) + is_signed);
+	for (int i = 0; i < mp_count_bits(a);) {
+		for (int j = 0; j < 8 && i < mp_count_bits(a); j++, i++) {
+			bool bv = ((buf.back() & (1 << j)) != 0) ^ negative;
+			b.bits().push_back(bv ? RTLIL::S1 : RTLIL::S0);
+		}
+		buf.pop_back();
+	}
+
+	if (is_signed) {
+		b.bits().push_back(negative ? RTLIL::S1 : RTLIL::S0);
+	}
+
+	return true;
+}
+
 static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	int i;
-	bool mod_flag = false, string_flag = false, int_flag = false, bool_flag = false;
+	bool mod_flag = false, string_flag = false, bool_flag = false;
+	bool int_flag = false, sint_flag = false, uint_flag = false;
 	for (i = 1; i < argc; i++) {
 		FLAG(mod)
 		FLAG(string)
 		FLAG(int)
+		FLAG(sint)
+		FLAG(uint)
 		FLAG(bool)
 		break;
 	}
 
 	if ((mod_flag && i != argc - 2) ||
 			(!mod_flag && i != argc - 3) ||
-			(string_flag + int_flag + bool_flag > 1))
-		ERROR("bad usage: expected \"get_attr -mod [-string|-int|-bool] <module> <attrname>\""
-			  " or \"get_attr [-string|-int|-bool] <module> <identifier> <attrname>\"")
+			(string_flag + int_flag + sint_flag + uint_flag + bool_flag > 1))
+		ERROR("bad usage: expected \"get_attr -mod [-string|-int|-sint|-uint|-bool] <module> <attrname>\""
+			  " or \"get_attr [-string|-int|-sint|-uint|-bool] <module> <identifier> <attrname>\"")
 
 	IdString mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
@@ -197,19 +279,17 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 
 	if (string_flag) {
 		Tcl_SetResult(interp, (char *) obj->get_string_attribute(attr_id).c_str(), TCL_VOLATILE);
-	} else if (int_flag) {
+	} else if (int_flag || uint_flag || sint_flag) {
 		if (!obj->has_attribute(attr_id))
 			ERROR("attribute missing (required for -int)");
-
 		RTLIL::Const &value = obj->attributes.at(attr_id);
-		if (value.size() > 32)
-			ERROR("value too large")
 
-		// FIXME: 32'hffffffff will return as negative despite is_signed=false
-		Tcl_SetResult(interp, (char *) std::to_string(value.as_int()).c_str(), TCL_VOLATILE);
+		mp_int value_mp;
+		if (!const_to_mp_int(value, &value_mp, sint_flag, uint_flag))
+			ERROR("bignum manipulation failed");
+		Tcl_SetObjResult(interp, Tcl_NewBignumObj(&value_mp));
 	} else if (bool_flag) {
-		bool value = obj->get_bool_attribute(attr_id);
-		Tcl_SetResult(interp, (char *) std::to_string(value).c_str(), TCL_VOLATILE);
+		Tcl_SetObjResult(interp, Tcl_NewBooleanObj(obj->get_bool_attribute(attr_id)));
 	} else {
 		if (!obj->has_attribute(attr_id))
 			ERROR("attribute missing (required unless -bool or -string)")
@@ -264,33 +344,34 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	return TCL_OK;
 }
 
-static int tcl_set_attr(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
+static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
 	int i;
-	bool mod_flag = false, string_flag = false, int_flag = false, bool_flag = false;
-	bool false_flag = false, true_flag = false;
-	for (i = 1; i < argc; i++) {
-		FLAG(mod)
-		FLAG(string)
-		FLAG(int)
-		FLAG(bool)
-		FLAG(false)
-		FLAG(true)
+	bool mod_flag = false, string_flag = false, bool_flag = false;
+	bool true_flag = false, false_flag = false, sint_flag = false, uint_flag = false;
+	for (i = 1; i < objc; i++) {
+		FLAG2(mod)
+		FLAG2(string)
+		FLAG2(true)
+		FLAG2(false)
+		FLAG2(sint)
+		FLAG2(uint)
+		FLAG2(bool)
 		break;
 	}
 
-	if ((i != argc - (2 + !mod_flag + !(true_flag || false_flag))) ||
-			(string_flag + int_flag + bool_flag + true_flag + false_flag > 1))
-		ERROR("bad usage: expected \"set_attr -mod [-string|-int|-bool] <module> <attrname> <value>\""
-			  " or \"set_attr [-string|-int|-bool] <module> <identifier> <attrname> <value>\""
+	if ((i != objc - (2 + !mod_flag + !(true_flag || false_flag))) ||
+			(string_flag + sint_flag + uint_flag + bool_flag + true_flag + false_flag > 1))
+		ERROR("bad usage: expected \"set_attr -mod [-string|-sint|-uint|-bool] <module> <attrname> <value>\""
+			  " or \"set_attr [-string|-sint|-uint|-bool] <module> <identifier> <attrname> <value>\""
 			  " or \"set_attr [-true|-false] <module> <identifier> <attrname>\""
 			  " or \"set_attr -mod [-true|-false| <module> <attrname>\"")
 
 	IdString mod_id, obj_id, attr_id;
-	mod_id = RTLIL::escape_id(argv[i++]);
+	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	if (!mod_flag)
-		obj_id = RTLIL::escape_id(argv[i++]);
-	attr_id = RTLIL::escape_id(argv[i++]);
+		obj_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
+	attr_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
 	RTLIL::Module *mod = yosys_design->module(mod_id);
 	if (!mod)
@@ -313,17 +394,35 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("object not found")
 
 	if (string_flag) {
-		obj->set_string_attribute(attr_id, argv[i++]);
-	} else if (int_flag) {
-		obj->attributes[attr_id] = atoi(argv[i++]);
+		obj->set_string_attribute(attr_id, Tcl_GetString(objv[i++]));
+	} else if (sint_flag || uint_flag) {
+		RTLIL::Const const_;
+		mp_int value_mp;
+
+		if (Tcl_TakeBignumFromObj(interp, objv[i++], &value_mp))
+			ERROR("non-integral value")
+
+		if (!mp_int_to_const(&value_mp, const_, sint_flag))
+			ERROR("bignum manipulation failed");
+
+		if (sint_flag) {
+			const_.flags |= RTLIL::CONST_FLAG_SIGNED;
+			if (const_.size() < 32)
+				const_.exts(32);
+		} else {
+			if (const_.size() < 32)
+				const_.extu(32);
+		}
+
+		obj->attributes[attr_id] = const_;
 	} else if (bool_flag) {
-		obj->set_bool_attribute(attr_id, atoi(argv[i++]) != 0);
+		obj->set_bool_attribute(attr_id, atoi(Tcl_GetString(objv[i++])) != 0);
 	} else if (true_flag) {
 		obj->set_bool_attribute(attr_id, true);
 	} else if (false_flag) {
 		obj->set_bool_attribute(attr_id, false);
 	} else {
-		obj->attributes[attr_id] = Const::from_string(std::string(argv[i++]));
+		obj->attributes[attr_id] = Const::from_string(std::string(Tcl_GetString(objv[i++])));
 	}
 
 	return TCL_OK;
@@ -332,10 +431,14 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	int i;
-	bool string_flag = false, int_flag = false;
+	bool string_flag = false, bool_flag = false;
+	bool int_flag = false, sint_flag = false, uint_flag = false;
 	for (i = 1; i < argc; i++) {
 		FLAG(string)
 		FLAG(int)
+		FLAG(sint)
+		FLAG(uint)
+		FLAG(bool)
 		break;
 	}
 
@@ -363,35 +466,36 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 
 	if (string_flag) {
 		Tcl_SetResult(interp, (char *) value.decode_string().c_str(), TCL_VOLATILE);
-	} else if (int_flag) {
-		if (value.size() > 32)
-			ERROR("value too large")
-
-		Tcl_SetResult(interp, (char *) std::to_string(value.as_int()).c_str(), TCL_VOLATILE);
+	} else if (int_flag || uint_flag || sint_flag) {
+		mp_int value_mp;
+		if (!const_to_mp_int(value, &value_mp, sint_flag, uint_flag))
+			ERROR("bignum manipulation failed");
+		Tcl_SetObjResult(interp, Tcl_NewBignumObj(&value_mp));
 	} else {
 		Tcl_SetResult(interp, (char *) value.as_string().c_str(), TCL_VOLATILE);
 	}
 	return TCL_OK;
 }
 
-static int tcl_set_param(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
+static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
 	int i;
-	bool string_flag = false, int_flag = false;
-	for (i = 1; i < argc; i++) {
-		FLAG(string)
-		FLAG(int)
+	bool string_flag = false, sint_flag = false, uint_flag = false;
+	for (i = 1; i < objc; i++) {
+		FLAG2(string)
+		FLAG2(sint)
+		FLAG2(uint)
 		break;
 	}
 
-	if ((i != argc - 4) ||
-			(string_flag + int_flag > 1))
-		ERROR("bad usage: expected \"get_param [-string|-int] <module> <cellid> <paramname> <value>")
+	if ((i != objc - 4) ||
+			(string_flag + sint_flag + uint_flag > 1))
+		ERROR("bad usage: expected \"set_param [-string|-sint|-uint] <module> <cellid> <paramname> <value>")
 
 	IdString mod_id, cell_id, param_id;
-	mod_id = RTLIL::escape_id(argv[i++]);
-	cell_id = RTLIL::escape_id(argv[i++]);
-	param_id = RTLIL::escape_id(argv[i++]);
+	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
+	cell_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
+	param_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
 	RTLIL::Module *mod = yosys_design->module(mod_id);
 	if (!mod)
@@ -402,11 +506,29 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 		ERROR("object not found")
 
 	if (string_flag) {
-		cell->setParam(param_id, Const(std::string(argv[i++])));
-	} else if (int_flag) {
-		cell->setParam(param_id, Const(atoi(argv[i++])));
+		cell->setParam(param_id, Const(std::string(Tcl_GetString(objv[i++]))));
+	} else if (sint_flag || uint_flag) {
+		RTLIL::Const const_;
+		mp_int value_mp;
+
+		if (Tcl_TakeBignumFromObj(interp, objv[i++], &value_mp))
+			ERROR("non-integral value")
+
+		if (!mp_int_to_const(&value_mp, const_, sint_flag))
+			ERROR("bignum manipulation failed");
+
+		if (sint_flag) {
+			const_.flags |= RTLIL::CONST_FLAG_SIGNED;
+			if (const_.size() < 32)
+				const_.exts(32);
+		} else {
+			if (const_.size() < 32)
+				const_.extu(32);
+		}
+
+		cell->setParam(param_id, const_);
 	} else {
-		cell->setParam(param_id, Const::from_string(std::string(argv[i++])));
+		cell->setParam(param_id, Const::from_string(std::string(Tcl_GetString(objv[i++]))));
 	}
 	return TCL_OK;
 }
@@ -418,9 +540,9 @@ int yosys_tcl_iterp_init(Tcl_Interp *interp)
 	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
 	Tcl_CreateCommand(interp, "rtlil::get_attr", tcl_get_attr, NULL, NULL);
 	Tcl_CreateCommand(interp, "rtlil::has_attr", tcl_has_attr, NULL, NULL);
-	Tcl_CreateCommand(interp, "rtlil::set_attr", tcl_set_attr, NULL, NULL);
+	Tcl_CreateObjCommand(interp, "rtlil::set_attr", tcl_set_attr, NULL, NULL);
 	Tcl_CreateCommand(interp, "rtlil::get_param", tcl_get_param, NULL, NULL);
-	Tcl_CreateCommand(interp, "rtlil::set_param", tcl_set_param, NULL, NULL);
+	Tcl_CreateObjCommand(interp, "rtlil::set_param", tcl_set_param, NULL, NULL);
 
 	// TODO:
 	//
@@ -441,6 +563,10 @@ int yosys_tcl_iterp_init(Tcl_Interp *interp)
 	// set_conn
 	// unpack
 	// pack
+
+	// Note (dev jf 24-12-02): Make log_id escape everything that’s not a valid 
+	// verilog identifier before adding any tcl API that returns IdString values
+	// to avoid -option injection
 
 	return TCL_OK ;
 }
