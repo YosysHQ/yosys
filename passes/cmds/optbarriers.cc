@@ -294,7 +294,7 @@ struct OptBarriersPass : public Pass {
 			// somewhere in the process and we want to add a barrier to b:
 			// a <- b
 			// b <- a
-			// There is a path from b to itself through $a, so we add wire b\b to
+			// There is a path from b to itself through a, so we add wire b\b to
 			// represent the pre-barrier version of b and a\b to represent
 			// the version of a that sees a pre-barrier version of b. We then
 			// correspondingly add these paths to the assignments and a barrier:
