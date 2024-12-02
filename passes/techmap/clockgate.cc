@@ -106,28 +106,28 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
-			if (auto clk = pin->find("clock_gate_clock_pin")) {
+			if (pin->find("clock_gate_clock_pin")) {
 				if (!icg_interface.clk_in_pin.empty()) {
 					log_warning("Malformed liberty file - multiple clock_gate_clock_pin in cell %s\n",
 						cell_name.c_str());
 					continue;
 				} else
 					icg_interface.clk_in_pin = RTLIL::escape_id(pin->args[0]);
-			} else if (auto gclk = pin->find("clock_gate_out_pin")) {
+			} else if (pin->find("clock_gate_out_pin")) {
 				if (!icg_interface.clk_out_pin.empty()) {
 					log_warning("Malformed liberty file - multiple clock_gate_out_pin in cell %s\n",
 						cell_name.c_str());
 					continue;
 				} else
 					icg_interface.clk_out_pin = RTLIL::escape_id(pin->args[0]);
-			} else if (auto en = pin->find("clock_gate_enable_pin")) {
+			} else if (pin->find("clock_gate_enable_pin")) {
 				if (!icg_interface.ce_pin.empty()) {
 					log_warning("Malformed liberty file - multiple clock_gate_enable_pin in cell %s\n",
 						cell_name.c_str());
 					continue;
 				} else
 					icg_interface.ce_pin = RTLIL::escape_id(pin->args[0]);
-			} else if (auto se = pin->find("clock_gate_test_pin")) {
+			} else if (pin->find("clock_gate_test_pin")) {
 				icg_interface.tie_lo_pins.push_back(RTLIL::escape_id(pin->args[0]));
 			} else {
 				const LibertyAst *dir = pin->find("direction");
