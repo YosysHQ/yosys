@@ -116,7 +116,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 
 	if (tree.kind == LibertyExpression::Kind::EMPTY) {
 		if (!warned_cells.count(cell_name)) {
-			log_warning("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell_name.c_str());
+			log_debug("Invalid expression '%s' in next_state attribute of cell '%s' - skipping.\n", expr.c_str(), cell_name.c_str());
 			warned_cells.insert(cell_name);
 		}
 		return false;
@@ -135,7 +135,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	// position that gives better diagnostics here.
 	if (!pin_names.count(ff_output)) {
 		if (!warned_cells.count(cell_name)) {
-			log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell_name.c_str(), ff_output.c_str());
+			log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not contain ff output '%s' - skipping.\n", expr.c_str(), cell_name.c_str(), ff_output.c_str());
 			warned_cells.insert(cell_name);
 		}
 		return false;
@@ -184,7 +184,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	}
 
 	if (!warned_cells.count(cell_name)) {
-		log_warning("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell_name.c_str());
+		log_debug("Inference failed on expression '%s' in next_state attribute of cell '%s' because it does not evaluate to an enable flop - skipping.\n", expr.c_str(), cell_name.c_str());
 		warned_cells.insert(cell_name);
 	}
 	return false;
@@ -220,10 +220,10 @@ static bool parse_pin(const LibertyAst *cell, const LibertyAst *attr, std::strin
        For now, we'll simply produce a warning to let the user know something is up.
 	*/
 	if (pin_name.find_first_of("^*|&") == std::string::npos) {
-		log_warning("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+		log_debug("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
 	}
 	else {
-		log_warning("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
+		log_debug("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
 	}
 
 	return false;
