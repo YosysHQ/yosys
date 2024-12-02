@@ -13,6 +13,8 @@ module _80_lcu_han_carlson (P, G, CI, CO);
 	(* force_downto *)
 	reg [WIDTH-1:0] p, g;
 
+	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
+
 	always @* begin
 		i = 0;
 		p = P;
