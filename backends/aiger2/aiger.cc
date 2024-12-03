@@ -28,8 +28,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define BITWISE_OPS ID($buf), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), ID($fa), \
-					ID($bwmux)
+#define BITWISE_OPS ID($buf), ID($barrier), ID($not), ID($mux), ID($and), ID($or), ID($xor), ID($xnor), \
+					ID($fa), ID($bwmux)
 
 #define REDUCE_OPS ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)
 
@@ -331,7 +331,7 @@ struct Index {
 					a = CFALSE;
 			}
 
-			if (cell->type.in(ID($buf), ID($pos), ID($_BUF_))) {
+			if (cell->type.in(ID($buf), ID($barrier), ID($pos), ID($_BUF_))) {
 				return a;
 			} else if (cell->type.in(ID($not), ID($_NOT_))) {
 				return NOT(a);

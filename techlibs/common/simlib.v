@@ -110,6 +110,29 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
+//-     $barrier (A, Y)
+//* group unary
+//-
+//- A coarse-grain buffer cell type that acts as a barrier for optimizations.
+//- Optimization passes are forbidden from rewriting patterns that include
+//- this cell (by merging, constant propagation etc) with the exception of
+//- opt_clean that can remove it if the output is unused.
+//-
+module \$barrier (A, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
 //-     $neg (A, Y)
 //* group unary
 //-

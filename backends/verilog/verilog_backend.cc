@@ -1071,7 +1071,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == ID($_BUF_)) {
+	if (cell->type.in(ID($buf), ID($_BUF_), ID($barrier))) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");

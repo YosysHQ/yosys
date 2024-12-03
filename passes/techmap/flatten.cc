@@ -60,6 +60,7 @@ struct FlattenWorker
 	bool ignore_wb = false;
 	bool create_scopeinfo = true;
 	bool create_scopename = false;
+	bool barriers = false;
 
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
@@ -246,7 +247,27 @@ struct FlattenWorker
 				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n",
 					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
-			module->connect(new_conn);
+			if (barriers) {
+				// Drive public output wires with barriers and the rest with
+				// connections
+				RTLIL::SigSig skip_conn, barrier_conn;
+
+				for (int i = 0; i < GetSize(new_conn.first); i++) {
+					const auto lhs = new_conn.first[i], rhs = new_conn.second[i];
+					auto& sigsig = !lhs.is_wire() || !lhs.wire->name.isPublic() ? skip_conn : barrier_conn;
+					sigsig.first.append(lhs);
+					sigsig.second.append(rhs);
+				}
+
+				if (!skip_conn.first.empty())
+					module->connect(skip_conn);
+
+				if (!barrier_conn.first.empty())
+					module->addBarrier(NEW_ID, barrier_conn.second, barrier_conn.first);
+			} else {
+				module->connect(new_conn);
+			}
+
 			sigmap.add(new_conn.first, new_conn.second);
 		}
 
@@ -345,6 +366,10 @@ struct FlattenPass : public Pass {
 		log("        with a public name the enclosing scope can be found via their\n");
 		log("        'hdlname' attribute.\n");
 		log("\n");
+		log("    -barriers\n");
+		log("        Use $barrier cells to connect flattened modules to their surrounding\n");
+		log("        scope instead of connections for public wires.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -365,6 +390,10 @@ struct FlattenPass : public Pass {
 			}
 			if (args[argidx] == "-scopename") {
 				worker.create_scopename = true;
+				continue;
+			}
+			if (args[argidx] == "-barriers") {
+				worker.barriers = true;
 				continue;
 			}
 			break;

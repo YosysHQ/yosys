@@ -51,3 +51,4 @@ OBJS += passes/cmds/future.o
 OBJS += passes/cmds/box_derive.o
 OBJS += passes/cmds/example_dt.o
 OBJS += passes/cmds/portarcs.o
+OBJS += passes/cmds/optbarriers.o

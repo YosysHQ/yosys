@@ -677,7 +677,7 @@ struct Smt2Worker
 			if (cell->type == ID($eqx)) return export_bvop(cell, "(= A B)", 'b');
 
 			if (cell->type == ID($not)) return export_bvop(cell, "(bvnot A)");
-			if (cell->type == ID($pos)) return export_bvop(cell, "A");
+			if (cell->type.in(ID($pos), ID($buf), ID($barrier))) return export_bvop(cell, "A");
 			if (cell->type == ID($neg)) return export_bvop(cell, "(bvneg A)");
 
 			if (cell->type == ID($add)) return export_bvop(cell, "(bvadd A B)");
