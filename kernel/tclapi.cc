@@ -430,20 +430,19 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	int i;
-	bool string_flag = false, bool_flag = false;
+	bool string_flag = false;
 	bool int_flag = false, sint_flag = false, uint_flag = false;
 	for (i = 1; i < argc; i++) {
 		FLAG(string)
 		FLAG(int)
 		FLAG(sint)
 		FLAG(uint)
-		FLAG(bool)
 		break;
 	}
 
 	if ((i != argc - 3) ||
 			(string_flag + int_flag > 1))
-		ERROR("bad usage: expected \"get_param [-string|-int] <module> <cellid> <paramname>")
+		ERROR("bad usage: expected \"get_param [-string|-int|-sint|-uint] <module> <cellid> <paramname>")
 
 	IdString mod_id, cell_id, param_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
