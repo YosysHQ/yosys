@@ -40,29 +40,15 @@ ClockGateCell icg_from_arg(std::string& name, std::string& str) {
 }
 
 static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
-	find_icgs(std::string filename, std::vector<std::string> const& dont_use_cells) {
-	std::ifstream f;
-	f.open(filename.c_str());
-	if (f.fail())
-		log_cmd_error("Can't open liberty file `%s': %s\n", filename.c_str(), strerror(errno));
-	LibertyParser libparser(f);
-	f.close();
-	auto ast = libparser.ast;
-
+	find_icgs(std::vector<const LibertyAst *> cells, std::vector<std::string> const& dont_use_cells) {
 	// We will pick the most suitable ICG absed on tie_lo count and area
 	struct ICGRankable : public ClockGateCell { double area; };
 	std::optional<ICGRankable> best_pos;
 	std::optional<ICGRankable> best_neg;
 
-	if (ast->id != "library")
-		log_error("Format error in liberty file.\n");
-
 	// This is a lot of boilerplate, isn't it?
-	for (auto cell : ast->children)
+	for (auto cell : cells)
 	{
-		if (cell->id != "cell" || cell->args.size() != 1)
-			continue;
-
 		const LibertyAst *dn = cell->find("dont_use");
 		if (dn != nullptr && dn->value == "true")
 			continue;
@@ -223,7 +209,7 @@ struct ClockgatePass : public Pass {
 		log("        cell with ports named <ce>, <clk>, <gclk>.\n");
 		log("        The ICG's clock enable pin must be active high.\n");
 		log("    -liberty <filename>\n");
-		log("        If specified, ICGs will be selected from the liberty file\n");
+		log("        If specified, ICGs will be selected from the liberty files\n");
 		log("        if available. Priority is given to cells with fewer tie_lo\n");
 		log("        inputs and smaller size. This removes the need to manually\n");
 		log("        specify -pos or -neg and -tie_lo.\n");
@@ -281,7 +267,7 @@ struct ClockgatePass : public Pass {
 		std::optional<ClockGateCell> pos_icg_desc;
 		std::optional<ClockGateCell> neg_icg_desc;
 		std::vector<std::string> tie_lo_pins;
-		std::string liberty_file;
+		std::vector<std::string> liberty_files;
 		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
 
@@ -304,8 +290,9 @@ struct ClockgatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
-				liberty_file = args[++argidx];
+				std::string liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
+				liberty_files.push_back(liberty_file);
 				continue;
 			}
 			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {
@@ -319,10 +306,20 @@ struct ClockgatePass : public Pass {
 			break;
 		}
 
-		if (!liberty_file.empty())
+		if (!liberty_files.empty()) {
+			LibertyMergedCells merged;
+			for (auto path : liberty_files) {
+				std::ifstream f;
+				f.open(path.c_str());
+				if (f.fail())
+					log_cmd_error("Can't open liberty file `%s': %s\n", path.c_str(), strerror(errno));
+				LibertyParser p(f);
+				merged.merge(p);
+				f.close();
+			}
 			std::tie(pos_icg_desc, neg_icg_desc) =
-				find_icgs(liberty_file, dont_use_cells);
-		else {
+				find_icgs(merged.cells, dont_use_cells);
+		} else {
 			for (auto pin : tie_lo_pins) {
 				if (pos_icg_desc)
 					pos_icg_desc->tie_lo_pins.push_back(pin);
