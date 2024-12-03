@@ -449,6 +449,9 @@ LIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
+ifneq (,$(findstring TCL_WITH_EXTERNAL_TOMMATH,$(CXXFLAGS)))
+LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libtommath || echo)
+endif
 endif
 endif
 

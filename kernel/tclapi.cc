@@ -210,9 +210,8 @@ bool mp_int_to_const(mp_int *a, Const &b, bool is_signed)
 	}
 
 	std::vector<unsigned char> buf;
-	buf.resize(mp_ubin_size(a));
-	size_t written; // dummy
-	mp_to_ubin(a, buf.data(), buf.size(), &written);
+	buf.resize(mp_unsigned_bin_size(a));
+	mp_to_unsigned_bin(a, buf.data());
 
 	b.bits().reserve(mp_count_bits(a) + is_signed);
 	for (int i = 0; i < mp_count_bits(a);) {
