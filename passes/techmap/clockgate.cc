@@ -291,18 +291,22 @@ struct ClockgatePass : public Pass {
 				auto name = args[++argidx];
 				auto rest = args[++argidx];
 				pos_icg_desc = icg_from_arg(name, rest);
+				continue;
 			}
 			if (args[argidx] == "-neg" && argidx+2 < args.size()) {
 				auto name = args[++argidx];
 				auto rest = args[++argidx];
 				neg_icg_desc = icg_from_arg(name, rest);
+				continue;
 			}
 			if (args[argidx] == "-tie_lo" && argidx+1 < args.size()) {
 				tie_lo_pins.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
 			}
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
 				liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
+				continue;
 			}
 			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {
 				dont_use_cells.push_back(args[++argidx]);
@@ -310,7 +314,9 @@ struct ClockgatePass : public Pass {
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
+				continue;
 			}
+			break;
 		}
 
 		if (!liberty_file.empty())
