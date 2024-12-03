@@ -1029,8 +1029,7 @@ struct TechmapPass : public Pass {
 		log("        '-nooverwrite' option set.\n");
 		log("\n");
 		log("    -dont_map <celltype>\n");
-		log("        ignore any mapping rules for the given cell type, that is leave it\n");
-		log("        unmapped.\n");
+		log("        leave the given cell type unmapped by ignoring any mapping rules for it\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
