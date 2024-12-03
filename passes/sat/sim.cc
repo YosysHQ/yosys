@@ -2541,6 +2541,9 @@ struct AnnotateActivity : public OutputWriter {
 		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
 		double frequency = 1.0 / clk_period;
 		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
+		worker->top->module->set_string_attribute("$DURATION", std::to_string(max_time));
+		// Timescale is scaled by 1e12 so it can be retrieved (not 0) in Python due to precision limitation during conversion
+		worker->top->module->set_string_attribute("$TIMESCALE", std::to_string(real_timescale * 1e12));
 		if (debug) {
 			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
 			std::cout << "Max time: " << max_time << "\n";

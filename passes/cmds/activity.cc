@@ -178,7 +178,7 @@ struct ActivityPropPass : public Pass {
 			ActivityProp worker(module);
 			totalNbBitsWithActivity += worker.getNbBitsWithActivity();
 		}
-		log("Collected %d bits with activity", totalNbBitsWithActivity);
+		log("Collected %d bits with activity\n", totalNbBitsWithActivity);
 		log_flush();
 	}
 } ActivityPropPass;
