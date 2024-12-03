@@ -23,14 +23,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct ThresholdHiearchyKeeping {
+struct ThresholdHierarchyKeeping {
 	Design *design;
 	CellCosts costs;
 	dict<Module *, int> done;
 	pool<Module *> in_progress;
 	uint64_t threshold;
 
-	ThresholdHiearchyKeeping(Design *design, uint64_t threshold)
+	ThresholdHierarchyKeeping(Design *design, uint64_t threshold)
 		: design(design), costs(design), threshold(threshold) {}
 
 	uint64_t visit(RTLIL::Module *module) {
@@ -116,7 +116,7 @@ struct KeepHierarchyPass : public Pass {
 			if (!top)
 				log_cmd_error("'-min_cost' mode requires a single top module in the design\n");
 
-			ThresholdHiearchyKeeping worker(design, min_cost);
+			ThresholdHierarchyKeeping worker(design, min_cost);
 			worker.visit(top);
 		} else {
 			for (auto module : design->selected_modules()) {
