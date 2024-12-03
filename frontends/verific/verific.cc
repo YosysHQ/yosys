@@ -3544,6 +3544,7 @@ struct VerificPass : public Pass {
 			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
 			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
 			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
+			RuntimeFlags::SetVar("verilog_ignore_unnecessary_modules_in_v_files", 1); // SILIMATE: add to ignore unnecessary modules
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
