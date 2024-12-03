@@ -354,6 +354,11 @@ Verilog Attributes and non-standard features
 - The ``keep_hierarchy`` attribute on cells and modules keeps the ``flatten``
   command from flattening the indicated cells and modules.
 
+- The `gate_cost_equivalent` attribute on a module can be used to specify
+  the estimated cost of the module as a number of basic gate instances. See
+  the help message of command `keep_hierarchy` which interprets this
+  attribute.
+
 - The ``init`` attribute on wires is set by the frontend when a register is
   initialized "FPGA-style" with ``reg foo = val``. It can be used during
   synthesis to add the necessary reset logic.
@@ -574,10 +579,6 @@ Non-standard or SystemVerilog features for formal verification
   explicit clock input (``$ff`` cells). The same can be achieved by using
   ``@(posedge <netname>)`` or ``@(negedge <netname>)`` when ``<netname>``
   is marked with the ``(* gclk *)`` Verilog attribute.
-
-- The `gate_cost_equivalent` attribute on a module can be used to specify
-  the estimated cost of a module as an equivalent number of basic gate
-  instances.
 
 Supported features from SystemVerilog
 =====================================
