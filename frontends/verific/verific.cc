@@ -1532,7 +1532,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
 		module->avail_parameters(RTLIL::escape_id(param_name));
 		const TypeRange *tr = nl->GetTypeRange(param_name) ;
-		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(tr->GetTypeName(), param_value, nl);
+		const char* type_name = (tr) ? tr->GetTypeName() : nullptr;
+		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(type_name, param_value, nl);
 	}
 
 	SetIter si;
@@ -2232,7 +2233,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (is_blackbox(inst->View())) {
 			FOREACH_PARAMETER_OF_INST(inst, mi2, param_name, param_value) {
 				const TypeRange *tr = inst->View()->GetTypeRange(param_name) ;
-				cell->setParam(RTLIL::escape_id(param_name), verific_const(tr->GetTypeName(), param_value, inst->View()));
+				const char* type_name = (tr) ? tr->GetTypeName() : nullptr;
+				cell->setParam(RTLIL::escape_id(param_name), verific_const(type_name, param_value, inst->View()));
 			}
 		}
 
