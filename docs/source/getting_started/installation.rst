@@ -106,8 +106,6 @@ libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
 `show` command to display schematics.
 
-.. TODO:: check there aren't any extra prereqs that are already installed on git images
-
 Installing all prerequisites for Ubuntu 20.04:
 
 .. code:: console
@@ -122,8 +120,6 @@ Installing all prerequisites for macOS 13 (with Homebrew):
 .. code:: console
 
    brew tap Homebrew/bundle && brew bundle
-
-.. TODO:: check these are still up to date
 
 or MacPorts:
 
