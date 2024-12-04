@@ -19,9 +19,28 @@
 
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
+{
+	std::set<Module *> modules_set(modules.begin(), modules.end());
+	TopoSort<Module*> sort;
+
+	for (auto m : modules) {
+		sort.node(m);
+
+		for (auto cell : m->cells()) {
+			Module *submodule = design->module(cell->type);
+			if (modules_set.count(submodule))
+				sort.edge(submodule, m);
+		}
+	}
+	log_assert(sort.sort());
+	return sort.sorted;
+}
 
 struct AbcNewPass : public ScriptPass {
 	AbcNewPass() : ScriptPass("abc_new", "(experimental) use ABC for SC technology mapping (new)")
@@ -101,6 +120,15 @@ struct AbcNewPass : public ScriptPass {
 		}
 
 		if (check_label("prep_boxes")) {
+			if (!help_mode) {
+				for (auto mod : active_design->selected_whole_modules_warn()) {
+					if (mod->get_bool_attribute(ID::abc9_box)) {
+						mod->set_bool_attribute(ID::abc9_box, false);
+						mod->set_bool_attribute(ID(abc9_deferred_box), true);
+					}
+				}
+			}
+
 			run("box_derive");
 			run("abc9_ops -prep_box");
 		}
@@ -109,7 +137,8 @@ struct AbcNewPass : public ScriptPass {
 			std::vector<Module *> selected_modules;
 
 			if (!help_mode) {
-				selected_modules = active_design->selected_whole_modules_warn();
+				selected_modules = order_modules(active_design,
+												 active_design->selected_whole_modules_warn());
 				active_design->selection_stack.emplace_back(false);
 			} else {
 				selected_modules = {nullptr};
@@ -131,15 +160,36 @@ struct AbcNewPass : public ScriptPass {
 					active_design->selection().select(mod);
 				}
 
+				std::string script_save;
+				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
+					script_save = active_design->scratchpad_get_string("abc9.script");
+					active_design->scratchpad_set_string("abc9.script",
+						mod->get_string_attribute(ID(abc9_script)));
+				}
+
 				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir.c_str()));
 				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir.c_str(), tmpdir.c_str()));
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options.c_str(), tmpdir.c_str(), tmpdir.c_str()));
 				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
 							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));
 
+				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
+					if (script_save.empty())
+						active_design->scratchpad_unset("abc9.script");
+					else
+						active_design->scratchpad_set_string("abc9.script", script_save);
+				}
+
 				if (!help_mode) {
 					active_design->selection().selected_modules.clear();
 					log_pop();
+
+					if (mod->get_bool_attribute(ID(abc9_deferred_box))) {
+						mod->set_bool_attribute(ID(abc9_deferred_box), false);
+						mod->set_bool_attribute(ID::abc9_box, true);
+						Pass::call_on_module(active_design, mod, "portarcs -draw -write");
+						run("abc9_ops -prep_box");
+					}
 				}
 			}
 

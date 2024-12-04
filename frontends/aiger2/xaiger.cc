@@ -203,8 +203,6 @@ struct Xaiger2Frontend : public Frontend {
 					box_outputs = read_be32(*f);
 					box_id = read_be32(*f);
 					box_seq = read_be32(*f);
-
-					log("box_seq=%d boxes.size=%d\n", box_seq, (int) boxes.size());
 					log_assert(box_seq < boxes.size());
 
 					auto [cell, def] = boxes[box_seq];
