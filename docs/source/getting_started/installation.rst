@@ -62,8 +62,6 @@ The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
 Building from source
 ~~~~~~~~~~~~~~~~~~~~
 
-.. TODO:: discuss release packages (and figure out what is/isn't included)
-
 The Yosys source files can be obtained from the `YosysHQ/Yosys git repository`_.
 `ABC`_ and some of the other libraries used are included as git submodules.  To
 clone these submodules at the same time, use e.g.:
@@ -77,6 +75,12 @@ clone these submodules at the same time, use e.g.:
 
 .. _YosysHQ/Yosys git repository: https://github.com/yosyshq/yosys/
 .. _ABC: https://github.com/berkeley-abc/abc
+
+.. note::
+
+   As of Yosys v0.47, releases include a ``yosys.tar.gz`` file which includes
+   all source code and all sub-modules in a single archive.  This can be used as
+   an alternative which does not rely on ``git``.
 
 Supported platforms
 ^^^^^^^^^^^^^^^^^^^
