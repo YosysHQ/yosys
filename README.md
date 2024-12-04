@@ -47,9 +47,6 @@ The "Documentation" page on the web site contains links to more resources,
 including a manual that even describes some of the Yosys internals:
 - https://yosyshq.net/yosys/documentation.html
 
-The directory `guidelines` contains additional information
-for people interested in using the Yosys C++ APIs.
-
 Users interested in formal verification might want to use the formal verification
 front-end for Yosys, SymbiYosys:
 - https://symbiyosys.readthedocs.io/en/latest/

@@ -161,10 +161,6 @@ directories:
 ``frontends/``
    This directory contains a subdirectory for each of the frontend modules.
 
-``guidelines/``
-   Contains developer guidelines, including the code of conduct and coding style
-   guide.
-
 ``kernel/``
    This directory contains all the core functionality of Yosys. This includes
    the functions and definitions for working with the RTLIL data structures
