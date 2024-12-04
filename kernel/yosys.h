@@ -32,8 +32,6 @@
 //
 // This header is very boring. It just defines some general things that
 // belong nowhere else and includes the interesting headers.
-//
-// Find more information in the "guidelines/GettingStarted" file.
 
 
 #ifndef YOSYS_H

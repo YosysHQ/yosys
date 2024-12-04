@@ -996,15 +996,12 @@ docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
-PHONY: docs/gen docs/guidelines docs/usage docs/reqs
+PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
 	$(Q) $(MAKE) -C docs gen
 
-DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-DOCS_GUIDELINE_SOURCE := $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES))
-docs/guidelines docs/source/generated: $(DOCS_GUIDELINE_SOURCE)
+docs/source/generated:
 	$(Q) mkdir -p docs/source/generated
-	$(Q) cp -f $(DOCS_GUIDELINE_SOURCE) docs/source/generated
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
@@ -1034,7 +1031,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/guidelines docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage
 
 DOC_TARGET ?= html
 docs: docs/prep
