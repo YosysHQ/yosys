@@ -62,9 +62,21 @@ The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
 Building from source
 ~~~~~~~~~~~~~~~~~~~~
 
-Refer to the `readme`_ for the most up-to-date install instructions.
+.. TODO:: discuss release packages (and figure out what is/isn't included)
 
-.. _readme: https://github.com/YosysHQ/yosys#building-from-source
+The Yosys source files can be obtained from the `YosysHQ/Yosys git repository`_.
+`ABC`_ and some of the other libraries used are included as git submodules.  To
+clone these submodules at the same time, use e.g.:
+
+.. code:: console
+
+   git clone --recurse-submodules https://github.com/YosysHQ/yosys.git  # ..or..
+   git clone https://github.com/YosysHQ/yosys.git
+   cd yosys
+   git submodule update --init --recursive
+
+.. _YosysHQ/Yosys git repository: https://github.com/yosyshq/yosys/
+.. _ABC: https://github.com/berkeley-abc/abc
 
 Supported platforms
 ^^^^^^^^^^^^^^^^^^^
@@ -90,21 +102,99 @@ libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
 `show` command to display schematics.
 
+.. TODO:: check there aren't any extra prereqs that are already installed on git images
+
 Installing all prerequisites for Ubuntu 20.04:
 
 .. code:: console
 
-   sudo sudo apt-get install build-essential clang lld bison flex \
-      libreadline-dev gawk tcl-dev libffi-dev git make \
-      graphviz xdot pkg-config python3 libboost-system-dev \
+   sudo apt-get install gperf build-essential bison flex \
+      libreadline-dev gawk tcl-dev libffi-dev git graphviz \
+      xdot pkg-config python3 libboost-system-dev \
       libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Installing all prerequisites for macOS 11 (with Homebrew):
+Installing all prerequisites for macOS 13 (with Homebrew):
 
 .. code:: console
 
-   brew install bison flex gawk libffi git graphviz \
-      pkg-config python3 tcl-tk xdot bash boost-python3
+   brew tap Homebrew/bundle && brew bundle
+
+.. TODO:: check these are still up to date
+
+or MacPorts:
+
+.. code:: console
+
+	sudo port install bison flex readline gawk libffi graphviz \
+      pkgconfig python36 boost zlib tcl
+
+.. todo:: Is there a console alternative that has the # prefix instead of $?
+
+On FreeBSD use the following command to install all prerequisites:
+
+.. code:: console
+
+	pkg install bison flex readline gawk libffi graphviz \
+      pkgconf python3 python36 tcl-wrapper boost-libs
+
+.. note:: On FreeBSD system use gmake instead of make. To run tests use:
+    ``MAKE=gmake CC=cc gmake test``
+
+For Cygwin use the following command to install all prerequisites, or select these additional packages:
+
+.. code::
+
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+
+Build configuration
+^^^^^^^^^^^^^^^^^^^
+
+The Yosys build is based solely on Makefiles, and uses a number of variables
+which influence the build process.  The recommended method for configuring
+builds is with a ``Makefile.conf`` file in the root ``yosys`` directory. The
+following commands will clean the directory and provide an initial configuration
+file:
+
+.. code:: console
+
+   make config-clang    # ..or..
+   make config-gcc
+
+Check the root Makefile to see what other configuration targets are available.
+Other variables can then be added to the ``Makefile.conf`` as needed, for
+example:
+
+.. code:: console
+
+   echo "ENABLE_ZLIB := 0" >> Makefile.conf
+
+Using one of these targets will set the ``CONFIG`` variable to something other
+than ``none``, and will override the environment variable for ``CXX``.  To use a
+different compiler than the default when building, use:
+
+.. code:: console
+
+   make CXX=$CXX        # ..or..
+   make CXX="g++-11"
+
+.. note::
+
+   Setting the compiler in this way will prevent some other options such as
+   ``ENABLE_CCACHE`` from working as expected.
+
+If you have clang, and (a compatible version of) ``ld.lld`` available in PATH,
+it's recommended to speed up incremental builds with lld by enabling LTO with
+``ENABLE_LTO=1``.  On macOS, LTO requires using clang from homebrew rather than
+clang from xcode.  For example:
+
+.. code:: console
+
+   make ENABLE_LTO=1 CXX=$(brew --prefix)/opt/llvm/bin/clang++
+
+By default, building (and installing) yosys will build (and install) `ABC`_,
+using :program:`yosys-abc` as the executable name.  To use an existing ABC
+executable instead, set the ``ABCEXTERNAL`` make variable to point to the
+desired executable.
 
 Running the build system
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -116,25 +206,14 @@ From the root ``yosys`` directory, call the following commands:
    make
    sudo make install
 
-This will build and then install Yosys, making it available on the command line
-as ``yosys``.  Note that this also downloads, builds, and installs `ABC`_ (using
-:program:`yosys-abc` as the executable name).
-
-.. _ABC: https://github.com/berkeley-abc/abc
-
-The default compiler is ``clang``, to change between ``clang`` and ``gcc``, use
-one of the following:
+To use a separate (out-of-tree) build directory, provide a path to the Makefile.
 
 .. code:: console
 
-   make config-clang
-   make config-gcc
+	mkdir build; cd build
+	make -f ../Makefile
 
-To use a compiler different than the default, use:
-
-.. code:: console
-
-   make CXX="g++-11"
+Out-of-tree builds require a clean source tree.
 
 .. seealso:: 
 
@@ -201,9 +280,6 @@ commands.
 
 Good starting points for reading example source code to learn how to write
 passes are :file:`passes/opt/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
-
-See the top-level README file for a quick Getting Started guide and build
-instructions. The Yosys build is based solely on Makefiles.
 
 Users of the Qt Creator IDE can generate a QT Creator project file using make
 qtcreator. Users of the Eclipse IDE can use the "Makefile Project with Existing

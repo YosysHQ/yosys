@@ -18,6 +18,7 @@ Third-party software distributed alongside this software
 is licensed under compatible licenses.
 Please refer to `abc` and `libs` subdirectories for their license terms.
 
+
 Web Site and Other Resources
 ============================
 
@@ -49,8 +50,24 @@ For more information about the difference between Tabby CAD Suite and the OSS CA
 
 Many Linux distributions also provide Yosys binaries, some more up to date than others. Check with your package manager!
 
+
 Building from Source
 ====================
+
+For more details, and instructions for other platforms, check [building from
+source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source)
+on Read the Docs.
+
+When cloning Yosys, some required libraries are included as git submodules. Make
+sure to call e.g.
+
+	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
+
+or
+
+	$ git clone https://github.com/YosysHQ/yosys.git
+	$ cd yosys
+	$ git submodule update --init --recursive
 
 You need a C++ compiler with C++17 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
@@ -65,58 +82,22 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X Homebrew can be used to install dependencies (from within cloned yosys repository):
-
-	$ brew tap Homebrew/bundle && brew bundle
-
-or MacPorts:
-
-	$ sudo port install bison flex readline gawk libffi \
-		git graphviz pkgconfig python36 boost zlib tcl
-
-On FreeBSD use the following command to install all prerequisites:
-
-	# pkg install bison flex readline gawk libffi\
-		git graphviz pkgconf python3 python36 tcl-wrapper boost-libs
-
-On FreeBSD system use gmake instead of make. To run tests use:
-    % MAKE=gmake CC=cc gmake test
-
-For Cygwin use the following command to install all prerequisites, or select these additional packages:
-
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
-
 The environment variable `CXX` can be used to control the C++ compiler used, or
-run one of the following:
+run one of the following to override it:
 
 	$ make config-clang
 	$ make config-gcc
 
-Note that these will result in `make` ignoring the `CXX` environment variable,
-unless `CXX` is assigned in the call to make, e.g.
+The Makefile has many variables influencing the build process. These can be
+adjusted by modifying the Makefile.conf file which is created at the `make
+config-...` step (see above), or they can be set by passing an option to the
+make command directly:
 
   $ make CXX=$CXX
 
-The Makefile has many variables influencing the build process. These can be
-adjusted by modifying the Makefile.conf file which is created at the
-`make config-...` step (see above), or they can be set by passing an option
-to the make command directly.
-
-For example, if you have clang, and (a compatible version of) `ld.lld`
-available in PATH, it's recommended to speed up incremental builds with
-lld by enabling LTO:
-
- $ make ENABLE_LTO=1
-
-On macOS, LTO requires using clang from homebrew which isn't in PATH
-rather than xcode clang.
-
-$ make ENABLE_LTO=1 CXX=$(brew --prefix)/opt/llvm/bin/clang++
-
-For other compilers and build configurations it might be
-necessary to make some changes to the config section of the
-Makefile. It's also an alternative way to set the make variables
-mentioned above.
+For other compilers and build configurations it might be necessary to make some
+changes to the config section of the Makefile. It's also an alternative way to
+set the make variables mentioned above.
 
 	$ vi Makefile            # ..or..
 	$ vi Makefile.conf
@@ -126,10 +107,9 @@ To build Yosys simply type 'make' in this directory.
 	$ make
 	$ sudo make install
 
-Note that this also downloads, builds and installs ABC (using yosys-abc
-as executable name).
-
-Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
+Tests are located in the tests subdirectory and can be executed using the test
+target. Note that you need gawk as well as a recent version of iverilog (i.e.
+build from git). Then, execute tests via:
 
 	$ make test
 
@@ -139,6 +119,7 @@ To use a separate (out-of-tree) build directory, provide a path to the Makefile.
 	$ make -f ../Makefile
 
 Out-of-tree builds require a clean source tree.
+
 
 Getting Started
 ===============
@@ -289,68 +270,3 @@ From the root of the repository, run `make docs`.  This will build/rebuild yosys
 as necessary before generating the website documentation from the yosys help
 commands.  To build for pdf instead of html, call 
 `make docs DOC_TARGET=latexpdf`.
-
-Building for Windows
-====================
-
-Creating the Visual Studio Template Project
--------------------------------------------
-
-1. Create an empty Visual C++ Win32 Console App project
-
-	Microsoft Visual Studio Express 2013 for Windows Desktop
-	Open New Project Wizard (File -> New Project..)
-
-	Project Name: YosysVS
-	Solution Name: YosysVS
-	[X] Create directory for solution
-	[ ] Add to source control
-
-	[X] Console applications
-	[X] Empty Project
-	[ ] SDL checks
-
-2. Open YosysVS Project Properties
-
-	Select Configuration: All Configurations
-
-	C/C++ -> General -> Additional Include Directories
-		Add: ..\yosys
-
-	C/C++ -> Preprocessor -> Preprocessor Definitions
-		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
-
-3. Resulting file system tree:
-
-	YosysVS/
-	YosysVS/YosysVS
-	YosysVS/YosysVS/YosysVS.vcxproj
-	YosysVS/YosysVS/YosysVS.vcxproj.filters
-	YosysVS/YosysVS.sdf
-	YosysVS/YosysVS.sln
-	YosysVS/YosysVS.v12.suo
-
-4. Zip YosysVS as YosysVS-Tpl-v1.zip
-
-Compiling with Visual Studio
-----------------------------
-
-Visual Studio builds are not directly supported by build scripts, but they are still possible.
-
-1. Easy way
-
-  - Go to https://github.com/YosysHQ/yosys/actions/workflows/vs.yml?query=branch%3Amain
-  - Click on the most recent completed run
-  - In Artifacts region find vcxsrc and click on it to download
-  - Unpack downloaded ZIP file
-  - Open YosysVS.sln with Visual Studio
-  
-2. Using WSL or MSYS2
-
-  - Make sure to have make, python3 and git available
-  - Git clone yosys repository
-  - Execute ```make vcxsrc YOSYS_VER=latest```
-  - File yosys-win32-vcxsrc-latest.zip will be created
-  - Transfer that file to location visible by Windows application
-  - Unpack ZIP
-  - Open YosysVS.sln with Visual Studio
