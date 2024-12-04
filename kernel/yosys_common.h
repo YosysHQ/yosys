@@ -343,6 +343,8 @@ bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
 bool create_directory(const std::string& dirname);
 std::string escape_filename_spaces(const std::string& filename);
+std::string name_from_file_path(std::string path);
+std::string parent_from_file_path(std::string path);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
