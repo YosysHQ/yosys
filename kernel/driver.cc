@@ -276,6 +276,8 @@ int main(int argc, char **argv)
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
 		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
+		("autoidx", "start counting autoidx up from <seed>, similar effect to --hash-seed",
+			cxxopts::value<uint64_t>(), "<idx>")
 		("A,abort", "will call abort() at the end of the script. for debugging")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
@@ -426,6 +428,10 @@ int main(int argc, char **argv)
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
 		if (result.count("infile")) {
 			frontend_files = result["infile"].as<std::vector<std::string>>();
+		}
+		if (result.count("autoidx")) {
+			int idx = result["autoidx"].as<uint64_t>();
+			autoidx = idx;
 		}
 
 		if (log_errfile == NULL) {

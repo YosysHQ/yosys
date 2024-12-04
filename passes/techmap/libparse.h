@@ -86,8 +86,10 @@ namespace Yosys
 		bool eval(dict<std::string, bool>& values);
 	};
 
+	class LibertyMergedCells;
 	class LibertyParser
 	{
+		friend class LibertyMergedCells;
 	private:
 		std::istream &f;
 		int line;
@@ -98,10 +100,10 @@ namespace Yosys
 		   anything else is a single character.
 		*/
 		int lexer(std::string &str);
-		
+
 		LibertyAst *parse();
-		void error();
-		void error(const std::string &str);
+		void error() const;
+		void error(const std::string &str) const;
 
 	public:
 		const LibertyAst *ast;
@@ -109,6 +111,35 @@ namespace Yosys
 		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
 		~LibertyParser() { if (ast) delete ast; }
 	};
+
+	class LibertyMergedCells
+	{
+		std::vector<const LibertyAst *> asts;
+
+	public:
+		std::vector<const LibertyAst *> cells;
+		void merge(LibertyParser &parser)
+		{
+			if (parser.ast) {
+				const LibertyAst *ast = parser.ast;
+				asts.push_back(ast);
+				// The parser no longer owns its top level ast, but we do.
+				// sketchy zone
+				parser.ast = nullptr;
+				if (ast->id != "library")
+					parser.error("Top level entity isn't \"library\".\n");
+				for (const LibertyAst *cell : ast->children)
+					if (cell->id == "cell" && cell->args.size() == 1)
+						cells.push_back(cell);
+			}
+		}
+		~LibertyMergedCells()
+		{
+			for (auto ast : asts)
+				delete ast;
+		}
+	};
+
 }
 
 #endif

@@ -60,7 +60,7 @@ struct QlDspSimdPass : public Pass {
 
 	// ..........................................
 
-	const size_t m_ModeBitsSize = 80;
+	const int m_ModeBitsSize = 80;
 
 	// DSP parameters
 	const std::vector<std::string> m_DspParams = {"COEFF_3", "COEFF_2", "COEFF_1", "COEFF_0"};

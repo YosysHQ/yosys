@@ -228,6 +228,14 @@ struct Macc
 		return true;
 	}
 
+	bool is_simple_product()
+	{
+		return bit_ports.empty() &&
+				ports.size() == 1 &&
+				!ports[0].in_b.empty() &&
+				!ports[0].do_subtract;
+	}
+
 	Macc(RTLIL::Cell *cell = nullptr)
 	{
 		if (cell != nullptr)

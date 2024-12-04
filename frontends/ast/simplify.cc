@@ -3493,7 +3493,7 @@ skip_dynamic_range_lvalue_expansion:;
 				delete buf;
 
 				uint32_t result = 0;
-				for (size_t i = 0; i < arg_value.size(); i++)
+				for (auto i = 0; i < arg_value.size(); i++)
 					if (arg_value.at(i) == RTLIL::State::S1)
 						result = i + 1;
 
@@ -4339,7 +4339,7 @@ replace_fcall_later:;
 					RTLIL::Const a = children[1]->bitsAsConst(width_hint, sign_hint);
 					RTLIL::Const b = children[2]->bitsAsConst(width_hint, sign_hint);
 					log_assert(a.size() == b.size());
-					for (size_t i = 0; i < a.size(); i++)
+					for (auto i = 0; i < a.size(); i++)
 						if (a[i] != b[i])
 							a.bits()[i] = RTLIL::State::Sx;
 					newNode = mkconst_bits(a.to_bits(), sign_hint);
