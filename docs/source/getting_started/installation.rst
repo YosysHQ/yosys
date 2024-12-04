@@ -130,23 +130,50 @@ or MacPorts:
 .. code:: console
 
    sudo port install bison flex readline gawk libffi graphviz \
-      pkgconfig python36 boost zlib tcl
+      pkgconfig python311 boost zlib tcl
 
 On FreeBSD use the following command to install all prerequisites:
 
 .. code:: console
 
    pkg install bison flex readline gawk libffi graphviz \
-      pkgconf python3 python36 tcl-wrapper boost-libs
+      pkgconf python311 tcl-wrapper boost-libs
 
 .. note:: On FreeBSD system use gmake instead of make. To run tests use:
     ``MAKE=gmake CXX=cxx CC=cc gmake test``
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
-.. code::
+.. code:: console
 
    setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+
+.. warning::
+
+   As of this writing, Cygwin only supports up to Python 3.9.16 while the
+   minimum required version of Python is 3.11.  This means that Cygwin is not
+   compatible with many of the Python-based frontends.  While this does not
+   currently prevent Yosys itself from working, no guarantees are made for
+   continued support.  It is instead recommended to use Windows Subsystem for
+   Linux (WSL) and follow the instructions for Ubuntu.
+
+.. 
+   For MSYS2 (MINGW64):
+
+   .. code:: console
+
+      pacman -S bison flex mingw-w64-x86_64-gcc git libffi-devel libreadline-devel make pkg-config python3 tcl-devel mingw-w64-x86_64-boost zlib-devel
+
+   Not that I can get this to work; it's failing during ld with what looks like
+   math library issues: ``multiple definition of `tanh'`` and
+   ``undefined reference to `__imp_acosh'``, as well as issues in `aiger2` with
+   ``seekg`` et al not being available.
+
+   .. note::
+
+      The ``config-msys2-64`` target uses the ``mingw-w64-x86_64-`` prefixed
+      compiler in order to allow compiled exe files to be run without an MSYS2
+      shell.
 
 Build configuration
 ^^^^^^^^^^^^^^^^^^^
