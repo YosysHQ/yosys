@@ -780,7 +780,7 @@ public:
 	RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const;
 
 	// find the MSB without redundant leading bits
-	size_t get_min_size(bool is_signed) const;
+	int get_min_size(bool is_signed) const;
 
 	// compress representation to the minimum required bits
 	void compress(bool is_signed = false);
