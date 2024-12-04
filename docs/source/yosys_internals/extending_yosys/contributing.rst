@@ -1,9 +1,11 @@
-Coding Style
-============
+Contributing to Yosys
+=====================
 
+Coding Style
+------------
 
 Formatting of code
-------------------
+~~~~~~~~~~~~~~~~~~
 
 - Yosys code is using tabs for indentation. Tabs are 8 characters.
 
@@ -23,7 +25,7 @@ Formatting of code
 
 
 C++ Language
--------------
+~~~~~~~~~~~~
 
 Yosys is written in C++17.
 

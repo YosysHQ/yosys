@@ -2147,6 +2147,21 @@ namespace {
 				check_expected();
 				return;
 			}
+			/*
+			 * Checklist for adding internal cell types
+			 * ========================================
+			 * Things to do right away:
+			 *    - Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+			 *    - Add to InternalCellChecker::check() in kernel/rtlil.cc
+			 *    - Add to techlibs/common/simlib.v
+			 *    - Add to techlibs/common/techmap.v
+			 *
+			 * Things to do after finalizing the cell interface:
+			 *    - Add support to kernel/satgen.h for the new cell type
+			 *    - Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
+			 *    - Maybe add support to the Verilog backend for dumping such cells as expression
+			 *
+			 */
 			error(__LINE__);
 		}
 	};
