@@ -125,26 +125,24 @@ or MacPorts:
 
 .. code:: console
 
-	sudo port install bison flex readline gawk libffi graphviz \
+   sudo port install bison flex readline gawk libffi graphviz \
       pkgconfig python36 boost zlib tcl
-
-.. todo:: Is there a console alternative that has the # prefix instead of $?
 
 On FreeBSD use the following command to install all prerequisites:
 
 .. code:: console
 
-	pkg install bison flex readline gawk libffi graphviz \
+   pkg install bison flex readline gawk libffi graphviz \
       pkgconf python3 python36 tcl-wrapper boost-libs
 
 .. note:: On FreeBSD system use gmake instead of make. To run tests use:
-    ``MAKE=gmake CC=cc gmake test``
+    ``MAKE=gmake CXX=cxx CC=cc gmake test``
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
 .. code::
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+   setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
 
 Build configuration
 ^^^^^^^^^^^^^^^^^^^
@@ -210,8 +208,8 @@ To use a separate (out-of-tree) build directory, provide a path to the Makefile.
 
 .. code:: console
 
-	mkdir build; cd build
-	make -f ../Makefile
+   mkdir build; cd build
+   make -f ../Makefile
 
 Out-of-tree builds require a clean source tree.
 
