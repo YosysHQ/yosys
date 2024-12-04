@@ -28,6 +28,8 @@
 #include "kernel/fmt.h"
 
 #include <ctime>
+#include <sstream>
+#include <iomanip>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -2541,6 +2543,10 @@ struct AnnotateActivity : public OutputWriter {
 		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
 		double frequency = 1.0 / clk_period;
 		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
+		worker->top->module->set_string_attribute("$DURATION", std::to_string(max_time));
+		std::stringstream ss;
+		ss << std::setprecision(4) << real_timescale;
+		worker->top->module->set_string_attribute("$TIMESCALE", ss.str());
 		if (debug) {
 			std::cout << "Clock toggle count: " << clktoggleCounts[0] << "\n";
 			std::cout << "Max time: " << max_time << "\n";
