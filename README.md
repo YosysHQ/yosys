@@ -24,14 +24,14 @@ Web Site and Other Resources
 More information and documentation can be found on the Yosys web site:
 - https://yosyshq.net/yosys/
 
-The "Documentation" page on the web site contains links to more resources,
-including a manual that even describes some of the Yosys internals:
-- https://yosyshq.net/yosys/documentation.html
+Documentation from this repository is automatically built and available on Read
+the Docs:
+- https://yosyshq.readthedocs.io/projects/yosys
 
-Users interested in formal verification might want to use the formal verification
-front-end for Yosys, SymbiYosys:
-- https://symbiyosys.readthedocs.io/en/latest/
-- https://github.com/YosysHQ/SymbiYosys
+Users interested in formal verification might want to use the formal
+verification front-end for Yosys, SBY:
+- https://yosyshq.readthedocs.io/projects/sby/
+- https://github.com/YosysHQ/sby
 
 
 Installation
