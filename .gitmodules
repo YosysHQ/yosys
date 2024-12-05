@@ -11,3 +11,6 @@
 [submodule "cxxopts"]
 	path = libs/cxxopts
 	url = https://github.com/jarro2783/cxxopts
+[submodule "libs/backward-cpp"]
+	path = libs/backward-cpp
+	url = git@github.com:bombela/backward-cpp.git

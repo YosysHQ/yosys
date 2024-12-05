@@ -20,6 +20,9 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 
+#define BACKWARD_HAS_BFD 1
+#include "libs/backward-cpp/backward.hpp"
+
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
 #  include <readline/history.h>
@@ -548,7 +551,7 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-
+	backward::SignalHandling* sh = new backward::SignalHandling;
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported

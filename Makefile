@@ -64,7 +64,7 @@ SANITIZER =
 # SANITIZER = cfi
 
 # Prefer using ENABLE_DEBUG over setting these
-OPT_LEVEL := -O3
+OPT_LEVEL := -O3 -g
 GCC_LTO :=
 CLANG_LTO := -flto=thin
 
@@ -437,6 +437,8 @@ ifneq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD MINGW))
 LIBS += -ldl
 endif
 endif
+
+LIBS += -lbfd # SILIMATE: support for backward-cpp
 
 ifeq ($(ENABLE_GLOB),1)
 CXXFLAGS += -DYOSYS_ENABLE_GLOB
