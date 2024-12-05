@@ -1093,8 +1093,9 @@ void prep_box(RTLIL::Design *design)
 			ss << std::endl;
 
 			auto &t = timing.setup_module(module);
-			if (t.comb.empty())
+			if (t.comb.empty() && !outputs.empty() && !inputs.empty()) {
 				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", log_id(module));
+			}
 
 			for (const auto &o : outputs) {
 				first = true;
