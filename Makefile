@@ -156,6 +156,10 @@ else
 LINKFLAGS += -rdynamic
 ifneq ($(OS), OpenBSD)
 LIBS += -lrt
+
+LIBS += -lbfd         # SILIMATE: support for backward-cpp
+CXXFLAGS += -DBACKWARD_HAS_BFD # SILIMATE: support for backward-cpp
+
 endif
 endif
 
@@ -437,8 +441,6 @@ ifneq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD MINGW))
 LIBS += -ldl
 endif
 endif
-
-LIBS += -lbfd # SILIMATE: support for backward-cpp
 
 ifeq ($(ENABLE_GLOB),1)
 CXXFLAGS += -DYOSYS_ENABLE_GLOB

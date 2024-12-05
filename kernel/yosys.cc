@@ -20,7 +20,6 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 
-#define BACKWARD_HAS_BFD 1
 #include "libs/backward-cpp/backward.hpp"
 
 #ifdef YOSYS_ENABLE_READLINE
