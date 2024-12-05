@@ -198,11 +198,10 @@ struct Xaiger2Frontend : public Frontend {
 
 				int ci_counter = 0;
 				for (uint32_t i = 0; i < no_boxes; i++) {
-					uint32_t box_inputs, box_outputs, box_id, box_seq;
-					box_inputs = read_be32(*f);
-					box_outputs = read_be32(*f);
-					box_id = read_be32(*f);
-					box_seq = read_be32(*f);
+					/* unused box_inputs = */ read_be32(*f);
+					YS_MAYBE_UNUSED auto box_outputs = read_be32(*f);
+					/* unused box_id = */ read_be32(*f);
+					auto box_seq = read_be32(*f);
 
 					log("box_seq=%d boxes.size=%d\n", box_seq, (int) boxes.size());
 					log_assert(box_seq < boxes.size());
@@ -337,11 +336,10 @@ struct Xaiger2Frontend : public Frontend {
 						  len, ci_num, co_num, pi_num, po_num, no_boxes);
 
 				for (uint32_t i = 0; i < no_boxes; i++) {
-					uint32_t box_inputs, box_outputs, box_id, box_seq;
-					box_inputs = read_be32(*f);
-					box_outputs = read_be32(*f);
-					box_id = read_be32(*f);
-					box_seq = read_be32(*f);
+					YS_MAYBE_UNUSED auto box_inputs = read_be32(*f);
+					/* unused box_outputs = */ read_be32(*f);
+					/* unused box_id = */ read_be32(*f);
+					auto box_seq = read_be32(*f);
 
 					log("box_seq=%d boxes.size=%d\n", box_seq, (int) boxes.size());
 					log_assert(box_seq < boxes.size());

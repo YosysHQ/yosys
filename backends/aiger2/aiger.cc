@@ -262,7 +262,8 @@ struct Index {
 				if (cell->type.in(ID($gt), ID($ge)))
 					std::swap(aport, bport);
 				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE; 
-				Lit a, b;
+				Lit a = Writer::EMPTY_LIT;
+				Lit b = Writer::EMPTY_LIT;
 				// TODO: this might not be the most economic structure; revisit at a later date
 				for (int i = 0; i < width; i++) {
 					a = visit(cursor, aport[i]);
@@ -664,8 +665,6 @@ struct Index {
 struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 	typedef unsigned int Lit;
 
-	const static Lit CONST_FALSE = 0;
-	const static Lit CONST_TRUE = 1;
 	const static constexpr Lit EMPTY_LIT = std::numeric_limits<Lit>::max();
 
 	static Lit negate(Lit lit) {
@@ -802,8 +801,6 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 };
 
 struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
-	const static int CONST_FALSE = 0;
-	const static int CONST_TRUE = 0;
 	const static constexpr int EMPTY_LIT = -1;
 
 	XAigerAnalysis()
