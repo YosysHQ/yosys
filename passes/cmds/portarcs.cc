@@ -203,7 +203,7 @@ struct PortarcsPass : Pass {
 			for (auto bit : outputs) {
 				int *p = annotations.at(canonical_bit(bit));
 				for (int i = 0; i < inputs.size(); i++)
-					p[i] = 0;
+					p[i] = -1;
 			}
 
 			for (int i = 0; i < ordering.size(); i++) {
