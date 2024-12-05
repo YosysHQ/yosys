@@ -64,7 +64,7 @@ SANITIZER =
 # SANITIZER = cfi
 
 # Prefer using ENABLE_DEBUG over setting these
-OPT_LEVEL := -O3
+OPT_LEVEL := -O3 -g
 GCC_LTO :=
 CLANG_LTO := -flto=thin
 
@@ -156,6 +156,10 @@ else
 LINKFLAGS += -rdynamic
 ifneq ($(OS), OpenBSD)
 LIBS += -lrt
+
+LIBS += -lbfd         # SILIMATE: support for backward-cpp
+CXXFLAGS += -DBACKWARD_HAS_BFD # SILIMATE: support for backward-cpp
+
 endif
 endif
 
