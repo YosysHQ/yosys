@@ -969,13 +969,10 @@ void prep_box(RTLIL::Design *design)
 		if (it == module->attributes.end())
 			continue;
 		bool box = it->second.as_bool();
-		module->attributes.erase(it);
 		if (!box)
 			continue;
 
 		auto r = module->attributes.insert(ID::abc9_box_id);
-		if (!r.second)
-			continue;
 		r.first->second = abc9_box_id++;
 
 		if (module->get_bool_attribute(ID::abc9_flop)) {
