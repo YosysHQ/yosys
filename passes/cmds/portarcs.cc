@@ -192,9 +192,11 @@ struct PortarcsPass : Pass {
 				if (annotations.count(bit)) {
 					// consistency check
 					log_assert(annotations.at(bit)[0] == ((int) (intptr_t) bit.wire));
-
-					recycling.push_back(annotations.at(ordering[i]));
+				} else {
+					alloc_for_bit(bit);
 				}
+
+				recycling.push_back(annotations.at(ordering[i]));
 			}
 			log_debug("Allocated %lux%d\n", allocated.size(), inputs.size());
 
