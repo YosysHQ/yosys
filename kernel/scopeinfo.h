@@ -169,6 +169,10 @@ public:
 			return !(*this == other);
 		}
 
+		int hash() const {
+			return mkhash(scope_name.hash(), hash_ptr_ops::hash(target));
+		}
+
 		bool valid() const {
 			return target != nullptr;
 		}
