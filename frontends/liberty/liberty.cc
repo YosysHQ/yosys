@@ -572,6 +572,8 @@ struct LibertyFrontend : public Frontend {
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
 
+			bool simple_comb_cell = true, has_outputs = false;
+
 			for (auto node : cell->children)
 			{
 				if (node->id == "pin" && node->args.size() == 1) {
@@ -612,6 +614,8 @@ struct LibertyFrontend : public Frontend {
 
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
 						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+
+					simple_comb_cell = false;
 
 					if (dir->value == "internal")
 						continue;
@@ -660,6 +664,9 @@ struct LibertyFrontend : public Frontend {
 				{
 					const LibertyAst *dir = node->find("direction");
 
+					if (dir->value == "internal" || dir->value == "inout")
+						simple_comb_cell = false;
+
 					if (flag_lib && dir->value == "internal")
 						continue;
 
@@ -680,8 +687,10 @@ struct LibertyFrontend : public Frontend {
 						continue;
 					}
 
-					if (dir && dir->value == "output")
+					if (dir && dir->value == "output") {
+						has_outputs = true;
 						wire->port_output = true;
+					}
 
 					if (flag_lib)
 						continue;
@@ -699,36 +708,35 @@ struct LibertyFrontend : public Frontend {
 								goto skip_cell;
 							}
 						}
+						simple_comb_cell = false;
 					} else {
 						RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
 						const LibertyAst *three_state = node->find("three_state");
 						if (three_state) {
 							out_sig = create_tristate(module, out_sig, three_state->value.c_str());
+							simple_comb_cell = false;
 						}
 						module->connect(RTLIL::SigSig(wire, out_sig));
 					}
+				}
 
-					if (flag_unit_delay) {
-						pool<Wire *> done;
+				if (node->id == "ff" || node->id == "ff_bank" ||
+						node->id == "latch" || node->id == "latch_bank" ||
+						node->id == "statetable")
+					simple_comb_cell = false;
+			}
 
-						for (auto timing : node->children)
-						if (timing->id == "timing" && timing->args.empty()) {
-							auto type = timing->find("timing_type");
-							auto related_pin = timing->find("related_pin");
-							if (!type || type->value != "combinational" || !related_pin)
-								continue;
+			if (simple_comb_cell && has_outputs) {
+				module->set_bool_attribute(ID(simple_comb_cell));
 
-							Wire *related = module->wire(RTLIL::escape_id(related_pin->value));
-							if (!related)
-								log_error("Failed to find related pin %s for timing of pin %s on %s\n",
-										  related_pin->value.c_str(), log_id(wire), log_id(module));
-
-							if (done.count(related))
-								continue;
-
+				if (flag_unit_delay) {
+					for (auto wi : module->wires())
+					if (wi->port_input) {
+						for (auto wo : module->wires())
+						if (wo->port_output) {
 							RTLIL::Cell *spec = module->addCell(NEW_ID, ID($specify2));
-							spec->setParam(ID::SRC_WIDTH, 1);
-							spec->setParam(ID::DST_WIDTH, 1);
+							spec->setParam(ID::SRC_WIDTH, wi->width);
+							spec->setParam(ID::DST_WIDTH, wo->width);
 							spec->setParam(ID::T_FALL_MAX, 1000);
 							spec->setParam(ID::T_FALL_TYP, 1000);
 							spec->setParam(ID::T_FALL_MIN, 1000);
@@ -737,11 +745,10 @@ struct LibertyFrontend : public Frontend {
 							spec->setParam(ID::T_RISE_MIN, 1000);
 							spec->setParam(ID::SRC_DST_POL, false);
 							spec->setParam(ID::SRC_DST_PEN, false);
-							spec->setParam(ID::FULL, false);
+							spec->setParam(ID::FULL, true);
 							spec->setPort(ID::EN, Const(1, 1));
-							spec->setPort(ID::SRC, related);
-							spec->setPort(ID::DST, wire);
-							done.insert(related);
+							spec->setPort(ID::SRC, wi);
+							spec->setPort(ID::DST, wo);
 						}
 					}
 				}
