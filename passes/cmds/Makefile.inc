@@ -15,6 +15,7 @@ OBJS += passes/cmds/scatter.o
 OBJS += passes/cmds/setundef.o
 OBJS += passes/cmds/splitnets.o
 OBJS += passes/cmds/splitcells.o
+OBJS += passes/cmds/splitfanout.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/internal_stats.o
 OBJS += passes/cmds/setattr.o
