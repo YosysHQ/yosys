@@ -97,6 +97,8 @@ struct BtorWorker
 	vector<ywmap_btor_sig> ywmap_states;
 	dict<SigBit, int> ywmap_clock_bits;
 	dict<SigBit, int> ywmap_clock_inputs;
+	vector<Cell *> ywmap_asserts;
+	vector<Cell *> ywmap_assumes;
 
 
 	PrettyJson ywmap_json;
@@ -1281,6 +1283,8 @@ struct BtorWorker
 				btorf("%d or %d %d %d\n", nid_a_or_not_en, sid, nid_a, nid_not_en);
 				btorf("%d constraint %d\n", nid, nid_a_or_not_en);
 
+				if (ywmap_json.active()) ywmap_assumes.emplace_back(cell);
+
 				btorf_pop(log_id(cell));
 			}
 
@@ -1305,6 +1309,8 @@ struct BtorWorker
 					} else {
 						int nid = next_nid++;
 						btorf("%d bad %d%s\n", nid, nid_en_and_not_a, getinfo(cell, true).c_str());
+
+						if (ywmap_json.active()) ywmap_asserts.emplace_back(cell);
 					}
 				}
 
@@ -1462,6 +1468,7 @@ struct BtorWorker
 				log_assert(cursor == 0);
 				log_assert(GetSize(todo) == 1);
 				btorf("%d bad %d\n", nid, todo[cursor]);
+				// What do we do with ywmap_asserts when using single_bad?
 			}
 		}
 
@@ -1525,6 +1532,18 @@ struct BtorWorker
 			ywmap_json.begin_array();
 			for (auto &entry : ywmap_states)
 				emit_ywmap_btor_sig(entry);
+			ywmap_json.end_array();
+
+			ywmap_json.name("asserts");
+			ywmap_json.begin_array();
+			for (Cell *cell : ywmap_asserts)
+				ywmap_json.value(witness_path(cell));
+			ywmap_json.end_array();
+
+			ywmap_json.name("assumes");
+			ywmap_json.begin_array();
+			for (Cell *cell : ywmap_assumes)
+				ywmap_json.value(witness_path(cell));
 			ywmap_json.end_array();
 
 			ywmap_json.end_object();
