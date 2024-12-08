@@ -63,16 +63,17 @@ if __name__ == '__main__':
     parser.add_argument('gowin_dir', nargs='?', default='/opt/gowin/')
     args = parser.parse_args()
 
-    dirs = [
-        os.path.join(args.gowin_dir, 'IDE/simlib/gw1n/'),
-        os.path.join(args.gowin_dir, 'IDE/simlib/gw2a/'),
-        os.path.join(args.gowin_dir, 'IDE/simlib/gw5a/'),
-    ]
+    families = {
+        'gw1n': os.path.join(args.gowin_dir, 'IDE/simlib/gw1n/'),
+        'gw2a': os.path.join(args.gowin_dir, 'IDE/simlib/gw2a/'),
+        'gw5a': os.path.join(args.gowin_dir, 'IDE/simlib/gw5a/'),
+    }
 
-    with open('cells_xtra.v', 'w') as fout:
-        fout.write('// Created by cells_xtra.py\n')
-        fout.write('\n')
-        for dir in dirs:
-            if not os.path.isdir(dir):
-                print(f'{dir} is not a directory')
-            xtract_cells_decl(dir, fout)
+    for family, dir in families.items():
+        if not os.path.isdir(dir):
+            print(f'{dir} is not a directory')
+        else:
+            with open(f'cells_xtra_{family}.v', 'w') as fout:
+                fout.write('// Created by cells_xtra.py\n')
+                fout.write('\n')
+                xtract_cells_decl(dir, fout)

@@ -59,3 +59,4 @@ OBJS += passes/cmds/splitnetlist.o
 OBJS += passes/cmds/reconstructbusses.o
 
 OBJS += passes/cmds/wrapcell.o
+OBJS += passes/cmds/setenv.o

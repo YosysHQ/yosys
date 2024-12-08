@@ -86,17 +86,22 @@ struct SynthGowinPass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
+		log("    -family <family>\n");
+		log("        sets the gowin family to the specified value. The default is 'gw1n'.\n");
+		log("		  The following families are supported:\n");
+		log("        'gw1n', 'gw2a', 'gw5a'.\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
-	string top_opt, vout_file, json_file;
+	string top_opt, vout_file, json_file, family;
 	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu, no_rw_check;
 
 	void clear_flags() override
 	{
+		family = "gw1n";
 		top_opt = "-auto-top";
 		vout_file = "";
 		json_file = "";
@@ -130,6 +135,10 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-json" && argidx+1 < args.size()) {
 				json_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-family" && argidx+1 < args.size()) {
+				family = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -210,7 +219,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -specify -lib +/gowin/cells_sim.v");
-			run("read_verilog -specify -lib +/gowin/cells_xtra.v");
+			run(stringf("read_verilog -specify -lib +/gowin/cells_xtra_%s.v", help_mode ? "<family>" : family.c_str()));
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
