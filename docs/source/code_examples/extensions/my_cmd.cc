@@ -51,10 +51,10 @@ struct Test2Pass : public Pass {
     Test2Pass() : Pass("test2", "demonstrating sigmap on test module") { }
     void execute(std::vector<std::string>, RTLIL::Design *design) override
     {
-        if (design->selection_stack.back().empty())
+        if (design->selection().empty())
             log_cmd_error("This command can't operator on an empty selection!\n");
 
-        RTLIL::Module *module = design->modules_.at("\\test");
+        RTLIL::Module *module = design->module("\\test");
 
         RTLIL::SigSpec a(module->wire("\\a")), x(module->wire("\\x")), y(module->wire("\\y"));
         log("%d %d %d\n", a == x, x == y, y == a); // will print "0 0 0"

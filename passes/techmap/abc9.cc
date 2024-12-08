@@ -306,9 +306,10 @@ struct Abc9Pass : public ScriptPass
 			}
 			run("design -stash $abc9");
 			run("design -load $abc9_map");
-			run("proc");
+			if (help_mode) run("select =*");
+			else active_design->push_complete_selection();
 			run("wbflip");
-			run("techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
+			run("techmap -autoproc -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
 			run("opt -nodffe -nosdff");
 			if (dff_mode || help_mode) {
 				if (!help_mode)
@@ -369,6 +370,8 @@ struct Abc9Pass : public ScriptPass
 			if (saved_designs.count("$abc9_holes") || help_mode) {
 				run("design -stash $abc9");
 				run("design -load $abc9_holes");
+				if (help_mode) run("select =*");
+				else active_design->push_complete_selection();
 				run("techmap -wb -map %$abc9 -map +/techmap.v");
 				run("opt -purge");
 				run("aigmap");
@@ -391,7 +394,7 @@ struct Abc9Pass : public ScriptPass
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
-				active_design->selection_stack.emplace_back(false);
+				active_design->push_empty_selection();
 
 				for (auto mod : selected_modules) {
 					if (mod->processes.size() > 0) {
@@ -400,8 +403,9 @@ struct Abc9Pass : public ScriptPass
 					}
 
 					log_push();
-					active_design->selection().select(mod);
+					active_design->select(mod);
 
+					// this check does nothing because the above line adds the whole module to the selection
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
@@ -452,7 +456,7 @@ struct Abc9Pass : public ScriptPass
 					log_pop();
 				}
 
-				active_design->selection_stack.pop_back();
+				active_design->pop_selection();
 			}
 		}
 
