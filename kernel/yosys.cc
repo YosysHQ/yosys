@@ -547,7 +547,7 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-	backward::SignalHandling* sh = new backward::SignalHandling;
+	new backward::SignalHandling;
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported

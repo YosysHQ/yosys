@@ -409,10 +409,16 @@ struct OptDffWorker
 						} else {
 							if (ff.pol_set)
 								tmp = module->Or(NEW_ID2_SUFFIX("aactive_aload"), ff.sig_ad, ff.sig_set, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-							else
-								tmp = module->Or(NEW_ID2_SUFFIX("aactive_aload"), ff.sig_ad, module->Not(NEW_ID2_SUFFIX("aactive_aload_inv"), ff.sig_set, false, cell->get_src_attribute())); // SILIMATE: Improve the naming
-							if (ff.pol_clr)
-								module->addAnd(NEW_ID2_SUFFIX("aactive_aload"), tmp, module->Not(NEW_ID2_SUFFIX("aactive_aload_inv"), ff.sig_clr, false, cell->get_src_attribute()), ff.sig_q); // SILIMATE: Improve the naming
+							else {
+								IdString aactive_aload_idstr = NEW_ID2_SUFFIX("aactive_aload");
+								IdString aactive_aload_inv_idstr = NEW_ID2_SUFFIX("aactive_aload_inv");
+								tmp = module->Or(aactive_aload_idstr, ff.sig_ad, module->Not(aactive_aload_inv_idstr, ff.sig_set, false, cell->get_src_attribute())); // SILIMATE: Improve the naming
+							}
+							if (ff.pol_clr) {
+								IdString aactive_aload_idstr = NEW_ID2_SUFFIX("aactive_aload");
+								IdString aactive_aload_inv_idstr = NEW_ID2_SUFFIX("aactive_aload_inv");
+								module->addAnd(aactive_aload_idstr, tmp, module->Not(aactive_aload_inv_idstr, ff.sig_clr, false, cell->get_src_attribute()), ff.sig_q); // SILIMATE: Improve the naming
+							}
 							else
 								module->addAnd(NEW_ID2_SUFFIX("aactive_aload"), tmp, ff.sig_clr, ff.sig_q, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						}

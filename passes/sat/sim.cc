@@ -2556,15 +2556,15 @@ struct AnnotateActivity : public OutputWriter {
 		double totalActivity = 0.0f;
 		double totalDuty = 0.0f;
 		worker->top->write_output_header(
-		  [this, debug](IdString name) {
+		  [debug](IdString name) {
 			  if (debug)
 				  std::cout << stringf("module %s\n", log_id(name));
 		  },
-		  [this, debug]() {
+		  [debug]() {
 			  if (debug)
 				  std::cout << "endmodule\n";
 		  },
-		  [this, &use_signal, &dataMap, max_time, real_timescale, clk_period, debug, &totalActivity, &totalDuty]
+		  [&use_signal, &dataMap, max_time, real_timescale, clk_period, debug, &totalActivity, &totalDuty]
 			(const char *name, int size, Wire *w, int id, bool) {
 			  if (!use_signal.at(id) || (w == nullptr))
 				  return;
