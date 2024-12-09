@@ -1,0 +1,7 @@
+read_verilog -specify boxes.v
+clean
+
+select -assert-count 1 c:*
+select -assert-none t:* t:$and %d
+select -assert-count 3 w:*
+select -assert-count 4 *
