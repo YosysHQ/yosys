@@ -78,7 +78,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
-	bool abc9, inferAdder, nobram, bramTypes, dsp;
+	bool abc9, inferAdder, nobram, bramTypes, dsp, flatten;
 
 	void clear_flags() override
 	{
@@ -94,6 +94,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		bramTypes = false;
 		lib_path = "+/quicklogic/";
 		dsp = true;
+		flatten = true;
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -158,6 +159,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 				dsp = false;
 				continue;
 			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -202,7 +207,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("prepare")) {
 			run("proc");
-			run("flatten");
+			if (flatten)
+				run("flatten", "(unless -noflatten)");
 			if (help_mode || family == "pp3") {
 				run("tribuf -logic", "                   (for pp3)");
 			}
