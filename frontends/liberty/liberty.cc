@@ -727,7 +727,7 @@ struct LibertyFrontend : public Frontend {
 			}
 
 			if (simple_comb_cell && has_outputs) {
-				module->set_bool_attribute(ID(simple_comb_cell));
+				module->set_bool_attribute(ID::abc9_box);
 
 				if (flag_unit_delay) {
 					for (auto wi : module->wires())
