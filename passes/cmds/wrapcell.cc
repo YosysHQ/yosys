@@ -137,9 +137,9 @@ struct WrapcellPass : Pass {
 		log("parameter values as specified in curly brackets. If the named module already\n");
 		log("exists, it is reused.\n");
 		log("\n");
-		log("If the template contains the special string '{%unused}', the command tracks\n");
+		log("If the template contains the special string '{%%unused}', the command tracks\n");
 		log("unused output ports -- specialized wrapper modules will be generated per every\n");
-		log("set of unused ports as appearing on a selected cell.\n");
+		log("distinct set of unused port bits as appearing on any selected cell.\n");
 		log("\n");
 		log("    -setattr <attribute-name>\n");
 		log("        set the given boolean attribute on each created wrapper module\n");
