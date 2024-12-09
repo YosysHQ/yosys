@@ -1,0 +1,41 @@
+verific -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v 
+
+verific -sv <<EOF
+module top (
+    input  wire [19:0] a,
+    input  wire [17:0] b,
+    output wire [37:0] z,
+    input  wire       clk,
+    input  wire       reset,
+    input  wire       unsigned_a,
+    input  wire       unsigned_b,
+    input  wire       f_mode,
+    input  wire [2:0] output_select,
+    input  wire       register_inputs
+);
+	
+// module instantiation
+QL_DSP2_MULT_REGIN_REGOUT #(
+    .MODE_BITS(80'h1232324)
+) u1 (
+    .a (a),
+    .b (b),
+    .z (z),
+    .clk (clk),
+    .reset (reset),
+
+    .unsigned_a (unsigned_a),
+    .unsigned_b (unsigned_b),
+
+    .f_mode (f_mode),
+    .output_select (output_select),
+    .register_inputs (register_inputs)
+);
+endmodule
+
+EOF
+
+verific -import top
+hierarchy -top top
+synth_quicklogic -family qlf_k6n10f
+select -assert-count 1 t:QL_DSP2_MULT_REGIN_REGOUT a:MODE_BITS=80'h1232324
