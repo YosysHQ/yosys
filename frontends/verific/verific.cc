@@ -2749,11 +2749,51 @@ struct VerificExtNets
 	}
 };
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+static msg_type_t prev_1063;
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+static msg_type_t prev_1240 ;
+static msg_type_t prev_1241 ;
+#endif
+void save_blackbox_msg_state()
+{
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	prev_1063 = Message::GetMessageType("VERI-1063") ;
+	Message::SetMessageType("VERI-1063", VERIFIC_INFO);
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+	prev_1240 = Message::GetMessageType("VHDL-1240") ;
+	prev_1241 = Message::GetMessageType("VHDL-1241") ;
+	Message::SetMessageType("VHDL-1240", VERIFIC_INFO);
+	Message::SetMessageType("VHDL-1241", VERIFIC_INFO);
+#endif
+}
+
+void restore_blackbox_msg_state()
+{
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+	Message::ClearMessageType("VERI-1063") ; 
+	if (Message::GetMessageType("VERI-1063")!=prev_1063)
+		Message::SetMessageType("VERI-1063", prev_1063);
+#endif
+#ifdef VERIFIC_VHDL_SUPPORT
+	Message::ClearMessageType("VHDL-1240") ; 
+	Message::ClearMessageType("VHDL-1241") ; 
+	if (Message::GetMessageType("VHDL-1240")!=prev_1240)
+		Message::SetMessageType("VHDL-1240", prev_1240);
+	if (Message::GetMessageType("VHDL-1241")!=prev_1241)
+		Message::SetMessageType("VHDL-1241", prev_1241);
+#endif
+}
+
 void import_all(const char* work, std::map<std::string,Netlist*> *nl_todo, Map *parameters, bool show_message, std::string ppfile YS_MAYBE_UNUSED)
 {
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	save_blackbox_msg_state();
 	VerificExtensions::ElaborateAndRewrite(work, parameters);
 	verific_error_msg.clear();
+	restore_blackbox_msg_state();
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	if (!ppfile.empty())
@@ -2886,8 +2926,10 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 		if (static_elaborate) {
+			save_blackbox_msg_state();
 			VerificExtensions::ElaborateAndRewrite(work, &veri_modules, &vhdl_units, parameters);
 			verific_error_msg.clear();
+			restore_blackbox_msg_state();
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			if (!ppfile.empty())
@@ -3420,10 +3462,8 @@ struct VerificPass : public Pass {
 		return filename;
 	}
 
-#ifdef VERIFIC_VHDL_SUPPORT
-	msg_type_t prev_1240 ;
-	msg_type_t prev_1241 ;
 
+#ifdef VERIFIC_VHDL_SUPPORT
 	void add_units_to_map(Map &map, std::string work, bool flag_lib)
 	{
 		MapIter mi ;
@@ -3436,11 +3476,7 @@ struct VerificPass : public Pass {
 				map.Insert(unit,unit);
 			}
 		}
-
- 		prev_1240 = Message::GetMessageType("VHDL-1240") ;
-		prev_1241 = Message::GetMessageType("VHDL-1241") ;
-		Message::SetMessageType("VHDL-1240", VERIFIC_INFO);
-		Message::SetMessageType("VHDL-1241", VERIFIC_INFO);
+		save_blackbox_msg_state();
 	}
 
 	void set_units_to_blackbox(Map &map, std::string work, bool flag_lib)
@@ -3455,17 +3491,10 @@ struct VerificPass : public Pass {
 				unit->SetCompileAsBlackbox();
 			}
 		}
-		Message::ClearMessageType("VHDL-1240") ; 
-		Message::ClearMessageType("VHDL-1241") ; 
-		if (Message::GetMessageType("VHDL-1240")!=prev_1240)
-			Message::SetMessageType("VHDL-1240", prev_1240);
-		if (Message::GetMessageType("VHDL-1241")!=prev_1241)
-			Message::SetMessageType("VHDL-1241", prev_1241);
-
+		restore_blackbox_msg_state();
 	}
 #endif
 
-	msg_type_t prev_1063;
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	void add_modules_to_map(Map &map, std::string work, bool flag_lib)
 	{
@@ -3479,9 +3508,7 @@ struct VerificPass : public Pass {
 				map.Insert(veri_module,veri_module);
 			}
 		}
-
- 		prev_1063 = Message::GetMessageType("VERI-1063") ;
-		Message::SetMessageType("VERI-1063", VERIFIC_INFO);
+		save_blackbox_msg_state();
 	}
 
 	void set_modules_to_blackbox(Map &map, std::string work, bool flag_lib)
@@ -3496,9 +3523,6 @@ struct VerificPass : public Pass {
 				veri_module->SetCompileAsBlackbox();
 			}
 		}
-		Message::ClearMessageType("VERI-1063") ; 
-		if (Message::GetMessageType("VERI-1063")!=prev_1063)
-			Message::SetMessageType("VERI-1063", prev_1063);
 	}
 #endif
 
@@ -3564,7 +3588,6 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
 			RuntimeFlags::SetVar("veri_preserve_comments", 1);
 			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
-			RuntimeFlags::SetVar("veri_create_empty_box", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
