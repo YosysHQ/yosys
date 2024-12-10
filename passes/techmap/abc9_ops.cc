@@ -1078,7 +1078,8 @@ void prep_box(RTLIL::Design *design)
 			}
 
 			ss << log_id(module) << " " << module->attributes.at(ID::abc9_box_id).as_int();
-			ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+			bool has_model = module->get_bool_attribute(ID::whitebox) || !module->get_bool_attribute(ID::blackbox);
+			ss << " " << (has_model ? "1" : "0");
 			ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
 
 			bool first = true;

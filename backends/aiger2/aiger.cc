@@ -832,12 +832,8 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			return false;
 
 		Cell *driver = bit.wire->driverCell();
-		if (!driver->type.isPublic())
-			return false;
-
 		Module *mod = design->module(driver->type);
-		log_assert(mod);
-		if (!mod->has_attribute(ID::abc9_box_id))
+		if (!mod || !mod->has_attribute(ID::abc9_box_id))
 			return false;
 
 		int max = 1;
@@ -870,7 +866,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
-			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
 			if (box->output(conn.first))
 			for (auto bit : conn.second)
@@ -885,7 +881,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
-			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
 			if (box->input(conn.first))
 			for (auto bit : conn.second)
@@ -1106,7 +1102,7 @@ struct XAigerWriter : AigerWriter {
 							holes_module->ports.push_back(w->name);
 							holes_pis.push_back(w);
 						}
-						in_conn.append(holes_pis[i]);
+						in_conn.append(holes_pis[holes_pi_idx]);
 						holes_pi_idx++;
 					}
 					holes_wb->setPort(port_id, in_conn);
