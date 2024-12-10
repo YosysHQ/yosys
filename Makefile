@@ -305,7 +305,7 @@ endif
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
+CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
