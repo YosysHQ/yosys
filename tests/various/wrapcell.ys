@@ -18,6 +18,7 @@ EOF
 
 wreduce
 wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}
+check -assert
 select -assert-count 2 top/t:OR_2_3_3
 select -assert-count 1 top/t:OR_3_4_4
 select -assert-none top/t:OR_2_3_3 top/t:OR_3_4_4 %% top/t:* %D
@@ -47,6 +48,7 @@ EOF
 opt_clean
 wreduce
 wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}{%unused}
+check -assert
 select -assert-count 1 top/t:OR_2_3_3
 select -assert-count 1 top/t:OR_2_3_3_unused_Y[1]
 select -assert-count 1 top/t:OR_3_4_4
