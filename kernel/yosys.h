@@ -43,6 +43,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 
+#ifdef YOSYS_ENABLE_TCL
+struct Tcl_Interp;
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 void yosys_setup();

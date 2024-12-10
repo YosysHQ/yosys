@@ -31,6 +31,10 @@
 #  include <editline/readline.h>
 #endif
 
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
