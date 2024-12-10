@@ -17,15 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/rtlil.h"
-#include "libs/json11/json11.hpp"
-
 #ifdef YOSYS_ENABLE_TCL
-#include "tcl.h"
 #include "tclTomMath.h"
 #include "tclTomMathDecls.h"
 #endif
+
+#include "kernel/yosys.h"
+#include "kernel/rtlil.h"
+#include "libs/json11/json11.hpp"
 
 YOSYS_NAMESPACE_BEGIN
 
