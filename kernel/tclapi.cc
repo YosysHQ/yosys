@@ -22,6 +22,7 @@
 #include "libs/json11/json11.hpp"
 
 #ifdef YOSYS_ENABLE_TCL
+#define CONST const
 #include "tclTomMath.h"
 #include "tclTomMathDecls.h"
 #endif
