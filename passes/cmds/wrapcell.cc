@@ -48,7 +48,7 @@ struct ContextData {
 };
 
 std::optional<std::string> format(std::string fmt, const dict<IdString, Const> &parameters,
-								  ContextData &context)
+								  const ContextData &context)
 {
 	std::stringstream result;
 
@@ -108,6 +108,7 @@ struct Chunk {
 	}
 };
 
+// Joins contiguous runs of bits into a 'Chunk'
 std::vector<Chunk> collect_chunks(std::vector<std::pair<IdString, int>> bits)
 {
 	std::vector<Chunk> ret;
@@ -242,6 +243,7 @@ struct WrapcellPass : Pass {
 				subcell = subm->addCell("$1", cell->type);
 				for (auto conn : cell->connections()) {
 					if (ct.cell_output(cell->type, conn.first)) {
+						// Insert marker bits as placehodlers which need to be replaced
 						subcell->setPort(conn.first, SigSpec(RTLIL::Sm, conn.second.size()));
 					} else {
 						Wire *w = subm->addWire(conn.first, conn.second.size());
