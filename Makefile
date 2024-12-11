@@ -4,7 +4,6 @@ CONFIG := none
 # CONFIG := gcc
 # CONFIG := afl-gcc
 # CONFIG := wasi
-# CONFIG := mxe
 # CONFIG := msys2-32
 # CONFIG := msys2-64
 
@@ -302,18 +301,6 @@ LINK_ABC := 1
 DISABLE_ABC_THREADS := 1
 endif
 
-else ifeq ($(CONFIG),mxe)
-PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
-CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -Wno-attributes
-CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
-LIBS := $(filter-out -lrt,$(LIBS))
-ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-# TODO: Try to solve pthread linking issue in more appropriate way
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LINKFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
-EXE = .exe
-
 else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
@@ -340,7 +327,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 LTOFLAGS =
 
 else
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, mxe, msys2-32, msys2-64, none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, msys2-32, msys2-64, none)
 endif
 
 
@@ -392,9 +379,6 @@ ifeq ($(LINK_TERMCAP),1)
 LIBS += -ltermcap
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lreadline -ltermcap"
 endif
-ifeq ($(CONFIG),mxe)
-LIBS += -ltermcap
-endif
 else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
@@ -443,15 +427,10 @@ TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
 TCL_LIBS ?= -l$(TCL_VERSION)
 endif
 
-ifeq ($(CONFIG),mxe)
-CXXFLAGS += -DYOSYS_ENABLE_TCL
-LIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
-else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
 ifneq (,$(findstring TCL_WITH_EXTERNAL_TOMMATH,$(CXXFLAGS)))
 LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libtommath || echo)
-endif
 endif
 endif
 
@@ -1101,19 +1080,6 @@ vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
 	rm -f srcfiles.txt kernel/version.cc
 
-ifeq ($(CONFIG),mxe)
-mxebin: $(TARGETS) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-mxebin-$(YOSYS_VER){,.zip}
-	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
-	cp -r $(PROGRAM_PREFIX)yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
-ifeq ($(ENABLE_ABC),1)
-	cp -r $(PROGRAM_PREFIX)yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
-endif
-	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
-	echo -en 'Documentation at https://yosyshq.net/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
-	zip -r yosys-win32-mxebin-$(YOSYS_VER).zip yosys-win32-mxebin-$(YOSYS_VER)/
-endif
-
 config-clean: clean
 	rm -f Makefile.conf
 
@@ -1139,10 +1105,6 @@ config-wasi: clean
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
-
-config-mxe: clean
-	echo 'CONFIG := mxe' > Makefile.conf
-	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
 config-msys2-32: clean
 	echo 'CONFIG := msys2-32' > Makefile.conf
@@ -1183,5 +1145,5 @@ echo-cxx:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc mxebin
+.PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-afl-gcc config-gprof config-sudo
