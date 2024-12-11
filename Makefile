@@ -2,7 +2,6 @@
 CONFIG := none
 # CONFIG := clang
 # CONFIG := gcc
-# CONFIG := afl-gcc
 # CONFIG := wasi
 # CONFIG := msys2-32
 # CONFIG := msys2-64
@@ -263,11 +262,6 @@ ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(CXX)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -l
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
-
-else ifeq ($(CONFIG),afl-gcc)
-CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
-CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
 CXX = g++
@@ -1095,9 +1089,6 @@ config-gcc-static: clean
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 
-config-afl-gcc: clean
-	echo 'CONFIG := afl-gcc' > Makefile.conf
-
 config-wasi: clean
 	echo 'CONFIG := wasi' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
@@ -1146,4 +1137,4 @@ echo-cxx:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-afl-gcc config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo
