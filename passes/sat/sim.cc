@@ -2440,7 +2440,7 @@ struct AnnotateActivity : public OutputWriter {
 				}
 			}
 		}
-		log("Computing signal activity for %ld signals (%d bits)", use_signal.size(), nbTotalBits);
+		log("Computing signal activity for %ld signals (%d bits)\n", use_signal.size(), nbTotalBits);
 		log_flush();
 		// Max simulation time
 		int max_time = 0;

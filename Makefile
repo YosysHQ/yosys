@@ -759,7 +759,7 @@ OBJS += passes/cmds/reconstructbusses.o
 OBJS += passes/cmds/longloop_select.o
 OBJS += passes/sat/sim.o
 OBJS += passes/techmap/bufnorm.o
-
+OBJS += passes/cmds/rename.o
 OBJS += passes/cmds/segv.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
