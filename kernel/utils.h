@@ -262,6 +262,20 @@ struct arrow_proxy {
 	T* operator->() { return &v; }
 };
 
+inline int ceil_log2(int x)
+{
+#if defined(__GNUC__)
+        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+#else
+	if (x <= 0)
+		return 0;
+	for (int i = 0; i < 32; i++)
+		if (((x-1) >> i) == 0)
+			return i;
+	log_abort();
+#endif
+}
+
 YOSYS_NAMESPACE_END
 
 #endif

@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 

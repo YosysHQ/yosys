@@ -2777,13 +2777,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				mux_input = new AstNode(AST_BIT_NOT, mux_input);
 			}
 			AstNode *node = new AstNode(AST_TERNARY, children_list.at(2));
-			if (str == "bufif0") {
-				node->children.push_back(AstNode::mkconst_bits(z_const, false));
-				node->children.push_back(mux_input);
-			} else {
-				node->children.push_back(mux_input);
-				node->children.push_back(AstNode::mkconst_bits(z_const, false));
-			}
+			// if (str == "bufif0") {
+			// 	node->children.push_back(AstNode::mkconst_bits(z_const, false));
+			// 	node->children.push_back(mux_input);
+			// } else {
+			// 	node->children.push_back(mux_input);
+			// 	node->children.push_back(AstNode::mkconst_bits(z_const, false));
+			// }
 
 			str.clear();
 			type = AST_ASSIGN;
