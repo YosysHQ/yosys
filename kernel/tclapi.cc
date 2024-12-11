@@ -18,8 +18,9 @@
  */
 
 #ifdef YOSYS_ENABLE_TCL
-#include "tclTomMath.h"
-#include "tclTomMathDecls.h"
+#include <tcl.h>
+#include <tclTomMath.h>
+#include <tclTomMathDecls.h>
 #endif
 
 #include "kernel/yosys.h"

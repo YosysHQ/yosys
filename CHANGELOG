@@ -2,8 +2,35 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.47 .. Yosys 0.48-dev
+Yosys 0.48 .. Yosys 0.49-dev
 --------------------------
+
+Yosys 0.47 .. Yosys 0.48
+--------------------------
+ * Various
+    - Removed "read_ilang" deprecated pass.
+    - Enhanced boxing features in the experimental "abc_new" command.
+    - Added new Tcl methods for design inspection.
+    - Added clock enable inference to "dfflibmap".
+    - Added a Han-Carlson and Sklansky option for $lcu mapping.
+
+ * New commands and options
+    - Added "-nopeepopt" option to "clk2fflogic" pass.
+    - Added "-liberty" and "-dont_use" options to "clockgate" pass.
+    - Added "-ignore_buses" option to "read_liberty" pass.
+    - Added "-dont_map" option to "techmap" pass.
+    - Added "-selected" option to "write_json" pass.
+    - Added "wrapcell" command for creating wrapper modules
+      around selected cells.
+    - Added "portarcs" command for deriving propagation timing arcs.
+    - Added "setenv" command for setting environment variables.
+
+ * Gowin support
+    - Added "-family" option to "synth_gowin" pass.
+    - Cell definitions split by family. 
+
+ * Verific support
+    - Improved blackbox support.
 
 Yosys 0.46 .. Yosys 0.47
 --------------------------
