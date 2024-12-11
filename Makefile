@@ -263,11 +263,6 @@ ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
-else ifeq ($(CONFIG),cygwin)
-CXX = g++
-CXXFLAGS += -std=gnu++11 $(OPT_LEVEL)
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
-
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
 CXX = clang++
@@ -1104,9 +1099,6 @@ config-msys2-32: clean
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
-
-config-cygwin: clean
-	echo 'CONFIG := cygwin' > Makefile.conf
 
 config-gcov: clean
 	echo 'CONFIG := gcc' > Makefile.conf
