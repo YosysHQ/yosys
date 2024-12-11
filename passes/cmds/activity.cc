@@ -28,6 +28,7 @@ struct ActivityProp {
 	Module *module;
 	SigMap sigmap;
 	uint32_t nbBitsWithActivity = 0;
+	uint32_t wireCount = 0;
 
 	// Split a string based on separator, returns a vector of tokens as reference argument
 	// If skipEmpty is true, return "" for string "    ", when separator is " "
@@ -66,7 +67,14 @@ struct ActivityProp {
 		std::map<SigBit, std::string> ActivityMap;
 		std::map<SigBit, std::string> DutyMap;
 		// Build {signal bit - activity} map from the wire activities calculated in the sim pass
+
+		bool debug = false;
+		if (std::getenv("DEBUG_ACTIVITY_PROP")) {
+			debug = true;
+		}
+		int localActivity = 0;
 		for (Wire *wire : module->wires()) {
+			wireCount++;
 			SigSpec sig(sigmap(wire));
 			// Retrieve the activity/dutycycle attributes created in the sim pass, attached to wires, in the form:
 			// $ACKT: 0.1 0.2 .... (Each bit in a bus has its own activity, index 0 of the bus is left most)
@@ -83,14 +91,20 @@ struct ActivityProp {
 					ActivityMap.emplace(bit, activities[i]);
 					DutyMap.emplace(bit, duties[i]);
 					nbBitsWithActivity++;
+					localActivity++;
+					if (debug)
+						log("Found activity for module: %s, wire: %s, wire_size: %d, activity: %s\n", module->name.c_str(), wire->name.c_str(), GetSize(sig), act.c_str());
 				} else {
-					log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld\n",
-						module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
+					if (debug)
+						log_warning("Zeroing out activity for module: %s, wire: %s, wire_size: %d, activ_size: %ld\n",
+							module->name.c_str(), wire->name.c_str(), GetSize(sig), activities.size());
 					ActivityMap.emplace(bit, "0.0");
 					DutyMap.emplace(bit, "0.0");
 				}
 			}
 		}
+		if (localActivity)
+			log("Collected %d bits with activity in module %s out of %d wires\n", localActivity, module->name.c_str(), wireCount);
 		// Attach port activity to cell using sigmap
 		for (auto cell : module->cells()) {
 			std::string cell_ports_activity;
@@ -136,6 +150,7 @@ struct ActivityProp {
 	}
 
 	uint32_t getNbBitsWithActivity() { return nbBitsWithActivity; }
+	uint32_t getWireCount() { return wireCount; }
 };
 
 struct ActivityClear {
@@ -174,11 +189,13 @@ struct ActivityPropPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 		uint32_t totalNbBitsWithActivity = 0;
-		for (auto module : design->modules()) {
+		uint32_t wireCount = 0;
+		for (auto module : design->selected_modules()) {
 			ActivityProp worker(module);
 			totalNbBitsWithActivity += worker.getNbBitsWithActivity();
+			wireCount += worker.getWireCount();
 		}
-		log("Collected %d bits with activity\n", totalNbBitsWithActivity);
+		log("Collected %d bits in total with activity out of %d wires\n", totalNbBitsWithActivity, wireCount);
 		log_flush();
 	}
 } ActivityPropPass;
@@ -203,7 +220,7 @@ struct ActivityClearPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->modules()) {
+		for (auto module : design->selected_modules()) {
 			ActivityClear worker(module);
 		}
 	}
