@@ -433,7 +433,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		auto type_range = nl->GetTypeRange(obj->Name());
 		if (!type_range)
 			return;
-		if (type_range->IsTypeScalar()) {
+		if (nl->IsFromVhdl() && type_range->IsTypeScalar()) {
 			const long long bottom_bound = type_range->GetScalarRangeLeftBound();
 			const long long top_bound = type_range->GetScalarRangeRightBound();
 			const unsigned bit_width = type_range->NumElements();
