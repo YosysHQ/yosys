@@ -97,7 +97,7 @@ YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
 CXXSTD ?= c++17
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror=implicit-function-declaration -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
@@ -579,6 +579,7 @@ ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,kernel/fstdata.h))
 endif
 $(eval $(call add_include_file,kernel/hashlib.h))
+$(eval $(call add_include_file,kernel/io.h))
 $(eval $(call add_include_file,kernel/json.h))
 $(eval $(call add_include_file,kernel/log.h))
 $(eval $(call add_include_file,kernel/macc.h))
@@ -609,7 +610,7 @@ $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/io.o
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o
