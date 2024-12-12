@@ -25,7 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-         submodules: true
+          submodules: true
+          persist-credentials: false
       - name: Build
         run: make vcxsrc YOSYS_VER=latest
       - uses: actions/upload-artifact@v4
@@ -59,7 +60,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-         submodules: true
+          submodules: true
+          persist-credentials: false
       - name: Build
         run: |
           WASI_SDK=wasi-sdk-19.0
@@ -95,6 +97,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          persist-credentials: false
       - uses: cachix/install-nix-action@v26
         with:
           install_url: https://releases.nixos.org/nix/nix-2.18.1/install
