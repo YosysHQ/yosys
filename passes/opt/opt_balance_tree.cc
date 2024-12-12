@@ -28,14 +28,12 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct OptBalanceTreeWorker {
 	// Module and signal map
+	Design *design;
 	Module *module;
 	SigMap sigmap;
-
+	bool allow_off_chain;
 	// Counts of each cell type that are getting balanced
 	dict<IdString, int> cell_count;
-
-	// Cells to remove
-	pool<Cell*> remove_cells;
 
 	// Signal chain data structures
 	dict<SigSpec, Cell*> sig_chain_next;
@@ -263,15 +261,10 @@ struct OptBalanceTreeWorker {
 	}
 
 	void cleanup() {
-		// Remove cells
-		for (auto cell : remove_cells)
-			module->remove(cell);
-
 		// Fix ports
 		module->fixup_ports();
 
 		// Clear data structures
-		remove_cells.clear();
 		sig_chain_next.clear();
 		sig_chain_prev.clear();
 		sigbit_with_non_chain_users.clear();
@@ -279,8 +272,43 @@ struct OptBalanceTreeWorker {
 		candidate_cells.clear();
 	}
 
-	OptBalanceTreeWorker(Module *module, const vector<IdString> cell_types) : module(module), sigmap(module) {
-		// Do for each cell type
+	OptBalanceTreeWorker(Design* design, Module *module, const vector<IdString> cell_types, bool allow_off_chain) :
+		design(design), module(module), sigmap(module), allow_off_chain(allow_off_chain)  {
+
+		if (allow_off_chain) {
+			// Deselect all cells
+			Pass::call(design, "select -none");
+			// Do for each cell type
+			bool has_cell_to_split = false;
+			for (auto cell_type : cell_types) {
+				// Find chains of ops
+				make_sig_chain_next_prev(cell_type);
+				find_chain_start_cells();
+
+				// For each chain, if len >= 3, select all the elements
+				for (auto c : chain_start_cells) {
+					vector<Cell *> chain = create_chain(c);
+					if (GetSize(chain) < 3)
+						continue;
+					for (auto cell : chain) {
+						has_cell_to_split = true;
+						design->select(module, cell);
+					}
+				}
+				// Clean up
+				cleanup();
+			}
+
+			// Splitfanout of selected cells
+			if (has_cell_to_split)
+				Pass::call(design, "splitfanout");
+			// Reset selection for other passes
+			Pass::call(design, "select -clear");
+			// Recreate sigmap
+			sigmap.set(module);
+		}
+
+    // Do for each cell type
 		for (auto cell_type : cell_types) {
 			// Find chains of ops
 			make_sig_chain_next_prev(cell_type);
@@ -309,14 +337,24 @@ struct OptBalanceTreePass : public Pass {
 		log("This pass converts cascaded chains of $and/$or/$xor/$xnor/$add/$mul cells into\n");
 		log("trees of cells to improve timing.\n");
 		log("\n");
+		log("    -allow-off-chain\n");
+		log("        Allows matching of cells that have loads outside the chain. These cells\n");
+		log("        will be replicated and balanced into a tree, but the original\n");
+		log("        cell will remain, driving its original loads.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
 
-		// Handle arguments
+		bool allow_off_chain = false;
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			// No arguments yet
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-allow-off-chain")
+			{
+				allow_off_chain = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -325,7 +363,7 @@ struct OptBalanceTreePass : public Pass {
 		dict<IdString, int> cell_count;
 		const vector<IdString> cell_types = {ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul)};
 		for (auto module : design->selected_modules()) {
-			OptBalanceTreeWorker worker(module, cell_types);
+			OptBalanceTreeWorker worker(design, module, cell_types, allow_off_chain);
 			for (auto cell : worker.cell_count) {
 				cell_count[cell.first] += cell.second;
 			}
