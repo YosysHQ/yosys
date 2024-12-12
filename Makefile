@@ -842,69 +842,104 @@ else
 ABCOPT=""
 endif
 
-# When YOSYS_NOVERIFIC is set as a make variable, also export it to the
-# enviornment, so that `YOSYS_NOVERIFIC=1 make test` _and_
-# `make test YOSYS_NOVERIFIC=1` will run with verific disabled.
-ifeq ($(YOSYS_NOVERIFIC),1)
-export YOSYS_NOVERIFIC
+
+###########################
+# TESTS THAT GENERATE .MK #
+###########################
+PARALLEL_TEST_DIRS =
+PARALLEL_TEST_DIRS += tests/arch/anlogic
+PARALLEL_TEST_DIRS += tests/arch/ecp5
+PARALLEL_TEST_DIRS += tests/arch/efinix
+PARALLEL_TEST_DIRS += tests/arch/gatemate
+PARALLEL_TEST_DIRS += tests/arch/gowin
+PARALLEL_TEST_DIRS += tests/arch/ice40
+PARALLEL_TEST_DIRS += tests/arch/intel_alm
+PARALLEL_TEST_DIRS += tests/arch/machxo2
+PARALLEL_TEST_DIRS += tests/arch/microchip
+PARALLEL_TEST_DIRS += tests/arch/nanoxplore
+PARALLEL_TEST_DIRS += tests/arch/nexus
+PARALLEL_TEST_DIRS += tests/arch/quicklogic/pp3
+PARALLEL_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
+PARALLEL_TEST_DIRS += tests/arch/xilinx
+PARALLEL_TEST_DIRS += tests/opt
+PARALLEL_TEST_DIRS += tests/sat
+PARALLEL_TEST_DIRS += tests/sim
+PARALLEL_TEST_DIRS += tests/svtypes
+PARALLEL_TEST_DIRS += tests/techmap
+PARALLEL_TEST_DIRS += tests/various
+PARALLEL_TEST_DIRS += tests/verific
+PARALLEL_TEST_DIRS += tests/verilog
+# FIXME: Removed YOSYS_NOVERIFIC - temporarily?
+# PARALLEL_TEST_DIRS += verific/extensions/tests/passing
+
+##################################
+# TESTS THAT DO NOT GENERATE .MK #
+##################################
+SEED_TEST_DIRS =
+SEED_TEST_DIRS += tests/simple
+SEED_TEST_DIRS += tests/simple_abc9
+SEED_TEST_DIRS += tests/hana
+SEED_TEST_DIRS += tests/asicworld
+# TODO dig up why is this commented out
+# SEED_TEST_DIRS += tests/realmath
+SEED_TEST_DIRS += tests/share
+SEED_TEST_DIRS += tests/opt_share
+SEED_TEST_DIRS += tests/fsm
+SEED_TEST_DIRS += tests/memlib
+SEED_TEST_DIRS += tests/bram
+SEED_TEST_DIRS += tests/svinterfaces
+SEED_TEST_DIRS += tests/xprop
+SEED_TEST_DIRS += tests/select
+SEED_TEST_DIRS += tests/proc
+SEED_TEST_DIRS += tests/blif
+SEED_TEST_DIRS += tests/arch
+SEED_TEST_DIRS += tests/rpc
+SEED_TEST_DIRS += tests/memfile
+SEED_TEST_DIRS += tests/fmt
+SEED_TEST_DIRS += tests/cxxrtl
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+SEED_TEST_DIRS += tests/functional
 endif
 
-test: $(TARGETS) $(EXTRA_TARGETS)
-ifeq ($(ENABLE_VERIFIC),1)
-ifeq ($(YOSYS_NOVERIFIC),1)
-	@echo
-	@echo "Running tests without verific support due to YOSYS_NOVERIFIC=1"
-	@echo
-else
-	+cd tests/verific && bash run-test.sh $(SEEDOPT)
-endif
-endif
-	+cd tests/simple && bash run-test.sh $(SEEDOPT)
-	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
-	+cd tests/hana && bash run-test.sh $(SEEDOPT)
-	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
-	+cd tests/share && bash run-test.sh $(SEEDOPT)
-	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
-	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
-	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
-	+cd tests/memlib && bash run-test.sh $(SEEDOPT)
-	+cd tests/bram && bash run-test.sh $(SEEDOPT)
-	+cd tests/various && bash run-test.sh
-	+cd tests/select && bash run-test.sh
-	+cd tests/sat && bash run-test.sh
-	+cd tests/sim && bash run-test.sh
-	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
-	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
-	+cd tests/proc && bash run-test.sh
-	+cd tests/blif && bash run-test.sh
-	+cd tests/opt && bash run-test.sh
-	+cd tests/aiger && bash run-test.sh $(ABCOPT)
-	+cd tests/arch && bash run-test.sh
-	+cd tests/arch/ice40 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/xilinx && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/ecp5 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/machxo2 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/nanoxplore && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/nexus && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/quicklogic/pp3 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/quicklogic/qlf_k6n10f && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/gatemate && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/microchip && bash run-test.sh $(SEEDOPT)
-	+cd tests/rpc && bash run-test.sh
-	+cd tests/memfile && bash run-test.sh
-	+cd tests/verilog && bash run-test.sh
-	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
-	+cd tests/fmt && bash run-test.sh
-	+cd tests/cxxrtl && bash run-test.sh
-ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-	+cd tests/functional && bash run-test.sh
-endif
+################################
+# TESTS THAT NEED SPECIAL ARGS #
+################################
+
+ABC_TEST_DIRS =
+ABC_TEST_DIRS += tests/memories
+ABC_TEST_DIRS += tests/aiger
+
+############
+# THE GUTS #
+############
+
+# seed-tests/ is a dummy string, not a directory
+.PHONY: seed-tests
+seed-tests: $(SEED_TEST_DIRS:%=seed-tests/%)
+.PHONY: seed-tests/%
+seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+	+cd $* && bash run-test.sh $(SEEDOPT)
+	+@echo "...passed tests in $*"
+
+# abcopt-tests/ is a dummy string, not a directory
+.PHONY: abcopt-tests
+abcopt-tests: $(ABC_TEST_DIRS:%=abcopt-tests/%)
+abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
+	+@echo "...passed tests in $*"
+
+# makefile-tests/ is a dummy string, not a directory
+.PHONY: makefile-tests
+makefile-tests: $(PARALLEL_TEST_DIRS:%=makefile-tests/%)
+# this target actually emits .mk files
+%.mk:
+	+cd $(dir $*) && bash run-test.sh
+# this one spawns submake on each
+makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
+	$(MAKE) -C $* -f run-test.mk
+	+@echo "...passed tests in $*"
+
+test: makefile-tests abcopt-tests seed-tests
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
