@@ -98,10 +98,10 @@ select -assert-count 1 w:integer_single_value_out a:bottom_bound=3'bs101 %i
 select -assert-count 1 w:integer_single_value_out a:top_bound=3'bs101 %i
 
 # integer with null range: scalar type
-# select -assert-count 1 w:integer_null_range_in a:bottom_bound=4'bs0111 %i
-# select -assert-count 1 w:integer_null_range_in a:top_bound=4'bs1111 %i
-select -assert-count 1 w:integer_null_range_out a:bottom_bound=2'bs00 %i
-select -assert-count 1 w:integer_null_range_out a:top_bound=2'bs11 %i
+select -assert-count 1 w:integer_null_range_in a:bottom_bound=4'bs0111 %i
+select -assert-count 1 w:integer_null_range_in a:top_bound=4'bs1111 %i
+select -assert-count 1 w:integer_null_range_out a:bottom_bound=1'bs0 %i
+select -assert-count 1 w:integer_null_range_out a:top_bound=1'bs1 %i
 
 # natural: scalar type
 select -assert-count 1 w:natural_in a:bottom_bound=31'b0000000000000000000000000000000 %i
@@ -116,11 +116,11 @@ select -assert-count 1 w:positive_out a:bottom_bound=31'b00000000000000000000000
 select -assert-count 1 w:positive_out a:top_bound=31'b1111111111111111111111111111111 %i
 
 
-# integer size changed in VHDL 2019
 design -reset
 read -vhdl2019 bounds.vhd
 hierarchy -top test
 
+## integer size changed in VHDL 2019
 # integer: scalar type
 select -assert-count 1 w:integer_in a:bottom_bound=64'b1000000000000000000000000000000000000000000000000000000000000000 %i
 select -assert-count 1 w:integer_in a:top_bound=64'b0111111111111111111111111111111111111111111111111111111111111111 %i
@@ -139,9 +139,30 @@ select -assert-count 1 w:positive_in a:top_bound=63'b111111111111111111111111111
 select -assert-count 1 w:positive_out a:bottom_bound=63'b000000000000000000000000000000000000000000000000000000000000001 %i
 select -assert-count 1 w:positive_out a:top_bound=63'b111111111111111111111111111111111111111111111111111111111111111 %i
 
+## ranged integer sizes should be unaffected
+# integer with range: scalar type
+select -assert-count 1 w:integer_with_range_in a:bottom_bound=5'bs11011 %i
+select -assert-count 1 w:integer_with_range_in a:top_bound=5'bs01010 %i
+select -assert-count 1 w:integer_with_range_out a:bottom_bound=5'bs11010 %i
+select -assert-count 1 w:integer_with_range_out a:top_bound=5'bs01010 %i
+
+# integer with single value range: scalar type
+select -assert-count 1 w:integer_single_value_in a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_in a:top_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:bottom_bound=3'bs101 %i
+select -assert-count 1 w:integer_single_value_out a:top_bound=3'bs101 %i
+
+# integer with null range: scalar type
+select -assert-count 1 w:integer_null_range_in a:bottom_bound=4'bs0111 %i
+select -assert-count 1 w:integer_null_range_in a:top_bound=4'bs1111 %i
+select -assert-count 1 w:integer_null_range_out a:bottom_bound=1'bs0 %i
+select -assert-count 1 w:integer_null_range_out a:top_bound=1'bs1 %i
+
+
 design -reset
 read -sv bounds.sv
 hierarchy -top test
 
+## bounds should not be generated for SV
 select -assert-count none a:bottom_bound
 select -assert-count none a:top_bound

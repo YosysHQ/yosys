@@ -83,6 +83,7 @@ entity test is
 end entity test;
 
 architecture Behavioral of test is
+    signal integer_with_range : INTEGER range -1 to 100;
 begin
     bit_out <= bit_in;
     bit_vector_out <= bit_vector_in;
@@ -103,4 +104,6 @@ begin
     integer_null_range_out <= integer_null_range_in;
     natural_out <= natural_in;
     positive_out <= positive_in;
+
+    integer_with_range <= 42;
 end architecture Behavioral;
