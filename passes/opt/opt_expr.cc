@@ -743,6 +743,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		if (cell->type == ID($bwmux))
 		{
+			RTLIL::SigSpec inv_sig;
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
 			RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
@@ -790,11 +791,17 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec y_new_0, y_new_1;
 
 				if (flip) {
-					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID3, b_group_0, module->Not(NEW_ID3_SUFFIX("inv"), s_group_0, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_0.empty()) {
+						inv_sig = module->Not(NEW_ID3_SUFFIX("inv"), s_group_0, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						y_new_0 = module->And(NEW_ID3, b_group_0, inv_sig, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					}
 					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID3, b_group_1, s_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				} else {
 					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID3, b_group_0, s_group_0, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID3, b_group_1, module->Not(NEW_ID3_SUFFIX("inv"), s_group_1, false, cell->get_src_attribute()), false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					if (!y_group_1.empty()) {
+						inv_sig = module->Not(NEW_ID3_SUFFIX("inv"), s_group_1, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						y_new_1 = module->Or(NEW_ID3, b_group_1, inv_sig, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+					}
 				}
 
 				module->connect(y_group_0, y_new_0);
