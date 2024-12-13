@@ -286,19 +286,23 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 			log("  %s %s * %s (%dx%d bits, %s)\n", port.do_subtract ? "sub" : "add", log_signal(port.in_a), log_signal(port.in_b),
 					GetSize(port.in_a), GetSize(port.in_b), port.is_signed ? "signed" : "unsigned");
 
-	if (GetSize(macc.bit_ports) != 0)
-		log("  add bits %s (%d bits)\n", log_signal(macc.bit_ports), GetSize(macc.bit_ports));
-
 	if (unmap)
 	{
 		typedef std::pair<RTLIL::SigSpec, bool> summand_t;
 		std::vector<summand_t> summands;
+
+		RTLIL::SigSpec bit_ports;
 
 		for (auto &port : macc.ports) {
 			summand_t this_summand;
 			if (GetSize(port.in_b)) {
 				this_summand.first = module->addWire(NEW_ID, width);
 				module->addMul(NEW_ID, port.in_a, port.in_b, this_summand.first, port.is_signed);
+			} else if (GetSize(port.in_a) == 1 && GetSize(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
+				// Mimic old 'bit_ports' treatment in case it's relevant for performance,
+				// i.e. defer single-bit summands to be the last ones
+				bit_ports.append(port.in_a);
+				continue;
 			} else if (GetSize(port.in_a) != width) {
 				this_summand.first = module->addWire(NEW_ID, width);
 				module->addPos(NEW_ID, port.in_a, this_summand.first, port.is_signed);
@@ -309,7 +313,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 			summands.push_back(this_summand);
 		}
 
-		for (auto &bit : macc.bit_ports)
+		for (auto &bit : bit_ports)
 			summands.push_back(summand_t(bit, false));
 
 		if (GetSize(summands) == 0)
@@ -346,14 +350,20 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 	else
 	{
 		MaccmapWorker worker(module, width);
+		RTLIL::SigSpec bit_ports;
 
-		for (auto &port : macc.ports)
-			if (GetSize(port.in_b) == 0)
+		for (auto &port : macc.ports) {
+			// Mimic old 'bit_ports' treatment in case it's relevant for performance,
+			// i.e. defer single-bit summands to be the last ones
+			if (GetSize(port.in_a) == 1 && GetSize(port.in_b) == 0 && !port.is_signed && !port.do_subtract)
+				bit_ports.append(port.in_a);
+			else if (GetSize(port.in_b) == 0)
 				worker.add(port.in_a, port.is_signed, port.do_subtract);
 			else
 				worker.add(port.in_a, port.in_b, port.is_signed, port.do_subtract);
+		}
 
-		for (auto &bit : macc.bit_ports)
+		for (auto bit : bit_ports)
 			worker.add(bit, 0);
 
 		module->connect(cell->getPort(ID::Y), worker.synth());

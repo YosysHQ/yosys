@@ -743,7 +743,6 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 	if (cell->type == ID($macc))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
-		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
 		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
 
 		Macc macc;
@@ -783,12 +782,6 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 				else
 					tmp = ez->vec_add(tmp, in_a);
 			}
-		}
-
-		for (int i = 0; i < GetSize(b); i++) {
-			std::vector<int> val(GetSize(y), ez->CONST_FALSE);
-			val.at(0) = b.at(i);
-			tmp = ez->vec_add(tmp, val);
 		}
 
 		if (model_undef)
