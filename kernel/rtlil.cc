@@ -1467,6 +1467,30 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($macc_v2)) {
+				if (param(ID::NTERMS) <= 0)
+					error(__LINE__);
+				param_bits(ID::TERM_NEGATED, param(ID::NTERMS));
+				param_bits(ID::A_SIGNED, param(ID::NTERMS));
+				param_bits(ID::B_SIGNED, param(ID::NTERMS));
+				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
+					error(__LINE__);
+				param_bits(ID::A_WIDTHS, param(ID::NTERMS) * 16);
+				param_bits(ID::B_WIDTHS, param(ID::NTERMS) * 16);
+				const Const &a_width = cell->getParam(ID::A_WIDTHS);
+				const Const &b_width = cell->getParam(ID::B_WIDTHS);
+				int a_width_sum = 0, b_width_sum = 0;
+				for (int i = 0; i < param(ID::NTERMS); i++) {
+					a_width_sum += a_width.extract(16 * i, 16).as_int(false);
+					b_width_sum += b_width.extract(16 * i, 16).as_int(false);
+				}
+				port(ID::A, a_width_sum);
+				port(ID::B, b_width_sum);
+				port(ID::Y, param(ID::Y_WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($logic_not)) {
 				param_bool(ID::A_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));
@@ -4096,6 +4120,11 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 	if (type == ID($lcu)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::CO]);
+		return;
+	}
+
+	if (type == ID($macc_v2)) {
+		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
 		return;
 	}
 
