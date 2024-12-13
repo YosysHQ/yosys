@@ -449,11 +449,17 @@ namespace RTLIL
 
 	static inline std::string encode_filename(const std::string &filename)
 	{
+		// SILIMATE: take basename of filename
+		std::string basename = filename;
+		size_t pos = filename.find_last_of('/');
+		if (pos != std::string::npos)
+			basename = basename.substr(pos + 1);
+
 		std::stringstream val;
-		if (!std::any_of(filename.begin(), filename.end(), [](char c) {
+		if (!std::any_of(basename.begin(), basename.end(), [](char c) {
 			return static_cast<unsigned char>(c) < 33 || static_cast<unsigned char>(c) > 126;
-		})) return filename;
-		for (unsigned char const c : filename) {
+		})) return basename;
+		for (unsigned char const c : basename) {
 			if (c < 33 || c > 126)
 				val << stringf("$%02x", c);
 			else
