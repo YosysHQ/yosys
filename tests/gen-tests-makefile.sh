@@ -105,7 +105,6 @@ generate_tests() {
 	fi
 }
 
-run_tests() {
+generate_mk() {
 	generate_tests "$@" > run-test.mk
-	# exec ${MAKE:-make} -f run-test.mk
 }
