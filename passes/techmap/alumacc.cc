@@ -283,7 +283,7 @@ struct AlumaccWorker
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
-			RTLIL::SigSpec A, B, C = n->macc.bit_ports;
+			RTLIL::SigSpec A, B, C;
 			bool a_signed = false, b_signed = false;
 			bool subtract_b = false;
 			alunode_t *alunode;

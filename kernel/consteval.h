@@ -315,9 +315,6 @@ struct ConstEval
 			Macc macc;
 			macc.from_cell(cell);
 
-			if (!eval(macc.bit_ports, undef, cell))
-				return false;
-
 			for (auto &port : macc.ports) {
 				if (!eval(port.in_a, undef, cell))
 					return false;

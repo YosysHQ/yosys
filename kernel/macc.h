@@ -30,14 +30,11 @@ struct Macc
 		RTLIL::SigSpec in_a, in_b;
 		bool is_signed, do_subtract;
 	};
-
 	std::vector<port_t> ports;
-	RTLIL::SigSpec bit_ports;
 
 	void optimize(int width)
 	{
 		std::vector<port_t> new_ports;
-		RTLIL::SigSpec new_bit_ports;
 		RTLIL::Const off(0, width);
 
 		for (auto &port : ports)
@@ -47,11 +44,6 @@ struct Macc
 
 			if (GetSize(port.in_a) < GetSize(port.in_b))
 				std::swap(port.in_a, port.in_b);
-
-			if (GetSize(port.in_a) == 1 && GetSize(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
-				bit_ports.append(port.in_a);
-				continue;
-			}
 
 			if (port.in_a.is_fully_const() && port.in_b.is_fully_const()) {
 				RTLIL::Const v = port.in_a.as_const();
@@ -79,12 +71,6 @@ struct Macc
 			new_ports.push_back(port);
 		}
 
-		for (auto &bit : bit_ports)
-			if (bit == State::S1)
-				off = const_add(off, RTLIL::Const(1, width), false, false, width);
-			else if (bit != State::S0)
-				new_bit_ports.append(bit);
-
 		if (off.as_bool()) {
 			port_t port;
 			port.in_a = off;
@@ -94,7 +80,6 @@ struct Macc
 		}
 
 		new_ports.swap(ports);
-		bit_ports = new_bit_ports;
 	}
 
 	void from_cell(RTLIL::Cell *cell)
@@ -102,7 +87,6 @@ struct Macc
 		RTLIL::SigSpec port_a = cell->getPort(ID::A);
 
 		ports.clear();
-		bit_ports = cell->getPort(ID::B);
 
 		auto config_bits = cell->getParam(ID::CONFIG);
 		int config_cursor = 0;
@@ -144,6 +128,9 @@ struct Macc
 			if (size_a || size_b)
 				ports.push_back(this_port);
 		}
+
+		for (auto bit : cell->getPort(ID::B))
+			ports.push_back(port_t{{bit}, {}, false, false});
 
 		log_assert(config_cursor == config_width);
 		log_assert(port_a_cursor == GetSize(port_a));
@@ -190,11 +177,11 @@ struct Macc
 		}
 
 		cell->setPort(ID::A, port_a);
-		cell->setPort(ID::B, bit_ports);
+		cell->setPort(ID::B, {});
 		cell->setParam(ID::CONFIG, config_bits);
 		cell->setParam(ID::CONFIG_WIDTH, GetSize(config_bits));
 		cell->setParam(ID::A_WIDTH, GetSize(port_a));
-		cell->setParam(ID::B_WIDTH, GetSize(bit_ports));
+		cell->setParam(ID::B_WIDTH, 0);
 	}
 
 	bool eval(RTLIL::Const &result) const
@@ -219,19 +206,12 @@ struct Macc
 				result = const_add(result, summand, port.is_signed, port.is_signed, GetSize(result));
 		}
 
-		for (auto bit : bit_ports) {
-			if (bit.wire)
-				return false;
-			result = const_add(result, bit.data, false, false, GetSize(result));
-		}
-
 		return true;
 	}
 
 	bool is_simple_product()
 	{
-		return bit_ports.empty() &&
-				ports.size() == 1 &&
+		return ports.size() == 1 &&
 				!ports[0].in_b.empty() &&
 				!ports[0].do_subtract;
 	}
