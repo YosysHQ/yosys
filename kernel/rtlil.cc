@@ -540,6 +540,12 @@ void RTLIL::Const::bitvectorize() const {
 	}
 }
 
+void RTLIL::Const::append(const RTLIL::Const &other) {
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	bv.insert(bv.end(), other.begin(), other.end());
+}
+
 RTLIL::State RTLIL::Const::const_iterator::operator*() const {
 	if (auto bv = parent.get_if_bits())
 		return (*bv)[idx];
