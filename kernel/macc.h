@@ -30,14 +30,11 @@ struct Macc
 		RTLIL::SigSpec in_a, in_b;
 		bool is_signed, do_subtract;
 	};
-
 	std::vector<port_t> ports;
-	RTLIL::SigSpec bit_ports;
 
 	void optimize(int width)
 	{
 		std::vector<port_t> new_ports;
-		RTLIL::SigSpec new_bit_ports;
 		RTLIL::Const off(0, width);
 
 		for (auto &port : ports)
@@ -47,11 +44,6 @@ struct Macc
 
 			if (GetSize(port.in_a) < GetSize(port.in_b))
 				std::swap(port.in_a, port.in_b);
-
-			if (GetSize(port.in_a) == 1 && GetSize(port.in_b) == 0 && !port.is_signed && !port.do_subtract) {
-				bit_ports.append(port.in_a);
-				continue;
-			}
 
 			if (port.in_a.is_fully_const() && port.in_b.is_fully_const()) {
 				RTLIL::Const v = port.in_a.as_const();
@@ -79,12 +71,6 @@ struct Macc
 			new_ports.push_back(port);
 		}
 
-		for (auto &bit : bit_ports)
-			if (bit == State::S1)
-				off = const_add(off, RTLIL::Const(1, width), false, false, width);
-			else if (bit != State::S0)
-				new_bit_ports.append(bit);
-
 		if (off.as_bool()) {
 			port_t port;
 			port.in_a = off;
@@ -94,15 +80,13 @@ struct Macc
 		}
 
 		new_ports.swap(ports);
-		bit_ports = new_bit_ports;
 	}
 
-	void from_cell(RTLIL::Cell *cell)
+	void from_cell_v1(RTLIL::Cell *cell)
 	{
 		RTLIL::SigSpec port_a = cell->getPort(ID::A);
 
 		ports.clear();
-		bit_ports = cell->getPort(ID::B);
 
 		auto config_bits = cell->getParam(ID::CONFIG);
 		int config_cursor = 0;
@@ -145,56 +129,89 @@ struct Macc
 				ports.push_back(this_port);
 		}
 
+		for (auto bit : cell->getPort(ID::B))
+			ports.push_back(port_t{{bit}, {}, false, false});
+
 		log_assert(config_cursor == config_width);
 		log_assert(port_a_cursor == GetSize(port_a));
 	}
 
-	void to_cell(RTLIL::Cell *cell) const
+	void from_cell(RTLIL::Cell *cell)
 	{
-		RTLIL::SigSpec port_a;
-		std::vector<RTLIL::State> config_bits;
-		int max_size = 0, num_bits = 0;
-
-		for (auto &port : ports) {
-			max_size = max(max_size, GetSize(port.in_a));
-			max_size = max(max_size, GetSize(port.in_b));
+		if (cell->type == ID($macc)) {
+			from_cell_v1(cell);
+			return;
 		}
+		log_assert(cell->type == ID($macc_v2));
 
-		while (max_size)
-			num_bits++, max_size /= 2;
+		RTLIL::SigSpec port_a = cell->getPort(ID::A);
+		RTLIL::SigSpec port_b = cell->getPort(ID::B);
 
-		log_assert(num_bits < 16);
-		config_bits.push_back(num_bits & 1 ? State::S1 : State::S0);
-		config_bits.push_back(num_bits & 2 ? State::S1 : State::S0);
-		config_bits.push_back(num_bits & 4 ? State::S1 : State::S0);
-		config_bits.push_back(num_bits & 8 ? State::S1 : State::S0);
+		ports.clear();
 
-		for (auto &port : ports)
-		{
-			if (GetSize(port.in_a) == 0)
-				continue;
+		int nterms = cell->getParam(ID::NTERMS).as_int();
+		const Const &neg = cell->getParam(ID::TERM_NEGATED);
+		const Const &a_widths = cell->getParam(ID::A_WIDTHS);
+		const Const &b_widths = cell->getParam(ID::B_WIDTHS);
+		const Const &a_signed = cell->getParam(ID::A_SIGNED);
+		const Const &b_signed = cell->getParam(ID::B_SIGNED);
 
-			config_bits.push_back(port.is_signed ? State::S1 : State::S0);
-			config_bits.push_back(port.do_subtract ? State::S1 : State::S0);
+		int ai = 0, bi = 0;
+		for (int i = 0; i < nterms; i++) {
+			port_t term;
 
-			int size_a = GetSize(port.in_a);
-			for (int i = 0; i < num_bits; i++)
-				config_bits.push_back(size_a & (1 << i) ? State::S1 : State::S0);
+			log_assert(a_signed[i] == b_signed[i]);
+			term.is_signed = (a_signed[i] == State::S1);
+			int a_width = a_widths.extract(16 * i, 16).as_int(false);
+			int b_width = b_widths.extract(16 * i, 16).as_int(false);
 
-			int size_b = GetSize(port.in_b);
-			for (int i = 0; i < num_bits; i++)
-				config_bits.push_back(size_b & (1 << i) ? State::S1 : State::S0);
+			term.in_a = port_a.extract(ai, a_width);
+			ai += a_width;
+			term.in_b = port_b.extract(bi, b_width);
+			bi += b_width;
+			term.do_subtract = (neg[i] == State::S1);
 
-			port_a.append(port.in_a);
-			port_a.append(port.in_b);
+			ports.push_back(term);
 		}
+		log_assert(port_a.size() == ai);
+		log_assert(port_b.size() == bi);
+	}
 
-		cell->setPort(ID::A, port_a);
-		cell->setPort(ID::B, bit_ports);
-		cell->setParam(ID::CONFIG, config_bits);
-		cell->setParam(ID::CONFIG_WIDTH, GetSize(config_bits));
-		cell->setParam(ID::A_WIDTH, GetSize(port_a));
-		cell->setParam(ID::B_WIDTH, GetSize(bit_ports));
+	void to_cell(RTLIL::Cell *cell)
+	{
+		cell->type = ID($macc_v2);
+
+		int nterms = ports.size();
+		const auto Sx = State::Sx;
+		Const a_signed(Sx, nterms), b_signed(Sx, nterms), negated(Sx, nterms);
+		Const a_widths, b_widths;
+		SigSpec a, b;
+
+		for (int i = 0; i < nterms; i++) {
+			SigSpec term_a = ports[i].in_a, term_b = ports[i].in_b;
+
+			a_widths.append(Const(term_a.size(), 16));
+			b_widths.append(Const(term_b.size(), 16));
+
+			a_signed.bits()[i] = b_signed.bits()[i] =
+				(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+			negated.bits()[i] = (ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
+
+			a.append(term_a);
+			b.append(term_b);
+		}
+		negated.is_fully_def();
+		a_signed.is_fully_def();
+		b_signed.is_fully_def();
+
+		cell->setParam(ID::NTERMS, nterms);
+		cell->setParam(ID::TERM_NEGATED, negated);
+		cell->setParam(ID::A_SIGNED, a_signed);
+		cell->setParam(ID::B_SIGNED, b_signed);
+		cell->setParam(ID::A_WIDTHS, a_widths);
+		cell->setParam(ID::B_WIDTHS, b_widths);
+		cell->setPort(ID::A, a);
+		cell->setPort(ID::B, b);
 	}
 
 	bool eval(RTLIL::Const &result) const
@@ -219,19 +236,12 @@ struct Macc
 				result = const_add(result, summand, port.is_signed, port.is_signed, GetSize(result));
 		}
 
-		for (auto bit : bit_ports) {
-			if (bit.wire)
-				return false;
-			result = const_add(result, bit.data, false, false, GetSize(result));
-		}
-
 		return true;
 	}
 
 	bool is_simple_product()
 	{
-		return bit_ports.empty() &&
-				ports.size() == 1 &&
+		return ports.size() == 1 &&
 				!ports[0].in_b.empty() &&
 				!ports[0].do_subtract;
 	}

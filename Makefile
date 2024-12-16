@@ -849,6 +849,7 @@ endif
 	+cd tests/blif && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
 	+cd tests/aiger && bash run-test.sh $(ABCOPT)
+	+cd tests/alumacc && bash run-test.sh $(ABCOPT)
 	+cd tests/arch && bash run-test.sh
 	+cd tests/arch/ice40 && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/xilinx && bash run-test.sh $(SEEDOPT)
