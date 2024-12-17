@@ -61,6 +61,13 @@ code
 	if (b_const_int_shifted % c_const_int != 0)
 		reject;
 
+	// Check that every single output bit of the multiplier is connected consecutively to the div operator (offset accounted for)
+	for (int i = 0; i < mul_y.size(); i++) {
+		if (sigmap(mul_y[i]) != sigmap(div_a[i + offset])) {
+			reject;
+		}
+	}
+
 	// Rewire to only keep multiplier
 	mul->setPort(\B, Const(b_const_int_shifted / c_const_int, b_const_width));
 	mul->setPort(\Y, div_y);
