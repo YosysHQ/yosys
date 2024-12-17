@@ -13,7 +13,7 @@ module top(a, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt
+equiv_opt -assert peepopt ;;;
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 
