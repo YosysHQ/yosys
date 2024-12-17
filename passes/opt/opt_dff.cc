@@ -594,6 +594,7 @@ struct OptDffWorker
 					// Try to merge sync resets.
 					std::map<ctrls_t, std::vector<int>> groups;
 					std::vector<int> remaining_indices;
+					std::vector<Cell *> new_cells;
 					Const val_srst;
 
 					for (int i = 0 ; i < ff.width; i++) {
@@ -654,14 +655,19 @@ struct OptDffWorker
 						if (new_ff.has_ce)
 							new_ff.ce_over_srst = true;
 						Cell *new_cell = new_ff.emit();
-						if (new_cell)
+						if (new_cell) {
+							new_cells.push_back(new_cell);
 							dff_cells.push_back(new_cell);
+						}
 						log("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q), log_signal(new_ff.val_srst));
 					}
 
 					if (remaining_indices.empty()) {
+						IdString cell_name = cell->name;
 						module->remove(cell);
+						if (GetSize(new_cells) == 1)
+							module->rename(new_cells[0], cell_name);
 						did_something = true;
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
@@ -674,6 +680,7 @@ struct OptDffWorker
 					// Try to merge enables.
 					std::map<std::pair<patterns_t, ctrls_t>, std::vector<int>> groups;
 					std::vector<int> remaining_indices;
+					std::vector<Cell *> new_cells;
 
 					for (int i = 0 ; i < ff.width; i++) {
 						// First, eat up as many simple muxes as possible.
@@ -717,14 +724,19 @@ struct OptDffWorker
 						new_ff.pol_ce = en.second;
 						new_ff.ce_over_srst = false;
 						Cell *new_cell = new_ff.emit();
-						if (new_cell)
+						if (new_cell) {
 							dff_cells.push_back(new_cell);
+							new_cells.push_back(new_cell);
+						}
 						log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q));
 					}
 
 					if (remaining_indices.empty()) {
+						IdString cell_name = cell->name;
 						module->remove(cell);
+						if (GetSize(new_cells) == 1)
+							module->rename(new_cells[0], cell_name);
 						did_something = true;
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
