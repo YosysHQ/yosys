@@ -66,7 +66,7 @@ struct SplitcellsWorker
 		}
 	}
 
-	int split(Cell *cell, const std::string &format, int limit)
+	int split(Cell *cell, const std::string &format, int limit, bool blast = false)
 	{
 		if (cell->type.in("$and", "$mux", "$not", "$or", "$pmux", "$xnor", "$xor"))
 		{
@@ -84,7 +84,7 @@ struct SplitcellsWorker
 			for (int i = 1; i < width; i++) {
 				auto &last_users = bit_users_db[outsig[slices.back()]];
 				auto &this_users = bit_users_db[outsig[i]];
-				if (last_users != this_users) slices.push_back(i);
+				if ((last_users != this_users) || blast) slices.push_back(i);
 			}
 			if (GetSize(slices) <= 1) return 0;
 			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
@@ -154,7 +154,7 @@ struct SplitcellsWorker
 			for (int i = 1; i < width; i++) {
 				auto &last_users = bit_users_db[outsig[slices.back()]];
 				auto &this_users = bit_users_db[outsig[i]];
-				if (last_users != this_users) slices.push_back(i);
+				if ((last_users != this_users) || blast) slices.push_back(i);
 			}
 
 			if (GetSize(slices) <= 1) return 0;
@@ -228,11 +228,15 @@ struct SplitcellsPass : public Pass {
 		log("    -limit n\n");
 		log("        max number of slices to split.\n");
 		log("\n");
+		log("    -blast\n");
+		log("        blast all bits (do not look at usage of the cell output bits).\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string format;
 		int limit = -1;
+		bool blast = false;
 
 		log_header(design, "Executing SPLITCELLS pass (splitting up multi-bit cells).\n");
 
@@ -245,6 +249,10 @@ struct SplitcellsPass : public Pass {
 			}
 			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
 				limit = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-blast" && argidx+1 < args.size()) {
+				blast = true;
 				continue;
 			}
 			break;
@@ -264,7 +272,7 @@ struct SplitcellsPass : public Pass {
 				SplitcellsWorker worker(module);
 				bool did_something = false;
 				for (auto cell : module->selected_cells()) {
-					int n = worker.split(cell, format, limit);
+					int n = worker.split(cell, format, limit, blast);
 					did_something |= (n != 0);
 					count_split_pre += (n != 0);
 					count_split_post += n;
