@@ -1,6 +1,6 @@
 pattern muldiv_c
 //
-// Authored by Akash Levy of Silimate, Inc. under ISC license.
+// Authored by Akash Levy and Alain Dargelas of Silimate, Inc. under ISC license.
 // Transforms mul->div into const->mul when b and c are divisible constants:
 // y = (a * b_const) / c_const   ===>   a * eval(b_const / c_const)
 //
