@@ -1,6 +1,6 @@
 pattern muxadd
 //
-// Authored by Akash Levy of Silimate, Inc. under ISC license.
+// Authored by Akash Levy and Alain Dargelas of Silimate, Inc. under ISC license.
 // Transforms add->mux into mux->add:
 // y = s ? (a + b) : a   ===>   y = a + (s ? b : 0)
 //
