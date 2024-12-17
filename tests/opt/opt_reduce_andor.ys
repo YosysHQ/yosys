@@ -1,0 +1,14 @@
+# Check that opt_reduce doesn't produce zero width $reduce_or/$reduce_and,
+
+read_verilog <<EOT
+module reduce_const(output wire o, output wire a);
+    wire [3:0] zero = 4'b0000;
+    wire [3:0] ones = 4'b1111;
+    assign o = |zero;
+    assign a = &ones;
+endmodule
+EOT
+
+equiv_opt -assert opt_reduce
+design -load postopt
+select -assert-none r:A_WIDTH=0

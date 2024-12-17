@@ -65,29 +65,6 @@
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
 
-#ifdef YOSYS_ENABLE_TCL
-#  include <tcl.h>
-#  ifdef YOSYS_MXE_HACKS
-extern Tcl_Command Tcl_CreateCommand(Tcl_Interp *interp, const char *cmdName, Tcl_CmdProc *proc, ClientData clientData, Tcl_CmdDeleteProc *deleteProc);
-extern Tcl_Interp *Tcl_CreateInterp(void);
-extern void Tcl_Preserve(ClientData data);
-extern void Tcl_Release(ClientData clientData);
-extern int Tcl_InterpDeleted(Tcl_Interp *interp);
-extern void Tcl_DeleteInterp(Tcl_Interp *interp);
-extern int Tcl_Eval(Tcl_Interp *interp, const char *script);
-extern int Tcl_EvalFile(Tcl_Interp *interp, const char *fileName);
-extern void Tcl_Finalize(void);
-extern int Tcl_GetCommandInfo(Tcl_Interp *interp, const char *cmdName, Tcl_CmdInfo *infoPtr);
-extern const char *Tcl_GetStringResult(Tcl_Interp *interp);
-extern Tcl_Obj *Tcl_NewStringObj(const char *bytes, int length);
-extern Tcl_Obj *Tcl_NewIntObj(int intValue);
-extern Tcl_Obj *Tcl_NewListObj(int objc, Tcl_Obj *const objv[]);
-extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *part2Ptr, Tcl_Obj *newValuePtr, int flags);
-#  endif
-#  undef CONST
-#  undef INLINE
-#endif
-
 #ifdef _WIN32
 #  undef NOMINMAX
 #  define NOMINMAX 1

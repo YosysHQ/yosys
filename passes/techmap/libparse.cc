@@ -503,12 +503,12 @@ LibertyAst *LibertyParser::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParser::error()
+void LibertyParser::error() const
 {
 	log_error("Syntax error in liberty file on line %d.\n", line);
 }
 
-void LibertyParser::error(const std::string &str)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
@@ -518,13 +518,13 @@ void LibertyParser::error(const std::string &str)
 
 #else
 
-void LibertyParser::error()
+void LibertyParser::error() const
 {
 	fprintf(stderr, "Syntax error in liberty file on line %d.\n", line);
 	exit(1);
 }
 
-void LibertyParser::error(const std::string &str)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";

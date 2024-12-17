@@ -262,7 +262,8 @@ struct Index {
 				if (cell->type.in(ID($gt), ID($ge)))
 					std::swap(aport, bport);
 				int carry = cell->type.in(ID($le), ID($ge)) ? CFALSE : CTRUE; 
-				Lit a, b;
+				Lit a = Writer::EMPTY_LIT;
+				Lit b = Writer::EMPTY_LIT;
 				// TODO: this might not be the most economic structure; revisit at a later date
 				for (int i = 0; i < width; i++) {
 					a = visit(cursor, aport[i]);
@@ -664,8 +665,6 @@ struct Index {
 struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 	typedef unsigned int Lit;
 
-	const static Lit CONST_FALSE = 0;
-	const static Lit CONST_TRUE = 1;
 	const static constexpr Lit EMPTY_LIT = std::numeric_limits<Lit>::max();
 
 	static Lit negate(Lit lit) {
@@ -802,8 +801,6 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 };
 
 struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
-	const static int CONST_FALSE = 0;
-	const static int CONST_TRUE = 0;
 	const static constexpr int EMPTY_LIT = -1;
 
 	XAigerAnalysis()
@@ -835,12 +832,8 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			return false;
 
 		Cell *driver = bit.wire->driverCell();
-		if (!driver->type.isPublic())
-			return false;
-
 		Module *mod = design->module(driver->type);
-		log_assert(mod);
-		if (!mod->has_attribute(ID::abc9_box_id))
+		if (!mod || !mod->has_attribute(ID::abc9_box_id))
 			return false;
 
 		int max = 1;
@@ -873,7 +866,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		HierCursor cursor;
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
-			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
 			if (box->output(conn.first))
 			for (auto bit : conn.second)
@@ -888,7 +881,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
-			if (!box->type.isPublic() || (def && !def->has_attribute(ID::abc9_box_id)))
+			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
 			if (box->input(conn.first))
 			for (auto bit : conn.second)
@@ -1109,7 +1102,7 @@ struct XAigerWriter : AigerWriter {
 							holes_module->ports.push_back(w->name);
 							holes_pis.push_back(w);
 						}
-						in_conn.append(holes_pis[i]);
+						in_conn.append(holes_pis[holes_pi_idx]);
 						holes_pi_idx++;
 					}
 					holes_wb->setPort(port_id, in_conn);

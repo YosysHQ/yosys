@@ -10,6 +10,19 @@ endmodule
 EOF
 booth
 sat -verify -set a 0 -set b 0 -prove y 0
-design -reset
 
+design -reset
 test_cell -s 1694091355 -n 100 -script booth_map_script.ys_ $mul
+
+design -reset
+read_verilog <<EOF
+module top(a,b,y);
+input wire [4:0] a;
+input wire [5:0] b;
+output wire [6:0] y;
+assign y = a * b;
+endmodule
+EOF
+synth -run :fine
+# test compatibility with alumacc
+equiv_opt -assert booth

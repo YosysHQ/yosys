@@ -1,0 +1,57 @@
+read_verilog <<EOF
+module top(
+	input [1:0] a,
+	input [2:0] b,
+	output [2:0] y,
+	input [2:0] a2,
+	input [3:0] b2,
+	output [3:0] y2,
+ 	input [1:0] a3,
+ 	input [2:0] b3,
+ 	output [2:0] y3
+);
+	assign y = a | (*keep*) b;
+	assign y2 = a2 | (*keep*) b2;
+	assign y3 = a3 | (*keep*) b3;
+endmodule
+EOF
+
+wreduce
+wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}
+check -assert
+select -assert-count 2 top/t:OR_2_3_3
+select -assert-count 1 top/t:OR_3_4_4
+select -assert-none top/t:OR_2_3_3 top/t:OR_3_4_4 %% top/t:* %D
+select -assert-mod-count 2 OR_2_3_3 OR_3_4_4
+select -assert-mod-count 2 A:bar=w3 A:bar=w4
+
+design -reset
+read_verilog <<EOF
+module top(
+	input [1:0] a,
+	input [2:0] b,
+	output [2:0] y,
+	input [2:0] a2,
+	input [3:0] b2,
+	output [3:0] y2,
+ 	input [1:0] a3,
+ 	input [2:0] b3,
+ 	output [2:0] y3
+);
+	assign y = a | (*keep*) b;
+	assign y2 = a2 | (*keep*) b2;
+	wire [2:0] y3_ = a3 | (*keep*) b3;
+	assign y3 = {y3_[2], y3_[0]};
+endmodule
+EOF
+
+opt_clean
+wreduce
+wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}{%unused}
+check -assert
+select -assert-count 1 top/t:OR_2_3_3
+select -assert-count 1 top/t:OR_2_3_3_unused_Y[1]
+select -assert-count 1 top/t:OR_3_4_4
+select -assert-none top/t:OR_2_3_3 top/t:OR_3_4_4 top/t:OR_2_3_3_unused_Y[1] %% top/t:* %D
+select -assert-mod-count 2 OR_2_3_3 OR_3_4_4
+select -assert-mod-count 3 A:bar=w3 A:bar=w4

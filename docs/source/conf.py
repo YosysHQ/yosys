@@ -6,7 +6,7 @@ import os
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2024 YosysHQ GmbH'
-yosys_ver = "0.47"
+yosys_ver = "0.48"
 
 # select HTML theme
 html_theme = 'furo-ys'
@@ -56,6 +56,9 @@ if os.getenv("READTHEDOCS"):
     else:
         release = yosys_ver
         todo_include_todos = False
+elif os.getenv("YOSYS_DOCS_RELEASE") is not None:
+    release = yosys_ver
+    todo_include_todos = False
 else:
     release = yosys_ver
     todo_include_todos = True
@@ -87,5 +90,9 @@ def setup(app: Sphinx) -> None:
     from util.RtlilLexer import RtlilLexer
     app.add_lexer("RTLIL", RtlilLexer)
 
-    from furo_ys.lexers.YoscryptLexer import YoscryptLexer
-    app.add_lexer("yoscrypt", YoscryptLexer)
+    try:
+        from furo_ys.lexers.YoscryptLexer import YoscryptLexer
+        app.add_lexer("yoscrypt", YoscryptLexer)
+    except ModuleNotFoundError:
+        from pygments.lexers.special import TextLexer
+        app.add_lexer("yoscrypt", TextLexer)

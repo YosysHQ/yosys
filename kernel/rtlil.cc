@@ -380,7 +380,7 @@ int RTLIL::Const::as_int(bool is_signed) const
 	return ret;
 }
 
-size_t RTLIL::Const::get_min_size(bool is_signed) const
+int RTLIL::Const::get_min_size(bool is_signed) const
 {
 	if (empty()) return 0;
 
@@ -391,7 +391,7 @@ size_t RTLIL::Const::get_min_size(bool is_signed) const
 	else
 		leading_bit = RTLIL::State::S0;
 
-	size_t idx = size();
+	auto idx = size();
 	while (idx > 0 && (*this)[idx -1] == leading_bit) {
 		idx--;
 	}
@@ -406,22 +406,22 @@ size_t RTLIL::Const::get_min_size(bool is_signed) const
 
 void RTLIL::Const::compress(bool is_signed)
 {
-	size_t idx = get_min_size(is_signed);
+	auto idx = get_min_size(is_signed);
 	bits().erase(bits().begin() + idx, bits().end());
 }
 
 std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
 {
-	size_t size = get_min_size(is_signed);
+	auto size = get_min_size(is_signed);
 	if(size == 0 || size > 32)
 		return std::nullopt;
 
 	int32_t ret = 0;
-	for (size_t i = 0; i < size && i < 32; i++)
+	for (auto i = 0; i < size && i < 32; i++)
 		if ((*this)[i] == State::S1)
 			ret |= 1 << i;
 	if (is_signed && (*this)[size-1] == State::S1)
-		for (size_t i = size; i < 32; i++)
+		for (auto i = size; i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }
@@ -1856,9 +1856,9 @@ namespace {
 				param_bits(ID::RD_COLLISION_X_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
 				param_bits(ID::RD_WIDE_CONTINUATION, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CE_OVER_SRST, max(1, param(ID::RD_PORTS)));
-				param_bits(ID::RD_ARST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_SRST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_INIT_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_ARST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_SRST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_INIT_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
 				param_bits(ID::WR_CLK_ENABLE, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_WIDE_CONTINUATION, max(1, param(ID::WR_PORTS)));
@@ -2147,6 +2147,21 @@ namespace {
 				check_expected();
 				return;
 			}
+			/*
+			 * Checklist for adding internal cell types
+			 * ========================================
+			 * Things to do right away:
+			 *    - Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+			 *    - Add to InternalCellChecker::check() in kernel/rtlil.cc
+			 *    - Add to techlibs/common/simlib.v
+			 *    - Add to techlibs/common/techmap.v
+			 *
+			 * Things to do after finalizing the cell interface:
+			 *    - Add support to kernel/satgen.h for the new cell type
+			 *    - Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
+			 *    - Maybe add support to the Verilog backend for dumping such cells as expression
+			 *
+			 */
 			error(__LINE__);
 		}
 	};

@@ -1,14 +1,15 @@
 read_verilog -icells <<EOT
 
-module top(input C, D, S, R, output [9:0] Q);
+module top(input C, D, E, S, R, output [11:0] Q);
 
 $_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
 $_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
 $_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
 $_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
 $_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(R), .S(S), .Q(Q[4]));
+$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
 
-assign Q[9:5] = ~Q[4:0];
+assign Q[11:6] = ~Q[5:0];
 
 endmodule
 
@@ -29,23 +30,25 @@ design -load orig
 dfflibmap -liberty dfflibmap.lib
 clean
 
-select -assert-count 4 t:$_NOT_
+select -assert-count 5 t:$_NOT_
 select -assert-count 1 t:dffn
 select -assert-count 4 t:dffsr
-select -assert-none t:dffn t:dffsr t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:dffe
+select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
 
 design -load orig
 dfflibmap -prepare -liberty dfflibmap.lib
 
-select -assert-count 9 t:$_NOT_
+select -assert-count 11 t:$_NOT_
 select -assert-count 1 t:$_DFF_N_
 select -assert-count 4 t:$_DFFSR_PPP_
-select -assert-none t:$_DFF_N_ t:$_DFFSR_PPP_ t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:$_DFFE_NP_
+select -assert-none t:$_DFF_N_ t:$_DFFSR_PPP_ t:$_DFFE_NP_ t:$_NOT_ %% %n t:* %i
 
 design -load orig
 dfflibmap -map-only -liberty dfflibmap.lib
 
-select -assert-count 5 t:$_NOT_
+select -assert-count 6 t:$_NOT_
 select -assert-count 0 t:dffn
 select -assert-count 1 t:dffsr
 
@@ -54,10 +57,22 @@ dfflibmap -prepare -liberty dfflibmap.lib
 dfflibmap -map-only -liberty dfflibmap.lib
 clean
 
-select -assert-count 4 t:$_NOT_
+select -assert-count 5 t:$_NOT_
 select -assert-count 1 t:dffn
 select -assert-count 4 t:dffsr
-select -assert-none t:dffn t:dffsr t:$_NOT_ %% %n t:* %i
+select -assert-count 1 t:dffe
+select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflibmap -prepare -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr.lib
+dfflibmap -map-only -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr.lib
+clean
+
+select -assert-count 5 t:$_NOT_
+select -assert-count 1 t:dffn
+select -assert-count 1 t:dffe
+select -assert-count 4 t:dffsr
+select -assert-none t:dffn t:dffsr t:dffe t:$_NOT_ %% %n t:* %i
 
 design -load orig
 dfflibmap -liberty dfflibmap.lib -dont_use *ffn
@@ -65,3 +80,4 @@ clean
 
 select -assert-count 0 t:dffn
 select -assert-count 5 t:dffsr
+select -assert-count 1 t:dffe

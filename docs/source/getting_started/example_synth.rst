@@ -30,6 +30,14 @@ First, let's quickly look at the design we'll be synthesizing:
 
 .. todo:: fifo.v description
 
+While the open source `read_verilog` frontend generally does a pretty good job
+at processing valid Verilog input, it does not provide very good error handling
+or reporting.  Using an external tool such as `verilator`_ before running Yosys
+is highly recommended. We can quickly check the Verilog syntax of our design by
+calling ``verilator --lint-only fifo.v``.
+
+.. _verilator: https://www.veripool.org/verilator/
+
 Loading the design
 ~~~~~~~~~~~~~~~~~~
 

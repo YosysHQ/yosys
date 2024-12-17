@@ -341,7 +341,7 @@ return(NULL);
 /*
  * mmap compatibility
  */
-#if defined __CYGWIN__ || defined __MINGW32__ || defined _MSC_VER
+#if defined __MINGW32__ || defined _MSC_VER
 #include <limits.h>
 #define fstMmap(__addr,__len,__prot,__flags,__fd,__off) fstMmap2((__len), (__fd), (__off))
 #define fstMunmap(__addr,__len)                         UnmapViewOfFile((LPCVOID)__addr)

@@ -53,6 +53,11 @@ match add
 	select port(add, constport).is_fully_const()
 	define <IdString> varport (constport == \A ? \B : \A)
 
+	// only optimize for constants up to a fixed width. this prevents cases
+	// with a blowup in internal term size and prevents larger constants being
+	// casted to int incorrectly
+	select (GetSize(port(add, constport)) <= 24)
+
 	// if a value of var is able to wrap the output, the transformation might give wrong results
 	// an addition/substraction can at most flip one more bit than the largest operand (the carry bit)
 	// as long as the output can show this bit, no wrap should occur (assuming all signed-ness make sense)

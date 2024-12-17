@@ -1071,7 +1071,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == ID($_BUF_)) {
+	if (cell->type.in(ID($_BUF_), ID($buf))) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
@@ -2332,19 +2332,15 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
-	bool keep_running = true;
 	int cnt = 0;
-	for (int port_id = 1; keep_running; port_id++) {
-		keep_running = false;
-		for (auto wire : module->wires()) {
-			if (wire->port_id == port_id) {
-				if (port_id != 1)
-					f << stringf(", ");
-				f << stringf("%s", id(wire->name).c_str());
-				keep_running = true;
-				if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
-				continue;
-			}
+	for (auto port : module->ports) {
+		Wire *wire = module->wire(port);
+		if (wire) {
+			if (port != module->ports[0])
+				f << stringf(", ");
+			f << stringf("%s", id(wire->name).c_str());
+			if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
+			continue;
 		}
 	}
 	f << stringf(");\n");

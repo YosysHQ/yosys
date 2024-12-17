@@ -166,6 +166,76 @@ output O;
 endmodule
 
 
+module IDDR_MEM (...);
+parameter GSREN = "false";  
+parameter LSREN = "true";    
+input D, ICLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input RESET;
+output  Q0,Q1;
+endmodule
+
+
+module ODDR_MEM (...);
+parameter GSREN = "false"; 
+parameter LSREN = "true";    
+parameter TCLK_SOURCE = "DQSW"; 
+parameter TXCLK_POL = 1'b0; 
+input D0, D1;
+input TX, PCLK, TCLK, RESET;
+output  Q0, Q1;
+endmodule
+
+
+module IDES4_MEM (...);
+parameter GSREN = "false"; 
+parameter LSREN = "true";    
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input RESET,CALIB;
+output Q0,Q1,Q2,Q3;
+endmodule
+
+
+module IDES8_MEM (...);
+parameter GSREN = "false"; 
+parameter LSREN = "true";    
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input RESET,CALIB;
+output  Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+endmodule
+
+
+module OSER4_MEM (...);
+parameter GSREN = "false"; 
+parameter LSREN = "true";    
+parameter HWL = "false";     
+parameter TCLK_SOURCE = "DQSW"; 
+parameter TXCLK_POL = 1'b0; 
+input D0, D1, D2, D3;
+input TX0, TX1;
+input PCLK, FCLK, TCLK, RESET;
+output  Q0,  Q1;
+endmodule
+
+
+module OSER8_MEM (...);
+parameter GSREN = "false"; 
+parameter LSREN = "true";    
+parameter HWL = "false";    
+parameter TCLK_SOURCE = "DQSW"; 
+parameter TXCLK_POL = 1'b0; 
+input D0, D1, D2, D3, D4, D5, D6, D7;
+input TX0, TX1, TX2, TX3;
+input PCLK, FCLK, TCLK, RESET;
+output  Q0,  Q1;
+endmodule
+
+
 module IODELAY (...);
 parameter C_STATIC_DLY = 0; 
 input DI;
@@ -1365,14 +1435,14 @@ endmodule
 module PLL (...);
 input CLKIN;
 input CLKFB;
-input RESET; 
-input RESET_P; 
+input RESET;
+input RESET_P;
 input RESET_I;
 input RESET_S;
-input [5:0] FBDSEL; 
+input [5:0] FBDSEL;
 input [5:0] IDSEL;
 input [5:0] ODSEL;
-input [3:0] PSDA,FDLY; 
+input [3:0] PSDA,FDLY;
 input [3:0] DUTYDA;
 output CLKOUT;
 output LOCK;
@@ -1400,7 +1470,7 @@ parameter CLKOUTD_BYPASS = "false";
 parameter DYN_SDIV_SEL = 2; 
 parameter CLKOUTD_SRC =  "CLKOUT";  
 parameter CLKOUTD3_SRC = "CLKOUT"; 
-parameter DEVICE = "GW1N-4";
+parameter DEVICE = "GW2A-18";
 endmodule
 
 module TLVDS_IBUF (...);
@@ -1435,40 +1505,17 @@ inout IO, IOB;
 input I, OEN;
 endmodule
 
-module MIPI_IBUF (...);
-output OH, OL, OB;
-inout IO, IOB;
-input  I, IB;
-input OEN, OENB;
-input HSREN;
-endmodule
-
-module MIPI_IBUF_HS (...);
-output OH;
-input  I, IB;
-endmodule
-
-module MIPI_IBUF_LP (...);
-output OL;
-output OB;
-input  I;
-input IB;
-endmodule
-
-module MIPI_OBUF (...);
-output O, OB;
-input  I, IB, MODESEL;
-endmodule
-
-module MIPI_OBUF_A (...);
-output O, OB;
-input  I, IB, IL, MODESEL;
-endmodule
-
-module I3C_IOBUF (...);
-output O;
-inout IO;
-input  I, MODESEL;
+module DLL (...);
+input CLKIN;
+input STOP;
+input UPDNCNTL;
+input RESET;
+output [7:0]STEP;
+output LOCK;
+parameter DLL_FORCE = 0;
+parameter CODESCAL="000";
+parameter SCAL_EN="true";
+parameter DIV_SEL = 1'b0; 
 endmodule
 
 module CLKDIV (...);
@@ -1485,17 +1532,16 @@ input CLKIN,CE;
 output CLKOUT;
 endmodule
 
-module DLL (...);
-input CLKIN;
-input STOP;
-input UPDNCNTL;
-input RESET;
-output [7:0]STEP;
-output LOCK;
-parameter DLL_FORCE = 0;
-parameter CODESCAL="000";
-parameter SCAL_EN="true";
-parameter DIV_SEL = 1'b0; 
+module DQS (...);
+input DQSIN,PCLK,FCLK,RESET;
+input [3:0] READ;
+input [2:0] RCLKSEL;
+input [7:0] DLLSTEP;
+input [7:0] WSTEP;
+input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+output DQSR90, DQSW0, DQSW270; 
+output [2:0] RPOINT, WPOINT;
+output RVALID,RBURST, RFLAG, WFLAG;
 endmodule
 
 module DLLDLY (...);
@@ -1509,260 +1555,16 @@ parameter DLY_SIGN = 1'b0;
 parameter DLY_ADJ = 0; 
 endmodule
 
-module FLASH96K (...);
-input [5:0] RA,CA,PA;
-input [3:0] MODE;
-input [1:0] SEQ;
-input ACLK,PW,RESET,PE,OE;
-input [1:0] RMODE,WMODE;
-input [1:0] RBYTESEL,WBYTESEL;
-input [31:0] DIN;
-output [31:0] DOUT;
-endmodule
-
-module FLASH256K (...);
-input[6:0]XADR;
-input[5:0]YADR;
-input XE,YE,SE;
-input ERASE,PROG,NVSTR;
-input [31:0] DIN;
-output reg [31:0] DOUT;
-parameter IDLE    =  4'd0,
-          ERA_S1  =  4'd1,
-		  ERA_S2  =  4'd2,
-		  ERA_S3  =  4'd3,
-		  ERA_S4  =  4'd4,
-		  ERA_S5  =  4'd5,
-		  PRO_S1  =  4'd6,
-		  PRO_S2  =  4'd7,
-		  PRO_S3  =  4'd8,
-		  PRO_S4  =  4'd9,
-		  PRO_S5  =  4'd10,
-		  RD_S1   =  4'd11,
-		  RD_S2   =  4'd12;		  
-endmodule
-
-module FLASH608K (...);
-input[8:0]XADR;
-input[5:0]YADR;
-input XE,YE,SE;
-input ERASE,PROG,NVSTR;
-input [31:0] DIN;
-output reg [31:0] DOUT;
-parameter IDLE    =  4'd0,
-          ERA_S1  =  4'd1,
-		  ERA_S2  =  4'd2,
-		  ERA_S3  =  4'd3,
-		  ERA_S4  =  4'd4,
-   		  ERA_S5  =  4'd5,
-		  PRO_S1  =  4'd6,
-		  PRO_S2  =  4'd7,
-		  PRO_S3  =  4'd8,
-		  PRO_S4  =  4'd9,
-		  PRO_S5  =  4'd10,
-		  RD_S1   =  4'd11,
-		  RD_S2   =  4'd12;
-endmodule
-
 module DQCE (...);
 input CLKIN;
 input CE;
 output CLKOUT;
 endmodule
 
-module FLASH128K (...);
-input [31:0] DIN;
-input [14:0] ADDR;
-input CS,AE,OE;
-input PCLK;
-input PROG, SERA, MASE;
-input NVSTR;
-input IFREN;
-input RESETN;
-output [31:0] DOUT;
-output TBIT;
-parameter IDLE  = 4'd0,
-          READ_S1 = 4'd1,
-          READ_S2 = 4'd2,
-          PROG_S1 = 4'd3,
-          PROG_S2 = 4'd4,
-          PROG_S3 = 4'd5,
-          PROG_S4 = 4'd6,
-          SERA_S1 = 4'd7,
-          SERA_S2 = 4'd8,
-          SERA_S3 = 4'd9,
-          SERA_S4 = 4'd10,
-          MASE_S1 = 4'd11,
-          MASE_S2 = 4'd12,
-          MASE_S3 = 4'd13,
-          MASE_S4 = 4'd14;
-endmodule
-
-module MCU (...);
-endmodule
-
-module USB20_PHY (...);
-parameter DATABUS16_8 = 1'b0;
-parameter ADP_PRBEN = 1'b0;
-parameter TEST_MODE = 5'b00000;
-parameter HSDRV1 = 1'b0; 
-parameter HSDRV0 = 1'b0; 
-parameter CLK_SEL = 1'b0;
-parameter M = 4'b0000; 
-parameter N = 6'b101000; 
-parameter C = 2'b01; 
-parameter FOC_LOCK = 1'b0;
-input   [15:0]  DATAIN;
-input   TXVLD;
-input   TXVLDH;
-input   RESET;
-input   SUSPENDM;
-input   [1:0]   XCVRSEL;
-input   TERMSEL;
-input   [1:0]   OPMODE;
-output  [15:0]  DATAOUT;
-output  TXREADY;
-output  RXACTIVE;
-output  RXVLD;
-output  RXVLDH;
-output  CLK;      
-output  RXERROR;
-inout   DP;
-inout   DM;
-output  [1:0]   LINESTATE;
-input   IDPULLUP;
-input   DPPD;
-input   DMPD;
-input   CHARGVBUS;
-input   DISCHARGVBUS;
-input   TXBITSTUFFEN;
-input   TXBITSTUFFENH;
-input   TXENN;
-input   TXDAT;
-input   TXSE0;
-input   FSLSSERIAL;
-output  HOSTDIS;
-output  IDDIG;
-output  ADPPRB;
-output  ADPSNS;
-output  SESSVLD;
-output  VBUSVLD;
-output  RXDP;
-output  RXDM;
-output  RXRCV;
-output  LBKERR;
-output  CLKRDY;
-input   INTCLK;
-inout   ID;
-inout   VBUS;
-inout   REXT;
-input   XIN;
-inout   XOUT;
-input	TEST;
-output	CLK480PAD;
-input        SCANCLK; 
-input        SCANEN; 
-input        SCANMODE; 
-input        TRESETN; 
-input        SCANIN1; 
-output       SCANOUT1; 
-input        SCANIN2; 
-output       SCANOUT2; 
-input        SCANIN3; 
-output       SCANOUT3; 
-input        SCANIN4; 
-output       SCANOUT4; 
-input        SCANIN5; 
-output       SCANOUT5; 
-input        SCANIN6; 
-output       SCANOUT6; 
-endmodule
-
-module ADC (...);
-endmodule
-
 module CLKDIV2 (...);
 parameter GSREN = "false"; 
 input HCLKIN, RESETN;
 output CLKOUT;
-endmodule
-
-module DCC (...);
-output CLKOUT;
-input CLKIN;
-parameter DCC_EN = 1'b1; 
-parameter FCLKIN = 50.0;
-endmodule
-
-module DHCENC (...);
-input CLKIN, CE;
-output CLKOUT, CLKOUTN;
-endmodule
-
-module FLASH64K (...);
-input[4:0]XADR;
-input[5:0]YADR;
-input XE,YE,SE;
-input ERASE,PROG,NVSTR;
-input SLEEP;
-input [31:0] DIN;
-output reg [31:0] DOUT;
-parameter IDLE    =  4'd0,
-          ERA_S1  =  4'd1,
-		  ERA_S2  =  4'd2,
-		  ERA_S3  =  4'd3,
-		  ERA_S4  =  4'd4,
-		  ERA_S5  =  4'd5,
-		  PRO_S1  =  4'd6,
-		  PRO_S2  =  4'd7,
-		  PRO_S3  =  4'd8,
-		  PRO_S4  =  4'd9,
-		  PRO_S5  =  4'd10,
-		  RD_S1   =  4'd11,
-		  RD_S2   =  4'd12;		  
-endmodule
-
-module FLASH64KZ (...);
-input[4:0]XADR;
-input[5:0]YADR;
-input XE,YE,SE;
-input ERASE,PROG,NVSTR;
-input [31:0] DIN;
-output reg [31:0] DOUT;
-parameter IDLE    =  4'd0,
-          ERA_S1  =  4'd1,
-		  ERA_S2  =  4'd2,
-		  ERA_S3  =  4'd3,
-		  ERA_S4  =  4'd4,
-		  ERA_S5  =  4'd5,
-		  PRO_S1  =  4'd6,
-		  PRO_S2  =  4'd7,
-		  PRO_S3  =  4'd8,
-		  PRO_S4  =  4'd9,
-		  PRO_S5  =  4'd10,
-		  RD_S1   =  4'd11,
-		  RD_S2   =  4'd12;		  
-endmodule
-
-module I3C (...);
-parameter ADDRESS = 7'b0000000;
-input 	LGYS, CMS, ACS, AAS, STOPS, STRTS;
-output 	LGYO, CMO, ACO, AAO, SIO, STOPO, STRTO;
-input 	LGYC, CMC, ACC, AAC, SIC, STOPC, STRTC;
-input	STRTHDS, SENDAHS, SENDALS, ACKHS;
-input	ACKLS, STOPSUS, STOPHDS, SENDDHS;
-input	SENDDLS, RECVDHS, RECVDLS, ADDRS;
-output	PARITYERROR;
-input 	[7:0] DI;
-output 	[7:0] DOBUF;
-output 	[7:0] DO;
-output 	[7:0] STATE;
-input	SDAI, SCLI;
-output	SDAO, SCLO;
-output	SDAOEN, SCLOEN;
-output	SDAPULLO, SCLPULLO;
-output	SDAPULLOEN, SCLPULLOEN;
-input 	CE, RESET, CLK;
 endmodule
 
 module IODELAYA (...);
@@ -1775,56 +1577,50 @@ output DF;
 output DO;
 endmodule
 
-module IODELAYC (...);
-parameter C_STATIC_DLY = 0; 
-parameter DYN_DA_SEL = "false"; 
-parameter DA_SEL = 2'b00;
-input DI;
-input  SDTAP;
-input  SETN;
-input  VALUE;
-input [1:0] DASEL;
-input [1:0] DAADJ;
-output DF;
-output DO;
-output DAO;
+module IBUF_R (...);
+input  I;
+input RTEN;
+output O;
 endmodule
 
-
-module SPMI (...);
-parameter FUNCTION_CTRL = 7'b0000000; 
-parameter MSID_CLKSEL = 7'b0000000;
-parameter RESPOND_DELAY = 4'b0000;
-parameter SCLK_NORMAL_PERIOD = 7'b0000000;
-parameter SCLK_LOW_PERIOD = 7'b0000000;
-parameter CLK_FREQ = 7'b0000000;
-parameter SHUTDOWN_BY_ENABLE = 1'b0; 
-input	CLKEXT, ENEXT;
-inout	SDATA, 	SCLK;
-input 	CLK, CE, RESETN, LOCRESET;
-input 	PA, SA, CA;
-input	[3:0] 	ADDRI;
-input	[7:0] 	DATAI;
-output 	[3:0] 	ADDRO;
-output 	[7:0] 	DATAO;
-output 	[15:0] 	STATE;
-output	[3:0]	CMD;
+module IOBUF_R (...);
+input I,OEN;
+input RTEN;
+output O;
+inout IO;
 endmodule
 
-module IODELAYB (...);
-parameter C_STATIC_DLY = 0; 
-parameter DELAY_MUX = 2'b00; 
-parameter DA_SEL = 2'b00;
-input DI;
-input  SDTAP;
-input  SETN;
-input  VALUE;
-input [1:0] DAADJ;
-output DF;
-output DO;
-output DAO;
+module ELVDS_IBUF_R (...);
+output O;
+input I, IB;
+input RTEN;
 endmodule
 
+module ELVDS_IOBUF_R (...);
+output  O;
+inout IO, IOB;
+input I, OEN;
+input RTEN;
+endmodule
+
+module OTP (...);
+input CSB, SCLK;
+output DOUT;
+endmodule
+
+module SAMB (...);
+input [23:0] SPIAD;
+input LOADN_SPIAD;
+endmodule
+
+module CLKDIVG (...);
+input CLKIN;
+input RESETN;
+input CALIB;
+output CLKOUT;
+parameter DIV_MODE = "2"; 
+parameter GSREN = "false"; 
+endmodule
 
 module PLLO (...);
 input CLKIN;
@@ -1908,83 +1704,21 @@ parameter DYN_RES_SEL= "FALSE";
 parameter LPR_REF = 7'bXXXXXXX;
 endmodule
 
-module DCCG (...);
-output CLKOUT;
-input CLKIN;
-parameter DCC_MODE = 2'b00; 
-parameter FCLKIN = 50.0;
+module ELVDS_IBUF_MIPI (...);
+output OH, OL;
+input  I, IB;
 endmodule
 
-module FLASH96KA (...);
-input[5:0]XADR;
-input[5:0]YADR;
-input XE,YE,SE;
-input ERASE,PROG,NVSTR;
-input [31:0] DIN;
-input SLEEP;
-output reg [31:0] DOUT;
-parameter IDLE    =  4'd0,
-          ERA_S1  =  4'd1,
-		  ERA_S2  =  4'd2,
-		  ERA_S3  =  4'd3,
-		  ERA_S4  =  4'd4,
-		  ERA_S5  =  4'd5,
-		  PRO_S1  =  4'd6,
-		  PRO_S2  =  4'd7,
-		  PRO_S3  =  4'd8,
-		  PRO_S4  =  4'd9,
-		  PRO_S5  =  4'd10,
-		  RD_S1   =  4'd11,
-		  RD_S2   =  4'd12;		  
+module MIPI_IBUF (...);
+output OH, OL, OB;
+inout IO, IOB;
+input  I, IB;
+input OEN, OENB;
+input HSREN;
 endmodule
 
-module MIPI_DPHY_RX (...);
-output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
-output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
-output DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N, DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P;
-output DI_LPRXCK_N, DI_LPRXCK_P;
-output RX_CLK_O;          
-output DESKEW_ERROR;      
-inout  CK_N, CK_P, RX0_N, RX0_P, RX1_N, RX1_P, RX2_N, RX2_P, RX3_N, RX3_P;
-input LPRX_EN_CK, LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3;
-input HSRX_ODTEN_CK, HSRX_ODTEN_D0,  HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3;
-input D0LN_HSRX_DREN,  D1LN_HSRX_DREN, D2LN_HSRX_DREN, D3LN_HSRX_DREN;
-input HSRX_EN_CK;         
-input HS_8BIT_MODE;       
-input RX_CLK_1X;          
-input RX_INVERT;          
-input LALIGN_EN;          
-input WALIGN_BY;          
-input DO_LPTX0_N, DO_LPTX0_P, DO_LPTX1_N, DO_LPTX1_P, DO_LPTX2_N, DO_LPTX2_P, DO_LPTX3_N, DO_LPTX3_P;
-input DO_LPTXCK_N, DO_LPTXCK_P;
-input LPTX_EN_CK, LPTX_EN_D0, LPTX_EN_D1, LPTX_EN_D2, LPTX_EN_D3;
-input BYTE_LENDIAN;       
-input HSRX_STOP;          
-input LPRX_ULP_LN0, LPRX_ULP_LN1, LPRX_ULP_LN2, LPRX_ULP_LN3, LPRX_ULP_CK;
-input PWRON;              
-input RESET;              
-input [2:0] DESKEW_LNSEL; 
-input [7:0] DESKEW_MTH;   
-input [6:0] DESKEW_OWVAL; 
-input DESKEW_REQ;         
-input DRST_N;             
-input ONE_BYTE0_MATCH;    
-input WORD_LENDIAN;       
-input [2:0] FIFO_RD_STD;  
-parameter ALIGN_BYTE = 8'b10111000;
-parameter MIPI_LANE0_EN = 1'b0;
-parameter MIPI_LANE1_EN = 1'b0;
-parameter MIPI_LANE2_EN = 1'b0;
-parameter MIPI_LANE3_EN = 1'b0;
-parameter MIPI_CK_EN = 1'b1;
-parameter SYNC_CLK_SEL = 1'b1;
-endmodule
-
-module CLKDIVG (...);
-input CLKIN;
-input RESETN;
-input CALIB;
-output CLKOUT;
-parameter DIV_MODE = "2"; 
-parameter GSREN = "false"; 
+module I3C_IOBUF (...);
+output O;
+inout IO;
+input  I, MODESEL;
 endmodule

@@ -242,7 +242,7 @@ Processes
 
 Declares a process, with zero or more attributes, with the given identifier in
 the enclosing module. The body of a process consists of zero or more
-assignments, exactly one switch, and zero or more syncs.
+assignments followed by zero or more switches and zero or more syncs.
 
 See :ref:`sec:rtlil_process` for an overview of processes.
 
@@ -250,7 +250,7 @@ See :ref:`sec:rtlil_process` for an overview of processes.
 
     <process>       ::= <attr-stmt>* <proc-stmt> <process-body> <proc-end-stmt>
     <proc-stmt>     ::= process <id> <eol>
-    <process-body>  ::= <assign-stmt>* <switch>? <assign-stmt>* <sync>*
+    <process-body>  ::= <assign-stmt>* <switch>* <sync>*
     <assign-stmt>   ::= assign <dest-sigspec> <src-sigspec> <eol>
     <dest-sigspec>  ::= <sigspec>
     <src-sigspec>   ::= <sigspec>
@@ -262,8 +262,8 @@ Switches
 Switches test a signal for equality against a list of cases. Each case specifies
 a comma-separated list of signals to check against. If there are no signals in
 the list, then the case is the default case. The body of a case consists of zero
-or more switches and assignments. Both switches and cases may have zero or more
-attributes.
+or more assignments followed by zero or more switches. Both switches and cases
+may have zero or more attributes.
 
 .. code:: BNF
 
@@ -272,7 +272,7 @@ attributes.
     <case>              ::= <attr-stmt>* <case-stmt> <case-body>
     <case-stmt>         ::= case <compare>? <eol>
     <compare>           ::= <sigspec> (, <sigspec>)*
-    <case-body>         ::= (<switch> | <assign-stmt>)*
+    <case-body>         ::= <assign-stmt>* <switch>*
     <switch-end-stmt>   ::= end <eol>
 
 Syncs

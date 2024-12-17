@@ -1,5 +1,6 @@
 #include "kernel/yosys.h"
 #include "kernel/ff.h"
+#include "libparse.h"
 #include <optional>
 
 USING_YOSYS_NAMESPACE
@@ -10,6 +11,7 @@ struct ClockGateCell {
 	IdString ce_pin;
 	IdString clk_in_pin;
 	IdString clk_out_pin;
+	std::vector<IdString> tie_lo_pins;
 };
 
 ClockGateCell icg_from_arg(std::string& name, std::string& str) {
@@ -37,6 +39,152 @@ ClockGateCell icg_from_arg(std::string& name, std::string& str) {
 	return c;
 }
 
+static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
+	find_icgs(std::vector<const LibertyAst *> cells, std::vector<std::string> const& dont_use_cells) {
+	// We will pick the most suitable ICG absed on tie_lo count and area
+	struct ICGRankable : public ClockGateCell { double area; };
+	std::optional<ICGRankable> best_pos;
+	std::optional<ICGRankable> best_neg;
+
+	// This is a lot of boilerplate, isn't it?
+	for (auto cell : cells)
+	{
+		const LibertyAst *dn = cell->find("dont_use");
+		if (dn != nullptr && dn->value == "true")
+			continue;
+
+		bool dont_use = false;
+		for (auto dont_use_cell : dont_use_cells)
+		{
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
+			{
+				dont_use = true;
+				break;
+			}
+		}
+		if (dont_use)
+			continue;
+
+		const LibertyAst *icg_kind_ast = cell->find("clock_gating_integrated_cell");
+		if (icg_kind_ast == nullptr)
+			continue;
+
+		auto cell_name = cell->args[0];
+		auto icg_kind = icg_kind_ast->value;
+		auto starts_with = [&](std::string prefix) {
+			return icg_kind.compare(0, prefix.size(), prefix) == 0;
+		};
+		bool clk_pol;
+		if (icg_kind == "latch_posedge" || starts_with("latch_posedge_")) {
+			clk_pol = true;
+		} else if (icg_kind == "latch_negedge" || starts_with("latch_negedge_")) {
+			clk_pol = false;
+		} else {
+			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name.c_str(), icg_kind.c_str());
+			continue;
+		}
+
+		log_debug("maybe valid icg: %s\n", cell_name.c_str());
+		ClockGateCell icg_interface;
+		icg_interface.name = RTLIL::escape_id(cell_name);
+
+		for (auto pin : cell->children) {
+			if (pin->id != "pin" || pin->args.size() != 1)
+				continue;
+
+			if (pin->find("clock_gate_clock_pin")) {
+				if (!icg_interface.clk_in_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_clock_pin in cell %s\n",
+						cell_name.c_str());
+					continue;
+				} else
+					icg_interface.clk_in_pin = RTLIL::escape_id(pin->args[0]);
+			} else if (pin->find("clock_gate_out_pin")) {
+				if (!icg_interface.clk_out_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_out_pin in cell %s\n",
+						cell_name.c_str());
+					continue;
+				} else
+					icg_interface.clk_out_pin = RTLIL::escape_id(pin->args[0]);
+			} else if (pin->find("clock_gate_enable_pin")) {
+				if (!icg_interface.ce_pin.empty()) {
+					log_warning("Malformed liberty file - multiple clock_gate_enable_pin in cell %s\n",
+						cell_name.c_str());
+					continue;
+				} else
+					icg_interface.ce_pin = RTLIL::escape_id(pin->args[0]);
+			} else if (pin->find("clock_gate_test_pin")) {
+				icg_interface.tie_lo_pins.push_back(RTLIL::escape_id(pin->args[0]));
+			} else {
+				const LibertyAst *dir = pin->find("direction");
+				if (dir->value == "internal")
+					continue;
+
+				log_warning("Malformed liberty file - extra pin %s in cell %s\n",
+					pin->args[0].c_str(), cell_name.c_str());
+				continue;
+			}
+		}
+
+		if (icg_interface.clk_in_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_clock_pin in cell %s",
+				cell_name.c_str());
+			continue;
+		}
+		if (icg_interface.clk_out_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_out_pin in cell %s",
+				cell_name.c_str());
+			continue;
+		}
+		if (icg_interface.ce_pin.empty()) {
+			log_warning("Malformed liberty file - missing clock_gate_enable_pin in cell %s",
+				cell_name.c_str());
+			continue;
+		}
+
+		double area = 0;
+		const LibertyAst *ar = cell->find("area");
+		if (ar != nullptr && !ar->value.empty())
+			area = atof(ar->value.c_str());
+
+		std::optional<ICGRankable>& icg_to_beat = clk_pol ? best_pos : best_neg;
+
+		bool winning = false;
+		if (icg_to_beat) {
+			log_debug("ties: %zu ? %zu\n", icg_to_beat->tie_lo_pins.size(),
+				icg_interface.tie_lo_pins.size());
+			log_debug("area: %f ? %f\n", icg_to_beat->area, area);
+
+			// Prefer fewer test enables over area reduction (unlikely to matter)
+			auto goal = std::make_pair(icg_to_beat->tie_lo_pins.size(), icg_to_beat->area);
+			auto cost = std::make_pair(icg_interface.tie_lo_pins.size(), area);
+			winning = cost < goal;
+
+			if (winning)
+				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->name.c_str());
+		} else {
+			log_debug("%s is the first of its polarity\n", icg_interface.name.c_str());
+			winning = true;
+		}
+		if (winning) {
+			ICGRankable new_icg {icg_interface, area};
+			icg_to_beat.emplace(new_icg);
+		}
+	}
+
+	std::optional<ClockGateCell> pos;
+	std::optional<ClockGateCell> neg;
+	if (best_pos) {
+		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name.c_str());
+		pos.emplace(*best_pos);
+	}
+	if (best_neg) {
+		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name.c_str());
+		neg.emplace(*best_neg);
+	}
+	return std::make_pair(pos, neg);
+}
+
 struct ClockgatePass : public Pass {
 	ClockgatePass() : Pass("clockgate", "extract clock gating out of flip flops") { }
 	void help() override {
@@ -60,12 +208,20 @@ struct ClockgatePass : public Pass {
 		log("        user-specified <celltype> ICG (integrated clock gating)\n");
 		log("        cell with ports named <ce>, <clk>, <gclk>.\n");
 		log("        The ICG's clock enable pin must be active high.\n");
+		log("    -liberty <filename>\n");
+		log("        If specified, ICGs will be selected from the liberty files\n");
+		log("        if available. Priority is given to cells with fewer tie_lo\n");
+		log("        inputs and smaller size. This removes the need to manually\n");
+		log("        specify -pos or -neg and -tie_lo.\n");
+		log("    -dont_use <celltype>\n");
+		log("        Cells <celltype> won't be considered when searching for ICGs\n");
+		log("        in the liberty file specified by -liberty.\n");
 		log("    -tie_lo <port_name>\n");
 		log("        Port <port_name> of the ICG will be tied to zero.\n");
 		log("        Intended for DFT scan-enable pins.\n");
 		log("    -min_net_size <n>\n");
 		log("        Only transform sets of at least <n> eligible FFs.\n");
-		// log("        \n");
+		log("        \n");
 	}
 
 	// One ICG will be generated per ClkNetInfo
@@ -110,7 +266,9 @@ struct ClockgatePass : public Pass {
 
 		std::optional<ClockGateCell> pos_icg_desc;
 		std::optional<ClockGateCell> neg_icg_desc;
-		std::vector<std::string> tie_lo_ports;
+		std::vector<std::string> tie_lo_pins;
+		std::vector<std::string> liberty_files;
+		std::vector<std::string> dont_use_cells;
 		int min_net_size = 0;
 
 		size_t argidx;
@@ -119,17 +277,54 @@ struct ClockgatePass : public Pass {
 				auto name = args[++argidx];
 				auto rest = args[++argidx];
 				pos_icg_desc = icg_from_arg(name, rest);
+				continue;
 			}
 			if (args[argidx] == "-neg" && argidx+2 < args.size()) {
 				auto name = args[++argidx];
 				auto rest = args[++argidx];
 				neg_icg_desc = icg_from_arg(name, rest);
+				continue;
 			}
 			if (args[argidx] == "-tie_lo" && argidx+1 < args.size()) {
-				tie_lo_ports.push_back(RTLIL::escape_id(args[++argidx]));
+				tie_lo_pins.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
+				std::string liberty_file = args[++argidx];
+				rewrite_filename(liberty_file);
+				liberty_files.push_back(liberty_file);
+				continue;
+			}
+			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {
+				dont_use_cells.push_back(args[++argidx]);
+				continue;
 			}
 			if (args[argidx] == "-min_net_size" && argidx+1 < args.size()) {
 				min_net_size = atoi(args[++argidx].c_str());
+				continue;
+			}
+			break;
+		}
+
+		if (!liberty_files.empty()) {
+			LibertyMergedCells merged;
+			for (auto path : liberty_files) {
+				std::ifstream f;
+				f.open(path.c_str());
+				if (f.fail())
+					log_cmd_error("Can't open liberty file `%s': %s\n", path.c_str(), strerror(errno));
+				LibertyParser p(f);
+				merged.merge(p);
+				f.close();
+			}
+			std::tie(pos_icg_desc, neg_icg_desc) =
+				find_icgs(merged.cells, dont_use_cells);
+		} else {
+			for (auto pin : tie_lo_pins) {
+				if (pos_icg_desc)
+					pos_icg_desc->tie_lo_pins.push_back(pin);
+				if (neg_icg_desc)
+					neg_icg_desc->tie_lo_pins.push_back(pin);
 			}
 		}
 
@@ -185,7 +380,7 @@ struct ClockgatePass : public Pass {
 				gclk.new_net = module->addWire(NEW_ID);
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
-				for (auto port : tie_lo_ports)
+				for (auto port : matching_icg_desc->tie_lo_pins)
 					icg->setPort(port, Const(0, 1));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {

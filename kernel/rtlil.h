@@ -780,7 +780,7 @@ public:
 	RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const;
 
 	// find the MSB without redundant leading bits
-	size_t get_min_size(bool is_signed) const;
+	int get_min_size(bool is_signed) const;
 
 	// compress representation to the minimum required bits
 	void compress(bool is_signed = false);
@@ -814,6 +814,7 @@ struct RTLIL::AttrObject
 	void set_bool_attribute(const RTLIL::IdString &id, bool value=true);
 	bool get_bool_attribute(const RTLIL::IdString &id) const;
 
+	[[deprecated("Use Module::get_blackbox_attribute() instead.")]]
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
@@ -1290,6 +1291,10 @@ public:
 	virtual void check();
 	virtual void optimize();
 	virtual void makeblackbox();
+
+	bool get_blackbox_attribute(bool ignore_wb=false) const {
+		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
+	}
 
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
