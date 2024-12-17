@@ -1,0 +1,335 @@
+log -header "Test basic s?(a+b):a pattern gets transformed (a,b module inputs)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	input wire s;
+	output wire [3:0] y;
+
+	wire [3:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test basic s?(a+b):a pattern gets transformed (a is driven by a cell)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a_, b, s, y);
+	input wire [3:0] a_;
+	wire [3:0] a = ~a_;
+	input wire [3:0] b;
+	input wire s;
+	output wire [3:0] y;
+
+	wire [3:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test basic s?(a+b):a pattern gets transformed (b is driven by a cell, output consumed by a cell)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b_, f, s, y_);
+	input wire [3:0] a;
+	input wire [3:0] b_;
+	input wire [3:0] f;
+	wire [3:0] b = b_ ^ f;
+	input wire s;
+	wire [3:0] y;
+	output wire [3:0] y_;
+	assign y_ = ~y;
+
+	wire [3:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test no transform when a+b has more fanouts (module output)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, ab, s, y);
+	input wire [2:0] a;
+	input wire [2:0] b;
+	output wire [2:0] ab;
+	output wire [2:0] y;
+	input wire s;
+	assign ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test no transform when a+b has more fanouts (single bit, cell)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y, z);
+	input wire [2:0] a;
+	input wire [2:0] b;
+	output wire [2:0] y;
+	input wire s;
+	wire [2:0] ab = a + b;
+	assign y = s ? ab : a;
+	output wire [2:0] z = !ab[1];
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test no transform when a+b width smaller than a's width"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire [2:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test no transform when (a+b) wider than a, adder’s a input is unsigned, a is not padded with zeros on the muxes input"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire [3:0] ab = a + b;
+	assign y = s ? ab : {a[2], a};
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test no transform when (a+b) wider than a, adder’s a input is signed, a is not sign-extended on the muxes input"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire signed [3:0] ab = $signed(a) + $signed(b);
+	assign y = s ? ab : {1'b0, a};
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test no transform when adder and mux not connected together but otherwise fitting transform. criteria"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire [3:0] ab = a + b;
+	wire [3:0] ab_ = !a;
+	assign y = s ? ab_ : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test transform when (a+b) wider than a, adder’s a input is unsigned, a padded with zeros on the muxes input"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire [3:0] ab = a + b;
+	assign y = s ? ab : {1'b0, a};
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test transform when (a+b) wider than a, adder’s a input is signed, a sign-extended on the muxes input"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire signed [3:0] ab = $signed(a) + $signed(b);
+	assign y = s ? ab : {a[2], a};
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$add %co1 %a w:y %i
+
+log -pop
+log -header "Test transform when pattern is s?a:(a+b)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire signed [3:0] ab = a + b;
+	assign y = s ? a : ab;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test transform when pattern is a?(b+a):a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire signed [3:0] ab = b + a;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test transform when widths b > (a+b) > a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [4:0] b;
+	output wire [3:0] y;
+	input wire s;
+	wire signed [3:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test transform when widths (a+b) > a > b"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [2:0] a;
+	input wire [3:0] b;
+	output wire [4:0] y;
+	input wire s;
+	wire signed [4:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test transform when widths (a+b) > b > a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [2:0] b;
+	output wire [4:0] y;
+	input wire s;
+	wire signed [4:0] ab = a + b;
+	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired

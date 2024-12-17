@@ -845,6 +845,7 @@ endif
 	+cd tests/sim && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
+	+cd tests/peepopt && bash run-test.sh
 	+cd tests/proc && bash run-test.sh
 	+cd tests/blif && bash run-test.sh
 	+cd tests/opt && bash run-test.sh
