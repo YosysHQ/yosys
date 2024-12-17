@@ -1014,12 +1014,12 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					RTLIL::SigBit a = sig_a[i];
 					if (b == ((bi ^ ci) ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], a);
-						module->connect(sig_x[i], ci ? module->Not(NEW_ID2_SUFFIX("sig_x_inv"), a, false, cell->get_src_attribute()).as_bit() : a); // SILIMATE: Improve the naming
+						module->connect(sig_x[i], ci ? module->Not(NEW_ID2_SUFFIX("x_inv"), a, false, cell->get_src_attribute()).as_bit() : a); // SILIMATE: Improve the naming
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else if (a == (ci ? State::S1 : State::S0)) {
-						module->connect(sig_y[i], bi ? module->Not(NEW_ID2_SUFFIX("sig_y_inv"), b, false, cell->get_src_attribute()).as_bit() : b); // SILIMATE: Improve the naming
-						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID2_SUFFIX("sig_x_inv"), b, false, cell->get_src_attribute()).as_bit() : b); // SILIMATE: Improve the naming
+						module->connect(sig_y[i], bi ? module->Not(NEW_ID2_SUFFIX("y_inv"), b, false, cell->get_src_attribute()).as_bit() : b); // SILIMATE: Improve the naming
+						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID2_SUFFIX("x_inv"), b, false, cell->get_src_attribute()).as_bit() : b); // SILIMATE: Improve the naming
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else
@@ -1436,7 +1436,7 @@ skip_fine_alu:
 						/* sub, b is 0 */
 						RTLIL::SigSpec a = cell->getPort(ID::A);
 						a.extend_u0(y_width, is_signed);
-						module->connect(cell->getPort(ID::X), module->Not(NEW_ID2_SUFFIX("sig_ci_inv"), a, false, cell->get_src_attribute())); // SILIMATE: Improve the naming
+						module->connect(cell->getPort(ID::X), module->Not(NEW_ID2_SUFFIX("ci_inv"), a, false, cell->get_src_attribute())); // SILIMATE: Improve the naming
 						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S1, y_width));
 					} else {
 						/* add */

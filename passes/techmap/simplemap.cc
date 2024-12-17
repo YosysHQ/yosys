@@ -114,7 +114,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	while (sig_a.size() > 1)
 	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("sig_t"), sig_a.size() / 2); // SILIMATE: Improve the naming
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("t"), sig_a.size() / 2); // SILIMATE: Improve the naming
 
 		for (int i = 0; i < sig_a.size(); i += 2)
 		{
@@ -135,7 +135,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	if (cell->type == ID($reduce_xnor)) {
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("sig_t")); // SILIMATE: Improve the naming
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("t")); // SILIMATE: Improve the naming
 		RTLIL::Cell *gate = module->addCell(NEW_ID2, ID($_NOT_)); // SILIMATE: Improve the naming
 		gate->attributes = cell->attributes;
 		gate->setPort(ID::A, sig_a);
@@ -155,7 +155,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::Cell
 {
 	while (sig.size() > 1)
 	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("sig_t"), sig.size() / 2); // SILIMATE: Improve the naming
+		RTLIL::SigSpec sig_t = module->addWire(NEW_ID2_SUFFIX("t"), sig.size() / 2); // SILIMATE: Improve the naming
 
 		for (int i = 0; i < sig.size(); i += 2)
 		{
