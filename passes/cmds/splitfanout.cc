@@ -137,7 +137,7 @@ struct SplitfanoutWorker
 			IdString new_name;
 			Cell *new_cell;
 			if (bit_user_i-- != 0) { // create a new cell
-				new_name = module->uniquify(cell->name.str());
+				new_name = module->uniquify(stringf("%s_splfo%d", cell->name.c_str(), bit_user_i));
 				new_cell = module->addCell(new_name, cell);
 				// Add new cell to the bit_users_db
 				for (auto conn : new_cell->connections()) {
@@ -157,7 +157,7 @@ struct SplitfanoutWorker
 			// Connect the new cell to the user
 			if (std::get<1>(bit_user) == IdString()) { // is wire
 				Wire *old_wire = module->wire(std::get<0>(bit_user));
-				Wire *new_wire = module->addWire(NEW_ID2_SUFFIX("splfo"), old_wire); // SILIMATE: Improve the naming
+				Wire *new_wire = module->addWire(NEW_ID2_SUFFIX(stringf("splfow%d", bit_user_i)), old_wire); // SILIMATE: Improve the naming
 				module->swap_names(old_wire, new_wire);
 				old_wire->port_input = false;
 				old_wire->port_output = false;
@@ -165,7 +165,7 @@ struct SplitfanoutWorker
 				new_cell->setPort(outport, sig);
 			}
 			else {
-				Wire *new_wire = module->addWire(NEW_ID2_SUFFIX("splfo"), GetSize(outsig)); // SILIMATE: Improve the naming
+				Wire *new_wire = module->addWire(NEW_ID2_SUFFIX(stringf("splfon%d", bit_user_i)), GetSize(outsig)); // SILIMATE: Improve the naming
 				Cell *target_cell = module->cell(std::get<0>(bit_user));
 				SigSpec sig = target_cell->getPort(std::get<1>(bit_user));
 				sig.replace(std::get<2>(bit_user), new_wire);

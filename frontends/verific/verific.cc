@@ -240,12 +240,12 @@ bool is_blackbox(Netlist *nl)
 
 RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
-	// SILIMATE: Uniquify by adding _<autoidx> suffix
-	std::string s = stringf("$%s", obj->Name());
-	while (seen_ids.count(s + stringf("_ix%d", autoidx))) autoidx++;
-	s += stringf("_ix%d", autoidx++);
-	seen_ids.insert(s);
-	return s;
+	return module->uniquify(RTLIL::escape_id(obj->Name()));
+}
+
+RTLIL::IdString VerificImporter::new_verific_id_suffix(RTLIL::IdString id, const char *suffix)
+{
+	return module->uniquify(stringf("%s_%s", id.c_str(), suffix));
 }
 
 static const RTLIL::Const extract_vhdl_boolean(std::string &val)
@@ -647,7 +647,7 @@ RTLIL::SigSpec VerificImporter::operatorOutput(Instance *inst, const pool<Net*, 
 			dummy_wire = NULL;
 		} else {
 			if (dummy_wire == NULL)
-				dummy_wire = module->addWire(new_verific_id(inst));
+				dummy_wire = module->addWire(new_verific_id_suffix(RTLIL::escape_id(inst->Name()), "out"));
 			else
 				dummy_wire->width++;
 			sig.append(RTLIL::SigSpec(dummy_wire, dummy_wire->width - 1));
@@ -663,7 +663,7 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == PRIM_NAND) {
-		RTLIL::SigSpec tmp = module->addWire(new_verific_id(inst));
+		RTLIL::SigSpec tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"));
 		module->addAndGate(new_verific_id(inst), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
 		module->addNotGate(inst_name, tmp, net_map_at(inst->GetOutput()));
 		return true;
@@ -675,7 +675,7 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == PRIM_NOR) {
-		RTLIL::SigSpec tmp = module->addWire(new_verific_id(inst));
+		RTLIL::SigSpec tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"));
 		module->addOrGate(new_verific_id(inst), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
 		module->addNotGate(inst_name, tmp, net_map_at(inst->GetOutput()));
 		return true;
@@ -716,16 +716,16 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 	if (inst->Type() == PRIM_FADD)
 	{
 		RTLIL::SigSpec a = net_map_at(inst->GetInput1()), b = net_map_at(inst->GetInput2()), c = net_map_at(inst->GetCin());
-		RTLIL::SigSpec x = inst->GetCout() ? net_map_at(inst->GetCout()) : module->addWire(new_verific_id(inst));
-		RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(new_verific_id(inst));
-		RTLIL::SigSpec tmp1 = module->addWire(new_verific_id(inst));
-		RTLIL::SigSpec tmp2 = module->addWire(new_verific_id(inst));
-		RTLIL::SigSpec tmp3 = module->addWire(new_verific_id(inst));
-		module->addXorGate(new_verific_id(inst), a, b, tmp1);
+		RTLIL::SigSpec x = inst->GetCout() ? net_map_at(inst->GetCout()) : module->addWire(new_verific_id_suffix(inst_name, "x"));
+		RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(new_verific_id_suffix(inst_name, "y"));
+		RTLIL::SigSpec tmp1 = module->addWire(new_verific_id_suffix(inst_name, "tmp1"));
+		RTLIL::SigSpec tmp2 = module->addWire(new_verific_id_suffix(inst_name, "tmp2"));
+		RTLIL::SigSpec tmp3 = module->addWire(new_verific_id_suffix(inst_name, "tmp3"));
+		module->addXorGate(new_verific_id_suffix(inst_name, "tmp1_xor"), a, b, tmp1);
 		module->addXorGate(inst_name, tmp1, c, y);
-		module->addAndGate(new_verific_id(inst), tmp1, c, tmp2);
-		module->addAndGate(new_verific_id(inst), a, b, tmp3);
-		module->addOrGate(new_verific_id(inst), tmp2, tmp3, x);
+		module->addAndGate(new_verific_id_suffix(inst_name, "tmp2_and"), tmp1, c, tmp2);
+		module->addAndGate(new_verific_id_suffix(inst_name, "tmp3_and"), a, b, tmp3);
+		module->addOrGate(new_verific_id_suffix(inst_name, "x_or"), tmp2, tmp3, x);
 		return true;
 	}
 
@@ -776,8 +776,9 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		if (inst->GetAsyncCond()->IsGnd()) {
 			module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		} else {
-			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
-			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			RTLIL::SigSpec sig_set = module->And(new_verific_id_suffix(inst_name, "set"), net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_adata_inv = module->Not(new_verific_id_suffix(inst_name, "adata_inv"), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(new_verific_id_suffix(inst_name, "clr"), net_map_at(inst->GetAsyncCond()), sig_adata_inv);
 			module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		}
 		return true;
@@ -797,10 +798,10 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == PRIM_NAND) {
-		RTLIL::SigSpec tmp = module->addWire(new_verific_id(inst));
-		cell = module->addAnd(new_verific_id(inst), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+		RTLIL::SigSpec tmp = module->addWire(new_verific_id_suffix(inst_name, "and"));
+		cell = module->addAnd(new_verific_id_suffix(inst_name, "and"), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
 		import_attributes(cell->attributes, inst);
-		cell = module->addNot(inst_name, tmp, net_map_at(inst->GetOutput()));
+		cell = module->addNot(new_verific_id_suffix(inst_name, "inv"), tmp, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -812,10 +813,10 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == PRIM_NOR) {
-		RTLIL::SigSpec tmp = module->addWire(new_verific_id(inst));
-		cell = module->addOr(new_verific_id(inst), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
+		RTLIL::SigSpec tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"));
+		cell = module->addOr(new_verific_id_suffix(inst_name, "or"), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), tmp);
 		import_attributes(cell->attributes, inst);
-		cell = module->addNot(inst_name, tmp, net_map_at(inst->GetOutput()));
+		cell = module->addNot(new_verific_id_suffix(inst_name, "inv"), tmp, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -852,8 +853,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 	if (inst->Type() == PRIM_FADD)
 	{
-		RTLIL::SigSpec a_plus_b = module->addWire(new_verific_id(inst), 2);
-		RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(new_verific_id(inst));
+		RTLIL::SigSpec a_plus_b = module->addWire(new_verific_id_suffix(inst_name, "a_plus_b"), 2);
+		RTLIL::SigSpec y = inst->GetOutput() ? net_map_at(inst->GetOutput()) : module->addWire(new_verific_id_suffix(inst_name, "y"));
 		if (inst->GetCout())
 			y.append(net_map_at(inst->GetCout()));
 		cell = module->addAdd(new_verific_id(inst), net_map_at(inst->GetInput1()), net_map_at(inst->GetInput2()), a_plus_b);
@@ -913,8 +914,9 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		if (inst->GetAsyncCond()->IsGnd()) {
 			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		} else {
-			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
-			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			RTLIL::SigSpec sig_set = module->And(new_verific_id_suffix(inst_name, "set"), net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_adata_inv = module->Not(new_verific_id_suffix(inst_name, "adata_inv"), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(new_verific_id_suffix(inst_name, "clr"), net_map_at(inst->GetAsyncCond()), sig_adata_inv);
 			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		}
 		import_attributes(cell->attributes, inst);
@@ -936,8 +938,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 			cell = module->addAdd(inst_name, IN1, IN2, out, SIGNED);
 			import_attributes(cell->attributes, inst);
 		} else {
-			RTLIL::SigSpec tmp = module->addWire(new_verific_id(inst), GetSize(out));
-			cell = module->addAdd(new_verific_id(inst), IN1, IN2, tmp, SIGNED);
+			RTLIL::SigSpec tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"), GetSize(out));
+			cell = module->addAdd(new_verific_id_suffix(inst_name, "cin"), IN1, IN2, tmp, SIGNED);
 			import_attributes(cell->attributes, inst);
 			cell = module->addAdd(inst_name, tmp, net_map_at(inst->GetCin()), out, false);
 			import_attributes(cell->attributes, inst);
@@ -1002,8 +1004,9 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		Net *net_a_msb = inst->GetInput1Bit(0);
 		if (net_cin->IsGnd())
 			cell = module->addShr(inst_name, IN1, IN2, OUT, false);
-		else if (net_cin == net_a_msb)
+		else if (net_cin == net_a_msb) {
 			cell = module->addSshr(inst_name, IN1, IN2, OUT, true);
+		}
 		else
 			log_error("Can't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", inst->Name());
 		import_attributes(cell->attributes, inst);
@@ -1017,10 +1020,11 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == OPER_REDUCE_NAND) {
-		Wire *tmp = module->addWire(NEW_ID);
-		cell = module->addReduceAnd(inst_name, IN, tmp, SIGNED);
-		module->addNot(NEW_ID, tmp, net_map_at(inst->GetOutput()));
+		Wire *tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"));
+		cell = module->addReduceAnd(new_verific_id_suffix(inst_name, "reduce_and"), IN, tmp, SIGNED);
+		Cell *inv = module->addNot(new_verific_id_suffix(inst_name, "inv"), tmp, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
+		import_attributes(inv->attributes, inst);
 		return true;
 	}
 
@@ -1043,9 +1047,11 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == OPER_REDUCE_NOR) {
-		SigSpec t = module->ReduceOr(new_verific_id(inst), IN, SIGNED);
-		cell = module->addNot(inst_name, t, net_map_at(inst->GetOutput()));
+		Wire *tmp = module->addWire(new_verific_id_suffix(inst_name, "mid"));
+		cell = module->addReduceOr(new_verific_id_suffix(inst_name, "reduce_or"), IN, tmp, SIGNED);
+		Cell *inv = module->addNot(new_verific_id_suffix(inst_name, "inv"), tmp, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
+		import_attributes(inv->attributes, inst);
 		return true;
 	}
 
@@ -1236,8 +1242,9 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
 				for (width = 1; offset+width < GetSize(sig_acond); width++)
 					if (sig_acond[offset] != sig_acond[offset+width]) break;
-				RTLIL::SigSpec sig_set = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
-				RTLIL::SigSpec sig_clr = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), module->Not(NEW_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
+				RTLIL::SigSpec sig_set = module->Mux(new_verific_id_suffix(inst_name, "set"), RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
+				RTLIL::SigSpec sig_adata_inv = module->Not(new_verific_id_suffix(inst_name, "adata_inv"), sig_adata.extract(offset, width));
+				RTLIL::SigSpec sig_clr = module->Mux(new_verific_id_suffix(inst_name, "clr"), RTLIL::SigSpec(0, width), sig_adata_inv, sig_acond[offset]);
 				cell = module->addDlatchsr(module->uniquify(inst_name), net_map_at(inst->GetControl()), sig_set, sig_clr,
 						sig_d.extract(offset, width), sig_q.extract(offset, width));
 				import_attributes(cell->attributes, inst);
@@ -1567,7 +1574,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (verific_verbose)
 			log("  importing port %s.\n", port->Name());
 
-		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(port->Name()));
+		RTLIL::Wire *wire = module->addWire(new_verific_id(port));
 		import_attributes(wire->attributes, port, nl, 1);
 
 		wire->port_id = nl->IndexOf(port) + 1;
@@ -1593,7 +1600,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (verific_verbose)
 			log("  importing portbus %s.\n", portbus->Name());
 
-		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
+		RTLIL::Wire *wire = module->addWire(new_verific_id(portbus), portbus->Size());
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl, portbus->Size());
@@ -1756,7 +1763,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (net->Bus())
 			continue;
 
-		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : new_verific_id(net));
+		RTLIL::IdString wire_name = new_verific_id(net);
 
 		if (verific_verbose)
 			log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
@@ -1780,7 +1787,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		if (found_new_net)
 		{
-			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(netbus->Name()) : new_verific_id(netbus));
+			RTLIL::IdString wire_name = new_verific_id(netbus);
 
 			if (verific_verbose)
 				log("  importing netbus %s as %s.\n", netbus->Name(), log_id(wire_name));
@@ -1912,7 +1919,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
-		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : new_verific_id(inst));
+		RTLIL::IdString inst_name = new_verific_id(inst);
 
 		if (verific_verbose)
 			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), log_id(inst_name));
@@ -2047,9 +2054,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			unsigned width = inst->Input1Size();
 
 			SigSpec sig_d, sig_dx, sig_qx, sig_o, sig_ox;
-			sig_dx = module->addWire(new_verific_id(inst), width * 2);
-			sig_qx = module->addWire(new_verific_id(inst), width * 2);
-			sig_ox = module->addWire(new_verific_id(inst), width * 2);
+			sig_dx = module->addWire(new_verific_id_suffix(inst_name, "dx"), width * 2);
+			sig_qx = module->addWire(new_verific_id_suffix(inst_name, "qx"), width * 2);
+			sig_ox = module->addWire(new_verific_id_suffix(inst_name, "ox"), width * 2);
 
 			for (int i = int(width)-1; i >= 0; i--){
 				sig_d.append(net_map_at(inst->GetInput1Bit(i)));
@@ -2096,8 +2103,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			SigSpec sig_d = net_map_at(inst->GetInput1());
 			SigSpec sig_o = net_map_at(inst->GetOutput());
-			SigSpec sig_dx = module->addWire(new_verific_id(inst), 2);
-			SigSpec sig_qx = module->addWire(new_verific_id(inst), 2);
+			SigSpec sig_dx = module->addWire(new_verific_id_suffix(inst_name, "dx"), 2);
+			SigSpec sig_qx = module->addWire(new_verific_id_suffix(inst_name, "qx"), 2);
 
 			if (verific_verbose) {
 				log("    NEX with A=%s, B=0, Y=%s.\n",
@@ -2147,8 +2154,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_o = net_map_at(inst->GetOutput());
-			SigBit sig_q = module->addWire(new_verific_id(inst));
-			SigBit sig_d_no_x = module->addWire(new_verific_id(inst));
+			SigBit sig_q = module->addWire(new_verific_id_suffix(inst_name, "q"));
+			SigBit sig_d_no_x = module->addWire(new_verific_id_suffix(inst_name, "d_no_x"));
 
 			if (verific_verbose) {
 				log("    EQX with A=%s, B=%d, Y=%s.\n",
@@ -2267,7 +2274,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			IdString port_name_id = RTLIL::escape_id(port_name);
 			auto &sigvec = cell_port_conns[port_name_id];
 			if (GetSize(sigvec) <= port_offset) {
-				SigSpec zwires = module->addWire(new_verific_id(inst), port_offset+1-GetSize(sigvec));
+				SigSpec zwires = module->addWire(new_verific_id_suffix(inst_name, "zwires"), port_offset+1-GetSize(sigvec));
 				for (auto bit : zwires)
 					sigvec.push_back(bit);
 			}
@@ -2506,7 +2513,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 		if (s.is_wire()) {
 			s.as_wire()->attributes[ID::init] = init_value;
 		} else {
-			Wire *w = module->addWire(NEW_ID, GetSize(s));
+			Wire *w = module->addWire(NEW_ID4_SUFFIX("w"), GetSize(s));
 			w->attributes[ID::init] = init_value;
 			module->connect(s, w);
 			s = w;
@@ -2514,14 +2521,14 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 	};
 
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEW_ID4_SUFFIX("d"), sig_q, sig_d, enable_sig);
 
 	if (disable_sig != State::S0) {
 		log_assert(GetSize(sig_q) == GetSize(init_value));
 
 		if (gclk) {
-			Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
-			Wire *post_q_w = module->addWire(NEW_ID, GetSize(sig_q));
+			Wire *pre_d = module->addWire(NEW_ID4_SUFFIX("pre_d"), GetSize(sig_d));
+			Wire *post_q_w = module->addWire(NEW_ID4_SUFFIX("post_q_w"), GetSize(sig_q));
 
 			Const initval(State::Sx, GetSize(sig_q));
 			int offset = 0;
@@ -2537,8 +2544,8 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 			if (!initval.is_fully_undef())
 				post_q_w->attributes[ID::init] = initval;
 
-			module->addMux(NEW_ID, sig_d, init_value, disable_sig, pre_d);
-			module->addMux(NEW_ID, post_q_w, init_value, disable_sig, sig_q);
+			module->addMux(NEW_ID4_SUFFIX("pre_d_mux"), sig_d, init_value, disable_sig, pre_d);
+			module->addMux(NEW_ID4_SUFFIX("q_mux"), post_q_w, init_value, disable_sig, sig_q);
 
 			SigSpec post_q(post_q_w);
 			set_init_attribute(post_q);
@@ -2565,7 +2572,7 @@ Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec s
 
 	// FIXME: Adffe
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEW_ID4_SUFFIX("en"), sig_q, sig_d, enable_sig);
 
 	return module->addAdff(name, clock_sig, sig_arst, sig_d, sig_q, arst_value, posedge);
 }
@@ -2577,7 +2584,7 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 
 	// FIXME: Dffsre
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEW_ID4_SUFFIX("en"), sig_q, sig_d, enable_sig);
 
 	return module->addDffsr(name, clock_sig, sig_set, sig_clr, sig_d, sig_q, posedge);
 }
@@ -2588,11 +2595,11 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 
 	// FIXME: Aldffe
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEW_ID4_SUFFIX("en"), sig_q, sig_d, enable_sig);
 
 	if (gclk) {
-		Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
-		Wire *post_q = module->addWire(NEW_ID, GetSize(sig_q));
+		Wire *pre_d = module->addWire(NEW_ID4_SUFFIX("pre_d"), GetSize(sig_d));
+		Wire *post_q = module->addWire(NEW_ID4_SUFFIX("post_q"), GetSize(sig_q));
 
 		Const initval(State::Sx, GetSize(sig_q));
 		int offset = 0;
@@ -2608,8 +2615,8 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 		if (!initval.is_fully_undef())
 			post_q->attributes[ID::init] = initval;
 
-		module->addMux(NEW_ID, sig_d, sig_adata, sig_aload, pre_d);
-		module->addMux(NEW_ID, post_q, sig_adata, sig_aload, sig_q);
+		module->addMux(NEW_ID4_SUFFIX("pre_d_mux"), sig_d, sig_adata, sig_aload, pre_d);
+		module->addMux(NEW_ID4_SUFFIX("q_mux"), post_q, sig_adata, sig_aload, sig_q);
 
 		return module->addFf(name, pre_d, post_q);
 	}
