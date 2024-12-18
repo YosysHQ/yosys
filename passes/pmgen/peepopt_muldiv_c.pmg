@@ -54,6 +54,13 @@ code
 	int c_const_int = c_const.as_int(c_const_signed);
 	int b_const_int_shifted = b_const_int << offset;
 
+	if (mul->getParam(ID::B_WIDTH).size() > 64)
+		reject;
+	if (b_const.size() > 64)
+		reject;
+	if (c_const.size() > 64)
+		reject;
+
 	// Check that there are only zeros before offset
 	if (offset < 0 || !div_a.extract(0, offset).is_fully_zero())
 		reject;
