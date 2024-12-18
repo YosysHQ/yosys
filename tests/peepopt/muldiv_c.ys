@@ -164,7 +164,6 @@ endmodule
 EOT
 equiv_opt -assert peepopt
 design -load postopt
-write_verilog
 select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
