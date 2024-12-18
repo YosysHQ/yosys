@@ -7,7 +7,7 @@ pattern muxadd
 
 state <SigSpec> add_a add_b add_y add_a_ext
 state <Const> add_a_signed
-state <IdString> add_a_id
+state <IdString> add_a_id add_b_id
 
 match add
 	// Select adder
@@ -19,6 +19,7 @@ match add
 	set add_b port(add, B)
 	set add_a_signed param(add, (A == \A) ? \A_SIGNED : \B_SIGNED)
 	set add_a_id A
+	set add_b_id B
 endmatch
 
 code add_y add_a add_b add_a_ext
@@ -47,22 +48,25 @@ endmatch
 code
 	// Get mux signal
 	SigSpec mux_y = port(mux, \Y);
-
-	// Create new mid wire
-	SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
-
-	// Rewire
-	mux->setPort(\A, Const(State::S0, GetSize(add_b)));
-	mux->setPort(\B, add_b);
-	mux->setPort(\Y, mid);
-	add->setPort(\B, mid);
-	add->setPort(\A, add_a);
-	add->setPort(\Y, add_y);
-	module->connect(mux_y, add_y);
-	// Log, fixup, accept
-	log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
-	add->fixup_parameters();
-	mux->fixup_parameters();
-	did_something = true;
-	accept;
+	SigSpec mux_a = port(mux, \A);
+	SigSpec mux_b = port(mux, \B);
+	// Prevent multiple branches to edit the same pair of mux/add
+	if (mux_b == add_y || mux_a == add_y) {
+	  // Create new mid wire
+	  SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
+	  // Rewire
+	  add->setPort(\B, mid);
+	  add->setPort(\A, add_a);
+	  add->setPort(\Y, add_y);
+	  mux->setPort(add_a_id, Const(State::S0, GetSize(add_b)));
+	  mux->setPort(add_b_id, add_b);
+	  mux->setPort(\Y, mid);
+	  module->connect(mux_y, add_y);
+	  // Log, fixup, accept
+	  log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
+	  add->fixup_parameters();
+	  mux->fixup_parameters();
+	  did_something = true;
+	  accept;
+	}
 endcode
