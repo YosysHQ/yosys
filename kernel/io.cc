@@ -364,6 +364,8 @@ std::string escape_filename_spaces(const std::string& filename)
 
 PRIVATE_NAMESPACE_BEGIN
 
+using namespace Zlib;
+
 static const size_t GZ_BUFFER_SIZE = 8192;
 static void decompress_gzip(const std::string &filename, std::stringstream &out)
 {

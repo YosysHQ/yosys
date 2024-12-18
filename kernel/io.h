@@ -1,11 +1,14 @@
 #include "kernel/yosys_common.h"
 #include <string>
+#include <unistd.h>
 
 #ifndef YOSYS_IO_H
 #define YOSYS_IO_H
 
 #ifdef YOSYS_ENABLE_ZLIB
+namespace Zlib {
 #include <zlib.h>
+} // namespace
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -86,7 +89,7 @@ private:
     private:
         static const int buffer_size = 4096;  // Size of the internal buffer
         char buffer[buffer_size];             // Internal buffer for compressed data
-        gzFile gzf = nullptr;                 // Handle to the gzip file
+        Zlib::gzFile gzf = nullptr;                 // Handle to the gzip file
     };
 
     gzip_streambuf outbuf;  // The stream buffer instance
