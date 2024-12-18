@@ -1,0 +1,258 @@
+# Basic pattern transformed: (a * b) / c
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
+
+# Transformed on symmetry in multiplication
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = 4'sd6 * a;
+	assign y = mul / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
+
+# Transformed on b == c
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / 8'sd6;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
+
+# b negative, c positive
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * -4'sd6;
+	assign y = mul / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
+
+# b positive, c negative
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / -8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
+
+# No transform when b not divisible by c
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd3;
+	assign y = mul / 8'sd2;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when product has a second fanout
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+	output signed [7:0] z,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / 8'sd3;
+	assign z = mul;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when divisor is 0
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sd4;
+	assign y = mul / 8'sd0;
+endmodule
+EOT
+equiv_opt peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when (a*b) output can overflow (divider’s A input signed)
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [5:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [6:0] mul;
+	assign mul = a * 4'sd6;
+	assign y = mul / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+write_verilog
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when (a*b) output can overflow (divider’s A input unsigned)
+read_verilog <<EOT
+module top(
+	input [3:0] a,
+	output [7:0] y,
+);
+    wire [4:0] mul;
+	assign mul = a * 4'd4;
+	assign y = mul / 8'd2;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+read_verilog <<EOT
+module top(
+	input [3:0] a,
+	output [7:0] y,
+);
+    wire [6:0] mul;
+	assign mul = a * 4'd4;
+	assign y = mul / 8'd2;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when (a*b) and x/c fitting criteria but not connected (x != a*b)
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	input signed [7:0] b,
+	output signed [7:0] y,
+	output signed [7:0] z,
+);
+	assign y = a * 4'sd6;
+	assign z = b / 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# No transform when b only divisible by c if b misinterpreted as unsigned
+# b 1001 is -7 but 9 misinterpreted
+# c 11 is 3
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+);
+    wire signed [7:0] mul;
+	assign mul = a * 4'sb1001;
+	assign y = mul / 8'sb11;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$div
+design -reset
+
+# Transform even if:
+# (a*b) result would overflow if divider’s A input signedness is confused
+# (A input is unsigned)
+read_verilog <<EOT
+module top(
+	input [3:0] a,
+	output [7:0] y,
+);
+    wire [7:0] mul;
+	assign mul = a * 4'd6;
+	assign y = mul / 8'd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$div
+design -reset
