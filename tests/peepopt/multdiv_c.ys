@@ -2,7 +2,7 @@ log -header "Test simple positive case"
 log -push
 design -reset
 read_verilog <<EOF
-module muldiv_const_ok (
+module top (
   input wire  [31:0] a,
   output wire  [63:0] y
 );
@@ -10,16 +10,22 @@ module muldiv_const_ok (
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt ;;;
-design -load postopt
-select -assert-any t:$mul  # assert mult
+copy top orig
+cd top
+peepopt
+select -assert-none  t:$div
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
 log -header "Test negative case where div is kept"
 log -push
 design -reset
 read_verilog <<EOF
-module muldiv_const_ko (
+module top (
   input wire signed [31:0] a,
   output wire signed [63:0] y,
   output wire probe
@@ -31,8 +37,13 @@ module muldiv_const_ko (
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt ;;;
-design -load postopt
-select -assert-any t:$div  # assert div
+copy top orig
+cd top
+peepopt
+select -assert-any t:$div
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
 
-log -pop
+
