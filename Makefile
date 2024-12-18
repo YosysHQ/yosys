@@ -123,8 +123,9 @@ BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
 
-ifeq ($(OS), Linux) 
-LIBS += -ldw -lelf            # SILIMATE: support for backward-cpp
+
+ifeq ($(OS), Linux)
+LIBS += -ldw                  # SILIMATE: support for backward-cpp
 CXXFLAGS += -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
 endif
 
