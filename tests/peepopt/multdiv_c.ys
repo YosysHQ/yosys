@@ -1,0 +1,38 @@
+log -header "Test simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module muldiv_const_ok (
+  input wire  [31:0] a,
+  output wire  [63:0] y
+);
+  assign y = (a * 5140) / (257 * 2);
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt ;;;
+design -load postopt
+select -assert-any t:$mul  # assert mult
+
+log -pop
+log -header "Test negative case where div is kept"
+log -push
+design -reset
+read_verilog <<EOF
+module muldiv_const_ko (
+  input wire signed [31:0] a,
+  output wire signed [63:0] y,
+  output wire probe
+);
+   wire [44:0] tmp = (a * 5140);
+   assign probe = tmp[44];
+
+  assign y = tmp[43:0] / (257 * 2);
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt ;;;
+design -load postopt
+select -assert-any t:$div  # assert div
+
+log -pop
