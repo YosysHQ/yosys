@@ -7,17 +7,21 @@ module top(a, b, s, y);
 	input wire [3:0] b;
 	input wire s;
 	output wire [3:0] y;
-
         assign y = s ? (a + b) : a;
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt ;;;
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
-
 log -header "Test basic s?(a+b):a pattern with intermediate var gets transformed (a,b module inputs)"
 log -push
 design -reset
@@ -33,9 +37,15 @@ module top(a, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt ;;;
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
 log -header "Test basic s?(a+b):a pattern gets transformed (a is driven by a cell)"
@@ -54,9 +64,15 @@ module top(a_, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
 log -header "Test basic s?(a+b):a pattern gets transformed (b is driven by a cell, output consumed by a cell)"
@@ -78,9 +94,15 @@ module top(a, b_, f, s, y_);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
 log -header "Test no transform when a+b has more fanouts (module output)"
@@ -98,9 +120,15 @@ module top(a, b, ab, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-none t:$add %co1 %a w:y %i
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
 
 log -pop
 log -header "Test no transform when a+b has more fanouts (single bit, cell)"
@@ -118,9 +146,19 @@ module top(a, b, s, y, z);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt
-design -load postopt
+copy top orig
+cd top
+peepopt
 select -assert-none t:$add %co1 %a w:y %i
+clean -purge
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+
+
+#   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+log Please fix all the designs below to use the miter/sat proof
+quit
 
 log -pop
 log -header "Test no transform when a+b width smaller than a's width"
