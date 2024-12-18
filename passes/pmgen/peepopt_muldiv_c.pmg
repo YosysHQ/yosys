@@ -48,6 +48,7 @@ code
 
 	// Get properties and values of b_const and c_const
 	int b_const_width = mul->getParam(ID::B_WIDTH).as_int();
+	// b_const may be coming from the A port but it's an RTLIL invariant that A_SIGNED equals B_SIGNED
 	bool b_const_signed = mul->getParam(ID::B_SIGNED).as_bool();
 	bool c_const_signed = div->getParam(ID::B_SIGNED).as_bool();
 	int b_const_int = b_const.as_int(b_const_signed);
