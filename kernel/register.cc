@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/json.h"
+#include "kernel/gzip.h"
 
 #include <string.h>
 #include <stdlib.h>
