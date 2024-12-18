@@ -155,8 +155,8 @@ LINKFLAGS += -rdynamic
 ifneq ($(OS), OpenBSD)
 LIBS += -lrt
 
-LIBS += -lbfd         # SILIMATE: support for backward-cpp
-CXXFLAGS += -DBACKWARD_HAS_BFD # SILIMATE: support for backward-cpp
+LIBS += -ldwarf -lelf # SILIMATE: support for backward-cpp
+CXXFLAGS += -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
 
 endif
 endif
