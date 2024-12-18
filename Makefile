@@ -739,6 +739,7 @@ include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
 include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
+include $(YOSYS_SRC)/backends/json/Makefile.inc
 
 include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
