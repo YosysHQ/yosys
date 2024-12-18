@@ -8,6 +8,26 @@ module top(a, b, s, y);
 	input wire s;
 	output wire [3:0] y;
 
+        assign y = s ? (a + b) : a;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt ;;;
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+
+log -header "Test basic s?(a+b):a pattern with intermediate var gets transformed (a,b module inputs)"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	input wire s;
+	output wire [3:0] y;
+
 	wire [3:0] ab = a + b;
 	assign y = s ? ab : a;
 endmodule
