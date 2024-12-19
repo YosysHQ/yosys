@@ -30,9 +30,6 @@ code add_y add_a add_b add_a_ext
 	if (nusers(add_y) != 2)
 		reject;
 
-	// A and B can be interchanged
-	branch;
-	std::swap(add_a, add_b);
 endcode
 
 match mux
@@ -47,23 +44,39 @@ code
 	SigSpec mux_y = port(mux, \Y);
 	SigSpec mux_a = port(mux, \A);
 	SigSpec mux_b = port(mux, \B);
-	// Prevent multiple branches to edit the same pair of mux/add
-	if (mux_b == add_y || mux_a == add_y) {
-	  // Create new mid wire
-	  SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
-	  // Rewire
-	  add->setPort(\B, mid);
-	  add->setPort(\A, add_a);
-	  add->setPort(\Y, add_y);
-	  mux->setPort(add_a_id, Const(State::S0, GetSize(add_b)));
-	  mux->setPort(add_b_id, add_b);
-	  mux->setPort(\Y, mid);
-	  module->connect(mux_y, add_y);
-	  // Log, fixup, accept
-	  log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
-	  add->fixup_parameters();
-	  mux->fixup_parameters();
-	  did_something = true;
-	  accept;
+	
+	// Create new mid wire
+	SigSpec mid = module->addWire(NEW_ID, GetSize(add_b));
+
+	// Rewire
+
+	// Start by renaming the lhs of an eventual assign stmt where the rhs is the adder output (That is getting rewired).
+	// Renaming the signal allows equiv_opt to function as it would otherwize try to match the functionality witch would fail
+	// as the lhs signal has indeed changed function.
+	std::string adder_y_name = add_y.as_wire()->name.c_str();
+	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+		RTLIL::SigSpec rhs = it->second;
+		const std::string& rhs_name = rhs.as_wire()->name.c_str();
+		if (rhs_name == adder_y_name) {
+			RTLIL::SigSpec lhs = it->first;
+			const std::string& lhs_name =  lhs.as_wire()->name.c_str();
+			module->rename(lhs_name, module->uniquify("$" + lhs_name));
+			break;
+		}
 	}
+
+	add->setPort(\B, mid);
+	add->setPort(\A, add_a);
+	add->setPort(\Y, add_y);
+	mux->setPort(add_a_id, Const(State::S0, GetSize(add_b)));
+	mux->setPort(add_b_id, add_b);
+	mux->setPort(\Y, mid);
+	module->connect(mux_y, add_y);
+	// Log, fixup, accept
+	log("muxadd pattern in %s: mux=%s, add=%s\n", log_id(module), log_id(mux), log_id(add));
+	add->fixup_parameters();
+	mux->fixup_parameters();
+	did_something = true;
+	accept;
+	
 endcode
