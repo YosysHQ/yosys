@@ -1,7 +1,7 @@
 log -header "Test simple positive case"
 log -push
 design -reset
-read_verilog -sv <<EOF
+read_verilog <<EOF
 module top (
   input wire  [11:0] a,
   output wire  [31:0] y
