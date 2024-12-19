@@ -55,12 +55,18 @@ code
 	int c_const_int = c_const.as_int(c_const_signed);
 	int b_const_int_shifted = b_const_int << offset;
 
+	// Integer values should be lesser than 64 bits
 	if (mul->getParam(ID::B_WIDTH).size() > 64)
 		reject;
 	if (b_const.size() > 64)
 		reject;
 	if (c_const.size() > 64)
 		reject;
+
+	// Check for potential mult overflow
+	if (b_const.size() + a.size() > mul_y.size()) {
+		reject;
+	}
 
 	// Check that there are only zeros before offset
 	if (offset < 0 || !div_a.extract(0, offset).is_fully_zero())
@@ -69,13 +75,6 @@ code
 	// Check that b is divisible by c
 	if (b_const_int_shifted % c_const_int != 0)
 		reject;
-
-	// Check that every single output bit of the multiplier is connected consecutively to the div operator (offset accounted for)
-	for (int i = 0; i < mul_y.size(); i++) {
-		if (sigmap(mul_y[i]) != sigmap(div_a[i + offset])) {
-			reject;
-		}
-	}
 
 	// Rewire to only keep multiplier
 	mul->setPort(\B, Const(b_const_int_shifted / c_const_int, b_const_width));

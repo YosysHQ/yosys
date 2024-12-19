@@ -4,7 +4,7 @@ design -reset
 read_verilog <<EOF
 module top (
   input wire  [11:0] a,
-  output wire  [31:0] y
+  output wire  [11:0] y
 );
   assign y = (a * 16'd5140) / (257 * 2);
 endmodule
@@ -26,10 +26,10 @@ module top (
   output wire signed [31:0] y,
   output wire probe
 );
-   wire [44:0] tmp = (a * 16'd5140);
-   assign probe = tmp[44];
+   wire [28:0] tmp = (a * 16'd5140);
+   assign probe = tmp[28];
 
-  assign y = tmp[43:0] / (257 * 2);
+  assign y = tmp[27:0] / (257 * 2);
 endmodule
 EOF
 check -assert
