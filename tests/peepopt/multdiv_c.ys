@@ -1,23 +1,19 @@
 log -header "Test simple positive case"
 log -push
 design -reset
-read_verilog <<EOF
+read_verilog -sv <<EOF
 module top (
-  input wire  [31:0] a,
-  output wire  [63:0] y
+  input wire  [11:0] a,
+  output wire  [31:0] y
 );
-  assign y = (a * 5140) / (257 * 2);
+  assign y = (a * 16'd5140) / (257 * 2);
 endmodule
 EOF
 check -assert
-copy top orig
-cd top
-peepopt
-select -assert-none  t:$div
-clean -purge
-cd
-miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
-sat -verify -prove-asserts -show-ports -enable_undef miter
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$div
+design -reset
 
 
 log -pop
@@ -26,24 +22,18 @@ log -push
 design -reset
 read_verilog <<EOF
 module top (
-  input wire signed [31:0] a,
-  output wire signed [63:0] y,
+  input wire signed [11:0] a,
+  output wire signed [31:0] y,
   output wire probe
 );
-   wire [44:0] tmp = (a * 5140);
+   wire [44:0] tmp = (a * 16'd5140);
    assign probe = tmp[44];
 
   assign y = tmp[43:0] / (257 * 2);
 endmodule
 EOF
 check -assert
-copy top orig
-cd top
-peepopt
+equiv_opt -assert peepopt
+design -load postopt
 select -assert-any t:$div
-clean -purge
-cd
-miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x top orig miter
-sat -verify -prove-asserts -show-ports -enable_undef miter
-
-
+design -reset
