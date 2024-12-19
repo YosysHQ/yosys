@@ -1,11 +1,8 @@
+#include "kernel/yosys_common.h"
+#include "kernel/log.h"
 #include <iostream>
 #include <dirent.h>
 #include <string>
-#include <cstdarg>
-#include <cstdio>
-#include "kernel/io.h"
-#include "kernel/gzip.h"
-#include "kernel/log.h"
 
 YOSYS_NAMESPACE_BEGIN
 
