@@ -54,7 +54,7 @@ code
 	int c_const_int = c_const.as_int(c_const_signed);
 	int b_const_int_shifted = b_const_int << offset;
 	// Calculate the constant and compress the width to fit the value 
-    Const const_ratio = b_const_int_shifted / c_const_int;
+	Const const_ratio = b_const_int_shifted / c_const_int;
 	const_ratio.compress(b_const_signed | c_const_signed);
 
 	// Integer values should be lesser than 64 bits
