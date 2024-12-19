@@ -92,10 +92,11 @@ std::istream* uncompressed(std::ifstream* f, const std::string filename) {
 		if (magic[2] != 8)
 			log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
 				filename.c_str(), unsigned(magic[2]));
-    delete f;
-		std::stringstream *df = new std::stringstream();
-		decompress_gzip(filename, *df);
-		return df;
+		delete f;
+		// std::stringstream *df = new std::stringstream();
+		// decompress_gzip(filename, *df);
+		gzip_istream* s = new gzip_istream();
+		return s->open(filename.c_str()) ? s : nullptr;
 #else
 		log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
 #endif // YOSYS_ENABLE_ZLIB

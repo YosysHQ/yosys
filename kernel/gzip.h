@@ -84,10 +84,15 @@ private:
             if (bytes_read <= 0) {
                 // An error occurred during reading
                 int err;
+				if (Zlib::gzeof(gzf))
+					return traits_type::eof();
+
                 const char* error_msg = Zlib::gzerror(gzf, &err);
-				if (err != Z_STREAM_END)
+				if (err != Z_OK)
 					log_error("%s", error_msg);
-                return traits_type::eof();
+				else
+					log_error("Decompression logic failure: "\
+							  "read <=0 bytes but neither EOF nor error\n");
             }
 
             // Reset buffer pointers
