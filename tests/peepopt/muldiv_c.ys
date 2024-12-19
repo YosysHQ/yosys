@@ -1,3 +1,45 @@
+log -header "Test simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [11:0] a,
+  output wire  [11:0] y
+);
+  assign y = (a * 16'd5140) / (257 * 2);
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-none t:$div
+design -reset
+
+
+log -pop
+log -header "Test negative case where div is kept"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [11:0] a,
+  output wire signed [31:0] y,
+  output wire probe
+);
+   wire [28:0] tmp = (a * 16'd5140);
+   assign probe = tmp[28];
+
+  assign y = tmp[27:0] / (257 * 2);
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-any t:$div
+design -reset
+
+
+
 # Basic pattern transformed: (a * b) / c
 read_verilog <<EOT
 module top(
