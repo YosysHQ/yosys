@@ -28,6 +28,9 @@ bool did_something;
 // scratchpad configurations for pmgen
 int shiftadd_max_ratio;
 
+// Helper function, removes LSB 0s
+SigSpec remove_bottom_padding(SigSpec sig);
+
 #include "passes/pmgen/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
@@ -116,5 +119,14 @@ struct PeepoptPass : public Pass {
 		}
 	}
 } PeepoptPass;
+
+
+SigSpec remove_bottom_padding(SigSpec sig)
+{
+	int i = 0;
+	for (; i < sig.size() - 1 && sig[i] == State::S0; i++) {
+	}
+	return sig.extract(i, sig.size() - i);
+}
 
 PRIVATE_NAMESPACE_END

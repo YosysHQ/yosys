@@ -60,7 +60,7 @@ code
 		reject;
 	if (b_const.size() > 64)
 		reject;
-	if (c_const.size() > 64)
+	if (c_const.size() + offset > 64)
 		reject;
 
 	// Check for potential mult overflow
