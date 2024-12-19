@@ -429,13 +429,6 @@ with open(outfile, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  SigSpec remove_bottom_padding(SigSpec sig) {", file=f)
-    print("    int i = 0;", file=f)
-    print("    for (; i < sig.size() - 1 && sig[i] == State::S0; i++) {} ", file=f)
-    print("    return sig.extract(i, sig.size() - i);", file=f)
-    print("  }", file=f)
-    print("", file=f)
-
     print("  void blacklist(Cell *cell) {", file=f)
     print("    if (cell != nullptr && blacklist_cells.insert(cell).second) {", file=f)
     print("      auto ptr = rollback_cache.find(cell);", file=f)
