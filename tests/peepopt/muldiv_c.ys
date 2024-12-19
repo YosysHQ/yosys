@@ -130,7 +130,7 @@ module top(
 	assign y = mul / 8'sd0;
 endmodule
 EOT
-equiv_opt peepopt
+equiv_opt -assert peepopt
 design -load postopt
 select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
