@@ -24,9 +24,6 @@ endmatch
 
 code add_y add_a add_b add_a_ext
 	// Get adder signals
-	add_a = port(add, \A);
-	add_b = port(add, \B);
-	add_y = port(add, \Y);
 	add_a_ext = SigSpec(add_a);
 	add_a_ext.extend_u0(GetSize(add_y), param(add, \A_SIGNED).as_bool());
 	// Fanout of each adder Y bit should be 1 (no bit-split)
