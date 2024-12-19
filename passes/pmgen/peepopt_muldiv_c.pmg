@@ -47,13 +47,15 @@ code
 	int offset = GetSize(div_a) - GetSize(mul_y);
 
 	// Get properties and values of b_const and c_const
-	int b_const_width = mul->getParam(ID::B_WIDTH).as_int();
 	// b_const may be coming from the A port but it's an RTLIL invariant that A_SIGNED equals B_SIGNED
 	bool b_const_signed = mul->getParam(ID::B_SIGNED).as_bool();
 	bool c_const_signed = div->getParam(ID::B_SIGNED).as_bool();
 	int b_const_int = b_const.as_int(b_const_signed);
 	int c_const_int = c_const.as_int(c_const_signed);
 	int b_const_int_shifted = b_const_int << offset;
+	// Calculate the constant and compress the width to fit the value 
+    Const const_ratio = b_const_int_shifted / c_const_int;
+	const_ratio.compress(b_const_signed | c_const_signed);
 
 	// Integer values should be lesser than 64 bits
 	if (mul->getParam(ID::B_WIDTH).size() > 64)
@@ -77,7 +79,7 @@ code
 		reject;
 
 	// Rewire to only keep multiplier
-	mul->setPort(\B, Const(b_const_int_shifted / c_const_int, b_const_width));
+	mul->setPort(\B, const_ratio);
 	mul->setPort(\Y, div_y);
 
 	// Remove divider
