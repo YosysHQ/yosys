@@ -1,0 +1,22 @@
+read_verilog <<EOF
+module top(a, b, y);
+	parameter awidth = 6;
+	parameter bwidth = 8;
+	parameter ywidth = 14;
+
+	input [awidth-1:0] a;
+	input [bwidth-1:0] b;
+	output [ywidth-1:0] y;
+
+	wire [ywidth-1:0] aext = {{(ywidth-awidth){a[awidth-1]}}, a};
+	wire [ywidth-1:0] bext = {{(ywidth-bwidth){b[bwidth-1]}}, b};
+
+	assign y = aext*bext;
+endmodule
+EOF
+
+opt_clean
+wreduce
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$mul r:A_SIGNED=1 r:B_SIGNED=1 %i %i
+select -assert-count 1 t:$mul r:A_WIDTH=6 r:B_WIDTH=8 %i %i
