@@ -134,7 +134,7 @@ YOSYS_NAMESPACE_BEGIN
 // Note: All headers included in hashlib.h must be included
 // outside of YOSYS_NAMESPACE before this or bad things will happen.
 #ifdef HASHLIB_H
-#  error You've probably included hashlib.h under two namespace paths. Bad idea.
+#  error "You've probably included hashlib.h under two namespace paths. Bad idea."
 #else
 #  include "kernel/hashlib.h"
 #  undef HASHLIB_H
