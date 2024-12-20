@@ -134,8 +134,7 @@ YOSYS_NAMESPACE_BEGIN
 // Note: All headers included in hashlib.h must be included
 // outside of YOSYS_NAMESPACE before this or bad things will happen.
 #ifdef HASHLIB_H
-#  undef HASHLIB_H
-#  include "kernel/hashlib.h"
+#  error "You've probably included hashlib.h under two namespace paths. Bad idea."
 #else
 #  include "kernel/hashlib.h"
 #  undef HASHLIB_H
@@ -153,6 +152,15 @@ using std::get;
 using std::min;
 using std::max;
 
+using hashlib::Hasher;
+using hashlib::run_hash;
+using hashlib::hash_ops;
+using hashlib::mkhash_xorshift;
+using hashlib::dict;
+using hashlib::idict;
+using hashlib::pool;
+using hashlib::mfp;
+
 // A primitive shared string implementation that does not
 // move its .c_str() when the object is copied or moved.
 struct shared_str {
@@ -163,21 +171,11 @@ struct shared_str {
 	const char *c_str() const { return content->c_str(); }
 	const string &str() const { return *content; }
 	bool operator==(const shared_str &other) const { return *content == *other.content; }
-	unsigned int hash() const { return hashlib::hash_ops<std::string>::hash(*content); }
+	Hasher hash_into(Hasher h) const {
+		h.eat(*content);
+		return h;
+	}
 };
-
-using hashlib::mkhash;
-using hashlib::mkhash_init;
-using hashlib::mkhash_add;
-using hashlib::mkhash_xorshift;
-using hashlib::hash_ops;
-using hashlib::hash_cstr_ops;
-using hashlib::hash_ptr_ops;
-using hashlib::hash_obj_ops;
-using hashlib::dict;
-using hashlib::idict;
-using hashlib::pool;
-using hashlib::mfp;
 
 namespace RTLIL {
 	struct IdString;
@@ -356,10 +354,6 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 #define ID(_id) ([]() { const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
         static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); return id; })()
 namespace ID = RTLIL::ID;
-
-namespace hashlib {
-	template<> struct hash_ops<RTLIL::State> : hash_ops<int> {};
-}
 
 
 YOSYS_NAMESPACE_END

@@ -36,7 +36,7 @@ YOSYS_NAMESPACE_BEGIN
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
+dict<char*, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
@@ -4492,17 +4492,17 @@ void RTLIL::SigSpec::updhash() const
 	cover("kernel.rtlil.sigspec.hash");
 	that->pack();
 
-	that->hash_ = mkhash_init;
+	Hasher h;
 	for (auto &c : that->chunks_)
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
-				that->hash_ = mkhash(that->hash_, v);
+				h.eat(v);
 		} else {
-			that->hash_ = mkhash(that->hash_, c.wire->name.index_);
-			that->hash_ = mkhash(that->hash_, c.offset);
-			that->hash_ = mkhash(that->hash_, c.width);
+			h.eat(c.wire->name.index_);
+			h.eat(c.offset);
+			h.eat(c.width);
 		}
-
+	that->hash_ = h.yield();
 	if (that->hash_ == 0)
 		that->hash_ = 1;
 }

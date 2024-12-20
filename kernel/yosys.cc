@@ -96,6 +96,7 @@ std::set<std::string> yosys_input_files, yosys_output_files;
 bool memhasher_active = false;
 uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
+uint32_t Hasher::fudge = 0;
 
 std::string yosys_share_dirname;
 std::string yosys_abc_executable;

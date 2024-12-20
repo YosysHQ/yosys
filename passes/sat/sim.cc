@@ -163,7 +163,7 @@ struct SimInstance
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
 	pool<IdString> dirty_memories;
-	pool<SimInstance*, hash_ptr_ops> dirty_children;
+	pool<SimInstance*> dirty_children;
 
 	struct ff_state_t
 	{

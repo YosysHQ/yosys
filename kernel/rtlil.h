@@ -76,329 +76,354 @@ namespace RTLIL
 	struct SyncRule;
 	struct Process;
 	struct Binding;
+	struct IdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
+};
 
-	struct IdString
+struct RTLIL::IdString
+{
+	#undef YOSYS_XTRACE_GET_PUT
+	#undef YOSYS_SORT_ID_FREE_LIST
+	#undef YOSYS_USE_STICKY_IDS
+	#undef YOSYS_NO_IDS_REFCNT
+
+	// the global id string cache
+
+	static bool destruct_guard_ok; // POD, will be initialized to zero
+	static struct destruct_guard_t {
+		destruct_guard_t() { destruct_guard_ok = true; }
+		~destruct_guard_t() { destruct_guard_ok = false; }
+	} destruct_guard;
+
+	static std::vector<char*> global_id_storage_;
+	static dict<char*, int> global_id_index_;
+#ifndef YOSYS_NO_IDS_REFCNT
+	static std::vector<int> global_refcount_storage_;
+	static std::vector<int> global_free_idx_list_;
+#endif
+
+#ifdef YOSYS_USE_STICKY_IDS
+	static int last_created_idx_ptr_;
+	static int last_created_idx_[8];
+#endif
+
+	static inline void xtrace_db_dump()
 	{
-		#undef YOSYS_XTRACE_GET_PUT
-		#undef YOSYS_SORT_ID_FREE_LIST
-		#undef YOSYS_USE_STICKY_IDS
-		#undef YOSYS_NO_IDS_REFCNT
-
-		// the global id string cache
-
-		static bool destruct_guard_ok; // POD, will be initialized to zero
-		static struct destruct_guard_t {
-			destruct_guard_t() { destruct_guard_ok = true; }
-			~destruct_guard_t() { destruct_guard_ok = false; }
-		} destruct_guard;
-
-		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, hash_cstr_ops> global_id_index_;
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static std::vector<int> global_refcount_storage_;
-		static std::vector<int> global_free_idx_list_;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+		{
+			if (global_id_storage_.at(idx) == nullptr)
+				log("#X# DB-DUMP index %d: FREE\n", idx);
+			else
+				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+		}
 	#endif
+	}
 
+	static inline void checkpoint()
+	{
 	#ifdef YOSYS_USE_STICKY_IDS
-		static int last_created_idx_ptr_;
-		static int last_created_idx_[8];
+		last_created_idx_ptr_ = 0;
+		for (int i = 0; i < 8; i++) {
+			if (last_created_idx_[i])
+				put_reference(last_created_idx_[i]);
+			last_created_idx_[i] = 0;
+		}
 	#endif
+	#ifdef YOSYS_SORT_ID_FREE_LIST
+		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+	#endif
+	}
 
-		static inline void xtrace_db_dump()
-		{
-		#ifdef YOSYS_XTRACE_GET_PUT
-			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
-			{
-				if (global_id_storage_.at(idx) == nullptr)
-					log("#X# DB-DUMP index %d: FREE\n", idx);
-				else
-					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
-			}
-		#endif
+	static inline int get_reference(int idx)
+	{
+		if (idx) {
+	#ifndef YOSYS_NO_IDS_REFCNT
+			global_refcount_storage_[idx]++;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace)
+				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+	#endif
+		}
+		return idx;
+	}
+
+	static int get_reference(const char *p)
+	{
+		log_assert(destruct_guard_ok);
+
+		if (!p[0])
+			return 0;
+
+		auto it = global_id_index_.find((char*)p);
+		if (it != global_id_index_.end()) {
+	#ifndef YOSYS_NO_IDS_REFCNT
+			global_refcount_storage_.at(it->second)++;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace)
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+	#endif
+			return it->second;
 		}
 
-		static inline void checkpoint()
-		{
-		#ifdef YOSYS_USE_STICKY_IDS
-			last_created_idx_ptr_ = 0;
-			for (int i = 0; i < 8; i++) {
-				if (last_created_idx_[i])
-					put_reference(last_created_idx_[i]);
-				last_created_idx_[i] = 0;
-			}
-		#endif
-		#ifdef YOSYS_SORT_ID_FREE_LIST
-			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
-		#endif
-		}
+		log_assert(p[0] == '$' || p[0] == '\\');
+		log_assert(p[1] != 0);
+		for (const char *c = p; *c; c++)
+			if ((unsigned)*c <= (unsigned)' ')
+				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
-		static inline int get_reference(int idx)
-		{
-			if (idx) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_[idx]++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-			}
-			return idx;
-		}
-
-		static int get_reference(const char *p)
-		{
-			log_assert(destruct_guard_ok);
-
-			if (!p[0])
-				return 0;
-
-			auto it = global_id_index_.find((char*)p);
-			if (it != global_id_index_.end()) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_.at(it->second)++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
-		#endif
-				return it->second;
-			}
-
-			log_assert(p[0] == '$' || p[0] == '\\');
-			log_assert(p[1] != 0);
-			for (const char *c = p; *c; c++)
-				if ((unsigned)*c <= (unsigned)' ')
-					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
-
-		#ifndef YOSYS_NO_IDS_REFCNT
-			if (global_free_idx_list_.empty()) {
-				if (global_id_storage_.empty()) {
-					global_refcount_storage_.push_back(0);
-					global_id_storage_.push_back((char*)"");
-					global_id_index_[global_id_storage_.back()] = 0;
-				}
-				log_assert(global_id_storage_.size() < 0x40000000);
-				global_free_idx_list_.push_back(global_id_storage_.size());
-				global_id_storage_.push_back(nullptr);
-				global_refcount_storage_.push_back(0);
-			}
-
-			int idx = global_free_idx_list_.back();
-			global_free_idx_list_.pop_back();
-			global_id_storage_.at(idx) = strdup(p);
-			global_id_index_[global_id_storage_.at(idx)] = idx;
-			global_refcount_storage_.at(idx)++;
-		#else
+	#ifndef YOSYS_NO_IDS_REFCNT
+		if (global_free_idx_list_.empty()) {
 			if (global_id_storage_.empty()) {
+				global_refcount_storage_.push_back(0);
 				global_id_storage_.push_back((char*)"");
 				global_id_index_[global_id_storage_.back()] = 0;
 			}
-			int idx = global_id_storage_.size();
-			global_id_storage_.push_back(strdup(p));
-			global_id_index_[global_id_storage_.back()] = idx;
-		#endif
-
-			if (yosys_xtrace) {
-				log("#X# New IdString '%s' with index %d.\n", p, idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
-
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-
-		#ifdef YOSYS_USE_STICKY_IDS
-			// Avoid Create->Delete->Create pattern
-			if (last_created_idx_[last_created_idx_ptr_])
-				put_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_[last_created_idx_ptr_] = idx;
-			get_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-		#endif
-
-			return idx;
+			log_assert(global_id_storage_.size() < 0x40000000);
+			global_free_idx_list_.push_back(global_id_storage_.size());
+			global_id_storage_.push_back(nullptr);
+			global_refcount_storage_.push_back(0);
 		}
 
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static inline void put_reference(int idx)
-		{
-			// put_reference() may be called from destructors after the destructor of
-			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard_ok || !idx)
-				return;
-
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
-				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
-		#endif
-
-			int &refcount = global_refcount_storage_[idx];
-
-			if (--refcount > 0)
-				return;
-
-			log_assert(refcount == 0);
-			free_reference(idx);
-		}
-		static inline void free_reference(int idx)
-		{
-			if (yosys_xtrace) {
-				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
-
-			global_id_index_.erase(global_id_storage_.at(idx));
-			free(global_id_storage_.at(idx));
-			global_id_storage_.at(idx) = nullptr;
-			global_free_idx_list_.push_back(idx);
-		}
+		int idx = global_free_idx_list_.back();
+		global_free_idx_list_.pop_back();
+		global_id_storage_.at(idx) = strdup(p);
+		global_id_index_[global_id_storage_.at(idx)] = idx;
+		global_refcount_storage_.at(idx)++;
 	#else
-		static inline void put_reference(int) { }
+		if (global_id_storage_.empty()) {
+			global_id_storage_.push_back((char*)"");
+			global_id_index_[global_id_storage_.back()] = 0;
+		}
+		int idx = global_id_storage_.size();
+		global_id_storage_.push_back(strdup(p));
+		global_id_index_[global_id_storage_.back()] = idx;
 	#endif
 
-		// the actual IdString object is just is a single int
-
-		int index_;
-
-		inline IdString() : index_(0) { }
-		inline IdString(const char *str) : index_(get_reference(str)) { }
-		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
-		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-		inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-		inline ~IdString() { put_reference(index_); }
-
-		inline void operator=(const IdString &rhs) {
-			put_reference(index_);
-			index_ = get_reference(rhs.index_);
+		if (yosys_xtrace) {
+			log("#X# New IdString '%s' with index %d.\n", p, idx);
+			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
-		inline void operator=(const char *rhs) {
-			IdString id(rhs);
-			*this = id;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace)
+			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+	#endif
+
+	#ifdef YOSYS_USE_STICKY_IDS
+		// Avoid Create->Delete->Create pattern
+		if (last_created_idx_[last_created_idx_ptr_])
+			put_reference(last_created_idx_[last_created_idx_ptr_]);
+		last_created_idx_[last_created_idx_ptr_] = idx;
+		get_reference(last_created_idx_[last_created_idx_ptr_]);
+		last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+	#endif
+
+		return idx;
+	}
+
+#ifndef YOSYS_NO_IDS_REFCNT
+	static inline void put_reference(int idx)
+	{
+		// put_reference() may be called from destructors after the destructor of
+		// global_refcount_storage_ has been run. in this case we simply do nothing.
+		if (!destruct_guard_ok || !idx)
+			return;
+
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace) {
+			log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+		}
+	#endif
+
+		int &refcount = global_refcount_storage_[idx];
+
+		if (--refcount > 0)
+			return;
+
+		log_assert(refcount == 0);
+		free_reference(idx);
+	}
+	static inline void free_reference(int idx)
+	{
+		if (yosys_xtrace) {
+			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
-		inline void operator=(const std::string &rhs) {
-			IdString id(rhs);
-			*this = id;
-		}
-
-		inline const char *c_str() const {
-			return global_id_storage_.at(index_);
-		}
-
-		inline std::string str() const {
-			return std::string(global_id_storage_.at(index_));
-		}
-
-		inline bool operator<(const IdString &rhs) const {
-			return index_ < rhs.index_;
-		}
-
-		inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
-
-		// The methods below are just convenience functions for better compatibility with std::string.
-
-		bool operator==(const std::string &rhs) const { return c_str() == rhs; }
-		bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
-
-		bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
-		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
-
-		char operator[](size_t i) const {
-                        const char *p = c_str();
-#ifndef NDEBUG
-			for (; i != 0; i--, p++)
-				log_assert(*p != 0);
-			return *p;
+		global_id_index_.erase(global_id_storage_.at(idx));
+		free(global_id_storage_.at(idx));
+		global_id_storage_.at(idx) = nullptr;
+		global_free_idx_list_.push_back(idx);
+	}
 #else
-			return *(p + i);
+	static inline void put_reference(int) { }
 #endif
+
+	// the actual IdString object is just is a single int
+
+	int index_;
+
+	inline IdString() : index_(0) { }
+	inline IdString(const char *str) : index_(get_reference(str)) { }
+	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+	inline ~IdString() { put_reference(index_); }
+
+	inline void operator=(const IdString &rhs) {
+		put_reference(index_);
+		index_ = get_reference(rhs.index_);
+	}
+
+	inline void operator=(const char *rhs) {
+		IdString id(rhs);
+		*this = id;
+	}
+
+	inline void operator=(const std::string &rhs) {
+		IdString id(rhs);
+		*this = id;
+	}
+
+	inline const char *c_str() const {
+		return global_id_storage_.at(index_);
+	}
+
+	inline std::string str() const {
+		return std::string(global_id_storage_.at(index_));
+	}
+
+	inline bool operator<(const IdString &rhs) const {
+		return index_ < rhs.index_;
+	}
+
+	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+
+	// The methods below are just convenience functions for better compatibility with std::string.
+
+	bool operator==(const std::string &rhs) const { return c_str() == rhs; }
+	bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
+
+	bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
+	bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
+
+	char operator[](size_t i) const {
+					const char *p = c_str();
+#ifndef NDEBUG
+		for (; i != 0; i--, p++)
+			log_assert(*p != 0);
+		return *p;
+#else
+		return *(p + i);
+#endif
+	}
+
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		if (len == std::string::npos || len >= strlen(c_str() + pos))
+			return std::string(c_str() + pos);
+		else
+			return std::string(c_str() + pos, len);
+	}
+
+	int compare(size_t pos, size_t len, const char* s) const {
+		return strncmp(c_str()+pos, s, len);
+	}
+
+	bool begins_with(const char* prefix) const {
+		size_t len = strlen(prefix);
+		if (size() < len) return false;
+		return compare(0, len, prefix) == 0;
+	}
+
+	bool ends_with(const char* suffix) const {
+		size_t len = strlen(suffix);
+		if (size() < len) return false;
+		return compare(size()-len, len, suffix) == 0;
+	}
+
+	bool contains(const char* str) const {
+		return strstr(c_str(), str);
+	}
+
+	size_t size() const {
+		return strlen(c_str());
+	}
+
+	bool empty() const {
+		return c_str()[0] == 0;
+	}
+
+	void clear() {
+		*this = IdString();
+	}
+
+	Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
+
+	Hasher hash_top() const {
+		Hasher h;
+		h.force((Hasher::hash_t) index_);
+		return h;
+	}
+
+	// The following is a helper key_compare class. Instead of for example std::set<Cell*>
+	// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
+	// set has an influence on the algorithm.
+
+	template<typename T> struct compare_ptr_by_name {
+		bool operator()(const T *a, const T *b) const {
+			return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
 		}
-
-		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-			if (len == std::string::npos || len >= strlen(c_str() + pos))
-				return std::string(c_str() + pos);
-			else
-				return std::string(c_str() + pos, len);
-		}
-
-		int compare(size_t pos, size_t len, const char* s) const {
-			return strncmp(c_str()+pos, s, len);
-		}
-
-		bool begins_with(const char* prefix) const {
-			size_t len = strlen(prefix);
-			if (size() < len) return false;
-			return compare(0, len, prefix) == 0;
-		}
-
-		bool ends_with(const char* suffix) const {
-			size_t len = strlen(suffix);
-			if (size() < len) return false;
-			return compare(size()-len, len, suffix) == 0;
-		}
-
-		bool contains(const char* str) const {
-			return strstr(c_str(), str);
-		}
-
-		size_t size() const {
-			return strlen(c_str());
-		}
-
-		bool empty() const {
-			return c_str()[0] == 0;
-		}
-
-		void clear() {
-			*this = IdString();
-		}
-
-		unsigned int hash() const {
-			return index_;
-		}
-
-		// The following is a helper key_compare class. Instead of for example std::set<Cell*>
-		// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
-		// set has an influence on the algorithm.
-
-		template<typename T> struct compare_ptr_by_name {
-			bool operator()(const T *a, const T *b) const {
-				return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
-			}
-		};
-
-		// often one needs to check if a given IdString is part of a list (for example a list
-		// of cell types). the following functions helps with that.
-
-		template<typename... Args>
-		bool in(Args... args) const {
-			// Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
-			bool result = false;
-			(void) std::initializer_list<int>{ (result = result || in(args), 0)... };
-			return result;
-		}
-
-		bool in(const IdString &rhs) const { return *this == rhs; }
-		bool in(const char *rhs) const { return *this == rhs; }
-		bool in(const std::string &rhs) const { return *this == rhs; }
-		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
-
-		bool isPublic() const { return begins_with("\\"); }
 	};
 
+	// often one needs to check if a given IdString is part of a list (for example a list
+	// of cell types). the following functions helps with that.
+	template<typename... Args>
+	bool in(Args... args) const {
+		return (... || in(args));
+	}
+
+	bool in(const IdString &rhs) const { return *this == rhs; }
+	bool in(const char *rhs) const { return *this == rhs; }
+	bool in(const std::string &rhs) const { return *this == rhs; }
+	inline bool in(const pool<IdString> &rhs) const;
+	inline bool in(const pool<IdString> &&rhs) const;
+
+	bool isPublic() const { return begins_with("\\"); }
+};
+
+namespace hashlib {
+	template <>
+	struct hash_top_ops<RTLIL::IdString> {
+		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
+			return a == b;
+		}
+		static inline Hasher hash(const RTLIL::IdString id) {
+			return id.hash_top();
+		}
+	};
+};
+
+/**
+ * How to not use these methods:
+ * 1. if(celltype.in({...})) -> if(celltype.in(...))
+ * 2. pool<IdString> p; ... a.in(p) -> (bool)p.count(a)
+ */
+[[deprecated]]
+inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+[[deprecated]]
+inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
+
+namespace RTLIL {
 	namespace ID {
 #define X(_id) extern IdString _id;
 #include "kernel/constids.inc"
 #undef X
 	};
-
 	extern dict<std::string, std::string> constpad;
 
 	const pool<IdString> &builtin_ff_cell_types();
@@ -802,11 +827,10 @@ public:
 		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
-	inline unsigned int hash() const {
-		unsigned int h = mkhash_init;
-
-		for (State b : *this)
-			h = mkhash(h, b);
+	inline Hasher hash_into(Hasher h) const {
+		h.eat(size());
+		for (auto b : *this)
+			h.eat(b);
 		return h;
 	}
 };
@@ -896,7 +920,20 @@ struct RTLIL::SigBit
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
-	unsigned int hash() const;
+	Hasher hash_into(Hasher h) const;
+	Hasher hash_top() const;
+};
+
+namespace hashlib {
+	template <>
+	struct hash_top_ops<RTLIL::SigBit> {
+		static inline bool cmp(const RTLIL::SigBit &a, const RTLIL::SigBit &b) {
+			return a == b;
+		}
+		static inline Hasher hash(const RTLIL::SigBit sb) {
+			return sb.hash_top();
+		}
+	};
 };
 
 struct RTLIL::SigSpecIterator
@@ -937,7 +974,7 @@ struct RTLIL::SigSpec
 {
 private:
 	int width_;
-	unsigned long hash_;
+	Hasher::hash_t hash_;
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
 
@@ -977,11 +1014,6 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
-
-	size_t get_hash() const {
-		if (!hash_) hash();
-		return hash_;
-	}
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
@@ -1089,7 +1121,7 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
-	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
+	Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1130,8 +1162,8 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Monitor() {
 		static unsigned int hashidx_count = 123456789;
@@ -1153,8 +1185,8 @@ struct define_map_t;
 
 struct RTLIL::Design
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
@@ -1258,8 +1290,8 @@ struct RTLIL::Design
 
 struct RTLIL::Module : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -1616,8 +1648,8 @@ void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -1655,8 +1687,8 @@ inline int GetSize(RTLIL::Wire *wire) {
 
 struct RTLIL::Memory : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
 
@@ -1670,8 +1702,8 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 
 struct RTLIL::Cell : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
@@ -1780,8 +1812,8 @@ struct RTLIL::SyncRule
 
 struct RTLIL::Process : public RTLIL::AttrObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes
@@ -1825,10 +1857,25 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 	return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
 }
 
-inline unsigned int RTLIL::SigBit::hash() const {
-	if (wire)
-		return mkhash_add(wire->name.hash(), offset);
-	return data;
+inline Hasher RTLIL::SigBit::hash_into(Hasher h) const {
+	if (wire) {
+		h.eat(offset);
+		h.eat(wire->name);
+		return h;
+	}
+	h.eat(data);
+	return h;
+}
+
+
+inline Hasher RTLIL::SigBit::hash_top() const {
+	Hasher h;
+	if (wire) {
+		h.force(hashlib::legacy::djb2_add(wire->name.index_, offset));
+		return h;
+	}
+	h.force(data);
+	return h;
 }
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {

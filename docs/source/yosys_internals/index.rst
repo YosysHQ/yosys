@@ -39,3 +39,4 @@ as reference to implement a similar system in any language.
    extending_yosys/index
    techmap
    verilog
+   hashing
