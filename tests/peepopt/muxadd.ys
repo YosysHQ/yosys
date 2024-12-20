@@ -244,7 +244,7 @@ wreduce
 opt_clean
 equiv_opt -assert peepopt
 design -load postopt
-select -assert-none t:$add %co1 %a w:y %i
+select -assert-any t:$add %co1 %a w:y %i
 
 log -pop
 log -header "Test transform when (a+b) wider than a, adder’s a input is signed, a sign-extended on the muxes input"
@@ -265,7 +265,7 @@ wreduce
 opt_clean
 equiv_opt -assert peepopt
 design -load postopt
-select -assert-none t:$add %co1 %a w:y %i
+select -assert-any t:$add %co1 %a w:y %i
 
 log -pop
 log -header "Test transform when pattern is s?a:(a+b)"
