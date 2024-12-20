@@ -53,8 +53,34 @@ code
 	int b_const_int = b_const.as_int(b_const_signed);
 	int c_const_int = c_const.as_int(c_const_signed);
 	int b_const_int_shifted = b_const_int << offset;
-	// Calculate the constant and compress the width to fit the value 
-	Const const_ratio = b_const_int_shifted / c_const_int;
+
+	// Helper Lambdas for 2's complement math	
+	auto sign2sComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return -1; 
+  		} else {
+   		    return 1; 
+  		}
+	};
+
+	auto twosComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return (~value) + 1; // Invert bits before adding 1
+  		} else {
+   		    return value; 
+  		}
+	};
+	// 2's complement convertion
+	if (b_const_signed)
+		b_const_int = sign2sComplement(b_const_int, b_const.size()) * twosComplement(b_const_int, b_const.size());
+	if (c_const_signed)
+		c_const_int = sign2sComplement(c_const_int, c_const.size()) * twosComplement(c_const_int, c_const.size());
+    // Calculate the constant and compress the width to fit the value
+	Const const_ratio;
+	if (c_const_int == 0)
+		// Avoid division by zero
+		reject;
+	const_ratio = b_const_int_shifted / c_const_int;
 	const_ratio.compress(b_const_signed | c_const_signed);
 
 	// Integer values should be lesser than 64 bits
