@@ -77,9 +77,13 @@ code
 		c_const_int = sign2sComplement(c_const_int, c_const.size()) * twosComplement(c_const_int, c_const.size());
     // Calculate the constant and compress the width to fit the value
 	Const const_ratio;
+	Const b_const_actual;
 	if (c_const_int == 0)
 		// Avoid division by zero
 		reject;
+	b_const_actual = b_const_int_shifted;
+    b_const_actual.compress(b_const_signed);
+
 	const_ratio = b_const_int_shifted / c_const_int;
 	const_ratio.compress(b_const_signed | c_const_signed);
 
@@ -92,7 +96,7 @@ code
 		reject;
 
 	// Check for potential mult overflow
-	if (b_const.size() + a.size() > mul_y.size()) {
+	if (b_const_actual.size() + a.size() > mul_y.size()) {
 		reject;
 	}
 

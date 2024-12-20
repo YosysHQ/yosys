@@ -268,7 +268,7 @@ module top(
 	output [7:0] y,
 );
     wire [6:0] mul;
-	assign mul = a * 4'd4;
+	assign mul = a * 4'd8;
 	assign y = mul / 8'd2;
 endmodule
 EOT
@@ -277,6 +277,7 @@ design -load postopt
 select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
+
 
 log -pop
 log -header "No transform when (a*b) and x/c fitting criteria but not connected (x != a*b)"
