@@ -79,6 +79,7 @@ code
 		reject;
 
 	// Rewire to only keep multiplier
+	mul->setPort(\A, a);
 	mul->setPort(\B, const_ratio);
 	mul->setPort(\Y, div_y);
 
