@@ -4,7 +4,7 @@ YOSYS_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../ >/dev/null 2>&1 && pwd)
 
 # $ generate_target target_name test_command
 generate_target() {
-	target_name=$1
+	target_name=$(basename $PWD)-$1
 	test_command=$2
 	echo "all: $target_name"
 	echo ".PHONY: $target_name"
@@ -105,7 +105,6 @@ generate_tests() {
 	fi
 }
 
-run_tests() {
+generate_mk() {
 	generate_tests "$@" > run-test.mk
-	exec ${MAKE:-make} -f run-test.mk
 }
