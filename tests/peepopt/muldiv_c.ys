@@ -39,8 +39,9 @@ select -assert-any t:$div
 design -reset
 
 
-
-# Basic pattern transformed: (a * b) / c
+log -pop
+log -header "Basic pattern transformed: (a * b) / c"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -57,7 +58,10 @@ select -assert-count 1 t:$mul
 select -assert-count 0 t:$div
 design -reset
 
-# Transformed on symmetry in multiplication
+
+log -pop
+log -header "Transformed on symmetry in multiplication"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -74,7 +78,9 @@ select -assert-count 1 t:$mul
 select -assert-count 0 t:$div
 design -reset
 
-# Transformed on b == c
+log -pop
+log -header "Transformed on b == c"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -91,7 +97,10 @@ select -assert-count 1 t:$mul
 select -assert-count 0 t:$div
 design -reset
 
-# b negative, c positive
+
+log -pop
+log -header "b negative, c positive"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -108,7 +117,10 @@ select -assert-count 1 t:$mul
 select -assert-count 0 t:$div
 design -reset
 
-# b positive, c negative
+
+log -pop
+log -header "b positive, c negative"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -125,7 +137,10 @@ select -assert-count 1 t:$mul
 select -assert-count 0 t:$div
 design -reset
 
-# No transform when b not divisible by c
+
+log -pop
+log -header "No transform when b not divisible by c"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -142,7 +157,10 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when product has a second fanout
+
+log -pop
+log -header "No transform when product has a second fanout"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -161,7 +179,10 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when divisor is 0
+
+log -pop
+log -header "No transform when divisor is 0"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -178,7 +199,10 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when (a*b) output can overflow (divider’s A input signed)
+
+log -pop
+log -header "No transform when (a*b) output can overflow (divider’s A input signed)"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -194,6 +218,11 @@ design -load postopt
 select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
+
+
+log -pop
+log -header "No transform when (a*b) output can overflow (divider’s A input signed)"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -210,7 +239,10 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when (a*b) output can overflow (divider’s A input unsigned)
+
+log -pop
+log -header "No transform when (a*b) output can overflow (divider’s A input unsigned)"
+log -push
 read_verilog <<EOT
 module top(
 	input [3:0] a,
@@ -226,6 +258,10 @@ design -load postopt
 select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
+
+log -pop
+log -header "No transform when (a*b) output can overflow (divider’s A input unsigned)"
+log -push
 read_verilog <<EOT
 module top(
 	input [3:0] a,
@@ -242,7 +278,9 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when (a*b) and x/c fitting criteria but not connected (x != a*b)
+log -pop
+log -header "No transform when (a*b) and x/c fitting criteria but not connected (x != a*b)"
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -260,9 +298,11 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
-# No transform when b only divisible by c if b misinterpreted as unsigned
+log -pop
+log -header "No transform when b only divisible by c if b misinterpreted as unsigned"
 # b 1001 is -7 but 9 misinterpreted
 # c 11 is 3
+log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
@@ -279,6 +319,9 @@ select -assert-count 1 t:$mul
 select -assert-count 1 t:$div
 design -reset
 
+log -pop
+log -header "Transform even if (a*b) result would overflow if divider’s A input signedness is confused & (A input is unsigned)"
+log -push
 # Transform even if:
 # (a*b) result would overflow if divider’s A input signedness is confused
 # (A input is unsigned)
