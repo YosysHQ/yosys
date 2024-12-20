@@ -75,14 +75,14 @@ code
 		b_const_int = sign2sComplement(b_const_int, b_const.size()) * twosComplement(b_const_int, b_const.size());
 	if (c_const_signed)
 		c_const_int = sign2sComplement(c_const_int, c_const.size()) * twosComplement(c_const_int, c_const.size());
-    // Calculate the constant and compress the width to fit the value
+	// Calculate the constant and compress the width to fit the value
 	Const const_ratio;
 	Const b_const_actual;
 	if (c_const_int == 0)
 		// Avoid division by zero
 		reject;
 	b_const_actual = b_const_int_shifted;
-    b_const_actual.compress(b_const_signed);
+	b_const_actual.compress(b_const_signed);
 
 	const_ratio = b_const_int_shifted / c_const_int;
 	const_ratio.compress(b_const_signed | c_const_signed);
