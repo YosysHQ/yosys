@@ -73,9 +73,9 @@ code
 
 	// Two's complement conversion
 	if (b_const_signed)
-		b_const_int = sign2sComplement(b_const_int, b_const.size()) * twosComplement(b_const_int, b_const.size());
+		b_const_int = sign2sComplement(b_const_int, GetSize(b_const)) * twosComplement(b_const_int, GetSize(b_const));
 	if (c_const_signed)
-		c_const_int = sign2sComplement(c_const_int, c_const.size()) * twosComplement(c_const_int, c_const.size());
+		c_const_int = sign2sComplement(c_const_int, GetSize(c_const)) * twosComplement(c_const_int, GetSize(c_const));
 	// Calculate the constant and compress the width to fit the value
 	Const const_ratio;
 	Const b_const_actual;
@@ -88,17 +88,18 @@ code
 	const_ratio = b_const_int_shifted / c_const_int;
 	const_ratio.compress(b_const_signed | c_const_signed);
 
-	// Integer values should be lesser than 64 bits
-	// This is because we are using C++ types, and int is 64 bits
-	if (mul->getParam(ID::B_WIDTH).size() > 64)
+	// Integer values should be lesser than 32 bits
+	// This is because we are using C++ types, and int is 32 bits
+	// FIXME: use long long or BigInteger to make pass work with >32 bits
+	if (GetSize(mul->getParam(ID::B_WIDTH)) > 32)
 		reject;
-	if (b_const.size() > 64)
+	if (GetSize(b_const) > 32)
 		reject;
-	if (c_const.size() + offset > 64)
+	if (GetSize(c_const) + offset > 32)
 		reject;
 
 	// Check for potential multiplier overflow
-	if (b_const_actual.size() + a.size() > mul_y.size())
+	if (GetSize(b_const_actual) + GetSize(a) > GetSize(mul_y))
 		reject;
 
 	// Check that there are only zeros before offset

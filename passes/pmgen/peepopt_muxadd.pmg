@@ -82,7 +82,7 @@ code add_y add_a add_b add_a_ext add_a_id add_b_id  mux_y mux_a mux_b mux_a_id m
 	}
 	// Alternatively, the port name could be a wire name
 	if (add_y.is_wire()) {
-		if (adder_y_name.size()) {
+		if (GetSize(adder_y_name)) {
 			if (adder_y_name[0] != '$') {
 				module->rename(adder_y_name, module->uniquify("$" + adder_y_name));
 			}
