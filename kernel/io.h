@@ -1,12 +1,10 @@
-#include "kernel/yosys_common.h"
 #include <string>
+#include <unistd.h>
+#include <stdarg.h>
+#include "kernel/yosys_common.h"
 
 #ifndef YOSYS_IO_H
 #define YOSYS_IO_H
-
-#ifdef YOSYS_ENABLE_ZLIB
-#include <zlib.h>
-#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -66,34 +64,6 @@ inline std::string stringf(const char *fmt, ...)
 
 	return string;
 }
-
-#ifdef YOSYS_ENABLE_ZLIB
-/*
-An output stream that uses a stringbuf to buffer data internally,
-using zlib to write gzip-compressed data every time the stream is flushed.
-*/
-class gzip_ostream : public std::ostream {
-public:
-    gzip_ostream();
-    bool open(const std::string &filename);
-private:
-    class gzip_streambuf : public std::stringbuf {
-    public:
-        gzip_streambuf();
-        bool open(const std::string &filename);
-        virtual int sync() override;
-        virtual ~gzip_streambuf();
-    private:
-        static const int buffer_size = 4096;  // Size of the internal buffer
-        char buffer[buffer_size];             // Internal buffer for compressed data
-        gzFile gzf = nullptr;                 // Handle to the gzip file
-    };
-
-    gzip_streambuf outbuf;  // The stream buffer instance
-};
-#endif // YOSYS_ENABLE_ZLIB
-
-std::istream* uncompressed(std::ifstream* f, const std::string filename);
 
 YOSYS_NAMESPACE_END
 
