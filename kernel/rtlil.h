@@ -1011,7 +1011,7 @@ public:
 	SigSpec(const RTLIL::SigBit &bit, int width = 1);
 	SigSpec(const std::vector<RTLIL::SigChunk> &chunks);
 	SigSpec(const std::vector<RTLIL::SigBit> &bits);
-	SigSpec(const pool<RTLIL::SigBit> &bits);
+	SigSpec(pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
 

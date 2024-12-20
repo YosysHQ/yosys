@@ -4396,7 +4396,7 @@ RTLIL::SigSpec::SigSpec(const std::vector<RTLIL::SigBit> &bits)
 	check();
 }
 
-RTLIL::SigSpec::SigSpec(const pool<RTLIL::SigBit> &bits)
+RTLIL::SigSpec::SigSpec(pool<RTLIL::SigBit> &bits)
 {
 	cover("kernel.rtlil.sigspec.init.pool_bits");
 
