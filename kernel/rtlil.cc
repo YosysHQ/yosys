@@ -2536,7 +2536,8 @@ std::string RTLIL::Module::rtlil_dump() {
 
 // Returns a hash of the RTLIL dump
 unsigned int RTLIL::Module::rtlil_hash() {
-	return hash_ops<std::string>::hash(rtlil_dump());
+	std::hash<std::string> hasher;
+	return hasher(rtlil_dump());
 }
 
 void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
