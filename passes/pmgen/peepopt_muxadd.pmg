@@ -72,12 +72,16 @@ code add_y add_a add_b add_a_ext add_a_id add_b_id  mux_y mux_a mux_b mux_a_id m
 	// Adder output could be assigned
 	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 		RTLIL::SigSpec rhs = it->second;
-		const std::string& rhs_name = rhs.as_wire()->name.c_str();
-		if (rhs_name == adder_y_name) {
-			RTLIL::SigSpec lhs = it->first;
-			const std::string& lhs_name =  lhs.as_wire()->name.c_str();
-			module->rename(lhs_name, module->uniquify("$" + lhs_name));
-			break;
+		if (rhs.is_wire()) {
+			const std::string& rhs_name = rhs.as_wire()->name.c_str();
+			if (rhs_name == adder_y_name) {
+				RTLIL::SigSpec lhs = it->first;
+				if (lhs.is_wire()) {
+					const std::string& lhs_name =  lhs.as_wire()->name.c_str();
+					module->rename(lhs_name, module->uniquify("$" + lhs_name));
+					break;
+				}
+			}
 		}
 	}
 	// Alternatively, the port name could be a wire name
