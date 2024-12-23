@@ -17,9 +17,13 @@
  *
  */
 
+#include <string>
+#include <optional>
+
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "libparse.h"
+#include "kernel/rtlil.h"
 #include <string.h>
 #include <errno.h>
 
@@ -479,7 +483,32 @@ static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol,
 	}
 }
 
-static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
+std::optional<std::string> generate_flop_name(RTLIL::Cell *cell,
+                                              RTLIL::Module *curren_module) {
+  if (!RTLIL::builtin_ff_cell_types().count(cell->type) ||
+      !cell->hasPort(ID::Q)) {
+    return std::nullopt;
+  }
+
+  RTLIL::SigSpec flop_q_port = cell->getPort(ID::Q);
+  RTLIL::Wire *src_wire = flop_q_port[0].wire;
+  std::string cell_name = src_wire->name.str();
+
+  size_t pos = cell_name.find('[');
+  if (pos != std::string::npos)
+    cell_name = cell_name.substr(0, pos) + "_reg" + cell_name.substr(pos);
+  else
+    cell_name = cell_name + "_reg";
+
+  if (src_wire->width != 1) {
+    cell_name +=
+        stringf("[%d]", src_wire->start_offset + flop_q_port[0].offset);
+  }
+	
+	return cell_name;
+}
+
+static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool infer_flop_names)
 {
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
 
@@ -501,6 +530,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		auto cell_name = cell->name;
 		auto cell_connections = cell->connections();
 		std::string src = cell->get_src_attribute();
+
+		std::optional<std::string> new_src_name = generate_flop_name(cell, module);
+		if (infer_flop_names && new_src_name.has_value()) {
+			cell_name = *new_src_name;
+		}
 
 		module->remove(cell);
 
@@ -594,6 +628,7 @@ struct DfflibmapPass : public Pass {
 		bool prepare_mode = false;
 		bool map_only_mode = false;
 		bool info_mode = false;
+		bool infer_flop_names = false;
 
 		std::vector<std::string> dont_use_cells;
 
@@ -616,6 +651,10 @@ struct DfflibmapPass : public Pass {
 			}
 			if (arg == "-info") {
 				info_mode = true;
+				continue;
+			}
+			if (arg == "-infer_flop_names") {
+				infer_flop_names = true;
 				continue;
 			}
 			if (arg == "-dont_use" && argidx+1 < args.size()) {
@@ -690,7 +729,7 @@ struct DfflibmapPass : public Pass {
 		if (!prepare_mode && !info_mode) {
 			for (auto module : design->selected_modules())
 				if (!module->get_blackbox_attribute())
-					dfflibmap(design, module);
+					dfflibmap(design, module, infer_flop_names);
 		}
 
 		log_pop();
