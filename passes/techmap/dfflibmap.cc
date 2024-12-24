@@ -483,28 +483,30 @@ static void find_cell_sr(const LibertyAst *ast, IdString cell_type, bool clkpol,
 	}
 }
 
-std::optional<std::string> generate_flop_name(RTLIL::Cell *cell,
-                                              RTLIL::Module *curren_module) {
-  if (!RTLIL::builtin_ff_cell_types().count(cell->type) ||
-      !cell->hasPort(ID::Q)) {
-    return std::nullopt;
-  }
+std::optional<std::string> generate_flop_name(RTLIL::Cell *cell, RTLIL::Module *current_module)
+{
+	if (!RTLIL::builtin_ff_cell_types().count(cell->type) || !cell->hasPort(ID::Q)) {
+		return std::nullopt;
+	}
 
-  RTLIL::SigSpec flop_q_port = cell->getPort(ID::Q);
-  RTLIL::Wire *src_wire = flop_q_port[0].wire;
-  std::string cell_name = src_wire->name.str();
+	RTLIL::SigSpec flop_q_port = cell->getPort(ID::Q);
+	RTLIL::Wire *src_wire = flop_q_port[0].wire;
+	std::string cell_name = src_wire->name.str();
 
-  size_t pos = cell_name.find('[');
-  if (pos != std::string::npos)
-    cell_name = cell_name.substr(0, pos) + "_reg" + cell_name.substr(pos);
-  else
-    cell_name = cell_name + "_reg";
+	size_t pos = cell_name.find('[');
+	if (pos != std::string::npos)
+		cell_name = cell_name.substr(0, pos) + "_reg" + cell_name.substr(pos);
+	else
+		cell_name = cell_name + "_reg";
 
-  if (src_wire->width != 1) {
-    cell_name +=
-        stringf("[%d]", src_wire->start_offset + flop_q_port[0].offset);
-  }
-	
+	if (src_wire->width != 1) {
+		cell_name += stringf("[%d]", src_wire->start_offset + flop_q_port[0].offset);
+	}
+
+	if (current_module && current_module->count_id(cell_name) > 0) {
+		return std::nullopt;
+	}
+
 	return cell_name;
 }
 
