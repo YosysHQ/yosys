@@ -31,9 +31,9 @@ struct ExclusiveDatabase
 
 	dict<SigBit, std::pair<SigSpec,std::vector<Const>>> sig_cmp_prev;
 
-	ExclusiveDatabase(Module *module, const SigMap &sigmap, bool assume_excl) : module(module), sigmap(sigmap)
+	ExclusiveDatabase(Module *module, const SigMap &sigmap, bool assume_excl, bool make_excl) : module(module), sigmap(sigmap)
 	{
-		if (assume_excl) return;
+		if (assume_excl || make_excl) return;
 		SigSpec const_sig, nonconst_sig;
 		SigBit y_port;
 		pool<Cell*> reduce_or;
@@ -243,7 +243,7 @@ struct MuxpackWorker
 		return chain;
 	}
 
-	void process_chain(vector<Cell*> &chain)
+	void process_chain(vector<Cell*> &chain, bool make_excl)
 	{
 		if (GetSize(chain) < 2)
 			return;
@@ -289,8 +289,66 @@ struct MuxpackWorker
 				remove_cells.insert(cursor_cell);
 			}
 
+			if (make_excl) {
+      /*   We create the following one-hot select line decoder
+			      S0					S1             S2                 S3   ...
+						|						 |              |                 | 
+						+--------+	 +----------+   +-------------+   |
+						|				_|_	 |         _|_ 	|						 _|_  |
+						|				\_/	 |         \_/  |						 \_/  | 
+						|				 o 	 |          o   |						  o   |
+						|				 |	 |	        |   |      __     |   |
+						|				 +---------\    |   |     /  \    |   |
+						|				 |   |      |___|   |    /    |___|   |
+						|				 |___|      \ & /  /    /     \ & /  /     ...
+						|				 \ & /       \_/  /    /       \_/  /     / 
+						|				  \_/         |   |   /         |   |    /
+						|					 |	        +------/          +-------/   
+			      |          |          |   |             |   |
+            |          |          |___|             |___|
+						|					 |					\ & /             \ & /
+						|					 |					 \_/               \_/
+						|					 |						|                 |
+            S0       S0'S1       S0'S1'S2         S0'S1'S2'S3  ...
+			*/
+        SigSpec decodedSelect;
+				Cell *cell = last_cell;
+				std::vector<RTLIL::SigBit> select_bits = s_sig.bits();
+				RTLIL::SigBit prevSigNot = RTLIL::State::S1;
+				RTLIL::SigBit prevSigAnd = RTLIL::State::S1;
+				for (int i = (int) (select_bits.size() -1); i >= 0; i--) { 
+					Yosys::RTLIL::SigBit sigbit = select_bits[i];
+					if (i == (int) (select_bits.size() -1)) {
+						decodedSelect.append(sigbit);
+						Wire *not_y = module->addWire(NEW_ID, 1);
+						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
+						prevSigNot = not_y;
+					} else if (i == (int) (select_bits.size() -2)) {
+						Wire *and_y = module->addWire(NEW_ID, 1);
+						module->addAndGate(NEW_ID2_SUFFIX("sel"), sigbit, prevSigNot, and_y, last_cell->get_src_attribute());
+						decodedSelect.append(and_y);
+						Wire *not_y = module->addWire(NEW_ID, 1);
+						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
+						prevSigAnd = prevSigNot;
+						prevSigNot = not_y;
+					} else {
+						Wire *and_y1 = module->addWire(NEW_ID, 1);
+						module->addAndGate(NEW_ID2_SUFFIX("sel"), prevSigAnd, prevSigNot, and_y1, last_cell->get_src_attribute());
+						Wire *and_y2 = module->addWire(NEW_ID, 1);
+						module->addAndGate(NEW_ID2_SUFFIX("sel"), sigbit, and_y1, and_y2, last_cell->get_src_attribute());
+						decodedSelect.append(and_y2);
+						Wire *not_y = module->addWire(NEW_ID, 1);
+						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
+						prevSigAnd = and_y1;
+						prevSigNot = not_y;
+					}					
+				}
+				decodedSelect.reverse();
+				first_cell->setPort(ID::S, decodedSelect);
+			} else {
+				first_cell->setPort(ID::S, s_sig);
+			}
 			first_cell->setPort(ID::B, b_sig);
-			first_cell->setPort(ID::S, s_sig);
 			first_cell->setParam(ID::S_WIDTH, GetSize(s_sig));
 			first_cell->setPort(ID::Y, last_cell->getPort(ID::Y));
 
@@ -310,15 +368,15 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module, bool assume_excl) :
-			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl)
+	MuxpackWorker(Module *module, bool assume_excl, bool make_excl) :
+			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl)
 	{
 		make_sig_chain_next_prev();
 		find_chain_start_cells(assume_excl);
 
 		for (auto c : chain_start_cells) {
 			vector<Cell*> chain = create_chain(c);
-			process_chain(chain);
+			process_chain(chain, make_excl);
 		}
 
 		cleanup();
@@ -346,12 +404,16 @@ struct MuxpackPass : public Pass {
 		log("\n");
 		log("    -assume_excl\n");
 		log("        assume mutually exclusive constraint when packing (may result in inequivalence)\n");
+		log("    -make_excl\n");
+		log("        Adds a one-hot decoder on the control signals\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool splitfanout = false;
 		bool assume_excl = false;
+		bool make_excl = false;
+
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
@@ -366,6 +428,11 @@ struct MuxpackPass : public Pass {
 				assume_excl = true;
 				continue;
 			}
+			if (args[argidx] == "-make_excl") {
+				make_excl = true;
+				assume_excl = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -377,7 +444,7 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module, assume_excl);
+			MuxpackWorker worker(module, assume_excl, make_excl);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
