@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct TeePass : public Pass {
-	TeePass() : Pass("tee", "redirect command output to file") { }
+	TeePass() : Pass("tee", "redirect command output to file") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
