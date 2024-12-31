@@ -310,8 +310,8 @@ struct MuxpackWorker
             |          |          \___/             \___/
             |          |            |                 |
             S0       S0'S1       S0'S1'S2         S0'S1'S2'S3  ...
-			*/
-        SigSpec decodedSelect;
+      */
+				SigSpec decodedSelect;
 				Cell *cell = last_cell;
 				std::vector<RTLIL::SigBit> select_bits = s_sig.bits();
 				RTLIL::SigBit prevSigNot = RTLIL::State::S1;
