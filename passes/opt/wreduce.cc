@@ -308,7 +308,8 @@ struct WreduceWorker
 		bool port_a_signed = false;
 		bool port_b_signed = false;
 
-		// Under certain conditions we are free to choose the signedness of the operands
+		// For some operations if the output is no wider than either of the inputs
+		// we are free to choose the signedness of the operands
 		if (cell->type.in(ID($mul), ID($add), ID($sub)) &&
 				max_port_a_size == GetSize(sig) &&
 				max_port_b_size == GetSize(sig)) {
@@ -318,16 +319,16 @@ struct WreduceWorker
 			sig_a.extend_u0(max_port_a_size);
 			sig_b.extend_u0(max_port_b_size);
 
-			int signed_size, unsigned_size;
+			int signed_cost, unsigned_cost;
 			if (cell->type == ID($mul)) {
-				signed_size = reduced_opsize(sig_a, true) * reduced_opsize(sig_b, true);
-				unsigned_size = reduced_opsize(sig_a, false) * reduced_opsize(sig_b, false);
+				signed_cost = reduced_opsize(sig_a, true) * reduced_opsize(sig_b, true);
+				unsigned_cost = reduced_opsize(sig_a, false) * reduced_opsize(sig_b, false);
 			} else {
-				signed_size = max(reduced_opsize(sig_a, true), reduced_opsize(sig_b, true));
-				unsigned_size = max(reduced_opsize(sig_a, false), reduced_opsize(sig_b, false));
+				signed_cost = max(reduced_opsize(sig_a, true), reduced_opsize(sig_b, true));
+				unsigned_cost = max(reduced_opsize(sig_a, false), reduced_opsize(sig_b, false));
 			}
 
-			if (!port_a_signed && !port_b_signed && signed_size < unsigned_size) {
+			if (!port_a_signed && !port_b_signed && signed_cost < unsigned_cost) {
 				log("Converting cell %s.%s (%s) from unsigned to signed.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 1);
@@ -335,7 +336,7 @@ struct WreduceWorker
 				port_a_signed = true;
 				port_b_signed = true;
 				did_something = true;
-			} else if (port_a_signed && port_b_signed && unsigned_size < signed_size) {
+			} else if (port_a_signed && port_b_signed && unsigned_cost < signed_cost) {
 				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 0);
