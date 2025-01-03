@@ -72,7 +72,7 @@ private:
 
 #endif // YOSYS_ENABLE_ZLIB
 
-std::istream* uncompressed(std::ifstream* f, const std::string filename);
+std::istream& uncompressed(const std::string filename, std::ios_base::openmode mode = std::ios_base::in);
 
 YOSYS_NAMESPACE_END
 
