@@ -96,15 +96,17 @@ gzip_istream::ibuf::~ibuf() {
 
 // Takes a successfully opened ifstream. If it's gzipped, returns an istream. Otherwise,
 // returns the original ifstream, rewound to the start.
-std::istream* uncompressed(std::ifstream* f, const std::string filename) {
-	if (!f)
-		return nullptr;
+std::istream& uncompressed(const std::string filename, std::ios_base::openmode mode) {
+	std::ifstream& f = *new std::ifstream();
+	f.open(filename, mode);
+	if (f.fail())
+		return f;
 	// Check for gzip magic
 	unsigned char magic[3];
 	int n = 0;
 	while (n < 3)
 	{
-		int c = f->get();
+		int c = f.get();
 		if (c != EOF) {
 			magic[n] = (unsigned char) c;
 		}
@@ -116,15 +118,16 @@ std::istream* uncompressed(std::ifstream* f, const std::string filename) {
 		if (magic[2] != 8)
 			log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
 				filename.c_str(), unsigned(magic[2]));
-		delete f;
-		gzip_istream* s = new gzip_istream();
-		return s->open(filename.c_str()) ? s : nullptr;
+		gzip_istream& s = *new gzip_istream();
+		delete &f;
+		s.open(filename.c_str());
+		return s;
 #else
 		log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
 #endif // YOSYS_ENABLE_ZLIB
 	} else {
-		f->clear();
-		f->seekg(0, std::ios::beg);
+		f.clear();
+		f.seekg(0, std::ios::beg);
 		return f;
 	}
 }
