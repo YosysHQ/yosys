@@ -1,0 +1,388 @@
+# Basic accepted case
+# Cell has fanout into module output port
+read_verilog <<EOT
+module top(input x, input y, input z, output o, output p);
+wire a = !x;
+assign o = a + y;
+assign p = a + z;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 2 t:$logic_not
+design -reset
+read_verilog <<EOT
+module top(input [1:0] x, input [1:0] y, input [1:0] z, output [1:0] o, output [1:0] p);
+wire [1:0] a = !x;
+assign o = a + y;
+assign p = a + z;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 2 t:$logic_not
+design -reset
+
+# Chain of length 1 accepted
+# Cell has fanout into cell input ports
+read_verilog <<EOT
+module top(input a, input b, output c);
+reg x = a & b;
+assign c = x & x;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 2 t:$and
+design -load postopt
+select -assert-count 3 t:$and
+design -reset
+read_verilog <<EOT
+module top(input [1:0] a, input [1:0] b, output [1:0] c);
+reg [1:0] x = a & b;
+assign c = x & x;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 2 t:$and
+design -load postopt
+select -assert-count 3 t:$and
+design -reset
+
+# Chain of length 3 accepted
+# Cell has fanout into cell input ports
+# Schematic: =D<D<D<D-
+# Exponential cell count growth!
+read_verilog <<EOT
+module top(input a, input b, output c);
+reg x1 = a & b;
+reg x2 = x1 & x1;
+reg x3 = x2 & x2;
+assign c = x3 & x3;
+endmodule
+EOT
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 4 t:$and
+design -load postopt
+select -assert-count 15 t:$and
+design -reset
+read_verilog <<EOT
+module top(input [1:0] a, input [1:0] b, output [1:0] c);
+reg [1:0] x1 = a & b;
+reg [1:0] x2 = x1 & x1;
+reg [1:0] x3 = x2 & x2;
+assign c = x3 & x3;
+endmodule
+EOT
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 4 t:$and
+design -load postopt
+select -assert-count 15 t:$and
+design -reset
+
+
+# Basic accepted case transformed if fanout under limit
+read_verilog <<EOT
+module top(input x, input y, input z, output o, output p);
+wire a = !x;
+assign o = a + y;
+assign p = a + z;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout -limit 2
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 2 t:$logic_not
+design -reset
+
+# Basic accepted case transformed if fanout over limit
+read_verilog <<EOT
+module top(input x, input y, input z, output o, output p);
+wire a = !x;
+assign o = a + y;
+assign p = a + z;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout -limit 1
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 1 t:$logic_not
+design -reset
+
+# If some fanout over limit, module is *partially* transformed
+read_verilog <<EOT
+module top(input x1, input x2, input x3, output o1, output o2, output o3, output o4, output o5);
+wire a = !x1;
+wire b = x2 & x3;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+assign o5 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout -limit 2
+design -load preopt
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$and
+design -load postopt
+select -assert-count 2 t:$logic_not
+select -assert-count 1 t:$and
+design -reset
+read_verilog <<EOT
+module top(input [1:0] x1, input [1:0] x2, input [1:0] x3, output [1:0] o1, output [1:0] o2, output [1:0] o3, output [1:0] o4, output [1:0] o5);
+wire [1:0] a = !x1;
+wire [1:0] b = x2 & x3;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+assign o5 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout -limit 2
+design -load preopt
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$and
+design -load postopt
+select -assert-count 2 t:$logic_not
+select -assert-count 1 t:$and
+design -reset
+
+# Only selected cells are split
+read_verilog <<EOT
+module top(input x1, input x2, output o1, output o2, output o3, output o4);
+wire a = !x1;
+wire b = !x2;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+# Two nots in module
+select -assert-count 2 t:$logic_not
+# Selection used for splitfanout only selects one
+select -assert-count 1 w:x1 %co t:$logic_not %i
+equiv_opt -assert splitfanout -limit 2 w:x1 %co
+design -load preopt
+select -assert-count 2 t:$logic_not
+design -load postopt
+select -assert-count 3 t:$logic_not
+design -reset
+read_verilog <<EOT
+module top(input [1:0] x1, input [1:0] x2, output [1:0] o1, output [1:0] o2, output [1:0] o3, output [1:0] o4);
+wire [1:0] a = !x1;
+wire [1:0] b = !x2;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+# Two nots in module
+select -assert-count 2 t:$logic_not
+# Selection used for splitfanout only selects one
+select -assert-count 1 w:x1 %co t:$logic_not %i
+equiv_opt -assert splitfanout -limit 2 w:x1 %co
+design -load preopt
+select -assert-count 2 t:$logic_not
+design -load postopt
+select -assert-count 3 t:$logic_not
+design -reset
+
+# Only selected cells are split
+read_verilog <<EOT
+module top(input x1, input x2, output o1, output o2, output o3, output o4);
+wire a = !x1;
+wire b = !x2;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+# Two nots in module
+select -assert-count 2 t:$logic_not
+# Selection used for splitfanout only selects one
+select -assert-count 1 w:x1 %co t:$logic_not %i
+equiv_opt -assert splitfanout -limit 2 w:x1 %co
+design -load preopt
+select -assert-count 2 t:$logic_not
+design -load postopt
+select -assert-count 3 t:$logic_not
+design -reset
+read_verilog <<EOT
+module top(input [1:0] x1, input [1:0] x2, output [1:0] o1, output [1:0] o2, output [1:0] o3, output [1:0] o4);
+wire [1:0] a = !x1;
+wire [1:0] b = !x2;
+assign o1 = a;
+assign o2 = a;
+assign o3 = b;
+assign o4 = b;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+# Two nots in module
+select -assert-count 2 t:$logic_not
+# Selection used for splitfanout only selects one
+select -assert-count 1 w:x1 %co t:$logic_not %i
+equiv_opt -assert splitfanout -limit 2 w:x1 %co
+design -load preopt
+select -assert-count 2 t:$logic_not
+design -load postopt
+select -assert-count 3 t:$logic_not
+design -reset
+
+# Multi-bit cells get split
+read_verilog <<EOT
+module top(input [1:0] a, input [1:0] b, output [1:0] c, output [1:0] d);
+reg [1:0] x = a & b;
+assign c = x;
+assign d = x;
+endmodule
+EOT
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$and
+design -load postopt
+select -assert-count 2 t:$and
+design -reset
+
+# Multi-bit cells with different bit users don't get split
+read_verilog <<EOT
+module top(input [1:0] a, input [1:0] b, output c, output d);
+reg [1:0] x = a & b;
+assign c = x[0];
+assign d = x[1];
+endmodule
+EOT
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$and
+design -load postopt
+select -assert-count 1 t:$and
+design -reset
+
+# Cells with some bits unused don't get split
+read_verilog <<EOT
+module top(input [1:0] a, input [1:0] b, output c, output d);
+reg [1:0] x = a & b;
+assign c = x[0];
+assign d = x[0];
+endmodule
+EOT
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$and
+design -load postopt
+select -assert-count 1 t:$and
+design -reset
+
+# Cell has fanout into both module output port and cell input
+read_verilog <<EOT
+module top(input x, input y, output o, output p);
+wire a = !x;
+assign o = a + y;
+assign p = a;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 2 t:$logic_not
+design -reset
+read_verilog <<EOT
+module top(input [1:0] x, input [1:0] y, output [1:0] o, output [1:0] p);
+wire [1:0] a = !x;
+assign o = a + y;
+assign p = a;
+endmodule
+EOT
+proc -noopt
+opt_clean -purge
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 1 t:$logic_not
+design -load postopt
+select -assert-count 2 t:$logic_not
+design -reset
+
+# Cell is a blackbox
+read_verilog <<EOT
+(* blackbox *)
+module MY_AND(input A, B, output Y);
+endmodule
+module top(input A, B, output Y, Z);
+wire X;
+MY_AND a(A,B,X);
+assign Y = X;
+assign Z = X;
+endmodule
+EOT
+proc -noopt
+hierarchy
+select -assert-count 1 t:MY_AND
+splitfanout
+select -assert-count 2 t:MY_AND
+design -reset
+
+# A less trivial design
+read_verilog ../sat/alu.v
+proc -noopt
+equiv_opt -assert splitfanout
+design -load preopt
+select -assert-count 5 t:$dff
+design -load postopt
+select -assert-count 8 t:$dff
+design -reset
+
+# Booth-encoded 4x4->8 multiplier smoke test
+read_verilog <<EOT
+module top(input [3:0] A, input [3:0] B, output [7:0] Y);
+assign Y = A * B;
+endmodule
+EOT
+booth
+equiv_opt -assert splitfanout
+design -reset
