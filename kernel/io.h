@@ -1,5 +1,4 @@
 #include <string>
-#include <unistd.h>
 #include <stdarg.h>
 #include "kernel/yosys_common.h"
 
