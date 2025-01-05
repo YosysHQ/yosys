@@ -2,10 +2,16 @@
 #include "kernel/log.h"
 #include "kernel/gzip.h"
 #include <iostream>
-#include <dirent.h>
 #include <string>
 #include <cstdarg>
 #include <cstdio>
+
+#if !defined(WIN32)
+#include <dirent.h>
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 

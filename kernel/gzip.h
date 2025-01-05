@@ -1,5 +1,4 @@
 #include <string>
-#include <unistd.h>
 #include "kernel/yosys_common.h"
 
 #ifndef YOSYS_GZIP_H

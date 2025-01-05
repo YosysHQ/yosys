@@ -1,8 +1,14 @@
 #include "kernel/yosys_common.h"
 #include "kernel/log.h"
 #include <iostream>
-#include <dirent.h>
 #include <string>
+
+#if !defined(WIN32)
+#include <dirent.h>
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 
