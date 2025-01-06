@@ -143,3 +143,73 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
   direct access to the underlying ``std::ostream``. It does not close unclosed
   parentheses.
 - The destructor calls ``flush`` but also closes all unclosed parentheses.
+
+Example: Adapting SMT-LIB backend for Rosette
+---------------------------------------------
+
+Overview
+~~~~~~~~
+
+- What is Rosette
+   - Racket package
+   - solver-aided programming language
+   - uses symbolic expressions
+   - able to perform functional verification
+
+- link to file (both smtlib and rosette)
+
+Scope
+~~~~~
+
+- as above, prevents namespace collision
+- reserved keywords
+   - language (Racket) keywords
+   - output keywords
+
+- ``is_character_legal``
+
+Sort
+~~~~
+
+- map variable declarations to s-expressions
+- handles signals (bitvectors) and memories (arrays of bitvectors)
+
+Struct
+~~~~~~
+
+- helpers for defining inputs/outputs/state
+   - each is a single (transparent) struct with zero or more fields
+   - each field has a name, with the type (sort) as a comment
+   - struct fields in Rosette are accessed as ``<struct_name>-<field_name>``
+      - field names only need to be unique within the struct, while accessors
+        are unique within the module
+      
+- writing outputs/next state
+
+PrintVisitor
+~~~~~~~~~~~~
+
+- map FunctionalIR operations to Rosette
+   - most functions are the same or very similar to their corresponding smtlib
+     function
+
+- reading inputs/current state
+
+Module
+~~~~~~
+
+- map RTLIL module to FunctionalIR
+- iterate over FunctionalIR and map to Rosette
+   - defines the mapping function, ``(inputs, current_state) -> (outputs,
+     next_state)``
+
+Backend
+~~~~~~~
+
+- registers the `write_functional_rosette` command
+- options (``-provides``)
+   - allows file to be treated as a Racket package with structs and mapping
+     function available for use externally
+
+- opens and prepares file for writing
+- iterates over modules in design
