@@ -267,7 +267,7 @@ struct FunctionalSmtrBackend : public Backend {
     	void help() override {
         	//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_functional_rosette [options] [selection] [filename]\n");
+		log("    write_functional_rosette [options] [filename]\n");
 		log("\n");
 		log("Functional Rosette Backend.\n");
 		log("\n");
