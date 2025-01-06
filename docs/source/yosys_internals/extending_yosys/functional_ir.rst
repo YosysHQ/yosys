@@ -102,7 +102,7 @@ and supply the following:
   are used for ``Functional::IR`` nodes) or ``IdString``.
 - The derived class should provide a constructor that calls ``reserve`` for
   every reserved word in the target language.
-- A method ``bool is_legal_character(char c, int index)`` has to be provided
+- A method ``bool is_character_legal(char c, int index)`` has to be provided
   that returns ``true`` iff ``c`` is legal in an identifier at position
   ``index``.
 
