@@ -709,6 +709,7 @@ include $(YOSYS_SRC)/frontends/ast/Makefile.inc
 include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
 include $(YOSYS_SRC)/frontends/liberty/Makefile.inc
+include $(YOSYS_SRC)/passes/equiv/Makefile.inc
 
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
