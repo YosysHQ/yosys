@@ -136,7 +136,7 @@ struct SplitfanoutWorker
 			// Configure the driver cell
 			IdString new_name;
 			Cell *new_cell;
-			if (bit_user_i-- != 0) { // create a new cell
+			if (bit_user_i != 0) { // create a new cell
 				new_name = module->uniquify(stringf("%s_splfo%d", cell->name.c_str(), bit_user_i));
 				new_cell = module->addCell(new_name, cell);
 				// Add new cell to the bit_users_db
@@ -172,6 +172,9 @@ struct SplitfanoutWorker
 				module->cell(std::get<0>(bit_user))->setPort(std::get<1>(bit_user), sig);
 				new_cell->setPort(outport, new_wire);
 			}
+
+			// Decrement bit user index
+			bit_user_i--;
 
 			// Log the new cell
 			log_debug("  slice %d: %s => %s\n", foi++, log_id(new_name), log_signal(new_cell->getPort(outport)));
