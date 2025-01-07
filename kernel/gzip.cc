@@ -15,28 +15,21 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-
 #ifdef YOSYS_ENABLE_ZLIB
-
-PRIVATE_NAMESPACE_BEGIN
-
-using namespace Zlib;
-
-PRIVATE_NAMESPACE_END
 
 gzip_ostream::obuf::obuf() {
     setp(buffer, buffer + buffer_size - 1);
 }
 
 bool gzip_ostream::obuf::open(const std::string &filename) {
-    gzf = gzopen(filename.c_str(), "wb");
+    gzf = Zlib::gzopen(filename.c_str(), "wb");
     return gzf != nullptr;
 }
 
 int gzip_ostream::obuf::sync() {
     int num = pptr() - pbase();
     if (num > 0) {
-        if (gzwrite(gzf, reinterpret_cast<const void*>(pbase()), num) != num) {
+        if (Zlib::gzwrite(gzf, reinterpret_cast<const void*>(pbase()), num) != num) {
             return -1;
         }
         pbump(-num);
@@ -47,7 +40,7 @@ int gzip_ostream::obuf::sync() {
 gzip_ostream::obuf::~obuf() {
     if (gzf) {
         sync();
-        gzclose(gzf);
+        Zlib::gzclose(gzf);
     }
 }
 
