@@ -1461,4 +1461,118 @@ struct XAiger2Backend : Backend {
 	}
 } XAiger2Backend;
 
+struct Partitioning : Index<Partitioning, int64_t, -1, 1> {
+	typedef int64_t Lit;
+	const static constexpr Lit EMPTY_LIT = 0;
+	static Lit negate(Lit lit) { return -lit; }
+
+	Partitioning()
+	{
+		allow_blackboxes = true;
+		const_folding = true;
+		strashing = true;
+	}
+
+	int64_t nvars = 1;
+	int64_t ngates = 0;
+
+	mfp<Lit> mfp; 
+
+	Lit emit_gate(Lit a, Lit b)
+	{
+		if (a < 0) a = -a;
+		if (b < 0) b = -b;
+
+		log_assert(a != 0 && a != 1);
+		log_assert(b != 0 && b != 1);
+
+		ngates++;
+		Lit ret = ++nvars;
+		mfp.merge(ret, a);
+		mfp.merge(ret, b);
+		return ret;
+	}
+
+	void analyze(Module *top)
+	{
+		setup(top);
+
+		for (auto id : top->ports) {
+			Wire *w = top->wire(id);
+			log_assert(w);
+			if (w->port_input)
+			for (int i = 0; i < w->width; i++)
+				pi_literal(SigBit(w, i)) = ++nvars;
+		}
+
+		HierCursor cursor;
+		for (auto box : top_minfo->found_blackboxes) {
+			for (auto &conn : box->connections_)
+			if (box->output(conn.first))
+			for (auto bit : conn.second)
+				pi_literal(bit, &cursor) = ++nvars;
+		}
+
+		for (auto w : top->wires())
+		if (w->port_output) {
+			for (auto bit : SigSpec(w))
+				(void) eval_po(bit);
+		}
+
+		for (auto box : top_minfo->found_blackboxes) {
+			for (auto &conn : box->connections_)
+			if (box->input(conn.first))
+			for (auto bit : conn.second)
+				(void) eval_po(bit);
+		}
+
+		dict<Lit, int> partition_sizes;
+
+		for (Lit var : mfp)
+			partition_sizes[mfp.lookup(var)]++;
+
+		std::vector<int> sorted;
+		for (auto pair : partition_sizes)
+			sorted.push_back(pair.second);
+		std::sort(sorted.begin(), sorted.end());
+
+		log("%lld partitions, %lld nodes\n", (int64_t) sorted.size(), nvars - 1);
+		log("\nTop 10 partitions:\n");
+		auto it = sorted.rbegin();
+		for (int i = 0; i < 10 && it != sorted.rend(); i++, it++)
+			log("  %d\n", *it);
+	}
+};
+
+struct TryPartitionPass : Pass {
+	TryPartitionPass() : Pass("try_partition", "try partitioning the design for abc processing") {}
+	void execute(std::vector<std::string> args, RTLIL::Design *d) override
+	{
+		log_header(d, "Executing TRY_PARTITION pass. (try partition)\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			break;
+		}
+		extra_args(args, argidx, d);
+
+		Module *top = d->top_module();
+		if (!top || !d->selected_whole_module(top))
+			log_cmd_error("No top module selected\n");
+
+		{
+			Partitioning part;
+			d->bufNormalize(true);
+			part.analyze(top);
+
+			// we are leaving the sacred land, un-bufnormalize
+			// (if not, this will lead to bugs: the buf-normalized
+			// flag must not be kept on past the code that can work
+			// with it)
+			d->bufNormalize(false);
+
+		}
+	}
+} TryPartitionPass;
+
 PRIVATE_NAMESPACE_END
