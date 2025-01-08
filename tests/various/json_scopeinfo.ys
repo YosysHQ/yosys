@@ -26,13 +26,13 @@ flatten -scopename
 prep
 
 write_json json_scopeinfo.out
-!grep -qvF '$scopeinfo' json_scopeinfo.out
-
-write_json -scopeinfo json_scopeinfo.out
 !grep -qF '$scopeinfo' json_scopeinfo.out
+
+write_json -noscopeinfo json_scopeinfo.out
+!grep -qvF '$scopeinfo' json_scopeinfo.out
 
 json -o json_scopeinfo.out
-!grep -qvF '$scopeinfo' json_scopeinfo.out
-
-json -scopeinfo -o json_scopeinfo.out
 !grep -qF '$scopeinfo' json_scopeinfo.out
+
+json -noscopeinfo -o json_scopeinfo.out
+!grep -qvF '$scopeinfo' json_scopeinfo.out

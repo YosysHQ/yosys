@@ -193,8 +193,6 @@ struct JsonWriter
 		for (auto c : module->cells()) {
 			if (use_selection && !module->selected(c))
 				continue;
-			// Eventually we will want to emit $scopeinfo, but currently this
-			// will break JSON netlist consumers like nextpnr
 			if (!scopeinfo_mode && c->type == ID($scopeinfo))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
@@ -357,8 +355,8 @@ struct JsonBackend : public Backend {
 		log("    -selected\n");
 		log("        output only select module\n");
 		log("\n");
-		log("    -scopeinfo\n");
-		log("        include $scopeinfo cells in the output\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
 		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
@@ -605,7 +603,7 @@ struct JsonBackend : public Backend {
 		bool aig_mode = false;
 		bool compat_int_mode = false;
 		bool use_selection = false;
-		bool scopeinfo_mode = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -622,8 +620,8 @@ struct JsonBackend : public Backend {
 				use_selection = true;
 				continue;
 			}
-			if (args[argidx] == "-scopeinfo") {
-				scopeinfo_mode = true;
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
 				continue;
 			}
 			break;
@@ -657,8 +655,8 @@ struct JsonPass : public Pass {
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
-		log("    -scopeinfo\n");
-		log("        include $scopeinfo cells in the output\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
 		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
@@ -668,7 +666,7 @@ struct JsonPass : public Pass {
 		std::string filename;
 		bool aig_mode = false;
 		bool compat_int_mode = false;
-		bool scopeinfo_mode = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -685,8 +683,8 @@ struct JsonPass : public Pass {
 				compat_int_mode = true;
 				continue;
 			}
-			if (args[argidx] == "-scopeinfo") {
-				scopeinfo_mode = true;
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
 				continue;
 			}
 			break;
