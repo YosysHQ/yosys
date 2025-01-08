@@ -1476,7 +1476,7 @@ struct Partitioning : Index<Partitioning, int64_t, -1, 1> {
 	int64_t nvars = 1;
 	int64_t ngates = 0;
 
-	mfp<Lit> mfp; 
+	mfp<Lit> mfp_; 
 
 	Lit emit_gate(Lit a, Lit b)
 	{
@@ -1488,8 +1488,8 @@ struct Partitioning : Index<Partitioning, int64_t, -1, 1> {
 
 		ngates++;
 		Lit ret = ++nvars;
-		mfp.merge(ret, a);
-		mfp.merge(ret, b);
+		mfp_.merge(ret, a);
+		mfp_.merge(ret, b);
 		return ret;
 	}
 
@@ -1528,8 +1528,8 @@ struct Partitioning : Index<Partitioning, int64_t, -1, 1> {
 
 		dict<Lit, int> partition_sizes;
 
-		for (Lit var : mfp)
-			partition_sizes[mfp.lookup(var)]++;
+		for (Lit var : mfp_)
+			partition_sizes[mfp_.lookup(var)]++;
 
 		std::vector<int> sorted;
 		for (auto pair : partition_sizes)
