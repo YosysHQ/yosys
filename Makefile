@@ -869,6 +869,7 @@ endif
 SH_ABC_TEST_DIRS =
 SH_ABC_TEST_DIRS += tests/memories
 SH_ABC_TEST_DIRS += tests/aiger
+SH_ABC_TEST_DIRS += tests/alumacc
 
 # seed-tests/ is a dummy string, not a directory
 .PHONY: seed-tests

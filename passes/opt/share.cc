@@ -117,7 +117,7 @@ struct ShareWorker
 
 	static int bits_macc(const Macc &m, int width)
 	{
-		int bits = GetSize(m.bit_ports);
+		int bits = 0;
 		for (auto &p : m.ports)
 			bits += bits_macc_port(p, width);
 		return bits;
