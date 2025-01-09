@@ -62,8 +62,13 @@ std::istream::int_type gzip_istream::ibuf::underflow() {
 	log_assert(gzf && "No gzfile opened\n");
 	int bytes_read = Zlib::gzread(gzf, buffer, buffer_size);
 	if (bytes_read <= 0) {
-		if (Zlib::gzeof(gzf))
+		if (Zlib::gzeof(gzf)) {
+			// "On failure, the function ensures that either
+			// gptr() == nullptr or gptr() == egptr."
+			// Let's set gptr to egptr
+			setg(eback(), egptr(), egptr());
 			return traits_type::eof();
+		}
 
 		int err;
 		const char* error_msg = Zlib::gzerror(gzf, &err);
