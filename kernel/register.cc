@@ -470,7 +470,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
 			}
 			yosys_input_files.insert(filename);
-			f = &uncompressed(filename, bin_input ? std::ifstream::binary : std::ifstream::in);
+			f = uncompressed(filename, bin_input ? std::ifstream::binary : std::ifstream::in);
 		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
