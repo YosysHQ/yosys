@@ -735,6 +735,7 @@ OBJS += passes/sat/sim.o
 OBJS += passes/techmap/bufnorm.o
 OBJS += passes/cmds/rename.o
 OBJS += passes/cmds/segv.o
+OBJS += passes/cmds/delete.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
