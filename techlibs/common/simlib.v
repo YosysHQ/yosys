@@ -1208,6 +1208,111 @@ end
 endmodule
 
 // --------------------------------------------------------
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $macc_v2 (A, B, C, Y)
+//* group arith
+//-
+//- Multiply and add.
+//- This cell represents a generic fused multiply-add operation, it supersedes the
+//- earlier $macc cell.
+//-
+module \$macc_v2 (A, B, C, Y);
+
+parameter NPRODUCTS = 0;
+parameter NADDENDS = 0;
+parameter A_WIDTHS = 16'h0000;
+parameter B_WIDTHS = 16'h0000;
+parameter C_WIDTHS = 16'h0000;
+parameter Y_WIDTH = 0;
+
+parameter PRODUCT_NEGATED = 1'bx;
+parameter ADDEND_NEGATED = 1'bx;
+parameter A_SIGNED = 1'bx;
+parameter B_SIGNED = 1'bx;
+parameter C_SIGNED = 1'bx;
+
+function integer sum_widths1;
+	input [(16*NPRODUCTS)-1:0] widths;
+	int i;
+	sum_widths1 = 0;
+	begin
+		for (i = 0; i < NPRODUCTS; i++) begin
+			sum_widths1 += widths[16*i+:16];
+		end
+	end
+endfunction
+
+function integer sum_widths2;
+	input [(16*NADDENDS)-1:0] widths;
+	int i;
+	sum_widths2 = 0;
+	begin
+		for (i = 0; i < NADDENDS; i++) begin
+			sum_widths2 += widths[16*i+:16];
+		end
+	end
+endfunction
+
+input [sum_widths1(A_WIDTHS)-1:0] A; // concatenation of LHS factors
+input [sum_widths1(B_WIDTHS)-1:0] B; // concatenation of RHS factors
+input [sum_widths2(C_WIDTHS)-1:0] C; // concatenation of summands
+output reg [Y_WIDTH-1:0] Y; // output sum
+
+integer i, j, ai, bi, ci, aw, bw, cw;
+reg [Y_WIDTH-1:0] product;
+reg signed [Y_WIDTH-1:0] product_signed;
+reg [Y_WIDTH-1:0] addend;
+reg signed [Y_WIDTH-1:0] addend_signed;
+
+always @* begin
+	Y = 0;
+	ai = 0;
+	bi = 0;
+	for (i = 0; i < NPRODUCTS; i = i+1)
+	begin
+		aw = A_WIDTHS[16*i+:16];
+		bw = B_WIDTHS[16*i+:16];
+
+		product = A[ai +: aw] * B[bi +: bw];
+		product_signed = $signed(A[ai +: aw]) * $signed(B[bi +: bw]);
+
+		// A_SIGNED[i] == B_SIGNED[i] as RTLIL invariant
+		if (A_SIGNED[i] && B_SIGNED[i])
+			product = product_signed;
+
+		if (PRODUCT_NEGATED[i])
+			Y = Y - product;
+		else
+			Y = Y + product;
+
+		ai += aw;
+		bi += bw;
+	end
+
+	ci = 0;
+	for (i = 0; i < NADDENDS; i = i+1)
+	begin
+		cw = C_WIDTHS[16*i+:16];
+
+		addend = C[ci +: cw];
+		addend_signed = $signed(C[ci +: cw]);
+
+		if (C_SIGNED[i])
+			addend = addend_signed;
+
+		if (ADDEND_NEGATED[i])
+			Y = Y - addend;
+		else
+			Y = Y + addend;
+
+		ci += cw;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
 //* ver 2
 //* title Divider
 //* group binary
