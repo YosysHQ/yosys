@@ -20,6 +20,8 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
+#include "kernel/io.h"
+#include "kernel/gzip.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -80,6 +82,8 @@ struct AbcNewPass : public ScriptPass {
 
 	bool cleanup;
 	std::string abc_exe_options;
+	std::string top_tmpdir;
+	std::vector<std::string> liberty_files;
 
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
@@ -89,8 +93,7 @@ struct AbcNewPass : public ScriptPass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||
 					args[argidx] == "-D" ||
-					args[argidx] == "-constr" || args[argidx] == "-dont_use" ||
-					args[argidx] == "-liberty") {
+					args[argidx] == "-constr" || args[argidx] == "-dont_use") {
 				abc_exe_options += " " + args[argidx] + " " + args[argidx + 1];
 				argidx++;
 			} else if (args[argidx] == "-run" && argidx + 1 < args.size()) {
@@ -101,6 +104,9 @@ struct AbcNewPass : public ScriptPass {
 				run_to = args[argidx].substr(pos + 1);
 			} else if (args[argidx] == "-nocleanup") {
 				cleanup = false;
+			} else if (args[argidx] == "-liberty") {
+				liberty_files.push_back(args[argidx + 1]);
+				argidx++;
 			} else {
 				break;
 			}
@@ -109,7 +115,13 @@ struct AbcNewPass : public ScriptPass {
 
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
+		top_tmpdir = cleanup ? (get_base_tmpdir() + "/") : "_tmp_";
+		top_tmpdir += proc_program_prefix() + "yosys-abc-XXXXXX";
+		top_tmpdir = make_temp_dir(top_tmpdir);
+		lib_to_tmp();
 		run_script(d, run_from, run_to);
+		if (cleanup)
+			remove_directory(top_tmpdir);
 		log_pop();
 	}
 
@@ -146,12 +158,11 @@ struct AbcNewPass : public ScriptPass {
 			}
 
 			for (auto mod : selected_modules) {
-				std::string tmpdir = "<abc-temp-dir>";
+				std::string tmpdir = "<abc-temp-dir>/<mod-dir>";
 				std::string modname = "<module>";
 				std::string exe_options = "[options]";
 				if (!help_mode) {
-					tmpdir = cleanup ? (get_base_tmpdir() + "/") : "_tmp_";
-					tmpdir += proc_program_prefix() + "yosys-abc-XXXXXX";
+					tmpdir = top_tmpdir + "/XXXXXX";
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
@@ -195,6 +206,44 @@ struct AbcNewPass : public ScriptPass {
 
 			if (!help_mode) {
 				active_design->selection_stack.pop_back();
+			}
+		}
+
+		if (cleanup)
+		{
+			log("Removing temp directory.\n");
+			remove_directory(top_tmpdir);
+		}
+	}
+
+	void lib_to_tmp()
+	{
+		for (auto f : liberty_files) {
+			bool ends_gz = false;
+			auto dot_pos = f.find_last_of(".");
+			if(dot_pos != std::string::npos)
+				ends_gz = f.substr(dot_pos+1) == "gz";
+			log_debug("Does %s end with .gz? %d\n", f.c_str(), ends_gz);
+			if (ends_gz) {
+				auto filename_pos = f.find_last_of("/");
+				if(filename_pos == std::string::npos)
+					filename_pos = f.find_last_of("\\");
+				if(filename_pos == std::string::npos) {
+					filename_pos = 0;
+				} else {
+					filename_pos++;
+				}
+				std::istream* s = uncompressed(f);
+				std::string base = f.substr(filename_pos, dot_pos - filename_pos);
+				log_debug("base %s\n", base.c_str());
+				std::string tmp_f = top_tmpdir + "/" + base + "-XXXXXX";
+				tmp_f = make_temp_file(tmp_f);
+				log_debug("tmp_f %s\n", tmp_f.c_str());
+				std::ofstream out(tmp_f);
+				out << s->rdbuf();
+				abc_exe_options += stringf(" -liberty %s", tmp_f.c_str());
+			} else {
+				abc_exe_options += stringf(" -liberty %s", f.c_str());
 			}
 		}
 	}
