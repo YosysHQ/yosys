@@ -476,6 +476,9 @@ struct MuxpackWorker
 		// Recreate sigmap
 		sigmap.set(module);
 
+		make_sig_chain_next_prev();
+		find_chain_start_cells(assume_excl);
+
 		// Make the actual transform
 		for (auto c : chain_start_cells) {
 			vector<Cell *> chain = create_chain(c);
