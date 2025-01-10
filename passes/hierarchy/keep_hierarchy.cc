@@ -17,6 +17,7 @@
  *
  */
 
+#include <inttypes.h>
 #include "kernel/yosys.h"
 #include "kernel/cost.h"
 
@@ -66,7 +67,7 @@ struct ThresholdHierarchyKeeping {
 		}
 
 		if (size > threshold) {
-			log("Keeping %s (estimated size above threshold: %llu > %llu).\n", log_id(module), size, threshold);
+			log("Keeping %s (estimated size above threshold: %" PRIu64 " > %" PRIu64 ").\n", log_id(module), size, threshold);
 			module->set_bool_attribute(ID::keep_hierarchy);
 			size = 0;
 		}
