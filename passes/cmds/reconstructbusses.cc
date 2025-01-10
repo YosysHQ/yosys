@@ -47,6 +47,8 @@ struct ReconstructBusses : public ScriptPass {
 		log("Running reconstructbusses pass\n");
 		log_flush();
 		for (auto module : design->modules()) {
+			if (module->get_bool_attribute("\\blackbox"))
+				continue;
 			log("Creating bus groups for module %s\n", module->name.str().c_str());
 			log_flush();
 			// Collect all wires with a common prefix
@@ -104,7 +106,7 @@ struct ReconstructBusses : public ScriptPass {
 			}
 			log("Found %ld groups\n", wire_groups.size());
 			if (wire_groups.size() == 0) {
-				std::cout << "No busses to reconstruct. Done." << std::endl;
+				log("No busses to reconstruct. Done.\n");
 				continue;
 			}
 			log("Creating busses\n");
