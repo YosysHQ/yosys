@@ -123,6 +123,10 @@ struct MuxpackWorker
 	int mux_count, pmux_count;
 
 	pool<Cell*> remove_cells;
+	// Driver data
+	dict<SigBit, tuple<IdString, IdString, int>> bit_drivers_db;
+	// Load data
+	dict<SigBit, pool<tuple<IdString, IdString, int>>> bit_users_db;
 
 	dict<SigSpec, Cell*> sig_chain_next;
 	dict<SigSpec, Cell*> sig_chain_prev;
@@ -131,6 +135,26 @@ struct MuxpackWorker
 	pool<Cell*> candidate_cells;
 
 	ExclusiveDatabase excl_db;
+	// Splitfanout limit
+	int limit = -1;
+
+	bool fanout_in_range(SigSpec outsig)
+	{
+		// Check if output signal is "bit-split", skip if so
+		// This is a lookahead for the splitfanout pass that has this limitation
+		auto bit_users = bit_users_db[outsig[0]];
+		for (int i = 0; i < GetSize(outsig); i++) {
+			if (bit_users_db[outsig[i]] != bit_users) {
+				return false;
+			}
+		}
+
+		// Skip if fanout is above limit
+		if (limit != -1 && GetSize(bit_users) > limit) {
+			return false;
+		}
+		return true;
+	}
 
 	void make_sig_chain_next_prev()
 	{
@@ -156,7 +180,10 @@ struct MuxpackWorker
 					for (auto a_bit : a_sig)
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
-					sig_chain_next[a_sig] = cell;
+					if (fanout_in_range(y_sig)) {
+						sig_chain_next[a_sig] = cell;
+						candidate_cells.insert(cell);
+					}
 				}
 
 				if (!b_sig.empty()) {
@@ -164,12 +191,18 @@ struct MuxpackWorker
 						for (auto b_bit : b_sig)
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
-						sig_chain_next[b_sig] = cell;
+						if (fanout_in_range(y_sig)) {
+							sig_chain_next[b_sig] = cell;
+							candidate_cells.insert(cell);
+						}
 					}
 				}
-				candidate_cells.insert(cell);
 
-				sig_chain_prev[y_sig] = cell;
+				if (fanout_in_range(y_sig)) {
+
+					// Mark cell as the previous in the chain relative to y_sig
+					sig_chain_prev[y_sig] = cell;
+				}
 				continue;
 			}
 
@@ -356,10 +389,11 @@ struct MuxpackWorker
 		}
 	}
 
-	void cleanup()
+	void cleanup(bool remove_cell)
 	{
-		for (auto cell : remove_cells)
-			module->remove(cell);
+		if (remove_cell)
+			for (auto cell : remove_cells)
+				module->remove(cell);
 
 		remove_cells.clear();
 		sig_chain_next.clear();
@@ -368,18 +402,87 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Module *module, bool assume_excl, bool make_excl) :
-			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl)
+	MuxpackWorker(Design *design, Module *module, bool assume_excl, bool make_excl, int limit)
+	    : module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl), limit(limit)
 	{
+
+		// Build bit_drivers_db
+		log("Building bit_drivers_db...\n");
+		for (auto cell : module->cells()) {
+			for (auto conn : cell->connections()) {
+				if (!cell->output(conn.first))
+					continue;
+				for (int i = 0; i < GetSize(conn.second); i++) {
+					SigBit bit(sigmap(conn.second[i]));
+					bit_drivers_db[bit] = tuple<IdString, IdString, int>(cell->name, conn.first, i);
+				}
+			}
+		}
+
+		// Build bit_users_db
+		log("Building bit_users_db...\n");
+		for (auto cell : module->cells()) {
+			for (auto conn : cell->connections()) {
+				if (!cell->input(conn.first))
+					continue;
+				for (int i = 0; i < GetSize(conn.second); i++) {
+					SigBit bit(sigmap(conn.second[i]));
+					if (!bit_drivers_db.count(bit))
+						continue;
+					bit_users_db[bit].insert(
+					  tuple<IdString, IdString, int>(cell->name, conn.first, i - std::get<2>(bit_drivers_db[bit])));
+				}
+			}
+		}
+
+		// Build bit_users_db for output ports
+		log("Building bit_users_db for output ports...\n");
+		for (auto wire : module->wires()) {
+			if (!wire->port_output)
+				continue;
+			SigSpec sig(sigmap(wire));
+			for (int i = 0; i < GetSize(sig); i++) {
+				SigBit bit(sig[i]);
+				if (!bit_drivers_db.count(bit))
+					continue;
+				bit_users_db[bit].insert(
+				  tuple<IdString, IdString, int>(wire->name, IdString(), i - std::get<2>(bit_drivers_db[bit])));
+			}
+		}
+
 		make_sig_chain_next_prev();
 		find_chain_start_cells(assume_excl);
 
+		// Deselect all cells
+		Pass::call(design, "select -none");
+		bool has_cell_to_split = false;
 		for (auto c : chain_start_cells) {
-			vector<Cell*> chain = create_chain(c);
+			vector<Cell *> chain = create_chain(c);
+			for (auto cell : chain) {
+				has_cell_to_split = true;
+				// Select the cells that are candidate
+				design->select(module, cell);
+			}
+		}
+		// Clean up
+		cleanup(false);
+
+		// Make sure we dup the cells with fanout, else the resulting
+		// transform is not logically equivalent
+		if (has_cell_to_split)
+			Pass::call(design, "splitfanout");
+		// Reset selection for other passes
+		Pass::call(design, "select -clear");
+		// Recreate sigmap
+		sigmap.set(module);
+
+		// Make the actual transform
+		for (auto c : chain_start_cells) {
+			vector<Cell *> chain = create_chain(c);
 			process_chain(chain, make_excl);
 		}
-
-		cleanup();
+		// Clean up
+		cleanup(true);
 	}
 };
 
@@ -399,8 +502,8 @@ struct MuxpackPass : public Pass {
 		log("whose select lines are driven by '$eq' cells with other such cells if it can be\n");
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
-		log("    -splitfanout\n");
-		log("        run splitfanout pass first\n");
+		log("    -fanout_limit n\n");
+		log("        max fanout to split.\n");
 		log("\n");
 		log("    -assume_excl\n");
 		log("        assume mutually exclusive constraint when packing (may result in inequivalence)\n");
@@ -410,18 +513,17 @@ struct MuxpackPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		bool splitfanout = false;
 		bool assume_excl = false;
 		bool make_excl = false;
-
+		int limit = -1;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-splitfanout") {
-				splitfanout = true;
+			if (args[argidx] == "-fanout_limit" && argidx + 1 < args.size()) {
+				limit = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-assume_excl") {
@@ -437,14 +539,11 @@ struct MuxpackPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (splitfanout)
-			Pass::call(design, "splitfanout -limit 256 t:$mux t:$pmux");
-
 		int mux_count = 0;
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module, assume_excl, make_excl);
+			MuxpackWorker worker(design, module, assume_excl, make_excl, limit);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
