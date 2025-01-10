@@ -1468,24 +1468,34 @@ namespace {
 			}
 
 			if (cell->type == ID($macc_v2)) {
-				if (param(ID::NTERMS) <= 0)
+				if (param(ID::NPRODUCTS) <= 0)
 					error(__LINE__);
-				param_bits(ID::TERM_NEGATED, param(ID::NTERMS));
-				param_bits(ID::A_SIGNED, param(ID::NTERMS));
-				param_bits(ID::B_SIGNED, param(ID::NTERMS));
+				if (param(ID::NADDENDS) <= 0)
+					error(__LINE__);
+				param_bits(ID::PRODUCT_NEGATED, param(ID::NPRODUCTS));
+				param_bits(ID::ADDEND_NEGATED, param(ID::NADDENDS));
+				param_bits(ID::A_SIGNED, param(ID::NPRODUCTS));
+				param_bits(ID::B_SIGNED, param(ID::NPRODUCTS));
+				param_bits(ID::C_SIGNED, param(ID::NADDENDS));
 				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
 					error(__LINE__);
-				param_bits(ID::A_WIDTHS, param(ID::NTERMS) * 16);
-				param_bits(ID::B_WIDTHS, param(ID::NTERMS) * 16);
+				param_bits(ID::A_WIDTHS, param(ID::NPRODUCTS) * 16);
+				param_bits(ID::B_WIDTHS, param(ID::NPRODUCTS) * 16);
+				param_bits(ID::C_WIDTHS, param(ID::NADDENDS) * 16);
 				const Const &a_width = cell->getParam(ID::A_WIDTHS);
 				const Const &b_width = cell->getParam(ID::B_WIDTHS);
-				int a_width_sum = 0, b_width_sum = 0;
-				for (int i = 0; i < param(ID::NTERMS); i++) {
+				const Const &c_width = cell->getParam(ID::C_WIDTHS);
+				int a_width_sum = 0, b_width_sum = 0, c_width_sum = 0;
+				for (int i = 0; i < param(ID::NPRODUCTS); i++) {
 					a_width_sum += a_width.extract(16 * i, 16).as_int(false);
 					b_width_sum += b_width.extract(16 * i, 16).as_int(false);
 				}
+				for (int i = 0; i < param(ID::NADDENDS); i++) {
+					c_width_sum += c_width.extract(16 * i, 16).as_int(false);
+				}
 				port(ID::A, a_width_sum);
 				port(ID::B, b_width_sum);
+				port(ID::C, c_width_sum);
 				port(ID::Y, param(ID::Y_WIDTH));
 				check_expected();
 				return;

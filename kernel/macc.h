@@ -146,18 +146,18 @@ struct Macc
 
 		RTLIL::SigSpec port_a = cell->getPort(ID::A);
 		RTLIL::SigSpec port_b = cell->getPort(ID::B);
+		RTLIL::SigSpec port_c = cell->getPort(ID::C);
 
 		ports.clear();
 
-		int nterms = cell->getParam(ID::NTERMS).as_int();
-		const Const &neg = cell->getParam(ID::TERM_NEGATED);
+		int nproducts = cell->getParam(ID::NPRODUCTS).as_int();
+		const Const &product_neg = cell->getParam(ID::PRODUCT_NEGATED);
 		const Const &a_widths = cell->getParam(ID::A_WIDTHS);
 		const Const &b_widths = cell->getParam(ID::B_WIDTHS);
 		const Const &a_signed = cell->getParam(ID::A_SIGNED);
 		const Const &b_signed = cell->getParam(ID::B_SIGNED);
-
 		int ai = 0, bi = 0;
-		for (int i = 0; i < nterms; i++) {
+		for (int i = 0; i < nproducts; i++) {
 			port_t term;
 
 			log_assert(a_signed[i] == b_signed[i]);
@@ -169,49 +169,78 @@ struct Macc
 			ai += a_width;
 			term.in_b = port_b.extract(bi, b_width);
 			bi += b_width;
-			term.do_subtract = (neg[i] == State::S1);
+			term.do_subtract = (product_neg[i] == State::S1);
 
 			ports.push_back(term);
 		}
 		log_assert(port_a.size() == ai);
 		log_assert(port_b.size() == bi);
+
+		int naddends = cell->getParam(ID::NADDENDS).as_int();
+		const Const &addend_neg = cell->getParam(ID::ADDEND_NEGATED);
+		const Const &c_widths = cell->getParam(ID::C_WIDTHS);
+		const Const &c_signed = cell->getParam(ID::C_SIGNED);
+		int ci = 0;
+		for (int i = 0; i < naddends; i++) {
+			port_t term;
+
+			term.is_signed = (c_signed[i] == State::S1);
+			int c_width = c_widths.extract(16 * i, 16).as_int(false);
+
+			term.in_a = port_c.extract(ci, c_width);
+			ci += c_width;
+			term.do_subtract = (addend_neg[i] == State::S1);
+
+			ports.push_back(term);
+		}
+		log_assert(port_c.size() == ci);
 	}
 
 	void to_cell(RTLIL::Cell *cell)
 	{
 		cell->type = ID($macc_v2);
 
-		int nterms = ports.size();
-		const auto Sx = State::Sx;
-		Const a_signed(Sx, nterms), b_signed(Sx, nterms), negated(Sx, nterms);
-		Const a_widths, b_widths;
-		SigSpec a, b;
+		int nproducts = 0, naddends = 0;
+		Const a_signed, b_signed, a_widths, b_widths, product_negated;
+		Const c_signed, c_widths, addend_negated;
+		SigSpec a, b, c;
 
-		for (int i = 0; i < nterms; i++) {
+		for (int i = 0; i < (int) ports.size(); i++) {
 			SigSpec term_a = ports[i].in_a, term_b = ports[i].in_b;
 
-			a_widths.append(Const(term_a.size(), 16));
-			b_widths.append(Const(term_b.size(), 16));
-
-			a_signed.bits()[i] = b_signed.bits()[i] =
-				(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
-			negated.bits()[i] = (ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
-
-			a.append(term_a);
-			b.append(term_b);
+			if (term_b.empty()) {
+				// addend
+				c_widths.append(Const(term_a.size(), 16));
+				c_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				addend_negated.append(ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
+				c.append(term_a);
+				naddends++;
+			} else {
+				// product
+				a_widths.append(Const(term_a.size(), 16));
+				b_widths.append(Const(term_b.size(), 16));
+				a_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				b_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				product_negated.append(ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
+				a.append(term_a);
+				b.append(term_b);
+				nproducts++;
+			}
 		}
-		negated.is_fully_def();
-		a_signed.is_fully_def();
-		b_signed.is_fully_def();
 
-		cell->setParam(ID::NTERMS, nterms);
-		cell->setParam(ID::TERM_NEGATED, negated);
+		cell->setParam(ID::NPRODUCTS, nproducts);
+		cell->setParam(ID::PRODUCT_NEGATED, product_negated);
+		cell->setParam(ID::NADDENDS, naddends);
+		cell->setParam(ID::ADDEND_NEGATED, addend_negated);
 		cell->setParam(ID::A_SIGNED, a_signed);
 		cell->setParam(ID::B_SIGNED, b_signed);
+		cell->setParam(ID::C_SIGNED, c_signed);
 		cell->setParam(ID::A_WIDTHS, a_widths);
 		cell->setParam(ID::B_WIDTHS, b_widths);
+		cell->setParam(ID::C_WIDTHS, c_widths);
 		cell->setPort(ID::A, a);
 		cell->setPort(ID::B, b);
+		cell->setPort(ID::C, c);
 	}
 
 	bool eval(RTLIL::Const &result) const
