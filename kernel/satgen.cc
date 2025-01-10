@@ -740,7 +740,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type == ID($macc))
+	if (cell->type.in(ID($macc), ID($macc_v2)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
 		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);

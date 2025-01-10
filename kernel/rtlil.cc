@@ -1472,16 +1472,16 @@ namespace {
 					error(__LINE__);
 				if (param(ID::NADDENDS) <= 0)
 					error(__LINE__);
-				param_bits(ID::PRODUCT_NEGATED, param(ID::NPRODUCTS));
-				param_bits(ID::ADDEND_NEGATED, param(ID::NADDENDS));
-				param_bits(ID::A_SIGNED, param(ID::NPRODUCTS));
-				param_bits(ID::B_SIGNED, param(ID::NPRODUCTS));
-				param_bits(ID::C_SIGNED, param(ID::NADDENDS));
+				param_bits(ID::PRODUCT_NEGATED, min(param(ID::NPRODUCTS), 1));
+				param_bits(ID::ADDEND_NEGATED, min(param(ID::NADDENDS), 1));
+				param_bits(ID::A_SIGNED, min(param(ID::NPRODUCTS), 1));
+				param_bits(ID::B_SIGNED, min(param(ID::NPRODUCTS), 1));
+				param_bits(ID::C_SIGNED, min(param(ID::NADDENDS), 1));
 				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
 					error(__LINE__);
-				param_bits(ID::A_WIDTHS, param(ID::NPRODUCTS) * 16);
-				param_bits(ID::B_WIDTHS, param(ID::NPRODUCTS) * 16);
-				param_bits(ID::C_WIDTHS, param(ID::NADDENDS) * 16);
+				param_bits(ID::A_WIDTHS, min(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::B_WIDTHS, min(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::C_WIDTHS, min(param(ID::NADDENDS) * 16, 1));
 				const Const &a_width = cell->getParam(ID::A_WIDTHS);
 				const Const &b_width = cell->getParam(ID::B_WIDTHS);
 				const Const &c_width = cell->getParam(ID::C_WIDTHS);
