@@ -171,7 +171,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.48+51
+YOSYS_VER := 0.48+57
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -735,6 +735,7 @@ OBJS += passes/sat/sim.o
 OBJS += passes/techmap/bufnorm.o
 OBJS += passes/cmds/rename.o
 OBJS += passes/cmds/segv.o
+OBJS += passes/cmds/delete.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
@@ -1013,6 +1014,8 @@ ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
+	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(DATDIR)/
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/

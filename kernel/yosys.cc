@@ -561,8 +561,8 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
-		signal(SIGINT, SIG_DFL);
 	}
+	signal(SIGINT, SIG_DFL);
 #endif
 
 	init_share_dirname();

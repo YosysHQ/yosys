@@ -391,7 +391,7 @@ struct BufnormPass : public Pass {
 					}
 
 					if (w->name.isPublic())
-						log("  directly driven by cell %s port %s: %s\n",
+						log_debug("  directly driven by cell %s port %s: %s\n",
 								log_id(cell), log_id(conn.first), log_id(w));
 
 					for (auto bit : SigSpec(w))
