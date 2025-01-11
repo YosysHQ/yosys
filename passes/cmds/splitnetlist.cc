@@ -161,10 +161,6 @@ struct SplitNetlist : public ScriptPass {
 		log("Running splitnetlist pass\n");
 		log_flush();
 
-		// Add buffers for pass-through and connections to constants
-		// so we can find cells that can be used by submod
-		Pass::call(design, "bufnorm -buf");
-
 		if (debug)
 			run_pass("write_rtlil post_buf.rtlil");
 
@@ -267,10 +263,6 @@ struct SplitNetlist : public ScriptPass {
 
 		// Execute the submod command
 		Pass::call(design, "submod");
-
-		// Remove buffers introduced by bufnorm
-		Pass::call(design, "techmap -D SIMLIB_NOCHECKS -map +/simlib.v t:$buf");
-		Pass::call(design, "clean");
 
 		log("End splitnetlist pass\n");
 		log_flush();
