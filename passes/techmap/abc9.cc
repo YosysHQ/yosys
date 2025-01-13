@@ -191,6 +191,7 @@ struct Abc9Pass : public ScriptPass
 	bool lut_mode;
 	int maxlut;
 	std::string box_file;
+	std::vector<std::string> liberty_files;
 
 	void clear_flags() override
 	{
@@ -223,11 +224,15 @@ struct Abc9Pass : public ScriptPass
 			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
 						/*arg == "-S" ||*/ arg == "-lut" || arg == "-luts" ||
 						/*arg == "-box" ||*/ arg == "-W" || arg == "-genlib" ||
-						arg == "-constr" || arg == "-dont_use" || arg == "-liberty") &&
+						arg == "-constr" || arg == "-dont_use") &&
 					argidx+1 < args.size()) {
 				if (arg == "-lut" || arg == "-luts")
 					lut_mode = true;
 				exe_cmd << " " << arg << " " << args[++argidx];
+				continue;
+			}
+			if (arg == "-liberty") {
+				liberty_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (arg == "-fast" || /* arg == "-dff" || */
@@ -276,7 +281,10 @@ struct Abc9Pass : public ScriptPass
 		log_header(design, "Executing ABC9 pass.\n");
 		log_push();
 
+		auto lib_tmpdir = AbcPrep::make_tmp_extract_lib(liberty_files, cleanup);
 		run_script(design, run_from, run_to);
+		if (cleanup)
+			remove_directory(lib_tmpdir);
 
 		log_pop();
 	}

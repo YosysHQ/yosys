@@ -115,9 +115,7 @@ struct AbcNewPass : public ScriptPass {
 
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
-		std::string lib_tmpdir = AbcPrep::tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
-		lib_tmpdir = make_temp_dir(lib_tmpdir);
-		AbcPrep::lib_to_tmp(lib_tmpdir, liberty_files);
+		auto lib_tmpdir = AbcPrep::make_tmp_extract_lib(liberty_files, cleanup);
 		run_script(d, run_from, run_to);
 		if (cleanup)
 			remove_directory(lib_tmpdir);

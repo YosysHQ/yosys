@@ -49,6 +49,18 @@ namespace AbcPrep {
 			}
 		}
 	}
+
+	inline std::string make_tmp_extract_lib(std::vector<std::string>& liberty_files, bool cleanup)
+	{
+		// Compose the path
+		std::string lib_tmpdir = AbcPrep::tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
+		// Create the directory
+		lib_tmpdir = make_temp_dir(lib_tmpdir);
+		// Extract compressed liberty files to directory, rewrite liberty_files
+		AbcPrep::lib_to_tmp(lib_tmpdir, liberty_files);
+		// Caller responsible for cleanup
+		return lib_tmpdir;
+	}
 };
 
 #endif /* ABC_PREP_H */

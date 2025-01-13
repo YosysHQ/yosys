@@ -2037,9 +2037,7 @@ struct AbcPass : public Pass {
 			enabled_gates.insert("MUX");
 			// enabled_gates.insert("NMUX");
 		}
-		std::string lib_tempdir_name = AbcPrep::tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
-		lib_tempdir_name = make_temp_dir(lib_tempdir_name);
-		AbcPrep::lib_to_tmp(lib_tempdir_name, liberty_files);
+		auto lib_tempdir_name = AbcPrep::make_tmp_extract_lib(liberty_files, cleanup);
 
 		for (auto mod : design->selected_modules())
 		{
