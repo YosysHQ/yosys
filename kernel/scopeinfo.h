@@ -337,7 +337,7 @@ template<typename O>
 std::vector<IdString> parse_hdlname(const O* object)
 {
 	std::vector<IdString> path;
-	if (!object->name.isPublic())
+	if (!object->name.isPublic() && !object->name.begins_with("$paramod") && !object->name.begins_with("$abstract"))
 		return path;
 	for (auto const &item : object->get_hdlname_attribute())
 		path.push_back("\\" + item);
@@ -351,7 +351,7 @@ std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 {
 	std::vector<IdString> path;
 	IdString trailing = object->name;
-	if (object->name.isPublic()) {
+	if (object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")) {
 		for (auto const &item : object->get_hdlname_attribute())
 			path.push_back("\\" + item);
 		if (!path.empty()) {
