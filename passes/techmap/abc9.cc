@@ -27,6 +27,8 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
+#include "passes/techmap/abc_prep.h"
+
 // abc9_exe.cc
 std::string fold_abc9_cmd(std::string str);
 
@@ -405,12 +407,8 @@ struct Abc9Pass : public ScriptPass
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
-					std::string tempdir_name;
-					if (cleanup) 
-						tempdir_name = get_base_tmpdir() + "/";
-					else
-						tempdir_name = "_tmp_";
-					tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
+					std::string tempdir_name = AbcPrep::tmp_base(cleanup);
+					tempdir_name += "yosys-abc-XXXXXX";
 					tempdir_name = make_temp_dir(tempdir_name);
 
 					if (!lut_mode)

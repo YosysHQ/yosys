@@ -48,7 +48,6 @@
 #include "kernel/ff.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
-#include "kernel/gzip.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -64,6 +63,7 @@
 #endif
 
 #include "frontends/blif/blifparse.h"
+#include "passes/techmap/abc_prep.h"
 
 #ifdef YOSYS_LINK_ABC
 namespace abc {
@@ -72,51 +72,6 @@ namespace abc {
 #endif
 
 USING_YOSYS_NAMESPACE
-
-std::string tmp_base(bool cleanup)
-{
-	std::string base;
-	if (cleanup)
-		base = get_base_tmpdir() + "/";
-	else
-		base = "_tmp_";
-	return base + proc_program_prefix();
-}
-
-/**
- * Extracts gzipped liberty_files and rewrites their paths
- * to the new temporary file paths
- */
-void lib_to_tmp(std::string top_tmpdir, std::vector<std::string>& liberty_files)
-{
-	for (std::string& f : liberty_files) {
-		bool ends_gz = false;
-		auto dot_pos = f.find_last_of(".");
-		if(dot_pos != std::string::npos)
-			ends_gz = f.substr(dot_pos+1) == "gz";
-		log_debug("Does %s end with .gz? %d\n", f.c_str(), ends_gz);
-		if (ends_gz) {
-			auto filename_pos = f.find_last_of("/");
-			if(filename_pos == std::string::npos)
-				filename_pos = f.find_last_of("\\");
-			if(filename_pos == std::string::npos) {
-				filename_pos = 0;
-			} else {
-				filename_pos++;
-			}
-			std::istream* s = uncompressed(f);
-			std::string base = f.substr(filename_pos, dot_pos - filename_pos);
-			log_debug("base %s\n", base.c_str());
-			std::string tmp_f = top_tmpdir + "/" + base + "-XXXXXX";
-			tmp_f = make_temp_file(tmp_f);
-			log_debug("tmp_f %s\n", tmp_f.c_str());
-			std::ofstream out(tmp_f);
-			out << s->rdbuf();
-			f = tmp_f;
-		}
-	}
-}
-
 PRIVATE_NAMESPACE_BEGIN
 
 enum class gate_type_t {
@@ -833,7 +788,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
-	std::string tempdir_name = tmp_base(cleanup) + "yosys-abc-XXXXXX";
+	std::string tempdir_name = AbcPrep::tmp_base(cleanup) + "yosys-abc-XXXXXX";
 	tempdir_name = make_temp_dir(tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
@@ -2082,9 +2037,9 @@ struct AbcPass : public Pass {
 			enabled_gates.insert("MUX");
 			// enabled_gates.insert("NMUX");
 		}
-		std::string lib_tempdir_name = tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
+		std::string lib_tempdir_name = AbcPrep::tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
 		lib_tempdir_name = make_temp_dir(lib_tempdir_name);
-		lib_to_tmp(lib_tempdir_name, liberty_files);
+		AbcPrep::lib_to_tmp(lib_tempdir_name, liberty_files);
 
 		for (auto mod : design->selected_modules())
 		{

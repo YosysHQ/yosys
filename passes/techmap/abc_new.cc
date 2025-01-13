@@ -21,13 +21,10 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 #include "kernel/io.h"
-#include "kernel/gzip.h"
+
+#include "passes/techmap/abc_prep.h"
 
 USING_YOSYS_NAMESPACE
-
-void lib_to_tmp(std::string top_tmpdir, std::vector<std::string>& liberty_files);
-std::string tmp_base(bool cleanup);
-
 PRIVATE_NAMESPACE_BEGIN
 
 std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
@@ -118,9 +115,9 @@ struct AbcNewPass : public ScriptPass {
 
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
-		std::string lib_tmpdir = tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
+		std::string lib_tmpdir = AbcPrep::tmp_base(cleanup) + "yosys-abc-lib-XXXXXX";
 		lib_tmpdir = make_temp_dir(lib_tmpdir);
-		lib_to_tmp(lib_tmpdir, liberty_files);
+		AbcPrep::lib_to_tmp(lib_tmpdir, liberty_files);
 		run_script(d, run_from, run_to);
 		if (cleanup)
 			remove_directory(lib_tmpdir);
@@ -167,7 +164,7 @@ struct AbcNewPass : public ScriptPass {
 				std::string modname = "<module>";
 				std::string exe_options = "[options]";
 				if (!help_mode) {
-					tmpdir = tmp_base(cleanup) + "yosys-abc-XXXXXX";
+					tmpdir = AbcPrep::tmp_base(cleanup) + "yosys-abc-XXXXXX";
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
