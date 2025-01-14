@@ -411,9 +411,11 @@ struct OptBalanceTreeWorker {
 					}
 					for (Cell *cell : chain) {
 						SigSpec y_sig = sigmap(cell->getPort(ID::Y));
-						Wire *wire = y_sig.as_wire();
-						if (wire && !wire->port_input && !wire->port_output) {
-							module->rename(y_sig.as_wire(), NEW_ID2_SUFFIX("rot_wire"));
+						if (y_sig.is_wire()) {
+							Wire *wire = y_sig.as_wire();
+							if (wire && !wire->port_input && !wire->port_output) {
+								module->rename(y_sig.as_wire(), NEW_ID2_SUFFIX("rot_wire"));
+							}
 						}
 					}
 				}
