@@ -117,7 +117,7 @@ struct ShareWorker
 
 	static int bits_macc(const Macc &m, int width)
 	{
-		int bits = GetSize(m.bit_ports);
+		int bits = 0;
 		for (auto &p : m.ports)
 			bits += bits_macc_port(p, width);
 		return bits;
@@ -1255,7 +1255,6 @@ struct ShareWorker
 					qcsat.max_cell_count = 100;
 				}
 
-				pool<RTLIL::Cell*> sat_cells;
 				std::set<RTLIL::SigBit> bits_queue;
 
 				std::vector<int> cell_active, other_cell_active;
@@ -1298,8 +1297,8 @@ struct ShareWorker
 
 				qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
 
-				log("      Size of SAT problem: %d cells, %d variables, %d clauses\n",
-						GetSize(sat_cells), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
+				log("      Size of SAT problem: %d variables, %d clauses\n",
+						qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
 				if (qcsat.ez->solve(sat_model, sat_model_values)) {
 					log("      According to the SAT solver this pair of cells can not be shared.\n");

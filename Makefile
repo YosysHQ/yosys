@@ -171,7 +171,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.48+57
+YOSYS_VER := 0.48+70
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -933,6 +933,7 @@ endif
 SH_ABC_TEST_DIRS =
 SH_ABC_TEST_DIRS += tests/memories
 SH_ABC_TEST_DIRS += tests/aiger
+SH_ABC_TEST_DIRS += tests/alumacc
 
 # seed-tests/ is a dummy string, not a directory
 .PHONY: seed-tests
