@@ -265,7 +265,7 @@ struct hash_obj_ops {
 	template<typename T>
 	static inline Hasher hash_into(const T *a, Hasher h) {
 		if (a)
-			a->hash_into(h);
+			h = a->hash_into(h);
 		else
 			h.eat(0);
 		return h;
