@@ -127,7 +127,7 @@ struct proc_dlatch_db_t
 			return signal == other.signal && match == other.match && children == other.children;
 		}
 
-		Hasher hash_into(Hasher h) const {
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
 			h.eat(signal);
 			h.eat(match);
 			h.eat(children);

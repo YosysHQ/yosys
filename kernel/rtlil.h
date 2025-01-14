@@ -362,7 +362,7 @@ struct RTLIL::IdString
 		*this = IdString();
 	}
 
-	Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
 
 	Hasher hash_top() const {
 		Hasher h;
@@ -821,7 +821,7 @@ public:
 		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
-	inline Hasher hash_into(Hasher h) const {
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
 		h.eat(size());
 		for (auto b : *this)
 			h.eat(b);
@@ -914,7 +914,7 @@ struct RTLIL::SigBit
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 	Hasher hash_top() const;
 };
 
@@ -1115,7 +1115,7 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
-	Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1157,7 +1157,7 @@ struct RTLIL::Selection
 struct RTLIL::Monitor
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Monitor() {
 		static unsigned int hashidx_count = 123456789;
@@ -1180,7 +1180,7 @@ struct define_map_t;
 struct RTLIL::Design
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
@@ -1285,7 +1285,7 @@ struct RTLIL::Design
 struct RTLIL::Module : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -1640,7 +1640,7 @@ void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -1679,7 +1679,7 @@ inline int GetSize(RTLIL::Wire *wire) {
 struct RTLIL::Memory : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
 
@@ -1694,7 +1694,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 struct RTLIL::Cell : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
@@ -1804,7 +1804,7 @@ struct RTLIL::SyncRule
 struct RTLIL::Process : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
-	Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes

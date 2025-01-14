@@ -46,7 +46,7 @@ struct IdBit {
 
     bool operator==(const IdBit &other) const { return name == other.name && bit == other.bit; };
     bool operator!=(const IdBit &other) const { return name != other.name || bit != other.bit; };
-    Hasher hash_into(Hasher h) const
+    [[nodiscard]] Hasher hash_into(Hasher h) const
     {
         h.eat(name);
         h.eat(bit);
@@ -64,7 +64,7 @@ struct InvBit {
 
     bool operator==(const InvBit &other) const { return bit == other.bit && inverted == other.inverted; };
     bool operator!=(const InvBit &other) const { return bit != other.bit || inverted != other.inverted; };
-    Hasher hash_into(Hasher h) const
+    [[nodiscard]] Hasher hash_into(Hasher h) const
     {
         h.eat(bit);
         h.eat(inverted);
