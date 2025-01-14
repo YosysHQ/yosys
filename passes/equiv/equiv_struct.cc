@@ -46,7 +46,7 @@ struct EquivStructWorker
 					parameters == other.parameters && port_sizes == other.port_sizes;
 		}
 
-		Hasher hash_into(Hasher h) const {
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
 			h.eat(type);
 			h.eat(parameters);
 			h.eat(port_sizes);

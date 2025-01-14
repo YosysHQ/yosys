@@ -162,7 +162,7 @@ struct hash_ops {
 	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(const T &a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const T &a, Hasher h) {
 		if constexpr (std::is_integral_v<T>) {
 			static_assert(sizeof(T) <= sizeof(uint64_t));
 			if (sizeof(T) == sizeof(uint64_t))
@@ -189,7 +189,7 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(std::pair<P, Q> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(std::pair<P, Q> a, Hasher h) {
 		h = hash_ops<P>::hash_into(a.first, h);
 		h = hash_ops<Q>::hash_into(a.second, h);
 		return h;
@@ -217,7 +217,7 @@ template<typename T> struct hash_ops<std::vector<T>> {
 	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(std::vector<T> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(std::vector<T> a, Hasher h) {
 		h.eat((uint32_t)a.size());
 		for (auto k : a)
 			h.eat(k);
@@ -229,7 +229,7 @@ template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
     static inline bool cmp(std::array<T, N> a, std::array<T, N> b) {
         return a == b;
     }
-    static inline Hasher hash_into(std::array<T, N> a, Hasher h) {
+    [[nodiscard]] static inline Hasher hash_into(std::array<T, N> a, Hasher h) {
         for (const auto& k : a)
             h = hash_ops<T>::hash_into(k, h);
         return h;
@@ -240,7 +240,7 @@ struct hash_cstr_ops {
 	static inline bool cmp(const char *a, const char *b) {
 		return strcmp(a, b) == 0;
 	}
-	static inline Hasher hash_into(const char *a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const char *a, Hasher h) {
 		while (*a)
 			h.hash32(*(a++));
 		return h;
@@ -253,7 +253,7 @@ struct hash_ptr_ops {
 	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(const void *a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const void *a, Hasher h) {
 		return hash_ops<uintptr_t>::hash_into((uintptr_t)a, h);
 	}
 };
@@ -263,9 +263,9 @@ struct hash_obj_ops {
 		return a == b;
 	}
 	template<typename T>
-	static inline Hasher hash_into(const T *a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const T *a, Hasher h) {
 		if (a)
-			a->hash_into(h);
+			h = a->hash_into(h);
 		else
 			h.eat(0);
 		return h;
@@ -295,7 +295,7 @@ template<> struct hash_ops<std::monostate> {
 	static inline bool cmp(std::monostate a, std::monostate b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(std::monostate, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(std::monostate, Hasher h) {
 		return h;
 	}
 };
@@ -304,7 +304,7 @@ template<typename... T> struct hash_ops<std::variant<T...>> {
 	static inline bool cmp(std::variant<T...> a, std::variant<T...> b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(std::variant<T...> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(std::variant<T...> a, Hasher h) {
 		std::visit([& h](const auto &v) { h.eat(v); }, a);
 		h.eat(a.index());
 		return h;
@@ -315,7 +315,7 @@ template<typename T> struct hash_ops<std::optional<T>> {
 	static inline bool cmp(std::optional<T> a, std::optional<T> b) {
 		return a == b;
 	}
-	static inline Hasher hash_into(std::optional<T> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(std::optional<T> a, Hasher h) {
 		if(a.has_value())
 			h.eat(*a);
 		else
@@ -788,7 +788,7 @@ public:
 		return !operator==(other);
 	}
 
-	Hasher hash_into(Hasher h) const {
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
 		for (auto &it : entries) {
 			Hasher entry_hash;
 			entry_hash.eat(it.udata.first);
@@ -1158,7 +1158,7 @@ public:
 		return !operator==(other);
 	}
 
-	Hasher hash_into(Hasher h) const {
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
 		for (auto &it : entries) {
 			h.commutative_eat(ops.hash(it.udata).yield());
 		}

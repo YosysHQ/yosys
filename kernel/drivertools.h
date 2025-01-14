@@ -74,7 +74,7 @@ struct DriveBitWire
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 
 	operator SigBit() const
@@ -105,7 +105,7 @@ struct DriveBitPort
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 };
 
@@ -129,7 +129,7 @@ struct DriveBitMarker
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 };
 
@@ -164,7 +164,7 @@ public:
 		return multiple_ == other.multiple_;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct DriveBit
@@ -352,7 +352,7 @@ public:
 		return *this;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 	bool operator==(const DriveBit &other) const
 	{
@@ -473,7 +473,7 @@ struct DriveChunkWire
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 	explicit operator SigChunk() const
 	{
@@ -531,7 +531,7 @@ struct DriveChunkPort
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 
@@ -572,7 +572,7 @@ struct DriveChunkMarker
 		return offset < other.offset;
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct DriveChunkMultiple
@@ -612,7 +612,7 @@ public:
 		return false; // TODO implement, canonicalize order
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct DriveChunk
@@ -863,7 +863,7 @@ public:
 	bool try_append(DriveBit const &bit);
 	bool try_append(DriveChunk const &chunk);
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 	bool operator==(const DriveChunk &other) const
 	{
@@ -1074,7 +1074,7 @@ public:
 		hash_ |= (hash_ == 0);
 	}
 
-	Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 
 	bool operator==(DriveSpec const &other) const {
 		updhash();
@@ -1112,7 +1112,7 @@ private:
 		bool operator==(const DriveBitId &other) const { return id == other.id; }
 		bool operator!=(const DriveBitId &other) const { return id != other.id; }
 		bool operator<(const DriveBitId &other) const { return id < other.id; }
-		Hasher hash_into(Hasher h) const;
+		[[nodiscard]] Hasher hash_into(Hasher h) const;
 	};
 	// Essentially a dict<DriveBitId, pool<DriveBitId>> but using less memory
 	// and fewer allocations

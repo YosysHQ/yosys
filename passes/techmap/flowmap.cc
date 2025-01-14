@@ -250,7 +250,7 @@ struct FlowGraph
 		{
 			return !(*this == other);
 		}
-		Hasher hash_into(Hasher h) const
+		[[nodiscard]] Hasher hash_into(Hasher h) const
 		{
 			std::pair<RTLIL::SigBit, int> p = {node, is_bottom};
 			h.eat(p);

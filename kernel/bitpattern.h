@@ -43,7 +43,7 @@ struct BitPatternPool
 				return false;
 			return bitdata == other.bitdata;
 		}
-		Hasher hash_into(Hasher h) const {
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
 			if (!cached_hash)
 				cached_hash = run_hash(bitdata);
 			h.eat(cached_hash);
