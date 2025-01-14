@@ -169,7 +169,7 @@ public:
 			return !(*this == other);
 		}
 
-		Hasher hash_into(Hasher h) const
+		[[nodiscard]] Hasher hash_into(Hasher h) const
 		{
 			h.eat(scope_name);
 			h.eat(target);
@@ -325,7 +325,7 @@ struct ModuleItem {
 	Cell *cell() const { return type == Type::Cell ? static_cast<Cell *>(ptr) : nullptr; }
 
 	bool operator==(const ModuleItem &other) const { return ptr == other.ptr && type == other.type; }
-	Hasher hash_into(Hasher h) const { h.eat(ptr); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(ptr); return h; }
 };
 
 static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p %s", cursor.target, log_id(cursor.scope_name)); }
