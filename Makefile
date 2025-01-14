@@ -126,7 +126,7 @@ AWK ?= awk
 
 ifeq ($(OS), Linux)
 LIBS += -ldw                  # SILIMATE: support for backward-cpp
-CXXFLAGS += -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
+CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
 endif
 
 ifeq ($(OS), Darwin)
@@ -148,7 +148,7 @@ PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(BREW_PREFIX)/m4/bin:$(PATH)
 export LIBRARY_PATH := $(BREW_PREFIX)/dwarfutils/lib:$(BREW_PREFIX)/libelf/lib:$(LIBRARY_PATH)
 LIBS += -ldwarf -lelf            # SILIMATE: support for backward-cpp
-CXXFLAGS += -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
+CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
 
 # macports search paths
 else ifneq ($(shell :; command -v port),)
