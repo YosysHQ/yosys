@@ -46,7 +46,9 @@ struct OptBalanceTreeWorker {
 	pool<Cell *> chain_start_cells;
 	pool<Cell *> candidate_cells;
 
-	void make_sig_chain_next_prev(IdString cell_type)
+	// Ignore signals fanout while looking ahead which chains to split.
+	// Post splitfanout, take that into account.
+	void make_sig_chain_next_prev(IdString cell_type, bool ignore_split)
 	{
 		// Mark all wires with keep attribute as having non-chain users
 		for (auto wire : module->wires()) {
@@ -66,11 +68,12 @@ struct OptBalanceTreeWorker {
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
 
 				// If a_sig already has a chain user, mark its bits as having non-chain users
-				if (sig_chain_next.count(a_sig))
-					for (auto a_bit : a_sig.bits())
-						sigbit_with_non_chain_users.insert(a_bit);
-				// Otherwise, mark cell as the next in the chain relative to a_sig
-				else {
+				if (sig_chain_next.count(a_sig)) {
+					if (!ignore_split)
+						for (auto a_bit : a_sig.bits())
+							sigbit_with_non_chain_users.insert(a_bit);
+					// Otherwise, mark cell as the next in the chain relative to a_sig
+				} else {
 					if (fanout_in_range(y_sig)) {
 						sig_chain_next[a_sig] = cell;
 					}
@@ -78,11 +81,12 @@ struct OptBalanceTreeWorker {
 
 				if (!b_sig.empty()) {
 					// If b_sig already has a chain user, mark its bits as having non-chain users
-					if (sig_chain_next.count(b_sig))
-						for (auto b_bit : b_sig.bits())
-							sigbit_with_non_chain_users.insert(b_bit);
-					// Otherwise, mark cell as the next in the chain relative to b_sig
-					else {
+					if (sig_chain_next.count(b_sig)) {
+						if (!ignore_split)
+							for (auto b_bit : b_sig.bits())
+								sigbit_with_non_chain_users.insert(b_bit);
+						// Otherwise, mark cell as the next in the chain relative to b_sig
+					} else {
 						if (fanout_in_range(y_sig)) {
 							sig_chain_next[b_sig] = cell;
 						}
@@ -214,11 +218,11 @@ struct OptBalanceTreeWorker {
 		cell->fixup_parameters();
 	}
 
-	void process_chain(vector<Cell *> &chain)
+	bool process_chain(vector<Cell *> &chain)
 	{
 		// If chain size is less than 3, no balancing needed
 		if (GetSize(chain) < 3)
-			return;
+			return false;
 
 		// Get mid, midnext (at index mid+1) and end of chain
 		Cell *mid_cell = chain[GetSize(chain) / 2];
@@ -275,6 +279,7 @@ struct OptBalanceTreeWorker {
 
 		// Width reduce mid cell
 		wreduce(mid_cell);
+		return true;
 	}
 
 	void cleanup()
@@ -364,7 +369,7 @@ struct OptBalanceTreeWorker {
 			bool has_cell_to_split = false;
 			for (auto cell_type : cell_types) {
 				// Find chains of ops
-				make_sig_chain_next_prev(cell_type);
+				make_sig_chain_next_prev(cell_type, true);
 				find_chain_start_cells();
 
 				// For each chain, if len >= 3, select all the elements
@@ -393,13 +398,27 @@ struct OptBalanceTreeWorker {
 		// Do for each cell type
 		for (auto cell_type : cell_types) {
 			// Find chains of ops
-			make_sig_chain_next_prev(cell_type);
+			make_sig_chain_next_prev(cell_type, false);
 			find_chain_start_cells();
 
 			// For each chain, if len >= 3, convert to tree via "rotation" and recurse on subtrees
 			for (auto c : chain_start_cells) {
 				vector<Cell *> chain = create_chain(c);
-				process_chain(chain);
+				if (process_chain(chain)) {
+					// Rename cells and wires for formal check to pass as cells signals have changed functionalities post rotation
+					for (Cell *cell : chain) {
+						module->rename(cell, NEW_ID2_SUFFIX("rot_cell"));
+					}
+					for (Cell *cell : chain) {
+						SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+						if (y_sig.is_wire()) {
+							Wire *wire = y_sig.as_wire();
+							if (wire && !wire->port_input && !wire->port_output) {
+								module->rename(y_sig.as_wire(), NEW_ID2_SUFFIX("rot_wire"));
+							}
+						}
+					}
+				}
 				cell_count[cell_type] += GetSize(chain);
 			}
 
