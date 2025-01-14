@@ -364,7 +364,7 @@ struct RTLIL::IdString
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
 
-	Hasher hash_top() const {
+	[[nodiscard]] Hasher hash_top() const {
 		Hasher h;
 		h.force((Hasher::hash_t) index_);
 		return h;
@@ -915,7 +915,7 @@ struct RTLIL::SigBit
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
 	[[nodiscard]] Hasher hash_into(Hasher h) const;
-	Hasher hash_top() const;
+	[[nodiscard]] Hasher hash_top() const;
 };
 
 namespace hashlib {
