@@ -405,10 +405,16 @@ struct OptBalanceTreeWorker {
 			for (auto c : chain_start_cells) {
 				vector<Cell *> chain = create_chain(c);
 				if (process_chain(chain)) {
-					// Rename cells for formal check to pass as cells signals have changed functionalities post rotation
+					// Rename cells and wires for formal check to pass as cells signals have changed functionalities post rotation
 					for (Cell *cell : chain) {
-						module->rename(cell, NEW_ID2_SUFFIX("mid_cell"));
-						log("Renaming cell %s \n", cell->name.c_str());
+						module->rename(cell, NEW_ID2_SUFFIX("rot_cell"));
+					}
+					for (Cell *cell : chain) {
+						SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+						Wire *wire = y_sig.as_wire();
+						if (wire && !wire->port_input && !wire->port_output) {
+							module->rename(y_sig.as_wire(), NEW_ID2_SUFFIX("rot_wire"));
+						}
 					}
 				}
 				cell_count[cell_type] += GetSize(chain);
