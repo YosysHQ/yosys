@@ -88,6 +88,7 @@ struct SubmodWorker
 	void handle_submodule(SubModule &submod)
 	{
 		log("Creating submodule %s (%s) of module %s.\n", submod.name.c_str(), submod.full_name.c_str(), module->name.c_str());
+		log_flush();
 
 		wire_flags.clear();
 		for (RTLIL::Cell *cell : submod.cells) {
@@ -192,13 +193,13 @@ struct SubmodWorker
 			}
 
 			if (new_wire->port_input && new_wire->port_output)
-				log("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
 			else if (new_wire->port_input)
-				log("  signal %s: input %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: input %s\n", wire->name.c_str(), new_wire->name.c_str());
 			else if (new_wire->port_output)
-				log("  signal %s: output %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: output %s\n", wire->name.c_str(), new_wire->name.c_str());
 			else
-				log("  signal %s: internal\n", wire->name.c_str());
+				log_debug("  signal %s: internal\n", wire->name.c_str());
 
 			flags.new_wire = new_wire;
 		}
@@ -214,7 +215,7 @@ struct SubmodWorker
 						log_assert(wire_flags.count(bit.wire) > 0);
 						bit.wire = wire_flags.at(bit.wire).new_wire;
 					}
-			log("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
+			log_debug("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
 			if (!copy_mode)
 				module->remove(cell);
 		}
