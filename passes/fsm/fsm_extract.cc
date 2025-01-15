@@ -377,6 +377,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 	fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
+	if(fsm_cell->attributes.count(ID::hdlname)) {
+		fsm_cell->attributes[ID(scopename)] = fsm_cell->attributes[ID::hdlname];
+		fsm_cell->attributes.erase(ID::hdlname);
+	}
 	fsm_data.copy_to_cell(fsm_cell);
 
 	// rename original state wire
@@ -385,6 +389,10 @@ static void extract_fsm(RTLIL::Wire *wire)
 	wire->attributes.erase(ID::fsm_encoding);
 	wire->name = stringf("$fsm$oldstate%s", wire->name.c_str());
 	module->wires_[wire->name] = wire;
+	if(wire->attributes.count(ID::hdlname)) {
+		wire->attributes[ID(scopename)] = wire->attributes[ID::hdlname];
+		wire->attributes.erase(ID::hdlname);
+	}
 
 	// unconnect control outputs from old drivers
 
