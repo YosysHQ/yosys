@@ -33,9 +33,9 @@ jobs:
   install_dept:
     runs-on: ubuntu-latest
     shell: bash
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install libdwarf-dev libelf-dev elfutils libdw-dev -y
+    run: |
+      sudo apt-get update -y
+      sudo apt-get install libdwarf-dev libelf-dev elfutils libdw-dev -y
 
   build-yosys:
     name: Reusable build
