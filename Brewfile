@@ -12,3 +12,6 @@ brew "bash"
 brew "boost-python3"
 brew "llvm"
 brew "lld"
+
+brew "dwarfutils"
+brew "libelf"
