@@ -110,9 +110,13 @@ code add_y add_a add_b add_a_ext add_a_id add_b_id  mux_y mux_a mux_b mux_a_id m
 	add->setPort(add_b_id, mid);
 	add->setPort(add_a_id, add_a);
 	add->setPort(\Y, add_y);
+	cell = add;
+	module->rename(add, NEW_ID2_SUFFIX("rot"));
 	mux->setPort(mux_a_id, Const(State::S0, GetSize(add_b)));
 	mux->setPort(mux_b_id, add_b);
 	mux->setPort(\Y, mid);
+	cell = mux;
+	module->rename(mux, NEW_ID2_SUFFIX("rot"));
 	module->connect(mux_y, add_y);
 
 	// Log, fixup, accept
