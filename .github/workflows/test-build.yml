@@ -215,4 +215,5 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
+          export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
           make -C docs test -j${{ env.procs }} SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0

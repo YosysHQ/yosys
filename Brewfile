@@ -15,3 +15,4 @@ brew "lld"
 
 brew "dwarfutils"
 brew "libelf"
+brew "make"
