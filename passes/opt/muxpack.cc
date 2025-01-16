@@ -453,32 +453,6 @@ struct MuxpackWorker
 		make_sig_chain_next_prev();
 		find_chain_start_cells(assume_excl);
 
-		// Deselect all cells
-		Pass::call(design, "select -none");
-		bool has_cell_to_split = false;
-		for (auto c : chain_start_cells) {
-			vector<Cell *> chain = create_chain(c);
-			for (auto cell : chain) {
-				has_cell_to_split = true;
-				// Select the cells that are candidate
-				design->select(module, cell);
-			}
-		}
-		// Clean up
-		cleanup(false);
-
-		// Make sure we dup the cells with fanout, else the resulting
-		// transform is not logically equivalent
-		if (has_cell_to_split)
-			Pass::call(design, "splitfanout");
-		// Reset selection for other passes
-		Pass::call(design, "select -clear");
-		// Recreate sigmap
-		sigmap.set(module);
-
-		make_sig_chain_next_prev();
-		find_chain_start_cells(assume_excl);
-
 		// Make the actual transform
 		for (auto c : chain_start_cells) {
 			vector<Cell *> chain = create_chain(c);
