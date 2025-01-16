@@ -144,7 +144,7 @@ endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
-PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
+PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk@8/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(BREW_PREFIX)/m4/bin:$(PATH)
 export LIBRARY_PATH := $(BREW_PREFIX)/dwarfutils/lib:$(BREW_PREFIX)/libelf/lib:$(LIBRARY_PATH)
 LIBS += -ldwarf -lelf            # SILIMATE: support for backward-cpp
