@@ -30,6 +30,15 @@ jobs:
           # only run on push *or* pull_request, not both
           concurrent_skipping: 'same_content_newer'
 
+  install_dept:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dept
+        shell: bash
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install libdwarf-dev libelf-dev elfutils libdw-dev -y
+
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
