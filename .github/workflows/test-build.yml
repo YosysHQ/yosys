@@ -30,16 +30,6 @@ jobs:
           # only run on push *or* pull_request, not both
           concurrent_skipping: 'same_content_newer'
 
-  install_dept:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install dependencies
-        shell: bash
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libdwarf-dev libelf-dev elfutils libdw-dev \
-                                  libnsl-dev
-
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
@@ -60,6 +50,17 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
+
+      - name: Setup Mac
+        if: matrix.os == 'macos-latest'
+        run: brew install
+      
+      - name: Setup Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install libdwarf-dev libelf-dev elfutils libdw-dev \
+                                  libnsl-dev
 
       - name: Build Verific
         run: cd verific/tclmain && make -j$procs
