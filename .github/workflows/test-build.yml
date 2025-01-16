@@ -53,7 +53,7 @@ jobs:
 
       - name: Setup Mac
         if: matrix.os == 'macos-latest'
-        run: brew install
+        run: brew bundle install
       
       - name: Setup Linux
         if: matrix.os == 'ubuntu-latest'
