@@ -13,7 +13,8 @@ jobs:
     steps:
     - name: Install deps
       run: sudo apt-get install bison flex libreadline-dev tcl-dev libffi-dev \
-                                libdwarf-dev libelf-dev elfutils libdw-dev
+                                libdw-dev libdwarf-dev libelf-dev elfutils \
+                                libnsl-dev
 
     - name: Checkout repository
       uses: actions/checkout@v4
