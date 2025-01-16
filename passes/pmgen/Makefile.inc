@@ -59,6 +59,8 @@ PEEPOPT_PATTERN += passes/pmgen/peepopt_shiftadd.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv_c.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muxadd.pmg
+PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv_c.pmg
+PEEPOPT_PATTERN += passes/pmgen/peepopt_muxadd.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_formal_clockgateff.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)

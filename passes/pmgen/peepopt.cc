@@ -28,6 +28,9 @@ bool did_something;
 // scratchpad configurations for pmgen
 int shiftadd_max_ratio;
 
+// Helper function, removes LSB 0s
+SigSpec remove_bottom_padding(SigSpec sig);
+
 #include "passes/pmgen/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
@@ -41,8 +44,6 @@ struct PeepoptPass : public Pass {
 		log("This pass applies a collection of peephole optimizers to the current design.\n");
 		log("\n");
 		log("This pass employs the following rules by default:\n");
-		log("\n");
-		log("   * muxadd - Replace S?(A+B):A with A+(S?B:0)\n");
 		log("\n");
 		log("   * muldiv - Replace (A*B)/B with A\n");
 		log("\n");
@@ -67,18 +68,26 @@ struct PeepoptPass : public Pass {
 		log("                   based pattern to prevent combinational paths from the\n");
 		log("                   output to the enable input after running clk2fflogic.\n");
 		log("\n");
+		log("If -withmuxadd is specified it adds the following rule:\n");
+		log("\n");
+		log("   * muxadd - Replace S?(A+B):A with A+(S?B:0)\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
 		bool formalclk = false;
-
+		bool withmuxadd = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-formalclk") {
 				formalclk = true;
+				continue;
+			}
+			if (args[argidx] == "-withmuxadd") {
+				withmuxadd = true;
 				continue;
 			}
 			break;
@@ -110,11 +119,21 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftmul_left();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
-					pm.run_muxadd();
+					if (withmuxadd)
+						pm.run_muxadd();
 				}
 			}
 		}
 	}
 } PeepoptPass;
+
+
+SigSpec remove_bottom_padding(SigSpec sig)
+{
+	int i = 0;
+	for (; i < sig.size() - 1 && sig[i] == State::S0; i++) {
+	}
+	return sig.extract(i, sig.size() - i);
+}
 
 PRIVATE_NAMESPACE_END
