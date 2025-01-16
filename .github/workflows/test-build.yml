@@ -57,6 +57,8 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          sudo apt-get update -y
+          sudo apt-get install libdwarf-dev libelf-dev elfutils libdw-dev -y
           mkdir build
           cd build
           make -f ../Makefile config-$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
