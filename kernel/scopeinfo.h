@@ -341,8 +341,10 @@ std::vector<IdString> parse_hdlname(const O* object)
 		path.push_back("\\" + item);
 	if (path.empty() && object->name.isPublic())
 		path.push_back(object->name);
-	if (!path.empty() && !(object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")))
+	if (!path.empty() && !(object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract"))) {
 		path.pop_back();
+		path.push_back(object->name);
+	}
 	return path;
 }
 
