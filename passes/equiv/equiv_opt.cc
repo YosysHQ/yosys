@@ -60,6 +60,9 @@ struct EquivOptPass:public ScriptPass
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
 		log("\n");
+		log("    -nocells\n");
+		log("        Do not check for equivalent cells, just wires.\n");
+		log("\n");
 		log("    -nocheck\n");
 		log("        disable running check before and after the command under test.\n");
 		log("\n");
@@ -124,6 +127,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-async2sync") {
 				async2sync = true;
+				continue;
+			}
+			if (args[argidx] == "-nocells") {
+				make_opts += " -nocells";
 				continue;
 			}
 			break;
