@@ -11,12 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-    - name: Install deps
-      run: |
-        sudo apt-get -y update
-        sudo apt-get -y install bison flex libreadline-dev tcl-dev libffi-dev \
-                                libdw-dev libdwarf-dev libelf-dev elfutils \
-                                libnsl-dev
+    - name: Setup environment
+      uses: ./.github/actions/setup-build-env
 
     - name: Checkout repository
       uses: actions/checkout@v4
