@@ -22,7 +22,7 @@ endmodule
 EOT
 
 hierarchy -top top
-flatten -scopename
+flatten -scopeinfo -scopename
 prep
 
 write_json json_scopeinfo.out
