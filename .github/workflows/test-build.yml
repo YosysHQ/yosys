@@ -51,17 +51,6 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Setup Mac
-        if: matrix.os == 'macos-latest'
-        run: brew bundle install
-      
-      - name: Setup Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libdwarf-dev libelf-dev elfutils libdw-dev \
-                                  libnsl-dev
-
       - name: Build Verific
         run: cd verific/tclmain && make -j$procs
 
@@ -110,16 +99,6 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
-
-      - name: Setup Mac
-        if: matrix.os == 'macos-latest'
-        run: brew bundle install
-      
-      - name: Setup Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libnsl-dev
 
       - name: Get iverilog
         shell: bash
@@ -204,15 +183,6 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
-      - name: Setup Mac
-        if: matrix.os == 'macos-latest'
-        run: brew bundle install
-      
-      - name: Setup Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libnsl-dev
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
