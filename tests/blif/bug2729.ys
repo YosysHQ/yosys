@@ -16,5 +16,5 @@ read_blif -wideports tmp-bug2729.blif
 rename -enumerate t:cell
 dump
 cd top
-connect -assert -port boolopt I A
-connect -assert -port boolopt O B
+connect -assert -port boolopt_1 I A
+connect -assert -port boolopt_1 O B
