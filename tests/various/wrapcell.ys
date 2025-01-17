@@ -45,7 +45,7 @@ module top(
 endmodule
 EOF
 
-opt_clean
+opt_clean -unusedbitsattr
 wreduce
 wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}{%unused}
 check -assert
