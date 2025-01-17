@@ -228,6 +228,9 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 
 bool is_blackbox(Netlist *nl)
 {
+	if (nl->HasParameters())
+		return false;
+
 	if (nl->IsBlackBox() || nl->IsEmptyBox())
 		return true;
 
