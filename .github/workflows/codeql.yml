@@ -11,14 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-    - name: Setup environment
-      uses: ./.github/actions/setup-build-env
-
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
        submodules: true
        ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Setup environment
+      uses: ./.github/actions/setup-build-env
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
