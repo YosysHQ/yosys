@@ -19,7 +19,7 @@ $adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) d
 $adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
 endmodule
 EOT
-equiv_opt -assert -multiclock zinit
+equiv_opt -nocells -assert -multiclock zinit
 design -load postopt
 
 select -assert-count 16 t:$_NOT_
@@ -52,7 +52,7 @@ $adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) d
 $adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
 endmodule
 EOT
-equiv_opt -assert -multiclock zinit
+equiv_opt -nocells -assert -multiclock zinit
 design -load postopt
 
 select -assert-count 0 t:$_NOT_
@@ -95,7 +95,7 @@ $_SDFFE_PP1P_ dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
 
 endmodule
 EOT
-equiv_opt -assert -multiclock zinit
+equiv_opt -nocells -assert -multiclock zinit
 design -load postopt
 
 select -assert-count 48 t:$_NOT_
@@ -141,7 +141,7 @@ $_SDFFE_PP1P_ dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
 
 endmodule
 EOT
-equiv_opt -assert -multiclock zinit
+equiv_opt -nocells -assert -multiclock zinit
 design -load postopt
 
 select -assert-count 0 t:$_NOT_

@@ -25,7 +25,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-count 0 t:$sdff
 select -assert-count 0 t:$sdffe
@@ -35,7 +35,7 @@ select -assert-count 2 t:$dffe
 
 design -load orig
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 1 t:$sdff
 select -assert-count 1 t:$sdffe
@@ -46,7 +46,7 @@ select -assert-count 1 t:$dffe
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-none t:$_SDFF_???_
 select -assert-none t:$_SDFFE_????_
@@ -57,7 +57,7 @@ select -assert-count 4 t:$_DFFE_??_
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 2 t:$_SDFF_???_
 select -assert-count 2 t:$_SDFFE_????_
@@ -90,7 +90,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-none t:$sdff
 select -assert-none t:$sdffe
@@ -101,7 +101,7 @@ select -assert-count 2 t:$dffe
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-none t:$_SDFF_???_
 select -assert-none t:$_SDFFE_????_

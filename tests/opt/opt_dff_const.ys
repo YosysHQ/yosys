@@ -33,7 +33,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-count 1 t:$dff r:WIDTH=2 %i
 select -assert-count 1 t:$dffe r:WIDTH=2 %i

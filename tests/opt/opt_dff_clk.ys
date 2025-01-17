@@ -29,7 +29,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 2 t:$dlatch
 select -assert-count 2 t:$sr
@@ -38,7 +38,7 @@ select -assert-none t:$dlatch t:$sr %% %n t:* %i
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 4 t:$_DLATCH_?_
 select -assert-count 4 t:$_SR_??_

@@ -30,12 +30,12 @@ design -save orig
 
 # Equivalence check will fail for unmapped adlatch and dlatchsr due to negative hold hack.
 delete top/ff6 top/ff7
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 
 design -load orig
 delete top/ff6 top/ff7
 simplemap
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 
 design -load orig
 opt_dff
@@ -110,7 +110,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-count 2 t:$dffe
 select -assert-count 4 t:$dlatch
@@ -119,7 +119,7 @@ select -assert-none t:$dffe t:$dlatch t:$sr %% %n t:* %i
 
 design -load orig
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 2 t:$dffe
 select -assert-count 1 t:$adffe
@@ -134,7 +134,7 @@ select -assert-count 2 t:$sr
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff
+equiv_opt -nocells -undef -assert -multiclock opt_dff
 design -load postopt
 select -assert-count 4 t:$_DFFE_??_
 select -assert-count 8 t:$_DLATCH_?_
@@ -144,7 +144,7 @@ select -assert-none t:$_DFFE_??_ t:$_DLATCH_?_ t:$_SR_??_ %% %n t:* %i
 design -load orig
 simplemap
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 design -load postopt
 select -assert-count 4 t:$_DFFE_??_
 select -assert-count 2 t:$_DFFE_????_

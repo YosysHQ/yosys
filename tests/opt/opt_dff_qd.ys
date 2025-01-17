@@ -29,7 +29,7 @@ EOT
 
 design -save orig
 
-equiv_opt -undef -assert -multiclock opt_dff -keepdc
+equiv_opt -nocells -undef -assert -multiclock opt_dff -keepdc
 
 design -load orig
 opt_dff -keepdc

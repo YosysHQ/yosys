@@ -6,7 +6,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
 select -assert-count 0 t:$dffe %% t:* %D
@@ -21,7 +21,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
@@ -37,7 +37,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
 select -assert-count 0 t:$dffe %% t:* %D
@@ -52,7 +52,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=4 %i
 select -assert-count 0 t:$dffe %% t:* %D
@@ -67,7 +67,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$sdffe r:WIDTH=2 %i
@@ -86,7 +86,7 @@ endmodule
 EOT
 
 proc
-equiv_opt -assert opt
+equiv_opt -nocells -assert opt
 design -load postopt
 wreduce
 select -assert-count 1 t:$sdffe r:WIDTH=2 %i
@@ -113,7 +113,7 @@ proc
 #     instead of `sat -tempinduct-baseonly` or
 #     `sat -tempinduct` which is necessary for this
 #     testcase
-#equiv_opt -assert opt
+#equiv_opt -nocells -assert opt
 
 design -save gold
 opt
