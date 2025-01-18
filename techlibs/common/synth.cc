@@ -98,7 +98,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts, abc, flatten_separator;
+	string top_module, fsm_opts, memory_opts, abc;
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth;
 	int lut;
 	std::vector<std::string> techmap_maps;
@@ -120,7 +120,6 @@ struct SynthPass : public ScriptPass {
 		booth = false;
 		abc = "abc";
 		techmap_maps.clear();
-		flatten_separator = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -155,8 +154,6 @@ struct SynthPass : public ScriptPass {
 			}
 			if (args[argidx] == "-flatten") {
 				flatten = true;
-				if (design->scratchpad.count("flatten.separator"))
-					flatten_separator = design->scratchpad_get_string("flatten.separator");
 				continue;
 			}
 			if (args[argidx] == "-lut" && argidx + 1 < args.size()) {
@@ -242,12 +239,8 @@ struct SynthPass : public ScriptPass {
 
 		if (check_label("coarse")) {
 			run("proc");
-			if (flatten || help_mode) {
-				if (!flatten_separator.empty())
-					run(stringf("flatten -separator %s", flatten_separator.c_str()), "  (if -flatten)");
-				else
-					run("flatten", "  (if -flatten)");
-			}
+			if (flatten || help_mode)
+				run("flatten", "  (if -flatten)");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
