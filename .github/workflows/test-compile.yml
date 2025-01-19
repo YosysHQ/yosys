@@ -30,7 +30,7 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-16'
+          - 'clang-10'
           - 'gcc-10'
           # newest, make sure to update maximum standard step to match
           - 'clang-19'
@@ -39,9 +39,6 @@ jobs:
           # macOS
           - os: macos-13
             compiler: 'clang'
-          # oldest clang not available on ubuntu-latest
-          - os: ubuntu-20.04
-            compiler: 'clang-10'
       fail-fast: false
     steps:
       - name: Checkout Yosys
