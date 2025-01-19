@@ -30,7 +30,7 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-14'
+          - 'clang-16'
           - 'gcc-10'
           # newest, make sure to update maximum standard step to match
           - 'clang-18'
