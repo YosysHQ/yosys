@@ -14,7 +14,7 @@ html_css_files = ['custom.css']
 html_theme_options: dict[str] = {
     "source_repository": "https://github.com/YosysHQ/yosys/",
     "source_branch": "main",
-    "source_directory": "docs/",
+    "source_directory": "docs/source/",
 }
 
 # try to fix the readthedocs detection
