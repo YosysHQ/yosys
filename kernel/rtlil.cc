@@ -2183,6 +2183,20 @@ void RTLIL::Module::sort()
 		it.second->attributes.sort(sort_by_id_str());
 }
 
+void check_hdl_scope_names(IdString name, RTLIL::AttrObject* obj) {
+	if(name.isPublic() || name.begins_with("$paramod") || name.begins_with("$abstract")) {
+		if(obj->has_attribute(ID(scopename))) {
+			log("Object with public name '%s' should not have scopename attribute.\n", name.c_str());
+			log_assert(!((name.isPublic() || name.begins_with("$paramod") || name.begins_with("$abstract")) && obj->has_attribute(ID(scopename))));
+		}
+	} else {
+		if(obj->has_attribute(ID::hdlname)) {
+			log("Object with private name '%s' should not have hdlname attribute.\n", name.c_str());
+			log_assert(!(!(name.isPublic() || name.begins_with("$paramod") || name.begins_with("$abstract")) && obj->has_attribute(ID::hdlname)));
+		}
+	}
+}
+
 void RTLIL::Module::check()
 {
 #ifndef NDEBUG
@@ -2205,6 +2219,7 @@ void RTLIL::Module::check()
 			ports_declared[it.second->port_id-1] = true;
 		} else
 			log_assert(!it.second->port_input && !it.second->port_output);
+		check_hdl_scope_names(it.first, it.second);
 	}
 	for (auto port_declared : ports_declared)
 		log_assert(port_declared == true);
@@ -2217,6 +2232,7 @@ void RTLIL::Module::check()
 		log_assert(it.second->size >= 0);
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
+		check_hdl_scope_names(it.first, it.second);
 	}
 
 	pool<IdString> packed_memids;
@@ -2244,6 +2260,7 @@ void RTLIL::Module::check()
 			log_assert(!packed_memids.count(memid));
 			packed_memids.insert(memid);
 		}
+		check_hdl_scope_names(it.first, it.second);
 	}
 
 	for (auto &it : processes) {
@@ -2288,6 +2305,8 @@ void RTLIL::Module::check()
 
 	for (auto &it : attributes)
 		log_assert(!it.first.empty());
+
+	check_hdl_scope_names(name, this);
 #endif
 }
 
