@@ -142,7 +142,7 @@ using Hasher = HasherDJB32;
 #define HASH_TOP_LOOP_FST [[nodiscard]] static inline Hasher hash
 #define HASH_TOP_LOOP_SND { \
 	Hasher h; \
-	h.eat(a); \
+	h = hash_into(a, h); \
 	return h; \
 }
 
@@ -239,11 +239,7 @@ struct hash_cstr_ops {
 			h.hash32(*(a++));
 		return h;
 	}
-	[[nodiscard]] static inline Hasher hash(const char *a) {
-		Hasher h;
-		h = hash_cstr_ops::hash_into(a, h);
-		return h;
-	}
+	HASH_TOP_LOOP_FST (const char *a) HASH_TOP_LOOP_SND
 };
 
 template <> struct hash_ops<char*> : hash_cstr_ops {};
@@ -255,11 +251,7 @@ struct hash_ptr_ops {
 	[[nodiscard]] static inline Hasher hash_into(const void *a, Hasher h) {
 		return hash_ops<uintptr_t>::hash_into((uintptr_t)a, h);
 	}
-	[[nodiscard]] static inline Hasher hash(const void *a) {
-		Hasher h;
-		h = hash_ptr_ops::hash_into(a, h);
-		return h;
-	}
+	HASH_TOP_LOOP_FST (const void *a) HASH_TOP_LOOP_SND
 };
 
 struct hash_obj_ops {
@@ -275,11 +267,7 @@ struct hash_obj_ops {
 		return h;
 	}
 	template<typename T>
-	[[nodiscard]] static inline Hasher hash(const T *a) {
-		Hasher h;
-		h = hash_obj_ops::hash_into(a, h);
-		return h;
-	}
+	HASH_TOP_LOOP_FST (const T *a) HASH_TOP_LOOP_SND
 };
 /**
  * If you find yourself using this function, think hard
