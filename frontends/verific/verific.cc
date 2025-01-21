@@ -3841,7 +3841,7 @@ struct VerificPass : public Pass {
 #endif
 			const char* filename = nullptr;
 
-#ifndef SILIMATE_VERIFIC_EXTENSIONS
+#ifdef SILIMATE_VERIFIC_EXTENSIONS
 			Verific::veri_file::f_file_flags flags = (args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : (args[argidx] == "-FF" ? veri_file::F_FILE_CAPITAL_NESTED : veri_file::F_FILE_NONE);
 #else
 			Verific::veri_file::f_file_flags flags = (args[argidx] == "-F") ? veri_file::F_FILE_CAPITAL : veri_file::F_FILE_NONE;
