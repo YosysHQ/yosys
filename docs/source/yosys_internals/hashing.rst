@@ -97,8 +97,8 @@ Making a type hashable
 
 Let's first take a look at the external interface on a simplified level.
 Generally, to get the hash for ``T obj``, you would call the utility function
-``run_hash<T>(const T& obj)``, corresponding to ``hash_top_ops<T>::hash(obj)``,
-the default implementation of which is ``hash_ops<T>::hash_into(Hasher(), obj)``.
+``run_hash<T>(const T& obj)``, corresponding to ``hash_ops<T>::hash(obj)``,
+the default implementation of which uses ``hash_ops<T>::hash_into(Hasher(), obj)``.
 ``Hasher`` is the class actually implementing the hash function, hiding its
 initialized internal state, and passing it out on ``hash_t yield()`` with
 perhaps some finalization steps.
@@ -121,8 +121,14 @@ size containers like ``std::vector<U>`` the size of the container is hashed
 first. That is also how implementing hashing for a custom record data type
 should be - unless there is strong reason to do otherwise, call ``h.eat(m)`` on
 the ``Hasher h`` you have received for each member in sequence and ``return
-h;``. If you do have a strong reason to do so, look at how
-``hash_top_ops<RTLIL::SigBit>`` is implemented in ``kernel/rtlil.h``.
+h;``.
+
+The ``hash_ops<T>::hash(obj)`` method is not indended to be called when
+context of implementing the hashing for a record or other compound type.
+When writing it, you should connect it to ``hash_ops<T>::hash_into(Hasher h)``
+as shown below. If you have a strong reason to do so, and you have
+to create a special implementation for top-level hashing, look at how
+``hash_ops<RTLIL::SigBit>::hash(...)`` is implemented in ``kernel/rtlil.h``.
 
 Porting plugins from the legacy interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,6 +152,11 @@ based on the existance and value of `YS_HASHING_VERSION`.
    Hasher T::hash_into(Hasher h) const {
       h.eat(a);
       h.eat(b);
+      return h;
+   }
+   Hasher T::hash() const {
+      Hasher h;
+      h.eat(*this);
       return h;
    }
    #else
