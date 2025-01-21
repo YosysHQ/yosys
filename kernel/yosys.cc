@@ -295,6 +295,102 @@ bool patmatch(const char *pattern, const char *string)
 #if !defined(YOSYS_DISABLE_SPAWN)
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
+#ifdef _WIN32
+	// use CreateProcessA() on Windows to handle WindowsApps permissions correctly
+	STARTUPINFOA si; // Note: Using STARTUPINFOA for ANSI version
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
+
+	// Create pipes for stdout/stderr redirection
+	HANDLE stdout_read = NULL;
+	HANDLE stdout_write = NULL;
+	SECURITY_ATTRIBUTES sa;
+
+	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+	sa.bInheritHandle = TRUE;
+	sa.lpSecurityDescriptor = NULL;
+
+	if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
+		fprintf(stderr, "CreatePipe failed: %d\n", GetLastError());
+		return -1;
+	}
+
+	if (!SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0)) {
+		fprintf(stderr, "SetHandleInformation failed: %d\n", GetLastError());
+		CloseHandle(stdout_read);
+		CloseHandle(stdout_write);
+		return -1;
+	}
+
+	// Set STARTUPINFO to redirect stdout/stderr
+	si.hStdError = stdout_write;
+	si.hStdOutput = stdout_write;
+	si.dwFlags |= STARTF_USESTDHANDLES;
+
+	// Convert command to char* for CreateProcessA
+	char* command_cstr = const_cast<char*>(command.c_str());
+
+	// Create the process
+	if (!CreateProcessA(NULL,         // No module name (use command line)
+			    command_cstr, // Command line (ANSI version)
+			    NULL,         // Process handle not inheritable
+			    NULL,         // Thread handle not inheritable
+			    TRUE,         // Inherit handles
+			    0,            // No creation flags
+			    NULL,         // Use parent's environment block
+			    NULL,         // Use parent's starting directory
+			    &si,          // Pointer to STARTUPINFO structure
+			    &pi)          // Pointer to PROCESS_INFORMATION structure
+	) {
+		fprintf(stderr, "CreateProcess failed: %d\n", GetLastError());
+		CloseHandle(stdout_read);
+		CloseHandle(stdout_write);
+		return -1;
+	}
+
+	// Close the write end of the pipe in the parent process
+	CloseHandle(stdout_write);
+
+	if (process_line) {
+		// Read output from the child process
+		char buffer[128];
+		DWORD bytes_read;
+		std::string line;
+
+		while (ReadFile(stdout_read, buffer, sizeof(buffer) - 1, &bytes_read, NULL) && bytes_read > 0) {
+			buffer[bytes_read] = '\0'; // Null-terminate the buffer
+			line += buffer;
+
+			// Process complete lines
+			size_t newlinePos = line.find('\n');
+			while (newlinePos != std::string::npos) {
+				std::string completeLine = line.substr(0, newlinePos + 1);
+				process_line(completeLine);
+				line = line.substr(newlinePos + 1);
+				newlinePos = line.find('\n');
+			}
+		}
+
+		// Process any remaining partial line
+		if (!line.empty()) {
+			process_line(line);
+		}
+	}
+
+	// Wait for the process to finish and get the exit code
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	DWORD exit_code;
+	GetExitCodeProcess(pi.hProcess, &exit_code);
+
+	// Close process and thread handles
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	CloseHandle(stdout_read);
+
+	return exit_code;
+#else
 	if (!process_line)
 		return system(command.c_str());
 
@@ -315,9 +411,6 @@ int run_command(const std::string &command, std::function<void(const std::string
 	int ret = pclose(f);
 	if (ret < 0)
 		return -1;
-#ifdef _WIN32
-	return ret;
-#else
 	return WEXITSTATUS(ret);
 #endif
 }
