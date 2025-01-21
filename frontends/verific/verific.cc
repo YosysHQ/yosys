@@ -1535,8 +1535,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 	}
 	import_attributes(module->attributes, nl, nl);
-	if (module->name.isPublic())
-		module->set_string_attribute(ID::hdlname, nl->CellBaseName());
+	module->set_string_attribute(ID::hdlname, nl->CellBaseName());
 	module->set_string_attribute(ID(library), nl->Owner()->Owner()->Name());
 #ifdef VERIFIC_VHDL_SUPPORT
 	if (nl->IsFromVhdl()) {

@@ -1221,7 +1221,7 @@ struct LicensePass : public Pass {
 		log(" |                                                                            |\n");
 		log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 		log(" |                                                                            |\n");
-		log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+		log(" |  Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 		log(" |                                                                            |\n");
 		log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 		log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");

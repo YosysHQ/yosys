@@ -398,15 +398,12 @@ struct RTLIL::IdString
 
 namespace hashlib {
 	template <>
-	struct hash_ops<RTLIL::IdString> {
+	struct hash_top_ops<RTLIL::IdString> {
 		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString id) {
+		static inline Hasher hash(const RTLIL::IdString id) {
 			return id.hash_top();
-		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString id, Hasher h) {
-			return id.hash_into(h);
 		}
 	};
 };
@@ -929,15 +926,12 @@ struct RTLIL::SigBit
 
 namespace hashlib {
 	template <>
-	struct hash_ops<RTLIL::SigBit> {
+	struct hash_top_ops<RTLIL::SigBit> {
 		static inline bool cmp(const RTLIL::SigBit &a, const RTLIL::SigBit &b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::SigBit sb) {
+		static inline Hasher hash(const RTLIL::SigBit sb) {
 			return sb.hash_top();
-		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::SigBit sb, Hasher h) {
-			return sb.hash_into(h);
 		}
 	};
 };
