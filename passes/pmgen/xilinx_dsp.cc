@@ -263,6 +263,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 	log("Analysing %s.%s for Xilinx DSP packing.\n", log_id(pm.module), log_id(st.dsp));
 
 	log_debug("preAdd:     %s\n", log_id(st.preAdd, "--"));
+	log_debug("preSub:     %s\n", log_id(st.preSub, "--"));
 	log_debug("ffAD:       %s\n", log_id(st.ffAD, "--"));
 	log_debug("ffA2:       %s\n", log_id(st.ffA2, "--"));
 	log_debug("ffA1:       %s\n", log_id(st.ffA1, "--"));
@@ -278,17 +279,22 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 	Cell *cell = st.dsp;
 
-	if (st.preAdd) {
-		log("  preadder %s (%s)\n", log_id(st.preAdd), log_id(st.preAdd->type));
-		bool A_SIGNED = st.preAdd->getParam(ID::A_SIGNED).as_bool();
-		bool D_SIGNED = st.preAdd->getParam(ID::B_SIGNED).as_bool();
-		if (st.sigA == st.preAdd->getPort(ID::B))
+	if (st.preAdd || st.preSub) {
+		Cell* preAdder = st.preAdd ? st.preAdd : st.preSub;
+
+		log("  preadder %s (%s)\n", log_id(preAdder), log_id(preAdder->type));
+		bool A_SIGNED = preAdder->getParam(ID::A_SIGNED).as_bool();
+		bool D_SIGNED = preAdder->getParam(ID::B_SIGNED).as_bool();
+		if (st.sigA == preAdder->getPort(ID::B))
 			std::swap(A_SIGNED, D_SIGNED);
 		st.sigA.extend_u0(30, A_SIGNED);
 		st.sigD.extend_u0(25, D_SIGNED);
 		cell->setPort(ID::A, st.sigA);
 		cell->setPort(ID::D, st.sigD);
-		cell->setPort(ID(INMODE), Const::from_string("00100"));
+		if (preAdder->type == ID($add))
+			cell->setPort(ID(INMODE), Const::from_string("00100"));
+		else
+			cell->setPort(ID(INMODE), Const::from_string("01100"));
 
 		if (st.ffAD) {
 			if (st.ffAD->type.in(ID($dffe), ID($sdffe))) {
@@ -303,7 +309,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 
 		cell->setParam(ID(USE_DPORT), Const("TRUE"));
 
-		pm.autoremove(st.preAdd);
+		pm.autoremove(preAdder);
 	}
 	if (st.postAdd) {
 		log("  postadder %s (%s)\n", log_id(st.postAdd), log_id(st.postAdd->type));
