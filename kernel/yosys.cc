@@ -77,6 +77,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include <utility>
+
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -292,7 +294,141 @@ bool patmatch(const char *pattern, const char *string)
 	return false;
 }
 
+bool removeTrailingRedirectionIfPresent(std::string& str)
+{
+	const std::string redirection = "2>&1";
+	if (str.length() >= redirection.length() &&
+	    str.compare(str.length() - redirection.length(), redirection.length(), redirection) == 0) {
+		// Remove the trailing redirection, including any preceding whitespace
+		size_t pos = str.find_last_not_of(" \t\r\n", str.length() - redirection.length() - 1);
+		if (pos != std::string::npos) {
+			str.erase(pos + 1);
+			return true;
+		} else {
+			// String consists only of whitespace and redirection
+			str.clear();
+			return true;
+		}
+	}
+	return false;
+}
+
 #if !defined(YOSYS_DISABLE_SPAWN)
+int run_direct_command(const std::string &command, std::function<void(const std::string&)> process_line)
+{
+#ifdef _WIN32
+	// use CreateProcessA() on Windows to handle WindowsApps permissions correctly
+	STARTUPINFOA si; // Note: Using STARTUPINFOA for ANSI version
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
+
+	// Create pipes for stdout/stderr redirection
+	HANDLE stdout_read = NULL;
+	HANDLE stdout_write = NULL;
+	SECURITY_ATTRIBUTES sa;
+
+	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+	sa.bInheritHandle = TRUE;
+	sa.lpSecurityDescriptor = NULL;
+
+	std::string cmd = command;
+	bool redirect = removeTrailingRedirectionIfPresent(cmd);
+
+	if (process_line) {
+		if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
+			fprintf(stderr, "CreatePipe failed: %d\n", GetLastError());
+			return -1;
+		}
+
+		if (!SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0)) {
+			fprintf(stderr, "SetHandleInformation failed: %d\n", GetLastError());
+			CloseHandle(stdout_read);
+			CloseHandle(stdout_write);
+			return -1;
+		}
+
+		// Set STARTUPINFO to redirect stdout
+		si.hStdOutput = stdout_write;
+		if (redirect)
+			si.hStdError = stdout_write;
+		si.dwFlags |= STARTF_USESTDHANDLES;
+	}
+
+	// Convert command to char* for CreateProcessA
+	char* command_cstr = const_cast<char*>(cmd.c_str());
+
+	// Create the process
+	if (!CreateProcessA(NULL,         // No module name (use command line)
+			    command_cstr, // Command line (ANSI version)
+			    NULL,         // Process handle not inheritable
+			    NULL,         // Thread handle not inheritable
+			    TRUE,         // Inherit handles
+			    0,            // No creation flags
+			    NULL,         // Use parent's environment block
+			    NULL,         // Use parent's starting directory
+			    &si,          // Pointer to STARTUPINFO structure
+			    &pi)          // Pointer to PROCESS_INFORMATION structure
+	) {
+		fprintf(stderr, "CreateProcess failed: %d\n", GetLastError());
+		if (process_line) {
+			CloseHandle(stdout_read);
+			CloseHandle(stdout_write);
+		}
+		return -1;
+	}
+
+	if (process_line) {
+		// Close the write end of the pipe in the parent process
+		CloseHandle(stdout_write);
+
+		// Read output from the child process
+		char buffer[128];
+		DWORD bytes_read;
+		std::string line;
+
+		while (ReadFile(stdout_read, buffer, sizeof(buffer) - 1, &bytes_read, NULL) && bytes_read > 0) {
+			buffer[bytes_read] = '\0'; // Null-terminate the buffer
+			line += buffer;
+
+			// Process complete lines
+			size_t newlinePos = line.find('\n');
+			while (newlinePos != std::string::npos) {
+				std::string completeLine = line.substr(0, newlinePos + 1);
+				process_line(completeLine);
+				line = line.substr(newlinePos + 1);
+				newlinePos = line.find('\n');
+			}
+		}
+
+		// Process any remaining partial line
+		if (!line.empty()) {
+			process_line(line);
+		}
+	}
+
+	// Wait for the process to finish and get the exit code
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	DWORD exit_code;
+	if (!GetExitCodeProcess(pi.hProcess, &exit_code)) {
+		fprintf(stderr, "GetExitCodeProcess failed: %d\n", GetLastError());
+		exit_code = -1;
+	}
+
+	// Close process and thread handles
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	if (stdout_read) {
+		CloseHandle(stdout_read);
+	}
+
+	return exit_code;
+#else
+	return run_command(command, std::move(process_line));
+#endif
+}
+
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 	if (!process_line)

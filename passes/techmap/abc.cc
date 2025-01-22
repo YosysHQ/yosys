@@ -1110,7 +1110,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 #ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(tempdir_name, show_tempdir);
-		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
+		int ret = run_direct_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 #else
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
