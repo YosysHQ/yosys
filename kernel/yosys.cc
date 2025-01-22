@@ -312,22 +312,23 @@ int run_command(const std::string &command, std::function<void(const std::string
 	sa.bInheritHandle = TRUE;
 	sa.lpSecurityDescriptor = NULL;
 
-	if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
-		fprintf(stderr, "CreatePipe failed: %d\n", GetLastError());
-		return -1;
-	}
+	if (process_line) {
+		if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
+			fprintf(stderr, "CreatePipe failed: %d\n", GetLastError());
+			return -1;
+		}
 
-	if (!SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0)) {
-		fprintf(stderr, "SetHandleInformation failed: %d\n", GetLastError());
-		CloseHandle(stdout_read);
-		CloseHandle(stdout_write);
-		return -1;
-	}
+		if (!SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0)) {
+			fprintf(stderr, "SetHandleInformation failed: %d\n", GetLastError());
+			CloseHandle(stdout_read);
+			CloseHandle(stdout_write);
+			return -1;
+		}
 
-	// Set STARTUPINFO to redirect stdout/stderr
-	si.hStdError = stdout_write;
-	si.hStdOutput = stdout_write;
-	si.dwFlags |= STARTF_USESTDHANDLES;
+		// Set STARTUPINFO to redirect stdout
+		si.hStdOutput = stdout_write;
+		si.dwFlags |= STARTF_USESTDHANDLES;
+	}
 
 	// Convert command to char* for CreateProcessA
 	char* command_cstr = const_cast<char*>(command.c_str());
@@ -345,15 +346,17 @@ int run_command(const std::string &command, std::function<void(const std::string
 			    &pi)          // Pointer to PROCESS_INFORMATION structure
 	) {
 		fprintf(stderr, "CreateProcess failed: %d\n", GetLastError());
-		CloseHandle(stdout_read);
-		CloseHandle(stdout_write);
+		if (process_line) {
+			CloseHandle(stdout_read);
+			CloseHandle(stdout_write);
+		}
 		return -1;
 	}
 
-	// Close the write end of the pipe in the parent process
-	CloseHandle(stdout_write);
-
 	if (process_line) {
+		// Close the write end of the pipe in the parent process
+		CloseHandle(stdout_write);
+
 		// Read output from the child process
 		char buffer[128];
 		DWORD bytes_read;
@@ -382,12 +385,17 @@ int run_command(const std::string &command, std::function<void(const std::string
 	// Wait for the process to finish and get the exit code
 	WaitForSingleObject(pi.hProcess, INFINITE);
 	DWORD exit_code;
-	GetExitCodeProcess(pi.hProcess, &exit_code);
+	if (!GetExitCodeProcess(pi.hProcess, &exit_code)) {
+		fprintf(stderr, "GetExitCodeProcess failed: %d\n", GetLastError());
+		exit_code = -1;
+	}
 
 	// Close process and thread handles
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-	CloseHandle(stdout_read);
+	if (stdout_read) {
+		CloseHandle(stdout_read);
+	}
 
 	return exit_code;
 #else
