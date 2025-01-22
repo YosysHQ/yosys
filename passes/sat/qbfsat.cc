@@ -240,7 +240,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
 	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd.c_str());
 	int64_t begin = PerformanceTimer::query();
-	run_command(smtbmc_cmd, process_line);
+	run_direct_command(smtbmc_cmd, process_line);
 	int64_t end = PerformanceTimer::query();
 	ret.solver_time = (end - begin) / 1e9f;
 	if (!quiet) log("Solver finished in %.3f seconds.\n", ret.solver_time);

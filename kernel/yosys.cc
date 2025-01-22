@@ -77,6 +77,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include <utility>
+
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -292,8 +294,27 @@ bool patmatch(const char *pattern, const char *string)
 	return false;
 }
 
+bool removeTrailingRedirectionIfPresent(std::string& str)
+{
+	const std::string redirection = "2>&1";
+	if (str.length() >= redirection.length() &&
+	    str.compare(str.length() - redirection.length(), redirection.length(), redirection) == 0) {
+		// Remove the trailing redirection, including any preceding whitespace
+		size_t pos = str.find_last_not_of(" \t\r\n", str.length() - redirection.length() - 1);
+		if (pos != std::string::npos) {
+			str.erase(pos + 1);
+			return true;
+		} else {
+			// String consists only of whitespace and redirection
+			str.clear();
+			return true;
+		}
+	}
+	return false;
+}
+
 #if !defined(YOSYS_DISABLE_SPAWN)
-int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
+int run_direct_command(const std::string &command, std::function<void(const std::string&)> process_line)
 {
 #ifdef _WIN32
 	// use CreateProcessA() on Windows to handle WindowsApps permissions correctly
@@ -312,6 +333,9 @@ int run_command(const std::string &command, std::function<void(const std::string
 	sa.bInheritHandle = TRUE;
 	sa.lpSecurityDescriptor = NULL;
 
+	std::string cmd = command;
+	bool redirect = removeTrailingRedirectionIfPresent(cmd);
+
 	if (process_line) {
 		if (!CreatePipe(&stdout_read, &stdout_write, &sa, 0)) {
 			fprintf(stderr, "CreatePipe failed: %d\n", GetLastError());
@@ -327,11 +351,13 @@ int run_command(const std::string &command, std::function<void(const std::string
 
 		// Set STARTUPINFO to redirect stdout
 		si.hStdOutput = stdout_write;
+		if (redirect)
+			si.hStdError = stdout_write;
 		si.dwFlags |= STARTF_USESTDHANDLES;
 	}
 
 	// Convert command to char* for CreateProcessA
-	char* command_cstr = const_cast<char*>(command.c_str());
+	char* command_cstr = const_cast<char*>(cmd.c_str());
 
 	// Create the process
 	if (!CreateProcessA(NULL,         // No module name (use command line)
@@ -399,6 +425,12 @@ int run_command(const std::string &command, std::function<void(const std::string
 
 	return exit_code;
 #else
+	return run_command(command, std::move(process_line));
+#endif
+}
+
+int run_command(const std::string &command, std::function<void(const std::string&)> process_line)
+{
 	if (!process_line)
 		return system(command.c_str());
 
@@ -419,6 +451,9 @@ int run_command(const std::string &command, std::function<void(const std::string
 	int ret = pclose(f);
 	if (ret < 0)
 		return -1;
+#ifdef _WIN32
+	return ret;
+#else
 	return WEXITSTATUS(ret);
 #endif
 }
