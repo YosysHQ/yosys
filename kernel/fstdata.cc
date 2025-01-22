@@ -19,6 +19,8 @@
 
 #include "kernel/fstdata.h"
 
+#include <stdlib.h>
+
 USING_YOSYS_NAMESPACE
 
 
@@ -31,20 +33,28 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 {
 	#if !defined(YOSYS_DISABLE_SPAWN)
 	std::string filename_trim = file_base_name(filename);
-	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
-		filename_trim.erase(filename_trim.size()-4);
-		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir(), filename_trim);
-		std::string cmd = stringf("vcd2fst %s %s", filename, tmp_file);
-		log("Exec: %s\n", cmd);
+	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size() - 4, std::string::npos, ".vcd") == 0) {
+		filename_trim.erase(filename_trim.size() - 4);
+		std::string template_name = get_base_tmpdir() + "/converted_XXXXXX";
+		char *tmp = strdup(template_name.c_str());
+		int fd = mkstemp(tmp);
+		if (fd == -1) {
+			perror("mkstemp");
+			exit(1);
+		}
+		tmp_file = tmp;
+		free(tmp);
+		std::string cmd = stringf("vcd2fst %s %s", filename.c_str(), tmp_file.c_str());
+		log("Exec: %s\n", cmd.c_str());
 		if (run_command(cmd) != 0)
 			log_cmd_error("Shell command failed!\n");
 		filename = tmp_file;
 	}
-	#endif
+#endif
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
-		log_error("Error opening '%s' as FST file\n", filename);
+		log_error("Error opening '%s' as FST file\n", filename.c_str());
 	int scale = (int)fstReaderGetTimescale(ctx);	
 	timescale = pow(10.0, scale);
 	timescale_str = "";
@@ -162,7 +172,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 16);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name);
+						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}
@@ -176,7 +186,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 10);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name);
+						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}
@@ -206,7 +216,6 @@ static void reconstruct_clb_attimes(void *user_data, uint64_t pnt_time, fstHandl
 void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
 	if (pnt_time > end_time || !pnt_value) return;
-	if (curr_cycle > last_cycle) return;
 	// if we are past the timestamp
 	bool is_clock = false;
 	if (!all_samples) {
@@ -226,7 +235,6 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	if (pnt_time > last_time) {
 		if (all_samples) {
 			callback(last_time);
-			curr_cycle++;
 			last_time = pnt_time;
 		} else {
 			if (is_clock) {
@@ -234,7 +242,6 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 				std::string prev = past_data[pnt_facidx];
 				if ((prev!="1" && val=="1") || (prev!="0" && val=="0")) {
 					callback(last_time);
-					curr_cycle++;
 					last_time = pnt_time;
 				}
 			}
@@ -244,14 +251,12 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	last_data[pnt_facidx] =  std::string((const char *)pnt_value);
 }
 
-void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start, uint64_t end, unsigned int end_cycle, CallbackFunction cb)
+void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start, uint64_t end, CallbackFunction cb)
 {
 	clk_signals = signal;
 	callback = cb;
 	start_time = start;
 	end_time = end;
-	curr_cycle = 0;
-	last_cycle = end_cycle;
 	last_data.clear();
 	last_time = start_time;
 	past_data.clear();
@@ -261,16 +266,12 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderSetFacProcessMaskAll(ctx);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
-	if (last_time!=end_time && curr_cycle <= last_cycle) {
+	if (last_time!=end_time) {
 		past_data = last_data;
 		callback(last_time);
-		curr_cycle++;
 	}
-	if (curr_cycle <= last_cycle) {
-		past_data = last_data;
-		callback(end_time);
-		curr_cycle++;
-	}
+	past_data = last_data;
+	callback(end_time);
 }
 
 std::string FstData::valueOf(fstHandle signal)
