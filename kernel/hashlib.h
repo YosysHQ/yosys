@@ -61,18 +61,8 @@ namespace legacy {
 	}
 };
 
-/**
- * Hash a type with an accumulator in a record or array context
- */
 template<typename T>
 struct hash_ops;
-
-/**
- * Hash a single instance in isolation.
- * Can have explicit specialization, but the default redirects to hash_ops
- */
-template<typename T>
-struct hash_top_ops;
 
 inline unsigned int mkhash_xorshift(unsigned int a) {
 	if (sizeof(a) == 4) {
@@ -147,15 +137,14 @@ private:
 
 using Hasher = HasherDJB32;
 
-template<typename T>
-struct hash_top_ops {
-	static inline bool cmp(const T &a, const T &b) {
-		return hash_ops<T>::cmp(a, b);
-	}
-	static inline Hasher hash(const T &a) {
-		return hash_ops<T>::hash_into(a, Hasher());
-	}
-};
+// Boilerplate compressor for trivially implementing
+// top-level hash method with hash_into
+#define HASH_TOP_LOOP_FST [[nodiscard]] static inline Hasher hash
+#define HASH_TOP_LOOP_SND { \
+	Hasher h; \
+	h = hash_into(a, h); \
+	return h; \
+}
 
 template<typename T>
 struct hash_ops {
@@ -183,6 +172,7 @@ struct hash_ops {
 			return a.hash_into(h);
 		}
 	}
+	HASH_TOP_LOOP_FST (const T &a) HASH_TOP_LOOP_SND
 };
 
 template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
@@ -194,6 +184,7 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 		h = hash_ops<Q>::hash_into(a.second, h);
 		return h;
 	}
+	HASH_TOP_LOOP_FST (std::pair<P, Q> a) HASH_TOP_LOOP_SND
 };
 
 template<typename... T> struct hash_ops<std::tuple<T...>> {
@@ -211,6 +202,7 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 		h = element_ops_t::hash_into(std::get<I>(a), h);
 		return h;
 	}
+	HASH_TOP_LOOP_FST (std::tuple<T...> a) HASH_TOP_LOOP_SND
 };
 
 template<typename T> struct hash_ops<std::vector<T>> {
@@ -223,6 +215,7 @@ template<typename T> struct hash_ops<std::vector<T>> {
 			h.eat(k);
 		return h;
 	}
+	HASH_TOP_LOOP_FST (std::vector<T> a) HASH_TOP_LOOP_SND
 };
 
 template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
@@ -234,6 +227,7 @@ template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
             h = hash_ops<T>::hash_into(k, h);
         return h;
     }
+	HASH_TOP_LOOP_FST (std::array<T, N> a) HASH_TOP_LOOP_SND
 };
 
 struct hash_cstr_ops {
@@ -245,6 +239,7 @@ struct hash_cstr_ops {
 			h.hash32(*(a++));
 		return h;
 	}
+	HASH_TOP_LOOP_FST (const char *a) HASH_TOP_LOOP_SND
 };
 
 template <> struct hash_ops<char*> : hash_cstr_ops {};
@@ -256,6 +251,7 @@ struct hash_ptr_ops {
 	[[nodiscard]] static inline Hasher hash_into(const void *a, Hasher h) {
 		return hash_ops<uintptr_t>::hash_into((uintptr_t)a, h);
 	}
+	HASH_TOP_LOOP_FST (const void *a) HASH_TOP_LOOP_SND
 };
 
 struct hash_obj_ops {
@@ -270,6 +266,8 @@ struct hash_obj_ops {
 			h.eat(0);
 		return h;
 	}
+	template<typename T>
+	HASH_TOP_LOOP_FST (const T *a) HASH_TOP_LOOP_SND
 };
 /**
  * If you find yourself using this function, think hard
@@ -280,7 +278,7 @@ struct hash_obj_ops {
 template<typename T>
 [[nodiscard]]
 Hasher::hash_t run_hash(const T& obj) {
-	return hash_top_ops<T>::hash(obj).yield();
+	return hash_ops<T>::hash(obj).yield();
 }
 
 /** Refer to docs/source/yosys_internals/hashing.rst */
@@ -352,10 +350,10 @@ inline unsigned int hashtable_size(unsigned int min_size)
 	throw std::length_error("hash table exceeded maximum size.");
 }
 
-template<typename K, typename T, typename OPS = hash_top_ops<K>> class dict;
-template<typename K, int offset = 0, typename OPS = hash_top_ops<K>> class idict;
-template<typename K, typename OPS = hash_top_ops<K>> class pool;
-template<typename K, typename OPS = hash_top_ops<K>> class mfp;
+template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
+template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
+template<typename K, typename OPS = hash_ops<K>> class pool;
+template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
 class dict {

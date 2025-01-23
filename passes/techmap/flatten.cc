@@ -360,6 +360,9 @@ struct FlattenPass : public Pass {
 
 		FlattenWorker worker;
 
+		if (design->scratchpad.count("flatten.separator"))
+			worker.separator = design->scratchpad_get_string("flatten.separator");
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-wb") {
