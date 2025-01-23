@@ -223,7 +223,6 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 	if (!cond) {
 		log("ERROR: Assert `%s' failed in %s:%d.\n", expr, file, line);
 		log_flush();
-		raise(SIGABRT);
 	}
 }
 #ifndef NDEBUG
