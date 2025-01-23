@@ -408,7 +408,7 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.\n");
 		log("They don't affect connection semantics, and are only used to preserve original\n");
-		log("HDL bit indexing.");
+		log("HDL bit indexing.\n");
 		log("And <cell_details> is:\n");
 		log("\n");
 		log("    {\n");

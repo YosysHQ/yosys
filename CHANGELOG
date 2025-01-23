@@ -2,8 +2,20 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.48 .. Yosys 0.49-dev
+Yosys 0.49 .. Yosys 0.50-dev
 --------------------------
+
+Yosys 0.48 .. Yosys 0.49
+--------------------------
+ * Various
+    - "$scopeinfo" cells are now part of JSON export by default.
+    - Added option to specify hierarchical separator for "flatten".
+    - Improved "wreduce" to handle more cases of operator size reduction.
+    - Updated hashing interface, see docs/source/yosys_internals/hashing.rst
+      for breaking API changes.
+
+ * New commands and options
+    - Added "-noscopeinfo" option to "json" and "write_json" pass.
 
 Yosys 0.47 .. Yosys 0.48
 --------------------------
