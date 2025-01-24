@@ -353,24 +353,24 @@ struct MuxpackWorker
 					Yosys::RTLIL::SigBit sigbit = select_bits[i];
 					if (i == (int) (select_bits.size() -1)) {
 						decodedSelect.append(sigbit);
-						Wire *not_y = module->addWire(NEW_ID, 1);
+						Wire *not_y = module->addWire(NEW_ID2_SUFFIX("not_y"), 1);
 						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
 						prevSigNot = not_y;
 					} else if (i == (int) (select_bits.size() -2)) {
-						Wire *and_y = module->addWire(NEW_ID, 1);
-						module->addAndGate(NEW_ID2_SUFFIX("sel"), sigbit, prevSigNot, and_y, last_cell->get_src_attribute());
+						Wire *and_y = module->addWire(NEW_ID2_SUFFIX("and_y"), 1);
+						module->addAnd(NEW_ID2_SUFFIX("sel"), sigbit, prevSigNot, and_y, false, last_cell->get_src_attribute());
 						decodedSelect.append(and_y);
 						Wire *not_y = module->addWire(NEW_ID, 1);
 						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
 						prevSigAnd = prevSigNot;
 						prevSigNot = not_y;
 					} else {
-						Wire *and_y1 = module->addWire(NEW_ID, 1);
-						module->addAndGate(NEW_ID2_SUFFIX("sel"), prevSigAnd, prevSigNot, and_y1, last_cell->get_src_attribute());
-						Wire *and_y2 = module->addWire(NEW_ID, 1);
-						module->addAndGate(NEW_ID2_SUFFIX("sel"), sigbit, and_y1, and_y2, last_cell->get_src_attribute());
+						Wire *and_y1 = module->addWire(NEW_ID2_SUFFIX("and_y1"), 1);
+						module->addAnd(NEW_ID2_SUFFIX("sel"), prevSigAnd, prevSigNot, and_y1, false, last_cell->get_src_attribute());
+						Wire *and_y2 = module->addWire(NEW_ID2_SUFFIX("and_y2"), 1);
+						module->addAnd(NEW_ID2_SUFFIX("sel"), sigbit, and_y1, and_y2, false, last_cell->get_src_attribute());
 						decodedSelect.append(and_y2);
-						Wire *not_y = module->addWire(NEW_ID, 1);
+						Wire *not_y = module->addWire(NEW_ID2_SUFFIX("not_y"), 1);
 						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
 						prevSigAnd = and_y1;
 						prevSigNot = not_y;
