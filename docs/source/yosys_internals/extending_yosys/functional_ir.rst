@@ -147,16 +147,29 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
 Example: Adapting SMT-LIB backend for Rosette
 ---------------------------------------------
 
+This section will walk through the process of adapting the SMT-LIB functional
+backend (`write_functional_smt2`) to work with another s-expression target,
+`Rosette`_.
+
+.. _Rosette: http://emina.github.io/rosette/
+
 Overview
 ~~~~~~~~
 
-- What is Rosette
-   - Racket package
-   - solver-aided programming language
-   - uses symbolic expressions
-   - able to perform functional verification
+   Rosette is a solver-aided programming language that extends `Racket`_ with
+   language constructs for program synthesis, verification, and more. To verify
+   or synthesize code, Rosette compiles it to logical constraints solved with
+   off-the-shelf `SMT`_ solvers.
 
-- link to file (both smtlib and rosette)
+   -- https://emina.github.io/rosette/
+
+.. _Racket: http://racket-lang.org/
+.. _SMT: http://smtlib.cs.uiowa.edu/
+
+Full code listings for the initial SMT-LIB backend and the converted Rosette
+backend are included in the Yosys source repository under
+:file:`backends/functional` as ``smtlib.cc`` and ``smtlib_rosette.cc``
+respectively.
 
 Scope
 ~~~~~
