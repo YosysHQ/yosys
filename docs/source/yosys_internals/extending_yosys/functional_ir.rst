@@ -169,17 +169,50 @@ Overview
 Full code listings for the initial SMT-LIB backend and the converted Rosette
 backend are included in the Yosys source repository under
 :file:`backends/functional` as ``smtlib.cc`` and ``smtlib_rosette.cc``
-respectively.
+respectively.  Note that the Rosette language is an extension of the Racket
+language; this guide tends to refer to Racket when talking about the underlying
+semantics/syntax of the language.
 
 Scope
 ~~~~~
 
-- as above, prevents namespace collision
-- reserved keywords
-   - language (Racket) keywords
-   - output keywords
+As described above, the ``Functional::Scope`` class is derived in order to avoid
+collisions between identifiers in the generated output.  We switch out ``Smt``
+in the class name for ``Smtr`` for ``smtlib_rosette``; which will happen through
+the rest of the code too.  We also update the ``is_character_legal`` method to
+reject ascii characters which are not allowed in Racket variable names.
 
-- ``is_character_legal``
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``Scope`` close
+   :start-at: -struct SmtScope : public Functional::Scope<int> {
+   :end-at: };
+
+For the reserved keywords we trade the SMT-LIB specification for Racket to
+prevent parts of our design from accidentally being treated as Racket code. We
+also no longer need to reserve ``pair``, ``first``, and ``second``.  In
+`write_functional_smt2` these are used for combining the ``(inputs,
+current_state)`` and ``(outputs, next_state)`` into a single variable.  Racket
+provides this functionality natively with ``cons``, which we will see later.
+
+.. code-block:: diff
+   :caption: diff of ``reserved_keywords`` list
+
+    const char *reserved_keywords[] = {
+   -  // reserved keywords from the smtlib spec
+   -  ...
+   +  // reserved keywords from the racket spec
+   +  ...
+
+      // reserved for our own purposes
+   -  "pair", "Pair", "first", "second",
+   -  "inputs", "state",
+   +  "inputs", "state", "name",
+      nullptr
+    };
+
+Note that we skip over the actual list of reserved keywords from both the smtlib
+and racket specifications to save on space in this document.
 
 Sort
 ~~~~
@@ -187,17 +220,42 @@ Sort
 - map variable declarations to s-expressions
 - handles signals (bitvectors) and memories (arrays of bitvectors)
 
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``Sort`` wrapper
+   :start-at: -struct SmtSort {
+   :end-at: };
+
 Struct
 ~~~~~~
 
 - helpers for defining inputs/outputs/state
-   - each is a single (transparent) struct with zero or more fields
-   - each field has a name, with the type (sort) as a comment
-   - struct fields in Rosette are accessed as ``<struct_name>-<field_name>``
-      - field names only need to be unique within the struct, while accessors
-        are unique within the module
-      
+- struct fields in Rosette are accessed as ``<struct_name>-<field_name>``
+   - field names only need to be unique within the struct, while accessors
+      are unique within the module
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of struct constructor
+   :start-at: -  SmtStruct(std::string name, SmtScope &scope)
+   :end-before: void write_definition
+
+- each is a single (transparent) struct with zero or more fields
+- each field has a name, with the type (sort) as a comment
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``write_definition`` method
+   :start-at: void write_definition
+   :end-before: template<typename Fn> void write_value
+
 - writing outputs/next state
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``write_value`` method
+   :start-at: template<typename Fn> void write_value
+   :end-before: SExpr access
 
 PrintVisitor
 ~~~~~~~~~~~~
