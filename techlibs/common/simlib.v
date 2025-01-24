@@ -1234,22 +1234,22 @@ parameter C_SIGNED = 1'bx;
 
 function integer sum_widths1;
 	input [(16*NPRODUCTS)-1:0] widths;
-	int i;
-	sum_widths1 = 0;
+	integer i;
 	begin
+		sum_widths1 = 0;
 		for (i = 0; i < NPRODUCTS; i++) begin
-			sum_widths1 += widths[16*i+:16];
+			sum_widths1 = sum_widths1 + widths[16*i+:16];
 		end
 	end
 endfunction
 
 function integer sum_widths2;
 	input [(16*NADDENDS)-1:0] widths;
-	int i;
-	sum_widths2 = 0;
+	integer i;
 	begin
+		sum_widths2 = 0;
 		for (i = 0; i < NADDENDS; i++) begin
-			sum_widths2 += widths[16*i+:16];
+			sum_widths2 = sum_widths2 + widths[16*i+:16];
 		end
 	end
 endfunction
@@ -1261,9 +1261,7 @@ output reg [Y_WIDTH-1:0] Y; // output sum
 
 integer i, j, ai, bi, ci, aw, bw, cw;
 reg [Y_WIDTH-1:0] product;
-reg signed [Y_WIDTH-1:0] product_signed;
-reg [Y_WIDTH-1:0] addend;
-reg signed [Y_WIDTH-1:0] addend_signed;
+reg [Y_WIDTH-1:0] addend, oper_a, oper_b;
 
 always @* begin
 	Y = 0;
@@ -1274,20 +1272,29 @@ always @* begin
 		aw = A_WIDTHS[16*i+:16];
 		bw = B_WIDTHS[16*i+:16];
 
-		product = A[ai +: aw] * B[bi +: bw];
-		product_signed = $signed(A[ai +: aw]) * $signed(B[bi +: bw]);
-
+		oper_a = 0;
+		oper_b = 0;
+		for (j = 0; j < Y_WIDTH && j < aw; j = j + 1)
+			oper_a[j] = A[ai + j];
+		for (j = 0; j < Y_WIDTH && j < bw; j = j + 1)
+			oper_b[j] = B[bi + j];
 		// A_SIGNED[i] == B_SIGNED[i] as RTLIL invariant
-		if (A_SIGNED[i] && B_SIGNED[i])
-			product = product_signed;
+		if (A_SIGNED[i] && B_SIGNED[i]) begin
+			for (j = aw; j > 0 && j < Y_WIDTH; j = j + 1)
+				oper_a[j] = oper_a[j - 1];
+			for (j = bw; j > 0 && j < Y_WIDTH; j = j + 1)
+				oper_b[j] = oper_b[j - 1];
+		end
+
+		product = oper_a * oper_b;
 
 		if (PRODUCT_NEGATED[i])
 			Y = Y - product;
 		else
 			Y = Y + product;
 
-		ai += aw;
-		bi += bw;
+		ai = ai + aw;
+		bi = bi + bw;
 	end
 
 	ci = 0;
@@ -1295,18 +1302,20 @@ always @* begin
 	begin
 		cw = C_WIDTHS[16*i+:16];
 
-		addend = C[ci +: cw];
-		addend_signed = $signed(C[ci +: cw]);
-
-		if (C_SIGNED[i])
-			addend = addend_signed;
+		addend = 0;
+		for (j = 0; j < Y_WIDTH && j < cw; j = j + 1)
+			addend[j] = C[ci + j];
+		if (C_SIGNED[i]) begin
+			for (j = cw; j > 0 && j < Y_WIDTH; j = j + 1)
+				addend[j] = addend[j - 1];
+		end
 
 		if (ADDEND_NEGATED[i])
 			Y = Y - addend;
 		else
 			Y = Y + addend;
 
-		ci += cw;
+		ci = ci + cw;
 	end
 end
 
