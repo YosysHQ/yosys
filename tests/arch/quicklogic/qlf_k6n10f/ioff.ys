@@ -1,0 +1,91 @@
+# test: acceptable for output IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= ~a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: acceptable for input IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output o);
+    reg r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: acceptable for either IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: not acceptable for output IOFF promotion: output signal is used
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= ~a | o;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for input IOFF promotion: input signal is used
+read_verilog <<EOF
+module top (input clk, input a, output o, p);
+    reg r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+    assign p = ~a;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has reset
+read_verilog <<EOF
+module top (input clk, input rst, input a, output reg o);
+    always @(posedge clk) begin
+        if (rst)
+            o <= 1'b0;
+        else
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has enable
+read_verilog <<EOF
+module top (input clk, input en, input a, output reg o);
+    always @(posedge clk) begin
+        if (en)
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
