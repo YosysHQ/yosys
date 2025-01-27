@@ -231,7 +231,7 @@ struct Macc
 		if (a_signed.empty())
 			a_signed = {RTLIL::Sx};
 		if (b_signed.empty())
-			a_signed = {RTLIL::Sx};
+			b_signed = {RTLIL::Sx};
 		if (c_signed.empty())
 			c_signed = {RTLIL::Sx};
 		if (a_widths.empty())
