@@ -228,6 +228,23 @@ struct Macc
 			}
 		}
 
+		if (a_signed.empty())
+			a_signed = {RTLIL::Sx};
+		if (b_signed.empty())
+			a_signed = {RTLIL::Sx};
+		if (c_signed.empty())
+			c_signed = {RTLIL::Sx};
+		if (a_widths.empty())
+			a_widths = {RTLIL::Sx};
+		if (b_widths.empty())
+			b_widths = {RTLIL::Sx};
+		if (c_widths.empty())
+			c_widths = {RTLIL::Sx};
+		if (product_negated.empty())
+			product_negated = {RTLIL::Sx};
+		if (addend_negated.empty())
+			addend_negated = {RTLIL::Sx};
+
 		cell->setParam(ID::NPRODUCTS, nproducts);
 		cell->setParam(ID::PRODUCT_NEGATED, product_negated);
 		cell->setParam(ID::NADDENDS, naddends);

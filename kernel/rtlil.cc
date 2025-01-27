@@ -1470,7 +1470,7 @@ namespace {
 			if (cell->type == ID($macc_v2)) {
 				if (param(ID::NPRODUCTS) <= 0)
 					error(__LINE__);
-				if (param(ID::NADDENDS) <= 0)
+				if (param(ID::NADDENDS) < 0)
 					error(__LINE__);
 				param_bits(ID::PRODUCT_NEGATED, max(param(ID::NPRODUCTS), 1));
 				param_bits(ID::ADDEND_NEGATED, max(param(ID::NADDENDS), 1));
