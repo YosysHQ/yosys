@@ -39,13 +39,14 @@ struct QlIoffPass : public Pass {
 				if (!(e_const && r_const && s_const))
 					continue;
 
-				auto d_sig = modwalker.sigmap(cell->getPort(ID::D));
-				if (d_sig.is_wire() && d_sig.as_wire()->port_input) {
+				SigSpec d = cell->getPort(ID::D);
+				if (GetSize(d) != 1) continue;
+				SigBit d_sig = modwalker.sigmap(d[0]);
+				if (d_sig.is_wire() && d_sig.wire->port_input) {
 					log_debug("Cell %s is potentially eligible for promotion to input IOFF.\n", cell->name.c_str());
 					// check that d_sig has no other consumers
-					if (GetSize(d_sig) != 1) continue;
 					pool<ModWalker::PortBit> portbits;
-					modwalker.get_consumers(portbits, d_sig[0]);
+					modwalker.get_consumers(portbits, d_sig);
 					if (GetSize(portbits) > 1) {
 						log_debug("not promoting: d_sig has other consumers\n");
 						continue;
@@ -53,13 +54,14 @@ struct QlIoffPass : public Pass {
 					cells_to_replace.insert(cell);
 					continue; // no need to check Q if we already put it on the list
 				}
-				auto q_sig = modwalker.sigmap(cell->getPort(ID::Q));
-				if (q_sig.is_wire() && q_sig.as_wire()->port_output) {
+				SigSpec q = cell->getPort(ID::Q);
+				if (GetSize(q) != 1) continue;
+				SigBit q_sig = modwalker.sigmap(q[0]);
+				if (q_sig.is_wire() && q_sig.wire->port_output) {
 					log_debug("Cell %s is potentially eligible for promotion to output IOFF.\n", cell->name.c_str());
 					// check that q_sig has no other consumers
-					if (GetSize(q_sig) != 1) continue;
 					pool<ModWalker::PortBit> portbits;
-					modwalker.get_consumers(portbits, q_sig[0]);
+					modwalker.get_consumers(portbits, q_sig);
 					if (GetSize(portbits) > 0) {
 						log_debug("not promoting: q_sig has other consumers\n");
 						continue;
