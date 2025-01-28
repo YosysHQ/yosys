@@ -32,38 +32,39 @@ struct QlIoffPass : public Pass {
 		pool<RTLIL::Cell *> cells_to_replace;
 		for (auto cell : module->selected_cells()) {
 			if (cell->type.in(ID(dffsre), ID(sdffsre))) {
+				log_debug("Checking cell %s.\n", cell->name.c_str());
 				bool e_const = cell->getPort(ID::E).is_fully_ones();
 				bool r_const = cell->getPort(ID::R).is_fully_ones();
 				bool s_const = cell->getPort(ID::S).is_fully_ones();
 
-				if (!(e_const && r_const && s_const))
+				if (!(e_const && r_const && s_const)) {
+					log_debug("not promoting: E, R, or S is used\n");
 					continue;
+				}
 
 				SigSpec d = cell->getPort(ID::D);
-				if (GetSize(d) != 1) continue;
-				SigBit d_sig = modwalker.sigmap(d[0]);
-				if (d_sig.is_wire() && d_sig.wire->port_input) {
+				log_assert(GetSize(d) == 1);
+				if (modwalker.has_inputs(d)) {
 					log_debug("Cell %s is potentially eligible for promotion to input IOFF.\n", cell->name.c_str());
 					// check that d_sig has no other consumers
 					pool<ModWalker::PortBit> portbits;
-					modwalker.get_consumers(portbits, d_sig);
+					modwalker.get_consumers(portbits, d);
 					if (GetSize(portbits) > 1) {
-						log_debug("not promoting: d_sig has other consumers\n");
+						log_debug("not promoting: D has other consumers\n");
 						continue;
 					}
 					cells_to_replace.insert(cell);
 					continue; // no need to check Q if we already put it on the list
 				}
 				SigSpec q = cell->getPort(ID::Q);
-				if (GetSize(q) != 1) continue;
-				SigBit q_sig = modwalker.sigmap(q[0]);
-				if (q_sig.is_wire() && q_sig.wire->port_output) {
+				log_assert(GetSize(q) == 1);
+				if (modwalker.has_outputs(q)) {
 					log_debug("Cell %s is potentially eligible for promotion to output IOFF.\n", cell->name.c_str());
 					// check that q_sig has no other consumers
 					pool<ModWalker::PortBit> portbits;
-					modwalker.get_consumers(portbits, q_sig);
+					modwalker.get_consumers(portbits, q);
 					if (GetSize(portbits) > 0) {
-						log_debug("not promoting: q_sig has other consumers\n");
+						log_debug("not promoting: Q has other consumers\n");
 						continue;
 					}
 					cells_to_replace.insert(cell);
