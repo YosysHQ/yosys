@@ -19,6 +19,8 @@
 
 #include "kernel/fstdata.h"
 
+#include <stdlib.h>
+
 USING_YOSYS_NAMESPACE
 
 
@@ -31,16 +33,24 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 {
 	#if !defined(YOSYS_DISABLE_SPAWN)
 	std::string filename_trim = file_base_name(filename);
-	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
-		filename_trim.erase(filename_trim.size()-4);
-		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir().c_str(), filename_trim.c_str());
+	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size() - 4, std::string::npos, ".vcd") == 0) {
+		filename_trim.erase(filename_trim.size() - 4);
+		std::string template_name = get_base_tmpdir() + "/converted_XXXXXX";
+		char *tmp = strdup(template_name.c_str());
+		int fd = mkstemp(tmp);
+		if (fd == -1) {
+			perror("mkstemp");
+			exit(1);
+		}
+		tmp_file = tmp;
+		free(tmp);
 		std::string cmd = stringf("vcd2fst %s %s", filename.c_str(), tmp_file.c_str());
 		log("Exec: %s\n", cmd.c_str());
 		if (run_command(cmd) != 0)
 			log_cmd_error("Shell command failed!\n");
 		filename = tmp_file;
 	}
-	#endif
+#endif
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
