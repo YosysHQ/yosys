@@ -56,7 +56,7 @@ OBJS += passes/cmds/portarcs.o
 
 OBJS += passes/cmds/activity.o
 OBJS += passes/cmds/splitnetlist.o
-OBJS += passes/cmds/reconstructbusses.o
+OBJS += passes/cmds/bus_rebuild.o
 
 OBJS += passes/cmds/wrapcell.o
 OBJS += passes/cmds/setenv.o

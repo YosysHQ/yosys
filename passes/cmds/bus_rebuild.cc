@@ -5,9 +5,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct ReconstructBusses : public ScriptPass {
-	ReconstructBusses()
-	    : ScriptPass("reconstructbusses", "Reconstruct busses from wires with the same prefix following the convention: <prefix>_<index>_")
+struct bus_rebuild : public ScriptPass {
+	bus_rebuild()
+	    : ScriptPass("bus_rebuild", "Reconstruct busses from wires with the same prefix following the convention: <prefix>_<index>_")
 	{
 	}
 	void script() override {}
@@ -44,7 +44,7 @@ struct ReconstructBusses : public ScriptPass {
 		if (std::getenv("DEBUG_RECONSTRUCT_BUSSES")) {
 			debug = true;
 		}
-		log("Running reconstructbusses pass\n");
+		log("Running bus_rebuild pass\n");
 		log_flush();
 		for (auto module : design->modules()) {
 			if (module->get_bool_attribute("\\blackbox"))
@@ -318,10 +318,10 @@ struct ReconstructBusses : public ScriptPass {
 			module->fixup_ports();
 		}
 		if (debug)
-			run_pass("write_rtlil post_reconstructbusses.rtlil");
-		log("End reconstructbusses pass\n");
+			run_pass("write_rtlil post_bus_rebuild.rtlil");
+		log("End bus_rebuild pass\n");
 		log_flush();
 	}
-} ReconstructBusses;
+} bus_rebuild;
 
 PRIVATE_NAMESPACE_END
