@@ -14,19 +14,23 @@ bool abstract_state(Module* mod, Cell* cell, Wire* enable, bool enable_pol) {
 	// Doesn't matter if there was an enable signal already
 	// we discard it and mux with symbolic value
 	ff.has_ce = false;
-	ff.emit();
+	Wire* inp = cell->getPort(ID::D).as_wire();
+	cell = ff.emit();
 
-	auto inp = cell->getPort(ID::D);
-	Wire* abstracted = mod->addWire(NEW_ID, inp.size());
+	Wire* abstracted = mod->addWire(NEW_ID, inp->width);
 	SigSpec mux_a, mux_b;
 	if (enable_pol) {
 		mux_a = inp;
-		mux_b = mod->Anyseq(NEW_ID, inp.size());
+		mux_b = mod->Anyseq(NEW_ID, inp->width);
 	} else {
-		mux_a = mod->Anyseq(NEW_ID, inp.size());
+		mux_a = mod->Anyseq(NEW_ID, inp->width);
 		mux_b = inp;
 	}
-	(void)mod->addMux(NEW_ID, mux_a, mux_b, enable, abstracted);
+	(void)mod->addMux(NEW_ID,
+	mux_a,
+	mux_b,
+	enable,
+	abstracted);
 	cell->setPort(ID::D, SigSpec(abstracted));
 	return true;
 }
@@ -87,6 +91,8 @@ struct AbstractPass : public Pass {
 			for (auto mod : design->selected_modules()) {
 				log("module %s\n", mod->name.c_str());
 				Wire *enable_wire = mod->wire("\\" + enable_name);
+				if (!enable_wire)
+					log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
 				if (mode == State) {
 					for (auto cell : mod->selected_cells()) {
 						log("cell %s\n", cell->name.c_str());
@@ -102,7 +108,7 @@ struct AbstractPass : public Pass {
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
-		log("Abstracted %d cells\n", changed_cells);
+		log("Abstracted %d cell(s).\n", changed_cells);
 	}
 } AbstractPass;
 

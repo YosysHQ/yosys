@@ -10,5 +10,32 @@ endmodule
 
 EOT
 proc
+# dump
 abstract -state -enablen magic
+check
+# dump
+
+design -reset
+
+read_verilog <<EOT
+
+module half_clock_en (CLK, E, Q);
+	input CLK;
+	input E;
+	output reg Q;
+	reg magic;
+	always @(posedge CLK)
+        if (E)
+            Q <= ~Q;
+endmodule
+
+EOT
+proc
+opt_expr
+opt_dff
+# show
+# dump
+abstract -state -enablen magic
+check
+# opt_clean
 # show
