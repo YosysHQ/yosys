@@ -1,0 +1,14 @@
+read_verilog <<EOT
+
+module half_clock (CLK, Q);
+	input CLK;
+	output reg Q;
+	reg magic;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+
+EOT
+proc
+abstract -state -enablen magic
+# show
