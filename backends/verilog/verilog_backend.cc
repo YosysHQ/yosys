@@ -1060,16 +1060,23 @@ void dump_cell_expr_print(std::ostream &f, std::string indent, const RTLIL::Cell
 void dump_cell_expr_check(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
 	std::string flavor = cell->getParam(ID(FLAVOR)).decode_string();
+	std::string label = "";
+	if (cell->name.isPublic()) {
+		label = stringf("%s: ", id(cell->name).c_str());
+	}
+
 	if (flavor == "assert")
-		f << stringf("%s" "assert (", indent.c_str());
+		f << stringf("%s" "%s" "assert (", indent.c_str(), label.c_str());
 	else if (flavor == "assume")
-		f << stringf("%s" "assume (", indent.c_str());
+		f << stringf("%s" "%s" "assume (", indent.c_str(), label.c_str());
 	else if (flavor == "live")
-		f << stringf("%s" "assert (eventually ", indent.c_str());
+		f << stringf("%s" "%s" "assert (eventually ", indent.c_str(), label.c_str());
 	else if (flavor == "fair")
-		f << stringf("%s" "assume (eventually ", indent.c_str());
+		f << stringf("%s" "%s" "assume (eventually ", indent.c_str(), label.c_str());
 	else if (flavor == "cover")
-		f << stringf("%s" "cover (", indent.c_str());
+		f << stringf("%s" "%s" "cover (", indent.c_str(), label.c_str());
+	else
+		log_abort();
 	dump_sigspec(f, cell->getPort(ID::A));
 	f << stringf(");\n");
 }
