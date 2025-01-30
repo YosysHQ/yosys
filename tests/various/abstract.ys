@@ -1,0 +1,97 @@
+read_verilog <<EOT
+
+module half_clock (CLK, Q);
+	input CLK;
+	output reg Q;
+	reg magic;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+
+EOT
+proc
+# dump
+# show -prefix before_base
+abstract -state -enablen magic
+check
+# show -prefix after_base
+# dump
+
+design -reset
+read_verilog <<EOT
+module half_clock_en (CLK, E, Q);
+	input CLK;
+	input E;
+	output reg Q;
+	reg magic;
+	always @(posedge CLK)
+        if (E)
+            Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+# show
+# dump
+# show -prefix before_en
+abstract -state -enablen magic
+check
+# show -prefix after_en
+
+design -reset
+read_verilog <<EOT
+module half_clock (CLK, Q);
+	input CLK;
+	output reg Q = 1'b1;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+dump
+abstract -init
+check
+dump
+
+
+design -reset
+read_verilog <<EOT
+module this_adff (CLK, ARST, D, Q, magic);
+
+parameter WIDTH = 2;
+parameter CLK_POLARITY = 1'b1;
+parameter ARST_POLARITY = 1'b1;
+parameter ARST_VALUE = 0;
+
+input CLK, ARST, magic;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_arst = ARST == ARST_POLARITY;
+
+always @(posedge pos_clk, posedge pos_arst) begin
+	if (pos_arst)
+		Q <= ARST_VALUE;
+	else
+		Q <= D;
+end
+
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+# show
+# dump
+show -prefix before_a
+abstract -state -enablen magic
+check
+show -prefix after_a
+# opt_clean
+# show
