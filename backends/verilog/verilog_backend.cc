@@ -1059,6 +1059,8 @@ void dump_cell_expr_check(std::ostream &f, std::string indent, const RTLIL::Cell
 		f << stringf("%s" "%s" "assume (eventually ", indent.c_str(), label.c_str());
 	else if (flavor == "cover")
 		f << stringf("%s" "%s" "cover (", indent.c_str(), label.c_str());
+	else
+		log_abort();
 	dump_sigspec(f, cell->getPort(ID::A));
 	f << stringf(");\n");
 }
