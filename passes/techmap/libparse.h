@@ -59,6 +59,10 @@ namespace Yosys
 
 			std::string pin() {
 				auto length = s.find_first_of("\t()'!^*& +|");
+				if (length == std::string::npos) {
+					// nothing found so use size of s
+					length = s.size();
+				}
 				auto pin = s.substr(0, length);
 				s = s.substr(length, s.size());
 				return pin;
