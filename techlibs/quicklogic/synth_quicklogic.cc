@@ -334,9 +334,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("opt_lut");
 		}
 		
-		if (check_label("iomap", "(for qlf_k6n10f)") && (family == "qlf_k6n10f" || help_mode)) {
+		if (check_label("iomap", "(for qlf_k6n10f, skip if -noioff)") && (family == "qlf_k6n10f" || help_mode)) {
 			if (ioff || help_mode) {
-				run("ql_ioff", "(unless -noioff)");
+				run("ql_ioff");
+				run("opt_clean");
 			}
 		}
 
