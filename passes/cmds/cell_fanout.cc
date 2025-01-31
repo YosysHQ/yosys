@@ -82,10 +82,6 @@ struct AnnotateCellFanout : public ScriptPass {
 			log_error("No design object");
 			return;
 		}
-		if (!design->top_module()) {
-			log_error("No top module");
-			return;
-		}
 		log("Running annotate_cell_fanout pass\n");
 		log_flush();
 		// Precompute cell output sigspec to cell map
