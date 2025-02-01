@@ -9,10 +9,6 @@ PRIVATE_NAMESPACE_BEGIN
 void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
 		    dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
 {
-	if (!design->top_module())
-		return;
-	if (design->top_module()->cells().size() == 0)
-		return;
 	for (auto module : design->selected_modules()) {
 		SigMap sigmap(module);
 		for (auto cell : module->selected_cells()) {
