@@ -253,13 +253,13 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 				if (a_width == 1 && is_signed) {
 					int skip = 1 << (k + 1);
 					int base = skip -1;
-					if (i % skip != base && i - a_width + 2 < 1 << b_width)
+					if (i % skip != base && i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);	
 				} else if (is_signed) {
-					if (i - a_width + 2 < 1 << b_width)
+					if (i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				} else {
-					if (i - a_width + 1 < 1 << b_width)
+					if (i - a_width + 1 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				}
 			// right shifts
