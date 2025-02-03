@@ -6,34 +6,78 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 bool abstract_state(Module* mod, Cell* cell, Wire* enable, bool enable_pol) {
+	FfData ff(nullptr, cell);
+	if (ff.has_sr)
+		log_cmd_error("SR not supported\n");
+
+	// Normalize to simpler FF
+	ff.unmap_ce();
+	ff.unmap_srst();
+	if (ff.has_arst)
+		ff.arst_to_aload();
+
+	// Construct abstract value
+	auto anyseq = mod->Anyseq(NEW_ID, ff.width);
+
+	if (ff.has_aload) {
+		// aload := enable ? anyseq : aload
+		// ff.pol_aload = enable_pol;
+		Wire* abstracted_ad = mod->addWire(NEW_ID, ff.sig_ad.size());
+		SigSpec mux_a, mux_b;
+		if (enable_pol) {
+			mux_a = ff.sig_ad;
+			mux_b = anyseq;
+		} else {
+			mux_a = anyseq;
+			mux_b = ff.sig_ad;
+		}
+		(void)mod->addMux(NEW_ID,
+			mux_a,
+			mux_b,
+			enable,
+			abstracted_ad);
+		ff.sig_ad = abstracted_ad;
+	}
+	Wire* abstracted_d = mod->addWire(NEW_ID, ff.sig_d.size());
+	SigSpec mux_a, mux_b;
+	if (enable_pol) {
+		mux_a = ff.sig_d;
+		mux_b = anyseq;
+	} else {
+		mux_a = anyseq;
+		mux_b = ff.sig_d;
+	}
+	(void)mod->addMux(NEW_ID,
+		mux_a,
+		mux_b,
+		enable,
+		abstracted_d);
+	ff.sig_d = abstracted_d;
+	(void)ff.emit();
+	return true;
+}
+
+bool abstract_value(Module* mod, Wire* wire, Wire* enable, bool enable_pol) {
+	// (void)mod->addMux(NEW_ID,
+	// 	mux_a,
+	// 	mux_b,
+	// 	enable,
+	// 	abstracted);
+	// 	cell->setPort(ID::D, SigSpec(abstracted));
+	return false;
+}
+
+bool abstract_init(Module* mod, Cell* cell) {
 	CellTypes ct;
 	ct.setup_internals_ff();
 	if (!ct.cell_types.count(cell->type))
 		return false;
-	FfData ff(nullptr, cell);
-	// Doesn't matter if there was an enable signal already
-	// we discard it and mux with symbolic value
-	ff.has_ce = false;
-	Wire* inp = cell->getPort(ID::D).as_wire();
-	cell = ff.emit();
+	// TODO figure out memory cells?
 
-	Wire* abstracted = mod->addWire(NEW_ID, inp->width);
-	SigSpec mux_a, mux_b;
-	if (enable_pol) {
-		mux_a = inp;
-		mux_b = mod->Anyseq(NEW_ID, inp->width);
-	} else {
-		mux_a = mod->Anyseq(NEW_ID, inp->width);
-		mux_b = inp;
-	}
-	(void)mod->addMux(NEW_ID,
-	mux_a,
-	mux_b,
-	enable,
-	abstracted);
-	cell->setPort(ID::D, SigSpec(abstracted));
+	cell->unsetParam(ID::init);
 	return true;
 }
+
 
 struct AbstractPass : public Pass {
 	AbstractPass() : Pass("abstract", "extract clock gating out of flip flops") { }
@@ -84,31 +128,41 @@ struct AbstractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		unsigned int changed_cells = 0;
+		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
 			if (!enable_name.length())
 				log_cmd_error("Unspecified enable wire\n");
+			CellTypes ct;
+			if (mode == State)
+				ct.setup_internals_ff();
 			for (auto mod : design->selected_modules()) {
-				log("module %s\n", mod->name.c_str());
+				log_debug("module %s\n", mod->name.c_str());
 				Wire *enable_wire = mod->wire("\\" + enable_name);
 				if (!enable_wire)
 					log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
 				if (mode == State) {
-					for (auto cell : mod->selected_cells()) {
-						log("cell %s\n", cell->name.c_str());
-						changed_cells += abstract_state(mod, cell, enable_wire, enable_pol);
-					}
+					for (auto cell : mod->selected_cells())
+						if (ct.cell_types.count(cell->type))
+							changed += abstract_state(mod, cell, enable_wire, enable_pol);
 				} else {
 					// Value
+					for (auto wire : mod->selected_wires()) {
+						changed += abstract_value(mod, wire, enable_wire, enable_pol);
+					}
 					log_cmd_error("Unsupported (TODO)\n");
 				}
 			}
+			log("Abstracted %d cells.\n", changed);
 		} else if (mode == Initial) {
-			log_cmd_error("Unsupported\n");
+			for (auto mod : design->selected_modules()) {
+				for (auto cell : mod->selected_cells()) {
+					changed += abstract_init(mod, cell);
+				}
+			}
+			log("Abstracted %d wires.\n", changed);
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
-		log("Abstracted %d cell(s).\n", changed_cells);
 	}
 } AbstractPass;
 
