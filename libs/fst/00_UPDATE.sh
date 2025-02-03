@@ -17,3 +17,4 @@ sed -i -e 's,"fastlz.c","fastlz.cc",' *.cc *.h
 
 patch -p0 < 00_PATCH_win_zlib.patch
 patch -p0 < 00_PATCH_win_io.patch
+patch -p1 < 00_PATCH_strict_alignment.patch
