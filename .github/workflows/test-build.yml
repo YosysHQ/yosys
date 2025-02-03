@@ -86,6 +86,7 @@ jobs:
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
+      UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
