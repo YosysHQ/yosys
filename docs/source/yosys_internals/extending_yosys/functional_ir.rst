@@ -217,31 +217,27 @@ and racket specifications to save on space in this document.
 Sort
 ~~~~
 
-- map variable declarations to s-expressions
-- handles signals (bitvectors) and memories (arrays of bitvectors)
+The ``Sort`` class is a wrapper for the ``Functional::Sort`` class, providing
+the additional functionality of mapping variable declarations to s-expressions
+with the ``to_sexpr()`` method.  The main change from ``SmtSort`` to
+``SmtrSort`` is a syntactical one with signals represented as ``bitvector``\
+s, and memories as ``list``\ s of signals.
 
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
    :caption: diff of ``Sort`` wrapper
-   :start-at: -struct SmtSort {
-   :end-at: };
+   :start-at: SExpr to_sexpr() const {
+   :end-before: };
 
 Struct
 ~~~~~~
 
-- helpers for defining inputs/outputs/state
-- struct fields in Rosette are accessed as ``<struct_name>-<field_name>``
-   - field names only need to be unique within the struct, while accessors
-      are unique within the module
-
-.. literalinclude:: /code_examples/functional/rosette.diff
-   :language: diff
-   :caption: diff of struct constructor
-   :start-at: -  SmtStruct(std::string name, SmtScope &scope)
-   :end-before: void write_definition
-
-- each is a single (transparent) struct with zero or more fields
-- each field has a name, with the type (sort) as a comment
+The SMT-LIB backend uses a class, ``SmtStruct``, to help with describing the
+input, output, and state data structs.  Where each struct in the SMT-LIB output
+is a new ``datatype`` with each element having its type declared using the
+`Sort`_ above, in Rosette we use the native ``struct`` with each field only
+being referred to by name.  For ease of use, we include comments for each field
+to indicate the expected type.
 
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
@@ -249,7 +245,22 @@ Struct
    :start-at: void write_definition
    :end-before: template<typename Fn> void write_value
 
-- writing outputs/next state
+Struct fields in Rosette are accessed as ``<struct_name>-<field_name>``, where
+field names only need to be unique within the struct, while accessors are unique
+within the module.  We thus modify the class constructor and ``insert`` method
+to support this; providing one scope that is local to the struct
+(``local_scope``) and one which is shared across the whole module
+(``global_scope``).
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of struct constructor
+   :start-at: -  SmtStruct(std::string name, SmtScope &scope)
+   :end-before: void write_definition
+
+For writing outputs/next state (the ``write_value`` method), the only change is
+to remove the check for zero-argument constructors since this is not necessary
+with Rosette ``struct``\ s.
 
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
@@ -260,11 +271,25 @@ Struct
 PrintVisitor
 ~~~~~~~~~~~~
 
-- map FunctionalIR operations to Rosette
-   - most functions are the same or very similar to their corresponding smtlib
-     function
+The ``PrintVisitor`` implements the abstract ``Functional::AbstractVisitor``
+class for converting FunctionalIR functions into s-expressions, including
+reading inputs/current state.  For most functions, the Rosette output is very
+similar to the corresponding SMT-LIB function with minor adjustments for syntax.
 
-- reading inputs/current state
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing similarities
+   :start-at: SExpr zero_extend
+   :end-at: SExpr sub
+
+However there are some differences in the two formats with regards to how
+booleans are handled, with Rosette providing built-in functions for conversion.
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing differences
+   :start-at: SExpr from_bool
+   :end-before: SExpr extract
 
 Module
 ~~~~~~
