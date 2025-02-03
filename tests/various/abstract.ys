@@ -10,12 +10,10 @@ endmodule
 
 EOT
 proc
-# dump
 # show -prefix before_base
 abstract -state -enablen magic
 check
 # show -prefix after_base
-# dump
 
 design -reset
 read_verilog <<EOT
@@ -33,8 +31,6 @@ EOT
 proc
 opt_expr
 opt_dff
-# show
-# dump
 # show -prefix before_en
 abstract -state -enablen magic
 check
@@ -87,11 +83,8 @@ EOT
 proc
 opt_expr
 opt_dff
-# show
-# dump
-show -prefix before_a
+# show -prefix before_a
 abstract -state -enablen magic
 check
-show -prefix after_a
+# show -prefix after_a
 # opt_clean
-# show

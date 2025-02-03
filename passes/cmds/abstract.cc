@@ -67,17 +67,63 @@ bool abstract_value(Module* mod, Wire* wire, Wire* enable, bool enable_pol) {
 	return false;
 }
 
-bool abstract_init(Module* mod, Cell* cell) {
-	CellTypes ct;
-	ct.setup_internals_ff();
-	if (!ct.cell_types.count(cell->type))
-		return false;
-	// TODO figure out memory cells?
+struct AbstractInitCtx {
+	Module* mod;
+	SigMap sigmap;
+	pool<SigBit> init_bits;
+};
 
-	cell->unsetParam(ID::init);
-	return true;
+void collect_init_bits_cells(AbstractInitCtx& ctx) {
+	// TODO Should this discriminate between FFs and other cells?
+	for (auto cell : ctx.mod->selected_cells()) {
+		// Add all sigbits on all cell outputs to init_bits
+		for (auto &conn : cell->connections()) {
+			if (cell->output(conn.first)) {
+				for (auto bit : conn.second) {
+					log_debug("init: cell %s output %s\n", cell->name.c_str(), log_signal(bit));
+					ctx.init_bits.insert(ctx.sigmap(bit));
+				}
+			}
+		}
+	}
 }
 
+void collect_init_bits_wires(AbstractInitCtx& ctx) {
+	for (auto wire : ctx.mod->selected_wires()) {
+		auto canonical = ctx.sigmap(wire);
+		// Find canonical drivers of all the wire bits and add them to init_bits
+		for (auto bit : canonical.bits()) {
+			log_debug("init: wire %s bit %s\n", wire->name.c_str(), log_signal(bit));
+			ctx.init_bits.insert(ctx.sigmap(bit));
+		}
+	}
+}
+
+unsigned int abstract_init(Module* mod) {
+	AbstractInitCtx ctx {mod, SigMap(mod), pool<SigBit>()};
+	pool<SigBit> init_bits;
+	collect_init_bits_cells(ctx);
+	collect_init_bits_wires(ctx);
+	unsigned int changed = 0;
+
+	for (SigBit bit : ctx.init_bits) {
+next_sigbit:
+		if (!bit.is_wire() || !bit.wire->has_attribute(ID::init))
+			continue;
+
+		Const init = bit.wire->attributes.at(ID::init);
+		std::vector<RTLIL::State>& bits = init.bits();
+		bits[bit.offset] = RTLIL::State::Sx;
+		changed++;
+
+		for (auto bit : bits)
+			if (bit != RTLIL::State::Sx)
+				goto next_sigbit;
+		// All bits are Sx, erase init attribute entirely
+		bit.wire->attributes.erase(ID::init);
+	}
+	return changed;
+}
 
 struct AbstractPass : public Pass {
 	AbstractPass() : Pass("abstract", "extract clock gating out of flip flops") { }
@@ -155,11 +201,9 @@ struct AbstractPass : public Pass {
 			log("Abstracted %d cells.\n", changed);
 		} else if (mode == Initial) {
 			for (auto mod : design->selected_modules()) {
-				for (auto cell : mod->selected_cells()) {
-					changed += abstract_init(mod, cell);
-				}
+				changed += abstract_init(mod);
 			}
-			log("Abstracted %d wires.\n", changed);
+			log("Abstracted %d bits.\n", changed);
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
