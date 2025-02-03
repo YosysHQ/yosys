@@ -511,7 +511,6 @@ LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VE
 endif
 endif
 
-
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
@@ -610,6 +609,7 @@ $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+OBJS += kernel/log_help.o
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o
@@ -987,15 +987,21 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 	$(Q) rsync -rc temp/docs/source/cmd docs/source
 	$(Q) rm -rf temp
-docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cell
-	$(Q) mkdir -p temp/docs/source/cell
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
-	$(Q) rsync -rc temp/docs/source/cell docs/source
-	$(Q) rm -rf temp
+
+docs/source/generated/cmds.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cmds-json $@'
 
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
+
+docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -qQT -h 'chformal' -l $@
+
+docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
+	rsync $^ $@
+
+PHONY: docs/gen/chformal
+docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
 
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
@@ -1032,7 +1038,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/chformal
 
 DOC_TARGET ?= html
 docs: docs/prep
@@ -1055,7 +1061,7 @@ clean:
 	rm -f  tests/tools/cmp_tbdata
 	-$(MAKE) -C docs clean
 	-$(MAKE) -C docs/images clean
-	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -rf docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
