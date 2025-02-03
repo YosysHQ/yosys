@@ -20,8 +20,7 @@ bool abstract_state(Module* mod, Cell* cell, Wire* enable, bool enable_pol) {
 	auto anyseq = mod->Anyseq(NEW_ID, ff.width);
 
 	if (ff.has_aload) {
-		// aload := enable ? anyseq : aload
-		// ff.pol_aload = enable_pol;
+		// ad := enable ? anyseq : ad
 		Wire* abstracted_ad = mod->addWire(NEW_ID, ff.sig_ad.size());
 		SigSpec mux_a, mux_b;
 		if (enable_pol) {
@@ -38,6 +37,7 @@ bool abstract_state(Module* mod, Cell* cell, Wire* enable, bool enable_pol) {
 			abstracted_ad);
 		ff.sig_ad = abstracted_ad;
 	}
+	// d := enable ? anyseq : d
 	Wire* abstracted_d = mod->addWire(NEW_ID, ff.sig_d.size());
 	SigSpec mux_a, mux_b;
 	if (enable_pol) {
