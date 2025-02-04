@@ -10,9 +10,12 @@ OBJS += techlibs/quicklogic/ql_dsp_io_regs.o
 # --------------------------------------
 
 OBJS += techlibs/quicklogic/ql_dsp_macc.o
+OBJS += techlibs/quicklogic/ql_dsp.o
 GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v
 techlibs/quicklogic/ql_dsp_macc.o: techlibs/quicklogic/ql_dsp_macc_pm.h
+techlibs/quicklogic/ql_dsp.o: techlibs/quicklogic/ql_dsp_pm.h
 $(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_macc_pm.h))
+$(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_pm.h))
 
 # --------------------------------------
 
