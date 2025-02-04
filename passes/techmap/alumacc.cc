@@ -406,11 +406,6 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
 			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
 
-			if (B < A && GetSize(B)) {
-				cmp_less = !cmp_less;
-				std::swap(A, B);
-			}
-
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
@@ -418,6 +413,16 @@ struct AlumaccWorker
 					n = node;
 					break;
 				}
+
+			if (n == nullptr) {
+				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+						n = node;
+						cmp_less = !cmp_less;
+						std::swap(A, B);
+						break;
+					}
+			}
 
 			if (n == nullptr) {
 				n = new alunode_t;
@@ -446,9 +451,6 @@ struct AlumaccWorker
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
 			RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
 
-			if (B < A && GetSize(B))
-				std::swap(A, B);
-
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
@@ -456,6 +458,14 @@ struct AlumaccWorker
 					n = node;
 					break;
 				}
+
+			if (n == nullptr) {
+				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+						n = node;
+						break;
+					}
+			}
 
 			if (n != nullptr) {
 				log("  creating $alu model for %s (%s): merged with %s.\n", log_id(cell), log_id(cell->type), log_id(n->cells.front()));
