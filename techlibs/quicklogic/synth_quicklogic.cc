@@ -227,16 +227,21 @@ struct SynthQuickLogicPass : public ScriptPass {
 		if (check_label("map_dsp", "(for qlf_k6n10f, skip if -nodsp)")
 				&& ((dsp && family == "qlf_k6n10f") || help_mode)) {
 			run("wreduce t:$mul");
-			run("ql_dsp_macc");
+			//run("ql_dsp_macc");
 
-			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=20 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=11 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__QL_MUL20X18");
-			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=10 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__QL_MUL10X9");
+
+			run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
+				"-D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18");
+			run("chtype -set $mul t:$__soft_mul");
+			run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
+				"-D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL16X9");
 			run("chtype -set $mul t:$__soft_mul");
 
-			run("techmap -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0");
-			run("ql_dsp_simd");
-			run("techmap -map " + lib_path + family + "/dsp_final_map.v");
-			run("ql_dsp_io_regs");
+			run("ql_dsp");
+
+			//run("ql_dsp_simd");
+			//run("techmap -map " + lib_path + family + "/dsp_final_map.v");
+			//run("ql_dsp_io_regs");
 		}
 
 		if (check_label("coarse")) {
