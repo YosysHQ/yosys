@@ -415,7 +415,7 @@ struct AlumaccWorker
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->invert_b && node->c == State::S1) {
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
 						n = node;
 						cmp_less = !cmp_less;
 						std::swap(A, B);
@@ -460,7 +460,7 @@ struct AlumaccWorker
 
 			if (n == nullptr) {
 				for (auto node : sig_alu[RTLIL::SigSig(B, A)])
-					if (node->invert_b && node->c == State::S1) {
+					if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
 						n = node;
 						break;
 					}
