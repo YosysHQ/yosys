@@ -66,13 +66,16 @@ struct EquivOptPass:public ScriptPass
 		log("    -nocheck\n");
 		log("        disable running check before and after the command under test.\n");
 		log("\n");
+		log("    -post\n");
+		log("        keep post-opt design instead of pre-opt design during restore.\n");
+		log("\n");
 		log("The following commands are executed by this verification command:\n");
 		help_script();
 		log("\n");
 	}
 
 	std::string command, techmap_opts, make_opts;
-	bool assert, undef, multiclock, async2sync, nocheck;
+	bool assert, undef, multiclock, async2sync, nocheck, post;
 
 	void clear_flags() override
 	{
@@ -84,6 +87,7 @@ struct EquivOptPass:public ScriptPass
 		multiclock = false;
 		async2sync = false;
 		nocheck = false;
+		post = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) override
@@ -119,6 +123,10 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-nocheck") {
 				nocheck = true;
+				continue;
+			}
+			if (args[argidx] == "-post") {
+				post = true;
 				continue;
 			}
 			if (args[argidx] == "-multiclock") {
@@ -219,7 +227,10 @@ struct EquivOptPass:public ScriptPass
 		}
 
 		if (check_label("restore")) {
-			run("design -load preopt");
+			if (post)
+				run("design -load postopt");
+			else
+				run("design -load preopt");
 		}
 	}
 } EquivOptPass;
