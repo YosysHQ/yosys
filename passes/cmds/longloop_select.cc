@@ -123,6 +123,9 @@ struct LongLoopSelect : public ScriptPass {
 		}
 		log("Running longloop_select pass\n");
 		log_flush();
+
+		Pass::call(design, "select -none");
+
 		for (auto module : design->modules()) {
 			if (debug) {
 				log("Module %s\n", log_id(module));
