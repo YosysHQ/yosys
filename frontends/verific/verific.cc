@@ -3881,6 +3881,14 @@ struct VerificPass : public Pass {
 			if (!filename)
 				log_cmd_error("Filename must be specified.\n");
 
+			// SILIMATE: Add include directories, library directories, and library extensions
+			for (auto &dir : verific_incdirs)
+				veri_file::AddIncludeDir(dir.c_str());
+			for (auto &dir : verific_libdirs)
+				veri_file::AddYDir(dir.c_str());
+			for (auto &ext : verific_libexts)
+				veri_file::AddLibExt(ext.c_str());
+
 			unsigned analysis_mode = verilog_mode; // keep default as provided by user if not defined in file
 			Array *file_names = veri_file::ProcessFFile(filename, flags, analysis_mode);
 			if (analysis_mode != verilog_mode)
