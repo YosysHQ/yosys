@@ -717,7 +717,7 @@ OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
-
+OBJS += passes/cmds/annotate_logic_depth.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/check.o
 OBJS += passes/cmds/clean_zerowidth.o
