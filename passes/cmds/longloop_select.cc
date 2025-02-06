@@ -25,6 +25,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+typedef RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell> cell_ptr_cmp;
+
 struct LongLoopSelect : public ScriptPass {
 	LongLoopSelect()
 	    : ScriptPass("longloop_select", "Selects long for-loops (Creating logic above a certain logic depth) for further optimizations")
@@ -178,10 +180,26 @@ struct LongLoopSelect : public ScriptPass {
 				}
 				// For a given for-loop cell group, perform topological sorting to get the logic depth of the ending cell in
 				// the group
+				std::map<RTLIL::Cell *, int> celllevel;
+				for (auto cell : itrCluster->second) {
+					celllevel.emplace(cell, 0);
+				}
 				TopoSort<RTLIL::Cell *, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> toposort;
 				toposorting(itrCluster->second, sigmap, toposort, debug);
 				std::vector<Cell *>::reverse_iterator itrLastCell = toposort.sorted.rbegin();
-				int logicdepth = toposort.node_to_index.find((*itrLastCell))->second;
+				int logicdepth = 0;
+				std::map<RTLIL::Cell *, std::set<RTLIL::Cell *, cell_ptr_cmp>, cell_ptr_cmp> topo_cell_drivers =
+				  toposort.get_database();
+				for (auto cell : toposort.sorted) {
+					int level = 0;
+					auto itrAdj = topo_cell_drivers.find(cell);
+					for (auto c : (*itrAdj).second) {
+						level = std::max(level, celllevel[c]);
+					}
+					level++;
+					celllevel[cell] = level;
+					logicdepth = std::max(logicdepth, level);
+				}
 				if (debug) {
 					log("  Logic depth: %d\n", logicdepth);
 					log_flush();
