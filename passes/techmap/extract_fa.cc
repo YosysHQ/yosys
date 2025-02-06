@@ -412,14 +412,15 @@ struct ExtractFaWorker
 					facache[fakey] = make_tuple(X, Y, cell);
 				}
 
+				bool invert_y = f3i.inv_a ^ f3i.inv_b ^ f3i.inv_c;
 				if (func3.at(key).count(xor3_func)) {
-					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func3.at(key).at(xor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
-					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func3.at(key).at(xnor3_func))
 						assign_new_driver(bit, YY);
 				}
