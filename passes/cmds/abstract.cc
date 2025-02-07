@@ -57,70 +57,70 @@ bool abstract_state(Module* mod, Cell* cell, Wire* enable, bool enable_pol) {
 	return true;
 }
 
-bool abstract_value(Module* mod, Wire* wire, Wire* enable, bool enable_pol) {
-	// (void)mod->addMux(NEW_ID,
-	// 	mux_a,
-	// 	mux_b,
-	// 	enable,
-	// 	abstracted);
-	// 	cell->setPort(ID::D, SigSpec(abstracted));
-	return false;
-}
-
-struct AbstractInitCtx {
+struct AbstractPortCtx {
 	Module* mod;
 	SigMap sigmap;
-	pool<SigBit> init_bits;
+	pool<std::pair<Cell*, IdString>> outs;
 };
 
-void collect_init_bits_cells(AbstractInitCtx& ctx) {
-	// TODO Should this discriminate between FFs and other cells?
-	for (auto cell : ctx.mod->selected_cells()) {
-		// Add all sigbits on all cell outputs to init_bits
-		for (auto &conn : cell->connections()) {
-			if (cell->output(conn.first)) {
-				for (auto bit : conn.second) {
-					log_debug("init: cell %s output %s\n", cell->name.c_str(), log_signal(bit));
-					ctx.init_bits.insert(ctx.sigmap(bit));
-				}
-			}
+void collect_selected_ports(AbstractPortCtx& ctx) {
+	for (Cell* cell : ctx.mod->cells()) {
+		for (auto& conn : cell->connections()) {
+			// we bufnorm
+			log_assert(conn.second.is_wire() || conn.second.is_fully_const());
+			if (conn.second.is_wire() && cell->output(conn.first))
+				if (ctx.mod->selected(cell) || ctx.mod->selected(conn.second.as_wire()))
+					ctx.outs.insert(std::make_pair(cell, conn.first));
 		}
 	}
 }
 
-void collect_init_bits_wires(AbstractInitCtx& ctx) {
-	for (auto wire : ctx.mod->selected_wires()) {
-		auto canonical = ctx.sigmap(wire);
-		// Find canonical drivers of all the wire bits and add them to init_bits
-		for (auto bit : canonical.bits()) {
-			log_debug("init: wire %s bit %s\n", wire->name.c_str(), log_signal(bit));
-			ctx.init_bits.insert(ctx.sigmap(bit));
+unsigned int abstract_value(Module* mod, Wire* enable, bool enable_pol) {
+	AbstractPortCtx ctx {mod, SigMap(mod), {}};
+	collect_selected_ports(ctx);
+	unsigned int changed = 0;
+	for (auto [cell, port] : ctx.outs) {
+		SigSpec sig = cell->getPort(port);
+		log_assert(sig.is_wire());
+		Wire* original = mod->addWire(NEW_ID, sig.size());
+		cell->setPort(port, original);
+		auto anyseq = mod->Anyseq(NEW_ID, sig.size());
+		// This code differs from abstract_state
+		// in that we reuse the original signal as the mux output,
+		// not input
+		SigSpec mux_a, mux_b;
+		if (enable_pol) {
+			mux_a = original;
+			mux_b = anyseq;
+		} else {
+			mux_a = anyseq;
+			mux_b = original;
 		}
+		(void)mod->addMux(NEW_ID,
+			mux_a,
+			mux_b,
+			enable,
+			sig);
+		changed++;
 	}
+	return changed;
 }
 
 unsigned int abstract_init(Module* mod) {
-	AbstractInitCtx ctx {mod, SigMap(mod), pool<SigBit>()};
-	pool<SigBit> init_bits;
-	collect_init_bits_cells(ctx);
-	collect_init_bits_wires(ctx);
+	AbstractPortCtx ctx {mod, SigMap(mod), {}};
+	collect_selected_ports(ctx);
+
 	unsigned int changed = 0;
 
-	for (SigBit bit : ctx.init_bits) {
-next_sigbit:
-		if (!bit.is_wire() || !bit.wire->has_attribute(ID::init))
+	for (auto [cell, port] : ctx.outs) {
+		SigSpec sig = cell->getPort(port);
+		log_assert(sig.is_wire());
+		if (!sig.as_wire()->has_attribute(ID::init))
 			continue;
 
-		Const init = bit.wire->attributes.at(ID::init);
-		std::vector<RTLIL::State>& bits = init.bits();
-		bits[bit.offset] = RTLIL::State::Sx;
-		changed++;
-
-		for (auto bit : bits)
-			if (bit != RTLIL::State::Sx)
-				goto next_sigbit;
-		// All bits are Sx, erase init attribute entirely
-		bit.wire->attributes.erase(ID::init);
+		Const init = sig.as_wire()->attributes.at(ID::init);
+		sig.as_wire()->attributes.erase(ID::init);
+		changed += sig.size();
 	}
 	return changed;
 }
@@ -174,6 +174,7 @@ struct AbstractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->bufNormalize(true);
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
 			if (!enable_name.length())
@@ -191,14 +192,13 @@ struct AbstractPass : public Pass {
 						if (ct.cell_types.count(cell->type))
 							changed += abstract_state(mod, cell, enable_wire, enable_pol);
 				} else {
-					// Value
-					for (auto wire : mod->selected_wires()) {
-						changed += abstract_value(mod, wire, enable_wire, enable_pol);
-					}
-					log_cmd_error("Unsupported (TODO)\n");
+					changed += abstract_value(mod, enable_wire, enable_pol);
 				}
 			}
-			log("Abstracted %d cells.\n", changed);
+			if (mode == State)
+				log("Abstracted %d cells.\n", changed);
+			else
+				log("Abstracted %d values.\n", changed);
 		} else if (mode == Initial) {
 			for (auto mod : design->selected_modules()) {
 				changed += abstract_init(mod);
@@ -207,6 +207,7 @@ struct AbstractPass : public Pass {
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
+		design->bufNormalize(false);
 	}
 } AbstractPass;
 

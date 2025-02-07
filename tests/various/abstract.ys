@@ -1,9 +1,9 @@
 read_verilog <<EOT
 
-module half_clock (CLK, Q);
+module half_clock (CLK, Q, magic);
 	input CLK;
 	output reg Q;
-	reg magic;
+	input magic;
 	always @(posedge CLK)
 		Q <= ~Q;
 endmodule
@@ -12,16 +12,16 @@ EOT
 proc
 # show -prefix before_base
 abstract -state -enablen magic
-check
+check -assert
 # show -prefix after_base
 
 design -reset
 read_verilog <<EOT
-module half_clock_en (CLK, E, Q);
+module half_clock_en (CLK, E, Q, magic);
 	input CLK;
 	input E;
 	output reg Q;
-	reg magic;
+	input magic;
 	always @(posedge CLK)
         if (E)
             Q <= ~Q;
@@ -33,7 +33,7 @@ opt_expr
 opt_dff
 # show -prefix before_en
 abstract -state -enablen magic
-check
+check -assert
 # show -prefix after_en
 
 design -reset
@@ -50,9 +50,35 @@ proc
 opt_expr
 opt_dff
 dump
+select -none
 abstract -init
-check
+select -clear
+check -assert
+# dump
+
+design -reset
+read_verilog <<EOT
+module main (input [3:0] baz);
+  reg foo;
+  reg bar;
+  assign foo = bar;
+  assign bar = baz[0];
+  reg aaa = 1'b1;
+  always @(posedge bar)
+  	aaa <= ~aaa;
+endmodule
+EOT
+
+proc -noopt
+# show -prefix before_init
 dump
+select -none
+abstract -init
+select -clear
+# show -prefix after_init
+dump
+check -assert
+# dump
 
 
 design -reset
@@ -85,6 +111,38 @@ opt_expr
 opt_dff
 # show -prefix before_a
 abstract -state -enablen magic
-check
+check -assert
 # show -prefix after_a
 # opt_clean
+
+design -reset
+read_verilog <<EOT
+module this_adff (CLK, ARST, D, Q, magic);
+
+parameter WIDTH = 2;
+parameter CLK_POLARITY = 1'b1;
+parameter ARST_POLARITY = 1'b1;
+parameter ARST_VALUE = 0;
+
+input CLK, ARST, magic;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_arst = ARST == ARST_POLARITY;
+
+always @(posedge pos_clk, posedge pos_arst) begin
+	if (pos_arst)
+		Q <= ARST_VALUE;
+	else
+		Q <= D;
+end
+
+endmodule
+EOT
+proc
+# show -prefix before_value
+abstract -value -enablen magic
+check -assert
+clean
+# show -prefix after_value
+# dump
