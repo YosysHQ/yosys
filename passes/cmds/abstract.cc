@@ -34,12 +34,11 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 		mux_a = anyseq;
 		mux_b = mux_input;
 	}
-	Cell* mux = ff.module->addMux(NEW_ID,
+	(void)ff.module->addMux(NEW_ID,
 		mux_a,
 		mux_b,
 		enable.wire,
 		abstracted);
-	// log_cell(mux);
 	(void)ff.emit();
 	return true;
 }
