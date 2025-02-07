@@ -149,7 +149,7 @@ Example: Adapting SMT-LIB backend for Rosette
 
 This section will walk through the process of adapting the SMT-LIB functional
 backend (`write_functional_smt2`) to work with another s-expression target,
-`Rosette`_.
+`Rosette`_ (`write_functional_rosette`).
 
 .. _Rosette: http://emina.github.io/rosette/
 
@@ -184,7 +184,7 @@ reject ascii characters which are not allowed in Racket variable names.
 
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
-   :caption: diff of ``Scope`` close
+   :caption: diff of ``Scope`` class
    :start-at: -struct SmtScope : public Functional::Scope<int> {
    :end-at: };
 
@@ -195,6 +195,7 @@ also no longer need to reserve ``pair``, ``first``, and ``second``.  In
 current_state)`` and ``(outputs, next_state)`` into a single variable.  Racket
 provides this functionality natively with ``cons``, which we will see later.
 
+.. inlined diff for skipping the actual lists
 .. code-block:: diff
    :caption: diff of ``reserved_keywords`` list
 
@@ -255,7 +256,7 @@ to support this; providing one scope that is local to the struct
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
    :caption: diff of struct constructor
-   :start-at: -  SmtStruct(std::string name, SmtScope &scope)
+   :start-at: SmtStruct(std::string name, SmtScope &scope)
    :end-before: void write_definition
 
 For writing outputs/next state (the ``write_value`` method), the only change is
@@ -279,8 +280,8 @@ similar to the corresponding SMT-LIB function with minor adjustments for syntax.
 .. literalinclude:: /code_examples/functional/rosette.diff
    :language: diff
    :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing similarities
-   :start-at: SExpr zero_extend
-   :end-at: SExpr sub
+   :start-at: SExpr logical_shift_left
+   :end-before: SExpr input
 
 However there are some differences in the two formats with regards to how
 booleans are handled, with Rosette providing built-in functions for conversion.
