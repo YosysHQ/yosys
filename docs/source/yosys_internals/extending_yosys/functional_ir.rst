@@ -295,10 +295,87 @@ booleans are handled, with Rosette providing built-in functions for conversion.
 Module
 ~~~~~~
 
-- map RTLIL module to FunctionalIR
-- iterate over FunctionalIR and map to Rosette
-   - defines the mapping function, ``(inputs, current_state) -> (outputs,
-     next_state)``
+The ``Functional::IR`` is wrapped in the ``Module`` class, with the mapping from
+RTLIL module to FunctionalIR happening in the constructor.  Each of the three
+structs; inputs, outputs, and state; are then created from the corresponding
+lists in the IR.  The only change here is rename the initial state to use ``_``
+instead of ``-``, since the ``-`` in Rosette can be used to access struct
+fields.
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``Module`` constructor
+   :start-at: scope.reserve(name
+   :end-before: for (auto input
+
+The ``write`` method is then responsible for writing the FunctionalIR to the
+output file, formatted for the corresponding backend. ``SmtModule::write()``
+breaks the output file down into four parts: defining the three structs,
+declaring the ``pair`` datatype, defining the mapping function ``(inputs,
+current_state) -> (outputs, next_state)`` with ``write_eval``, and declaring the
+initial state with ``write_initial``.  The only change for the ``SmtrModule`` is
+that the ``pair`` declaration isn't needed.
+
+.. inlined diff to show the complete function
+.. code-block:: diff
+   :caption: diff of ``Module::write()`` method
+
+    	void write(std::ostream &out)
+    	{    
+    		SExprWriter w(out);
+    
+    		input_struct.write_definition(w);
+    		output_struct.write_definition(w);
+    		state_struct.write_definition(w);
+    
+   -		w << list("declare-datatypes",
+   -			list(list("Pair", 2)),
+   -			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
+   -
+    		write_eval(w);
+    		write_initial(w);
+    	}
+
+For the ``write_eval`` method, the main differences are syntactical.  First we
+change the function declaration line for the Rosette style which drops the
+explicit output typing and uses the ``define`` keyword instead of
+``define-fun``.  And then we change the final result from a ``pair`` to the
+native ``cons`` which acts in much the same way, returning both the ``outputs``
+and the ``next_state`` in a single variable.  Iteration over all of the
+``Functional::Node``\ s in the IR is the same in both.
+
+.. inlined diff for showing the whole function while skipping the middle part
+.. code-block:: diff
+   :caption: diff of ``Module::write_eval()`` method
+
+    	void write_eval(SExprWriter &w)
+    	{
+    		w.push();
+   -		w.open(list("define-fun", name,
+   -			list(list("inputs", input_struct.name),
+   -			     list("state", state_struct.name)),
+   -			list("Pair", output_struct.name, state_struct.name)));
+   +		w.open(list("define", list(name, "inputs", "state")));
+    		...
+   -		w.open(list("pair"));
+   +		w.open(list("cons"));
+    		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.output(name).value()); });
+    		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.state(name).next_value()); });
+    		w.pop();
+    	}
+
+For the ``write_initial`` method, the SMT-LIB backend uses ``declare-const`` and
+`assert`\ s which must always hold true.  For Rosette we instead define the
+initial state as any other variable that can be used by external code.  This
+variable, ``[name]_initial``, can then be used in the ``[name]`` function call;
+allowing the Rosette code to be used in the generation of the ``next_state``,
+whereas the SMT-LIB code can only verify that a given ``next_state`` is correct.
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``Module::write_initial()`` method
+   :start-at: void write_initial
+   :end-before: void write
 
 Backend
 ~~~~~~~
