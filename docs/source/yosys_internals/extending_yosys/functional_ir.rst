@@ -380,10 +380,24 @@ whereas the SMT-LIB code can only verify that a given ``next_state`` is correct.
 Backend
 ~~~~~~~
 
-- registers the `write_functional_rosette` command
-- options (``-provides``)
-   - allows file to be treated as a Racket package with structs and mapping
-     function available for use externally
+The final part is the ``Backend`` itself, which registers the command in Yosys.
+The ``execute`` method is the part that runs when the user calls
+`write_functional_rosette`, handling any options, preparing the output file for
+writing, and iterating over selected modules in the design.  For more on adding
+new commands to Yosys and how they work, refer to
+:doc:`/yosys_internals/extending_yosys/extensions`.
 
-- opens and prepares file for writing
-- iterates over modules in design
+There are two additions here for Rosette.  The first is that the output file
+needs to start with the ``#lang`` definition which tells the
+compiler/interpreter that we want to use the Rosette language module.  The
+second is that the `write_functional_rosette` command takes an optional
+argument, ``-provides``.  If this argument is given, then the output file gets
+an additional line declaring that everything in the file should be exported for
+use; allowing the file to be treated as a Racket package with structs and
+mapping function available for use externally.
+
+.. literalinclude:: /code_examples/functional/rosette.diff
+   :language: diff
+   :caption: relevant portion of diff of ``Backend::execute()`` method
+   :start-at: lang rosette/safe
+   :end-before: for (auto module
