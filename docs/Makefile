@@ -47,7 +47,7 @@ help:
 .PHONY: clean
 clean: clean-examples
 	rm -rf $(BUILDDIR)/*
-	rm -rf source/cmd util/__pycache__
+	rm -rf util/__pycache__
 	rm -rf source/generated
 	$(MAKE) -C source/_images clean
 
