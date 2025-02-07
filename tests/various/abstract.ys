@@ -17,6 +17,27 @@ check -assert
 
 design -reset
 read_verilog <<EOT
+
+module fff (CLK, DDD, QQQ, Q, magic);
+	input CLK;
+	input [2:0] DDD;
+	output reg [2:0] QQQ;
+	output reg Q;
+	input magic;
+	always @(posedge CLK)
+		QQQ <= DDD;
+	assign Q = QQQ[0];
+endmodule
+
+EOT
+proc
+# show -prefix before_wide
+abstract -state -enablen magic w:Q
+# show -prefix after_wide
+check -assert
+
+design -reset
+read_verilog <<EOT
 module half_clock_en (CLK, E, Q, magic);
 	input CLK;
 	input E;
