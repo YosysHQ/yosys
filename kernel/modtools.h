@@ -305,9 +305,10 @@ struct ModWalker
 	struct PortBit
 	{
 		RTLIL::Cell *cell;
+		RTLIL::IdString cell_name;
 		RTLIL::IdString port;
 		int offset;
-		PortBit(Cell* c, IdString p, int o) : cell(c), port(p), offset(o) {}
+		PortBit(Cell* c, IdString p, int o) : cell(c), cell_name(cell->name), port(p), offset(o) {}
 
 		bool operator<(const PortBit &other) const {
 			if (cell != other.cell)
@@ -322,7 +323,7 @@ struct ModWalker
 		}
 
 		[[nodiscard]] Hasher hash_into(Hasher h) const {
-			h.eat(cell->name);
+			h.eat(cell_name);
 			h.eat(port);
 			h.eat(offset);
 			return h;
