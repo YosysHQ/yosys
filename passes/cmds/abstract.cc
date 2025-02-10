@@ -11,9 +11,24 @@ struct EnableLogic {
 	bool pol;
 };
 
+void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_output, EnableLogic enable) {
+	auto anyseq = mod->Anyseq(NEW_ID, mux_input.size());
+	SigSpec mux_a, mux_b;
+	if (enable.pol) {
+		mux_a = mux_input;
+		mux_b = anyseq;
+	} else {
+		mux_a = anyseq;
+		mux_b = mux_input;
+	}
+	(void)mod->addMux(NEW_ID,
+		mux_a,
+		mux_b,
+		enable.wire,
+		mux_output);
+}
+
 bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, EnableLogic enable) {
-	// Construct abstract value
-	auto anyseq = ff.module->Anyseq(NEW_ID, offsets.size());
 	Wire* abstracted = ff.module->addWire(NEW_ID, offsets.size());
 	SigSpec mux_input;
 	int abstracted_idx = 0;
@@ -27,19 +42,7 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 			abstracted_idx++;
 		}
 	}
-	SigSpec mux_a, mux_b;
-	if (enable.pol) {
-		mux_a = mux_input;
-		mux_b = anyseq;
-	} else {
-		mux_a = anyseq;
-		mux_b = mux_input;
-	}
-	(void)ff.module->addMux(NEW_ID,
-		mux_a,
-		mux_b,
-		enable.wire,
-		abstracted);
+	emit_mux_anyseq(ff.module, mux_input, abstracted, enable);
 	(void)ff.emit();
 	return true;
 }
@@ -102,7 +105,6 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 }
 
 bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
-	auto anyseq = mod->Anyseq(NEW_ID, offsets.size());
 	Wire* to_abstract = mod->addWire(NEW_ID, offsets.size());
 	SigSpec mux_input;
 	SigSpec mux_output;
@@ -121,19 +123,7 @@ bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdStrin
 		}
 	}
 	cell->setPort(port_name, new_port);
-	SigSpec mux_a, mux_b;
-	if (enable.pol) {
-		mux_a = mux_input;
-		mux_b = anyseq;
-	} else {
-		mux_a = anyseq;
-		mux_b = mux_input;
-	}
-	(void)mod->addMux(NEW_ID,
-		mux_a,
-		mux_b,
-		enable.wire,
-		mux_output);
+	emit_mux_anyseq(mod, mux_input, mux_output, enable);
 	return true;
 }
 
