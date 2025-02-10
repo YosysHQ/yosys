@@ -171,23 +171,14 @@ unsigned int abstract_init(Module* mod) {
 	unsigned int changed = 0;
 	FfInitVals initvals;
 	SigMap sigmap(mod);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
 	initvals.set(&sigmap, mod);
-	for (auto wire : mod->selected_wires())
-		for (auto bit : SigSpec(wire)) {
-			// TODO these don't seem too informative
-			log_debug("Removing init bit on %s due to selected wire %s\n", log_signal(bit), wire->name.c_str());
-			initvals.remove_init(bit);
-			changed++;
-		}
-
-	for (auto cell : mod->selected_cells())
-		for (auto conn : cell->connections())
-			if (cell->output(conn.first))
-				for (auto bit : conn.second.bits()) {
-					log_debug("Removing init bit on %s due to selected cell %s\n", log_signal(bit), cell->name.c_str());
-					initvals.remove_init(bit);
-					changed++;
-				}
+	for (auto bit : selected_reps) {
+		log_debug("Removing init bit on %s due to selections:\n", log_signal(bit.first));
+		explain_selections(bit.second);
+		initvals.remove_init(bit.first);
+		changed++;
+	}
 	return changed;
 }
 
