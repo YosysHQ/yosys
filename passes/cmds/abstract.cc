@@ -240,23 +240,20 @@ struct AbstractPass : public Pass {
 				Wire *enable_wire = mod->wire("\\" + enable_name);
 				if (!enable_wire)
 					log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
-				if (mode == State) {
-					// for (auto cell : mod->selected_cells())
-					// 	if (ct.cell_types.count(cell->type))
+				if (mode == State)
 					changed += abstract_state(mod, {enable_wire, enable_pol});
-				} else {
+				else
 					changed += abstract_value(mod, {enable_wire, enable_pol});
-				}
 			}
 			if (mode == State)
-				log("Abstracted %d cells.\n", changed);
+				log("Abstracted %d stateful cells.\n", changed);
 			else
-				log("Abstracted %d values.\n", changed);
+				log("Abstracted %d driver ports.\n", changed);
 		} else if (mode == Initial) {
 			for (auto mod : design->selected_modules()) {
 				changed += abstract_init(mod);
 			}
-			log("Abstracted %d bits.\n", changed);
+			log("Abstracted %d init bits.\n", changed);
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
