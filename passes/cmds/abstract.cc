@@ -100,6 +100,42 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 	return changed;
 }
 
+bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
+	auto anyseq = mod->Anyseq(NEW_ID, offsets.size());
+	Wire* to_abstract = mod->addWire(NEW_ID, offsets.size());
+	SigSpec mux_input;
+	SigSpec mux_output;
+	const SigSpec& old_port = cell->getPort(port_name);
+	SigSpec new_port = old_port;
+	int to_abstract_idx = 0;
+	for (int port_idx = 0; port_idx < old_port.size(); port_idx++) {
+		if (offsets.count(port_idx)) {
+			log_debug("bit %d: abstracted\n", port_idx);
+			mux_output.append(old_port[port_idx]);
+			SigBit in_bit {to_abstract, to_abstract_idx};
+			new_port.replace(port_idx, in_bit);
+			mux_input.append(in_bit);
+			log_assert(to_abstract_idx < to_abstract->width);
+			to_abstract_idx++;
+		}
+	}
+	cell->setPort(port_name, new_port);
+	SigSpec mux_a, mux_b;
+	if (enable.pol) {
+		mux_a = mux_input;
+		mux_b = anyseq;
+	} else {
+		mux_a = anyseq;
+		mux_b = mux_input;
+	}
+	(void)mod->addMux(NEW_ID,
+		mux_a,
+		mux_b,
+		enable.wire,
+		mux_output);
+	return true;
+}
+
 unsigned int abstract_value(Module* mod, EnableLogic enable) {
 	SigMap sigmap(mod);
 	pool<SigBit> selected_representatives = gather_selected_reps(mod, sigmap);
@@ -117,39 +153,7 @@ unsigned int abstract_value(Module* mod, EnableLogic enable) {
 				if (offsets_to_abstract.empty())
 					continue;
 
-				auto anyseq = mod->Anyseq(NEW_ID, offsets_to_abstract.size());
-				Wire* to_abstract = mod->addWire(NEW_ID, offsets_to_abstract.size());
-				SigSpec mux_input;
-				SigSpec mux_output;
-				SigSpec new_port = conn.second;
-				int to_abstract_idx = 0;
-				for (int port_idx = 0; port_idx < conn.second.size(); port_idx++) {
-					if (offsets_to_abstract.count(port_idx)) {
-						log_debug("bit %d: abstracted\n", port_idx);
-						mux_output.append(conn.second[port_idx]);
-						SigBit in_bit {to_abstract, to_abstract_idx};
-						new_port.replace(port_idx, in_bit);
-						conn.second[port_idx] = {mod->addWire(NEW_ID, 1), 0};
-						mux_input.append(in_bit);
-						log_assert(to_abstract_idx < to_abstract->width);
-						to_abstract_idx++;
-					}
-				}
-				cell->setPort(conn.first, new_port);
-				SigSpec mux_a, mux_b;
-				if (enable.pol) {
-					mux_a = mux_input;
-					mux_b = anyseq;
-				} else {
-					mux_a = anyseq;
-					mux_b = mux_input;
-				}
-				(void)mod->addMux(NEW_ID,
-					mux_a,
-					mux_b,
-					enable.wire,
-					mux_output);
-				changed++;
+				changed += abstract_value_port(mod, cell, offsets_to_abstract, conn.first, enable);
 			}
 	}
 	return changed;
