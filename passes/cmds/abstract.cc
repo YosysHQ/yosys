@@ -2,6 +2,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/ff.h"
 #include "kernel/ffinit.h"
+#include <variant>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -47,28 +48,40 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 	return true;
 }
 
-pool<SigBit> gather_selected_reps(Module* mod, SigMap& sigmap) {
-	pool<SigBit> selected_representatives;
+using SelReason=std::variant<Wire*, Cell*>;
+dict<SigBit, std::vector<SelReason>> gather_selected_reps(Module* mod, SigMap& sigmap) {
+	dict<SigBit, std::vector<SelReason>> selected_reps;
 
 	// Collect reps for all wire bits of selected wires
 	for (auto wire : mod->selected_wires())
 		for (auto bit : sigmap(wire))
-			selected_representatives.insert(bit);
+			selected_reps.insert(bit).first->second.push_back(wire);
 
 	// Collect reps for all output wire bits of selected cells
 	for (auto cell : mod->selected_cells())
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
 				for (auto bit : conn.second.bits())
-					selected_representatives.insert(sigmap(bit));
-	return selected_representatives;
+					selected_reps.insert(sigmap(bit)).first->second.push_back(cell);
+	return selected_reps;
+}
+
+void explain_selections(const std::vector<SelReason>& reasons) {
+	for (std::variant<Wire*, Cell*> reason : reasons) {
+		if (Cell** cell_reason = std::get_if<Cell*>(&reason))
+			log_debug("\tcell %s\n", (*cell_reason)->name.c_str());
+		else if (Wire** wire_reason = std::get_if<Wire*>(&reason))
+			log_debug("\twire %s\n", (*wire_reason)->name.c_str());
+		else
+			log_assert(false && "insane reason variant\n");
+	}
 }
 
 unsigned int abstract_state(Module* mod, EnableLogic enable) {
 	CellTypes ct;
 	ct.setup_internals_ff();
 	SigMap sigmap(mod);
-	pool<SigBit> selected_representatives = gather_selected_reps(mod, sigmap);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
 
 	unsigned int changed = 0;
 	std::vector<FfData> ffs;
@@ -85,8 +98,11 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 		// A bit inefficient
 		std::set<int> offsets_to_abstract;
 		for (auto bit : ff.sig_q)
-			if (selected_representatives.count(sigmap(bit)))
+			if (selected_reps.count(sigmap(bit))) {
+				log_debug("Abstracting state for bit %s due to selections:\n", log_signal(bit));
+				explain_selections(selected_reps.at(sigmap(bit)));
 				offsets_to_abstract.insert(bit.offset);
+			}
 
 		if (offsets_to_abstract.empty())
 			continue;
@@ -129,7 +145,7 @@ bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdStrin
 
 unsigned int abstract_value(Module* mod, EnableLogic enable) {
 	SigMap sigmap(mod);
-	pool<SigBit> selected_representatives = gather_selected_reps(mod, sigmap);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
@@ -137,7 +153,9 @@ unsigned int abstract_value(Module* mod, EnableLogic enable) {
 			if (cell->output(conn.first)) {
 				std::set<int> offsets_to_abstract;
 				for (int i = 0; i < conn.second.size(); i++) {
-					if (selected_representatives.count(sigmap(conn.second[i]))) {
+					if (selected_reps.count(sigmap(conn.second[i]))) {
+						log_debug("Abstracting value for bit %s due to selections:\n", log_signal(conn.second[i]));
+						explain_selections(selected_reps.at(sigmap(conn.second[i])));
 						offsets_to_abstract.insert(i);
 					}
 				}
