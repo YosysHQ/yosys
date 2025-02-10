@@ -35,7 +35,6 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 	int abstracted_idx = 0;
 	for (int d_idx = 0; d_idx < ff.width; d_idx++) {
 		if (offsets.count(d_idx)) {
-			log_debug("bit %d: abstracted\n", d_idx);
 			mux_input.append(port_sig[d_idx]);
 			port_sig[d_idx].wire = abstracted;
 			port_sig[d_idx].offset = abstracted_idx;
@@ -49,6 +48,7 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 }
 
 using SelReason=std::variant<Wire*, Cell*>;
+
 dict<SigBit, std::vector<SelReason>> gather_selected_reps(Module* mod, SigMap& sigmap) {
 	dict<SigBit, std::vector<SelReason>> selected_reps;
 
@@ -129,7 +129,6 @@ bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdStrin
 	int to_abstract_idx = 0;
 	for (int port_idx = 0; port_idx < old_port.size(); port_idx++) {
 		if (offsets.count(port_idx)) {
-			log_debug("bit %d: abstracted\n", port_idx);
 			mux_output.append(old_port[port_idx]);
 			SigBit in_bit {to_abstract, to_abstract_idx};
 			new_port.replace(port_idx, in_bit);
@@ -178,6 +177,7 @@ unsigned int abstract_init(Module* mod) {
 			// TODO these don't seem too informative
 			log_debug("Removing init bit on %s due to selected wire %s\n", log_signal(bit), wire->name.c_str());
 			initvals.remove_init(bit);
+			changed++;
 		}
 
 	for (auto cell : mod->selected_cells())
@@ -186,6 +186,7 @@ unsigned int abstract_init(Module* mod) {
 				for (auto bit : conn.second.bits()) {
 					log_debug("Removing init bit on %s due to selected cell %s\n", log_signal(bit), cell->name.c_str());
 					initvals.remove_init(bit);
+					changed++;
 				}
 	return changed;
 }
@@ -245,7 +246,6 @@ struct AbstractPass : public Pass {
 			if (!enable_name.length())
 				log_cmd_error("Unspecified enable wire\n");
 			for (auto mod : design->selected_modules()) {
-				log_debug("module %s\n", mod->name.c_str());
 				Wire *enable_wire = mod->wire("\\" + enable_name);
 				if (!enable_wire)
 					log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
