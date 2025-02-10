@@ -1,6 +1,7 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/ff.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -160,22 +161,24 @@ unsigned int abstract_value(Module* mod, EnableLogic enable) {
 }
 
 unsigned int abstract_init(Module* mod) {
-	// AbstractPortCtx ctx {mod, SigMap(mod), {}};
-	// collect_selected_ports(ctx);
-
 	unsigned int changed = 0;
+	FfInitVals initvals;
+	SigMap sigmap(mod);
+	initvals.set(&sigmap, mod);
+	for (auto wire : mod->selected_wires())
+		for (auto bit : SigSpec(wire)) {
+			// TODO these don't seem too informative
+			log_debug("Removing init bit on %s due to selected wire %s\n", log_signal(bit), wire->name.c_str());
+			initvals.remove_init(bit);
+		}
 
-	// for (auto [cell, port] : ctx.outs) {
-	// 	SigSpec sig = cell->getPort(port);
-	// 	log_assert(sig.is_wire());
-	// 	if (!sig.as_wire()->has_attribute(ID::init))
-	// 		continue;
-
-	// 	Const init = sig.as_wire()->attributes.at(ID::init);
-	// 	sig.as_wire()->attributes.erase(ID::init);
-	// 	changed += sig.size();
-	// }
-	log_cmd_error("Not implemented\n"); (void)mod;
+	for (auto cell : mod->selected_cells())
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first))
+				for (auto bit : conn.second.bits()) {
+					log_debug("Removing init bit on %s due to selected cell %s\n", log_signal(bit), cell->name.c_str());
+					initvals.remove_init(bit);
+				}
 	return changed;
 }
 
