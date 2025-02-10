@@ -100,71 +100,78 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 	return changed;
 }
 
-struct AbstractPortCtx {
-	Module* mod;
-	SigMap sigmap;
-	pool<std::pair<Cell*, IdString>> outs;
-};
-
-void collect_selected_ports(AbstractPortCtx& ctx) {
-	for (Cell* cell : ctx.mod->cells()) {
-		for (auto& conn : cell->connections()) {
-			// we bufnorm
-			log_assert(conn.second.is_wire() || conn.second.is_fully_const());
-			if (conn.second.is_wire() && cell->output(conn.first))
-				if (ctx.mod->selected(cell) || ctx.mod->selected(conn.second.as_wire()))
-					ctx.outs.insert(std::make_pair(cell, conn.first));
-		}
-	}
-}
-
 unsigned int abstract_value(Module* mod, EnableLogic enable) {
-	AbstractPortCtx ctx {mod, SigMap(mod), {}};
-	collect_selected_ports(ctx);
+	SigMap sigmap(mod);
+	pool<SigBit> selected_representatives = gather_selected_reps(mod, sigmap);
 	unsigned int changed = 0;
-	for (auto [cell, port] : ctx.outs) {
-		SigSpec sig = cell->getPort(port);
-		log_assert(sig.is_wire());
-		Wire* original = mod->addWire(NEW_ID, sig.size());
-		cell->setPort(port, original);
-		auto anyseq = mod->Anyseq(NEW_ID, sig.size());
-		// This code differs from abstract_state
-		// in that we reuse the original signal as the mux output,
-		// not input
-		SigSpec mux_a, mux_b;
-		if (enable.pol) {
-			mux_a = original;
-			mux_b = anyseq;
-		} else {
-			mux_a = anyseq;
-			mux_b = original;
-		}
-		(void)mod->addMux(NEW_ID,
-			mux_a,
-			mux_b,
-			enable.wire,
-			sig);
-		changed++;
+	std::vector<Cell*> cells_snapshot = mod->cells();
+	for (auto cell : cells_snapshot) {
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first)) {
+				std::set<int> offsets_to_abstract;
+				for (int i = 0; i < conn.second.size(); i++) {
+					if (selected_representatives.count(sigmap(conn.second[i]))) {
+						offsets_to_abstract.insert(i);
+					}
+				}
+				if (offsets_to_abstract.empty())
+					continue;
+
+				auto anyseq = mod->Anyseq(NEW_ID, offsets_to_abstract.size());
+				Wire* to_abstract = mod->addWire(NEW_ID, offsets_to_abstract.size());
+				SigSpec mux_input;
+				SigSpec mux_output;
+				SigSpec new_port = conn.second;
+				int to_abstract_idx = 0;
+				for (int port_idx = 0; port_idx < conn.second.size(); port_idx++) {
+					if (offsets_to_abstract.count(port_idx)) {
+						log_debug("bit %d: abstracted\n", port_idx);
+						mux_output.append(conn.second[port_idx]);
+						SigBit in_bit {to_abstract, to_abstract_idx};
+						new_port.replace(port_idx, in_bit);
+						conn.second[port_idx] = {mod->addWire(NEW_ID, 1), 0};
+						mux_input.append(in_bit);
+						log_assert(to_abstract_idx < to_abstract->width);
+						to_abstract_idx++;
+					}
+				}
+				cell->setPort(conn.first, new_port);
+				SigSpec mux_a, mux_b;
+				if (enable.pol) {
+					mux_a = mux_input;
+					mux_b = anyseq;
+				} else {
+					mux_a = anyseq;
+					mux_b = mux_input;
+				}
+				(void)mod->addMux(NEW_ID,
+					mux_a,
+					mux_b,
+					enable.wire,
+					mux_output);
+				changed++;
+			}
 	}
 	return changed;
 }
 
 unsigned int abstract_init(Module* mod) {
-	AbstractPortCtx ctx {mod, SigMap(mod), {}};
-	collect_selected_ports(ctx);
+	// AbstractPortCtx ctx {mod, SigMap(mod), {}};
+	// collect_selected_ports(ctx);
 
 	unsigned int changed = 0;
 
-	for (auto [cell, port] : ctx.outs) {
-		SigSpec sig = cell->getPort(port);
-		log_assert(sig.is_wire());
-		if (!sig.as_wire()->has_attribute(ID::init))
-			continue;
+	// for (auto [cell, port] : ctx.outs) {
+	// 	SigSpec sig = cell->getPort(port);
+	// 	log_assert(sig.is_wire());
+	// 	if (!sig.as_wire()->has_attribute(ID::init))
+	// 		continue;
 
-		Const init = sig.as_wire()->attributes.at(ID::init);
-		sig.as_wire()->attributes.erase(ID::init);
-		changed += sig.size();
-	}
+	// 	Const init = sig.as_wire()->attributes.at(ID::init);
+	// 	sig.as_wire()->attributes.erase(ID::init);
+	// 	changed += sig.size();
+	// }
+	log_cmd_error("Not implemented\n"); (void)mod;
 	return changed;
 }
 
@@ -217,8 +224,6 @@ struct AbstractPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (mode != State)
-			design->bufNormalize(true);
 
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
@@ -249,8 +254,6 @@ struct AbstractPass : public Pass {
 		} else {
 			log_cmd_error("No mode selected, see help message\n");
 		}
-		if (mode != State)
-			design->bufNormalize(false);
 	}
 } AbstractPass;
 
