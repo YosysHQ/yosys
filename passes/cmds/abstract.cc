@@ -43,10 +43,7 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 	return true;
 }
 
-unsigned int abstract_state(Module* mod, EnableLogic enable) {
-	CellTypes ct;
-	ct.setup_internals_ff();
-	SigMap sigmap(mod);
+pool<SigBit> gather_selected_reps(Module* mod, SigMap& sigmap) {
 	pool<SigBit> selected_representatives;
 
 	// Collect reps for all wire bits of selected wires
@@ -60,6 +57,14 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 			if (cell->output(conn.first))
 				for (auto bit : conn.second.bits())
 					selected_representatives.insert(sigmap(bit));
+	return selected_representatives;
+}
+
+unsigned int abstract_state(Module* mod, EnableLogic enable) {
+	CellTypes ct;
+	ct.setup_internals_ff();
+	SigMap sigmap(mod);
+	pool<SigBit> selected_representatives = gather_selected_reps(mod, sigmap);
 
 	unsigned int changed = 0;
 	std::vector<FfData> ffs;
