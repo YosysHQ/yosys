@@ -87,7 +87,7 @@ struct ShareWorker
 			queue_bits.clear();
 
 			for (auto &pbit : portbits) {
-				if (pbit.cell->type == ID($mux) || pbit.cell->type == ID($pmux)) {
+				if ((pbit.cell->type == ID($mux) || pbit.cell->type == ID($pmux)) && visited_cells.count(pbit.cell) == 0) {
 					pool<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->getPort(ID::S)).to_sigbit_pool();
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
