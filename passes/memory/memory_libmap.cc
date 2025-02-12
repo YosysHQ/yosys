@@ -2258,6 +2258,8 @@ struct MemoryLibMapPass : public Pass {
 					log("using FF mapping for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
 				} else {
 					map.emit(map.cfgs[idx]);
+					// Rebuild indices after modifying module
+					worker = MapWorker(module);
 				}
 			}
 		}
