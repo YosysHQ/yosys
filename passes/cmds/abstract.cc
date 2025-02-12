@@ -8,12 +8,15 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct EnableLogic {
-	Wire* wire;
+	SigBit bit;
 	bool pol;
 };
 
 void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_output, EnableLogic enable) {
 	auto anyseq = mod->Anyseq(NEW_ID, mux_input.size());
+	if (enable.bit == (enable.pol ? State::S1 : State::S0)) {
+		mod->connect(mux_output, anyseq);
+	}
 	SigSpec mux_a, mux_b;
 	if (enable.pol) {
 		mux_a = mux_input;
@@ -25,7 +28,7 @@ void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_o
 	(void)mod->addMux(NEW_ID,
 		mux_a,
 		mux_b,
-		enable.wire,
+		enable.bit,
 		mux_output);
 }
 
@@ -201,9 +204,14 @@ struct AbstractPass : public Pass {
 			Initial,
 			Value,
 		};
-		Mode mode;
+		Mode mode = Mode::None;
+		enum Enable {
+			Always = -1,
+			ActiveLow = false, // ensuring we can use bool(enable)
+			ActiveHigh = true,
+		};
+		Enable enable = Enable::Always;
 		std::string enable_name;
-		bool enable_pol; // true is high
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
@@ -219,33 +227,49 @@ struct AbstractPass : public Pass {
 				mode = Value;
 				continue;
 			}
-			if (arg == "-enable") {
+			if (arg == "-enable" && argidx + 1 < args.size()) {
+				if (enable != Enable::Always)
+					log_cmd_error("Multiple enable condition are not supported\n");
 				enable_name = args[++argidx];
-				enable_pol = true;
+				enable = Enable::ActiveHigh;
 				continue;
 			}
-			if (arg == "-enablen") {
+			if (arg == "-enablen" && argidx + 1 < args.size()) {
+				if (enable != Enable::Always)
+					log_cmd_error("Multiple enable condition are not supported\n");
 				enable_name = args[++argidx];
-				enable_pol = false;
+				enable = Enable::ActiveLow;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
+		if (enable != Enable::Always) {
+			if (mode == Mode::Initial)
+				log_cmd_error("Conditional initial value abstraction is not supported\n");
+
+			if (enable_name.empty())
+				log_cmd_error("Unspecified enable wire\n");
+		}
 
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
-			if (!enable_name.length())
-				log_cmd_error("Unspecified enable wire\n");
 			for (auto mod : design->selected_modules()) {
-				Wire *enable_wire = mod->wire("\\" + enable_name);
-				if (!enable_wire)
-					log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
+				EnableLogic enable_logic = { State::S1, true };
+				if (enable != Enable::Always) {
+					Wire *enable_wire = mod->wire("\\" + enable_name);
+					if (!enable_wire)
+						log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
+					if (GetSize(enable_wire) != 1)
+						log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
+								enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());
+					enable_logic = { enable_wire, enable == Enable::ActiveHigh };
+				}
 				if (mode == State)
-					changed += abstract_state(mod, {enable_wire, enable_pol});
+					changed += abstract_state(mod, enable_logic);
 				else
-					changed += abstract_value(mod, {enable_wire, enable_pol});
+					changed += abstract_value(mod, enable_logic);
 			}
 			if (mode == State)
 				log("Abstracted %d stateful cells.\n", changed);
