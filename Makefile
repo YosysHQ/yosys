@@ -651,6 +651,9 @@ OBJS += libs/fst/fastlz.o
 OBJS += libs/fst/lz4.o
 endif
 
+techlibs/%_pm.h: passes/pmgen/pmgen.py techlibs/%.pmg
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(notdir $*) $(filter-out $<,$^)
+
 ifneq ($(SMALL),1)
 
 OBJS += libs/subcircuit/subcircuit.o

@@ -25,10 +25,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/xilinx_dsp_pm.h"
-#include "passes/pmgen/xilinx_dsp48a_pm.h"
-#include "passes/pmgen/xilinx_dsp_CREG_pm.h"
-#include "passes/pmgen/xilinx_dsp_cascade_pm.h"
+#include "techlibs/xilinx/xilinx_dsp_pm.h"
+#include "techlibs/xilinx/xilinx_dsp48a_pm.h"
+#include "techlibs/xilinx/xilinx_dsp_CREG_pm.h"
+#include "techlibs/xilinx/xilinx_dsp_cascade_pm.h"
 
 static Cell* addDsp(Module *module) {
 	Cell *cell = module->addCell(NEW_ID, ID(DSP48E1));
