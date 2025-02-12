@@ -538,6 +538,12 @@ struct FormalFfPass : public Pass {
 		log("        Add assumptions that constrain wires with the 'replaced_by_gclk'\n");
 		log("        attribute to the value they would have before an active clock edge.\n");
 		log("\n");
+		log("    -declockgate\n");
+		log("        Detect clock-gating patterns and modify any FFs clocked by the gated\n");
+		log("        clock to use the ungated clock with the gate signal as clock enable.\n");
+		log("        This doesn't affect the design's behavior during FV but can enable the\n");
+		log("        use of formal verification methods that only support a single global\n");
+		log("        clock.\n");
 
 		// TODO: An option to check whether all FFs use the same clock before changing it to the global clock
 	}
