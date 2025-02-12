@@ -3,6 +3,7 @@
 #include "kernel/ff.h"
 #include "kernel/ffinit.h"
 #include <variant>
+#include <charconv>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -10,6 +11,74 @@ PRIVATE_NAMESPACE_BEGIN
 struct EnableLogic {
 	SigBit bit;
 	bool pol;
+};
+
+enum SliceIndices {
+	RtlilSlice,
+	HdlSlice,
+};
+
+struct Slice {
+	SliceIndices indices;
+	int first;
+	int last;
+
+	Slice(SliceIndices indices, const std::string &slice) :
+		indices(indices)
+	{
+		if (slice.empty())
+			syntax_error(slice);
+		auto sep = slice.find(':');
+		const char *first_begin, *first_end, *last_begin, *last_end;
+		if (sep == std::string::npos) {
+			first_begin = last_begin = slice.c_str();
+			first_end = last_end = slice.c_str() + slice.length();
+		} else {
+			first_begin = slice.c_str();
+			first_end = first_begin + sep;
+
+			last_begin = first_end + 1;
+			last_end = slice.c_str() + slice.length();
+		}
+		first = parse_index(first_begin, first_end, slice);
+		last = parse_index(last_begin, last_end, slice);
+	}
+
+	static int parse_index(const char *begin, const char *end, const std::string &slice) {
+		int value;
+		auto result = std::from_chars(begin, end, value, 10);
+        if (result.ptr != end || result.ptr == begin)
+			syntax_error(slice);
+		return value;
+	}
+
+	static void syntax_error(const std::string &slice) {
+		log_cmd_error("Invalid slice '%s', expected '<first>:<last>' or '<single>'", slice.c_str());
+	}
+
+	std::string to_string() const {
+		const char *option = indices == RtlilSlice ? "-rawslice" : "-slice";
+		if (first == last)
+			return stringf("%s %d", option, first);
+		else
+			return stringf("%s %d:%d", option, first, last);
+	}
+
+	int wire_offset(RTLIL::Wire *wire, int index) const {
+		int rtl_offset = indices == RtlilSlice ? index : wire->from_hdl_index(index);
+		if (rtl_offset < 0 || rtl_offset >= wire->width) {
+			log_error("Slice %s is out of bounds for wire %s in module %s", to_string().c_str(), log_id(wire), log_id(wire->module));
+		}
+		return rtl_offset;
+	}
+
+	std::pair<int, int> wire_range(RTLIL::Wire *wire) const {
+		int rtl_first = wire_offset(wire, first);
+		int rtl_last = wire_offset(wire, last);
+		if (rtl_first > rtl_last)
+			std::swap(rtl_first, rtl_last);
+		return {rtl_first, rtl_last + 1};
+	}
 };
 
 void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_output, EnableLogic enable) {
@@ -52,20 +121,35 @@ bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, E
 
 using SelReason=std::variant<Wire*, Cell*>;
 
-dict<SigBit, std::vector<SelReason>> gather_selected_reps(Module* mod, SigMap& sigmap) {
+dict<SigBit, std::vector<SelReason>> gather_selected_reps(Module* mod, const std::vector<Slice> &slices, SigMap& sigmap) {
 	dict<SigBit, std::vector<SelReason>> selected_reps;
 
-	// Collect reps for all wire bits of selected wires
-	for (auto wire : mod->selected_wires())
-		for (auto bit : sigmap(wire))
-			selected_reps.insert(bit).first->second.push_back(wire);
+	if (slices.empty()) {
+		// Collect reps for all wire bits of selected wires
+		for (auto wire : mod->selected_wires())
+			for (auto bit : sigmap(wire))
+				selected_reps.insert(bit).first->second.push_back(wire);
 
-	// Collect reps for all output wire bits of selected cells
-	for (auto cell : mod->selected_cells())
-		for (auto conn : cell->connections())
-			if (cell->output(conn.first))
-				for (auto bit : conn.second.bits())
-					selected_reps.insert(sigmap(bit)).first->second.push_back(cell);
+		// Collect reps for all output wire bits of selected cells
+		for (auto cell : mod->selected_cells())
+			for (auto conn : cell->connections())
+				if (cell->output(conn.first))
+					for (auto bit : conn.second.bits())
+						selected_reps.insert(sigmap(bit)).first->second.push_back(cell);
+	} else {
+		if (mod->selected_wires().size() != 1 || !mod->selected_cells().empty())
+			log_error("Slices are only supported for single-wire selections\n");
+
+		auto wire = mod->selected_wires()[0];
+
+		for (auto slice : slices) {
+			auto [begin, end] = slice.wire_range(wire);
+			for (int i = begin; i < end; i++) {
+				selected_reps.insert(sigmap(SigBit(wire, i))).first->second.push_back(wire);
+			}
+		}
+
+	}
 	return selected_reps;
 }
 
@@ -80,11 +164,11 @@ void explain_selections(const std::vector<SelReason>& reasons) {
 	}
 }
 
-unsigned int abstract_state(Module* mod, EnableLogic enable) {
+unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<Slice> &slices) {
 	CellTypes ct;
 	ct.setup_internals_ff();
 	SigMap sigmap(mod);
-	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, slices, sigmap);
 
 	unsigned int changed = 0;
 	std::vector<FfData> ffs;
@@ -147,9 +231,9 @@ bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdStrin
 	return true;
 }
 
-unsigned int abstract_value(Module* mod, EnableLogic enable) {
+unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<Slice> &slices) {
 	SigMap sigmap(mod);
-	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, slices, sigmap);
 	unsigned int changed = 0;
 	std::vector<Cell*> cells_snapshot = mod->cells();
 	for (auto cell : cells_snapshot) {
@@ -172,11 +256,11 @@ unsigned int abstract_value(Module* mod, EnableLogic enable) {
 	return changed;
 }
 
-unsigned int abstract_init(Module* mod) {
+unsigned int abstract_init(Module* mod, const std::vector<Slice> &slices) {
 	unsigned int changed = 0;
 	FfInitVals initvals;
 	SigMap sigmap(mod);
-	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, sigmap);
+	dict<SigBit, std::vector<SelReason>> selected_reps = gather_selected_reps(mod, slices, sigmap);
 	initvals.set(&sigmap, mod);
 	for (auto bit : selected_reps) {
 		log_debug("Removing init bit on %s due to selections:\n", log_signal(bit.first));
@@ -212,6 +296,7 @@ struct AbstractPass : public Pass {
 		};
 		Enable enable = Enable::Always;
 		std::string enable_name;
+		std::vector<Slice> slices;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
@@ -241,6 +326,14 @@ struct AbstractPass : public Pass {
 				enable = Enable::ActiveLow;
 				continue;
 			}
+			if (arg == "-slice" && argidx + 1 < args.size()) {
+				slices.emplace_back(SliceIndices::HdlSlice, args[++argidx]);
+				continue;
+			}
+			if (arg == "-rtlilslice" && argidx + 1 < args.size()) {
+				slices.emplace_back(SliceIndices::RtlilSlice, args[++argidx]);
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -267,9 +360,9 @@ struct AbstractPass : public Pass {
 					enable_logic = { enable_wire, enable == Enable::ActiveHigh };
 				}
 				if (mode == State)
-					changed += abstract_state(mod, enable_logic);
+					changed += abstract_state(mod, enable_logic, slices);
 				else
-					changed += abstract_value(mod, enable_logic);
+					changed += abstract_value(mod, enable_logic, slices);
 			}
 			if (mode == State)
 				log("Abstracted %d stateful cells.\n", changed);
@@ -277,7 +370,7 @@ struct AbstractPass : public Pass {
 				log("Abstracted %d driver ports.\n", changed);
 		} else if (mode == Initial) {
 			for (auto mod : design->selected_modules()) {
-				changed += abstract_init(mod);
+				changed += abstract_init(mod, slices);
 			}
 			log("Abstracted %d init bits.\n", changed);
 		} else {
