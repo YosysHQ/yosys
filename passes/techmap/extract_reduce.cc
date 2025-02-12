@@ -29,7 +29,8 @@ struct ExtractReducePass : public Pass
 	enum GateType {
 		And,
 		Or,
-		Xor
+		Xor,
+		Xnor
 	};
 
 	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
@@ -60,7 +61,12 @@ struct ExtractReducePass : public Pass
 	{
 		return (cell->type == ID($_AND_) && gt == GateType::And) ||
 				(cell->type == ID($_OR_) && gt == GateType::Or) ||
-				(cell->type == ID($_XOR_) && gt == GateType::Xor);
+				(cell->type == ID($_XOR_) && gt == GateType::Xor) ||
+				(cell->type == ID($_XNOR_) && gt == GateType::Xnor) ||
+				(cell->type == ID($and) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::And) ||
+				(cell->type == ID($or) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Or) ||
+				(cell->type == ID($xor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Xor) ||
+				(cell->type == ID($xnor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Xnor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -130,6 +136,16 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == ID($_XOR_))
 					gt = GateType::Xor;
+				else if (cell->type == ID($_XNOR_))
+					gt = GateType::Xnor;
+				else if (cell->type == ID($and) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+					gt = GateType::And;
+				else if (cell->type == ID($or) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+					gt = GateType::Or;
+				else if (cell->type == ID($xor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+					gt = GateType::Xor;
+				else if (cell->type == ID($xnor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+					gt = GateType::Xnor;
 				else
 					continue;
 
@@ -269,12 +285,14 @@ struct ExtractReducePass : public Pass
 								input.append(it.first);
 						}
 
-						if (head_cell->type == ID($_AND_)) {
+						if (head_cell->type == ID($_AND_) || head_cell->type == ID($and)) {
 							module->addReduceAnd(NEW_ID2_SUFFIX("reduce_and"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_OR_)) {
+						} else if (head_cell->type == ID($_OR_) || head_cell->type == ID($or)) {
 							module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_XOR_)) {
+						} else if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor)) {
 							module->addReduceXor(NEW_ID2_SUFFIX("reduce_xor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						} else if (head_cell->type == ID($_XNOR_) || head_cell->type == ID($xnor)) {
+							module->addReduceXnor(NEW_ID2_SUFFIX("reduce_xnor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else {
 							log_assert(false);
 						}
