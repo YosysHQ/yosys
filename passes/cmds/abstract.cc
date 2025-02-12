@@ -97,12 +97,14 @@ unsigned int abstract_state(Module* mod, EnableLogic enable) {
 	for (auto ff : ffs) {
 		// A bit inefficient
 		std::set<int> offsets_to_abstract;
-		for (auto bit : ff.sig_q)
+		for (int i = 0; i < GetSize(ff.sig_q); i++) {
+			SigBit bit = ff.sig_q[i];
 			if (selected_reps.count(sigmap(bit))) {
 				log_debug("Abstracting state for bit %s due to selections:\n", log_signal(bit));
 				explain_selections(selected_reps.at(sigmap(bit)));
-				offsets_to_abstract.insert(bit.offset);
+				offsets_to_abstract.insert(i);
 			}
+		}
 
 		if (offsets_to_abstract.empty())
 			continue;
