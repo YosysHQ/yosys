@@ -1,0 +1,1 @@
+namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str="Yosys @YOSYS_VER@ (@YOSYS_GIT_VERSION@@CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@)"; }
