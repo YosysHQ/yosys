@@ -1,6 +1,7 @@
 name: Build and run tests
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
 
 jobs:
   pre_job:

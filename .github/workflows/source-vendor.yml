@@ -1,6 +1,7 @@
 name: Create source archive with vendored dependencies
 
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   vendor-sources:

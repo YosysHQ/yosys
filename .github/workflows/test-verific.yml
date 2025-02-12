@@ -1,6 +1,7 @@
 name: Build and run tests with Verific (Linux)
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
 
 jobs:
   pre-job:
