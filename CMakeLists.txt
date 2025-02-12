@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.13)
+project(yosys LANGUAGES CXX C)
+set(YOSYS_VER "0.50+1")
+
+include(CheckCXXCompilerFlag)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+find_package(FLEX 2.6 REQUIRED)
+find_package(BISON 3.0 REQUIRED)
+find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
+
+add_executable(yosys)
+#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+#target_compile_definitions(yosys PRIVATE _YOSYS_)
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+add_compile_definitions(_YOSYS_)
+
+add_subdirectory(kernel)
+add_subdirectory(libs)
+add_subdirectory(frontends/aiger)
+add_subdirectory(frontends/aiger2)
+add_subdirectory(frontends/ast)
+add_subdirectory(frontends/blif)
+add_subdirectory(frontends/json)
+add_subdirectory(frontends/liberty)
+add_subdirectory(frontends/rpc)
+add_subdirectory(frontends/rtlil)
+add_subdirectory(frontends/verilog)
+add_subdirectory(backends/rtlil)
+add_subdirectory(backends/edif)
+add_subdirectory(passes/cmds)
+add_subdirectory(passes/techmap)
+add_subdirectory(techlibs/common)
+
+target_link_libraries(yosys PRIVATE z)
