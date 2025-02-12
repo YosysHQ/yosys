@@ -276,10 +276,74 @@ unsigned int abstract_init(Module* mod, const std::vector<Slice> &slices) {
 }
 
 struct AbstractPass : public Pass {
-	AbstractPass() : Pass("abstract", "extract clock gating out of flip flops") { }
+	AbstractPass() : Pass("abstract", "replace signals with abstract values during formal verification") { }
 	void help() override {
-		// TODO
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    abstract [mode] [options] [selection]\n");
+		log("\n");
+		log("Perform abstraction of signals within the design. Abstraction replaces a signal\n");
+		log("with an unconstrained abstract value that can take an arbitrary concrete value\n");
+		log("during formal verification. The mode and options control when a signal should\n");
+		log("be abstracted and how it should affect FFs present in the design.\n");
+		log("\n");
+		log("Modes:");
+		log("\n");
+		log("    -state\n");
+		log("        The selected FFs will be modified to load a new abstract value on every\n");
+		log("        active clock edge, async reset or async load. This is independent of any\n");
+		log("        clock enable that may be present on the FF cell. Conditional abstraction\n");
+		log("        is supported with the -enable/-enabeln options. If present, the condition\n");
+		log("        is sampled at the same time as the FF would smaple the correspnding data\n");
+		log("        or async-data input whose value will be replaced with an abstract value.\n");
+		log("\n");
+		log("        The selection can be used to specify which state bits to abstract. For\n");
+		log("        each selected wire, any state bits that the wire is driven by will be\n");
+		log("        abstracted. For a selected FF cell, all of its state is abstracted.\n");
+		log("        Individual bits of a single wire can be abtracted using the -slice and\n");
+		log("        -rtlilslice options.\n");
+		log("\n");
+		log("    -init\n");
+		log("        The selected FFs will be modified to have an abstract initial value.\n");
+		log("        The -enable/-enablen options are not supported in this mode.\n");
+		log("        \n");
+		log("        The selection is used in the same way as it is for the -state mode.\n");
+		log("\n");
+		log("    -value\n");
+		log("        The drivers of the selected signals will be replaced with an abstract\n");
+		log("        value. In this mode, the abstract value can change at any time and is\n");
+		log("        not synchronized to any clock or other signal. Conditional abstraction\n");
+		log("        is supported with the -enable/-enablen options. The condition will\n");
+		log("        combinationally select between the original driver and the abstract\n");
+		log("        value.\n");
+		log("\n");
+		log("        The selection can be used to specify which output bits of which drivers\n");
+		log("        to abtract. For a selected cell, all its output bits will be abstracted.\n");
+		log("        For a selected wire, every output bit that is driving the wire will be\n");
+		log("        abstracted. Individual bits of a single wire can be abstracted using the\n");
+		log("        -slice and -rtlilslice options.\n");
+		log("\n");
+		log("    -enable <wire-name>\n");
+		log("    -enablen <wire-name>\n");
+		log("        Perform conditional abstraction with a named single bit wire as\n");
+		log("        condition. For -enable the wire is used as an active-high condition and\n");
+		log("        for -enablen as an active-low condition. See the description of the\n");
+		log("        -state and -value modes for details on how the condition affects the\n");
+		log("        abstractions performed by either mode. This option is not supported in\n");
+		log("        the -init mode.\n");
+		log("\n");
+		log("    -slice <lhs>:<rhs>\n");
+		log("    -slice <index>\n");
+		log("    -rtlilslice <lhs>:<rhs>\n");
+		log("    -rtlilslice <index>\n");
+		log("        Limit the abstraction to a slice of a single selected wire. The targeted\n");
+		log("        bits of the wire can be given as an inclusive range of indices or as a\n");
+		log("        single index. When using the -slice option, the indices are interpreted\n");
+		log("        following the source level declaration of the wire. This means the\n");
+		log("        -slice option will respect declarations with a non-zero-based index range\n");
+		log("        or with reversed bitorder. The -rtlilslice options will always use\n");
+		log("        zero-based indexing where index 0 corresponds to the least significant\n");
+		log("        bit of the wire.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
