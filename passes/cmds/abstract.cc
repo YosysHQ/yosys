@@ -187,7 +187,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 		for (int i = 0; i < GetSize(ff.sig_q); i++) {
 			SigBit bit = ff.sig_q[i];
 			if (selected_reps.count(sigmap(bit))) {
-				log_debug("Abstracting state for bit %s due to selections:\n", log_signal(bit));
+				log_debug("Abstracting state for %s.Q[%i] in module %s due to selections:\n", log_id(ff.cell), i, log_id(mod));
 				explain_selections(selected_reps.at(sigmap(bit)));
 				offsets_to_abstract.insert(i);
 			}
@@ -202,9 +202,12 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 		if (ff.has_arst)
 			ff.arst_to_aload();
 
+		bool cell_changed = false;
+
 		if (ff.has_aload)
-			changed += abstract_state_port(ff, ff.sig_ad, offsets_to_abstract, enable);
-		changed += abstract_state_port(ff, ff.sig_d, offsets_to_abstract, enable);
+			cell_changed = abstract_state_port(ff, ff.sig_ad, offsets_to_abstract, enable);
+		cell_changed |= abstract_state_port(ff, ff.sig_d, offsets_to_abstract, enable);
+		changed += cell_changed;
 	}
 	return changed;
 }
@@ -242,7 +245,8 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 				std::set<int> offsets_to_abstract;
 				for (int i = 0; i < conn.second.size(); i++) {
 					if (selected_reps.count(sigmap(conn.second[i]))) {
-						log_debug("Abstracting value for bit %s due to selections:\n", log_signal(conn.second[i]));
+						log_debug("Abstracting value for %s.%s[%i] in module %s due to selections:\n",
+							log_id(cell), log_id(conn.first), i, log_id(mod));
 						explain_selections(selected_reps.at(sigmap(conn.second[i])));
 						offsets_to_abstract.insert(i);
 					}
