@@ -36,12 +36,14 @@ option(ENABLE_CCACHE "Enable building with CCACHE" OFF)
 option(ENABLE_SCCACHE "Enable building with SCACHE" OFF)
 option(ENABLE_FUNCTIONAL_TESTS "Enable functional tests" OFF)
 
+set(CXXSTD 17 CACHE STRING "C++ standard to use for the build")
+
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD ${CXXSTD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
