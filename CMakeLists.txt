@@ -45,6 +45,7 @@ add_subdirectory(frontends/json)
 add_subdirectory(frontends/liberty)
 add_subdirectory(frontends/rpc)
 add_subdirectory(frontends/rtlil)
+add_subdirectory(frontends/verific)
 add_subdirectory(frontends/verilog)
 
 add_subdirectory(backends/aiger)

@@ -1,8 +1,8 @@
-add_library(yosys_frontends_aiger INTERFACE)
+add_library(yosys_frontends_verific INTERFACE)
 
-target_sources(yosys_frontends_aiger INTERFACE
-    aigerparse.cc
-    aigerparse.h
+target_sources(yosys_frontends_verific INTERFACE
+    verific.cc
+    #verificsva.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_aiger)
+target_link_libraries(yosys PRIVATE yosys_frontends_verific)
