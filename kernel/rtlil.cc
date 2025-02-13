@@ -5164,6 +5164,18 @@ bool RTLIL::SigSpec::is_chunk() const
 	return GetSize(chunks_) == 1;
 }
 
+bool RTLIL::SigSpec::is_mostly_const() const
+{
+	cover("kernel.rtlil.sigspec.is_mostly_const");
+
+	pack();
+	int constbits = 0;
+	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
+		if (it->width > 0 && it->wire == NULL)
+			constbits += it->width;
+	return (constbits > width_/2);
+}
+
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
