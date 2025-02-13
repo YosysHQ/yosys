@@ -1,7 +1,9 @@
-add_library(yosys_frontends_rpc INTERFACE)
+if (NOT DISABLE_SPAWN)
+    add_library(yosys_frontends_rpc INTERFACE)
 
-target_sources(yosys_frontends_rpc INTERFACE
-    rpc_frontend.cc
-)
+    target_sources(yosys_frontends_rpc INTERFACE
+        rpc_frontend.cc
+    )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_rpc)
+    target_link_libraries(yosys PRIVATE yosys_frontends_rpc)
+endif()

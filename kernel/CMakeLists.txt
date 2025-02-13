@@ -44,8 +44,6 @@ target_sources(yosys_kernel INTERFACE
     ffmerge.h
     fmt.cc
     fmt.h
-    fstdata.cc
-    fstdata.h
     functional.cc
     functional.h
     hashlib.h
@@ -81,5 +79,12 @@ target_sources(yosys_kernel INTERFACE
     yw.cc
     yw.h
 )
+
+if (ENABLE_ZLIB)
+target_sources(yosys_kernel INTERFACE
+    fstdata.cc
+    fstdata.h
+)
+endif()
 
 target_link_libraries(yosys PRIVATE yosys_kernel)

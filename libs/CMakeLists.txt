@@ -48,6 +48,14 @@ target_sources(yosys_libs INTERFACE
     minisat/Vec.h
     minisat/XAlloc.h
 
+    subcircuit/subcircuit.cc
+    subcircuit/subcircuit.h
+
+    cxxopts/include/cxxopts.hpp
+)
+
+if (ENABLE_ZLIB)
+target_sources(yosys_libs INTERFACE
     fst/config.h
     fst/fastlz.cc
     fst/fastlz.h
@@ -56,11 +64,7 @@ target_sources(yosys_libs INTERFACE
     fst/fst_win_unistd.h
     fst/lz4.cc
     fst/lz4.h
-
-    subcircuit/subcircuit.cc
-    subcircuit/subcircuit.h
-
-    cxxopts/include/cxxopts.hpp
 )
+endif()
 
 target_link_libraries(yosys PRIVATE yosys_libs)
