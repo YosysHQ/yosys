@@ -33,7 +33,7 @@ option(ENABLE_DEBUG "Enable debug build" OFF)
 option(ENABLE_LTO "Enable LTO build" OFF)
 option(ENABLE_CCACHE "Enable building with CCACHE" OFF)
 # sccache is not always a drop-in replacement for ccache in practice
-option(ENABLE_SCCACHE "Enable building with SCACHE" OFF)
+option(ENABLE_SCCACHE "Enable building with SCCACHE" OFF)
 option(ENABLE_FUNCTIONAL_TESTS "Enable functional tests" OFF)
 
 set(CXXSTD 17 CACHE STRING "C++ standard to use for the build")
