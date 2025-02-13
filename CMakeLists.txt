@@ -43,13 +43,26 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
 
+if (ENABLE_ABC)
+    set(ABC_USE_NAMESPACE "abc")
+    add_subdirectory(abc EXCLUDE_FROM_ALL)
+
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/yosys-abc
+        DEPENDS abc  # Depend on the target, not the generator expression
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:abc> ${CMAKE_BINARY_DIR}/yosys-abc
+    )
+
+    add_custom_target(yosys-abc-copy ALL DEPENDS ${CMAKE_BINARY_DIR}/yosys-abc)
+endif()
+
 set(CMAKE_CXX_STANDARD ${CXXSTD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_C_EXTENSIONS ON)
 
 find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.0 REQUIRED)
@@ -116,6 +129,15 @@ if (ENABLE_SCCACHE)
         message(STATUS "Failed to enabling sccache")
     endif()
 endif ()
+
+if (ENABLE_ABC)
+    add_compile_definitions(YOSYS_ENABLE_ABC)
+    if (LINK_ABC)
+        add_compile_definitions(YOSYS_LINK_ABC)
+        target_link_libraries(yosys PRIVATE $<TARGET_FILE:libabc>)
+        add_dependencies(yosys libabc)
+    endif()        
+endif()
 
 add_subdirectory(kernel)
 add_subdirectory(libs)
