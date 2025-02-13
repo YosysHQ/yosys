@@ -139,6 +139,13 @@ if (ENABLE_ABC)
     endif()        
 endif()
 
+if (ENABLE_PLUGINS)
+    find_package(LibFFI REQUIRED)
+    add_compile_definitions(YOSYS_ENABLE_PLUGINS)
+    include_directories(${LIBFFI_INCLUDE_DIR})
+    target_link_libraries(yosys PRIVATE ${LIBFFI_LIBRARY})
+endif()
+
 add_subdirectory(kernel)
 add_subdirectory(libs)
 
