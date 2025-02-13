@@ -5,3 +5,7 @@ target_sources(yosys_techlibs_sf2 INTERFACE
 )
 
 target_link_libraries(yosys PRIVATE yosys_techlibs_sf2)
+
+add_share_file("share/sf2" "arith_map.v")
+add_share_file("share/sf2" "cells_map.v")
+add_share_file("share/sf2" "cells_sim.v")
