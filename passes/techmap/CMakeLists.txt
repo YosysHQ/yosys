@@ -8,11 +8,6 @@ target_sources(yosys_passes_techmap INTERFACE
     maccmap.cc
     booth.cc
     libparse.cc
-    abc.cc
-    abc9.cc
-    abc9_exe.cc
-    abc9_ops.cc
-    abc_new.cc
     iopadmap.cc
     clkbufmap.cc
     hilomap.cc
@@ -46,7 +41,19 @@ target_sources(yosys_passes_techmap INTERFACE
     clockgate.cc
 )
 
+if (ENABLE_ABC)
+    target_sources(yosys_passes_techmap INTERFACE
+        abc.cc
+        abc9.cc
+        abc9_exe.cc
+        abc9_ops.cc
+        abc_new.cc
+    )
+endif()
+
 target_link_libraries(yosys PRIVATE yosys_passes_techmap)
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
-add_executable(yosys-filterlib filterlib.cc)
+if (NOT DISABLE_SPAWN)
+    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
+    add_executable(yosys-filterlib filterlib.cc)
+endif()

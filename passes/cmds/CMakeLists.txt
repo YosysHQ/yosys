@@ -1,7 +1,6 @@
 add_library(yosys_passes_cmds INTERFACE)
 
 target_sources(yosys_passes_cmds INTERFACE
-    exec.cc
     add.cc
     delete.cc
     design.cc
@@ -37,7 +36,6 @@ target_sources(yosys_passes_cmds INTERFACE
     chtype.cc
     blackbox.cc
     ltp.cc
-    bugpoint.cc
     scratchpad.cc
     logger.cc
     printattrs.cc
@@ -52,5 +50,12 @@ target_sources(yosys_passes_cmds INTERFACE
     wrapcell.cc
     setenv.cc
 )
+
+if (NOT DISABLE_SPAWN)
+target_sources(yosys_passes_cmds INTERFACE
+    exec.cc
+    bugpoint.cc
+)
+endif()
 
 target_link_libraries(yosys PRIVATE yosys_passes_cmds)

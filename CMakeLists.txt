@@ -36,6 +36,11 @@ option(ENABLE_CCACHE "Enable building with CCACHE" OFF)
 option(ENABLE_SCCACHE "Enable building with SCCACHE" OFF)
 option(ENABLE_FUNCTIONAL_TESTS "Enable functional tests" OFF)
 
+# Needed for environments that can't run executables (i.e. emscripten, wasm)
+option(DISABLE_SPAWN "Disable executable spawn" OFF)
+# Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
+option(DISABLE_ABC_THREADS "Disable ABC threading support" OFF)
+
 set(CXXSTD 17 CACHE STRING "C++ standard to use for the build")
 
 
@@ -101,6 +106,7 @@ endif()
 
 if (ENABLE_ZLIB)
     find_package(ZLIB REQUIRED)
+    add_compile_definitions(YOSYS_ENABLE_ZLIB)
     target_link_libraries(yosys PRIVATE ZLIB::ZLIB)
 endif()
 
@@ -144,6 +150,10 @@ if (ENABLE_PLUGINS)
     add_compile_definitions(YOSYS_ENABLE_PLUGINS)
     include_directories(${LIBFFI_INCLUDE_DIR})
     target_link_libraries(yosys PRIVATE ${LIBFFI_LIBRARY})
+endif()
+
+if (DISABLE_SPAWN)
+    add_compile_definitions(YOSYS_DISABLE_SPAWN)
 endif()
 
 add_subdirectory(kernel)
