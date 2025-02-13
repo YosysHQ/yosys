@@ -47,3 +47,6 @@ target_sources(yosys_passes_techmap INTERFACE
 )
 
 target_link_libraries(yosys PRIVATE yosys_passes_techmap)
+
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
+add_executable(yosys-filterlib filterlib.cc)
