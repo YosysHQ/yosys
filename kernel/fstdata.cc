@@ -33,8 +33,8 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 {
 	#if !defined(YOSYS_DISABLE_SPAWN)
 	std::string filename_trim = file_base_name(filename);
-	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size() - 4, std::string::npos, ".vcd") == 0) {
-		filename_trim.erase(filename_trim.size() - 4);
+	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
+		filename_trim.erase(filename_trim.size()-4);
 		std::string template_name = get_base_tmpdir() + "/converted_XXXXXX";
 		char *tmp = strdup(template_name.c_str());
 		int fd = mkstemp(tmp);
@@ -50,7 +50,7 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 			log_cmd_error("Shell command failed!\n");
 		filename = tmp_file;
 	}
-#endif
+	#endif
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
