@@ -126,9 +126,13 @@ struct LongLoopSelect : public ScriptPass {
 		log("Running longloop_select pass\n");
 		log_flush();
 
+		// Memorize the existing selection, so the loop over modules still works after "select -none"
+		const std::vector<Yosys::RTLIL::Module *> &modules = design->selected_modules();
+
+		// Start with an empty selection, the code below is going to add selection based on loop depth
 		Pass::call(design, "select -none");
 
-		for (auto module : design->modules()) {
+		for (auto module : modules) {
 			if (debug) {
 				log("Module %s\n", log_id(module));
 				log_flush();
@@ -218,6 +222,10 @@ struct LongLoopSelect : public ScriptPass {
 						Pass::call(design, "select -none");
 					}
 					for (auto cell : itrCluster->second) {
+						if (debug) {
+							log("  Selecting: %s\n", cell->name.c_str());
+							log_flush();
+						}
 						design->select(module, cell);
 						if (cell->get_string_attribute("\\in_for_loop").empty()) {
 							cell->set_string_attribute("\\in_for_loop", src_info);
