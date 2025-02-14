@@ -57,16 +57,23 @@ struct ExtractReducePass : public Pass
 		log("\n");
 	}
 
+	inline bool IsSingleBit(Cell* cell)
+	{
+		return cell->getParam(ID::A_WIDTH).as_int() == 1 &&
+		       cell->getParam(ID::B_WIDTH).as_int() == 1 &&
+					 cell->getParam(ID::Y_WIDTH).as_int() == 1;
+	}
+
 	inline bool IsRightType(Cell* cell, GateType gt)
 	{
 		return (cell->type == ID($_AND_) && gt == GateType::And) ||
 				(cell->type == ID($_OR_) && gt == GateType::Or) ||
 				(cell->type == ID($_XOR_) && gt == GateType::Xor) ||
 				(cell->type == ID($_XNOR_) && gt == GateType::Xnor) ||
-				(cell->type == ID($and) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::And) ||
-				(cell->type == ID($or) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Or) ||
-				(cell->type == ID($xor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Xor) ||
-				(cell->type == ID($xnor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1 && gt == GateType::Xnor);
+				(cell->type == ID($and) && IsSingleBit(cell) && gt == GateType::And) ||
+				(cell->type == ID($or) && IsSingleBit(cell) && gt == GateType::Or) ||
+				(cell->type == ID($xor) && IsSingleBit(cell) && gt == GateType::Xor) ||
+				(cell->type == ID($xnor) && IsSingleBit(cell) && gt == GateType::Xnor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -138,13 +145,13 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Xor;
 				else if (cell->type == ID($_XNOR_))
 					gt = GateType::Xnor;
-				else if (cell->type == ID($and) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+				else if (cell->type == ID($and) && IsSingleBit(cell))
 					gt = GateType::And;
-				else if (cell->type == ID($or) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+				else if (cell->type == ID($or) && IsSingleBit(cell))
 					gt = GateType::Or;
-				else if (cell->type == ID($xor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+				else if (cell->type == ID($xor) && IsSingleBit(cell))
 					gt = GateType::Xor;
-				else if (cell->type == ID($xnor) && cell->getParam(ID::A_WIDTH).as_int() == 1 && cell->getParam(ID::B_WIDTH).as_int() == 1 && cell->getParam(ID::Y_WIDTH).as_int() == 1)
+				else if (cell->type == ID($xnor) && IsSingleBit(cell))
 					gt = GateType::Xnor;
 				else
 					continue;
@@ -256,7 +263,7 @@ struct ExtractReducePass : public Pass
 							bool sink_single = sig_to_sink[bit].size() == 1 && !port_sigs.count(bit);
 
 							Cell* drv = sig_to_driver[bit];
-							bool drv_ok = drv && drv->type == head_cell->type;
+							bool drv_ok = drv && IsRightType(drv, gt);
 
 							if (drv_ok && (allow_off_chain || sink_single)) {
 								inner_cells++;
@@ -277,7 +284,7 @@ struct ExtractReducePass : public Pass
 						SigSpec input;
 						for (auto it : sources) {
 							bool cond;
-							if (head_cell->type == ID($_XOR_))
+							if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor) || head_cell->type == ID($_XNOR_) || head_cell->type == ID($xnor))
 								cond = it.second & 1;
 							else
 								cond = it.second != 0;

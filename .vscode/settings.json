@@ -1,4 +1,8 @@
 {
   "editor.tabSize": 2,
-  "editor.insertSpaces": false
+  "editor.insertSpaces": false,
+  "files.associations": {
+    "deque": "cpp",
+    "__config": "cpp"
+  }
 }
