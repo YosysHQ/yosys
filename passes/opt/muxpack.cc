@@ -135,26 +135,6 @@ struct MuxpackWorker
 	pool<Cell*> candidate_cells;
 
 	ExclusiveDatabase excl_db;
-	// Splitfanout limit
-	int limit = -1;
-
-	bool fanout_in_range(SigSpec outsig)
-	{
-		// Check if output signal is "bit-split", skip if so
-		// This is a lookahead for the splitfanout pass that has this limitation
-		auto bit_users = bit_users_db[outsig[0]];
-		for (int i = 0; i < GetSize(outsig); i++) {
-			if (bit_users_db[outsig[i]] != bit_users) {
-				return false;
-			}
-		}
-
-		// Skip if fanout is above limit
-		if (limit != -1 && GetSize(bit_users) > limit) {
-			return false;
-		}
-		return true;
-	}
 
 	void make_sig_chain_next_prev()
 	{
@@ -180,10 +160,8 @@ struct MuxpackWorker
 					for (auto a_bit : a_sig)
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
-					if (fanout_in_range(y_sig)) {
-						sig_chain_next[a_sig] = cell;
-						candidate_cells.insert(cell);
-					}
+					sig_chain_next[a_sig] = cell;
+					candidate_cells.insert(cell);
 				}
 
 				if (!b_sig.empty()) {
@@ -191,18 +169,12 @@ struct MuxpackWorker
 						for (auto b_bit : b_sig)
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
-						if (fanout_in_range(y_sig)) {
-							sig_chain_next[b_sig] = cell;
-							candidate_cells.insert(cell);
-						}
+						sig_chain_next[b_sig] = cell;
+						candidate_cells.insert(cell);
 					}
 				}
 
-				if (fanout_in_range(y_sig)) {
-
-					// Mark cell as the previous in the chain relative to y_sig
-					sig_chain_prev[y_sig] = cell;
-				}
+				sig_chain_prev[y_sig] = cell;
 				continue;
 			}
 
@@ -323,26 +295,26 @@ struct MuxpackWorker
 			}
 
 			if (make_excl) {
-        /*   We create the following one-hot select line decoder
-              S0           S1             S2                S3   ...
-              |            |              |                 |
-              +--------+   +----------+   +-------------+   |
-              |       _|_  |         _|_  |            _|_  |
-              |       \_/  |         \_/  |            \_/  |
-              |        o   |          o   |             o   |
-              |        |   |          |   |      ___    |   |
-              |        +----------+   |   |     /   |   |   |
-              |        |   |      |___|   |    /    |___|   |
-              |        |___|      | & |  /    /     | & |   /     ...
-              |        | & |      \___/ /    /      \___/  /    / 
-              |        \___/        |   |   /         |   |    /
-              |          |          +------+          +-------+   
-              |          |          |   |             |   |
-              |          |          |___|             |___|
-              |          |          | & |             | & |
-              |          |          \___/             \___/
-              |          |            |                 |
-              S0       S0'S1       S0'S1'S2         S0'S1'S2'S3  ...
+        /* Create the following one-hot select line decoder:
+          	S0           S1             S2                S3   ...
+          	|            |              |                 |
+          	+--------+   +----------+   +-------------+   |
+          	|       _|_  |         _|_  |            _|_  |
+          	|       \_/  |         \_/  |            \_/  |
+          	|        o   |          o   |             o   |
+          	|        |   |          |   |      ___    |   |
+          	|        +----------+   |   |     /   |   |   |
+          	|        |   |      |___|   |    /    |___|   |
+          	|        |___|      | & |  /    /     | & |   /     ...
+          	|        | & |      \___/ /    /      \___/  /    / 
+          	|        \___/        |   |   /         |   |    /
+          	|          |          +------+          +-------+   
+          	|          |          |   |             |   |
+          	|          |          |___|             |___|
+          	|          |          | & |             | & |
+          	|          |          \___/             \___/
+          	|          |            |                 |
+          	S0       S0'S1       S0'S1'S2         S0'S1'S2'S3  ...
         */
 				SigSpec decodedSelect;
 				Cell *cell = last_cell;
@@ -389,11 +361,10 @@ struct MuxpackWorker
 		}
 	}
 
-	void cleanup(bool remove_cell)
+	void cleanup()
 	{
-		if (remove_cell)
-			for (auto cell : remove_cells)
-				module->remove(cell);
+		for (auto cell : remove_cells)
+			module->remove(cell);
 
 		remove_cells.clear();
 		sig_chain_next.clear();
@@ -402,8 +373,8 @@ struct MuxpackWorker
 		candidate_cells.clear();
 	}
 
-	MuxpackWorker(Design *design, Module *module, bool assume_excl, bool make_excl, int limit)
-	    : module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl), limit(limit)
+	MuxpackWorker(Module *module, bool assume_excl, bool make_excl) :
+			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl)
 	{
 
 		// Build bit_drivers_db
@@ -459,7 +430,7 @@ struct MuxpackWorker
 			process_chain(chain, make_excl);
 		}
 		// Clean up
-		cleanup(true);
+		cleanup();
 	}
 };
 
@@ -479,11 +450,9 @@ struct MuxpackPass : public Pass {
 		log("whose select lines are driven by '$eq' cells with other such cells if it can be\n");
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
-		log("    -fanout_limit n\n");
-		log("        max fanout to split.\n");
-		log("\n");
 		log("    -assume_excl\n");
 		log("        assume mutually exclusive constraint when packing (may result in inequivalence)\n");
+		log("\n");
 		log("    -make_excl\n");
 		log("        Adds a one-hot decoder on the control signals\n");
 		log("\n");
@@ -492,17 +461,12 @@ struct MuxpackPass : public Pass {
 	{
 		bool assume_excl = false;
 		bool make_excl = false;
-		int limit = -1;
 
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-fanout_limit" && argidx + 1 < args.size()) {
-				limit = std::stoi(args[++argidx]);
-				continue;
-			}
 			if (args[argidx] == "-assume_excl") {
 				assume_excl = true;
 				continue;
@@ -520,7 +484,7 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(design, module, assume_excl, make_excl, limit);
+			MuxpackWorker worker(module, assume_excl, make_excl);
 			mux_count += worker.mux_count;
 			pmux_count += worker.pmux_count;
 		}
