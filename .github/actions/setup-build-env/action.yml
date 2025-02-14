@@ -16,7 +16,6 @@ runs:
       run: |
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew update
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew bundle install || true
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install autoconf || true
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
