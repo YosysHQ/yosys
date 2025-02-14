@@ -5,6 +5,8 @@
 *.gch
 *.gcda
 *.gcno
+*.err
+*.log
 *.tmp
 *~
 __pycache__
