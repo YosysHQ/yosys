@@ -5,6 +5,19 @@ target_sources(yosys_techlibs_gatemate INTERFACE
     gatemate_foldinv.cc
 )
 
+add_custom_command(
+	COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/make_lut_tree_lib.py
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/make_lut_tree_lib.py
+	OUTPUT lut_tree_cells.genlib lut_tree_map.v
+	COMMENT "Generating techlibs/gatemate/lut_tree_map.v..."
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+target_sources(yosys_techlibs_gatemate PRIVATE
+	${CMAKE_CURRENT_BINARY_DIR}/lut_tree_cells.genlib
+    ${CMAKE_CURRENT_BINARY_DIR}/lut_tree_map.v
+)
+
 target_link_libraries(yosys PRIVATE yosys_techlibs_gatemate)
 
 add_share_file("share/gatemate" "reg_map.v")
@@ -19,3 +32,6 @@ add_share_file("share/gatemate" "brams.txt")
 add_share_file("share/gatemate" "brams_init_20.vh")
 add_share_file("share/gatemate" "brams_init_40.vh")
 add_share_file("share/gatemate" "inv_map.v")
+
+add_gen_share_file("share/gatemate" ${CMAKE_CURRENT_BINARY_DIR}/lut_tree_cells.genlib)
+add_gen_share_file("share/gatemate" ${CMAKE_CURRENT_BINARY_DIR}/lut_tree_map.v)

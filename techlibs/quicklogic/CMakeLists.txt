@@ -20,10 +20,20 @@ target_sources(yosys_techlibs_quicklogic INTERFACE
     ql_dsp_macc.cc
 )
 
-target_sources(yosys_techlibs_quicklogic PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/ql_dsp_macc_pm.h)
+add_custom_command(
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f
+	COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qlf_k6n10f/generate_bram_types_sim.py  ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/qlf_k6n10f/generate_bram_types_sim.py
+	OUTPUT qlf_k6n10f/bram_types_sim.v
+	COMMENT "Generating techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v..."
+)
+
+target_sources(yosys_techlibs_quicklogic PRIVATE 
+    ${CMAKE_CURRENT_BINARY_DIR}/ql_dsp_macc_pm.h
+    ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
+)
 
 target_link_libraries(yosys PRIVATE yosys_techlibs_quicklogic)
-
 
 add_share_file("share/quicklogic/common" "common/cells_sim.v")
 add_share_file("share/quicklogic/pp3" "pp3/ffs_map.v")
@@ -39,7 +49,7 @@ add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/libmap_brams.txt")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/libmap_brams_map.v")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/brams_map.v")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/brams_sim.v")
-#$(eval $(call add_gen_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
+add_gen_share_file("share/quicklogic/qlf_k6n10f" "${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/cells_sim.v")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/ffs_map.v")
 add_share_file("share/quicklogic/qlf_k6n10f" "qlf_k6n10f/dsp_sim.v")
