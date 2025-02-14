@@ -1,4 +1,4 @@
-read -formal <<EOT
+read -sv <<EOT
 module test(input foo);
 always @(*) assert(foo);
 endmodule
