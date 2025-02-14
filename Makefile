@@ -714,6 +714,7 @@ include $(YOSYS_SRC)/passes/silimate/Makefile.inc
 
 OBJS += passes/opt/pmux2shiftx.o
 OBJS += passes/opt/muxpack.o
+OBJS += passes/opt/wreduce.o
 OBJS += passes/sat/sim.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
