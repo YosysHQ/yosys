@@ -1007,9 +1007,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		Net *net_a_msb = inst->GetInput1Bit(0);
 		if (net_cin->IsGnd())
 			cell = module->addShr(inst_name, IN1, IN2, OUT, false);
-		else if (net_cin == net_a_msb) {
+		else if (net_cin == net_a_msb)
 			cell = module->addSshr(inst_name, IN1, IN2, OUT, true);
-		}
 		else
 			log_error("Can't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", inst->Name());
 		import_attributes(cell->attributes, inst);
@@ -3167,7 +3166,7 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
