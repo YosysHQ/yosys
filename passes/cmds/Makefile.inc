@@ -6,7 +6,6 @@ OBJS += passes/cmds/add.o
 OBJS += passes/cmds/delete.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/select.o
-OBJS += passes/cmds/selectconst.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/viz.o
 OBJS += passes/cmds/rename.o
@@ -16,7 +15,6 @@ OBJS += passes/cmds/scatter.o
 OBJS += passes/cmds/setundef.o
 OBJS += passes/cmds/splitnets.o
 OBJS += passes/cmds/splitcells.o
-OBJS += passes/cmds/splitfanout.o
 OBJS += passes/cmds/stat.o
 OBJS += passes/cmds/internal_stats.o
 OBJS += passes/cmds/setattr.o
@@ -53,10 +51,5 @@ OBJS += passes/cmds/future.o
 OBJS += passes/cmds/box_derive.o
 OBJS += passes/cmds/example_dt.o
 OBJS += passes/cmds/portarcs.o
-
-OBJS += passes/cmds/activity.o
-OBJS += passes/cmds/splitnetlist.o
-OBJS += passes/cmds/bus_rebuild.o
-
 OBJS += passes/cmds/wrapcell.o
 OBJS += passes/cmds/setenv.o

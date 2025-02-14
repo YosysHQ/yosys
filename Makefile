@@ -123,7 +123,6 @@ BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
 
-
 ifeq ($(OS), Linux)
 LIBS += -ldw                  # SILIMATE: support for backward-cpp
 CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
@@ -711,32 +710,19 @@ include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 include $(YOSYS_SRC)/frontends/liberty/Makefile.inc
 include $(YOSYS_SRC)/passes/equiv/Makefile.inc
 
-OBJS += passes/cmds/select.o
-OBJS += passes/cmds/show.o
-OBJS += passes/cmds/stat.o
-OBJS += passes/cmds/cover.o
-OBJS += passes/cmds/design.o
-OBJS += passes/cmds/plugin.o
-OBJS += passes/cmds/annotate_logic_depth.o
-OBJS += passes/cmds/blackbox.o
-OBJS += passes/cmds/check.o
-OBJS += passes/cmds/clean_zerowidth.o
-OBJS += passes/cmds/selectconst.o
-OBJS += passes/cmds/setattr.o
-OBJS += passes/cmds/splitcells.o
-OBJS += passes/cmds/annotate_cell_fanout.o
-OBJS += passes/cmds/splitfanout.o
-OBJS += passes/cmds/splitnets.o
-OBJS += passes/cmds/tee.o
-OBJS += passes/cmds/activity.o
-OBJS += passes/cmds/splitnetlist.o
-OBJS += passes/cmds/bus_rebuild.o
-OBJS += passes/cmds/longloop_select.o
+include $(YOSYS_SRC)/passes/cmds/Makefile.inc
+include $(YOSYS_SRC)/passes/silimate/Makefile.inc
+
+OBJS += passes/opt/pmux2shiftx.o
+OBJS += passes/opt/muxpack.o
 OBJS += passes/sat/sim.o
-OBJS += passes/techmap/bufnorm.o
-OBJS += passes/cmds/rename.o
-OBJS += passes/cmds/segv.o
-OBJS += passes/cmds/delete.o
+OBJS += passes/techmap/extract.o
+OBJS += passes/techmap/extract_reduce.o
+OBJS += passes/techmap/alumacc.o
+OBJS += passes/techmap/pmuxtree.o
+OBJS += passes/techmap/bmuxmap.o
+OBJS += passes/techmap/demuxmap.o
+OBJS += passes/techmap/aigmap.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc

@@ -1,8 +1,0 @@
-library(liberty_define) {
-  cell(not_cell) {
-    pin(Y) {
-      function : !A[0] ;
-      direction : output ;
-    }
-  }
-}

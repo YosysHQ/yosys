@@ -4564,10 +4564,8 @@ struct ReadPass : public Pass {
 				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
-				if (args[1] == "-formal") {
+				if (args[1] == "-formal")
 					args.insert(args.begin()+1, std::string());
-					RuntimeFlags::SetVar("veri_ignore_assertion_statements", 0);
-				}
 				args[1] = "-sv";
 				args.insert(args.begin()+1, "-defer");
 			}

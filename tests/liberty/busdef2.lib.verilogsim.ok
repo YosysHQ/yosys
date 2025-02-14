@@ -1,4 +1,0 @@
-module not_cell (Y);
-  output Y;
-  assign Y = !A[0]; // !A[0]
-endmodule

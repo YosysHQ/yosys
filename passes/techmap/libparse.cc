@@ -389,12 +389,9 @@ LibertyAst *LibertyParser::parse()
 			if (tok == 'v') {
     				tok = lexer(str);
 			}
-			while (tok == '(' || tok == ')' || tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') { // SILIMATE: added parentheses
+			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
-				if (tok == ')') { // SILIMATE: semicolon may follow close parenthesis
-					tok = lexer(str);
-					if (tok == ';') break;
-				} else tok = lexer(str);
+				tok = lexer(str);
 				if (tok != 'v')
 					error();
 				ast->value += str;
@@ -407,13 +404,6 @@ LibertyAst *LibertyParser::parse()
 			// instead of the ';' too..
 			if ((tok == ';') || (tok == 'n'))
 				break;
-			else if (tok == '[') {
-				while (tok != ']') {
-					tok = lexer(str);
-				}
-				ast->value += '[' + str + ']';
-				continue;
-			}
 			else
 				error();
 			continue;
@@ -475,16 +465,12 @@ LibertyAst *LibertyParser::parse()
 					{
 					case 'n':
 					  continue;
-					case ':': // SILIMATE HACK: eat up the ':' and the next thing too
-						tok = lexer(arg);
-						if (tok != 'v')
-							error("Expecting string after ':'.");
-						break;
 					case '[':
 					case ']':
 					case '}':
 					case '{':
 					case '\"':
+					case ':':
 						eReport = "Unexpected '";
 						eReport += static_cast<char>(tok);
 						eReport += "'.";
