@@ -6,6 +6,7 @@ OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
 OBJS += passes/silimate/longloop_select.o
 OBJS += passes/silimate/opt_balance_tree.o
+OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/selectconst.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitnetlist.o
