@@ -126,7 +126,7 @@ vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	string message_prefix = stringf("IMPORT-%s [%s] ",
+	string message_prefix = stringf("VERIFIC-%s [%s] ",
 			msg_type == VERIFIC_NONE ? "NONE" :
 			msg_type == VERIFIC_ERROR ? "ERROR" :
 			msg_type == VERIFIC_WARNING ? "WARNING" :
@@ -3157,7 +3157,7 @@ bool check_noverific_env()
 #endif
 
 struct VerificPass : public Pass {
-	VerificPass() : Pass("import", "load Verilog and VHDL designs using IMPORT") { }
+	VerificPass() : Pass("verific", "load Verilog and VHDL designs using VERIFIC") { }
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	void on_register() override	{ VerificExtensions::Reset(); }
@@ -3167,10 +3167,10 @@ struct VerificPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("    import {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
+		#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv} <verilog-file>..\n");
 		log("\n");
-		log("Load the specified Verilog/SystemVerilog files into IMPORT.\n");
+		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("\n");
 		log("All files specified in one call to this command are one compilation unit.\n");
 		log("Files passed to different calls to this command are treated as belonging to\n");
@@ -3178,33 +3178,33 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
 		log("the language version (and before file names) to set additional verilog defines.\n");
-		log("The macro SYNTHESIS is defined implicitly.\n");
+		log("The macros YOSYS, SYNTHESIS, and VERIFIC are defined implicitly.\n");
 		log("\n");
 		log("\n");
-		log("    import -formal <verilog-file>..\n");
+		log("    verific -formal <verilog-file>..\n");
 		log("\n");
 		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
 		log("\n");
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
-		log("    import {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
+		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl} <vhdl-file>..\n");
 		log("\n");
-		log("Load the specified VHDL files into IMPORT.\n");
+		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
 #endif
 #ifdef VERIFIC_EDIF_SUPPORT
-		log("    import {-edif} <edif-file>..\n");
+		log("    verific {-edif} <edif-file>..\n");
 		log("\n");
-		log("Load the specified EDIF files into IMPORT.\n");
+		log("Load the specified EDIF files into Verific.\n");
 		log("\n");
 		log("\n");
 #endif
 #ifdef VERIFIC_LIBERTY_SUPPORT
-		log("    import {-liberty} <liberty-file>..\n");
+		log("    verific {-liberty} <liberty-file>..\n");
 		log("\n");
-		log("Load the specified Liberty files into IMPORT.\n");
+		log("Load the specified Liberty files into Verific.\n");
 		log("Default library when -work is not present is one specified in liberty file.\n");
 		log("To use from SystemVerilog or VHDL use -L to specify liberty library.");
 		log("\n");
@@ -3213,20 +3213,13 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
-#ifdef VERIFIC_UPF_SUPPORT
-		log("    import {-upf} <upf-file>..\n");
-		log("\n");
-		log("Load the specified UPF files into IMPORT.\n");
-		log("\n");
-		log("\n");
-#endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("    import {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
+		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
 		log("                     -sv2012|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
 		log("Override verilog parsing mode can be set.\n");
-		log("The macro SYNTHESIS/FORMAL is defined implicitly.\n");
+		log("The macros YOSYS, SYNTHESIS/FORMAL, and VERIFIC are defined implicitly.\n");
 		log("\n");
 		log("Command file parser supports following commands in file:\n");
 		log("    +define+<MACRO>=<VALUE> - defines macro\n");
@@ -3255,80 +3248,50 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
-		log("    import [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
+		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
 		log("(default library when -work is not present: \"work\")\n");
 		log("\n");
 		log("\n");
-		log("    import [-L <libname>] {-sv|-vhdl|...} <hdl-file>\n");
+		log("    verific [-L <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Look up external definitions in the specified library.\n");
 		log("(-L may be used more than once)\n");
 		log("\n");
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-		log("    import -vlog-incdir <directory>..\n");
+		log("    verific -vlog-incdir <directory>..\n");
 		log("\n");
 		log("Add Verilog include directories.\n");
 		log("\n");
 		log("\n");
-		log("    import -vlog-libdir <directory>..\n");
+		log("    verific -vlog-libdir <directory>..\n");
 		log("\n");
-		log("Add Verilog library directories. IMPORT will search in this directories to\n");
+		log("Add Verilog library directories. Verific will search in this directories to\n");
 		log("find undefined modules.\n");
 		log("\n");
 		log("\n");
-		log("    import -vlog-libext <extension>..\n");
+		log("    verific -vlog-libext <extension>..\n");
 		log("\n");
 		log("Add Verilog library extensions, used when searching in library directories.\n");
 		log("\n");
 		log("\n");
-		log("    import -vlog-define <macro>[=<value>]..\n");
+		log("    verific -vlog-define <macro>[=<value>]..\n");
 		log("\n");
 		log("Add Verilog defines.\n");
 		log("\n");
 		log("\n");
-		log("    import -vlog-undef <macro>..\n");
+		log("    verific -vlog-undef <macro>..\n");
 		log("\n");
 		log("Remove Verilog defines previously set with -vlog-define.\n");
 		log("\n");
 		log("\n");
-		log("    import -set_ignore_translate_off\n");
-		log("\n");
-		log("Ignore translate_off pragmas/comments.\n");
-		log("\n");
-		log("\n");
-		log("    import -set_relaxed_checking\n");
-		log("\n");
-		log("Set relaxed language feature checking.\n");
-		log("\n");
-		log("\n");
-		log("    import -set_relaxed_file_ext_modes\n");
-		log("\n");
-		log("Set relaxed language standard checking by using latest VHDL/SystemVerilog.\n");
-		log("\n");
-		log("\n");
-		log("    import -ignore_module <module>..\n");
-		log("\n");
-		log("Add module to list of modules to ignore during parsing.\n");
-		log("\n");
-		log("\n");
-		log("    import -set_vhdl_default_library_path <path>\n");
-		log("\n");
-		log("VHDL default library path.\n");
-		log("\n");
-		log("\n");
-		log("    import -reset_autoidx\n");
-		log("\n");
-		log("Reset auto-index.\n");
-		log("\n");
-		log("\n");
 #endif
-		log("    import -set-error <msg_id>..\n");
-		log("    import -set-warning <msg_id>..\n");
-		log("    import -set-info <msg_id>..\n");
-		log("    import -set-ignore <msg_id>..\n");
+		log("    verific -set-error <msg_id>..\n");
+		log("    verific -set-warning <msg_id>..\n");
+		log("    verific -set-info <msg_id>..\n");
+		log("    verific -set-ignore <msg_id>..\n");
 		log("\n");
 		log("Set message severity. <msg_id> is the string in square brackets when a message\n");
 		log("is printed, such as VERI-1209.\n");
@@ -3336,10 +3299,10 @@ struct VerificPass : public Pass {
 		log("all messages of certain type.\n");
 		log("\n");
 		log("\n");
-		log("    import -import [options] <top>..\n");
+		log("    verific -import [options] <top>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules or configurations, import to\n");
-		log("Preqorsor and reset the internal state of IMPORT.\n");
+		log("Yosys and reset the internal state of Verific.\n");
 		log("\n");
 		log("Import options:\n");
 		log("\n");
@@ -3351,7 +3314,7 @@ struct VerificPass : public Pass {
 		log("    Create a gate-level netlist.\n");
 		log("\n");
 		log("  -flatten\n");
-		log("    Flatten the design in IMPORT before importing.\n");
+		log("    Flatten the design in Verific before importing.\n");
 		log("\n");
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
@@ -3368,13 +3331,13 @@ struct VerificPass : public Pass {
 		log("    Keep all register initializations, even those for non-FF registers.\n");
 		log("\n");
 		log("  -cells\n");
-		log("    Import all cell definitions from IMPORT loaded libraries even if they are\n");
+		log("    Import all cell definitions from Verific loaded libraries even if they are\n");
 		log("    unused in design. Useful with \"-edif\" and \"-liberty\" option.\n");
 		log("\n");
 		log("  -chparam name value \n");
 		log("    Elaborate the specified top modules (all modules when -all given) using\n");
 		log("    this parameter value. Modules on which this parameter does not exist will\n");
-		log("    cause IMPORT to produce a VERI-1928 or VHDL-1676 message. This option\n");
+		log("    cause Verific to produce a VERI-1928 or VHDL-1676 message. This option\n");
 		log("    can be specified multiple times to override multiple parameters.\n");
 		log("    String values must be passed in double quotes (\").\n");
 		log("\n");
@@ -3384,17 +3347,17 @@ struct VerificPass : public Pass {
 		log("  -pp <filename>\n");
 		log("    Pretty print design after elaboration to specified file.\n");
 		log("\n");
-		log("The following additional import options are useful for debugging the IMPORT\n");
-		log("bindings (for Preqorsor and/or IMPORT developers):\n");
+		log("The following additional import options are useful for debugging the Verific\n");
+		log("bindings (for Yosys and/or Verific developers):\n");
 		log("\n");
 		log("  -k\n");
-		log("    Keep going after an unsupported IMPORT primitive is found. The\n");
+		log("    Keep going after an unsupported verific primitive is found. The\n");
 		log("    unsupported primitive is added as blockbox module to the design.\n");
 		log("    This will also add all SVA related cells to the design parallel to\n");
 		log("    the checker logic inferred by it.\n");
 		log("\n");
 		log("  -V\n");
-		log("    Import IMPORT netlist as-is without translating to Preqorsor cell types. \n");
+		log("    Import Verific netlist as-is without translating to Yosys cell types. \n");
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("  -nosva\n");
@@ -3405,14 +3368,14 @@ struct VerificPass : public Pass {
 		log("\n");
 #endif
 		log("  -n\n");
-		log("    Keep all IMPORT names on instances and nets. By default only\n");
+		log("    Keep all Verific names on instances and nets. By default only\n");
 		log("    user-declared names are preserved.\n");
 		log("\n");
 		log("  -d <dump_file>\n");
-		log("    Dump the IMPORT netlist as a verilog file.\n");
+		log("    Dump the Verific netlist as a verilog file.\n");
 		log("\n");
 		log("\n");
-		log("    import [-work <libname>] -pp [options] <filename> [<module>]..\n");
+		log("    verific [-work <libname>] -pp [options] <filename> [<module>]..\n");
 		log("\n");
 		log("Pretty print design (or just module) to the specified file from the\n");
 		log("specified library. (default library when -work is not present: \"work\")\n");
@@ -3426,9 +3389,9 @@ struct VerificPass : public Pass {
 		log("    Save output for VHDL design units.\n");
 		log("\n");
 		log("\n");
-		log("    import -cfg [<name> [<value>]]\n");
+		log("    verific -cfg [<name> [<value>]]\n");
 		log("\n");
-		log("Get/set IMPORT runtime flags.\n");
+		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
 #if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
@@ -3558,7 +3521,7 @@ struct VerificPass : public Pass {
 					"Contact office@yosyshq.com for free evaluation\n"
 					"binaries of YosysHQ Tabby CAD Suite.\n");
 
-		log_header(design, "Executing IMPORT (loading SystemVerilog and VHDL designs using IMPORT).\n");
+		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
 		if (set_verific_global_flags)
 		{
@@ -3569,12 +3532,6 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_preserve_x", 1);
 
-			RuntimeFlags::SetVar("db_merge_cascaded_muxes", 1); // SILIMATE: add to improve optimization
-			// RuntimeFlags::SetVar("db_preserve_register_names", 1); // SILIMATE: optionally add to use preserve register names
-			RuntimeFlags::SetVar("db_synopsys_register_names", 1); // SILIMATE: optionally add to use Synopsys register names
-			RuntimeFlags::SetVar("db_stop_cse_on_ram_ports", 0); // SILIMATE: perform CSE on RAM ports to improve optimization
-
-			// RuntimeFlags::SetVar("db_infer_wide_operators_post_elaboration", 1); // SILIMATE: optionally add to improve optimization (QoR)
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
@@ -3586,10 +3543,6 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this externally
 			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
-			// RuntimeFlags::SetVar("veri_break_loops", 0); // SILIMATE: add to avoid breaking loops
-			RuntimeFlags::SetVar("veri_optimize_wide_selector", 1); // SILIMATE: add to optimize wide selector
-			RuntimeFlags::SetVar("veri_ignore_assertion_statements", 1); // SILIMATE: add to ignore SVA/asserts
-			RuntimeFlags::SetVar("verilog_ignore_unnecessary_modules_in_v_files", 1); // SILIMATE: add to ignore unnecessary modules
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
@@ -3642,7 +3595,7 @@ struct VerificPass : public Pass {
 		for (char *p = release_tmstr; *p; p++)
 			if (*p == '\n') *p = 0;
 
-		log("Built with IMPORT %s, released at %s.\n", release_str, release_tmstr);
+		log("Built with Verific %s, released at %s.\n", release_str, release_tmstr);
 
 		int argidx = 1;
 		std::string work = "work";
@@ -3950,7 +3903,6 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
-			RuntimeFlags::SetVar("veri_ignore_assertion_statements", args[argidx] != "-formal");
 
 			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].compare(0, 2, "-D") == 0; argidx++) {
 				std::string name = args[argidx].substr(2);
@@ -4599,7 +4551,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-vlog95" || args[1] == "-vlog2k") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
 				args[1] = "-defer";
@@ -4610,7 +4562,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv" || args[1] == "-formal") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 			} else {
 				args[0] = "read_verilog";
 				if (args[1] == "-formal") {
@@ -4627,7 +4579,7 @@ struct ReadPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl2019" || args[1] == "-vhdl") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4638,7 +4590,7 @@ struct ReadPass : public Pass {
 #ifdef VERIFIC_EDIF_SUPPORT
 		if (args[1] == "-edif") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4648,7 +4600,7 @@ struct ReadPass : public Pass {
 #endif
 		if (args[1] == "-liberty") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 			} else {
 				args[0] = "read_liberty";
 			}
@@ -4657,7 +4609,7 @@ struct ReadPass : public Pass {
 		}
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				Pass::call(design, args);
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
@@ -4667,7 +4619,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-define") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				args[1] = "-vlog-define";
 				Pass::call(design, args);
 			}
@@ -4681,7 +4633,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-undef") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				args[1] = "-vlog-undef";
 				Pass::call(design, args);
 			}
@@ -4695,7 +4647,7 @@ struct ReadPass : public Pass {
 
 		if (args[1] == "-incdir") {
 			if (use_verific) {
-				args[0] = "import";
+				args[0] = "verific";
 				args[1] = "-vlog-incdir";
 				Pass::call(design, args);
 			}

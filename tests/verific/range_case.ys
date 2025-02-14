@@ -1,12 +1,12 @@
-import -cfg db_abstract_case_statement_synthesis 0
+verific -cfg db_abstract_case_statement_synthesis 0
 read -sv range_case.sv
-import -import top 
+verific -import top 
 proc
 rename top gold
 
-import -cfg db_abstract_case_statement_synthesis 1
+verific -cfg db_abstract_case_statement_synthesis 1
 read -sv range_case.sv
-import -import top 
+verific -import top 
 proc
 rename top gate
 

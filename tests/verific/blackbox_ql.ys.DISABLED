@@ -1,6 +1,6 @@
-import -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v 
+verific -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v 
 
-import -sv <<EOF
+verific -sv <<EOF
 module top (
     input  wire [19:0] a,
     input  wire [17:0] b,
@@ -35,7 +35,7 @@ endmodule
 
 EOF
 
-import -import top
+verific -import top
 hierarchy -top top
 synth_quicklogic -family qlf_k6n10f
 select -assert-count 1 t:QL_DSP2_MULT_REGIN_REGOUT a:MODE_BITS=80'h1232324
