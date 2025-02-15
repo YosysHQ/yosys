@@ -1333,6 +1333,10 @@ skip_fine_alu:
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_y(cell->type == ID($shiftx) ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam(ID::Y_WIDTH).as_int());
 
+			// Limit indexing to the size of a, which is behaviourally identical (result is all 0)
+			// and avoids integer overflow of i + shift_bits when e.g. ID::B == INT_MAX
+			shift_bits = min(shift_bits, GetSize(sig_a));
+
 			if (cell->type != ID($shiftx) && GetSize(sig_a) < GetSize(sig_y))
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 
