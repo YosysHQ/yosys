@@ -123,8 +123,8 @@ ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
-CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib
+CXXFLAGS += -I$(BREW_PREFIX)/boost/include
+LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -L$(BREW_PREFIX)/boost-python3/lib
 endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
@@ -331,7 +331,7 @@ endif
 
 ifeq ($(ENABLE_PYOSYS),1)
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) $(LINKFLAGS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
