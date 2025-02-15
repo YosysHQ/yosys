@@ -23,6 +23,7 @@
 #include "kernel/modtools.h"
 #include "kernel/utils.h"
 #include "kernel/macc.h"
+#include <iterator>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -33,6 +34,7 @@ typedef std::pair<RTLIL::SigSpec, RTLIL::Const> ssc_pair_t;
 struct ShareWorkerConfig
 {
 	int limit;
+	size_t pattern_limit;
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
@@ -853,6 +855,21 @@ struct ShareWorker
 		optimize_activation_patterns(patterns);
 	}
 
+	template<typename Iterator>
+	void insert_capped(pool<ssc_pair_t>& cache, Iterator begin_pattern, Iterator end_pattern)
+	{
+		if (cache.size() + std::distance(begin_pattern, end_pattern) > config.pattern_limit) {
+			cache.clear();
+			cache.insert(ssc_pair_t());
+		} else {
+			cache.insert(begin_pattern, end_pattern);
+		}
+	}
+	void insert_capped(pool<ssc_pair_t>& cache, ssc_pair_t pattern)
+	{
+		insert_capped(cache, &pattern, &pattern + 1);
+	}
+
 	const pool<ssc_pair_t> &find_cell_activation_patterns(RTLIL::Cell *cell, const char *indent)
 	{
 		if (recursion_state.count(cell)) {
@@ -909,20 +926,20 @@ struct ShareWorker
 					for (int i = 0; i < GetSize(sig_s); i++)
 						p.first.append(sig_s[i]), p.second.bits().push_back(RTLIL::State::S0);
 					if (sort_check_activation_pattern(p))
-						activation_patterns_cache[cell].insert(p);
+						insert_capped(activation_patterns_cache[cell], p);
 				}
 
 			for (int idx : used_in_b_parts)
 				for (auto p : c_patterns) {
 					p.first.append(sig_s[idx]), p.second.bits().push_back(RTLIL::State::S1);
 					if (sort_check_activation_pattern(p))
-						activation_patterns_cache[cell].insert(p);
+						insert_capped(activation_patterns_cache[cell], p);
 				}
 		}
 
 		for (auto c : driven_cells) {
 			const pool<ssc_pair_t> &c_patterns = find_cell_activation_patterns(c, indent);
-			activation_patterns_cache[cell].insert(c_patterns.begin(), c_patterns.end());
+			insert_capped(activation_patterns_cache[cell], c_patterns.begin(), c_patterns.end());
 		}
 
 		log_assert(recursion_state.count(cell) != 0);
@@ -1437,6 +1454,10 @@ struct SharePass : public Pass {
 		log("\n");
 		log("  -limit N\n");
 		log("    Only perform the first N merges, then stop. This is useful for debugging.\n");
+		log("  -pattern-limit N\n");
+		log("    Only analyze up to N activation patterns per cell, otherwise assume active.\n");
+		log("    N is 1000 by default. Higher values may merge more resources at the cost of\n");
+		log("    more runtime and memory consumption.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1444,6 +1465,7 @@ struct SharePass : public Pass {
 		ShareWorkerConfig config;
 
 		config.limit = -1;
+		config.pattern_limit = 1000;
 		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
@@ -1506,6 +1528,10 @@ struct SharePass : public Pass {
 			}
 			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
 				config.limit = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-pattern-limit" && argidx+1 < args.size()) {
+				config.pattern_limit = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;
