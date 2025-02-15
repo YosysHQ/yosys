@@ -46,3 +46,19 @@ $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc7_dsp_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xcu_dsp_map.v))
 
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc9_model.v))
+
+OBJS += techlibs/xilinx/xilinx_dsp.o
+GENFILES += techlibs/xilinx/xilinx_dsp_pm.h
+GENFILES += techlibs/xilinx/xilinx_dsp48a_pm.h
+GENFILES += techlibs/xilinx/xilinx_dsp_CREG_pm.h
+GENFILES += techlibs/xilinx/xilinx_dsp_cascade_pm.h
+techlibs/xilinx/xilinx_dsp.o: techlibs/xilinx/xilinx_dsp_pm.h techlibs/xilinx/xilinx_dsp48a_pm.h techlibs/xilinx/xilinx_dsp_CREG_pm.h techlibs/xilinx/xilinx_dsp_cascade_pm.h
+$(eval $(call add_extra_objs,techlibs/xilinx/xilinx_dsp_pm.h))
+$(eval $(call add_extra_objs,techlibs/xilinx/xilinx_dsp48a_pm.h))
+$(eval $(call add_extra_objs,techlibs/xilinx/xilinx_dsp_CREG_pm.h))
+$(eval $(call add_extra_objs,techlibs/xilinx/xilinx_dsp_cascade_pm.h))
+
+OBJS += techlibs/xilinx/xilinx_srl.o
+GENFILES += techlibs/xilinx/xilinx_srl_pm.h
+techlibs/xilinx/xilinx_srl.o: techlibs/xilinx/xilinx_srl_pm.h
+$(eval $(call add_extra_objs,techlibs/xilinx/xilinx_srl_pm.h))

@@ -23,9 +23,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/microchip_dsp_CREG_pm.h"
-#include "passes/pmgen/microchip_dsp_cascade_pm.h"
-#include "passes/pmgen/microchip_dsp_pm.h"
+#include "techlibs/microchip/microchip_dsp_CREG_pm.h"
+#include "techlibs/microchip/microchip_dsp_cascade_pm.h"
+#include "techlibs/microchip/microchip_dsp_pm.h"
 
 void microchip_dsp_pack(microchip_dsp_pm &pm)
 {

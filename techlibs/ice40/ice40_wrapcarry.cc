@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/ice40_wrapcarry_pm.h"
+#include "techlibs/ice40/ice40_wrapcarry_pm.h"
 
 void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 {
