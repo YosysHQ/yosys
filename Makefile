@@ -778,7 +778,7 @@ check-git-abc:
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^+'; then \
 		echo "'abc' submodule does not match expected commit."; \
 		echo "Run 'git submodule update' to check out the correct version."; \
-		echo "Note: If testing a different version of abc, call `git commit abc` in the Yosys source directory to update the expected commit."; \
+		echo "Note: If testing a different version of abc, call 'git commit abc' in the Yosys source directory to update the expected commit."; \
 		exit 1; \
 	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^U'; then \
 		echo "'abc' submodule has merge conflicts."; \
