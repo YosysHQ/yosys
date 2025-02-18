@@ -212,7 +212,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 	return changed;
 }
 
-bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
+bool abstract_value_cell_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
 	Wire* to_abstract = mod->addWire(NEW_ID, offsets.size());
 	SigSpec mux_input;
 	SigSpec mux_output;
@@ -230,6 +230,31 @@ bool abstract_value_port(Module* mod, Cell* cell, std::set<int> offsets, IdStrin
 		}
 	}
 	cell->setPort(port_name, new_port);
+	emit_mux_anyseq(mod, mux_input, mux_output, enable);
+	return true;
+}
+
+bool abstract_value_mod_port(Module* mod, Wire* wire, std::set<int> offsets, EnableLogic enable) {
+	Wire* to_abstract = mod->addWire(NEW_ID, wire);
+	to_abstract->port_input = true;
+	to_abstract->port_id = wire->port_id;
+	wire->port_input = false;
+	wire->port_id = 0;
+	mod->swap_names(wire, to_abstract);
+	SigSpec mux_input;
+	SigSpec mux_output;
+	SigSpec direct_lhs;
+	SigSpec direct_rhs;
+	for (int port_idx = 0; port_idx < wire->width; port_idx++) {
+		if (offsets.count(port_idx)) {
+			mux_output.append(SigBit(wire, port_idx));
+			mux_input.append(SigBit(to_abstract, port_idx));
+		} else {
+			direct_lhs.append(SigBit(wire, port_idx));
+			direct_rhs.append(SigBit(to_abstract, port_idx));
+		}
+	}
+	mod->connections_.push_back(SigSig(direct_lhs, direct_rhs));
 	emit_mux_anyseq(mod, mux_input, mux_output, enable);
 	return true;
 }
@@ -254,9 +279,25 @@ unsigned int abstract_value(Module* mod, EnableLogic enable, const std::vector<S
 				if (offsets_to_abstract.empty())
 					continue;
 
-				changed += abstract_value_port(mod, cell, offsets_to_abstract, conn.first, enable);
+				changed += abstract_value_cell_port(mod, cell, offsets_to_abstract, conn.first, enable);
 			}
 	}
+	std::vector<Wire*> wires_snapshot = mod->wires();
+	for (auto wire : wires_snapshot)
+		if (wire->port_input) {
+			std::set<int> offsets_to_abstract;
+			for (auto bit : SigSpec(wire))
+				if (selected_reps.count(sigmap(bit))) {
+					log_debug("Abstracting value for module input port bit %s in module %s due to selections:\n",
+						log_signal(bit), log_id(mod));
+					explain_selections(selected_reps.at(sigmap(bit)));
+					offsets_to_abstract.insert(bit.offset);
+				}
+			if (offsets_to_abstract.empty())
+				continue;
+
+			changed += abstract_value_mod_port(mod, wire, offsets_to_abstract, enable);
+		}
 	return changed;
 }
 
