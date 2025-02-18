@@ -277,7 +277,7 @@ struct ExtractReducePass : public Pass
 					if (inner_cells)
 					{
 						// Worth it to create reduce cell
-						log("  Creating $reduce_* cell!\n");
+						log("Creating reduce_* cell for %s (%s) in %s\n", head_cell->name.c_str(), head_cell->type.c_str(), module->name.c_str());
 
 						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
 
