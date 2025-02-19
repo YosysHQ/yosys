@@ -204,8 +204,8 @@ struct SplitnetsPass : public Pass {
 					for (auto &chunk : sig.chunks()) {
 						if (chunk.wire == NULL)
 							continue;
-						if (flag_ports_only && (chunk.wire->port_id != 0) || !flag_ports_only && (chunk.wire->port_id == 0 || flag_ports))
-						{
+						if ((flag_ports_only && (chunk.wire->port_id != 0) ||
+						   (!flag_ports_only && (chunk.wire->port_id == 0 || flag_ports))) {
 							if (chunk.offset != 0)
 								split_wires_at[chunk.wire].insert(chunk.offset);
 							if (chunk.offset + chunk.width < chunk.wire->width)
@@ -242,7 +242,7 @@ struct SplitnetsPass : public Pass {
 
 			if (flag_ports || flag_ports_only)
 			{
-				for (auto wire : module->wires()) 
+				for (auto wire : module->wires())
 				{
 					if (wire->port_id == 0)
 						continue;
