@@ -116,7 +116,7 @@ struct SplitnetsPass : public Pass {
 		log("        split module ports, but not the internal signals.\n");
 		log("\n");
 		log("    -top_only\n");
-		log("        split module ports/nets, only at the first level of hierarchy.\n");
+		log("        split module ports/nets, only at the top level of hierarchy.\n");
 		log("\n");
 		log("    -driver\n");
 		log("        don't blindly split nets in individual bits. instead look at the driver\n");
