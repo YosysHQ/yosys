@@ -204,7 +204,7 @@ struct SplitnetsPass : public Pass {
 					for (auto &chunk : sig.chunks()) {
 						if (chunk.wire == NULL)
 							continue;
-						if ((flag_ports_only && (chunk.wire->port_id != 0) ||
+						if ((flag_ports_only && (chunk.wire->port_id != 0)) ||
 						   (!flag_ports_only && (chunk.wire->port_id == 0 || flag_ports))) {
 							if (chunk.offset != 0)
 								split_wires_at[chunk.wire].insert(chunk.offset);
@@ -226,9 +226,10 @@ struct SplitnetsPass : public Pass {
 			else
 			{
 				for (auto wire : module->wires()) {
-					if (flag_ports_only)
+					if (flag_ports_only) {
 						if (wire->width > 1 && (wire->port_id != 0) && design->selected(module, wire))
 							worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+					}
 					else if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 				}
