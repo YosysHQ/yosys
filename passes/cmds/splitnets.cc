@@ -112,6 +112,12 @@ struct SplitnetsPass : public Pass {
 		log("    -ports\n");
 		log("        also split module ports. per default only internal signals are split.\n");
 		log("\n");
+		log("    -ports_only\n");
+		log("        Split module ports, but not the internal signals.\n");
+		log("\n");
+		log("    -top_only\n");
+		log("        Split module ports/nets, only at the top level.\n");
+		log("\n");
 		log("    -driver\n");
 		log("        don't blindly split nets in individual bits. instead look at the driver\n");
 		log("        and split nets so that no driver drives only part of a net.\n");
@@ -121,6 +127,8 @@ struct SplitnetsPass : public Pass {
 	{
 		bool flag_ports = false;
 		bool flag_driver = false;
+		bool flag_ports_only = false;
+		bool flag_top_only = false;
 		std::string format = "[]:";
 
 		log_header(design, "Executing SPLITNETS pass (splitting up multi-bit signals).\n");
@@ -134,6 +142,14 @@ struct SplitnetsPass : public Pass {
 			}
 			if (args[argidx] == "-ports") {
 				flag_ports = true;
+				continue;
+			}
+			if (args[argidx] == "-ports_only") {
+				flag_ports_only = true;
+				continue;
+			}
+			if (args[argidx] == "-top_only") {
+			  flag_top_only = true;
 				continue;
 			}
 			if (args[argidx] == "-driver") {
@@ -151,11 +167,12 @@ struct SplitnetsPass : public Pass {
 		{
 			if (module->has_processes_warn())
 				continue;
-
+			if (flag_top_only && (design->top_module() != module)) {
+				continue;
+			}
 			SplitnetsWorker worker;
 
-			if (flag_ports)
-			{
+			if (flag_ports || flag_ports_only) {
 				int normalized_port_factor = 0;
 
 				for (auto wire : module->wires())
@@ -186,7 +203,8 @@ struct SplitnetsPass : public Pass {
 					for (auto &chunk : sig.chunks()) {
 						if (chunk.wire == NULL)
 							continue;
-						if (chunk.wire->port_id == 0 || flag_ports) {
+						if (flag_ports_only && (chunk.wire->port_id != 0) ||
+						    ((!flag_ports_only) && (chunk.wire->port_id == 0 || flag_ports))) {
 							if (chunk.offset != 0)
 								split_wires_at[chunk.wire].insert(chunk.offset);
 							if (chunk.offset + chunk.width < chunk.wire->width)
@@ -203,11 +221,12 @@ struct SplitnetsPass : public Pass {
 					}
 					worker.append_wire(module, it.first, cursor, it.first->width - cursor, format);
 				}
-			}
-			else
-			{
+			} else {
 				for (auto wire : module->wires()) {
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
+					if (flag_ports_only) {
+						if (wire->width > 1 && (wire->port_id != 0) && design->selected(module, wire))
+							worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+					} else if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 				}
 
@@ -218,9 +237,8 @@ struct SplitnetsPass : public Pass {
 
 			module->rewrite_sigspecs(worker);
 
-			if (flag_ports)
-			{
-				for (auto wire : module->wires())
+			if (flag_ports || flag_ports_only) {
+				for (auto wire : module->wires()) 
 				{
 					if (wire->port_id == 0)
 						continue;
@@ -243,7 +261,7 @@ struct SplitnetsPass : public Pass {
 				delete_wires.insert(it.first);
 			module->remove(delete_wires);
 
-			if (flag_ports)
+			if (flag_ports || flag_ports_only)
 				module->fixup_ports();
 		}
 
