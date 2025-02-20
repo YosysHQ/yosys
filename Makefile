@@ -201,8 +201,6 @@ ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
 else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
-
-LINKFLAGS += $(shell $(PYTHON_CONFIG) --ldflags)
 endif
 
 PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
@@ -332,8 +330,13 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
+# python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
+LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
+LIBS += $(shell $(PYTHON_CONFIG) --libs)
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
@@ -345,11 +348,7 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-# python-config --ldflags includes LIBS for some reason
-LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-
+LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
