@@ -976,9 +976,9 @@ module dspv2_32x18x64_cfg_ports (
         .b_cin(b_cin_i),
 		.z_cin(z_cin_i),
 
-        .z_cout(a_cout_o),
-        .a_cout(b_cout_o),
-        .b_cout(z_cout_o)
+        .a_cout(a_cout_o),
+        .b_cout(b_cout_o),
+        .z_cout(z_cout_o)
     );
 	
 endmodule
