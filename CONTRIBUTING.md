@@ -5,6 +5,8 @@ first time contributing to an open source project, please take a look at the
 following guide:
 https://opensource.guide/how-to-contribute/#orienting-yourself-to-a-new-project.
 
+Information about the Yosys coding style is available on our Read the Docs:
+https://yosys.readthedocs.io/en/latest/yosys_internals/extending_yosys/contributing.html.
 
 # Using the issue tracker
 
