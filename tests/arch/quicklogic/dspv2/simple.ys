@@ -1,0 +1,17 @@
+read_verilog <<EOF
+module top(input [16:0] a, input [16:0] b, output reg [33:0] o, input clk, input [2:0] j);
+	reg [16:0] ar;
+	reg [16:0] br;
+
+	always @(posedge clk) begin
+		ar <= a;
+		br <= b;
+		o <= {ar * br, j};
+	end
+endmodule
+EOF
+
+synth_quicklogic -family qlf_k6n10f -run :coarse
+check
+opt_clean
+dump
