@@ -47,9 +47,6 @@ void lhs2rhs_rhs2lhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 		std::vector<SigSpec> rhsBits;
 		for (int i = 0; i < rhs.size(); i++) {
 			SigSpec bit_sig = rhs.extract(i, 1);
-			if (bit_sig.is_fully_const()) {
-				continue;
-			}
 			rhsBits.push_back(bit_sig);
 		}
 
@@ -62,13 +59,11 @@ void lhs2rhs_rhs2lhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
+// Collect transitive fanin of a sig
 void collectTransitiveFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 			    dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, std::set<Cell *> &visitedCells,
 			    std::set<RTLIL::SigSpec> &visitedSigSpec)
 {
-	if (sig.is_fully_const()) {
-		return;
-	}
 	if (visitedSigSpec.count(sig)) {
 		return;
 	}
@@ -84,14 +79,10 @@ void collectTransitiveFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<C
 				IdString portName = conn.first;
 				RTLIL::SigSpec actual = conn.second;
 				if (cell->input(portName)) {
-					if (!actual.is_chunk()) {
-						for (auto it = actual.chunks().rbegin(); it != actual.chunks().rend(); ++it) {
-							RTLIL::SigSpec sub_actual = *it;
-							collectTransitiveFanin(sub_actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells,
-									       visitedSigSpec);
-						}
-					} else {
-						collectTransitiveFanin(actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+					collectTransitiveFanin(actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+					for (int i = 0; i < actual.size(); i++) {
+						SigSpec bit_sig = actual.extract(i, 1);
+						collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 					}
 				}
 			}
@@ -100,9 +91,14 @@ void collectTransitiveFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<C
 	if (lhsSig2RhsSig.count(sig)) {
 		RTLIL::SigSpec rhs = lhsSig2RhsSig[sig];
 		collectTransitiveFanin(rhs, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		for (int i = 0; i < rhs.size(); i++) {
+			SigSpec bit_sig = rhs.extract(i, 1);
+			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		}
 	}
 }
 
+// Only keep the cells and wires that are visited using the transitive fanin reached from output ports
 void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig)
 {
@@ -118,6 +114,10 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 			continue;
 		}
 		collectTransitiveFanin(po, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		for (int i = 0; i < po.size(); i++) {
+			SigSpec bit_sig = po.extract(i, 1);
+			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		}
 	}
 
 	for (auto elt : lhsSig2RhsSig) {
@@ -127,6 +127,10 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 			continue;
 		}
 		collectTransitiveFanin(po, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		for (int i = 0; i < po.size(); i++) {
+			SigSpec bit_sig = po.extract(i, 1);
+			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		}
 	}
 
 	pool<RTLIL::SigSig> newConnections;
@@ -134,7 +138,14 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 		RTLIL::SigSpec lhs = it->first;
 		if (visitedSigSpec.count(lhs)) {
 			newConnections.insert(*it);
-			continue;
+		} else {
+			for (int i = 0; i < lhs.size(); i++) {
+				SigSpec bit_sig = lhs.extract(i, 1);
+				if (visitedSigSpec.count(bit_sig)) {
+					newConnections.insert(*it);
+					break;
+				}
+			}
 		}
 	}
 
@@ -149,13 +160,22 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 		if (visitedSigSpec.count(sig)) {
 			continue;
 		}
-		RTLIL::Wire *w = sig[0].wire;
-		if (w->port_id) {
+		bool bitVisited = false;
+		for (int i = 0; i < sig.size(); i++) {
+			SigSpec bit_sig = sig.extract(i, 1);
+			if (visitedSigSpec.count(bit_sig)) {
+				bitVisited = true;
+				break;
+			}
+		}
+		if (bitVisited)
+			continue;
+		if (wire->port_id) {
 			continue;
 		}
-		if (w->get_bool_attribute(ID::keep))
+		if (wire->get_bool_attribute(ID::keep))
 			continue;
-		wiresToRemove.insert(w);
+		wiresToRemove.insert(wire);
 	}
 
 	module->remove(wiresToRemove);

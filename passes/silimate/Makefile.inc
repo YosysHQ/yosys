@@ -10,3 +10,4 @@ OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/selectconst.o
 OBJS += passes/silimate/splitfanout.o
 OBJS += passes/silimate/splitnetlist.o
+OBJS += passes/silimate/obs_clean.o
