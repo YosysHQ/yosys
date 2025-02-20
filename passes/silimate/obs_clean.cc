@@ -208,6 +208,10 @@ struct ObsClean : public ScriptPass {
 		log("Running obs_clean pass\n");
 		log_flush();
 		for (auto module : design->selected_modules()) {
+			if (module->has_processes_warn())
+				continue;
+			if (module->has_memories_warn())
+				continue;
 			SigMap sigmap(module);
 			// Precompute cell output sigspec to cell map
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
