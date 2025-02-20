@@ -201,6 +201,8 @@ ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
 else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
+
+LINKFLAGS += $(shell $(PYTHON_CONFIG) --ldflags)
 endif
 
 PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
@@ -331,7 +333,7 @@ endif
 
 ifeq ($(ENABLE_PYOSYS),1)
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) $(LINKFLAGS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
