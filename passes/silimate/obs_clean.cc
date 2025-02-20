@@ -39,38 +39,56 @@ void lhs2rhs_rhs2lhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
 		RTLIL::SigSpec rhs = it->second;
-		std::vector<SigSpec> lhsBits;
-		for (int i = 0; i < lhs.size(); i++) {
-			SigSpec bit_sig = lhs.extract(i, 1);
-			lhsBits.push_back(bit_sig);
+		if (lhs.is_chunk()) {
+			std::cout << "lhs ischunck: " << lhs.size() << std::endl;
+		} else {
+			std::cout << "lhs isnotchunck: " << lhs.size() << std::endl;
 		}
-		std::vector<SigSpec> rhsBits;
-		for (int i = 0; i < rhs.size(); i++) {
-			SigSpec bit_sig = rhs.extract(i, 1);
-			rhsBits.push_back(bit_sig);
+		if (rhs.is_chunk()) {
+			std::cout << "rhs ischunck: " << rhs.size() << std::endl;
+		} else {
+			std::cout << "rhs isnotchunck" << std::endl;
 		}
-
-		for (uint32_t i = 0; i < lhsBits.size(); i++) {
-			if (i < rhsBits.size()) {
-				rhsSig2LhsSig[sigmap(rhsBits[i])].insert(sigmap(lhsBits[i]));
-				lhsSig2rhsSig[sigmap(lhsBits[i])] = sigmap(rhsBits[i]);
+		if (!lhs.is_chunk()) {
+			std::vector<SigSpec> lhsBits;
+			for (int i = 0; i < lhs.size(); i++) {
+				SigSpec bit_sig = lhs.extract(i, 1);
+				lhsBits.push_back(bit_sig);
+				std::cout << "li:" << i << std::endl;
 			}
+			std::vector<SigSpec> rhsBits;
+			for (int i = 0; i < rhs.size(); i++) {
+				SigSpec bit_sig = rhs.extract(i, 1);
+				rhsBits.push_back(bit_sig);
+				std::cout << "ri:" << i << std::endl;
+			}
+
+			for (uint32_t i = 0; i < lhsBits.size(); i++) {
+				if (i < rhsBits.size()) {
+					std::cout << "lri:" << i << std::endl;
+					rhsSig2LhsSig[sigmap(rhsBits[i])].insert(sigmap(lhsBits[i]));
+					lhsSig2rhsSig[sigmap(lhsBits[i])] = sigmap(rhsBits[i]);
+				}	
+			}
+		} else {
+			rhsSig2LhsSig[sigmap(rhs)].insert(sigmap(lhs));
+			lhsSig2rhsSig[sigmap(lhs)] = sigmap(rhs);
 		}
 	}
 }
 
 // Collect transitive fanin of a sig
-void collectTransitiveFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
+void collectTransitiveFanin(RTLIL::SigSpec &sig, SigMap& sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 			    dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, std::set<Cell *> &visitedCells,
 			    std::set<RTLIL::SigSpec> &visitedSigSpec)
 {
-	if (visitedSigSpec.count(sig)) {
+	if (visitedSigSpec.count(sigmap(sig))) {
 		return;
 	}
-	visitedSigSpec.insert(sig);
+	visitedSigSpec.insert(sigmap(sig));
 
-	if (sig2CellsInFanin.count(sig)) {
-		for (Cell *cell : sig2CellsInFanin[sig]) {
+	if (sig2CellsInFanin.count(sigmap(sig))) {
+		for (Cell *cell : sig2CellsInFanin[sigmap(sig)]) {
 			if (visitedCells.count(cell)) {
 				continue;
 			}
@@ -79,27 +97,30 @@ void collectTransitiveFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<C
 				IdString portName = conn.first;
 				RTLIL::SigSpec actual = conn.second;
 				if (cell->input(portName)) {
-					collectTransitiveFanin(actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+					collectTransitiveFanin(actual, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 					for (int i = 0; i < actual.size(); i++) {
 						SigSpec bit_sig = actual.extract(i, 1);
-						collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+						collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 					}
 				}
 			}
 		}
 	}
-	if (lhsSig2RhsSig.count(sig)) {
-		RTLIL::SigSpec rhs = lhsSig2RhsSig[sig];
-		collectTransitiveFanin(rhs, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+	std::cout << "HERE\n";
+	if (lhsSig2RhsSig.count(sigmap(sig))) {
+		std::cout << "THERE\n";
+		RTLIL::SigSpec rhs = lhsSig2RhsSig[sigmap(sig)];
+		collectTransitiveFanin(rhs, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		for (int i = 0; i < rhs.size(); i++) {
+			std::cout << "THERE: " << i << "\n";
 			SigSpec bit_sig = rhs.extract(i, 1);
-			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+			collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		}
 	}
 }
 
-// Only keep the cells and wires that are visited using the transitive fanin reached from output ports
-void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
+// Only keep the cells and wires that are visited using the transitive fanin reached from output ports or keep signals
+void observabilityClean(RTLIL::Module *module, SigMap& sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig)
 {
 	if (module->get_bool_attribute(ID::keep))
@@ -110,39 +131,59 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 	for (auto elt : sig2CellsInFanin) {
 		RTLIL::SigSpec po = elt.first;
 		RTLIL::Wire *w = po[0].wire;
-		if (w && !w->port_output) {
+		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
 		}
-		collectTransitiveFanin(po, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		collectTransitiveFanin(po, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		for (int i = 0; i < po.size(); i++) {
 			SigSpec bit_sig = po.extract(i, 1);
-			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+			collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		}
 	}
 
 	for (auto elt : lhsSig2RhsSig) {
 		RTLIL::SigSpec po = elt.first;
 		RTLIL::Wire *w = po[0].wire;
-		if (w && !w->port_output) {
+		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
 		}
-		collectTransitiveFanin(po, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		if (po.is_chunk()) {
+			std::cout << "po ischunck" << std::endl;
+		} else {
+			std::cout << "po isnotchunck" << std::endl;
+		}
+		if (w)
+		  std::cout << "Name: " << w->name.c_str() << std::endl;
+		else 
+			 std::cout << "No Name: " << std::endl;
+		std::cout << "PO size: " << po.size() << std::endl;
+		collectTransitiveFanin(po, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		for (int i = 0; i < po.size(); i++) {
 			SigSpec bit_sig = po.extract(i, 1);
-			collectTransitiveFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+			collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		}
 	}
 
 	pool<RTLIL::SigSig> newConnections;
 	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
+		RTLIL::SigSpec sigmaplhs = sigmap(lhs);
+		if (!sigmaplhs.is_fully_const()) {
+			lhs = sigmaplhs;
+		}
 		if (visitedSigSpec.count(lhs)) {
 			newConnections.insert(*it);
+			std::cout << "New connection\n";
 		} else {
 			for (int i = 0; i < lhs.size(); i++) {
 				SigSpec bit_sig = lhs.extract(i, 1);
+				RTLIL::SigSpec sigmapbit_sig = sigmap(bit_sig);
+				//if (!sigmapbit_sig.is_fully_const()) {
+					bit_sig = sigmapbit_sig;
+				//}
 				if (visitedSigSpec.count(bit_sig)) {
 					newConnections.insert(*it);
+					std::cout << "New connection\n";
 					break;
 				}
 			}
@@ -157,7 +198,7 @@ void observabilityClean(RTLIL::Module *module, dict<RTLIL::SigSpec, std::set<Cel
 	pool<RTLIL::Wire *> wiresToRemove;
 	for (auto wire : module->wires()) {
 		RTLIL::SigSpec sig = wire;
-		if (visitedSigSpec.count(sig)) {
+		if (visitedSigSpec.count(sigmap(sig))) {
 			continue;
 		}
 		bool bitVisited = false;
@@ -222,7 +263,7 @@ struct ObsClean : public ScriptPass {
 			dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> rhsSig2LhsSig;
 			lhs2rhs_rhs2lhs(module, sigmap, rhsSig2LhsSig, lhsSig2RhsSig);
 			// Actual cleanup
-			observabilityClean(module, sig2CellsInFanin, lhsSig2RhsSig);
+			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig);
 		}
 		log("End obs_clean pass\n");
 		log_flush();
