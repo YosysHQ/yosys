@@ -30,21 +30,21 @@ in Yosys can be helpful for this process.
 # Using pull requests
 
 If you are working on something to add to Yosys, or fix something that isn't
-working quite right, make a PR!  An open PR, even as a draft, tells everyone
-that you're working on it and they don't have to.  It can also be a useful way
-to solicit feedback on in-progress changes.  See below to find the best way to
-[ask us questions](#asking-questions).
+working quite right, make a [PR](https://github.com/YosysHQ/yosys/pulls)!  An
+open PR, even as a draft, tells everyone that you're working on it and they
+don't have to.  It can also be a useful way to solicit feedback on in-progress
+changes.  See below to find the best way to [ask us
+questions](#asking-questions).
 
-In general, all changes to the code are done as a
-[PR](https://github.com/YosysHQ/yosys/pulls), with [Continuous Integration
-(CI)](https://github.com/YosysHQ/yosys/actions) tools that automatically run the
-full suite of tests compiling and running Yosys.  Please make use of this!  If
-you're adding a feature: add a test!  Not only does it verify that your feature
-is working as expected, but it can also be a handy way for people to see how the
-feature is used.  If you're fixing a bug: add a test!  If you can, do this
-first; it's okay if the test starts off failing - you already know there is a
-bug.  CI also helps to make sure that your changes still work under a range of
-compilers, settings, and targets.
+In general, all changes to the code are done as a PR, with [Continuous
+Integration (CI)](https://github.com/YosysHQ/yosys/actions) tools that
+automatically run the full suite of tests compiling and running Yosys.  Please
+make use of this!  If you're adding a feature: add a test!  Not only does it
+verify that your feature is working as expected, but it can also be a handy way
+for people to see how the feature is used.  If you're fixing a bug: add a test!
+If you can, do this first; it's okay if the test starts off failing - you
+already know there is a bug.  CI also helps to make sure that your changes still
+work under a range of compilers, settings, and targets.
 
 
 ### Labels
