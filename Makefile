@@ -17,7 +17,6 @@ ENABLE_GHDL := 0
 ENABLE_SLANG := 0
 ENABLE_VERIFIC := 1
 ENABLE_VERIFIC_SYSTEMVERILOG := 1
-VERIFIC_LINEFILE_INCLUDES_LOOPS := 1
 ENABLE_VERIFIC_VHDL := 0
 ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
@@ -28,6 +27,8 @@ ENABLE_VERIFIC_UPF := 1
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_BACKTRACE := 1
+VERIFIC_LINEFILE_INCLUDES_LOOPS := 1
 
 # python wrappers
 ENABLE_PYOSYS := 1
@@ -146,8 +147,6 @@ PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
 PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk@8/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
 export LIBRARY_PATH := $(BREW_PREFIX)/dwarfutils/lib:$(BREW_PREFIX)/libelf/lib:$(LIBRARY_PATH)
-LIBS += -ldwarf -lelf            # SILIMATE: support for backward-cpp
-CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
 
 # macports search paths
 else ifneq ($(shell :; command -v port),)
@@ -377,6 +376,13 @@ OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
 PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif # ENABLE_PYOSYS
+
+ifeq ($(ENABLE_BACKTRACE),1)
+ifeq ($(OS), Darwin)
+LIBS += -ldwarf -lelf            # SILIMATE: support for backward-cpp
+CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
+endif
+endif
 
 ifeq ($(ENABLE_READLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_READLINE
