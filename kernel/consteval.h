@@ -310,7 +310,7 @@ struct ConstEval
 				}
 			}
 		}
-		else if (cell->type == ID($macc))
+		else if (cell->type.in(ID($macc), ID($macc_v2)))
 		{
 			Macc macc;
 			macc.from_cell(cell);
