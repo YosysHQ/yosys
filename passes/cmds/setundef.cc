@@ -147,6 +147,10 @@ struct SetundefPass : public Pass {
 		log("    -params\n");
 		log("        replace undef in cell parameters\n");
 		log("\n");
+		log("   -blackbox\n");
+		log("        remove instances of blackbox modules in selection and treat their\n");
+		log("        outputs as undef by calling `cutpoint -undef`\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -155,6 +159,7 @@ struct SetundefPass : public Pass {
 		bool expose_mode = false;
 		bool init_mode = false;
 		bool params_mode = false;
+		bool blackbox_mode = false;
 		SetundefWorker worker;
 
 		log_header(design, "Executing SETUNDEF pass (replace undef values with defined constants).\n");
@@ -208,6 +213,10 @@ struct SetundefPass : public Pass {
 				params_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-blackbox") {
+				blackbox_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-random" && argidx+1 < args.size()) {
 				got_value++;
 				worker.next_bit_mode = MODE_RANDOM;
@@ -227,6 +236,13 @@ struct SetundefPass : public Pass {
 			worker.next_bit_state = 0;
 		}
 
+		if (!got_value && blackbox_mode) {
+			log("Using default as -undef with -blackbox.\n");
+			got_value++;
+			worker.next_bit_mode = MODE_UNDEF;
+			worker.next_bit_state = 0;
+		}
+
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
@@ -239,6 +255,19 @@ struct SetundefPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (blackbox_mode)
+			{
+				RTLIL::Selection module_boxes(false);
+				for (auto *cell : module->selected_cells()) {
+					auto mod = design->module(cell->type);
+					if (mod != nullptr && mod->get_blackbox_attribute())
+						module_boxes.select(module, cell);
+				}
+				log_push();
+				call_on_selection(design, module_boxes, "cutpoint -undef");
+				log_pop();
+			}
+
 			if (params_mode)
 			{
 				for (auto *cell : module->selected_cells()) {
