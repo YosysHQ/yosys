@@ -141,6 +141,30 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 	return match_attr(attributes, match_expr, std::string(), 0);
 }
 
+static bool match_type_prop(RTLIL::IdString type, const std::string &property)
+{
+	auto *ct = yosys_celltypes.get_cell(type);
+	if (ct == nullptr) {
+		return false;
+	} else
+	if (property.compare("evaluable") == 0) {
+		return ct->is_evaluable;
+	} else
+	if (property.compare("combinatorial") == 0) {
+		return ct->is_combinatorial;
+	} else
+	if (property.compare("synthesizable") == 0) {
+		return ct->is_synthesizable;
+	} else
+	if (property.compare("builtin_ff") == 0) {
+		return ct->is_builtin_ff;
+	} else
+	if (property.compare("formal") == 0) {
+		return ct->is_formal;
+	} else
+		log_cmd_error("Unsupported type property '%s'!\n", property.c_str());
+}
+
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	if (lhs.full_selection) {
@@ -891,6 +915,11 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 						sel.selected_members[mod->name].insert(cell->name);
 			}
 		} else
+		if (arg_memb.compare(0, 2, "y:") == 0) {
+			for (auto cell : mod->cells())
+				if (match_type_prop(cell->type, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(cell->name);
+		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
 				if (match_ids(it.first, arg_memb.substr(2)))
@@ -1177,6 +1206,11 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    t:@<name>\n");
 		log("        all cells with a type matching a module in the saved selection <name>\n");
+		log("\n");
+		log("    y:<property>\n");
+		log("        all cells with a given type property, possible values are:\n");
+		log("        evaluable, combinatorial, synthesizable, builtin_ff, formal\n");
+		log("        (currently only internal cells can have type properties)\n");
 		log("\n");
 		log("    p:<pattern>\n");
 		log("        all processes with a name matching the given pattern\n");
