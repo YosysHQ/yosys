@@ -170,7 +170,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.50+7
+YOSYS_VER := 0.50+14
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -347,8 +347,13 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
+# python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
+LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
+LIBS += $(shell $(PYTHON_CONFIG) --libs)
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) $(LINKFLAGS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
@@ -366,11 +371,7 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-# python-config --ldflags includes LIBS for some reason
-LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-
+LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
@@ -1110,6 +1111,7 @@ clean:
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
+	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
 	rm -rf docs/source/cmd docs/util/__pycache__
 
