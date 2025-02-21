@@ -24,7 +24,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/xilinx_srl_pm.h"
+#include "techlibs/xilinx/xilinx_srl_pm.h"
 
 void run_fixed(xilinx_srl_pm &pm)
 {
