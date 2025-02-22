@@ -24,6 +24,7 @@
 #include "kernel/log.h"
 #include "kernel/mem.h"
 #include "libs/json11/json11.hpp"
+#include "kernel/utils.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE

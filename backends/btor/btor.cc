@@ -30,6 +30,7 @@
 #include "kernel/mem.h"
 #include "kernel/json.h"
 #include "kernel/yw.h"
+#include "kernel/utils.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
