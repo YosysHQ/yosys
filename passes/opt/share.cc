@@ -88,6 +88,9 @@ struct ShareWorker
 
 			for (auto &pbit : portbits) {
 				if (pbit.cell->type == ID($mux) || pbit.cell->type == ID($pmux)) {
+					if (visited_cells.count(pbit.cell))
+						log_error("Combinational loop composed of $mux or $pmux, "
+							      "run check -assert before this pass for more info\n");
 					pool<RTLIL::SigBit> bits = modwalker.sigmap(pbit.cell->getPort(ID::S)).to_sigbit_pool();
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
