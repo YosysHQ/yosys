@@ -1,0 +1,209 @@
+# test: acceptable for output IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= ~a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: acceptable for output IOFF promotion
+read_verilog <<EOF
+module top (input clk, input [3:0] a, output reg [3:0] o);
+    always @(posedge clk) begin
+        o <= ~a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 4 t:dff
+
+design -reset
+# test: acceptable for output IOFF promotion; duplicate output FF
+read_verilog <<EOF
+module top (input clk, input [3:0] a, output [3:0] o, output [3:0] p);
+    reg [3:0] r;
+    always @(posedge clk) begin
+        r <= ~a;
+    end
+    assign o = r;
+    assign p = r;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 8 t:dff
+
+design -reset
+# test: acceptable for input IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output o);
+    reg r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: acceptable for input IOFF promotion
+read_verilog <<EOF
+module top (input clk, input [3:0] a, output [3:0] o);
+    reg [3:0] r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 4 t:dff
+
+design -reset
+# test: acceptable for either IOFF promotion
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 1 t:dff
+
+design -reset
+# test: not acceptable for output IOFF promotion: output signal is used
+read_verilog <<EOF
+module top (input clk, input a, output reg o);
+    always @(posedge clk) begin
+        o <= ~a | o;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for output IOFF promotion: output signal is used
+read_verilog <<EOF
+module top (input clk, input [3:0] a, output reg [3:0] o);
+    always @(posedge clk) begin
+        o <= ~a | o;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for input IOFF promotion: input signal is used
+read_verilog <<EOF
+module top (input clk, input a, output o, p);
+    reg r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+    assign p = ~a;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for input IOFF promotion: input signal is used
+read_verilog <<EOF
+module top (input clk, input [3:0] a, output [3:0] o, output [3:0] p);
+    reg [3:0] r;
+    always @(posedge clk) begin
+        r <= a;
+    end
+    assign o = ~r;
+    assign p = ~a;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has reset
+read_verilog <<EOF
+module top (input clk, input rst, input a, output reg o);
+    always @(posedge clk) begin
+        if (rst)
+            o <= 1'b0;
+        else
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has reset
+read_verilog <<EOF
+module top (input clk, input rst, input [3:0] a, output reg [3:0] o);
+    always @(posedge clk) begin
+        if (rst)
+            o <= 4'b0;
+        else
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has enable
+read_verilog <<EOF
+module top (input clk, input en, input a, output reg o);
+    always @(posedge clk) begin
+        if (en)
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: not acceptable for IOFF promotion: FF has enable
+read_verilog <<EOF
+module top (input clk, input en, input [3:0] a, output reg [3:0] o);
+    always @(posedge clk) begin
+        if (en)
+            o <= a;
+    end
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 0 t:dff
+
+design -reset
+# test: duplicate registers driving multiple output ports
+read_verilog <<EOF
+module top (
+    input clk,
+    input en,
+    input [3:0] a,
+    output reg [3:0] o_1,
+	output wire [3:0] o_2
+);
+always @(posedge clk) begin
+    o_1[1:0] <= ~a[1:0];
+    if (en)
+        o_1[2] <= a[2];
+end
+always @(*) o_1[3] = a[3];
+assign o_2 = o_1;
+endmodule
+EOF
+synth_quicklogic -family qlf_k6n10f -top top
+select -assert-count 4 t:dff
