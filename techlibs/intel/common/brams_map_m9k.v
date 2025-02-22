@@ -63,10 +63,10 @@ module \$__M9K_ALTSYNCRAM_SINGLEPORT_FULL (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1A
                  .width_byteena_a                (1), // Forced value
                  .numwords_b                     ( NUMWORDS     ),
                  .numwords_a                     ( NUMWORDS     ),
-                 .widthad_b                      ( CFG_DBITS    ),
-                 .width_b                        ( CFG_ABITS    ),
-                 .widthad_a                      ( CFG_DBITS    ),
-                 .width_a                        ( CFG_ABITS    )
+                 .widthad_b                      ( CFG_ABITS    ),
+                 .width_b                        ( CFG_DBITS    ),
+                 .widthad_a                      ( CFG_ABITS    ),
+                 .width_a                        ( CFG_DBITS    )
                  ) _TECHMAP_REPLACE_ (
                                       .data_a(B1DATA),
                                       .address_a(B1ADDR),
