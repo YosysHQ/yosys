@@ -348,7 +348,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? ID($_OR_) : ID($_AND_));
 		enable_gate->setPort(ID::A, enable_sig);
 		enable_gate->setPort(ID::B, clear_enable);
-		enable_gate->setPort(ID::Y, data_sig = module->addWire(NEW_ID));
+		enable_gate->setPort(ID::Y, enable_sig = module->addWire(NEW_ID));
 	}
 
 	if (preset_sig.size() == 1)
@@ -376,7 +376,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		RTLIL::Cell *enable_gate = module->addCell(NEW_ID, enable_polarity ? ID($_OR_) : ID($_AND_));
 		enable_gate->setPort(ID::A, enable_sig);
 		enable_gate->setPort(ID::B, preset_enable);
-		enable_gate->setPort(ID::Y, data_sig = module->addWire(NEW_ID));
+		enable_gate->setPort(ID::Y, enable_sig = module->addWire(NEW_ID));
 	}
 
 	cell = module->addCell(NEW_ID, stringf("$_DLATCH_%c_", enable_polarity ? 'P' : 'N'));
