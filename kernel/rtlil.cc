@@ -216,6 +216,9 @@ std::string& Const::get_str() const {
 
 RTLIL::Const::Const(const std::string &str)
 {
+	if (str.size() * 8 > 0x1000000)
+		log_error("RTLIL Const width must be less than 2^24");
+
 	flags = RTLIL::CONST_FLAG_STRING;
 	new ((void*)&str_) std::string(str);
 	tag = backing_tag::string;
@@ -223,6 +226,12 @@ RTLIL::Const::Const(const std::string &str)
 
 RTLIL::Const::Const(long long val, int width)
 {
+	if (width < 0)
+		log_error("RTLIL Const width must not be negative");
+
+	if (width > 0x1000000)
+		log_error("RTLIL Const width must be less than 2^24");
+
 	flags = RTLIL::CONST_FLAG_NONE;
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
@@ -236,6 +245,12 @@ RTLIL::Const::Const(long long val, int width)
 
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
+	if (width < 0)
+		log_error("RTLIL Const width must not be negative");
+
+	if (width > 0x1000000)
+		log_error("RTLIL Const width must be less than 2^24");
+
 	flags = RTLIL::CONST_FLAG_NONE;
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
@@ -247,6 +262,10 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
+
+	if (bits.size() > 0x1000000)
+		log_error("RTLIL Const width must be less than 2^24");
+
 	flags = RTLIL::CONST_FLAG_NONE;
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
@@ -446,6 +465,10 @@ std::string RTLIL::Const::as_string(const char* any) const
 
 RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 {
+
+	if (str.size() > 0x1000000)
+		log_error("RTLIL width must be less than 2^24");
+
 	Const c;
 	bitvectype& bv = c.get_bits();
 	bv.reserve(str.size());
