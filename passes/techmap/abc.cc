@@ -63,6 +63,7 @@
 #endif
 
 #include "frontends/blif/blifparse.h"
+#include "passes/techmap/abc_prep.h"
 
 #ifdef YOSYS_LINK_ABC
 namespace abc {
@@ -787,12 +788,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
-	std::string tempdir_name;
-	if (cleanup) 
-		tempdir_name = get_base_tmpdir() + "/";
-	else
-		tempdir_name = "_tmp_";
-	tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
+	std::string tempdir_name = AbcPrep::tmp_base(cleanup) + "yosys-abc-XXXXXX";
 	tempdir_name = make_temp_dir(tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
@@ -2041,6 +2037,7 @@ struct AbcPass : public Pass {
 			enabled_gates.insert("MUX");
 			// enabled_gates.insert("NMUX");
 		}
+		auto lib_tempdir_name = AbcPrep::make_tmp_extract_lib(liberty_files, cleanup);
 
 		for (auto mod : design->selected_modules())
 		{
@@ -2220,6 +2217,9 @@ struct AbcPass : public Pass {
 				assign_map.set(mod);
 			}
 		}
+
+		if (cleanup)
+			remove_directory(lib_tempdir_name);
 
 		assign_map.clear();
 		signal_list.clear();

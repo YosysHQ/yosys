@@ -20,6 +20,9 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
+#include "kernel/io.h"
+
+#include "passes/techmap/abc_prep.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -80,6 +83,7 @@ struct AbcNewPass : public ScriptPass {
 
 	bool cleanup;
 	std::string abc_exe_options;
+	std::vector<std::string> liberty_files;
 
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
@@ -89,8 +93,7 @@ struct AbcNewPass : public ScriptPass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||
 					args[argidx] == "-D" ||
-					args[argidx] == "-constr" || args[argidx] == "-dont_use" ||
-					args[argidx] == "-liberty") {
+					args[argidx] == "-constr" || args[argidx] == "-dont_use") {
 				abc_exe_options += " " + args[argidx] + " " + args[argidx + 1];
 				argidx++;
 			} else if (args[argidx] == "-run" && argidx + 1 < args.size()) {
@@ -101,6 +104,9 @@ struct AbcNewPass : public ScriptPass {
 				run_to = args[argidx].substr(pos + 1);
 			} else if (args[argidx] == "-nocleanup") {
 				cleanup = false;
+			} else if (args[argidx] == "-liberty") {
+				liberty_files.push_back(args[argidx + 1]);
+				argidx++;
 			} else {
 				break;
 			}
@@ -109,7 +115,10 @@ struct AbcNewPass : public ScriptPass {
 
 		log_header(d, "Executing ABC_NEW pass.\n");
 		log_push();
+		auto lib_tmpdir = AbcPrep::make_tmp_extract_lib(liberty_files, cleanup);
 		run_script(d, run_from, run_to);
+		if (cleanup)
+			remove_directory(lib_tmpdir);
 		log_pop();
 	}
 
@@ -145,13 +154,15 @@ struct AbcNewPass : public ScriptPass {
 				run("foreach module in selection");
 			}
 
+			for (auto f : liberty_files)
+				abc_exe_options += stringf(" -liberty %s", f.c_str());
+
 			for (auto mod : selected_modules) {
-				std::string tmpdir = "<abc-temp-dir>";
+				std::string tmpdir = "<abc-temp-dir>/<mod-dir>";
 				std::string modname = "<module>";
 				std::string exe_options = "[options]";
 				if (!help_mode) {
-					tmpdir = cleanup ? (get_base_tmpdir() + "/") : "_tmp_";
-					tmpdir += proc_program_prefix() + "yosys-abc-XXXXXX";
+					tmpdir = AbcPrep::tmp_base(cleanup) + "yosys-abc-XXXXXX";
 					tmpdir = make_temp_dir(tmpdir);
 					modname = mod->name.str();
 					exe_options = abc_exe_options;
@@ -191,13 +202,20 @@ struct AbcNewPass : public ScriptPass {
 						run("abc9_ops -prep_box");
 					}
 				}
+				if (cleanup)
+				{
+					log("Removing temp directory.\n");
+					remove_directory(tmpdir);
+				}
 			}
 
 			if (!help_mode) {
 				active_design->selection_stack.pop_back();
 			}
 		}
+
 	}
+
 } AbcNewPass;
 
 PRIVATE_NAMESPACE_END
