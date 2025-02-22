@@ -147,9 +147,9 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
 Example: Adapting SMT-LIB backend for Rosette
 ---------------------------------------------
 
-This section will walk through the process of adapting the SMT-LIB functional
-backend (`write_functional_smt2`) to work with another s-expression target,
-`Rosette`_ (`write_functional_rosette`).
+This section will introduce the SMT-LIB functional backend
+(`write_functional_smt2`) and what changes are needed to work with another
+s-expression target, `Rosette`_ (`write_functional_rosette`).
 
 .. _Rosette: http://emina.github.io/rosette/
 
@@ -177,12 +177,19 @@ Scope
 ~~~~~
 
 As described above, the ``Functional::Scope`` class is derived in order to avoid
-collisions between identifiers in the generated output.  We switch out ``Smt``
-in the class name for ``Smtr`` for ``smtlib_rosette``; which will happen through
-the rest of the code too.  We also update the ``is_character_legal`` method to
-reject ascii characters which are not allowed in Racket variable names.
+collisions between identifiers in the generated output.  In the SMT-LIB version
+the ``SmtScope`` class implements ``Scope<int>``; provides a constructor that
+iterates over a list of reserved keywords, calling ``reserve`` on each; and
+defines the ``is_character_legal`` method to reject any characters which are not
+allowed in SMT-LIB variable names to then be replaced with underscores in the
+output.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+In the Rosette version we switch out ``Smt`` in the class name for ``Smtr`` to
+mean ``smtlib_rosette``; this will happen through the rest of the code too.  We
+also update list of legal ascii characters in the ``is_character_legal`` method
+to only those allowed in Racket variable names.
+
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``Scope`` class
    :start-at: -struct SmtScope : public Functional::Scope<int> {
@@ -218,13 +225,13 @@ and racket specifications to save on space in this document.
 Sort
 ~~~~
 
-The ``Sort`` class is a wrapper for the ``Functional::Sort`` class, providing
-the additional functionality of mapping variable declarations to s-expressions
-with the ``to_sexpr()`` method.  The main change from ``SmtSort`` to
-``SmtrSort`` is a syntactical one with signals represented as ``bitvector``\
-s, and memories as ``list``\ s of signals.
+Next up in `write_functional_smt2` we see the ``Sort`` class.  This is a wrapper
+for the ``Functional::Sort`` class, providing the additional functionality of
+mapping variable declarations to s-expressions with the ``to_sexpr()`` method.
+The main change from ``SmtSort`` to ``SmtrSort`` is a syntactical one with
+signals represented as ``bitvector``\ s, and memories as ``list``\ s of signals.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``Sort`` wrapper
    :start-at: SExpr to_sexpr() const {
@@ -233,37 +240,56 @@ s, and memories as ``list``\ s of signals.
 Struct
 ~~~~~~
 
-The SMT-LIB backend uses a class, ``SmtStruct``, to help with describing the
-input, output, and state data structs.  Where each struct in the SMT-LIB output
-is a new ``datatype`` with each element having its type declared using the
-`Sort`_ above, in Rosette we use the native ``struct`` with each field only
-being referred to by name.  For ease of use, we include comments for each field
-to indicate the expected type.
+The ``Functional::IR`` class tracks the set of inputs, the set of outputs, and
+the set of "state" variables.  The SMT-LIB backend maps each of these sets into
+its own ``SmtStruct``, with each variable getting a corresponding field in the
+struct and a specified `Sort`_.  `write_functional_smt2` then defines each of
+these structs as a new ``datatype``, with each element being strongly-typed.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+In Rosette, rather than defining new datatypes for our structs, we use the
+native ``struct``.  We also only declare each field by name because Racket is
+not as strongly-typed.  For ease of use, we provide the expected type for each
+field as comments.
+
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``write_definition`` method
    :start-at: void write_definition
    :end-before: template<typename Fn> void write_value
 
-Struct fields in Rosette are accessed as ``<struct_name>-<field_name>``, where
-field names only need to be unique within the struct, while accessors are unique
-within the module.  We thus modify the class constructor and ``insert`` method
-to support this; providing one scope that is local to the struct
-(``local_scope``) and one which is shared across the whole module
-(``global_scope``).
+Each field is added to the ``SmtStruct`` with the ``insert`` method, which also
+reserves a unique name (or accessor) within the `Scope`_.  These accessors
+combine the struct name and field name and are globally unique, being used in
+the ``access`` method for reading values from the input/current state.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/smtlib.cc
+   :language: c++
+   :caption: ``Struct::access()`` method
+   :start-at: SExpr access(
+   :end-before: };
+
+In Rosette, struct fields are accessed as ``<struct_name>-<field_name>`` so
+including the struct name in the field name would be redundant.  For
+`write_functional_rosette` we instead choose to make field names unique only
+within the struct, while accessors are unique across the whole module.  We thus
+modify the class constructor and ``insert`` method to support this; providing
+one scope that is local to the struct (``local_scope``) and one which is shared
+across the whole module (``global_scope``), leaving the ``access`` method
+unchanged.
+
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of struct constructor
    :start-at: SmtStruct(std::string name, SmtScope &scope)
    :end-before: void write_definition
 
-For writing outputs/next state (the ``write_value`` method), the only change is
-to remove the check for zero-argument constructors since this is not necessary
-with Rosette ``struct``\ s.
+Finally, ``SmtStruct`` also provides a ``write_value`` template method which
+calls a provided function on each element in the struct.  This is used later for
+assigning values to the output/next state pair.  The only change here is to
+remove the check for zero-argument constructors since this is not necessary with
+Rosette ``struct``\ s.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``write_value`` method
    :start-at: template<typename Fn> void write_value
@@ -273,11 +299,13 @@ PrintVisitor
 ~~~~~~~~~~~~
 
 The ``PrintVisitor`` implements the abstract ``Functional::AbstractVisitor``
-class for converting FunctionalIR functions into s-expressions, including
-reading inputs/current state.  For most functions, the Rosette output is very
-similar to the corresponding SMT-LIB function with minor adjustments for syntax.
+class, described above in `What is FunctionalIR`_, with a return type of
+``SExpr``.  This class converts FunctionalIR functions into s-expressions,
+including reading inputs/current state with the ``access`` method from the
+`Struct`_.  For most functions, the Rosette output is very similar to the
+corresponding SMT-LIB function with minor adjustments for syntax.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing similarities
    :start-at: SExpr logical_shift_left
@@ -286,7 +314,7 @@ similar to the corresponding SMT-LIB function with minor adjustments for syntax.
 However there are some differences in the two formats with regards to how
 booleans are handled, with Rosette providing built-in functions for conversion.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing differences
    :start-at: SExpr from_bool
@@ -295,14 +323,21 @@ booleans are handled, with Rosette providing built-in functions for conversion.
 Module
 ~~~~~~
 
-The ``Functional::IR`` is wrapped in the ``Module`` class, with the mapping from
-RTLIL module to FunctionalIR happening in the constructor.  Each of the three
-structs; inputs, outputs, and state; are then created from the corresponding
-lists in the IR.  The only change here is rename the initial state to use ``_``
-instead of ``-``, since the ``-`` in Rosette can be used to access struct
-fields.
+The ``Functional::IR`` is wrapped in the ``SmtModule`` class, with the mapping
+from RTLIL module to FunctionalIR happening in the constructor.  Each of the
+three ``SmtStruct``\ s; inputs, outputs, and state; are created, with each value
+in the corresponding lists in the IR being ``insert``\ ed.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/smtlib.cc
+   :language: c++
+   :caption: ``SmtModule`` constructor
+   :start-at: SmtModule(Module
+   :end-at: }
+
+Since Racket uses the ``-`` to access struct fields, the ``SmtrModule`` instead
+uses an underscore for the name of the initial state.
+
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``Module`` constructor
    :start-at: scope.reserve(name
@@ -316,25 +351,11 @@ current_state) -> (outputs, next_state)`` with ``write_eval``, and declaring the
 initial state with ``write_initial``.  The only change for the ``SmtrModule`` is
 that the ``pair`` declaration isn't needed.
 
-.. inlined diff to show the complete function
-.. code-block:: diff
+.. literalinclude:: /generated/functional/rosette.diff
+   :language: diff
    :caption: diff of ``Module::write()`` method
-
-    	void write(std::ostream &out)
-    	{    
-    		SExprWriter w(out);
-    
-    		input_struct.write_definition(w);
-    		output_struct.write_definition(w);
-    		state_struct.write_definition(w);
-    
-   -		w << list("declare-datatypes",
-   -			list(list("Pair", 2)),
-   -			list(list("par", list("X", "Y"), list(list("pair", list("first", "X"), list("second", "Y"))))));
-   -
-    		write_eval(w);
-    		write_initial(w);
-    	}
+   :start-at: void write(std::ostream &out)
+   :end-at: }
 
 For the ``write_eval`` method, the main differences are syntactical.  First we
 change the function declaration line for the Rosette style which drops the
@@ -371,7 +392,7 @@ variable, ``[name]_initial``, can then be used in the ``[name]`` function call;
 allowing the Rosette code to be used in the generation of the ``next_state``,
 whereas the SMT-LIB code can only verify that a given ``next_state`` is correct.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: diff of ``Module::write_initial()`` method
    :start-at: void write_initial
@@ -396,7 +417,7 @@ an additional line declaring that everything in the file should be exported for
 use; allowing the file to be treated as a Racket package with structs and
 mapping function available for use externally.
 
-.. literalinclude:: /code_examples/functional/rosette.diff
+.. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: relevant portion of diff of ``Backend::execute()`` method
    :start-at: lang rosette/safe
