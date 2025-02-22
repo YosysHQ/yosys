@@ -1,0 +1,39 @@
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q, QQQ);
+	input CLK;
+	output reg QQQ;
+	output reg Q = 1'b1;
+	assign QQQ = Q;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init %i
+abstract -init w:QQQ
+check -assert
+select -assert-count 0 w:Q a:init %i
+
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q, QQQ);
+	input CLK;
+	output reg QQQ;
+	output reg [1:0] Q = 1'b1;
+	assign QQQ = Q;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init=2'b01 %i
+abstract -init w:QQQ
+check -assert
+select -assert-count 1 w:Q a:init=2'b0x %i
