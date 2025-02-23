@@ -123,10 +123,6 @@ struct MuxpackWorker
 	int mux_count, pmux_count;
 
 	pool<Cell*> remove_cells;
-	// Driver data
-	dict<SigBit, tuple<IdString, IdString, int>> bit_drivers_db;
-	// Load data
-	dict<SigBit, pool<tuple<IdString, IdString, int>>> bit_users_db;
 
 	dict<SigSpec, Cell*> sig_chain_next;
 	dict<SigSpec, Cell*> sig_chain_prev;
@@ -376,51 +372,6 @@ struct MuxpackWorker
 	MuxpackWorker(Module *module, bool assume_excl, bool make_excl) :
 			module(module), sigmap(module), mux_count(0), pmux_count(0), excl_db(module, sigmap, assume_excl, make_excl)
 	{
-
-		// Build bit_drivers_db
-		log("Building bit_drivers_db...\n");
-		for (auto cell : module->cells()) {
-			for (auto conn : cell->connections()) {
-				if (!cell->output(conn.first))
-					continue;
-				for (int i = 0; i < GetSize(conn.second); i++) {
-					SigBit bit(sigmap(conn.second[i]));
-					bit_drivers_db[bit] = tuple<IdString, IdString, int>(cell->name, conn.first, i);
-				}
-			}
-		}
-
-		// Build bit_users_db
-		log("Building bit_users_db...\n");
-		for (auto cell : module->cells()) {
-			for (auto conn : cell->connections()) {
-				if (!cell->input(conn.first))
-					continue;
-				for (int i = 0; i < GetSize(conn.second); i++) {
-					SigBit bit(sigmap(conn.second[i]));
-					if (!bit_drivers_db.count(bit))
-						continue;
-					bit_users_db[bit].insert(
-					  tuple<IdString, IdString, int>(cell->name, conn.first, i - std::get<2>(bit_drivers_db[bit])));
-				}
-			}
-		}
-
-		// Build bit_users_db for output ports
-		log("Building bit_users_db for output ports...\n");
-		for (auto wire : module->wires()) {
-			if (!wire->port_output)
-				continue;
-			SigSpec sig(sigmap(wire));
-			for (int i = 0; i < GetSize(sig); i++) {
-				SigBit bit(sig[i]);
-				if (!bit_drivers_db.count(bit))
-					continue;
-				bit_users_db[bit].insert(
-				  tuple<IdString, IdString, int>(wire->name, IdString(), i - std::get<2>(bit_drivers_db[bit])));
-			}
-		}
-
 		make_sig_chain_next_prev();
 		find_chain_start_cells(assume_excl);
 
