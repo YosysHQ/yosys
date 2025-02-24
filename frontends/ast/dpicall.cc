@@ -67,9 +67,10 @@ static ffi_fptr resolve_fn (std::string symbol_name)
 AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args)
 {
 	AST::AstNode *newNode = nullptr;
-	union { double f64; float f32; int32_t i32; void *ptr; } value_store [args.size() + 1];
-	ffi_type *types [args.size() + 1];
-	void *values [args.size() + 1];
+	union value { double f64; float f32; int32_t i32; void *ptr; };
+	std::vector<value> value_store(args.size() + 1);
+	std::vector<ffi_type *> types(args.size() + 1);
+	std::vector<void *> values(args.size() + 1);
 	ffi_cif cif;
 	int status;
 
@@ -118,10 +119,10 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
                 log_error("invalid rtype '%s'.\n", rtype.c_str());
         }
 
-        if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, args.size(), types[args.size()], types)) != FFI_OK)
+        if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, args.size(), types[args.size()], types.data())) != FFI_OK)
                 log_error("ffi_prep_cif failed: status %d.\n", status);
 
-        ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values);
+        ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values.data());
 
 	if (rtype == "real") {
 		newNode = new AstNode(AST_REALVALUE);
