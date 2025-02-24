@@ -57,7 +57,7 @@ struct Slice {
 	}
 
 	std::string to_string() const {
-		const char *option = indices == RtlilSlice ? "-rawslice" : "-slice";
+		const char *option = indices == RtlilSlice ? "-rtlilslice" : "-slice";
 		if (first == last)
 			return stringf("%s %d", option, first);
 		else
