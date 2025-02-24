@@ -14,7 +14,7 @@ void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, 
 			IdString portName = conn.first;
 			RTLIL::SigSpec actual = conn.second;
 			if (cell->output(portName)) {
-				sig2CellsInFanin[actual].insert(cell);
+				sig2CellsInFanin[sigmap(actual)].insert(cell);
 				for (int i = 0; i < actual.size(); i++) {
 					SigSpec bit_sig = actual.extract(i, 1);
 					sig2CellsInFanin[sigmap(bit_sig)].insert(cell);
@@ -106,7 +106,7 @@ void collectTransitiveFanin(RTLIL::SigSpec &sig, SigMap &sigmap, dict<RTLIL::Sig
 
 // Only keep the cells and wires that are visited using the transitive fanin reached from output ports or keep signals
 void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
-			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig)
+			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, bool unused_wires)
 {
 	if (module->get_bool_attribute(ID::keep))
 		return;
@@ -119,9 +119,11 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
 		}
-		collectTransitiveFanin(po, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		RTLIL::SigSpec spo = sigmap(po);
+		collectTransitiveFanin(spo, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		for (int i = 0; i < po.size(); i++) {
 			SigSpec bit_sig = po.extract(i, 1);
+			bit_sig = sigmap(bit_sig);
 			collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		}
 	}
@@ -132,9 +134,11 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
 		}
-		collectTransitiveFanin(po, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
+		RTLIL::SigSpec spo = sigmap(po);
+		collectTransitiveFanin(spo, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		for (int i = 0; i < po.size(); i++) {
 			SigSpec bit_sig = po.extract(i, 1);
+			bit_sig = sigmap(bit_sig);
 			collectTransitiveFanin(bit_sig, sigmap, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 		}
 	}
@@ -142,20 +146,12 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 	std::vector<RTLIL::SigSig> newConnections;
 	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
-		RTLIL::SigSpec sigmaplhs = sigmap(lhs);
-		if (!sigmaplhs.is_fully_const()) {
-			lhs = sigmaplhs;
-		}
-		if (visitedSigSpec.count(lhs)) {
+		if (visitedSigSpec.count(sigmap(lhs))) {
 			newConnections.push_back(*it);
 		} else {
 			for (int i = 0; i < lhs.size(); i++) {
 				SigSpec bit_sig = lhs.extract(i, 1);
-				RTLIL::SigSpec sigmapbit_sig = sigmap(bit_sig);
-				// if (!sigmapbit_sig.is_fully_const()) {
-				bit_sig = sigmapbit_sig;
-				//}
-				if (visitedSigSpec.count(bit_sig)) {
+				if (visitedSigSpec.count(sigmap(bit_sig))) {
 					newConnections.push_back(*it);
 					break;
 				}
@@ -168,31 +164,33 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		module->connect(conn);
 	}
 
-	pool<RTLIL::Wire *> wiresToRemove;
-	for (auto wire : module->wires()) {
-		RTLIL::SigSpec sig = wire;
-		if (visitedSigSpec.count(sigmap(sig))) {
-			continue;
-		}
-		bool bitVisited = false;
-		for (int i = 0; i < sig.size(); i++) {
-			SigSpec bit_sig = sig.extract(i, 1);
-			if (visitedSigSpec.count(bit_sig)) {
-				bitVisited = true;
-				break;
+	if (unused_wires) {
+		pool<RTLIL::Wire *> wiresToRemove;
+		for (auto wire : module->wires()) {
+			RTLIL::SigSpec sig = wire;
+			if (visitedSigSpec.count(sigmap(sig))) {
+				continue;
 			}
+			bool bitVisited = false;
+			for (int i = 0; i < sig.size(); i++) {
+				SigSpec bit_sig = sig.extract(i, 1);
+				if (visitedSigSpec.count(bit_sig)) {
+					bitVisited = true;
+					break;
+				}
+			}
+			if (bitVisited)
+				continue;
+			if (wire->port_id) {
+				continue;
+			}
+			if (wire->get_bool_attribute(ID::keep))
+				continue;
+			wiresToRemove.insert(wire);
 		}
-		if (bitVisited)
-			continue;
-		if (wire->port_id) {
-			continue;
-		}
-		if (wire->get_bool_attribute(ID::keep))
-			continue;
-		wiresToRemove.insert(wire);
-	}
 
-	module->remove(wiresToRemove);
+		module->remove(wiresToRemove);
+	}
 
 	std::set<Cell *> cellsToRemove;
 	for (auto cell : module->cells()) {
@@ -212,9 +210,31 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 struct ObsClean : public ScriptPass {
 	ObsClean() : ScriptPass("obs_clean", "Observability-based cleanup") {}
 	void script() override {}
-
-	void execute(std::vector<std::string>, RTLIL::Design *design) override
+	void help() override
 	{
+		log("\n");
+		log("    obs_clean [options] [selection]\n");
+		log("\n");
+		log("This pass performs an obversability-based logic removal.\n");
+		log("\n");
+		log("    -wires\n");
+		log("        Also removes dangling wires. This option prevents formal verifciation at this time.\n");
+		log("\n");
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		bool unused_wires = false;
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-wires") {
+				unused_wires = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
 		if (design == nullptr) {
 			log_error("No design object");
 			return;
@@ -226,6 +246,7 @@ struct ObsClean : public ScriptPass {
 				continue;
 			if (module->has_memories_warn())
 				continue;
+
 			SigMap sigmap(module);
 			// Precompute cell output sigspec to cell map
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
@@ -236,7 +257,7 @@ struct ObsClean : public ScriptPass {
 			dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> rhsSig2LhsSig;
 			lhs2rhs_rhs2lhs(module, sigmap, rhsSig2LhsSig, lhsSig2RhsSig);
 			// Actual cleanup
-			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig);
+			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig, unused_wires);
 		}
 		log("End obs_clean pass\n");
 		log_flush();
