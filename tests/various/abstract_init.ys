@@ -37,3 +37,79 @@ select -assert-count 1 w:Q a:init=2'b01 %i
 abstract -init w:QQQ
 check -assert
 select -assert-count 1 w:Q a:init=2'b0x %i
+
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q);
+	input CLK;
+	//         downto
+	output reg [1:0] Q = 1'b1;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init=2'b01 %i
+abstract -init -slice 0 w:Q
+check -assert
+select -assert-count 1 w:Q a:init=2'b0x %i
+
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q);
+	input CLK;
+	//         downto
+	output reg [1:0] Q = 1'b1;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init=2'b01 %i
+abstract -init -rtlilslice 0 w:Q
+check -assert
+select -assert-count 1 w:Q a:init=2'b0x %i
+
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q);
+	input CLK;
+	//         upto
+	output reg [0:1] Q = 1'b1;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init=2'b01 %i
+abstract -init -slice 0 w:Q
+check -assert
+select -assert-count 1 w:Q a:init=2'bx1 %i
+
+design -reset
+read_verilog <<EOT
+module foo (CLK, Q);
+	input CLK;
+	//         upto
+	output reg [0:1] Q = 1'b1;
+	always @(posedge CLK)
+		Q <= ~Q;
+endmodule
+EOT
+
+proc
+opt_expr
+opt_dff
+select -assert-count 1 w:Q a:init=2'b01 %i
+abstract -init -rtlilslice 0 w:Q
+check -assert
+select -assert-count 1 w:Q a:init=2'b0x %i

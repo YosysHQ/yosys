@@ -13,7 +13,6 @@ proc
 design -save split_output
 # Basic -value test
 abstract -value -enable magic w:W
-# show
 check -assert
 # Connections to $add Y output port
 select -set conn_to_y t:$add %x:+[Y] t:$add %d
@@ -27,6 +26,29 @@ select -assert-count 1 @mux %x:+[S] w:magic %i
 # The B input port is fed with an anyseq
 select -assert-count 1 @mux %x:+[B] %ci t:$anyseq %i
 # The Y output port feeds into the Y module output
+select -assert-count 1 @mux %x:+[Y] %co o:Y %i
+# -----------------------------------------------------------------------------
+# Same thing, but we use -slice instead of wire W
+design -reset
+read_verilog <<EOT
+module split_output_no_w (A, B, Y, magic);
+	input [1:0] A;
+	input [1:0] B;
+	output [1:0] Y;
+	input magic;
+    assign Y = A + B;
+endmodule
+EOT
+proc
+# Same test as the previous case
+abstract -value -enable magic -slice 0 w:Y
+check -assert
+select -set conn_to_y t:$add %x:+[Y] t:$add %d
+select -set mux @conn_to_y %ci t:$mux %i
+select -assert-count 1 @mux
+select -assert-count 1 @conn_to_y %a o:Y %i
+select -assert-count 1 @mux %x:+[S] w:magic %i
+select -assert-count 1 @mux %x:+[B] %ci t:$anyseq %i
 select -assert-count 1 @mux %x:+[Y] %co o:Y %i
 # -----------------------------------------------------------------------------
 design -reset
@@ -45,7 +67,6 @@ proc
 design -save split_input
 # The mux goes on an input this time
 abstract -value -enable magic w:W
-# show
 check -assert
 # Connections to add A input port
 select -set conn_to_a t:$add %x:+[A] t:$add %d
