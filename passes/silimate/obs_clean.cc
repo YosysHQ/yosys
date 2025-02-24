@@ -113,6 +113,7 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 	std::set<Cell *> visitedCells;
 	std::set<RTLIL::SigSpec> visitedSigSpec;
 
+	// Collect observable logic (connected to one output)
 	for (auto elt : sig2CellsInFanin) {
 		RTLIL::SigSpec po = elt.first;
 		RTLIL::Wire *w = po[0].wire;
@@ -143,6 +144,7 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		}
 	}
 
+	// Remove unused assign stmts
 	std::vector<RTLIL::SigSig> newConnections;
 	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
 		RTLIL::SigSpec lhs = it->first;
@@ -165,6 +167,8 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 	}
 
 	if (unused_wires) {
+		// Remove unused wires
+		// TODO: This impacts equiv_opt ability to perform equivalence checking
 		pool<RTLIL::Wire *> wiresToRemove;
 		for (auto wire : module->wires()) {
 			RTLIL::SigSpec sig = wire;
@@ -192,6 +196,7 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		module->remove(wiresToRemove);
 	}
 
+	// Remove unused cells
 	std::set<Cell *> cellsToRemove;
 	for (auto cell : module->cells()) {
 		if (visitedCells.count(cell)) {
@@ -242,6 +247,7 @@ struct ObsClean : public ScriptPass {
 		log("Running obs_clean pass\n");
 		log_flush();
 		for (auto module : design->selected_modules()) {
+			// We cannot safely perform this analysis when processes or memories are present
 			if (module->has_processes_warn())
 				continue;
 			if (module->has_memories_warn())
