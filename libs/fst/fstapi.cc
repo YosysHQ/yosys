@@ -3907,16 +3907,18 @@ while (value)
 static int fstVcdIDForFwrite(char *buf, unsigned int value)
 {
 char *pnt = buf;
+ int len = 0;
 
 /* zero is illegal for a value...it is assumed they start at one */
-while (value)
+while (value && len < 14)
         {
         value--;
+	++len;
         *(pnt++) = (char)('!' + value % 94);
         value = value / 94;
         }
 
-return(pnt - buf);
+return len;
 }
 
 
