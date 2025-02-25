@@ -5,6 +5,7 @@ OBJS += passes/silimate/annotate_logic_depth.o
 OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
 OBJS += passes/silimate/longloop_select.o
+OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/opt_balance_tree.o
 OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/selectconst.o
