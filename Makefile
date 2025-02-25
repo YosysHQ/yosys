@@ -1006,6 +1006,12 @@ unit-test: libyosys.so
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
+wheel: $(TARGETS) $(EXTRA_TARGETS)
+	python setup.py bdist_wheel
+
+install_wheel:
+	pip install dist/pyosys*.whl --target $(DESTDIR) --upgrade
+
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
