@@ -12,7 +12,7 @@ module top(input signed [16:0] ar, input signed [16:0] ai, input signed [16:0] b
 endmodule
 EOF
 
-synth_quicklogic -family qlf_k6n10f -run :coarse
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
 check -assert
 read_verilog +/quicklogic/qlf_k6n10f/dsp_sim.v
 prep -top top -flatten

@@ -27,6 +27,12 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SynthQuickLogicPass : public ScriptPass {
 
+	enum DSPKind {
+		None,
+		V1,
+		V2,
+	};
+
 	SynthQuickLogicPass() : ScriptPass("synth_quicklogic", "Synthesis for QuickLogic FPGAs") {}
 
 	void help() override
@@ -48,6 +54,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("\n");
 		log("    -nodsp\n");
 		log("        do not use dsp_t1_* to implement multipliers and associated logic\n");
+		log("        (qlf_k6n10f only).\n");
+		log("\n");
+		log("    -dspv2\n");
+		log("        synthesize for the v2 DSP block model instead of v1\n");
 		log("        (qlf_k6n10f only).\n");
 		log("\n");
 		log("    -nocarry\n");
@@ -78,7 +88,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
-	bool abc9, inferAdder, nobram, bramTypes, dsp;
+	bool abc9, inferAdder, nobram, bramTypes;
+	DSPKind dsp;
 
 	void clear_flags() override
 	{
@@ -93,7 +104,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		nobram = false;
 		bramTypes = false;
 		lib_path = "+/quicklogic/";
-		dsp = true;
+		dsp = V1;
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -155,7 +166,11 @@ struct SynthQuickLogicPass : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-nodsp" || args[argidx] == "-no_dsp") {
-				dsp = false;
+				dsp = None;
+				continue;
+			}
+			if (args[argidx] == "-dspv2") {
+				dsp = V2;
 				continue;
 			}
 			break;
@@ -193,8 +208,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path.c_str());
 				if (bramTypes)
 					read_simlibs += stringf(" %sqlf_k6n10f/bram_types_sim.v", lib_path.c_str());
-				if (dsp)
-					read_simlibs += stringf(" %sqlf_k6n10f/dsp_sim.v", lib_path.c_str());
+				if (dsp == V1)
+					read_simlibs += stringf(" %sqlf_k6n10f/dspv1_sim.v", lib_path.c_str());
+				else if (dsp == V2)
+					read_simlibs += stringf(" %sqlf_k6n10f/dspv2_sim.v", lib_path.c_str());
 			}
 			run(read_simlibs);
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
@@ -220,23 +237,31 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("map_dsp", "(for qlf_k6n10f, skip if -nodsp)")
-				&& ((dsp && family == "qlf_k6n10f") || help_mode)) {
+				&& (((dsp != None) && family == "qlf_k6n10f") || help_mode)) {
 			run("wreduce t:$mul");
-			//run("ql_dsp_macc");
 
+			if (dsp == V1) {
+				run("ql_dsp_macc");
 
-			run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
-				"-D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18");
-			run("chtype -set $mul t:$__soft_mul");
-			run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
-				"-D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL16X9");
-			run("chtype -set $mul t:$__soft_mul");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=20 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=11 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__QL_MUL20X18");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=10 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__QL_MUL10X9");
+				run("chtype -set $mul t:$__soft_mul");
 
-			run("ql_dsp");
-
-			//run("ql_dsp_simd");
-			//run("techmap -map " + lib_path + family + "/dsp_final_map.v");
-			//run("ql_dsp_io_regs");
+				run("techmap -map " + lib_path + family + "/dspv1_map.v -D USE_DSP_CFG_PARAMS=0");
+				run("ql_dsp_simd");
+				run("techmap -map " + lib_path + family + "/dspv1_final_map.v");
+				run("ql_dsp_io_regs");
+			} else if (dsp == V2) {
+				run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
+					"-D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18");
+				run("chtype -set $mul t:$__soft_mul");
+				run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
+					"-D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL16X9");
+				run("chtype -set $mul t:$__soft_mul");
+				run("ql_dspv2");
+			} else {
+				log_assert(false);
+			}
 		}
 
 		if (check_label("coarse")) {
