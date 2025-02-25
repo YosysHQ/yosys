@@ -1173,6 +1173,7 @@ void run_pass(std::string command, RTLIL::Design *design)
 	log("\n-- Running command `%s' --\n", command.c_str());
 
 	Pass::call(design, command);
+	log_flush();
 }
 
 void run_backend(std::string filename, std::string command, RTLIL::Design *design)
