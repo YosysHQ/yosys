@@ -11,7 +11,7 @@ module top(input [16:0] a, input [16:0] b, output reg [33:0] o, input clk, input
 endmodule
 EOF
 
-synth_quicklogic -family qlf_k6n10f -run :coarse
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
 check
 opt_clean
 dump
