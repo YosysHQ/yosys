@@ -53,3 +53,4 @@ OBJS += passes/cmds/example_dt.o
 OBJS += passes/cmds/portarcs.o
 OBJS += passes/cmds/wrapcell.o
 OBJS += passes/cmds/setenv.o
+OBJS += passes/cmds/abstract.o
