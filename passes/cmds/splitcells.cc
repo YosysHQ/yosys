@@ -134,7 +134,7 @@ struct SplitcellsWorker
 			return GetSize(slices)-1;
 		}
 
-		if (cell->type.in("$ff", "$dff", "$dffe", "$dffsr", "$dffsre", "$adff", "$adffe", "$aldffe",
+		if (cell->type.in("$ff", "$dff", "$dffe", "$dffsr", "$dffsre", "$adff", "$adffe", "$aldff", "$aldffe",
 				"$sdff", "$sdffce", "$sdffe", "$dlatch", "$dlatchsr", "$adlatch"))
 		{
 			auto splitports = {ID::D, ID::Q, ID::AD, ID::SET, ID::CLR};
