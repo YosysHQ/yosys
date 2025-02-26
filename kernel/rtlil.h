@@ -1683,6 +1683,19 @@ public:
 	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
 	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
 
+	int from_hdl_index(int hdl_index) {
+		int zero_index = hdl_index - start_offset;
+		int rtlil_index = upto ? width - 1 - zero_index : zero_index;
+		return rtlil_index >= 0 && rtlil_index < width ? rtlil_index : INT_MIN;
+	}
+
+	int to_hdl_index(int rtlil_index) {
+		if (rtlil_index < 0 || rtlil_index >= width)
+			return INT_MIN;
+		int zero_index = upto ? width - 1 - rtlil_index : rtlil_index;
+		return zero_index + start_offset;
+	}
+
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif

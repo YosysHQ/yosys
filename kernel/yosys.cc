@@ -416,8 +416,11 @@ std::string make_temp_dir(std::string template_str)
 #  endif
 
 	char *p = strdup(template_str.c_str());
+	log_assert(p);
 	char *res = mkdtemp(p);
-	log_assert(res != NULL);
+	if (!res)
+		log_error("mkdtemp failed for '%s': %s [Error %d]\n",
+			p, strerror(errno), errno);
 	template_str = p;
 	free(p);
 
