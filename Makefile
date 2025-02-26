@@ -1007,10 +1007,10 @@ clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
 wheel: $(TARGETS) $(EXTRA_TARGETS)
-	python setup.py bdist_wheel
+	python3 -m pip wheel .
 
-install_wheel:
-	pip install dist/pyosys*.whl --target $(DESTDIR) --upgrade
+install_wheel: wheel
+	python3 -m pip install pyosys*.whl --force-reinstall
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
@@ -1238,4 +1238,4 @@ echo-cxx:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo wheel install_wheel
