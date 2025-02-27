@@ -252,6 +252,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 				run("techmap -map " + lib_path + family + "/dspv1_final_map.v");
 				run("ql_dsp_io_regs");
 			} else if (dsp == V2) {
+				run("ql_dsp_macc -dspv2");
 				run("techmap -map +/mul2dsp.v -map " + lib_path + family + "/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY "
 					"-D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18");
 				run("chtype -set $mul t:$__soft_mul");
