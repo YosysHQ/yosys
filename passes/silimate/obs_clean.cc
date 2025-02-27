@@ -255,10 +255,12 @@ struct ObsClean : public ScriptPass {
 		log("\n");
 		log("    obs_clean [options] [selection]\n");
 		log("\n");
-		log("This pass performs an obversability-based logic removal.\n");
+		log("This pass performs an obversability-based logic removal. It removes cells by default.\n");
 		log("\n");
 		log("    -wires\n");
 		log("        Also removes dangling wires. This option prevents formal verifciation at this time.\n");
+		log("    -assigns\n");
+		log("        Also removes dangling assigns.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
