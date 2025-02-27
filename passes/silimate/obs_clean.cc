@@ -106,16 +106,26 @@ void collectTransitiveFanin(RTLIL::SigSpec &sig, SigMap &sigmap, dict<RTLIL::Sig
 
 // Only keep the cells and wires that are visited using the transitive fanin reached from output ports or keep signals
 void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
-			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, bool unused_wires)
+			dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, bool unused_wires, bool unused_assigns, bool debug)
 {
 	if (module->get_bool_attribute(ID::keep))
 		return;
 	std::set<Cell *> visitedCells;
 	std::set<RTLIL::SigSpec> visitedSigSpec;
-
+	if (debug) {
+		log("Collecting cell transitive fanin\n");
+		log_flush();
+	}
 	// Collect observable logic (connected to one output)
+	// By cells
 	for (auto elt : sig2CellsInFanin) {
 		RTLIL::SigSpec po = elt.first;
+		if ((!po.size()) || (!po[0].is_wire())) {
+			// Can't perform the analysis correctly.
+			log_warning("Module %s contains some logic that prevents obs_clean analysis\n", module->name.c_str());
+			log_flush();
+			return;
+		}
 		RTLIL::Wire *w = po[0].wire;
 		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
@@ -129,8 +139,19 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		}
 	}
 
+	if (debug) {
+		log("Collecting assign transitive fanin\n");
+		log_flush();
+	}
+	// By assigns
 	for (auto elt : lhsSig2RhsSig) {
 		RTLIL::SigSpec po = elt.first;
+		if ((!po.size()) || (!po[0].is_wire())) {
+			// Can't perform the analysis correctly.
+			log_warning("Module %s contains some logic that prevents obs_clean analysis\n", module->name.c_str());
+			log_flush();
+			return;
+		}
 		RTLIL::Wire *w = po[0].wire;
 		if (w && (!w->port_output) && (!w->get_bool_attribute(ID::keep))) {
 			continue;
@@ -144,30 +165,40 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		}
 	}
 
-	// Remove unused assign stmts
-	std::vector<RTLIL::SigSig> newConnections;
-	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
-		RTLIL::SigSpec lhs = it->first;
-		if (visitedSigSpec.count(sigmap(lhs))) {
-			newConnections.push_back(*it);
-		} else {
-			for (int i = 0; i < lhs.size(); i++) {
-				SigSpec bit_sig = lhs.extract(i, 1);
-				if (visitedSigSpec.count(sigmap(bit_sig))) {
-					newConnections.push_back(*it);
-					break;
+	if (unused_assigns) {
+		// Remove unused assign stmts
+		if (debug) {
+			log("Removing unused assign\n");
+			log_flush();
+		}
+		std::vector<RTLIL::SigSig> newConnections;
+		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+			RTLIL::SigSpec lhs = it->first;
+			if (visitedSigSpec.count(sigmap(lhs))) {
+				newConnections.push_back(*it);
+			} else {
+				for (int i = 0; i < lhs.size(); i++) {
+					SigSpec bit_sig = lhs.extract(i, 1);
+					if (visitedSigSpec.count(sigmap(bit_sig))) {
+						newConnections.push_back(*it);
+						break;
+					}
 				}
 			}
 		}
-	}
 
-	module->connections_.clear();
-	for (auto conn : newConnections) {
-		module->connect(conn);
+		module->connections_.clear();
+		for (auto conn : newConnections) {
+			module->connect(conn);
+		}
 	}
 
 	if (unused_wires) {
 		// Remove unused wires
+		if (debug) {
+			log("Removing unused wires\n");
+			log_flush();
+		}
 		// TODO: This impacts equiv_opt ability to perform equivalence checking
 		pool<RTLIL::Wire *> wiresToRemove;
 		for (auto wire : module->wires()) {
@@ -197,6 +228,10 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 	}
 
 	// Remove unused cells
+	if (debug) {
+		log("Removing unused cells\n");
+		log_flush();
+	}
 	std::set<Cell *> cellsToRemove;
 	for (auto cell : module->cells()) {
 		if (visitedCells.count(cell)) {
@@ -229,11 +264,23 @@ struct ObsClean : public ScriptPass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool unused_wires = false;
-
+		bool unused_assigns = false;
+		bool debug = false;
+		if (std::getenv("DEBUG_OBS_CLEAN")) {
+			debug = true;
+		}
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-wires") {
 				unused_wires = true;
+				continue;
+			}
+			if (args[argidx] == "-assigns") {
+				unused_assigns = true;
+				continue;
+			}
+			if (args[argidx] == "-debug") {
+				debug = true;
 				continue;
 			}
 			break;
@@ -252,18 +299,29 @@ struct ObsClean : public ScriptPass {
 				continue;
 			if (module->has_memories_warn())
 				continue;
-
+			if (debug) {
+				log("Processing module: %s\n", module->name.c_str());
+				log_flush();
+			}
 			SigMap sigmap(module);
 			// Precompute cell output sigspec to cell map
+			if (debug) {
+				log("Collecting cell info\n");
+				log_flush();
+			}
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 			sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
 			// Precompute lhs2rhs and rhs2lhs sigspec map
+			if (debug) {
+				log("Collecting assign info\n");
+				log_flush();
+			}
 			dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
 			dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> rhsSig2LhsSig;
 			lhs2rhs_rhs2lhs(module, sigmap, rhsSig2LhsSig, lhsSig2RhsSig);
 			// Actual cleanup
-			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig, unused_wires);
+			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig, unused_wires, unused_assigns, debug);
 		}
 		log("End obs_clean pass\n");
 		log_flush();
