@@ -3,7 +3,7 @@
 	url = git@github.com:silimate/verific.git
 [submodule "abc"]
 	path = abc
-	url = https://github.com/YosysHQ/abc
+	url = git@github.com:Silimate/abc.git
 # Don't use paths as names to avoid git archive problems
 [submodule "cxxopts"]
 	path = libs/cxxopts
