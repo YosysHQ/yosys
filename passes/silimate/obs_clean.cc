@@ -122,10 +122,8 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		RTLIL::SigSpec po = elt.first;
 		if ((!po.size()) || (!po[0].is_wire())) {
 			// Can't perform the analysis correctly.
-			if (debug) {
-				log("Module contains some logic that prevents obs_clean analysis\n");
-				log_flush();
-			}
+			log_warning("Module %s contains some logic that prevents obs_clean analysis\n", module->name.c_str());
+			log_flush();
 			return;
 		}
 		RTLIL::Wire *w = po[0].wire;
@@ -150,10 +148,8 @@ void observabilityClean(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSp
 		RTLIL::SigSpec po = elt.first;
 		if ((!po.size()) || (!po[0].is_wire())) {
 			// Can't perform the analysis correctly.
-			if (debug) {
-				log("Module contains some logic that prevents obs_clean analysis\n");
-				log_flush();
-			}
+			log_warning("Module %s contains some logic that prevents obs_clean analysis\n", module->name.c_str());
+			log_flush();
 			return;
 		}
 		RTLIL::Wire *w = po[0].wire;
