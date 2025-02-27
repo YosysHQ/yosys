@@ -68,11 +68,11 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	       int limit)
 {
 	if (fanout <= limit) {
-		std::cout << "Nothing to do for: " << cell->name.c_str() << std::endl; 
-		std::cout << "Fanout: " << fanout << std::endl; 
+		std::cout << "Nothing to do for: " << cell->name.c_str() << std::endl;
+		std::cout << "Fanout: " << fanout << std::endl;
 		return; // No need to insert buffers
 	} else {
-		std::cout << "Something to do for: " << cell->name.c_str() << std::endl; 
+		std::cout << "Something to do for: " << cell->name.c_str() << std::endl;
 		std::cout << "Fanout: " << fanout << std::endl;
 	}
 
@@ -83,19 +83,17 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	std::cout << "num_buffers: " << num_buffers << "\n";
 	std::cout << "max_output_per_buffer: " << max_output_per_buffer << "\n";
 	std::vector<RTLIL::SigSpec> buffer_outputs;
-	std::vector<RTLIL::Cell*> buffers;
-	std::cout << "HERE1\n" << std::flush;
+	std::vector<RTLIL::Cell *> buffers;
 	std::cout << "CELL: " << cell->name.c_str() << "\n" << std::flush;
 	RTLIL::SigSpec cellOutSig;
 	for (auto &conn : cell->connections()) {
-			IdString portName = conn.first;
-			RTLIL::SigSpec actual = conn.second;
-			if (cell->output(portName)) {
-				cellOutSig = sigmap(actual);
-				break;
-			}
+		IdString portName = conn.first;
+		RTLIL::SigSpec actual = conn.second;
+		if (cell->output(portName)) {
+			cellOutSig = sigmap(actual);
+			break;
+		}
 	}
-  std::cout << "HERE2\n" << std::flush;
 	for (int i = 0; i < num_buffers; ++i) {
 		RTLIL::Cell *buffer = module->addCell(NEW_ID2_SUFFIX("fbuf"), ID($buf)); // Assuming BUF is defined
 		RTLIL::SigSpec buffer_output = module->addWire(NEW_ID2_SUFFIX("fbuf"));
@@ -104,35 +102,66 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 		buffer_outputs.push_back(buffer_output);
 		buffers.push_back(buffer);
 	}
-	std::cout << "Lookup\n" << std::flush;
 	std::set<Cell *> cells = sig2CellsInFanout[cellOutSig];
-	std::cout << "Lookup OK\n" << std::flush;
 	int indexCurrentBuffer = 0;
 	int indexFanout = 0;
-	std::map<Cell*, int> bufferActualFanout;
+	std::map<Cell *, int> bufferActualFanout;
 	for (Cell *c : cells) {
 		for (auto &conn : c->connections()) {
 			IdString portName = conn.first;
 			RTLIL::SigSpec actual = conn.second;
 			if (c->input(portName)) {
-				if (sigmap(actual) == cellOutSig) {
-					c->setPort(portName, buffer_outputs[indexCurrentBuffer]);
-					sig2CellsInFanout[sigmap(buffer_outputs[indexCurrentBuffer])].insert(c);
-					indexFanout++;
-					bufferActualFanout[buffers[indexCurrentBuffer]] = indexFanout;
-					if (indexFanout >= max_output_per_buffer) {
-						indexFanout = 0;
-						indexCurrentBuffer++;
+				if (actual.is_chunk()) {
+					if (sigmap(actual) == cellOutSig) {
+						std::cout << "vector size: " << buffer_outputs.size() << std::endl;
+						std::cout << "index : " << indexCurrentBuffer << std::endl;
+						c->setPort(portName, buffer_outputs[indexCurrentBuffer]);
+						sig2CellsInFanout[sigmap(buffer_outputs[indexCurrentBuffer])].insert(c);
+						indexFanout++;
+						bufferActualFanout[buffers[indexCurrentBuffer]] = indexFanout;
+						if (indexFanout >= max_output_per_buffer) {
+							indexFanout = 0;
+							indexCurrentBuffer++;
+						}
+						break;
+					}
+				} else {
+					bool match = false;
+					for (SigChunk chunk : actual.chunks()) {
+						if (sigmap(SigSpec(chunk)) == cellOutSig) {
+							match = true;
+							break;
+						}
+					}
+					if (match) {
+						std::vector<RTLIL::SigChunk> newChunks;
+						for (SigChunk chunk : actual.chunks()) {
+						  if (sigmap(SigSpec(chunk)) == cellOutSig) {
+								newChunks.push_back(buffer_outputs[indexCurrentBuffer].as_wire());
+							} else {
+								newChunks.push_back(chunk);
+							}
+						}
+						c->setPort(portName, newChunks);
+						sig2CellsInFanout[sigmap(buffer_outputs[indexCurrentBuffer])].insert(c);
+						indexFanout++;
+						bufferActualFanout[buffers[indexCurrentBuffer]] = indexFanout;
+						if (indexFanout >= max_output_per_buffer) {
+							indexFanout = 0;
+							indexCurrentBuffer++;
+						}
+						break;
 					}
 				}
 			}
 		}
 	}
-  
+
 	// Recursively fix the fanout of the newly created buffers
-	for (std::map<Cell*, int>::iterator itr = bufferActualFanout.begin(); itr != bufferActualFanout.end(); itr++) {
+	for (std::map<Cell *, int>::iterator itr = bufferActualFanout.begin(); itr != bufferActualFanout.end(); itr++) {
 		if (itr->second == 1) {
-			std::cout << "Buffer of 1" << std::endl; 
+			// Remove newly created buffers with a fanout of 1
+			std::cout << "Buffer of 1" << std::endl;
 			for (Cell *c : cells) {
 				for (auto &conn : c->connections()) {
 					IdString portName = conn.first;
@@ -142,7 +171,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 							c->setPort(portName, cellOutSig);
 							std::cout << "Remove buffer of 1" << std::endl;
 							module->remove(buffers[indexCurrentBuffer]);
-							//module->remove({buffer_outputs[indexCurrentBuffer].as_wire()});
+							// module->remove({buffer_outputs[indexCurrentBuffer].as_wire()});
 							break;
 						}
 					}
@@ -154,7 +183,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	}
 }
 
-void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>>& sig2CellsInFanout, dict<Cell *, int> &cellFanout)
+void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, dict<Cell *, int> &cellFanout)
 {
 	// Precompute cell output sigspec to cell map
 	dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
@@ -234,7 +263,7 @@ struct AnnotateCellFanout : public ScriptPass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		if (limit < 2) {
+		if ((limit != -1) && (limit < 2)) {
 			log_error("Fanout cannot be limited to less than 2\n");
 			return;
 		}
