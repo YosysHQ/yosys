@@ -27,9 +27,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 // ============================================================================
 
-static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
+static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 {
     auto &st = pm.st_ql_dsp_macc;
+    log_assert(dsp_version < 3);
+    log_assert(dsp_version > 0);
 
     // Get port widths
     size_t a_width = GetSize(st.mul->getPort(ID(A)));
@@ -49,26 +51,55 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     size_t tgt_b_width;
     size_t tgt_z_width;
 
-    string cell_base_name = "dsp_t1";
+    string cell_base_name;
     string cell_size_name = "";
     string cell_cfg_name = "";
     string cell_full_name = "";
+    if (dsp_version == 1)
+        cell_base_name = "dsp_t1";
+    if (dsp_version == 2)
+        cell_base_name = "dspv2";
 
     if (min_width <= 2 && max_width <= 2 && z_width <= 4) {
         log_debug("\trejected: too narrow (%zd %zd %zd)\n", min_width, max_width, z_width);
         return;
-    } else if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
-        cell_size_name = "_10x9x32";
-        tgt_a_width = 10;
-        tgt_b_width = 9;
-        tgt_z_width = 19;
-    } else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
-        cell_size_name = "_20x18x64";
-        tgt_a_width = 20;
-        tgt_b_width = 18;
-        tgt_z_width = 38;
+    }
+
+    bool reject = false;
+    if (dsp_version == 1) {
+        if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
+            cell_size_name = "_10x9x32";
+            tgt_a_width = 10;
+            tgt_b_width = 9;
+            tgt_z_width = 19;
+        } else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
+            cell_size_name = "_20x18x64";
+            tgt_a_width = 20;
+            tgt_b_width = 18;
+            tgt_z_width = 38;
+        } else {
+            reject = true;
+        }
+    } else if (dsp_version == 2) {
+        if (min_width <= 9 && max_width <= 16 && z_width <= 25) {
+            cell_size_name = "_16x9x32";
+            tgt_a_width = 16;
+            tgt_b_width = 9;
+            tgt_z_width = 25;
+        } else if (min_width <= 18 && max_width <= 32 && z_width <= 50) {
+            cell_size_name = "_32x18x64";
+            tgt_a_width = 20;
+            tgt_b_width = 18;
+            tgt_z_width = 50;
+        } else {
+            reject = true;
+        }
     } else {
-        log_debug("\trejected: too wide (%zd %zd %zd)\n", min_width, max_width, z_width);
+        log_assert(false);
+    }
+    if (reject) {
+        log_debug("\trejected: too wide (%zd %zd %zd) for v%d\n",
+            min_width, max_width, z_width, dsp_version);
         return;
     }
 
@@ -197,16 +228,22 @@ struct QlDspMacc : public Pass {
 
 	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
 	{
+        int dsp_version = 1;
 		log_header(a_Design, "Executing QL_DSP_MACC pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < a_Args.size(); argidx++) {
+			if (a_Args[argidx] == "-dspv2") {
+				dsp_version = 2;
+				continue;
+			}
 			break;
 		}
 		extra_args(a_Args, argidx, a_Design);
 
+        auto l = [dsp_version](ql_dsp_macc_pm& pm) { create_ql_macc_dsp(pm, dsp_version); };
 		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(l);
 	}
 
 } QlDspMacc;
