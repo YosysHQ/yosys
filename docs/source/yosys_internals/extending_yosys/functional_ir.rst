@@ -144,6 +144,41 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
   parentheses.
 - The destructor calls ``flush`` but also closes all unclosed parentheses.
 
+Example: A minimal functional backend
+-------------------------------------
+
+.. literalinclude:: /code_examples/functional/dummy.cc
+   :language: c++
+   :caption: Example source code for a minimal functional backend
+
+- three main steps needed
+
+  + convert to FunctionalIR
+  + handle nodes
+  + handle outputs and next state
+
+- backend pass boiler plate gives us ``write_functional_dummy`` command
+- pointer ``f`` is a ``std::ostream`` we can write to, being either a file or
+  stdout
+- FunctionalIR conversion done by ``Functional::IR::from_module()``
+- each node performs some function or operation (including reading input/current
+  state)
+
+  + each variable is assigned exactly once before being used
+  + ``node.name()`` returns a ``RTLIL::IdString``, which we convert for
+    printing with ``id2cstr()``
+  + ``node.to_string()`` converts the node into a string of the form
+    ``function(args)``
+
+    * ``function`` is the result of ``Functional::IR::fn_to_string(node.fn())``
+    * ``args`` are the zero or more arguments passed to the function, most
+      commonly the name of another node
+    * wraps ``node.visit()`` with a private visitor with return type
+      ``std::string``
+
+- ``Functional::IROutput::value()`` and ``Functional::IRState::next_value()``
+  represent the outputs of our function
+
 Example: Adapting SMT-LIB backend for Rosette
 ---------------------------------------------
 
