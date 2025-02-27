@@ -386,7 +386,7 @@ and the ``next_state`` in a single variable.  Iteration over all of the
     	}
 
 For the ``write_initial`` method, the SMT-LIB backend uses ``declare-const`` and
-`assert`\ s which must always hold true.  For Rosette we instead define the
+``assert``\ s which must always hold true.  For Rosette we instead define the
 initial state as any other variable that can be used by external code.  This
 variable, ``[name]_initial``, can then be used in the ``[name]`` function call;
 allowing the Rosette code to be used in the generation of the ``next_state``,
