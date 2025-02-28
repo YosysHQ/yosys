@@ -201,12 +201,34 @@ Overview
 .. _Racket: http://racket-lang.org/
 .. _SMT: http://smtlib.cs.uiowa.edu/
 
+Rosette, being backed by SMT solvers and written with s-expressions, uses code
+very similar to the `write_functional_smt2` output.  As a result, the SMT-LIB
+functional backend can be used as a starting point for implementing a Rosette
+backend.
+
 Full code listings for the initial SMT-LIB backend and the converted Rosette
 backend are included in the Yosys source repository under
 :file:`backends/functional` as ``smtlib.cc`` and ``smtlib_rosette.cc``
 respectively.  Note that the Rosette language is an extension of the Racket
 language; this guide tends to refer to Racket when talking about the underlying
 semantics/syntax of the language.
+
+The major changes from the SMT-LIB backend are as follows:
+
+- all of the ``Smt`` prefixes in names are replace with ``Smtr`` to mean
+  ``smtlib_rosette``;
+- syntax is adjusted for Racket;
+- data structures for input/output/state are changed from using
+  ``declare-datatype`` with statically typed fields, to using ``struct`` with no
+  static typing;
+- the transfer function also loses its static typing;
+- sign/zero extension in Rosette uses the output width instead of the number of
+  extra bits, gaining static typing;
+- the single scope is traded for a global scope with local scope for each
+  struct;
+- initial state is provided as a constant value instead of a set of assertions;
+- and the ``-provides`` option is introduced to more easily use generated code
+  within Rosette based applications.
 
 Scope
 ~~~~~
