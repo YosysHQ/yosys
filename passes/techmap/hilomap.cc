@@ -26,29 +26,41 @@ PRIVATE_NAMESPACE_BEGIN
 
 static std::string hicell_celltype, hicell_portname;
 static std::string locell_celltype, locell_portname;
+static std::string fullcell_celltype, fullcell_portname, fullcell_paramname;
 static bool singleton_mode;
+static bool multi_bit;
 
 static RTLIL::Module *module;
 static RTLIL::SigBit last_hi, last_lo;
+static RTLIL::SigChunk value;
 
 void hilomap_worker(RTLIL::SigSpec &sig)
 {
-	for (auto &bit : sig) {
-		if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
-			if (!singleton_mode || last_hi == RTLIL::State::Sm) {
-				last_hi = module->addWire(NEW_ID);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
-				cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
+	if (multi_bit && sig.is_fully_const()){
+		value = module->addWire(NEW_ID, sig.size());
+		RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(fullcell_celltype));
+		cell->setParam(RTLIL::escape_id(fullcell_paramname), sig.as_const());
+		cell->setPort(RTLIL::escape_id(fullcell_portname), value);
+		sig = value;
+	}
+	else{
+		for (auto &bit : sig) {
+			if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
+				if (!singleton_mode || last_hi == RTLIL::State::Sm) {
+					last_hi = module->addWire(NEW_ID);
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
+					cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
+				}
+				bit = last_hi;
 			}
-			bit = last_hi;
-		}
-		if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
-			if (!singleton_mode || last_lo == RTLIL::State::Sm) {
-				last_lo = module->addWire(NEW_ID);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
-				cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
+			if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
+				if (!singleton_mode || last_lo == RTLIL::State::Sm) {
+					last_lo = module->addWire(NEW_ID);
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
+					cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
+				}
+				bit = last_lo;
 			}
-			bit = last_lo;
 		}
 	}
 }
@@ -68,6 +80,10 @@ struct HilomapPass : public Pass {
 		log("    -locell <celltype> <portname>\n");
 		log("        Replace constant lo bits with this cell.\n");
 		log("\n");
+		log("    -wrap <celltype> <portname> <paramname>\n");
+		log("        Replace constant bits with this cell.\n");
+		log("        The value of the constant will be stored to the parameter specified.\n");
+		log("\n");
 		log("    -singleton\n");
 		log("        Create only one hi/lo cell and connect all constant bits\n");
 		log("        to that cell. Per default a separate cell is created for\n");
@@ -83,7 +99,7 @@ struct HilomapPass : public Pass {
 		locell_celltype = std::string();
 		locell_portname = std::string();
 		singleton_mode = false;
-
+		multi_bit = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -95,6 +111,13 @@ struct HilomapPass : public Pass {
 			if (args[argidx] == "-locell" && argidx+2 < args.size()) {
 				locell_celltype = args[++argidx];
 				locell_portname = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-wrap" && argidx+3 < args.size()){
+				fullcell_celltype = args[++argidx];
+				fullcell_portname = args[++argidx];
+				fullcell_paramname = args[++argidx];
+				multi_bit = true;
 				continue;
 			}
 			if (args[argidx] == "-singleton") {
