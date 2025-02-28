@@ -87,7 +87,7 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 		std::cout << "Something to do for: " << cell->name.c_str() << std::endl;
 		std::cout << "Fanout: " << fanout << std::endl;
 	}
-
+	sigmap.set(module);
 	int num_buffers = std::min((int)std::ceil(static_cast<double>(fanout) / limit), limit);
 	int max_output_per_buffer = std::ceil((float)fanout / (float)num_buffers);
 	std::cout << "fanout: " << fanout << "\n";
@@ -135,6 +135,7 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 		}
 	}
 
+	// Fix input connections to cells in fanout of buffer to point to the inserted buffer
 	int indexCurrentBuffer = 0;
 	int indexFanout = 0;
 	std::map<Cell *, int> bufferActualFanout;
@@ -153,24 +154,33 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 						  sig2CellsInFanout[sigmap(old_new.second)].insert(c);
 						  indexFanout++;
 							for (Cell* c : buffers[indexCurrentBuffer]) {
-						  	bufferActualFanout[c] = indexFanout;
+								if (bufferActualFanout.find(c) != bufferActualFanout.end()) {
+									bufferActualFanout[c] = std::max(indexFanout, bufferActualFanout[c]);
+								} else {
+						  	  bufferActualFanout[c] = indexFanout;
+								}
 							}
 						  break;
 						}
 					}
 					if (indexFanout >= max_output_per_buffer) {
-						indexFanout = 0;
-						if (buffer_outputs.size()-1 > indexCurrentBuffer)
+						if (buffer_outputs.size()-1 > indexCurrentBuffer) {
+							indexFanout = 0;
 						  indexCurrentBuffer++;
+						}
 					}
 				} else {
 					std::cout << "NOT CHUNK" << std::endl;
 					bool match = false;
-					for (SigChunk chunka : actual.chunks()) {
-						for (SigChunk chunks : cellOutSig.chunks()) {
-						  if (sigmap(SigSpec(chunka)) == SigSpec(chunks)) {
-								match = true;
-								break;
+					for (SigChunk chunk_a : actual.chunks()) {
+						if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(cellOutSig))) {
+							match = true;
+						} else {
+							for (SigChunk chunk_c : cellOutSig.chunks()) {
+						  	if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(chunk_c))) {
+									match = true;
+									break;
+								}
 							}
 						}
 						if (match)
@@ -179,13 +189,31 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 					if (match) {
 						std::cout << "MATCH" << std::endl;
 						std::vector<RTLIL::SigChunk> newChunks;
+						bool missed = true;
 						for (SigChunk chunk : actual.chunks()) {
 							bool replaced = false;
 							for (std::pair<RTLIL::SigSpec, RTLIL::SigSpec>& old_new : buffer_outputs[indexCurrentBuffer]) {
 								if (sigmap(old_new.first) == sigmap(SigSpec(chunk))) {
+									missed = false;
 									newChunks.push_back(old_new.second.as_chunk());
 									sig2CellsInFanout[sigmap(old_new.second)].insert(c);
 									replaced = true;
+									indexFanout++;
+
+									for (Cell *c : buffers[indexCurrentBuffer]) {
+										if (bufferActualFanout.find(c) != bufferActualFanout.end()) {
+										  bufferActualFanout[c] = std::max(indexFanout, bufferActualFanout[c]); 
+										} else {
+										  bufferActualFanout[c] = indexFanout;
+										}
+									}
+									if (indexFanout >= max_output_per_buffer) {
+										if (buffer_outputs.size() - 1 > indexCurrentBuffer) {
+											indexFanout = 0;
+											indexCurrentBuffer++;
+										}
+									}
+
 									break;
 								}
 							}
@@ -193,16 +221,10 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 								newChunks.push_back(chunk);
 							}
 						}
+						if (missed) {
+							exit (1);
+						}
 						c->setPort(portName, newChunks);
-						indexFanout++;
-						for (Cell *c : buffers[indexCurrentBuffer]) {
-							bufferActualFanout[c] = indexFanout;
-						}
-						if (indexFanout >= max_output_per_buffer) {
-							indexFanout = 0;
-							if (buffer_outputs.size()-1 > indexCurrentBuffer)
-						    indexCurrentBuffer++;
-						}
 						break;
 					}
 				}
@@ -245,8 +267,8 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 					}
 				}
 			}
-			module->remove(itr->first);
-			module->remove({bufferOutSig.as_wire()});
+			//module->remove(itr->first);
+			//module->remove({bufferOutSig.as_wire()});
 		} else {
 			fixfanout(design, module, sigmap, sig2CellsInFanout, itr->first, itr->second, limit);
 		}
@@ -368,7 +390,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 					netsToSplit += std::string(" w:") + getParentWire(cellOutSig)->name.c_str();
 				}
-				std::string splitnets = std::string("splitnets ") + netsToSplit;
+				std::string splitnets = std::string("splitnets -ports ") + netsToSplit;
 				Pass::call(design, splitnets);
 			}
 		
@@ -391,6 +413,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 				}
 			}
+
 			if (fixedFanout) {
 				// If Fanout got fixed, recalculate and annotate final fanout 
 				SigMap sigmap(module);
