@@ -29,3 +29,12 @@ $(eval $(call add_share_file,share/microchip,techlibs/microchip/LSRAM_map.v))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/LSRAM.txt))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/uSRAM_map.v))
 $(eval $(call add_share_file,share/microchip,techlibs/microchip/uSRAM.txt))
+
+OBJS += techlibs/microchip/microchip_dsp.o
+GENFILES += techlibs/microchip/microchip_dsp_pm.h
+GENFILES += techlibs/microchip/microchip_dsp_CREG_pm.h
+GENFILES += techlibs/microchip/microchip_dsp_cascade_pm.h
+techlibs/microchip/microchip_dsp.o: techlibs/microchip/microchip_dsp_pm.h techlibs/microchip/microchip_dsp_CREG_pm.h techlibs/microchip/microchip_dsp_cascade_pm.h
+$(eval $(call add_extra_objs,techlibs/microchip/microchip_dsp_pm.h))
+$(eval $(call add_extra_objs,techlibs/microchip/microchip_dsp_CREG_pm.h))
+$(eval $(call add_extra_objs,techlibs/microchip/microchip_dsp_cascade_pm.h))

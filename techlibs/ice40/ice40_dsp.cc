@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/ice40_dsp_pm.h"
+#include "techlibs/ice40/ice40_dsp_pm.h"
 
 void create_ice40_dsp(ice40_dsp_pm &pm)
 {
