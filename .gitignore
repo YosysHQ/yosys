@@ -8,6 +8,7 @@
 *.err
 *.log
 *.tmp
+*.whl
 *~
 __pycache__
 /.cproject
