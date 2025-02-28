@@ -144,6 +144,8 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
   parentheses.
 - The destructor calls ``flush`` but also closes all unclosed parentheses.
 
+.. _minimal backend:
+
 Example: A minimal functional backend
 -------------------------------------
 
@@ -158,6 +160,13 @@ Example: A minimal functional backend
   + handle outputs and next state
 
 - backend pass boiler plate gives us ``write_functional_dummy`` command
+
+The final part is the ``Backend`` itself, which registers the command in Yosys.
+The ``execute`` method is the part that runs when the user calls the command,
+handling any options, preparing the output file for writing, and iterating over
+selected modules in the design.  For more on adding new commands to Yosys and
+how they work, refer to :doc:`/yosys_internals/extending_yosys/extensions`.
+
 - pointer ``f`` is a ``std::ostream`` we can write to, being either a file or
   stdout
 - FunctionalIR conversion done by ``Functional::IR::from_module()``
@@ -233,18 +242,23 @@ The major changes from the SMT-LIB backend are as follows:
 Scope
 ~~~~~
 
-As described above, the ``Functional::Scope`` class is derived in order to avoid
-collisions between identifiers in the generated output.  In the SMT-LIB version
-the ``SmtScope`` class implements ``Scope<int>``; provides a constructor that
-iterates over a list of reserved keywords, calling ``reserve`` on each; and
-defines the ``is_character_legal`` method to reject any characters which are not
-allowed in SMT-LIB variable names to then be replaced with underscores in the
-output.
+Our first addition to the `minimal backend`_ above is that for both SMT-LIB and
+Rosette backends, we are now targetting real languages which bring with them
+their own sets of constraints with what we can use as identifiers.  This is
+where the ``Functional::Scope`` class described above comes in; by using this
+class we can safely rename our identifiers in the generated output without
+worrying about collisions or illegal names/characters.
 
-In the Rosette version we switch out ``Smt`` in the class name for ``Smtr`` to
-mean ``smtlib_rosette``; this will happen through the rest of the code too.  We
-also update list of legal ascii characters in the ``is_character_legal`` method
-to only those allowed in Racket variable names.
+In the SMT-LIB version, the ``SmtScope`` class implements ``Scope<int>``;
+provides a constructor that iterates over a list of reserved keywords, calling
+``reserve`` on each; and defines the ``is_character_legal`` method to reject any
+characters which are not allowed in SMT-LIB variable names to then be replaced
+with underscores in the output.  To use this scope we create an instance of it,
+and call the ``Scope::unique_name()`` method to generate a unique and legal name
+for each of our identifiers.
+
+In the Rosette version we update the list of legal ascii characters in the
+``is_character_legal`` method to only those allowed in Racket variable names.
 
 .. literalinclude:: /generated/functional/rosette.diff
    :language: diff
@@ -276,8 +290,8 @@ provides this functionality natively with ``cons``, which we will see later.
       nullptr
     };
 
-Note that we skip over the actual list of reserved keywords from both the smtlib
-and racket specifications to save on space in this document.
+.. note:: We skip over the actual list of reserved keywords from both the smtlib
+   and racket specifications to save on space in this document.
 
 Sort
 ~~~~
@@ -297,16 +311,17 @@ signals represented as ``bitvector``\ s, and memories as ``list``\ s of signals.
 Struct
 ~~~~~~
 
-The ``Functional::IR`` class tracks the set of inputs, the set of outputs, and
-the set of "state" variables.  The SMT-LIB backend maps each of these sets into
-its own ``SmtStruct``, with each variable getting a corresponding field in the
-struct and a specified `Sort`_.  `write_functional_smt2` then defines each of
-these structs as a new ``datatype``, with each element being strongly-typed.
+As we saw in the `minimal backend`_ above, the ``Functional::IR`` class tracks
+the set of inputs, the set of outputs, and the set of "state" variables.  The
+SMT-LIB backend maps each of these sets into its own ``SmtStruct``, with each
+variable getting a corresponding field in the struct and a specified `Sort`_.
+`write_functional_smt2` then defines each of these structs as a new
+``datatype``, with each element being strongly-typed.
 
 In Rosette, rather than defining new datatypes for our structs, we use the
-native ``struct``.  We also only declare each field by name because Racket is
-not as strongly-typed.  For ease of use, we provide the expected type for each
-field as comments.
+native ``struct``.  We also only declare each field by name because Racket
+provides less static typing.  For ease of use, we provide the expected type for
+each field as comments.
 
 .. literalinclude:: /generated/functional/rosette.diff
    :language: diff
@@ -355,18 +370,19 @@ Rosette ``struct``\ s.
 PrintVisitor
 ~~~~~~~~~~~~
 
-The ``PrintVisitor`` implements the abstract ``Functional::AbstractVisitor``
-class, described above in `What is FunctionalIR`_, with a return type of
-``SExpr``.  This class converts FunctionalIR functions into s-expressions,
-including reading inputs/current state with the ``access`` method from the
-`Struct`_.  For most functions, the Rosette output is very similar to the
-corresponding SMT-LIB function with minor adjustments for syntax.
+Remember in the `minimal backend`_ we converted nodes into strings for writing
+using the ``node.to_string()`` method, which wrapped ``node.visit()`` with a
+private visitor.  We now want a custom visitor which can convert nodes into
+s-expressions.  This is where the ``PrintVisitor`` comes in, implementing the
+abstract ``Functional::AbstractVisitor`` class with a return type of ``SExpr``.
+For most functions, the Rosette output is very similar to the corresponding
+SMT-LIB function with minor adjustments for syntax.
 
 .. literalinclude:: /generated/functional/rosette.diff
    :language: diff
    :caption: portion of ``Functional::AbstractVisitor`` implementation diff showing similarities
    :start-at: SExpr logical_shift_left
-   :end-before: SExpr input
+   :end-at: "list-set-bv"
 
 However there are some differences in the two formats with regards to how
 booleans are handled, with Rosette providing built-in functions for conversion.
@@ -377,13 +393,30 @@ booleans are handled, with Rosette providing built-in functions for conversion.
    :start-at: SExpr from_bool
    :end-before: SExpr extract
 
+Of note here is the rare instance of the Rosette implementation *gaining* static
+typing rather than losing it.  Where SMT_LIB calls zero/sign extension with the
+number of extra bits needed (given by ``out_width - a.width()``), Rosette
+instead specifies the type of the output (given by ``list("bitvector",
+out_width)``).
+
+.. literalinclude:: /generated/functional/rosette.diff
+   :language: diff
+   :caption: zero/sign extension implementation diff
+   :start-after: SExpr buf(
+   :end-before: SExpr concat(
+   :lines: 2-3, 5-6
+
+.. note:: Be sure to check the source code for the full list of differences here.
+
 Module
 ~~~~~~
 
-The ``Functional::IR`` is wrapped in the ``SmtModule`` class, with the mapping
-from RTLIL module to FunctionalIR happening in the constructor.  Each of the
-three ``SmtStruct``\ s; inputs, outputs, and state; are created, with each value
-in the corresponding lists in the IR being ``insert``\ ed.
+With most of the supporting classes out of the way, we now reach our three main
+steps from the `minimal backend`_.  These are all handled by the ``SmtModule``
+class, with the mapping from RTLIL module to FunctionalIR happening in the
+constructor.  Each of the three ``SmtStruct``\ s; inputs, outputs, and state;
+are also created in the constructor, with each value in the corresponding lists
+in the IR being ``insert``\ ed.
 
 .. literalinclude:: /generated/functional/smtlib.cc
    :language: c++
@@ -403,7 +436,7 @@ uses an underscore for the name of the initial state.
 The ``write`` method is then responsible for writing the FunctionalIR to the
 output file, formatted for the corresponding backend. ``SmtModule::write()``
 breaks the output file down into four parts: defining the three structs,
-declaring the ``pair`` datatype, defining the mapping function ``(inputs,
+declaring the ``pair`` datatype, defining the transfer function ``(inputs,
 current_state) -> (outputs, next_state)`` with ``write_eval``, and declaring the
 initial state with ``write_initial``.  The only change for the ``SmtrModule`` is
 that the ``pair`` declaration isn't needed.
@@ -414,33 +447,35 @@ that the ``pair`` declaration isn't needed.
    :start-at: void write(std::ostream &out)
    :end-at: }
 
-For the ``write_eval`` method, the main differences are syntactical.  First we
-change the function declaration line for the Rosette style which drops the
-explicit output typing and uses the ``define`` keyword instead of
-``define-fun``.  And then we change the final result from a ``pair`` to the
-native ``cons`` which acts in much the same way, returning both the ``outputs``
-and the ``next_state`` in a single variable.  Iteration over all of the
-``Functional::Node``\ s in the IR is the same in both.
+The ``write_eval`` method is where the FunctionalIR nodes, outputs, and next
+state are handled.  Just as with the `minimal backend`_, we iterate over the
+nodes with ``for(auto n : ir)``, and then use the ``Struct::write_value()``
+method for the ``output_struct`` and ``state_struct`` to iterate over the
+outputs and next state respectively.
 
-.. inlined diff for showing the whole function while skipping the middle part
-.. code-block:: diff
-   :caption: diff of ``Module::write_eval()`` method
+.. literalinclude:: /generated/functional/smtlib.cc
+   :language: c++
+   :caption: iterating over FunctionalIR nodes in ``SmtModule::write_eval()``
+   :start-at: for(auto n : ir)
+   :end-at: }
 
-    	void write_eval(SExprWriter &w)
-    	{
-    		w.push();
-   -		w.open(list("define-fun", name,
-   -			list(list("inputs", input_struct.name),
-   -			     list("state", state_struct.name)),
-   -			list("Pair", output_struct.name, state_struct.name)));
-   +		w.open(list("define", list(name, "inputs", "state")));
-    		...
-   -		w.open(list("pair"));
-   +		w.open(list("cons"));
-    		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.output(name).value()); });
-    		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.state(name).next_value()); });
-    		w.pop();
-    	}
+The main differences between our two backends here are syntactical.  First we
+change the ``define-fun`` for the Racket style ``define`` which drops the
+explicitly typed inputs/outputs.  And then we change the final result from a
+``pair`` to the native ``cons`` which acts in much the same way, returning both
+the ``outputs`` and the ``next_state`` in a single variable.
+
+.. literalinclude:: /generated/functional/rosette.diff
+   :language: diff
+   :caption: diff of ``Module::write_eval()`` transfer function declaration
+   :start-at: w.open(list("define-fun"
+   :end-at: w.open(list("define"
+
+.. literalinclude:: /generated/functional/rosette.diff
+   :language: diff
+   :caption: diff of output/next state handling ``Module::write_eval()``
+   :start-at: w.open(list("pair"
+   :end-at: w.pop();
 
 For the ``write_initial`` method, the SMT-LIB backend uses ``declare-const`` and
 ``assert``\ s which must always hold true.  For Rosette we instead define the
@@ -458,12 +493,15 @@ whereas the SMT-LIB code can only verify that a given ``next_state`` is correct.
 Backend
 ~~~~~~~
 
-The final part is the ``Backend`` itself, which registers the command in Yosys.
-The ``execute`` method is the part that runs when the user calls
-`write_functional_rosette`, handling any options, preparing the output file for
-writing, and iterating over selected modules in the design.  For more on adding
-new commands to Yosys and how they work, refer to
-:doc:`/yosys_internals/extending_yosys/extensions`.
+The final part is the ``Backend`` itself, with much of the same boiler plate as
+the `minimal backend`_.  The main difference is that we use the `Module`_ to
+perform the actual processing.
+
+.. literalinclude:: /generated/functional/smtlib.cc
+   :language: c++
+   :caption: The ``FunctionalSmtBackend``
+   :start-at: struct FunctionalSmtBackend
+   :end-at: } FunctionalSmtBackend;
 
 There are two additions here for Rosette.  The first is that the output file
 needs to start with the ``#lang`` definition which tells the
