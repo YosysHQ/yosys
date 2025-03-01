@@ -108,22 +108,22 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 	}
 
 	// Create buffers and new wires
-	std::vector<std::vector<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>>> buffer_outputs;
-	std::vector<std::vector<RTLIL::Cell *>> buffers;
-	for (int i = 0; i < num_buffers; ++i) {
-		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>> buffer_chunk_outputs;
-	  std::vector<RTLIL::Cell *> buffer_chunks;
-		for (SigChunk chunk : cellOutSig.chunks()) {
-			RTLIL::Cell *buffer = module->addCell(NEW_ID2_SUFFIX("fbuf"), ID($pos)); 
+	std::map<Cell *, int> bufferActualFanout;
+	std::map<RTLIL::SigSpec, std::vector<std::tuple<RTLIL::SigSpec, Cell*>>> buffer_outputs;
+	std::map<SigSpec, int> bufferIndexes;
+	for (SigChunk chunk : cellOutSig.chunks()) {
+		std::vector<std::tuple<RTLIL::SigSpec, Cell*>> buffer_chunk_outputs;
+		for (int i = 0; i < num_buffers; ++i) {
+			RTLIL::Cell *buffer = module->addCell(NEW_ID2_SUFFIX("fbuf"), ID($pos));
+			bufferActualFanout[buffer] = 0; 
 			RTLIL::SigSpec buffer_output = module->addWire(NEW_ID2_SUFFIX("fbuf"), chunk.size());
 			buffer->setPort(ID(A), chunk);
 			buffer->setPort(ID(Y), sigmap(buffer_output));
 			buffer->fixup_parameters();
-			buffer_chunk_outputs.push_back(std::make_pair(chunk, buffer_output)); // Old - New 
-			buffer_chunks.push_back(buffer);
+			buffer_chunk_outputs.push_back(std::make_tuple(buffer_output, buffer)); // Old - New
+			bufferIndexes[chunk] = 0; 
 		}
-		buffer_outputs.push_back(buffer_chunk_outputs);
-		buffers.push_back(buffer_chunks);
+		buffer_outputs.emplace(sigmap(SigSpec(chunk)), buffer_chunk_outputs);
 	}
 
 	// Cumulate all cells in the fanout of this cell
@@ -136,41 +136,37 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 	}
 
 	// Fix input connections to cells in fanout of buffer to point to the inserted buffer
-	int indexCurrentBuffer = 0;
-	int indexFanout = 0;
-	std::map<Cell *, int> bufferActualFanout;
 	for (Cell *c : cells) {
-		std::cout << "  CELL in fanout: " << c->name.c_str() << "\n" << std::flush;
+		std::cout << "\n  CELL in fanout: " << c->name.c_str() << "\n" << std::flush;
 		for (auto &conn : c->connections()) {
 			IdString portName = conn.first;
-			RTLIL::SigSpec actual = conn.second;
+			RTLIL::SigSpec actual = sigmap(conn.second);
 			if (c->input(portName)) {
 				if (actual.is_chunk()) {
-					std::cout << "  CHUNK, indexCurrentBuffer: " << indexCurrentBuffer << " buffer_outputs " << buffer_outputs.size() << std::endl;
-					for (std::pair<RTLIL::SigSpec, RTLIL::SigSpec>& old_new : buffer_outputs[indexCurrentBuffer]) {
-					  if (sigmap(old_new.first) == sigmap(actual)) {
-						  std::cout << "  MATCH" << std::endl;
-						  c->setPort(portName, old_new.second);
-						  sig2CellsInFanout[sigmap(old_new.second)].insert(c);
-						  indexFanout++;
-							for (Cell* c : buffers[indexCurrentBuffer]) {
-								if (bufferActualFanout.find(c) != bufferActualFanout.end()) {
-									bufferActualFanout[c] = std::max(indexFanout, bufferActualFanout[c]);
-								} else {
-						  	  bufferActualFanout[c] = indexFanout;
-								}
+					if (buffer_outputs.find(actual) != buffer_outputs.end()) {
+						std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[actual] << " buffer_outputs " << buffer_outputs[actual].size() << std::endl;
+						std::vector<std::tuple<RTLIL::SigSpec, Cell*>>& buf_info_vec = buffer_outputs[actual];
+						int bufferIndex = bufferIndexes[actual];
+						std::cout << "  BUFFER INDEX: " << bufferIndex << std::endl;
+						std::cout << "  VEC SIZE: " << buf_info_vec.size() << std::endl;
+						std::tuple<RTLIL::SigSpec, Cell*>& buf_info = buf_info_vec[bufferIndex];
+						SigSpec newSig = std::get<0>(buf_info);
+						Cell* newBuf = std::get<1>(buf_info);
+						std::cout << "  MATCH" << std::endl;
+						c->setPort(portName, newSig);
+						sig2CellsInFanout[newSig].insert(c);
+						bufferActualFanout[newBuf]++;
+						std::cout << "   b: " << newBuf->name.c_str() << " fanout: " << bufferActualFanout[newBuf] << std::endl;
+						if (bufferActualFanout[newBuf] >= max_output_per_buffer) {
+							std::cout << "  REACHED MAX" << std::endl;
+							if (buffer_outputs[actual].size() - 1 > bufferIndex) {
+								bufferIndexes[actual]++;
+								std::cout << "  NEXT BUFFER" << std::endl;
 							}
-						  break;
-						}
-					}
-					if (indexFanout >= max_output_per_buffer) {
-						if (buffer_outputs.size()-1 > indexCurrentBuffer) {
-							indexFanout = 0;
-						  indexCurrentBuffer++;
 						}
 					}
 				} else {
-					std::cout << "NOT CHUNK" << std::endl;
+					std::cout << "  NOT CHUNK" << std::endl;
 					bool match = false;
 					for (SigChunk chunk_a : actual.chunks()) {
 						if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(cellOutSig))) {
@@ -187,34 +183,33 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 							break;
 					}
 					if (match) {
-						std::cout << "MATCH" << std::endl;
+						
+						std::cout << "  MATCH" << std::endl;
 						std::vector<RTLIL::SigChunk> newChunks;
 						bool missed = true;
 						for (SigChunk chunk : actual.chunks()) {
 							bool replaced = false;
-							for (std::pair<RTLIL::SigSpec, RTLIL::SigSpec>& old_new : buffer_outputs[indexCurrentBuffer]) {
-								if (sigmap(old_new.first) == sigmap(SigSpec(chunk))) {
-									missed = false;
-									newChunks.push_back(old_new.second.as_chunk());
-									sig2CellsInFanout[sigmap(old_new.second)].insert(c);
-									replaced = true;
-									indexFanout++;
-
-									for (Cell *c : buffers[indexCurrentBuffer]) {
-										if (bufferActualFanout.find(c) != bufferActualFanout.end()) {
-										  bufferActualFanout[c] = std::max(indexFanout, bufferActualFanout[c]); 
-										} else {
-										  bufferActualFanout[c] = indexFanout;
-										}
+							if (buffer_outputs.find(chunk) != buffer_outputs.end()) {
+						    std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[chunk] << " buffer_outputs " << buffer_outputs[chunk].size() << std::endl;
+						    std::vector<std::tuple<RTLIL::SigSpec, Cell*>>& buf_info_vec = buffer_outputs[chunk];
+						    int bufferIndex = bufferIndexes[chunk];
+						    std::cout << "  BUFFER INDEX: " << bufferIndex << std::endl;
+						    std::cout << "  VEC SIZE: " << buf_info_vec.size() << std::endl;
+						    std::tuple<RTLIL::SigSpec, Cell*>& buf_info = buf_info_vec[bufferIndex];
+						    SigSpec newSig = std::get<0>(buf_info);
+						    Cell* newBuf = std::get<1>(buf_info);
+								missed = false;
+								newChunks.push_back(newSig.as_chunk());
+								sig2CellsInFanout[newSig].insert(c);
+								replaced = true;
+								bufferActualFanout[newBuf]++;
+								std::cout << "   b: " << newBuf->name.c_str() << " fanout: " << bufferActualFanout[newBuf] << std::endl;
+								if (bufferActualFanout[newBuf] >= max_output_per_buffer) {
+									std::cout << "  REACHED MAX" << std::endl;
+									if (buffer_outputs[chunk].size() - 1 > bufferIndex) {
+										bufferIndexes[chunk]++;
+										std::cout << "  NEXT BUFFER" << std::endl;
 									}
-									if (indexFanout >= max_output_per_buffer) {
-										if (buffer_outputs.size() - 1 > indexCurrentBuffer) {
-											indexFanout = 0;
-											indexCurrentBuffer++;
-										}
-									}
-
-									break;
 								}
 							}
 							if (!replaced) {
@@ -226,6 +221,7 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 						}
 						c->setPort(portName, newChunks);
 						break;
+						
 					}
 				}
 			}
@@ -267,8 +263,8 @@ void fixfanout(RTLIL::Design* design, RTLIL::Module *module, SigMap &sigmap, dic
 					}
 				}
 			}
-			//module->remove(itr->first);
-			//module->remove({bufferOutSig.as_wire()});
+			module->remove(itr->first);
+			module->remove({bufferOutSig.as_wire()});
 		} else {
 			fixfanout(design, module, sigmap, sig2CellsInFanout, itr->first, itr->second, limit);
 		}
@@ -389,8 +385,9 @@ struct AnnotateCellFanout : public ScriptPass {
 							}
 					}
 					netsToSplit += std::string(" w:") + getParentWire(cellOutSig)->name.c_str();
+					netsToSplit += std::string(" x:") + getParentWire(cellOutSig)->name.c_str();
 				}
-				std::string splitnets = std::string("splitnets -ports ") + netsToSplit;
+				std::string splitnets = std::string("splitnets ") + netsToSplit;
 				Pass::call(design, splitnets);
 			}
 		
