@@ -149,44 +149,49 @@ S-expressions can be constructed with ``SExpr::list``, for example ``SExpr expr
 Example: A minimal functional backend
 -------------------------------------
 
+At its most basic, there are three steps we need to accomplish for a minimal
+functional backend.  First, we need to convert our design into FunctionalIR.
+This is most easily done by calling the ``Functional::IR::from_module()`` static
+method with our top-level module, or iterating over and converting each of the
+modules in our design.  Second, we need to handle each of the
+``Functional::Node``\ s in our design.  Iterating over the ``Functional::IR``
+includes reading the module inputs and current state, but not writing the
+results.  So our final step is to handle the outputs and next state.
+
+In order to add an output command to Yosys, we implement the ``Yosys::Backend``
+class and provide an instance of it:
+
 .. literalinclude:: /code_examples/functional/dummy.cc
    :language: c++
-   :caption: Example source code for a minimal functional backend
+   :caption: Example source code for a minimal functional backend, ``dummy.cc``
 
-- three main steps needed
+Because we are using the ``Backend`` class, our ``"functional_dummy"`` is
+registered as the ``write_functional_dummy`` command.  The ``execute`` method is
+the part that runs when the user calls the command, handling any options,
+preparing the output file for writing, and iterating over selected modules in
+the design.  Since we don't have any options here, we set ``argidx = 1`` and
+call the ``extra_args()`` method.  This method will read the command arguments,
+raising an error if there are any unexpected ones.  It will also assign the
+pointer ``f`` to the output file, or stdout if none is given.
 
-  + convert to FunctionalIR
-  + handle nodes
-  + handle outputs and next state
+.. note::
 
-- backend pass boiler plate gives us ``write_functional_dummy`` command
+   For more on adding new commands to Yosys and how they work, refer to
+   :doc:`/yosys_internals/extending_yosys/extensions`.
 
-The final part is the ``Backend`` itself, which registers the command in Yosys.
-The ``execute`` method is the part that runs when the user calls the command,
-handling any options, preparing the output file for writing, and iterating over
-selected modules in the design.  For more on adding new commands to Yosys and
-how they work, refer to :doc:`/yosys_internals/extending_yosys/extensions`.
+For this minimal example all we are doing is printing out each node.  The
+``node.name()`` method returns an ``RTLIL::IdString``, which we convert for
+printing with ``id2cstr()``.  Then, to print the function of the node, we use
+``node.to_string()`` which gives us a string of the form ``function(args)``. The
+``function`` part is the result of ``Functional::IR::fn_to_string(node.fn())``;
+while ``args`` is the zero or more arguments passed to the function, most
+commonly the name of another node.  Behind the scenes, the ``node.to_string()``
+method actually wraps ``node.visit(visitor)`` with a private visitor whose
+return type is ``std::string``.
 
-- pointer ``f`` is a ``std::ostream`` we can write to, being either a file or
-  stdout
-- FunctionalIR conversion done by ``Functional::IR::from_module()``
-- each node performs some function or operation (including reading input/current
-  state)
-
-  + each variable is assigned exactly once before being used
-  + ``node.name()`` returns a ``RTLIL::IdString``, which we convert for
-    printing with ``id2cstr()``
-  + ``node.to_string()`` converts the node into a string of the form
-    ``function(args)``
-
-    * ``function`` is the result of ``Functional::IR::fn_to_string(node.fn())``
-    * ``args`` are the zero or more arguments passed to the function, most
-      commonly the name of another node
-    * wraps ``node.visit()`` with a private visitor with return type
-      ``std::string``
-
-- ``Functional::IROutput::value()`` and ``Functional::IRState::next_value()``
-  represent the outputs of our function
+Finally we iterate over the module's outputs and states, using
+``Functional::IROutput::value()`` and ``Functional::IRState::next_value()``
+respectively in order to get the results of the transfer function.
 
 Example: Adapting SMT-LIB backend for Rosette
 ---------------------------------------------
