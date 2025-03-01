@@ -328,6 +328,15 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
+std::string substringUntil(const std::string& str, char delimiter) {
+    size_t pos = str.find(delimiter);
+    if (pos != std::string::npos) {
+        return str.substr(0, pos);
+    } else {
+        return str;
+    }
+}
+
 struct AnnotateCellFanout : public ScriptPass {
 	AnnotateCellFanout() : ScriptPass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
 	void script() override {}
@@ -372,8 +381,9 @@ struct AnnotateCellFanout : public ScriptPass {
 						cellsToFixFanout.push_back(cell);
 					}
 				}
-
+				std::set<std::string> netsToSplitS;
 				std::string netsToSplit;
+				std::string portsToSplit;
 				for (Cell* cell : cellsToFixFanout) {
 					RTLIL::SigSpec cellOutSig;
 					for (auto &conn : cell->connections()) {
@@ -384,11 +394,20 @@ struct AnnotateCellFanout : public ScriptPass {
 							break;
 							}
 					}
-					netsToSplit += std::string(" w:") + getParentWire(cellOutSig)->name.c_str();
-					netsToSplit += std::string(" x:") + getParentWire(cellOutSig)->name.c_str();
+					std::string parent = getParentWire(cellOutSig)->name.c_str();
+					parent = substringUntil(parent, '[');
+					if (netsToSplitS.find(parent) == netsToSplitS.end()) {
+						netsToSplit += std::string(" w:") + parent; // Wire
+						portsToSplit += std::string(" o:") + parent; // Port
+						netsToSplitS.insert(parent);
+						std::string splitnets = std::string("splitnets ") + netsToSplit;
+						Pass::call(design, splitnets);
+						splitnets = std::string("splitnets -ports_only ") + portsToSplit;
+						Pass::call(design, splitnets);
+						netsToSplit = "";
+						portsToSplit = "";
+					}
 				}
-				std::string splitnets = std::string("splitnets ") + netsToSplit;
-				Pass::call(design, splitnets);
 			}
 		
 			{
