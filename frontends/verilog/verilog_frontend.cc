@@ -26,6 +26,8 @@
  *
  */
 
+#include <filesystem>
+
 #include "verilog_frontend.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
@@ -671,6 +673,80 @@ struct VerilogDefines : public Pass {
 			cmd_error(args, argidx, "Extra argument.");
 	}
 } VerilogDefines;
+
+struct VerilogFilelist : public Pass {
+	VerilogFilelist() : Pass("verilog_filelist", "use filelist") {}
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    verilog_filelist [options]\n");
+		log("\n");
+		log("Load a Verilog file list, and pass list of Verilog files to read_verilog command.\n");
+		log("\n");
+		log("    -Fflist\n");
+		log("        File list file contains list of Verilog to be parsed, any\n");
+		log("        ' path is relative to the file list file'\n");
+		log("\n");
+		log("    -Fflist\n");
+		log("        File list file contains list of Verilog to be parsed, any\n");
+		log("        ' path is relative to current working directroy'\n");
+		log("\n");
+	}
+
+	void parse_flist_rel_filelist(const std::string &flist_path, RTLIL::Design *design)
+	{
+		std::ifstream ifs(flist_path);
+		if (!ifs.is_open()) {
+			log_error("file list file does not exist");
+			exit(1);
+		}
+
+		std::filesystem::path flist_parent_dir = std::filesystem::path(flist_path).parent_path();
+
+		std::string v_file_name;
+		while (std::getline(ifs, v_file_name)) {
+			if (v_file_name.empty()) {
+				continue;
+			}
+			std::string v_file_path = flist_parent_dir.string() + '/' + v_file_name;
+			log("Verilog file %s\n", v_file_path.c_str());
+
+			bool is_sv = (std::filesystem::path(v_file_path).extension() == ".sv");
+
+			std::string command = "read_verilog";
+			if (is_sv) {
+				command += " -sv";
+			}
+			command = command + ' ' + v_file_path;
+			Pass::call(design, command);
+		}
+	}
+
+	void parse_flist_rel_pwd(const std::string &flist_path, RTLIL::Design *design) { log("pwd %s\n", flist_path.c_str()); }
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-F" && argidx + 1 < args.size()) {
+				std::string flist_path = args[++argidx];
+				parse_flist_rel_filelist(flist_path, design);
+				continue;
+			}
+			if (arg == "-f" && argidx + 1 < args.size()) {
+				std::string flist_path = args[++argidx];
+				parse_flist_rel_pwd(flist_path, design);
+				continue;
+			}
+			break;
+		}
+
+		if (args.size() != argidx)
+			cmd_error(args, argidx, "Extra argument.");
+	}
+} VerilogFilelist;
 
 YOSYS_NAMESPACE_END
 
