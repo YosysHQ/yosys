@@ -7,6 +7,7 @@
 *.gcno
 *~
 __pycache__
+/.cache
 /.cproject
 /.project
 /.settings
@@ -52,3 +53,4 @@ __pycache__
 /venv
 /boost
 /ffi
+/compile_commands.json
