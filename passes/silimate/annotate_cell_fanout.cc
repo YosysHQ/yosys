@@ -75,6 +75,28 @@ RTLIL::Wire *getParentWire(const RTLIL::SigSpec &sigspec)
 	return first_bit.wire;
 }
 
+// Find if a signal is used in another (One level)
+bool isSigSpecUsedIn(SigSpec &haystack, SigMap &sigmap, SigSpec &needle)
+{
+	bool match = false;
+	// Input chunk is one of the cell's outputs, its a match
+	for (SigChunk chunk_a : haystack.chunks()) {
+		if (sigmap(SigSpec(chunk_a)) == sigmap(needle)) {
+			match = true;
+		} else {
+			for (SigChunk chunk_c : needle.chunks()) {
+				if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(chunk_c))) {
+					match = true;
+					break;
+				}
+			}
+		}
+		if (match)
+			break;
+	}
+	return match;
+}
+
 // For a given cell with fanout exceeding the limit,
 //  - create an array of buffers per cell output chunk (2 dimentions array of buffers)
 //  - connect cell chunk to corresponding buffers
@@ -202,29 +224,13 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 					// Input of that cell is a list of chunks
 					if (debug)
 						std::cout << "  NOT A CHUNK" << std::endl;
-					bool match = false;
-					// Input chunk is one of the cell's outputs, its a match
-					for (SigChunk chunk_a : actual.chunks()) {
-						if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(cellOutSig))) {
-							match = true;
-						} else {
-							for (SigChunk chunk_c : cellOutSig.chunks()) {
-								if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(chunk_c))) {
-									match = true;
-									break;
-								}
-							}
-						}
-						if (match)
-							break;
-					}
-					if (match) {
+					if (isSigSpecUsedIn(actual, sigmap, cellOutSig)) {
 						if (debug)
 							std::cout << "  MATCH" << std::endl;
 						// Create a new chunk vector
 						std::vector<RTLIL::SigChunk> newChunks;
 						for (SigChunk chunk : actual.chunks()) {
-							bool replacedChunck = false;
+							bool replacedChunk = false;
 							if (buffer_outputs.find(chunk) != buffer_outputs.end()) {
 								if (debug)
 									std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[chunk]
@@ -236,11 +242,11 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 								std::tuple<RTLIL::SigSpec, Cell *> &buf_info = buf_info_vec[bufferIndex];
 								SigSpec newSig = std::get<0>(buf_info);
 								Cell *newBuf = std::get<1>(buf_info);
-								// Append the buffer's output in the chunck vector
+								// Append the buffer's output in the chunk vector
 								newChunks.push_back(newSig.as_chunk());
 								// Keep track of fanout map information for recursive calls
 								sig2CellsInFanout[newSig].insert(c);
-								replacedChunck = true;
+								replacedChunk = true;
 								// Increment buffer capacity
 								bufferActualFanout[newBuf]++;
 								if (debug)
@@ -257,12 +263,12 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 									}
 								}
 							}
-							if (!replacedChunck) {
-								// Append original chunck if no buffer used
+							if (!replacedChunk) {
+								// Append original chunk if no buffer used
 								newChunks.push_back(chunk);
 							}
 						}
-						// Override the fanout cell's input with the newly created chunck vector
+						// Override the fanout cell's input with the newly created chunk vector
 						c->setPort(portName, newChunks);
 						break;
 					}
@@ -271,6 +277,7 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 		}
 	}
 
+	// Post-processing for all newly added buffers
 	for (std::map<Cell *, int>::iterator itr = bufferActualFanout.begin(); itr != bufferActualFanout.end(); itr++) {
 		if (itr->second == 1) {
 			// Remove previously inserted buffers with fanout of 1 (Hard to predict the last buffer usage in above step)
@@ -278,38 +285,54 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 				std::cout << "Buffer with fanout 1: " << itr->first->name.c_str() << std::endl;
 			RTLIL::SigSpec bufferInSig = itr->first->getPort(ID::A);
 			RTLIL::SigSpec bufferOutSig = itr->first->getPort(ID::Y);
+			// Find which cell use that buffer's output and reconnect its input to the former cell (buffer's input)
 			for (Cell *c : cells) {
+				bool reconnected = false;
 				if (debug)
-					std::cout << "Cell in its fanout: " << c->name.c_str() << std::endl;
+					std::cout << "  Cell in its fanout: " << c->name.c_str() << std::endl;
 				for (auto &conn : c->connections()) {
 					IdString portName = conn.first;
 					RTLIL::SigSpec actual = conn.second;
 					if (c->input(portName)) {
 						if (actual.is_chunk()) {
+							// Input is a chunk
 							if (bufferOutSig == sigmap(actual)) {
+								// Input is one of the cell's outputs, its a match
 								if (debug)
-									std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str()
+									std::cout << "   Replace: " << getParentWire(bufferOutSig)->name.c_str()
 										  << " by " << getParentWire(bufferInSig)->name.c_str() << std::endl;
+								// Override cell's input with original buffer's input
 								c->setPort(portName, bufferInSig);
+								reconnected = true;
+								break;
 							}
 						} else {
-							std::vector<RTLIL::SigChunk> newChunks;
-							for (SigChunk chunk : actual.chunks()) {
-								if (sigmap(SigSpec(chunk)) == sigmap(bufferOutSig)) {
-									if (debug)
-										std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str()
-											  << " by " << getParentWire(bufferInSig)->name.c_str()
-											  << std::endl;
-									newChunks.push_back(bufferInSig.as_chunk());
-								} else {
-									newChunks.push_back(chunk);
+							// Input is a vector of chunks
+							if (isSigSpecUsedIn(actual, sigmap, bufferOutSig)) {
+								std::vector<RTLIL::SigChunk> newChunks;
+								for (SigChunk chunk : actual.chunks()) {
+									if (sigmap(SigSpec(chunk)) == sigmap(bufferOutSig)) {
+										if (debug)
+											std::cout
+											  << "    Replace: "
+											  << getParentWire(bufferOutSig)->name.c_str() << " by "
+											  << getParentWire(bufferInSig)->name.c_str() << std::endl;
+										newChunks.push_back(bufferInSig.as_chunk());
+									} else {
+										newChunks.push_back(chunk);
+									}
 								}
+								c->setPort(portName, newChunks);
+								reconnected = true;
+								break;
 							}
-							c->setPort(portName, newChunks);
 						}
 					}
 				}
+				if (reconnected)
+					break;
 			}
+			// Delete the now unsused buffer and it's output signal
 			module->remove(itr->first);
 			module->remove({bufferOutSig.as_wire()});
 		} else {
