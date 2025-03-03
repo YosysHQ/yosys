@@ -1454,6 +1454,7 @@ struct SharePass : public Pass {
 		log("\n");
 		log("  -limit N\n");
 		log("    Only perform the first N merges, then stop. This is useful for debugging.\n");
+		log("\n");
 		log("  -pattern-limit N\n");
 		log("    Only analyze up to N activation patterns per cell, otherwise assume active.\n");
 		log("    N is 1000 by default. Higher values may merge more resources at the cost of\n");
