@@ -389,6 +389,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
+// Return substring up to a delimiter or full string if not found
 std::string substringuntil(const std::string &str, char delimiter)
 {
 	size_t pos = str.find(delimiter);
@@ -402,7 +403,21 @@ std::string substringuntil(const std::string &str, char delimiter)
 struct AnnotateCellFanout : public ScriptPass {
 	AnnotateCellFanout() : ScriptPass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
 	void script() override {}
-
+  void help() override
+	{
+		log("\n");
+		log("    annotate_cell_fanout [options] [selection]\n");
+		log("\n");
+		log("This pass annotates cell fanout and optionally inserts balanced buffer trees to limit fanout.\n");
+		log("\n");
+		log("    -limit <limit>\n");
+		log("        Limits the fanout by inserting balanced buffer trees.\n");
+		log("    -formal\n");
+		log("        For formal verification to pass, will prevent splitnets passes on ports, even if they have large fanout.\n");
+		log("    -debug\n");
+		log("        Debug trace.\n");
+		log("\n");
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int limit = -1;
