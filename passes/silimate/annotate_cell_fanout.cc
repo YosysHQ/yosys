@@ -75,29 +75,40 @@ RTLIL::Wire *getParentWire(const RTLIL::SigSpec &sigspec)
 	return first_bit.wire;
 }
 
+// For a given cell with fanout exceeding the limit,
+//  - create an array of buffers per cell output chunk (2 dimentions array of buffers)
+//  - connect cell chunk to corresponding buffers
+//  - reconnected cells in the fanout using the chunk to the newly created buffer
+//  - when a buffer reaches capacity, switch to the next buffer
+// The capacity of the buffers might be larger than the limit in a given pass,
+// Recursion is used until all buffers capacity is under or at the limit.
 void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
 	       RTLIL::Cell *cell, int fanout, int limit, bool debug)
 {
 	if (fanout <= limit) {
 		if (debug) {
-		  std::cout << "Nothing to do for: " << cell->name.c_str() << std::endl;
-		  std::cout << "Fanout: " << fanout << std::endl;
+			std::cout << "Nothing to do for: " << cell->name.c_str() << std::endl;
+			std::cout << "Fanout: " << fanout << std::endl;
 		}
 		return; // No need to insert buffers
 	} else {
 		if (debug) {
-		  std::cout << "Something to do for: " << cell->name.c_str() << std::endl;
-		  std::cout << "Fanout: " << fanout << std::endl;
+			std::cout << "Something to do for: " << cell->name.c_str() << std::endl;
+			std::cout << "Fanout: " << fanout << std::endl;
 		}
 	}
+	// The number of buffers inserted: NbBuffers = Min( Ceil( Fanout / Limit), Limit)
+	// By definition, we cannot insert more buffers than the limit (Use of the Min function),
+	// else the driving cell would violate the fanout limit.
 	int num_buffers = std::min((int)std::ceil(static_cast<double>(fanout) / limit), limit);
+	// The max output (fanout) per buffer: MaxOut = Ceil(Fanout / NbBuffers)
 	int max_output_per_buffer = std::ceil((float)fanout / (float)num_buffers);
 	if (debug) {
-	  std::cout << "fanout: " << fanout << "\n";
-	  std::cout << "limit: " << limit << "\n";
-	  std::cout << "num_buffers: " << num_buffers << "\n";
-	  std::cout << "max_output_per_buffer: " << max_output_per_buffer << "\n";
-	  std::cout << "CELL: " << cell->name.c_str() << "\n" << std::flush;
+		std::cout << "Fanout: " << fanout << "\n";
+		std::cout << "Limit: " << limit << "\n";
+		std::cout << "Mum_buffers: " << num_buffers << "\n";
+		std::cout << "Max_output_per_buffer: " << max_output_per_buffer << "\n";
+		std::cout << "CELL: " << cell->name.c_str() << "\n" << std::flush;
 	}
 
 	// Get cell output
@@ -111,10 +122,14 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 		}
 	}
 
-	// Create buffers and new wires
-	std::map<Cell *, int> bufferActualFanout; // Keep track of the fanout count for each new buffer
+	// Keep track of the fanout count for each new buffer
+	std::map<Cell *, int> bufferActualFanout;
+	// Array of buffers (The buffer output signal and the buffer cell) per cell output chunks
 	std::map<RTLIL::SigSpec, std::vector<std::tuple<RTLIL::SigSpec, Cell *>>> buffer_outputs;
+	// Keep track of which buffer in the array is getting filled for a given chunk
 	std::map<SigSpec, int> bufferIndexes;
+
+	// Create buffers and new wires
 	for (SigChunk chunk : cellOutSig.chunks()) {
 		std::vector<std::tuple<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
 		for (int i = 0; i < num_buffers; ++i) {
@@ -142,39 +157,53 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 	// Fix input connections to cells in fanout of buffer to point to the inserted buffer
 	for (Cell *c : cells) {
 		if (debug)
-		  std::cout << "\n  CELL in fanout: " << c->name.c_str() << "\n" << std::flush;
+			std::cout << "\n  CELL in fanout: " << c->name.c_str() << "\n" << std::flush;
 		for (auto &conn : c->connections()) {
 			IdString portName = conn.first;
 			RTLIL::SigSpec actual = sigmap(conn.second);
 			if (c->input(portName)) {
 				if (actual.is_chunk()) {
+					// Input of that cell is a chunk
 					if (debug)
-					  std::cout << "  IS A CHUNK" << std::endl;
+						std::cout << "  IS A CHUNK" << std::endl;
 					if (buffer_outputs.find(actual) != buffer_outputs.end()) {
-						if (debug) std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[actual] << " buffer_outputs "
-							  << buffer_outputs[actual].size() << std::endl;
+						// Input is one of the cell's outputs, its a match
+						if (debug)
+							std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[actual] << " buffer_outputs "
+								  << buffer_outputs[actual].size() << std::endl;
+						// Retrieve the buffer information for that cell's chunk
 						std::vector<std::tuple<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[actual];
+						// Retrieve which buffer is getting filled
 						int bufferIndex = bufferIndexes[actual];
 						std::tuple<RTLIL::SigSpec, Cell *> &buf_info = buf_info_vec[bufferIndex];
 						SigSpec newSig = std::get<0>(buf_info);
 						Cell *newBuf = std::get<1>(buf_info);
+						// Override the fanout cell's input with the buffer output
 						c->setPort(portName, newSig);
+						// Keep track of fanout map information for recursive calls
 						sig2CellsInFanout[newSig].insert(c);
+						// Increment buffer capacity
 						bufferActualFanout[newBuf]++;
-						if (debug)std::cout << "   USE: " << newBuf->name.c_str() << " fanout: " << bufferActualFanout[newBuf]
-							    << std::endl;
+						if (debug)
+							std::cout << "   USE: " << newBuf->name.c_str() << " fanout: " << bufferActualFanout[newBuf]
+								  << std::endl;
+						// If we reached capacity for a given buffer, move to the next buffer
 						if (bufferActualFanout[newBuf] >= max_output_per_buffer) {
-							if (debug) std::cout << "  REACHED MAX" << std::endl;
-							if (buffer_outputs[actual].size() - 1 > bufferIndex) {
+							if (debug)
+								std::cout << "  REACHED MAX" << std::endl;
+							if (int(buffer_outputs[actual].size() - 1) > bufferIndex) {
 								bufferIndexes[actual]++;
-								if (debug) std::cout << "  NEXT BUFFER" << std::endl;
+								if (debug)
+									std::cout << "  NEXT BUFFER" << std::endl;
 							}
 						}
 					}
 				} else {
+					// Input of that cell is a list of chunks
 					if (debug)
-					  std::cout << "  NOT A CHUNK" << std::endl;
+						std::cout << "  NOT A CHUNK" << std::endl;
 					bool match = false;
+					// Input chunk is one of the cell's outputs, its a match
 					for (SigChunk chunk_a : actual.chunks()) {
 						if (sigmap(SigSpec(chunk_a)) == sigmap(SigSpec(cellOutSig))) {
 							match = true;
@@ -190,36 +219,50 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 							break;
 					}
 					if (match) {
-						if (debug) std::cout << "  MATCH" << std::endl;
+						if (debug)
+							std::cout << "  MATCH" << std::endl;
+						// Create a new chunk vector
 						std::vector<RTLIL::SigChunk> newChunks;
 						for (SigChunk chunk : actual.chunks()) {
-							bool replaced = false;
+							bool replacedChunck = false;
 							if (buffer_outputs.find(chunk) != buffer_outputs.end()) {
-								if (debug) std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[chunk]
-									  << " buffer_outputs " << buffer_outputs[chunk].size() << std::endl;
+								if (debug)
+									std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[chunk]
+										  << " buffer_outputs " << buffer_outputs[chunk].size() << std::endl;
+								// Retrieve the buffer information for that cell's chunk
 								std::vector<std::tuple<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[chunk];
+								// Retrieve which buffer is getting filled
 								int bufferIndex = bufferIndexes[chunk];
 								std::tuple<RTLIL::SigSpec, Cell *> &buf_info = buf_info_vec[bufferIndex];
 								SigSpec newSig = std::get<0>(buf_info);
 								Cell *newBuf = std::get<1>(buf_info);
+								// Append the buffer's output in the chunck vector
 								newChunks.push_back(newSig.as_chunk());
+								// Keep track of fanout map information for recursive calls
 								sig2CellsInFanout[newSig].insert(c);
-								replaced = true;
+								replacedChunck = true;
+								// Increment buffer capacity
 								bufferActualFanout[newBuf]++;
-								if (debug) std::cout << "   USE: " << newBuf->name.c_str()
-									  << " fanout: " << bufferActualFanout[newBuf] << std::endl;
+								if (debug)
+									std::cout << "   USE: " << newBuf->name.c_str()
+										  << " fanout: " << bufferActualFanout[newBuf] << std::endl;
+								// If we reached capacity for a given buffer, move to the next buffer
 								if (bufferActualFanout[newBuf] >= max_output_per_buffer) {
-									if (debug) std::cout << "  REACHED MAX" << std::endl;
-									if (buffer_outputs[chunk].size() - 1 > bufferIndex) {
+									if (debug)
+										std::cout << "  REACHED MAX" << std::endl;
+									if (int(buffer_outputs[chunk].size() - 1) > bufferIndex) {
 										bufferIndexes[chunk]++;
-										if (debug) std::cout << "  NEXT BUFFER" << std::endl;
+										if (debug)
+											std::cout << "  NEXT BUFFER" << std::endl;
 									}
 								}
 							}
-							if (!replaced) {
+							if (!replacedChunck) {
+								// Append original chunck if no buffer used
 								newChunks.push_back(chunk);
 							}
 						}
+						// Override the fanout cell's input with the newly created chunck vector
 						c->setPort(portName, newChunks);
 						break;
 					}
@@ -231,27 +274,32 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 	for (std::map<Cell *, int>::iterator itr = bufferActualFanout.begin(); itr != bufferActualFanout.end(); itr++) {
 		if (itr->second == 1) {
 			// Remove previously inserted buffers with fanout of 1 (Hard to predict the last buffer usage in above step)
-			if (debug) std::cout << "Buffer with fanout 1: " << itr->first->name.c_str() << std::endl;
+			if (debug)
+				std::cout << "Buffer with fanout 1: " << itr->first->name.c_str() << std::endl;
 			RTLIL::SigSpec bufferInSig = itr->first->getPort(ID::A);
 			RTLIL::SigSpec bufferOutSig = itr->first->getPort(ID::Y);
 			for (Cell *c : cells) {
-				if (debug) std::cout << "Cell in its fanout: " << c->name.c_str() << std::endl;
+				if (debug)
+					std::cout << "Cell in its fanout: " << c->name.c_str() << std::endl;
 				for (auto &conn : c->connections()) {
 					IdString portName = conn.first;
 					RTLIL::SigSpec actual = conn.second;
 					if (c->input(portName)) {
 						if (actual.is_chunk()) {
 							if (bufferOutSig == sigmap(actual)) {
-								if (debug) std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str() << " by "
-									  << getParentWire(bufferInSig)->name.c_str() << std::endl;
+								if (debug)
+									std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str()
+										  << " by " << getParentWire(bufferInSig)->name.c_str() << std::endl;
 								c->setPort(portName, bufferInSig);
 							}
 						} else {
 							std::vector<RTLIL::SigChunk> newChunks;
 							for (SigChunk chunk : actual.chunks()) {
 								if (sigmap(SigSpec(chunk)) == sigmap(bufferOutSig)) {
-									if (debug) std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str()
-										  << " by " << getParentWire(bufferInSig)->name.c_str() << std::endl;
+									if (debug)
+										std::cout << "Replace: " << getParentWire(bufferOutSig)->name.c_str()
+											  << " by " << getParentWire(bufferInSig)->name.c_str()
+											  << std::endl;
 									newChunks.push_back(bufferInSig.as_chunk());
 								} else {
 									newChunks.push_back(chunk);
@@ -416,11 +464,11 @@ struct AnnotateCellFanout : public ScriptPass {
 						std::string splitnets = std::string("splitnets ") + netsToSplit;
 						Pass::call(design, splitnets);
 						splitnets = std::string("splitnets -ports_only ") + portsToSplit;
-						if (!formalFriendly) 
+						if (!formalFriendly)
 							// Formal verification does not like ports to be split.
-							// This will prevent some buffering to happen on output ports used also internally in high fanout,
-							// but it will make formal happy.
-						  Pass::call(design, splitnets);
+							// This will prevent some buffering to happen on output ports used also internally in high
+							// fanout, but it will make formal happy.
+							Pass::call(design, splitnets);
 						netsToSplit = "";
 						portsToSplit = "";
 					}
