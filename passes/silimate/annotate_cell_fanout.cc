@@ -517,6 +517,8 @@ void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpe
 	if (parent == "") {
 		return;
 	}
+	if (parentWire->width == 1)
+		return;
 	parent = substringuntil(parent, '[');
 	if (netsToSplitS.find(parent) == netsToSplitS.end()) {
 		netsToSplitS.insert(parent);
@@ -604,8 +606,14 @@ struct AnnotateCellFanout : public ScriptPass {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
 					if (limit > 0 && (fanout > limit)) {
-						RTLIL::SigSpec cellOutSig = getCellOutputSigSpec(cell, sigmap);
-						splitNet(design, netsToSplitS, cellOutSig, formalFriendly);
+						for (auto &conn : cell->connections()) {
+							IdString portName = conn.first;
+							RTLIL::SigSpec actual = conn.second;
+							if (cell->output(portName)) {
+								RTLIL::SigSpec cellOutSig = sigmap(actual);
+						    splitNet(design, netsToSplitS, cellOutSig, formalFriendly);
+							}
+						}
 					}
 				}
 
@@ -640,8 +648,14 @@ struct AnnotateCellFanout : public ScriptPass {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
 					if (limit > 0 && (fanout > limit)) {
-						RTLIL::SigSpec cellOutSig = getCellOutputSigSpec(cell, sigmap);
-						fixfanout(module, sigmap, sig2CellsInFanout, cellOutSig, fanout, limit, debug);
+						for (auto &conn : cell->connections()) {
+							IdString portName = conn.first;
+							RTLIL::SigSpec actual = conn.second;
+							if (cell->output(portName)) {
+								RTLIL::SigSpec cellOutSig = sigmap(actual);
+								fixfanout(module, sigmap, sig2CellsInFanout, cellOutSig, fanout, limit, debug);
+							}
+						}
 						fixedFanout = true;
 					} else {
 						// Add attribute with fanout info to every cell
