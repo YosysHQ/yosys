@@ -509,39 +509,49 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
-void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpec &sigToSplit, bool formalFriendly, bool debug, bool inputPort = false)
+void splitNets(Design *design, std::set<std::string> &netsToSplitS, std::vector<RTLIL::SigSpec> &sigsToSplit, bool formalFriendly, bool debug,
+	       bool inputPort = false)
 {
-	Wire *parentWire = getParentWire(sigToSplit);
-	if (!parentWire)
-		return;
-	std::string parent = parentWire->name.c_str();
-	if (parent == "") {
-		return;
-	}
-	if (parentWire->width == 1)
-		return;
-	parent = substringuntil(parent, '[');
-	if (debug) {
-		std::cout << "splitnets: " << parent << std::endl; 
-	}
-	if (netsToSplitS.find(parent) == netsToSplitS.end()) {
-		netsToSplitS.insert(parent);
-		// Splitnets has to be invoke with individual nets. Sending a bunch of nets as selection,
-		// selects more than required (bug in selection/splitnets).
-		if ((!parentWire->port_input) && (!parentWire->port_output))
-		  Pass::call(design, "splitnets w:" + parent); // Wire
-		if (!formalFriendly) {
-			// Formal verification does not like ports to be split.
-			// This option will prevent some buffering to happen on high fanout input/output ports,
-			// but it will make formal happy.
-			if (inputPort) {
-				if (parentWire->port_input)
-				  Pass::call(design, "splitnets -ports_only i:" + parent); // Input port
-			} else {
-			  if (parentWire->port_output)
-				  Pass::call(design, "splitnets -ports_only o:" + parent); // Output port
+	std::string wires;
+	std::string inputs;
+	std::string outputs;
+	for (RTLIL::SigSpec sigToSplit : sigsToSplit) {
+		Wire *parentWire = getParentWire(sigToSplit);
+		if (!parentWire)
+			continue;
+		std::string parent = parentWire->name.c_str();
+		if (parent == "") {
+			continue;
+		}
+		if (parentWire->width == 1)
+			continue;
+		parent = substringuntil(parent, '[');
+		if (netsToSplitS.find(parent) == netsToSplitS.end()) {
+			netsToSplitS.insert(parent);
+			if (debug) {
+				std::cout << "splitnets: " << parent << std::endl;
+			}
+			if ((!parentWire->port_input) && (!parentWire->port_output))
+				wires += " w:" + parent;
+			if (!formalFriendly) {
+				// Formal verification does not like ports to be split.
+				// This option will prevent some buffering to happen on high fanout input/output ports,
+				// but it will make formal happy.
+				if (inputPort) {
+					if (parentWire->port_input)
+						inputs += " i:" + parent;
+				} else {
+					if (parentWire->port_output)
+						outputs += " o:" + parent;
+				}
 			}
 		}
+	}
+	if (!wires.empty()) {
+		Pass::call(design, "splitnets" + wires); // Wire
+	}
+	if (!inputs.empty() || !outputs.empty()) {
+		Pass::call(design, "splitnets -ports_only" + inputs + outputs); // Input port
 	}
 }
 
@@ -616,6 +626,7 @@ struct AnnotateCellFanout : public ScriptPass {
 
 				std::set<std::string> netsToSplitS;
 				// Split cells output nets with high fanout
+				std::vector<RTLIL::SigSpec> cellOutputsToSplit;
 				for (auto itrCell : cellFanout) {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
@@ -625,28 +636,26 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								splitNet(design, netsToSplitS, cellOutSig, formalFriendly, debug);
+								cellOutputsToSplit.push_back(cellOutSig);
 							}
 						}
 					}
 				}
+				splitNets(design, netsToSplitS, cellOutputsToSplit, formalFriendly, debug);
 
 				if (inputs) {
 					// Split module input nets with high fanout
-					std::set<Wire *> wiresToSplit;
+					std::vector<RTLIL::SigSpec> wiresToSplit;
 					for (Wire *wire : module->wires()) {
 						if (wire->port_input) {
 							SigSpec inp = sigmap(wire);
 							int fanout = sigFanout[inp];
 							if (limit > 0 && (fanout > limit)) {
-								wiresToSplit.insert(wire);
+								wiresToSplit.push_back(inp);
 							}
 						}
 					}
-					for (Wire *wire : wiresToSplit) {
-						SigSpec inp = sigmap(wire);
-						splitNet(design, netsToSplitS, inp, formalFriendly, debug, true);
-					}
+					splitNets(design, netsToSplitS, wiresToSplit, formalFriendly, debug, true);
 				}
 			}
 
