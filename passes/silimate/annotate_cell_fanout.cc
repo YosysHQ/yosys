@@ -16,7 +16,7 @@ std::string substringuntil(const std::string &str, char delimiter)
 	}
 }
 
-// Generate a human readable name for a sigspec, uniquify if necessary
+// Generate a meaningful name for a sigspec, uniquify if necessary
 RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "",
 				    bool cellName = false)
 {
@@ -227,6 +227,7 @@ void removeBuffer(Module *module, SigMap &sigmap, std::set<Cell *> &fanoutcells,
 	module->remove({bufferOutSig.as_wire()});
 }
 
+// Returns the first output (sigmaped sigspec) of a cell
 RTLIL::SigSpec getCellOutputSigSpec(Cell *cell, SigMap &sigmap)
 {
 	RTLIL::SigSpec cellOutSig;
@@ -435,6 +436,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	}
 }
 
+// Calculate cells and nets fanout 
 void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, dict<Cell *, int> &cellFanout,
 		     dict<SigSpec, int> &sigFanout)
 {
@@ -509,6 +511,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
+// Bulk call to splitnets, filters bad requests and separates out types (Wires, ports) for proper processing
 void splitNets(Design *design, std::set<std::string> &netsToSplitS, std::vector<RTLIL::SigSpec> &sigsToSplit, bool formalFriendly, bool debug,
 	       bool inputPort = false)
 {
