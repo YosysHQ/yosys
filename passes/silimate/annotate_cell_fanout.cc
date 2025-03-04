@@ -217,7 +217,7 @@ RTLIL::SigSpec getCellOutputSigSpec(Cell *cell, SigMap &sigmap)
 
 // Get new output signal for a given signal, used all datastructures with change to buffer
 SigSpec updateToBuffer(std::map<SigSpec, int> &bufferIndexes,
-		       std::map<RTLIL::SigSpec, std::vector<std::tuple<RTLIL::SigSpec, Cell *>>> &buffer_outputs,
+		       std::map<RTLIL::SigSpec, std::vector<std::pair<RTLIL::SigSpec, Cell *>>> &buffer_outputs,
 		       dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, std::map<Cell *, int> &bufferActualFanout,
 		       std::map<SigSpec, SigSpec> &usedBuffers, int max_output_per_buffer, Cell *fanoutcell, SigSpec sigToReplace,
 		       bool debug)
@@ -235,12 +235,12 @@ SigSpec updateToBuffer(std::map<SigSpec, int> &bufferIndexes,
 	}
 	
 	// Retrieve the buffer information for that cell's chunk
-	std::vector<std::tuple<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[sigToReplace];
+	std::vector<std::pair<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[sigToReplace];
 	// Retrieve which buffer is getting filled
 	int bufferIndex = bufferIndexes[sigToReplace];
-	std::tuple<RTLIL::SigSpec, Cell *> &buf_info = buf_info_vec[bufferIndex];
-	SigSpec newSig = std::get<0>(buf_info);
-	Cell *newBuf = std::get<1>(buf_info);
+	std::pair<RTLIL::SigSpec, Cell *> &buf_info = buf_info_vec[bufferIndex];
+	SigSpec newSig = buf_info.first;
+	Cell *newBuf = buf_info.second;
 	// Keep track of fanout map information for recursive calls
 	sig2CellsInFanout[newSig].insert(fanoutcell);
 	// Increment buffer capacity
@@ -309,14 +309,14 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	// Keep track of the fanout count for each new buffer
 	std::map<Cell *, int> bufferActualFanout;
 	// Array of buffers (The buffer output signal and the buffer cell) per cell output chunks
-	std::map<RTLIL::SigSpec, std::vector<std::tuple<RTLIL::SigSpec, Cell *>>> buffer_outputs;
+	std::map<RTLIL::SigSpec, std::vector<std::pair<RTLIL::SigSpec, Cell *>>> buffer_outputs;
 	// Keep track of which buffer in the array is getting filled for a given chunk
 	std::map<SigSpec, int> bufferIndexes;
 
 	// Create new buffers and new wires
 	int index_buffer = 0;
 	for (SigChunk chunk : sigToBuffer.chunks()) {
-		std::vector<std::tuple<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
+		std::vector<std::pair<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
 		for (int i = 0; i < num_buffers; ++i) {
 			RTLIL::Cell *buffer = module->addCell(signame + "_fbuf" + std::to_string(index_buffer), ID($pos));
 			bufferActualFanout[buffer] = 0;
@@ -324,7 +324,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 			buffer->setPort(ID(A), chunk);
 			buffer->setPort(ID(Y), sigmap(buffer_output));
 			buffer->fixup_parameters();
-			buffer_chunk_outputs.push_back(std::make_tuple(buffer_output, buffer)); // Old - New
+			buffer_chunk_outputs.push_back(std::make_pair(buffer_output, buffer)); // Old - New
 			bufferIndexes[chunk] = 0;
 			index_buffer++;
 		}
