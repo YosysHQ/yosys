@@ -5,6 +5,53 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+RTLIL::IdString generateSigSpecName(const RTLIL::SigSpec &sigspec)
+{
+	if (sigspec.empty()) {
+		return RTLIL::IdString(); // Empty SigSpec, return empty IdString
+	}
+
+	std::stringstream ss;
+
+	if (sigspec.is_wire()) {
+		// Handle wires
+		ss << sigspec.as_wire()->name.str();
+	} else if (sigspec.size() == 1 && sigspec[0].wire) {
+		// Handle single-bit SigSpecs
+		ss << sigspec[0].wire->name.str();
+		if (sigspec[0].wire->width != 1) {
+			ss << "[" << sigspec[0].offset << "]";
+		}
+	} else if (sigspec.is_chunk()) {
+		// Handle slices
+		RTLIL::Wire *parent_wire = sigspec[0].wire;
+		SigChunk chunk = sigspec.as_chunk();
+		if (parent_wire) {
+			ss << parent_wire->name.str() << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]";
+		}
+	} else if (!sigspec.is_chunk()) {
+		// Handle vector of chunks
+		int max = 0;
+		int min = INT_MAX;
+		RTLIL::Wire *parent_wire = sigspec[0].wire;
+		for (SigChunk chunk : sigspec.chunks()) {
+			max = std::max(max, chunk.offset);
+			min = std::min(min, chunk.offset);
+		}
+		if (parent_wire) {
+			ss << parent_wire->name.str() << "[" << max << ":" << min << "]";
+		} else {
+			ss << "\\sigspec_[" << max << ":" << min << "]";
+		}
+	} else {
+		// Handle other cases (e.g., constants)
+		ss << "\\sigspec_";
+	}
+
+	RTLIL::IdString base_name = RTLIL::IdString(ss.str());
+	return RTLIL::IdString(ss.str());
+}
+
 // Signal cell driver(s), precompute a cell output signal to a cell map
 void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
 		    dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
@@ -73,13 +120,6 @@ RTLIL::Wire *getParentWire(const RTLIL::SigSpec &sigspec)
 	const RTLIL::SigBit &first_bit = sigspec[0];
 	// Return the parent wire
 	return first_bit.wire;
-}
-
-std::string getSigSpecName(const RTLIL::SigSpec &sigspec) {
-	Wire* wire = getParentWire(sigspec);
-	if (wire)
-		return wire->name.c_str();
-	return "";
 }
 
 // Find if a signal is used in another (One level)
@@ -179,11 +219,23 @@ RTLIL::SigSpec getCellOutputSigSpec(Cell *cell, SigMap &sigmap)
 SigSpec updateToBuffer(std::map<SigSpec, int> &bufferIndexes,
 		       std::map<RTLIL::SigSpec, std::vector<std::tuple<RTLIL::SigSpec, Cell *>>> &buffer_outputs,
 		       dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, std::map<Cell *, int> &bufferActualFanout,
-		       int max_output_per_buffer, Cell *cell, SigSpec sigToReplace, bool debug)
+		       std::map<Cell *, std::map<SigSpec, SigSpec>> &usedBuffers, int max_output_per_buffer, Cell *fanoutcell, SigSpec sigToReplace,
+		       bool debug)
 {
 	if (debug)
 		std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[sigToReplace] << " buffer_outputs "
 			  << buffer_outputs[sigToReplace].size() << std::endl;
+	// Reuse cached result for a given cell;
+	std::map<Cell *, std::map<SigSpec, SigSpec>>::iterator itrCell = usedBuffers.find(fanoutcell);
+	if (itrCell != usedBuffers.end()) {
+		std::map<SigSpec, SigSpec>::iterator itrBuffer = itrCell->second.find(sigToReplace);
+		if (itrBuffer != itrCell->second.end()) {
+			if (debug)
+				std::cout << "REUSE CACHE:" << fanoutcell->name.c_str() << " SIG: " << generateSigSpecName(sigToReplace).c_str()
+					  << std::endl;
+			return itrBuffer->second;
+		}
+	}
 	// Retrieve the buffer information for that cell's chunk
 	std::vector<std::tuple<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[sigToReplace];
 	// Retrieve which buffer is getting filled
@@ -192,7 +244,7 @@ SigSpec updateToBuffer(std::map<SigSpec, int> &bufferIndexes,
 	SigSpec newSig = std::get<0>(buf_info);
 	Cell *newBuf = std::get<1>(buf_info);
 	// Keep track of fanout map information for recursive calls
-	sig2CellsInFanout[newSig].insert(cell);
+	sig2CellsInFanout[newSig].insert(fanoutcell);
 	// Increment buffer capacity
 	bufferActualFanout[newBuf]++;
 	if (debug)
@@ -207,55 +259,19 @@ SigSpec updateToBuffer(std::map<SigSpec, int> &bufferIndexes,
 				std::cout << "  NEXT BUFFER" << std::endl;
 		}
 	}
+	// Cache result
+	if (debug)
+		std::cout << "CACHE:" << fanoutcell->name.c_str() << " SIG: " << generateSigSpecName(sigToReplace).c_str() << " BY "
+			  << generateSigSpecName(newSig).c_str() << std::endl;
+	if (itrCell == usedBuffers.end()) {
+		std::map<SigSpec, SigSpec> tmpPair;
+		tmpPair.emplace(sigToReplace, newSig);
+		usedBuffers.emplace(fanoutcell, tmpPair);
+	} else {
+		itrCell->second.emplace(sigToReplace, newSig);
+	}
 	// Return buffer's output
 	return newSig;
-}
-
-RTLIL::IdString generateSigSpecName(RTLIL::Module *module, const RTLIL::SigSpec &sigspec)
-{
-	if (sigspec.empty()) {
-		return RTLIL::IdString(); // Empty SigSpec, return empty IdString
-	}
-
-	std::stringstream ss;
-
-	if (sigspec.is_wire()) {
-		// Handle wires
-		ss << sigspec.as_wire()->name.str();
-	} else if (sigspec.size() == 1 && sigspec[0].wire) {
-		// Handle single-bit SigSpecs
-		ss << sigspec[0].wire->name.str();
-		if (sigspec[0].wire->width != 1) {
-			ss << "[" << sigspec[0].offset << "]";
-		}
-	} else if (sigspec.is_chunk()) {
-		// Handle slices
-		RTLIL::Wire *parent_wire = sigspec[0].wire;
-		SigChunk chunk = sigspec.as_chunk();
-		if (parent_wire) {
-			ss << parent_wire->name.str() << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]";
-		}
-	} else if (!sigspec.is_chunk()) {
-		// Handle vector of chunks
-		int max = 0;
-		int min = INT_MAX;
-		RTLIL::Wire *parent_wire = sigspec[0].wire;
-		for (SigChunk chunk : sigspec.chunks()) {
-			max = std::max(max, chunk.offset);
-			min = std::min(min, chunk.offset);
-		}
-		if (parent_wire) {
-			ss << parent_wire->name.str() << "[" << max << ":" << min << "]";
-		} else {
-			ss << "\\sigspec_[" << max << ":" << min << "]";
-		}
-	} else {
-		// Handle other cases (e.g., constants)
-		ss << "\\sigspec_";
-	}
-
-	RTLIL::IdString base_name = RTLIL::IdString(ss.str());
-	return RTLIL::IdString(ss.str());
 }
 
 // For a given cell with fanout exceeding the limit,
@@ -265,13 +281,13 @@ RTLIL::IdString generateSigSpecName(RTLIL::Module *module, const RTLIL::SigSpec 
 //  - when a buffer reaches capacity, switch to the next buffer
 // The capacity of the buffers might be larger than the limit in a given pass,
 // Recursion is used until all buffers capacity is under or at the limit.
-void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
-	       SigSpec sigToBuffer, int fanout, int limit, bool debug)
+void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
+	       std::map<Cell *, std::map<SigSpec, SigSpec>> &usedBuffers, SigSpec sigToBuffer, int fanout, int limit, bool debug)
 {
 	if (sigToBuffer.is_fully_const()) {
 		return;
 	}
-	std::string signame = generateSigSpecName(module, sigToBuffer).c_str();
+	std::string signame = generateSigSpecName(sigToBuffer).c_str();
 	if (fanout <= limit) {
 		if (debug) {
 			std::cout << "Nothing to do for: " << signame << std::endl;
@@ -310,10 +326,9 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 	for (SigChunk chunk : sigToBuffer.chunks()) {
 		std::vector<std::tuple<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
 		for (int i = 0; i < num_buffers; ++i) {
-			std::cout << "Name: " <<  signame + "_fbuf" + std::to_string(index_buffer) << std::endl;
-			RTLIL::Cell *buffer = module->addCell(signame + "_fbuf" +  std::to_string(index_buffer), ID($pos));
+			RTLIL::Cell *buffer = module->addCell(signame + "_fbuf" + std::to_string(index_buffer), ID($pos));
 			bufferActualFanout[buffer] = 0;
-			RTLIL::SigSpec buffer_output = module->addWire(signame + "_wbuf" +  std::to_string(index_buffer) , chunk.size());
+			RTLIL::SigSpec buffer_output = module->addWire(signame + "_wbuf" + std::to_string(index_buffer), chunk.size());
 			buffer->setPort(ID(A), chunk);
 			buffer->setPort(ID(Y), sigmap(buffer_output));
 			buffer->fixup_parameters();
@@ -337,19 +352,22 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 	for (Cell *fanoutcell : fanoutcells) {
 		if (debug)
 			std::cout << "\n  CELL in fanout: " << fanoutcell->name.c_str() << "\n" << std::flush;
+		// For a given cell, if a buffer drives multiple inputs, use the same buffer for all connections to that cell
 		for (auto &conn : fanoutcell->connections()) {
 			IdString portName = conn.first;
-			RTLIL::SigSpec actual = sigmap(conn.second);
+			// RTLIL::SigSpec actual = sigmap(conn.second);
+			RTLIL::SigSpec actual = conn.second;
 			if (fanoutcell->input(portName)) {
 				if (actual.is_chunk()) {
 					// Input of that cell is a chunk
 					if (debug)
 						std::cout << "  IS A CHUNK" << std::endl;
 					if (buffer_outputs.find(actual) != buffer_outputs.end()) {
-						if (debug) std::cout << "  MATCH" << std::endl;
+						if (debug)
+							std::cout << "  MATCH" << std::endl;
 						// Input is one of the cell's outputs, its a match
 						SigSpec newSig = updateToBuffer(bufferIndexes, buffer_outputs, sig2CellsInFanout, bufferActualFanout,
-										max_output_per_buffer, fanoutcell, actual, debug);
+										usedBuffers, max_output_per_buffer, fanoutcell, actual, debug);
 						// Override the fanout cell's input with the buffer output
 						fanoutcell->setPort(portName, newSig);
 					}
@@ -362,10 +380,11 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 						std::vector<RTLIL::SigChunk> newChunks;
 						for (SigChunk chunk : actual.chunks()) {
 							if (buffer_outputs.find(chunk) != buffer_outputs.end()) {
-								if (debug) std::cout << "  MATCH" << std::endl;
+								if (debug)
+									std::cout << "  MATCH" << std::endl;
 								SigSpec newSig =
 								  updateToBuffer(bufferIndexes, buffer_outputs, sig2CellsInFanout, bufferActualFanout,
-										 max_output_per_buffer, fanoutcell, chunk, debug);
+										 usedBuffers, max_output_per_buffer, fanoutcell, chunk, debug);
 								// Append the buffer's output in the chunk vector
 								newChunks.push_back(newSig.as_chunk());
 							} else {
@@ -375,7 +394,6 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 						}
 						// Override the fanout cell's input with the newly created chunk vector
 						fanoutcell->setPort(portName, newChunks);
-						break;
 					}
 				}
 			}
@@ -390,7 +408,7 @@ void fixfanout(RTLIL::Design *design, RTLIL::Module *module, SigMap &sigmap, dic
 		} else {
 			// Recursively fix the fanout of the newly created buffers
 			RTLIL::SigSpec sig = getCellOutputSigSpec(itr->first, sigmap);
-			fixfanout(design, module, sigmap, sig2CellsInFanout, sig, itr->second, limit, debug);
+			fixfanout(module, sigmap, sig2CellsInFanout, usedBuffers, sig, itr->second, limit, debug);
 		}
 	}
 }
@@ -583,19 +601,21 @@ struct AnnotateCellFanout : public ScriptPass {
 
 			{
 				// Fix high fanout
+				std::map<Cell *, std::map<SigSpec, SigSpec>> usedBuffers;
+
 				SigMap sigmap(module);
 				dict<Cell *, int> cellFanout;
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
 
-				// Fix cells outputs with high fanout 
+				// Fix cells outputs with high fanout
 				for (auto itrCell : cellFanout) {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
 					if (limit > 0 && (fanout > limit)) {
 						RTLIL::SigSpec cellOutSig = getCellOutputSigSpec(cell, sigmap);
-						fixfanout(design, module, sigmap, sig2CellsInFanout, cellOutSig, fanout, limit, debug);
+						fixfanout(module, sigmap, sig2CellsInFanout, usedBuffers, cellOutSig, fanout, limit, debug);
 						fixedFanout = true;
 					} else {
 						// Add attribute with fanout info to every cell
@@ -615,7 +635,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 				}
 				for (auto sig : sigsToFix) {
-					fixfanout(design, module, sigmap, sig2CellsInFanout, sig.first, sig.second, limit, debug);
+					fixfanout(module, sigmap, sig2CellsInFanout, usedBuffers, sig.first, sig.second, limit, debug);
 					fixedFanout = true;
 				}
 			}
