@@ -488,6 +488,24 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	for (auto cell : noFanoutInfo) {
 		cellFanout[cell] = 1;
 	}
+
+	for (Wire *wire : module->wires()) {
+		if (wire->port_input) {
+			SigSpec inp = sigmap(wire);
+			int fanout = sigFanout[inp];
+			if (fanout == 0) {
+				int max = 0;
+				for (int i = 0; i < inp.size(); i++) {
+					SigSpec bit_sig = inp.extract(i, 1);
+					int fa = sigFanout[bit_sig];
+					max = std::max(max, fa);
+				}
+				sigFanout[inp] = max;
+			}
+		}
+	}
+
+
 }
 
 void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpec &sigToSplit, bool formalFriendly, bool inputPort = false)
@@ -639,6 +657,8 @@ struct AnnotateCellFanout : public ScriptPass {
 						int fanout = sigFanout[inp];
 						if (limit > 0 && (fanout > limit)) {
 							sigsToFix.emplace(inp, fanout);
+						} else {
+							wire->set_string_attribute("$FANOUT", std::to_string(fanout));
 						}
 					}
 				}
@@ -660,6 +680,14 @@ struct AnnotateCellFanout : public ScriptPass {
 					int fanout = itrCell.second;
 					// Add attribute with fanout info to every cell
 					cell->set_string_attribute("$FANOUT", std::to_string(fanout));
+				}
+				for (Wire *wire : module->wires()) {
+					if (wire->port_input) {
+						SigSpec inp = sigmap(wire);
+						int fanout = sigFanout[inp];
+						// Add attribute with fanout info to every input port
+						wire->set_string_attribute("$FANOUT", std::to_string(fanout));
+					}
 				}
 			}
 		}
