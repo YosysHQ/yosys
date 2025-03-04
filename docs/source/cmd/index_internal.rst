@@ -101,6 +101,15 @@ Dumping command help to json
    :end-before: "chparam": {
    :caption: `chformal` in generated :file:`cmds.json`
 
+.. note:: Synthesis command scripts are special cased
+
+   If the final block of help output starts with the string `"The following
+   commands are executed by this synthesis command:\n"`, then the rest of the
+   code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
+   here is that if the ``script()`` calls ``run()`` on any commands *prior* to
+   the first ``check_label`` then the auto detection will break and revert to
+   unformatted code (e.g. `synth_fabulous`). 
+
 Command line rendering
 ~~~~~~~~~~~~~~~~~~~~~~
 
