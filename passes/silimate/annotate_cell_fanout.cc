@@ -509,7 +509,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 }
 
-void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpec &sigToSplit, bool formalFriendly, bool inputPort = false)
+void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpec &sigToSplit, bool formalFriendly, bool debug, bool inputPort = false)
 {
 	Wire *parentWire = getParentWire(sigToSplit);
 	if (!parentWire)
@@ -521,19 +521,25 @@ void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpe
 	if (parentWire->width == 1)
 		return;
 	parent = substringuntil(parent, '[');
+	if (debug) {
+		std::cout << "splitnets: " << parent << std::endl; 
+	}
 	if (netsToSplitS.find(parent) == netsToSplitS.end()) {
 		netsToSplitS.insert(parent);
 		// Splitnets has to be invoke with individual nets. Sending a bunch of nets as selection,
 		// selects more than required (bug in selection/splitnets).
-		Pass::call(design, "splitnets w:" + parent); // Wire
+		if ((!parentWire->port_input) && (!parentWire->port_output))
+		  Pass::call(design, "splitnets w:" + parent); // Wire
 		if (!formalFriendly) {
 			// Formal verification does not like ports to be split.
 			// This option will prevent some buffering to happen on high fanout input/output ports,
 			// but it will make formal happy.
 			if (inputPort) {
-				Pass::call(design, "splitnets -ports_only i:" + parent); // Input port
+				if (parentWire->port_input)
+				  Pass::call(design, "splitnets -ports_only i:" + parent); // Input port
 			} else {
-				Pass::call(design, "splitnets -ports_only o:" + parent); // Output port
+			  if (parentWire->port_output)
+				  Pass::call(design, "splitnets -ports_only o:" + parent); // Output port
 			}
 		}
 	}
@@ -609,7 +615,7 @@ struct AnnotateCellFanout : public ScriptPass {
 				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
 
 				std::set<std::string> netsToSplitS;
-				// Split cells' output nets with high fanout
+				// Split cells output nets with high fanout
 				for (auto itrCell : cellFanout) {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
@@ -619,7 +625,7 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								splitNet(design, netsToSplitS, cellOutSig, formalFriendly);
+								splitNet(design, netsToSplitS, cellOutSig, formalFriendly, debug);
 							}
 						}
 					}
@@ -639,7 +645,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 					for (Wire *wire : wiresToSplit) {
 						SigSpec inp = sigmap(wire);
-						splitNet(design, netsToSplitS, inp, formalFriendly, true);
+						splitNet(design, netsToSplitS, inp, formalFriendly, debug, true);
 					}
 				}
 			}
