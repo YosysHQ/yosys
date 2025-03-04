@@ -1,6 +1,14 @@
 Contributing to Yosys
 =====================
 
+.. note::
+
+   For information on making a pull request on github, refer to our
+   |CONTRIBUTING|_ file.
+
+.. |CONTRIBUTING| replace:: :file:`CONTRIBUTING.md`
+.. _CONTRIBUTING: https://github.com/YosysHQ/yosys/CONTRIBUTING.md
+
 Coding Style
 ------------
 
