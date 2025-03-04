@@ -187,7 +187,7 @@ struct SyntProperties : public Pass {
 		return false;
 	}
 
-	virtual void help()
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -216,7 +216,7 @@ struct SyntProperties : public Pass {
 		log("\n");
 	}
 
-	virtual void execute(std::vector<std::string> args, RTLIL::Design* design)
+	void execute(std::vector<std::string> args, RTLIL::Design* design) override
 	{
 		log_header(design, "Executing SYNTHPROP pass.\n");
 		SynthPropWorker worker(design);
