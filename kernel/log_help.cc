@@ -34,11 +34,11 @@ Json ContentListing::to_json() {
 	return object;
 }
 
-void ContentListing::usage(const string &usage,
+void ContentListing::usage(const string &text,
 	const source_location location)
 {
 	log_assert(type.compare("root") == 0);
-	add_content("usage", usage, location);
+	add_content("usage", text, location);
 }
 
 void ContentListing::option(const string &text, const string &description,
@@ -62,19 +62,17 @@ void ContentListing::paragraph(const string &text,
 	add_content("text", text, location);
 }
 
-ContentListing* ContentListing::open_optiongroup(const string &name,
+ContentListing* ContentListing::open_usage(const string &text,
 	const source_location location)
 {
-	log_assert(type.compare("root") == 0);
-	auto optiongroup = new ContentListing("optiongroup", name, location);
-	add_content(optiongroup);
-	return optiongroup;
+	usage(text, location);
+	return back();
 }
 
 ContentListing* ContentListing::open_option(const string &text,
 	const source_location location)
 {
-	log_assert(type.compare("optiongroup") == 0);
+	log_assert(type.compare("root") == 0 || type.compare("usage") == 0);
 	auto option = new ContentListing("option", text, location);
 	add_content(option);
 	return option;
@@ -138,16 +136,15 @@ void PrettyHelp::log_help()
 	for (auto content : _root_listing.get_content()) {
 		if (content->type.compare("usage") == 0) {
 			log_pass_str(content->body, 1, true);
-		} else if (content->type.compare("optiongroup") == 0) {
-			for (auto option : content->get_content()) {
-				log_pass_str(option->body, 1);
-				for (auto text : option->get_content()) {
-					log_pass_str(text->body, 2);
-					log("\n");
-				}
+			log("\n");
+		} else if (content->type.compare("option") == 0) {
+			log_pass_str(content->body, 1);
+			for (auto text : content->get_content()) {
+				log_pass_str(text->body, 2);
+				log("\n");
 			}
 		} else {
-			log_pass_str(content->body, 0, true);
+			log_pass_str(content->body, 0);
 			log("\n");
 		}
 	}

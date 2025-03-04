@@ -53,20 +53,12 @@ The ``formatted_help()`` method
       dash (``-``); takes an optional second argument which adds a paragraph
       node as a means of description
 
-  + ``ContentListing::open_optiongroup``
-
-    * each option must be in an optiongroup
-    * optional name argument, which will be rendered in (RST) output
-
+  + ``ContentListing::open_usage`` creates and returns a new usage node, can be
+    used to e.g. add text/options specific to a given usage of the command
   + ``ContentListing::open_option`` creates and returns a new option node, can
     be used to e.g. add multiple paragraphs to an option's description
   + paragraphs are treated as raw RST, allowing for inline formatting and
     references as if it were written in the RST file itself
-
-.. todo:: Support anonymous optiongroup
-
-   If an option is added to the root node it should add the option to the last
-   child of the root, making a new child if the last child is not an optiongroup
 
 .. literalinclude:: /generated/chformal.cc
    :language: c++
@@ -88,7 +80,7 @@ Dumping command help to json
     * if a line is indented and starts with a dash (``-``), it is parsed as an
       option
     * anything else is parsed as a codeblock and added to either the root node
-      or the current option/optiongroup depending on the indentation
+      or the current option depending on the indentation
 
   + dictionary of command name to ``ContentListing``
 
