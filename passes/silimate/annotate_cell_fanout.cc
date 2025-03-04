@@ -17,7 +17,8 @@ std::string substringuntil(const std::string &str, char delimiter)
 }
 
 // Generate a human readable name for a sigspec, uniquify if necessary
-RTLIL::IdString generateSigSpecName(Module* module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "", bool cellName = false)
+RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "",
+				    bool cellName = false)
 {
 	if (sigspec.empty()) {
 		return RTLIL::IdString(); // Empty SigSpec, return empty IdString
@@ -55,7 +56,7 @@ RTLIL::IdString generateSigSpecName(Module* module, const RTLIL::SigSpec &sigspe
 		} else {
 			ss << "\\sigspec_[" << max << ":" << min << "]";
 		}
-	} 
+	}
 	ss << postfix;
 	if (makeUnique) {
 		RTLIL::IdString base_name = RTLIL::IdString(ss.str());
@@ -241,11 +242,10 @@ RTLIL::SigSpec getCellOutputSigSpec(Cell *cell, SigMap &sigmap)
 }
 
 // Get new output signal for a given signal, used all datastructures with change to buffer
-SigSpec updateToBuffer(Module* module, std::map<SigSpec, int> &bufferIndexes,
+SigSpec updateToBuffer(Module *module, std::map<SigSpec, int> &bufferIndexes,
 		       std::map<RTLIL::SigSpec, std::vector<std::pair<RTLIL::SigSpec, Cell *>>> &buffer_outputs,
 		       dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, std::map<Cell *, int> &bufferActualFanout,
-		       std::map<SigSpec, SigSpec> &usedBuffers, int max_output_per_buffer, Cell *fanoutcell, SigSpec sigToReplace,
-		       bool debug)
+		       std::map<SigSpec, SigSpec> &usedBuffers, int max_output_per_buffer, Cell *fanoutcell, SigSpec sigToReplace, bool debug)
 {
 	if (debug)
 		std::cout << "  CHUNK, indexCurrentBuffer: " << bufferIndexes[sigToReplace] << " buffer_outputs "
@@ -255,10 +255,10 @@ SigSpec updateToBuffer(Module* module, std::map<SigSpec, int> &bufferIndexes,
 	if (itrBuffer != usedBuffers.end()) {
 		if (debug)
 			std::cout << "REUSE CACHE:" << fanoutcell->name.c_str() << " SIG: " << generateSigSpecName(module, sigToReplace).c_str()
-					<< std::endl;
+				  << std::endl;
 		return itrBuffer->second;
 	}
-	
+
 	// Retrieve the buffer information for that cell's chunk
 	std::vector<std::pair<RTLIL::SigSpec, Cell *>> &buf_info_vec = buffer_outputs[sigToReplace];
 	// Retrieve which buffer is getting filled
@@ -285,9 +285,9 @@ SigSpec updateToBuffer(Module* module, std::map<SigSpec, int> &bufferIndexes,
 	// Cache result
 	if (debug)
 		std::cout << "CACHE:" << fanoutcell->name.c_str() << " SIG: " << generateSigSpecName(module, sigToReplace).c_str() << " BY "
-			  << generateSigSpecName(module, newSig).c_str() << std::endl;	
+			  << generateSigSpecName(module, newSig).c_str() << std::endl;
 	usedBuffers.emplace(sigToReplace, newSig);
-	
+
 	// Return buffer's output
 	return newSig;
 }
@@ -299,7 +299,8 @@ SigSpec updateToBuffer(Module* module, std::map<SigSpec, int> &bufferIndexes,
 //  - when a buffer reaches capacity, switch to the next buffer
 // The capacity of the buffers might be larger than the limit in a given pass,
 // Recursion is used until all buffers capacity is under or at the limit.
-void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, SigSpec sigToBuffer, int fanout, int limit, bool debug)
+void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, SigSpec sigToBuffer, int fanout,
+	       int limit, bool debug)
 {
 	if (sigToBuffer.is_fully_const()) {
 		return;
@@ -386,8 +387,9 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 						if (debug)
 							std::cout << "  MATCH" << std::endl;
 						// Input is one of the cell's outputs, its a match
-						SigSpec newSig = updateToBuffer(module, bufferIndexes, buffer_outputs, sig2CellsInFanout, bufferActualFanout,
-										usedBuffers, max_output_per_buffer, fanoutcell, actual, debug);
+						SigSpec newSig =
+						  updateToBuffer(module, bufferIndexes, buffer_outputs, sig2CellsInFanout, bufferActualFanout,
+								 usedBuffers, max_output_per_buffer, fanoutcell, actual, debug);
 						// Override the fanout cell's input with the buffer output
 						fanoutcell->setPort(portName, newSig);
 					}
@@ -402,9 +404,9 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 							if (buffer_outputs.find(chunk) != buffer_outputs.end()) {
 								if (debug)
 									std::cout << "  MATCH" << std::endl;
-								SigSpec newSig =
-								  updateToBuffer(module, bufferIndexes, buffer_outputs, sig2CellsInFanout, bufferActualFanout,
-										 usedBuffers, max_output_per_buffer, fanoutcell, chunk, debug);
+								SigSpec newSig = updateToBuffer(module, bufferIndexes, buffer_outputs,
+												sig2CellsInFanout, bufferActualFanout, usedBuffers,
+												max_output_per_buffer, fanoutcell, chunk, debug);
 								// Append the buffer's output in the chunk vector
 								newChunks.push_back(newSig.as_chunk());
 							} else {
@@ -489,6 +491,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 		cellFanout[cell] = 1;
 	}
 
+	// Correct input pin fanout
 	for (Wire *wire : module->wires()) {
 		if (wire->port_input) {
 			SigSpec inp = sigmap(wire);
@@ -504,8 +507,6 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 			}
 		}
 	}
-
-
 }
 
 void splitNet(Design *design, std::set<std::string> &netsToSplitS, RTLIL::SigSpec &sigToSplit, bool formalFriendly, bool inputPort = false)
@@ -552,6 +553,8 @@ struct AnnotateCellFanout : public ScriptPass {
 		log("        Limits the fanout by inserting balanced buffer trees.\n");
 		log("    -formal\n");
 		log("        For formal verification to pass, will prevent splitnets passes on ports, even if they have large fanout.\n");
+		log("    -inputs\n");
+		log("        Fix module inputs fanout.\n");
 		log("    -debug\n");
 		log("        Debug trace.\n");
 		log("\n");
@@ -560,6 +563,7 @@ struct AnnotateCellFanout : public ScriptPass {
 	{
 		int limit = -1;
 		bool formalFriendly = false;
+		bool inputs = false;
 		bool debug = false;
 		if (design == nullptr) {
 			log_error("No design object\n");
@@ -580,6 +584,10 @@ struct AnnotateCellFanout : public ScriptPass {
 			}
 			if (args[argidx] == "-formal") {
 				formalFriendly = true;
+				continue;
+			}
+			if (args[argidx] == "-inputs") {
+				inputs = true;
 				continue;
 			}
 			break;
@@ -611,32 +619,33 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-						    splitNet(design, netsToSplitS, cellOutSig, formalFriendly);
+								splitNet(design, netsToSplitS, cellOutSig, formalFriendly);
 							}
 						}
 					}
 				}
 
-				// Split module input nets with high fanout
-				std::set<Wire *> wiresToSplit;
-				for (Wire *wire : module->wires()) {
-					if (wire->port_input) {
-						SigSpec inp = sigmap(wire);
-						int fanout = sigFanout[inp];
-						if (limit > 0 && (fanout > limit)) {
-							wiresToSplit.insert(wire);
+				if (inputs) {
+					// Split module input nets with high fanout
+					std::set<Wire *> wiresToSplit;
+					for (Wire *wire : module->wires()) {
+						if (wire->port_input) {
+							SigSpec inp = sigmap(wire);
+							int fanout = sigFanout[inp];
+							if (limit > 0 && (fanout > limit)) {
+								wiresToSplit.insert(wire);
+							}
 						}
 					}
-				}
-				for (Wire *wire : wiresToSplit) {
-					SigSpec inp = sigmap(wire);
-					splitNet(design, netsToSplitS, inp, formalFriendly, true);
+					for (Wire *wire : wiresToSplit) {
+						SigSpec inp = sigmap(wire);
+						splitNet(design, netsToSplitS, inp, formalFriendly, true);
+					}
 				}
 			}
 
 			{
 				// Fix high fanout
-
 				SigMap sigmap(module);
 				dict<Cell *, int> cellFanout;
 				dict<SigSpec, int> sigFanout;
@@ -670,7 +679,11 @@ struct AnnotateCellFanout : public ScriptPass {
 						SigSpec inp = sigmap(wire);
 						int fanout = sigFanout[inp];
 						if (limit > 0 && (fanout > limit)) {
-							sigsToFix.emplace(inp, fanout);
+							if (inputs) {
+								sigsToFix.emplace(inp, fanout);
+							} else {
+								wire->set_string_attribute("$FANOUT", std::to_string(fanout));
+							}
 						} else {
 							wire->set_string_attribute("$FANOUT", std::to_string(fanout));
 						}
