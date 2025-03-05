@@ -171,7 +171,7 @@ bool isSigSpecUsedIn(SigSpec &haystack, SigMap &sigmap, SigSpec &needle)
 }
 
 // Remove a buffer and fix the fanout connections to use the buffer's input
-void removeBuffer(Module *module, SigMap &sigmap, std::set<Cell *> &fanoutcells, Cell *buffer, bool debug)
+void removeBuffer(Module *module, SigMap &sigmap, std::set<Cell *> &fanoutcells, std::map<Cell *, Wire *> &insertedBuffers, Cell *buffer, bool debug)
 {
 	if (debug)
 		std::cout << "Buffer with fanout 1: " << buffer->name.c_str() << std::endl;
@@ -223,6 +223,8 @@ void removeBuffer(Module *module, SigMap &sigmap, std::set<Cell *> &fanoutcells,
 			break;
 	}
 	// Delete the now unsused buffer and it's output signal
+	auto itr = insertedBuffers.find(buffer);
+	insertedBuffers.erase(itr);
 	module->remove(buffer);
 	module->remove({bufferOutSig.as_wire()});
 }
@@ -300,8 +302,8 @@ SigSpec updateToBuffer(Module *module, std::map<SigSpec, int> &bufferIndexes,
 //  - when a buffer reaches capacity, switch to the next buffer
 // The capacity of the buffers might be larger than the limit in a given pass,
 // Recursion is used until all buffers capacity is under or at the limit.
-void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, SigSpec sigToBuffer, int fanout,
-	       int limit, bool debug)
+void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
+	       std::map<Cell *, Wire *> &insertedBuffers, SigSpec sigToBuffer, int fanout, int limit, bool debug)
 {
 	if (sigToBuffer.is_fully_const()) {
 		return;
@@ -350,6 +352,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 			RTLIL::Cell *buffer = module->addCell(cellName, ID($buf));
 			bufferActualFanout[buffer] = 0;
 			RTLIL::SigSpec buffer_output = module->addWire(wireName, chunk.size());
+			insertedBuffers.emplace(buffer, buffer_output.as_wire());
 			buffer->setPort(ID(A), chunk);
 			buffer->setPort(ID(Y), sigmap(buffer_output));
 			buffer->fixup_parameters();
@@ -427,11 +430,11 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	for (std::map<Cell *, int>::iterator itr = bufferActualFanout.begin(); itr != bufferActualFanout.end(); itr++) {
 		if (itr->second == 1) {
 			// Remove previously inserted buffers with fanout of 1 (Hard to predict the last buffer usage in above step)
-			removeBuffer(module, sigmap, fanoutcells, itr->first, debug);
+			removeBuffer(module, sigmap, fanoutcells, insertedBuffers, itr->first, debug);
 		} else {
 			// Recursively fix the fanout of the newly created buffers
 			RTLIL::SigSpec sig = getCellOutputSigSpec(itr->first, sigmap);
-			fixfanout(module, sigmap, sig2CellsInFanout, sig, itr->second, limit, debug);
+			fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, sig, itr->second, limit, debug);
 		}
 	}
 }
@@ -632,7 +635,7 @@ struct AnnotateCellFanout : public ScriptPass {
 		}
 		for (auto module : design->selected_modules()) {
 			bool fixedFanout = false;
-
+			std::map<Cell*, Wire*> insertedBuffers;
 			{
 				// Calculate fanout
 				SigMap sigmap(module);
@@ -694,7 +697,7 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								fixfanout(module, sigmap, sig2CellsInFanout, cellOutSig, fanout, limit, debug);
+								fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, cellOutSig, fanout, limit, debug);
 							}
 						}
 						fixedFanout = true;
@@ -748,7 +751,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 				}
 				for (auto sig : sigsToFix) {
-					fixfanout(module, sigmap, sig2CellsInFanout, sig.first, sig.second, limit, debug);
+					fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, sig.first, sig.second, limit, debug);
 					fixedFanout = true;
 				}
 			}
@@ -763,6 +766,19 @@ struct AnnotateCellFanout : public ScriptPass {
 				for (auto itrCell : cellFanout) {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
+					// Final cleanup, remove buffers of 1
+					if ((fanout == 1) && insertedBuffers.find(cell) != insertedBuffers.end()) {
+						SigSpec bufferOut = insertedBuffers.find(cell)->second;
+						std::set<Cell *> fanoutcells = sig2CellsInFanout[bufferOut];
+						for (int i = 0; i < bufferOut.size(); i++) {
+							SigSpec bit_sig = bufferOut.extract(i, 1);
+							for (Cell *c : sig2CellsInFanout[sigmap(bit_sig)]) {
+								fanoutcells.insert(c);
+							}
+						}
+						removeBuffer(module, sigmap, fanoutcells, insertedBuffers, cell, debug);
+						continue;
+					}
 					// Add attribute with fanout info to every cell
 					cell->set_string_attribute("$FANOUT", std::to_string(fanout));
 				}
@@ -774,6 +790,7 @@ struct AnnotateCellFanout : public ScriptPass {
 						wire->set_string_attribute("$FANOUT", std::to_string(fanout));
 					}
 				}
+				log("Added %ld buffers in module %s\n", insertedBuffers.size(), module->name.c_str());
 			}
 		}
 
