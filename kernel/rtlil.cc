@@ -708,6 +708,14 @@ void RTLIL::AttrObject::add_strpool_attribute(const RTLIL::IdString& id, const s
 		set_strpool_attribute(id, union_data);
 }
 
+void RTLIL::AttrObject::add_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data)
+{
+	std::set<string> union_data = get_strpool_attribute(id);
+	union_data.insert(data.begin(), data.end());
+	if (!union_data.empty())
+		set_strpool_attribute(id, union_data);
+}
+
 std::set<string> RTLIL::AttrObject::get_strpool_attribute(const RTLIL::IdString &id) const
 {
 	std::set<string> data;

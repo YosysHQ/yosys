@@ -14,6 +14,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -999,6 +1000,11 @@ public:
 
 	constexpr pool()
 	{
+	}
+
+	pool(std::set<K> other) {
+		for (auto it : other)
+			insert(it);
 	}
 
 	pool(const pool &other)
