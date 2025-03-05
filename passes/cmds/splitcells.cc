@@ -93,7 +93,7 @@ struct SplitcellsWorker
 			}
 			slices.push_back(GetSize(outsig));
 
-			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			log_debug("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;
@@ -164,7 +164,7 @@ struct SplitcellsWorker
 			}
 			slices.push_back(GetSize(outsig));
 
-			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			log_debug("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
 			for (int i = 1; i < GetSize(slices); i++)
 			{
 				int slice_msb = slices[i]-1;

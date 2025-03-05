@@ -290,7 +290,7 @@ struct OptDffWorker
 						// Always-active clear — connect Q bit to 0.
 						initvals.remove_init(ff.sig_q[i]);
 						module->connect(ff.sig_q[i], State::S0);
-						log("Handling always-active CLR at position %d on %s (%s) from module %s (changing to const driver).\n",
+						log_debug("Handling always-active CLR at position %d on %s (%s) from module %s (changing to const driver).\n",
 								i, log_id(cell), log_id(cell->type), log_id(module));
 						sr_removed = true;
 					} else if (ff.sig_set[i] == (ff.pol_set ? State::S1 : State::S0) || (!opt.keepdc && ff.sig_set[i] == State::Sx)) {
@@ -303,7 +303,7 @@ struct OptDffWorker
 						} else {
 							module->addNot(NEW_ID2_SUFFIX("aactive_set"), ff.sig_clr[i], ff.sig_q[i], false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						}
-						log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
+						log_debug("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 								i, log_id(cell), log_id(cell->type), log_id(module));
 						sr_removed = true;
 					} else {
@@ -328,7 +328,7 @@ struct OptDffWorker
 						if (ff.sig_set[i] != ff.sig_set[0])
 							failed = true;
 					if (!failed) {
-						log("Removing never-active CLR on %s (%s) from module %s.\n",
+						log_debug("Removing never-active CLR on %s (%s) from module %s.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						ff.has_sr = false;
 						ff.has_arst = true;
@@ -344,7 +344,7 @@ struct OptDffWorker
 						if (ff.sig_clr[i] != ff.sig_clr[0])
 							failed = true;
 					if (!failed) {
-						log("Removing never-active SET on %s (%s) from module %s.\n",
+						log_debug("Removing never-active SET on %s (%s) from module %s.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						ff.has_sr = false;
 						ff.has_arst = true;
@@ -372,7 +372,7 @@ struct OptDffWorker
 							failed = true;
 					}
 					if (!failed) {
-						log("Converting CLR/SET to ARST on %s (%s) from module %s.\n",
+						log_debug("Converting CLR/SET to ARST on %s (%s) from module %s.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						ff.has_sr = false;
 						ff.has_arst = true;
@@ -387,13 +387,13 @@ struct OptDffWorker
 			if (ff.has_aload) {
 				if (ff.sig_aload == (ff.pol_aload ? State::S0 : State::S1) || (!opt.keepdc && ff.sig_aload == State::Sx)) {
 					// Always-inactive enable — remove.
-					log("Removing never-active async load on %s (%s) from module %s.\n",
+					log_debug("Removing never-active async load on %s (%s) from module %s.\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_aload = false;
 					changed = true;
 				} else if (ff.sig_aload == (ff.pol_aload ? State::S1 : State::S0)) {
 					// Always-active enable.  Make a comb circuit, nuke the FF/latch.
-					log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
+					log_debug("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					if (ff.has_sr) {
 						SigSpec tmp;
@@ -441,7 +441,7 @@ struct OptDffWorker
 					did_something = true;
 					continue;
 				} else if (ff.sig_ad.is_fully_const() && !ff.has_arst && !ff.has_sr) {
-					log("Changing const-value async load to async reset on %s (%s) from module %s.\n",
+					log_debug("Changing const-value async load to async reset on %s (%s) from module %s.\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_arst = true;
 					ff.has_aload = false;
@@ -455,13 +455,13 @@ struct OptDffWorker
 			if (ff.has_arst) {
 				if (ff.sig_arst == (ff.pol_arst ? State::S0 : State::S1)) {
 					// Always-inactive reset — remove.
-					log("Removing never-active ARST on %s (%s) from module %s.\n",
+					log_debug("Removing never-active ARST on %s (%s) from module %s.\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_arst = false;
 					changed = true;
 				} else if (ff.sig_arst == (ff.pol_arst ? State::S1 : State::S0) || (!opt.keepdc && ff.sig_arst == State::Sx)) {
 					// Always-active async reset — change to const driver.
-					log("Handling always-active ARST on %s (%s) from module %s (changing to const driver).\n",
+					log_debug("Handling always-active ARST on %s (%s) from module %s (changing to const driver).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.remove();
 					module->connect(ff.sig_q, ff.val_arst);
@@ -473,13 +473,13 @@ struct OptDffWorker
 			if (ff.has_srst) {
 				if (ff.sig_srst == (ff.pol_srst ? State::S0 : State::S1)) {
 					// Always-inactive reset — remove.
-					log("Removing never-active SRST on %s (%s) from module %s.\n",
+					log_debug("Removing never-active SRST on %s (%s) from module %s.\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_srst = false;
 					changed = true;
 				} else if (ff.sig_srst == (ff.pol_srst ? State::S1 : State::S0) || (!opt.keepdc && ff.sig_srst == State::Sx)) {
 					// Always-active sync reset — connect to D instead.
-					log("Handling always-active SRST on %s (%s) from module %s (changing to const D).\n",
+					log_debug("Handling always-active SRST on %s (%s) from module %s (changing to const D).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_srst = false;
 					if (!ff.ce_over_srst)
@@ -493,7 +493,7 @@ struct OptDffWorker
 				if (ff.sig_ce == (ff.pol_ce ? State::S0 : State::S1) || (!opt.keepdc && ff.sig_ce == State::Sx)) {
 					// Always-inactive enable — remove.
 					if (ff.has_srst && !ff.ce_over_srst) {
-						log("Handling never-active EN on %s (%s) from module %s (connecting SRST instead).\n",
+						log_debug("Handling never-active EN on %s (%s) from module %s (connecting SRST instead).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						// FF with sync reset — connect the sync reset to D instead.
 						ff.pol_ce = ff.pol_srst;
@@ -502,7 +502,7 @@ struct OptDffWorker
 						ff.sig_d = ff.val_srst;
 						changed = true;
 					} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
-						log("Handling never-active EN on %s (%s) from module %s (removing D path).\n",
+						log_debug("Handling never-active EN on %s (%s) from module %s (removing D path).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						// The D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 						ff.has_ce = ff.has_clk = ff.has_srst = false;
@@ -516,7 +516,7 @@ struct OptDffWorker
 				} else if (ff.sig_ce == (ff.pol_ce ? State::S1 : State::S0)) {
 					// Always-active enable.  Just remove it.
 					// For FF, just remove the useless enable.
-					log("Removing always-active EN on %s (%s) from module %s.\n",
+					log_debug("Removing always-active EN on %s (%s) from module %s.\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_ce = false;
 					changed = true;
@@ -526,7 +526,7 @@ struct OptDffWorker
 			if (ff.has_clk && ff.sig_clk.is_fully_const()) {
 				if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// Const clock — the D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
-					log("Handling const CLK on %s (%s) from module %s (removing D path).\n",
+					log_debug("Handling const CLK on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_ce = ff.has_clk = ff.has_srst = false;
 					changed = true;
@@ -544,7 +544,7 @@ struct OptDffWorker
 				// Q wrapped back to D, can be removed.
 				if (ff.has_clk && ff.has_srst) {
 					// FF with sync reset — connect the sync reset to D instead.
-					log("Handling D = Q on %s (%s) from module %s (conecting SRST instead).\n",
+					log_debug("Handling D = Q on %s (%s) from module %s (conecting SRST instead).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					if (ff.has_ce && ff.ce_over_srst) {
 						if (!ff.pol_ce) {
@@ -574,7 +574,7 @@ struct OptDffWorker
 					changed = true;
 				} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
-					log("Handling D = Q on %s (%s) from module %s (removing D path).\n",
+					log_debug("Handling D = Q on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_gclk = ff.has_clk = ff.has_ce = false;
 					changed = true;
@@ -582,7 +582,7 @@ struct OptDffWorker
 			}
 
 			if (ff.has_aload && !ff.has_clk && ff.sig_ad == ff.sig_q) {
-				log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
+				log_debug("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
 						log_id(cell), log_id(cell->type), log_id(module));
 				ff.has_aload = false;
 				changed = true;
@@ -659,7 +659,7 @@ struct OptDffWorker
 							new_cells.push_back(new_cell);
 							dff_cells.push_back(new_cell);
 						}
-						log("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
+						log_debug("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q), log_signal(new_ff.val_srst));
 					}
 
@@ -728,7 +728,7 @@ struct OptDffWorker
 							dff_cells.push_back(new_cell);
 							new_cells.push_back(new_cell);
 						}
-						log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
+						log_debug("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q));
 					}
 
@@ -839,7 +839,7 @@ struct OptDffWorker
 							continue;
 					}
 				}
-				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
+				log_debug("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
 						i, log_id(cell), log_id(cell->type), log_id(module));
 
 				initvals.remove_init(ff.sig_q[i]);

@@ -126,7 +126,7 @@ struct SplitfanoutWorker
 		}
 
 		// Iterate over bit users and create a new cell for each one
-		log("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
+		log_debug("Splitting %s cell %s/%s into %d copies based on fanout\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 		int foi = 0;
 		cell->unsetPort(outport);
 		int num_new_cells = GetSize(bit_users)-1;
