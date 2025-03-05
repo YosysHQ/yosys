@@ -2,12 +2,7 @@
 
 `default_nettype none
 
-// ---------------------------------------- //
-// ----- DSP cells simulation modules ----- //
-// --------- Control bits in ports -------- //
-// ---------------------------------------- //
-
-module QL_DSPV2 ( // TODO: Name subject to change
+module QL_DSPV2 ( 
     input  wire [31:0] a,
     input  wire [17:0] b,
 	input  wire [17:0] c,
@@ -29,7 +24,7 @@ module QL_DSPV2 ( // TODO: Name subject to change
 	output wire [17:0] 	b_cout
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -47,7 +42,8 @@ module QL_DSPV2 ( // TODO: Name subject to change
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 	
     localparam NBITS_ACC = 64;
     localparam NBITS_A  = 32;
@@ -116,7 +112,8 @@ module QL_DSPV2 ( // TODO: Name subject to change
 			.b_reg_i(B_REG),
 			.c_reg_i(C_REG),
 			.bc_reg_i(BC_REG),
-			.m_reg_i(M_REG)
+			.m_reg_i(M_REG),
+			.zcin_sel_i(ZCIN_REG)
         );
 
     // Output used when fmode == 1        
@@ -160,7 +157,8 @@ module QL_DSPV2 ( // TODO: Name subject to change
 			.b_reg_i(B_REG),
 			.c_reg_i(C_REG),
 			.bc_reg_i(BC_REG),
-			.m_reg_i(M_REG)
+			.m_reg_i(M_REG),
+			.zcin_sel_i(ZCIN_REG)
         );
 
     // Output used when fmode == 0
@@ -204,11 +202,11 @@ module QL_DSPV2 ( // TODO: Name subject to change
 			.b_reg_i(B_REG),
 			.c_reg_i(C_REG),
 			.bc_reg_i(BC_REG),
-			.m_reg_i(M_REG)						
+			.m_reg_i(M_REG),
+			.zcin_sel_i(ZCIN_REG)
         );
 
 endmodule
-
 
 module QL_DSPV2_MULT ( 
     input  wire [31:0] a,
@@ -219,7 +217,7 @@ module QL_DSPV2_MULT (
 	input  wire [2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -237,10 +235,11 @@ module QL_DSPV2_MULT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -278,7 +277,7 @@ module QL_DSPV2_MULT_REGIN (
     input  wire [2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h0A000000000000000;
+    parameter [71:0] MODE_BITS = 72'h00A000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -296,10 +295,11 @@ module QL_DSPV2_MULT_REGIN (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -337,7 +337,7 @@ module QL_DSPV2_MULT_REGOUT (
     input  wire [2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -355,10 +355,11 @@ module QL_DSPV2_MULT_REGOUT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -383,7 +384,7 @@ module QL_DSPV2_MULT_REGOUT (
 	
 endmodule
 
-module QL_DSPV2_MULT_REGIN_REGOUT ( // TODO: Name subject to change
+module QL_DSPV2_MULT_REGIN_REGOUT ( 
     input  wire [31:0] a,
     input  wire [17:0] b,
     output wire [49:0] z,
@@ -396,7 +397,7 @@ module QL_DSPV2_MULT_REGIN_REGOUT ( // TODO: Name subject to change
     input  wire [2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h0A000000000000000;
+    parameter [71:0] MODE_BITS = 72'h00A000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -414,10 +415,11 @@ module QL_DSPV2_MULT_REGIN_REGOUT ( // TODO: Name subject to change
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -446,12 +448,21 @@ module QL_DSPV2_MULTADD (
     input  wire [31:0] a,
     input  wire [17:0] b,
     output wire [49:0] z,
+	
+	(* clkbuf_sink *)
+    input  wire        clk,
+    input  wire        reset,
+	input  wire        acc_reset,
+    input  wire        load_acc,
+	
+	input  wire [49:0] 	z_cin,
+	output wire [49:0] 	z_cout,
 
     input  wire [ 2:0] feedback,
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -469,28 +480,29 @@ module QL_DSPV2_MULTADD (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
 		.c(18'h0),
-        .load_acc(1'b0),
+        .load_acc(load_acc),
 		.feedback(feedback),
 		.output_select(output_select),
         .z(z),
         
-		.clk(),
-        .reset(),
-		.acc_reset(1'b0),
+		.clk(clk),
+        .reset(reset),
+		.acc_reset(acc_reset),
 
         .a_cin(),
         .b_cin(),
-		.z_cin(),
+		.z_cin(z_cin),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -501,16 +513,21 @@ module QL_DSPV2_MULTADD_REGIN (
     input  wire [31:0] a,
     input  wire [17:0] b,
     output wire [49:0] z,
-
-    (* clkbuf_sink *)
+	
+	(* clkbuf_sink *)
     input  wire        clk,
     input  wire        reset,
+	input  wire        acc_reset,
+    input  wire        load_acc,
+	
+	input  wire [49:0] 	z_cin,
+	output wire [49:0] 	z_cout,
 
     input  wire [ 2:0] feedback,
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h0A000000000000000;
+    parameter [71:0] MODE_BITS = 72'h00A000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -528,28 +545,29 @@ module QL_DSPV2_MULTADD_REGIN (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
 		.c(18'h0),
-        .load_acc(1'b0),
+        .load_acc(load_acc),
 		.feedback(feedback),
 		.output_select(output_select),
         .z(z),
         
 		.clk(clk),
         .reset(reset),
-		.acc_reset(1'b0),
+		.acc_reset(acc_reset),
 
         .a_cin(),
         .b_cin(),
-		.z_cin(),
+		.z_cin(z_cin),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -560,16 +578,21 @@ module QL_DSPV2_MULTADD_REGOUT (
     input  wire [31:0] a,
     input  wire [17:0] b,
     output wire [49:0] z,
-
-    (* clkbuf_sink *)
+	
+	(* clkbuf_sink *)
     input  wire        clk,
     input  wire        reset,
+	input  wire        acc_reset,
+    input  wire        load_acc,
+	
+	input  wire [49:0] 	z_cin,
+	output wire [49:0] 	z_cout,
 
     input  wire [ 2:0] feedback,
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -587,28 +610,29 @@ module QL_DSPV2_MULTADD_REGOUT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
 		.c(18'h0),
-        .load_acc(1'b0),
+        .load_acc(load_acc),
 		.feedback(feedback),
 		.output_select(output_select),
         .z(z),
         
 		.clk(clk),
         .reset(reset),
-		.acc_reset(1'b0),
+		.acc_reset(acc_reset),
 
         .a_cin(),
         .b_cin(),
-		.z_cin(),
+		.z_cin(z_cin),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -619,16 +643,21 @@ module QL_DSPV2_MULTADD_REGIN_REGOUT (
     input  wire [31:0] a,
     input  wire [17:0] b,
     output wire [49:0] z,
-
-    (* clkbuf_sink *)
+	
+	(* clkbuf_sink *)
     input  wire        clk,
     input  wire        reset,
+	input  wire        acc_reset,
+    input  wire        load_acc,
+	
+	input  wire [49:0] 	z_cin,
+	output wire [49:0] 	z_cout,
 
     input  wire [ 2:0] feedback,
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h0A000000000000000;
+    parameter [71:0] MODE_BITS = 72'h00A000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -646,28 +675,29 @@ module QL_DSPV2_MULTADD_REGIN_REGOUT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
 		.c(18'h0),
-        .load_acc(1'b0),
+        .load_acc(load_acc),
 		.feedback(feedback),
 		.output_select(output_select),
         .z(z),
         
 		.clk(clk),
         .reset(reset),
-		.acc_reset(1'b0),
+		.acc_reset(acc_reset),
 
         .a_cin(),
         .b_cin(),
-		.z_cin(),
+		.z_cin(z_cin),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -688,7 +718,7 @@ module QL_DSPV2_MULTACC (
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -706,10 +736,11 @@ module QL_DSPV2_MULTACC (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -748,7 +779,7 @@ module QL_DSPV2_MULTACC_REGIN (
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h04000000000000000;
+    parameter [71:0] MODE_BITS = 72'h004000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -766,10 +797,11 @@ module QL_DSPV2_MULTACC_REGIN (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -808,7 +840,7 @@ module QL_DSPV2_MULTACC_REGOUT (
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h00000000000000000;
+    parameter [71:0] MODE_BITS = 72'h000000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -826,10 +858,11 @@ module QL_DSPV2_MULTACC_REGOUT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -868,7 +901,7 @@ module QL_DSPV2_MULTACC_REGIN_REGOUT (
     input  wire [ 2:0] output_select
 );
 
-    parameter [67:0] MODE_BITS = 68'h04000000000000000;
+    parameter [71:0] MODE_BITS = 72'h004000000000000000;
 
     localparam [31:0] COEFF_0 	= MODE_BITS[31:0];
 	localparam [5:0]  ACC_FIR   = MODE_BITS[37:32];
@@ -886,10 +919,11 @@ module QL_DSPV2_MULTACC_REGIN_REGOUT (
 	localparam  C_REG     = MODE_BITS[64];
 	localparam  BC_REG    = MODE_BITS[65];
 	localparam  M_REG     = MODE_BITS[66];
-	localparam  FRAC_MODE = MODE_BITS[67];
+	localparam  ZCIN_REG  = MODE_BITS[67];
+	localparam  FRAC_MODE = MODE_BITS[71];
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a),
         .b(b),
@@ -955,10 +989,11 @@ module dspv2_32x18x64_cfg_ports (
 	parameter  C_REG     = 1'b0;
 	parameter  BC_REG    = 1'b0;
 	parameter  M_REG     = 1'b0;
+	parameter  ZCIN_REG  = 1'b0;
 	parameter  FRAC_MODE = 1'b0;  // 32x18x64 DSP
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,COEFF_0})
     ) dsp (
         .a(a_i),
         .b(b_i),
@@ -976,9 +1011,9 @@ module dspv2_32x18x64_cfg_ports (
         .b_cin(b_cin_i),
 		.z_cin(z_cin_i),
 
+        .z_cout(z_cout_o),
         .a_cout(a_cout_o),
-        .b_cout(b_cout_o),
-        .z_cout(z_cout_o)
+        .b_cout(b_cout_o)
     );
 	
 endmodule
@@ -986,7 +1021,7 @@ endmodule
 module dspv2_16x9x32_cfg_ports (
     input  wire [15:0] a_i,
     input  wire [8:0] b_i,
-    input  wire [9:0] c_i,
+    input  wire [8:0] c_i,
     output wire [24:0] z_o,
 
     (* clkbuf_sink *)
@@ -1024,10 +1059,11 @@ module dspv2_16x9x32_cfg_ports (
 	parameter  C_REG     = 1'b0;
 	parameter  BC_REG    = 1'b0;
 	parameter  M_REG     = 1'b0;
+	parameter  ZCIN_REG  = 1'b0;
 	parameter  FRAC_MODE = 1'b1;  // 16x9x32 DSP
 
     QL_DSPV2 #(
-        .MODE_BITS({FRAC_MODE,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,16'h0,COEFF_0})
+        .MODE_BITS({FRAC_MODE,3'b000,ZCIN_REG,M_REG,BC_REG,C_REG,B_REG,B_SEL,A_REG,A_SEL,PRE_ADD,SUBTRACT,SATURATE,SHIFT_REG,ZREG_SHIFT,ZC_SHIFT,ROUND,ACC_FIR,16'h0,COEFF_0})
     ) dsp (
         .a(a_i),
         .b(b_i),
@@ -1045,13 +1081,12 @@ module dspv2_16x9x32_cfg_ports (
         .b_cin(b_cin_i),
 		.z_cin(z_cin_i),
 
-        .z_cout(a_cout_o),
-        .a_cout(b_cout_o),
-        .b_cout(z_cout_o)
+        .z_cout(z_cout_o),
+        .a_cout(a_cout_o),
+        .b_cout(b_cout_o)
     );
 	
 endmodule
-
 
 module dspv2_sim_cfg_ports # (
     parameter NBITS_ACC  = 64,
@@ -1095,7 +1130,8 @@ module dspv2_sim_cfg_ports # (
 	input  wire               b_reg_i,
 	input  wire               c_reg_i,
 	input  wire               bc_reg_i,
-	input  wire               m_reg_i
+	input  wire               m_reg_i,
+	input  wire               zcin_sel_i
 );
 
     // Input registers
@@ -1207,7 +1243,8 @@ module dspv2_sim_cfg_ports # (
     // Output signals
     wire [NBITS_Z-1:0]  z0;
     reg  [NBITS_Z-1:0]  z1;
-    wire [NBITS_Z-1:0]  z2;
+    wire [NBITS_Z-1:0]  z2; 
+	wire [NBITS_Z-1:0]  z_cin;
 	
     assign mult_a = (feedback_i == 3'h0) ?   a :
                     (feedback_i == 3'h1) ?   a :
@@ -1249,8 +1286,10 @@ module dspv2_sim_cfg_ports # (
 	
 	assign acc_fir_int = a <<< acc_fir_i;
 	
-	assign zcin_rshift = z_cin_i >>> zc_shift_i;
-	assign zcin_xtnd = {{(NBITS_ACC-NBITS_Z){z_cin_i[NBITS_Z-1]}}, z_cin_i};
+	
+	assign z_cin = (zcin_sel_i)? z_cin_i : 50'h0;
+	assign zcin_rshift = z_cin >>> zc_shift_i;
+	assign zcin_xtnd = {{(NBITS_ACC-NBITS_Z){z_cin[NBITS_Z-1]}}, z_cin};
 	
 	assign zreg_rshift = z1 >>> zreg_shift_i;
 	
