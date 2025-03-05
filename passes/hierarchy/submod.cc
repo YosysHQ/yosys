@@ -382,8 +382,8 @@ struct SubmodPass : public Pass {
 
 		if (opt_name.empty())
 		{
-			// Pass::call(design, "opt_clean");
-			// log_header(design, "Continuing SUBMOD pass.\n");
+			Pass::call(design, "opt_clean");
+			log_header(design, "Continuing SUBMOD pass.\n");
 
 			std::set<RTLIL::IdString> handled_modules;
 
