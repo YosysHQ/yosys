@@ -1,0 +1,61 @@
+read_verilog <<EOT
+module foo(
+    input [7:0] A,
+    input [7:0] B,
+    input [7:0] C,
+    input [7:0] D,
+    output reg [7:0] X,
+    output reg [7:0] Y);
+    assign X = A * B;
+    assign Y = C * D;
+endmodule
+EOT
+
+synth_quicklogic -dspv2 -run :map_dsp
+
+# this is just taken from map_dsp step
+wreduce t:$mul
+ql_dsp_macc -dspv2
+techmap -map +/mul2dsp.v -map +/quicklogic/qlf_k6n10f/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY -D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18
+chtype -set $mul t:$__soft_mul
+techmap -map +/mul2dsp.v -map +/quicklogic/qlf_k6n10f/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL16X9
+# TODO is this missing from synth_quicklogic?
+read_verilog -lib +/quicklogic/qlf_k6n10f/dspv2_sim.v
+select -assert-count 2 t:dspv2_16x9x32_cfg_ports
+select -assert-count 0 t:dspv2_32x18x64_cfg_ports
+equiv_opt -assert -async2sync -map +/quicklogic/qlf_k6n10f/dspv2_sim.v ql_dsp_simd -dspv2
+design -load postopt
+select -assert-count 0 t:dspv2_16x9x32_cfg_ports
+select -assert-count 1 t:dspv2_32x18x64_cfg_ports
+
+design -reset
+
+read_verilog <<EOT
+module foo(
+    input [7:0] A,
+    input [7:0] B,
+    input [7:0] C,
+    input [7:0] D,
+    input [7:0] E,
+    output reg [7:0] X,
+    output reg [7:0] Y);
+    assign X = A * B;
+    assign Y = C * (D + E); // <-- look here
+endmodule
+EOT
+
+synth_quicklogic -dspv2 -run :map_dsp
+
+wreduce t:$mul
+ql_dsp_macc -dspv2
+techmap -map +/mul2dsp.v -map +/quicklogic/qlf_k6n10f/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY -D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__MUL32X18
+chtype -set $mul t:$__soft_mul
+techmap -map +/mul2dsp.v -map +/quicklogic/qlf_k6n10f/dspv2_map.v -D USE_DSP_CFG_PARAMS=0 -D DSP_SIGNEDONLY -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL16X9
+# TODO is this missing from synth_quicklogic?
+read_verilog -lib +/quicklogic/qlf_k6n10f/dspv2_sim.v
+select -assert-count 2 t:dspv2_16x9x32_cfg_ports
+select -assert-count 0 t:dspv2_32x18x64_cfg_ports
+equiv_opt -assert -async2sync -map +/quicklogic/qlf_k6n10f/dspv2_sim.v ql_dsp_simd -dspv2
+design -load postopt
+select -assert-count 0 t:dspv2_16x9x32_cfg_ports
+select -assert-count 1 t:dspv2_32x18x64_cfg_ports
