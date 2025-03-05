@@ -77,6 +77,18 @@ RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspe
 	return RTLIL::IdString(ss.str());
 }
 
+// Collect fanout cells of a given sig, collects all bits connections
+void getFanout(dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, SigMap &sigmap, SigSpec sig, std::set<Cell *> &fanoutcells)
+{
+	fanoutcells = sig2CellsInFanout[sig];
+	for (int i = 0; i < sig.size(); i++) {
+		SigSpec bit_sig = sig.extract(i, 1);
+		for (Cell *c : sig2CellsInFanout[sigmap(bit_sig)]) {
+			fanoutcells.insert(c);
+		}
+	}
+}
+
 // Signal cell driver(s), precompute a cell output signal to a cell map
 void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
 		    dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
@@ -364,13 +376,8 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	}
 
 	// Cumulate all cells in the fanout of this cell
-	std::set<Cell *> fanoutcells = sig2CellsInFanout[sigToBuffer];
-	for (int i = 0; i < sigToBuffer.size(); i++) {
-		SigSpec bit_sig = sigToBuffer.extract(i, 1);
-		for (Cell *c : sig2CellsInFanout[sigmap(bit_sig)]) {
-			fanoutcells.insert(c);
-		}
-	}
+	std::set<Cell *> fanoutcells;
+	getFanout(sig2CellsInFanout, sigmap, sigToBuffer, fanoutcells);
 
 	// Fix input connections to cells in fanout of buffer to point to the inserted buffer
 	for (Cell *fanoutcell : fanoutcells) {
@@ -635,7 +642,7 @@ struct AnnotateCellFanout : public ScriptPass {
 		}
 		for (auto module : design->selected_modules()) {
 			bool fixedFanout = false;
-			std::map<Cell*, Wire*> insertedBuffers;
+			std::map<Cell *, Wire *> insertedBuffers;
 			{
 				// Calculate fanout
 				SigMap sigmap(module);
@@ -697,7 +704,8 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, cellOutSig, fanout, limit, debug);
+								fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, cellOutSig, fanout,
+									  limit, debug);
 							}
 						}
 						fixedFanout = true;
@@ -769,13 +777,8 @@ struct AnnotateCellFanout : public ScriptPass {
 					// Final cleanup, remove buffers of 1
 					if ((fanout == 1) && insertedBuffers.find(cell) != insertedBuffers.end()) {
 						SigSpec bufferOut = insertedBuffers.find(cell)->second;
-						std::set<Cell *> fanoutcells = sig2CellsInFanout[bufferOut];
-						for (int i = 0; i < bufferOut.size(); i++) {
-							SigSpec bit_sig = bufferOut.extract(i, 1);
-							for (Cell *c : sig2CellsInFanout[sigmap(bit_sig)]) {
-								fanoutcells.insert(c);
-							}
-						}
+						std::set<Cell *> fanoutcells;
+						getFanout(sig2CellsInFanout, sigmap, bufferOut, fanoutcells);
 						removeBuffer(module, sigmap, fanoutcells, insertedBuffers, cell, debug);
 						continue;
 					}
