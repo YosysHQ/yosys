@@ -32,16 +32,16 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 	auto &st = pm.st_ql_dsp_macc;
 
 	// Get port widths
-	size_t a_width = GetSize(st.mul->getPort(ID(A)));
-	size_t b_width = GetSize(st.mul->getPort(ID(B)));
-	size_t z_width = GetSize(st.ff->getPort(ID(Q)));
+	size_t a_width = GetSize(st.mul->getPort(ID::A));
+	size_t b_width = GetSize(st.mul->getPort(ID::B));
+	size_t z_width = GetSize(st.ff->getPort(ID::Q));
 
 	size_t min_width = std::min(a_width, b_width);
 	size_t max_width = std::max(a_width, b_width);
 
 	// Signed / unsigned
-	bool ab_signed = st.mul->getParam(ID(A_SIGNED)).as_bool();
-	log_assert(ab_signed == st.mul->getParam(ID(B_SIGNED)).as_bool());
+	bool ab_signed = st.mul->getParam(ID::A_SIGNED).as_bool();
+	log_assert(ab_signed == st.mul->getParam(ID::B_SIGNED).as_bool());
 
 	// Determine DSP type or discard if too narrow / wide
 	RTLIL::IdString type;
@@ -90,9 +90,9 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
 	// Get input/output data signals
 	RTLIL::SigSpec sig_a, sig_b, sig_z;
-	sig_a = st.mul->getPort(ID(A));
-	sig_b = st.mul->getPort(ID(B));
-	sig_z = st.output_registered ? st.ff->getPort(ID(Q)) : st.ff->getPort(ID(D));
+	sig_a = st.mul->getPort(ID::A);
+	sig_b = st.mul->getPort(ID::B);
+	sig_z = st.output_registered ? st.ff->getPort(ID::Q) : st.ff->getPort(ID::D);
 
 	if (a_width < b_width)
 		std::swap(sig_a, sig_b);
@@ -111,26 +111,26 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 	cell->setPort(ID(z_o), sig_z);
 
 	// Connect clock, reset and enable
-	cell->setPort(ID(clock_i), st.ff->getPort(ID(CLK)));
+	cell->setPort(ID(clock_i), st.ff->getPort(ID::CLK));
 
 	RTLIL::SigSpec rst;
 	RTLIL::SigSpec ena;
 
-	if (st.ff->hasPort(ID(ARST))) {
-		if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
-			rst = pm.module->Not(NEW_ID, st.ff->getPort(ID(ARST)));
+	if (st.ff->hasPort(ID::ARST)) {
+		if (st.ff->getParam(ID::ARST_POLARITY).as_int() != 1) {
+			rst = pm.module->Not(NEW_ID, st.ff->getPort(ID::ARST));
 		} else {
-			rst = st.ff->getPort(ID(ARST));
+			rst = st.ff->getPort(ID::ARST);
 		}
 	} else {
 		rst = RTLIL::SigSpec(RTLIL::S0);
 	}
 
-	if (st.ff->hasPort(ID(EN))) {
-		if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
-			ena = pm.module->Not(NEW_ID, st.ff->getPort(ID(EN)));
+	if (st.ff->hasPort(ID::EN)) {
+		if (st.ff->getParam(ID::EN_POLARITY).as_int() != 1) {
+			ena = pm.module->Not(NEW_ID, st.ff->getPort(ID::EN));
 		} else {
-			ena = st.ff->getPort(ID(EN));
+			ena = st.ff->getPort(ID::EN);
 		}
 	} else {
 		ena = RTLIL::SigSpec(RTLIL::S1);
@@ -141,11 +141,11 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
 	// Insert feedback_i control logic used for clearing / loading the accumulator
 	if (st.mux_in_pattern) {
-		RTLIL::SigSpec sig_s = st.mux->getPort(ID(S));
+		RTLIL::SigSpec sig_s = st.mux->getPort(ID::S);
 
 		// Depending on the mux port ordering insert inverter if needed
-		log_assert(st.mux_ab.in(ID(A), ID(B)));
-		if (st.mux_ab == ID(A))
+		log_assert(st.mux_ab.in(ID::A, ID::B));
+		if (st.mux_ab == ID::A)
 			sig_s = pm.module->Not(NEW_ID, sig_s);
 
 		// Assemble the full control signal for the feedback_i port
