@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <set>
 
 #include "simplemap.h"
 
@@ -156,7 +157,7 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
-		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
+		std::set<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
 
 		orig_cell_name = cell->name.str();
 		for (auto tpl_cell : tpl->cells())

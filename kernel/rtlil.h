@@ -855,9 +855,9 @@ struct RTLIL::AttrObject
 	void set_string_attribute(const RTLIL::IdString& id, string value);
 	string get_string_attribute(const RTLIL::IdString &id) const;
 
-	void set_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	void add_strpool_attribute(const RTLIL::IdString& id, const pool<string> &data);
-	pool<string> get_strpool_attribute(const RTLIL::IdString &id) const;
+	void set_strpool_attribute(const RTLIL::IdString& id, const std::set<string> &data);
+	void add_strpool_attribute(const RTLIL::IdString& id, const std::set<string> &data);
+	std::set<string> get_strpool_attribute(const RTLIL::IdString &id) const;
 
 	void set_src_attribute(const std::string &src) {
 		set_string_attribute(ID::src, src);
