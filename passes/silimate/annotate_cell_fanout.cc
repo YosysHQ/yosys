@@ -347,7 +347,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 		for (int i = 0; i < num_buffers; ++i) {
 			std::string wireName = generateSigSpecName(module, sigToBuffer, true, "_wbuf" + std::to_string(index_buffer)).c_str();
 			std::string cellName = generateSigSpecName(module, sigToBuffer, true, "_fbuf" + std::to_string(index_buffer), true).c_str();
-			RTLIL::Cell *buffer = module->addCell(cellName, ID($pos));
+			RTLIL::Cell *buffer = module->addCell(cellName, ID($buf));
 			bufferActualFanout[buffer] = 0;
 			RTLIL::SigSpec buffer_output = module->addWire(wireName, chunk.size());
 			buffer->setPort(ID(A), chunk);
