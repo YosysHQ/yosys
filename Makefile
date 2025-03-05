@@ -694,6 +694,9 @@ OBJS += yosys-slang/build/*.o
 OBJS += yosys-slang/build/slang*/lib*/*.a
 endif
 
+techlibs/%_pm.h: passes/pmgen/pmgen.py techlibs/%.pmg
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(notdir $*) $(filter-out $<,$^)
+
 OBJS += libs/subcircuit/subcircuit.o
 
 ifneq ($(SMALL),1)
@@ -719,10 +722,6 @@ include $(YOSYS_SRC)/passes/equiv/Makefile.inc
 include $(YOSYS_SRC)/passes/cmds/Makefile.inc
 include $(YOSYS_SRC)/passes/silimate/Makefile.inc
 
-OBJS += passes/opt/muxpack.o
-OBJS += passes/opt/opt_demorgan.o
-OBJS += passes/opt/pmux2shiftx.o
-OBJS += passes/opt/wreduce.o
 OBJS += passes/sat/sim.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
