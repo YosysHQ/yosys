@@ -288,6 +288,7 @@ struct MuxpackWorker
 					s_sig.append(module->LogicNot(NEW_ID2_SUFFIX("sel"), cursor_cell->getPort(ID::S), false, cell->get_src_attribute())); // SILIMATE: Improve the naming
 				}
 				remove_cells.insert(cursor_cell);
+				first_cell->add_strpool_attribute(ID::src, cursor_cell->get_strpool_attribute(ID::src)); // SILIMATE: Improve src attribution
 			}
 
 			if (make_excl) {
@@ -328,7 +329,7 @@ struct MuxpackWorker
 						Wire *and_y = module->addWire(NEW_ID2_SUFFIX("and_y"), 1);
 						module->addAnd(NEW_ID2_SUFFIX("sel"), sigbit, prevSigNot, and_y, false, last_cell->get_src_attribute());
 						decodedSelect.append(and_y);
-						Wire *not_y = module->addWire(NEW_ID, 1);
+						Wire *not_y = module->addWire(NEW_ID2_SUFFIX("not_y"), 1);
 						module->addNot(NEW_ID2_SUFFIX("not"), sigbit, not_y, false, last_cell->get_src_attribute());
 						prevSigAnd = prevSigNot;
 						prevSigNot = not_y;
