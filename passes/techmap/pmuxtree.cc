@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static SigSpec or_generator(Module *module, const SigSpec &sig)
+static SigSpec or_generator(Module *module, Cell *cell, const SigSpec &sig)
 {
 	switch (GetSize(sig))
 	{
@@ -32,13 +32,13 @@ static SigSpec or_generator(Module *module, const SigSpec &sig)
 	case 1:
 		return sig;
 	case 2:
-		return module->Or(NEW_ID, sig[0], sig[1]);
+		return module->Or(NEW_ID2_SUFFIX("or"), sig[0], sig[1], false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 	default:
-		return module->ReduceOr(NEW_ID, sig);
+		return module->ReduceOr(NEW_ID2_SUFFIX("reduce_or"), sig, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 	}
 }
 
-static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, const SigSpec &sig_sel, SigSpec &sig_or)
+static SigSpec recursive_mux_generator(Module *module, Cell *cell, const SigSpec &sig_data, const SigSpec &sig_sel, SigSpec &sig_or)
 {
 	if (GetSize(sig_sel) == 1) {
 		sig_or.append(sig_sel);
@@ -57,12 +57,12 @@ static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, 
 
 	SigSpec left_or, left_result, right_result;
 
-	left_result = recursive_mux_generator(module, left_data, left_sel, left_or);
-	right_result = recursive_mux_generator(module, right_data, right_sel, sig_or);
-	left_or = or_generator(module, left_or);
+	left_result = recursive_mux_generator(module, cell, left_data, left_sel, left_or);
+	right_result = recursive_mux_generator(module, cell, right_data, right_sel, sig_or);
+	left_or = or_generator(module, cell, left_or);
 	sig_or.append(left_or);
 
-	return module->Mux(NEW_ID, right_result, left_result, left_or);
+	return module->Mux(NEW_ID2_SUFFIX("mux"), right_result, left_result, left_or, cell->get_src_attribute()); // SILIMATE: Improve the naming
 }
 
 struct PmuxtreePass : public Pass {
@@ -97,12 +97,12 @@ struct PmuxtreePass : public Pass {
 
 			if (!cell->getPort(ID::A).is_fully_undef()) {
 				sig_data.append(cell->getPort(ID::A));
-				SigSpec sig_sel_or = module->ReduceOr(NEW_ID, sig_sel);
-				sig_sel.append(module->Not(NEW_ID, sig_sel_or));
+				SigSpec sig_sel_or = module->ReduceOr(NEW_ID2_SUFFIX("reduce_or"), sig_sel, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+				sig_sel.append(module->Not(NEW_ID2_SUFFIX("not"), sig_sel_or, false, cell->get_src_attribute())); // SILIMATE: Improve the naming
 			}
 
 			SigSpec result, result_or;
-			result = recursive_mux_generator(module, sig_data, sig_sel, result_or);
+			result = recursive_mux_generator(module, cell, sig_data, sig_sel, result_or);
 			module->connect(cell->getPort(ID::Y), result);
 			module->remove(cell);
 		}
