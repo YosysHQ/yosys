@@ -436,7 +436,7 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	}
 }
 
-// Calculate cells and nets fanout 
+// Calculate cells and nets fanout
 void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, dict<Cell *, int> &cellFanout,
 		     dict<SigSpec, int> &sigFanout)
 {
@@ -574,6 +574,10 @@ struct AnnotateCellFanout : public ScriptPass {
 		log("        For formal verification to pass, will prevent splitnets passes on ports, even if they have large fanout.\n");
 		log("    -inputs\n");
 		log("        Fix module inputs fanout.\n");
+		log("    -clocks\n");
+		log("        Fix module clocks fanout.\n");
+		log("    -resets\n");
+		log("        Fix module resets fanout.\n");
 		log("    -debug\n");
 		log("        Debug trace.\n");
 		log("\n");
@@ -582,7 +586,9 @@ struct AnnotateCellFanout : public ScriptPass {
 	{
 		int limit = -1;
 		bool formalFriendly = false;
-		bool inputs = false;
+		bool buffer_inputs = false;
+		bool buffer_clocks = false;
+		bool buffer_resets = false;
 		bool debug = false;
 		if (design == nullptr) {
 			log_error("No design object\n");
@@ -606,7 +612,15 @@ struct AnnotateCellFanout : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-inputs") {
-				inputs = true;
+				buffer_inputs = true;
+				continue;
+			}
+			if (args[argidx] == "-clocks") {
+				buffer_clocks = true;
+				continue;
+			}
+			if (args[argidx] == "-resets") {
+				buffer_resets = true;
 				continue;
 			}
 			break;
@@ -646,7 +660,7 @@ struct AnnotateCellFanout : public ScriptPass {
 				}
 				splitNets(design, netsToSplitS, cellOutputsToSplit, formalFriendly, debug);
 
-				if (inputs) {
+				if (buffer_inputs) {
 					// Split module input nets with high fanout
 					std::vector<RTLIL::SigSpec> wiresToSplit;
 					for (Wire *wire : module->wires()) {
@@ -690,14 +704,40 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 				}
 
+				// Mark clocks, resets
+				std::set<SigSpec> clock_sigs;
+				std::set<SigSpec> reset_sigs;
+				for (auto cell : module->selected_cells()) {
+					if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff),
+							  ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2),
+							  ID($memwr), ID($memwr_v2))) {
+						// Check for clock input connection
+						if (cell->hasPort(ID(CLK))) {
+							RTLIL::SigSpec clk_sig = sigmap(cell->getPort(ID(CLK)));
+							clock_sigs.insert(clk_sig);
+						}
+						if (cell->hasPort(ID(RST))) {
+							RTLIL::SigSpec clk_sig = sigmap(cell->getPort(ID(RST)));
+							reset_sigs.insert(clk_sig);
+						}
+						if (cell->hasPort(ID(ARST))) {
+							RTLIL::SigSpec clk_sig = sigmap(cell->getPort(ID(ARST)));
+							reset_sigs.insert(clk_sig);
+						}
+					}
+				}
+
 				// Fix module input nets with high fanout
 				std::map<SigSpec, int> sigsToFix;
 				for (Wire *wire : module->wires()) {
 					if (wire->port_input) {
 						SigSpec inp = sigmap(wire);
+						bool is_clock = clock_sigs.find(inp) != clock_sigs.end();
+						bool is_reset = reset_sigs.find(inp) != reset_sigs.end();
+						bool filter_sig = (is_clock && !buffer_clocks) || (is_reset && !buffer_resets);
 						int fanout = sigFanout[inp];
 						if (limit > 0 && (fanout > limit)) {
-							if (inputs) {
+							if (buffer_inputs && !(filter_sig)) {
 								sigsToFix.emplace(inp, fanout);
 							} else {
 								wire->set_string_attribute("$FANOUT", std::to_string(fanout));
