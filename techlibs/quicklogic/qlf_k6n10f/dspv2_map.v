@@ -38,7 +38,7 @@ module \$__MUL16X9 (input [15:0] A, input [8:0] B, output [24:0] Y);
     dspv2_16x9x32_cfg_ports _TECHMAP_REPLACE_ (
         .a_i(A),
         .b_i(B),
-        .c_i(10'd0),
+        .c_i(9'd0),
         .z_o(Y),
 
         .clock_i(1'bx),
