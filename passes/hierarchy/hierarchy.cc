@@ -1066,6 +1066,17 @@ struct HierarchyPass : public Pass {
 					mod->attributes[ID::initial_top] = RTLIL::Const(1);
 				else
 					mod->attributes.erase(ID::initial_top);
+
+			std::vector<IdString> abstract_ids;
+			for (auto cell : top_mod->cells()) {
+				IdString abstract_id = "$abstract" + cell->type.str();
+				if (design->module(cell->type) == nullptr && design->module(abstract_id))
+					abstract_ids.push_back(abstract_id);
+			}
+			for (auto abstract_id : abstract_ids)
+				design->module(abstract_id)->derive(design, {});
+			for (auto abstract_id : abstract_ids)
+				design->remove(design->module(abstract_id));
 		}
 
 		bool did_something = true;
