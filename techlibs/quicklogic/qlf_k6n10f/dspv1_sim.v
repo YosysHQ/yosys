@@ -4195,7 +4195,8 @@ module dsp_t1_20x18x64_cfg_ports (
 	input  wire [ 5:0] shift_right_i,
 	input  wire        round_i,
 	input  wire        subtract_i,
-	input  wire        register_inputs_i
+	input  wire        register_inputs_i,
+	input  wire        f_mode_i
 );
 
 	parameter [19:0] COEFF_0 = 20'd0;
@@ -4211,7 +4212,7 @@ module dsp_t1_20x18x64_cfg_ports (
 		.z(z_o),
 		.dly_b(dly_b_o),
 
-		.f_mode(1'b0),  // 20x18x64 DSP
+		.f_mode(f_mode_i),  // 20x18x64 DSP
 
 		.acc_fir(acc_fir_i),
 		.feedback(feedback_i),
