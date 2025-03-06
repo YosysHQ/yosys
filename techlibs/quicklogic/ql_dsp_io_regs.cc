@@ -127,6 +127,7 @@ struct QlDspIORegs : public Pass {
 			}
 
 			// Set new type name
+			log_debug("Converted %s to %s\n", log_id(cell->type), new_type.c_str());
 			cell->type = RTLIL::IdString(new_type);
 
 			std::vector<std::string> ports2del;
