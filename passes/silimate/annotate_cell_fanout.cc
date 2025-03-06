@@ -704,8 +704,12 @@ struct AnnotateCellFanout : public ScriptPass {
 							RTLIL::SigSpec actual = conn.second;
 							if (cell->output(portName)) {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, cellOutSig, fanout,
-									  limit, debug);
+								for (int i = 0; i < cellOutSig.size(); i++) {
+									SigSpec bit_sig = cellOutSig.extract(i, 1);
+									int bitfanout = sig2CellsInFanout[bit_sig].size();
+									fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig,
+										  bitfanout, limit, debug);
+								}
 							}
 						}
 						fixedFanout = true;
@@ -759,7 +763,11 @@ struct AnnotateCellFanout : public ScriptPass {
 					}
 				}
 				for (auto sig : sigsToFix) {
-					fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, sig.first, sig.second, limit, debug);
+					for (int i = 0; i < sig.first.size(); i++) {
+						SigSpec bit_sig = sig.first.extract(i, 1);
+						int bitfanout = sig2CellsInFanout[bit_sig].size();
+						fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig, bitfanout, limit, debug);
+					}
 					fixedFanout = true;
 				}
 			}
