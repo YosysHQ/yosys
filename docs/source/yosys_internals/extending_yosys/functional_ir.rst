@@ -229,14 +229,14 @@ semantics/syntax of the language.
 
 The major changes from the SMT-LIB backend are as follows:
 
-- all of the ``Smt`` prefixes in names are replace with ``Smtr`` to mean
+- all of the ``Smt`` prefixes in names are replaced with ``Smtr`` to mean
   ``smtlib_rosette``;
 - syntax is adjusted for Racket;
 - data structures for input/output/state are changed from using
   ``declare-datatype`` with statically typed fields, to using ``struct`` with no
   static typing;
 - the transfer function also loses its static typing;
-- sign/zero extension in Rosette uses the output width instead of the number of
+- sign/zero extension in Rosette use the output width instead of the number of
   extra bits, gaining static typing;
 - the single scope is traded for a global scope with local scope for each
   struct;
