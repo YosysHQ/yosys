@@ -60,6 +60,10 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 	if (dsp_version == 2)
 		cell_base_name = "dspv2";
 
+	std::function<void(Cell*)> set_fractured = nullptr;
+	auto set_fractured_dspv1 = [](Cell* cell) -> void {cell->setPort(ID(f_mode_i), State::S0);};
+	auto set_fractured_dspv2 = [](Cell* cell) -> void {cell->setParam(ID(FRAC_MODE), State::S0);};
+
 	if (min_width <= 2 && max_width <= 2 && z_width <= 4) {
 		log_debug("\trejected: too narrow (%zd %zd %zd)\n", min_width, max_width, z_width);
 		return;
@@ -77,6 +81,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 			tgt_a_width = 20;
 			tgt_b_width = 18;
 			tgt_z_width = 38;
+			set_fractured = set_fractured_dspv1;
 		} else {
 			reject = true;
 		}
@@ -91,6 +96,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 			tgt_a_width = 20;
 			tgt_b_width = 18;
 			tgt_z_width = 50;
+			set_fractured = set_fractured_dspv2;
 		} else {
 			reject = true;
 		}
@@ -201,6 +207,10 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 
 	bool subtract = (st.add->type == ID($sub));
 	cell->setPort(ID(subtract_i), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
+
+	// Disable fractured mode
+	if (set_fractured)
+		set_fractured(cell);
 
 	// Mark the cells for removal
 	pm.autoremove(st.mul);
