@@ -61,9 +61,6 @@ struct QlDspSimdPass : public Pass {
 
 	// ..........................................
 
-	const int m_Dspv1ModeBitsSize = 80;
-	const int m_Dspv2ModeBitsSize = 68;
-
 	/// Temporary SigBit to SigBit helper map.
 	SigMap sigmap;
 
@@ -110,12 +107,13 @@ struct QlDspSimdPass : public Pass {
 			ID(shift_right_i),
 			ID(subtract_i),
 			ID(register_inputs_i),
-			ID(coeff_0_i),
-			ID(coeff_1_i),
-			ID(coeff_2_i),
-			ID(coeff_3_i),
 		};
-		static const std::vector<IdString> m_Dspv1CfgParams = {};
+		static const std::vector<IdString> m_Dspv1CfgParams = {
+			ID(COEFF_0),
+			ID(COEFF_1),
+			ID(COEFF_2),
+			ID(COEFF_3),
+		};
 		static const std::vector<IdString> m_Dspv2CfgPorts = {
 			ID(clock_i),
 			ID(reset_i),
@@ -159,15 +157,6 @@ struct QlDspSimdPass : public Pass {
 			ID(z_o),
 		};
 	
-		// Params to serialize into MODE_BITS param
-		static const std::vector<IdString> m_Dspv1ModeBitParams = {
-			ID(COEFF_3),
-			ID(COEFF_2),
-			ID(COEFF_1),
-			ID(COEFF_0),
-		};
-		static const std::vector<IdString> m_Dspv2ModeBitParams = {};
-
 		// Source DSP cell type (half-block)
 		static const IdString m_Dspv1SisdType = ID(dsp_t1_10x9x32_cfg_ports);
 		static const IdString m_Dspv2SisdType = ID(dspv2_16x9x32_cfg_ports);
@@ -195,8 +184,6 @@ struct QlDspSimdPass : public Pass {
 		const auto& data_ports = (dsp_version == 1) ? m_Dspv1DataPorts : m_Dspv2DataPorts;
 		auto half_dsp = (dsp_version == 1) ? m_Dspv1SisdType : m_Dspv2SisdType;
 		auto full_dsp = (dsp_version == 1) ? m_Dspv1SimdType : m_Dspv2SimdType;
-		auto mode_bit_params = (dsp_version == 1) ? m_Dspv1ModeBitParams : m_Dspv2ModeBitParams;
-		auto mode_bits_size = (dsp_version == 1) ? m_Dspv1ModeBitsSize : m_Dspv2ModeBitsSize;
 
 		int cellsMerged = 0;
 		// Process modules
@@ -300,27 +287,9 @@ struct QlDspSimdPass : public Pass {
 						simd->setPort(port, sigspec);
 					}
 
-					if (mode_bit_params.size()) {
-						// Concatenate FIR coefficient parameters into the single
-						// MODE_BITS parameter
-						Const mode_bits;
-						for (const auto &it : mode_bit_params) {
-							auto val_a = dsp_a->getParam(it);
-							auto val_b = dsp_b->getParam(it);
-	
-							mode_bits.bits().insert(mode_bits.bits().end(),
-								val_a.begin(), val_a.end());
-							mode_bits.bits().insert(mode_bits.bits().end(),
-								val_b.begin(), val_b.end());
-						}
-	
-						simd->setParam(ID(MODE_BITS), mode_bits);
-						log_assert(mode_bits.size() == mode_bits_size);
-						
-					}
 					// Enable the fractured mode
 					if (dsp_version == 1)
-						simd->setPort(ID(f_mode), State::S1);
+						simd->setPort(ID(f_mode_i), State::S1);
 					else
 						simd->setParam(ID(FRAC_MODE), State::S1);
 
