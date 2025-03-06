@@ -34,7 +34,8 @@ module dsp_t1_20x18x64_cfg_ports (
     input  [5:0]  shift_right_i,
     input         round_i,
     input         subtract_i,
-    input         register_inputs_i
+    input         register_inputs_i,
+    input         f_mode_i
 );
 
     parameter [19:0] COEFF_0 = 20'd0;
@@ -59,7 +60,7 @@ module dsp_t1_20x18x64_cfg_ports (
         .unsigned_a         (unsigned_a_i),
         .unsigned_b         (unsigned_b_i),
 
-        .f_mode             (1'b0), // No fracturation
+        .f_mode             (f_mode_i), // No fracturation
         .output_select      (output_select_i),
         .saturate_enable    (saturate_enable_i),
         .shift_right        (shift_right_i),
