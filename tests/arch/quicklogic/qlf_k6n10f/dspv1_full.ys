@@ -21,7 +21,7 @@ EOF
 design -save ast
 proc
 wreduce
-#equiv_opt -async2sync -map +/quicklogic/qlf_k6n10f/dsp_sim.v synth_quicklogic -family qlf_k6n10f
+#equiv_opt -async2sync -map +/quicklogic/qlf_k6n10f/dspv1_sim.v synth_quicklogic -family qlf_k6n10f
 #design -load postopt
 synth_quicklogic -family qlf_k6n10f
 cd top
@@ -114,8 +114,8 @@ always @(posedge clk) begin
 end
 endmodule
 EOF
-read_verilog +/quicklogic/qlf_k6n10f/dsp_sim.v
+read_verilog +/quicklogic/qlf_k6n10f/dspv1_sim.v
 hierarchy -top testbench
 proc
 async2sync
-sim -assert -q -clock clk -n 20
+sim -q -clock clk -n 20 -assert
