@@ -522,50 +522,48 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 }
 
 // Bulk call to splitnets, filters bad requests and separates out types (Wires, ports) for proper processing
-void splitNets(Design *design, std::set<std::string> &netsToSplitS, std::vector<RTLIL::SigSpec> &sigsToSplit, bool formalFriendly, bool debug,
-	       bool inputPort = false)
+void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &sigsToSplit, bool formalFriendly, bool inputPort = false)
 {
 	std::string wires;
 	std::string inputs;
 	std::string outputs;
-	for (RTLIL::SigSpec sigToSplit : sigsToSplit) {
-		Wire *parentWire = getParentWire(sigToSplit);
-		if (!parentWire)
-			continue;
-		std::string parent = parentWire->name.c_str();
-		if (parent == "") {
-			continue;
-		}
-		if (parentWire->width == 1)
-			continue;
-		parent = substringuntil(parent, '[');
-		if (netsToSplitS.find(parent) == netsToSplitS.end()) {
-			netsToSplitS.insert(parent);
-			if (debug) {
-				std::cout << "splitnets: " << parent << std::endl;
-			}
+	// Memorize selection
+	Pass::call(design, "select -set presplitnets %");
+	// Clear selection
+	Pass::call(design, "select -none");
+	std::set<Wire *> selected;
+	for (std::map<Module *, std::vector<RTLIL::SigSpec>>::iterator itr = sigsToSplit.begin(); itr != sigsToSplit.end(); itr++) {
+		Module *module = itr->first;
+		for (RTLIL::SigSpec sigToSplit : itr->second) {
+			Wire *parentWire = getParentWire(sigToSplit);
+			if (!parentWire)
+				continue;
+			if (selected.find(parentWire) != selected.end())
+				continue;
+			selected.insert(parentWire);
 			if ((!parentWire->port_input) && (!parentWire->port_output))
-				wires += " w:" + parent;
+				design->select(module, parentWire);
 			if (!formalFriendly) {
 				// Formal verification does not like ports to be split.
 				// This option will prevent some buffering to happen on high fanout input/output ports,
 				// but it will make formal happy.
 				if (inputPort) {
 					if (parentWire->port_input)
-						inputs += " i:" + parent;
+						design->select(module, parentWire);
 				} else {
 					if (parentWire->port_output)
-						outputs += " o:" + parent;
+						design->select(module, parentWire);
 				}
 			}
 		}
 	}
-	if (!wires.empty()) {
-		Pass::call(design, "splitnets" + wires); // Wire
+	if (formalFriendly) {
+		Pass::call(design, "splitnets");
+	} else {
+		Pass::call(design, "splitnets -ports");
 	}
-	if (!inputs.empty() || !outputs.empty()) {
-		Pass::call(design, "splitnets -ports_only" + inputs + outputs); // Input port
-	}
+	// Restore selection
+	Pass::call(design, "select @presplitnets");
 }
 
 struct AnnotateCellFanout : public ScriptPass {
@@ -640,52 +638,68 @@ struct AnnotateCellFanout : public ScriptPass {
 			log_error("Fanout cannot be limited to less than 2\n");
 			return;
 		}
+
+		// Collect all the high fanout signals to split
+		std::map<Module *, std::vector<SigSpec>> signalsToSplit;
+		std::map<Module *, std::vector<SigSpec>> portsToSplit;
+
+		// Split all the high fanout nets for the whole design
 		for (auto module : design->selected_modules()) {
-			bool fixedFanout = false;
-			std::map<Cell *, Wire *> insertedBuffers;
-			{
-				// Calculate fanout
-				SigMap sigmap(module);
-				dict<Cell *, int> cellFanout;
-				dict<SigSpec, int> sigFanout;
-				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
-				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
+			// Calculate fanout
+			SigMap sigmap(module);
+			dict<Cell *, int> cellFanout;
+			dict<SigSpec, int> sigFanout;
+			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
+			calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
 
-				std::set<std::string> netsToSplitS;
-				// Split cells output nets with high fanout
-				std::vector<RTLIL::SigSpec> cellOutputsToSplit;
-				for (auto itrCell : cellFanout) {
-					Cell *cell = itrCell.first;
-					int fanout = itrCell.second;
-					if (limit > 0 && (fanout > limit)) {
-						for (auto &conn : cell->connections()) {
-							IdString portName = conn.first;
-							RTLIL::SigSpec actual = conn.second;
-							if (cell->output(portName)) {
-								RTLIL::SigSpec cellOutSig = sigmap(actual);
-								cellOutputsToSplit.push_back(cellOutSig);
-							}
+			// Split cells output nets with high fanout
+			std::vector<RTLIL::SigSpec> cellOutputsToSplit;
+			for (auto itrCell : cellFanout) {
+				Cell *cell = itrCell.first;
+				int fanout = itrCell.second;
+				if (limit > 0 && (fanout > limit)) {
+					int nbOutputs = 0;
+					for (auto &conn : cell->connections()) {
+						IdString portName = conn.first;
+						if (cell->output(portName)) {
+							nbOutputs++;
 						}
 					}
-				}
-				splitNets(design, netsToSplitS, cellOutputsToSplit, formalFriendly, debug);
-
-				if (buffer_inputs) {
-					// Split module input nets with high fanout
-					std::vector<RTLIL::SigSpec> wiresToSplit;
-					for (Wire *wire : module->wires()) {
-						if (wire->port_input) {
-							SigSpec inp = sigmap(wire);
-							int fanout = sigFanout[inp];
-							if (limit > 0 && (fanout > limit)) {
-								wiresToSplit.push_back(inp);
-							}
+					for (auto &conn : cell->connections()) {
+						IdString portName = conn.first;
+						RTLIL::SigSpec actual = conn.second;
+						if (cell->output(portName)) {
+							RTLIL::SigSpec cellOutSig = sigmap(actual);
+							cellOutputsToSplit.push_back(cellOutSig);
 						}
 					}
-					splitNets(design, netsToSplitS, wiresToSplit, formalFriendly, debug, true);
 				}
 			}
+			signalsToSplit.emplace(module, cellOutputsToSplit);
 
+			if (buffer_inputs) {
+				// Split module input nets with high fanout
+				std::vector<RTLIL::SigSpec> wiresToSplit;
+				for (Wire *wire : module->wires()) {
+					if (wire->port_input) {
+						SigSpec inp = sigmap(wire);
+						int fanout = sigFanout[inp];
+						if (limit > 0 && (fanout > limit)) {
+							wiresToSplit.push_back(inp);
+						}
+					}
+				}
+				portsToSplit.emplace(module, wiresToSplit);
+			}
+		}
+		splitNets(design, signalsToSplit, formalFriendly);
+		splitNets(design, portsToSplit, formalFriendly, true);
+
+		// Fix the high fanout nets
+		for (auto module : design->selected_modules()) {
+			bool fixedFanout = false;
+			// All the buffers inserted in the module
+			std::map<Cell *, Wire *> insertedBuffers;
 			{
 				// Fix high fanout
 				SigMap sigmap(module);
