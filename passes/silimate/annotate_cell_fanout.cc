@@ -522,15 +522,16 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 }
 
 // Bulk call to splitnets, filters bad requests and separates out types (Wires, ports) for proper processing
-void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &sigsToSplit, bool formalFriendly)
+void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &sigsToSplit)
 {
 	std::string wires;
 	std::string inputs;
 	std::string outputs;
-	// Memorize selection
+	// Memorize previous selection
 	Pass::call(design, "select -set presplitnets %");
 	// Clear selection
 	Pass::call(design, "select -none");
+	// Select all the wires to split
 	std::set<Wire *> selected;
 	for (std::map<Module *, std::vector<RTLIL::SigSpec>>::iterator itr = sigsToSplit.begin(); itr != sigsToSplit.end(); itr++) {
 		Module *module = itr->first;
@@ -541,85 +542,51 @@ void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &
 			if (selected.find(parentWire) != selected.end())
 				continue;
 			selected.insert(parentWire);
-			if (formalFriendly) {
-				// Formal verification does not like ports to be split.
-				// This option will prevent some buffering to happen on high fanout input/output ports,
-				// but it will make formal happy.
-				if ((!parentWire->port_input) && (!parentWire->port_output))
-			    design->select(module, parentWire);
-			} else {
-			  design->select(module, parentWire);
-			}
+			design->select(module, parentWire);
 		}
 	}
-	Pass::call(design, std::string("splitnets") + (formalFriendly ? "" : " -ports"));
-	// Restore selection
+	// Split the wires
+	Pass::call(design, std::string("splitnets -ports"));
+	// Restore previous selection
 	Pass::call(design, "select @presplitnets");
 }
 
-struct AnnotateCellFanout : public ScriptPass {
-	AnnotateCellFanout() : ScriptPass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
+// Split high fanout nets
+struct SplitHighFanoutNets : public ScriptPass {
+	SplitHighFanoutNets() : ScriptPass("split_high_fanout_nets", "Split high fanout nets") {}
 	void script() override {}
 	void help() override
 	{
 		log("\n");
-		log("    annotate_cell_fanout [options] [selection]\n");
+		log("    split_high_fanout_nets [options] [selection]\n");
 		log("\n");
-		log("This pass annotates cell fanout and optionally inserts balanced buffer trees to limit fanout.\n");
+		log("Split high fanout nets.\n");
 		log("\n");
 		log("    -limit <limit>\n");
 		log("        Limits the fanout by inserting balanced buffer trees.\n");
-		log("    -formal\n");
-		log("        For formal verification to pass, will prevent splitnets passes on ports, even if they have large fanout.\n");
 		log("    -inputs\n");
 		log("        Fix module inputs fanout.\n");
-		log("    -clocks\n");
-		log("        Fix module clocks fanout.\n");
-		log("    -resets\n");
-		log("        Fix module resets fanout.\n");
-		log("    -debug\n");
-		log("        Debug trace.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int limit = -1;
-		bool formalFriendly = false;
 		bool buffer_inputs = false;
-		bool buffer_clocks = false;
-		bool buffer_resets = false;
-		bool debug = false;
 		if (design == nullptr) {
 			log_error("No design object\n");
 			return;
 		}
-		log("Running annotate_cell_fanout pass\n");
+		log("Running split_high_fanout_nets pass\n");
 		log_flush();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-debug") {
-				debug = true;
-				continue;
-			}
 			if (args[argidx] == "-limit") {
 				limit = std::atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-formal") {
-				formalFriendly = true;
-				continue;
-			}
 			if (args[argidx] == "-inputs") {
 				buffer_inputs = true;
-				continue;
-			}
-			if (args[argidx] == "-clocks") {
-				buffer_clocks = true;
-				continue;
-			}
-			if (args[argidx] == "-resets") {
-				buffer_resets = true;
 				continue;
 			}
 			break;
@@ -679,7 +646,76 @@ struct AnnotateCellFanout : public ScriptPass {
 			signalsToSplit.emplace(module, netsToSplit);
 		}
 		// Split all the high fanout nets in one pass for the whole design
-		splitNets(design, signalsToSplit, formalFriendly);
+		splitNets(design, signalsToSplit);
+	}
+} SplitHighFanoutNets;
+
+// Annotate cell fanout and optionally insert balanced buffer trees to limit fanout
+struct AnnotateCellFanout : public ScriptPass {
+	AnnotateCellFanout() : ScriptPass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
+	void script() override {}
+	void help() override
+	{
+		log("\n");
+		log("    annotate_cell_fanout [options] [selection]\n");
+		log("\n");
+		log("This pass annotates cell fanout and optionally inserts balanced buffer trees to limit fanout.\n");
+		log("\n");
+		log("    -limit <limit>\n");
+		log("        Limits the fanout by inserting balanced buffer trees.\n");
+		log("    -inputs\n");
+		log("        Fix module inputs fanout.\n");
+		log("    -clocks\n");
+		log("        Fix module clocks fanout.\n");
+		log("    -resets\n");
+		log("        Fix module resets fanout.\n");
+		log("    -debug\n");
+		log("        Debug trace.\n");
+		log("\n");
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		int limit = -1;
+		bool buffer_inputs = false;
+		bool buffer_clocks = false;
+		bool buffer_resets = false;
+		bool debug = false;
+		if (design == nullptr) {
+			log_error("No design object\n");
+			return;
+		}
+		log("Running annotate_cell_fanout pass\n");
+		log_flush();
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-debug") {
+				debug = true;
+				continue;
+			}
+			if (args[argidx] == "-limit") {
+				limit = std::atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-inputs") {
+				buffer_inputs = true;
+				continue;
+			}
+			if (args[argidx] == "-clocks") {
+				buffer_clocks = true;
+				continue;
+			}
+			if (args[argidx] == "-resets") {
+				buffer_resets = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+		if ((limit != -1) && (limit < 2)) {
+			log_error("Fanout cannot be limited to less than 2\n");
+			return;
+		}
 
 		// Fix the high fanout nets
 		for (auto module : design->selected_modules()) {
@@ -810,6 +846,6 @@ struct AnnotateCellFanout : public ScriptPass {
 		log("End annotate_cell_fanout pass\n");
 		log_flush();
 	}
-} SplitNetlist;
+} AnnotateCellFanout;
 
 PRIVATE_NAMESPACE_END
