@@ -18,7 +18,7 @@ module top(a, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 log -pop
@@ -36,7 +36,7 @@ module top(a, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 log -pop
@@ -56,7 +56,7 @@ module top(a, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 log -pop
@@ -77,7 +77,7 @@ module top(a_, b, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 log -pop
@@ -101,7 +101,7 @@ module top(a, b_, f, s, y_);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 log -pop
@@ -121,7 +121,7 @@ module top(a, b, ab, s, y);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 log -pop
@@ -141,7 +141,7 @@ module top(a, b, s, y, z);
 endmodule
 EOF
 check -assert
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 
@@ -162,7 +162,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 
@@ -183,7 +183,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 
@@ -204,7 +204,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 
@@ -226,7 +226,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-none t:$add %co1 %a w:y %i
 
@@ -247,7 +247,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i
 
@@ -268,7 +268,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i
 
@@ -289,7 +289,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 
@@ -310,7 +310,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 
@@ -331,7 +331,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 
@@ -352,7 +352,7 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
 
@@ -373,6 +373,6 @@ EOF
 check -assert
 wreduce
 opt_clean
-equiv_opt -assert peepopt -withmuxadd
+equiv_opt -assert peepopt -muxorder
 design -load postopt
 select -assert-any t:$add %co1 %a w:y %i # assert adder rewired

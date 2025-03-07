@@ -68,9 +68,11 @@ struct PeepoptPass : public Pass {
 		log("                   based pattern to prevent combinational paths from the\n");
 		log("                   output to the enable input after running clk2fflogic.\n");
 		log("\n");
-		log("If -withmuxadd is specified it adds the following rule:\n");
+		log("If -muxorder is specified it adds the following rule:\n");
 		log("\n");
-		log("   * muxadd - Replace S?(A+B):A with A+(S?B:0)\n");
+		log("   * muxorder - Replace S?(A OP B):A with A OP (S?B:I) where I is identity of OP\n");
+		log("                Ex 1:   S?(A + B):A   --->   A + (S?B:0)\n");
+		log("                Ex 2:   S?(A * B):A   --->   A & (S?B:1)\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -78,7 +80,7 @@ struct PeepoptPass : public Pass {
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
 		bool formalclk = false;
-		bool withmuxadd = false;
+		bool muxorder = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -86,8 +88,8 @@ struct PeepoptPass : public Pass {
 				formalclk = true;
 				continue;
 			}
-			if (args[argidx] == "-withmuxadd") {
-				withmuxadd = true;
+			if (args[argidx] == "-muxorder") {
+				muxorder = true;
 				continue;
 			}
 			break;
@@ -119,8 +121,8 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftmul_left();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
-					if (withmuxadd)
-						pm.run_muxadd();
+					if (muxorder)
+						pm.run_muxorder();
 				}
 			}
 		}

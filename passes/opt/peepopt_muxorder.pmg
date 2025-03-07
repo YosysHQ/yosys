@@ -1,0 +1,143 @@
+pattern muxorder
+//
+// Authored by Akash Levy and Alain Dargelas of Silimate, Inc. under ISC license.
+//
+// Transforms OP->mux into mux->OP using identity input for two-input OP. Example:
+// y = s ? (a + b) : a   ===>   y = a + (s ? b : 0)
+// or
+// y = s ? a : (a + b)   ===>   y = a + (s ? 0 : b)
+//
+// Supported OPs: +, *, &, |, ^, ^~
+//
+
+state <SigSpec> op_a op_b op_y op_a_ext mux_a mux_b mux_y
+state <Const> op_a_signed
+state <IdString> op_a_id op_b_id mux_a_id mux_b_id
+
+match op
+	// Select OP
+	select op->type.in($add, $mul, $and, $or, $xor, $xnor)
+
+	// Set ports, allowing A and B to be swapped
+	choice <IdString> A {\A, \B}
+	define <IdString> B (A == \A ? \B : \A)
+	set op_a port(op, A)
+	set op_b port(op, B)
+	set op_y port(op, \Y)
+
+	// Get signedness
+	set op_a_signed param(op, (A == \A) ? \A_SIGNED : \B_SIGNED)
+
+	// Choice ids
+	set op_a_id A
+	set op_b_id B
+endmatch
+
+code op_y op_a op_b op_a_ext
+	// Get OP signals
+	op_a_ext = SigSpec(port(op, op_a_id));
+	op_a_ext.extend_u0(GetSize(op_y), op_a_signed.as_bool());
+
+	// Fanout of each OP Y bit should be 1 (no bit-split)
+	if (nusers(op_y) != 2)
+		reject;
+endcode
+
+match mux 
+	// Select mux of form: s ? (a + b) : a
+	// Allow leading 0s when A_WIDTH != Y_WIDTH or s ? a : (a + b)
+	select mux->type == $mux
+	choice <IdString> AB {\A, \B}
+	define <IdString> BA (AB == \A ? \B : \A)
+	set mux_y port(mux, \Y)
+	set mux_a port(mux, AB)
+	set mux_b port(mux, BA)
+	set mux_a_id AB
+	set mux_b_id BA
+	index <SigSpec> port(mux, AB) === op_a_ext
+	index <SigSpec> port(mux, BA) === op_y
+endmatch
+
+code op_y op_a op_b op_a_ext op_a_id op_b_id  mux_y mux_a mux_b mux_a_id mux_b_id
+	// Get mux signal
+	SigSpec mid; 
+	std::string op_y_name;
+	if (op_y.is_wire()) 
+		op_y_name = op_y.as_wire()->name.c_str();
+	else
+		op_y_name = op_y.as_string();
+
+	// Start by renaming the LHS of an eventual assign statement
+	// where the RHS is the OP output (that is getting rewired).
+	// Renaming the signal allows equiv_opt to function as it would
+	// otherwise try to match the functionality which would fail
+	// as the LHS signal has indeed changed function.
+
+	// OP output could be assigned
+	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
+		RTLIL::SigSpec rhs = it->second;
+		if (rhs.is_wire()) {
+			const std::string& rhs_name = rhs.as_wire()->name.c_str();
+			if (rhs_name == op_y_name) {
+				RTLIL::SigSpec lhs = it->first;
+				if (lhs.is_wire()) {
+					const std::string& lhs_name =  lhs.as_wire()->name.c_str();
+					module->rename(lhs_name, module->uniquify("$" + lhs_name));
+					break;
+				}
+			}
+		}
+	}
+	// Alternatively, the port name could be a wire name
+	if (op_y.is_wire()) {
+		if (GetSize(op_y_name)) {
+			if (op_y_name[0] != '$') {
+				module->rename(op_y_name, module->uniquify("$" + op_y_name));
+			}
+		}
+	} else {
+		for (auto chunk : op_y.chunks()) {
+			if (chunk.is_wire()) {
+				const std::string& name = chunk.wire->name.c_str();
+				if (name[0] != '$') {
+					module->rename(name, module->uniquify("$" + name));
+				}
+			}
+		}
+	}
+
+	// Create new mid wire
+	Cell *cell = mux;
+	mid = module->addWire(NEW_ID2_SUFFIX("mid"), GetSize(op_b));
+
+	// Determine identity input of operator
+	Const identity;
+	if (op->type.in($add, $or, $xor))
+	  identity = Const(0, GetSize(op_b));
+	else if (op->type == $mul)
+		identity = Const(1, GetSize(op_b));
+	else if (op->type.in($and, $xnor))
+	  identity = Const(State::S1, GetSize(op_b));
+	else
+		log_assert(0); // invalid operator, should never happen
+
+	// Connect ports
+	op->setPort(op_b_id, mid);
+	op->setPort(op_a_id, op_a);
+	op->setPort(\Y, op_y);
+	cell = op;
+	module->rename(op, NEW_ID2_SUFFIX("reord"));
+	mux->setPort(mux_a_id, identity);
+	mux->setPort(mux_b_id, op_b);
+	mux->setPort(\Y, mid);
+	cell = mux;
+	module->rename(mux, NEW_ID2_SUFFIX("reord"));
+	module->connect(mux_y, op_y);
+
+	// Log, fixup, accept
+	log("muxorder pattern in %s: mux=%s, op=%s, optype=%s\n", log_id(module), log_id(mux), log_id(op), log_id(op->type));
+	op->fixup_parameters();
+	mux->fixup_parameters();
+	did_something = true;
+	accept;
+endcode
