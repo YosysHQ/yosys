@@ -1,0 +1,13 @@
+read_verilog -icells <<EOF
+module top(input wire [2:0] a, output wire [2:0] y);
+	\$buf #(.WIDTH(3)) b(.A(a), .Y(y));
+endmodule
+EOF
+design -save save
+
+opt_clean
+select -assert-none t:$buf
+
+design -load save
+techmap
+select -assert-none t:$buf
