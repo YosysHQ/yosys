@@ -674,6 +674,42 @@ struct VerilogDefines : public Pass {
 	}
 } VerilogDefines;
 
+static void parse_file_list(const std::string &file_list_path, RTLIL::Design *design, bool relative_to_file_list_path)
+{
+	std::ifstream flist(file_list_path);
+	if (!flist.is_open()) {
+		log_error("Verilog file list file does not exist");
+		exit(1);
+	}
+
+	std::filesystem::path file_list_parent_dir = std::filesystem::path(file_list_path).parent_path();
+
+	std::string v_file_name;
+	while (std::getline(flist, v_file_name)) {
+		if (v_file_name.empty()) {
+			continue;
+		}
+
+		std::filesystem::path verilog_file_path;
+		if (relative_to_file_list_path) {
+			verilog_file_path = file_list_parent_dir / v_file_name;
+		} else {
+			verilog_file_path = std::filesystem::current_path() / v_file_name;
+		}
+
+		bool is_sv = (verilog_file_path.extension() == ".sv");
+
+		std::vector<std::string> read_verilog_cmd = {"read_verilog", "-defer"};
+		if (is_sv) {
+			read_verilog_cmd.push_back("-sv");
+		}
+		read_verilog_cmd.push_back(verilog_file_path.string());
+		Pass::call(design, read_verilog_cmd);
+	}
+
+	flist.close();
+}
+
 struct VerilogFileList : public Pass {
 	VerilogFileList() : Pass("read_verilog_file_list", "Parse a Verilog file list") {}
 	void help() override
@@ -692,42 +728,6 @@ struct VerilogFileList : public Pass {
 		log("        File list file contains list of Verilog files to be parsed, any\n");
 		log("          path is treated relative to current working directroy\n");
 		log("\n");
-	}
-
-	void parse_file_list(const std::string &file_list_path, RTLIL::Design *design, bool relative_to_file_list_path)
-	{
-		std::ifstream flist(file_list_path);
-		if (!flist.is_open()) {
-			log_error("Verilog file list file does not exist");
-			exit(1);
-		}
-
-		std::filesystem::path file_list_parent_dir = std::filesystem::path(file_list_path).parent_path();
-
-		std::string v_file_name;
-		while (std::getline(flist, v_file_name)) {
-			if (v_file_name.empty()) {
-				continue;
-			}
-
-			std::filesystem::path verilog_file_path;
-			if (relative_to_file_list_path) {
-				verilog_file_path = file_list_parent_dir / v_file_name;
-			} else {
-				verilog_file_path = std::filesystem::current_path() / v_file_name;
-			}
-
-			bool is_sv = (verilog_file_path.extension() == ".sv");
-
-			std::vector<std::string> read_verilog_cmd = {"read_verilog", "-defer"};
-			if (is_sv) {
-				read_verilog_cmd.push_back("-sv");
-			}
-			read_verilog_cmd.push_back(verilog_file_path.string());
-			Pass::call(design, read_verilog_cmd);
-		}
-
-		flist.close();
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
