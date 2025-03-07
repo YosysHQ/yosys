@@ -686,11 +686,11 @@ struct VerilogFileList : public Pass {
 		log("\n");
 		log("    -F file_list_path\n");
 		log("        File list file contains list of Verilog files to be parsed, any\n");
-		log("        ' path is treated relative to the file list file'\n");
+		log("          path is treated relative to the file list file\n");
 		log("\n");
 		log("    -f file_list_path\n");
 		log("        File list file contains list of Verilog files to be parsed, any\n");
-		log("        ' path is treated relative to current working directroy'\n");
+		log("          path is treated relative to current working directroy\n");
 		log("\n");
 	}
 
@@ -710,21 +710,21 @@ struct VerilogFileList : public Pass {
 				continue;
 			}
 
-			std::string verilog_file_path;
+			std::filesystem::path verilog_file_path;
 			if (relative_to_file_list_path) {
-				verilog_file_path = file_list_parent_dir.string() + '/' + v_file_name;
+				verilog_file_path = file_list_parent_dir / v_file_name;
 			} else {
-				verilog_file_path = std::filesystem::current_path().string() + '/' + v_file_name;
+				verilog_file_path = std::filesystem::current_path() / v_file_name;
 			}
 
-			bool is_sv = (std::filesystem::path(verilog_file_path).extension() == ".sv");
+			bool is_sv = (verilog_file_path.extension() == ".sv");
 
-			std::string command = "read_verilog";
+			std::vector<std::string> read_verilog_cmd = {"read_verilog", "-defer"};
 			if (is_sv) {
-				command += " -sv";
+				read_verilog_cmd.push_back("-sv");
 			}
-			command = command + ' ' + verilog_file_path;
-			Pass::call(design, command);
+			read_verilog_cmd.push_back(verilog_file_path.string());
+			Pass::call(design, read_verilog_cmd);
 		}
 
 		flist.close();
@@ -748,9 +748,7 @@ struct VerilogFileList : public Pass {
 			break;
 		}
 
-		if (args.size() != argidx) {
-			cmd_error(args, argidx, "Extra argument.");
-		}
+		extra_args(args, argidx, design);
 	}
 } VerilogFilelist;
 

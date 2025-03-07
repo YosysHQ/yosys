@@ -16,6 +16,7 @@ __pycache__
 /qtcreator.config
 /qtcreator.creator
 /qtcreator.creator.user
+/compile_commands.json
 /coverage.info
 /coverage_html
 /Makefile.conf
@@ -53,4 +54,3 @@ __pycache__
 /venv
 /boost
 /ffi
-/compile_commands.json
