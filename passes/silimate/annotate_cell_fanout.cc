@@ -522,7 +522,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 }
 
 // Bulk call to splitnets, filters bad requests and separates out types (Wires, ports) for proper processing
-void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &sigsToSplit, bool formalFriendly, bool inputPort = false)
+void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &sigsToSplit, bool formalFriendly)
 {
 	std::string wires;
 	std::string inputs;
@@ -541,27 +541,18 @@ void splitNets(Design *design, std::map<Module *, std::vector<RTLIL::SigSpec>> &
 			if (selected.find(parentWire) != selected.end())
 				continue;
 			selected.insert(parentWire);
-			if ((!parentWire->port_input) && (!parentWire->port_output))
-				design->select(module, parentWire);
-			if (!formalFriendly) {
+			if (formalFriendly) {
 				// Formal verification does not like ports to be split.
 				// This option will prevent some buffering to happen on high fanout input/output ports,
 				// but it will make formal happy.
-				if (inputPort) {
-					if (parentWire->port_input)
-						design->select(module, parentWire);
-				} else {
-					if (parentWire->port_output)
-						design->select(module, parentWire);
-				}
+				if ((!parentWire->port_input) && (!parentWire->port_output))
+			    design->select(module, parentWire);
+			} else {
+			  design->select(module, parentWire);
 			}
 		}
 	}
-	if (formalFriendly) {
-		Pass::call(design, "splitnets");
-	} else {
-		Pass::call(design, "splitnets -ports");
-	}
+	Pass::call(design, std::string("splitnets") + (formalFriendly ? "" : " -ports"));
 	// Restore selection
 	Pass::call(design, "select @presplitnets");
 }
@@ -641,9 +632,6 @@ struct AnnotateCellFanout : public ScriptPass {
 
 		// Collect all the high fanout signals to split
 		std::map<Module *, std::vector<SigSpec>> signalsToSplit;
-		std::map<Module *, std::vector<SigSpec>> portsToSplit;
-
-		// Split all the high fanout nets for the whole design
 		for (auto module : design->selected_modules()) {
 			// Calculate fanout
 			SigMap sigmap(module);
@@ -652,8 +640,8 @@ struct AnnotateCellFanout : public ScriptPass {
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 			calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
 
-			// Split cells output nets with high fanout
-			std::vector<RTLIL::SigSpec> cellOutputsToSplit;
+			// Cells output nets with high fanout
+			std::vector<RTLIL::SigSpec> netsToSplit;
 			for (auto itrCell : cellFanout) {
 				Cell *cell = itrCell.first;
 				int fanout = itrCell.second;
@@ -670,30 +658,28 @@ struct AnnotateCellFanout : public ScriptPass {
 						RTLIL::SigSpec actual = conn.second;
 						if (cell->output(portName)) {
 							RTLIL::SigSpec cellOutSig = sigmap(actual);
-							cellOutputsToSplit.push_back(cellOutSig);
+							netsToSplit.push_back(cellOutSig);
 						}
 					}
 				}
 			}
-			signalsToSplit.emplace(module, cellOutputsToSplit);
-
 			if (buffer_inputs) {
-				// Split module input nets with high fanout
+				// Module input nets with high fanout
 				std::vector<RTLIL::SigSpec> wiresToSplit;
 				for (Wire *wire : module->wires()) {
 					if (wire->port_input) {
 						SigSpec inp = sigmap(wire);
 						int fanout = sigFanout[inp];
 						if (limit > 0 && (fanout > limit)) {
-							wiresToSplit.push_back(inp);
+							netsToSplit.push_back(inp);
 						}
 					}
 				}
-				portsToSplit.emplace(module, wiresToSplit);
 			}
+			signalsToSplit.emplace(module, netsToSplit);
 		}
+		// Split all the high fanout nets in one pass for the whole design
 		splitNets(design, signalsToSplit, formalFriendly);
-		splitNets(design, portsToSplit, formalFriendly, true);
 
 		// Fix the high fanout nets
 		for (auto module : design->selected_modules()) {
@@ -793,6 +779,8 @@ struct AnnotateCellFanout : public ScriptPass {
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
+
+				// Cleanup and annotation
 				for (auto itrCell : cellFanout) {
 					Cell *cell = itrCell.first;
 					int fanout = itrCell.second;
