@@ -26,7 +26,9 @@
  *
  */
 
+#if !defined(__wasm)
 #include <filesystem>
+#endif
 
 #include "verilog_frontend.h"
 #include "preproc.h"
@@ -674,6 +676,8 @@ struct VerilogDefines : public Pass {
 	}
 } VerilogDefines;
 
+#if !defined(__wasm)
+
 static void parse_file_list(const std::string &file_list_path, RTLIL::Design *design, bool relative_to_file_list_path)
 {
 	std::ifstream flist(file_list_path);
@@ -721,12 +725,10 @@ struct VerilogFileList : public Pass {
 		log("Parse a Verilog file list, and pass the list of Verilog files to read_verilog command.\n");
 		log("\n");
 		log("    -F file_list_path\n");
-		log("        File list file contains list of Verilog files to be parsed, any\n");
-		log("          path is treated relative to the file list file\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is treated relative to the file list file\n");
 		log("\n");
 		log("    -f file_list_path\n");
-		log("        File list file contains list of Verilog files to be parsed, any\n");
-		log("          path is treated relative to current working directroy\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is treated relative to current working directroy\n");
 		log("\n");
 	}
 
@@ -751,6 +753,8 @@ struct VerilogFileList : public Pass {
 		extra_args(args, argidx, design);
 	}
 } VerilogFilelist;
+
+#endif
 
 YOSYS_NAMESPACE_END
 
