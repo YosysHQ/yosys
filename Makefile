@@ -1010,6 +1010,18 @@ docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
+docs/source/generated/%.cc: backends/%.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) cp $< $@
+
+# diff returns exit code 1 if the files are different, but it's not an error
+docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) diff -U 20 $^ > $@ || exit 0
+
+PHONY: docs/gen/functional_ir
+docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
+
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
 	$(Q) $(MAKE) -C docs gen
@@ -1045,7 +1057,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage docs/gen/functional_ir
 
 DOC_TARGET ?= html
 docs: docs/prep
