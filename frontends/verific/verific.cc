@@ -4298,7 +4298,7 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("    read {-f|-F} <command-file>\n");
 		log("\n");
-		log("Load and execute the specified command file. (Requires Verific.)\n");
+		log("Load and execute the specified command file.\n");
 		log("Check verific command for more information about supported commands in file.\n");
 		log("\n");
 		log("\n");
@@ -4412,10 +4412,10 @@ struct ReadPass : public Pass {
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
 				args[0] = "verific";
-				Pass::call(design, args);
 			} else {
-				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
+				args[0] = "read_verilog_file_list";
 			}
+			Pass::call(design, args);
 			return;
 		}
 
