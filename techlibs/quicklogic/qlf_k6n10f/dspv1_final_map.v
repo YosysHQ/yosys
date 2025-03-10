@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module dsp_t1_20x18x64_cfg_ports (
+module dsp_t1_20x18x64_cfg_ports_fracturable (
     input  [19:0] a_i,
     input  [17:0] b_i,
     input  [ 5:0] acc_fir_i,
@@ -60,13 +60,69 @@ module dsp_t1_20x18x64_cfg_ports (
         .unsigned_a         (unsigned_a_i),
         .unsigned_b         (unsigned_b_i),
 
-        .f_mode             (f_mode_i), // No fracturation
+        .f_mode             (f_mode_i),
         .output_select      (output_select_i),
         .saturate_enable    (saturate_enable_i),
         .shift_right        (shift_right_i),
         .round              (round_i),
         .subtract           (subtract_i),
         .register_inputs    (register_inputs_i)
+    );
+
+endmodule
+
+module dsp_t1_20x18x64_cfg_ports (
+    input  [19:0] a_i,
+    input  [17:0] b_i,
+    input  [ 5:0] acc_fir_i,
+    output [37:0] z_o,
+    output [17:0] dly_b_o,
+
+    input         clock_i,
+    input         reset_i,
+
+    input  [2:0]  feedback_i,
+    input         load_acc_i,
+    input         unsigned_a_i,
+    input         unsigned_b_i,
+
+    input  [2:0]  output_select_i,
+    input         saturate_enable_i,
+    input  [5:0]  shift_right_i,
+    input         round_i,
+    input         subtract_i,
+    input         register_inputs_i
+);
+
+    parameter [19:0] COEFF_0 = 20'd0;
+    parameter [19:0] COEFF_1 = 20'd0;
+    parameter [19:0] COEFF_2 = 20'd0;
+    parameter [19:0] COEFF_3 = 20'd0;
+
+    dsp_t1_20x18x64_cfg_ports_fracturable # (
+        .COEFF_0          (COEFF_0),
+        .COEFF_1          (COEFF_1),
+        .COEFF_2          (COEFF_2),
+        .COEFF_3          (COEFF_3)
+    ) _TECHMAP_REPLACE_ (
+        .a_i               (a_i),
+        .b_i               (b_i),
+        .acc_fir_i         (acc_fir_i),
+        .z_o               (z_o),
+        .dly_b_o           (dly_b_o),
+        .clock_i           (clock_i),
+        .reset_i           (reset_i),
+        .feedback_i        (feedback_i),
+        .load_acc_i        (load_acc_i),
+        .unsigned_a_i      (unsigned_a_i),
+        .unsigned_b_i      (unsigned_b_i),
+        .output_select_i   (output_select_i),
+        .saturate_enable_i (saturate_enable_i),
+        .shift_right_i     (shift_right_i),
+        .round_i           (round_i),
+        .subtract_i        (subtract_i),
+        .register_inputs_i (register_inputs_i),
+        .f_mode_i          (1'b0)
     );
 
 endmodule
@@ -123,7 +179,7 @@ module dsp_t1_10x9x32_cfg_ports (
         .unsigned_a         (unsigned_a_i),
         .unsigned_b         (unsigned_b_i),
 
-        .f_mode             (1'b1), // Enable fractuation, Use the lower half
+        .f_mode             (1'b0),
         .output_select      (output_select_i),
         .saturate_enable    (saturate_enable_i),
         .shift_right        (shift_right_i),

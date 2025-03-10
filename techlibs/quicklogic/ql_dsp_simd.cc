@@ -87,7 +87,7 @@ struct QlDspSimdPass : public Pass {
 		log_header(a_Design, "Executing QL_DSP_SIMD pass.\n");
 
 		// The following lists have to match simulation model interfaces.
-	
+
 		// DSP control and config ports that must be equal between
 		// merged half-blocks
 		// In addition to functional differences,
@@ -156,13 +156,13 @@ struct QlDspSimdPass : public Pass {
 			ID(c_i),
 			ID(z_o),
 		};
-	
+
 		// Source DSP cell type (half-block)
 		static const IdString m_Dspv1SisdType = ID(dsp_t1_10x9x32_cfg_ports);
 		static const IdString m_Dspv2SisdType = ID(dspv2_16x9x32_cfg_ports);
 
 		// Target DSP cell types (full-block)
-		static const IdString m_Dspv1SimdType = ID(dsp_t1_20x18x64_cfg_ports);
+		static const IdString m_Dspv1SimdType = ID(dsp_t1_20x18x64_cfg_ports_fracturable);
 		static const IdString m_Dspv2SimdType = ID(dspv2_32x18x64_cfg_ports);
 
 		// Parse args
@@ -241,7 +241,7 @@ struct QlDspSimdPass : public Pass {
 					// Check if the target cell is known (important to know
 					// its port widths)
 					if (!simd->known())
-						log_error(" The target cell type '%s' is not known!", log_id(simd));
+						log_error(" The target cell type '%s' is not known!", log_id(simd->type));
 					// Connect common ports
 
 					for (auto port : cfg_ports) {
