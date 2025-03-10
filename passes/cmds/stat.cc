@@ -24,6 +24,7 @@
 #include "passes/techmap/libparse.h"
 #include "kernel/cost.h"
 #include "libs/json11/json11.hpp"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -369,6 +370,11 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

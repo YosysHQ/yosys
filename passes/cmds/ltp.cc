@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -141,6 +142,11 @@ struct LtpWorker
 
 struct LtpPass : public Pass {
 	LtpPass() : Pass("ltp", "print longest topological path") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

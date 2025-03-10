@@ -22,6 +22,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
+#include "kernel/log_help.h"
 
 PRIVATE_NAMESPACE_BEGIN
 USING_YOSYS_NAMESPACE
@@ -38,6 +39,11 @@ static RTLIL::SigBit canonical_bit(RTLIL::SigBit bit)
 
 struct PortarcsPass : Pass {
 	PortarcsPass() : Pass("portarcs", "derive port arcs for propagation delay") {}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 
 	void help() override
 	{
