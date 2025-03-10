@@ -121,6 +121,7 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftmul_left();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
+					pm.run_sub_neg();
 					if (muxorder)
 						pm.run_muxorder();
 				}

@@ -34,6 +34,7 @@ PEEPOPT_PATTERN += passes/opt/peepopt_muldiv.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muldiv_c.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muxorder.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_formal_clockgateff.pmg
+PEEPOPT_PATTERN += passes/opt/peepopt_sub_neg.pmg
 
 passes/opt/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)

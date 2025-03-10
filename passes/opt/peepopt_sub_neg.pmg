@@ -1,0 +1,62 @@
+pattern sub_neg
+//
+// Authored by Akash Levy and Alain Dargelas of Silimate, Inc. under ISC license.
+// Transforms -(a-b)  ---->  (b-a)
+
+state <SigSpec> a b sub_y
+
+match sub
+	// Select sub
+	select sub->type == $sub
+endmatch
+
+code a b sub_y
+	// Get sub signals
+	a = port(sub, \A);
+	b = port(sub, \B);
+	sub_y = port(sub, \Y);
+
+	bool a_signed = sub->getParam(ID::A_SIGNED).as_bool();
+	bool b_signed = sub->getParam(ID::B_SIGNED).as_bool();
+
+	// Fanout of each sub Y bit should be 1 (no bit-split)
+  if (nusers(sub_y) != 2)
+ 		reject;
+
+	// Both operands need to be signed to be swapped
+	if (!a_signed || !b_signed)
+		reject;
+
+	// A and B can be interchanged
+	branch;
+	std::swap(a, b);
+endcode
+
+match neg
+	// Select neg of form -(a-b)
+	select neg->type == $neg
+
+	index <SigSpec> remove_bottom_padding(port(neg, \A)) === sub_y
+endmatch
+
+code
+	// Get neg signals
+	SigSpec neg_a = port(neg, \A);
+	SigSpec neg_y = port(neg, \Y);
+
+	bool a_signed = neg->getParam(ID::A_SIGNED).as_bool();
+	if (!a_signed)
+		reject;
+
+	// Rewire to only keep sub
+	sub->setPort(\A, b);
+	sub->setPort(\B, a);
+	sub->setPort(\Y, neg_y);
+
+	// Remove neg
+	autoremove(neg);
+
+	// Log, fixup, accept
+	log("sub_neg pattern in %s: neg=%s, sub=%s\n", log_id(module), log_id(neg), log_id(sub));
+	accept;
+endcode
