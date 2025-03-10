@@ -71,7 +71,9 @@ class libyosys_so_ext(Extension):
         # libyosys.so
         target = os.path.join(pyosys_path, os.path.basename(self.name))
         shutil.copy(self.name, target)
-        bext.spawn(["strip", "-S", target])
+
+        # strip prevents proper debug symbols for libpyosys.so
+        # bext.spawn(["strip", "-S", target])
 
         # yosys-abc
         yosys_abc_target = os.path.join(pyosys_path, "yosys-abc")
