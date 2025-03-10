@@ -505,58 +505,77 @@ struct MuxcoverWorker
 		for (auto inbit : mux.inputs)
 			implement_best_cover(tree, inbit, count_muxes_by_type);
 
-		// for (auto selbit : mux.selects)
-		// 	implement_decode_mux(selbit);
+		for (auto selbit : mux.selects)
+			implement_decode_mux(selbit);
 
 		if (GetSize(mux.inputs) == 0)
 			return;
 
-		// SILIMATE: For cell naming
-		Cell *cell = tree.muxes[tree.root];
-		Module *module = cell->module;
-
 		if (GetSize(mux.inputs) == 2) {
 			count_muxes_by_type[0]++;
-			Cell *new_cell = module->addCell(NEW_ID2_SUFFIX("muxcover"), ID($mux));
-			new_cell->setPort(ID::A, mux.inputs[0]);
-			new_cell->setPort(ID::B, mux.inputs[1]);
-			new_cell->setPort(ID::S, mux.selects[0]);
-			new_cell->setPort(ID::Y, bit);
-			new_cell->fixup_parameters();
-			new_cell->set_src_attribute(new_cell->get_src_attribute());
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 4) {
 			count_muxes_by_type[1]++;
-			Cell *new_cell = module->addCell(NEW_ID2_SUFFIX("muxcover"), ID($bmux));
-			new_cell->setPort(ID::A, mux.inputs);
-			new_cell->setPort(ID::S, mux.selects);
-			new_cell->setPort(ID::Y, bit);
-			new_cell->fixup_parameters();
-			new_cell->set_src_attribute(new_cell->get_src_attribute());
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 8) {
 			count_muxes_by_type[2]++;
-			Cell *new_cell = module->addCell(NEW_ID2_SUFFIX("muxcover"), ID($bmux));
-			new_cell->setPort(ID::A, mux.inputs);
-			new_cell->setPort(ID::S, mux.selects);
-			new_cell->setPort(ID::Y, bit);
-			new_cell->fixup_parameters();
-			new_cell->set_src_attribute(new_cell->get_src_attribute());
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 16) {
 			count_muxes_by_type[3]++;
-			Cell *new_cell = module->addCell(NEW_ID2_SUFFIX("muxcover"), ID($bmux));
-			new_cell->setPort(ID::A, mux.inputs);
-			new_cell->setPort(ID::S, mux.selects);
-			new_cell->setPort(ID::Y, bit);
-			new_cell->fixup_parameters();
-			new_cell->set_src_attribute(new_cell->get_src_attribute());
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::I, mux.inputs[8]);
+			cell->setPort(ID::J, mux.inputs[9]);
+			cell->setPort(ID::K, mux.inputs[10]);
+			cell->setPort(ID::L, mux.inputs[11]);
+			cell->setPort(ID::M, mux.inputs[12]);
+			cell->setPort(ID::N, mux.inputs[13]);
+			cell->setPort(ID::O, mux.inputs[14]);
+			cell->setPort(ID::P, mux.inputs[15]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::V, mux.selects[3]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
