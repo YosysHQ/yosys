@@ -213,9 +213,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path.c_str());
 				if (bramTypes)
 					read_simlibs += stringf(" %sqlf_k6n10f/bram_types_sim.v", lib_path.c_str());
-				if (dsp == V1)
+				if (dsp == V1) {
 					read_simlibs += stringf(" %sqlf_k6n10f/dspv1_sim.v", lib_path.c_str());
-				else if (dsp == V2)
+					read_simlibs += stringf(" %sqlf_k6n10f/dspv1_sim_extra.v", lib_path.c_str());
+				} else if (dsp == V2)
 					read_simlibs += stringf(" %sqlf_k6n10f/dspv2_sim.v", lib_path.c_str());
 			}
 			run(read_simlibs);
