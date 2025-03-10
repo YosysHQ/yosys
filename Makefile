@@ -170,6 +170,13 @@ CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
 YOSYS_VER := 0.50+56
+YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
+YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
+YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
+CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
+			-DYOSYS_MAJOR=$(YOSYS_MAJOR) \
+			-DYOSYS_MINOR=$(YOSYS_MINOR) \
+			-DYOSYS_COMMIT=$(YOSYS_COMMIT)
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -1076,6 +1083,18 @@ docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
+docs/source/generated/%.cc: backends/%.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) cp $< $@
+
+# diff returns exit code 1 if the files are different, but it's not an error
+docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) diff -U 20 $^ > $@ || exit 0
+
+PHONY: docs/gen/functional_ir
+docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
+
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
 	$(Q) $(MAKE) -C docs gen
@@ -1111,7 +1130,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage docs/gen/functional_ir
 
 DOC_TARGET ?= html
 docs: docs/prep
