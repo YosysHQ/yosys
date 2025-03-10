@@ -138,7 +138,7 @@ Previously, the interface to implement hashing on custom types was just
 independently and then ad-hoc combined with the hash function with some xorshift
 operations thrown in to mix bits together somewhat. A plugin can stay compatible
 with both versions prior and after the break by implementing both interfaces
-based on the existance and value of `YS_HASHING_VERSION`.
+based on the existance and value of ``YS_HASHING_VERSION``.
 
 .. code-block:: cpp
    :caption: Example hash compatibility wrapper

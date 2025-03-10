@@ -27,9 +27,7 @@ Command reference
    /cmd/index_passes
    /cmd/index_techlibs
 
-.. TODO:: Fix index_internal not being included in pdf
+.. toctree::
+   :maxdepth: 2
 
-.. note::
-
-   Commands intended for internal developer use can also be found under
-   :doc:`/cmd/index_internal`
+   /cmd/index_internal
