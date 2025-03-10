@@ -102,7 +102,7 @@ struct SplitfanoutWorker
 				outsig = conn.second;
 			}
 		if (output_count != 1) {
-			log("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
+			log_debug("Skipping %s cell %s/%s with %d output ports.\n", log_id(cell->type), log_id(module), log_id(cell), output_count);
 			return 0;
 		}
 		
@@ -110,7 +110,7 @@ struct SplitfanoutWorker
 		auto bit_users = bit_users_db[outsig[0]];
 		for (int i = 0; i < GetSize(outsig); i++) {
 			if (bit_users_db[outsig[i]] != bit_users) {
-				log("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
+				log_debug("Skipping %s cell %s/%s with bit-split output.\n", log_id(cell->type), log_id(module), log_id(cell));
 				return 0;
 			}
 		}
@@ -121,7 +121,7 @@ struct SplitfanoutWorker
 
 		// Skip if fanout is above limit
 		if (limit != -1 && GetSize(bit_users) > limit) {
-			log("Skipping %s cell %s/%s with high fanout %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
+			log_debug("Skipping %s cell %s/%s with high fanout %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(bit_users)-1);
 			return 0;
 		}
 
