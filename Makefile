@@ -729,6 +729,7 @@ OBJS += passes/techmap/alumacc.o
 OBJS += passes/techmap/pmuxtree.o
 OBJS += passes/techmap/bmuxmap.o
 OBJS += passes/techmap/demuxmap.o
+OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
