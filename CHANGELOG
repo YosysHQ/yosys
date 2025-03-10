@@ -4,6 +4,11 @@ List of major changes and improvements between releases
 
 Yosys 0.50 .. Yosys 0.51-dev
 --------------------------
+ * Verilog
+    - Fixed an issue that prevented using `{<expr>}` or `$unsigned(<expr>)` for
+      certain signed expressions in port connections
+    - Fixed an issue that prevented writing to a memory word via a concatenation
+      in an output port connection
 
 Yosys 0.49 .. Yosys 0.50
 --------------------------
