@@ -1,0 +1,13 @@
+read_verilog -icells <<EOT
+module top(A, B, X, Y);
+input [8:0] A, B;
+output [8:0] X, Y;
+assign X = A + B;
+assign Y = A + B;
+endmodule
+EOT
+
+select -assert-count 2 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 1 t:$add

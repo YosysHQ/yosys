@@ -95,7 +95,6 @@ struct OptMergeWorker
 			};
 			std::sort(inputs.begin(), inputs.end());
 			h = hash_ops<std::array<RTLIL::SigSpec, 2>>::hash_into(inputs, h);
-			h = assign_map(cell->getPort(ID::Y)).hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort();
