@@ -856,18 +856,20 @@ struct ShareWorker
 	}
 
 	template<typename Iterator>
-	void insert_capped(pool<ssc_pair_t>& cache, Iterator begin_pattern, Iterator end_pattern)
+	bool insert_capped(pool<ssc_pair_t>& cache, Iterator begin_pattern, Iterator end_pattern)
 	{
 		if (cache.size() + std::distance(begin_pattern, end_pattern) > config.pattern_limit) {
 			cache.clear();
 			cache.insert(ssc_pair_t());
+			return false;
 		} else {
 			cache.insert(begin_pattern, end_pattern);
 		}
+		return true;
 	}
-	void insert_capped(pool<ssc_pair_t>& cache, ssc_pair_t pattern)
+	bool insert_capped(pool<ssc_pair_t>& cache, ssc_pair_t pattern)
 	{
-		insert_capped(cache, &pattern, &pattern + 1);
+		return insert_capped(cache, &pattern, &pattern + 1);
 	}
 
 	const pool<ssc_pair_t> &find_cell_activation_patterns(RTLIL::Cell *cell, const char *indent)
@@ -926,20 +928,29 @@ struct ShareWorker
 					for (int i = 0; i < GetSize(sig_s); i++)
 						p.first.append(sig_s[i]), p.second.bits().push_back(RTLIL::State::S0);
 					if (sort_check_activation_pattern(p))
-						insert_capped(activation_patterns_cache[cell], p);
+						if (!insert_capped(activation_patterns_cache[cell], p)) {
+							recursion_state.erase(cell);
+							return activation_patterns_cache[cell];
+						}
 				}
 
 			for (int idx : used_in_b_parts)
 				for (auto p : c_patterns) {
 					p.first.append(sig_s[idx]), p.second.bits().push_back(RTLIL::State::S1);
 					if (sort_check_activation_pattern(p))
-						insert_capped(activation_patterns_cache[cell], p);
+					if (!insert_capped(activation_patterns_cache[cell], p)) {
+						recursion_state.erase(cell);
+						return activation_patterns_cache[cell];
+					}
 				}
 		}
 
 		for (auto c : driven_cells) {
 			const pool<ssc_pair_t> &c_patterns = find_cell_activation_patterns(c, indent);
-			insert_capped(activation_patterns_cache[cell], c_patterns.begin(), c_patterns.end());
+			if (!insert_capped(activation_patterns_cache[cell], c_patterns.begin(), c_patterns.end())) {
+				recursion_state.erase(cell);
+				return activation_patterns_cache[cell];
+			}
 		}
 
 		log_assert(recursion_state.count(cell) != 0);
