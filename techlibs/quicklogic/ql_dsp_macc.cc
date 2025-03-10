@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 // ============================================================================
 
-static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
+static void create_ql_macc_dsp_v1(ql_dsp_macc_pm &pm)
 {
 	auto &st = pm.st_ql_dsp_macc;
 
@@ -81,9 +81,6 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
 	// Add the DSP cell
 	RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
-
-	if (cell->type == ID(dsp_t1_20x18x64_cfg_ports))
-		cell->setPort(ID(f_mode_i), State::S0);
 
 	// Set attributes
 	cell->set_bool_attribute(ID(is_inferred), true);
@@ -184,6 +181,151 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 	pm.autoremove(st.ff);
 }
 
+void create_ql_macc_dsp_v2(ql_dsp_macc_pm &pm)
+{
+	auto &st = pm.st_ql_dsp_macc;
+
+	SigSpec sig_a = st.mul->getPort(ID::A);
+	SigSpec sig_b = st.mul->getPort(ID::B);
+
+	if (sig_a.size() < sig_b.size())
+		std::swap(sig_a, sig_b);
+
+	// Signed / unsigned
+	bool ab_signed = st.mul->getParam(ID::A_SIGNED).as_bool();
+	log_assert(ab_signed == st.mul->getParam(ID::B_SIGNED).as_bool());
+
+	int z_width = GetSize(st.ff->getPort(ID::Q));
+	if (!ab_signed) {
+		if (sig_a.msb() != RTLIL::S0 && sig_a.size() < z_width)
+			sig_a.append(RTLIL::S0);
+		if (sig_b.msb() != RTLIL::S0 && sig_b.size() < z_width)
+			sig_b.append(RTLIL::S0);
+	}
+	int a_width = GetSize(sig_a);
+	int b_width = GetSize(sig_b);
+	
+	// Determine DSP type or discard if too narrow / wide
+	RTLIL::IdString type;
+	size_t tgt_a_width;
+	size_t tgt_b_width;
+	size_t tgt_z_width;
+
+	string cell_base_name = "dspv2";
+	string cell_size_name = "";
+	string cell_cfg_name = "";
+	string cell_full_name = "";
+
+	if (a_width <= 2 && b_width <= 2 && z_width <= 4) {
+		log_debug("\trejected: too narrow (%d %d %d)\n", a_width, b_width, z_width);
+		return;
+	} else if (a_width <= 16 && b_width <= 9 && z_width <= 25) {
+		cell_size_name = "_16x9x32";
+		tgt_a_width = 16;
+		tgt_b_width = 9;
+		tgt_z_width = 25; // TODO
+	} else if (a_width <= 32 && b_width <= 18 && z_width <= 50) {
+		cell_size_name = "_32x18x64";
+		tgt_a_width = 32;
+		tgt_b_width = 18;
+		tgt_z_width = 50;
+	} else {
+		log_debug("\trejected: too wide (%d %d %d)\n", a_width, b_width, z_width);
+		return;
+	}
+
+	type = RTLIL::escape_id(cell_base_name + cell_size_name + "_cfg_ports");
+	log("Inferring MACC %dx%d->%d as %s from:\n", a_width, b_width, z_width, log_id(type));
+
+	for (auto cell : {st.mul, st.add, st.mux, st.ff})
+	if (cell)
+		log("  %s (%s)\n", log_id(cell), log_id(cell->type));
+
+	// Add the DSP cell
+	RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
+
+	// Set attributes
+	cell->set_bool_attribute(ID(is_inferred), true);
+
+	// Get input/output data signals
+	SigSpec sig_z;
+	sig_z = st.output_registered ? st.ff->getPort(ID::Q) : st.ff->getPort(ID::D);
+
+	// Connect input data ports, sign extend / pad with zeros
+	sig_a.extend_u0(tgt_a_width, true);
+	sig_b.extend_u0(tgt_b_width, true);
+	cell->setPort(ID(a_i), sig_a);
+	cell->setPort(ID(b_i), sig_b);
+	cell->setPort(ID(c_i), SigSpec(RTLIL::S0, tgt_b_width));
+
+	// Connect output data port, pad if needed
+	if ((size_t) GetSize(sig_z) < tgt_z_width) {
+		auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
+		sig_z.append(wire);
+	}
+	cell->setPort(ID(z_o), sig_z);
+
+	// Connect clock, reset and enable
+	cell->setPort(ID(clock_i), st.ff->getPort(ID::CLK));
+
+	RTLIL::SigSpec rst;
+	RTLIL::SigSpec ena;
+
+	if (st.ff->hasPort(ID::ARST)) {
+		if (st.ff->getParam(ID::ARST_POLARITY).as_int() != 1) {
+			rst = pm.module->Not(NEW_ID, st.ff->getPort(ID::ARST));
+		} else {
+			rst = st.ff->getPort(ID::ARST);
+		}
+	} else {
+		rst = RTLIL::SigSpec(RTLIL::S0);
+	}
+
+	if (st.ff->hasPort(ID::EN)) {
+		if (st.ff->getParam(ID::EN_POLARITY).as_int() != 1) {
+			ena = pm.module->Not(NEW_ID, st.ff->getPort(ID::EN));
+		} else {
+			ena = st.ff->getPort(ID::EN);
+		}
+	} else {
+		ena = RTLIL::SigSpec(RTLIL::S1);
+	}
+
+	cell->setPort(ID(reset_i), rst);
+	cell->setPort(ID(load_acc_i), ena);
+
+	// Insert feedback_i control logic used for clearing / loading the accumulator
+	if (st.mux_in_pattern) {
+		RTLIL::SigSpec sig_s = st.mux->getPort(ID::S);
+
+		// Depending on the mux port ordering insert inverter if needed
+		log_assert(st.mux_ab.in(ID::A, ID::B));
+		if (st.mux_ab == ID::A)
+			sig_s = pm.module->Not(NEW_ID, sig_s);
+
+		cell->setPort(ID(feedback_i), {RTLIL::S0, RTLIL::S0, sig_s});
+	}
+	// No acc clear/load
+	else {
+		cell->setPort(ID(feedback_i), RTLIL::SigSpec(RTLIL::S0, 3));
+	}
+
+	cell->setPort(ID(acc_reset_i), RTLIL::SigSpec(RTLIL::S0));
+	// 3 - output post acc; 1 - output pre acc
+	cell->setPort(ID(output_select_i), RTLIL::Const(st.output_registered ? 1 : 3, 3));
+
+	bool subtract = (st.add->type == ID($sub));
+	cell->setParam(ID(SUBTRACT), RTLIL::Const(subtract ? RTLIL::S1 : RTLIL::S0));
+
+	// Mark the cells for removal
+	pm.autoremove(st.mul);
+	pm.autoremove(st.add);
+	if (st.mux != nullptr) {
+		pm.autoremove(st.mux);
+	}
+	pm.autoremove(st.ff);
+}
+
 struct QlDspMacc : public Pass {
 	QlDspMacc() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
 
@@ -196,20 +338,34 @@ struct QlDspMacc : public Pass {
 		log("This pass looks for a multiply-accumulate pattern based on which it infers a\n");
 		log("QuickLogic DSP cell.\n");
 		log("\n");
+		log("    -dspv2\n");
+		log("        target DSPv2.\n");
+		log("\n");
 	}
 
-	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(a_Design, "Executing QL_DSP_MACC pass.\n");
+		log_header(design, "Executing QL_DSP_MACC pass.\n");
 
+		bool target_dspv2 = false;
 		size_t argidx;
-		for (argidx = 1; argidx < a_Args.size(); argidx++) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-dspv2") {
+				target_dspv2 = true;
+				continue;
+			}
 			break;
 		}
-		extra_args(a_Args, argidx, a_Design);
+		extra_args(args, argidx, design);
 
-		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+		for (auto module : design->selected_modules()) {
+			ql_dsp_macc_pm pm(module, module->selected_cells());
+
+			if (target_dspv2)
+				pm.run_ql_dsp_macc(create_ql_macc_dsp_v2);
+			else
+				pm.run_ql_dsp_macc(create_ql_macc_dsp_v1);
+		}
 	}
 
 } QlDspMacc;
