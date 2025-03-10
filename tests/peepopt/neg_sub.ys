@@ -1,0 +1,148 @@
+log -header "Test simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result
+);
+  assign result = - (a - b);
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-none t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Test positive case with intermediate signal"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result
+);
+  wire signed [8:0] difference;
+  assign difference = a - b;
+  assign result = - difference;
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-none t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Test negative case (fanout)"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result,
+  output signed [8:0] not_diff
+);
+  wire signed [8:0] difference;
+  assign difference = a - b;
+  assign result = -difference;
+  assign not_diff = ~difference;
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-any t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Test negative case (unsigned intermediate signal)"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result
+);
+  wire [8:0] difference;
+  assign difference = a - b;
+  assign result = -difference;
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-any t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Test negative case, inputs are not signed"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input [7:0] a,
+  input [7:0] b,
+  output signed [8:0] result
+);
+  assign result = - (a - b);
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-any t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Negative case with disconnected intermediate signal (operator in the middle)"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result
+);
+  wire signed [8:0] difference;
+  wire signed [8:0] c;
+  assign difference = a - b;
+  assign c = ~difference;
+  assign result = - c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-any t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
+
+log -header "Negative case with disconnected intermediate signal"
+log -push
+design -reset
+read_verilog <<EOF
+module equation_example (
+  input signed [7:0] a,
+  input signed [7:0] b,
+  output signed [8:0] result
+);
+  wire signed [8:0] difference;
+  wire signed [8:0] c;
+  assign difference = a - b;
+  assign c = a + b ;
+  assign result = - c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert -post peepopt
+select -assert-any t:$neg
+select -assert-any t:$sub
+design -reset
+log -pop
