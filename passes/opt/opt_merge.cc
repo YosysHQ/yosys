@@ -154,7 +154,7 @@ struct OptMergeWorker
 
 	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2) const
 	{
-		log_assert(cell1 != cell2);
+		if (cell1 == cell2) return true;
 		if (cell1->type != cell2->type) return false;
 
 		if (cell1->parameters != cell2->parameters)
@@ -313,6 +313,8 @@ struct OptMergeWorker
 					if (cell->has_keep_attr()) {
 						if (other_cell->has_keep_attr())
 							continue;
+						known_cells.erase(other_cell);
+						known_cells.insert(cell);
 						std::swap(other_cell, cell);
 					}
 
