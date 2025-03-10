@@ -20,8 +20,8 @@ code a b sub_y
 	bool b_signed = sub->getParam(ID::B_SIGNED).as_bool();
 
 	// Fanout of each sub Y bit should be 1 (no bit-split)
-  if (nusers(sub_y) != 2)
- 		reject;
+	if (nusers(sub_y) != 2)
+		reject;
 
 	// Both operands need to be signed to be swapped
 	if (!a_signed || !b_signed)
