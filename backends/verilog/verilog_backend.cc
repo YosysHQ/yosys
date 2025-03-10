@@ -36,7 +36,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
+bool verbose, norename, noattr, srcattronly, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 dict<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires;
@@ -400,6 +400,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 		if (it->first == ID::init && regattr) continue;
+		if (srcattronly && it->first != ID::src) continue;
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
 		if (modattr && (it->second == State::S0 || it->second == Const(0)))
@@ -2420,6 +2421,9 @@ struct VerilogBackend : public Backend {
 		log("    -noattr\n");
 		log("        with this option no attributes are included in the output\n");
 		log("\n");
+		log("    -srcattronly\n");
+		log("        with this option only src attributes are included in the output\n");
+		log("\n");
 		log("    -attr2comment\n");
 		log("        with this option attributes are included as comments in the output\n");
 		log("\n");
@@ -2497,6 +2501,7 @@ struct VerilogBackend : public Backend {
 		verbose = false;
 		norename = false;
 		noattr = false;
+		srcattronly = false;
 		attr2comment = false;
 		noexpr = false;
 		nodec = false;
@@ -2533,6 +2538,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-noattr") {
 				noattr = true;
+				continue;
+			}
+			if (arg == "-srcattronly") {
+				srcattronly = true;
 				continue;
 			}
 			if (arg == "-attr2comment") {
