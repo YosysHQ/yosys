@@ -1,0 +1,44 @@
+read_rtlil << EOF
+autoidx 20
+attribute \src "3510.v:2.1-26.10"
+attribute \cells_not_processed 1
+attribute \tamara_triplicate 1
+module \top
+  attribute \src "3510.v:14.3-17.8"
+  wire width 4 $0\reg5[3:0]
+  attribute $bugpoint 1
+  wire width 4 $auto$bugpoint.cc:258:simplify_something$12
+  wire $delete_wire$14
+  attribute \src "3510.v:13.19-13.59"
+  wire width 4 $xnor$3510.v:13$1_Y
+  attribute \src "3510.v:11.23-11.27"
+  wire width 4 \reg5
+  attribute \src "3510.v:8.24-8.29"
+  wire width 3 \wire4
+  attribute \src "3510.v:3.33-3.34"
+  wire width 12 output 1 \y
+  attribute \src "3510.v:13.19-13.59"
+  cell $xnor $xnor$3510.v:13$1
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 3
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 4
+    connect \A 3'x
+    connect \B $auto$bugpoint.cc:258:simplify_something$12
+    connect \Y $xnor$3510.v:13$1_Y
+  end
+  attribute \src "3510.v:14.3-17.8"
+  process $proc$3510.v:14$2
+    assign $0\reg5[3:0] { \wire4 [2] \wire4 }
+    sync posedge $delete_wire$14
+      update \reg5 $0\reg5[3:0]
+  end
+  connect \y [4:0] { \reg5 1'0 }
+  connect \wire4 $xnor$3510.v:13$1_Y [2:0]
+end
+EOF
+
+prep
+splitcells
+
