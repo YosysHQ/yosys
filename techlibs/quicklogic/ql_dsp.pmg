@@ -11,7 +11,7 @@ udata <SigBit> dffclock dffreset
 udata <Cell*> dff
 
 match dsp
-	select dsp->type == \dspv2_32x18x64_cfg_ports
+	select dsp->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
 endmatch
 
 code clock_inferred clock reset
@@ -209,12 +209,12 @@ endcode
 pattern ql_dsp_cascade
 
 match dsp1
-	select dsp1->type == \dspv2_32x18x64_cfg_ports
+	select dsp1->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
 	filter !dsp1->hasPort(\z_cout_o) || nusers(port(dsp1, \z_cout_o)) == 1
 endmatch
 
 match dsp2
-	select dsp2->type == \dspv2_32x18x64_cfg_ports
+	select dsp2->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
 	filter port(dsp2, \output_select_i).is_fully_const()
 	define <int> output_sel port(dsp2, \output_select_i).as_int()
 	filter output_sel == 3 || (output_sel == 4 && !param(dsp2, \M_REG).as_bool())
@@ -243,6 +243,10 @@ code
 	const int z_width = 50;
 
 	log("%s: inferring post-adder from %s (type %s)\n", log_id(dsp2), log_id(add), log_id(add->type));
+	if (promote(module, dsp1))
+		log(" - promoting %s to non-fractured DSP block\n", log_id(dsp1));
+	if (promote(module, dsp2))
+		log(" - promoting %s to non-fractured DSP block\n", log_id(dsp2));
 
 	// link up z_cout_o of dsp1 to z_cin_i of dsp2
 	Wire *link = module->addWire(NEW_ID, z_width);

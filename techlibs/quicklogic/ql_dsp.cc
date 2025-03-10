@@ -22,6 +22,50 @@
 PRIVATE_NAMESPACE_BEGIN
 USING_YOSYS_NAMESPACE
 
+// promote dspv2_16x9x32_cfg_ports to dspv2_32x18x64_cfg_ports if need be
+bool promote(Module *m, Cell *cell) {
+	if (cell->type == ID(dspv2_32x18x64_cfg_ports)) {
+		return false;
+	} else {
+		log_assert(cell->type == ID(dspv2_16x9x32_cfg_ports));
+	}
+
+	auto widen_output = [&](IdString port_name, int new_width) {
+		if (!cell->hasPort(port_name))
+			return;
+		SigSpec port = cell->getPort(port_name);
+		if (port.size() < new_width) {
+			port = {m->addWire(NEW_ID, new_width - port.size()), port};
+			cell->setPort(port_name, port);
+		}
+	};
+
+	auto widen_input = [&](IdString port_name, int new_width) {
+		if (!cell->hasPort(port_name))
+			return;
+		SigSpec port = cell->getPort(port_name);
+		if (port.size() < new_width) {
+			port.extend_u0(new_width, /* is_signed= */ true);
+			cell->setPort(port_name, port);
+		}
+	};
+
+	widen_output(ID(z_o), 50);
+	widen_output(ID(a_cout_o), 32);
+	widen_output(ID(b_cout_o), 18);
+	widen_output(ID(z_cout_o), 50);
+
+	if (cell->hasPort(ID(a_cin_i)) || cell->hasPort(ID(b_cin_i)) || cell->hasPort(ID(z_cin_i))) {
+		log_error("Cannot promote %s (type %s) with cascading paths\n", log_id(cell), log_id(cell->type));
+	}
+
+	widen_input(ID(a_i), 32);
+	widen_input(ID(b_i), 18);
+	widen_input(ID(c_i), 18);
+	cell->type = ID(dspv2_32x18x64_cfg_ports);
+	return true;
+}
+
 #include "ql_dsp_pm.h"
 
 struct QlDspPass : Pass {
