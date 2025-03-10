@@ -246,7 +246,7 @@ struct MuxpackWorker
 
 	void process_chain(vector<Cell*> &chain, bool make_excl)
 	{
-		if (GetSize(chain) < 2)
+		if (GetSize(chain) < 3)
 			return;
 
 		int cursor = 0;
