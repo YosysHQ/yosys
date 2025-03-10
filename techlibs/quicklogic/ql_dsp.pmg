@@ -260,6 +260,7 @@ code
 	dsp2->setParam(\ROUND, Const(0, 3));
 	dsp2->setParam(\SHIFT_REG, Const(0, 6));
 	dsp2->setParam(\SATURATE, Const(0, 1));
+	dsp2->setParam(\ZCIN_REG, Const(1, 1));
 
 	dsp2->setPort(\z_o, {port(dsp2, \z_o).extract_end(port(add, \Y).size()), port(add, \Y)});
 	module->remove(add);
