@@ -1,0 +1,61 @@
+read_verilog <<EOF
+module gate(input signed [2:0] a1, input signed [2:0] b1,
+			input [1:0] a2, input [3:0] b2, input c, input d, output signed [3:0] y);
+  wire signed [3:0] ab1;
+  assign ab1 = a1 * b1;
+  assign y = ab1 + a2*b2 + c + d + 1;
+endmodule
+EOF
+prep
+equiv_opt -assert alumacc
+design -load postopt
+stat
+design -save save
+equiv_opt -assert maccmap
+design -load save
+equiv_opt -assert maccmap -unmap
+
+design -reset
+read_verilog <<EOF
+module gate(input signed [2:0] a1, input signed [1:0] b1, output signed [3:0] y);
+  assign y = a1 * b1;
+endmodule
+EOF
+prep
+equiv_opt -assert alumacc
+design -load postopt
+stat
+design -save save
+equiv_opt -assert maccmap
+design -load save
+equiv_opt -assert maccmap -unmap
+
+design -reset
+read_verilog <<EOF
+module gate(input [2:0] a, input [1:0] b, output [3:0] y);
+  assign y = a * b;
+endmodule
+EOF
+prep
+equiv_opt -assert alumacc
+design -load postopt
+stat
+design -save save
+equiv_opt -assert maccmap
+design -load save
+equiv_opt -assert maccmap -unmap
+
+design -reset
+read_verilog <<EOF
+module gate(input [2:0] a, input [1:0] b, input [1:0] c, output [3:0] y);
+  assign y = a * b - c;
+endmodule
+EOF
+prep
+equiv_opt -assert alumacc
+design -load postopt
+stat
+design -save save
+equiv_opt -assert maccmap
+design -load save
+equiv_opt -assert maccmap -unmap

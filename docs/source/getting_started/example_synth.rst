@@ -523,7 +523,7 @@ That brings us to the fourth and final part for the iCE40 synthesis flow:
    :name: synth_coarse4
 
 Where before each type of arithmetic operation had its own cell, e.g. `$add`, we
-now want to extract these into `$alu` and `$macc` cells which can help identify
+now want to extract these into `$alu` and `$macc_v2` cells which can help identify
 opportunities for reusing logic.  We do this by running `alumacc`, which we can
 see produce the following changes in our example design:
 

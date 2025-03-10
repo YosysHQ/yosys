@@ -453,7 +453,7 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 	}
 
 	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
-	// FIXME: $lut $sop $alu $lcu $macc $fa
+	// FIXME: $lut $sop $alu $lcu $macc $macc_v2 $fa
 	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
 	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
 
