@@ -27,11 +27,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 // ============================================================================
 
-static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
+static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 {
 	auto &st = pm.st_ql_dsp_macc;
-	log_assert(dsp_version < 3);
-	log_assert(dsp_version > 0);
 
 	// Get port widths
 	size_t a_width = GetSize(st.mul->getPort(ID(A)));
@@ -51,58 +49,26 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 	size_t tgt_b_width;
 	size_t tgt_z_width;
 
-	string cell_base_name;
+	string cell_base_name = "dsp_t1";
 	string cell_size_name = "";
 	string cell_cfg_name = "";
 	string cell_full_name = "";
-	if (dsp_version == 1)
-		cell_base_name = "dsp_t1";
-	if (dsp_version == 2)
-		cell_base_name = "dspv2";
-
-	std::function<void(Cell*)> set_fractured = nullptr;
-	auto set_fractured_dspv2 = [](Cell* cell) -> void {cell->setParam(ID(FRAC_MODE), State::S0);};
 
 	if (min_width <= 2 && max_width <= 2 && z_width <= 4) {
 		log_debug("\trejected: too narrow (%zd %zd %zd)\n", min_width, max_width, z_width);
 		return;
-	}
-
-	bool reject = false;
-	if (dsp_version == 1) {
-		if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
-			cell_size_name = "_10x9x32";
-			tgt_a_width = 10;
-			tgt_b_width = 9;
-			tgt_z_width = 19;
-		} else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
-			cell_size_name = "_20x18x64";
-			tgt_a_width = 20;
-			tgt_b_width = 18;
-			tgt_z_width = 38;
-		} else {
-			reject = true;
-		}
-	} else if (dsp_version == 2) {
-		if (min_width <= 9 && max_width <= 16 && z_width <= 25) {
-			cell_size_name = "_16x9x32";
-			tgt_a_width = 16;
-			tgt_b_width = 9;
-			tgt_z_width = 25;
-		} else if (min_width <= 18 && max_width <= 32 && z_width <= 50) {
-			cell_size_name = "_32x18x64";
-			tgt_a_width = 20;
-			tgt_b_width = 18;
-			tgt_z_width = 50;
-			set_fractured = set_fractured_dspv2;
-		} else {
-			reject = true;
-		}
+	} else if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
+		cell_size_name = "_10x9x32";
+		tgt_a_width = 10;
+		tgt_b_width = 9;
+		tgt_z_width = 19;
+	} else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
+		cell_size_name = "_20x18x64";
+		tgt_a_width = 20;
+		tgt_b_width = 18;
+		tgt_z_width = 38;
 	} else {
-		log_assert(false);
-	}
-	if (reject) {
-		log_debug("\trejected: too wide (%zd %zd %zd) for v%d\n", min_width, max_width, z_width, dsp_version);
+		log_debug("\trejected: too wide (%zd %zd %zd)\n", min_width, max_width, z_width);
 		return;
 	}
 
@@ -110,11 +76,14 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 	log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, log_id(type));
 
 	for (auto cell : {st.mul, st.add, st.mux, st.ff})
-		if (cell)
-			log("  %s (%s)\n", log_id(cell), log_id(cell->type));
+	if (cell)
+		log("  %s (%s)\n", log_id(cell), log_id(cell->type));
 
 	// Add the DSP cell
 	RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
+
+	if (cell->type == ID(dsp_t1_20x18x64_cfg_ports))
+		cell->setPort(ID(f_mode_i), State::S0);
 
 	// Set attributes
 	cell->set_bool_attribute(ID(is_inferred), true);
@@ -135,7 +104,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 	cell->setPort(ID(b_i), sig_b);
 
 	// Connect output data port, pad if needed
-	if ((size_t)GetSize(sig_z) < tgt_z_width) {
+	if ((size_t) GetSize(sig_z) < tgt_z_width) {
 		auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
 		sig_z.append(wire);
 	}
@@ -206,10 +175,6 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm, int dsp_version)
 	bool subtract = (st.add->type == ID($sub));
 	cell->setPort(ID(subtract_i), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
 
-	// Disable fractured mode
-	if (set_fractured)
-		set_fractured(cell);
-
 	// Mark the cells for removal
 	pm.autoremove(st.mul);
 	pm.autoremove(st.add);
@@ -235,22 +200,16 @@ struct QlDspMacc : public Pass {
 
 	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
 	{
-		int dsp_version = 1;
 		log_header(a_Design, "Executing QL_DSP_MACC pass.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < a_Args.size(); argidx++) {
-			if (a_Args[argidx] == "-dspv2") {
-				dsp_version = 2;
-				continue;
-			}
 			break;
 		}
 		extra_args(a_Args, argidx, a_Design);
 
-		auto l = [dsp_version](ql_dsp_macc_pm &pm) { create_ql_macc_dsp(pm, dsp_version); };
 		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(l);
+			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
 	}
 
 } QlDspMacc;
