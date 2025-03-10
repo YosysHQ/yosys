@@ -2158,7 +2158,8 @@ namespace {
 			 *
 			 * Things to do after finalizing the cell interface:
 			 *    - Add support to kernel/satgen.h for the new cell type
-			 *    - Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
+			 *    - Maybe add v2 cell help fields (title, tags)
+			 *    - Add extra details to relevant docs/source/cell/word_*.rst (or just add a todo to the top)
 			 *    - Maybe add support to the Verilog backend for dumping such cells as expression
 			 *
 			 */
