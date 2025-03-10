@@ -2420,6 +2420,7 @@ struct VerilogBackend : public Backend {
 		log("\n");
 		log("    -noattr\n");
 		log("        with this option no attributes are included in the output\n");
+		log("\n");
 		log("    -srcattronly\n");
 		log("        with this option only src attributes are included in the output\n");
 		log("\n");
