@@ -154,6 +154,13 @@ CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
 YOSYS_VER := 0.50+56
+YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
+YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
+YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
+CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
+			-DYOSYS_MAJOR=$(YOSYS_MAJOR) \
+			-DYOSYS_MINOR=$(YOSYS_MINOR) \
+			-DYOSYS_COMMIT=$(YOSYS_COMMIT)
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
