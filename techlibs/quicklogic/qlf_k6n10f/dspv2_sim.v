@@ -214,7 +214,9 @@ module QL_DSPV2_MULT (
     output wire [49:0] z,
 
     input  wire [2:0] feedback,
-	input  wire [2:0] output_select
+	input  wire [2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h000000000000000000;
@@ -257,7 +259,7 @@ module QL_DSPV2_MULT (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -274,7 +276,9 @@ module QL_DSPV2_MULT_REGIN (
     input  wire       reset,
 
     input  wire [2:0] feedback,
-    input  wire [2:0] output_select
+    input  wire [2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h00A000000000000000;
@@ -317,7 +321,7 @@ module QL_DSPV2_MULT_REGIN (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -334,7 +338,9 @@ module QL_DSPV2_MULT_REGOUT (
     input  wire       reset,
 
     input  wire [2:0] feedback,
-    input  wire [2:0] output_select
+    input  wire [2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h000000000000000000;
@@ -377,7 +383,7 @@ module QL_DSPV2_MULT_REGOUT (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -394,7 +400,9 @@ module QL_DSPV2_MULT_REGIN_REGOUT (
     input  wire       reset,
 
     input  wire [2:0] feedback,
-    input  wire [2:0] output_select
+    input  wire [2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h00A000000000000000;
@@ -437,7 +445,7 @@ module QL_DSPV2_MULT_REGIN_REGOUT (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -715,7 +723,9 @@ module QL_DSPV2_MULTACC (
 	input  wire        acc_reset,
     input  wire        load_acc,
     input  wire [ 2:0] feedback,
-    input  wire [ 2:0] output_select
+    input  wire [ 2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h000000000000000000;
@@ -758,7 +768,7 @@ module QL_DSPV2_MULTACC (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -776,7 +786,9 @@ module QL_DSPV2_MULTACC_REGIN (
 	input  wire        acc_reset,
     input  wire        load_acc,
     input  wire [ 2:0] feedback,
-    input  wire [ 2:0] output_select
+    input  wire [ 2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h004000000000000000;
@@ -819,7 +831,7 @@ module QL_DSPV2_MULTACC_REGIN (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -837,7 +849,9 @@ module QL_DSPV2_MULTACC_REGOUT (
 	input  wire        acc_reset,
     input  wire        load_acc,
     input  wire [ 2:0] feedback,
-    input  wire [ 2:0] output_select
+    input  wire [ 2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h000000000000000000;
@@ -880,7 +894,7 @@ module QL_DSPV2_MULTACC_REGOUT (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );
@@ -898,7 +912,9 @@ module QL_DSPV2_MULTACC_REGIN_REGOUT (
 	input  wire        acc_reset,
     input  wire        load_acc,
     input  wire [ 2:0] feedback,
-    input  wire [ 2:0] output_select
+    input  wire [ 2:0] output_select,
+
+	output  wire [49:0] z_cout
 );
 
     parameter [71:0] MODE_BITS = 72'h004000000000000000;
@@ -941,7 +957,7 @@ module QL_DSPV2_MULTACC_REGIN_REGOUT (
         .b_cin(),
 		.z_cin(),
 
-        .z_cout(),
+        .z_cout(z_cout),
         .a_cout(),
         .b_cout()
     );

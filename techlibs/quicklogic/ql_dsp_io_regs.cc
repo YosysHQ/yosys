@@ -44,20 +44,32 @@ struct QlDspIORegs : public Pass {
 		log("\n");
 		log("This pass looks for QL_DSP2 cells and changes their cell type depending on their\n");
 		log("configuration.\n");
+		log("\n");
+		log("    -dspv2\n");
+		log("        target DSPv2.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
 	{
 		log_header(a_Design, "Executing QL_DSP_IO_REGS pass.\n");
 
+		bool target_dspv2 = false;
 		size_t argidx;
 		for (argidx = 1; argidx < a_Args.size(); argidx++) {
+			if (a_Args[argidx] == "-dspv2") {
+				target_dspv2 = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(a_Args, argidx, a_Design);
 
 		for (auto module : a_Design->selected_modules()) {
-			ql_dsp_io_regs_pass(module);
+			if (target_dspv2)
+				ql_dsp_io_regs_pass_v2(module);
+			else
+				ql_dsp_io_regs_pass(module);
 		}
 	}
 
@@ -150,6 +162,146 @@ struct QlDspIORegs : public Pass {
 				for (auto port : ports2del_mult_acc)
 					cell->unsetPort(port);
 				break;
+			}
+		}
+	}
+
+
+	void ql_dsp_io_regs_pass_v2(Module *module)
+	{
+		sigmap.set(module);
+
+		for (auto cell : module->cells()) {
+			if (cell->type != ID(QL_DSPV2))
+				continue;
+
+			// If the cell does not have the "is_inferred" attribute set
+			// then don't touch it.
+			if (!cell->get_bool_attribute(ID(is_inferred)))
+				continue;
+
+			if (!cell->hasPort(ID(output_select)) ||
+					!sigmap(cell->getPort(ID(output_select))).is_fully_def() ||
+					!cell->hasParam(ID(MODE_BITS)) ||
+					cell->getParam(ID(MODE_BITS)).size() != 72) {
+				log_error("Missing configuration tie-offs or parameters on DSP cell %s\n",
+						  log_id(cell));
+			}
+			int out_sel_i = sigmap(cell->getPort(ID(output_select))).as_int();
+			Const mode = cell->getParam(ID(MODE_BITS));
+
+			// Get the feedback port
+			if (!cell->hasPort(ID(feedback)))
+				log_error("Missing 'feedback' port on %s", log_id(cell));
+			SigSpec feedback = sigmap(cell->getPort(ID(feedback)));
+
+			bool a_reg = mode[61] != RTLIL::S0;
+			bool b_reg = mode[63] != RTLIL::S0;
+
+			// Build new type name
+			std::string new_type = "\\QL_DSPV2_MULT";
+
+			// Decide if we should be deleting the clock port
+			bool del_clk = true;
+
+			if (a_reg != b_reg) {
+				// no specialized type for mixed scenario
+				continue;
+			}
+
+			enum {
+				MULT,
+				MULTADD,
+				MULTACC,
+				Unrecognized
+			} base_function = Unrecognized;
+
+			switch (out_sel_i) {
+			case 0:
+			case 4:
+				base_function = MULT;
+				break;
+			case 1:
+			case 5:
+			case 2:
+			case 3:
+			case 6:
+			case 7:
+				if (feedback.is_fully_def() && (feedback.as_int() == 2 || feedback.as_int() == 3)) {
+					del_clk = false;
+					new_type += "ADD";
+					base_function = MULTADD;
+					break;
+				} else if (feedback.extract(1, 2).is_fully_zero()) {
+					del_clk = false;
+					new_type += "ACC";
+					base_function = MULTACC;
+					break;
+				} else {
+					base_function = Unrecognized;
+				}
+				break;
+			default:
+				break;
+			}
+
+			if (base_function == Unrecognized) {
+				continue;
+			}
+
+			if (a_reg && b_reg) {
+				del_clk = false;
+				new_type += "_REGIN";
+			}
+
+			if (out_sel_i > 3) {
+				del_clk = false;
+				new_type += "_REGOUT";
+			}
+
+			// Set new type name
+			log_debug("Converted %s to %s\n", log_id(cell->type), new_type.c_str());
+			cell->type = RTLIL::IdString(new_type);
+
+			std::vector<std::string> ports2del;
+
+			if (del_clk) {
+				cell->unsetPort(ID(clk));
+				cell->unsetPort(ID(reset));
+			}
+
+			switch (base_function) {
+			case MULTACC: {
+				static const std::vector<IdString> to_del = {
+					ID(c), ID(a_cin), ID(b_cin), ID(z_cin),
+					ID(a_cout), ID(b_cout)
+				};
+
+				for (auto port : to_del)
+					cell->unsetPort(port);
+				break;
+				}
+			case MULTADD: {
+				static const std::vector<IdString> to_del = {
+					ID(c), ID(a_cin), ID(b_cin), ID(a_cout), ID(b_cout)
+				};
+
+				for (auto port : to_del)
+					cell->unsetPort(port);
+				break;
+				}
+			case MULT: {
+				static const std::vector<IdString> to_del = {
+					ID(c), ID(load_acc), ID(acc_reset),
+					ID(a_cin), ID(b_cin), ID(z_cin), ID(a_cout), ID(b_cout)
+				};
+
+				for (auto port : to_del)
+					cell->unsetPort(port);
+				break;
+				}
+			default:
+				;
 			}
 		}
 	}
