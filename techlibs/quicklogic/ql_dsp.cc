@@ -55,7 +55,11 @@ bool promote(Module *m, Cell *cell) {
 	widen_output(ID(b_cout_o), 18);
 	widen_output(ID(z_cout_o), 50);
 
-	if (cell->hasPort(ID(a_cin_i)) || cell->hasPort(ID(b_cin_i)) || cell->hasPort(ID(z_cin_i))) {
+	auto uses_port = [&](IdString port_name) {
+		return cell->hasPort(port_name) && !cell->getPort(port_name).is_fully_undef();
+	};
+
+	if (uses_port(ID(a_cin_i)) || uses_port(ID(b_cin_i)) || uses_port(ID(z_cin_i))) {
 		log_error("Cannot promote %s (type %s) with cascading paths\n", log_id(cell), log_id(cell->type));
 	}
 
