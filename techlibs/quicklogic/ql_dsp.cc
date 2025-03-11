@@ -72,7 +72,7 @@ bool promote(Module *m, Cell *cell) {
 
 bool did_something;
 
-#include "ql_dsp_pm.h"
+#include "techlibs/quicklogic/ql_dsp_pm.h"
 
 struct QlDspPass : Pass {
 	QlDspPass() : Pass("ql_dsp", "pack into QuickLogic DSPs") {}
