@@ -76,6 +76,19 @@ bool did_something;
 
 struct QlDspPass : Pass {
 	QlDspPass() : Pass("ql_dsp", "pack into QuickLogic DSPs") {}
+
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    ql_dsp [selection]\n");
+		log("\n");
+		log("This pass packs input and output path registers into QuickLogic DSP blocks,\n");
+		log("additionally it supports Z path cascading and post-adder packing.\n");
+		log("\n");
+		
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
 		log_header(d, "Executing QL_DSP pass. (pack into QuickLogic DSPs)\n");
