@@ -220,7 +220,7 @@ match dsp2
 	select dsp2->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
 	filter port(dsp2, \output_select_i).is_fully_const()
 	define <int> output_sel port(dsp2, \output_select_i).as_int()
-	filter output_sel == 3 || (output_sel == 4 && !param(dsp2, \M_REG).as_bool())
+	filter output_sel == 0 || (output_sel == 4 && !param(dsp2, \M_REG).as_bool())
 	// expect `dsp2` and `add` for exclusive users
 	filter nusers(port(dsp2, \z_o)) == 2
 	filter !dsp2->hasPort(\z_cout_o) || nusers(port(dsp2, \z_cout_o)) == 1
