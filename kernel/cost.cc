@@ -101,6 +101,13 @@ static bool is_free(RTLIL::IdString type)
 	  type.in(ID($specrule), ID($specify2), ID($specify3)));
 }
 
+static bool is_mem(RTLIL::IdString type)
+{
+	return (
+		// tags
+		type.in(ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2)));
+}
+
 unsigned int max_inp_width(RTLIL::Cell *cell)
 {
 	unsigned int max = 0;
@@ -186,8 +193,12 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 	} else if (is_free(cell->type)) {
 		log_debug("%s is free\n", cell->name.c_str());
 		return 0;
+	} else if (is_mem(cell->type)) {
+		// SILIMATE: Memory cells have no bearing on cross module optimizations
+		log_debug("%s is mem\n", cell->name.c_str());
+		return 1;
 	}
-	// TODO: $fsm $mem.* $macc
+	// TODO: $fsm $macc
 	// ignored: $pow
 
 	log_warning("Can't determine cost of %s cell (%d parameters).\n", log_id(cell->type), GetSize(cell->parameters));
