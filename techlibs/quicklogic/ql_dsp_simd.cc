@@ -66,7 +66,7 @@ struct QlDspSimdPass : public Pass {
 
 	static bool is_cascade(const Cell* cell)
 	{
-		std::array cascade_ports {
+		static const std::vector<IdString> cascade_ports = {
 			ID(a_cout_o),
 			ID(b_cout_o),
 			ID(z_cout_o),
