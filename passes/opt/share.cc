@@ -1477,7 +1477,7 @@ struct SharePass : public Pass {
 		ShareWorkerConfig config;
 
 		config.limit = -1;
-		config.pattern_limit = 1000;
+		config.pattern_limit = design->scratchpad_get_int("share.pattern_limit", 1000);
 		config.opt_force = false;
 		config.opt_aggressive = false;
 		config.opt_fast = false;
