@@ -42,8 +42,7 @@ endcode
 // try packing on B input
 code argQ clock_inferred clock reset
 	if ((!dsp->hasPort(\b_cout_o) || nusers(port(dsp, \b_cout_o)) == 1) &&
-			!param(dsp, \B_REG).as_bool() &&
-			nusers(port(dsp, \b_i)) == 2) {
+			!param(dsp, \B_REG).as_bool()) {
 		argQ = port(dsp, \b_i);
 		subpattern(in_dffe);
 		if (dff) {
@@ -61,8 +60,7 @@ endcode
 // try packing on A input
 code argQ clock_inferred clock reset
 	if ((!dsp->hasPort(\a_cout_o) || nusers(port(dsp, \a_cout_o)) == 1) &&
-			!param(dsp, \A_REG).as_bool() &&
-			nusers(port(dsp, \a_i)) == 2) {
+			!param(dsp, \A_REG).as_bool()) {
 		argQ = port(dsp, \a_i);
 		subpattern(in_dffe);
 		if (dff) {
