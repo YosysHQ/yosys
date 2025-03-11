@@ -70,6 +70,8 @@ bool promote(Module *m, Cell *cell) {
 	return true;
 }
 
+bool did_something;
+
 #include "ql_dsp_pm.h"
 
 struct QlDspPass : Pass {
@@ -85,19 +87,24 @@ struct QlDspPass : Pass {
 		extra_args(args, argidx, d);
 
 		for (auto module : d->selected_modules()) {
-			{
-				ql_dsp_pm pm(module, module->selected_cells());
-				pm.run_ql_dsp_pack_regs();
-			}
+			did_something = true;
 
+			while (did_something)
 			{
-				ql_dsp_pm pm(module, module->selected_cells());
-				pm.run_ql_dsp_cascade();
-			}
-
-			{
-				ql_dsp_pm pm(module, module->selected_cells());
-				pm.run_ql_dsp_pack_regs();
+				// TODO: could be optimized by more reuse of the pmgen object
+				did_something = false;
+				{
+					ql_dsp_pm pm(module, module->selected_cells());
+					pm.run_ql_dsp_pack_regs();
+				}
+				{
+					ql_dsp_pm pm(module, module->selected_cells());
+					pm.run_ql_dsp_cascade();
+				}
+				{
+					ql_dsp_pm pm(module, module->selected_cells());
+					pm.run_ql_dsp_pack_regs();
+				}
 			}
 		}
 	}

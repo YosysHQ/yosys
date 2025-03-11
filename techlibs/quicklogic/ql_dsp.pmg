@@ -34,6 +34,7 @@ code argD clock_inferred clock reset
 			log("%s: inferring Z path register from flip-flop %s\n", log_id(dsp), log_id(dff));
 			dsp->connections_[\output_select_i][2] = RTLIL::S1;
 			dsp->setPort(\z_o, dffQ);
+			did_something = true;
 		}
 	}
 endcode
@@ -52,6 +53,7 @@ code argQ clock_inferred clock reset
 			log("%s: inferring B path register from flip-flop %s\n", log_id(dsp), log_id(dff));
 			dsp->parameters[\B_REG] = true;
 			dsp->setPort(\b_i, dffD);
+			did_something = true;
 		}
 	}
 endcode
@@ -70,6 +72,7 @@ code argQ clock_inferred clock reset
 			log("%s: inferring A path register from flip-flop %s\n", log_id(dsp), log_id(dff));
 			dsp->parameters[\A_REG] = true;
 			dsp->setPort(\a_i, dffD);
+			did_something = true;
 		}
 	}
 endcode
@@ -237,9 +240,6 @@ match add
 endmatch
 
 code
-endcode
-
-code
 	const int z_width = 50;
 
 	log("%s: inferring post-adder from %s (type %s)\n", log_id(dsp2), log_id(add), log_id(add->type));
@@ -265,7 +265,9 @@ code
 	dsp2->setParam(\SHIFT_REG, Const(0, 6));
 	dsp2->setParam(\SATURATE, Const(0, 1));
 	dsp2->setParam(\ZCIN_REG, Const(1, 1));
-
 	dsp2->setPort(\z_o, {port(dsp2, \z_o).extract_end(port(add, \Y).size()), port(add, \Y)});
-	module->remove(add);
+
+	did_something = true;
+	autoremove(add);
+	accept;
 endcode
