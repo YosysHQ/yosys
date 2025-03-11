@@ -722,13 +722,16 @@ struct VerilogFileList : public Pass {
 		log("\n");
 		log("    read_verilog_file_list [options]\n");
 		log("\n");
-		log("Parse a Verilog file list, and pass the list of Verilog files to read_verilog command.\n");
+		log("Parse a Verilog file list, and pass the list of Verilog files to read_verilog\n");
+		log("command\n");
 		log("\n");
 		log("    -F file_list_path\n");
-		log("        File list file contains list of Verilog files to be parsed, any path is treated relative to the file list file\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is\n");
+		log("        treated relative to the file list file\n");
 		log("\n");
 		log("    -f file_list_path\n");
-		log("        File list file contains list of Verilog files to be parsed, any path is treated relative to current working directroy\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is\n");
+		log("        treated relative to current working directroy\n");
 		log("\n");
 	}
 
