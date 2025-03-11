@@ -50,7 +50,7 @@ code argQ clock_inferred clock reset
 			clock = dffclock;
 			reset = dffreset;
 			log("%s: inferring B path register from flip-flop %s\n", log_id(dsp), log_id(dff));
-			dsp->parameters[\B_REG] = true;
+			dsp->parameters[\B_REG] = Const(1, 1);
 			dsp->setPort(\b_i, dffD);
 			did_something = true;
 		}
@@ -68,7 +68,7 @@ code argQ clock_inferred clock reset
 			clock = dffclock;
 			reset = dffreset;
 			log("%s: inferring A path register from flip-flop %s\n", log_id(dsp), log_id(dff));
-			dsp->parameters[\A_REG] = true;
+			dsp->parameters[\A_REG] = Const(1, 1);
 			dsp->setPort(\a_i, dffD);
 			did_something = true;
 		}
@@ -222,6 +222,7 @@ match dsp2
 	// expect `dsp2` and `add` for exclusive users
 	filter nusers(port(dsp2, \z_o)) == 2
 	filter !dsp2->hasPort(\z_cout_o) || nusers(port(dsp2, \z_cout_o)) == 1
+	filter dsp1 != dsp2
 endmatch
 
 match add
