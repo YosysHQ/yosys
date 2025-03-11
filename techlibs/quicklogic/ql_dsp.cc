@@ -86,6 +86,9 @@ struct QlDspPass : Pass {
 		log("This pass packs input and output path registers into QuickLogic DSP blocks,\n");
 		log("additionally it supports Z path cascading and post-adder packing.\n");
 		log("\n");
+		log("    -nocascade\n");
+		log("        forbid cascading\n");
+		log("\n");
 		
 	}
 
@@ -93,8 +96,13 @@ struct QlDspPass : Pass {
 	{
 		log_header(d, "Executing QL_DSP pass. (pack into QuickLogic DSPs)\n");
 
+		bool nocascade = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-nocascade") {
+				nocascade = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, d);
@@ -110,7 +118,7 @@ struct QlDspPass : Pass {
 					ql_dsp_pm pm(module, module->selected_cells());
 					pm.run_ql_dsp_pack_regs();
 				}
-				{
+				if (!nocascade) {
 					ql_dsp_pm pm(module, module->selected_cells());
 					pm.run_ql_dsp_cascade();
 				}
