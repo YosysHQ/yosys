@@ -29,6 +29,7 @@
 #include "passes/techmap/simplemap.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <optional>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -93,6 +94,18 @@ struct OptDffWorker
 				dff_cells.push_back(cell);
 		}
 
+	}
+
+	// If this bit sigmaps to a bit driven by a mux ouput bit that only drives this
+	// bit, returns that mux otherwise nullopt
+	std::optional<cell_int_t> mergeable_mux(SigBit bit) {
+		sigmap.apply(bit);
+		auto it = bit2mux.find(bit);
+
+		if (it == bit2mux.end() || bitusers[bit] != 1)
+			return std::nullopt;
+
+		return it->second;
 	}
 
 	State combine_const(State a, State b) {
@@ -591,13 +604,12 @@ struct OptDffWorker
 						State reset_val = State::Sx;
 						if (ff.has_srst)
 							reset_val = ff.val_srst[i];
-						while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
-							cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
-							if (GetSize(mbit.first->getPort(ID::S)) != 1)
+						while (const auto mbit = mergeable_mux(ff.sig_d[i])) {
+							if (GetSize(mbit->first->getPort(ID::S)) != 1)
 								break;
-							SigBit s = mbit.first->getPort(ID::S);
-							SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-							SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+							SigBit s = mbit->first->getPort(ID::S);
+							SigBit a = mbit->first->getPort(ID::A)[mbit->second];
+							SigBit b = mbit->first->getPort(ID::B)[mbit->second];
 							// Workaround for funny memory WE pattern.
 							if ((a == State::S0 || a == State::S1) && (b == State::S0 || b == State::S1))
 								break;
@@ -668,13 +680,12 @@ struct OptDffWorker
 					for (int i = 0 ; i < ff.width; i++) {
 						// First, eat up as many simple muxes as possible.
 						ctrls_t enables;
-						while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
-							cell_int_t mbit = bit2mux.at(ff.sig_d[i]);
-							if (GetSize(mbit.first->getPort(ID::S)) != 1)
+						while (const auto mbit = mergeable_mux(ff.sig_d[i])) {
+							if (GetSize(mbit->first->getPort(ID::S)) != 1)
 								break;
-							SigBit s = mbit.first->getPort(ID::S);
-							SigBit a = mbit.first->getPort(ID::A)[mbit.second];
-							SigBit b = mbit.first->getPort(ID::B)[mbit.second];
+							SigBit s = mbit->first->getPort(ID::S);
+							SigBit a = mbit->first->getPort(ID::A)[mbit->second];
+							SigBit b = mbit->first->getPort(ID::B)[mbit->second];
 							if (a == ff.sig_q[i]) {
 								enables.insert(ctrl_t(s, true));
 								ff.sig_d[i] = b;
