@@ -540,6 +540,12 @@ void RTLIL::Const::bitvectorize() const {
 	}
 }
 
+void RTLIL::Const::append(const RTLIL::Const &other) {
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	bv.insert(bv.end(), other.begin(), other.end());
+}
+
 RTLIL::State RTLIL::Const::const_iterator::operator*() const {
 	if (auto bv = parent.get_if_bits())
 		return (*bv)[idx];
@@ -1458,6 +1464,40 @@ namespace {
 				port(ID::Y, param(ID::Y_WIDTH));
 				check_expected();
 				Macc().from_cell(cell);
+				return;
+			}
+
+			if (cell->type == ID($macc_v2)) {
+				if (param(ID::NPRODUCTS) < 0)
+					error(__LINE__);
+				if (param(ID::NADDENDS) < 0)
+					error(__LINE__);
+				param_bits(ID::PRODUCT_NEGATED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::ADDEND_NEGATED, max(param(ID::NADDENDS), 1));
+				param_bits(ID::A_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::B_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::C_SIGNED, max(param(ID::NADDENDS), 1));
+				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
+					error(__LINE__);
+				param_bits(ID::A_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::B_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::C_WIDTHS, max(param(ID::NADDENDS) * 16, 1));
+				const Const &a_width = cell->getParam(ID::A_WIDTHS);
+				const Const &b_width = cell->getParam(ID::B_WIDTHS);
+				const Const &c_width = cell->getParam(ID::C_WIDTHS);
+				int a_width_sum = 0, b_width_sum = 0, c_width_sum = 0;
+				for (int i = 0; i < param(ID::NPRODUCTS); i++) {
+					a_width_sum += a_width.extract(16 * i, 16).as_int(false);
+					b_width_sum += b_width.extract(16 * i, 16).as_int(false);
+				}
+				for (int i = 0; i < param(ID::NADDENDS); i++) {
+					c_width_sum += c_width.extract(16 * i, 16).as_int(false);
+				}
+				port(ID::A, a_width_sum);
+				port(ID::B, b_width_sum);
+				port(ID::C, c_width_sum);
+				port(ID::Y, param(ID::Y_WIDTH));
+				check_expected();
 				return;
 			}
 
@@ -4090,6 +4130,11 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 	if (type == ID($lcu)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::CO]);
+		return;
+	}
+
+	if (type == ID($macc_v2)) {
+		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
 		return;
 	}
 

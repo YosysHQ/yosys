@@ -554,8 +554,8 @@ struct TechmapWorker
 
 							if (extmapper_name == "maccmap") {
 								log("Creating %s with maccmap.\n", log_id(extmapper_module));
-								if (extmapper_cell->type != ID($macc))
-									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
+								if (!extmapper_cell->type.in(ID($macc), ID($macc_v2)))
+									log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(extmapper_cell->type));
 								maccmap(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
@@ -600,8 +600,8 @@ struct TechmapWorker
 						}
 
 						if (extmapper_name == "maccmap") {
-							if (cell->type != ID($macc))
-								log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
+							if (!cell->type.in(ID($macc), ID($macc_v2)))
+								log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(cell->type));
 							maccmap(module, cell);
 						}
 

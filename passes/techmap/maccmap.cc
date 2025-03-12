@@ -403,7 +403,7 @@ struct MaccmapPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		for (auto cell : mod->selected_cells())
-			if (cell->type == ID($macc)) {
+			if (cell->type.in(ID($macc), ID($macc_v2))) {
 				log("Mapping %s.%s (%s).\n", log_id(mod), log_id(cell), log_id(cell->type));
 				maccmap(mod, cell, unmap_mode);
 				mod->remove(cell);
