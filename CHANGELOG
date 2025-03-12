@@ -2,6 +2,9 @@
 List of major changes and improvements between releases
 =======================================================
 
+Yosys 0.51 .. Yosys 0.52-dev
+--------------------------
+
 Yosys 0.50 .. Yosys 0.51
 --------------------------
  * New commands and options
