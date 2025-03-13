@@ -9,3 +9,7 @@
 /temp
 /smtlib2_module.smt2
 /smtlib2_module-filtered.smt2
+/ports_nets_in_*.txt
+/ports_only_in_*.txt
+/ports_nets_in_*.v
+/ports_only_in_*.v
