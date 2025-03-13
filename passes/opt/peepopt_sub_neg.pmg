@@ -58,5 +58,6 @@ code
 
 	// Log, fixup, accept
 	log("sub_neg pattern in %s: neg=%s, sub=%s\n", log_id(module), log_id(neg), log_id(sub));
+	sub->fixup_parameters();
 	accept;
 endcode
