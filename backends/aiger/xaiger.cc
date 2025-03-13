@@ -53,6 +53,8 @@ struct XAigerWriter
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
+	vector<SigBit> bit2aig_stack;
+	int next_loop_check = 1024;
 	vector<int> aig_outputs;
 	int aig_m = 0, aig_i = 0, aig_l = 0, aig_o = 0, aig_a = 0;
 
@@ -76,6 +78,24 @@ struct XAigerWriter
 			return it->second;
 		}
 
+		if (GetSize(bit2aig_stack)== next_loop_check) {
+			for (int i = 0; i < next_loop_check; ++i)
+			{
+				SigBit report_bit = bit2aig_stack[i];
+				if (report_bit != bit)
+					continue;
+				for (int j = i; j < next_loop_check; ++j) {
+					report_bit = bit2aig_stack[j];
+					if (report_bit.is_wire() && report_bit.wire->name.isPublic())
+						break;
+				}
+				log_error("Found combinatorial logic loop while processing signal %s.\n", log_signal(report_bit));
+			}
+			next_loop_check *= 2;
+		}
+
+		bit2aig_stack.push_back(bit);
+		
 		// NB: Cannot use iterator returned from aig_map.insert()
 		//     since this function is called recursively
 
@@ -92,6 +112,8 @@ struct XAigerWriter
 		if (alias_map.count(bit)) {
 			a = bit2aig(alias_map.at(bit));
 		}
+
+		bit2aig_stack.pop_back();
 
 		if (bit == State::Sx || bit == State::Sz) {
 			log_debug("Design contains 'x' or 'z' bits. Treating as 1'b0.\n");
