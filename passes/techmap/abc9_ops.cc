@@ -969,13 +969,10 @@ void prep_box(RTLIL::Design *design)
 		if (it == module->attributes.end())
 			continue;
 		bool box = it->second.as_bool();
-		module->attributes.erase(it);
 		if (!box)
 			continue;
 
 		auto r = module->attributes.insert(ID::abc9_box_id);
-		if (!r.second)
-			continue;
 		r.first->second = abc9_box_id++;
 
 		if (module->get_bool_attribute(ID::abc9_flop)) {
@@ -1078,7 +1075,8 @@ void prep_box(RTLIL::Design *design)
 			}
 
 			ss << log_id(module) << " " << module->attributes.at(ID::abc9_box_id).as_int();
-			ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+			bool has_model = module->get_bool_attribute(ID::whitebox) || !module->get_bool_attribute(ID::blackbox);
+			ss << " " << (has_model ? "1" : "0");
 			ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
 
 			bool first = true;
@@ -1096,8 +1094,9 @@ void prep_box(RTLIL::Design *design)
 			ss << std::endl;
 
 			auto &t = timing.setup_module(module);
-			if (t.comb.empty())
+			if (t.comb.empty() && !outputs.empty() && !inputs.empty()) {
 				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", log_id(module));
+			}
 
 			for (const auto &o : outputs) {
 				first = true;

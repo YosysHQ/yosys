@@ -5,7 +5,22 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL {
 
-	class KernelRtlilTest : public testing::Test {};
+	struct SafePrintToStringParamName {
+		template <class ParamType>
+		std::string operator()(const testing::TestParamInfo<ParamType>& info) const {
+			std::string name = testing::PrintToString(info.param);
+			for (auto &c : name)
+				if (!('0' <= c && c <= '9') && !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z')  ) c = '_';
+			return name;
+		}
+	};
+
+	class KernelRtlilTest : public testing::Test {
+	protected:
+		KernelRtlilTest() {
+			if (log_files.empty()) log_files.emplace_back(stdout);
+		}
+	};
 
 	TEST_F(KernelRtlilTest, ConstAssignCompare)
 	{
@@ -74,6 +89,83 @@ namespace RTLIL {
 		}
 
 	}
+
+	class WireRtlVsHdlIndexConversionTest :
+		public KernelRtlilTest,
+		public testing::WithParamInterface<std::tuple<bool, int, int>>
+	{};
+
+	INSTANTIATE_TEST_SUITE_P(
+		WireRtlVsHdlIndexConversionInstance,
+		WireRtlVsHdlIndexConversionTest,
+		testing::Values(
+			std::make_tuple(false, 0, 10),
+			std::make_tuple(true, 0, 10),
+			std::make_tuple(false, 4, 10),
+			std::make_tuple(true, 4, 10),
+			std::make_tuple(false, -4, 10),
+			std::make_tuple(true, -4, 10),
+			std::make_tuple(false, 0, 1),
+			std::make_tuple(true, 0, 1),
+			std::make_tuple(false, 4, 1),
+			std::make_tuple(true, 4, 1),
+			std::make_tuple(false, -4, 1),
+			std::make_tuple(true, -4, 1)
+		),
+		SafePrintToStringParamName()
+	);
+
+	TEST_P(WireRtlVsHdlIndexConversionTest, WireRtlVsHdlIndexConversion) {
+		std::unique_ptr<Module> mod = std::make_unique<Module>();
+		Wire *wire = mod->addWire(ID(test), 10);
+
+		auto [upto, start_offset, width] = GetParam();
+
+		wire->upto = upto;
+		wire->start_offset = start_offset;
+		wire->width = width;
+
+		int smallest = INT_MAX;
+		int largest = INT_MIN;
+
+		for (int i = 0; i < wire->width; i++) {
+			int j = wire->to_hdl_index(i);
+			smallest = std::min(smallest, j);
+			largest = std::max(largest, j);
+			EXPECT_EQ(
+				std::make_pair(wire->from_hdl_index(j), j),
+				std::make_pair(i, wire->to_hdl_index(i))
+			);
+		}
+
+		EXPECT_EQ(smallest, start_offset);
+		EXPECT_EQ(largest, start_offset + wire->width - 1);
+
+		for (int i = 1; i < wire->width; i++) {
+			EXPECT_EQ(
+				wire->to_hdl_index(i) - wire->to_hdl_index(i - 1),
+				upto ? -1 : 1
+			);
+		}
+
+		for (int j = smallest; j < largest; j++) {
+			int i = wire->from_hdl_index(j);
+			EXPECT_EQ(
+				std::make_pair(wire->from_hdl_index(j), j),
+				std::make_pair(i, wire->to_hdl_index(i))
+			);
+		}
+
+		for (int i = -10; i < 0; i++)
+			EXPECT_EQ(wire->to_hdl_index(i), INT_MIN);
+		for (int i = wire->width; i < wire->width + 10; i++)
+			EXPECT_EQ(wire->to_hdl_index(i), INT_MIN);
+		for (int j = smallest - 10; j < smallest; j++)
+			EXPECT_EQ(wire->from_hdl_index(j), INT_MIN);
+		for (int j = largest + 1; j < largest + 11; j++)
+			EXPECT_EQ(wire->from_hdl_index(j), INT_MIN);
+	}
+
 }
 
 YOSYS_NAMESPACE_END

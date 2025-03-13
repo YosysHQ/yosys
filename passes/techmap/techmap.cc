@@ -554,8 +554,8 @@ struct TechmapWorker
 
 							if (extmapper_name == "maccmap") {
 								log("Creating %s with maccmap.\n", log_id(extmapper_module));
-								if (extmapper_cell->type != ID($macc))
-									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
+								if (!extmapper_cell->type.in(ID($macc), ID($macc_v2)))
+									log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(extmapper_cell->type));
 								maccmap(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
@@ -600,8 +600,8 @@ struct TechmapWorker
 						}
 
 						if (extmapper_name == "maccmap") {
-							if (cell->type != ID($macc))
-								log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
+							if (!cell->type.in(ID($macc), ID($macc_v2)))
+								log_error("The maccmap mapper can only map $macc/$macc_v2 (not %s) cells!\n", log_id(cell->type));
 							maccmap(module, cell);
 						}
 
@@ -1028,6 +1028,9 @@ struct TechmapPass : public Pass {
 		log("        map file. Note that the Verilog frontend is also called with the\n");
 		log("        '-nooverwrite' option set.\n");
 		log("\n");
+		log("    -dont_map <celltype>\n");
+		log("        leave the given cell type unmapped by ignoring any mapping rules for it\n");
+		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
 		log("the module name will be used to match the cell.  Multiple space-separated cell\n");
@@ -1159,6 +1162,7 @@ struct TechmapPass : public Pass {
 		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
+		std::vector<RTLIL::IdString> dont_map;
 		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
 		int max_iter = -1;
 
@@ -1198,6 +1202,10 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-wb") {
 				worker.ignore_wb = true;
+				continue;
+			}
+			if (args[argidx] == "-dont_map" && argidx+1 < args.size()) {
+				dont_map.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
@@ -1256,6 +1264,11 @@ struct TechmapPass : public Pass {
 				celltypeMap[module_name].insert(module->name);
 			}
 		}
+
+		// Erase any rules disabled with a -dont_map argument
+		for (auto type : dont_map)
+			celltypeMap.erase(type);
+
 		log_debug("Cell type mappings to use:\n");
 		for (auto &i : celltypeMap) {
 			i.second.sort(RTLIL::sort_by_id_str());

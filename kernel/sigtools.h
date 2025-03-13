@@ -29,7 +29,11 @@ struct SigPool
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	pool<bitDef_t> bits;
@@ -143,7 +147,11 @@ struct SigSet
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	dict<bitDef_t, std::set<T, Compare>> bits;

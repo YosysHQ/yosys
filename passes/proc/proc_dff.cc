@@ -262,7 +262,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		{
 			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
 			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, async_rules, proc);
-			return;
+			continue;
 		}
 
 		// If there is a reset condition in the async rules, use it
@@ -277,7 +277,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level->signal, proc);
-			return;
+			continue;
 		}
 
 		gen_dff(mod, insig, rstval.as_const(), sig_q,

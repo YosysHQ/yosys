@@ -201,18 +201,19 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 			this_port.do_subtract = xorshift32(2) == 1;
 			macc.ports.push_back(this_port);
 		}
-
-		wire = module->addWire(ID::B);
-		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
-		wire->port_input = true;
-		macc.bit_ports = wire;
+		// Macc::to_cell sets the input ports
+		macc.to_cell(cell);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
 
-		macc.to_cell(cell);
+		// override the B input (macc helpers always sets an empty vector)
+		wire = module->addWire(ID::B);
+		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
+		wire->port_input = true;
+		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type == ID($lut))

@@ -344,6 +344,16 @@ assign_stmt:
 	TOK_ASSIGN sigspec sigspec EOL {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_yyerror("dangling attribute");
+
+		// See https://github.com/YosysHQ/yosys/pull/4765 for discussion on this
+		// warning
+		if (!switch_stack.back()->empty()) {
+			rtlil_frontend_yywarning(
+				"case rule assign statements after switch statements may cause unexpected behaviour. "
+				"The assign statement is reordered to come before all switch statements."
+			);
+		}
+
 		case_stack.back()->actions.push_back(RTLIL::SigSig(*$2, *$3));
 		delete $2;
 		delete $3;

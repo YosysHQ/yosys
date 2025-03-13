@@ -1,0 +1,38 @@
+read_verilog <<EOT
+module top(input in, output out);
+	wire [1:0] w1, w2;
+	f1_test u1 (.in(in), .out(w1[0]));
+	f2_test u2 (.in(w1), .out(w2));
+	f3_test u3 (.in(w2[0]), .out(out));
+endmodule
+
+module f1_test(input in, output out);
+	assign out = in;
+endmodule
+
+module f2_test(input [1:0] in, output [1:0] out);
+	assign out[0] = in[0];
+	assign out[1] = in[1];
+endmodule
+
+module f3_test(input in, output [1:0] out);
+	assign out[0] = in;
+	assign out[1] = in;
+endmodule
+EOT
+
+hierarchy -top top
+flatten -scopename
+prep
+
+write_json json_scopeinfo.out
+!grep -qF '$scopeinfo' json_scopeinfo.out
+
+write_json -noscopeinfo json_scopeinfo.out
+!grep -qvF '$scopeinfo' json_scopeinfo.out
+
+json -o json_scopeinfo.out
+!grep -qF '$scopeinfo' json_scopeinfo.out
+
+json -noscopeinfo -o json_scopeinfo.out
+!grep -qvF '$scopeinfo' json_scopeinfo.out

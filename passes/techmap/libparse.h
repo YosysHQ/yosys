@@ -20,6 +20,7 @@
 #ifndef LIBPARSE_H
 #define LIBPARSE_H
 
+#include "kernel/yosys.h"
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -39,8 +40,60 @@ namespace Yosys
 		void dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string indent = "", std::string path = "", bool path_ok = false) const;
 	};
 
+	struct LibertyExpression
+	{
+		struct Lexer {
+			std::string s, expr;
+
+			Lexer(std::string s) : s{s}, expr{s} {}
+
+			bool empty() { return s.empty();}
+			char peek() { return s[0]; }
+			std::string full_expr() { return expr; }
+
+			char next() {
+				char c = s[0];
+				s = s.substr(1, s.size());
+				return c;
+			}
+
+			std::string pin() {
+				auto length = s.find_first_of("\t()'!^*& +|");
+				if (length == std::string::npos) {
+					// nothing found so use size of s
+					length = s.size();
+				}
+				auto pin = s.substr(0, length);
+				s = s.substr(length, s.size());
+				return pin;
+			}
+		};
+
+		enum Kind {
+			AND,
+			OR,
+			NOT,
+			XOR,
+			// the standard specifies constants, but they're probably rare in practice.
+			PIN,
+			EMPTY
+		};
+
+		Kind kind;
+		std::string name;
+		std::vector<LibertyExpression> children;
+
+		LibertyExpression() : kind(Kind::EMPTY) {}
+
+		static LibertyExpression parse(Lexer &s, int min_prio = 0);
+		void get_pin_names(pool<std::string>& names);
+		bool eval(dict<std::string, bool>& values);
+	};
+
+	class LibertyMergedCells;
 	class LibertyParser
 	{
+		friend class LibertyMergedCells;
 	private:
 		std::istream &f;
 		int line;
@@ -51,10 +104,10 @@ namespace Yosys
 		   anything else is a single character.
 		*/
 		int lexer(std::string &str);
-		
+
 		LibertyAst *parse();
-		void error();
-		void error(const std::string &str);
+		void error() const;
+		void error(const std::string &str) const;
 
 	public:
 		const LibertyAst *ast;
@@ -62,6 +115,35 @@ namespace Yosys
 		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
 		~LibertyParser() { if (ast) delete ast; }
 	};
+
+	class LibertyMergedCells
+	{
+		std::vector<const LibertyAst *> asts;
+
+	public:
+		std::vector<const LibertyAst *> cells;
+		void merge(LibertyParser &parser)
+		{
+			if (parser.ast) {
+				const LibertyAst *ast = parser.ast;
+				asts.push_back(ast);
+				// The parser no longer owns its top level ast, but we do.
+				// sketchy zone
+				parser.ast = nullptr;
+				if (ast->id != "library")
+					parser.error("Top level entity isn't \"library\".\n");
+				for (const LibertyAst *cell : ast->children)
+					if (cell->id == "cell" && cell->args.size() == 1)
+						cells.push_back(cell);
+			}
+		}
+		~LibertyMergedCells()
+		{
+			for (auto ast : asts)
+				delete ast;
+		}
+	};
+
 }
 
 #endif

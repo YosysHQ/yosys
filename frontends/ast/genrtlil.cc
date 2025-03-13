@@ -984,7 +984,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		// unallocated enum, ignore
 		break;
 	case AST_CONSTANT:
-		width_hint = max(width_hint, int(bits.size()));
+		width_hint = max(width_hint, GetSize(bits));
 		if (!is_signed)
 			sign_hint = false;
 		break;

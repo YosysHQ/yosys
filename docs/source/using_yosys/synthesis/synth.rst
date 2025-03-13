@@ -38,11 +38,11 @@ In addition to the above hardware-specific synth commands, there is also
 getting into any architecture-specific mappings or optimizations.  Among other
 things, this is useful for design verification.
 
-The following commands are executed by the :cmd:ref:`prep` command:
+The following commands are executed by the `prep` command:
 
 .. literalinclude:: /cmd/prep.rst
    :start-at: begin:
-   :end-before: .. raw:: latex
+   :end-before: .. only:: latex
    :dedent:
 
 :doc:`/getting_started/example_synth` covers most of these commands and what

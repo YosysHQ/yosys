@@ -253,13 +253,13 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 				if (a_width == 1 && is_signed) {
 					int skip = 1 << (k + 1);
 					int base = skip -1;
-					if (i % skip != base && i - a_width + 2 < 1 << b_width)
+					if (i % skip != base && i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);	
 				} else if (is_signed) {
-					if (i - a_width + 2 < 1 << b_width)
+					if (i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				} else {
-					if (i - a_width + 1 < 1 << b_width)
+					if (i - a_width + 1 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				}
 			// right shifts
@@ -453,7 +453,7 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 	}
 
 	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
-	// FIXME: $lut $sop $alu $lcu $macc $fa
+	// FIXME: $lut $sop $alu $lcu $macc $macc_v2 $fa
 	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
 	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
 

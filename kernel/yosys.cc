@@ -29,6 +29,10 @@
 #  include <editline/readline.h>
 #endif
 
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
+#endif
+
 #ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
 #endif
@@ -73,8 +77,6 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "libs/json11/json11.hpp"
-
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -84,7 +86,6 @@ CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
-bool yosys_tcl_repl_active = false;
 #endif
 
 std::set<std::string> yosys_input_files, yosys_output_files;
@@ -92,6 +93,7 @@ std::set<std::string> yosys_input_files, yosys_output_files;
 bool memhasher_active = false;
 uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
+uint32_t Hasher::fudge = 0;
 
 std::string yosys_share_dirname;
 std::string yosys_abc_executable;
@@ -139,7 +141,7 @@ void yosys_banner()
 	log("\n");
 	log(" /----------------------------------------------------------------------------\\\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
-	log(" |  Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+	log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
 	log(" %s\n", yosys_version_str);
@@ -411,8 +413,11 @@ std::string make_temp_dir(std::string template_str)
 #  endif
 
 	char *p = strdup(template_str.c_str());
+	log_assert(p);
 	char *res = mkdtemp(p);
-	log_assert(res != NULL);
+	if (!res)
+		log_error("mkdtemp failed for '%s': %s [Error %d]\n",
+			p, strerror(errno), errno);
 	template_str = p;
 	free(p);
 
@@ -547,12 +552,6 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-	init_share_dirname();
-	init_abc_executable_name();
-
-#define X(_id) RTLIL::ID::_id = "\\" # _id;
-#include "kernel/constids.inc"
-#undef X
 
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
@@ -565,6 +564,13 @@ void yosys_setup()
 		signal(SIGINT, SIG_DFL);
 	}
 #endif
+
+	init_share_dirname();
+	init_abc_executable_name();
+
+#define X(_id) RTLIL::ID::_id = "\\" # _id;
+#include "kernel/constids.inc"
+#undef X
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -721,126 +727,8 @@ void rewrite_filename(std::string &filename)
 
 #ifdef YOSYS_ENABLE_TCL
 
-static Tcl_Obj *json_to_tcl(Tcl_Interp *interp, const json11::Json &json)
-{
-	if (json.is_null())
-		return Tcl_NewStringObj("null", 4);
-	else if (json.is_string()) {
-		auto string = json.string_value();
-		return Tcl_NewStringObj(string.data(), string.size());
-	} else if (json.is_number()) {
-		double value = json.number_value();
-		double round_val = std::nearbyint(value);
-		if (std::isfinite(round_val) && value == round_val && value >= LONG_MIN && value < -double(LONG_MIN))
-			return Tcl_NewLongObj((long)round_val);
-		else
-			return Tcl_NewDoubleObj(value);
-	} else if (json.is_bool()) {
-		return Tcl_NewBooleanObj(json.bool_value());
-	} else if (json.is_array()) {
-		auto list = json.array_items();
-		Tcl_Obj *result = Tcl_NewListObj(list.size(), nullptr);
-		for (auto &item : list)
-			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item));
-		return result;
-	} else if (json.is_object()) {
-		auto map = json.object_items();
-		Tcl_Obj *result = Tcl_NewListObj(map.size() * 2, nullptr);
-		for (auto &item : map) {
-			Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(item.first.data(), item.first.size()));
-			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item.second));
-		}
-		return result;
-	} else {
-		log_abort();
-	}
-}
-
-static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
-{
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; i++)
-		args.push_back(argv[i]);
-
-	if (args.size() >= 1 && args[0] == "-import") {
-		for (auto &it : pass_register) {
-			std::string tcl_command_name = it.first;
-			if (tcl_command_name == "proc")
-				tcl_command_name = "procs";
-			else if (tcl_command_name == "rename")
-				tcl_command_name = "renames";
-			Tcl_CmdInfo info;
-			if (Tcl_GetCommandInfo(interp, tcl_command_name.c_str(), &info) != 0) {
-				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first.c_str());
-			} else {
-				std::string tcl_script = stringf("proc %s args { yosys %s {*}$args }", tcl_command_name.c_str(), it.first.c_str());
-				Tcl_Eval(interp, tcl_script.c_str());
-			}
-		}
-		return TCL_OK;
-	}
-
-	yosys_get_design()->scratchpad_unset("result.json");
-	yosys_get_design()->scratchpad_unset("result.string");
-
-	bool in_repl = yosys_tcl_repl_active;
-	bool restore_log_cmd_error_throw = log_cmd_error_throw;
-
-	log_cmd_error_throw = true;
-
-	try {
-		if (args.size() == 1) {
-			Pass::call(yosys_get_design(), args[0]);
-		} else {
-			Pass::call(yosys_get_design(), args);
-		}
-	} catch (log_cmd_error_exception) {
-		if (in_repl) {
-			auto design = yosys_get_design();
-			while (design->selection_stack.size() > 1)
-				design->selection_stack.pop_back();
-			log_reset_stack();
-		}
-		Tcl_SetResult(interp, (char *)"Yosys command produced an error", TCL_STATIC);
-
-		yosys_tcl_repl_active = in_repl;
-		log_cmd_error_throw = restore_log_cmd_error_throw;
-		return TCL_ERROR;
-	} catch (...) {
-		log_error("uncaught exception during Yosys command invoked from TCL\n");
-	}
-
-	yosys_tcl_repl_active = in_repl;
-	log_cmd_error_throw = restore_log_cmd_error_throw;
-
-	auto &scratchpad = yosys_get_design()->scratchpad;
-	auto result = scratchpad.find("result.json");
-	if (result != scratchpad.end()) {
-		std::string err;
-		auto json = json11::Json::parse(result->second, err);
-		if (err.empty()) {
-			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
-		} else
-			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
-	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
-		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
-	}
-
-	return TCL_OK;
-}
-
-int yosys_tcl_iterp_init(Tcl_Interp *interp)
-{
-	if (Tcl_Init(interp)!=TCL_OK)
-		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
-	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
-	return TCL_OK ;
-}
-
-void yosys_tcl_activate_repl()
-{
-	yosys_tcl_repl_active = true;
-}
+// defined in tclapi.cc
+extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
 
 extern Tcl_Interp *yosys_get_tcl_interp()
 {
@@ -869,9 +757,10 @@ struct TclPass : public Pass {
 		log("If any arguments are specified, these arguments are provided to the script via\n");
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
-		log("Note, tcl will not recieve the output of any yosys command. If the output\n");
+		log("Note, tcl will not receive the output of any yosys command. If the output\n");
 		log("of the tcl commands are needed, use the yosys command 'tee -s result.string'\n");
 		log("to redirect yosys's output to the 'result.string' scratchpad value.\n");
+		log("The 'result.string' value is then used as the tcl output value of the command.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override {

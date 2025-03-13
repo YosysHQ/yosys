@@ -252,6 +252,11 @@ images:
 	$(MAKE) -C source/_images
 	$(MAKE) -C source/_images convert
 
+.PHONY: gen
+gen:
+	$(MAKE) examples
+	$(MAKE) images
+
 .PHONY: reqs
 reqs:
 	$(PYTHON) -m pip install -r source/requirements.txt

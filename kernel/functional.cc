@@ -253,7 +253,7 @@ public:
 		int y_width = parameters.at(ID(Y_WIDTH), Const(-1)).as_int();
 		bool a_signed = parameters.at(ID(A_SIGNED), Const(0)).as_bool();
 		bool b_signed = parameters.at(ID(B_SIGNED), Const(0)).as_bool();
-		if(cellType.in({ID($add), ID($sub), ID($and), ID($or), ID($xor), ID($xnor), ID($mul)})){
+		if(cellType.in(ID($add), ID($sub), ID($and), ID($or), ID($xor), ID($xnor), ID($mul))){
 			bool is_signed = a_signed && b_signed;
 			Node a = factory.extend(inputs.at(ID(A)), y_width, is_signed);
 			Node b = factory.extend(inputs.at(ID(B)), y_width, is_signed);
@@ -273,14 +273,14 @@ public:
 				return factory.bitwise_not(factory.bitwise_xor(a, b));
 			else
 				log_abort();
-		}else if(cellType.in({ID($eq), ID($ne), ID($eqx), ID($nex), ID($le), ID($lt), ID($ge), ID($gt)})){
+		}else if(cellType.in(ID($eq), ID($ne), ID($eqx), ID($nex), ID($le), ID($lt), ID($ge), ID($gt))){
 			bool is_signed = a_signed && b_signed;
 			int width = max(a_width, b_width);
 			Node a = factory.extend(inputs.at(ID(A)), width, is_signed);
 			Node b = factory.extend(inputs.at(ID(B)), width, is_signed);
-			if(cellType.in({ID($eq), ID($eqx)}))
+			if(cellType.in(ID($eq), ID($eqx)))
 				return factory.extend(factory.equal(a, b), y_width, false);
-			else if(cellType.in({ID($ne), ID($nex)}))
+			else if(cellType.in(ID($ne), ID($nex)))
 				return factory.extend(factory.not_equal(a, b), y_width, false);
 			else if(cellType == ID($lt))
 				return factory.extend(is_signed ? factory.signed_greater_than(b, a) : factory.unsigned_greater_than(b, a), y_width, false);
@@ -292,7 +292,7 @@ public:
 				return factory.extend(is_signed ? factory.signed_greater_equal(a, b) : factory.unsigned_greater_equal(a, b), y_width, false);
 			else
 				log_abort();
-		}else if(cellType.in({ID($logic_or), ID($logic_and)})){
+		}else if(cellType.in(ID($logic_or), ID($logic_and))){
 			Node a = factory.reduce_or(inputs.at(ID(A)));
 			Node b = factory.reduce_or(inputs.at(ID(B)));
 			Node y = cellType == ID($logic_and) ? factory.bitwise_and(a, b) : factory.bitwise_or(a, b);
@@ -309,13 +309,13 @@ public:
 			Node a = factory.reduce_or(inputs.at(ID(A)));
 			Node y = factory.bitwise_not(a);
 			return factory.extend(y, y_width, false);
-		}else if(cellType.in({ID($reduce_or), ID($reduce_bool)})){
+		}else if(cellType.in(ID($reduce_or), ID($reduce_bool))){
 			Node a = factory.reduce_or(inputs.at(ID(A)));
 			return factory.extend(a, y_width, false);
 		}else if(cellType == ID($reduce_and)){
 			Node a = factory.reduce_and(inputs.at(ID(A)));
 			return factory.extend(a, y_width, false);
-		}else if(cellType.in({ID($reduce_xor), ID($reduce_xnor)})){
+		}else if(cellType.in(ID($reduce_xor), ID($reduce_xnor))){
 			Node a = factory.reduce_xor(inputs.at(ID(A)));
 			Node y = cellType == ID($reduce_xnor) ? factory.bitwise_not(a) : a;
 			return factory.extend(y, y_width, false);
@@ -355,7 +355,7 @@ public:
 			int offset = parameters.at(ID(OFFSET)).as_int();
 			Node a = inputs.at(ID(A));
 			return factory.slice(a, offset, y_width);
-		}else if(cellType.in({ID($div), ID($mod), ID($divfloor), ID($modfloor)})) {
+		}else if(cellType.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
 			int width = max(a_width, b_width);
 			bool is_signed = a_signed && b_signed;
 			Node a = factory.extend(inputs.at(ID(A)), width, is_signed);
@@ -397,7 +397,7 @@ public:
 				} else
 					log_error("unhandled cell in CellSimplifier %s\n", cellType.c_str());
 			} else {
-				if(cellType.in({ID($mod), ID($modfloor)}))
+				if(cellType.in(ID($mod), ID($modfloor)))
 					return factory.extend(factory.unsigned_mod(a, b), y_width, false);
 				else
 					return factory.extend(factory.unsigned_div(a, b), y_width, false);
@@ -439,12 +439,12 @@ public:
 			return handle_lcu(inputs.at(ID(P)), inputs.at(ID(G)), inputs.at(ID(CI)));
 		} else if(cellType == ID($alu)) {
 			return handle_alu(inputs.at(ID(A)), inputs.at(ID(B)), y_width, a_signed && b_signed, inputs.at(ID(CI)), inputs.at(ID(BI)));
-		} else if(cellType.in({ID($assert), ID($assume), ID($live), ID($fair), ID($cover)})) {
+		} else if(cellType.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover))) {
 			Node a = factory.mux(factory.constant(Const(State::S1, 1)), inputs.at(ID(A)), inputs.at(ID(EN)));
 			auto &output = factory.add_output(cellName, cellType, Sort(1));
 			output.set_value(a);
 			return {};
-		} else if(cellType.in({ID($anyconst), ID($allconst), ID($anyseq), ID($allseq)})) {
+		} else if(cellType.in(ID($anyconst), ID($allconst), ID($anyseq), ID($allseq))) {
 			int width = parameters.at(ID(WIDTH)).as_int();
 			auto &input = factory.add_input(cellName, cellType, Sort(width));
 			return factory.value(input);

@@ -1,4 +1,4 @@
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 4 input 0 \S
@@ -21,7 +21,7 @@ equiv_opt -assert bmuxmap -pmux
 ###
 design -reset
 
-read_ilang << EOT
+read_rtlil << EOT
 
 module \top
   wire width 10 input 0 \A

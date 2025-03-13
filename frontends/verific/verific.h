@@ -71,7 +71,7 @@ struct VerificImporter
 
 	std::map<Verific::Net*, RTLIL::SigBit> net_map;
 	std::map<Verific::Net*, Verific::Net*> sva_posedge_map;
-	pool<Verific::Net*, hash_ptr_ops> any_all_nets;
+	pool<Verific::Net*> any_all_nets;
 
 	bool mode_gates, mode_keep, mode_nosva, mode_names, mode_verific;
 	bool mode_autocover, mode_fullinit;
@@ -81,7 +81,7 @@ struct VerificImporter
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
 	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
-	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj, Verific::Netlist  *nl = nullptr);
+	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj, Verific::Netlist  *nl = nullptr, int wire_width_hint = -1);
 
 	RTLIL::SigBit netToSigBit(Verific::Net *net);
 	RTLIL::SigSpec operatorInput(Verific::Instance *inst);
@@ -89,7 +89,7 @@ struct VerificImporter
 	RTLIL::SigSpec operatorInput2(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInport(Verific::Instance *inst, const char *portname);
 	RTLIL::SigSpec operatorInportCase(Verific::Instance *inst, const char *portname);
-	RTLIL::SigSpec operatorOutput(Verific::Instance *inst, const pool<Verific::Net*, hash_ptr_ops> *any_all_nets = nullptr);
+	RTLIL::SigSpec operatorOutput(Verific::Instance *inst, const pool<Verific::Net*> *any_all_nets = nullptr);
 
 	bool import_netlist_instance_gates(Verific::Instance *inst, RTLIL::IdString inst_name);
 	bool import_netlist_instance_cells(Verific::Instance *inst, RTLIL::IdString inst_name);

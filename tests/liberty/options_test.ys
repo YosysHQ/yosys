@@ -1,0 +1,23 @@
+# Test memory macro gets ignored due to -ignore_buses
+read_verilog -noblackbox <<EOF
+module RM_IHPSG13_1P_64x64_c2_bm_bist();
+endmodule
+EOF
+read_liberty -lib -ignore_buses foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
+
+# Test memory macro doesn't get ignored without -ignore_buses
+# and check the area and capacitance attributes are populated
+design -reset
+read_liberty -lib foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
+select -assert-mod-count 1 =RM_IHPSG13_1P_64x64_c2_bm_bist =A:area=50489.1328 %i
+select -assert-any =*/i:A_BIST_EN =*/a:capacitance=0.00401111 %i
+
+# Test import of unit delay arcs
+design -reset
+read_liberty -wb -unit_delay -ignore_miss_func foundry_data/sg13g2_stdcell_typ_1p20V_25C.lib.filtered.gz
+
+# A->Y arc on nand2_1 exists
+select -assert-any =sg13g2_nand2_1/i:A %co1:+$specify2[SRC] =sg13g2_nand2_1/o:Y %co1:+$specify2[DST] %i
+
+# D->Q arc on sdfbbp_1 doesn't
+select -assert-none =sg13g2_sdfbbp_1/i:D %co1:+$specify2[SRC] =sg13g2_nand2_1/o:Q %co1:+$specify2[DST] %i

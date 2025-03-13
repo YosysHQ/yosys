@@ -1003,8 +1003,10 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod == nullptr)
 			for (auto mod : design->modules())
-				if (mod->get_bool_attribute(ID::top))
+				if (mod->get_bool_attribute(ID::top)) {
+					log("Attribute `top' found on module `%s'. Setting top module to %s.\n", log_id(mod), log_id(mod));
 					top_mod = mod;
+				}
 
 		if (top_mod == nullptr)
 		{

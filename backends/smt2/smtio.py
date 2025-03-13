@@ -1208,7 +1208,7 @@ class SmtOpts:
     def helpmsg(self):
         return """
     -s <solver>
-        set SMT solver: z3, yices, boolector, bitwuzla, cvc4, mathsat, dummy
+        set SMT solver: z3, yices, boolector, bitwuzla, cvc4, cvc5, mathsat, dummy
         default: yices
 
     -S <opt>

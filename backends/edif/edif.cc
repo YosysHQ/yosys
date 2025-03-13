@@ -338,7 +338,7 @@ struct EdifBackend : public Backend {
 				*f << stringf("\n            (property %s (integer %u))", EDIF_DEF(name), val.as_int());
 			else {
 				std::string hex_string = "";
-				for (size_t i = 0; i < val.size(); i += 4) {
+				for (auto i = 0; i < val.size(); i += 4) {
 					int digit_value = 0;
 					if (i+0 < val.size() && val.at(i+0) == RTLIL::State::S1) digit_value |= 1;
 					if (i+1 < val.size() && val.at(i+1) == RTLIL::State::S1) digit_value |= 2;

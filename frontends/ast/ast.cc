@@ -877,16 +877,25 @@ AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
 // create an AST node for a constant (using a string as value)
 AstNode *AstNode::mkconst_str(const std::string &str)
 {
-	std::vector<RTLIL::State> data;
-	data.reserve(str.size() * 8);
-	for (size_t i = 0; i < str.size(); i++) {
-		unsigned char ch = str[str.size() - i - 1];
-		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? State::S1 : State::S0);
-			ch = ch >> 1;
+	AstNode *node;
+
+	// LRM 1364-2005 5.2.3.3 The empty string literal ("") shall be considered
+	// equivalent to the ASCII NUL ("\0")
+	if (str.empty()) {
+		node = AstNode::mkconst_int(0, false, 8);
+	} else {
+		std::vector<RTLIL::State> data;
+		data.reserve(str.size() * 8);
+		for (size_t i = 0; i < str.size(); i++) {
+			unsigned char ch = str[str.size() - i - 1];
+			for (int j = 0; j < 8; j++) {
+				data.push_back((ch & 1) ? State::S1 : State::S0);
+				ch = ch >> 1;
+			}
 		}
+		node = AstNode::mkconst_bits(data, false);
 	}
-	AstNode *node = AstNode::mkconst_bits(data, false);
+
 	node->is_string = true;
 	node->str = str;
 	return node;
@@ -922,7 +931,7 @@ bool AstNode::bits_only_01() const
 RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 {
 	RTLIL::State extbit = bits.back();
-	while (width > int(bits.size()))
+	while (width > GetSize(bits))
 		bits.push_back(extbit);
 	return RTLIL::Const(bits);
 }
@@ -930,13 +939,13 @@ RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;
-	if (width >= 0 && width < int(bits.size()))
+	if (width >= 0 && width < GetSize(bits))
 		bits.resize(width);
-	if (width >= 0 && width > int(bits.size())) {
+	if (width >= 0 && width > GetSize(bits)) {
 		RTLIL::State extbit = RTLIL::State::S0;
 		if ((is_signed || is_unsized) && !bits.empty())
 			extbit = bits.back();
-		while (width > int(bits.size()))
+		while (width > GetSize(bits))
 			bits.push_back(extbit);
 	}
 	return RTLIL::Const(bits);
@@ -1020,7 +1029,7 @@ double AstNode::asReal(bool is_signed)
 			val = const_neg(val, val, false, false, val.size());
 
 		double v = 0;
-		for (size_t i = 0; i < val.size(); i++)
+		for (auto i = 0; i < val.size(); i++)
 			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
 			// the net or the variable shall be treated as zero upon conversion.
 			if (val.at(i) == RTLIL::State::S1)

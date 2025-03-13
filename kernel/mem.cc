@@ -1680,8 +1680,6 @@ SigSpec MemWr::decompress_en(const std::vector<int> &swizzle, SigSpec sig) {
 	return res;
 }
 
-using addr_t = MemContents::addr_t;
-
 MemContents::MemContents(Mem *mem) :
 	MemContents(ceil_log2(mem->size), mem->width)
 {
@@ -1758,7 +1756,7 @@ bool MemContents::_range_overlaps(std::map<addr_t, RTLIL::Const>::iterator it, a
 	return !(top1 < begin_addr || top2 < _range_begin(it));
 }
 
-std::map<addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
 	// allow addr == 1<<_addr_width (which will just return end())
 	log_assert(addr <= (addr_t)(1<<_addr_width));
 	// get the first range with base > addr
@@ -1786,7 +1784,7 @@ RTLIL::Const MemContents::operator[](addr_t addr) const {
 		return _default_value;
 }
 
-addr_t MemContents::count_range(addr_t begin_addr, addr_t end_addr) const {
+MemContents::addr_t MemContents::count_range(addr_t begin_addr, addr_t end_addr) const {
 	addr_t count = 0;
 	for(auto it = _range_at(begin_addr); _range_overlaps(it, begin_addr, end_addr); it++) {
 		auto first = std::max(_range_begin(it), begin_addr);
@@ -1829,7 +1827,7 @@ void MemContents::clear_range(addr_t begin_addr, addr_t end_addr) {
 	_values.erase(begin_it, end_it);
 }
 
-std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begin_addr, addr_t end_addr) {
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begin_addr, addr_t end_addr) {
 	if(begin_addr >= end_addr)
 		return _values.end(); // need a dummy value to return, end() is cheap
 	// find the first range containing any addr >= begin_addr - 1

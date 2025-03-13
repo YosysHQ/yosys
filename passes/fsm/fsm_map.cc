@@ -54,7 +54,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 		RTLIL::Const pattern = it.first;
 		RTLIL::SigSpec eq_sig_a, eq_sig_b, or_sig;
 
-		for (size_t j = 0; j < pattern.size(); j++)
+		for (auto j = 0; j < pattern.size(); j++)
 			if (pattern[j] == RTLIL::State::S0 || pattern[j] == RTLIL::State::S1) {
 				eq_sig_a.append(ctrl_in.extract(j, 1));
 				eq_sig_b.append(RTLIL::SigSpec(pattern[j]));
@@ -198,7 +198,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		RTLIL::Const state = fsm_data.state_table[i];
 		RTLIL::SigSpec sig_a, sig_b;
 
-		for (size_t j = 0; j < state.size(); j++)
+		for (auto j = 0; j < state.size(); j++)
 			if (state[j] == RTLIL::State::S0 || state[j] == RTLIL::State::S1) {
 				sig_a.append(RTLIL::SigSpec(state_wire, j));
 				sig_b.append(RTLIL::SigSpec(state[j]));
@@ -261,7 +261,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 			for (size_t i = 0; i < fsm_data.state_table.size(); i++) {
 				RTLIL::Const state = fsm_data.state_table[i];
 				int bit_idx = -1;
-				for (size_t j = 0; j < state.size(); j++)
+				for (auto j = 0; j < state.size(); j++)
 					if (state[j] == RTLIL::State::S1)
 						bit_idx = j;
 				if (bit_idx >= 0)

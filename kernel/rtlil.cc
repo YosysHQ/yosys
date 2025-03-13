@@ -35,7 +35,7 @@ YOSYS_NAMESPACE_BEGIN
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
+dict<char*, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
@@ -380,7 +380,7 @@ int RTLIL::Const::as_int(bool is_signed) const
 	return ret;
 }
 
-size_t RTLIL::Const::get_min_size(bool is_signed) const
+int RTLIL::Const::get_min_size(bool is_signed) const
 {
 	if (empty()) return 0;
 
@@ -391,7 +391,7 @@ size_t RTLIL::Const::get_min_size(bool is_signed) const
 	else
 		leading_bit = RTLIL::State::S0;
 
-	size_t idx = size();
+	auto idx = size();
 	while (idx > 0 && (*this)[idx -1] == leading_bit) {
 		idx--;
 	}
@@ -406,22 +406,22 @@ size_t RTLIL::Const::get_min_size(bool is_signed) const
 
 void RTLIL::Const::compress(bool is_signed)
 {
-	size_t idx = get_min_size(is_signed);
+	auto idx = get_min_size(is_signed);
 	bits().erase(bits().begin() + idx, bits().end());
 }
 
 std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
 {
-	size_t size = get_min_size(is_signed);
+	auto size = get_min_size(is_signed);
 	if(size == 0 || size > 32)
 		return std::nullopt;
 
 	int32_t ret = 0;
-	for (size_t i = 0; i < size && i < 32; i++)
+	for (auto i = 0; i < size && i < 32; i++)
 		if ((*this)[i] == State::S1)
 			ret |= 1 << i;
 	if (is_signed && (*this)[size-1] == State::S1)
-		for (size_t i = size; i < 32; i++)
+		for (auto i = size; i < 32; i++)
 			ret |= 1 << i;
 	return ret;
 }
@@ -538,6 +538,12 @@ void RTLIL::Const::bitvectorize() const {
 		(void)new ((void*)&bits_) bitvectype(std::move(new_bits));
 		tag = backing_tag::bits;
 	}
+}
+
+void RTLIL::Const::append(const RTLIL::Const &other) {
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	bv.insert(bv.end(), other.begin(), other.end());
 }
 
 RTLIL::State RTLIL::Const::const_iterator::operator*() const {
@@ -1461,6 +1467,40 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($macc_v2)) {
+				if (param(ID::NPRODUCTS) < 0)
+					error(__LINE__);
+				if (param(ID::NADDENDS) < 0)
+					error(__LINE__);
+				param_bits(ID::PRODUCT_NEGATED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::ADDEND_NEGATED, max(param(ID::NADDENDS), 1));
+				param_bits(ID::A_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::B_SIGNED, max(param(ID::NPRODUCTS), 1));
+				param_bits(ID::C_SIGNED, max(param(ID::NADDENDS), 1));
+				if (cell->getParam(ID::A_SIGNED) != cell->getParam(ID::B_SIGNED))
+					error(__LINE__);
+				param_bits(ID::A_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::B_WIDTHS, max(param(ID::NPRODUCTS) * 16, 1));
+				param_bits(ID::C_WIDTHS, max(param(ID::NADDENDS) * 16, 1));
+				const Const &a_width = cell->getParam(ID::A_WIDTHS);
+				const Const &b_width = cell->getParam(ID::B_WIDTHS);
+				const Const &c_width = cell->getParam(ID::C_WIDTHS);
+				int a_width_sum = 0, b_width_sum = 0, c_width_sum = 0;
+				for (int i = 0; i < param(ID::NPRODUCTS); i++) {
+					a_width_sum += a_width.extract(16 * i, 16).as_int(false);
+					b_width_sum += b_width.extract(16 * i, 16).as_int(false);
+				}
+				for (int i = 0; i < param(ID::NADDENDS); i++) {
+					c_width_sum += c_width.extract(16 * i, 16).as_int(false);
+				}
+				port(ID::A, a_width_sum);
+				port(ID::B, b_width_sum);
+				port(ID::C, c_width_sum);
+				port(ID::Y, param(ID::Y_WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($logic_not)) {
 				param_bool(ID::A_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));
@@ -1856,9 +1896,9 @@ namespace {
 				param_bits(ID::RD_COLLISION_X_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
 				param_bits(ID::RD_WIDE_CONTINUATION, max(1, param(ID::RD_PORTS)));
 				param_bits(ID::RD_CE_OVER_SRST, max(1, param(ID::RD_PORTS)));
-				param_bits(ID::RD_ARST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_SRST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
-				param_bits(ID::RD_INIT_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_ARST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_SRST_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
+				param_bits(ID::RD_INIT_VALUE, max(1, param(ID::RD_PORTS) * param(ID::WIDTH)));
 				param_bits(ID::WR_CLK_ENABLE, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
 				param_bits(ID::WR_WIDE_CONTINUATION, max(1, param(ID::WR_PORTS)));
@@ -2147,6 +2187,21 @@ namespace {
 				check_expected();
 				return;
 			}
+			/*
+			 * Checklist for adding internal cell types
+			 * ========================================
+			 * Things to do right away:
+			 *    - Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+			 *    - Add to InternalCellChecker::check() in kernel/rtlil.cc
+			 *    - Add to techlibs/common/simlib.v
+			 *    - Add to techlibs/common/techmap.v
+			 *
+			 * Things to do after finalizing the cell interface:
+			 *    - Add support to kernel/satgen.h for the new cell type
+			 *    - Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
+			 *    - Maybe add support to the Verilog backend for dumping such cells as expression
+			 *
+			 */
 			error(__LINE__);
 		}
 	};
@@ -4078,6 +4133,11 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		return;
 	}
 
+	if (type == ID($macc_v2)) {
+		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
+		return;
+	}
+
 	bool signedness_ab = !type.in(ID($slice), ID($concat), ID($macc));
 
 	if (connections_.count(ID::A)) {
@@ -4461,17 +4521,17 @@ void RTLIL::SigSpec::updhash() const
 	cover("kernel.rtlil.sigspec.hash");
 	that->pack();
 
-	that->hash_ = mkhash_init;
+	Hasher h;
 	for (auto &c : that->chunks_)
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
-				that->hash_ = mkhash(that->hash_, v);
+				h.eat(v);
 		} else {
-			that->hash_ = mkhash(that->hash_, c.wire->name.index_);
-			that->hash_ = mkhash(that->hash_, c.offset);
-			that->hash_ = mkhash(that->hash_, c.width);
+			h.eat(c.wire->name.index_);
+			h.eat(c.offset);
+			h.eat(c.width);
 		}
-
+	that->hash_ = h.yield();
 	if (that->hash_ == 0)
 		that->hash_ = 1;
 }

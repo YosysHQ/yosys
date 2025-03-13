@@ -7,8 +7,7 @@ file format and how you can make your own synthesis scripts.
 
 Yosys script files typically use the :file:`.ys` extension and contain a set of
 commands for Yosys to run sequentially.  These commands are the same ones we
-were using on the previous page like :cmd:ref:`read_verilog` and
-:cmd:ref:`hierarchy`.
+were using on the previous page like `read_verilog` and `hierarchy`.
 
 Script parsing
 ~~~~~~~~~~~~~~
@@ -39,9 +38,9 @@ Another special character that can be used in Yosys scripts is the bang ``!``.
 Anything after the bang will be executed as a shell command.  This can only be
 terminated with a new line.  Any semicolons, hashes, or other special characters
 will be passed to the shell.  If an error code is returned from the shell it
-will be raised by Yosys.  :cmd:ref:`exec` provides a much more flexible way of
-executing commands, allowing the output to be logged and more control over when
-to generate errors.
+will be raised by Yosys.  `exec` provides a much more flexible way of executing
+commands, allowing the output to be logged and more control over when to
+generate errors.
 
 The synthesis starter script
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,24 +61,23 @@ already, let's take a look at some of those script files now.
    :caption: A section of :file:`fifo.ys`, generating the images used for :ref:`addr_gen_example`
    :name: fifo-ys
 
-The first command there, :yoscrypt:`echo on`, uses :cmd:ref:`echo` to enable
-command echoes on.  This is how we generated the code listing for
+The first command there, :yoscrypt:`echo on`, uses `echo` to enable command
+echoes on.  This is how we generated the code listing for
 :ref:`hierarchy_output`.  Turning command echoes on prints the ``yosys>
 hierarchy -top addr_gen`` line, making the output look the same as if it were an
 interactive terminal.  :yoscrypt:`hierarchy -top addr_gen` is of course the
 command we were demonstrating, including the output text and an image of the
 design schematic after running it.
 
-We briefly touched on :cmd:ref:`select` when it came up in
-:cmd:ref:`synth_ice40`, but let's look at it more now.
+We briefly touched on `select` when it came up in `synth_ice40`, but let's look
+at it more now.
 
 .. _select_intro:
 
 Selections intro
 ^^^^^^^^^^^^^^^^
 
-The :cmd:ref:`select` command is used to modify and view the list of selected
-objects:
+The `select` command is used to modify and view the list of selected objects:
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -99,7 +97,7 @@ signifies we are matching on the *cell type*, and the ``*`` means to match
 anything.  For this (very simple) selection, we are trying to find all of the
 cells, regardless of their type.  The active selection is now shown as
 ``[addr_gen]*``, indicating some sub-selection of the ``addr_gen`` module.  This
-gives us the ``$add`` and ``$eq`` cells, which we want to highlight for the
+gives us the `$add` and `$eq` cells, which we want to highlight for the
 :ref:`addr_gen_hier` image.
 
 .. _select_new_cells:
@@ -111,15 +109,16 @@ by referring to it as ``@new_cells``, which we will see later.  Then we clear
 the selection so that the following commands can operate on the full design.
 While we split that out for this document, we could have done the same thing in
 a single line by calling :yoscrypt:`select -set new_cells addr_gen/t:*`.  If we
-know we only have the one module in our design, we can even skip the `addr_gen/`
-part.  Looking further down :ref:`the fifo.ys code <fifo-ys>` we can see this
-with :yoscrypt:`select -set new_cells t:$mux t:*dff`.  We can also see in that
-command that selections don't have to be limited to a single statement.
+know we only have the one module in our design, we can even skip the
+``addr_gen/`` part.  Looking further down :ref:`the fifo.ys code <fifo-ys>` we
+can see this with :yoscrypt:`select -set new_cells t:$mux t:*dff`.  We can also
+see in that command that selections don't have to be limited to a single
+statement.
 
 Many commands also support an optional ``[selection]`` argument which can be
 used to override the currently selected objects.  We could, for example, call
-:yoscrypt:`clean addr_gen` to have :cmd:ref:`clean` operate on *just* the
-``addr_gen`` module.
+:yoscrypt:`clean addr_gen` to have `clean` operate on *just* the ``addr_gen``
+module.
 
 Detailed documentation of the select framework can be found under
 :doc:`/using_yosys/more_scripting/selections` or in the command reference at
@@ -130,23 +129,23 @@ Detailed documentation of the select framework can be found under
 Displaying schematics
 ^^^^^^^^^^^^^^^^^^^^^
 
-While the :cmd:ref:`select` command is very useful, sometimes nothing beats
-being able to see a design for yourself.  This is where :cmd:ref:`show` comes
-in.  Note that this document is just an introduction to the :cmd:ref:`show`
-command, only covering the basics.  For more information, including a guide on
-what the different symbols represent, see :ref:`interactive_show` and the
+While the `select` command is very useful, sometimes nothing beats being able to
+see a design for yourself.  This is where `show` comes in.  Note that this
+document is just an introduction to the `show` command, only covering the
+basics.  For more information, including a guide on what the different symbols
+represent, see :ref:`interactive_show` and the
 :doc:`/using_yosys/more_scripting/interactive_investigation` page.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_show.*
    :class: width-helper invert-helper
    :name: addr_gen_show
 
-   Calling :yoscrypt:`show addr_gen` after :cmd:ref:`hierarchy`
+   Calling :yoscrypt:`show addr_gen` after `hierarchy`
 
 .. note:: 
 
-   The :cmd:ref:`show` command requires a working installation of `GraphViz`_
-   and `xdot`_ for displaying the actual circuit diagrams.
+   The `show` command requires a working installation of `GraphViz`_ and `xdot`_
+   for displaying the actual circuit diagrams.
    
 .. _GraphViz: http://www.graphviz.org/
 .. _xdot: https://github.com/jrfonseca/xdot.py
@@ -160,8 +159,8 @@ we see the following:
    :start-at: -prefix addr_gen_show
    :end-before: yosys> show
 
-Calling :cmd:ref:`show` with :yoscrypt:`-format dot` tells it we want to output
-a :file:`.dot` file rather than opening it for display.  The :yoscrypt:`-prefix
+Calling `show` with :yoscrypt:`-format dot` tells it we want to output a
+:file:`.dot` file rather than opening it for display.  The :yoscrypt:`-prefix
 addr_gen_show` option indicates we want the file to be called
 :file:`addr_gen_show.{*}`. Remember, we do this in :file:`fifo.ys` because we
 need to store the image for displaying in the documentation you're reading.  But
@@ -184,8 +183,8 @@ like when we called :yoscrypt:`select -module addr_gen` in :ref:`select_intro`.
 That last parameter doesn't have to be a module name, it can be any valid
 selection string.  Remember when we :ref:`assigned a name to a
 selection<select_new_cells>` and called it ``new_cells``?  We saw in the
-:yoscrypt:`select -list` output that it contained two cells, an ``$add`` and an
-``$eq``.  We can call :cmd:ref:`show` on that selection just as easily:
+:yoscrypt:`select -list` output that it contained two cells, an `$add` and an
+`$eq`.  We can call `show` on that selection just as easily:
 
 .. figure:: /_images/code_examples/fifo/new_cells_show.*
    :class: width-helper invert-helper
@@ -207,21 +206,20 @@ the two ``PROC`` blocks.  To achieve this highlight, we make use of the
 
    Calling :yoscrypt:`show -color maroon3 @new_cells -color cornflowerblue p:* -notitle`
 
-As described in the the :cmd:ref:`help` output for :cmd:ref:`show` (or by
-clicking on the :cmd:ref:`show` link), colors are specified as :yoscrypt:`-color
-<color> <object>`.  Color names for the ``<color>`` portion can be found on the
-`GraphViz color docs`_.  Unlike the final :cmd:ref:`show` parameter which can
-have be any selection string, the ``<object>`` part must be a single selection
-expression or named selection.  That means while we can use ``@new_cells``, we
-couldn't use ``t:$eq t:$add``.  In general, if a command lists ``[selection]``
-as its final parameter it can be any selection string.  Any selections that are
-not the final parameter, such as those used in options, must be a single
-expression instead.
+As described in the the `help` output for `show` (or by clicking on the `show`
+link), colors are specified as :yoscrypt:`-color <color> <object>`.  Color names
+for the ``<color>`` portion can be found on the `GraphViz color docs`_.  Unlike
+the final `show` parameter which can have be any selection string, the
+``<object>`` part must be a single selection expression or named selection.
+That means while we can use ``@new_cells``, we couldn't use ``t:$eq t:$add``.
+In general, if a command lists ``[selection]`` as its final parameter it can be
+any selection string.  Any selections that are not the final parameter, such as
+those used in options, must be a single expression instead.
 
 .. _GraphViz color docs: https://graphviz.org/doc/info/colors
 
-For all of the options available to :cmd:ref:`show`, check the command reference
-at :doc:`/cmd/show`.
+For all of the options available to `show`, check the command reference at
+:doc:`/cmd/show`.
 
 .. seealso:: :ref:`interactive_show` on the
    :doc:`/using_yosys/more_scripting/interactive_investigation` page.

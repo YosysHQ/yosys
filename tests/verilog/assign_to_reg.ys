@@ -1,6 +1,6 @@
 # https://github.com/yosyshq/yosys/issues/2035
 
-read_ilang <<END
+read_rtlil <<END
 module \top
   wire width 1 input 0 \halfbrite
   wire width 2 output 1 \r_on

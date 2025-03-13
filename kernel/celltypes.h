@@ -29,6 +29,8 @@ struct CellType
 	RTLIL::IdString type;
 	pool<RTLIL::IdString> inputs, outputs;
 	bool is_evaluable;
+	bool is_combinatorial;
+	bool is_synthesizable;
 };
 
 struct CellTypes
@@ -56,9 +58,9 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
 	{
-		CellType ct = {type, inputs, outputs, is_evaluable};
+		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
 		cell_types[ct.type] = ct;
 	}
 
@@ -142,6 +144,7 @@ struct CellTypes
 
 		setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, true);
 		setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, true);
+		setup_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y}, true);
 		setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, true);
 	}
 
