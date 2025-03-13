@@ -613,12 +613,12 @@ struct SplitHighFanoutNets : public ScriptPass {
 				Cell *cell = itrCell.first;
 				int fanout = itrCell.second;
 				if (limit > 0 && (fanout > limit)) {
-					int nbOutputs = 0;
+					// int nbOutputs = 0;
 					for (auto &conn : cell->connections()) {
 						IdString portName = conn.first;
-						if (cell->output(portName)) {
-							nbOutputs++;
-						}
+						// if (cell->output(portName)) {
+						// 	nbOutputs++;
+						// }
 					}
 					for (auto &conn : cell->connections()) {
 						IdString portName = conn.first;
