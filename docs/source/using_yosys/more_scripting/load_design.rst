@@ -1,11 +1,88 @@
 Loading a design
-~~~~~~~~~~~~~~~~
+----------------
 
-keyword: Frontends
+.. _input files:
+
+Input files on the command line
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- guesses frontend based on file extension
+
+  + ``.v`` -> ``read -vlog2k``
+  + ``.sv`` -> ``read -sv``
+  + ``.vhd`` and ``.vhdl`` -> ``read -vhdl``
+  + ``.blif`` and ``.eblif`` -> `read_blif`
+  + ``.json`` -> `read_json`
+  + ``.il`` -> `read_rtlil` (direct textual representation of Yosys internal
+    state)
+
+- command line also supports
+
+  + ``.ys`` -> `script`
+  + ``.tcl`` -> `tcl`
+  + ``-`` -> reads stdin and treats it as a script
+
+The `read` command
+~~~~~~~~~~~~~~~~~~
+
+- standard method of loading designs
+- also for defining macros and include directories
+- uses `verific` command if available
+
+  + ``-verific`` and ``-noverific`` options to enforce with/without Verific
+  + check ``help read`` for more about the options available and the filetypes
+    supported
+
+- fallback to `read_verilog`
+
+.. note::
+
+   The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
+   command, requires Yosys to be built with Verific.  For full functionality,
+   custom modifications to the Verific source code from YosysHQ are required,
+   but limited useability can be achieved with some stock Verific builds.  Check
+   :doc:`/yosys_internals/extending_yosys/build_verific` for more.
+
+.. _Frontend:
+
+Yosys frontends
+~~~~~~~~~~~~~~~
+
+- typically start with ``read_``
+- built-in support for heredocs
+
+  + in-line code with ``<<EOT``
+  + can use any eot marker, but EOT (End-of-Transmission) and EOF
+    (End-of-File) are most common
+
+- built-in support for reading multiple files in the same command
+
+  + executed as multiple successive calls to the frontend
+
+- `verific` and `read` commands are technically not 'Frontends', but their
+  behaviour is kept in sync
+
+.. note::
+
+   'Frontend' here means that the command is implemented as a sub-class of
+   ``RTLIL::Frontend``, as opposed to the usual ``RTLIL::Pass``.
+
+.. todo:: link note to as-yet non-existent section on ``RTLIL::Pass`` under 
+          :doc:`/yosys_internals/extending_yosys/index`
+
+The `read_verilog` command
+""""""""""""""""""""""""""
 
 - :doc:`/cmd/read_verilog`
+- supports most of Verilog-2005
+- limited support for SystemVerilog
+- some non-standard features/extensions for enabling formal verification
+- please do not rely on `read_verilog` for syntax checking
 
-.. todo:: include ``read_verilog <<EOF``, also other methods of loading designs
+  + recommend using a simulator (for example Icarus Verilog) or linting with
+    another tool (such as verilator) first
+
+.. todo:: figure out this example code block
 
 .. code-block:: yoscrypt
 
@@ -24,25 +101,31 @@ keyword: Frontends
     read_verilog file6.v
     verilog_defaults -pop
 
-.. todo:: more info on other ``read_*`` commands, also is this the first time we
-   mention verific?
+Other built-in ``read_*`` commands
+""""""""""""""""""""""""""""""""""
 
-.. note::
-
-   The Verific frontend for Yosys, which provides the :cmd:ref:`verific`
-   command, requires Yosys to be built with Verific.  For full functionality,
-   custom modifications to the Verific source code from YosysHQ are required,
-   but limited useability can be achieved with some stock Verific builds.  Check
-   :doc:`/yosys_internals/extending_yosys/build_verific` for more.
-
-Others:
-
-- :doc:`/cmd/read`
-- `GHDL plugin`_ for VHDL
-- :doc:`/cmd/read_rtlil` (direct textual representation of Yosys internal state)
+- :doc:`/cmd/read_rtlil`
 - :doc:`/cmd/read_aiger`
 - :doc:`/cmd/read_blif`
 - :doc:`/cmd/read_json`
 - :doc:`/cmd/read_liberty`
+- :doc:`/cmd/read_xaiger2`
+
+.. TODO:: does `write_file` count?
+
+Externally maintained plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `GHDL plugin`_ for VHDL (check ``help ghdl``)
+- `yosys-slang plugin`_ for more comprehensive SystemVerilog support (check
+  ``help read_slang``)
+
+  + yosys-slang is implemented as a '`Frontend`_,' with all the built-in support
+    that entails
 
 .. _GHDL plugin: https://github.com/ghdl/ghdl-yosys-plugin
+.. _yosys-slang plugin: https://github.com/povik/yosys-slang
+
+- both plugins above are included in `OSS CAD Suite`_
+
+.. _OSS CAD Suite: https://github.com/YosysHQ/oss-cad-suite-build
