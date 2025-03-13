@@ -4088,6 +4088,10 @@ const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) cons
 		if (m)
 			return m->parameter_default_values.at(paramname);
 	}
+	log_warning("Parameter `%s' not found in cell `%s' of type `%s'.\n", paramname.c_str(), name.c_str(), type.c_str());
+	if (module)
+		log_warning("Module `%s' contains that cell.\n", module->name.c_str());
+	log_flush();
 	throw std::out_of_range("Cell::getParam()");
 }
 
