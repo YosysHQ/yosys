@@ -3,6 +3,12 @@ all: examples all_tex
 # set a fake time in pdf generation to prevent unnecessary differences in output
 FAKETIME := TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001'
 
+ifneq ($(shell :; command -v rsync),)
+RSYNC_CP ?= rsync -t
+else
+RSYNC_CP ?= cp -a
+endif
+
 # find all code example makefiles
 .PHONY: examples
 CODE_EXAMPLES := ../code_examples/*/Makefile
@@ -19,7 +25,7 @@ FORCE:
 ../%/Makefile: FORCE
 	@make -C $(@D) dots
 	@mkdir -p $*
-	@find $(@D) -name *.dot -exec rsync -t {} $* \;
+	@find $(@D) -name *.dot -exec $(RSYNC_CP) {} $* \;
 
 # find and build all tex files
 .PHONY: all_tex
