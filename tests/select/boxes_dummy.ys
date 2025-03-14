@@ -1,0 +1,13 @@
+read_verilog -specify boxes.v
+clean
+
+echo on
+select -list
+select -count
+select -count *
+select -count top
+select -count top/w:*
+select -list =*
+select -count =*
+select -clear
+select -assert-count 9 =?b
