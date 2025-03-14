@@ -715,8 +715,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 
 	if (arg[0] == '%') {
 		if (arg == "%") {
-			if (design->selection_stack.size() > 0)
-				work_stack.push_back(design->selection());
+			work_stack.push_back(design->selection());
 		} else
 		if (arg == "%%") {
 			while (work_stack.size() > 1) {
@@ -1507,7 +1506,7 @@ struct SelectPass : public Pass {
 			work_stack.pop_back();
 		}
 
-		log_assert(design->selection_stack.size() > 0);
+		log_assert(!design->selection_stack.empty());
 
 		if (clear_mode) {
 			design->pop_selection();

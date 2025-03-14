@@ -1102,6 +1102,7 @@ void RTLIL::Design::sort()
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
+	log_assert(!selection_stack.empty());
 	for (auto &it : modules_) {
 		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
@@ -1125,8 +1126,6 @@ bool RTLIL::Design::selected_module(const RTLIL::IdString& mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
 	return selection().selected_module(mod_name);
 }
 
@@ -1134,8 +1133,6 @@ bool RTLIL::Design::selected_whole_module(const RTLIL::IdString& mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
 	return selection().selected_whole_module(mod_name);
 }
 
@@ -1143,8 +1140,6 @@ bool RTLIL::Design::selected_member(const RTLIL::IdString& mod_name, const RTLIL
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
 	return selection().selected_member(mod_name, memb_name);
 }
 
@@ -1182,6 +1177,9 @@ void RTLIL::Design::push_complete_selection()
 void RTLIL::Design::pop_selection()
 {
 	selection_stack.pop_back();
+	// Default to a full_selection if we ran out of stack
+	if (selection_stack.empty())
+		push_full_selection();
 }
 
 std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
@@ -2365,6 +2363,10 @@ void RTLIL::Module::check()
 			log_assert(!memories.count(memid));
 			log_assert(!packed_memids.count(memid));
 			packed_memids.insert(memid);
+		}
+		auto cell_mod = design->module(it.first);
+		if (cell_mod != nullptr) {
+			log_assert(!it.second->get_blackbox_attribute());
 		}
 	}
 
