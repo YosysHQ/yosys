@@ -306,6 +306,8 @@ struct Abc9Pass : public ScriptPass
 			}
 			run("design -stash $abc9");
 			run("design -load $abc9_map");
+			if (help_mode) run("select =*");
+			else active_design->push_complete_selection();
 			run("proc");
 			run("wbflip");
 			run("techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
@@ -369,6 +371,8 @@ struct Abc9Pass : public ScriptPass
 			if (saved_designs.count("$abc9_holes") || help_mode) {
 				run("design -stash $abc9");
 				run("design -load $abc9_holes");
+				if (help_mode) run("select =*");
+				else active_design->push_complete_selection();
 				run("techmap -wb -map %$abc9 -map +/techmap.v");
 				run("opt -purge");
 				run("aigmap");
