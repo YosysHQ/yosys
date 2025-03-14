@@ -2366,6 +2366,9 @@ void RTLIL::Module::check()
 		}
 		auto cell_mod = design->module(it.first);
 		if (cell_mod != nullptr) {
+			// assertion check below to make sure that there are no
+			// cases where a cell has a blackbox attribute since
+			// that is deprecated
 			log_assert(!it.second->get_blackbox_attribute());
 		}
 	}
