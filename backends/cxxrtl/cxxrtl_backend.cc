@@ -616,7 +616,7 @@ std::string escape_c_string(const std::string &input)
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
-			char l = c & 0x3, m = (c >> 3) & 0x3, h = (c >> 6) & 0x3;
+			char l = c & 0x7, m = (c >> 3) & 0x7, h = (c >> 6) & 0x3;
 			output.append("\\");
 			output.push_back('0' + h);
 			output.push_back('0' + m);

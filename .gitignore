@@ -11,6 +11,7 @@
 *.whl
 *~
 __pycache__
+/.cache
 /.cproject
 /.project
 /.settings
@@ -19,6 +20,7 @@ __pycache__
 /qtcreator.config
 /qtcreator.creator
 /qtcreator.creator.user
+/compile_commands.json
 /coverage.info
 /coverage_html
 /Makefile.conf
