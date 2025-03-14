@@ -1509,15 +1509,13 @@ struct SelectPass : public Pass {
 		log_assert(!design->selection_stack.empty());
 
 		if (clear_mode) {
-			design->pop_selection();
-			design->push_full_selection();
+			design->selection() = RTLIL::Selection::FullSelection(design);
 			design->selected_active_module = std::string();
 			return;
 		}
 
 		if (none_mode) {
-			design->pop_selection();
-			design->push_empty_selection();
+			design->selection() = RTLIL::Selection::EmptySelection(design);
 			return;
 		}
 
