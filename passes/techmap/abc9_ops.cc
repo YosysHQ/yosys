@@ -454,7 +454,7 @@ void prep_bypass(RTLIL::Design *design)
 
 void prep_dff(RTLIL::Design *design)
 {
-	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection(false)));
+	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection::EmptySelection(design)));
 	auto &modules_sel = r.first->second;
 
 	for (auto module : design->selected_modules())

@@ -1,0 +1,7 @@
+read_verilog -specify boxes.v
+clean
+
+select -assert-none ?b
+select -assert-count 4 =bb
+select -assert-count 5 =wb
+select -assert-count 9 =?b

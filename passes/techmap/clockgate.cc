@@ -333,7 +333,7 @@ struct ClockgatePass : public Pass {
 		dict<ClkNetInfo, GClkNetInfo> clk_nets;
 
 		int gated_flop_count = 0;
-		for (auto module : design->selected_whole_modules()) {
+		for (auto module : design->selected_unboxed_whole_modules()) {
 			for (auto cell : module->cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;

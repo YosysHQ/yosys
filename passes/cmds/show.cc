@@ -802,8 +802,8 @@ struct ShowPass : public Pass {
 				std::pair<std::string, RTLIL::Selection> data;
 				data.first = args[++argidx], argidx++;
 				handle_extra_select_args(this, args, argidx, argidx+1, design);
-				data.second = design->selection_stack.back();
-				design->selection_stack.pop_back();
+				data.second = design->selection();
+				design->pop_selection();
 				color_selections.push_back(data);
 				continue;
 			}
@@ -811,8 +811,8 @@ struct ShowPass : public Pass {
 				std::pair<std::string, RTLIL::Selection> data;
 				data.first = args[++argidx], argidx++;
 				handle_extra_select_args(this, args, argidx, argidx+1, design);
-				data.second = design->selection_stack.back();
-				design->selection_stack.pop_back();
+				data.second = design->selection();
+				design->pop_selection();
 				label_selections.push_back(data);
 				continue;
 			}
