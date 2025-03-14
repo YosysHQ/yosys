@@ -391,7 +391,7 @@ struct Abc9Pass : public ScriptPass
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
-				active_design->selection_stack.emplace_back(false);
+				active_design->push_empty_selection();
 
 				for (auto mod : selected_modules) {
 					if (mod->processes.size() > 0) {
@@ -402,6 +402,7 @@ struct Abc9Pass : public ScriptPass
 					log_push();
 					active_design->select(mod);
 
+					// this check does nothing because the above line adds the whole module to the selection
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
