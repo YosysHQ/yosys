@@ -1188,12 +1188,17 @@ struct RTLIL::Selection
 		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
 			selected_members.erase(module->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
 		}
 	}
 
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!selects_all() && selected_modules.count(module->name) == 0)
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_members[module->name].insert(member->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
+		}
 	}
 
 	bool empty() const {
