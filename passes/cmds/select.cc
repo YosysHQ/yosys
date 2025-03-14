@@ -141,6 +141,20 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 	return match_attr(attributes, match_expr, std::string(), 0);
 }
 
+static void full_select_no_box(RTLIL::Design *design, RTLIL::Selection &lhs)
+{
+	if (!lhs.full_selection)
+		return;
+
+	lhs.current_design = design;
+	lhs.selected_modules.clear();
+	for (auto mod : design->modules()) {
+		if (mod->get_blackbox_attribute())
+			continue;
+		lhs.selected_modules.insert(mod->name);
+	}
+}
+
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	if (lhs.full_selection) {
@@ -150,7 +164,7 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 		return;
 	}
 
-	if (lhs.selected_modules.size() == 0 && lhs.selected_members.size() == 0) {
+	if (!lhs.selects_boxes && lhs.selected_modules.size() == 0 && lhs.selected_members.size() == 0) {
 		lhs.full_selection = true;
 		return;
 	}
@@ -159,6 +173,8 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 	for (auto mod : design->modules())
 	{
+		if (!lhs.selects_boxes && mod->get_blackbox_attribute())
+			continue;
 		if (lhs.selected_whole_module(mod->name))
 			continue;
 		if (!lhs.selected_module(mod->name)) {
@@ -212,7 +228,7 @@ static void select_op_random(RTLIL::Design *design, RTLIL::Selection &lhs, int c
 		}
 	}
 
-	lhs = RTLIL::Selection(false);
+	lhs = RTLIL::Selection(false, false, design);
 
 	while (!objects.empty() && count-- > 0)
 	{
@@ -243,7 +259,7 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	RTLIL::Selection new_sel(false);
+	RTLIL::Selection new_sel(false, lhs.selects_boxes, design);
 	for (auto mod : design->modules())
 		if (lhs.selected_module(mod->name))
 			for (auto cell : mod->cells())
@@ -254,7 +270,7 @@ static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &
 
 static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	RTLIL::Selection new_sel(false);
+	RTLIL::Selection new_sel(false, lhs.selects_boxes, design);
 	for (auto mod : design->modules())
 		for (auto cell : mod->cells())
 			if ((design->module(cell->type) != nullptr) && lhs.selected_whole_module(cell->type))
@@ -274,6 +290,8 @@ static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	for (auto mod : design->modules())
 	{
+		if (!lhs.selects_boxes && mod->get_blackbox_attribute())
+			continue;
 		if (lhs.selected_whole_module(mod->name))
 			continue;
 		if (!lhs.selected_module(mod->name))
@@ -292,17 +310,31 @@ static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 	}
 }
 
-static void select_op_union(RTLIL::Design*, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
+static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
+	if (rhs.selects_boxes) {
+		if (lhs.full_selection) {
+			full_select_no_box(design, lhs);
+			lhs.full_selection = false;
+		}
+		lhs.selects_boxes = true;
+	}
+	else if (lhs.full_selection)
+		return;
+
 	if (rhs.full_selection) {
-		lhs.full_selection = true;
-		lhs.selected_modules.clear();
-		lhs.selected_members.clear();
+		if (lhs.selects_boxes) {
+			auto new_rhs = RTLIL::Selection(rhs);
+			full_select_no_box(design, new_rhs);
+			for (auto mod : new_rhs.selected_modules)
+				lhs.selected_modules.insert(mod);
+		} else {
+			lhs.full_selection = true;
+			lhs.selected_modules.clear();
+			lhs.selected_members.clear();
+		}
 		return;
 	}
-
-	if (lhs.full_selection)
-		return;
 
 	for (auto &it : rhs.selected_members)
 		for (auto &it2 : it.second)
@@ -317,18 +349,26 @@ static void select_op_union(RTLIL::Design*, RTLIL::Selection &lhs, const RTLIL::
 static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
 	if (rhs.full_selection) {
-		lhs.full_selection = false;
-		lhs.selected_modules.clear();
-		lhs.selected_members.clear();
+		if (lhs.selects_boxes) {
+			auto new_rhs = RTLIL::Selection(rhs);
+			full_select_no_box(design, new_rhs);
+			for (auto mod : new_rhs.selected_modules) {
+				lhs.selected_modules.erase(mod);
+				lhs.selected_members.erase(mod);
+			}
+		} else {
+			lhs.full_selection = false;
+			lhs.selected_modules.clear();
+			lhs.selected_members.clear();
+		}
 		return;
 	}
 
 	if (lhs.full_selection) {
-		if (!rhs.full_selection && rhs.selected_modules.size() == 0 && rhs.selected_members.size() == 0)
+		if (rhs.empty())
 			return;
+		full_select_no_box(design, lhs);
 		lhs.full_selection = false;
-		for (auto mod : design->modules())
-			lhs.selected_modules.insert(mod->name);
 	}
 
 	for (auto &it : rhs.selected_modules) {
@@ -366,7 +406,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
-	if (rhs.full_selection)
+	if (rhs.full_selection && !lhs.selects_boxes)
 		return;
 
 	if (lhs.full_selection) {
@@ -377,27 +417,28 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 
 	std::vector<RTLIL::IdString> del_list;
 
-	for (auto &it : lhs.selected_modules)
-		if (rhs.selected_modules.count(it) == 0) {
-			if (rhs.selected_members.count(it) > 0)
-				for (auto &it2 : rhs.selected_members.at(it))
-					lhs.selected_members[it].insert(it2);
-			del_list.push_back(it);
-		}
+	for (auto mod_name : lhs.selected_modules) {
+		if (rhs.selected_whole_module(mod_name))
+			continue;
+		if (rhs.selected_module(mod_name))
+			for (auto memb_name : rhs.selected_members.at(mod_name))
+				lhs.selected_members[mod_name].insert(memb_name);
+		del_list.push_back(mod_name);
+	}
 	for (auto &it : del_list)
 		lhs.selected_modules.erase(it);
 
 	del_list.clear();
 	for (auto &it : lhs.selected_members) {
-		if (rhs.selected_modules.count(it.first) > 0)
+		if (rhs.selected_whole_module(it.first))
 			continue;
-		if (rhs.selected_members.count(it.first) == 0) {
+		if (!rhs.selected_module(it.first)) {
 			del_list.push_back(it.first);
 			continue;
 		}
 		std::vector<RTLIL::IdString> del_list2;
 		for (auto &it2 : it.second)
-			if (rhs.selected_members.at(it.first).count(it2) == 0)
+			if (!rhs.selected_member(it.first, it2))
 				del_list2.push_back(it2);
 		for (auto &it2 : del_list2)
 			it.second.erase(it2);
@@ -796,15 +837,16 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		}
 	}
 
-	work_stack.push_back(RTLIL::Selection());
+	bool full_selection = (arg == "*" && arg_mod == "*");
+	work_stack.push_back(RTLIL::Selection(full_selection, select_blackboxes, design));
 	RTLIL::Selection &sel = work_stack.back();
 
-	if (arg == "*" && arg_mod == "*" && select_blackboxes) {
+	if (sel.full_selection) {
+		if (sel.selects_boxes) sel.optimize(design);
 		select_filter_active_mod(design, work_stack.back());
 		return;
 	}
 
-	sel.full_selection = false;
 	for (auto mod : design->modules())
 	{
 		if (!select_blackboxes && mod->get_blackbox_attribute())
@@ -958,24 +1000,12 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel, bool whole_modules = false)
 {
 	std::string desc = "Selection contains:\n";
-	for (auto mod : design->modules())
+	for (auto mod : design->selected_modules())
 	{
-		if (sel->selected_module(mod->name)) {
-			if (whole_modules && sel->selected_whole_module(mod->name))
-					desc += stringf("%s\n", id2cstr(mod->name));
-			for (auto wire : mod->wires())
-				if (sel->selected_member(mod->name, wire->name))
-					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name));
-			for (auto &it : mod->memories)
-				if (sel->selected_member(mod->name, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it.first));
-			for (auto cell : mod->cells())
-				if (sel->selected_member(mod->name, cell->name))
-					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(cell->name));
-			for (auto &it : mod->processes)
-				if (sel->selected_member(mod->name, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it.first));
-		}
+		if (whole_modules && sel->selected_whole_module(mod->name))
+			desc += stringf("%s\n", id2cstr(mod->name));
+		for (auto it : mod->selected_members())
+			desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it->name));
 	}
 	return desc;
 }
@@ -1001,7 +1031,7 @@ void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t arg
 		work_stack.pop_back();
 	}
 	if (work_stack.empty())
-		design->selection_stack.push_back(RTLIL::Selection(false));
+		design->selection_stack.push_back(RTLIL::Selection(false, false, design));
 	else
 		design->selection_stack.push_back(work_stack.back());
 }
@@ -1017,7 +1047,7 @@ RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *des
 		work_stack.pop_back();
 	}
 	if (work_stack.empty())
-		return RTLIL::Selection(false);
+		return RTLIL::Selection(false, false, design);
 	return work_stack.back();
 }
 
@@ -1444,13 +1474,13 @@ struct SelectPass : public Pass {
 		log_assert(design->selection_stack.size() > 0);
 
 		if (clear_mode) {
-			design->selection_stack.back() = RTLIL::Selection(true);
+			design->selection_stack.back() = RTLIL::Selection(true, false, design);
 			design->selected_active_module = std::string();
 			return;
 		}
 
 		if (none_mode) {
-			design->selection_stack.back() = RTLIL::Selection(false);
+			design->selection_stack.back() = RTLIL::Selection(false, false, design);
 			return;
 		}
 
@@ -1465,28 +1495,17 @@ struct SelectPass : public Pass {
 				if (f == nullptr)
 					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
 			}
-			RTLIL::Selection *sel = &design->selection_stack.back();
 			if (work_stack.size() > 0)
-				sel = &work_stack.back();
+				design->selection_stack.push_back(work_stack.back());
+			RTLIL::Selection *sel = &design->selection_stack.back();
 			sel->optimize(design);
-			for (auto mod : design->modules())
+			for (auto mod : design->selected_modules())
 			{
 				if (sel->selected_whole_module(mod->name) && list_mode)
 					log("%s\n", id2cstr(mod->name));
-				if (sel->selected_module(mod->name) && !list_mod_mode) {
-					for (auto wire : mod->wires())
-						if (sel->selected_member(mod->name, wire->name))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name))
-					for (auto &it : mod->memories)
-						if (sel->selected_member(mod->name, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it.first))
-					for (auto cell : mod->cells())
-						if (sel->selected_member(mod->name, cell->name))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(cell->name))
-					for (auto &it : mod->processes)
-						if (sel->selected_member(mod->name, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it.first))
-				}
+				if (!list_mod_mode)
+					for (auto it : mod->selected_members())
+						LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it->name))
 			}
 			if (count_mode)
 			{
@@ -1495,6 +1514,8 @@ struct SelectPass : public Pass {
 			}
 			if (f != nullptr)
 				fclose(f);
+			if (work_stack.size() > 0)
+				design->selection_stack.pop_back();
 		#undef LOG_OBJECT
 			return;
 		}
@@ -1553,23 +1574,13 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			RTLIL::Selection *sel = &work_stack.back();
+			design->selection_stack.push_back(*sel);
 			sel->optimize(design);
-			for (auto mod : design->modules())
-				if (sel->selected_module(mod->name)) {
-					module_count++;
-					for (auto wire : mod->wires())
-						if (sel->selected_member(mod->name, wire->name))
-							total_count++;
-					for (auto &it : mod->memories)
-						if (sel->selected_member(mod->name, it.first))
-							total_count++;
-					for (auto cell : mod->cells())
-						if (sel->selected_member(mod->name, cell->name))
-							total_count++;
-					for (auto &it : mod->processes)
-						if (sel->selected_member(mod->name, it.first))
-							total_count++;
-				}
+			for (auto mod : design->selected_modules()) {
+				module_count++;
+				for ([[maybe_unused]] auto member_name : mod->selected_members())
+					total_count++;
+			}
 			if (assert_modcount >= 0 && assert_modcount != module_count)
 			{
 				log_error("Assertion failed: selection contains %d modules instead of the asserted %d:%s\n",
@@ -1593,13 +1604,14 @@ struct SelectPass : public Pass {
 				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
 						total_count, assert_min, sel_str.c_str(), desc.c_str());
 			}
+			design->selection_stack.pop_back();
 			return;
 		}
 
 		if (!set_name.empty())
 		{
 			if (work_stack.size() == 0)
-				design->selection_vars[set_name] = RTLIL::Selection(false);
+				design->selection_vars[set_name] = RTLIL::Selection(false, false, design);
 			else
 				design->selection_vars[set_name] = work_stack.back();
 			return;
@@ -1665,7 +1677,7 @@ struct CdPass : public Pass {
 			log_cmd_error("Invalid number of arguments.\n");
 
 		if (args.size() == 1 || args[1] == "/") {
-			design->selection_stack.back() = RTLIL::Selection(true);
+			design->selection_stack.back() = RTLIL::Selection(true, false, design);
 			design->selected_active_module = std::string();
 			return;
 		}
@@ -1674,7 +1686,7 @@ struct CdPass : public Pass {
 		{
 			string modname = design->selected_active_module;
 
-			design->selection_stack.back() = RTLIL::Selection(true);
+			design->selection_stack.back() = RTLIL::Selection(true, false, design);
 			design->selected_active_module = std::string();
 
 			while (1)
@@ -1691,7 +1703,7 @@ struct CdPass : public Pass {
 					continue;
 
 				design->selected_active_module = modname;
-				design->selection_stack.back() = RTLIL::Selection();
+				design->selection_stack.back() = RTLIL::Selection(true, false, design);
 				select_filter_active_mod(design, design->selection_stack.back());
 				design->selection_stack.back().optimize(design);
 				return;
@@ -1710,7 +1722,7 @@ struct CdPass : public Pass {
 
 		if (design->module(modname) != nullptr) {
 			design->selected_active_module = modname;
-			design->selection_stack.back() = RTLIL::Selection();
+			design->selection_stack.back() = RTLIL::Selection(true, false, design);
 			select_filter_active_mod(design, design->selection_stack.back());
 			design->selection_stack.back().optimize(design);
 			return;
