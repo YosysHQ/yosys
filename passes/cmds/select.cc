@@ -999,6 +999,8 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 
 static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel, bool whole_modules = false)
 {
+	bool push_selection = &design->selection() != sel;
+	if (push_selection) design->push_selection(*sel);
 	std::string desc = "Selection contains:\n";
 	for (auto mod : design->all_selected_modules())
 	{
@@ -1007,6 +1009,7 @@ static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::S
 		for (auto it : mod->selected_members())
 			desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it->name));
 	}
+	if (push_selection) design->pop_selection();
 	return desc;
 }
 
