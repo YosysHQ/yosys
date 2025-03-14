@@ -1000,7 +1000,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel, bool whole_modules = false)
 {
 	std::string desc = "Selection contains:\n";
-	for (auto mod : design->selected_modules())
+	for (auto mod : design->all_selected_modules())
 	{
 		if (whole_modules && sel->selected_whole_module(mod->name))
 			desc += stringf("%s\n", id2cstr(mod->name));
@@ -1501,7 +1501,7 @@ struct SelectPass : public Pass {
 				design->push_selection(work_stack.back());
 			RTLIL::Selection *sel = &design->selection();
 			sel->optimize(design);
-			for (auto mod : design->selected_modules())
+			for (auto mod : design->all_selected_modules())
 			{
 				if (sel->selected_whole_module(mod->name) && list_mode)
 					log("%s\n", id2cstr(mod->name));
@@ -1578,7 +1578,7 @@ struct SelectPass : public Pass {
 			RTLIL::Selection *sel = &work_stack.back();
 			design->push_selection(*sel);
 			sel->optimize(design);
-			for (auto mod : design->selected_modules()) {
+			for (auto mod : design->all_selected_modules()) {
 				module_count++;
 				for ([[maybe_unused]] auto member_name : mod->selected_members())
 					total_count++;
@@ -1777,7 +1777,7 @@ struct LsPass : public Pass {
 		{
 			std::vector<IdString> matches;
 
-			for (auto mod : design->selected_modules())
+			for (auto mod : design->all_selected_modules())
 				matches.push_back(mod->name);
 
 			if (!matches.empty()) {
