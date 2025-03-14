@@ -1008,12 +1008,16 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 
 	for (auto &it : arg_mod_found) {
 		if (it.second == false && !disable_empty_warning) {
-			log_warning("Selection \"%s\" did not match any module.\n", it.first.c_str());
+			std::string selection_str = select_blackboxes ? "=" : "";
+			selection_str += it.first;
+			log_warning("Selection \"%s\" did not match any module.\n", selection_str.c_str());
 		}
 	}
 	for (auto &it : arg_memb_found) {
 		if (it.second == false && !disable_empty_warning) {
-			log_warning("Selection \"%s\" did not match any object.\n", it.first.c_str());
+			std::string selection_str = select_blackboxes ? "=" : "";
+			selection_str += it.first;
+			log_warning("Selection \"%s\" did not match any object.\n", selection_str.c_str());
 		}
 	}
 }
