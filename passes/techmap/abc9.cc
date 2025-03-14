@@ -400,7 +400,7 @@ struct Abc9Pass : public ScriptPass
 					}
 
 					log_push();
-					active_design->selection().select(mod);
+					active_design->select(mod);
 
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
@@ -452,7 +452,7 @@ struct Abc9Pass : public ScriptPass
 					log_pop();
 				}
 
-				active_design->selection_stack.pop_back();
+				active_design->pop_selection();
 			}
 		}
 

@@ -679,11 +679,11 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	str += "yosys";
 	if (!design->selected_active_module.empty())
 		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module).c_str());
-	if (!design->selection_stack.empty() && !design->selection_stack.back().full_selection) {
+	if (!design->selection_stack.empty() && !design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";
-		else if (design->selection_stack.back().selected_modules.size() != 1 || design->selection_stack.back().selected_members.size() != 0 ||
-				design->selection_stack.back().selected_modules.count(design->selected_active_module) == 0)
+		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
+				design->selection().selected_modules.count(design->selected_active_module) == 0)
 			str += "*";
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());
@@ -1346,7 +1346,7 @@ void shell(RTLIL::Design *design)
 			Pass::call(design, command);
 		} catch (log_cmd_error_exception) {
 			while (design->selection_stack.size() > 1)
-				design->selection_stack.pop_back();
+				design->pop_selection();
 			log_reset_stack();
 		}
 		design->check();

@@ -893,7 +893,7 @@ RTLIL::Design::Design()
 	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
-	selection_stack.push_back(RTLIL::Selection(true, false, this));
+	push_full_selection();
 
 #ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
@@ -1121,7 +1121,7 @@ bool RTLIL::Design::selected_module(const RTLIL::IdString& mod_name) const
 		return false;
 	if (selection_stack.size() == 0)
 		return true;
-	return selection_stack.back().selected_module(mod_name);
+	return selection().selected_module(mod_name);
 }
 
 bool RTLIL::Design::selected_whole_module(const RTLIL::IdString& mod_name) const
@@ -1130,7 +1130,7 @@ bool RTLIL::Design::selected_whole_module(const RTLIL::IdString& mod_name) const
 		return false;
 	if (selection_stack.size() == 0)
 		return true;
-	return selection_stack.back().selected_whole_module(mod_name);
+	return selection().selected_whole_module(mod_name);
 }
 
 bool RTLIL::Design::selected_member(const RTLIL::IdString& mod_name, const RTLIL::IdString& memb_name) const
@@ -1139,7 +1139,7 @@ bool RTLIL::Design::selected_member(const RTLIL::IdString& mod_name, const RTLIL
 		return false;
 	if (selection_stack.size() == 0)
 		return true;
-	return selection_stack.back().selected_member(mod_name, memb_name);
+	return selection().selected_member(mod_name, memb_name);
 }
 
 bool RTLIL::Design::selected_module(RTLIL::Module *mod) const

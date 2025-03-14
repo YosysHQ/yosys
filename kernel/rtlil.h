@@ -1295,7 +1295,7 @@ struct RTLIL::Design
 	}
 
 	bool full_selection() const {
-		return selection_stack.back().full_selection;
+		return selection().full_selection;
 	}
 
 	template<typename T1> bool selected(T1 *module) const {
@@ -1308,14 +1308,14 @@ struct RTLIL::Design
 
 	template<typename T1> void select(T1 *module) {
 		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
+			RTLIL::Selection &sel = selection();
 			sel.select(module);
 		}
 	}
 
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
+			RTLIL::Selection &sel = selection();
 			sel.select(module, member);
 		}
 	}

@@ -687,7 +687,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 	if (arg[0] == '%') {
 		if (arg == "%") {
 			if (design->selection_stack.size() > 0)
-				work_stack.push_back(design->selection_stack.back());
+				work_stack.push_back(design->selection());
 		} else
 		if (arg == "%%") {
 			while (work_stack.size() > 1) {
@@ -1031,9 +1031,9 @@ void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t arg
 		work_stack.pop_back();
 	}
 	if (work_stack.empty())
-		design->selection_stack.push_back(RTLIL::Selection(false, false, design));
+		design->push_empty_selection();
 	else
-		design->selection_stack.push_back(work_stack.back());
+		design->push_selection(work_stack.back());
 }
 
 // extern decl. in register.h
@@ -1420,7 +1420,7 @@ struct SelectPass : public Pass {
 			if (f.fail())
 				log_error("Can't open '%s' for reading: %s\n", read_file.c_str(), strerror(errno));
 
-			RTLIL::Selection sel(false);
+			RTLIL::Selection sel(false, false, design);
 			string line;
 
 			while (std::getline(f, line)) {
@@ -1461,7 +1461,7 @@ struct SelectPass : public Pass {
 			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -set, %s.\n", common_flagset);
 
 		if (work_stack.size() == 0 && got_module) {
-			RTLIL::Selection sel;
+			RTLIL::Selection sel(true, false, design);
 			select_filter_active_mod(design, sel);
 			work_stack.push_back(sel);
 		}
@@ -1474,13 +1474,15 @@ struct SelectPass : public Pass {
 		log_assert(design->selection_stack.size() > 0);
 
 		if (clear_mode) {
-			design->selection_stack.back() = RTLIL::Selection(true, false, design);
+			design->pop_selection();
+			design->push_full_selection();
 			design->selected_active_module = std::string();
 			return;
 		}
 
 		if (none_mode) {
-			design->selection_stack.back() = RTLIL::Selection(false, false, design);
+			design->pop_selection();
+			design->push_empty_selection();
 			return;
 		}
 
@@ -1496,8 +1498,8 @@ struct SelectPass : public Pass {
 					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
 			}
 			if (work_stack.size() > 0)
-				design->selection_stack.push_back(work_stack.back());
-			RTLIL::Selection *sel = &design->selection_stack.back();
+				design->push_selection(work_stack.back());
+			RTLIL::Selection *sel = &design->selection();
 			sel->optimize(design);
 			for (auto mod : design->selected_modules())
 			{
@@ -1515,7 +1517,7 @@ struct SelectPass : public Pass {
 			if (f != nullptr)
 				fclose(f);
 			if (work_stack.size() > 0)
-				design->selection_stack.pop_back();
+				design->pop_selection();
 		#undef LOG_OBJECT
 			return;
 		}
@@ -1524,8 +1526,8 @@ struct SelectPass : public Pass {
 		{
 			if (work_stack.size() == 0)
 				log_cmd_error("Nothing to add to selection.\n");
-			select_op_union(design, design->selection_stack.back(), work_stack.back());
-			design->selection_stack.back().optimize(design);
+			select_op_union(design, design->selection(), work_stack.back());
+			design->selection().optimize(design);
 			return;
 		}
 
@@ -1533,8 +1535,8 @@ struct SelectPass : public Pass {
 		{
 			if (work_stack.size() == 0)
 				log_cmd_error("Nothing to delete from selection.\n");
-			select_op_diff(design, design->selection_stack.back(), work_stack.back());
-			design->selection_stack.back().optimize(design);
+			select_op_diff(design, design->selection(), work_stack.back());
+			design->selection().optimize(design);
 			return;
 		}
 
@@ -1574,7 +1576,7 @@ struct SelectPass : public Pass {
 			if (work_stack.size() == 0)
 				log_cmd_error("No selection to check.\n");
 			RTLIL::Selection *sel = &work_stack.back();
-			design->selection_stack.push_back(*sel);
+			design->push_selection(*sel);
 			sel->optimize(design);
 			for (auto mod : design->selected_modules()) {
 				module_count++;
@@ -1604,7 +1606,7 @@ struct SelectPass : public Pass {
 				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
 						total_count, assert_min, sel_str.c_str(), desc.c_str());
 			}
-			design->selection_stack.pop_back();
+			design->pop_selection();
 			return;
 		}
 
@@ -1625,7 +1627,7 @@ struct SelectPass : public Pass {
 		}
 
 		if (work_stack.size() == 0) {
-			RTLIL::Selection &sel = design->selection_stack.back();
+			RTLIL::Selection &sel = design->selection();
 			if (sel.full_selection)
 				log("*\n");
 			for (auto &it : sel.selected_modules)
@@ -1636,8 +1638,8 @@ struct SelectPass : public Pass {
 			return;
 		}
 
-		design->selection_stack.back() = work_stack.back();
-		design->selection_stack.back().optimize(design);
+		design->selection() = work_stack.back();
+		design->selection().optimize(design);
 	}
 } SelectPass;
 
@@ -1677,7 +1679,8 @@ struct CdPass : public Pass {
 			log_cmd_error("Invalid number of arguments.\n");
 
 		if (args.size() == 1 || args[1] == "/") {
-			design->selection_stack.back() = RTLIL::Selection(true, false, design);
+			design->pop_selection();
+			design->push_full_selection();
 			design->selected_active_module = std::string();
 			return;
 		}
@@ -1686,7 +1689,8 @@ struct CdPass : public Pass {
 		{
 			string modname = design->selected_active_module;
 
-			design->selection_stack.back() = RTLIL::Selection(true, false, design);
+			design->pop_selection();
+			design->push_full_selection();
 			design->selected_active_module = std::string();
 
 			while (1)
@@ -1703,9 +1707,10 @@ struct CdPass : public Pass {
 					continue;
 
 				design->selected_active_module = modname;
-				design->selection_stack.back() = RTLIL::Selection(true, false, design);
-				select_filter_active_mod(design, design->selection_stack.back());
-				design->selection_stack.back().optimize(design);
+				design->pop_selection();
+				design->push_full_selection();
+				select_filter_active_mod(design, design->selection());
+				design->selection().optimize(design);
 				return;
 			}
 
@@ -1722,9 +1727,10 @@ struct CdPass : public Pass {
 
 		if (design->module(modname) != nullptr) {
 			design->selected_active_module = modname;
-			design->selection_stack.back() = RTLIL::Selection(true, false, design);
-			select_filter_active_mod(design, design->selection_stack.back());
-			design->selection_stack.back().optimize(design);
+			design->pop_selection();
+			design->push_full_selection();
+			select_filter_active_mod(design, design->selection());
+			design->selection().optimize(design);
 			return;
 		}
 
