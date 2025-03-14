@@ -1039,7 +1039,7 @@ docs/source/generated:
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
 docs/source/generated/$(1): $(TARGETS) docs/source/generated
-	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@
+	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@ || rm $$@
 endef
 DOCS_USAGE_STDERR := yosys-config yosys-filterlib
 
@@ -1053,7 +1053,7 @@ $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 # others print to stdout
 define DOC_USAGE_STDOUT
 docs/source/generated/$(1): $(TARGETS) docs/source/generated
-	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@
+	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@ || rm $$@
 endef
 DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
 $(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
