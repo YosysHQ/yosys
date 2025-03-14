@@ -431,8 +431,16 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 	if (rhs.full_selection && !lhs.selects_boxes)
 		return;
 
-	if (lhs.empty() || rhs.empty())
+	if (lhs.empty())
 		return;
+
+	if (rhs.empty()) {
+		lhs.full_selection = false;
+		lhs.complete_selection = false;
+		lhs.selected_modules.clear();
+		lhs.selected_members.clear();
+		return;
+	}
 
 	select_all(design, lhs);
 
