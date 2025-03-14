@@ -1152,37 +1152,58 @@ bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 	return selected_whole_module(mod->name);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
 {
+	bool include_partials = partials == RTLIL::SELECT_ALL;
+	bool exclude_boxes = (partials & RTLIL::SB_UNBOXED_ONLY) == 0;
+	bool ignore_wb = (partials & RTLIL::SB_INCL_WB) != 0;
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (selected_module(it.first))
-			result.push_back(it.second);
-	return result;
-}
-
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
-{
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_)
-		if (selected_whole_module(it.first))
-			result.push_back(it.second);
-	return result;
-}
-
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn(bool include_wb) const
-{
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_) {
-		log_assert(selection_stack.size() > 0 || !it.second->get_blackbox_attribute(include_wb));
-		if (selected_whole_module(it.first))
-			result.push_back(it.second);
-		else if (selected_module(it.first))
-			log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
-	}
+		if (selected_whole_module(it.first) || (include_partials && selected_module(it.first))) {
+			if (!(exclude_boxes && it.second->get_blackbox_attribute(ignore_wb)))
+				result.push_back(it.second);
+			else
+				switch (boxes)
+				{
+				case RTLIL::SB_UNBOXED_WARN:
+					log_warning("Ignoring boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_WARN:
+					log_warning("Ignoring blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_ERR:
+					log_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_ERR:
+					log_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_CMDERR:
+					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_CMDERR:
+					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				default:
+					break;
+				}
+		} else if (!include_partials && selected_module(it.first)) {
+			switch(partials)
+			{
+			case RTLIL::SELECT_WHOLE_WARN:
+				log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_ERR:
+				log_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_CMDERR:
+				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			default:
+				break;
+			}
+		}
 	return result;
 }
 

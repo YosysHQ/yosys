@@ -56,6 +56,30 @@ namespace RTLIL
 		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
+	enum SelectPartials : unsigned char {
+		SELECT_ALL = 0,          // include partial modules
+		SELECT_WHOLE_ONLY = 1,   // ignore partial modules
+		SELECT_WHOLE_WARN = 2,   // call log_warning on partial module
+		SELECT_WHOLE_ERR = 3,    // call log_error on partial module
+		SELECT_WHOLE_CMDERR = 4  // call log_cmd_error on partial module
+	};
+
+	enum SelectBoxes : unsigned char {
+		SB_ALL = 0,            // include boxed modules
+		SB_WARN = 1,           // helper for log_warning
+		SB_ERR = 2,            // helper for log_error
+		SB_CMDERR = 3,         // helper for log_cmd_error
+		SB_UNBOXED_ONLY = 4,   // ignore boxed modules
+		SB_UNBOXED_WARN = 5,   // call log_warning on boxed module
+		SB_UNBOXED_ERR = 6,    // call log_error on boxed module
+		SB_UNBOXED_CMDERR = 7, // call log_cmd_error on boxed module
+		SB_INCL_WB = 8,        // helper for white boxes
+		SB_EXCL_BB_ONLY = 12,  // ignore black boxes, but not white boxes
+		SB_EXCL_BB_WARN = 13,  // call log_warning on black boxed module
+		SB_EXCL_BB_ERR = 14,   // call log_error on black boxed module
+		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -1291,9 +1315,20 @@ struct RTLIL::Design
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const;
+	std::vector<RTLIL::Module*> selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes = SB_ALL) const;
+
+	[[deprecated("Use selected_unboxed_modules() to maintain prior behaviour, or consider one of the other selected module helpers.")]]
+	std::vector<RTLIL::Module*> selected_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
+	std::vector<RTLIL::Module*> all_selected_modules() const { return selected_modules(SELECT_ALL, SB_ALL); }
+	std::vector<RTLIL::Module*> selected_unboxed_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_ONLY); }
+	std::vector<RTLIL::Module*> selected_unboxed_modules_warn() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
+
+	[[deprecated("Use select_unboxed_whole_modules() to maintain prior behaviour, or consider one of the other selected whole module helpers.")]]
+	std::vector<RTLIL::Module*> selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_WARN); }
+	std::vector<RTLIL::Module*> all_selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_ALL); }
+	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const { return selected_modules(SELECT_WHOLE_WARN, include_wb ? SB_EXCL_BB_WARN : SB_UNBOXED_WARN); }
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_ONLY); }
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
