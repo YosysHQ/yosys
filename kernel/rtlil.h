@@ -1332,10 +1332,8 @@ struct RTLIL::Design
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes = SB_ALL) const;
+	std::vector<RTLIL::Module*> selected_modules(RTLIL::SelectPartials partials = SELECT_ALL, RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN) const;
 
-	[[deprecated("Use selected_unboxed_modules() to maintain prior behaviour, or consider one of the other selected module helpers.")]]
-	std::vector<RTLIL::Module*> selected_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
 	std::vector<RTLIL::Module*> all_selected_modules() const { return selected_modules(SELECT_ALL, SB_ALL); }
 	std::vector<RTLIL::Module*> selected_unboxed_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_ONLY); }
 	std::vector<RTLIL::Module*> selected_unboxed_modules_warn() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
