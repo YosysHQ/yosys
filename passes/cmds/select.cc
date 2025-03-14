@@ -228,7 +228,7 @@ static void select_op_random(RTLIL::Design *design, RTLIL::Selection &lhs, int c
 		}
 	}
 
-	lhs = RTLIL::Selection(false, false, design);
+	lhs = RTLIL::Selection(false, lhs.selects_boxes, design);
 
 	while (!objects.empty() && count-- > 0)
 	{
