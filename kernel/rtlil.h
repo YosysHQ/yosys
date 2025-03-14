@@ -1246,7 +1246,7 @@ struct RTLIL::Design
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(const RTLIL::IdString &name);
 	const RTLIL::Module *module(const RTLIL::IdString &name) const;
-	RTLIL::Module *top_module();
+	RTLIL::Module *top_module() const;
 
 	bool has(const RTLIL::IdString &id) const {
 		return modules_.count(id) != 0;

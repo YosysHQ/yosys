@@ -938,7 +938,7 @@ const RTLIL::Module *RTLIL::Design::module(const RTLIL::IdString& name) const
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
-RTLIL::Module *RTLIL::Design::top_module()
+RTLIL::Module *RTLIL::Design::top_module() const
 {
 	RTLIL::Module *module = nullptr;
 	int module_count = 0;
