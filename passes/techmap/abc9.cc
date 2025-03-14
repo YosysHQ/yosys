@@ -308,9 +308,8 @@ struct Abc9Pass : public ScriptPass
 			run("design -load $abc9_map");
 			if (help_mode) run("select =*");
 			else active_design->push_complete_selection();
-			run("proc");
 			run("wbflip");
-			run("techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
+			run("techmap -autoproc -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
 			run("opt -nodffe -nosdff");
 			if (dff_mode || help_mode) {
 				if (!help_mode)
