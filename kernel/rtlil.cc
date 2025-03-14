@@ -1152,6 +1152,35 @@ bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 	return selected_whole_module(mod->name);
 }
 
+void RTLIL::Design::push_selection(RTLIL::Selection sel)
+{
+	sel.current_design = this;
+	selection_stack.push_back(sel);
+}
+
+void RTLIL::Design::push_empty_selection()
+{
+	RTLIL::Selection sel(false, false, this);
+	push_selection(sel);
+}
+
+void RTLIL::Design::push_full_selection()
+{
+	RTLIL::Selection sel(true, false, this);
+	push_selection(sel);
+}
+
+void RTLIL::Design::push_complete_selection()
+{
+	RTLIL::Selection sel(true, true, this);
+	sel.optimize(this);
+	push_selection(sel);
+}
+
+void RTLIL::Design::pop_selection()
+{
+	selection_stack.pop_back();
+}
 
 std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
 {
@@ -2460,6 +2489,16 @@ bool RTLIL::Module::has_processes_warn() const
 	if (!processes.empty())
 		log_warning("Ignoring module %s because it contains processes (run 'proc' command first).\n", log_id(this));
 	return !processes.empty();
+}
+
+bool RTLIL::Module::is_selected() const
+{
+	return design->selected_module(this->name);
+}
+
+bool RTLIL::Module::is_selected_whole() const
+{
+	return design->selected_whole_module(this->name);
 }
 
 std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const

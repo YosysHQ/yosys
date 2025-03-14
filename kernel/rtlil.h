@@ -1280,6 +1280,12 @@ struct RTLIL::Design
 	bool selected_module(RTLIL::Module *mod) const;
 	bool selected_whole_module(RTLIL::Module *mod) const;
 
+	void push_selection(RTLIL::Selection sel);
+	void push_empty_selection();
+	void push_full_selection();
+	void push_complete_selection();
+	void pop_selection();
+
 	RTLIL::Selection &selection() {
 		return selection_stack.back();
 	}
@@ -1400,6 +1406,9 @@ public:
 
 	bool has_memories_warn() const;
 	bool has_processes_warn() const;
+
+	bool is_selected() const;
+	bool is_selected_whole() const;
 
 	std::vector<RTLIL::Wire*> selected_wires() const;
 	std::vector<RTLIL::Cell*> selected_cells() const;
