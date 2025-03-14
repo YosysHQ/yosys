@@ -1166,11 +1166,13 @@ struct RTLIL::Selection
 {
 	bool full_selection;
 	bool selects_boxes;
+	bool complete_selection;
 	pool<RTLIL::IdString> selected_modules;
 	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
 	RTLIL::Design *current_design;
 
-	Selection(bool full = true, bool boxes = false, RTLIL::Design *design = nullptr) : full_selection(full), selects_boxes(boxes), current_design(design) { }
+	Selection(bool full = true, bool boxes = false, RTLIL::Design *design = nullptr) : 
+		full_selection(full && !boxes), selects_boxes(boxes), complete_selection(full && boxes), current_design(design) { }
 
 	bool boxed_module(const RTLIL::IdString &mod_name) const;
 	bool selected_module(const RTLIL::IdString &mod_name) const;
@@ -1178,21 +1180,29 @@ struct RTLIL::Selection
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
 	void optimize(RTLIL::Design *design);
 
+	bool selects_all() const {
+		return full_selection || complete_selection;
+	}
+
 	template<typename T1> void select(T1 *module) {
-		if (!full_selection && selected_modules.count(module->name) == 0) {
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
 			selected_members.erase(module->name);
 		}
 	}
 
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!full_selection && selected_modules.count(module->name) == 0)
+		if (!selects_all() && selected_modules.count(module->name) == 0)
 			selected_members[module->name].insert(member->name);
 	}
 
 	bool empty() const {
-		return !full_selection && selected_modules.empty() && selected_members.empty();
+		return !selects_all() && selected_modules.empty() && selected_members.empty();
 	}
+
+	static Selection EmptySelection(RTLIL::Design *design = nullptr) { return Selection(false, false, design); };
+	static Selection FullSelection(RTLIL::Design *design = nullptr) { return Selection(true, false, design); };
+	static Selection CompleteSelection(RTLIL::Design *design = nullptr) { return Selection(true, true, design); };
 };
 
 struct RTLIL::Monitor
@@ -1282,8 +1292,8 @@ struct RTLIL::Design
 
 	void push_selection(RTLIL::Selection sel);
 	void push_empty_selection();
-	void push_full_selection();
-	void push_complete_selection();
+	void push_full_selection();     // all modules excluding boxes
+	void push_complete_selection(); // all modules including boxes
 	void pop_selection();
 
 	RTLIL::Selection &selection() {

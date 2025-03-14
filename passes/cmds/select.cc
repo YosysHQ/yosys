@@ -141,35 +141,40 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, co
 	return match_attr(attributes, match_expr, std::string(), 0);
 }
 
-static void full_select_no_box(RTLIL::Design *design, RTLIL::Selection &lhs)
+static void select_all(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	if (!lhs.full_selection)
+	if (!lhs.selects_all())
 		return;
-
 	lhs.current_design = design;
 	lhs.selected_modules.clear();
 	for (auto mod : design->modules()) {
-		if (mod->get_blackbox_attribute())
+		if (!lhs.selects_boxes && mod->get_blackbox_attribute())
 			continue;
 		lhs.selected_modules.insert(mod->name);
 	}
+	lhs.full_selection = false;
+	lhs.complete_selection = false;
 }
 
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	if (lhs.full_selection) {
+	if (lhs.selects_all()) {
 		lhs.full_selection = false;
+		lhs.complete_selection = false;
 		lhs.selected_modules.clear();
 		lhs.selected_members.clear();
 		return;
 	}
 
-	if (!lhs.selects_boxes && lhs.selected_modules.size() == 0 && lhs.selected_members.size() == 0) {
-		lhs.full_selection = true;
+	if (lhs.selected_modules.size() == 0 && lhs.selected_members.size() == 0) {
+		if (lhs.selects_boxes)
+			lhs.complete_selection = true;
+		else
+			lhs.full_selection = true;
 		return;
 	}
 
-	RTLIL::Selection new_sel(false);
+	auto new_sel = RTLIL::Selection::EmptySelection();
 
 	for (auto mod : design->modules())
 	{
@@ -312,10 +317,17 @@ static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
+	if (lhs.complete_selection)
+		return;
+	else if (rhs.complete_selection) {
+		lhs.complete_selection = true;
+		lhs.optimize(design);
+		return;
+	}
+
 	if (rhs.selects_boxes) {
 		if (lhs.full_selection) {
-			full_select_no_box(design, lhs);
-			lhs.full_selection = false;
+			select_all(design, lhs);
 		}
 		lhs.selects_boxes = true;
 	}
@@ -325,7 +337,7 @@ static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const 
 	if (rhs.full_selection) {
 		if (lhs.selects_boxes) {
 			auto new_rhs = RTLIL::Selection(rhs);
-			full_select_no_box(design, new_rhs);
+			select_all(design, new_rhs);
 			for (auto mod : new_rhs.selected_modules)
 				lhs.selected_modules.insert(mod);
 		} else {
@@ -348,10 +360,19 @@ static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const 
 
 static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
+	if (rhs.complete_selection) {
+		lhs.full_selection = false;
+		lhs.complete_selection = false;
+		lhs.selected_modules.clear();
+		lhs.selected_members.clear();
+		return;
+	}
+
 	if (rhs.full_selection) {
 		if (lhs.selects_boxes) {
 			auto new_rhs = RTLIL::Selection(rhs);
-			full_select_no_box(design, new_rhs);
+			select_all(design, new_rhs);
+			select_all(design, lhs);
 			for (auto mod : new_rhs.selected_modules) {
 				lhs.selected_modules.erase(mod);
 				lhs.selected_members.erase(mod);
@@ -364,12 +385,10 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 		return;
 	}
 
-	if (lhs.full_selection) {
-		if (rhs.empty())
-			return;
-		full_select_no_box(design, lhs);
-		lhs.full_selection = false;
-	}
+	if (rhs.empty() || lhs.empty())
+		return;
+
+	select_all(design, lhs);
 
 	for (auto &it : rhs.selected_modules) {
 		lhs.selected_modules.erase(it);
@@ -406,14 +425,16 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
+	if (rhs.complete_selection)
+		return;
+
 	if (rhs.full_selection && !lhs.selects_boxes)
 		return;
 
-	if (lhs.full_selection) {
-		lhs.full_selection = false;
-		for (auto mod : design->modules())
-			lhs.selected_modules.insert(mod->name);
-	}
+	if (lhs.empty() || rhs.empty())
+		return;
+
+	select_all(design, lhs);
 
 	std::vector<RTLIL::IdString> del_list;
 
@@ -1050,7 +1071,7 @@ RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *des
 		work_stack.pop_back();
 	}
 	if (work_stack.empty())
-		return RTLIL::Selection(false, false, design);
+		return RTLIL::Selection::EmptySelection(design);
 	return work_stack.back();
 }
 
@@ -1423,7 +1444,7 @@ struct SelectPass : public Pass {
 			if (f.fail())
 				log_error("Can't open '%s' for reading: %s\n", read_file.c_str(), strerror(errno));
 
-			RTLIL::Selection sel(false, false, design);
+			auto sel = RTLIL::Selection::EmptySelection(design);
 			string line;
 
 			while (std::getline(f, line)) {
@@ -1464,7 +1485,7 @@ struct SelectPass : public Pass {
 			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -set, %s.\n", common_flagset);
 
 		if (work_stack.size() == 0 && got_module) {
-			RTLIL::Selection sel(true, false, design);
+			auto sel = RTLIL::Selection::FullSelection(design);
 			select_filter_active_mod(design, sel);
 			work_stack.push_back(sel);
 		}
@@ -1616,7 +1637,7 @@ struct SelectPass : public Pass {
 		if (!set_name.empty())
 		{
 			if (work_stack.size() == 0)
-				design->selection_vars[set_name] = RTLIL::Selection(false, false, design);
+				design->selection_vars[set_name] = RTLIL::Selection::EmptySelection(design);
 			else
 				design->selection_vars[set_name] = work_stack.back();
 			return;

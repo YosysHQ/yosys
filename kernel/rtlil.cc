@@ -779,6 +779,8 @@ bool RTLIL::Selection::boxed_module(const RTLIL::IdString &mod_name) const
 
 bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 {
+	if (complete_selection)
+		return true;
 	if (!selects_boxes && boxed_module(mod_name))
 		return false;
 	if (full_selection)
@@ -792,6 +794,8 @@ bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 
 bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) const
 {
+	if (complete_selection)
+		return true;
 	if (!selects_boxes && boxed_module(mod_name))
 		return false;
 	if (full_selection)
@@ -803,6 +807,8 @@ bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) co
 
 bool RTLIL::Selection::selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const
 {
+	if (complete_selection)
+		return true;
 	if (!selects_boxes && boxed_module(mod_name))
 		return false;
 	if (full_selection)
@@ -821,16 +827,13 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		current_design = design;
 	}
 
-	if (selects_boxes && full_selection) {
-		selected_modules.clear();
-		selected_members.clear();
+	if (selects_boxes && full_selection)
+		complete_selection = true;
+	if (complete_selection) {
 		full_selection = false;
-		for (auto mod : current_design->modules()) {
-			selected_modules.insert(mod->name);
-		}
-		return;
+		selects_boxes = true;
 	}
-	if (full_selection) {
+	if (selects_all()) {
 		selected_modules.clear();
 		selected_members.clear();
 		return;
@@ -878,10 +881,13 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		selected_modules.insert(mod_name);
 	}
 
-	if (!selects_boxes && selected_modules.size() == current_design->modules_.size()) {
-		full_selection = true;
+	if (selected_modules.size() == current_design->modules_.size()) {
 		selected_modules.clear();
 		selected_members.clear();
+		if (selects_boxes)
+			complete_selection = true;
+		else
+			full_selection = true;
 	}
 }
 
@@ -1160,21 +1166,17 @@ void RTLIL::Design::push_selection(RTLIL::Selection sel)
 
 void RTLIL::Design::push_empty_selection()
 {
-	RTLIL::Selection sel(false, false, this);
-	push_selection(sel);
+	push_selection(RTLIL::Selection::EmptySelection(this));
 }
 
 void RTLIL::Design::push_full_selection()
 {
-	RTLIL::Selection sel(true, false, this);
-	push_selection(sel);
+	push_selection(RTLIL::Selection::FullSelection(this));
 }
 
 void RTLIL::Design::push_complete_selection()
 {
-	RTLIL::Selection sel(true, true, this);
-	sel.optimize(this);
-	push_selection(sel);
+	push_selection(RTLIL::Selection::CompleteSelection(this));
 }
 
 void RTLIL::Design::pop_selection()
