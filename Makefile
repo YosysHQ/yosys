@@ -114,6 +114,12 @@ BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
 
+ifneq ($(shell :; command -v rsync),)
+RSYNC_CP ?= rsync -rc
+else
+RSYNC_CP ?= cp -ru
+endif
+
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
 LINKFLAGS += -rdynamic
@@ -1005,13 +1011,13 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) mkdir -p docs/source/cmd
 	$(Q) mkdir -p temp/docs/source/cmd
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
-	$(Q) rsync -rc temp/docs/source/cmd docs/source
+	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
 	$(Q) rm -rf temp
 docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) mkdir -p docs/source/cell
 	$(Q) mkdir -p temp/docs/source/cell
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
-	$(Q) rsync -rc temp/docs/source/cell docs/source
+	$(Q) $(RSYNC_CP) temp/docs/source/cell docs/source
 	$(Q) rm -rf temp
 
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
