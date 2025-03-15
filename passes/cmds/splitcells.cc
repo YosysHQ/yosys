@@ -88,7 +88,7 @@ struct SplitcellsWorker
 			}
 			if (GetSize(slices) <= 1) return 0;
 			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
-				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				log_debug("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
 				return 0;
 			}
 			slices.push_back(GetSize(outsig));
@@ -158,7 +158,7 @@ struct SplitcellsWorker
 
 			if (GetSize(slices) <= 1) return 0;
 			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
-				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				log_debug("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
 				return 0;
 			}
 			slices.push_back(GetSize(outsig));
