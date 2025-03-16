@@ -53,11 +53,16 @@ code sigA sigB sigH
 	if (i == 0)
 		reject;
 
-	for (int j = 0; j <= i; j++) 
+	for (int j = 0, wire_width = 0; j <= i; j++) 
 		if (nusers(O[j]) == 0)
-			sigH.append(module->addWire(NEW_ID));
-		else
+			wire_width++;
+		else {
+			if (wire_width) { // add empty wires for bit offset if needed
+				sigH.append(module->addWire(NEW_ID, wire_width));
+				wire_width = 0;
+			}
 			sigH.append(O[j]);
+		}
 
 endcode
 
