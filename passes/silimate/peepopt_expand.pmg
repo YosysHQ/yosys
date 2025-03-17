@@ -1,0 +1,75 @@
+pattern expand
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Expand logical conjunction (&) across (|)
+//
+// y = (a | b) & c   ===>   y = (a & c) | (b & c)
+//
+
+state <SigSpec> and_a and_b and_y  or_a or_b or_y
+
+match or_gate
+	// Select OR gate
+	select or_gate->type.in($or, $_OR_)
+	set or_a port(or_gate, \A)
+	set or_b port(or_gate, \B)
+	set or_y port(or_gate, \Y)
+endmatch
+
+code
+	// Fanout of each OR gate Y bit should be 1 (no bit-split)
+	if (nusers(or_y) != 2)
+		reject;
+endcode
+
+match and_gate
+	// Select AND gate
+	select and_gate->type.in($and, $_AND_)
+
+	// Set ports, allowing A and B to be swapped
+	choice <IdString> A {\A, \B}
+	define <IdString> B (A == \A ? \B : \A)
+	set and_a port(and_gate, A)
+	set and_b port(and_gate, B)
+	set and_y port(and_gate, \Y)
+
+	// Connection
+	index <SigSpec> port(and_gate, A) === or_y
+endmatch
+
+code and_a and_b and_y  or_a or_b or_y
+	// Unset all ports
+	and_gate->unsetPort(\A);
+	and_gate->unsetPort(\B);
+	and_gate->unsetPort(\Y);
+	or_gate->unsetPort(\A);
+	or_gate->unsetPort(\B);
+	or_gate->unsetPort(\Y);
+
+	// Create new intermediate wires
+	Cell *cell = and_gate;
+	Wire *new_or_a = module->addWire(NEW_ID2, GetSize(and_y));
+	Wire *new_or_b = module->addWire(NEW_ID2, GetSize(and_y));
+
+	// Create new AND gates connected to the OR gate
+	module->addAnd(NEW_ID2, or_a, and_b, new_or_a, false, cell->get_src_attribute());
+	module->addAnd(NEW_ID2, or_b, and_b, new_or_b, false, cell->get_src_attribute());
+
+	// Update OR gate ports
+	or_gate->setPort(\A, new_or_a);
+	or_gate->setPort(\B, new_or_b);
+	or_gate->setPort(\Y, and_y);
+
+	// Rename OR gate for formal
+	cell = or_gate;
+	module->rename(or_gate, NEW_ID2);
+
+	// Remove AND gate
+	autoremove(and_gate);
+
+	// Log, fixup, accept
+	log("expand pattern in %s: and=%s, or=%s\n", log_id(module), log_id(and_gate), log_id(or_gate));
+	did_something = true;
+	accept;
+endcode
