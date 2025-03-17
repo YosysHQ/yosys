@@ -28,7 +28,7 @@ bool did_something;
 // scratchpad configurations for pmgen
 int shiftadd_max_ratio;
 
-#include "passes/pmgen/peepopt_pm.h"
+#include "passes/opt/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }

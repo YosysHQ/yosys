@@ -67,7 +67,7 @@ show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdat
 # ========================================================
 
 alumacc
-select -set new_cells t:$alu t:$macc
+select -set new_cells t:$alu t:$macc_v2
 show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdata %ci*
 
 # ========================================================

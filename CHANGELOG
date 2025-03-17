@@ -2,8 +2,25 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.50 .. Yosys 0.51-dev
+Yosys 0.51 .. Yosys 0.52-dev
 --------------------------
+
+Yosys 0.50 .. Yosys 0.51
+--------------------------
+ * New commands and options
+    - Added "abstract" pass to allow reducing and never increasing
+      the constraints on a circuit's behavior in a formal verification setting.
+
+ * Various
+    - "splitcells" pass now splits "aldff" cells.
+    - FunctionalIR documentation
+
+ * QuickLogic support
+    - Added IOFF inference for qlf_k6n10f
+
+ * Intel support
+    - Fixed RAM and DSP support.
+    - Overall performance improvement for "synth_intel".
 
 Yosys 0.49 .. Yosys 0.50
 --------------------------

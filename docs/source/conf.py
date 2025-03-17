@@ -6,7 +6,7 @@ import os
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2025 YosysHQ GmbH'
-yosys_ver = "0.50"
+yosys_ver = "0.51"
 
 # select HTML theme
 html_theme = 'furo-ys'
@@ -93,6 +93,9 @@ bibtex_bibfiles = ['literature.bib']
 latex_elements = {
         'releasename': 'Version',
         'preamble': r'''
+\pdfinfoomitdate 1
+\pdfsuppressptexinfo 1
+\pdftrailerid{}
 \usepackage{lmodern}
 \usepackage{comment}
 

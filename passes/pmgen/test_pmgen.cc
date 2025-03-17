@@ -24,8 +24,8 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 #include "passes/pmgen/test_pmgen_pm.h"
-#include "passes/pmgen/ice40_dsp_pm.h"
-#include "passes/pmgen/xilinx_srl_pm.h"
+#include "techlibs/ice40/ice40_dsp_pm.h"
+#include "techlibs/xilinx/xilinx_srl_pm.h"
 
 #include "generate.h"
 

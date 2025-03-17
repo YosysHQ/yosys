@@ -1208,6 +1208,120 @@ end
 endmodule
 
 // --------------------------------------------------------
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $macc_v2 (A, B, C, Y)
+//* group arith
+//-
+//- Multiply and add.
+//- This cell represents a generic fused multiply-add operation, it supersedes the
+//- earlier $macc cell.
+//-
+module \$macc_v2 (A, B, C, Y);
+
+parameter NPRODUCTS = 0;
+parameter NADDENDS = 0;
+parameter A_WIDTHS = 16'h0000;
+parameter B_WIDTHS = 16'h0000;
+parameter C_WIDTHS = 16'h0000;
+parameter Y_WIDTH = 0;
+
+parameter PRODUCT_NEGATED = 1'bx;
+parameter ADDEND_NEGATED = 1'bx;
+parameter A_SIGNED = 1'bx;
+parameter B_SIGNED = 1'bx;
+parameter C_SIGNED = 1'bx;
+
+function integer sum_widths1;
+	input [(16*NPRODUCTS)-1:0] widths;
+	integer i;
+	begin
+		sum_widths1 = 0;
+		for (i = 0; i < NPRODUCTS; i++) begin
+			sum_widths1 = sum_widths1 + widths[16*i+:16];
+		end
+	end
+endfunction
+
+function integer sum_widths2;
+	input [(16*NADDENDS)-1:0] widths;
+	integer i;
+	begin
+		sum_widths2 = 0;
+		for (i = 0; i < NADDENDS; i++) begin
+			sum_widths2 = sum_widths2 + widths[16*i+:16];
+		end
+	end
+endfunction
+
+input [sum_widths1(A_WIDTHS)-1:0] A; // concatenation of LHS factors
+input [sum_widths1(B_WIDTHS)-1:0] B; // concatenation of RHS factors
+input [sum_widths2(C_WIDTHS)-1:0] C; // concatenation of summands
+output reg [Y_WIDTH-1:0] Y; // output sum
+
+integer i, j, ai, bi, ci, aw, bw, cw;
+reg [Y_WIDTH-1:0] product;
+reg [Y_WIDTH-1:0] addend, oper_a, oper_b;
+
+always @* begin
+	Y = 0;
+	ai = 0;
+	bi = 0;
+	for (i = 0; i < NPRODUCTS; i = i+1)
+	begin
+		aw = A_WIDTHS[16*i+:16];
+		bw = B_WIDTHS[16*i+:16];
+
+		oper_a = 0;
+		oper_b = 0;
+		for (j = 0; j < Y_WIDTH && j < aw; j = j + 1)
+			oper_a[j] = A[ai + j];
+		for (j = 0; j < Y_WIDTH && j < bw; j = j + 1)
+			oper_b[j] = B[bi + j];
+		// A_SIGNED[i] == B_SIGNED[i] as RTLIL invariant
+		if (A_SIGNED[i] && B_SIGNED[i]) begin
+			for (j = aw; j > 0 && j < Y_WIDTH; j = j + 1)
+				oper_a[j] = oper_a[j - 1];
+			for (j = bw; j > 0 && j < Y_WIDTH; j = j + 1)
+				oper_b[j] = oper_b[j - 1];
+		end
+
+		product = oper_a * oper_b;
+
+		if (PRODUCT_NEGATED[i])
+			Y = Y - product;
+		else
+			Y = Y + product;
+
+		ai = ai + aw;
+		bi = bi + bw;
+	end
+
+	ci = 0;
+	for (i = 0; i < NADDENDS; i = i+1)
+	begin
+		cw = C_WIDTHS[16*i+:16];
+
+		addend = 0;
+		for (j = 0; j < Y_WIDTH && j < cw; j = j + 1)
+			addend[j] = C[ci + j];
+		if (C_SIGNED[i]) begin
+			for (j = cw; j > 0 && j < Y_WIDTH; j = j + 1)
+				addend[j] = addend[j - 1];
+		end
+
+		if (ADDEND_NEGATED[i])
+			Y = Y - addend;
+		else
+			Y = Y + addend;
+
+		ci = ci + cw;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
 //* ver 2
 //* title Divider
 //* group binary
