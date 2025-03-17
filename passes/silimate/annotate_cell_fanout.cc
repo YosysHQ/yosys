@@ -447,17 +447,15 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 }
 
 // Calculate cells and nets fanout
-void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout, dict<Cell *, int> &cellFanout,
-		     dict<SigSpec, int> &sigFanout)
+void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
+		     dict<RTLIL::SigSpec, std::set<SigSpec>> &sig2SigsInFanout, dict<Cell *, int> &cellFanout, dict<SigSpec, int> &sigFanout)
 {
 	// Precompute cell output sigspec to cell map
 	dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 	sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
 	// Precompute lhs2rhs and rhs2lhs sigspec map
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
-	dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> rhsSig2LhsSig;
-	lhs2rhs_rhs2lhs(module, sigmap, rhsSig2LhsSig, lhsSig2RhsSig);
-
+	lhs2rhs_rhs2lhs(module, sigmap, sig2SigsInFanout, lhsSig2RhsSig);
 	// Accumulate fanout from cell connections
 	for (auto itrSig : sig2CellsInFanout) {
 		SigSpec sigspec = itrSig.first;
@@ -466,7 +464,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 	}
 
 	// Accumulate fanout from assign stmts connections
-	for (auto itrSig : rhsSig2LhsSig) {
+	for (auto itrSig : sig2SigsInFanout) {
 		SigSpec sigspec = itrSig.first;
 		std::set<RTLIL::SigSpec> &fanout = itrSig.second;
 		if (sigFanout.count(sigspec)) {
@@ -605,7 +603,8 @@ struct SplitHighFanoutNets : public ScriptPass {
 			dict<Cell *, int> cellFanout;
 			dict<SigSpec, int> sigFanout;
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
-			calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
+			dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
+			calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
 
 			// Cells output nets with high fanout
 			std::vector<RTLIL::SigSpec> netsToSplit;
@@ -613,13 +612,6 @@ struct SplitHighFanoutNets : public ScriptPass {
 				Cell *cell = itrCell.first;
 				int fanout = itrCell.second;
 				if (limit > 0 && (fanout > limit)) {
-					// int nbOutputs = 0;
-					for (auto &conn : cell->connections()) {
-						IdString portName = conn.first;
-						// if (cell->output(portName)) {
-						// 	nbOutputs++;
-						// }
-					}
 					for (auto &conn : cell->connections()) {
 						IdString portName = conn.first;
 						RTLIL::SigSpec actual = conn.second;
@@ -728,7 +720,8 @@ struct AnnotateCellFanout : public ScriptPass {
 				dict<Cell *, int> cellFanout;
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
-				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
+				dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
+				calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
 
 				// Fix cells outputs with high fanout
 				for (auto itrCell : cellFanout) {
@@ -743,6 +736,7 @@ struct AnnotateCellFanout : public ScriptPass {
 								for (int i = 0; i < cellOutSig.size(); i++) {
 									SigSpec bit_sig = cellOutSig.extract(i, 1);
 									int bitfanout = sig2CellsInFanout[bit_sig].size();
+									bitfanout += sig2SigsInFanout[bit_sig].size();
 									fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig,
 										  bitfanout, limit, debug);
 								}
@@ -802,6 +796,7 @@ struct AnnotateCellFanout : public ScriptPass {
 					for (int i = 0; i < sig.first.size(); i++) {
 						SigSpec bit_sig = sig.first.extract(i, 1);
 						int bitfanout = sig2CellsInFanout[bit_sig].size();
+						bitfanout += sig2SigsInFanout[bit_sig].size();
 						fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig, bitfanout, limit, debug);
 					}
 					fixedFanout = true;
@@ -814,7 +809,8 @@ struct AnnotateCellFanout : public ScriptPass {
 				dict<Cell *, int> cellFanout;
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
-				calculateFanout(module, sigmap, sig2CellsInFanout, cellFanout, sigFanout);
+				dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
+				calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
 
 				// Cleanup and annotation
 				for (auto itrCell : cellFanout) {
