@@ -444,7 +444,9 @@ struct OptBalanceTreePass : public Pass {
 		log("        will be replicated and balanced into a tree, but the original\n");
 		log("        cell will remain, driving its original loads.\n");
 		log("    -fanout_limit n\n");
-		log("        max fanout to split.\n");
+		log("        Max fanout to split.\n");
+		log("    -arith_only\n");
+		log("        Only balance arithmetic cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -452,6 +454,7 @@ struct OptBalanceTreePass : public Pass {
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
 
 		bool allow_off_chain = false;
+		bool arith_only = false;
 		size_t argidx;
 		int limit = -1;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -463,13 +466,18 @@ struct OptBalanceTreePass : public Pass {
 				limit = std::stoi(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-arith_only") {
+				arith_only = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		// Count of all cells that were packed
 		dict<IdString, int> cell_count;
-		const vector<IdString> cell_types = {ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul)};
+		vector<IdString> cell_types = {ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul)};
+		if (arith_only) cell_types = {ID($add), ID($mul)};
 		for (auto module : design->selected_modules()) {
 			OptBalanceTreeWorker worker(design, module, cell_types, allow_off_chain, limit);
 			for (auto cell : worker.cell_count) {
