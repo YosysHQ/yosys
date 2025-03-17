@@ -334,7 +334,19 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
 
-#define NEW_ID2 module->uniquify(cell->name.str())
+inline std::string removeNumericSuffix(const std::string& str) {
+	size_t pos = str.rfind('_'); // Find the last underscore
+
+	if (pos != std::string::npos && pos + 1 < str.size()) {
+			// Check if everything after the underscore is a digit
+			if (std::all_of(str.begin() + pos + 1, str.end(), ::isdigit)) {
+					return str.substr(0, pos); // Return the string without the suffix
+			}
+	}
+	return str; // Return unchanged if no numeric suffix found
+}
+
+#define NEW_ID2 module->uniquify(removeNumericSuffix(cell->name.str()))
 #define NEW_ID2_SUFFIX(suffix) module->uniquify(cell->name.str() + "_" + suffix)
 #define NEW_ID3 module->uniquify(cell_name.str())
 #define NEW_ID3_SUFFIX(suffix) module->uniquify(cell_name.str() + "_" + suffix)
