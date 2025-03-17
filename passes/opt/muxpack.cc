@@ -436,9 +436,15 @@ struct MuxpackPass : public Pass {
 		int pmux_count = 0;
 
 		for (auto module : design->selected_modules()) {
-			MuxpackWorker worker(module, assume_excl, make_excl);
-			mux_count += worker.mux_count;
-			pmux_count += worker.pmux_count;
+			int worker_mux_count = 0;
+			int worker_pmux_count = 0;
+			do {
+				MuxpackWorker worker(module, assume_excl, make_excl);
+				mux_count += worker.mux_count;
+				pmux_count += worker.pmux_count;
+				worker_mux_count = worker.mux_count;
+				worker_pmux_count = worker.pmux_count;
+			} while (worker_mux_count + worker_pmux_count > 0);
 		}
 
 		log("Converted %d (p)mux cells into %d pmux cells.\n", mux_count, pmux_count);
