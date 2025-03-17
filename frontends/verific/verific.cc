@@ -3123,6 +3123,9 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
+
+			log("    Running operator optimization for %s.\n", it->first.c_str());
+			nl->OperatorOptimization();
 		}
 
 		if (nl_done.count(it->first) == 0) {
@@ -4494,7 +4497,7 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("    read {-f|-F} <command-file>\n");
 		log("\n");
-		log("Load and execute the specified command file. (Requires Verific.)\n");
+		log("Load and execute the specified command file.\n");
 		log("Check verific command for more information about supported commands in file.\n");
 		log("\n");
 		log("\n");
@@ -4608,10 +4611,14 @@ struct ReadPass : public Pass {
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
 				args[0] = "verific";
-				Pass::call(design, args);
 			} else {
-				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
+#if !defined(__wasm)
+				args[0] = "read_verilog_file_list";
+#else
+				cmd_error(args, 1, "Command files are not supported on this platform.\n");
+#endif
 			}
+			Pass::call(design, args);
 			return;
 		}
 

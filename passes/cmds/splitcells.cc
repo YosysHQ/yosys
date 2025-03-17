@@ -88,7 +88,7 @@ struct SplitcellsWorker
 			}
 			if (GetSize(slices) <= 1) return 0;
 			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
-				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				log_debug("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
 				return 0;
 			}
 			slices.push_back(GetSize(outsig));
@@ -107,8 +107,7 @@ struct SplitcellsWorker
 
 				auto slice_signal = [&](SigSpec old_sig) -> SigSpec {
 					SigSpec new_sig;
-					for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig)) {
-						int offset = i+slice_lsb;
+					for (int offset = slice_lsb; offset < GetSize(old_sig); offset += GetSize(outsig)) {
 						int length = std::min(GetSize(old_sig)-offset, slice_msb-slice_lsb+1);
 						new_sig.append(old_sig.extract(offset, length));
 					}
@@ -159,7 +158,7 @@ struct SplitcellsWorker
 
 			if (GetSize(slices) <= 1) return 0;
 			if (limit != -1 && GetSize(slices) > limit) { // skip if number of slices is above limit
-				log("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
+				log_debug("Skipping %s cell %s/%s with high slice count %d.\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices));
 				return 0;
 			}
 			slices.push_back(GetSize(outsig));

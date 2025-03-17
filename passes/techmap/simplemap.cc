@@ -245,7 +245,7 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool is_signed = cell->parameters.at(ID::A_SIGNED).as_bool();
 	bool is_ne = cell->type.in(ID($ne), ID($nex));
 
-	RTLIL::SigSpec xor_out = module->addWire(NEW_ID2_SUFFIX("xor_out"), max(GetSize(sig_a), GetSize(sig_b))); // SILIMATE: Improve the naming
+	RTLIL::SigSpec xor_out = module->addWire(NEW_ID2_SUFFIX("xor"), max(GetSize(sig_a), GetSize(sig_b))); // SILIMATE: Improve the naming
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID2, sig_a, sig_b, xor_out, is_signed, cell->get_src_attribute()); // SILIMATE: Improve the naming
 	xor_cell->attributes = cell->attributes;
 	simplemap_bitop(module, xor_cell);
