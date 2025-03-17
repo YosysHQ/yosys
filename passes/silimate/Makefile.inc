@@ -2,6 +2,7 @@
 OBJS += passes/silimate/activity.o
 OBJS += passes/silimate/annotate_cell_fanout.o
 OBJS += passes/silimate/annotate_logic_depth.o
+OBJS += passes/silimate/breakreduce.o
 OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
 OBJS += passes/silimate/longloop_select.o
