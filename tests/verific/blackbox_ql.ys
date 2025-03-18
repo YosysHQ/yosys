@@ -1,4 +1,4 @@
-verific -sv -lib +/quicklogic/qlf_k6n10f/dsp_sim.v 
+verific -sv -lib +/quicklogic/qlf_k6n10f/dspv1_sim.v 
 
 verific -sv <<EOF
 module top (
