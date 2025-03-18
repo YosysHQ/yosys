@@ -32,8 +32,17 @@ The `read` command
   + ``-verific`` and ``-noverific`` options to enforce with/without Verific
   + check ``help read`` for more about the options available and the filetypes
     supported
+  + elaborate designs with ``verific -import [options] <top>`` (or use
+    `hierarchy`)
 
-- fallback to `read_verilog`
+- fallback to `read_verilog` with ``-defer`` option
+
+  + does not compile design until `hierarchy` command as discussed in
+    :doc:`/getting_started/example_synth`
+  + more similar to `verific` behaviour
+
+- ``read -define`` et al mapped to `verific` or `verilog_defines`
+- similarly, ``read -incdir`` et al mapped to `verific` or `verilog_defaults`
 
 .. note::
 
@@ -129,3 +138,10 @@ Externally maintained plugins
 - both plugins above are included in `OSS CAD Suite`_
 
 .. _OSS CAD Suite: https://github.com/YosysHQ/oss-cad-suite-build
+
+- `Synlig`_, which uses `Surelog`_ to provide SystemVerilog support
+
+  + also implemented as a '`Frontend`_'
+
+.. _Synlig: https://github.com/chipsalliance/synlig
+.. _Surelog: https://github.com/chipsalliance/Surelog
