@@ -341,6 +341,7 @@ ifeq ($(ENABLE_PYOSYS),1)
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+EXTRA_TARGETS += wheel
 
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
 CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
@@ -957,6 +958,12 @@ unit-test: libyosys.so
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
+wheel: $(TARGETS)
+	python$(PYTHON_VERSION) -m pip wheel .
+
+install-wheel: wheel
+	python$(PYTHON_VERSION) -m pip install pyosys-$(YOSYS_MAJOR).$(YOSYS_MINOR).$(YOSYS_COMMIT)-*.whl --force-reinstall
+
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
@@ -976,9 +983,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) @$(MAKE) install-wheel
 ifeq ($(ENABLE_ABC),1)
 	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
 endif
@@ -998,9 +1003,7 @@ uninstall:
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) python$(PYTHON_VERSION) -m pip uninstall -y pyosys
 endif
 endif
 

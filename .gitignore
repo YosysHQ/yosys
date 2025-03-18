@@ -54,3 +54,4 @@ __pycache__
 /venv
 /boost
 /ffi
+/*.whl
