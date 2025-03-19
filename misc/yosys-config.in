@@ -15,6 +15,7 @@ help() {
 		echo "    --ldlibs      (alias of --libs)"
 		echo "    --bindir      @BINDIR@"
 		echo "    --datdir      @DATDIR@"
+		echo "    --libdir      @LIBDIR@"
 		echo ""
 		echo "All other args are passed through as they are."
 		echo ""
@@ -31,8 +32,8 @@ help() {
 		echo ""
 		echo "  $0 --prefix @ bindir: @bindir"
 		echo ""
-		echo "The args --bindir and --datdir can be directly followed by a slash and"
-		echo "additional text. Example:"
+		echo "The args --bindir, --datdir and --libdir can be directly followed by a slash"
+		echo "and additional text. Example:"
 		echo ""
 		echo "  $0 --datdir/simlib.v"
 		echo ""
@@ -77,10 +78,14 @@ for opt; do
 			tokens=( "${tokens[@]}" '@BINDIR@'   ) ;;
 		"$prefix"datdir)
 			tokens=( "${tokens[@]}" '@DATDIR@'   ) ;;
+		"$prefix"libdir)
+			tokens=( "${tokens[@]}" '@LIBDIR@'   ) ;;
 		"$prefix"bindir/*)
 			tokens=( "${tokens[@]}" '@BINDIR@'"${opt#${prefix}bindir}" ) ;;
 		"$prefix"datdir/*)
 			tokens=( "${tokens[@]}" '@DATDIR@'"${opt#${prefix}datdir}" ) ;;
+		"$prefix"libdir/*)
+			tokens=( "${tokens[@]}" '@LIBDIR@'"${opt#${prefix}libdir}" ) ;;
 		--help|-\?|-h)
 			if [ ${#tokens[@]} -eq 0 ]; then
 				help

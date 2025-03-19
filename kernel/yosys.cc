@@ -96,9 +96,10 @@ std::vector<void*> memhasher_store;
 uint32_t Hasher::fudge = 0;
 
 std::string yosys_share_dirname;
+std::string yosys_lib_dirname;
 std::string yosys_abc_executable;
 
-void init_share_dirname();
+void init_dirnames();
 void init_abc_executable_name();
 
 void memhasher_on()
@@ -565,7 +566,7 @@ void yosys_setup()
 	}
 #endif
 
-	init_share_dirname();
+	init_dirnames();
 	init_abc_executable_name();
 
 #define X(_id) RTLIL::ID::_id = "\\" # _id;
@@ -895,12 +896,13 @@ std::string proc_self_dirname(void)
 #endif
 
 #if defined(EMSCRIPTEN) || defined(__wasm)
-void init_share_dirname()
+void init_dirnames()
 {
 	yosys_share_dirname = "/share/";
+	yosys_lib_dirname = "/lib/";
 }
 #else
-void init_share_dirname()
+void init_dirname(const char* d) // TODO const char* d
 {
 #  ifdef WITH_PYTHON
 	PyObject *sys_obj = PyImport_ImportModule("sys");
@@ -926,6 +928,7 @@ void init_share_dirname()
 	}
 #  else
 	std::string proc_share_path = proc_self_path + "share/";
+	std::string proc_lib_path = proc_self_path + "lib/";
 	if (check_file_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
@@ -943,6 +946,20 @@ void init_share_dirname()
 	}
 #    endif
 #  endif
+}
+void init_lib_dirname() {
+#    ifdef YOSYS_LIBDIR
+	proc_lib_path = YOSYS_LIBDIR "/";
+	log("proc_lib_path %s\n", proc_lib_path.c_str());
+	if (check_file_exists(proc_lib_path, true)) {
+		yosys_lib_dirname = proc_lib_path;
+		return;
+	}
+#    endif
+}
+void init_dirnames() {
+	init_share_dirname();
+	init_lib_dirname();
 }
 #endif
 
@@ -977,8 +994,13 @@ void init_abc_executable_name()
 std::string proc_share_dirname()
 {
 	if (yosys_share_dirname.empty())
-		log_error("init_share_dirname: unable to determine share/ directory!\n");
+		log_error("init_dirnames: unable to determine share/ directory!\n");
 	return yosys_share_dirname;
+}
+
+std::string proc_lib_dirname()
+{
+	return yosys_lib_dirname;
 }
 
 std::string proc_program_prefix()

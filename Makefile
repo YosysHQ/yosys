@@ -631,7 +631,7 @@ endif
 endif
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
-kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
+kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_LIBDIR='"$(LIBDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
 ifeq ($(ENABLE_ABC),1)
 ifneq ($(ABCEXTERNAL),)
 kernel/yosys.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
@@ -771,7 +771,7 @@ endif
 $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in $(YOSYS_SRC)/Makefile
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -Ilibs/dlfcn-win32,,$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC))))#;' \
 			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LINKFLAGS@#$(strip $(LINKFLAGS) $(PLUGIN_LINKFLAGS))#;' -e 's#@LIBS@#$(strip $(LIBS_NOVERIFIC) $(PLUGIN_LIBS))#;' \
-			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
+			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' -e 's#@LIBDIR@#$(strip $(LIBDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
 .PHONY: check-git-abc

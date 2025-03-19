@@ -85,21 +85,27 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 			void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
 
-			// We were unable to open the file, try to do so from the plugin directory
-			if (hdl == NULL && orig_filename.find('/') == std::string::npos) {
-				hdl = dlopen([orig_filename]() {
-					std::string new_path = proc_share_dirname() + "plugins/" + orig_filename;
-
-					// Check if we need to append .so
-					if (new_path.find(".so") == std::string::npos)
+			// We were unable to open the file, try to do so from the plugin directories
+			std::vector<std::string> errors;
+			log("orig_filename %s\n", orig_filename.c_str());
+			for (auto dir : {proc_lib_dirname() + "plugins/", proc_share_dirname() + "plugins/"})
+				if (hdl == NULL && orig_filename.find('/') == std::string::npos) {
+					hdl = dlopen([dir, orig_filename]() {
+						std::string new_path = dir + orig_filename;
+						
+						// Check if we need to append .so
+						if (new_path.find(".so") == std::string::npos)
 						new_path.append(".so");
-
-					return new_path;
-				}().c_str(), RTLD_LAZY|RTLD_LOCAL);
-			}
+						
+						log("new_path %s\n", new_path.c_str());
+						return new_path;
+					}().c_str(), RTLD_LAZY|RTLD_LOCAL);
+					errors.push_back(dlerror());
+				}
 
 			if (hdl == NULL)
-				log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
+				for (auto error : errors)
+					log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), error.c_str());
 
 			loaded_plugins[orig_filename] = hdl;
 			Pass::init_register();
