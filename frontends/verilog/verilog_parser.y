@@ -417,6 +417,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
 %token TOK_BIND TOK_TIME_SCALE
+%token LIST_SIZED_BEGIN LIST_BEGIN LIST_END
 
 %type <ast> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
@@ -902,6 +903,9 @@ wire_type_token:
 		astbuf3->is_logic = true;
 	} |
 	TOK_VAR logic_type {
+		astbuf3->is_logic = true;
+	} |
+	TOK_AUTOMATIC logic_type {
 		astbuf3->is_logic = true;
 	} |
 	logic_type {
@@ -1764,7 +1768,7 @@ enum_type: TOK_ENUM {
 		// create the template for the names
 		astbuf1 = new AstNode(AST_ENUM_ITEM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	} enum_base_type '{' enum_name_list optional_comma '}' {
+	} enum_base_type LIST_BEGIN enum_name_list optional_comma LIST_END {
 		// create template for the enum vars
 		auto tnode = astbuf1->clone();
 		delete astbuf1;
@@ -1863,7 +1867,7 @@ struct_union:
 	| TOK_UNION		{ $$ = new AstNode(AST_UNION); }
 	;
 
-struct_body: opt_packed '{' struct_member_list '}'
+struct_body: opt_packed LIST_BEGIN struct_member_list LIST_END
 	;
 
 opt_packed:
@@ -3052,7 +3056,7 @@ lvalue:
 	rvalue {
 		$$ = $1;
 	} |
-	'{' lvalue_concat_list '}' {
+	LIST_BEGIN lvalue_concat_list LIST_END {
 		$$ = $2;
 	};
 
@@ -3300,10 +3304,16 @@ basic_expr:
 		$$ = $4;
 		delete $6;
 	} |
-	'{' concat_list '}' {
+	LIST_SIZED_BEGIN concat_list LIST_END {
 		$$ = $2;
 	} |
-	'{' expr '{' concat_list '}' '}' {
+	LIST_BEGIN concat_list LIST_END {
+		$$ = $2;
+	} |
+	LIST_BEGIN expr LIST_BEGIN concat_list LIST_END LIST_END {
+		$$ = new AstNode(AST_REPLICATE, $2, $4);
+	} |
+	LIST_SIZED_BEGIN expr LIST_BEGIN concat_list LIST_END LIST_END {
 		$$ = new AstNode(AST_REPLICATE, $2, $4);
 	} |
 	'~' attr basic_expr %prec UNARY_OPS {
