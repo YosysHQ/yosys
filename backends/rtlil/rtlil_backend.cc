@@ -304,8 +304,8 @@ void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::
 
 void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-	bool print_header = flag_m || design->selected_whole_module(module->name);
-	bool print_body = !flag_n || !design->selected_whole_module(module->name);
+	bool print_header = flag_m || module->is_selected_whole();
+	bool print_body = !flag_n || !module->is_selected_whole();
 
 	if (print_header)
 	{

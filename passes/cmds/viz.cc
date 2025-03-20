@@ -950,8 +950,8 @@ struct VizPass : public Pass {
 				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G :
 					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U :
 					arg == "-x" || arg == "-X" ? VizConfig::TYPE_X : VizConfig::TYPE_S;
-				config.groups.push_back({type, design->selection_stack.back()});
-				design->selection_stack.pop_back();
+				config.groups.push_back({type, design->selection()});
+				design->pop_selection();
 				continue;
 			}
 			if (arg == "-0" || arg == "-1" || arg == "-2" || arg == "-3" || arg == "-4" ||

@@ -1,0 +1,18 @@
+read_verilog -specify boxes.v
+
+logger -expect warning "did not match any module" 2
+clean wb
+opt_clean wb
+logger -check-expected
+
+select -clear
+logger -expect warning "did not match any module" 2
+clean wb
+opt_clean wb
+logger -check-expected
+
+select -none
+logger -expect warning "did not match any module" 2
+clean wb
+opt_clean wb
+logger -check-expected

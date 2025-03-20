@@ -56,8 +56,33 @@ namespace RTLIL
 		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
+	enum SelectPartials : unsigned char {
+		SELECT_ALL = 0,          // include partial modules
+		SELECT_WHOLE_ONLY = 1,   // ignore partial modules
+		SELECT_WHOLE_WARN = 2,   // call log_warning on partial module
+		SELECT_WHOLE_ERR = 3,    // call log_error on partial module
+		SELECT_WHOLE_CMDERR = 4  // call log_cmd_error on partial module
+	};
+
+	enum SelectBoxes : unsigned char {
+		SB_ALL = 0,            // include boxed modules
+		SB_WARN = 1,           // helper for log_warning
+		SB_ERR = 2,            // helper for log_error
+		SB_CMDERR = 3,         // helper for log_cmd_error
+		SB_UNBOXED_ONLY = 4,   // ignore boxed modules
+		SB_UNBOXED_WARN = 5,   // call log_warning on boxed module
+		SB_UNBOXED_ERR = 6,    // call log_error on boxed module
+		SB_UNBOXED_CMDERR = 7, // call log_cmd_error on boxed module
+		SB_INCL_WB = 8,        // helper for white boxes
+		SB_EXCL_BB_ONLY = 12,  // ignore black boxes, but not white boxes
+		SB_EXCL_BB_WARN = 13,  // call log_warning on black boxed module
+		SB_EXCL_BB_ERR = 14,   // call log_error on black boxed module
+		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
+	};
+
 	struct Const;
 	struct AttrObject;
+	struct NamedObject;
 	struct Selection;
 	struct Monitor;
 	struct Design;
@@ -869,6 +894,11 @@ struct RTLIL::AttrObject
 	vector<int> get_intvec_attribute(const RTLIL::IdString &id) const;
 };
 
+struct RTLIL::NamedObject : public RTLIL::AttrObject
+{
+	RTLIL::IdString name;
+};
+
 struct RTLIL::SigChunk
 {
 	RTLIL::Wire *wire;
@@ -1135,31 +1165,49 @@ public:
 struct RTLIL::Selection
 {
 	bool full_selection;
+	bool selects_boxes;
+	bool complete_selection;
 	pool<RTLIL::IdString> selected_modules;
 	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
+	RTLIL::Design *current_design;
 
-	Selection(bool full = true) : full_selection(full) { }
+	Selection(bool full = true, bool boxes = false, RTLIL::Design *design = nullptr) : 
+		full_selection(full && !boxes), selects_boxes(boxes), complete_selection(full && boxes), current_design(design) { }
 
+	bool boxed_module(const RTLIL::IdString &mod_name) const;
 	bool selected_module(const RTLIL::IdString &mod_name) const;
 	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
 	void optimize(RTLIL::Design *design);
 
+	bool selects_all() const {
+		return full_selection || complete_selection;
+	}
+
 	template<typename T1> void select(T1 *module) {
-		if (!full_selection && selected_modules.count(module->name) == 0) {
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
 			selected_members.erase(module->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
 		}
 	}
 
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!full_selection && selected_modules.count(module->name) == 0)
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_members[module->name].insert(member->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
+		}
 	}
 
 	bool empty() const {
-		return !full_selection && selected_modules.empty() && selected_members.empty();
+		return !selects_all() && selected_modules.empty() && selected_members.empty();
 	}
+
+	static Selection EmptySelection(RTLIL::Design *design = nullptr) { return Selection(false, false, design); };
+	static Selection FullSelection(RTLIL::Design *design = nullptr) { return Selection(true, false, design); };
+	static Selection CompleteSelection(RTLIL::Design *design = nullptr) { return Selection(true, true, design); };
 };
 
 struct RTLIL::Monitor
@@ -1213,7 +1261,7 @@ struct RTLIL::Design
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(const RTLIL::IdString &name);
 	const RTLIL::Module *module(const RTLIL::IdString &name) const;
-	RTLIL::Module *top_module();
+	RTLIL::Module *top_module() const;
 
 	bool has(const RTLIL::IdString &id) const {
 		return modules_.count(id) != 0;
@@ -1247,6 +1295,12 @@ struct RTLIL::Design
 	bool selected_module(RTLIL::Module *mod) const;
 	bool selected_whole_module(RTLIL::Module *mod) const;
 
+	void push_selection(RTLIL::Selection sel);
+	void push_empty_selection();
+	void push_full_selection();     // all modules excluding boxes
+	void push_complete_selection(); // all modules including boxes
+	void pop_selection();
+
 	RTLIL::Selection &selection() {
 		return selection_stack.back();
 	}
@@ -1256,7 +1310,7 @@ struct RTLIL::Design
 	}
 
 	bool full_selection() const {
-		return selection_stack.back().full_selection;
+		return selection().full_selection;
 	}
 
 	template<typename T1> bool selected(T1 *module) const {
@@ -1268,29 +1322,34 @@ struct RTLIL::Design
 	}
 
 	template<typename T1> void select(T1 *module) {
-		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
-			sel.select(module);
-		}
+		RTLIL::Selection &sel = selection();
+		sel.select(module);
 	}
 
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
-			sel.select(module, member);
-		}
+		RTLIL::Selection &sel = selection();
+		sel.select(module, member);
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const;
+	std::vector<RTLIL::Module*> selected_modules(RTLIL::SelectPartials partials = SELECT_ALL, RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN) const;
+
+	std::vector<RTLIL::Module*> all_selected_modules() const { return selected_modules(SELECT_ALL, SB_ALL); }
+	std::vector<RTLIL::Module*> selected_unboxed_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_ONLY); }
+	std::vector<RTLIL::Module*> selected_unboxed_modules_warn() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
+
+	[[deprecated("Use select_unboxed_whole_modules() to maintain prior behaviour, or consider one of the other selected whole module helpers.")]]
+	std::vector<RTLIL::Module*> selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_WARN); }
+	std::vector<RTLIL::Module*> all_selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_ALL); }
+	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const { return selected_modules(SELECT_WHOLE_WARN, include_wb ? SB_EXCL_BB_WARN : SB_UNBOXED_WARN); }
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_ONLY); }
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
 };
 
-struct RTLIL::Module : public RTLIL::AttrObject
+struct RTLIL::Module : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1313,7 +1372,6 @@ public:
 	std::vector<RTLIL::SigSig>   connections_;
 	std::vector<RTLIL::Binding*> bindings_;
 
-	RTLIL::IdString name;
 	idict<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
@@ -1358,8 +1416,14 @@ public:
 	bool has_memories_warn() const;
 	bool has_processes_warn() const;
 
+	bool is_selected() const;
+	bool is_selected_whole() const;
+
 	std::vector<RTLIL::Wire*> selected_wires() const;
 	std::vector<RTLIL::Cell*> selected_cells() const;
+	std::vector<RTLIL::Memory*> selected_memories() const;
+	std::vector<RTLIL::Process*> selected_processes() const;
+	std::vector<RTLIL::NamedObject*> selected_members() const;
 
 	template<typename T> bool selected(T *member) const {
 		return design->selected_member(name, member->name);
@@ -1645,7 +1709,7 @@ namespace RTLIL_BACKEND {
 void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 }
 
-struct RTLIL::Wire : public RTLIL::AttrObject
+struct RTLIL::Wire : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1668,7 +1732,6 @@ public:
 	void operator=(RTLIL::Wire &other) = delete;
 
 	RTLIL::Module *module;
-	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
 
@@ -1697,14 +1760,13 @@ inline int GetSize(RTLIL::Wire *wire) {
 	return wire->width;
 }
 
-struct RTLIL::Memory : public RTLIL::AttrObject
+struct RTLIL::Memory : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
 
-	RTLIL::IdString name;
 	int width, start_offset, size;
 #ifdef WITH_PYTHON
 	~Memory();
@@ -1712,7 +1774,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 #endif
 };
 
-struct RTLIL::Cell : public RTLIL::AttrObject
+struct RTLIL::Cell : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1729,7 +1791,6 @@ public:
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::Module *module;
-	RTLIL::IdString name;
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
@@ -1822,7 +1883,7 @@ struct RTLIL::SyncRule
 	RTLIL::SyncRule *clone() const;
 };
 
-struct RTLIL::Process : public RTLIL::AttrObject
+struct RTLIL::Process : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1834,7 +1895,6 @@ protected:
 	~Process();
 
 public:
-	RTLIL::IdString name;
 	RTLIL::Module *module;
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;

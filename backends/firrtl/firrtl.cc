@@ -1215,9 +1215,6 @@ struct FirrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		if (!design->full_selection())
-			log_cmd_error("This command only operates on fully selected designs!\n");
-
 		log_header(design, "Executing FIRRTL backend.\n");
 		log_push();
 
@@ -1230,7 +1227,7 @@ struct FirrtlBackend : public Backend {
 		autoid_counter = 0;
 
 		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
-		Module *top = design->top_module();
+		Module *top = nullptr;
 		Module *last = nullptr;
 		// Generate module and wire names.
 		for (auto module : design->modules()) {
