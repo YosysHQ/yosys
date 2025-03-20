@@ -586,7 +586,9 @@ $(eval $(call add_include_file,kernel/fmt.h))
 ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,kernel/fstdata.h))
 endif
+$(eval $(call add_include_file,kernel/gzip.h))
 $(eval $(call add_include_file,kernel/hashlib.h))
+$(eval $(call add_include_file,kernel/io.h))
 $(eval $(call add_include_file,kernel/json.h))
 $(eval $(call add_include_file,kernel/log.h))
 $(eval $(call add_include_file,kernel/macc.h))
@@ -617,7 +619,7 @@ $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/io.o kernel/gzip.o
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o

@@ -20,70 +20,12 @@
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
 #include "kernel/json.h"
+#include "kernel/gzip.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-
-#ifdef YOSYS_ENABLE_ZLIB
-#include <zlib.h>
-
-PRIVATE_NAMESPACE_BEGIN
-#define GZ_BUFFER_SIZE 8192
-void decompress_gzip(const std::string &filename, std::stringstream &out)
-{
-	char buffer[GZ_BUFFER_SIZE];
-	int bytes_read;
-	gzFile gzf = gzopen(filename.c_str(), "rb");
-	while(!gzeof(gzf)) {
-		bytes_read = gzread(gzf, reinterpret_cast<void *>(buffer), GZ_BUFFER_SIZE);
-		out.write(buffer, bytes_read);
-	}
-	gzclose(gzf);
-}
-
-/*
-An output stream that uses a stringbuf to buffer data internally,
-using zlib to write gzip-compressed data every time the stream is flushed.
-*/
-class gzip_ostream : public std::ostream  {
-public:
-	gzip_ostream() : std::ostream(nullptr)
-	{
-		rdbuf(&outbuf);
-	}
-	bool open(const std::string &filename)
-	{
-		return outbuf.open(filename);
-	}
-private:
-	class gzip_streambuf : public std::stringbuf {
-	public:
-		gzip_streambuf() { };
-		bool open(const std::string &filename)
-		{
-			gzf = gzopen(filename.c_str(), "wb");
-			return gzf != nullptr;
-		}
-		virtual int sync() override
-		{
-			gzwrite(gzf, reinterpret_cast<const void *>(str().c_str()), unsigned(str().size()));
-			str("");
-			return 0;
-		}
-		virtual ~gzip_streambuf()
-		{
-			sync();
-			gzclose(gzf);
-		}
-	private:
-		gzFile gzf = nullptr;
-	} outbuf;
-};
-PRIVATE_NAMESPACE_END
-
-#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -527,44 +469,8 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				next_args.insert(next_args.end(), args.begin(), args.begin()+argidx);
 				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
 			}
-			std::ifstream *ff = new std::ifstream;
-			ff->open(filename.c_str(), bin_input ? std::ifstream::binary : std::ifstream::in);
 			yosys_input_files.insert(filename);
-			if (ff->fail()) {
-				delete ff;
-				ff = nullptr;
-			}
-			f = ff;
-			if (f != NULL) {
-				// Check for gzip magic
-				unsigned char magic[3];
-				int n = 0;
-				while (n < 3)
-				{
-					int c = ff->get();
-					if (c != EOF) {
-						magic[n] = (unsigned char) c;
-					}
-					n++;
-				}
-				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
-	#ifdef YOSYS_ENABLE_ZLIB
-					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
-					if (magic[2] != 8)
-						log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
-							filename.c_str(), unsigned(magic[2]));
-					delete ff;
-					std::stringstream *df = new std::stringstream();
-					decompress_gzip(filename, *df);
-					f = df;
-	#else
-					log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
-	#endif
-				} else {
-					ff->clear();
-					ff->seekg(0, std::ios::beg);
-				}
-			}
+			f = uncompressed(filename, bin_input ? std::ifstream::binary : std::ifstream::in);
 		}
 		if (f == NULL)
 			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
