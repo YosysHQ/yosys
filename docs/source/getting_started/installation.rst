@@ -34,30 +34,17 @@ Targeted architectures
 
 The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
 
-.. only:: html
+- **linux-x64** - Most personal Linux based computers
+- **darwin-x64** - macOS 12 or later with Intel CPU
+- **darwin-arm64** - macOS 12 or later with M1/M2 CPU
+- **windows-x64** - Targeted for Windows 10 and 11
+- **linux-arm64** - Devices such as Raspberry Pi with 64bit OS
 
-   - linux-x64 |linux-x64|
-      - Most personal Linux based computers
-
-   - darwin-x64 |darwin-x64|
-      - macOS 12 or later with Intel CPU
-
-   - darwin-arm64 |darwin-arm64|
-      - macOS 12 or later with M1/M2 CPU
-
-   - windows-x64 |windows-x64|
-      - Targeted for Windows 10 and 11
-
-   - linux-arm64 |linux-arm64|
+For more information about the targeted architectures, and the current build
+status, check the `OSS CAD Suite`_ git repository.
 
 .. _OSS CAD Suite: https://github.com/YosysHQ/oss-cad-suite-build
 .. _nightly builds: https://github.com/YosysHQ/oss-cad-suite-build/releases/latest
-
-.. |linux-x64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/linux-x64.yml/badge.svg
-.. |darwin-x64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/darwin-x64.yml/badge.svg
-.. |darwin-arm64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/darwin-arm64.yml/badge.svg
-.. |windows-x64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/windows-x64.yml/badge.svg
-.. |linux-arm64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/linux-arm64.yml/badge.svg
 
 Building from source
 ~~~~~~~~~~~~~~~~~~~~

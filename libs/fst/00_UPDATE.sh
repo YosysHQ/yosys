@@ -19,3 +19,4 @@ patch -p0 < 00_PATCH_win_zlib.patch
 patch -p0 < 00_PATCH_win_io.patch
 patch -p1 < 00_PATCH_strict_alignment.patch
 patch -p0 < 00_PATCH_wx_len_overread.patch
+patch -p0 < 00_PATCH_i386_endian.patch
