@@ -705,7 +705,9 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 }
 
 struct TestCellPass : public Pass {
-	TestCellPass() : Pass("test_cell", "automatically test the implementation of a cell type") { }
+	TestCellPass() : Pass("test_cell", "automatically test the implementation of a cell type") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

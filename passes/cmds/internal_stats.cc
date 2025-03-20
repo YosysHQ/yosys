@@ -18,8 +18,6 @@
  */
 
 #include <iterator>
-#include <optional>
-#include <stdint.h>
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
@@ -71,7 +69,10 @@ std::optional<uint64_t> current_mem_bytes() {
 }
 
 struct InternalStatsPass : public Pass {
-	InternalStatsPass() : Pass("internal_stats", "print internal statistics") { }
+	InternalStatsPass() : Pass("internal_stats", "print internal statistics") {
+		experimental();
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
