@@ -171,8 +171,8 @@ endif
 
 YOSYS_VER := 0.51+46
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
-YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
-YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
+YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
+YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
 CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
 			-DYOSYS_MAJOR=$(YOSYS_MAJOR) \
 			-DYOSYS_MINOR=$(YOSYS_MINOR) \
@@ -740,6 +740,7 @@ OBJS += passes/techmap/bmuxmap.o
 OBJS += passes/techmap/demuxmap.o
 OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
+OBJS += passes/techmap/attrmap.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
@@ -1019,7 +1020,7 @@ wheel: $(TARGETS) $(EXTRA_TARGETS)
 	python3 -m pip wheel .
 
 install_wheel: wheel
-	python3 -m pip install pyosys*.whl --force-reinstall
+	python3 -m pip install pyosys-$(YOSYS_VER)-*.whl --force-reinstall
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)

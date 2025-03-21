@@ -21,14 +21,11 @@ from setuptools.command.build_ext import build_ext
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
-yosys_version_rx = re.compile(r"YOSYS_VER\s*:=\s*([\w\-\+\.]+)")
+yosys_version_rx = re.compile(r"PREQORSOR_VERSION\s*:=\s*([\w\-\+\.]+)")
 
 version = yosys_version_rx.search(
-    open(os.path.join(__dir__, "Makefile"), encoding="utf8").read()
-)[1].replace(
-    "+", "."
-)  # Convert to patch version
-
+    open(os.path.join(__dir__, "../../Makefile"), encoding="utf8").read()
+)[1]
 
 class libyosys_so_ext(Extension):
     def __init__(
