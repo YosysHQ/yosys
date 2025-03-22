@@ -36,12 +36,16 @@ Minimizing failing (or bugged) designs
 Minimizing RTLIL designs with bugpoint
 --------------------------------------
 
-- what is `bugpoint`
+Yosys provides the `bugpoint` command for reducing a failing design to the
+smallest portion of that design which still results in failure.  While initially
+developed for Yosys crashes, `bugpoint` can also be used for designs that lead
+to non-fatal errors, or even failures in other tools that use the output of a
+Yosys script.
 
 Can I use bugpoint?
 ~~~~~~~~~~~~~~~~~~~
 
-- `bugpoint`, only usable on platforms where Yosys can spawn executables
+- only usable on platforms where Yosys can spawn executables
 
   + unavailable on emscripten and wasm
   + can test by running e.g. ``yosys -qqp '!echo test'``
@@ -67,6 +71,18 @@ Can I use bugpoint?
   + but, `bugpoint` itself calls the command/script with an RTLIL dump, so if it
     isn't reproducible from RTLIL then `bugpoint` won't work
 
+- works with user-defined failures in scripts
+
+  + e.g. `select` command with ``-assert-*`` option
+  + or `equiv_opt`
+  + can even call another tool with `exec`
+  
+    * useful for when Yosys is outputting an invalid design
+    * use the ``-expect-*`` options to ensure the script correctly returns the
+      failure state to `bugpoint`
+    * can call shell scripts with e.g. ``exec -expect-return 1 -- bash
+      <script.sh>``
+
 
 How do I use bugpoint?
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -74,31 +90,34 @@ How do I use bugpoint?
 - follow `bugpoint` instructions
 - output design after `bugpoint` with `write_rtlil`
 - use ``-grep "<string>"`` to only accept a minimized design that crashes
-- with the ``<string>`` in the log file
+  with the ``<string>`` in the log file
 
   + only checks log file, will not match runtime errors
+  + can be particularly important for scripts with multiple commands to avoid
+    unrelated failures
+  + call e.g. ``yosys -qqp '<command>' design.il`` or  ``yosys -qqs <failure.ys>
+    design.il`` to print only the error message(s) and use that (or a portion of
+    that) as the ``<string>`` to search for
 
 - ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
-- parts of the design to be removed (default is allow removing all)
+  parts of the design to be removed (default is to allow removing all)
 
   + use the ``bugpoint_keep`` attribute on objects you don't want to be
     removed, usually because you already know they are related to the failure
   + ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
     RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
 
-- ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another
-- command
+- ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another command
 - can also use `setenv` before `bugpoint` to set environment variables for
-- the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
+  the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
 
 .. note::
 
-   Using `setenv` in this way may not affect the current process as some
-   environment variables are only read on start up.  For instance the
-   ``UBSAN_OPTIONS halt_on_error`` here only affects child processes, as does
-   the :doc:`Yosys environment variable</appendix/env_vars>` ``ABC``.  While
-   others such as ``YOSYS_NOVERIFIC`` and ``HOME`` are evaluated each time they
-   are used.
+   Using `setenv` in this way may or may not affect the current process.  For
+   instance the ``UBSAN_OPTIONS halt_on_error`` here only affects child
+   processes, as does the :doc:`Yosys environment variable</appendix/env_vars>`
+   ``ABC`` because they are only read on start-up.  While others, such as
+   ``YOSYS_NOVERIFIC`` and ``HOME``, are evaluated each time they are used.
 
 
 What do I do with the minimized design?
@@ -300,7 +319,7 @@ Identifying issues
 
 .. _the existing issues: https://github.com/YosysHQ/yosys/issues
 
-- if there are no existing or related issues already, the check out the steps
+- if there are no existing or related issues already, then check out the steps
   for :ref:`using_yosys/bugpoint:creating an issue on github`
 
 
