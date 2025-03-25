@@ -2224,10 +2224,10 @@ module \$print (EN, TRG, ARGS);
 parameter PRIORITY = 0;
 
 parameter FORMAT = "";
-parameter ARGS_WIDTH = 0;
+parameter signed ARGS_WIDTH = 0;
 
 parameter TRG_ENABLE = 1;
-parameter TRG_WIDTH = 0;
+parameter signed TRG_WIDTH = 0;
 parameter TRG_POLARITY = 0;
 
 input EN;
