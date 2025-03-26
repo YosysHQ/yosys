@@ -129,6 +129,12 @@ LIBS += -ldw                  # SILIMATE: support for backward-cpp
 CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
 endif
 
+ifneq ($(shell :; command -v rsync),)
+RSYNC_CP ?= rsync -rc
+else
+RSYNC_CP ?= cp -ru
+endif
+
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
 LINKFLAGS += -rdynamic
@@ -169,7 +175,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.51+46
+YOSYS_VER := 0.51+85
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -1074,13 +1080,13 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) mkdir -p docs/source/cmd
 	$(Q) mkdir -p temp/docs/source/cmd
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
-	$(Q) rsync -rc temp/docs/source/cmd docs/source
+	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
 	$(Q) rm -rf temp
 docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) mkdir -p docs/source/cell
 	$(Q) mkdir -p temp/docs/source/cell
 	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
-	$(Q) rsync -rc temp/docs/source/cell docs/source
+	$(Q) $(RSYNC_CP) temp/docs/source/cell docs/source
 	$(Q) rm -rf temp
 
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)

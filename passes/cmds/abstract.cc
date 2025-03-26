@@ -45,9 +45,9 @@ struct Slice {
 	}
 
 	static int parse_index(const char *begin, const char *end, const std::string &slice) {
-		int value;
+		int value = 0;
 		auto result = std::from_chars(begin, end, value, 10);
-        if (result.ptr != end || result.ptr == begin)
+		if (result.ptr != end || result.ptr == begin)
 			syntax_error(slice);
 		return value;
 	}

@@ -34,8 +34,8 @@ struct CutpointPass : public Pass {
 		log("This command adds formal cut points to the design.\n");
 		log("\n");
 		log("    -undef\n");
-		log("        set cupoint nets to undef (x). the default behavior is to create a\n");
-		log("        $anyseq cell and drive the cutpoint net from that\n");
+		log("        set cutpoint nets to undef (x). the default behavior is to create\n");
+		log("        an $anyseq cell and drive the cutpoint net from that\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
