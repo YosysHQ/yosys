@@ -35,6 +35,8 @@ jobs:
           # newest, make sure to update maximum standard step to match
           - 'clang-19'
           - 'gcc-13'
+          - 'gcc-14'
+          - 'gcc-15'
         include:
           # macOS
           - os: macos-13
