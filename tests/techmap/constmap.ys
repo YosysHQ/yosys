@@ -13,6 +13,13 @@ select -assert-count 1 t:const_cell
 select -assert-count 1 r:value=16
 
 design -reset
+
+read_verilog -lib << EOT
+module const_cell(O);
+output O;
+endmodule
+EOT
+
 read_verilog << EOT
 
 module test();
@@ -29,3 +36,5 @@ constmap -cell const_cell O value
 select -assert-count 2 t:const_cell
 select -assert-count 1 r:value=16
 select -assert-count 1 r:value=32
+select -assert-count 1 test/out1 %ci* r:value=16 %i
+select -assert-count 1 test/out2 %ci* r:value=32 %i
