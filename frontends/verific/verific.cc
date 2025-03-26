@@ -3533,9 +3533,9 @@ struct VerificPass : public Pass {
 			Message::SetConsoleOutput(0);
 			Message::RegisterCallBackMsg(msg_func);
 
-			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
-			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
-			RuntimeFlags::SetVar("db_preserve_x", 1);
+			// RuntimeFlags::SetVar("db_preserve_user_instances", 1);
+			// RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+			// RuntimeFlags::SetVar("db_preserve_x", 1);
 
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
@@ -3562,9 +3562,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
-			RuntimeFlags::SetVar("veri_preserve_comments", 1);
-			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
+			// RuntimeFlags::SetVar("veri_preserve_assignments", 1);
+			// RuntimeFlags::SetVar("veri_preserve_comments", 1);
+			// RuntimeFlags::SetVar("veri_preserve_drivers", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
