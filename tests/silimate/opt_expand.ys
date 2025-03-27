@@ -15,10 +15,19 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 2 t:$and
 select -assert-count 1 t:$or
+
 design -reset
 log -pop
 
@@ -38,7 +47,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 2 t:$and
 select -assert-count 1 t:$or
@@ -62,7 +79,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 2 t:$and
 select -assert-count 1 t:$or
@@ -89,7 +114,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 1 t:$and
 select -assert-count 1 t:$or
@@ -114,7 +147,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 2 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 3 t:$and
 select -assert-count 1 t:$or
@@ -139,7 +180,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 2 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 3 t:$and
 select -assert-count 2 t:$or
@@ -163,7 +212,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 2 t:$and
 select -assert-count 1 t:$or
@@ -189,7 +246,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 2 t:$and
+select -assert-count 2 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 4 t:$and
 select -assert-count 2 t:$or
@@ -216,7 +281,15 @@ module top (
 endmodule
 EOF
 check -assert
+
+# Ensure original design only has correct number of gates
+select -assert-count 2 t:$and
+select -assert-count 3 t:$or
+
+# Check equivalence after opt_expand
 equiv_opt -assert opt_expand
+
+# Check final design has correct number of gates
 design -load postopt
 select -assert-count 4 t:$and
 select -assert-count 3 t:$or
