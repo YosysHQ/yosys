@@ -215,7 +215,6 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-write_verilog dump.v
 select -assert-count 1 t:$and
 select -assert-count 1 t:$not
 
