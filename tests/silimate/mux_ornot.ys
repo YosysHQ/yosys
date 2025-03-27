@@ -71,9 +71,7 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 # Did not include check for not count since we have an unassigned ~s wire
-# TODO check
 design -load postopt
-write_verilog dump.v
 select -assert-count 1 t:$or
 
 design -reset
