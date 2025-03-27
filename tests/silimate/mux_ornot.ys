@@ -7,7 +7,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = s ? 1'b0 : a;
+  assign x = s ? a : 1'b1;
 endmodule
 EOF
 check -assert
@@ -17,7 +17,7 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-select -assert-count 1 t:$and
+select -assert-count 1 t:$or
 select -assert-count 1 t:$not
 
 design -reset
@@ -34,7 +34,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = s ? 1'b0 : ~a;
+  assign x = s ? ~a : 1'b1;
 endmodule
 EOF
 check -assert
@@ -44,7 +44,7 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-select -assert-count 1 t:$and
+select -assert-count 1 t:$or
 select -assert-count 2 t:$not
 
 design -reset
@@ -61,7 +61,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = ~s ? a : 1'b0;
+  assign x = ~s ? 1'b1 : a;
 endmodule
 EOF
 check -assert
@@ -71,8 +71,10 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 # Did not include check for not count since we have an unassigned ~s wire
+# TODO check
 design -load postopt
-select -assert-count 1 t:$and
+write_verilog dump.v
+select -assert-count 1 t:$or
 
 design -reset
 log -pop
@@ -89,35 +91,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = s ? 1'b0 : a & b;
-endmodule
-EOF
-check -assert
-
-# Check equivalence after opt_expr
-equiv_opt -assert opt_expr -mux_bool
-
-# Check final design has correct number of gates
-design -load postopt
-select -assert-count 2 t:$and
-select -assert-count 1 t:$not
-
-design -reset
-log -pop
-
-
-
-log -header "Nested OR gates"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input wire a,
-  input wire b,
-  input wire s,
-  output wire x
-);
-  assign x = s ? 1'b0 : a | b;
+  assign x = s ? a & b : 1'b1;
 endmodule
 EOF
 check -assert
@@ -136,6 +110,34 @@ log -pop
 
 
 
+log -header "Nested OR gates"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire s,
+  output wire x
+);
+  assign x = s ? a | b : 1'b1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 2 t:$or
+
+design -reset
+log -pop
+
+
+
 log -header "Nested muxes"
 log -push
 design -reset
@@ -146,7 +148,7 @@ module top (
   input wire s2,
   output wire x
 );
-  assign x = s1 ? 1'b0 : (s2 ? 1'b0 : a);
+  assign x = s1 ? (s2 ? a : 1'b1) : 1'b1;
 endmodule
 EOF
 check -assert
@@ -156,8 +158,8 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-select -assert-count 2 t:$and
 select -assert-count 2 t:$not
+select -assert-count 2 t:$or
 
 design -reset
 log -pop
@@ -173,7 +175,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = s ? 1'b0 : a & 1'b1;
+  assign x = s ? a & 1'b1 : 1'b1;
 endmodule
 EOF
 check -assert
@@ -183,8 +185,8 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-select -assert-count 1 t:$and
 select -assert-count 1 t:$not
+select -assert-count 1 t:$or
 
 design -reset
 log -pop
@@ -200,7 +202,7 @@ module top (
   input wire s,
   output wire x
 );
-  assign x = s ? 32'b0 : a;
+  assign x = s ? a : 32'b1;
 endmodule
 EOF
 check -assert
@@ -215,8 +217,8 @@ equiv_opt -assert opt_expr -mux_bool
 
 # Check final design has correct number of gates
 design -load postopt
-select -assert-count 1 t:$and
 select -assert-count 1 t:$not
+select -assert-count 1 t:$or
 
 design -reset
 log -pop
