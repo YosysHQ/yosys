@@ -946,6 +946,7 @@ SH_TEST_DIRS += tests/blif
 SH_TEST_DIRS += tests/memfile
 SH_TEST_DIRS += tests/fmt
 # SH_TEST_DIRS += tests/cxxrtl
+SH_TEST_DIRS += tests/silimate
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 SH_TEST_DIRS += tests/functional
 endif
