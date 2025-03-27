@@ -360,7 +360,7 @@ LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -747,7 +747,7 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
 	$(Q) mkdir -p $(dir $@)
-	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
 endif
 
 %.o: %.cpp
@@ -959,10 +959,10 @@ clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
 wheel: $(TARGETS)
-	python$(PYTHON_VERSION) -m pip wheel .
+	$(PYTHON_EXECUTABLE) -m pip wheel .
 
 install-wheel: wheel
-	python$(PYTHON_VERSION) -m pip install pyosys-$(YOSYS_MAJOR).$(YOSYS_MINOR).$(YOSYS_COMMIT)-*.whl --force-reinstall
+	$(PYTHON_EXECUTABLE) -m pip install pyosys-$(YOSYS_MAJOR).$(YOSYS_MINOR).$(YOSYS_COMMIT)-*.whl --force-reinstall
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
@@ -984,10 +984,6 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) @$(MAKE) install-wheel
-ifeq ($(ENABLE_ABC),1)
-	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
-endif
-	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
 ifeq ($(ENABLE_PLUGINS),1)
@@ -1003,7 +999,7 @@ uninstall:
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) python$(PYTHON_VERSION) -m pip uninstall -y pyosys
+	$(INSTALL_SUDO) $(PYTHON_EXECUTABLE) -m pip uninstall -y pyosys
 endif
 endif
 
