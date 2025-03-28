@@ -114,6 +114,9 @@ select -assert-count 1 t:$sop
 equiv_opt -assert breaksop
 
 # Check final design has correct number of gates
+# We only have one AND gate since breaksop turns the OR gate into an AND gate
+# The inputs to this gate are inverted and the outputs are also inverted, so with 
+# DeMorgan's law, they are equivalent
 design -load postopt
 opt     # Run opt to remove unneeded OR gate
 select -assert-count 1 t:$reduce_and
