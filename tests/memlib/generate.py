@@ -1428,7 +1428,7 @@ endmodule
 for (testname, 		reset_gate, 	rdwr,  clk_en, add_logic) in [
 	("no_reset", 	"", 		"old", False, 	0),
 	("gclken", 	"rst", 		"old", False, 	0),
-	("ungated", 	"ungated", 	"old", False, 	1), # muxes wren with rst
+	("ungated", 	"ungated", 	"old", False, 	2), # muxes wren with rst
 	("gclken_ce", 	"rst", 		"old", True, 	3), # AND to simulate CLK_EN
 	("grden", 	"rden && rst", 	"old", False, 	1), # selects _clken, simulates _rden
 	("grden_ce", 	"rden && rst", 	"old", True, 	4), # both of the above
@@ -1473,9 +1473,9 @@ end"""
 for (testname, 			reset_gate, 	defs, 		rdwr,  add_logic) in [
 	("wr_byte",		"", 	["USE_SRST_BLOCKING"],	"old", 0),
 	("trans_byte",		"", 	["USE_SRST_BLOCKING"],	"new", 0),
-	("wr_rst_byte",		"rst", 	["USE_SRST"],		"old", 2), # expected mux to emulate blocking
-	("rst_wr_byte",		"rst", 	["USE_SRST_BLOCKING"],	"old", 2), # should use hardware blocking, doesn't
-	("rdenrst_wr_byte", 	"rden && rst", ["USE_SRST"],	"old", 3),
+	("wr_rst_byte",		"rst", 	["USE_SRST"],		"old", 3), # expected mux to emulate blocking
+	("rst_wr_byte",		"rst", 	["USE_SRST_BLOCKING"],	"old", 3), # should use hardware blocking, doesn't
+	("rdenrst_wr_byte", 	"rden && rst", ["USE_SRST"],	"old", 4),
 ]:
 	wordsloop = "for (i=0; i<WORDS; i=i+1)"
 	if rdwr == "old":
