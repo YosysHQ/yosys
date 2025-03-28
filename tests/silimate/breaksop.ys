@@ -158,3 +158,37 @@ select -assert-count 1 t:$reduce_or
 
 design -reset
 log -pop
+
+
+
+log -header "Multiple sops"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  input wire [3:0] b,
+  output wire x,
+  output wire y
+);
+  assign x = (a[0] & a[1]) | (~a[2] & a[3]) | (a[0] & ~a[1] & a[2]);
+  assign y = (b[0] & b[1]) | (~b[2] & b[3]) | (b[0] & ~b[1] & b[2]);
+endmodule
+EOF
+check -assert
+
+# Generate $sop
+techmap
+abc -sop
+select -assert-count 2 t:$sop
+
+# Check equivalence after breaksop
+equiv_opt -assert breaksop
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 6 t:$reduce_and
+select -assert-count 2 t:$reduce_or
+
+design -reset
+log -pop
