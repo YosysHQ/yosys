@@ -1,0 +1,8 @@
+read_verilog -sv setundef.sv
+setundef -zero -params
+hierarchy -top top
+flatten
+proc
+async2sync
+write_json
+sat -seq 5 -prove-asserts
