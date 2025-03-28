@@ -1,0 +1,222 @@
+log -header "Simple positive case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 1'b0 : a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 1 t:$not
+
+design -reset
+log -pop
+
+
+
+log -header "Case with inverted a"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 1'b0 : ~a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$not
+
+design -reset
+log -pop
+
+
+
+log -header "Case with inverted s"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s,
+  output wire x
+);
+  assign x = ~s ? a : 1'b0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+# Did not include check for not count since we have an unassigned ~s wire
+design -load postopt
+select -assert-count 1 t:$and
+
+design -reset
+log -pop
+
+
+
+log -header "Nested AND gates"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 1'b0 : a & b;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 2 t:$and
+select -assert-count 1 t:$not
+
+design -reset
+log -pop
+
+
+
+log -header "Nested OR gates"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 1'b0 : a | b;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 1 t:$not
+select -assert-count 1 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Nested muxes"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s1,
+  input wire s2,
+  output wire x
+);
+  assign x = s1 ? 1'b0 : (s2 ? 1'b0 : a);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 2 t:$and
+select -assert-count 2 t:$not
+
+design -reset
+log -pop
+
+
+
+log -header "With constant propagation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 1'b0 : a & 1'b1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 1 t:$not
+
+design -reset
+log -pop
+
+
+
+log -header "With multibit constant"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire s,
+  output wire x
+);
+  assign x = s ? 32'b0 : a;
+endmodule
+EOF
+check -assert
+
+# Runs wreduce to reduce width of the constant before applying opt_expr
+# Without this line, this test case will not pass
+# Believe it is intended behavior to not optimize constant with more than one bit
+wreduce
+
+# Check equivalence after opt_expr
+equiv_opt -assert opt_expr -mux_bool
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 1 t:$not
+
+design -reset
+log -pop
