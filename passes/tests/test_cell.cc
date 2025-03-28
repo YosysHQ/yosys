@@ -189,17 +189,17 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 			} else
 				size_b = 0;
 
-			Macc::port_t this_port;
+			Macc::term_t this_term;
 
 			wire_a->width += size_a;
-			this_port.in_a = RTLIL::SigSpec(wire_a, wire_a->width - size_a, size_a);
+			this_term.in_a = RTLIL::SigSpec(wire_a, wire_a->width - size_a, size_a);
 
 			wire_a->width += size_b;
-			this_port.in_b = RTLIL::SigSpec(wire_a, wire_a->width - size_b, size_b);
+			this_term.in_b = RTLIL::SigSpec(wire_a, wire_a->width - size_b, size_b);
 
-			this_port.is_signed = xorshift32(2) == 1;
-			this_port.do_subtract = xorshift32(2) == 1;
-			macc.ports.push_back(this_port);
+			this_term.is_signed = xorshift32(2) == 1;
+			this_term.do_subtract = xorshift32(2) == 1;
+			macc.terms.push_back(this_term);
 		}
 		// Macc::to_cell sets the input ports
 		macc.to_cell(cell);
