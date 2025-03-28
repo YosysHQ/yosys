@@ -1,6 +1,6 @@
 # loop involving the asynchronous reset on a memory port
 design -reset
-read -vlog2k <<EOF
+read_verilog <<EOF
 module top(input wire clk, input wire [3:0] addr, output reg [3:0] data);
 	reg [3:0] mem [15:0];
 	reg [5:0] i;
