@@ -383,6 +383,138 @@ design -reset
 log -pop
 
 ###################################################################
+# Reduce XNOR Test Cases
+###################################################################
+
+log -header "Simple positive reduce XNOR case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = ~^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 7 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Two reduce XNORs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (~^a) & (~^b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 2 t:$not
+select -assert-count 14 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Reduce XNOR on bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = ~^a[3:0];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 3 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Single bit input"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire x
+);
+  assign x = ~^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Unbalanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a,
+  output wire x
+);
+  assign x = ~^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 4 t:$xor
+
+design -reset
+log -pop
+
+###################################################################
 # Break EQ Test Cases
 ###################################################################
 
