@@ -1,0 +1,740 @@
+###################################################################
+# Reduce AND Test Cases
+###################################################################
+
+log -header "Simple positive reduce AND case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = &a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 7 t:$and
+
+design -reset
+log -pop
+
+
+
+log -header "Two reduce ANDs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (&a) | (&b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 14 t:$and
+
+design -reset
+log -pop
+
+
+
+log -header "Reduce AND on bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = &a[3:0];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$and
+
+design -reset
+log -pop
+
+
+
+log -header "Single bit input"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire x
+);
+  assign x = &a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$and
+
+design -reset
+log -pop
+
+
+
+log -header "Unbalanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a,
+  output wire x
+);
+  assign x = &a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 4 t:$and
+
+design -reset
+log -pop
+
+###################################################################
+# Reduce OR Test Cases
+###################################################################
+
+log -header "Simple positive reduce OR case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = |a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 7 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Two reduce ORs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (|a) & (|b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 14 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Reduce OR on bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = |a[3:0];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Single bit input"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire x
+);
+  assign x = |a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Unbalanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a,
+  output wire x
+);
+  assign x = |a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 4 t:$or
+
+design -reset
+log -pop
+
+###################################################################
+# Reduce XOR Test Cases
+###################################################################
+
+log -header "Simple positive reduce XOR case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = ^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 7 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Two reduce XORs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (^a) & (^b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 14 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Reduce XOR on bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = ^a[3:0];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Single bit input"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire x
+);
+  assign x = ^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "Unbalanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a,
+  output wire x
+);
+  assign x = ^a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 4 t:$xor
+
+design -reset
+log -pop
+
+###################################################################
+# Break EQ Test Cases
+###################################################################
+
+log -header "Simple positive EQ case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a == b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 7 t:$or
+select -assert-count 1 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "EQ case with odd bit width and bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a[4:0] == b[4:0]);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 4 t:$or
+select -assert-count 1 t:$xor
+
+design -reset
+log -pop
+
+###################################################################
+# Break NE Test Cases
+###################################################################
+
+log -header "Simple positive NE case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a != b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$not
+select -assert-count 7 t:$or
+select -assert-count 1 t:$xor
+
+design -reset
+log -pop
+
+
+
+log -header "NE case with odd bit width and bit slice"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a[4:0] != b[4:0]);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$not
+select -assert-count 4 t:$or
+select -assert-count 1 t:$xor
+
+design -reset
+log -pop
+
+###################################################################
+# Break Logic AND Test Cases
+###################################################################
+
+log -header "Simple positive AND case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a && b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 14 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Bit width mismatch and bit slicing"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] a,
+  input wire [4:0] b,
+  output wire x
+);
+  assign x = (a[3:0] && b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 7 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Use bitwise AND and ensure it is not getting converted"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a & b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+
+design -reset
+log -pop
+
+###################################################################
+# Break Logic OR Test Cases
+###################################################################
+
+log -header "Simple positive OR case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a || b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 15 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Bit width mismatch and bit slicing"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] a,
+  input wire [4:0] b,
+  output wire x
+);
+  assign x = (a[3:0] || b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 8 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Use bitwise OR and ensure it is not getting converted"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire x
+);
+  assign x = (a | b);
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$or
+
+design -reset
+log -pop
+
+###################################################################
+# Break Logic NOT Test Cases
+###################################################################
+
+log -header "Simple positive NOT case"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = !a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 7 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Odd bit width"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a,
+  output wire x
+);
+  assign x = !a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-count 4 t:$or
+
+design -reset
+log -pop
+
+
+
+log -header "Use bitwise not and ensure it is not getting converted"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  output wire x
+);
+  assign x = ~a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after breakreduce
+equiv_opt -assert breakreduce
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 0 t:$or
+
+design -reset
+log -pop
