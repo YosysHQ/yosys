@@ -1,0 +1,70 @@
+read_rtlil << EOF
+
+
+autoidx 524
+
+attribute \top 1
+attribute \library "work"
+attribute \hdlname "main"
+module \main
+
+  attribute \force_downto 1
+  wire width 18 $verific$mult_4$garbage/usb.v:12$388.etc.blk.partial[0]
+
+  wire width 12 $delete_wire$514
+
+  wire width 4 $test
+  
+  attribute \module_not_derived 1
+  cell \SB_MAC16 $verific$mult_4$garbage/usb.v:12$388.etc.sliceB[0].mul
+    parameter \A_REG 1'0
+    parameter \A_SIGNED 0
+    parameter \BOTADDSUB_CARRYSELECT 2'00
+    parameter \BOTADDSUB_LOWERINPUT 2'00
+    parameter \BOTADDSUB_UPPERINPUT 1'0
+    parameter \BOTOUTPUT_SELECT 2'11
+    parameter \BOT_8x8_MULT_REG 1'0
+    parameter \B_REG 1'0
+    parameter signed \B_SIGNED 0
+    parameter \C_REG 1'0
+    parameter \D_REG 1'0
+    parameter \MODE_8x8 1'0
+    parameter \NEG_TRIGGER 1'0
+    parameter \PIPELINE_16x16_MULT_REG1 1'0
+    parameter \PIPELINE_16x16_MULT_REG2 1'0
+    parameter \TOPADDSUB_CARRYSELECT 2'00
+    parameter \TOPADDSUB_LOWERINPUT 2'00
+    parameter \TOPADDSUB_UPPERINPUT 1'0
+    parameter \TOPOUTPUT_SELECT 2'11
+    parameter \TOP_8x8_MULT_REG 1'0
+    connect \A 16'x
+    connect \B 16'x
+    connect \O {  $test $delete_wire$514 14'x $verific$mult_4$garbage/usb.v:12$388.etc.blk.partial[0] [1:0] }
+  end
+
+  cell $add $techmap$verific$mult_4$garbage/usb.v:12$388.etc.sliceA.last.$add$/home/emil/pulls/yosys/share/mul2dsp.v:216$483
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 18
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 19
+    connect \A 18'x
+    connect \B $verific$mult_4$garbage/usb.v:12$388.etc.blk.partial[0] [1:0]
+    connect \Y 19'x
+  end
+
+  cell $add $techmap$verific$mult_4$garbage/usb.v:12$388.$add$/home/emil/pulls/yosys/share/mul2dsp.v:173$480
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A $delete_wire$514 [1:0]
+    connect \B 2'x
+    connect \Y 2'x
+  end
+
+end
+EOF
+
+ice40_dsp
