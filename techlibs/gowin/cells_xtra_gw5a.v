@@ -1,53 +1,6 @@
 // Created by cells_xtra.py
 
 
-module MUX2_MUX8 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX2_MUX16 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX2_MUX32 (...);
-input I0,I1;
-input S0;
-output O;
-endmodule
-
-
-module MUX4 (...);
-input I0, I1, I2, I3;
-input S0, S1;
-output O;
-endmodule
-
-
-module MUX8 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7;
-input S0, S1, S2;
-output O;
-endmodule
-
-
-module MUX16 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15;
-input S0, S1, S2, S3;
-output O;
-endmodule
-
-module MUX32 (...);
-input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, I21, I22, I23, I24, I25, I26, I27, I28, I29, I30, I31;
-input S0, S1, S2, S3, S4;
-output O;
-endmodule
-
 module LUT5 (...);
 parameter INIT = 32'h00000000;
 input I0, I1, I2, I3, I4;
@@ -73,20 +26,6 @@ module LUT8 (...);
 parameter INIT = 256'h0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
 input I0, I1, I2, I3, I4, I5, I6, I7;
 output F;
-endmodule
-
-
-module DLCE (...);
-input D, G, CLEAR, GE;
-output Q;
-parameter INIT = 1'b0;
-endmodule
-
-
-module DLPE (...);
-input D, G, PRESET, GE;
-output Q;
-parameter INIT = 1'b1;
 endmodule
 
 
@@ -141,8 +80,19 @@ endmodule
 module MIPI_OBUF_A (...);
 output O, OB;
 input  I, IB, IL, MODESEL;
-inout IO, IOB;
-input OEN, OENB;
+endmodule
+
+module IBUF_R (...);
+input  I;
+input RTEN;
+output O;
+endmodule
+
+module IOBUF_R (...);
+input I,OEN;
+input RTEN;
+output O;
+inout IO;
 endmodule
 
 module ELVDS_IOBUF_R (...);
@@ -161,21 +111,6 @@ endmodule
 module TLVDS_IBUF_ADC (...);
 input I, IB;
 input ADCEN;
-endmodule
-
-module MIPI_CPHY_IBUF (...);
-output OH0, OL0, OB0, OH1, OL1, OB1, OH2, OL2, OB2;
-inout IO0, IOB0, IO1, IOB1, IO2, IOB2;
-input  I0, IB0, I1, IB1, I2, IB2;
-input OEN, OENB;
-input HSEN;
-endmodule
-
-module MIPI_CPHY_OBUF (...);
-output O0, OB0, O1, OB1, O2, OB2;
-input  I0, IB0, IL0, I1, IB1, IL1, I2, IB2, IL2;
-inout IO0, IOB0, IO1, IOB1, IO2, IOB2;
-input OEN, OENB, MODESEL, VCOME;
 endmodule
 
 module SDPB (...);
@@ -663,8 +598,8 @@ endmodule
 
 
 module SDP36KE (...);
-parameter ECC_WRITE_EN="TRUE"; 
-parameter ECC_READ_EN="TRUE"; 
+parameter ECC_WRITE_EN="FALSE"; 
+parameter ECC_READ_EN="FALSE"; 
 parameter READ_MODE = 1'b0; 
 parameter BLK_SEL_A = 3'b000;
 parameter BLK_SEL_B = 3'b000;
@@ -828,14 +763,6 @@ output DECCO, SECCO;
 output [7:0] ECCP;
 endmodule
 
-
-module SDP136K (...);
-input CLKA, CLKB;
-input WE, RE;
-input [10:0] ADA, ADB;
-input [67:0] DI;
-output [67:0] DO;
-endmodule
 
 module MULTADDALU12X12 (...);
 parameter A0REG_CLK = "BYPASS"; 
@@ -1053,24 +980,6 @@ input  PSEL;
 input  PADDSUB;
 endmodule
 
-module MULTACC (...);
-output  [23:0] DATAO, CASO;
-input CE, CLK;
-input [5:0] COFFIN0, COFFIN1, COFFIN2;
-input [9:0] DATAIN0, DATAIN1;
-input [9:0] DATAIN2;
-input RSTN;
-input [23:0] CASI;
-parameter COFFIN_WIDTH = 4; 
-parameter DATAIN_WIDTH = 8; 
-parameter IREG = 1'b0; 
-parameter OREG = 1'b0; 
-parameter PREG = 1'b0; 
-parameter ACC_EN = "FALSE";  
-parameter CASI_EN = "FALSE"; 
-parameter CASO_EN = "FALSE"; 
-endmodule
-
 module IDDR_MEM (...);
 input D, ICLK, PCLK;
 input [2:0] WADDR;
@@ -1157,39 +1066,13 @@ output [31:0] Q;
 input D;
 input PCLK, FCLKP, FCLKN, FCLKQP, FCLKQN;
 input RESET;
-output DF0, DF1;
-input  SDTAP0, SDTAP1;
-input  VALUE0,VALUE1;
-input  [7:0] DLYSTEP0,DLYSTEP1;
-parameter C_STATIC_DLY_0 = 0; 
-parameter DYN_DLY_EN_0 = "FALSE";
-parameter ADAPT_EN_0 = "FALSE";
-parameter C_STATIC_DLY_1 = 0; 
-parameter DYN_DLY_EN_1 = "FALSE";
-parameter ADAPT_EN_1 = "FALSE";
-endmodule
-
-module OSIDES64 (...);
-output [63:0] Q;
-input D;
-input PCLK, FCLKP, FCLKN, FCLKQP, FCLKQN;
-input RESET;
-output DF0, DF1, DF2, DF3;
-input  SDTAP0, SDTAP1, SDTAP2, SDTAP3;
-input  VALUE0, VALUE1, VALUE2, VALUE3;
-input  [7:0] DLYSTEP0, DLYSTEP1, DLYSTEP2, DLYSTEP3;
-parameter C_STATIC_DLY_0 = 0; 
-parameter DYN_DLY_EN_0 = "FALSE";
-parameter ADAPT_EN_0 = "FALSE";
-parameter C_STATIC_DLY_1 = 0; 
-parameter DYN_DLY_EN_1 = "FALSE";
-parameter ADAPT_EN_1 = "FALSE";
-parameter C_STATIC_DLY_2 = 0; 
-parameter DYN_DLY_EN_2 = "FALSE";
-parameter ADAPT_EN_2 = "FALSE";
-parameter C_STATIC_DLY_3 = 0; 
-parameter DYN_DLY_EN_3 = "FALSE";
-parameter ADAPT_EN_3 = "FALSE";
+output DF;
+input  SDTAP;
+input  VALUE;
+input  [7:0] DLYSTEP;
+parameter C_STATIC_DLY = 0; 
+parameter DYN_DLY_EN = "FALSE";
+parameter ADAPT_EN = "FALSE";
 endmodule
 
 module DCE (...);
@@ -1247,17 +1130,6 @@ module OSCA (...);
 parameter  FREQ_DIV = 100; 
 output OSCOUT;
 input OSCEN;
-endmodule
-
-module OSCB (...);
-parameter FREQ_MODE = "25"; 
-parameter FREQ_DIV = 10; 
-parameter DYN_TRIM_EN = "FALSE"; 
-output OSCOUT;
-output OSCREF;
-input OSCEN, FMODE;
-input [7:0] RTRIM;
-input [5:0] RTCTRIM; 
 endmodule
 
 module PLL (...);
@@ -1699,8 +1571,8 @@ input ADWSEL;
 endmodule
 
 module OTP (...);
-parameter MODE = 2'b01; 
-input CLK, READ, SHIFT;
+parameter MODE = 1'b0; 
+input READ, SHIFT;
 output DOUT;
 endmodule
 
@@ -1743,31 +1615,6 @@ input ERR0INJECT,ERR1INJECT;
 input [6:0] ERRINJ0LOC,ERRINJ1LOC;
 endmodule
 
-module CMSERB (...);
-output RUNNING;
-output CRCERR;
-output CRCDONE;
-output ECCCORR;
-output ECCUNCORR; 
-output [12:0] ERRLOC;
-output ECCDEC;
-output DSRRD;
-output DSRWR; 
-output ASRRESET;
-output ASRINC;
-output REFCLK;
-input CLK;
-input [2:0] SEREN;
-input ERR0INJECT,ERR1INJECT;
-input [6:0] ERRINJ0LOC,ERRINJ1LOC;
-endmodule
-
-module SAMBA (...);
-parameter MODE = 2'b00; 
-input SPIAD;
-input LOAD;
-endmodule
-
 module ADCLRC (...);
 endmodule
 
@@ -1777,150 +1624,6 @@ endmodule
 module ADC (...);
 endmodule
 
-module MIPI_DPHY_RX (...);
-output D0LN_DESKEW_DONE,D1LN_DESKEW_DONE,D2LN_DESKEW_DONE,D3LN_DESKEW_DONE;
-output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
-output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
-output DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N, DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P;
-output DI_LPRXCK_N, DI_LPRXCK_P;
-output RX_CLK_O;          
-output DESKEW_ERROR;      
-inout  CK_N, CK_P, RX0_N, RX0_P, RX1_N, RX1_P, RX2_N, RX2_P, RX3_N, RX3_P;
-input BYTE_LENDIAN;       
-input [2:0] FIFO_RD_STD;  
-input HSRX_STOP;          
-input PWRON;              
-input RESET;              
-input D0LN_HSRX_DREN,  D1LN_HSRX_DREN, D2LN_HSRX_DREN, D3LN_HSRX_DREN;
-input DESKEW_BY,DESKEW_EN_OEDGE;
-input [5:0] DESKEW_HALF_OPENING;
-input [2:0] DESKEW_LNSEL; 
-input [1:0] DESKEW_LSB_MODE;
-input [2:0] DESKEW_M;
-input [12:0] DESKEW_MTH;   
-input [6:0] DESKEW_MSET;
-input DESKEW_OCLKEDG_EN;
-input [6:0] DESKEW_OWVAL;
-input DESKEW_REQ;         
-input DO_LPTX0_N, DO_LPTX0_P, DO_LPTX1_N, DO_LPTX1_P, DO_LPTX2_N, DO_LPTX2_P, DO_LPTX3_N, DO_LPTX3_P;
-input DO_LPTXCK_N, DO_LPTXCK_P;
-input DRST_N;             
-input [2:0] EQCS_LANE0,EQCS_LANE1,EQCS_LANE2,EQCS_LANE3,EQCS_CK;
-input [2:0] EQRS_LANE0,EQRS_LANE1,EQRS_LANE2,EQRS_LANE3,EQRS_CK;
-input HS_8BIT_MODE;       
-input HSRX_DLYDIR_LANE0, HSRX_DLYDIR_LANE1,HSRX_DLYDIR_LANE2,HSRX_DLYDIR_LANE3,HSRX_DLYDIR_CK;
-input HSRX_DLYLDN_LANE0, HSRX_DLYLDN_LANE1,HSRX_DLYLDN_LANE2,HSRX_DLYLDN_LANE3,HSRX_DLYLDN_CK;
-input HSRX_DLYMV_LANE0, HSRX_DLYMV_LANE1,HSRX_DLYMV_LANE2,HSRX_DLYMV_LANE3,HSRX_DLYMV_CK;
-input HSRX_EN_CK;         
-input HSRX_ODTEN_CK, HSRX_ODTEN_D0,  HSRX_ODTEN_D1, HSRX_ODTEN_D2, HSRX_ODTEN_D3;
-input LALIGN_EN;          
-input LPRX_EN_CK, LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2, LPRX_EN_D3;
-input LPTX_EN_CK, LPTX_EN_D0, LPTX_EN_D1, LPTX_EN_D2, LPTX_EN_D3;
-input ONE_BYTE0_MATCH;    
-input RX_CLK_1X;          
-input RX_INVERT;          
-input WALIGN_BY;          
-input WALIGN_DVLD;
-input WORD_LENDIAN;       
-parameter ALIGN_BYTE = 8'b10111000;
-parameter EN_CLKB1X = 1'b1;
-parameter EQ_ADPSEL_LANE0 = 1'b0;
-parameter EQ_ADPSEL_LANE1 = 1'b0;
-parameter EQ_ADPSEL_LANE2 = 1'b0;
-parameter EQ_ADPSEL_LANE3 = 1'b0;
-parameter EQ_ADPSEL_CK = 1'b0;
-parameter EQ_CS_LANE0 = 3'b100;
-parameter EQ_CS_LANE1 = 3'b100;
-parameter EQ_CS_LANE2 = 3'b100;
-parameter EQ_CS_LANE3 = 3'b100;
-parameter EQ_CS_CK = 3'b100;
-parameter EQ_PBIAS_LANE0 = 4'b0100;
-parameter EQ_PBIAS_LANE1 = 4'b0100;
-parameter EQ_PBIAS_LANE2 = 4'b0100;
-parameter EQ_PBIAS_LANE3 = 4'b0100;
-parameter EQ_PBIAS_CK = 4'b0100;
-parameter EQ_RS_LANE0 = 3'b100;
-parameter EQ_RS_LANE1 = 3'b100;
-parameter EQ_RS_LANE2 = 3'b100;
-parameter EQ_RS_LANE3 = 3'b100;
-parameter EQ_RS_CK = 3'b100;
-parameter EQ_ZLD_LANE0 = 4'b1000;
-parameter EQ_ZLD_LANE1 = 4'b1000;
-parameter EQ_ZLD_LANE2 = 4'b1000;
-parameter EQ_ZLD_LANE3 = 4'b1000;
-parameter EQ_ZLD_CK = 4'b1000;
-parameter HIGH_BW_LANE0 = 1'b1;
-parameter HIGH_BW_LANE1 = 1'b1;
-parameter HIGH_BW_LANE2 = 1'b1;
-parameter HIGH_BW_LANE3 = 1'b1;
-parameter HIGH_BW_CK = 1'b1;
-parameter HSRX_DLYCTL_CK = 7'b0000000;
-parameter HSRX_DLYCTL_LANE0 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE1 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE2 = 7'b0000000;
-parameter HSRX_DLYCTL_LANE3 = 7'b0000000;
-parameter HSRX_DLY_SEL = 1'b0;
-parameter HSRX_DUTY_LANE0 = 4'b1000;
-parameter HSRX_DUTY_LANE1 = 4'b1000;
-parameter HSRX_DUTY_LANE2 = 4'b1000;
-parameter HSRX_DUTY_LANE3 = 4'b1000;
-parameter HSRX_DUTY_CK = 4'b1000;
-parameter HSRX_EN = 1'b1;
-parameter HSRX_EQ_EN_LANE0 = 1'b1;
-parameter HSRX_EQ_EN_LANE1 = 1'b1;
-parameter HSRX_EQ_EN_LANE2 = 1'b1;
-parameter HSRX_EQ_EN_LANE3 = 1'b1;
-parameter HSRX_EQ_EN_CK = 1'b1;
-parameter HSRX_IBIAS = 4'b0011;
-parameter HSRX_IMARG_EN = 1'b1;
-parameter MIPI_LANE0_EN = 1'b0;
-parameter MIPI_LANE1_EN = 1'b0;
-parameter MIPI_LANE2_EN = 1'b0;
-parameter MIPI_LANE3_EN = 1'b0;
-parameter MIPI_CK_EN = 1'b1;
-parameter HSRX_ODT_EN = 1'b1;
-parameter HSRX_ODT_TST = 4'b0000;
-parameter HSRX_ODT_TST_CK = 1'b0;
-parameter HSRX_STOP_EN = 1'b0;
-parameter HSRX_TST = 4'b0000;
-parameter HSRX_TST_CK = 1'b0;
-parameter HSRX_WAIT4EDGE = 1'b0;
-parameter HYST_NCTL = 2'b01;
-parameter HYST_PCTL = 2'b01;
-parameter LOW_LPRX_VTH = 1'b0;
-parameter LPRX_EN = 1'b1;
-parameter LPRX_TST = 4'b0000;
-parameter LPRX_TST_CK = 1'b0;
-parameter LPTX_EN = 1'b1;
-parameter LPTX_SW_LANE0 = 3'b100;
-parameter LPTX_SW_LANE1 = 3'b100;
-parameter LPTX_SW_LANE2 = 3'b100;
-parameter LPTX_SW_LANE3 = 3'b100;
-parameter LPTX_SW_CK = 3'b100;
-parameter LPTX_TST = 4'b0000;
-parameter LPTX_TST_CK = 1'b0;
-parameter MIPI_DIS_N = 1'b1;
-parameter PGA_BIAS_LANE0 =  4'b1000;
-parameter PGA_BIAS_LANE1 =  4'b1000;
-parameter PGA_BIAS_LANE2 =  4'b1000;
-parameter PGA_BIAS_LANE3 =  4'b1000;
-parameter PGA_BIAS_CK =  4'b1000;
-parameter PGA_GAIN_LANE0 =  4'b1000;
-parameter PGA_GAIN_LANE1 =  4'b1000;
-parameter PGA_GAIN_LANE2 =  4'b1000;
-parameter PGA_GAIN_LANE3 =  4'b1000;
-parameter PGA_GAIN_CK =  4'b1000;
-parameter RX_CLK1X_SYNC_SEL = 1'b0;
-parameter RX_ODT_TRIM_LANE0 = 4'b0111;
-parameter RX_ODT_TRIM_LANE1 = 4'b0111;
-parameter RX_ODT_TRIM_LANE2 = 4'b0111;
-parameter RX_ODT_TRIM_LANE3 = 4'b0111;
-parameter RX_ODT_TRIM_CK = 4'b0111;
-parameter STP_UNIT = 2'b00;
-parameter SYNC_CLK_SEL = 1'b1;
-parameter WALIGN_DVLD_SRC_SEL = 1'b0;
-endmodule
-
 module MIPI_DPHY (...);
 output RX_CLK_O, TX_CLK_O;
 output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
@@ -1928,14 +1631,14 @@ output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
 input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
 output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
 inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
-input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK;
+input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK,
 input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
 input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
 input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
 input HSTXD_VLD;
 input CK0, CK90, CK180, CK270;
 input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
-input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK;
+input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK, 
 input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
 output [7:0] MRDATA;
 input MA_INC, MCLK;
@@ -2011,7 +1714,7 @@ parameter        RX_RD_START_DEPTH              = 5'b00001;
 parameter        RX_SYNC_MODE                   = 1'b0 ; 
 parameter        RX_WORD_ALIGN_BYPASS           = 1'b0 ; 
 parameter        RX_WORD_ALIGN_DATA_VLD_SRC_SEL = 1'b0 ; 
-parameter        RX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
+parameter        RX_WORD_LITTLE_ENDIAN          = 1'b0 ; 
 parameter        TX_BYPASS_MODE                 = 1'b0 ; 
 parameter        TX_BYTECLK_SYNC_MODE           = 1'b0 ; 
 parameter        TX_OCLK_USE_CIBCLK             = 1'b0 ; 
@@ -2212,434 +1915,6 @@ parameter        TEST_P_IMP_LN1                 = 1'b0 ;
 parameter        TEST_P_IMP_LN2                 = 1'b0 ;   
 parameter        TEST_P_IMP_LN3                 = 1'b0 ;   
 parameter        TEST_P_IMP_LNCK                = 1'b0 ;   
-endmodule
-
-module MIPI_DPHYA (...);
-output RX_CLK_O, TX_CLK_O;
-output [15:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD, D3LN_HSRXD;
-output D0LN_HSRXD_VLD,D1LN_HSRXD_VLD,D2LN_HSRXD_VLD,D3LN_HSRXD_VLD;
-input  D0LN_HSRX_DREN, D1LN_HSRX_DREN,  D2LN_HSRX_DREN,  D3LN_HSRX_DREN;
-output  DI_LPRX0_N, DI_LPRX0_P, DI_LPRX1_N, DI_LPRX1_P, DI_LPRX2_N,  DI_LPRX2_P, DI_LPRX3_N, DI_LPRX3_P, DI_LPRXCK_N, DI_LPRXCK_P;
-inout  CK_N, CK_P, D0_N, D0_P, D1_N, D1_P, D2_N, D2_P, D3_N, D3_P;
-input HSRX_STOP, HSTXEN_LN0, HSTXEN_LN1, HSTXEN_LN2, HSTXEN_LN3, HSTXEN_LNCK;
-input PWRON_RX, PWRON_TX, RESET, RX_CLK_1X, TX_CLK_1X;
-input TXDPEN_LN0, TXDPEN_LN1, TXDPEN_LN2, TXDPEN_LN3, TXDPEN_LNCK, TXHCLK_EN;
-input [15:0]  CKLN_HSTXD,D0LN_HSTXD,D1LN_HSTXD,D2LN_HSTXD,D3LN_HSTXD;
-input HSTXD_VLD;
-input CK0, CK90, CK180, CK270;
-input DO_LPTX0_N, DO_LPTX1_N, DO_LPTX2_N, DO_LPTX3_N, DO_LPTXCK_N, DO_LPTX0_P, DO_LPTX1_P, DO_LPTX2_P, DO_LPTX3_P, DO_LPTXCK_P;
-input HSRX_EN_CK, HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2, HSRX_EN_D3, HSRX_ODTEN_CK;
-input RX_DRST_N, TX_DRST_N, WALIGN_DVLD;
-output [7:0] MRDATA;
-input MA_INC, MCLK;
-input [1:0] MOPCODE;
-input [7:0] MWDATA;
-input SPLL_CKN, SPLL_CKP;
-output  ALPEDO_LANE0, ALPEDO_LANE1, ALPEDO_LANE2, ALPEDO_LANE3, ALPEDO_LANECK;
-output D1LN_DESKEW_DONE,D2LN_DESKEW_DONE,D3LN_DESKEW_DONE,D0LN_DESKEW_DONE;
-output D1LN_DESKEW_ERROR, D2LN_DESKEW_ERROR, D3LN_DESKEW_ERROR, D0LN_DESKEW_ERROR;
-input D0LN_DESKEW_REQ, D1LN_DESKEW_REQ, D2LN_DESKEW_REQ, D3LN_DESKEW_REQ;
-input HSRX_DLYDIR_LANE0, HSRX_DLYDIR_LANE1, HSRX_DLYDIR_LANE2, HSRX_DLYDIR_LANE3, HSRX_DLYDIR_LANECK;
-input HSRX_DLYLDN_LANE0, HSRX_DLYLDN_LANE1, HSRX_DLYLDN_LANE2, HSRX_DLYLDN_LANE3, HSRX_DLYLDN_LANECK;
-input HSRX_DLYMV_LANE0, HSRX_DLYMV_LANE1,  HSRX_DLYMV_LANE2, HSRX_DLYMV_LANE3, HSRX_DLYMV_LANECK;
-input  ALP_EDEN_LANE0, ALP_EDEN_LANE1, ALP_EDEN_LANE2, ALP_EDEN_LANE3, ALP_EDEN_LANECK, ALPEN_LN0, ALPEN_LN1, ALPEN_LN2, ALPEN_LN3, ALPEN_LNCK;
-parameter        TX_PLLCLK = "NONE"; 
-parameter        RX_ALIGN_BYTE                  = 8'b10111000 ; 
-parameter        RX_HS_8BIT_MODE                = 1'b0 ; 
-parameter        RX_LANE_ALIGN_EN               = 1'b0 ; 
-parameter        TX_HS_8BIT_MODE                = 1'b0 ; 
-parameter        HSREG_EN_LN0                   = 1'b0;  
-parameter        HSREG_EN_LN1                   = 1'b0;  
-parameter        HSREG_EN_LN2                   = 1'b0;  
-parameter        HSREG_EN_LN3                   = 1'b0;  
-parameter        HSREG_EN_LNCK                  = 1'b0;  
-parameter        LANE_DIV_SEL                   = 2'b00;  
-parameter        HSRX_EN                        = 1'b1 ;  
-parameter        HSRX_LANESEL                   = 4'b1111 ;   
-parameter        HSRX_LANESEL_CK                = 1'b1 ;   
-parameter        HSTX_EN_LN0                    = 1'b0 ;   
-parameter        HSTX_EN_LN1                    = 1'b0 ;   
-parameter        HSTX_EN_LN2                    = 1'b0 ;   
-parameter        HSTX_EN_LN3                    = 1'b0 ;   
-parameter        HSTX_EN_LNCK                   = 1'b0 ;   
-parameter        LPTX_EN_LN0                    = 1'b1 ;   
-parameter        LPTX_EN_LN1                    = 1'b1 ;   
-parameter        LPTX_EN_LN2                    = 1'b1 ;   
-parameter        LPTX_EN_LN3                    = 1'b1 ;   
-parameter        LPTX_EN_LNCK                   = 1'b1 ;   
-parameter        TXDP_EN_LN0                    = 1'b0 ;  
-parameter        TXDP_EN_LN1                    = 1'b0 ;   
-parameter        TXDP_EN_LN2                    = 1'b0 ;   
-parameter        TXDP_EN_LN3                    = 1'b0 ;   
-parameter        TXDP_EN_LNCK                   = 1'b0 ;
-parameter        SPLL_DIV_SEL                   = 2'b00;
-parameter        DPHY_CK_SEL                    = 2'b01;
-parameter        CKLN_DELAY_EN                  = 1'b0;  
-parameter        CKLN_DELAY_OVR_VAL             = 7'b0000000; 
-parameter        D0LN_DELAY_EN                  = 1'b0;  
-parameter        D0LN_DELAY_OVR_VAL             = 7'b0000000; 
-parameter        D0LN_DESKEW_BYPASS             = 1'b0;  
-parameter        D1LN_DELAY_EN                  = 1'b0;  
-parameter        D1LN_DELAY_OVR_VAL             = 7'b0000000; 
-parameter        D1LN_DESKEW_BYPASS             = 1'b0;  
-parameter        D2LN_DELAY_EN                  = 1'b0;  
-parameter        D2LN_DELAY_OVR_VAL             = 7'b0000000; 
-parameter        D2LN_DESKEW_BYPASS             = 1'b0;  
-parameter        D3LN_DELAY_EN                  = 1'b0;  
-parameter        D3LN_DELAY_OVR_VAL             = 7'b0000000; 
-parameter        D3LN_DESKEW_BYPASS             = 1'b0;  
-parameter        DESKEW_EN_LOW_DELAY            = 1'b0;  
-parameter        DESKEW_EN_ONE_EDGE             = 1'b0;  
-parameter        DESKEW_FAST_LOOP_TIME          = 4'b0000;  
-parameter        DESKEW_FAST_MODE               = 1'b0;  
-parameter        DESKEW_HALF_OPENING            = 6'b010110; 
-parameter        DESKEW_LSB_MODE                = 2'b00;  
-parameter        DESKEW_M                       = 3'b011;  
-parameter        DESKEW_M_TH                    = 13'b0000110100110; 
-parameter        DESKEW_MAX_SETTING           = 7'b0100001; 
-parameter        DESKEW_ONE_CLK_EDGE_EN       = 1'b0 ; 
-parameter        DESKEW_RST_BYPASS              = 1'b0 ; 
-parameter        RX_BYTE_LITTLE_ENDIAN          = 1'b1 ; 
-parameter        RX_CLK_1X_SYNC_SEL             = 1'b0 ; 
-parameter        RX_INVERT                      = 1'b0 ; 
-parameter        RX_ONE_BYTE0_MATCH             = 1'b0 ; 
-parameter        RX_RD_START_DEPTH              = 5'b00001; 
-parameter        RX_SYNC_MODE                   = 1'b0 ; 
-parameter        RX_WORD_ALIGN_BYPASS           = 1'b0 ; 
-parameter        RX_WORD_ALIGN_DATA_VLD_SRC_SEL = 1'b0 ; 
-parameter        RX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
-parameter        TX_BYPASS_MODE                 = 1'b0 ; 
-parameter        TX_BYTECLK_SYNC_MODE           = 1'b0 ; 
-parameter        TX_OCLK_USE_CIBCLK             = 1'b0 ; 
-parameter        TX_RD_START_DEPTH              = 5'b00001; 
-parameter        TX_SYNC_MODE                   = 1'b0 ; 
-parameter        TX_WORD_LITTLE_ENDIAN          = 1'b1 ; 
-parameter        EQ_CS_LANE0                    = 3'b100;  
-parameter        EQ_CS_LANE1                    = 3'b100;  
-parameter        EQ_CS_LANE2                    = 3'b100;  
-parameter        EQ_CS_LANE3                    = 3'b100;  
-parameter        EQ_CS_LANECK                   = 3'b100;  
-parameter        EQ_RS_LANE0                    = 3'b100;  
-parameter        EQ_RS_LANE1                    = 3'b100;  
-parameter        EQ_RS_LANE2                    = 3'b100;  
-parameter        EQ_RS_LANE3                    = 3'b100;  
-parameter        EQ_RS_LANECK                   = 3'b100;  
-parameter        HSCLK_LANE_LN0                 = 1'b0;  
-parameter        HSCLK_LANE_LN1                 = 1'b0;  
-parameter        HSCLK_LANE_LN2                 = 1'b0;  
-parameter        HSCLK_LANE_LN3                 = 1'b0;  
-parameter        HSCLK_LANE_LNCK                = 1'b1;  
-parameter        ALP_ED_EN_LANE0                = 1'b1 ; 
-parameter        ALP_ED_EN_LANE1                = 1'b1 ;  
-parameter        ALP_ED_EN_LANE2                = 1'b1 ;  
-parameter        ALP_ED_EN_LANE3                = 1'b1 ;  
-parameter        ALP_ED_EN_LANECK               = 1'b1 ; 
-parameter        ALP_ED_TST_LANE0               = 1'b0 ;  
-parameter        ALP_ED_TST_LANE1               = 1'b0 ;  
-parameter        ALP_ED_TST_LANE2               = 1'b0 ;  
-parameter        ALP_ED_TST_LANE3               = 1'b0 ;  
-parameter        ALP_ED_TST_LANECK              = 1'b0 ;  
-parameter        ALP_EN_LN0                     = 1'b0 ; 
-parameter        ALP_EN_LN1                     = 1'b0 ;  
-parameter        ALP_EN_LN2                     = 1'b0 ;  
-parameter        ALP_EN_LN3                     = 1'b0 ; 
-parameter        ALP_EN_LNCK                    = 1'b0 ; 
-parameter        ALP_HYS_EN_LANE0               = 1'b1 ;  
-parameter        ALP_HYS_EN_LANE1               = 1'b1 ;  
-parameter        ALP_HYS_EN_LANE2               = 1'b1 ;  
-parameter        ALP_HYS_EN_LANE3               = 1'b1 ;  
-parameter        ALP_HYS_EN_LANECK              = 1'b1 ;  
-parameter        ALP_TH_LANE0                   = 4'b1000 ;   
-parameter        ALP_TH_LANE1                   = 4'b1000 ;   
-parameter        ALP_TH_LANE2                   = 4'b1000 ;   
-parameter        ALP_TH_LANE3                   = 4'b1000 ;   
-parameter        ALP_TH_LANECK                  = 4'b1000 ;   
-parameter        ANA_BYTECLK_PH                 = 2'b00 ;  
-parameter        BIT_REVERSE_LN0                = 1'b0 ;  
-parameter        BIT_REVERSE_LN1                = 1'b0 ;  
-parameter        BIT_REVERSE_LN2                = 1'b0 ;  
-parameter        BIT_REVERSE_LN3                = 1'b0 ;  
-parameter        BIT_REVERSE_LNCK               = 1'b0 ;  
-parameter        BYPASS_TXHCLKEN                = 1'b1 ;  
-parameter        BYPASS_TXHCLKEN_SYNC           = 1'b0 ;  
-parameter        BYTE_CLK_POLAR                 = 1'b0 ;  
-parameter        BYTE_REVERSE_LN0               = 1'b0 ;  
-parameter        BYTE_REVERSE_LN1               = 1'b0 ;  
-parameter        BYTE_REVERSE_LN2               = 1'b0 ;  
-parameter        BYTE_REVERSE_LN3               = 1'b0 ;  
-parameter        BYTE_REVERSE_LNCK              = 1'b0 ;  
-parameter        EN_CLKB1X                      = 1'b1 ;  
-parameter        EQ_PBIAS_LANE0                 = 4'b1000 ;   
-parameter        EQ_PBIAS_LANE1                 = 4'b1000 ;   
-parameter        EQ_PBIAS_LANE2                 = 4'b1000 ;   
-parameter        EQ_PBIAS_LANE3                 = 4'b1000 ;   
-parameter        EQ_PBIAS_LANECK                = 4'b1000 ;   
-parameter        EQ_ZLD_LANE0                   = 4'b1000 ;   
-parameter        EQ_ZLD_LANE1                   = 4'b1000 ;   
-parameter        EQ_ZLD_LANE2                   = 4'b1000 ;   
-parameter        EQ_ZLD_LANE3                   = 4'b1000 ;   
-parameter        EQ_ZLD_LANECK                  = 4'b1000 ;   
-parameter        HIGH_BW_LANE0                  = 1'b1 ;   
-parameter        HIGH_BW_LANE1                  = 1'b1 ;   
-parameter        HIGH_BW_LANE2                  = 1'b1 ;   
-parameter        HIGH_BW_LANE3                  = 1'b1 ;   
-parameter        HIGH_BW_LANECK                 = 1'b1 ;   
-parameter        HSREG_VREF_CTL                 = 3'b100 ;   
-parameter        HSREG_VREF_EN                  = 1'b1 ;  
-parameter        HSRX_DLY_CTL_CK                = 7'b0000000 ;   
-parameter        HSRX_DLY_CTL_LANE0             = 7'b0000000 ;   
-parameter        HSRX_DLY_CTL_LANE1             = 7'b0000000 ;   
-parameter        HSRX_DLY_CTL_LANE2             = 7'b0000000 ;   
-parameter        HSRX_DLY_CTL_LANE3             = 7'b0000000 ;   
-parameter        HSRX_DLY_SEL_LANE0             = 1'b0 ;  
-parameter        HSRX_DLY_SEL_LANE1             = 1'b0 ;   
-parameter        HSRX_DLY_SEL_LANE2             = 1'b0 ;   
-parameter        HSRX_DLY_SEL_LANE3             = 1'b0 ;   
-parameter        HSRX_DLY_SEL_LANECK            = 1'b0 ;   
-parameter        HSRX_DUTY_LANE0                = 4'b1000 ;  
-parameter        HSRX_DUTY_LANE1                = 4'b1000 ;  
-parameter        HSRX_DUTY_LANE2                = 4'b1000 ;  
-parameter        HSRX_DUTY_LANE3                = 4'b1000 ;  
-parameter        HSRX_DUTY_LANECK               = 4'b1000 ;  
-parameter        HSRX_EQ_EN_LANE0               = 1'b1 ;  
-parameter        HSRX_EQ_EN_LANE1               = 1'b1 ;  
-parameter        HSRX_EQ_EN_LANE2               = 1'b1 ;  
-parameter        HSRX_EQ_EN_LANE3               = 1'b1 ;  
-parameter        HSRX_EQ_EN_LANECK              = 1'b1 ;  
-parameter        HSRX_IBIAS                     = 4'b0011 ;   
-parameter        HSRX_IBIAS_TEST_EN             = 1'b0 ;   
-parameter        HSRX_IMARG_EN                  = 1'b0 ;   
-parameter        HSRX_ODT_EN                    = 1'b1 ;   
-parameter        HSRX_ODT_TST                   = 4'b0000 ;   
-parameter        HSRX_ODT_TST_CK                = 1'b0 ;   
-parameter        HSRX_SEL                       = 4'b0000 ;   
-parameter        HSRX_STOP_EN                   = 1'b0 ; 
-parameter        HSRX_TST                       = 4'b0000 ;   
-parameter        HSRX_TST_CK                    = 1'b0 ;   
-parameter        HSRX_WAIT4EDGE                 = 1'b1 ;   
-parameter        HYST_NCTL                      = 2'b01 ;  
-parameter        HYST_PCTL                      = 2'b01 ;  
-parameter        IBIAS_TEST_EN                  = 1'b0 ;   
-parameter        LB_CH_SEL                      = 1'b0 ;   
-parameter        LB_EN_LN0                      = 1'b0 ;   
-parameter        LB_EN_LN1                      = 1'b0 ;   
-parameter        LB_EN_LN2                      = 1'b0 ;   
-parameter        LB_EN_LN3                      = 1'b0 ;   
-parameter        LB_EN_LNCK                     = 1'b0 ;   
-parameter        LB_POLAR_LN0                   = 1'b0 ;   
-parameter        LB_POLAR_LN1                   = 1'b0 ;   
-parameter        LB_POLAR_LN2                   = 1'b0 ;   
-parameter        LB_POLAR_LN3                   = 1'b0 ;   
-parameter        LB_POLAR_LNCK                  = 1'b0 ;   
-parameter        LOW_LPRX_VTH                   = 1'b0 ;   
-parameter        LPBK_DATA2TO1                  = 4'b0000;  
-parameter        LPBK_DATA2TO1_CK               = 1'b0 ;   
-parameter        LPBK_EN                        = 1'b0 ;   
-parameter        LPBK_SEL                       = 4'b0000;  
-parameter        LPBKTST_EN                     = 4'b0000;  
-parameter        LPBKTST_EN_CK                  = 1'b0 ;   
-parameter        LPRX_EN                        = 1'b1 ;   
-parameter        LPRX_TST                       = 4'b0000;  
-parameter        LPRX_TST_CK                    = 1'b0 ;   
-parameter        LPTX_DAT_POLAR_LN0             = 1'b0 ;   
-parameter        LPTX_DAT_POLAR_LN1             = 1'b0 ;   
-parameter        LPTX_DAT_POLAR_LN2             = 1'b0 ;   
-parameter        LPTX_DAT_POLAR_LN3             = 1'b0 ;   
-parameter        LPTX_DAT_POLAR_LNCK            = 1'b0 ;   
-parameter        LPTX_NIMP_LN0                  = 3'b100 ; 
-parameter        LPTX_NIMP_LN1                  = 3'b100 ; 
-parameter        LPTX_NIMP_LN2                  = 3'b100 ; 
-parameter        LPTX_NIMP_LN3                  = 3'b100 ; 
-parameter        LPTX_NIMP_LNCK                 = 3'b100 ; 
-parameter        LPTX_PIMP_LN0                  = 3'b100 ; 
-parameter        LPTX_PIMP_LN1                  = 3'b100 ; 
-parameter        LPTX_PIMP_LN2                  = 3'b100 ; 
-parameter        LPTX_PIMP_LN3                  = 3'b100 ; 
-parameter        LPTX_PIMP_LNCK                 = 3'b100 ; 
-parameter        MIPI_PMA_DIS_N                 = 1'b1 ;   
-parameter        PGA_BIAS_LANE0                 = 4'b1000 ;   
-parameter        PGA_BIAS_LANE1                 = 4'b1000 ;   
-parameter        PGA_BIAS_LANE2                 = 4'b1000 ;   
-parameter        PGA_BIAS_LANE3                 = 4'b1000 ;   
-parameter        PGA_BIAS_LANECK                = 4'b1000 ;   
-parameter        PGA_GAIN_LANE0                 = 4'b1000 ;   
-parameter        PGA_GAIN_LANE1                 = 4'b1000 ;   
-parameter        PGA_GAIN_LANE2                 = 4'b1000 ;   
-parameter        PGA_GAIN_LANE3                 = 4'b1000 ;   
-parameter        PGA_GAIN_LANECK                = 4'b1000 ;   
-parameter        RX_ODT_TRIM_LANE0              = 4'b1000 ;   
-parameter        RX_ODT_TRIM_LANE1              = 4'b1000 ;   
-parameter        RX_ODT_TRIM_LANE2              = 4'b1000 ;   
-parameter        RX_ODT_TRIM_LANE3              = 4'b1000 ;   
-parameter        RX_ODT_TRIM_LANECK             = 4'b1000 ;   
-parameter        SLEWN_CTL_LN0                  = 4'b1111 ;  
-parameter        SLEWN_CTL_LN1                  = 4'b1111 ;   
-parameter        SLEWN_CTL_LN2                  = 4'b1111 ;   
-parameter        SLEWN_CTL_LN3                  = 4'b1111 ;   
-parameter        SLEWN_CTL_LNCK                 = 4'b1111 ;   
-parameter        SLEWP_CTL_LN0                  = 4'b1111 ;   
-parameter        SLEWP_CTL_LN1                  = 4'b1111 ;   
-parameter        SLEWP_CTL_LN2                  = 4'b1111 ;   
-parameter        SLEWP_CTL_LN3                  = 4'b1111 ;   
-parameter        SLEWP_CTL_LNCK                 = 4'b1111 ;   
-parameter        STP_UNIT                       = 2'b01 ;  
-parameter        TERMN_CTL_LN0                  = 4'b1000 ;   
-parameter        TERMN_CTL_LN1                  = 4'b1000 ;   
-parameter        TERMN_CTL_LN2                  = 4'b1000 ;   
-parameter        TERMN_CTL_LN3                  = 4'b1000 ;   
-parameter        TERMN_CTL_LNCK                 = 4'b1000 ;   
-parameter        TERMP_CTL_LN0                  = 4'b1000 ;   
-parameter        TERMP_CTL_LN1                  = 4'b1000 ;   
-parameter        TERMP_CTL_LN2                  = 4'b1000 ;   
-parameter        TERMP_CTL_LN3                  = 4'b1000 ;   
-parameter        TERMP_CTL_LNCK                 = 4'b1000 ;   
-parameter        TEST_EN_LN0                    = 1'b0 ;   
-parameter        TEST_EN_LN1                    = 1'b0 ;   
-parameter        TEST_EN_LN2                    = 1'b0 ;   
-parameter        TEST_EN_LN3                    = 1'b0 ;   
-parameter        TEST_EN_LNCK                   = 1'b0 ;   
-parameter        TEST_N_IMP_LN0                 = 1'b0 ;   
-parameter        TEST_N_IMP_LN1                 = 1'b0 ;   
-parameter        TEST_N_IMP_LN2                 = 1'b0 ;   
-parameter        TEST_N_IMP_LN3                 = 1'b0 ;   
-parameter        TEST_N_IMP_LNCK                = 1'b0 ;   
-parameter        TEST_P_IMP_LN0                 = 1'b0 ;   
-parameter        TEST_P_IMP_LN1                 = 1'b0 ;   
-parameter        TEST_P_IMP_LN2                 = 1'b0 ;   
-parameter        TEST_P_IMP_LN3                 = 1'b0 ;   
-parameter        TEST_P_IMP_LNCK                = 1'b0 ;   
-endmodule
-
-module MIPI_CPHY (...);
-output [41:0] D0LN_HSRXD, D1LN_HSRXD, D2LN_HSRXD;
-output D0LN_HSRXD_VLD, D1LN_HSRXD_VLD, D2LN_HSRXD_VLD;
-output [1:0] D0LN_HSRX_DEMAP_INVLD, D1LN_HSRX_DEMAP_INVLD, D2LN_HSRX_DEMAP_INVLD;
-output D0LN_HSRX_FIFO_RDE_ERR, D0LN_HSRX_FIFO_WRF_ERR, D1LN_HSRX_FIFO_RDE_ERR, D1LN_HSRX_FIFO_WRF_ERR, D2LN_HSRX_FIFO_RDE_ERR, D2LN_HSRX_FIFO_WRF_ERR;
-output [1:0] D0LN_HSRX_WA, D1LN_HSRX_WA, D2LN_HSRX_WA;
-output D0LN_RX_CLK_1X_O, D1LN_RX_CLK_1X_O, D2LN_RX_CLK_1X_O;   
-output HSTX_FIFO_AE, HSTX_FIFO_AF;
-output HSTX_FIFO_RDE_ERR, HSTX_FIFO_WRF_ERR;
-output RX_CLK_MUXED;
-output TX_CLK_1X_O;
-output DI_LPRX0_A, DI_LPRX0_B, DI_LPRX0_C, DI_LPRX1_A, DI_LPRX1_B, DI_LPRX1_C, DI_LPRX2_A, DI_LPRX2_B, DI_LPRX2_C;
-output [7:0] MDRP_RDATA; 
-inout  D0A, D0B, D0C, D1A, D1B, D1C, D2A, D2B, D2C;
-input  D0LN_HSRX_EN, D0LN_HSTX_EN, D1LN_HSRX_EN, D1LN_HSTX_EN, D2LN_HSRX_EN, D2LN_HSTX_EN;
-input  [41:0] D0LN_HSTX_DATA,D1LN_HSTX_DATA, D2LN_HSTX_DATA;
-input  D0LN_HSTX_DATA_VLD, D1LN_HSTX_DATA_VLD, D2LN_HSTX_DATA_VLD;
-input  [1:0] D0LN_HSTX_MAP_DIS, D1LN_HSTX_MAP_DIS, D2LN_HSTX_MAP_DIS;
-input  D0LN_RX_CLK_1X_I,D1LN_RX_CLK_1X_I, D2LN_RX_CLK_1X_I;
-input  D0LN_RX_DRST_N, D0LN_TX_DRST_N, D1LN_RX_DRST_N, D1LN_TX_DRST_N, D2LN_RX_DRST_N, D2LN_TX_DRST_N;
-input  HSTX_ENLN0, HSTX_ENLN1, HSTX_ENLN2, LPTX_ENLN0, LPTX_ENLN1, LPTX_ENLN2;
-input  [7:0] MDRP_A_D_I;
-input  MDRP_A_INC_I;
-input  MDRP_CLK_I;
-input  [1:0] MDRP_OPCODE_I;
-input  PWRON_RX_LN0, PWRON_RX_LN1, PWRON_RX_LN2, PWRON_TX;
-input  ARST_RXLN0, ARST_RXLN1, ARST_RXLN2; 
-input  ARSTN_TX;
-input  RX_CLK_EN_LN0, RX_CLK_EN_LN1, RX_CLK_EN_LN2; 
-input  TX_CLK_1X_I;
-input  TXDP_ENLN0, TXDP_ENLN1, TXDP_ENLN2; 
-input  TXHCLK_EN; 
-input  DO_LPTX_A_LN0, DO_LPTX_A_LN1, DO_LPTX_A_LN2, DO_LPTX_B_LN0, DO_LPTX_B_LN1, DO_LPTX_B_LN2, DO_LPTX_C_LN0, DO_LPTX_C_LN1, DO_LPTX_C_LN2;
-input  GPLL_CK0,GPLL_CK90, GPLL_CK180, GPLL_CK270;
-input  HSRX_EN_D0, HSRX_EN_D1, HSRX_EN_D2; 
-input  HSRX_ODT_EN_D0, HSRX_ODT_EN_D1, HSRX_ODT_EN_D2;
-input  LPRX_EN_D0, LPRX_EN_D1, LPRX_EN_D2; 
-input  SPLL0_CKN, SPLL0_CKP, SPLL1_CKN, SPLL1_CKP;
-parameter TX_PLLCLK = "NONE"; 
-parameter D0LN_HS_TX_EN = 1'b1; 
-parameter D1LN_HS_TX_EN = 1'b1;
-parameter D2LN_HS_TX_EN = 1'b1;
-parameter D0LN_HS_RX_EN = 1'b1; 
-parameter D1LN_HS_RX_EN = 1'b1;
-parameter D2LN_HS_RX_EN = 1'b1;
-parameter TX_HS_21BIT_MODE = 1'b0; 
-parameter RX_OUTCLK_SEL = 2'b00; 
-parameter TX_W_LENDIAN = 1'b1; 
-parameter CLK_SEL = 2'b00; 
-parameter LNDIV_RATIO = 4'b0000; 
-parameter LNDIV_EN = 1'b0; 
-parameter D0LN_TX_REASGN_A = 2'b00; 
-parameter D0LN_TX_REASGN_B = 2'b01; 
-parameter D0LN_TX_REASGN_C = 2'b10; 
-parameter D0LN_RX_HS_21BIT_MODE = 1'b0; 
-parameter D0LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
-parameter D0LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
-parameter D0LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
-parameter D0LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
-parameter D0LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
-parameter D0LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
-parameter D0LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
-parameter D0LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
-parameter D0LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
-parameter D0LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
-parameter D0LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
-parameter D0LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
-parameter D0LN_RX_W_LENDIAN = 1'b1;  
-parameter D0LN_RX_REASGN_A = 2'b00; 
-parameter D0LN_RX_REASGN_B = 2'b01; 
-parameter D0LN_RX_REASGN_C = 2'b10; 
-parameter HSRX_LNSEL = 3'b111; 
-parameter EQ_RS_LN0 = 3'b001; 
-parameter EQ_CS_LN0 = 3'b101; 
-parameter PGA_GAIN_LN0 = 4'b0110; 
-parameter PGA_BIAS_LN0 = 4'b1000; 
-parameter EQ_PBIAS_LN0 = 4'b0100; 
-parameter EQ_ZLD_LN0 = 4'b1000; 
-parameter D1LN_TX_REASGN_A = 2'b00; 
-parameter D1LN_TX_REASGN_B = 2'b01; 
-parameter D1LN_TX_REASGN_C = 2'b10; 
-parameter D1LN_RX_HS_21BIT_MODE = 1'b0; 
-parameter D1LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
-parameter D1LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
-parameter D1LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
-parameter D1LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
-parameter D1LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
-parameter D1LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
-parameter D1LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
-parameter D1LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
-parameter D1LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
-parameter D1LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
-parameter D1LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
-parameter D1LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
-parameter D1LN_RX_W_LENDIAN = 1'b1;  
-parameter D1LN_RX_REASGN_A = 2'b00; 
-parameter D1LN_RX_REASGN_B = 2'b01; 
-parameter D1LN_RX_REASGN_C = 2'b10; 
-parameter EQ_RS_LN1 = 3'b001; 
-parameter EQ_CS_LN1 = 3'b101; 
-parameter PGA_GAIN_LN1 = 4'b0110; 
-parameter PGA_BIAS_LN1 = 4'b1000; 
-parameter EQ_PBIAS_LN1 = 4'b0100; 
-parameter EQ_ZLD_LN1 = 4'b1000; 
-parameter D2LN_TX_REASGN_A = 2'b00; 
-parameter D2LN_TX_REASGN_B = 2'b01; 
-parameter D2LN_TX_REASGN_C = 2'b10; 
-parameter D2LN_RX_HS_21BIT_MODE = 1'b0; 
-parameter D2LN_RX_WA_SYNC_PAT0_EN = 1'b1;  
-parameter D2LN_RX_WA_SYNC_PAT0_H = 7'b1001001;  
-parameter D2LN_RX_WA_SYNC_PAT0_L = 8'b00100100;  
-parameter D2LN_RX_WA_SYNC_PAT1_EN = 1'b1;  
-parameter D2LN_RX_WA_SYNC_PAT1_H = 7'b0101001;  
-parameter D2LN_RX_WA_SYNC_PAT1_L = 8'b00100100;  
-parameter D2LN_RX_WA_SYNC_PAT2_EN = 1'b1;  
-parameter D2LN_RX_WA_SYNC_PAT2_H = 7'b0011001;  
-parameter D2LN_RX_WA_SYNC_PAT2_L = 8'b00100100;  
-parameter D2LN_RX_WA_SYNC_PAT3_EN = 1'b0;  
-parameter D2LN_RX_WA_SYNC_PAT3_H = 7'b0001001;  
-parameter D2LN_RX_WA_SYNC_PAT3_L = 8'b00100100;  
-parameter D2LN_RX_W_LENDIAN = 1'b1;  
-parameter D2LN_RX_REASGN_A = 2'b00; 
-parameter D2LN_RX_REASGN_B = 2'b01; 
-parameter D2LN_RX_REASGN_C = 2'b10; 
-parameter EQ_RS_LN2 = 3'b001; 
-parameter EQ_CS_LN2 = 3'b101; 
-parameter PGA_GAIN_LN2 = 4'b0110; 
-parameter PGA_BIAS_LN2 = 4'b1000; 
-parameter EQ_PBIAS_LN2 = 4'b0100; 
-parameter EQ_ZLD_LN2 = 4'b1000; 
 endmodule
 
 module GTR12_QUAD (...);
@@ -2649,18 +1924,6 @@ module GTR12_UPAR (...);
 endmodule
 
 module GTR12_PMAC (...);
-endmodule
-
-module GTR12_QUADA (...);
-endmodule
-
-module GTR12_UPARA (...);
-endmodule
-
-module GTR12_PMACA (...);
-endmodule
-
-module GTR12_QUADB (...);
 endmodule
 
 module DQS (...);
@@ -2678,3 +1941,4 @@ parameter RD_PNTR = 3'b000;
 parameter DQS_MODE = "X1"; 
 parameter HWL = "false";   
 endmodule
+

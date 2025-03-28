@@ -46,17 +46,24 @@ code sigA sigB sigH
 
 	// Only care about those bits that are used
 	int i;
-	for (i = 0; i < GetSize(O); i++) {
-		if (nusers(O[i]) <= 1)
-			break;
-		sigH.append(O[i]);
-	}
+	for (i = GetSize(O) - 1; i > 0 && nusers(O[i]) <= 1; i--)
+		;
 	// This sigM could have no users if downstream sinks (e.g. $add) is
 	//   narrower than $mul result, for example
 	if (i == 0)
 		reject;
 
-	log_assert(nusers(O.extract_end(i)) <= 1);
+	for (int j = 0, wire_width = 0; j <= i; j++) 
+		if (nusers(O[j]) == 0)
+			wire_width++;
+		else {
+			if (wire_width) { // add empty wires for bit offset if needed
+				sigH.append(module->addWire(NEW_ID, wire_width));
+				wire_width = 0;
+			}
+			sigH.append(O[j]);
+		}
+
 endcode
 
 code argQ ffA sigA clock clock_pol
