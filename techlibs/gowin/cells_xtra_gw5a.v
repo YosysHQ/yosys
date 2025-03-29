@@ -1,6 +1,53 @@
 // Created by cells_xtra.py
 
 
+module MUX2_MUX8 (...);
+input I0,I1;
+input S0;
+output O;
+endmodule
+
+
+module MUX2_MUX16 (...);
+input I0,I1;
+input S0;
+output O;
+endmodule
+
+
+module MUX2_MUX32 (...);
+input I0,I1;
+input S0;
+output O;
+endmodule
+
+
+module MUX4 (...);
+input I0, I1, I2, I3;
+input S0, S1;
+output O;
+endmodule
+
+
+module MUX8 (...);
+input I0, I1, I2, I3, I4, I5, I6, I7;
+input S0, S1, S2;
+output O;
+endmodule
+
+
+module MUX16 (...);
+input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15;
+input S0, S1, S2, S3;
+output O;
+endmodule
+
+module MUX32 (...);
+input I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15, I16, I17, I18, I19, I20, I21, I22, I23, I24, I25, I26, I27, I28, I29, I30, I31;
+input S0, S1, S2, S3, S4;
+output O;
+endmodule
+
 module LUT5 (...);
 parameter INIT = 32'h00000000;
 input I0, I1, I2, I3, I4;
