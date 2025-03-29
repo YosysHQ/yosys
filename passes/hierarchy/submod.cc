@@ -246,7 +246,7 @@ struct SubmodWorker
 	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, bool hidden_mode = false, std::string opt_name = std::string()) :
 			design(design), module(module), sigmap(module), copy_mode(copy_mode), hidden_mode(hidden_mode), opt_name(opt_name)
 	{
-		if (!design->selected_whole_module(module->name) && opt_name.empty())
+		if (!module->is_selected_whole() && opt_name.empty())
 			return;
 
 		if (module->processes.size() > 0) {
