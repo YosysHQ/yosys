@@ -105,6 +105,7 @@ namespace Yosys
 		*/
 		int lexer(std::string &str);
 
+    void report_unexpected_token(int tok);
 		LibertyAst *parse();
 		void error() const;
 		void error(const std::string &str) const;

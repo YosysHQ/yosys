@@ -332,6 +332,32 @@ int LibertyParser::lexer(std::string &str)
 	return c;
 }
 
+void LibertyParser::report_unexpected_token(int tok)
+{
+	std::string eReport;
+	switch(tok)
+	{
+	case 'n':
+		error("Unexpected newline.");
+		break;
+	case '[':
+	case ']':
+	case '}':
+	case '{':
+	case '\"':
+	case ':':
+		eReport = "Unexpected '";
+		eReport += static_cast<char>(tok);
+		eReport += "'.";
+		error(eReport);
+		break;
+	default:
+		eReport = "Unexpected token: ";
+		eReport += static_cast<char>(tok);
+		error(eReport);
+	}
+}
+
 LibertyAst *LibertyParser::parse()
 {
 	std::string str;
@@ -350,26 +376,7 @@ LibertyAst *LibertyParser::parse()
 		return NULL;
 
 	if (tok != 'v') {
-		std::string eReport;
-		switch(tok)
-		{
-		case 'n':
-			error("Unexpected newline.");
-			break;
-		case '[':
-		case ']':
-		case '}':
-		case '{':
-		case '\"':
-		case ':':
-			eReport = "Unexpected '";
-			eReport += static_cast<char>(tok);
-			eReport += "'.";
-			error(eReport);
-			break;
-		default:
-			error();
-		}
+		report_unexpected_token(tok);	
 	}
 
 	LibertyAst *ast = new LibertyAst;
@@ -460,25 +467,7 @@ LibertyAst *LibertyParser::parse()
 					continue;           
 				}
 				if (tok != 'v') {
-					std::string eReport;
-					switch(tok)
-					{
-					case 'n':
-					  continue;
-					case '[':
-					case ']':
-					case '}':
-					case '{':
-					case '\"':
-					case ':':
-						eReport = "Unexpected '";
-						eReport += static_cast<char>(tok);
-						eReport += "'.";
-						error(eReport);
-						break;
-					default:
-						error();
-					}
+					report_unexpected_token(tok);
 				}
 				ast->args.push_back(arg);
 			}
@@ -495,7 +484,7 @@ LibertyAst *LibertyParser::parse()
 			break;
 		}
 
-		error();
+		report_unexpected_token(tok);
 	}
 
 	return ast;
