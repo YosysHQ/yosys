@@ -75,7 +75,8 @@ struct ExtractReducePass : public Pass
 	inline bool IsSingleBit(Cell* cell)
 	{
 		return (cell->hasParam(ID::WIDTH) && cell->getParam(ID::WIDTH).as_int() == 1) ||
-					 (cell->getParam(ID::A_WIDTH).as_int() == 1 &&
+					 (cell->hasParam(ID::A_WIDTH) &&
+						cell->getParam(ID::A_WIDTH).as_int() == 1 &&
 		        cell->getParam(ID::B_WIDTH).as_int() == 1 &&
 					  cell->getParam(ID::Y_WIDTH).as_int() == 1);
 	}

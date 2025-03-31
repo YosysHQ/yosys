@@ -22,8 +22,6 @@ endmatch
 match prim_gate
 	// Select AND/OR (not XOR/XNOR for now)
 	select prim_gate->type.in($and, $or)
-	filter param(prim_gate, \A_WIDTH) == 1
-	filter param(prim_gate, \B_WIDTH) == 1
 
 	// Set ports, allowing A and B to be swapped
 	choice <IdString> A {\A, \B}
@@ -36,6 +34,12 @@ match prim_gate
 endmatch
 
 code mux_y  prim_a prim_b
+	// Set cell to be prim_gate for naming
+	Cell *cell = prim_gate;
+
+	if (prim_gate->type == $mux)
+		reject;
+
   // Unset ports/params of primitive
 	prim_gate->unsetPort(\A);
 	prim_gate->unsetPort(\B);
@@ -47,9 +51,6 @@ code mux_y  prim_a prim_b
 
 	// Set mux's S port to primitive's A port 
 	prim_gate->setPort(\S, prim_a);
-
-	// Set cell to be prim_gate for naming
-	Cell *cell = prim_gate;
 
 	// Set mux inputs
 	if (prim_gate->type == $and) {
