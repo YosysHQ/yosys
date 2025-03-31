@@ -1,0 +1,77 @@
+pattern muxmode
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Make muxes of 1-bit primitives having an input coming from a mux
+//
+// A & B ==> A ? B : 0
+// A | B ==> A ? 1 : B
+// A ^ B ==> A ? ~B : B
+// A ^~ B ==> A ? B : ~B
+//
+
+state <SigSpec> mux_y  prim_a prim_b
+
+match mux_gate
+	// Select MUX that connects to one of the primitives' inputs
+	select mux_gate->type.in($mux)
+	filter param(mux_gate, \WIDTH) == 1
+	set mux_y port(mux_gate, \Y)
+endmatch
+
+match prim_gate
+	// Select AND/OR (not XOR/XNOR for now)
+	select prim_gate->type.in($and, $or)
+	filter param(prim_gate, \A_WIDTH) == 1
+	filter param(prim_gate, \B_WIDTH) == 1
+
+	// Set ports, allowing A and B to be swapped
+	choice <IdString> A {\A, \B}
+	define <IdString> B (A == \A ? \B : \A)
+	set prim_a port(prim_gate, A)
+	set prim_b port(prim_gate, B)
+
+	// Connection
+	index <SigSpec> port(prim_gate, B) === mux_y
+endmatch
+
+code mux_y  prim_a prim_b
+  // Unset ports/params of primitive
+	prim_gate->unsetPort(\A);
+	prim_gate->unsetPort(\B);
+	prim_gate->unsetParam(\A_WIDTH);
+	prim_gate->unsetParam(\A_SIGNED);
+	prim_gate->unsetParam(\B_WIDTH);
+	prim_gate->unsetParam(\B_SIGNED);
+	prim_gate->unsetParam(\Y_WIDTH);
+
+	// Set mux's S port to primitive's A port 
+	prim_gate->setPort(\S, prim_a);
+
+	// Set cell to be prim_gate for naming
+	Cell *cell = prim_gate;
+
+	// Set mux inputs
+	if (prim_gate->type == $and) {
+		prim_gate->setPort(\A, State::S0);
+		prim_gate->setPort(\B, prim_b);
+	} else if (prim_gate->type == $or) {
+		prim_gate->setPort(\A, prim_b);
+		prim_gate->setPort(\B, State::S1);
+	} else if (prim_gate->type == $xor) {
+		prim_gate->setPort(\A, prim_b);
+		prim_gate->setPort(\B, module->Not(NEW_ID2, prim_b, false, cell->get_src_attribute()));
+	} else if (prim_gate->type == $xnor) {
+		prim_gate->setPort(\A, module->Not(NEW_ID2, prim_b, false, cell->get_src_attribute()));
+		prim_gate->setPort(\B, prim_b);
+	} else {
+		log_abort();
+	}
+
+	// Log, fixup type and parameters, accept
+	log("muxmode pattern in %s: mux=%s, prim=%s, primtype=%s\n", log_id(module), log_id(mux_gate), log_id(prim_gate), log_id(prim_gate->type));
+	prim_gate->type = $mux;
+	prim_gate->fixup_parameters();
+	did_something = true;
+	accept;
+endcode

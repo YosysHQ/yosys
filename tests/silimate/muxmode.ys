@@ -1,0 +1,362 @@
+log -header "Simple positive case with AND"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s1,
+  input wire s2,
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = m1 & c;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple positive case with AND (order reversed)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s1,
+  input wire s2,
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = c & m1;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple positive case with OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s1,
+  input wire s2,
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = m1 | c;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple positive case with OR (order reversed)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s1,
+  input wire s2,
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = c | m1;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 3 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+
+
+
+
+
+
+
+
+
+log -header "Simple negative case with multi-bit AND"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [1:0] s1,
+  input wire [1:0] s2,
+  input wire [1:0] a,
+  input wire [1:0] b,
+  input wire [1:0] c,
+  input wire [1:0] d,
+  output wire [1:0] x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = m1 & c;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple negative case with multi-bit AND (order reversed)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [1:0] s1,
+  input wire [1:0] s2,
+  input wire [1:0] a,
+  input wire [1:0] b,
+  input wire [1:0] c,
+  input wire [1:0] d,
+  output wire [1:0] x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = c & m1;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple negative case with OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [1:0] s1,
+  input wire [1:0] s2,
+  input wire [1:0] a,
+  input wire [1:0] b,
+  input wire [1:0] c,
+  input wire [1:0] d,
+  output wire [1:0] x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = m1 | c;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$or
+select -assert-count 2 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple negative case with multi-bit OR (order reversed)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [1:0] s1,
+  input wire [1:0] s2,
+  input wire [1:0] a,
+  input wire [1:0] b,
+  input wire [1:0] c,
+  input wire [1:0] d,
+  output wire [1:0] x
+);
+  wire m1, m2;
+
+  assign m1 = s1 ? b : a;
+  assign m2 = c | m1;
+  assign x = s2 ? m2 : d;
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 1 t:$or
+select -assert-count 2 t:$mux
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop

@@ -1,0 +1,60 @@
+pattern muxinvprop
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Propagate inverters from mux outputs to inputs
+//
+// ~ (S ? A : B) ==> S ? ~A : ~B
+//
+
+state <SigSpec> mux_a mux_b mux_y  inv_a inv_y
+
+match mux_gate
+	// Select mux
+	select mux_gate->type.in($mux)
+	set mux_a port(mux_gate, \A)
+	set mux_b port(mux_gate, \B)
+	set mux_y port(mux_gate, \Y)
+endmatch
+
+code
+	// Fanout of each MUX gate Y bit should be 1 (no bit-split)
+	if (nusers(mux_y) != 2)
+		reject;
+endcode
+
+match inv_gate
+	// Select inverter
+	select inv_gate->type.in($not)
+	set inv_a port(inv_gate, \A)
+	set inv_y port(inv_gate, \Y)
+
+	// Connection
+	index <SigSpec> port(inv_gate, \A) === mux_y
+endmatch
+
+code mux_a mux_b mux_y  inv_a inv_y
+	// Disconnect all ports
+	mux_gate->unsetPort(\A);
+	mux_gate->unsetPort(\B);
+	mux_gate->unsetPort(\Y);
+	inv_gate->unsetPort(\A);
+	inv_gate->unsetPort(\Y);
+
+	// Set cell to mux_gate for naming
+	Cell *cell = mux_gate;
+
+	// Set new ports
+	mux_gate->setPort(\A, module->Not(NEW_ID2_SUFFIX("not_a"), mux_a, false, mux_gate->get_src_attribute()));
+	mux_gate->setPort(\B, module->Not(NEW_ID2_SUFFIX("not_b"), mux_b, false, mux_gate->get_src_attribute()));
+	mux_gate->setPort(\Y, inv_y);
+
+	// Rename MUX gate for formal
+	module->rename(mux_gate, NEW_ID2_SUFFIX("not"));
+
+	// Log, fixup, accept
+	log("muxinvprop pattern in %s: mux=%s, not=%s\n", log_id(module), log_id(mux_gate), log_id(inv_gate));
+	autoremove(inv_gate);
+	did_something = true;
+	accept;
+endcode

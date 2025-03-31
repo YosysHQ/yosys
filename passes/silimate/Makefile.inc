@@ -21,3 +21,14 @@ PEEPOPT_PATTERN  = passes/silimate/peepopt_expand.pmg
 
 passes/silimate/peepopt_expand.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
 	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)
+
+OBJS += passes/silimate/muxmode.o
+GENFILES += passes/silimate/peepopt_muxmode.h
+passes/silimate/muxmode.o: passes/silimate/peepopt_muxmode.h
+$(eval $(call add_extra_objs,passes/silimate/peepopt_muxmode.h))
+
+PEEPOPT_PATTERN  = passes/silimate/peepopt_muxmode.pmg
+PEEPOPT_PATTERN += passes/silimate/peepopt_muxinvprop.pmg
+
+passes/silimate/peepopt_muxmode.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p peepopt $(filter-out $<,$^)

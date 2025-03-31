@@ -1,0 +1,77 @@
+log -header "Simple positive case with 4-long mux chain and 1 inverted component"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] s,
+  input wire [3:0] b,
+  input wire a,
+  output wire y
+);
+  assign y = s[0] ? b[0] : (s[1] ? b[1] : ~(s[2] ? b[2] : (s[3] ? b[3] : a)));
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 4 t:$mux
+select -assert-count 3 t:$not
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop
+
+
+
+log -header "Simple negative case with 4-long mux chain and 1 inverted fo2 component"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] s,
+  input wire [3:0] b,
+  input wire a,
+  output wire y,
+  output wire y2
+);
+  wire m;
+  assign m = s[2] ? b[2] : (s[3] ? b[3] : a);
+  assign y2 = m;
+  assign y = s[0] ? b[0] : (s[1] ? b[1] : ~m);
+endmodule
+EOF
+check -assert
+
+# # Show pre
+# autoname
+# write_json pre.json
+# exec -- netlistsvg pre.json -o pre.svg
+
+# Check equivalence after muxmode
+equiv_opt -assert muxmode
+
+# Check final design has correct number of gates
+design -load postopt
+select -assert-count 4 t:$mux
+select -assert-count 1 t:$not
+
+# # Show post
+# autoname
+# write_json post.json
+# exec -- netlistsvg post.json -o post.svg
+
+design -reset
+log -pop

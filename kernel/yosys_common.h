@@ -290,8 +290,8 @@ inline std::string removeNumericSuffix(const std::string& str) {
 	return str; // Return unchanged if no numeric suffix found
 }
 
-#define NEW_ID2 module->uniquify(removeNumericSuffix(cell->name.str()))
-#define NEW_ID2_SUFFIX(suffix) module->uniquify(cell->name.str() + "_" + suffix)
+#define NEW_ID2 cell->module->uniquify(removeNumericSuffix(cell->name.str()))
+#define NEW_ID2_SUFFIX(suffix) cell->module->uniquify(cell->name.str() + "_" + suffix)
 #define NEW_ID3 module->uniquify(cell_name.str())
 #define NEW_ID3_SUFFIX(suffix) module->uniquify(cell_name.str() + "_" + suffix)
 #define NEW_ID4 module->uniquify(name.str())
