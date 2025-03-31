@@ -1,0 +1,24 @@
+log -header "Simple reduce_or annotation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire [1:0] x
+);
+  assign x[0] = |a[2:0];
+  assign x[1] = |a;
+endmodule
+EOF
+check -assert
+
+# Annotate uniqueness coefficients
+annotate_unqcoef
+
+# Check uniqueness coefficients are correct
+# TODO
+
+write_verilog test.v
+
+design -reset
+log -pop
