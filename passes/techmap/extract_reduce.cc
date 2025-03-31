@@ -297,6 +297,7 @@ struct ExtractReducePass : public Pass
 					dict<SigBit, int> sels;
 					int inner_cells = 0;
 					std::deque<std::pair<Cell*, SigBit>> bfs_queue = {{head_cell, State::S1}};
+					std::set<Cell*> seen_set = {};
 					while (bfs_queue.size())
 					{
 						auto bfs_item = bfs_queue.front();
@@ -311,7 +312,8 @@ struct ExtractReducePass : public Pass
 							bool sink_single = sig_to_sink[bit].size() == 1 && !port_sigs.count(bit);
 
 							Cell* drv = sig_to_driver[bit];
-							bool drv_ok = drv && IsRightType(drv, gt);
+							bool drv_ok = drv && IsRightType(drv, gt) && !consumed_cells.count(drv) && !seen_set.count(drv);
+							seen_set.insert(drv);
 
 							SigBit s_port;
 							SigBit sel_sig;
