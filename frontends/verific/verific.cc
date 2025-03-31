@@ -408,7 +408,7 @@ static const std::string verific_unescape(const char *value)
 }
 #endif
 
-void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl, int wire_width_hint)
+void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl, int wire_width_hint, bool is_module)
 {
 	if (!obj)
 		return;
@@ -416,15 +416,19 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	MapIter mi;
 	Att *attr;
 
+	IdString src = ID::src;
+	if (is_module && nl->IsFromVhdl() && nl->GetAtt(" src_entity")) src = ID(src_architecture);
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
+		attributes[src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
 #else
 	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+		attributes[src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
 #endif
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
+		if (is_module && nl->IsFromVhdl() && std::string(attr->Key())==" src_entity")
+			attributes[ID::src] = verific_const(nullptr, attr->Value(), obj);
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
 		attributes[RTLIL::escape_id(attr->Key())] = verific_const(nullptr, attr->Value(), obj);
@@ -1464,7 +1468,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	} else {
 		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 	}
-	import_attributes(module->attributes, nl, nl);
+	import_attributes(module->attributes, nl, nl, -1, true);
 	if (module->name.isPublic())
 		module->set_string_attribute(ID::hdlname, nl->CellBaseName());
 	module->set_string_attribute(ID(library), nl->Owner()->Owner()->Name());
