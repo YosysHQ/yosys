@@ -358,6 +358,48 @@ void LibertyParser::report_unexpected_token(int tok)
 	}
 }
 
+// FIXME: the AST needs to be extended to store
+//        these vector ranges.
+int LibertyParser::parse_vector_range(int tok)
+{
+	// parse vector range [A] or [A:B]
+	std::string arg;
+	tok = lexer(arg);
+	if (tok != 'v')
+	{
+		// expected a vector array index
+		error("Expected a number.");
+	}
+	else
+	{
+		// fixme: check for number A
+	}
+	tok = lexer(arg);
+	// optionally check for : in case of [A:B]
+	// if it isn't we just expect ']'
+	// as we have [A]
+	if (tok == ':')
+	{
+		tok = lexer(arg);
+		if (tok != 'v')
+		{
+			// expected a vector array index
+			error("Expected a number.");
+		}
+		else
+		{
+			// fixme: check for number B
+			tok = lexer(arg);
+		}
+	}
+	// expect a closing bracket of array range
+	if (tok != ']')
+	{
+		error("Expected ']' on array range.");
+	}
+	return lexer(arg);
+}
+
 LibertyAst *LibertyParser::parse()
 {
 	std::string str;
@@ -425,45 +467,9 @@ LibertyAst *LibertyParser::parse()
 				if (tok == ')')
 					break;
 				
-				// FIXME: the AST needs to be extended to store
-				//        these vector ranges.
 				if (tok == '[')
 				{
-					// parse vector range [A] or [A:B]
-					std::string arg;
-					tok = lexer(arg);
-					if (tok != 'v')
-					{
-						// expected a vector array index
-						error("Expected a number.");
-					}
-					else
-					{
-						// fixme: check for number A
-					}
-					tok = lexer(arg);
-					// optionally check for : in case of [A:B]
-					// if it isn't we just expect ']'
-					// as we have [A]
-					if (tok == ':')
-					{
-						tok = lexer(arg);
-						if (tok != 'v')
-						{
-							// expected a vector array index
-							error("Expected a number.");
-						}
-						else
-						{
-							// fixme: check for number B
-							tok = lexer(arg);                            
-						}
-					}
-					// expect a closing bracket of array range
-					if (tok != ']')
-					{
-						error("Expected ']' on array range.");
-					}
+					tok = parse_vector_range(tok);
 					continue;           
 				}
 				if (tok != 'v') {
