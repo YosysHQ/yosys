@@ -77,6 +77,16 @@ int LibertyInputStream::get_cold()
 	return c;
 }
 
+int LibertyInputStream::peek_cold(size_t offset)
+{
+	if (buf_pos + offset >= buf_end) {
+		if (!extend_buffer_at_least(offset + 1))
+			return EOF;
+	}
+
+	return buffer[buf_pos + offset];
+}
+
 LibertyAst::~LibertyAst()
 {
 	for (auto child : children)
@@ -282,15 +292,19 @@ int LibertyParser::lexer(std::string &str)
 
 	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
-		str = static_cast<char>(c);
-		while (1) {
-			c = f.get();
+		f.unget();
+		size_t i = 1;
+		while (true) {
+			c = f.peek(i);
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
-				str += c;
+				i += 1;
 			else
 				break;
 		}
-		f.unget();
+		str.clear();
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i);
+
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
 			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
@@ -305,23 +319,24 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
-		str = "";
-#ifdef FILTERLIB
-		str += c;
-#endif
-		while (1) {
-			c = f.get();
-			if (c == '\n')
-				line++;
-			if (c == '"') {
-#ifdef FILTERLIB
-				str += c;
-#endif
+		size_t i = 0;
+		while (true) {
+			c = f.peek(i);
+			line += (c == '\n');
+			if (c != '"')
+				i += 1;
+			else
 				break;
-			}
-			str += c;
 		}
-		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
+		str.clear();
+#ifdef FILTERLIB
+		f.unget();
+		str.append(f.buffered_data(), f.buffered_data() + i + 2);
+		f.consume(i + 2);
+#else
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i + 1);
+#endif
 		return 'v';
 	}
 

@@ -101,6 +101,7 @@ namespace Yosys
 		bool extend_buffer_at_least(size_t size = 1);
 
 		YS_COLD int get_cold();
+		YS_COLD int peek_cold(size_t offset);
 
 	public:
 		LibertyInputStream(std::istream &f) : f(f) {}
@@ -114,6 +115,16 @@ namespace Yosys
 			int c = buffer[buf_pos];
 			buf_pos += 1;
 			return c;
+		}
+
+		int peek(size_t offset = 0) {
+			if (buf_pos + offset >= buf_end)
+				return peek_cold(offset);
+			return buffer[buf_pos + offset];
+		}
+
+		void consume(size_t n = 1) {
+			buf_pos += n;
 		}
 
 		void unget() {
