@@ -1049,7 +1049,7 @@ define DOC_USAGE_STDERR
 docs/source/generated/$(1): $(TARGETS) docs/source/generated FORCE
 	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@
 endef
-DOCS_USAGE_STDERR := yosys-config yosys-filterlib
+DOCS_USAGE_STDERR := yosys-filterlib
 
 # The in-tree ABC (yosys-abc) is only built when ABCEXTERNAL is not set.
 ifeq ($(ABCEXTERNAL),)
@@ -1063,7 +1063,7 @@ define DOC_USAGE_STDOUT
 docs/source/generated/$(1): $(TARGETS) docs/source/generated
 	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@ || rm $$@
 endef
-DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
+DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness yosys-config
 $(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
 
 docs/usage: $(addprefix docs/source/generated/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE_STDERR))

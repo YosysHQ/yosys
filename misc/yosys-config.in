@@ -36,7 +36,7 @@ help() {
 		echo ""
 		echo "  $0 --datdir/simlib.v"
 		echo ""
-	} >&2
+	} >&$(( $1 + 1))
 	exit $1
 }
 
