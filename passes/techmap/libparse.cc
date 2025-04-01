@@ -360,7 +360,7 @@ void LibertyParser::report_unexpected_token(int tok)
 
 // FIXME: the AST needs to be extended to store
 //        these vector ranges.
-int LibertyParser::parse_vector_range(int tok)
+void LibertyParser::parse_vector_range(int tok)
 {
 	// parse vector range [A] or [A:B]
 	std::string arg;
@@ -397,7 +397,6 @@ int LibertyParser::parse_vector_range(int tok)
 	{
 		error("Expected ']' on array range.");
 	}
-	return lexer(arg);
 }
 
 LibertyAst *LibertyParser::parse()
@@ -437,8 +436,10 @@ LibertyAst *LibertyParser::parse()
 			tok = lexer(ast->value);
 			if (tok == 'v') {
 				tok = lexer(str);
-				if (tok == '[')
-					tok = parse_vector_range(tok);
+				if (tok == '[') {
+					parse_vector_range(tok);
+					tok = lexer(str);
+				}
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -471,9 +472,11 @@ LibertyAst *LibertyParser::parse()
 				
 				if (tok == '[')
 				{
-					tok = parse_vector_range(tok);
+					parse_vector_range(tok);
 					continue;           
 				}
+				if (tok == 'n')
+					continue;
 				if (tok != 'v') {
 					report_unexpected_token(tok);
 				}
