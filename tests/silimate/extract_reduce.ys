@@ -485,7 +485,7 @@ design -reset
 log -pop
 
 
-# TODO
+
 log -header "MUX chain with multiple branches"
 log -push
 design -reset
@@ -510,6 +510,51 @@ equiv_opt -assert extract_reduce
 # Load design and run opt_clean to remove unnecessary wires
 design -load postopt
 opt_clean
+
+# Check we got a single pmux
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+
+design -reset
+log -pop
+
+
+
+log -header "MUX chain with multiple uneven branches"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] sel,
+  input wire [6:0] a,
+  output wire x
+);
+  wire w1, w2, w3, w4, w5;
+
+  assign w1 = sel[0] ? a[1] : a[0];
+  assign w2 = sel[1] ? a[2] : w1;
+  assign w3 = sel[2] ? a[3] : w2;
+  assign w4 = sel[3] ? w3 : w5;
+  assign w5 = sel[5] ? a[4] : a[5];
+  assign x  = sel[4] ? w4 : a[6];
+endmodule
+EOF
+check -assert
+
+autoname
+write_json dump_pre.json
+exec -- netlistsvg dump_pre.json -o dump_pre.svg
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+autoname
+write_json dump_post.json
+exec -- netlistsvg dump_post.json -o dump_post.svg
 
 # Check we got a single pmux
 select -assert-count 0 t:$mux
