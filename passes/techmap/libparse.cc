@@ -32,6 +32,51 @@
 
 using namespace Yosys;
 
+bool LibertyInputStream::extend_buffer_once()
+{
+	if (eof)
+		return false;
+
+	// To support unget we leave the last already read character in the buffer
+	if (buf_pos > 1) {
+		size_t move_pos = buf_pos - 1;
+		memmove(buffer.data(), buffer.data() + move_pos, buf_end - move_pos);
+		buf_pos -= move_pos;
+		buf_end -= move_pos;
+	}
+
+	const size_t chunk_size = 4096;
+	if (buffer.size() < buf_end + chunk_size) {
+		buffer.resize(buf_end + chunk_size);
+	}
+
+	size_t read_size = f.rdbuf()->sgetn(buffer.data() + buf_end, chunk_size);
+	buf_end += read_size;
+	if (read_size < chunk_size)
+		eof = true;
+	return read_size != 0;
+}
+
+bool LibertyInputStream::extend_buffer_at_least(size_t size) {
+	while (buffered_size() < size) {
+		if (!extend_buffer_once())
+			return false;
+	}
+	return true;
+}
+
+int LibertyInputStream::get_cold()
+{
+	if (buf_pos == buf_end) {
+		if (!extend_buffer_at_least())
+			return EOF;
+	}
+
+	int c = buffer[buf_pos];
+	buf_pos += 1;
+	return c;
+}
+
 LibertyAst::~LibertyAst()
 {
 	for (auto child : children)
