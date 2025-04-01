@@ -22,9 +22,38 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$and
-select -assert-count 1 t:$reduce_and
+select -assert-count 1 t:$reduce_and r:A_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "AND chain with constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a,
+  output wire x
+);
+  assign x = a[0] & a[1] & a[2] & 1'b1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates and inputs
+select -assert-count 0 t:$and
+select -assert-count 1 t:$reduce_and r:A_WIDTH=4 %i
 
 design -reset
 log -pop
@@ -57,9 +86,9 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$and
-select -assert-count 1 t:$reduce_and
+select -assert-count 1 t:$reduce_and r:A_WIDTH=6 %i
 
 design -reset
 log -pop
@@ -171,9 +200,38 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$or
-select -assert-count 1 t:$reduce_or
+select -assert-count 1 t:$reduce_or r:A_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "OR chain with constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire x
+);
+  assign x = a[0] | a[1] | a[2] | 1'b1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates and inputs
+select -assert-count 0 t:$or
+select -assert-count 1 t:$reduce_or r:A_WIDTH=4 %i
 
 design -reset
 log -pop
@@ -206,9 +264,9 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$or
-select -assert-count 1 t:$reduce_or
+select -assert-count 1 t:$reduce_or r:A_WIDTH=6 %i
 
 design -reset
 log -pop
@@ -320,9 +378,38 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$xor
-select -assert-count 1 t:$reduce_xor
+select -assert-count 1 t:$reduce_xor r:A_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "XOR chain with constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire x
+);
+  assign x = a[0] ^ a[1] ^ a[2] ^ 1'b1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates and inputs
+select -assert-count 0 t:$xor
+select -assert-count 1 t:$reduce_xor r:A_WIDTH=4 %i
 
 design -reset
 log -pop
@@ -355,9 +442,9 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check final design has correct number of gates
+# Check final design has correct number of gates and inputs
 select -assert-count 0 t:$xor
-select -assert-count 1 t:$reduce_xor
+select -assert-count 1 t:$reduce_xor r:A_WIDTH=6 %i
 
 design -reset
 log -pop
@@ -477,9 +564,43 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check we got a single pmux
+# Check we got a single pmux with the correct input number
 select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "MUX chain with constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] sel,
+  input wire [2:0] a,
+  output wire x
+);
+  wire w0, w1;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign x  = sel[2] ? 1'b1 : w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got a single pmux with the correct input number
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
 
 design -reset
 log -pop
@@ -511,9 +632,9 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-# Check we got a single pmux
+# Check we got a single pmux with the correct input number
 select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
 
 design -reset
 log -pop
@@ -541,10 +662,6 @@ endmodule
 EOF
 check -assert
 
-autoname
-write_json dump_pre.json
-exec -- netlistsvg dump_pre.json -o dump_pre.svg
-
 # Check equivalence after extract_reduce
 equiv_opt -assert extract_reduce
 
@@ -552,13 +669,9 @@ equiv_opt -assert extract_reduce
 design -load postopt
 opt_clean
 
-autoname
-write_json dump_post.json
-exec -- netlistsvg dump_post.json -o dump_post.svg
-
-# Check we got a single pmux
+# Check we got a single pmux with the correct input number
 select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=7 %i
 
 design -reset
 log -pop
