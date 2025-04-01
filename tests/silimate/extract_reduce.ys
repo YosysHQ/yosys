@@ -95,7 +95,7 @@ log -pop
 
 
 
-log -header "No off-chain"
+log -header "No off-chain for AND"
 log -push
 design -reset
 read_verilog <<EOF
@@ -172,6 +172,85 @@ select -assert-count 2 t:$reduce_and
 # Check that only one gate has a width of 5 and one gate has a width of 3
 select -assert-count 1 t:$reduce_and r:A_WIDTH=5 %i
 select -assert-count 1 t:$reduce_and r:A_WIDTH=3 %i
+
+design -reset
+log -pop
+
+
+
+log -header "No off-chain with branches for AND"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] & a[1] & a[2] & (a[3] & a[4]) & a[5];
+  assign x  = w0 & a[6] & a[7] & (a[8] & a[9]) & a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$and
+select -assert-count 2 t:$reduce_and
+
+# Check that both gates are 6 bits wide
+select -assert-none t:$reduce_and r:A_WIDTH!=6 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Allow off-chain with branches for AND"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] & a[1] & a[2] & (a[3] & a[4]) & a[5];
+  assign x  = w0 & a[6] & a[7] & (a[8] & a[9]) & a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce -allow-off-chain
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$and
+select -assert-count 2 t:$reduce_and
+
+# Check that only one gate has a width of 11 and one gate has a width of 6
+select -assert-count 1 t:$reduce_and r:A_WIDTH=11 %i
+select -assert-count 1 t:$reduce_and r:A_WIDTH=6 %i
 
 design -reset
 log -pop
@@ -350,6 +429,85 @@ select -assert-count 2 t:$reduce_or
 # Check that only one gate has a width of 5 and one gate has a width of 3
 select -assert-count 1 t:$reduce_or r:A_WIDTH=5 %i
 select -assert-count 1 t:$reduce_or r:A_WIDTH=3 %i
+
+design -reset
+log -pop
+
+
+
+log -header "No off-chain with branches for OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] | a[1] | a[2] | (a[3] | a[4]) | a[5];
+  assign x  = w0 | a[6] | a[7] | (a[8] | a[9]) | a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$and
+select -assert-count 2 t:$reduce_or
+
+# Check that both gates are 6 bits wide
+select -assert-none t:$reduce_or r:A_WIDTH!=6 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Allow off-chain with branches for OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] | a[1] | a[2] | (a[3] | a[4]) | a[5];
+  assign x  = w0 | a[6] | a[7] | (a[8] | a[9]) | a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce -allow-off-chain
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$and
+select -assert-count 2 t:$reduce_or
+
+# Check that only one gate has a width of 11 and one gate has a width of 6
+select -assert-count 1 t:$reduce_or r:A_WIDTH=11 %i
+select -assert-count 1 t:$reduce_or r:A_WIDTH=6 %i
 
 design -reset
 log -pop
@@ -534,6 +692,83 @@ design -reset
 log -pop
 
 
+
+log -header "No off-chain with branches for XOR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] ^ a[1] ^ a[2] ^ (a[3] ^ a[4]) ^ a[5];
+  assign x  = w0 ^ a[6] ^ a[7] ^ (a[8] ^ a[9]) ^ a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$xor
+select -assert-count 2 t:$reduce_xor
+
+# Check that both gates are 6 bits wide
+select -assert-none t:$reduce_xor r:A_WIDTH!=6 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Allow off-chain with branches for XOR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [10:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0;
+
+  assign w0 = a[0] ^ a[1] ^ a[2] ^ (a[3] ^ a[4]) ^ a[5];
+  assign x  = w0 ^ a[6] ^ a[7] ^ (a[8] ^ a[9]) ^ a[10];
+
+  // Off-chain use of w0
+  assign y = w0;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce -allow-off-chain
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check final design has correct number of gates
+select -assert-count 0 t:$xor
+select -assert-count 2 t:$reduce_xor
+
+# Check that only one gate has a width of 11 and one gate has a width of 6
+select -assert-count 1 t:$reduce_xor r:A_WIDTH=11 %i
+select -assert-count 1 t:$reduce_xor r:A_WIDTH=6 %i
+
+design -reset
+log -pop
 
 ###################################################################
 # Extract PMUX from MUX Chains Tests
