@@ -1695,33 +1695,28 @@ skip_identity:
 			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
 			int y_size = GetSize(sig_y);
 
-			unsigned int bits = unsigned(sig_a.as_int());
-			int bit_count = 0;
-			for (; bits; bits >>= 1)
-				bit_count += (bits & 1);
+			int bit_idx;
+			const auto onehot = sig_a.is_onehot(&bit_idx);
 
-			if (bit_count == 1) {
-				if (sig_a.as_int() == 2) {
+			if (onehot) {
+				if (bit_idx == 1) {
 					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n", 
 							cell->name.c_str(), module->name.c_str());
 					cell->type = ID($shl);
 					cell->parameters[ID::A_WIDTH] = 1;
-					cell->setPort(ID::A, Const(1, 1));
+					cell->setPort(ID::A, Const(State::S1, 1));
 				}
 				else {
 					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n", 
 							cell->name.c_str(), module->name.c_str());
 					cell->type = ID($mul);
 					cell->parameters[ID::A_SIGNED] = 0;
-
-					int left_shift;
-					sig_a.is_onehot(&left_shift);
-					cell->setPort(ID::A, Const(left_shift, cell->parameters[ID::A_WIDTH].as_int()));
+					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
 					
 					SigSpec y_wire = module->addWire(NEW_ID, y_size);
 					cell->setPort(ID::Y, y_wire);
 					
-					module->addShl(NEW_ID, Const(1, 1), y_wire, sig_y);
+					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y);
 				}
 				did_something = true;
 				goto next_cell;
