@@ -26,18 +26,18 @@ YOSYS_NAMESPACE_BEGIN
 
 struct Macc
 {
-	struct port_t {
+	struct term_t {
 		RTLIL::SigSpec in_a, in_b;
 		bool is_signed, do_subtract;
 	};
-	std::vector<port_t> ports;
+	std::vector<term_t> terms;
 
 	void optimize(int width)
 	{
-		std::vector<port_t> new_ports;
+		std::vector<term_t> new_terms;
 		RTLIL::Const off(0, width);
 
-		for (auto &port : ports)
+		for (auto &port : terms)
 		{
 			if (GetSize(port.in_a) == 0 && GetSize(port.in_b) == 0)
 				continue;
@@ -68,25 +68,25 @@ struct Macc
 					port.in_b.remove(GetSize(port.in_b)-1);
 			}
 
-			new_ports.push_back(port);
+			new_terms.push_back(port);
 		}
 
 		if (off.as_bool()) {
-			port_t port;
+			term_t port;
 			port.in_a = off;
 			port.is_signed = false;
 			port.do_subtract = false;
-			new_ports.push_back(port);
+			new_terms.push_back(port);
 		}
 
-		new_ports.swap(ports);
+		new_terms.swap(terms);
 	}
 
 	void from_cell_v1(RTLIL::Cell *cell)
 	{
 		RTLIL::SigSpec port_a = cell->getPort(ID::A);
 
-		ports.clear();
+		terms.clear();
 
 		auto config_bits = cell->getParam(ID::CONFIG);
 		int config_cursor = 0;
@@ -105,7 +105,7 @@ struct Macc
 		{
 			log_assert(config_cursor + 2 + 2*num_bits <= config_width);
 
-			port_t this_port;
+			term_t this_port;
 			this_port.is_signed = config_bits[config_cursor++] == State::S1;
 			this_port.do_subtract = config_bits[config_cursor++] == State::S1;
 
@@ -126,11 +126,11 @@ struct Macc
 			port_a_cursor += size_b;
 
 			if (size_a || size_b)
-				ports.push_back(this_port);
+				terms.push_back(this_port);
 		}
 
 		for (auto bit : cell->getPort(ID::B))
-			ports.push_back(port_t{{bit}, {}, false, false});
+			terms.push_back(term_t{{bit}, {}, false, false});
 
 		log_assert(config_cursor == config_width);
 		log_assert(port_a_cursor == GetSize(port_a));
@@ -148,7 +148,7 @@ struct Macc
 		RTLIL::SigSpec port_b = cell->getPort(ID::B);
 		RTLIL::SigSpec port_c = cell->getPort(ID::C);
 
-		ports.clear();
+		terms.clear();
 
 		int nproducts = cell->getParam(ID::NPRODUCTS).as_int();
 		const Const &product_neg = cell->getParam(ID::PRODUCT_NEGATED);
@@ -158,7 +158,7 @@ struct Macc
 		const Const &b_signed = cell->getParam(ID::B_SIGNED);
 		int ai = 0, bi = 0;
 		for (int i = 0; i < nproducts; i++) {
-			port_t term;
+			term_t term;
 
 			log_assert(a_signed[i] == b_signed[i]);
 			term.is_signed = (a_signed[i] == State::S1);
@@ -171,7 +171,7 @@ struct Macc
 			bi += b_width;
 			term.do_subtract = (product_neg[i] == State::S1);
 
-			ports.push_back(term);
+			terms.push_back(term);
 		}
 		log_assert(port_a.size() == ai);
 		log_assert(port_b.size() == bi);
@@ -182,7 +182,7 @@ struct Macc
 		const Const &c_signed = cell->getParam(ID::C_SIGNED);
 		int ci = 0;
 		for (int i = 0; i < naddends; i++) {
-			port_t term;
+			term_t term;
 
 			term.is_signed = (c_signed[i] == State::S1);
 			int c_width = c_widths.extract(16 * i, 16).as_int(false);
@@ -191,7 +191,7 @@ struct Macc
 			ci += c_width;
 			term.do_subtract = (addend_neg[i] == State::S1);
 
-			ports.push_back(term);
+			terms.push_back(term);
 		}
 		log_assert(port_c.size() == ci);
 	}
@@ -205,23 +205,23 @@ struct Macc
 		Const c_signed, c_widths, addend_negated;
 		SigSpec a, b, c;
 
-		for (int i = 0; i < (int) ports.size(); i++) {
-			SigSpec term_a = ports[i].in_a, term_b = ports[i].in_b;
+		for (int i = 0; i < (int) terms.size(); i++) {
+			SigSpec term_a = terms[i].in_a, term_b = terms[i].in_b;
 
 			if (term_b.empty()) {
 				// addend
 				c_widths.append(Const(term_a.size(), 16));
-				c_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
-				addend_negated.append(ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
+				c_signed.append(terms[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				addend_negated.append(terms[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
 				c.append(term_a);
 				naddends++;
 			} else {
 				// product
 				a_widths.append(Const(term_a.size(), 16));
 				b_widths.append(Const(term_b.size(), 16));
-				a_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
-				b_signed.append(ports[i].is_signed ? RTLIL::S1 : RTLIL::S0);
-				product_negated.append(ports[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
+				a_signed.append(terms[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				b_signed.append(terms[i].is_signed ? RTLIL::S1 : RTLIL::S0);
+				product_negated.append(terms[i].do_subtract ? RTLIL::S1 : RTLIL::S0);
 				a.append(term_a);
 				b.append(term_b);
 				nproducts++;
@@ -265,7 +265,7 @@ struct Macc
 		for (auto &bit : result.bits())
 			bit = State::S0;
 
-		for (auto &port : ports)
+		for (auto &port : terms)
 		{
 			if (!port.in_a.is_fully_const() || !port.in_b.is_fully_const())
 				return false;
@@ -287,9 +287,9 @@ struct Macc
 
 	bool is_simple_product()
 	{
-		return ports.size() == 1 &&
-				!ports[0].in_b.empty() &&
-				!ports[0].do_subtract;
+		return terms.size() == 1 &&
+				!terms[0].in_b.empty() &&
+				!terms[0].do_subtract;
 	}
 
 	Macc(RTLIL::Cell *cell = nullptr)
