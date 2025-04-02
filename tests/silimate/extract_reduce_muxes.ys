@@ -1,0 +1,440 @@
+log -header "Simple MUX chain to PMUX"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] sel,
+  input wire [3:0] a,
+  output wire x
+);
+  wire w0, w1;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign x  = sel[2] ? a[3] : w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got a single pmux with the correct input number
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "MUX chain with constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] sel,
+  input wire [2:0] a,
+  output wire x
+);
+  wire w0, w1;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign x  = sel[2] ? 1'b1 : w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got a single pmux with the correct input number
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "MUX chain with multiple branches"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] sel,
+  input wire [3:0] a,
+  output wire x
+);
+  wire w0, w1;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : a[3];
+  assign x  = sel[2] ? w0 : w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got a single pmux with the correct input number
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=4 %i
+
+design -reset
+log -pop
+
+
+
+log -header "MUX chain with multiple uneven branches"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] sel,
+  input wire [6:0] a,
+  output wire x
+);
+  wire w0, w1, w2, w3, w4;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? a[3] : w1;
+  assign w3 = sel[3] ? w2 : w4;
+  assign w4 = sel[5] ? a[4] : a[5];
+  assign x  = sel[4] ? w3 : a[6];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got a single pmux with the correct input number
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=7 %i
+
+design -reset
+log -pop
+
+
+
+log -header "No off-chain MUX chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] sel,
+  input wire [4:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0, w1, w2;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? a[3] : w1;
+  assign x  = sel[3] ? a[4] : w2;
+
+  // Off-chain use of intermediate wire
+  assign y = w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got two pmuxes
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+
+# Check that both pmuxes have input width of 3
+select -assert-none t:$pmux r:S_WIDTH!=3 %i
+
+design -reset
+log -pop
+
+
+
+
+log -header "Allow off-chain MUX chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] sel,
+  input wire [4:0] a,
+  output wire x,
+  output wire y
+);
+  wire w0, w1, w2;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? a[3] : w1;
+  assign x  = sel[3] ? a[4] : w2;
+
+  assign y = w1;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce -allow-off-chain
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+opt_clean
+
+# Check we got two pmux
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+
+# Check that one pmux has an input width of 3 
+# and the other has an input width of 5
+select -assert-count 1 t:$pmux r:S_WIDTH=3 %i
+select -assert-count 1 t:$pmux r:S_WIDTH=5 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Reconverging tree; no off-chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] sel,
+  input wire [7:0] a,
+  output wire x
+);
+  wire w0, w1, w2, w3, w4, w5, w6;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? w4 : w1;
+  assign w3 = sel[3] ? w2 : w5;
+  assign w4 = sel[6] ? a[3] : w6;
+  assign w5 = sel[5] ? a[5] : w4;
+  assign w6 = sel[7] ? a[7] : a[4];
+  assign x  = sel[4] ? a[6] : w3;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean and opt_reduce to remove unnecessary cells
+design -load postopt
+opt_clean
+opt_reduce
+
+# Check we got one pmux with correct number of inputs
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=3 %i
+select -assert-count 1 t:$pmux r:S_WIDTH=6 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Reconverging tree; yes off-chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] sel,
+  input wire [7:0] a,
+  output wire x
+);
+  wire w0, w1, w2, w3, w4, w5, w6;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? w4 : w1;
+  assign w3 = sel[3] ? w2 : w5;
+  assign w4 = sel[6] ? a[3] : w6;
+  assign w5 = sel[5] ? a[5] : w4;
+  assign w6 = sel[7] ? a[7] : a[4];
+  assign x  = sel[4] ? a[6] : w3;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce -allow-off-chain
+
+# Load design and run opt_clean and opt_reduce to remove unnecessary cells
+design -load postopt
+opt_clean
+opt_reduce
+
+# Check we got one pmux with correct number of inputs
+select -assert-count 0 t:$mux
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=8 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Reusing select inputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] sel,
+  input wire [7:0] a,
+  output wire x
+);
+  wire w0, w1, w2, w3, w4, w5, w6;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? w4 : w1;
+  assign w3 = sel[3] ? w2 : w5;
+  assign w4 = sel[2] ? a[3] : w6;
+  assign w5 = sel[5] ? a[5] : w4;
+  assign w6 = sel[4] & sel[1] ? a[7] : a[4];
+  assign x  = sel[4] ? a[6] : w3;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean and opt_reduce to remove unnecessary cells
+design -load postopt
+opt_clean
+opt_reduce
+
+# Check we got one pmux with correct number of inputs
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=3 %i
+select -assert-count 1 t:$pmux r:S_WIDTH=6 %i
+
+design -reset
+log -pop
+
+
+
+log -header "Using outputs as select inputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [5:0] sel,
+  input wire [7:0] a,
+  output wire x
+);
+  wire w0, w1, w2, w3, w4, w5, w6;
+
+  assign w0 = sel[0] ? a[1] : a[0];
+  assign w1 = sel[1] ? a[2] : w0;
+  assign w2 = sel[2] ? w4 : w1;
+  assign w3 = sel[3] ? w2 : w5;
+  assign w4 = sel[2] ? a[3] : w6;
+  assign w5 = sel[5] ? a[5] : w4;
+  assign w6 = w[2] ? a[7] : a[4];
+  assign x  = sel[4] ? a[6] : w3;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean and opt_reduce to remove unnecessary cells
+design -load postopt
+opt_clean
+opt_reduce
+
+# Check we got one pmux with correct number of inputs
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=3 %i
+select -assert-count 1 t:$pmux r:S_WIDTH=6 %i
+
+design -reset
+log -pop
+
+
+
+# TODO check about infinite loop
+log -header "Mux with feedback that causes infinite loop"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] sel,
+  input wire [3:0] a,
+  output wire x
+);
+  wire w0, w1;
+
+  assign w0 = sel[0] ? a[0] : w0;
+  assign w1 = sel[1] ? a[1] : w0;
+  assign x  = sel[2] ? a[2] : w1;
+endmodule
+EOF
+# check -assert
+
+autoname
+write_json dump_pre.json
+exec -- netlistsvg dump_pre.json -o dump_pre.svg
+
+# Check equivalence after extract_reduce
+# equiv_opt -assert extract_reduce
+extract_reduce -allow-off-chain
+
+# Load design and run opt_clean and opt_reduce to remove unnecessary cells
+# design -load postopt
+opt_clean
+opt_reduce
+
+autoname
+write_json dump_post.json
+exec -- netlistsvg dump_post.json -o dump_post.svg
+
+# Check we got one pmux with correct number of inputs
+select -assert-count 0 t:$mux
+select -assert-count 2 t:$pmux
+select -assert-count 1 t:$pmux r:S_WIDTH=3 %i
+select -assert-count 1 t:$pmux r:S_WIDTH=6 %i
+
+design -reset
+log -pop
