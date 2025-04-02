@@ -3510,6 +3510,7 @@ struct VerificPass : public Pass {
 				veri_module->SetCompileAsBlackbox();
 			}
 		}
+		restore_blackbox_msg_state();
 	}
 #endif
 
