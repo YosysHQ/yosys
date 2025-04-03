@@ -824,29 +824,119 @@ log -pop
 
 
 
-# TODO
-log -header "Combinational feedback loop"
+log -header "Stress test"
 log -push
 design -reset
 read_verilog <<EOF
 module top (
-  input  wire a,
+  input  wire [7:0] a0,
+  input  wire [7:0] a1,
+  input  wire [7:0] a2,
   output wire y
 );
-  wire w0, w1;
+  wire c0, c1, c2;
 
-  // Two AND gates feeding each other
-  assign w0 = a & w1;
-  assign w1 = a & w0;
+  // Stage 0
+  wire s0_w0 = a0[0] & a0[1];
+  wire s0_w1 = a0[2] & a0[3];
+  wire s0_w2 = s0_w0 & s0_w1;
+  wire s0_w3 = s0_w2 & a0[4];
+  wire s0_w4 = a0[0] & a0[5];
+  wire s0_w5 = s0_w3 & a0[6];
+  wire s0_w6 = s0_w4 & a0[7];
+  assign c0 = s0_w5 & s0_w6;
 
-  assign y = w1;
+  // Stage 1
+  wire s1_w0 = a1[0] & a1[1];
+  wire s1_w1 = a1[2] & a1[3];
+  wire s1_w2 = s1_w0 & s1_w1;
+  wire s1_w3 = s1_w2 & a1[4];
+  wire s1_w4 = c0     & a1[5];
+  wire s1_w5 = s1_w3 & a1[6];
+  wire s1_w6 = s1_w4 & a1[7];
+  assign c1 = s1_w5 & s1_w6;
+
+  // Stage 2
+  wire s2_w0 = a2[0] & a2[1];
+  wire s2_w1 = a2[2] & a2[3];
+  wire s2_w2 = s2_w0 & s2_w1;
+  wire s2_w3 = s2_w2 & a2[4];
+  wire s2_w4 = c1     & a2[5];
+  wire s2_w5 = s2_w3 & a2[6];
+  wire s2_w6 = s2_w4 & a2[7];
+  assign c2 = s2_w5 & s2_w6;
+
+  assign y = c2;
 endmodule
 EOF
-# check -assert
+check -assert
 
 # Check equivalence after extract_reduce
-# equiv_opt -assert extract_reduce
-extract_reduce -allow-off-chain
+equiv_opt -assert extract_reduce
+
+# Load design and run opt_clean to remove unnecessary wires
+design -load postopt
+extract_reduce
+opt_clean
+
+# Check final design has correct number of gates and inputs
+select -assert-count 0 t:$and
+select -assert-count 1 t:$reduce_and
+
+design -reset
+log -pop
+
+
+
+log -header "Stress test reconvergence"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] a0,
+  input  wire [7:0] a1,
+  input  wire [7:0] a2,
+  output wire y
+);
+  wire c0, c1, c2;
+
+  // Stage 0
+  wire s0_w0 = a0[0] & a0[1];
+  wire s0_w1 = a0[2] & a0[3];
+  wire s0_w2 = s0_w0 & s0_w1;
+  wire s0_w3 = s0_w2 & a0[4];
+  wire s0_w4 = s0_w2 & a0[5];
+  wire s0_w5 = s0_w3 & a0[6];
+  wire s0_w6 = s0_w4 & a0[7];
+  assign c0 = s0_w5 & s0_w6;
+
+  // Stage 1
+  wire s1_w0 = a1[0] & a1[1];
+  wire s1_w1 = a1[2] & a1[3];
+  wire s1_w2 = s1_w0 & s1_w1;
+  wire s1_w3 = s1_w2 & a1[4];
+  wire s1_w4 = s1_w2 & a1[5];
+  wire s1_w5 = s1_w3 & a1[6];
+  wire s1_w6 = s1_w4 & c0;
+  assign c1 = s1_w5 & s1_w6;
+
+  // Stage 2
+  wire s2_w0 = a2[0] & a2[1];
+  wire s2_w1 = a2[2] & a2[3];
+  wire s2_w2 = s2_w0 & s2_w1;
+  wire s2_w3 = s2_w2 & a2[4];
+  wire s2_w4 = s2_w2 & a2[5];
+  wire s2_w5 = s2_w3 & a2[6];
+  wire s2_w6 = s2_w4 & c1;
+  assign c2 = s2_w5 & s2_w6;
+
+  assign y = c2;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after extract_reduce
+equiv_opt -assert extract_reduce
 
 # Load design and run opt_clean to remove unnecessary wires
 design -load postopt
@@ -854,9 +944,7 @@ opt_clean
 
 # Check final design has correct number of gates and inputs
 select -assert-count 0 t:$and
-select -assert-count 2 t:$reduce_and
-select -assert-count 1 t:$reduce_and r:A_WIDTH=4 %i
-select -assert-count 1 t:$reduce_and r:A_WIDTH=6 %i
+select -assert-count 4 t:$reduce_and
 
 design -reset
 log -pop
