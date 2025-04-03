@@ -128,6 +128,12 @@
 #  error "C++17 or later compatible compiler is required"
 #endif
 
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(gnu::cold)
+#  define YS_COLD [[gnu::cold]]
+#else
+#  define YS_COLD
+#endif
+
 #include "kernel/io.h"
 
 YOSYS_NAMESPACE_BEGIN

@@ -32,6 +32,61 @@
 
 using namespace Yosys;
 
+bool LibertyInputStream::extend_buffer_once()
+{
+	if (eof)
+		return false;
+
+	// To support unget we leave the last already read character in the buffer
+	if (buf_pos > 1) {
+		size_t move_pos = buf_pos - 1;
+		memmove(buffer.data(), buffer.data() + move_pos, buf_end - move_pos);
+		buf_pos -= move_pos;
+		buf_end -= move_pos;
+	}
+
+	const size_t chunk_size = 4096;
+	if (buffer.size() < buf_end + chunk_size) {
+		buffer.resize(buf_end + chunk_size);
+	}
+
+	size_t read_size = f.rdbuf()->sgetn(buffer.data() + buf_end, chunk_size);
+	buf_end += read_size;
+	if (read_size < chunk_size)
+		eof = true;
+	return read_size != 0;
+}
+
+bool LibertyInputStream::extend_buffer_at_least(size_t size) {
+	while (buffered_size() < size) {
+		if (!extend_buffer_once())
+			return false;
+	}
+	return true;
+}
+
+int LibertyInputStream::get_cold()
+{
+	if (buf_pos == buf_end) {
+		if (!extend_buffer_at_least())
+			return EOF;
+	}
+
+	int c = buffer[buf_pos];
+	buf_pos += 1;
+	return c;
+}
+
+int LibertyInputStream::peek_cold(size_t offset)
+{
+	if (buf_pos + offset >= buf_end) {
+		if (!extend_buffer_at_least(offset + 1))
+			return EOF;
+	}
+
+	return buffer[buf_pos + offset];
+}
+
 LibertyAst::~LibertyAst()
 {
 	for (auto child : children)
@@ -237,15 +292,19 @@ int LibertyParser::lexer(std::string &str)
 
 	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
-		str = static_cast<char>(c);
-		while (1) {
-			c = f.get();
+		f.unget();
+		size_t i = 1;
+		while (true) {
+			c = f.peek(i);
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
-				str += c;
+				i += 1;
 			else
 				break;
 		}
-		f.unget();
+		str.clear();
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i);
+
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
 			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
@@ -260,23 +319,24 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
-		str = "";
-#ifdef FILTERLIB
-		str += c;
-#endif
-		while (1) {
-			c = f.get();
-			if (c == '\n')
-				line++;
-			if (c == '"') {
-#ifdef FILTERLIB
-				str += c;
-#endif
+		size_t i = 0;
+		while (true) {
+			c = f.peek(i);
+			line += (c == '\n');
+			if (c != '"')
+				i += 1;
+			else
 				break;
-			}
-			str += c;
 		}
-		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
+		str.clear();
+#ifdef FILTERLIB
+		f.unget();
+		str.append(f.buffered_data(), f.buffered_data() + i + 2);
+		f.consume(i + 2);
+#else
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i + 1);
+#endif
 		return 'v';
 	}
 
