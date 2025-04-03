@@ -1690,7 +1690,38 @@ skip_identity:
 			else if (inA == inB)
 				ACTION_DO(ID::Y, cell->getPort(ID::A));
 		}
+		if (cell->type == ID($pow) && cell->getPort(ID::A).is_fully_const() && !cell->parameters[ID::B_SIGNED].as_bool()) {
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+			int y_size = GetSize(sig_y);
 
+			int bit_idx;
+			const auto onehot = sig_a.is_onehot(&bit_idx);
+
+			if (onehot) {
+				if (bit_idx == 1) {
+					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n", 
+							cell->name.c_str(), module->name.c_str());
+					cell->type = ID($shl);
+					cell->parameters[ID::A_WIDTH] = 1;
+					cell->setPort(ID::A, Const(State::S1, 1));
+				}
+				else {
+					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n", 
+							cell->name.c_str(), module->name.c_str());
+					cell->type = ID($mul);
+					cell->parameters[ID::A_SIGNED] = 0;
+					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
+					
+					SigSpec y_wire = module->addWire(NEW_ID, y_size);
+					cell->setPort(ID::Y, y_wire);
+					
+					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y);
+				}
+				did_something = true;
+				goto next_cell;
+			}
+		}
 		if (!keepdc && cell->type == ID($mul))
 		{
 			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
