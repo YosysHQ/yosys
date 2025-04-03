@@ -394,7 +394,7 @@ log -pop
 
 
 
-log -header "Stress test"
+log -header "Normal stress test"
 log -push
 design -reset
 read_verilog <<EOF
