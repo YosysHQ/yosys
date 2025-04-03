@@ -30,7 +30,6 @@ struct ExtractReducePass : public Pass
 		And,
 		Or,
 		Xor,
-		Xnor,
 		Mux
 	};
 
@@ -51,8 +50,8 @@ struct ExtractReducePass : public Pass
 		log("to map the design to only $_AND_ cells, run extract_reduce, map the remaining\n");
 		log("parts of the design to AND/OR/XOR cells, and run extract_reduce a second time.\n");
 		log("\n");
-		log("Silimate has modified this pass to support word-level cells ($and, $or, $xor,\n");
-		log("and $xnor) as well as the single-bit cells ($_AND_, $_OR_, $_XOR_, and $_XNOR_).\n");
+		log("Silimate has modified this pass to support word-level cells ($and, $or, \n");
+		log("and $xor) as well as the single-bit cells ($_AND_, $_OR_, and $_XOR_).\n");
 		log("Mux cells ($mux, $_MUX_) can also be reduced to $pmux cells with the mods.\n");
 		log("\n");
 		log("    -allow-off-chain\n");
@@ -86,12 +85,10 @@ struct ExtractReducePass : public Pass
 		return (cell->type == ID($_AND_) && gt == GateType::And) ||
 				(cell->type == ID($_OR_) && gt == GateType::Or) ||
 				(cell->type == ID($_XOR_) && gt == GateType::Xor) ||
-				(cell->type == ID($_XNOR_) && gt == GateType::Xnor) ||
 				(cell->type == ID($_MUX_) && gt == GateType::Mux) ||
 				(cell->type == ID($and) && IsSingleBit(cell) && gt == GateType::And) ||
 				(cell->type == ID($or) && IsSingleBit(cell) && gt == GateType::Or) ||
 				(cell->type == ID($xor) && IsSingleBit(cell) && gt == GateType::Xor) ||
-				(cell->type == ID($xnor) && IsSingleBit(cell) && gt == GateType::Xnor) ||
 				(cell->type == ID($mux) && IsSingleBit(cell) && gt == GateType::Mux);
 	}
 
@@ -177,8 +174,6 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == ID($_XOR_))
 					gt = GateType::Xor;
-				else if (cell->type == ID($_XNOR_))
-					gt = GateType::Xnor;
 				else if (cell->type == ID($_MUX_))
 					gt = GateType::Mux;
 				else if (cell->type == ID($and) && IsSingleBit(cell))
@@ -187,8 +182,6 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == ID($xor) && IsSingleBit(cell))
 					gt = GateType::Xor;
-				else if (cell->type == ID($xnor) && IsSingleBit(cell))
-					gt = GateType::Xnor;
 				else if (cell->type == ID($mux) && IsSingleBit(cell))
 					gt = GateType::Mux;
 				else
@@ -355,7 +348,7 @@ struct ExtractReducePass : public Pass
 						SigSpec input, sel;
 						for (auto it : sources) {
 							bool cond;
-							if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor) || head_cell->type == ID($_XNOR_) || head_cell->type == ID($xnor))
+							if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor))
 								cond = it.second & 1;
 							else
 								cond = it.second != 0;
@@ -375,8 +368,6 @@ struct ExtractReducePass : public Pass
 							module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor)) {
 							module->addReduceXor(NEW_ID2_SUFFIX("reduce_xor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_XNOR_) || head_cell->type == ID($xnor)) {
-							module->addReduceXnor(NEW_ID2_SUFFIX("reduce_xnor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else if (head_cell->type == ID($_MUX_) || head_cell->type == ID($mux)) {
 							module->addPmux(NEW_ID2_SUFFIX("pmux"), State::Sx, input, sel, output, cell->get_src_attribute()); // SILIMATE: Improve the naming
 						} else {
