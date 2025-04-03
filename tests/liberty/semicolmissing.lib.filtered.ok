@@ -12,11 +12,11 @@ library(supergate) {
     }
     pin(CO) {
       direction : output ;
-      function : (((A * B)+(B * CI))+(CI * A)) ;
+      function : "(((A * B)+(B * CI))+(CI * A))" ;
     }
     pin(Y) {
       direction : output ;
-      function : ((A^B)^CI) ;
+      function : "((A^B)^CI)" ;
     }
   }
 }
