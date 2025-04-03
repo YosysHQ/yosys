@@ -90,12 +90,54 @@ namespace Yosys
 		bool eval(dict<std::string, bool>& values);
 	};
 
+	class LibertyInputStream {
+		std::istream &f;
+		std::vector<char> buffer;
+		size_t buf_pos = 0;
+		size_t buf_end = 0;
+		bool eof = false;
+
+		bool extend_buffer_once();
+		bool extend_buffer_at_least(size_t size = 1);
+
+		YS_COLD int get_cold();
+		YS_COLD int peek_cold(size_t offset);
+
+	public:
+		LibertyInputStream(std::istream &f) : f(f) {}
+
+		size_t buffered_size() { return buf_end - buf_pos; }
+		const char *buffered_data() { return buffer.data() + buf_pos; }
+
+		int get() {
+			if (buf_pos == buf_end)
+				return get_cold();
+			int c = buffer[buf_pos];
+			buf_pos += 1;
+			return c;
+		}
+
+		int peek(size_t offset = 0) {
+			if (buf_pos + offset >= buf_end)
+				return peek_cold(offset);
+			return buffer[buf_pos + offset];
+		}
+
+		void consume(size_t n = 1) {
+			buf_pos += n;
+		}
+
+		void unget() {
+			buf_pos -= 1;
+		}
+	};
+
 	class LibertyMergedCells;
 	class LibertyParser
 	{
 		friend class LibertyMergedCells;
 	private:
-		std::istream &f;
+		LibertyInputStream f;
 		int line;
 
 		/* lexer return values:
