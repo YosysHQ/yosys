@@ -347,6 +347,7 @@ ifeq ($(ENABLE_PYOSYS),1)
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+EXTRA_TARGETS += wheel
 
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
 CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
@@ -365,7 +366,7 @@ LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -754,7 +755,7 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
 	$(Q) mkdir -p $(dir $@)
-	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
 endif
 
 %.o: %.cpp
@@ -965,6 +966,20 @@ unit-test: libyosys.so
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
+ifeq ($(ENABLE_PYOSYS),1)
+wheel: $(TARGETS)
+	$(PYTHON_EXECUTABLE) -m pip wheel .
+
+install-wheel: wheel
+	$(PYTHON_EXECUTABLE) -m pip install pyosys-$(YOSYS_MAJOR).$(YOSYS_MINOR).$(YOSYS_COMMIT)-*.whl --force-reinstall
+else
+wheel:
+	$(error Pyosys is not enabled. Set ENABLE_PYOSYS=1 to enable it.)
+
+install-wheel:
+	$(error Pyosys is not enabled. Set ENABLE_PYOSYS=1 to enable it.)
+endif
+
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
@@ -984,9 +999,7 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
+	$(INSTALL_SUDO) @$(MAKE) install-wheel
 endif
 endif
 ifeq ($(ENABLE_PLUGINS),1)
@@ -1002,9 +1015,7 @@ uninstall:
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) $(PYTHON_EXECUTABLE) -m pip uninstall -y pyosys
 endif
 endif
 
@@ -1083,6 +1094,7 @@ clean:
 	rm -rf kernel/*.pyh
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
+	rm -f kernel/python_wrappers.o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -1096,6 +1108,8 @@ clean:
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
 	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -f *.whl
+	rm -f libyosys.so
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
