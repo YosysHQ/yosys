@@ -1164,26 +1164,60 @@ public:
 
 struct RTLIL::Selection
 {
-	bool full_selection;
+	// selection includes boxed modules
 	bool selects_boxes;
+	// selection covers full design, including boxed modules
 	bool complete_selection;
+	// selection covers full design, not including boxed modules
+	bool full_selection;
 	pool<RTLIL::IdString> selected_modules;
 	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
 	RTLIL::Design *current_design;
 
-	Selection(bool full = true, bool boxes = false, RTLIL::Design *design = nullptr) : 
+	// create a new selection
+	Selection(
+		// should the selection cover the full design
+		bool full = true,
+		// should the selection include boxed modules
+		bool boxes = false,
+		// the design to select from
+		RTLIL::Design *design = nullptr
+	) : 
 		full_selection(full && !boxes), selects_boxes(boxes), complete_selection(full && boxes), current_design(design) { }
 
+	// checks if the given module exists in the current design and is a
+	// boxed module, warning the user if the current design is not set
 	bool boxed_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is included in this selection
 	bool selected_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is wholly included in this selection,
+	// i.e. not partially selected
 	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given member from the given module is included in this
+	// selection
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+
+	// optimizes this selection for the given design by:
+	// - removing non-existent modules and members, any boxed modules and
+	//   their members (if selection does not include boxes), and any
+	//   partially selected modules with no selected members;
+	// - marking partially selected modules as wholly selected if all
+	//   members of that module are selected; and
+	// - marking selection as a complete_selection if all modules in the
+	//   given design are selected, or a full_selection if it does not
+	//   include boxes.
 	void optimize(RTLIL::Design *design);
 
+	// checks if selection covers full design (may or may not include
+	// boxed-modules)
 	bool selects_all() const {
 		return full_selection || complete_selection;
 	}
 
+	// add whole module to this selection
 	template<typename T1> void select(T1 *module) {
 		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
@@ -1193,6 +1227,7 @@ struct RTLIL::Selection
 		}
 	}
 
+	// add member of module to this selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_members[module->name].insert(member->name);
@@ -1201,12 +1236,18 @@ struct RTLIL::Selection
 		}
 	}
 
+	// checks if selection is empty
 	bool empty() const {
 		return !selects_all() && selected_modules.empty() && selected_members.empty();
 	}
 
+	// create a new selection which is empty
 	static Selection EmptySelection(RTLIL::Design *design = nullptr) { return Selection(false, false, design); };
+
+	// create a new selection with all non-boxed modules
 	static Selection FullSelection(RTLIL::Design *design = nullptr) { return Selection(true, false, design); };
+
+	// create a new selection with all modules, including boxes
 	static Selection CompleteSelection(RTLIL::Design *design = nullptr) { return Selection(true, true, design); };
 };
 
@@ -1288,61 +1329,111 @@ struct RTLIL::Design
 	void check();
 	void optimize();
 
+	// checks if the given module is included in the current selection
 	bool selected_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is wholly included in the current
+	// selection, i.e. not partially selected
 	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given member from the given module is included in the
+	// current selection
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
 
+	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::Module *mod) const;
+
+	// checks if the given module is wholly included in the current
+	// selection, i.e. not partially selected
 	bool selected_whole_module(RTLIL::Module *mod) const;
 
+	// push the given selection to the selection stack
 	void push_selection(RTLIL::Selection sel);
+	// push a new selection to the selection stack, with nothing selected
 	void push_empty_selection();
-	void push_full_selection();     // all modules excluding boxes
-	void push_complete_selection(); // all modules including boxes
+	// push a new selection to the selection stack, with all non-boxed
+	// modules selected
+	void push_full_selection();
+	// push a new selection to the selection stack, with all modules
+	// selected including boxes
+	void push_complete_selection();
+	// pop the current selection from the stack, returning to a full
+	// selection (no boxes) if the stack is empty
 	void pop_selection();
 
+	// get the current selection
 	RTLIL::Selection &selection() {
 		return selection_stack.back();
 	}
 
+	// get the current selection
 	const RTLIL::Selection &selection() const {
 		return selection_stack.back();
 	}
 
+	// is the current selection a full selection (no boxes)
 	bool full_selection() const {
 		return selection().full_selection;
 	}
 
+	// is the given module in the current selection
 	template<typename T1> bool selected(T1 *module) const {
 		return selected_module(module->name);
 	}
 
+	// is the given member of the given module in the current selection
 	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) const {
 		return selected_member(module->name, member->name);
 	}
 
+	// add whole module to the current selection
 	template<typename T1> void select(T1 *module) {
 		RTLIL::Selection &sel = selection();
 		sel.select(module);
 	}
 
+	// add member of module to the current selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		RTLIL::Selection &sel = selection();
 		sel.select(module, member);
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules(RTLIL::SelectPartials partials = SELECT_ALL, RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN) const;
+	// returns all selected modules
+	std::vector<RTLIL::Module*> selected_modules(
+		// controls if partially selected modules are included
+		RTLIL::SelectPartials partials = SELECT_ALL,
+		// controls if boxed modules are included
+		RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN
+	) const;
 
+	// returns all selected modules, and may include boxes
 	std::vector<RTLIL::Module*> all_selected_modules() const { return selected_modules(SELECT_ALL, SB_ALL); }
+	// returns all selected unboxed modules, silently ignoring any boxed
+	// modules in the selection
 	std::vector<RTLIL::Module*> selected_unboxed_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_ONLY); }
+	// returns all selected unboxed modules, warning the user if any boxed
+	// modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_modules_warn() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
 
 	[[deprecated("Use select_unboxed_whole_modules() to maintain prior behaviour, or consider one of the other selected whole module helpers.")]]
 	std::vector<RTLIL::Module*> selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_WARN); }
+	// returns all selected whole modules, silently ignoring partially
+	// selected modules, and may include boxes
 	std::vector<RTLIL::Module*> all_selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_ALL); }
-	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const { return selected_modules(SELECT_WHOLE_WARN, include_wb ? SB_EXCL_BB_WARN : SB_UNBOXED_WARN); }
+	// returns all selected whole modules, warning the user if any partially
+	// selected or boxed modules have been ignored; optionally includes
+	// selected whole modules with the 'whitebox' attribute
+	std::vector<RTLIL::Module*> selected_whole_modules_warn(
+		// should whole modules with the 'whitebox' attribute be
+		// included
+		bool include_wb = false
+	) const { return selected_modules(SELECT_WHOLE_WARN, include_wb ? SB_EXCL_BB_WARN : SB_UNBOXED_WARN); }
+	// returns all selected unboxed whole modules, silently ignoring
+	// partially selected or boxed modules
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_ONLY); }
+	// returns all selected unboxed whole modules, warning the user if any
+	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
