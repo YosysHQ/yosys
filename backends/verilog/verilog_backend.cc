@@ -460,7 +460,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 	std::string mem_id = id(mem.memid);
 
 	dump_attributes(f, indent, mem.attributes);
-	f << stringf("%s" "reg [%d:0] %s [%zu:%d];\n", indent.c_str(), mem.width-1, mem_id.c_str(), mem.size+mem.start_offset-1, mem.start_offset);
+	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), mem.width-1, mem_id.c_str(), mem.size+mem.start_offset-1, mem.start_offset);
 
 	// for memory block make something like:
 	//  reg [7:0] memid [3:0];
@@ -497,7 +497,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 			else
 			{
 				Const data = mem.get_init_data();
-				for (size_t i=0; i<mem.size; i++)
+				for (int i=0; i<mem.size; i++)
 				{
 					RTLIL::Const element = data.extract(i*mem.width, mem.width);
 					for (int j=0; j<element.size(); j++)

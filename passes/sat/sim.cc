@@ -486,8 +486,8 @@ struct SimInstance
 
 		bool dirty = false;
 
-		size_t offset = (addr - state.mem->start_offset) * state.mem->width;
-		for (size_t i = 0; i < data.as_size(); i++)
+		int offset = (addr - state.mem->start_offset) * state.mem->width;
+		for (int i = 0; i < GetSize(data); i++)
 			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data[i] != State::Sa)
 				if (state.data[i+offset] != data[i])
 					dirty = true, state.data.bits()[i+offset] = data[i];
@@ -496,11 +496,11 @@ struct SimInstance
 			dirty_memories.insert(memid);
 	}
 
-	void set_memory_state_bit(IdString memid, size_t offset, State data)
+	void set_memory_state_bit(IdString memid, int offset, State data)
 	{
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
-			log_error("Addressing out of bounds bit %zux/%zu of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
+			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
 		if (state.data[offset] != data) {
 			state.data.bits()[offset] = data;
 			dirty_memories.insert(memid);
@@ -604,11 +604,11 @@ struct SimInstance
 
 			if (addr.is_fully_def()) {
 				int addr_int = addr.as_int();
-				size_t index = addr_int - mem.start_offset;
+				int index = addr_int - mem.start_offset;
 				if (index >= 0 && index < mem.size)
 					data = mdb.data.extract(index*mem.width, mem.width << port.wide_log2);
 
-				for (size_t offset = 0; offset < 1 << port.wide_log2; offset++) {
+				for (int offset = 0; offset < 1 << port.wide_log2; offset++) {
 					register_memory_addr(id, addr_int + offset);
 				}
 			}
@@ -768,7 +768,7 @@ struct SimInstance
 				if (addr.is_fully_def())
 				{
 					int addr_int = addr.as_int();
-					size_t index = addr_int - mem.start_offset;
+					int index = addr_int - mem.start_offset;
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
 							if (enable[i] == State::S1 && mdb.data.at(index*mem.width+i) != data[i]) {
@@ -1093,7 +1093,7 @@ struct SimInstance
 	{
 		auto &mdb = mem_database.at(memid);
 		auto &mem = *mdb.mem;
-		size_t index = addr - mem.start_offset;
+		int index = addr - mem.start_offset;
 		if (index < 0 || index >= mem.size)
 			return;
 		auto it = trace_mem_database.find(memid);
@@ -1901,7 +1901,7 @@ struct SimWorker : SimShared
 						word_path.back() = addr_part;
 						int addr;
 						word_path.get_address(addr);
-						if (addr < item.mem->start_offset || ((size_t) addr - item.mem->start_offset) >= item.mem->size)
+						if (addr < item.mem->start_offset || (addr - item.mem->start_offset) >= item.mem->size)
 							continue;
 						bool inserted = hierarchy.paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
 						if (!inserted)
@@ -2258,7 +2258,7 @@ struct SimWorker : SimShared
 					data_file << stringf("%s",fst->valueOf(item.second).c_str());
 				for(auto &item : outputs)
 					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				data_file << stringf("%s\n",Const(time-prev_time, 32).as_string().c_str());
+				data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
 
 				if (time==startCount) {
 					// initial state

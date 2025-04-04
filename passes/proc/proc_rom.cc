@@ -156,7 +156,7 @@ struct RomWorker
 		mem.attributes = sw->attributes;
 
 		Const init_data;
-		for (size_t i = 0; i < mem.size; i++) {
+		for (int i = 0; i < mem.size; i++) {
 			auto it = vals.find(i);
 			if (it == vals.end()) {
 				log_assert(got_default);
