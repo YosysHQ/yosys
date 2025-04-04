@@ -230,6 +230,10 @@ Minimizing scripts
 ------------------
 
 - reminder to back up original code before modifying it
+
+  + sometimes over-minimizing scripts can hide underlying issues, so maintaining
+    the original context is important
+
 - if you're using command line, convert it to a script
 - if you're using one of the :doc:`/using_yosys/synthesis/synth`, replace it
   with its contents
@@ -370,6 +374,18 @@ Identifying issues
     to a right shift (or `$shr`)?
   + is the issue tied to specific parameters, widths, or values?
 
+- if the failing command was part of a larger script, such as one of the
+  :doc:`/using_yosys/synthesis/synth`, you could try to follow the design
+  through the script
+
+  + sometimes when a command is raising an error, you're seeing a symptom rather
+    than the underlying issue
+  + an earlier command may be putting the design in an invalid state which isn't
+    picked up until the error is raised
+  + check out :ref:`using_yosys/bugpoint:Why context matters`
+  + if you're using a fuzzer to find issues in Yosys, you should be prepared to
+    do this step
+
 - if you're familiar with C/C++ you might try to have a look at the source
   code of the command that's failing
 
@@ -402,6 +418,40 @@ Identifying issues
 
 - if there are no existing or related issues already, then check out the steps
   for :ref:`using_yosys/bugpoint:creating an issue on github`
+
+
+Why context matters
+-------------------
+
+- if you did `minimize your script`_, and removed commands prior to the failure
+  to get a smaller design, try to work backwards and find which commands may
+  have contributed to the design failing
+- especially important when the bug is happening inside of a ``synth_*`` script
+- example (#4590)
+  
+  + say you did all the minimization and found that the error occurs when a call
+    to ``techmap -map +/xilinx/cells_map.v`` with ``MIN_MUX_INPUTS`` defined
+    parses a `$_MUX16_` with all inputs set to ``1'x``
+  + step through the original script, calling `stat` after each step to find
+    when the `$_MUX16_` is added
+  + find that the `$_MUX16_` is introduced by a call to `muxcover`, but all the
+    inputs are defined, so calling `techmap` now works as expected
+
+    * and from running `bugpoint` with the failing techmap you know that the
+      cell with index ``2297`` will fail, so you can now call ``select
+      top/*$2297`` to limit to just that cell, and optionally call ``design
+      -save pre_bug`` or ``write_rtlil -selected pre_bug.il`` to save this state
+
+  + next you step through the remaining commands and call `dump` after each to
+    find when the inputs are disconnected
+  + find that ``opt -full`` has optimized away portions of the circuit, leading
+    to `opt_expr` setting the undriven mux inputs to ``x``, but failing to
+    remove the now unnecessary `$_MUX16_`
+
+- in this example, you might've stopped with the minimal reproducer, fixed the
+  bug in ``+/xilinx/cells_map.v``, and carried on
+- but by following the failure back you've managed to identify a problem with
+  `opt_expr` that could be causing other problems either now or in the future
 
 
 Creating an issue on GitHub
