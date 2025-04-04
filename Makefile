@@ -958,11 +958,19 @@ unit-test: libyosys.so
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
+ifeq ($(ENABLE_PYOSYS),1)
 wheel: $(TARGETS)
 	$(PYTHON_EXECUTABLE) -m pip wheel .
 
 install-wheel: wheel
 	$(PYTHON_EXECUTABLE) -m pip install pyosys-$(YOSYS_MAJOR).$(YOSYS_MINOR).$(YOSYS_COMMIT)-*.whl --force-reinstall
+else
+wheel:
+	$(error Pyosys is not enabled. Set ENABLE_PYOSYS=1 to enable it.)
+
+install-wheel:
+	$(error Pyosys is not enabled. Set ENABLE_PYOSYS=1 to enable it.)
+endif
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
@@ -1078,6 +1086,7 @@ clean:
 	rm -rf kernel/*.pyh
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
+	rm -f kernel/python_wrappers.o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -1091,6 +1100,8 @@ clean:
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
 	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -f *.whl
+	rm -f libyosys.so
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
