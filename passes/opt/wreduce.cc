@@ -238,7 +238,7 @@ struct WreduceWorker
 		SigSpec sig = mi.sigmap(cell->getPort(stringf("\\%c", port)));
 
 		if (port == 'B' && cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr)))
-			port_signed = false;
+			port_signed = true; // SILIMATE: HAD TO CHANGE THIS TO RESOLVE CUSTOMER_SHL_BLOWUP_2. REAL FIX IS TO MAKE SURE THAT YOSYS DOES THE RIGHT THING WITH SIGNEDNESS.
 
 		int bits_removed = 0;
 		if (GetSize(sig) > max_port_size) {
