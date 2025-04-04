@@ -1241,6 +1241,9 @@ struct RTLIL::Selection
 		return !selects_all() && selected_modules.empty() && selected_members.empty();
 	}
 
+	// clear this selection, leaving it empty
+	void clear();
+
 	// create a new selection which is empty
 	static Selection EmptySelection(RTLIL::Design *design = nullptr) { return Selection(false, false, design); };
 

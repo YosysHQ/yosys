@@ -891,6 +891,14 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	}
 }
 
+void RTLIL::Selection::clear()
+{
+	full_selection = false;
+	complete_selection = false;
+	selected_modules.clear();
+	selected_members.clear();
+}
+
 RTLIL::Design::Design()
   : verilog_defines (new define_map_t)
 {

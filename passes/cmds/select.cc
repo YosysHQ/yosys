@@ -159,10 +159,7 @@ static void select_all(RTLIL::Design *design, RTLIL::Selection &lhs)
 static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	if (lhs.selects_all()) {
-		lhs.full_selection = false;
-		lhs.complete_selection = false;
-		lhs.selected_modules.clear();
-		lhs.selected_members.clear();
+		lhs.clear();
 		return;
 	}
 
@@ -341,9 +338,8 @@ static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const 
 			for (auto mod : new_rhs.selected_modules)
 				lhs.selected_modules.insert(mod);
 		} else {
+			lhs.clear();
 			lhs.full_selection = true;
-			lhs.selected_modules.clear();
-			lhs.selected_members.clear();
 		}
 		return;
 	}
@@ -361,10 +357,7 @@ static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const 
 static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
 	if (rhs.complete_selection) {
-		lhs.full_selection = false;
-		lhs.complete_selection = false;
-		lhs.selected_modules.clear();
-		lhs.selected_members.clear();
+		lhs.clear();
 		return;
 	}
 
@@ -378,9 +371,7 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 				lhs.selected_members.erase(mod);
 			}
 		} else {
-			lhs.full_selection = false;
-			lhs.selected_modules.clear();
-			lhs.selected_members.clear();
+			lhs.clear();
 		}
 		return;
 	}
@@ -435,10 +426,7 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 		return;
 
 	if (rhs.empty()) {
-		lhs.full_selection = false;
-		lhs.complete_selection = false;
-		lhs.selected_modules.clear();
-		lhs.selected_members.clear();
+		lhs.clear();
 		return;
 	}
 
@@ -680,9 +668,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 		return;
 
 	if (sel.full_selection) {
-		sel.full_selection = false;
-		sel.selected_modules.clear();
-		sel.selected_members.clear();
+		sel.clear();
 		sel.selected_modules.insert(design->selected_active_module);
 		return;
 	}
