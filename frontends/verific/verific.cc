@@ -1677,9 +1677,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
 						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
-			if ((bits_in_word * number_of_bits) > (uint64_t)(((uint64_t)1) << 28))
-				log_error("Memory %s size is larger than 2**28 bits, bits_in_word: %ld, number_of_bits: %ld, total: %ld\n", net->Name(),
-				       bits_in_word, number_of_bits, bits_in_word * number_of_bits);
 			memory->width = bits_in_word;
 			memory->size = number_of_bits / bits_in_word;
 
