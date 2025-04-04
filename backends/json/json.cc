@@ -252,7 +252,7 @@ struct JsonWriter
 				f << stringf("\n          },\n");
 				f << stringf("          \"width\": %d,\n", it.second->width);
 				f << stringf("          \"start_offset\": %d,\n", it.second->start_offset);
-				f << stringf("          \"size\": %d\n", it.second->size);
+				f << stringf("          \"size\": %zu\n", it.second->size);
 				f << stringf("        }");
 				first = false;
 			}

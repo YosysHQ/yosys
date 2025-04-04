@@ -720,6 +720,7 @@ public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
 	Const(const std::string &str);
 	Const(int val, int width = 32);
+	Const(size_t val);
 	Const(RTLIL::State bit, int width = 1);
 	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
 	Const(const std::vector<bool> &bits);
@@ -735,6 +736,7 @@ public:
 	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
+	size_t as_size() const;
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
@@ -1716,7 +1718,8 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	Memory();
 
 	RTLIL::IdString name;
-	int width, start_offset, size;
+	size_t size;
+	int width, start_offset;
 #ifdef WITH_PYTHON
 	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);

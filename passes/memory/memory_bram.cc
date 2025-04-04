@@ -807,7 +807,7 @@ grow_read_ports:;
 	if (cell_init) {
 		Const initparam = mem.get_init_data();
 		initdata.reserve(mem.size);
-		for (int i = 0; i < mem.size; i++) {
+		for (size_t i = 0; i < mem.size; i++) {
 			std::vector<State> val;
 			for (auto idx : shuffle_map) {
 				if (idx == -1)

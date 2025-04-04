@@ -95,7 +95,8 @@ struct Mem : RTLIL::AttrObject {
 	bool packed;
 	RTLIL::Memory *mem;
 	Cell *cell;
-	int width, start_offset, size;
+	size_t size;
+	int width, start_offset;
 	std::vector<MemInit> inits;
 	std::vector<MemRd> rd_ports;
 	std::vector<MemWr> wr_ports;
@@ -222,7 +223,7 @@ struct Mem : RTLIL::AttrObject {
 	// in the same clock domain.
 	void emulate_read_first(FfInitVals *initvals);
 
-	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
+	Mem(Module *module, IdString memid, int width, int start_offset, size_t size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), size(size), width(width), start_offset(start_offset) {}
 };
 
 // MemContents efficiently represents the contents of a potentially sparse memory by storing only those segments that are actually defined

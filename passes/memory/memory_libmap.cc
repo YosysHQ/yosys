@@ -2098,11 +2098,11 @@ void MemMapping::emit(const MemConfig &cfg) {
 						if (!bit.valid) {
 							initval.push_back(State::Sx);
 						} else {
-							int addr = bit.addr;
+							size_t addr = bit.addr;
 							for (int i = GetSize(cfg.def->dbits) - 1; i < cfg.def->abits; i++)
 								if (hwa & 1 << i)
 									addr += 1 << hw_addr_swizzle[i];
-							if (addr >= mem.start_offset && addr < mem.start_offset + mem.size)
+							if (addr >= (size_t) mem.start_offset && addr < mem.start_offset + mem.size)
 								initval.push_back(init_data[(addr - mem.start_offset) * mem.width + bit.bit]);
 							else
 								initval.push_back(State::Sx);

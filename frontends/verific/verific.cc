@@ -1663,23 +1663,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			module->memories[memory->name] = memory;
 			import_attributes(memory->attributes, net, nl);
 
-			uint64_t number_of_bits = net->Size();
-			uint64_t bits_in_word = number_of_bits;
+			size_t number_of_bits = net->Size();
+			size_t bits_in_word = number_of_bits;
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
 				if (pr->GetInst()->Type() == OPER_READ_PORT) {
-					bits_in_word = min<uint64_t>(bits_in_word, pr->GetInst()->OutputSize());
+					bits_in_word = min<size_t>(bits_in_word, pr->GetInst()->OutputSize());
 					continue;
 				}
 				if (pr->GetInst()->Type() == OPER_WRITE_PORT || pr->GetInst()->Type() == OPER_CLOCKED_WRITE_PORT) {
-					bits_in_word = min<uint64_t>(bits_in_word, pr->GetInst()->Input2Size());
+					bits_in_word = min<size_t>(bits_in_word, pr->GetInst()->Input2Size());
 					continue;
 				}
 				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
 						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
-			if ((bits_in_word * number_of_bits) > (uint64_t)(((uint64_t)1) << 28))
-				log_error("Memory %s size is larger than 2**28 bits, bits_in_word: %ld, number_of_bits: %ld, total: %ld\n", net->Name(),
-				       bits_in_word, number_of_bits, bits_in_word * number_of_bits);
 			memory->width = bits_in_word;
 			memory->size = number_of_bits / bits_in_word;
 

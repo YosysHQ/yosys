@@ -236,6 +236,19 @@ RTLIL::Const::Const(int val, int width)
 	}
 }
 
+RTLIL::Const::Const(size_t val)
+{
+	flags = RTLIL::CONST_FLAG_NONE;
+	new ((void*)&bits_) bitvectype();
+	tag = backing_tag::bits;
+	bitvectype& bv = get_bits();
+	bv.reserve(64);
+	for (int i = 0; i < 64; i++) {
+		bv.push_back((val & 1) != 0 ? State::S1 : State::S0);
+		val = val >> 1;
+	}
+}
+
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
@@ -378,6 +391,17 @@ int RTLIL::Const::as_int(bool is_signed) const
 			ret |= 1 << i;
 	if (is_signed && bv.back() == State::S1)
 		for (size_t i = bv.size(); i < 32; i++)
+			ret |= 1 << i;
+	return ret;
+}
+
+size_t RTLIL::Const::as_size() const
+{
+	bitvectorize();
+	bitvectype& bv = get_bits();
+	size_t ret = 0;
+	for (size_t i = 0; i < bv.size() && i < 32; i++)
+		if (bv[i] == State::S1)
 			ret |= 1 << i;
 	return ret;
 }

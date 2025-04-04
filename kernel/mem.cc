@@ -130,7 +130,7 @@ void Mem::emit() {
 		cell->parameters[ID::MEMID] = Const(memid.str());
 		cell->parameters[ID::WIDTH] = Const(width);
 		cell->parameters[ID::OFFSET] = Const(start_offset);
-		cell->parameters[ID::SIZE] = Const(size);
+		cell->parameters[ID::SIZE] = Const(size, 64);
 		Const rd_wide_continuation, rd_clk_enable, rd_clk_polarity, rd_transparency_mask, rd_collision_x_mask;
 		Const wr_wide_continuation, wr_clk_enable, wr_clk_polarity, wr_priority_mask;
 		Const rd_ce_over_srst, rd_arst_value, rd_srst_value, rd_init_value;
@@ -696,7 +696,7 @@ namespace {
 		Mem res(cell->module, cell->parameters.at(ID::MEMID).decode_string(),
 			cell->parameters.at(ID::WIDTH).as_int(),
 			cell->parameters.at(ID::OFFSET).as_int(),
-			cell->parameters.at(ID::SIZE).as_int()
+			cell->parameters.at(ID::SIZE).as_size()
 		);
 		bool is_compat = cell->type == ID($mem);
 		int abits = cell->parameters.at(ID::ABITS).as_int();
@@ -705,13 +705,13 @@ namespace {
 		res.attributes = cell->attributes;
 		Const &init = cell->parameters.at(ID::INIT);
 		if (!init.is_fully_undef()) {
-			int pos = 0;
+			size_t pos = 0;
 			while (pos < res.size) {
 				Const word = init.extract(pos * res.width, res.width, State::Sx);
 				if (word.is_fully_undef()) {
 					pos++;
 				} else {
-					int epos;
+					size_t epos;
 					for (epos = pos; epos < res.size; epos++) {
 						Const eword = init.extract(epos * res.width, res.width, State::Sx);
 						if (eword.is_fully_undef())

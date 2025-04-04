@@ -201,7 +201,7 @@ struct MemoryMapWorker
 
 		int count_static = 0;
 
-		for (int i = 0; i < mem.size; i++)
+		for (size_t i = 0; i < mem.size; i++)
 		{
 			int addr = i + mem.start_offset;
 			int idx = addr & ((1 << abits) - 1);
@@ -268,7 +268,7 @@ struct MemoryMapWorker
 			}
 		}
 
-		log("  created %d %s cells and %d static cells of width %d.\n",
+		log("  created %zu %s cells and %d static cells of width %d.\n",
 				mem.size-count_static, formal && (static_only || async_wr) ? "$ff" : "$dff", count_static, mem.width);
 
 		int count_dff = 0, count_mux = 0, count_wrmux = 0;
@@ -315,7 +315,7 @@ struct MemoryMapWorker
 
 		if (!static_only)
 		{
-			for (int i = 0; i < mem.size; i++)
+			for (size_t i = 0; i < mem.size; i++)
 			{
 				int addr = i + mem.start_offset;
 				int idx = addr & ((1 << abits) - 1);
