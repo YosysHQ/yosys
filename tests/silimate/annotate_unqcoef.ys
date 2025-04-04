@@ -18,7 +18,5 @@ annotate_unqcoef
 # Check uniqueness coefficients are correct
 # TODO
 
-write_verilog test.v
-
 design -reset
 log -pop

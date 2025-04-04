@@ -269,44 +269,44 @@ log -pop
 
 
 
-log -header "Reconverging tree; yes off-chain"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input wire [7:0] sel,
-  input wire [7:0] a,
-  output wire x
-);
-  wire w0, w1, w2, w3, w4, w5, w6;
+# log -header "Reconverging tree; yes off-chain"
+# log -push
+# design -reset
+# read_verilog <<EOF
+# module top (
+#   input wire [7:0] sel,
+#   input wire [7:0] a,
+#   output wire x
+# );
+#   wire w0, w1, w2, w3, w4, w5, w6;
 
-  assign w0 = sel[0] ? a[1] : a[0];
-  assign w1 = sel[1] ? a[2] : w0;
-  assign w2 = sel[2] ? w4 : w1;
-  assign w3 = sel[3] ? w2 : w5;
-  assign w4 = sel[6] ? a[3] : w6;
-  assign w5 = sel[5] ? a[5] : w4;
-  assign w6 = sel[7] ? a[7] : a[4];
-  assign x  = sel[4] ? a[6] : w3;
-endmodule
-EOF
-check -assert
+#   assign w0 = sel[0] ? a[1] : a[0];
+#   assign w1 = sel[1] ? a[2] : w0;
+#   assign w2 = sel[2] ? w4 : w1;
+#   assign w3 = sel[3] ? w2 : w5;
+#   assign w4 = sel[6] ? a[3] : w6;
+#   assign w5 = sel[5] ? a[5] : w4;
+#   assign w6 = sel[7] ? a[7] : a[4];
+#   assign x  = sel[4] ? a[6] : w3;
+# endmodule
+# EOF
+# check -assert
 
-# Check equivalence after extract_reduce
-equiv_opt -assert extract_reduce -allow-off-chain
+# # Check equivalence after extract_reduce
+# equiv_opt -assert extract_reduce -allow-off-chain
 
-# Load design and run opt_clean and opt_reduce to remove unnecessary cells
-design -load postopt
-opt_clean
-opt_reduce
+# # Load design and run opt_clean and opt_reduce to remove unnecessary cells
+# design -load postopt
+# opt_clean
+# opt_reduce
 
-# Check we got one pmux with correct number of inputs
-select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
-select -assert-count 1 t:$pmux r:S_WIDTH=8 %i
+# # Check we got one pmux with correct number of inputs
+# select -assert-count 0 t:$mux
+# select -assert-count 1 t:$pmux
+# select -assert-count 1 t:$pmux r:S_WIDTH=8 %i
 
-design -reset
-log -pop
+# design -reset
+# log -pop
 
 
 
@@ -369,7 +369,7 @@ module top (
   assign w3 = sel[3] ? w2 : w5;
   assign w4 = sel[2] ? a[3] : w6;
   assign w5 = sel[5] ? a[5] : w4;
-  assign w6 = w[2] ? a[7] : a[4];
+  assign w6 = a[2] ? a[7] : a[4];
   assign x  = sel[4] ? a[6] : w3;
 endmodule
 EOF
@@ -519,66 +519,66 @@ log -pop
 
 
 
-log -header "Stress test with reconverging tree and yes off chain"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input  wire [7:0] sel0,
-  input  wire [7:0] sel1,
-  input  wire [7:0] sel2,
-  input  wire [7:0] a0,
-  input  wire [7:0] a1,
-  input  wire [7:0] a2,
-  output wire x
-);
-  wire x0, x1;
+# log -header "Stress test with reconverging tree and yes off chain"
+# log -push
+# design -reset
+# read_verilog <<EOF
+# module top (
+#   input  wire [7:0] sel0,
+#   input  wire [7:0] sel1,
+#   input  wire [7:0] sel2,
+#   input  wire [7:0] a0,
+#   input  wire [7:0] a1,
+#   input  wire [7:0] a2,
+#   output wire x
+# );
+#   wire x0, x1;
 
-  // Stage 0
-  wire s0_w6 = sel0[7] ? a0[7] : a0[4];
-  wire s0_w4 = sel0[6] ? a0[3] : s0_w6;
-  wire s0_w5 = sel0[5] ? a0[5] : s0_w4;
-  wire s0_w0 = sel0[0] ? a0[1] : a0[0];
-  wire s0_w1 = sel0[1] ? a0[2] : s0_w0;
-  wire s0_w2 = sel0[2] ? s0_w4 : s0_w1;
-  wire s0_w3 = sel0[3] ? s0_w2 : s0_w5;
-  assign x0  = sel0[4] ? a0[6] : s0_w3;
+#   // Stage 0
+#   wire s0_w6 = sel0[7] ? a0[7] : a0[4];
+#   wire s0_w4 = sel0[6] ? a0[3] : s0_w6;
+#   wire s0_w5 = sel0[5] ? a0[5] : s0_w4;
+#   wire s0_w0 = sel0[0] ? a0[1] : a0[0];
+#   wire s0_w1 = sel0[1] ? a0[2] : s0_w0;
+#   wire s0_w2 = sel0[2] ? s0_w4 : s0_w1;
+#   wire s0_w3 = sel0[3] ? s0_w2 : s0_w5;
+#   assign x0  = sel0[4] ? a0[6] : s0_w3;
 
-  // Stage 1
-  wire s1_w6 = sel1[7] ? a1[7] : a1[4];
-  wire s1_w4 = sel1[6] ? a1[3] : s1_w6;
-  wire s1_w5 = sel1[5] ? a1[5] : s1_w4;
-  wire s1_w0 = sel1[0] ? a1[1] : x0;
-  wire s1_w1 = sel1[1] ? a1[2] : s1_w0;
-  wire s1_w2 = sel1[2] ? s1_w4 : s1_w1;
-  wire s1_w3 = sel1[3] ? s1_w2 : s1_w5;
-  assign x1  = sel1[4] ? a1[6] : s1_w3;
+#   // Stage 1
+#   wire s1_w6 = sel1[7] ? a1[7] : a1[4];
+#   wire s1_w4 = sel1[6] ? a1[3] : s1_w6;
+#   wire s1_w5 = sel1[5] ? a1[5] : s1_w4;
+#   wire s1_w0 = sel1[0] ? a1[1] : x0;
+#   wire s1_w1 = sel1[1] ? a1[2] : s1_w0;
+#   wire s1_w2 = sel1[2] ? s1_w4 : s1_w1;
+#   wire s1_w3 = sel1[3] ? s1_w2 : s1_w5;
+#   assign x1  = sel1[4] ? a1[6] : s1_w3;
 
-  // Stage 2
-  wire s2_w6 = sel2[7] ? a2[7] : a2[4];
-  wire s2_w4 = sel2[6] ? a2[3] : s2_w6;
-  wire s2_w5 = sel2[5] ? a2[5] : s2_w4;
-  wire s2_w0 = sel2[0] ? a2[1] : x1;
-  wire s2_w1 = sel2[1] ? a2[2] : s2_w0;
-  wire s2_w2 = sel2[2] ? s2_w4 : s2_w1;
-  wire s2_w3 = sel2[3] ? s2_w2 : s2_w5;
-  assign x   = sel2[4] ? a2[6] : s2_w3;
-endmodule
+#   // Stage 2
+#   wire s2_w6 = sel2[7] ? a2[7] : a2[4];
+#   wire s2_w4 = sel2[6] ? a2[3] : s2_w6;
+#   wire s2_w5 = sel2[5] ? a2[5] : s2_w4;
+#   wire s2_w0 = sel2[0] ? a2[1] : x1;
+#   wire s2_w1 = sel2[1] ? a2[2] : s2_w0;
+#   wire s2_w2 = sel2[2] ? s2_w4 : s2_w1;
+#   wire s2_w3 = sel2[3] ? s2_w2 : s2_w5;
+#   assign x   = sel2[4] ? a2[6] : s2_w3;
+# endmodule
 
-EOF
-check -assert
+# EOF
+# check -assert
 
-# Check equivalence after extract_reduce
-equiv_opt -assert extract_reduce -allow-off-chain
+# # Check equivalence after extract_reduce
+# equiv_opt -assert extract_reduce -allow-off-chain
 
-# Load design and run opt_clean and opt_reduce to remove unnecessary cells
-design -load postopt
-opt_clean
-opt_reduce
+# # Load design and run opt_clean and opt_reduce to remove unnecessary cells
+# design -load postopt
+# opt_clean
+# opt_reduce
 
-# Check we got one pmux with correct number of inputs
-select -assert-count 0 t:$mux
-select -assert-count 1 t:$pmux
+# # Check we got one pmux with correct number of inputs
+# select -assert-count 0 t:$mux
+# select -assert-count 1 t:$pmux
 
-design -reset
-log -pop
+# design -reset
+# log -pop

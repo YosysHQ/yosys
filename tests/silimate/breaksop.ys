@@ -52,7 +52,6 @@ equiv_opt -assert breaksop
 
 # Check final design has correct number of gates
 design -load postopt
-write_verilog dump_post.v
 select -assert-count 2 t:$reduce_and
 select -assert-count 1 t:$reduce_or
 
@@ -146,13 +145,11 @@ abc -sop
 select -assert-count 1 t:$sop
 
 # Check equivalence after breaksop
-write_verilog dump_pre.v
 equiv_opt -assert breaksop
 
 # Check final design has correct number of gates
 design -load postopt
 opt
-write_verilog dump_post.v
 select -assert-count 2 t:$reduce_and
 select -assert-count 1 t:$reduce_or
 
