@@ -37,10 +37,15 @@ struct CutpointPass : public Pass {
 		log("        set cutpoint nets to undef (x). the default behavior is to create\n");
 		log("        an $anyseq cell and drive the cutpoint net from that\n");
 		log("\n");
+		log("    cutpoint -blackbox [options]\n");
+		log("\n");
+		log("Replace the contents of all blackboxes in the design with a formal cut point.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		 bool flag_undef = false;
+		bool flag_undef = false;
+		bool flag_blackbox = false;
 
 		log_header(design, "Executing CUTPOINT pass.\n");
 
@@ -51,11 +56,25 @@ struct CutpointPass : public Pass {
 				flag_undef = true;
 				continue;
 			}
+			if (args[argidx] == "-blackbox") {
+				flag_blackbox = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
+		if (flag_blackbox) {
+			if (!design->full_selection())
+				log_cmd_error("This command only operates on fully selected designs!\n");
+			RTLIL::Selection module_boxes(false);
+			for (auto module : design->modules())
+				if (module->get_blackbox_attribute())
+					module_boxes.select(module);
+			design->selection_stack.push_back(module_boxes);
+		}
+
+		for (auto module : design->all_selected_modules())
 		{
 			if (module->is_selected_whole()) {
 				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
@@ -68,6 +87,10 @@ struct CutpointPass : public Pass {
 						output_wires.push_back(wire);
 				for (auto wire : output_wires)
 					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
+				if (module->get_blackbox_attribute()) {
+					module->set_bool_attribute(ID::blackbox, false);
+					module->set_bool_attribute(ID::whitebox, false);
+				}
 				continue;
 			}
 

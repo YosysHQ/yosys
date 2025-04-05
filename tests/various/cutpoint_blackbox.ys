@@ -1,0 +1,33 @@
+read_verilog -specify << EOT
+module top(input a, b, output o);
+    wire c, d;
+    bb bb1 (.a (a), .b (b), .o (c));
+    wb wb1 (.a (a), .b (b), .o (d));
+    some_mod some_inst (.a (c), .b (d), .o (o));
+endmodule
+
+(* blackbox *)
+module bb(input a, b, output o);
+assign o = a | b;
+specify
+	(a => o) = 1;
+endspecify
+endmodule
+
+(* whitebox *)
+module wb(input a, b, output o);
+assign o = a ^ b;
+endmodule
+
+module some_mod(input a, b, output o);
+assign o = a & b;
+endmodule
+EOT
+
+select top
+
+select -assert-count 0 t:$anyseq
+select -assert-count 2 =t:?b
+cutpoint -blackbox =*
+select -assert-count 2 t:$anyseq
+select -assert-count 2 t:?b
