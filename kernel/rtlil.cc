@@ -2140,7 +2140,7 @@ namespace {
 				param(ID::TYPE);
 				check_expected();
 				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
-				if (scope_type != "module" && scope_type != "struct")
+				if (scope_type != "module" && scope_type != "struct" && scope_type != "blackbox")
 					error(__LINE__);
 				return;
 			}
