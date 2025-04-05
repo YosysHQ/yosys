@@ -90,6 +90,8 @@ struct CutpointPass : public Pass {
 				if (module->get_blackbox_attribute()) {
 					module->set_bool_attribute(ID::blackbox, false);
 					module->set_bool_attribute(ID::whitebox, false);
+					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 				}
 				continue;
 			}
