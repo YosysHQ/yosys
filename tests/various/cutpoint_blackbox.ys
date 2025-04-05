@@ -1,13 +1,14 @@
 read_verilog -specify << EOT
 module top(input a, b, output o);
-    wire c, d;
-    bb bb1 (.a (a), .b (b), .o (c));
-    wb wb1 (.a (a), .b (b), .o (d));
-    some_mod some_inst (.a (c), .b (d), .o (o));
+    wire c, d, e;
+    bb #(.SOME_PARAM(1)) bb1 (.a (a), .b (b), .o (c));
+    bb #(.SOME_PARAM(2)) bb2 (.a (a), .b (b), .o (d));
+    wb wb1 (.a (a), .b (b), .o (e));
+    some_mod some_inst (.a (c), .b (d), .c (e), .o (o));
 endmodule
 
 (* blackbox *)
-module bb(input a, b, output o);
+module bb #( parameter SOME_PARAM=0 ) (input a, b, output o);
 assign o = a | b;
 specify
 	(a => o) = 1;
@@ -19,15 +20,20 @@ module wb(input a, b, output o);
 assign o = a ^ b;
 endmodule
 
-module some_mod(input a, b, output o);
-assign o = a & b;
+module some_mod(input a, b, c, output o);
+assign o = a & (b | c);
 endmodule
 EOT
 
-select top
+hierarchy -top top
 
 select -assert-count 0 t:$anyseq
-select -assert-count 2 =t:?b
-cutpoint -blackbox =*
-select -assert-count 2 t:$anyseq
-select -assert-count 2 t:?b
+select -assert-count 3 =t:?b
+cutpoint -blackbox
+
+select -assert-count 3 =t:?b
+select -assert-count 2 r:SOME_PARAM
+select -assert-count 1 r:SOME_PARAM=1
+
+flatten
+select -assert-count 3 t:$anyseq
