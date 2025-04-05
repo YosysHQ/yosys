@@ -539,7 +539,7 @@ struct LibertyFrontend : public Frontend {
 
 		log_header(design, "Executing Liberty frontend: %s\n", filename.c_str());
 
-		LibertyParser parser(*f);
+		LibertyParser parser(*f, filename);
 		int cell_count = 0;
 
 		std::map<std::string, std::tuple<int, int, bool>> global_type_map;

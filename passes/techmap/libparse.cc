@@ -32,6 +32,31 @@
 
 using namespace Yosys;
 
+#ifndef FILTERLIB
+
+LibertyAstCache LibertyAstCache::instance;
+
+std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string &fname)
+{
+	auto it = cached.find(fname);
+	if (it == cached.end())
+		return nullptr;
+	log("Using cached data for liberty file `%s'\n", fname.c_str());
+	return it->second;
+}
+
+void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast)
+{
+	auto it = cache_path.find(fname);
+	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
+	if (!should_cache)
+		return;
+	log("Caching data for liberty file `%s'\n", fname.c_str());
+	cached.emplace(fname, ast);
+}
+
+#endif
+
 bool LibertyInputStream::extend_buffer_once()
 {
 	if (eof)

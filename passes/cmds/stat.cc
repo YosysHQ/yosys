@@ -352,7 +352,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 	yosys_input_files.insert(liberty_file);
 	if (f->fail())
 		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
-	LibertyParser libparser(*f);
+	LibertyParser libparser(*f, liberty_file);
 	delete f;
 
 	for (auto cell : libparser.ast->children)

@@ -132,6 +132,22 @@ namespace Yosys
 		}
 	};
 
+#ifndef FILTERLIB
+	class LibertyAstCache {
+		LibertyAstCache() {};
+		~LibertyAstCache() {};
+	public:
+		dict<std::string, std::shared_ptr<const LibertyAst>> cached;
+
+		bool cache_by_default = false;
+		dict<std::string, bool> cache_path;
+
+		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname);
+		void parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast);
+		static LibertyAstCache instance;
+	};
+#endif
+
 	class LibertyMergedCells;
 	class LibertyParser
 	{
@@ -152,15 +168,29 @@ namespace Yosys
 		void error(const std::string &str) const;
 
 	public:
-		const LibertyAst *ast;
+		std::shared_ptr<const LibertyAst> shared_ast;
+		const LibertyAst *ast = nullptr;
 
-		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
-		~LibertyParser() { if (ast) delete ast; }
+		LibertyParser(std::istream &f) : f(f), line(1) {
+			shared_ast.reset(parse());
+			ast = shared_ast.get();
+		}
+
+#ifndef FILTERLIB
+		LibertyParser(std::istream &f, const std::string &fname) : f(f), line(1) {
+			shared_ast = LibertyAstCache::instance.cached_ast(fname);
+			if (!shared_ast) {
+				shared_ast.reset(parse());
+				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
+			}
+			ast = shared_ast.get();
+		}
+#endif
 	};
 
 	class LibertyMergedCells
 	{
-		std::vector<const LibertyAst *> asts;
+		std::vector<std::shared_ptr<const LibertyAst>> asts;
 
 	public:
 		std::vector<const LibertyAst *> cells;
@@ -168,21 +198,13 @@ namespace Yosys
 		{
 			if (parser.ast) {
 				const LibertyAst *ast = parser.ast;
-				asts.push_back(ast);
-				// The parser no longer owns its top level ast, but we do.
-				// sketchy zone
-				parser.ast = nullptr;
+				asts.push_back(parser.shared_ast);
 				if (ast->id != "library")
 					parser.error("Top level entity isn't \"library\".\n");
 				for (const LibertyAst *cell : ast->children)
 					if (cell->id == "cell" && cell->args.size() == 1)
 						cells.push_back(cell);
 			}
-		}
-		~LibertyMergedCells()
-		{
-			for (auto ast : asts)
-				delete ast;
 		}
 	};
 
