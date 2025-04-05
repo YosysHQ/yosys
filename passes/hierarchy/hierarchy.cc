@@ -978,6 +978,11 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
+		bool verific_mod = false;
+#ifdef YOSYS_ENABLE_VERIFIC
+		verific_mod = verific_import_pending;
+#endif
+
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
@@ -1418,13 +1423,18 @@ struct HierarchyPass : public Pass {
 				if (m == nullptr)
 					continue;
 
-				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
-					if (new_m_name.empty())
-						continue;
-					if (new_m_name != m->name) {
-						m = design->module(new_m_name);
-						blackbox_derivatives.insert(m);
+				bool boxed_params = false;
+				if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
+					if (m->get_bool_attribute(ID::dynports)) {
+						IdString new_m_name = m->derive(design, cell->parameters, true);
+						if (new_m_name.empty())
+							continue;
+						if (new_m_name != m->name) {
+							m = design->module(new_m_name);
+							blackbox_derivatives.insert(m);
+						}
+					} else {
+						boxed_params = true;
 					}
 				}
 
@@ -1440,8 +1450,12 @@ struct HierarchyPass : public Pass {
 
 					SigSpec sig = conn.second;
 
-					if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
-					{
+					bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
+					if (resize_widths && verific_mod && boxed_params)
+						log_warning("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
+								log_id(module), log_id(cell), log_id(conn.first)
+						);
+					else if (resize_widths) {
 						if (GetSize(w) < GetSize(conn.second))
 						{
 							int n = GetSize(conn.second) - GetSize(w);
