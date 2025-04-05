@@ -9,7 +9,7 @@ library(ls05_stdcells) {
     }
     pin(Y) {
       direction : output ;
-      function : !(B&!A|!B&A) ;
+      function : "!(B&!A|!B&A)" ;
     }
   }
 }
