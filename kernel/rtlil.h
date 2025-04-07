@@ -1183,7 +1183,7 @@ struct RTLIL::Selection
 		// the design to select from
 		RTLIL::Design *design = nullptr
 	) : 
-		full_selection(full && !boxes), selects_boxes(boxes), complete_selection(full && boxes), current_design(design) { }
+		selects_boxes(boxes), complete_selection(full && boxes), full_selection(full && !boxes), current_design(design) { }
 
 	// checks if the given module exists in the current design and is a
 	// boxed module, warning the user if the current design is not set
