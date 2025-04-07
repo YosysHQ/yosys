@@ -184,17 +184,13 @@ module \$__XILINX_SHIFTX (A, B, Y);
         assign A_i[i] = A[i*2];
       \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH((A_WIDTH+1'd1)/2'd2), .B_WIDTH(B_WIDTH-1'd1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A_i), .B(B[B_WIDTH-1:1]), .Y(Y));
     end
-    // Handle presence of leading 1'bx -es in A
+    // Trim off any leading 1'bx -es in A
     else if (_TECHMAP_CONSTMSK_A_[A_WIDTH-1] && _TECHMAP_CONSTVAL_A_[A_WIDTH-1] === 1'bx) begin
-      // Replace by 1'bx if A is only 'x
-      if (A_WIDTH_trimmed(A_WIDTH-1) == 0) begin
+      localparam A_WIDTH_new = A_WIDTH_trimmed(A_WIDTH-1);
+      if (A_WIDTH_new == 0)
         assign Y = 1'bx;
-      end
-      // Trim off any leading 1'bx -es in A
-      else begin
-        localparam A_WIDTH_new = A_WIDTH_trimmed(A_WIDTH-1);
+      else
         \$__XILINX_SHIFTX  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH_new), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A[A_WIDTH_new-1:0]), .B(B), .Y(Y));
-      end
     end
     else if (A_WIDTH < `MIN_MUX_INPUTS) begin
       wire _TECHMAP_FAIL_ = 1;
