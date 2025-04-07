@@ -1,0 +1,290 @@
+
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 2 width 16 \in
+  wire input 3 width 4 \sel
+  cell $_MUX16_ \mux
+    connect \A \in [0]
+    connect \B \in [1]
+    connect \C \in [2]
+    connect \D \in [3]
+    connect \E \in [4]
+    connect \F \in [5]
+    connect \G \in [6]
+    connect \H \in [7]
+    connect \I \in [8]
+    connect \J \in [9]
+    connect \K \in [10]
+    connect \L \in [11]
+    connect \M \in [12]
+    connect \N \in [13]
+    connect \O \in [14]
+    connect \P \in [15]
+    connect \S \sel [0]
+    connect \T \sel [1]
+    connect \U \sel [2]
+    connect \V \sel [3]
+    connect \Y \out
+  end
+end
+EOT
+
+##########
+# all undef
+# no mux
+# output undef
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  cell $mux \mux
+    parameter \WIDTH 1
+    connect \A 1'x
+    connect \B 1'x
+    connect \S 1'x
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$mux
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  cell $_MUX_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \S 1'x
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX_
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  cell $_MUX4_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \S 1'x
+    connect \T 1'x
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX4_
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  cell $_MUX8_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \E 1'x
+    connect \F 1'x
+    connect \G 1'x
+    connect \H 1'x
+    connect \S 1'x
+    connect \T 1'x
+    connect \U 1'x
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX8_
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  cell $_MUX16_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \E 1'x
+    connect \F 1'x
+    connect \G 1'x
+    connect \H 1'x
+    connect \I 1'x
+    connect \J 1'x
+    connect \K 1'x
+    connect \L 1'x
+    connect \M 1'x
+    connect \N 1'x
+    connect \O 1'x
+    connect \P 1'x
+    connect \S 1'x
+    connect \T 1'x
+    connect \U 1'x
+    connect \V 1'x
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX16_
+
+##########
+# a and b undef
+# no mux
+# output undef
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 3 \sel
+  cell $mux \mux
+    parameter \WIDTH 1
+    connect \A 1'x
+    connect \B 1'x
+    connect \S \sel
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$mux
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 3 \sel
+  cell $_MUX_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \S \sel
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX_
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 3 width 2 \sel
+  cell $_MUX4_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \S \sel [0]
+    connect \T \sel [1]
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX4_
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 3 width 3 \sel
+  cell $_MUX8_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \E 1'x
+    connect \F 1'x
+    connect \G 1'x
+    connect \H 1'x
+    connect \S \sel [0]
+    connect \T \sel [1]
+    connect \U \sel [2]
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX8_
+select -assert-count 1 o:out %ci*
+
+##
+
+design -reset
+read_rtlil <<EOT
+module \uut
+  wire output 1 \out
+  wire input 3 width 4 \sel
+  cell $_MUX16_ \mux
+    connect \A 1'x
+    connect \B 1'x
+    connect \C 1'x
+    connect \D 1'x
+    connect \E 1'x
+    connect \F 1'x
+    connect \G 1'x
+    connect \H 1'x
+    connect \I 1'x
+    connect \J 1'x
+    connect \K 1'x
+    connect \L 1'x
+    connect \M 1'x
+    connect \N 1'x
+    connect \O 1'x
+    connect \P 1'x
+    connect \S \sel [0]
+    connect \T \sel [1]
+    connect \U \sel [2]
+    connect \V \sel [3]
+    connect \Y \out
+  end
+end
+EOT
+
+opt_expr -mux_undef
+select -assert-none t:$_MUX16_
+select -assert-count 1 o:out %ci*
+
+##########
+
