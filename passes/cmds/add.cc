@@ -102,7 +102,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		RTLIL::Module *mod = design->module(cell->type);
 		if (mod == nullptr)
 			continue;
-		if (!mod->is_selected_whole())
+		if (!design->selected_whole_module(mod->name))
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;

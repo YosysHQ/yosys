@@ -111,7 +111,7 @@ void run(const char *command)
 		log_last_error = "";
 	} catch (...) {
 		while (GetSize(yosys_get_design()->selection_stack) > selSize)
-			yosys_get_design()->pop_selection();
+			yosys_get_design()->selection_stack.pop_back();
 		throw;
 	}
 }

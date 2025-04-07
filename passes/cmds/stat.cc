@@ -351,7 +351,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 	yosys_input_files.insert(liberty_file);
 	if (f->fail())
 		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
-	LibertyParser libparser(*f);
+	LibertyParser libparser(*f, liberty_file);
 	delete f;
 
 	for (auto cell : libparser.ast->children)
@@ -517,7 +517,7 @@ struct StatPass : public Pass {
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", log_id(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
+				log("=== %s%s ===\n", log_id(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
 				log("\n");
 				data.log_data(mod->name, false);
 			}

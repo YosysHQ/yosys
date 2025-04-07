@@ -3116,7 +3116,7 @@ struct SimPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_unboxed_whole_modules();
+			auto mods = design->selected_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();
@@ -3245,7 +3245,7 @@ struct Fst2TbPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_unboxed_whole_modules();
+			auto mods = design->selected_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();

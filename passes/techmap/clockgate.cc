@@ -312,7 +312,7 @@ struct ClockgatePass : public Pass {
 				std::istream* f = uncompressed(path);
 				if (f->fail())
 					log_cmd_error("Can't open liberty file `%s': %s\n", path.c_str(), strerror(errno));
-				LibertyParser p(*f);
+				LibertyParser p(*f, path);
 				merged.merge(p);
 				delete f;
 			}
@@ -333,7 +333,7 @@ struct ClockgatePass : public Pass {
 		dict<ClkNetInfo, GClkNetInfo> clk_nets;
 
 		int gated_flop_count = 0;
-		for (auto module : design->selected_unboxed_whole_modules()) {
+		for (auto module : design->selected_whole_modules()) {
 			for (auto cell : module->cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;

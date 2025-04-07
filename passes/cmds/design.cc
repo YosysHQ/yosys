@@ -216,8 +216,8 @@ struct DesignPass : public Pass {
 			RTLIL::Selection sel;
 			if (argidx != args.size()) {
 				handle_extra_select_args(this, args, argidx, args.size(), copy_from_design);
-				sel = copy_from_design->selection();
-				copy_from_design->pop_selection();
+				sel = copy_from_design->selection_stack.back();
+				copy_from_design->selection_stack.pop_back();
 				argidx = args.size();
 			}
 
@@ -368,7 +368,7 @@ struct DesignPass : public Pass {
 			design->selection_vars.clear();
 			design->selected_active_module.clear();
 
-			design->push_full_selection();
+			design->selection_stack.push_back(RTLIL::Selection());
 		}
 
 		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)

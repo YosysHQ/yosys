@@ -260,18 +260,18 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	pass_register[args[0]]->execute(args, design);
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
-		design->pop_selection();
+		design->selection_stack.pop_back();
 }
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->push_selection(selection);
+	design->selection_stack.push_back(selection);
 
 	Pass::call(design, command);
 
-	design->pop_selection();
+	design->selection_stack.pop_back();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -279,11 +279,11 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->push_selection(selection);
+	design->selection_stack.push_back(selection);
 
 	Pass::call(design, args);
 
-	design->pop_selection();
+	design->selection_stack.pop_back();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -291,12 +291,12 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::str
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module = module->name.str();
-	design->push_empty_selection();
-	design->select(module);
+	design->selection_stack.push_back(RTLIL::Selection(false));
+	design->selection_stack.back().select(module);
 
 	Pass::call(design, command);
 
-	design->pop_selection();
+	design->selection_stack.pop_back();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -304,12 +304,12 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vec
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module = module->name.str();
-	design->push_empty_selection();
-	design->select(module);
+	design->selection_stack.push_back(RTLIL::Selection(false));
+	design->selection_stack.back().select(module);
 
 	Pass::call(design, args);
 
-	design->pop_selection();
+	design->selection_stack.pop_back();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -651,7 +651,7 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	}
 
 	while (design->selection_stack.size() > orig_sel_stack_pos)
-		design->pop_selection();
+		design->selection_stack.pop_back();
 }
 
 struct SimHelper {
