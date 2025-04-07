@@ -66,14 +66,14 @@ namespace RTLIL
 
 	enum SelectBoxes : unsigned char {
 		SB_ALL = 0,            // include boxed modules
-		SB_WARN = 1,           // helper for log_warning
-		SB_ERR = 2,            // helper for log_error
-		SB_CMDERR = 3,         // helper for log_cmd_error
+		SB_WARN = 1,           // helper for log_warning (not for direct use)
+		SB_ERR = 2,            // helper for log_error (not for direct use)
+		SB_CMDERR = 3,         // helper for log_cmd_error (not for direct use)
 		SB_UNBOXED_ONLY = 4,   // ignore boxed modules
 		SB_UNBOXED_WARN = 5,   // call log_warning on boxed module
 		SB_UNBOXED_ERR = 6,    // call log_error on boxed module
 		SB_UNBOXED_CMDERR = 7, // call log_cmd_error on boxed module
-		SB_INCL_WB = 8,        // helper for white boxes
+		SB_INCL_WB = 8,        // helper for white boxes (not for direct use)
 		SB_EXCL_BB_ONLY = 12,  // ignore black boxes, but not white boxes
 		SB_EXCL_BB_WARN = 13,  // call log_warning on black boxed module
 		SB_EXCL_BB_ERR = 14,   // call log_error on black boxed module
