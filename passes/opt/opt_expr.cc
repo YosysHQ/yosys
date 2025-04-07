@@ -1633,6 +1633,20 @@ skip_identity:
 			}
 		}
 
+		if (mux_undef && cell->type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_))) {
+			int num_inputs = 4;
+			if (cell->type == ID($_MUX8_)) num_inputs = 8;
+			if (cell->type == ID($_MUX16_)) num_inputs = 16;
+			int undef_inputs = 0;
+			for (auto &conn : cell->connections())
+				if (!conn.first.in(ID::S, ID::T, ID::U, ID::V, ID::Y))
+					undef_inputs += conn.second.is_fully_undef();
+			if (undef_inputs == num_inputs) {
+				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
+				goto next_cell;
+			}
+		}
+
 #define FOLD_1ARG_CELL(_t) \
 		if (cell->type == ID($##_t)) { \
 			RTLIL::SigSpec a = cell->getPort(ID::A); \
