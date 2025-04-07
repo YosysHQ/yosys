@@ -64,3 +64,4 @@ __pycache__
 /boost
 /ffi
 /doxygen
+/*.whl

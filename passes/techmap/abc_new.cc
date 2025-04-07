@@ -139,7 +139,7 @@ struct AbcNewPass : public ScriptPass {
 			if (!help_mode) {
 				selected_modules = order_modules(active_design,
 												 active_design->selected_whole_modules_warn());
-				active_design->selection_stack.emplace_back(false);
+				active_design->push_empty_selection();
 			} else {
 				selected_modules = {nullptr};
 				run("foreach module in selection");
@@ -157,7 +157,7 @@ struct AbcNewPass : public ScriptPass {
 					exe_options = abc_exe_options;
 					log_header(active_design, "Mapping module '%s'.\n", log_id(mod));
 					log_push();
-					active_design->selection().select(mod);
+					active_design->select(mod);
 				}
 
 				std::string script_save;
@@ -194,7 +194,7 @@ struct AbcNewPass : public ScriptPass {
 			}
 
 			if (!help_mode) {
-				active_design->selection_stack.pop_back();
+				active_design->pop_selection();
 			}
 		}
 	}

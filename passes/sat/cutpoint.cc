@@ -57,7 +57,7 @@ struct CutpointPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			if (design->selected_whole_module(module->name)) {
+			if (module->is_selected_whole()) {
 				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
 				module->new_connections(std::vector<RTLIL::SigSig>());
 				for (auto cell : vector<Cell*>(module->cells()))
