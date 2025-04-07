@@ -734,7 +734,7 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto module : design->selected_whole_modules()) {
+		for (auto module : design->selected_unboxed_whole_modules()) {
 			if (module->has_processes())
 				continue;
 			rmunused_module(module, purge_mode, ys_debug(), true);

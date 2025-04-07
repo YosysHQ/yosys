@@ -114,7 +114,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		if (in_repl) {
 			auto design = yosys_get_design();
 			while (design->selection_stack.size() > 1)
-				design->selection_stack.pop_back();
+				design->pop_selection();
 			log_reset_stack();
 		}
 		Tcl_SetResult(interp, (char *)"Yosys command produced an error", TCL_STATIC);
