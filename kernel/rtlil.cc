@@ -1193,8 +1193,8 @@ void RTLIL::Design::pop_selection()
 std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
 {
 	bool include_partials = partials == RTLIL::SELECT_ALL;
-	bool exclude_boxes = (partials & RTLIL::SB_UNBOXED_ONLY) != 0;
-	bool ignore_wb = (partials & RTLIL::SB_INCL_WB) != 0;
+	bool exclude_boxes = (boxes & RTLIL::SB_UNBOXED_ONLY) != 0;
+	bool ignore_wb = (boxes & RTLIL::SB_INCL_WB) != 0;
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
