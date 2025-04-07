@@ -42,7 +42,7 @@ struct NlutmapWorker
 
 	RTLIL::Selection get_selection()
 	{
-		auto sel = RTLIL::Selection::EmptySelection(module->design);
+		RTLIL::Selection sel(false);
 		for (auto cell : module->cells())
 			if (!mapped_cells.count(cell))
 				sel.select(module, cell);

@@ -340,7 +340,7 @@ struct SccPass : public Pass {
 		int origSelectPos = design->selection_stack.size() - 1;
 		extra_args(args, argidx, design);
 
-		auto newSelection = RTLIL::Selection::EmptySelection(design);
+		RTLIL::Selection newSelection(false);
 		int scc_counter = 0;
 
 		for (auto mod : design->selected_modules())

@@ -1,7 +1,0 @@
-read_verilog -specify boxes.v
-clean
-
-logger -expect-no-warnings
-select -assert-count 5 =wb
-clean =wb
-select -assert-count 4 =wb
