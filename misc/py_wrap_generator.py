@@ -977,6 +977,7 @@ sources = [
 		WClass("IdString", link_types.ref_copy, None, "str()", ""),
 		WClass("Const", link_types.ref_copy, None, "as_string()", ""),
 		WClass("AttrObject", link_types.ref_copy, None, None, None),
+		WClass("NamedObject", link_types.ref_copy, None, None, None),
 		WClass("Selection", link_types.ref_copy, None, None, None),
 		WClass("Monitor", link_types.derive, None, None, None),
 		WClass("CaseRule",link_types.ref_copy, None, None, None, True),
