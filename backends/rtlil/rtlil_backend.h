@@ -42,8 +42,8 @@ namespace RTLIL_BACKEND {
 	void dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy);
 	void dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc);
 	void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right);
-	void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
-	void dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false);
+	void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false, bool flag_sorted = false);
+	void dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m = true, bool flag_n = false, bool flag_sorted = false);
 }
 
 YOSYS_NAMESPACE_END
