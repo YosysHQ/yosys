@@ -715,7 +715,7 @@ static void parse_file_list(const std::string &file_list_path, RTLIL::Design *de
 }
 
 struct VerilogFileList : public Pass {
-	VerilogFileList() : Pass("read_verilog_file_list", "Parse a Verilog file list") {}
+	VerilogFileList() : Pass("read_verilog_file_list", "parse a Verilog file list") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
