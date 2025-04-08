@@ -213,22 +213,15 @@ struct DesignPass : public Pass {
 			if (copy_from_design != design && argidx == args.size() && !import_mode)
 				cmd_error(args, argidx, "Missing selection.");
 
-			RTLIL::Selection sel;
 			if (argidx != args.size()) {
 				handle_extra_select_args(this, args, argidx, args.size(), copy_from_design);
-				sel = copy_from_design->selection();
-				copy_from_design->pop_selection();
 				argidx = args.size();
+			} else {
+				copy_from_design->push_complete_selection();
 			}
 
-			for (auto mod : copy_from_design->modules()) {
-				if (sel.selected_whole_module(mod->name)) {
-					copy_src_modules.push_back(mod);
-					continue;
-				}
-				if (sel.selected_module(mod->name))
-					log_cmd_error("Module %s is only partly selected.\n", log_id(mod->name));
-			}
+			for (auto mod : copy_from_design->selected_modules(RTLIL::SELECT_WHOLE_CMDERR, RTLIL::SB_ALL))
+				copy_src_modules.push_back(mod);
 
 			if (import_mode) {
 				std::vector<RTLIL::Module*> candidates;
@@ -246,6 +239,8 @@ struct DesignPass : public Pass {
 				if (GetSize(candidates) == 1)
 					copy_src_modules = std::move(candidates);
 			}
+
+			copy_from_design->pop_selection();
 		}
 
 		extra_args(args, argidx, design, false);
