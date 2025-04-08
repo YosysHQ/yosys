@@ -302,10 +302,19 @@ void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("\n");
 }
 
-void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool flag_sorted)
 {
 	bool print_header = flag_m || module->is_selected_whole();
 	bool print_body = !flag_n || !module->is_selected_whole();
+
+	std::unique_ptr<Design> d(new Design);
+	if (flag_sorted) {
+		Module* new_module = d->addModule(module->name);
+		module->cloneInto(new_module);
+		module = new_module;
+		module->sort();
+		std::sort(module->connections_.begin(), module->connections_.end());
+	}
 
 	if (print_header)
 	{
@@ -388,7 +397,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		f << stringf("%s" "end\n", indent);
 }
 
-void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, bool flag_sorted)
 {
 	int init_autoidx = autoidx;
 
@@ -414,7 +423,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (!only_selected || design->selected(module)) {
 			if (only_selected)
 				f << stringf("\n");
-			dump_module(f, "", module, design, only_selected, flag_m, flag_n);
+			dump_module(f, "", module, design, only_selected, flag_m, flag_n, flag_sorted);
 		}
 	}
 
@@ -489,11 +498,14 @@ struct DumpPass : public Pass {
 		log("    -a <filename>\n");
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
+		log("    --sorted\n");
+		log("        dump sorted representation for nicer diffs. Doesn't modify design\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
-		bool flag_m = false, flag_n = false, append = false;
+		bool flag_m = false, flag_n = false, append = false, flag_sorted = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -517,6 +529,10 @@ struct DumpPass : public Pass {
 				flag_n = true;
 				continue;
 			}
+			if (arg == "--sorted") {
+				flag_sorted = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -538,7 +554,7 @@ struct DumpPass : public Pass {
 			f = &buf;
 		}
 
-		RTLIL_BACKEND::dump_design(*f, design, true, flag_m, flag_n);
+		RTLIL_BACKEND::dump_design(*f, design, true, flag_m, flag_n, flag_sorted);
 
 		if (!empty) {
 			delete f;
