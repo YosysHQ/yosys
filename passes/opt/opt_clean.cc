@@ -281,8 +281,8 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 			return regs.check(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
 			return direct_wires.count(w2) != 0;
-		if (conns.check_any(s1) != conns.check_any(s2))
-			return conns.check_any(s2);
+		if (conns.check(s1) != conns.check(s2))
+			return conns.check(s2);
 	}
 
 	if (w1->port_output != w2->port_output)
@@ -318,6 +318,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	// on picking representatives out of groups of connected signals
 	SigPool register_signals;
 	SigPool connected_signals;
+	std::vector<SigSpec> maybe_driven_signals;
 	if (!purge_mode)
 		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
@@ -327,12 +328,36 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 					if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
 						register_signals.add(it2.second);
 			}
-			for (auto &it2 : cell->connections())
+			for (auto &it2 : cell->connections()) {
 				connected_signals.add(it2.second);
+				if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
+					maybe_driven_signals.push_back(it2.second);
+			}
 		}
 
 	SigMap assign_map(module);
+	SigPool maybe_driven_signals_bits;
 
+	for (auto sig : maybe_driven_signals) {
+		for (auto bit : sig) {
+			maybe_driven_signals_bits.add(assign_map(bit));
+		}
+	}
+	for (auto &it : module->wires_) {
+		RTLIL::SigSpec sig = it.second;
+		if (it.second->port_id != 0) {
+			maybe_driven_signals_bits.add(assign_map(sig));
+		}
+	}
+	for (auto &it : module->wires_) {
+		RTLIL::SigSpec sig = it.second;
+		for (auto bit : sig) {
+			if (!maybe_driven_signals_bits.check(assign_map(bit))) {
+				log("add conn %s <-> %s to assign_map\n", log_signal(bit), log_signal(SigBit(State::Sx)));
+				assign_map.add(bit, SigBit(State::Sx));
+			}
+		}
+	}
 	// construct a pool of wires which are directly driven by a known celltype,
 	// this will influence our choice of representatives
 	pool<RTLIL::Wire*> direct_wires;
