@@ -890,6 +890,7 @@ SH_TEST_DIRS += tests/rpc
 SH_TEST_DIRS += tests/memfile
 SH_TEST_DIRS += tests/fmt
 SH_TEST_DIRS += tests/cxxrtl
+SH_TEST_DIRS += tests/liberty
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 SH_TEST_DIRS += tests/functional
 endif

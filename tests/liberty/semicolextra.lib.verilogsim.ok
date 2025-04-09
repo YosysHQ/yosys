@@ -4,7 +4,7 @@ module DFF (D, CK, Q);
   input CK;
   output Q;
   always @(posedge CK) begin
-      // D
+      // "D"
       IQ <= D;
       IQN <= ~(D);
   end
