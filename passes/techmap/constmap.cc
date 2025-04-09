@@ -77,6 +77,6 @@ struct ConstmapPass : public Pass {
 			module->rewrite_sigspecs(constmap_worker);
 		}
 	}
-} HilomapPass;
+} ConstmapPass;
 
 PRIVATE_NAMESPACE_END
