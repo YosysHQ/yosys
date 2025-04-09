@@ -40,8 +40,8 @@ class libyosys_so_ext(Extension):
         )
         self.args = [
             "ENABLE_PYOSYS=1",
-            # Wheel meant to be imported from interpreter
-            "ENABLE_PYTHON_CONFIG_EMBED=0",
+            # Prevent recursive wheel build
+            "ENABLE_WHEEL=0",
             # Would need to be installed separately by the user
             "ENABLE_TCL=0",
             "ENABLE_READLINE=0",
