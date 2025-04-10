@@ -227,9 +227,9 @@ struct BoothPassWorker {
 					continue;
 				}
 
-				A = macc.ports[0].in_a;
-				B = macc.ports[0].in_b;
-				is_signed = macc.ports[0].is_signed;
+				A = macc.terms[0].in_a;
+				B = macc.terms[0].in_b;
+				is_signed = macc.terms[0].is_signed;
 				Y = cell->getPort(ID::Y);
 			} else {
 				continue;

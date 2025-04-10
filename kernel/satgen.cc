@@ -750,7 +750,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		std::vector<int> tmp(GetSize(y), ez->CONST_FALSE);
 
-		for (auto &port : macc.ports)
+		for (auto &port : macc.terms)
 		{
 			std::vector<int> in_a = importDefSigSpec(port.in_a, timestep);
 			std::vector<int> in_b = importDefSigSpec(port.in_b, timestep);
