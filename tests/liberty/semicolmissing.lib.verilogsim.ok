@@ -3,7 +3,7 @@ module fulladder (A, B, CI, CO, Y);
   input B;
   input CI;
   output CO;
-  assign CO = (((A&B)|(B&CI))|(CI&A)); // (((A * B)+(B * CI))+(CI * A))
+  assign CO = (((A&B)|(B&CI))|(CI&A)); // "(((A * B)+(B * CI))+(CI * A))"
   output Y;
-  assign Y = ((A^B)^CI); // ((A^B)^CI)
+  assign Y = ((A^B)^CI); // "((A^B)^CI)"
 endmodule

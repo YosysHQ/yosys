@@ -2,8 +2,22 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.51 .. Yosys 0.52-dev
+Yosys 0.52 .. Yosys 0.53-dev
 --------------------------
+
+Yosys 0.51 .. Yosys 0.52
+--------------------------
+ * New commands and options
+    - Added "-pattern-limit" option to "share" pass to limit analysis effort.
+    - Added "libcache" pass to control caching of technology library 
+      data parsed from liberty files.
+    - Added "read_verilog_file_list" to parse verilog file list.
+
+ * Various
+    - Added $macc_v2 cell.
+    - Improve lexer performance and zlib support for "read_liberty".
+    - opt_expr: optimize pow of 2 cells.
+
 
 Yosys 0.50 .. Yosys 0.51
 --------------------------

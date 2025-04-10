@@ -175,7 +175,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.51+166
+YOSYS_VER := 0.52+10
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -198,7 +198,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline c4b5190.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline fee39a3.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -946,6 +946,7 @@ SH_TEST_DIRS += tests/blif
 SH_TEST_DIRS += tests/memfile
 SH_TEST_DIRS += tests/fmt
 # SH_TEST_DIRS += tests/cxxrtl
+SH_TEST_DIRS += tests/liberty
 SH_TEST_DIRS += tests/silimate
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 SH_TEST_DIRS += tests/functional

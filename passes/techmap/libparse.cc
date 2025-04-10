@@ -417,6 +417,73 @@ int LibertyParser::lexer(std::string &str)
 	return c;
 }
 
+void LibertyParser::report_unexpected_token(int tok)
+{
+	std::string eReport;
+	switch(tok)
+	{
+	case 'n':
+		error("Unexpected newline.");
+		break;
+	case '[':
+	case ']':
+	case '}':
+	case '{':
+	case '\"':
+	case ':':
+		eReport = "Unexpected '";
+		eReport += static_cast<char>(tok);
+		eReport += "'.";
+		error(eReport);
+		break;
+	default:
+		eReport = "Unexpected token: ";
+		eReport += static_cast<char>(tok);
+		error(eReport);
+	}
+}
+
+// FIXME: the AST needs to be extended to store
+//        these vector ranges.
+void LibertyParser::parse_vector_range(int tok)
+{
+	// parse vector range [A] or [A:B]
+	std::string arg;
+	tok = lexer(arg);
+	if (tok != 'v')
+	{
+		// expected a vector array index
+		error("Expected a number.");
+	}
+	else
+	{
+		// fixme: check for number A
+	}
+	tok = lexer(arg);
+	// optionally check for : in case of [A:B]
+	// if it isn't we just expect ']'
+	// as we have [A]
+	if (tok == ':')
+	{
+		tok = lexer(arg);
+		if (tok != 'v')
+		{
+			// expected a vector array index
+			error("Expected a number.");
+		}
+		else
+		{
+			// fixme: check for number B
+			tok = lexer(arg);
+		}
+	}
+	// expect a closing bracket of array range
+	if (tok != ']')
+	{
+		error("Expected ']' on array range.");
+	}
+}
+
 LibertyAst *LibertyParser::parse()
 {
 	std::string str;
@@ -435,26 +502,7 @@ LibertyAst *LibertyParser::parse()
 		return NULL;
 
 	if (tok != 'v') {
-		std::string eReport;
-		switch(tok)
-		{
-		case 'n':
-			error("Unexpected newline.");
-			break;
-		case '[':
-		case ']':
-		case '}':
-		case '{':
-		case '\"':
-		case ':':
-			eReport = "Unexpected '";
-			eReport += static_cast<char>(tok);
-			eReport += "'.";
-			error(eReport);
-			break;
-		default:
-			error();
-		}
+		report_unexpected_token(tok);	
 	}
 
 	LibertyAst *ast = new LibertyAst;
@@ -472,7 +520,11 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok == 'v') {
-    				tok = lexer(str);
+				tok = lexer(str);
+				if (tok == '[') {
+					parse_vector_range(tok);
+					tok = lexer(str);
+				}
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -503,67 +555,15 @@ LibertyAst *LibertyParser::parse()
 				if (tok == ')')
 					break;
 				
-				// FIXME: the AST needs to be extended to store
-				//        these vector ranges.
 				if (tok == '[')
 				{
-					// parse vector range [A] or [A:B]
-					std::string arg;
-					tok = lexer(arg);
-					if (tok != 'v')
-					{
-						// expected a vector array index
-						error("Expected a number.");
-					}
-					else
-					{
-						// fixme: check for number A
-					}
-					tok = lexer(arg);
-					// optionally check for : in case of [A:B]
-					// if it isn't we just expect ']'
-					// as we have [A]
-					if (tok == ':')
-					{
-						tok = lexer(arg);
-						if (tok != 'v')
-						{
-							// expected a vector array index
-							error("Expected a number.");
-						}
-						else
-						{
-							// fixme: check for number B
-							tok = lexer(arg);                            
-						}
-					}
-					// expect a closing bracket of array range
-					if (tok != ']')
-					{
-						error("Expected ']' on array range.");
-					}
+					parse_vector_range(tok);
 					continue;           
 				}
+				if (tok == 'n')
+					continue;
 				if (tok != 'v') {
-					std::string eReport;
-					switch(tok)
-					{
-					case 'n':
-					  continue;
-					case '[':
-					case ']':
-					case '}':
-					case '{':
-					case '\"':
-					case ':':
-						eReport = "Unexpected '";
-						eReport += static_cast<char>(tok);
-						eReport += "'.";
-						error(eReport);
-						break;
-					default:
-						error();
-					}
+					report_unexpected_token(tok);
 				}
 				ast->args.push_back(arg);
 			}
@@ -580,7 +580,7 @@ LibertyAst *LibertyParser::parse()
 			break;
 		}
 
-		error();
+		report_unexpected_token(tok);
 	}
 
 	return ast;
