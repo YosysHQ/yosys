@@ -23,7 +23,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct BlackboxPass : public Pass {
-	BlackboxPass() : Pass("blackbox", "convert modules into blackbox modules") { }
+	BlackboxPass() : Pass("blackbox", "convert modules into blackbox modules") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
