@@ -32,8 +32,8 @@ code sigA sigB sigH
 		++i;
 		return sig.extract(0, i);
 	};
-	sigA = port(mul, \A).is_fully_const() ? port(mul, \A) : unextend(port(mul, \A));
-	sigB = port(mul, \B).is_fully_const() ? port(mul, \B) : unextend(port(mul, \B));
+	sigA = param(mul, \A_SIGNED).as_bool() ? unextend(port(mul, \A)) : port(mul, \A);
+	sigB = param(mul, \B_SIGNED).as_bool() ? unextend(port(mul, \B)) : port(mul, \B);
 
 	SigSpec O;
 	if (mul->type == $mul)
