@@ -79,19 +79,18 @@ struct CutpointPass : public Pass {
 		if (flag_blackbox) {
 			if (!design->full_selection())
 				log_cmd_error("This command only operates on fully selected designs!\n");
-			RTLIL::Selection boxes(false);
+			design->push_empty_selection();
 			for (auto module : design->modules())
 				if (flag_instances) {
 					for (auto cell : module->cells()) {
 						auto mod = design->module(cell->type);
 						if (mod != nullptr && mod->get_blackbox_attribute())
-							boxes.select(module, cell);
+							design->select(module, cell);
 					}
 				} else {
 					if (module->get_blackbox_attribute())
-						boxes.select(module);
+						design->select(module);
 			}
-			design->selection_stack.push_back(boxes);
 		}
 
 		for (auto module : design->all_selected_modules())
