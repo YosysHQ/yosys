@@ -766,8 +766,23 @@ vector<int> RTLIL::AttrObject::get_intvec_attribute(const RTLIL::IdString &id) c
 	return data;
 }
 
+bool RTLIL::Selection::boxed_module(const RTLIL::IdString &mod_name) const
+{
+	if (current_design != nullptr) {
+		auto module = current_design->module(mod_name);
+		return module && module->get_blackbox_attribute();
+	} else {
+		log_warning("Unable to check if module is boxed for null design.\n");
+		return false;
+	}
+}
+
 bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 {
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -779,6 +794,10 @@ bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 
 bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) const
 {
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -788,6 +807,10 @@ bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) co
 
 bool RTLIL::Selection::selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const
 {
+	if (complete_selection)
+		return true;
+	if (!selects_boxes && boxed_module(mod_name))
+		return false;
 	if (full_selection)
 		return true;
 	if (selected_modules.count(mod_name) > 0)
@@ -800,7 +823,17 @@ bool RTLIL::Selection::selected_member(const RTLIL::IdString &mod_name, const RT
 
 void RTLIL::Selection::optimize(RTLIL::Design *design)
 {
-	if (full_selection) {
+	if (design != current_design) {
+		current_design = design;
+	}
+
+	if (selects_boxes && full_selection)
+		complete_selection = true;
+	if (complete_selection) {
+		full_selection = false;
+		selects_boxes = true;
+	}
+	if (selects_all()) {
 		selected_modules.clear();
 		selected_members.clear();
 		return;
@@ -810,7 +843,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto mod_name : selected_modules) {
-		if (design->modules_.count(mod_name) == 0)
+		if (current_design->modules_.count(mod_name) == 0 || (!selects_boxes && boxed_module(mod_name)))
 			del_list.push_back(mod_name);
 		selected_members.erase(mod_name);
 	}
@@ -819,7 +852,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 
 	del_list.clear();
 	for (auto &it : selected_members)
-		if (design->modules_.count(it.first) == 0)
+		if (current_design->modules_.count(it.first) == 0 || (!selects_boxes && boxed_module(it.first)))
 			del_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -827,7 +860,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members) {
 		del_list.clear();
 		for (auto memb_name : it.second)
-			if (design->modules_[it.first]->count_id(memb_name) == 0)
+			if (current_design->modules_[it.first]->count_id(memb_name) == 0)
 				del_list.push_back(memb_name);
 		for (auto memb_name : del_list)
 			it.second.erase(memb_name);
@@ -838,8 +871,8 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	for (auto &it : selected_members)
 		if (it.second.size() == 0)
 			del_list.push_back(it.first);
-		else if (it.second.size() == design->modules_[it.first]->wires_.size() + design->modules_[it.first]->memories.size() +
-				design->modules_[it.first]->cells_.size() + design->modules_[it.first]->processes.size())
+		else if (it.second.size() == current_design->modules_[it.first]->wires_.size() + current_design->modules_[it.first]->memories.size() +
+				current_design->modules_[it.first]->cells_.size() + current_design->modules_[it.first]->processes.size())
 			add_list.push_back(it.first);
 	for (auto mod_name : del_list)
 		selected_members.erase(mod_name);
@@ -848,11 +881,22 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		selected_modules.insert(mod_name);
 	}
 
-	if (selected_modules.size() == design->modules_.size()) {
-		full_selection = true;
+	if (selected_modules.size() == current_design->modules_.size()) {
 		selected_modules.clear();
 		selected_members.clear();
+		if (selects_boxes)
+			complete_selection = true;
+		else
+			full_selection = true;
 	}
+}
+
+void RTLIL::Selection::clear()
+{
+	full_selection = false;
+	complete_selection = false;
+	selected_modules.clear();
+	selected_members.clear();
 }
 
 RTLIL::Design::Design()
@@ -863,7 +907,7 @@ RTLIL::Design::Design()
 	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
-	selection_stack.push_back(RTLIL::Selection());
+	push_full_selection();
 
 #ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
@@ -908,7 +952,7 @@ const RTLIL::Module *RTLIL::Design::module(const RTLIL::IdString& name) const
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
-RTLIL::Module *RTLIL::Design::top_module()
+RTLIL::Module *RTLIL::Design::top_module() const
 {
 	RTLIL::Module *module = nullptr;
 	int module_count = 0;
@@ -1066,6 +1110,7 @@ void RTLIL::Design::sort()
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
+	log_assert(!selection_stack.empty());
 	for (auto &it : modules_) {
 		log_assert(this == it.second->design);
 		log_assert(it.first == it.second->name);
@@ -1089,27 +1134,21 @@ bool RTLIL::Design::selected_module(const RTLIL::IdString& mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_module(mod_name);
+	return selection().selected_module(mod_name);
 }
 
 bool RTLIL::Design::selected_whole_module(const RTLIL::IdString& mod_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_whole_module(mod_name);
+	return selection().selected_whole_module(mod_name);
 }
 
 bool RTLIL::Design::selected_member(const RTLIL::IdString& mod_name, const RTLIL::IdString& memb_name) const
 {
 	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
-	if (selection_stack.size() == 0)
-		return true;
-	return selection_stack.back().selected_member(mod_name, memb_name);
+	return selection().selected_member(mod_name, memb_name);
 }
 
 bool RTLIL::Design::selected_module(RTLIL::Module *mod) const
@@ -1122,37 +1161,86 @@ bool RTLIL::Design::selected_whole_module(RTLIL::Module *mod) const
 	return selected_whole_module(mod->name);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_modules() const
+void RTLIL::Design::push_selection(RTLIL::Selection sel)
 {
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_)
-		if (selected_module(it.first) && !it.second->get_blackbox_attribute())
-			result.push_back(it.second);
-	return result;
+	sel.current_design = this;
+	selection_stack.push_back(sel);
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
+void RTLIL::Design::push_empty_selection()
 {
-	std::vector<RTLIL::Module*> result;
-	result.reserve(modules_.size());
-	for (auto &it : modules_)
-		if (selected_whole_module(it.first) && !it.second->get_blackbox_attribute())
-			result.push_back(it.second);
-	return result;
+	push_selection(RTLIL::Selection::EmptySelection(this));
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn(bool include_wb) const
+void RTLIL::Design::push_full_selection()
 {
+	push_selection(RTLIL::Selection::FullSelection(this));
+}
+
+void RTLIL::Design::push_complete_selection()
+{
+	push_selection(RTLIL::Selection::CompleteSelection(this));
+}
+
+void RTLIL::Design::pop_selection()
+{
+	selection_stack.pop_back();
+	// Default to a full_selection if we ran out of stack
+	if (selection_stack.empty())
+		push_full_selection();
+}
+
+std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartials partials, RTLIL::SelectBoxes boxes) const
+{
+	bool include_partials = partials == RTLIL::SELECT_ALL;
+	bool exclude_boxes = (boxes & RTLIL::SB_UNBOXED_ONLY) != 0;
+	bool ignore_wb = (boxes & RTLIL::SB_INCL_WB) != 0;
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (it.second->get_blackbox_attribute(include_wb))
-			continue;
-		else if (selected_whole_module(it.first))
-			result.push_back(it.second);
-		else if (selected_module(it.first))
-			log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+		if (selected_whole_module(it.first) || (include_partials && selected_module(it.first))) {
+			if (!(exclude_boxes && it.second->get_blackbox_attribute(ignore_wb)))
+				result.push_back(it.second);
+			else
+				switch (boxes)
+				{
+				case RTLIL::SB_UNBOXED_WARN:
+					log_warning("Ignoring boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_WARN:
+					log_warning("Ignoring blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_ERR:
+					log_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_ERR:
+					log_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_UNBOXED_CMDERR:
+					log_cmd_error("Unsupported boxed module %s.\n", log_id(it.first));
+					break;
+				case RTLIL::SB_EXCL_BB_CMDERR:
+					log_cmd_error("Unsupported blackbox module %s.\n", log_id(it.first));
+					break;
+				default:
+					break;
+				}
+		} else if (!include_partials && selected_module(it.first)) {
+			switch(partials)
+			{
+			case RTLIL::SELECT_WHOLE_WARN:
+				log_warning("Ignoring partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_ERR:
+				log_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			case RTLIL::SELECT_WHOLE_CMDERR:
+				log_cmd_error("Unsupported partially selected module %s.\n", log_id(it.first));
+				break;
+			default:
+				break;
+			}
+		}
 	return result;
 }
 
@@ -2284,6 +2372,13 @@ void RTLIL::Module::check()
 			log_assert(!packed_memids.count(memid));
 			packed_memids.insert(memid);
 		}
+		auto cell_mod = design->module(it.first);
+		if (cell_mod != nullptr) {
+			// assertion check below to make sure that there are no
+			// cases where a cell has a blackbox attribute since
+			// that is deprecated
+			log_assert(!it.second->get_blackbox_attribute());
+		}
 	}
 
 	for (auto &it : processes) {
@@ -2411,6 +2506,16 @@ bool RTLIL::Module::has_processes_warn() const
 	return !processes.empty();
 }
 
+bool RTLIL::Module::is_selected() const
+{
+	return design->selected_module(this->name);
+}
+
+bool RTLIL::Module::is_selected_whole() const
+{
+	return design->selected_whole_module(this->name);
+}
+
 std::vector<RTLIL::Wire*> RTLIL::Module::selected_wires() const
 {
 	std::vector<RTLIL::Wire*> result;
@@ -2428,6 +2533,40 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 	for (auto &it : cells_)
 		if (design->selected(this, it.second))
 			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Memory*> RTLIL::Module::selected_memories() const
+{
+	std::vector<RTLIL::Memory*> result;
+	result.reserve(memories.size());
+	for (auto &it : memories)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::Process*> RTLIL::Module::selected_processes() const
+{
+	std::vector<RTLIL::Process*> result;
+	result.reserve(processes.size());
+	for (auto &it : processes)
+		if (design->selected(this, it.second))
+			result.push_back(it.second);
+	return result;
+}
+
+std::vector<RTLIL::NamedObject*> RTLIL::Module::selected_members() const
+{
+	std::vector<RTLIL::NamedObject*> result;
+	auto cells = selected_cells();
+	auto memories = selected_memories();
+	auto wires = selected_wires();
+	auto processes = selected_processes();
+	result.insert(result.end(), cells.begin(), cells.end());
+	result.insert(result.end(), memories.begin(), memories.end());
+	result.insert(result.end(), wires.begin(), wires.end());
+	result.insert(result.end(), processes.begin(), processes.end());
 	return result;
 }
 
