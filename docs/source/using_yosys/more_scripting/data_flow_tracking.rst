@@ -2,10 +2,10 @@ Dataflow tracking
 -------------------
 
 Yosys can be used to answer questions such as "can this signal affect this other signal?" via its *dataflow tracking* support.
-For this, four special cells, `$get_tag`, `$set_tag``, `$overwrite_tag` and `$original_tag` are inserted into the design and then the `dft_tag` is run, which converts these cells into ordinary logic.
-Typically, one would then use `SBY docs`_ to prove assertions involving these cells.
+For this, four special cells, `$get_tag`, `$set_tag`, `$overwrite_tag` and `$original_tag` are inserted into the design (e.g. by a custom Yosys pass) and then the `dft_tag` is run, which converts these cells into ordinary logic.
+Typically, one would then use `SBY`_ to prove assertions involving these cells.
 
-.. _SBY docs: https://yosyshq.readthedocs.io/projects/sby
+.. _SBY: https://yosyshq.readthedocs.io/projects/sby
 
 Ordinarily in Yosys, the state of a bit is simply ``0`` or ``1`` (or one of the special values, ``z`` and ``x``).
 During dataflow tracking they are augmented with a set of tags.
@@ -19,14 +19,14 @@ For this, tags are simply *forwarded* or *propagated* (i.e. copied) from inputs 
 For example, XOR, AND and OR cells propagate tags as follows:
 
 #. XOR simply forwards all tags from its inputs to its output, because inputs to XOR can always affect the output.
-#. AND forwards tags only if the other input is ``1``. Because if one input is ``0``, the other input can never affect the output.
+#. AND forwards tags on a given input only if the other input is ``1``. Because if one input is ``0``, the other input can never affect the output.
 #. Similarly, OR forwards tags only if the other input is ``0``.
 
 There are two exceptions to this rule:
 
 #. In general, propagation is only determined approximately.
    For example, unless the ``dft_tag`` code knows about a cell, it simply assumes the worst-case behaviour that all inputs can affect all outputs.
-   It also does not try to determine whether the effect of a signal is cancelled out, for example ``A ^ A`` or ``A ^ (B ^ A)`` is independent of ``A``, but its tags would be propagated nonetheless.
+   Further, the code also does not consider that, when a signal affects multiple inputs of a cell, the resulting simultaneous changes of the inputs can cancel each other out, for example ``A ^ A`` or ``A ^ (B ^ A)`` is independent of ``A``, but its tags would be propagated nonetheless.
 #. If tag groups are used, the rules are modified (see below).
 
 Because of this propagation behaviour, we can answer questions about what signals are affected by a certain signal, by injecting a tag at that point in the circuit, and observing where the tag is visible.
@@ -35,7 +35,7 @@ Example use cases
 ~~~~~~~~~~~~~~~~~~
 
 As an example use case, consider a cryptographic processor which is not supposed to expose its secret keys to the outside world.
-We can tag all key bits with the ``"KEY"`` tag and use ``sby`` to formally verify that no external signal ever carries the ``"KEY"`` tag, meaning that key information is not visible to the outside.
+We can tag all key bits with the ``"KEY"`` tag and use `SBY`_ to formally verify that no external signal ever carries the ``"KEY"`` tag, meaning that key information is not visible to the outside.
 As a caveat, we have to manually clear the ``"KEY"`` tag during cryptographic operations, as proving that the cryptographic operations themselves do not leak key information is beyond the ability of Yosys.
 However we can still easily detect, if e.g. an engineer forgot to remove debugging code that allows reading back key data.
 
