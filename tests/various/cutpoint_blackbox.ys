@@ -28,49 +28,27 @@ EOT
 hierarchy -top top
 design -save hier
 
-select -assert-count 0 t:$anyseq
+select -assert-none t:$anyseq
 select -assert-count 3 =t:?b
 cutpoint -blackbox
 
-select -assert-count 3 =t:?b
-select -assert-count 2 r:SOME_PARAM
-select -assert-count 1 r:SOME_PARAM=1
+select -assert-none =t:?b
+select -assert-none r:SOME_PARAM
 
-flatten
 select -assert-count 3 t:$anyseq
+select -assert-count 3 t:$scopeinfo
+select -assert-count 3 t:$scopeinfo r:TYPE=blackbox %i
 select -assert-count 3 t:$scopeinfo n:*cutpoint.cc* %i
 
-# cutpoint -blackbox === cutpoint =A:whitebox =A:blackbox %u
-#                        (simplified to =A:*box)
+# -noscopeinfo works with -blackbox
+design -load hier
+cutpoint -blackbox -noscopeinfo
+select -assert-none t:$scopeinfo
+
+# cutpoint -blackbox === cutpoint =A:whitebox =A:blackbox %u %C
+#                        (simplified to =A:*box %C)
 design -load hier
 cutpoint -blackbox
-rename -enumerate -pattern A_% t:$scopeinfo
-rename -enumerate -pattern B_% t:$anyseq
-rename -enumerate -pattern C_% w:*Anyseq*
-design -save gold
-select -write cutpoint.gold.sel =*
-
-design -load hier
-cutpoint =A:*box
-rename -enumerate -pattern A_% t:$scopeinfo
-rename -enumerate -pattern B_% t:$anyseq
-rename -enumerate -pattern C_% w:*Anyseq*
-design -save gate
-select -write cutpoint.gate.sel
-select -read cutpoint.gold.sel
-# nothing in gate but not gold
-select -assert-none % %n
-
-design -load gold
-select -read cutpoint.gate.sel
-# nothing in gold but not gate
-select -assert-none % %n
-
-# cutpoint -blackbox -instances !== cutpoint =A:whitebox =A:blackbox %u %C
-#                                   (simplified to =A:*box %C)
-# because cutpoint -blackbox -instances adds $scopeinfo cells
-design -load hier
-cutpoint -blackbox -instances
 rename -enumerate -pattern A_% t:$scopeinfo
 rename -enumerate -pattern B_% t:$anyseq
 rename -enumerate -pattern C_% w:*Anyseq*
@@ -90,6 +68,5 @@ select -assert-none % %n
 
 design -load gold
 select -read cutpoint.gate.sel
-# 3 $scopeinfo in gold but not gate
-select -assert-count 3 % %n
-select -assert-count 3 t:$scopeinfo
+# nothing in gold but not gate
+select -assert-none % %n

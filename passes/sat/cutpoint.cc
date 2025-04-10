@@ -37,19 +37,20 @@ struct CutpointPass : public Pass {
 		log("        set cutpoint nets to undef (x). the default behavior is to create\n");
 		log("        an $anyseq cell and drive the cutpoint net from that\n");
 		log("\n");
+		log("    -noscopeinfo\n");
+		log("        do not create '$scopeinfo' cells that preserve attributes of cells that\n");
+		log("        were removed by this pass\n");
+		log("\n");
 		log("    cutpoint -blackbox [options]\n");
 		log("\n");
-		log("Replace the contents of all blackboxes in the design with a formal cut point.\n");
-		log("\n");
-		log("    -instances\n");
-		log("        replace instances of blackboxes instead of the modules\n");
+		log("Replace all instances of blackboxes in the design with a formal cut point.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_undef = false;
+		bool flag_scopeinfo = true;
 		bool flag_blackbox = false;
-		bool flag_instances = false;
 
 		log_header(design, "Executing CUTPOINT pass.\n");
 
@@ -60,61 +61,31 @@ struct CutpointPass : public Pass {
 				flag_undef = true;
 				continue;
 			}
-			if (args[argidx] == "-blackbox") {
-				flag_blackbox = true;
+			if (args[argidx] == "-noscopeinfo") {
+				flag_scopeinfo = false;
 				continue;
 			}
-			if (args[argidx] == "-instances") {
-				flag_instances = true;
+			if (args[argidx] == "-blackbox") {
+				flag_blackbox = true;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (flag_instances && !flag_blackbox) {
-			log_cmd_error("-instances flag only valid with -blackbox!\n");
-		}
-
 		if (flag_blackbox) {
 			if (!design->full_selection())
 				log_cmd_error("This command only operates on fully selected designs!\n");
 			design->push_empty_selection();
+			auto &selection = design->selection();
 			for (auto module : design->modules())
-				if (flag_instances) {
-					for (auto cell : module->cells()) {
-						auto mod = design->module(cell->type);
-						if (mod != nullptr && mod->get_blackbox_attribute())
-							design->select(module, cell);
-					}
-				} else {
-					if (module->get_blackbox_attribute())
-						design->select(module);
-			}
+				for (auto cell : module->cells())
+					if (selection.boxed_module(cell->type))
+						selection.select(module, cell);
 		}
 
 		for (auto module : design->all_selected_modules())
 		{
-			if (module->is_selected_whole() && !flag_instances) {
-				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
-				module->new_connections(std::vector<RTLIL::SigSig>());
-				for (auto cell : vector<Cell*>(module->cells()))
-					module->remove(cell);
-				vector<Wire*> output_wires;
-				for (auto wire : module->wires())
-					if (wire->port_output)
-						output_wires.push_back(wire);
-				for (auto wire : output_wires)
-					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
-				if (module->get_blackbox_attribute()) {
-					module->set_bool_attribute(ID::blackbox, false);
-					module->set_bool_attribute(ID::whitebox, false);
-					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
-					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
-				}
-				continue;
-			}
-
 			SigMap sigmap(module);
 			pool<SigBit> cutpoint_bits;
 
@@ -129,7 +100,7 @@ struct CutpointPass : public Pass {
 
 				RTLIL::Cell *scopeinfo = nullptr;
 				auto cell_name = cell->name;
-				if (flag_instances && cell_name.isPublic()) {
+				if (flag_scopeinfo && cell_name.isPublic()) {
 					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
