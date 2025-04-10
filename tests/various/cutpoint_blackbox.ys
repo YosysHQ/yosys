@@ -26,6 +26,7 @@ endmodule
 EOT
 
 hierarchy -top top
+design -save hier
 
 select -assert-count 0 t:$anyseq
 select -assert-count 3 =t:?b
@@ -37,3 +38,58 @@ select -assert-count 1 r:SOME_PARAM=1
 
 flatten
 select -assert-count 3 t:$anyseq
+select -assert-count 3 t:$scopeinfo n:*cutpoint.cc* %i
+
+# cutpoint -blackbox === cutpoint =A:whitebox =A:blackbox %u
+#                        (simplified to =A:*box)
+design -load hier
+cutpoint -blackbox
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gold
+select -write cutpoint.gold.sel =*
+
+design -load hier
+cutpoint =A:*box
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gate
+select -write cutpoint.gate.sel
+select -read cutpoint.gold.sel
+# nothing in gate but not gold
+select -assert-none % %n
+
+design -load gold
+select -read cutpoint.gate.sel
+# nothing in gold but not gate
+select -assert-none % %n
+
+# cutpoint -blackbox -instances !== cutpoint =A:whitebox =A:blackbox %u %C
+#                                   (simplified to =A:*box %C)
+# because cutpoint -blackbox -instances adds $scopeinfo cells
+design -load hier
+cutpoint -blackbox -instances
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gold
+select -write cutpoint.gold.sel =*
+
+design -load hier
+cutpoint =A:*box %C
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gate
+select -write cutpoint.gate.sel
+select -read cutpoint.gold.sel
+# nothing in gate but not gold
+select -assert-none % %n
+
+design -load gold
+select -read cutpoint.gate.sel
+# 3 $scopeinfo in gold but not gate
+select -assert-count 3 % %n
+select -assert-count 3 t:$scopeinfo
