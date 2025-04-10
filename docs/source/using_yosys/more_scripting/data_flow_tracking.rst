@@ -1,8 +1,11 @@
 Dataflow tracking
 -------------------
+
 Yosys can be used to answer questions such as "can this signal affect this other signal?" via its *dataflow tracking* support.
-For this, four special cells, ``$get_tag``, ``$set_tag``, ``$overwrite_tag`` and ``$original_tag`` are inserted into the design and then the ``dft_tag`` is run, which converts these cells into ordinary logic.
-Typically, one would then use ``sby`` to prove assertions involving these cells.
+For this, four special cells, `$get_tag`, `$set_tag``, `$overwrite_tag` and `$original_tag` are inserted into the design and then the `dft_tag` is run, which converts these cells into ordinary logic.
+Typically, one would then use `SBY docs`_ to prove assertions involving these cells.
+
+.. _SBY docs: https://yosyshq.readthedocs.io/projects/sby
 
 Ordinarily in Yosys, the state of a bit is simply ``0`` or ``1`` (or one of the special values, ``z`` and ``x``).
 During dataflow tracking they are augmented with a set of tags.
@@ -20,6 +23,7 @@ For example, XOR, AND and OR cells propagate tags as follows:
 #. Similarly, OR forwards tags only if the other input is ``0``.
 
 There are two exceptions to this rule:
+
 #. In general, propagation is only determined approximately.
    For example, unless the ``dft_tag`` code knows about a cell, it simply assumes the worst-case behaviour that all inputs can affect all outputs.
    It also does not try to determine whether the effect of a signal is cancelled out, for example ``A ^ A`` or ``A ^ (B ^ A)`` is independent of ``A``, but its tags would be propagated nonetheless.
@@ -29,6 +33,7 @@ Because of this propagation behaviour, we can answer questions about what signal
 
 Example use cases
 ~~~~~~~~~~~~~~~~~~
+
 As an example use case, consider a cryptographic processor which is not supposed to expose its secret keys to the outside world.
 We can tag all key bits with the ``"KEY"`` tag and use ``sby`` to formally verify that no external signal ever carries the ``"KEY"`` tag, meaning that key information is not visible to the outside.
 As a caveat, we have to manually clear the ``"KEY"`` tag during cryptographic operations, as proving that the cryptographic operations themselves do not leak key information is beyond the ability of Yosys.
@@ -58,6 +63,7 @@ The main purpose of ``$overwrite_tag`` is adding tags to signals produced within
 
 Tag groups
 ~~~~~~~~~~~~~~
+
 Tag groups are an advanced feature that modify the propagation rule discussed above.
 To use tag groups, simply name tags according to the schema ``"group:name"``.
 For example, ``"key:0"``, ``"key:a"``, ``"key:b"`` would be three tags in the ``"key"`` group.
