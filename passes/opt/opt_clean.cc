@@ -312,7 +312,7 @@ bool check_public_name(RTLIL::IdString id)
 	return true;
 }
 
-bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool x_mode, bool verbose)
 {
 	// `register_signals` and `connected_signals` will help us decide later on
 	// on picking representatives out of groups of connected signals
@@ -325,39 +325,48 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			if (ct_reg.cell_known(cell->type)) {
 				bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
 				for (auto &it2 : cell->connections())
-					if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
-						register_signals.add(it2.second);
+				if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
+				register_signals.add(it2.second);
 			}
-			for (auto &it2 : cell->connections()) {
-				connected_signals.add(it2.second);
-				if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, it2.first))
-					maybe_driven_signals.push_back(it2.second);
-			}
+			for (auto &it2 : cell->connections())
+			connected_signals.add(it2.second);
 		}
 
 	SigMap assign_map(module);
-	SigPool maybe_driven_signals_bits;
+	if (x_mode) {
+		for (auto [_, cell] : module->cells_)
+		for (auto [port, sig] : cell->connections())
+			if (!ct_all.cell_known(cell->type) || ct_all.cell_output(cell->type, port)) {
+				log_debug("cell %s drives sig %s\n", log_id(cell), log_signal(sig));
+				maybe_driven_signals.push_back(sig);
+			}
 
-	for (auto sig : maybe_driven_signals) {
-		for (auto bit : sig) {
-			maybe_driven_signals_bits.add(assign_map(bit));
+		SigPool maybe_driven_signals_bits;
+
+		for (auto sig : maybe_driven_signals) {
+			for (auto bit : sig) {
+				maybe_driven_signals_bits.add(assign_map(bit));
+				log_debug("bit %s (rep %s) is driven by cell output\n", log_signal(sig), log_signal(assign_map(sig)));
+			}
 		}
-	}
-	for (auto &it : module->wires_) {
-		RTLIL::SigSpec sig = it.second;
-		if (it.second->port_id != 0) {
-			maybe_driven_signals_bits.add(assign_map(sig));
+		for (auto &it : module->wires_) {
+			RTLIL::SigSpec sig = it.second;
+			if (it.second->port_id != 0) {
+				maybe_driven_signals_bits.add(assign_map(sig));
+				log_debug("bit %s (rep %s) is driven by port input\n", log_signal(sig), log_signal(assign_map(sig)));
+			}
 		}
-	}
-	for (auto &it : module->wires_) {
-		RTLIL::SigSpec sig = it.second;
-		for (auto bit : sig) {
-			if (!maybe_driven_signals_bits.check(assign_map(bit))) {
-				log("add conn %s <-> %s to assign_map\n", log_signal(bit), log_signal(SigBit(State::Sx)));
-				assign_map.add(bit, SigBit(State::Sx));
+		for (auto &it : module->wires_) {
+			RTLIL::SigSpec sig = it.second;
+			for (auto bit : sig) {
+				if (!maybe_driven_signals_bits.check(assign_map(bit))) {
+					log_debug("add conn %s <-> %s to assign_map\n", log_signal(bit), log_signal(SigBit(State::Sx)));
+					assign_map.add(bit, SigBit(State::Sx));
+				}
 			}
 		}
 	}
+
 	// construct a pool of wires which are directly driven by a known celltype,
 	// this will influence our choice of representatives
 	pool<RTLIL::Wire*> direct_wires;
@@ -633,7 +642,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	return did_something;
 }
 
-void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit)
+void rmunused_module(RTLIL::Module *module, bool purge_mode, bool x_mode, bool verbose, bool rminit)
 {
 	if (verbose)
 		log("Finding unused cells or wires in module %s..\n", module->name);
@@ -683,10 +692,10 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
-	while (rmunused_module_signals(module, purge_mode, verbose)) { }
+	while (rmunused_module_signals(module, purge_mode, x_mode, verbose)) { }
 
 	if (rminit && rmunused_module_init(module, verbose))
-		while (rmunused_module_signals(module, purge_mode, verbose)) { }
+		while (rmunused_module_signals(module, purge_mode, x_mode, verbose)) { }
 }
 
 struct OptCleanPass : public Pass {
@@ -707,10 +716,14 @@ struct OptCleanPass : public Pass {
 		log("    -purge\n");
 		log("        also remove internal nets if they have a public name\n");
 		log("\n");
+		log("    -x\n");
+		log("        handle unconnected bits as x-bit driven\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
+		bool x_mode = false;
 
 		log_header(design, "Executing OPT_CLEAN pass (remove unused cells and wires).\n");
 		log_push();
@@ -719,6 +732,10 @@ struct OptCleanPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-purge") {
 				purge_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-x") {
+				x_mode = true;
 				continue;
 			}
 			break;
@@ -739,7 +756,7 @@ struct OptCleanPass : public Pass {
 		for (auto module : design->selected_whole_modules_warn()) {
 			if (module->has_processes_warn())
 				continue;
-			rmunused_module(module, purge_mode, true, true);
+			rmunused_module(module, purge_mode, x_mode, true, true);
 		}
 
 		if (count_rm_cells > 0 || count_rm_wires > 0)
@@ -776,11 +793,16 @@ struct CleanPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
+		bool x_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-purge") {
 				purge_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-x") {
+				x_mode = true;
 				continue;
 			}
 			break;
@@ -801,7 +823,7 @@ struct CleanPass : public Pass {
 		for (auto module : design->selected_unboxed_whole_modules()) {
 			if (module->has_processes())
 				continue;
-			rmunused_module(module, purge_mode, ys_debug(), true);
+			rmunused_module(module, purge_mode, x_mode, ys_debug(), true);
 		}
 
 		log_suppressed();
