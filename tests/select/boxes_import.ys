@@ -1,0 +1,29 @@
+read_verilog -specify boxes.v
+design -save read
+
+logger -expect-no-warnings
+
+delete =bb %n
+select -assert-mod-count 1 =*
+design -stash just_bb
+
+design -import just_bb
+select -assert-mod-count 0 *
+select -assert-mod-count 1 =*
+design -reset
+
+design -import just_bb -as new
+select -assert-mod-count 0 *
+select -assert-mod-count 1 =*
+design -reset
+
+design -import read -as new_top top
+design -import read -as new_bb =bb
+select -assert-mod-count 1 *
+select -assert-mod-count 2 =*
+
+logger -check-expected
+
+logger -expect warning "Selection .wb. did not match any module\." 1
+logger -expect error "No top module found in source design\." 1
+design -import read -as new_wb wb

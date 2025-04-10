@@ -1,0 +1,7 @@
+read_verilog -specify boxes.v
+clean
+
+select -set top top
+select -assert-count 4 @top
+select -set boxes =?b
+select -assert-count 9 @boxes
