@@ -41,11 +41,15 @@ struct CutpointPass : public Pass {
 		log("\n");
 		log("Replace the contents of all blackboxes in the design with a formal cut point.\n");
 		log("\n");
+		log("    -instances\n");
+		log("        replace instances of blackboxes instead of the modules\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_undef = false;
 		bool flag_blackbox = false;
+		bool flag_instances = false;
 
 		log_header(design, "Executing CUTPOINT pass.\n");
 
@@ -60,23 +64,39 @@ struct CutpointPass : public Pass {
 				flag_blackbox = true;
 				continue;
 			}
+			if (args[argidx] == "-instances") {
+				flag_instances = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
+		if (flag_instances && !flag_blackbox) {
+			log_cmd_error("-instances flag only valid with -blackbox!\n");
+		}
+
 		if (flag_blackbox) {
 			if (!design->full_selection())
 				log_cmd_error("This command only operates on fully selected designs!\n");
-			RTLIL::Selection module_boxes(false);
+			RTLIL::Selection boxes(false);
 			for (auto module : design->modules())
-				if (module->get_blackbox_attribute())
-					module_boxes.select(module);
-			design->selection_stack.push_back(module_boxes);
+				if (flag_instances) {
+					for (auto cell : module->cells()) {
+						auto mod = design->module(cell->type);
+						if (mod != nullptr && mod->get_blackbox_attribute())
+							boxes.select(module, cell);
+					}
+				} else {
+					if (module->get_blackbox_attribute())
+						boxes.select(module);
+			}
+			design->selection_stack.push_back(boxes);
 		}
 
 		for (auto module : design->all_selected_modules())
 		{
-			if (module->is_selected_whole()) {
+			if (module->is_selected_whole() && !flag_instances) {
 				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
 				module->new_connections(std::vector<RTLIL::SigSig>());
 				for (auto cell : vector<Cell*>(module->cells()))
@@ -107,7 +127,26 @@ struct CutpointPass : public Pass {
 					if (cell->output(conn.first))
 						module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
 				}
+
+				RTLIL::Cell *scopeinfo = nullptr;
+				auto cell_name = cell->name;
+				if (flag_instances && cell_name.isPublic()) {
+					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
+
+					for (auto const &attr : cell->attributes)
+					{
+						if (attr.first == ID::hdlname)
+							scopeinfo->attributes.insert(attr);
+						else
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
+					}
+				}
+
 				module->remove(cell);
+
+				if (scopeinfo != nullptr)
+					module->rename(scopeinfo, cell_name);
 			}
 
 			for (auto wire : module->selected_wires()) {
