@@ -31,20 +31,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 using RTLIL::id2cstr;
 
-struct CleanerPool : SigPool
-{
-	bool check_all_def(const RTLIL::SigSpec &sig) const
-	{
-		for (auto &bit : sig) {
-			if (bit.wire != NULL && bits.count(bit) == 0)
-				return false;
-			if (bit.wire == NULL && bit.data == RTLIL::State::Sx)
-				return false;
-		}
-		return true;
-	}
-};
-
 struct keep_cache_t
 {
 	Design *design;
@@ -404,7 +390,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool x_mode
 	// used signals pre-sigmapped
 	SigPool raw_used_signals;
 	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
-	CleanerPool used_signals_nodrivers;
+	SigPool used_signals_nodrivers;
 
 	// gather the usage information for cells
 	for (auto &it : module->cells_) {
@@ -520,14 +506,14 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool x_mode
 				module->connect(new_conn);
 			}
 
-			if (!used_signals_nodrivers.check_all_def(s2)) {
+			if (!used_signals_nodrivers.check_all(s2)) {
 				std::string unused_bits;
 				for (int i = 0; i < GetSize(s2); i++) {
-					if ((s2[i].wire == NULL) && (s2[i].data != RTLIL::State::Sx))
+					if (s2[i].wire == NULL)
 						continue;
 					if (!used_signals_nodrivers.check(s2[i])) {
 						if (!unused_bits.empty())
-						unused_bits += " ";
+							unused_bits += " ";
 						unused_bits += stringf("%d", i);
 					}
 				}
