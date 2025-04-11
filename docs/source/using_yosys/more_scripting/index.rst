@@ -12,5 +12,6 @@ More scripting
    selections
    interactive_investigation
    model_checking
+   data_flow_tracking
 
 .. troubleshooting
