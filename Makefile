@@ -27,6 +27,7 @@ ENABLE_ZLIB := 1
 
 # python wrappers
 ENABLE_PYOSYS := 0
+ENABLE_WHEEL := $(ENABLE_PYOSYS)
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -102,6 +103,7 @@ LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
 EXE_LINKFLAGS :=
+EXE_LIBS :=
 ifeq ($(OS), MINGW)
 EXE_LINKFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
 PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
@@ -209,11 +211,11 @@ PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.versi
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
 
-ENABLE_PYTHON_CONFIG_EMBED ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
-ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
-PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
-else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
+PYTHON_CONFIG_FOR_EXE := $(PYTHON_CONFIG)
+PYTHON_CONFIG_EMBED_AVAILABLE ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
+ifeq ($(PYTHON_CONFIG_EMBED_AVAILABLE),1)
+PYTHON_CONFIG_FOR_EXE := $(PYTHON_CONFIG) --embed
 endif
 
 PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
@@ -346,8 +348,11 @@ ifeq ($(ENABLE_PYOSYS),1)
 # python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
+EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+ifeq ($(ENABLE_WHEEL),1)
 EXTRA_TARGETS += wheel
+endif
 
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
 CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
@@ -735,7 +740,7 @@ share: $(EXTRA_TARGETS)
 	@echo ""
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
