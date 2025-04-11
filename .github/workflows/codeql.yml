@@ -16,7 +16,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-       submodules: true
+        submodules: true
+        persist-credentials: false
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:

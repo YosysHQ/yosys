@@ -46,6 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -91,6 +92,8 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -117,7 +120,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .local/
-          key: ${{ matrix.os }}-${{ env.IVERILOG_GIT }}
+          key: ${{ matrix.os }}-${IVERILOG_GIT}
 
       - name: Build iverilog
         if: steps.cache-iverilog.outputs.cache-hit != 'true'
@@ -169,6 +172,8 @@ jobs:
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -190,7 +195,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -C docs test -j${{ env.procs }}
+          make -C docs test -j$procs
 
   test-docs-build:
     name: Try build docs
@@ -206,6 +211,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+          persist-credentials: false
 
       - name: Runtime environment
         run: |
@@ -215,7 +221,7 @@ jobs:
         run: |
           make config-clang
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j${{ env.procs }}
+          make -j$procs
 
       - name: Install doc prereqs
         shell: bash
@@ -225,7 +231,7 @@ jobs:
       - name: Build docs
         shell: bash
         run: |
-          make docs DOC_TARGET=${{ matrix.docs-target }} -j${{ env.procs }}
+          make docs DOC_TARGET=${{ matrix.docs-target }} -j$procs
 
       - name: Store docs build artifact
         uses: actions/upload-artifact@v4

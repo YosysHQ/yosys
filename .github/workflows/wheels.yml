@@ -53,6 +53,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
+          persist-credentials: false
       - if: ${{ matrix.os.family == 'linux' }}
         name: "[Linux] Set up QEMU"
         uses: docker/setup-qemu-action@v3
