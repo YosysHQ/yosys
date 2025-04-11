@@ -2232,10 +2232,10 @@ struct MemoryLibMapPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			MapWorker worker(module);
 			auto mems = Mem::get_selected_memories(module);
 			for (auto &mem : mems)
 			{
+				MapWorker worker(module);
 				MemMapping map(worker, mem, lib, opts);
 				int idx = -1;
 				int best = map.logic_cost;
@@ -2258,8 +2258,6 @@ struct MemoryLibMapPass : public Pass {
 					log("using FF mapping for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
 				} else {
 					map.emit(map.cfgs[idx]);
-					// Rebuild indices after modifying module
-					worker = MapWorker(module);
 				}
 			}
 		}
