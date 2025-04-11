@@ -20,7 +20,7 @@ jobs:
           # only run on push *or* pull_request, not both
           concurrent_skipping: ${{ env.docs_export && 'never' || 'same_content_newer'}}
       - id: docs_var
-        run: echo "docs_export=${{ env.docs_export }}" >> $GITHUB_OUTPUT
+        run: echo "docs_export=${docs_export}" >> $GITHUB_OUTPUT
 
   prepare-docs:
     # docs builds are needed for anything on main, any tagged versions, and any tag
@@ -47,12 +47,12 @@ jobs:
           echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
-          make -j${{ env.procs }} ENABLE_LTO=1
+          make -j$procs ENABLE_LTO=1
 
       - name: Prepare docs
         shell: bash
         run:
-          make docs/prep -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
+          make docs/prep -j$procs TARGETS= EXTRA_TARGETS=
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Test build docs
         shell: bash
         run: |
-          make -C docs html -j${{ env.procs }} TARGETS= EXTRA_TARGETS=
+          make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
 
       - name: Trigger RTDs build
         if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' }}
