@@ -1,5 +1,6 @@
 /*.log
 /*.out
+/*.sel
 /write_gzip.v
 /write_gzip.v.gz
 /run-test.mk
