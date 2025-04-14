@@ -1000,6 +1000,53 @@ struct ShareWorker
 		}
 	}
 
+	pool<std::pair<SigBit, State>> pattern_bits(const pool<ssc_pair_t> &activation_patterns)
+	{
+		pool<std::pair<SigBit, State>> bits;
+		for (auto const &pattern : activation_patterns) {
+			for (int i = 0; i < GetSize(pattern.second); ++i) {
+				SigBit bit = pattern.first[i];
+				State val = pattern.second[i];
+				bits.emplace(bit, val);
+			}
+		}
+		return bits;
+	}
+
+	void onesided_restrict_activiation_patterns(
+			pool<ssc_pair_t> &activation_patterns, const pool<std::pair<SigBit, State>> &other_bits)
+	{
+		pool<ssc_pair_t> new_activiation_patterns;
+
+		for (auto const &pattern : activation_patterns) {
+			ssc_pair_t new_pair;
+			for (int i = 0; i < GetSize(pattern.second); ++i) {
+				SigBit bit = pattern.first[i];
+				State val = pattern.second[i];
+				if (other_bits.count({bit, val == State::S0 ? State::S1 : State::S0})) {
+					new_pair.first.append(bit);
+					new_pair.second.append(val);
+				}
+			}
+			new_activiation_patterns.emplace(std::move(new_pair));
+		}
+
+		activation_patterns = std::move(new_activiation_patterns);
+	}
+
+	// Only valid if the patterns on their own (i.e. without considering their input cone) are mutually exclusive!
+	void restrict_activiation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
+	{
+		pool<std::pair<SigBit, State>> bits = pattern_bits(activation_patterns);
+		pool<std::pair<SigBit, State>> other_bits = pattern_bits(other_activation_patterns);
+
+		onesided_restrict_activiation_patterns(activation_patterns, other_bits);
+		onesided_restrict_activiation_patterns(other_activation_patterns, bits);
+
+		optimize_activation_patterns(activation_patterns);
+		optimize_activation_patterns(other_activation_patterns);
+	}
+
 	RTLIL::SigSpec make_cell_activation_logic(const pool<ssc_pair_t> &activation_patterns, pool<RTLIL::Cell*> &supercell_aux)
 	{
 		RTLIL::Wire *all_cases_wire = module->addWire(NEW_ID, 0);
@@ -1299,17 +1346,18 @@ struct ShareWorker
 					other_cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
+				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
+				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
 
+				bool pattern_only_solve = qcsat.ez->solve(qcsat.ez->AND(sub1, sub2));
 				qcsat.prepare();
 
-				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
 				if (!qcsat.ez->solve(sub1)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
 					cells_to_remove.insert(cell);
 					break;
 				}
 
-				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
 				if (!qcsat.ez->solve(sub2)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(other_cell));
 					cells_to_remove.insert(other_cell);
@@ -1317,27 +1365,38 @@ struct ShareWorker
 					continue;
 				}
 
-				qcsat.ez->non_incremental();
+				if (pattern_only_solve) {
+					qcsat.ez->non_incremental();
 
-				all_ctrl_signals.sort_and_unify();
-				std::vector<int> sat_model = qcsat.importSig(all_ctrl_signals);
-				std::vector<bool> sat_model_values;
+					all_ctrl_signals.sort_and_unify();
+					std::vector<int> sat_model = qcsat.importSig(all_ctrl_signals);
+					std::vector<bool> sat_model_values;
 
-				qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
+					qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
 
-				log("      Size of SAT problem: %zu cells, %d variables, %d clauses\n",
-						qcsat.imported_cells.size(), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
+					log("      Size of SAT problem: %zu cells, %d variables, %d clauses\n",
+							qcsat.imported_cells.size(), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
-				if (qcsat.ez->solve(sat_model, sat_model_values)) {
-					log("      According to the SAT solver this pair of cells can not be shared.\n");
-					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
-					for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
-						log("%c", sat_model_values[i] ? '1' : '0');
-					log("\n");
-					continue;
+					if (qcsat.ez->solve(sat_model, sat_model_values)) {
+						log("      According to the SAT solver this pair of cells can not be shared.\n");
+						log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
+						for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
+							log("%c", sat_model_values[i] ? '1' : '0');
+						log("\n");
+						continue;
+					}
+
+					log("      According to the SAT solver this pair of cells can be shared.\n");
+				} else {
+					log("      According to the SAT solver this pair of cells can be shared. (Pattern only case)\n");
+					restrict_activiation_patterns(filtered_cell_activation_patterns, filtered_other_cell_activation_patterns);
+
+					for (auto &p : filtered_cell_activation_patterns)
+						log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
+
+					for (auto &p : filtered_other_cell_activation_patterns)
+						log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
 				}
-
-				log("      According to the SAT solver this pair of cells can be shared.\n");
 
 				if (find_in_input_cone(cell, other_cell)) {
 					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(other_cell), log_id(cell));
