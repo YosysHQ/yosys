@@ -40,8 +40,6 @@ class libyosys_so_ext(Extension):
         )
         self.args = [
             "ENABLE_PYOSYS=1",
-            # Wheel meant to be imported from interpreter
-            "ENABLE_PYTHON_CONFIG_EMBED=0",
             # Would need to be installed separately by the user
             "ENABLE_TCL=0",
             "ENABLE_READLINE=0",
@@ -86,9 +84,6 @@ class libyosys_so_ext(Extension):
             pass
 
         shutil.copytree("share", share_target)
-
-        # I don't know how debug info is getting here.
-
 
 class custom_build_ext(build_ext):
     def build_extension(self, ext) -> None:
