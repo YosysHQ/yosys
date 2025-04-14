@@ -1,4 +1,5 @@
 #include "kernel/cost.h"
+#include "kernel/macc.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -148,6 +149,9 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		log_assert(cell->hasPort(ID::Q) && "Weird flip flop");
 		log_debug("%s is ff\n", cell->name.c_str());
 		return cell->getParam(ID::WIDTH).as_int();
+	} else if (cell->type.in(ID($mem), ID($mem_v2))) {
+		log_debug("%s is mem\n", cell->name.c_str());
+		return cell->getParam(ID::WIDTH).as_int() * cell->getParam(ID::SIZE).as_int();
 	} else if (y_coef(cell->type)) {
 		// linear with Y_WIDTH or WIDTH
 		log_assert((cell->hasParam(ID::Y_WIDTH) || cell->hasParam(ID::WIDTH)) && "Unknown width");
@@ -173,6 +177,22 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		unsigned int coef = cell->type == ID($mul) ? 3 : 5;
 		log_debug("%s coef*(sum**2) %d * %d\n", cell->name.c_str(), coef, sum * sum);
 		return coef * sum * sum;
+	} else if (cell->type.in(ID($macc), ID($macc_v2))) {
+		// quadratic per term
+		unsigned int cost_sum = 0;
+		Macc macc;
+		macc.from_cell(cell);
+		unsigned int y_width = cell->getParam(ID::Y_WIDTH).as_int();
+		for (auto &term: macc.terms) {
+			if (term.in_b.empty()) {
+				// neglect addends
+				continue;
+			}
+			unsigned a_width = term.in_a.size(), b_width = term.in_b.size();
+			unsigned int sum = a_width + b_width + std::min(y_width, a_width + b_width);
+			cost_sum += 3 * sum * sum;
+		}
+		return cost_sum;
 	} else if (cell->type == ID($lut)) {
 		int width = cell->getParam(ID::WIDTH).as_int();
 		unsigned int cost = 1U << (unsigned int)width;
@@ -187,8 +207,8 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 		log_debug("%s is free\n", cell->name.c_str());
 		return 0;
 	}
-	// TODO: $fsm $mem.* $macc
-	// ignored: $pow
+	// TODO: $fsm
+	// ignored: $pow $memrd $memwr $meminit (and v2 counterparts)
 
 	log_warning("Can't determine cost of %s cell (%d parameters).\n", log_id(cell->type), GetSize(cell->parameters));
 	return 1;

@@ -315,7 +315,7 @@ struct ConstEval
 			Macc macc;
 			macc.from_cell(cell);
 
-			for (auto &port : macc.ports) {
+			for (auto &port : macc.terms) {
 				if (!eval(port.in_a, undef, cell))
 					return false;
 				if (!eval(port.in_b, undef, cell))
