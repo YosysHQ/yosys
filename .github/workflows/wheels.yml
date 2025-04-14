@@ -1,6 +1,10 @@
 name: Build Wheels for PyPI
+
+# run every Sunday at 10 AM
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * 0'
 
 jobs:
   build_wheels:
