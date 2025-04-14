@@ -33,9 +33,9 @@ void constmap_worker(RTLIL::SigSpec &sig)
 {
 	if (sig.is_fully_const()){
 		value = module->addWire(NEW_ID, sig.size());
-		RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
-		cell->setParam(RTLIL::escape_id(cell_paramname), sig.as_const());
-		cell->setPort(RTLIL::escape_id(cell_portname), value);
+		RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
+		cell->setParam(cell_paramname, sig.as_const());
+		cell->setPort(cell_portname, value);
 		sig = value;
 	}
 }
@@ -62,14 +62,38 @@ struct ConstmapPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-cell" && argidx+3 < args.size()){
-				celltype = args[++argidx];
-				cell_portname = args[++argidx];
-				cell_paramname = args[++argidx];
+				celltype = RTLIL::escape_id(args[++argidx]);
+				cell_portname = RTLIL::escape_id(args[++argidx]);
+				cell_paramname = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
+
+
+		if (design->has(celltype)) {
+			Module *existing = design->module(celltype);
+			bool has_port = false;
+			for (auto &p : existing->ports){
+				if (p == cell_portname){
+					has_port = true;
+					break;
+				}
+			}
+			if (!has_port)
+				log_cmd_error("Cell type '%s' does not have port '%s'.\n", celltype.c_str(), cell_portname.c_str());
+
+			bool has_param = false;
+			for (auto &p : existing->avail_parameters){
+				if (p == cell_paramname)
+					has_param = true;
+			}
+
+			if (!has_param)
+				log_cmd_error("Cell type '%s' does not have parameter '%s'.\n", celltype.c_str(), cell_paramname.c_str());
+		}
+
 
 		for (auto mod : design->selected_modules())
 		{
