@@ -507,6 +507,8 @@ struct CellTypes
 	{
 		if (cell->type.in(ID($mux), ID($_MUX_)))
 			return const_mux(arg1, arg2, arg3);
+		if (cell->type == ID($_NMUX_))
+			return eval_not(const_mux(arg1, arg2, arg3));
 		if (cell->type == ID($bwmux))
 			return const_bwmux(arg1, arg2, arg3);
 		if (cell->type == ID($pmux))
