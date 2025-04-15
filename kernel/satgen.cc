@@ -788,12 +788,18 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		{
 			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
 			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> undef_c;
+
+			if (cell->type == ID($macc_v2))
+				undef_c = importUndefSigSpec(cell->getPort(ID::C), timestep);
 
 			int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
 			int undef_any_b = ez->expression(ezSAT::OpOr, undef_b);
+			int undef_any_c = ez->expression(ezSAT::OpOr, undef_c);
+			int undef_any = ez->OR(undef_any_a, ez->OR(undef_any_b, undef_any_c));
 
 			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
-			ez->assume(ez->vec_eq(undef_y, std::vector<int>(GetSize(y), ez->OR(undef_any_a, undef_any_b))));
+			ez->assume(ez->vec_eq(undef_y, std::vector<int>(GetSize(y), undef_any)));
 
 			undefGating(y, tmp, undef_y);
 		}
