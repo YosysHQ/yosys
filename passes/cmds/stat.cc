@@ -40,7 +40,7 @@ struct statdata_t
 			X(num_ports) X(num_port_bits) X(num_memories) X(num_memory_bits) X(num_cells) \
 			X(num_processes)
 
-	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area)
+	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area) X(sequential_area)
 
 	#define X(_name) unsigned int _name;
 	STAT_INT_MEMBERS
