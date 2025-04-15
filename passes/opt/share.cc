@@ -1013,10 +1013,10 @@ struct ShareWorker
 		return bits;
 	}
 
-	bool onesided_restrict_activiation_patterns(
+	bool onesided_restrict_activation_patterns(
 			pool<ssc_pair_t> &activation_patterns, const pool<std::pair<SigBit, State>> &other_bits)
 	{
-		pool<ssc_pair_t> new_activiation_patterns;
+		pool<ssc_pair_t> new_activation_patterns;
 
 		bool simplified = false;
 
@@ -1032,22 +1032,22 @@ struct ShareWorker
 					simplified = true;
 				}
 			}
-			new_activiation_patterns.emplace(std::move(new_pair));
+			new_activation_patterns.emplace(std::move(new_pair));
 		}
 
-		activation_patterns = std::move(new_activiation_patterns);
+		activation_patterns = std::move(new_activation_patterns);
 		return simplified;
 	}
 
 	// Only valid if the patterns on their own (i.e. without considering their input cone) are mutually exclusive!
-	bool restrict_activiation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
+	bool restrict_activation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
 	{
 		pool<std::pair<SigBit, State>> bits = pattern_bits(activation_patterns);
 		pool<std::pair<SigBit, State>> other_bits = pattern_bits(other_activation_patterns);
 
 		bool simplified = false;
-		simplified |= onesided_restrict_activiation_patterns(activation_patterns, other_bits);
-		simplified |= onesided_restrict_activiation_patterns(other_activation_patterns, bits);
+		simplified |= onesided_restrict_activation_patterns(activation_patterns, other_bits);
+		simplified |= onesided_restrict_activation_patterns(other_activation_patterns, bits);
 
 		optimize_activation_patterns(activation_patterns);
 		optimize_activation_patterns(other_activation_patterns);
@@ -1401,7 +1401,7 @@ struct ShareWorker
 				} else {
 					log("      According to the SAT solver this pair of cells can be shared. (Pattern only case)\n");
 
-					if (restrict_activiation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns)) {
+					if (restrict_activation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns)) {
 						for (auto &p : optimized_cell_activation_patterns)
 							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
 
