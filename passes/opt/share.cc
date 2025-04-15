@@ -1013,10 +1013,12 @@ struct ShareWorker
 		return bits;
 	}
 
-	void onesided_restrict_activiation_patterns(
+	bool onesided_restrict_activiation_patterns(
 			pool<ssc_pair_t> &activation_patterns, const pool<std::pair<SigBit, State>> &other_bits)
 	{
 		pool<ssc_pair_t> new_activiation_patterns;
+
+		bool simplified = false;
 
 		for (auto const &pattern : activation_patterns) {
 			ssc_pair_t new_pair;
@@ -1026,25 +1028,31 @@ struct ShareWorker
 				if (other_bits.count({bit, val == State::S0 ? State::S1 : State::S0})) {
 					new_pair.first.append(bit);
 					new_pair.second.append(val);
+				} else {
+					simplified = true;
 				}
 			}
 			new_activiation_patterns.emplace(std::move(new_pair));
 		}
 
 		activation_patterns = std::move(new_activiation_patterns);
+		return simplified;
 	}
 
 	// Only valid if the patterns on their own (i.e. without considering their input cone) are mutually exclusive!
-	void restrict_activiation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
+	bool restrict_activiation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
 	{
 		pool<std::pair<SigBit, State>> bits = pattern_bits(activation_patterns);
 		pool<std::pair<SigBit, State>> other_bits = pattern_bits(other_activation_patterns);
 
-		onesided_restrict_activiation_patterns(activation_patterns, other_bits);
-		onesided_restrict_activiation_patterns(other_activation_patterns, bits);
+		bool simplified = false;
+		simplified |= onesided_restrict_activiation_patterns(activation_patterns, other_bits);
+		simplified |= onesided_restrict_activiation_patterns(other_activation_patterns, bits);
 
 		optimize_activation_patterns(activation_patterns);
 		optimize_activation_patterns(other_activation_patterns);
+
+		return simplified;
 	}
 
 	RTLIL::SigSpec make_cell_activation_logic(const pool<ssc_pair_t> &activation_patterns, pool<RTLIL::Cell*> &supercell_aux)
@@ -1392,13 +1400,14 @@ struct ShareWorker
 					log("      According to the SAT solver this pair of cells can be shared.\n");
 				} else {
 					log("      According to the SAT solver this pair of cells can be shared. (Pattern only case)\n");
-					restrict_activiation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns);
 
-					for (auto &p : optimized_cell_activation_patterns)
-						log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
+					if (restrict_activiation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns)) {
+						for (auto &p : optimized_cell_activation_patterns)
+							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
 
-					for (auto &p : optimized_other_cell_activation_patterns)
-						log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
+						for (auto &p : optimized_other_cell_activation_patterns)
+							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
+					}
 				}
 
 				if (find_in_input_cone(cell, other_cell)) {
