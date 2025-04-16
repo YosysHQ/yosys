@@ -3406,9 +3406,10 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void check_design(RTLIL::Design *design, bool &has_sync_init)
+	void check_design(RTLIL::Design *design, bool &has_sync_init, bool &has_bwmux)
 	{
 		has_sync_init = false;
+		has_bwmux = false;
 
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl_blackbox)))
@@ -3424,6 +3425,10 @@ struct CxxrtlWorker {
 				for (auto sync : proc.second->syncs)
 					if (sync->type == RTLIL::STi)
 						has_sync_init = true;
+
+			for (auto cell : module->cells())
+				if (cell->type == ID($bwmux))
+					has_bwmux = true;
 		}
 	}
 
@@ -3431,8 +3436,13 @@ struct CxxrtlWorker {
 	{
 		bool did_anything = false;
 		bool has_sync_init;
+		bool has_bwmux;
 		log_push();
-		check_design(design, has_sync_init);
+		check_design(design, has_sync_init, has_bwmux);
+		if (has_bwmux) {
+			Pass::call(design, "bwmuxmap");
+			did_anything = true;
+		}
 		if (run_hierarchy) {
 			Pass::call(design, "hierarchy -auto-top");
 			did_anything = true;
@@ -3454,8 +3464,9 @@ struct CxxrtlWorker {
 		}
 		// Recheck the design if it was modified.
 		if (did_anything)
-			check_design(design, has_sync_init);
+			check_design(design, has_sync_init, has_bwmux);
 		log_assert(!has_sync_init);
+		log_assert(!has_bwmux);
 		log_pop();
 		if (did_anything)
 			log_spacer();
