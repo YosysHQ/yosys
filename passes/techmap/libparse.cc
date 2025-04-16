@@ -75,7 +75,7 @@ bool LibertyInputStream::extend_buffer_once()
 		buffer.resize(buf_end + chunk_size);
 	}
 
-	size_t read_size = f.rdbuf()->sgetn(buffer.data() + buf_end, chunk_size);
+	size_t read_size = f.rdbuf()->sgetn((char *)buffer.data() + buf_end, chunk_size);
 	buf_end += read_size;
 	if (read_size < chunk_size)
 		eof = true;
