@@ -165,7 +165,7 @@ namespace Yosys
 
 		void report_unexpected_token(int tok);
 		void parse_vector_range(int tok);
-		LibertyAst *parse();
+		LibertyAst *parse(bool top_level);
 		void error() const;
 		void error(const std::string &str) const;
 
@@ -174,7 +174,7 @@ namespace Yosys
 		const LibertyAst *ast = nullptr;
 
 		LibertyParser(std::istream &f) : f(f), line(1) {
-			shared_ast.reset(parse());
+			shared_ast.reset(parse(true));
 			ast = shared_ast.get();
 			if (!ast) {
 #ifdef FILTERLIB
@@ -190,7 +190,7 @@ namespace Yosys
 		LibertyParser(std::istream &f, const std::string &fname) : f(f), line(1) {
 			shared_ast = LibertyAstCache::instance.cached_ast(fname);
 			if (!shared_ast) {
-				shared_ast.reset(parse());
+				shared_ast.reset(parse(true));
 				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
 			}
 			ast = shared_ast.get();
