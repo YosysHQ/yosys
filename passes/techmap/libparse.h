@@ -176,6 +176,14 @@ namespace Yosys
 		LibertyParser(std::istream &f) : f(f), line(1) {
 			shared_ast.reset(parse());
 			ast = shared_ast.get();
+			if (!ast) {
+#ifdef FILTERLIB
+				fprintf(stderr, "No entries found in liberty file.\n");
+				exit(1);
+#else
+				log_error("No entries found in liberty file.\n");
+#endif
+			}
 		}
 
 #ifndef FILTERLIB
@@ -186,6 +194,9 @@ namespace Yosys
 				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
 			}
 			ast = shared_ast.get();
+			if (!ast) {
+				log_error("No entries found in liberty file `%s'.\n", fname.c_str());
+			}
 		}
 #endif
 	};
