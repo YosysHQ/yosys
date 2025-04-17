@@ -68,6 +68,10 @@ Yosys frontends
 
   + executed as multiple successive calls to the frontend
 
+- compatible with ``-f`` command line option, e.g. ``yosys -f verilog
+  design.txt`` will use the `read_verilog` frontend with the input file
+  ``design.txt``
+
 - `verific` and `read` commands are technically not 'Frontends', but their
   behaviour is kept in sync
 
