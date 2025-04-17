@@ -334,6 +334,7 @@ struct CellTypes
 		return v;
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::IdString type, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len, bool *errp = nullptr)
 	{
 		if (type == ID($sshr) && !signed1)
@@ -416,6 +417,7 @@ struct CellTypes
 		log_abort();
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool *errp = nullptr)
 	{
 		if (cell->type == ID($slice)) {
@@ -503,10 +505,13 @@ struct CellTypes
 		return eval(cell->type, arg1, arg2, signed_a, signed_b, result_len, errp);
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, bool *errp = nullptr)
 	{
 		if (cell->type.in(ID($mux), ID($_MUX_)))
 			return const_mux(arg1, arg2, arg3);
+		if (cell->type == ID($_NMUX_))
+			return eval_not(const_mux(arg1, arg2, arg3));
 		if (cell->type == ID($bwmux))
 			return const_bwmux(arg1, arg2, arg3);
 		if (cell->type == ID($pmux))
@@ -520,6 +525,7 @@ struct CellTypes
 		return eval(cell, arg1, arg2, errp);
 	}
 
+	// Consider using the ConstEval struct instead if you need named ports and/or multiple outputs
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4, bool *errp = nullptr)
 	{
 		if (cell->type == ID($_AOI4_))
