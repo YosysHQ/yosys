@@ -204,9 +204,10 @@ saved.
 What do I do with the minimized design?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- check minimized design still fails, especially if not using `write_rtlil`
-- e.g. if you ran :ref:`bugpoint_script` below, then calling ``yosys -s
-  <failure.ys> min.v`` should still fail in the same way
+First off, check the minimized design still fails.  This is especially important
+if you're not using `write_rtlil` to output the minimized design.  For example,
+if you ran :ref:`bugpoint_script` below, then calling ``yosys -s <failure.ys>
+min.v`` should still fail in the same way.
 
 .. code-block:: yoscrypt
    :caption: example `bugpoint` minimizer
@@ -216,12 +217,21 @@ What do I do with the minimized design?
    bugpoint -script <failure.ys>
    write_verilog min.v
 
-- `write_rtlil` is more reliable since `bugpoint` will have run that exact
-  code through the failing script; other ``write_*`` commands convert from the
-  RTLIL and then back again during the ``read_*`` which can result in
-  differences which mean the design no longer fails
-- check out :ref:`using_yosys/bugpoint:identifying issues` for more on what to
-  do next
+The `write_rtlil` command is generally more reliable, since `bugpoint` will have
+run that exact code through the failing script.  Other ``write_*`` commands
+convert from the RTLIL and then back again during the ``read_*`` which can
+result in differences which mean the design no longer fails.
+
+.. note::
+
+   Simply calling Yosys with the output of ``write_*``, as in ``yosys -s
+   <failure.ys> min.v``, does not guarantee that the corresponding ``read_*``
+   will be used. For more about this, refer to
+   :doc:`/using_yosys/more_scripting/load_design`, or load the design explicitly
+   with ``yosys -p 'read_verilog min.v' -s <failure.ys>``.
+
+Once you've verified the failure still happens, check out
+:ref:`using_yosys/bugpoint:identifying issues` for more on what to do next.
 
 
 .. _minimize your script:
@@ -229,19 +239,43 @@ What do I do with the minimized design?
 Minimizing scripts
 ------------------
 
-- reminder to back up original code before modifying it
+If you're using a command line prompt, such as ``yosys -p 'synth_xilinx' -o
+design.json design.v``, consider converting it to a script.  It's generally much
+easier to iterate over changes to a script in a file rather than one on the
+command line, as well as being better for sharing with others.
 
-  + sometimes over-minimizing scripts can hide underlying issues, so maintaining
-    the original context is important
+.. code-block:: yoscrypt
+   :caption: example script, ``script.ys``, for prompt ``yosys -p 'synth_xilinx' -o design.json design.v``
 
-- if you're using command line, convert it to a script
-- if you're using one of the :doc:`/using_yosys/synthesis/synth`, replace it
-  with its contents
+   read_verilog design.v
+   synth_xilinx
+   write_json design.json
 
-  + can also do this piece-wise with the ``-run`` option
-  + e.g. replacing ``synth -top <top> -lut`` with :ref:`replace_synth`
-  + the options ``-top <top> -lut`` can be provided to each `synth` step, or
-    to just the step(s) where it is relevant, as done here
+Next up you want to remove everything *after* the error occurs.  Using the
+``-L`` flag can help here, allowing you to specify a file to log to, such as
+``yosys -L out.log -s script.ys``.  Most commands will print a header message
+when they begin; something like ``2.48. Executing HIERARCHY pass (managing
+design hierarchy).``  The last header message will usually be the failing
+command.  There are some commands which don't print a header message, so you may
+want to add ``echo on`` to the start of your script.  The `echo` command echoes
+each command executed, along with any arguments given to it.  For the
+`hierarchy` example above this might be ``yosys> hierarchy -check``.
+
+.. note::
+
+   It may also be helpful to use the `log` command to add messages which you can
+   then search for either in the terminal or the logfile.  This can be quite
+   useful if your script contains script-passes, like the
+   :doc:`/using_yosys/synthesis/synth`, which call many sub-commands and you're
+   not sure exactly which script-pass is calling the failing command.
+
+If your final command calls sub-commands, replace it with its contents and
+repeat the previous step.  In the case of the
+:doc:`/using_yosys/synthesis/synth`, as well as certain other script-passes, you
+can use the ``-run`` option to simplify this.  For example we can replace
+``synth -top <top> -lut`` with the :ref:`replace_synth`.  The options ``-top
+<top> -lut`` can be provided to each `synth` step, or to just the step(s) where
+it is relevant, as done here.
 
 .. code-block:: yoscrypt
    :caption: example replacement script for `synth` command
@@ -252,20 +286,12 @@ Minimizing scripts
    synth -lut -run fine:check
    synth -run check:
 
-- remove everything *after* the error occurs
-- can use `log` command to print messages to help locate the failure point
-- `echo` can also help (``echo on``)
-
-  + if you used a ``-run`` option like in :ref:`replace_synth` above, you can
-    now replace the failing step with its contents and repeat the above if
-    needed
-  + checking the log should tell you the last command that ran which can make
-    this easier
-  + say we ran :ref:`replace_synth` and were able to remove the ``synth -run
-    check:`` and still got our error, then we check the log and we see the last
-    thing before the error was ``7.2. Executing MEMORY_MAP pass (converting
-    memories to logic and flip-flops).``
-  + we can then update our script to the following:
+Say we ran :ref:`replace_synth` and were able to remove the ``synth -run
+check:`` and still got our error, then we check the log and we see the last
+thing before the error was ``7.2. Executing MEMORY_MAP pass (converting memories
+to logic and flip-flops)``. By checking the output of ``yosys -h synth`` (or the
+`synth` help page) we can see that the `memory_map` pass is called in the
+``fine`` step.  We can then update our script to the following:
 
 .. code-block:: yoscrypt
    :caption: example replacement script for `synth` when `memory_map` is failing
@@ -273,6 +299,21 @@ Minimizing scripts
    synth -top <top> -run :fine
    opt -fast -full
    memory_map
+
+By giving `synth` the option ``-run :fine``, we are telling it to run from the
+beginning of the script until the ``fine`` step, where we then give it the exact
+commands to run.  There are some cases where the commands given in the help
+output are not an exact match for what is being run, but are instead a
+simplification.  If you find that replacing the script-pass with its contents
+causes the error to disappear, or change, try calling the script-pass with
+``echo on`` to see exactly what commands are being called and what options are
+used.
+
+.. warning::
+
+   Before continuing further, *back up your code*.  The following steps can
+   remove context and lead to over-minimizing scripts, hiding underlying issues.
+   Check out :ref:`using_yosys/bugpoint:Why context matters` to learn more.
 
 - try ``write_rtlil <design.il>; design -reset; read_rtlil <design.il>;`` before
   the failure point
