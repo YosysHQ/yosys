@@ -1446,6 +1446,25 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		module_name = "\\" + sha1_if_contain_spaces(module_name);
 	}
 
+	{
+		Array ram_nets ;
+		MapIter mem_mi;
+		Net *mem_net;
+		FOREACH_NET_OF_NETLIST(nl, mem_mi, mem_net)
+		{
+			if (!mem_net->IsRamNet()) continue ;
+
+			if (mem_net->GetAtt("mem2reg"))
+				ram_nets.Insert(mem_net) ;
+		}
+		unsigned i ;
+		FOREACH_ARRAY_ITEM(&ram_nets, i, mem_net) {
+			log("Bit blasting RAM for identifier '%s'\n", mem_net->Name());
+			mem_net->BlastNet();
+		}
+		nl->RemoveDanglingLogic(0);
+	}
+
 	netlist = nl;
 
 	if (design->has(module_name)) {
