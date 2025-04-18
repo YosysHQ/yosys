@@ -61,6 +61,9 @@ struct OptDffWorker
 	// Used as a queue.
 	std::vector<Cell *> dff_cells;
 
+	std::map<RTLIL::Cell*, patterns_t> ce_cache;
+	std::map<RTLIL::Cell*, ctrls_t> srst_cache;
+
 	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod) {
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		//
@@ -630,6 +633,8 @@ struct OptDffWorker
 					}
 
 					for (auto &it : groups) {
+						if (ff.has_srst && srst_cache[cell] == it.first)
+							continue;
 						FfData new_ff = ff.slice(it.second);
 						new_ff.val_srst = Const();
 						for (int i = 0; i < new_ff.width; i++) {
@@ -644,8 +649,10 @@ struct OptDffWorker
 						if (new_ff.has_ce)
 							new_ff.ce_over_srst = true;
 						Cell *new_cell = new_ff.emit();
-						if (new_cell)
+						if (new_cell) {
 							dff_cells.push_back(new_cell);
+							srst_cache[new_cell] = it.first;
+						}
 						log("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q), log_signal(new_ff.val_srst));
 					}
@@ -699,6 +706,8 @@ struct OptDffWorker
 					}
 
 					for (auto &it : groups) {
+						if (ff.has_ce && ce_cache[cell] == it.first.first)
+							continue;
 						FfData new_ff = ff.slice(it.second);
 						ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
 
@@ -707,8 +716,10 @@ struct OptDffWorker
 						new_ff.pol_ce = en.second;
 						new_ff.ce_over_srst = false;
 						Cell *new_cell = new_ff.emit();
-						if (new_cell)
+						if (new_cell){
 							dff_cells.push_back(new_cell);
+							ce_cache[new_cell] = it.first.first;
+						}
 						log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
 								log_id(cell), log_id(cell->type), log_id(module), log_signal(new_ff.sig_d), log_signal(new_ff.sig_q));
 					}
