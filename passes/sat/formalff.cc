@@ -790,9 +790,11 @@ struct FormalFfPass : public Pass {
 								ff.emit();
 							} else if (clocked_cell->type == ID($mem_v2)) {
 								auto &mem = memories.at(clocked_cell->name);
+								bool changed = false;
 								for (auto &rd_port : mem.rd_ports) {
 									if (rd_port.clk_enable && rd_port.clk == clk && rd_port.clk_polarity == pol_clk) {
-										log_warning("patching rd port\n");
+										log_debug("patching rd port\n");
+										changed = true;
 										rd_port.clk = gate_clock;
 										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(rd_port.en));
@@ -801,13 +803,16 @@ struct FormalFfPass : public Pass {
 								}
 								for (auto &wr_port : mem.wr_ports) {
 									if (wr_port.clk_enable && wr_port.clk == clk && wr_port.clk_polarity == pol_clk) {
-										log_warning("patching wr port\n");
+										log_debug("patching wr port\n");
+										changed = true;
 										wr_port.clk = gate_clock;
 										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(wr_port.en));
 										wr_port.en = module->And(NEW_ID, wr_port.en, en_mask);
 									}
 								}
+								if (changed)
+									mem.emit();
 							}
 						}
 

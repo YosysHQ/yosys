@@ -58,16 +58,20 @@ EOT
 prep -auto-top
 opt_dff
 select -assert-count 1 t:$dlatch
-select -assert-count 1 t:$dff
-select -assert-count 1 t:$dffe
 
 # Manually execute equiv_opt like pattern so clk2fflogic is called with
 # -nopeepopt, otherwise this doesn't test everything
 design -save preopt
 check -assert
 formalff -declockgate
-check -assert
-design -stash postopt
+
+design -save postopt
+
+delete -output */clk_o
+clean -purge
+select -assert-count 0 t:$dlatch
+
+design -reset
 
 # Create miter and clk2fflogic without peepopt
 design -copy-from preopt -as gold A:top
