@@ -11,10 +11,11 @@ import re
 
 
 class Cell:
-    def __init__(self, name, keep=False, port_attrs={}):
+    def __init__(self, name, keep=False, port_attrs={}, extra_params={}):
         self.name = name
         self.keep = keep
         self.port_attrs = port_attrs
+        self.extra_params = extra_params
         self.found = False
 
 class State(Enum):
@@ -120,8 +121,18 @@ devices = [
         #Cell("XOR3"),
         #Cell("XOR4"),
         #Cell("XOR5"),
-        Cell("DP16KD"),
-        Cell("PDPW16KD"),
+        Cell("DP16KD", extra_params={
+            # Optional clock inverters, present in prjtrellis data but
+            # not in Diamond bb models.
+            "CLKAMUX": "CLKA",
+            "CLKBMUX": "CLKB",
+        }),
+        Cell("PDPW16KD", extra_params={
+            # Optional clock inverters, present in prjtrellis data but
+            # not in Diamond bb models.
+            "CLKWMUX": "CLKW",
+            "CLKRMUX": "CLKR",
+        }),
         #Cell("DPR16X4C"),
         #Cell("SPR16X4C"),
         #Cell("LVDSOB"),
@@ -795,6 +806,10 @@ def xtract_cells_decl(device, cells, dirs, outf):
                         rng = None
                     module_ports.append((kind, rng, port))
             elif l.startswith('parameter ') and state == State.IN_MODULE:
+                if cell.extra_params:
+                    for name, default in sorted(cell.extra_params.items()):
+                        outf.write('    parameter {} = "{}";\n'.format(name, default))
+                    cell.extra_params = None
                 l = l.strip()
                 if l.endswith((';', ',')):
                     l = l[:-1]
