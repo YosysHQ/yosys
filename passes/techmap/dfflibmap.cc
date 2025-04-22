@@ -102,6 +102,9 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	} else if (expr[0] == '!') {
 		data_name = expr.substr(1, expr.size()-1);
 		data_not_inverted = false;
+	} else if (expr[0] == '(' && expr[expr.size() - 1] == ')') {
+		data_name = expr.substr(1, expr.size() - 2);
+		data_not_inverted = true;
 	} else {
 		data_name = expr;
 		data_not_inverted = true;
