@@ -128,7 +128,7 @@ struct CleanZeroWidthPass : public Pass {
 					// A and B to 1-bit if their width is 0.
 					if (cell->getParam(ID::Y_WIDTH).as_int() == 0) {
 						module->remove(cell);
-					} else if (cell->type == ID($macc)) {
+					} else if (cell->type.in(ID($macc), ID($macc_v2))) {
 						// TODO: fixing zero-width A and B not supported.
 					} else {
 						if (cell->getParam(ID::A_WIDTH).as_int() == 0) {
