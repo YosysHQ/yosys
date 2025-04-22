@@ -11,7 +11,7 @@ endmodule
 EOT
 
 hierarchy -top top
-flatten -scopeinfo
+flatten
 
 select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i
 select -assert-count 1 top/n:some_inst top/r:TYPE=module %i
@@ -46,7 +46,7 @@ endmodule
 EOT
 
 hierarchy -top top
-flatten -scopeinfo
+flatten
 
 select -assert-count 2 top/t:$scopeinfo
 select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i
@@ -87,11 +87,11 @@ endmodule
 EOT
 
 hierarchy -top top
-flatten -scopeinfo top
+flatten top
 
 select -assert-count 1 top/t:$scopeinfo
 setattr -mod -unset keep_hierarchy *
-flatten -scopeinfo
+flatten
 
 select -assert-count 2 top/t:$scopeinfo
 select -assert-count 1 top/n:some_inst top/t:$scopeinfo %i

@@ -30,17 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 IdString concat_name(RTLIL::Cell *cell, IdString object_name, const std::string &separator = ".")
 {
-	if (object_name[0] == '\\')
-		return stringf("%s%s%s", cell->name.c_str(), separator.c_str(), object_name.c_str() + 1);
-	else {
-		return stringf("%s.%s", cell->name.c_str(), object_name.c_str());
-		/*
-		std::string object_name_str = object_name.str();
-		if (object_name_str.substr(0, 8) == "$flatten")
-			object_name_str.erase(0, 8);
-		return stringf("$flatten%s%s%s", cell->name.c_str(), separator.c_str(), object_name_str.c_str());
-		*/
-	}
+	return stringf("%s%s%s", cell->name.c_str(), separator.c_str(), object_name.c_str() + 1);
 }
 
 template<class T>
@@ -61,15 +51,16 @@ void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &si
 struct FlattenWorker
 {
 	bool ignore_wb = false;
-	bool create_scopeinfo = false; // SILIMATE: default false
+	bool create_scopeinfo = true;
 	bool create_scopename = false;
 	std::string separator = ".";
 
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	{
-		if (!create_scopeinfo && object->has_attribute(ID::src))
-			object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+		// SILIMATE: DISABLE SRC ATTRIBUTE ACCUMULATION
+		// if (!create_scopeinfo && object->has_attribute(ID::src))
+		// 	object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 
 		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
 		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
@@ -335,9 +326,9 @@ struct FlattenPass : public Pass {
 		log("    -wb\n");
 		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
-		log("    -scopeinfo\n");
-		log("        Create '$scopeinfo' cells that preserve attributes of cells and\n");
-		log("        modules that were removed during flattening. Without this option, the\n");
+		log("    -noscopeinfo\n");
+		log("        Do not create '$scopeinfo' cells that preserve attributes of cells and\n");
+		log("        modules that were removed during flattening. With this option, the\n");
 		log("        'src' attribute of a given cell is merged into all objects replacing\n");
 		log("        that cell, with multiple distinct 'src' locations separated by '|'.\n");
 		log("        With this option these 'src' locations can be found via the\n");
@@ -375,8 +366,8 @@ struct FlattenPass : public Pass {
 				worker.ignore_wb = true;
 				continue;
 			}
-			if (args[argidx] == "-scopeinfo") {
-				worker.create_scopeinfo = true;
+			if (args[argidx] == "-noscopeinfo") {
+				worker.create_scopeinfo = false;
 				continue;
 			}
 			if (args[argidx] == "-scopename") {
