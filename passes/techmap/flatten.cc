@@ -349,6 +349,10 @@ struct FlattenPass : public Pass {
 		log("    -separator <char>\n");
 		log("        Use this separator char instead of '.' when concatenating design levels.\n");
 		log("\n");
+		log("    -nocleanup\n");
+		log("        Don't remove unused submodules, leave a flattened version of each\n");
+		log("        submodule in the design.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -359,6 +363,8 @@ struct FlattenPass : public Pass {
 
 		if (design->scratchpad.count("flatten.separator"))
 			worker.separator = design->scratchpad_get_string("flatten.separator");
+
+		bool cleanup = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -376,6 +382,10 @@ struct FlattenPass : public Pass {
 			}
 			if (args[argidx] == "-separator" && argidx + 1 < args.size()) {
 				worker.separator = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-nocleanup") {
+				cleanup = false;
 				continue;
 			}
 			break;
@@ -414,7 +424,7 @@ struct FlattenPass : public Pass {
 		for (auto module : topo_modules.sorted)
 			worker.flatten_module(design, module, used_modules, worker.separator);
 
-		if (top != nullptr)
+		if (cleanup && top != nullptr)
 			for (auto module : design->modules().to_vector())
 				if (!used_modules[module] && !module->get_blackbox_attribute(worker.ignore_wb)) {
 					log("Deleting now unused module %s.\n", log_id(module));
