@@ -61,6 +61,8 @@ struct EstimateSta {
 			samplers.push_back(std::make_pair(cell, bit));
 	}
 
+	// we include a discount factor for cells that can be implemented using carry chain logic
+	// and to account for the AIG model not being balanced
 	int cell_type_factor(IdString type)
 	{
 		if (type.in(ID($gt), ID($ge), ID($lt), ID($le), ID($add), ID($sub),
@@ -81,11 +83,13 @@ struct EstimateSta {
 	{
 		log("Domain %s\n", log_signal(clk));
 
+		// first, we collect launch and sample points and convert the combinational logic to AIG
 		std::vector<Cell *> combinational;
 
 		for (auto cell : m->cells()) {
 			SigSpec launch, sample;
 			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				// collect launch and sample points for FF cell
 				FfData ff(nullptr, cell);
 				if (!ff.has_clk) {
 					log_warning("Ignoring unsupported storage element '%s' (%s)\n",
@@ -107,6 +111,7 @@ struct EstimateSta {
 			} else if (cell->type == ID($scopeinfo)) {
 				continue;
 			} else {
+				// find or build AIG model of combinational cell
 				auto fingerprint = std::make_pair(cell->type, cell->parameters);
 				if (!aigs.count(fingerprint)) {
 					aigs.emplace(fingerprint, Aig(cell));
@@ -121,11 +126,14 @@ struct EstimateSta {
 			}
 		}
 
+		// since we're now taking reference into `aigs`, we can no longer modify it
+		// and thus have to fill `cell_aigs` in a separate loop
 		for (auto cell : combinational) {
 			auto fingerprint = std::make_pair(cell->type, cell->parameters);
 			cell_aigs.emplace(cell, &aigs.at(fingerprint));
 		}
 
+		// collect launch and sample points for memory cells
 		for (auto &mem : Mem::get_all_memories(m)) {
 			for (auto &rd : mem.rd_ports) {
 				if (!rd.clk_enable) {
@@ -143,6 +151,9 @@ struct EstimateSta {
 			}
 		}
 
+		// now we toposort the combinational logic
+
+		// each toposort node is either a SigBit or a pair of Cell * / AigNode *
 		TopoSort<std::tuple<SigBit, Cell *, AigNode *>> topo;
 
 		auto desc_aig = [&](Cell *cell, AigNode &node) {
@@ -152,6 +163,7 @@ struct EstimateSta {
 			return std::make_tuple(sigmap(bit), (Cell *) NULL, (AigNode *) NULL);
 		};
 
+		// collect edges of the AIG graph
 		for (auto cell : combinational) {
 			assert(cell_aigs.count(cell));
 			Aig &aig = *cell_aigs.at(cell);
@@ -185,12 +197,16 @@ struct EstimateSta {
 
 		if (!topo.sort())
 			log_error("Module '%s' contains combinational loops", log_id(m));
-
+		
+		// now we determine how long it takes for signals to stabilize
+		
+		// `levels` records the time after a clock edge after which a signal is stable
 		dict<std::tuple<SigBit, Cell *, AigNode *>, arrivalint> levels;
 
 		for (auto node : topo.sorted)
 			levels[node] = INF_PAST;
 
+		// launch points are at 0 by definition
 		for (auto pair : launchers)
 			levels[desc_sig(pair.second)] = 0;
 
@@ -200,22 +216,26 @@ struct EstimateSta {
 				Cell *cell = std::get<1>(node);
 				Aig &aig = *cell_aigs.at(cell);
 				if (!aig_node->portname.empty()) {
+					// for a cell port, copy `levels` value from port bit
 					SigBit bit = cell->getPort(aig_node->portname)[aig_node->portbit];
 					levels[node] = levels[desc_sig(bit)];
 				} else if (aig_node->left_parent < 0 && aig_node->right_parent < 0) {
 					// constant, nothing to do
 				} else {
+					// for each AIG node, find maximum of parents and add a cell-specific delay
 					int left = levels[desc_aig(cell, aig.nodes[aig_node->left_parent])];
 					int right = levels[desc_aig(cell, aig.nodes[aig_node->right_parent])];
 					levels[node] = (std::max(left, right) + cell_type_factor(cell->type));
 				}
 
+				// copy `levels` value to any output ports
 				for (auto &oport : aig_node->outports) {
 					levels[desc_sig(cell->getPort(oport.first)[oport.second])] = levels[node];
 				}
 			}
 		}
 
+		// now find the length of the critical path (slowest path in the design)
 		arrivalint crit = INF_PAST;
 		for (auto pair : samplers)
 			if (levels[desc_sig(pair.second)] > crit)
@@ -232,6 +252,7 @@ struct EstimateSta {
 		// some compile-time errors related to hashing
 		dict<std::tuple<SigBit, Cell *, AigNode *>, bool> critical;
 
+		// actually find one critical path, or all such paths if requested
 		for (auto pair : samplers) {
 			if (levels[desc_sig(pair.second)] == crit) {
 				critical[desc_sig(pair.second)] = true;
@@ -240,6 +261,7 @@ struct EstimateSta {
 			}
 		}
 
+		// walk backwards through toposorted nodes and set critical flag on nodes in critical path
 		for (auto it = topo.sorted.rbegin(); it != topo.sorted.rend(); it++) {
 			auto node = *it;
 			AigNode *aig_node = std::get<2>(node);
@@ -248,22 +270,20 @@ struct EstimateSta {
 				Aig &aig = *cell_aigs.at(cell);
 
 				for (auto &oport : aig_node->outports) {
-					//levels[desc_sig(cell->getPort(oport.first)[oport.second])] = levels[node];
 					if (critical.count(desc_sig(cell->getPort(oport.first)[oport.second])))
 						critical[node] = true;
 				}
 
 				if (!aig_node->portname.empty()) {
 					SigBit bit = cell->getPort(aig_node->portname)[aig_node->portbit];
-					//levels[node] = levels[desc_sig(bit)];
 					if (critical.count(node))
 						critical[desc_sig(bit)] = true;
 				} else if (aig_node->left_parent < 0 && aig_node->right_parent < 0) {
 					// constant, nothing to do
 				} else {
+					// figure out which parent is on the critical path
 					auto left = desc_aig(cell, aig.nodes[aig_node->left_parent]);
 					auto right = desc_aig(cell, aig.nodes[aig_node->right_parent]);
-					//levels[node] = (std::max(left, right) + 1);
 					int crit_input_lvl = levels[node] - cell_type_factor(cell->type);
 					if (critical.count(node)) {
 						bool left_critical = (levels[left] == crit_input_lvl);
@@ -284,6 +304,7 @@ struct EstimateSta {
 			}
 		}
 
+		// finally print the path we found
 		SigPool bits_to_select;
 		pool<IdString> to_select;
 
