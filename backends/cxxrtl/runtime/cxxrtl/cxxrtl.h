@@ -498,6 +498,11 @@ struct value : public expr_base<value<Bits>> {
 		return result;
 	}
 
+	CXXRTL_ALWAYS_INLINE
+	value<Bits> bwmux(const value<Bits> &b, const value<Bits> &s) const {
+		return (bit_and(s.bit_not())).bit_or(b.bit_and(s));
+	}
+
 	template<size_t ResultBits, size_t SelBits>
 	value<ResultBits> demux(const value<SelBits> &sel) const {
 		static_assert(Bits << SelBits == ResultBits, "invalid sizes used in demux()");

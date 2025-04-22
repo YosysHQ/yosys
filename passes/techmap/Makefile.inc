@@ -54,6 +54,7 @@ OBJS += passes/techmap/flowmap.o
 OBJS += passes/techmap/extractinv.o
 OBJS += passes/techmap/cellmatch.o
 OBJS += passes/techmap/clockgate.o
+OBJS += passes/techmap/constmap.o
 endif
 
 ifeq ($(DISABLE_SPAWN),0)
@@ -62,5 +63,5 @@ EXTRA_OBJS += passes/techmap/filterlib.o
 
 $(PROGRAM_PREFIX)yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys-filterlib$(EXE) $(LINKFLAGS) $^ $(LIBS)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys-filterlib$(EXE) $(LINKFLAGS) $^ $(EXE_LIBS) $(LIBS)
 endif

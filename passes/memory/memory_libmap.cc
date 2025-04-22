@@ -2232,11 +2232,11 @@ struct MemoryLibMapPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			MapWorker worker(module);
+			auto worker = std::make_unique<MapWorker>(module);
 			auto mems = Mem::get_selected_memories(module);
 			for (auto &mem : mems)
 			{
-				MemMapping map(worker, mem, lib, opts);
+				MemMapping map(*worker, mem, lib, opts);
 				int idx = -1;
 				int best = map.logic_cost;
 				if (!map.logic_ok) {
@@ -2259,7 +2259,7 @@ struct MemoryLibMapPass : public Pass {
 				} else {
 					map.emit(map.cfgs[idx]);
 					// Rebuild indices after modifying module
-					worker = MapWorker(module);
+					worker = std::make_unique<MapWorker>(module);
 				}
 			}
 		}

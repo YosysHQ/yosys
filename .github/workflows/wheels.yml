@@ -1,6 +1,10 @@
 name: Build Wheels for PyPI
+
+# run every Sunday at 10 AM
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * 0'
 
 jobs:
   build_wheels:
@@ -14,16 +18,12 @@ jobs:
               runner: "ubuntu-22.04",
               archs: "x86_64",
             },
-            ## Aarch64 is disabled for now: GitHub is committing to EOY
-            ## for free aarch64 runners for open-source projects and
-            ## emulation times out:
-            ## https://github.com/orgs/community/discussions/19197#discussioncomment-10550689
-            # {
-            #   name: "Ubuntu 22.04",
-            #   family: "linux",
-            #   runner: "ubuntu-22.04",
-            #   archs: "aarch64",
-            # },
+            {
+              name: "Ubuntu 22.04",
+              family: "linux",
+              runner: "ubuntu-22.04-arm",
+              archs: "aarch64",
+            },
             {
               name: "macOS 13",
               family: "macos",
@@ -53,6 +53,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
+          persist-credentials: false
       - if: ${{ matrix.os.family == 'linux' }}
         name: "[Linux] Set up QEMU"
         uses: docker/setup-qemu-action@v3

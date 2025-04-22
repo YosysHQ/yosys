@@ -92,7 +92,7 @@ namespace Yosys
 
 	class LibertyInputStream {
 		std::istream &f;
-		std::vector<char> buffer;
+		std::vector<unsigned char> buffer;
 		size_t buf_pos = 0;
 		size_t buf_end = 0;
 		bool eof = false;
@@ -107,7 +107,7 @@ namespace Yosys
 		LibertyInputStream(std::istream &f) : f(f) {}
 
 		size_t buffered_size() { return buf_end - buf_pos; }
-		const char *buffered_data() { return buffer.data() + buf_pos; }
+		const unsigned char *buffered_data() { return buffer.data() + buf_pos; }
 
 		int get() {
 			if (buf_pos == buf_end)
@@ -165,7 +165,7 @@ namespace Yosys
 
 		void report_unexpected_token(int tok);
 		void parse_vector_range(int tok);
-		LibertyAst *parse();
+		LibertyAst *parse(bool top_level);
 		void error() const;
 		void error(const std::string &str) const;
 
@@ -174,18 +174,29 @@ namespace Yosys
 		const LibertyAst *ast = nullptr;
 
 		LibertyParser(std::istream &f) : f(f), line(1) {
-			shared_ast.reset(parse());
+			shared_ast.reset(parse(true));
 			ast = shared_ast.get();
+			if (!ast) {
+#ifdef FILTERLIB
+				fprintf(stderr, "No entries found in liberty file.\n");
+				exit(1);
+#else
+				log_error("No entries found in liberty file.\n");
+#endif
+			}
 		}
 
 #ifndef FILTERLIB
 		LibertyParser(std::istream &f, const std::string &fname) : f(f), line(1) {
 			shared_ast = LibertyAstCache::instance.cached_ast(fname);
 			if (!shared_ast) {
-				shared_ast.reset(parse());
+				shared_ast.reset(parse(true));
 				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
 			}
 			ast = shared_ast.get();
+			if (!ast) {
+				log_error("No entries found in liberty file `%s'.\n", fname.c_str());
+			}
 		}
 #endif
 	};

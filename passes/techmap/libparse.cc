@@ -75,7 +75,7 @@ bool LibertyInputStream::extend_buffer_once()
 		buffer.resize(buf_end + chunk_size);
 	}
 
-	size_t read_size = f.rdbuf()->sgetn(buffer.data() + buf_end, chunk_size);
+	size_t read_size = f.rdbuf()->sgetn((char *)buffer.data() + buf_end, chunk_size);
 	buf_end += read_size;
 	if (read_size < chunk_size)
 		eof = true;
@@ -436,6 +436,9 @@ void LibertyParser::report_unexpected_token(int tok)
 		eReport += "'.";
 		error(eReport);
 		break;
+	case EOF:
+		error("Unexpected end of file");
+		break;
 	default:
 		eReport = "Unexpected token: ";
 		eReport += static_cast<char>(tok);
@@ -484,7 +487,7 @@ void LibertyParser::parse_vector_range(int tok)
 	}
 }
 
-LibertyAst *LibertyParser::parse()
+LibertyAst *LibertyParser::parse(bool top_level)
 {
 	std::string str;
 
@@ -498,7 +501,13 @@ LibertyAst *LibertyParser::parse()
 	while ((tok == 'n') || (tok == ';'))
 		tok = lexer(str);
 
-	if (tok == '}' || tok < 0)
+	if (tok == EOF) {
+		if (top_level)
+			return NULL;
+		report_unexpected_token(tok);
+	}
+
+	if (tok == '}')
 		return NULL;
 
 	if (tok != 'v') {
@@ -571,11 +580,17 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '{') {
+			bool terminated = false;
 			while (1) {
-				LibertyAst *child = parse();
-				if (child == NULL)
+				LibertyAst *child = parse(false);
+				if (child == NULL) {
+					terminated = true;
 					break;
+				}
 				ast->children.push_back(child);
+			}
+			if (!terminated) {
+				report_unexpected_token(EOF);
 			}
 			break;
 		}

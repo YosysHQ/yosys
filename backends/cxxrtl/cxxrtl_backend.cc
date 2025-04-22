@@ -200,7 +200,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -1196,6 +1196,14 @@ struct CxxrtlWorker {
 			f << ".bmux<";
 			f << cell->getParam(ID::WIDTH).as_int();
 			f << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
+		// Bitwise muxes
+		} else if (cell->type == ID($bwmux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".bwmux(";
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			f << ",";
 			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
 			f << ").val()";
 		// Demuxes

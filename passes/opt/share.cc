@@ -110,7 +110,7 @@ struct ShareWorker
 	// Code for sharing and comparing MACC cells
 	// ---------------------------------------------------
 
-	static int bits_macc_port(const Macc::port_t &p, int width)
+	static int bits_macc_term(const Macc::term_t &p, int width)
 	{
 		if (GetSize(p.in_a) == 0 || GetSize(p.in_b) == 0)
 			return min(max(GetSize(p.in_a), GetSize(p.in_b)), width);
@@ -120,8 +120,8 @@ struct ShareWorker
 	static int bits_macc(const Macc &m, int width)
 	{
 		int bits = 0;
-		for (auto &p : m.ports)
-			bits += bits_macc_port(p, width);
+		for (auto &p : m.terms)
+			bits += bits_macc_term(p, width);
 		return bits;
 	}
 
@@ -132,7 +132,7 @@ struct ShareWorker
 		return bits_macc(m, width);
 	}
 
-	static bool cmp_macc_ports(const Macc::port_t &p1, const Macc::port_t &p2)
+	static bool cmp_macc_ports(const Macc::term_t &p1, const Macc::term_t &p2)
 	{
 		bool mul1 = GetSize(p1.in_a) && GetSize(p1.in_b);
 		bool mul2 = GetSize(p2.in_a) && GetSize(p2.in_b);
@@ -161,7 +161,7 @@ struct ShareWorker
 		return false;
 	}
 
-	int share_macc_ports(Macc::port_t &p1, Macc::port_t &p2, int w1, int w2,
+	int share_macc_ports(Macc::term_t &p1, Macc::term_t &p2, int w1, int w2,
 			RTLIL::SigSpec act = RTLIL::SigSpec(), Macc *supermacc = nullptr, pool<RTLIL::Cell*> *supercell_aux = nullptr)
 	{
 		if (p1.do_subtract != p2.do_subtract)
@@ -216,12 +216,12 @@ struct ShareWorker
 				supercell_aux->insert(module->addMux(NEW_ID, sig_b2, sig_b1, act, sig_b));
 			}
 
-			Macc::port_t p;
+			Macc::term_t p;
 			p.in_a = sig_a;
 			p.in_b = sig_b;
 			p.is_signed = force_signed;
 			p.do_subtract = p1.do_subtract;
-			supermacc->ports.push_back(p);
+			supermacc->terms.push_back(p);
 		}
 
 		int score = 1000 + abs(GetSize(p1.in_a) - GetSize(p2.in_a)) * max(abs(GetSize(p1.in_b) - GetSize(p2.in_b)), 1);
@@ -248,15 +248,15 @@ struct ShareWorker
 		m1.optimize(w1);
 		m2.optimize(w2);
 
-		std::sort(m1.ports.begin(), m1.ports.end(), cmp_macc_ports);
-		std::sort(m2.ports.begin(), m2.ports.end(), cmp_macc_ports);
+		std::sort(m1.terms.begin(), m1.terms.end(), cmp_macc_ports);
+		std::sort(m2.terms.begin(), m2.terms.end(), cmp_macc_ports);
 
 		std::set<int> m1_unmapped, m2_unmapped;
 
-		for (int i = 0; i < GetSize(m1.ports); i++)
+		for (int i = 0; i < GetSize(m1.terms); i++)
 			m1_unmapped.insert(i);
 
-		for (int i = 0; i < GetSize(m2.ports); i++)
+		for (int i = 0; i < GetSize(m2.terms); i++)
 			m2_unmapped.insert(i);
 
 		while (1)
@@ -265,7 +265,7 @@ struct ShareWorker
 
 			for (int i : m1_unmapped)
 			for (int j : m2_unmapped) {
-				int score = share_macc_ports(m1.ports[i], m2.ports[j], w1, w2);
+				int score = share_macc_ports(m1.terms[i], m2.terms[j], w1, w2);
 				if (score >= 0 && (best_i < 0 || best_score > score))
 					best_i = i, best_j = j, best_score = score;
 			}
@@ -273,55 +273,55 @@ struct ShareWorker
 			if (best_i >= 0) {
 				m1_unmapped.erase(best_i);
 				m2_unmapped.erase(best_j);
-				share_macc_ports(m1.ports[best_i], m2.ports[best_j], w1, w2, act, &supermacc, supercell_aux);
+				share_macc_ports(m1.terms[best_i], m2.terms[best_j], w1, w2, act, &supermacc, supercell_aux);
 			} else
 				break;
 		}
 
 		for (int i : m1_unmapped)
 		{
-			RTLIL::SigSpec sig_a = m1.ports[i].in_a;
-			RTLIL::SigSpec sig_b = m1.ports[i].in_b;
+			RTLIL::SigSpec sig_a = m1.terms[i].in_a;
+			RTLIL::SigSpec sig_b = m1.terms[i].in_b;
 
 			if (supercell_aux && GetSize(sig_a)) {
 				sig_a = module->addWire(NEW_ID, GetSize(sig_a));
-				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_a)), m1.ports[i].in_a, act, sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_a)), m1.terms[i].in_a, act, sig_a));
 			}
 
 			if (supercell_aux && GetSize(sig_b)) {
 				sig_b = module->addWire(NEW_ID, GetSize(sig_b));
-				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_b)), m1.ports[i].in_b, act, sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(sig_b)), m1.terms[i].in_b, act, sig_b));
 			}
 
-			Macc::port_t p;
+			Macc::term_t p;
 			p.in_a = sig_a;
 			p.in_b = sig_b;
-			p.is_signed = m1.ports[i].is_signed;
-			p.do_subtract = m1.ports[i].do_subtract;
-			supermacc.ports.push_back(p);
+			p.is_signed = m1.terms[i].is_signed;
+			p.do_subtract = m1.terms[i].do_subtract;
+			supermacc.terms.push_back(p);
 		}
 
 		for (int i : m2_unmapped)
 		{
-			RTLIL::SigSpec sig_a = m2.ports[i].in_a;
-			RTLIL::SigSpec sig_b = m2.ports[i].in_b;
+			RTLIL::SigSpec sig_a = m2.terms[i].in_a;
+			RTLIL::SigSpec sig_b = m2.terms[i].in_b;
 
 			if (supercell_aux && GetSize(sig_a)) {
 				sig_a = module->addWire(NEW_ID, GetSize(sig_a));
-				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_a, RTLIL::SigSpec(0, GetSize(sig_a)), act, sig_a));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.terms[i].in_a, RTLIL::SigSpec(0, GetSize(sig_a)), act, sig_a));
 			}
 
 			if (supercell_aux && GetSize(sig_b)) {
 				sig_b = module->addWire(NEW_ID, GetSize(sig_b));
-				supercell_aux->insert(module->addMux(NEW_ID, m2.ports[i].in_b, RTLIL::SigSpec(0, GetSize(sig_b)), act, sig_b));
+				supercell_aux->insert(module->addMux(NEW_ID, m2.terms[i].in_b, RTLIL::SigSpec(0, GetSize(sig_b)), act, sig_b));
 			}
 
-			Macc::port_t p;
+			Macc::term_t p;
 			p.in_a = sig_a;
 			p.in_b = sig_b;
-			p.is_signed = m2.ports[i].is_signed;
-			p.do_subtract = m2.ports[i].do_subtract;
-			supermacc.ports.push_back(p);
+			p.is_signed = m2.terms[i].is_signed;
+			p.do_subtract = m2.terms[i].do_subtract;
+			supermacc.terms.push_back(p);
 		}
 
 		if (supercell)
@@ -1000,6 +1000,61 @@ struct ShareWorker
 		}
 	}
 
+	pool<std::pair<SigBit, State>> pattern_bits(const pool<ssc_pair_t> &activation_patterns)
+	{
+		pool<std::pair<SigBit, State>> bits;
+		for (auto const &pattern : activation_patterns) {
+			for (int i = 0; i < GetSize(pattern.second); ++i) {
+				SigBit bit = pattern.first[i];
+				State val = pattern.second[i];
+				bits.emplace(bit, val);
+			}
+		}
+		return bits;
+	}
+
+	bool onesided_restrict_activation_patterns(
+			pool<ssc_pair_t> &activation_patterns, const pool<std::pair<SigBit, State>> &other_bits)
+	{
+		pool<ssc_pair_t> new_activation_patterns;
+
+		bool simplified = false;
+
+		for (auto const &pattern : activation_patterns) {
+			ssc_pair_t new_pair;
+			for (int i = 0; i < GetSize(pattern.second); ++i) {
+				SigBit bit = pattern.first[i];
+				State val = pattern.second[i];
+				if (other_bits.count({bit, val == State::S0 ? State::S1 : State::S0})) {
+					new_pair.first.append(bit);
+					new_pair.second.append(val);
+				} else {
+					simplified = true;
+				}
+			}
+			new_activation_patterns.emplace(std::move(new_pair));
+		}
+
+		activation_patterns = std::move(new_activation_patterns);
+		return simplified;
+	}
+
+	// Only valid if the patterns on their own (i.e. without considering their input cone) are mutually exclusive!
+	bool restrict_activation_patterns(pool<ssc_pair_t> &activation_patterns, pool<ssc_pair_t> &other_activation_patterns)
+	{
+		pool<std::pair<SigBit, State>> bits = pattern_bits(activation_patterns);
+		pool<std::pair<SigBit, State>> other_bits = pattern_bits(other_activation_patterns);
+
+		bool simplified = false;
+		simplified |= onesided_restrict_activation_patterns(activation_patterns, other_bits);
+		simplified |= onesided_restrict_activation_patterns(other_activation_patterns, bits);
+
+		optimize_activation_patterns(activation_patterns);
+		optimize_activation_patterns(other_activation_patterns);
+
+		return simplified;
+	}
+
 	RTLIL::SigSpec make_cell_activation_logic(const pool<ssc_pair_t> &activation_patterns, pool<RTLIL::Cell*> &supercell_aux)
 	{
 		RTLIL::Wire *all_cases_wire = module->addWire(NEW_ID, 0);
@@ -1299,17 +1354,18 @@ struct ShareWorker
 					other_cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
+				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
+				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
 
+				bool pattern_only_solve = qcsat.ez->solve(qcsat.ez->AND(sub1, sub2));
 				qcsat.prepare();
 
-				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
 				if (!qcsat.ez->solve(sub1)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
 					cells_to_remove.insert(cell);
 					break;
 				}
 
-				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
 				if (!qcsat.ez->solve(sub2)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(other_cell));
 					cells_to_remove.insert(other_cell);
@@ -1317,27 +1373,42 @@ struct ShareWorker
 					continue;
 				}
 
-				qcsat.ez->non_incremental();
+				pool<ssc_pair_t> optimized_cell_activation_patterns = filtered_cell_activation_patterns;
+				pool<ssc_pair_t> optimized_other_cell_activation_patterns = filtered_other_cell_activation_patterns;
 
-				all_ctrl_signals.sort_and_unify();
-				std::vector<int> sat_model = qcsat.importSig(all_ctrl_signals);
-				std::vector<bool> sat_model_values;
+				if (pattern_only_solve) {
+					qcsat.ez->non_incremental();
 
-				qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
+					all_ctrl_signals.sort_and_unify();
+					std::vector<int> sat_model = qcsat.importSig(all_ctrl_signals);
+					std::vector<bool> sat_model_values;
 
-				log("      Size of SAT problem: %zu cells, %d variables, %d clauses\n",
-						qcsat.imported_cells.size(), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
+					qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
 
-				if (qcsat.ez->solve(sat_model, sat_model_values)) {
-					log("      According to the SAT solver this pair of cells can not be shared.\n");
-					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
-					for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
-						log("%c", sat_model_values[i] ? '1' : '0');
-					log("\n");
-					continue;
+					log("      Size of SAT problem: %zu cells, %d variables, %d clauses\n",
+							qcsat.imported_cells.size(), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
+
+					if (qcsat.ez->solve(sat_model, sat_model_values)) {
+						log("      According to the SAT solver this pair of cells can not be shared.\n");
+						log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
+						for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
+							log("%c", sat_model_values[i] ? '1' : '0');
+						log("\n");
+						continue;
+					}
+
+					log("      According to the SAT solver this pair of cells can be shared.\n");
+				} else {
+					log("      According to the SAT solver this pair of cells can be shared. (Pattern only case)\n");
+
+					if (restrict_activation_patterns(optimized_cell_activation_patterns, optimized_other_cell_activation_patterns)) {
+						for (auto &p : optimized_cell_activation_patterns)
+							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
+
+						for (auto &p : optimized_other_cell_activation_patterns)
+							log("      Simplified activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
+					}
 				}
-
-				log("      According to the SAT solver this pair of cells can be shared.\n");
 
 				if (find_in_input_cone(cell, other_cell)) {
 					log("      Sharing not possible: %s is in input cone of %s.\n", log_id(other_cell), log_id(cell));
@@ -1354,20 +1425,20 @@ struct ShareWorker
 				int cell_select_score = 0;
 				int other_cell_select_score = 0;
 
-				for (auto &p : filtered_cell_activation_patterns)
+				for (auto &p : optimized_cell_activation_patterns)
 					cell_select_score += p.first.size();
 
-				for (auto &p : filtered_other_cell_activation_patterns)
+				for (auto &p : optimized_other_cell_activation_patterns)
 					other_cell_select_score += p.first.size();
 
 				RTLIL::Cell *supercell;
 				pool<RTLIL::Cell*> supercell_aux;
 				if (cell_select_score <= other_cell_select_score) {
-					RTLIL::SigSpec act = make_cell_activation_logic(filtered_cell_activation_patterns, supercell_aux);
+					RTLIL::SigSpec act = make_cell_activation_logic(optimized_cell_activation_patterns, supercell_aux);
 					supercell = make_supercell(cell, other_cell, act, supercell_aux);
 					log("      Activation signal for %s: %s\n", log_id(cell), log_signal(act));
 				} else {
-					RTLIL::SigSpec act = make_cell_activation_logic(filtered_other_cell_activation_patterns, supercell_aux);
+					RTLIL::SigSpec act = make_cell_activation_logic(optimized_other_cell_activation_patterns, supercell_aux);
 					supercell = make_supercell(other_cell, cell, act, supercell_aux);
 					log("      Activation signal for %s: %s\n", log_id(other_cell), log_signal(act));
 				}
