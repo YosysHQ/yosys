@@ -292,10 +292,10 @@ module CC_DLT #(
 	always @(*)
 	begin
 		if (sr) begin
-			Q <= SR_VAL;
+			Q = SR_VAL;
 		end
 		else if (en) begin
-			Q <= D;
+			Q = D;
 		end
 	end
 
@@ -407,7 +407,7 @@ module CC_MULT #(
 );
 	always @(*)
 	begin
-		P <= A * B;
+		P = A * B;
 	end
 endmodule
 
