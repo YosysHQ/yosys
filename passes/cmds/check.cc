@@ -27,6 +27,11 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct CheckPass : public Pass {
+	enum Mode {
+		Permissive,
+		Smart,
+		Assert,
+	};
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
 	void help() override
 	{
@@ -59,6 +64,10 @@ struct CheckPass : public Pass {
 		log("    -assert\n");
 		log("        produce a runtime error if any problems are found in the current design\n");
 		log("\n");
+		log("    -permissive\n");
+		log("        treat even severe problems as just warnings.\n");
+		log("        Used to be the default behavior\n");
+		log("\n");
 		log("    -force-detailed-loop-check\n");
 		log("        for the detection of combinatorial loops, use a detailed connectivity\n");
 		log("        model for all internal cells for which it is available. This disables\n");
@@ -68,14 +77,25 @@ struct CheckPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		// Number of all problems (warnings and errors)
 		int counter = 0;
 		bool noinit = false;
 		bool initdrv = false;
 		bool mapped = false;
 		bool allow_tbuf = false;
-		bool assert_mode = false;
 		bool force_detailed_loop_check = false;
 		bool suggest_detail = false;
+		Mode mode = Mode::Smart;
+		// log_error always terminates and it's a huge hassle to refactor
+		std::vector<std::string> errors;
+		std::function<void(std::string)> bad = [&errors, &counter](std::string message) {
+			counter++;
+			errors.push_back(message);
+		};
+		std::function<void(std::string)> warn = [&counter](std::string message) {
+			counter++;
+			log_warning("%s", message.c_str());
+		};
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -95,8 +115,12 @@ struct CheckPass : public Pass {
 				allow_tbuf = true;
 				continue;
 			}
+			if (args[argidx] == "-permissive") {
+				mode = Mode::Permissive;
+				continue;
+			}
 			if (args[argidx] == "-assert") {
-				assert_mode = true;
+				mode = Mode::Assert;
 				continue;
 			}
 			if (args[argidx] == "-force-detailed-loop-check") {
@@ -108,6 +132,11 @@ struct CheckPass : public Pass {
 		extra_args(args, argidx, design);
 
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
+
+		if (mode == Mode::Permissive)
+			bad = warn;
+		if (mode == Mode::Assert)
+			warn = bad;
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
@@ -246,8 +275,7 @@ struct CheckPass : public Pass {
 			{
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
 					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
-					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
-					counter++;
+					warn(fmt("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type)));
 				cell_allowed:;
 				}
 
@@ -299,8 +327,7 @@ struct CheckPass : public Pass {
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							init_bits.insert(sigmap(SigBit(wire, i)));
 					if (noinit) {
-						log_warning("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire));
-						counter++;
+						warn(fmt("Wire %s.%s has an unprocessed 'init' attribute.\n", log_id(module), log_id(wire)));
 					}
 				}
 			}
@@ -310,8 +337,7 @@ struct CheckPass : public Pass {
 					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
 						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
-					counter++;
+					bad(message);
 				}
 
 			for (auto it : wire_drivers)
@@ -319,14 +345,12 @@ struct CheckPass : public Pass {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str.c_str());
-					log_warning("%s", message.c_str());
-					counter++;
+					bad(message);
 				}
 
 			for (auto bit : used_wires)
 				if (!wire_drivers.count(bit)) {
-					log_warning("Wire %s.%s is used but has no driver.\n", log_id(module), log_signal(bit));
-					counter++;
+					warn(fmt("Wire %s.%s is used but has no driver.\n", log_id(module), log_signal(bit)));
 				}
 
 			topo.sort();
@@ -386,7 +410,7 @@ struct CheckPass : public Pass {
 
 					message += stringf("    cell %s (%s)%s\n", log_id(driver), log_id(driver->type), driver_src.c_str());
 
-					if (!coarsened_cells.count(driver)) {						
+					if (!coarsened_cells.count(driver)) {
 						MatchingEdgePrinter printer(message, sigmap, prev, bit);
 						printer.add_edges_from_cell(driver);
 					} else {
@@ -400,13 +424,12 @@ struct CheckPass : public Pass {
 							std::string src_attr = wire->get_src_attribute();
 							wire_src = stringf(" source: %s", src_attr.c_str());
 						}
-						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src.c_str());						
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src.c_str());
 					}
 
 					prev = bit;
 				}
-				log_warning("%s", message.c_str());
-				counter++;
+				bad(message.c_str());
 			}
 
 			if (initdrv)
@@ -424,8 +447,7 @@ struct CheckPass : public Pass {
 				init_sig.sort_and_unify();
 
 				for (auto chunk : init_sig.chunks()) {
-					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", log_id(module), log_signal(chunk));
-					counter++;
+					warn(fmt("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", log_id(module), log_signal(chunk)));
 				}
 			}
 		}
@@ -435,8 +457,13 @@ struct CheckPass : public Pass {
 		if (suggest_detail)
 			log("Consider re-running with '-force-detailed-loop-check' to rule out false positives.\n");
 
-		if (assert_mode && counter > 0)
-			log_error("Found %d problems in 'check -assert'.\n", counter);
+		if (errors.size()) {
+			std::string err_message;
+			for (auto error : errors)
+				err_message += error + "\n";
+			err_message += fmt("Found %zu severe problems in 'check'.\n", errors.size());
+			log_error("%s", err_message.c_str());
+		}
 	}
 } CheckPass;
 

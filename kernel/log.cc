@@ -400,6 +400,16 @@ void log_file_error(const string &filename, int lineno,
 	logv_file_error(filename, lineno, format, ap);
 }
 
+std::string fmt(const char *format, ...)
+{
+	std::string s;
+	va_list ap;
+	va_start(ap, format);
+	s = vstringf(format, ap);
+	va_end(ap);
+	return s;
+}
+
 void log(const char *format, ...)
 {
 	va_list ap;
