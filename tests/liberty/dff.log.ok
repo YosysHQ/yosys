@@ -1,0 +1,29 @@
+
+-- Running command `dfflibmap -info -liberty dff.lib' --
+
+1. Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).
+  cell dff (noninv, pins=3, area=1.00) is a direct match for cell type $_DFF_P_.
+  final dff cell mappings:
+    unmapped dff cell: $_DFF_N_
+    \dff _DFF_P_ (.CLK( C), .D( D), .Q( Q));
+    unmapped dff cell: $_DFF_NN0_
+    unmapped dff cell: $_DFF_NN1_
+    unmapped dff cell: $_DFF_NP0_
+    unmapped dff cell: $_DFF_NP1_
+    unmapped dff cell: $_DFF_PN0_
+    unmapped dff cell: $_DFF_PN1_
+    unmapped dff cell: $_DFF_PP0_
+    unmapped dff cell: $_DFF_PP1_
+    unmapped dff cell: $_DFFE_NN_
+    unmapped dff cell: $_DFFE_NP_
+    unmapped dff cell: $_DFFE_PN_
+    unmapped dff cell: $_DFFE_PP_
+    unmapped dff cell: $_DFFSR_NNN_
+    unmapped dff cell: $_DFFSR_NNP_
+    unmapped dff cell: $_DFFSR_NPN_
+    unmapped dff cell: $_DFFSR_NPP_
+    unmapped dff cell: $_DFFSR_PNN_
+    unmapped dff cell: $_DFFSR_PNP_
+    unmapped dff cell: $_DFFSR_PPN_
+    unmapped dff cell: $_DFFSR_PPP_
+dfflegalize command line: dfflegalize -cell $_DFF_P_ 01 t:$_DFF* t:$_SDFF*

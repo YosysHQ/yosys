@@ -1,0 +1,19 @@
+library(dff) {
+  cell(dff) {
+    area : 1 ;
+    ff("IQ", "IQN") {
+      next_state : "(D)" ;
+      clocked_on : "CLK" ;
+    }
+    pin(D) {
+      direction : input ;
+    }
+    pin(CLK) {
+      direction : input ;
+    }
+    pin(Q) {
+      direction : output ;
+      function : "IQ" ;
+    }
+  }
+}
