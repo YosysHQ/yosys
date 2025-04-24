@@ -1919,6 +1919,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str, attributes);
+				if (newNode->attributes.count(ID::wiretype))
+					delete newNode->attributes[ID::wiretype];
 				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
