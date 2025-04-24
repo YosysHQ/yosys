@@ -467,6 +467,72 @@ namespace AST_INTERNAL
 	                           AST::AstNode *original_ast = nullptr);
 }
 
+#undef ASTNODE_GC
+#ifdef ASTNODE_GC
+struct Tagger {
+	std::set<AST::AstNode*> nodes;
+	std::set<AST::AstNode*> tagged;
+	static Tagger& get() {
+		static Tagger instance;
+		return instance;
+	}
+	void reg(AST::AstNode* p) {
+		if (!p)
+			return;
+		log_assert(!nodes.count(p));
+		nodes.insert(p);
+	}
+	void unreg(AST::AstNode* p) {
+		if (!p || !nodes.count(p))
+			return;
+		nodes.erase(p);
+	}
+	void tag(AST::AstNode* p) {
+		if (!p)
+			return;
+		tagged.insert(p);
+		for (AST::AstNode* c : p->children)
+			tag(c);
+		for (auto x : p->attributes)
+			tag(x.second);
+		tag(p->id2ast);
+	}
+	void clear() {
+		tagged.clear();
+	}
+	void dump_untagged() {
+		Yosys::log("Dumping untagged:\n");
+		for (auto p : nodes) {
+			if (!tagged.count(p)) {
+				Yosys::log(">> %p\n", p);
+				p->dumpAst(stdout, "");
+			}
+		}
+	}
+	void shadow_kill(AST::AstNode* p) {
+		if (!p || !nodes.count(p))
+			return;
+		for (AST::AstNode* c : p->children)
+			shadow_kill(c);
+		for (auto x : p->attributes)
+			shadow_kill(x.second);
+		shadow_kill(p->id2ast);
+		delete p;
+	}
+	void kill_untagged() {
+		auto copy = nodes;
+		while (!copy.empty()) {
+			AST::AstNode* p = *(copy.begin());
+			copy.erase(p);
+			fflush(stdout);
+			if (!tagged.count(p)) {
+				shadow_kill(p);
+			}
+		}
+	}
+};
+#endif // ASTNODE_GC
+
 YOSYS_NAMESPACE_END
 
 #endif

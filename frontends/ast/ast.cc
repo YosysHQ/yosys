@@ -248,6 +248,9 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 		children.push_back(child4);
 
 	fixup_hierarchy_flags();
+#ifdef ASTNODE_GC
+	Tagger::get().reg(this);
+#endif
 }
 
 // create a (deep recursive) copy of a node
@@ -283,12 +286,28 @@ void AstNode::cloneInto(AstNode *other) const
 // delete all children in this node
 void AstNode::delete_children()
 {
+#ifdef ASTNODE_GC
+	for (auto &it : children)
+		if (Tagger::get().nodes.count(it))
+			delete it;
+		else
+			log("skip child %p\n", it);
+#else
 	for (auto &it : children)
 		delete it;
+#endif
 	children.clear();
 
+#ifdef ASTNODE_GC
+	for (auto &it : attributes)
+		if (Tagger::get().nodes.count(it.second))
+			delete it.second;
+		else
+			log("skip attr %p\n", it.second);
+#else
 	for (auto &it : attributes)
 		delete it.second;
+#endif
 	attributes.clear();
 }
 
@@ -296,7 +315,14 @@ void AstNode::delete_children()
 AstNode::~AstNode()
 {
 	astnodes--;
+#ifdef ASTNODE_GC
+	Tagger::get().unreg(this);
+#endif
 	delete_children();
+	if (yosys_xtrace) {
+		log("DESTR %X %p\n", hashidx_, this);
+		log_backtrace("", yosys_xtrace-1);
+	}
 }
 
 // create a nice text representation of the node

@@ -39,6 +39,7 @@
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
+
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
 
 static std::vector<std::string> verilog_defaults;
@@ -528,7 +529,15 @@ struct VerilogFrontend : public Frontend {
 
 		AST::process(design, current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+#ifdef ASTNODE_GC
+		Tagger::get().clear();
+		Tagger::get().tag(current_ast);
+		for (RTLIL::Module* m : design->modules())
+			if (AST::AstModule* am = dynamic_cast<AST::AstModule*>(m))
+				Tagger::get().tag(am->ast);
 
+		Tagger::get().dump_untagged();
+#endif
 
 		if (!flag_nopp)
 			delete lexin;
@@ -539,6 +548,9 @@ struct VerilogFrontend : public Frontend {
 
 		delete current_ast;
 		current_ast = NULL;
+#ifdef ASTNODE_GC
+		Tagger::get().kill_untagged();
+#endif
 
 		log("Successfully finished Verilog frontend.\n");
 	}
