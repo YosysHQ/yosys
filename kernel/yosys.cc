@@ -185,7 +185,7 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
-	(void)Interner::instance();
+	(void)Interner::get();
 
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already

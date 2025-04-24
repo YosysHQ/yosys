@@ -106,7 +106,7 @@ namespace RTLIL
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 };
 
-#define YOSYS_XTRACE_GET_PUT
+#undef YOSYS_XTRACE_GET_PUT
 #undef YOSYS_SORT_ID_FREE_LIST
 #undef YOSYS_USE_STICKY_IDS
 #undef YOSYS_NO_IDS_REFCNT
