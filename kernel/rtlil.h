@@ -106,42 +106,41 @@ namespace RTLIL
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 };
 
+#define YOSYS_XTRACE_GET_PUT
+#undef YOSYS_SORT_ID_FREE_LIST
+#undef YOSYS_USE_STICKY_IDS
+#undef YOSYS_NO_IDS_REFCNT
+
+class Interner {
+	public:
+	std::vector<char*> storage;
+	dict<char*, int> map;
+	#ifndef YOSYS_NO_IDS_REFCNT
+	std::vector<int> refcounts;
+	std::vector<int> free_list;
+	#endif
+	#ifdef YOSYS_USE_STICKY_IDS
+	int RTLIL::IdString::last_created_idx_[8];
+	int RTLIL::IdString::last_created_idx_ptr_;
+	#endif
+    static Interner& get() {
+        static Interner instance;
+        return instance;
+    }
+};
+inline const auto& internerInitializer = Interner::get();
+
 struct RTLIL::IdString
 {
-	#undef YOSYS_XTRACE_GET_PUT
-	#undef YOSYS_SORT_ID_FREE_LIST
-	#undef YOSYS_USE_STICKY_IDS
-	#undef YOSYS_NO_IDS_REFCNT
-
-	// the global id string cache
-
-	static bool destruct_guard_ok; // POD, will be initialized to zero
-	static struct destruct_guard_t {
-		destruct_guard_t() { destruct_guard_ok = true; }
-		~destruct_guard_t() { destruct_guard_ok = false; }
-	} destruct_guard;
-
-	static std::vector<char*> global_id_storage_;
-	static dict<char*, int> global_id_index_;
-#ifndef YOSYS_NO_IDS_REFCNT
-	static std::vector<int> global_refcount_storage_;
-	static std::vector<int> global_free_idx_list_;
-#endif
-
-#ifdef YOSYS_USE_STICKY_IDS
-	static int last_created_idx_ptr_;
-	static int last_created_idx_[8];
-#endif
-
 	static inline void xtrace_db_dump()
 	{
 	#ifdef YOSYS_XTRACE_GET_PUT
-		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+		for (int idx = 0; idx < GetSize(Interner::get().storage); idx++)
 		{
-			if (global_id_storage_.at(idx) == nullptr)
+			if (Interner::get().storage.at(idx) == nullptr)
 				log("#X# DB-DUMP index %d: FREE\n", idx);
 			else
-				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, Interner::get().storage.at(idx), Interner::get().refcounts.at(idx));
 		}
 	#endif
 	}
@@ -157,7 +156,7 @@ struct RTLIL::IdString
 		}
 	#endif
 	#ifdef YOSYS_SORT_ID_FREE_LIST
-		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+		std::sort(Interner::get().free_list.begin(), Interner::get().free_list.end(), std::greater<int>());
 	#endif
 	}
 
@@ -165,11 +164,11 @@ struct RTLIL::IdString
 	{
 		if (idx) {
 	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_[idx]++;
+			Interner::get().refcounts[idx]++;
 	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", Interner::get().storage.at(idx), idx, Interner::get().refcounts.at(idx));
 	#endif
 		}
 		return idx;
@@ -177,19 +176,17 @@ struct RTLIL::IdString
 
 	static int get_reference(const char *p)
 	{
-		log_assert(destruct_guard_ok);
-
 		if (!p[0])
 			return 0;
 
-		auto it = global_id_index_.find((char*)p);
-		if (it != global_id_index_.end()) {
+		auto it = Interner::get().map.find((char*)p);
+		if (it != Interner::get().map.end()) {
 	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_.at(it->second)++;
+			Interner::get().refcounts.at(it->second)++;
 	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", Interner::get().storage.at(it->second), it->second, Interner::get().refcounts.at(it->second));
 	#endif
 			return it->second;
 		}
@@ -201,31 +198,31 @@ struct RTLIL::IdString
 				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
 	#ifndef YOSYS_NO_IDS_REFCNT
-		if (global_free_idx_list_.empty()) {
-			if (global_id_storage_.empty()) {
-				global_refcount_storage_.push_back(0);
-				global_id_storage_.push_back((char*)"");
-				global_id_index_[global_id_storage_.back()] = 0;
+		if (Interner::get().free_list.empty()) {
+			if (Interner::get().storage.empty()) {
+				Interner::get().refcounts.push_back(0);
+				Interner::get().storage.push_back((char*)"");
+				Interner::get().map[Interner::get().storage.back()] = 0;
 			}
-			log_assert(global_id_storage_.size() < 0x40000000);
-			global_free_idx_list_.push_back(global_id_storage_.size());
-			global_id_storage_.push_back(nullptr);
-			global_refcount_storage_.push_back(0);
+			log_assert(Interner::get().storage.size() < 0x40000000);
+			Interner::get().free_list.push_back(Interner::get().storage.size());
+			Interner::get().storage.push_back(nullptr);
+			Interner::get().refcounts.push_back(0);
 		}
 
-		int idx = global_free_idx_list_.back();
-		global_free_idx_list_.pop_back();
-		global_id_storage_.at(idx) = strdup(p);
-		global_id_index_[global_id_storage_.at(idx)] = idx;
-		global_refcount_storage_.at(idx)++;
+		int idx = Interner::get().free_list.back();
+		Interner::get().free_list.pop_back();
+		Interner::get().storage.at(idx) = strdup(p);
+		Interner::get().map[Interner::get().storage.at(idx)] = idx;
+		Interner::get().refcounts.at(idx)++;
 	#else
-		if (global_id_storage_.empty()) {
-			global_id_storage_.push_back((char*)"");
-			global_id_index_[global_id_storage_.back()] = 0;
+		if (Interner::get().storage.empty()) {
+			Interner::get().storage.push_back((char*)"");
+			Interner::get().map[Interner::get().storage.back()] = 0;
 		}
-		int idx = global_id_storage_.size();
-		global_id_storage_.push_back(strdup(p));
-		global_id_index_[global_id_storage_.back()] = idx;
+		int idx = Interner::get().storage.size();
+		Interner::get().storage.push_back(strdup(p));
+		Interner::get().map[Interner::get().storage.back()] = idx;
 	#endif
 
 		if (yosys_xtrace) {
@@ -235,7 +232,7 @@ struct RTLIL::IdString
 
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace)
-			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", Interner::get().storage.at(idx), idx, Interner::get().refcounts.at(idx));
 	#endif
 
 	#ifdef YOSYS_USE_STICKY_IDS
@@ -253,18 +250,15 @@ struct RTLIL::IdString
 #ifndef YOSYS_NO_IDS_REFCNT
 	static inline void put_reference(int idx)
 	{
-		// put_reference() may be called from destructors after the destructor of
-		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (!destruct_guard_ok || !idx)
+		if (!idx)
 			return;
-
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace) {
-			log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			log("#X# PUT '%s' (index %d, refcount %d)\n", Interner::get().storage.at(idx), idx, Interner::get().refcounts.at(idx));
 		}
 	#endif
 
-		int &refcount = global_refcount_storage_[idx];
+		int &refcount = Interner::get().refcounts[idx];
 
 		if (--refcount > 0)
 			return;
@@ -275,14 +269,14 @@ struct RTLIL::IdString
 	static inline void free_reference(int idx)
 	{
 		if (yosys_xtrace) {
-			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+			log("#X# Removed IdString '%s' with index %d.\n", Interner::get().storage.at(idx), idx);
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
-		global_id_index_.erase(global_id_storage_.at(idx));
-		free(global_id_storage_.at(idx));
-		global_id_storage_.at(idx) = nullptr;
-		global_free_idx_list_.push_back(idx);
+		Interner::get().map.erase(Interner::get().storage.at(idx));
+		free(Interner::get().storage.at(idx));
+		Interner::get().storage.at(idx) = nullptr;
+		Interner::get().free_list.push_back(idx);
 	}
 #else
 	static inline void put_reference(int) { }
@@ -315,11 +309,11 @@ struct RTLIL::IdString
 	}
 
 	inline const char *c_str() const {
-		return global_id_storage_.at(index_);
+		return Interner::get().storage.at(index_);
 	}
 
 	inline std::string str() const {
-		return std::string(global_id_storage_.at(index_));
+		return std::string(Interner::get().storage.at(index_));
 	}
 
 	inline bool operator<(const IdString &rhs) const {
@@ -447,6 +441,7 @@ inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.co
 inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
 
 namespace RTLIL {
+	inline const auto& ensure_init = internerInitializer;
 	namespace ID {
 #define X(_id) extern IdString _id;
 #include "kernel/constids.inc"
