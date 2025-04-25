@@ -536,7 +536,7 @@ struct VerilogFrontend : public Frontend {
 			if (AST::AstModule* am = dynamic_cast<AST::AstModule*>(m))
 				Tagger::get().tag(am->ast);
 
-		Tagger::get().dump_untagged();
+		// Tagger::get().dump_untagged();
 #endif
 
 		if (!flag_nopp)

@@ -467,7 +467,7 @@ namespace AST_INTERNAL
 	                           AST::AstNode *original_ast = nullptr);
 }
 
-#undef ASTNODE_GC
+#define ASTNODE_GC
 #ifdef ASTNODE_GC
 struct Tagger {
 	std::set<AST::AstNode*> nodes;
@@ -524,7 +524,6 @@ struct Tagger {
 		while (!copy.empty()) {
 			AST::AstNode* p = *(copy.begin());
 			copy.erase(p);
-			fflush(stdout);
 			if (!tagged.count(p)) {
 				shadow_kill(p);
 			}
