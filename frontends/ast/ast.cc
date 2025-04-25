@@ -290,8 +290,8 @@ void AstNode::delete_children()
 	for (auto &it : children)
 		if (Tagger::get().nodes.count(it))
 			delete it;
-		else
-			log("skip child %p\n", it);
+		// else
+		// 	log("skip child %p\n", it);
 #else
 	for (auto &it : children)
 		delete it;
@@ -302,8 +302,8 @@ void AstNode::delete_children()
 	for (auto &it : attributes)
 		if (Tagger::get().nodes.count(it.second))
 			delete it.second;
-		else
-			log("skip attr %p\n", it.second);
+		// else
+		// 	log("skip attr %p\n", it.second);
 #else
 	for (auto &it : attributes)
 		delete it.second;
