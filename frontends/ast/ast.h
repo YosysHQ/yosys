@@ -467,7 +467,7 @@ namespace AST_INTERNAL
 	                           AST::AstNode *original_ast = nullptr);
 }
 
-#define ASTNODE_GC
+#undef ASTNODE_GC
 #ifdef ASTNODE_GC
 struct Tagger {
 	std::set<AST::AstNode*> nodes;
