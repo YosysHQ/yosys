@@ -247,7 +247,7 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 				db->add_edge(cell, ID::A, a_width - 1, ID::Y, i, -1);
 		}
 
-		for (int k = 0; k < b_width; k++) {
+		for (int k = 0; k < b_width_capped; k++) {
 			// left shifts
 			if (cell->type.in(ID($shl), ID($sshl))) {
 				if (a_width == 1 && is_signed) {
@@ -268,7 +268,7 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 					bool shift_in_bulk = i < a_width - 1;
 					// can we jump into the zero-padding by toggling B[k]?
 					bool zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
-									&& (((y_width - i) & ~(1 << k)) < (1 << b_width)));
+									&& (((y_width - i) & ~(1 << k)) < (1 << b_width_capped)));
 
 					if (shift_in_bulk || (cell->type.in(ID($shr), ID($shift), ID($shiftx)) && zpad_jump))
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
@@ -279,7 +279,7 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 			// bidirectional shifts (positive B shifts right, negative left)
 			} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed) {
 				if (is_signed) {
-					if (k != b_width - 1) {
+					if (k != b_width_capped - 1) {
 						bool r_shift_in_bulk = i < a_width - 1;
 						// assuming B is positive, can we jump into the upper zero-padding by toggling B[k]?
 						bool r_zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
