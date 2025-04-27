@@ -308,38 +308,60 @@ being needed for the specific problem to be preserved until it causes a crash.
 So to find the smallest possible reproducer it can sometimes be helpful to
 remove commands prior to the failure point.
 
+The simplest way to do this is by writing out the design, resetting the current
+state, and reading back the design:
 
+.. code-block:: yoscrypt
 
-- try ``write_rtlil <design.il>; design -reset; read_rtlil <design.il>;`` before
-  the failure point
+   write_rtlil <design.il>; design -reset; read_rtlil <design.il>;
 
-  + ideally you now have a single command that is producing an error and can
-    `minimize your RTLIL`_ with the ``<design.il>`` output
-  + if not, try to move the write/reset/read earlier in the script until you can
-    reproduce the error
-  + if you have no idea where exactly you should put the reset, the best way is
-    to use a "binary search" type approach, reducing the possible options by
-    half after each attempt
+In most cases, this can be inserted immediately before the failing command while
+still producing the error, allowing you to `minimize your RTLIL`_ with the
+``<design.il>`` output.  For our previous example with `memory_map`, if
+:ref:`map_reset` still gives the same error, then we should now be able to call
+``yosys design.il -p 'memory_map'`` to reproduce it.
 
-    * for example, your script has 16 commands in it before failing on the 17th
-    * if resetting immediately before the 17th doesn't reproduce the error, try
-      between the 8th and 9th (8 is half of the total 16)
-    * if that produces the error then you can remove everything before the
-      `read_rtlil` and try reset again in the middle of what's left, making sure
-      to use a different name for the output file so that you don't overwrite
-      what you've already got
-    * if the error isn't produced then you need to go earlier still, so in this
-      case you would do between the 4th and 5th (4 is half of the previous 8)
-    * repeat this until you can't reduce the remaining commands any further
+.. code-block:: yoscrypt
+   :caption: resetting the design immediately before failure
+   :name: map_reset
+
+   synth -top <top> -run :fine
+   opt -fast -full
+   write_rtlil design.il; design -reset; read_rtlil design.il;
+   memory_map
+
+If that doesn't give the error (or doesn't give the same error), then you should
+try to move the write/reset/read earlier in the script until it does.  If you
+have no idea where exactly you should put the reset, the best way is to use a
+"binary search" type approach, reducing the possible options by half after each
+attempt.
+
+   As an example, your script has 16 commands in it before failing on the 17th.
+   If resetting immediately before the 17th doesn't reproduce the error, try
+   between the 8th and 9th (8 is half of the total 16).  If that produces the
+   error then you can remove everything before the `read_rtlil` and try reset
+   again in the middle of what's left, making sure to use a different name for
+   the output file so that you don't overwrite what you've already got.  If the
+   error isn't produced then you need to go earlier still, so in this case you
+   would do between the 4th and 5th (4 is half of the previous 8).  Repeat this
+   until you can't reduce the remaining commands any further.
 
 .. TODO:: is it possible to dump scratchpad?
 
    is there anything else in the yosys/design state that doesn't get included in
    `write_rtlil`?
 
-- you can also try to remove or comment out commands prior to the failing
-  command; just because the first and last commands are needed doesn't mean that
-  every command between them is
+A more conservative, but more involved, method is to remove or comment out
+commands prior to the failing command.  Each command, or group of commands, can
+be disabled one at a time while checking if the error still occurs, eventually
+giving the smallest subset of commands needed to take the original input through
+to the error.  The difficulty with this method is that depending on your design,
+some commands may be necessary even if they aren't needed to reproduce the
+error.  For example, if your design includes ``process`` blocks, many commands
+will fail unless you run the `proc` command.  While this approach can do a
+better job of maintaining context, it is often easier to *recover* the context
+after the design has been minimized for producing the error.  For more on
+recovering context, checkout :ref:`using_yosys/bugpoint:Why context matters`.
 
 
 Minimizing Verilog designs
