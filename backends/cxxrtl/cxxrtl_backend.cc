@@ -2410,7 +2410,12 @@ struct CxxrtlWorker {
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
 						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
-						f << escape_cxx_string(cell->get_string_attribute(ID(module))) << ", ";
+						if (module_attrs.count(ID(hdlname))) {
+							f << escape_cxx_string(module_attrs.at(ID(hdlname)).decode_string());
+						} else {
+							f << escape_cxx_string(cell->get_string_attribute(ID(module)));
+						}
+						f << ", ";
 						dump_serialized_metadata(module_attrs);
 						f << ", ";
 						dump_serialized_metadata(cell_attrs);

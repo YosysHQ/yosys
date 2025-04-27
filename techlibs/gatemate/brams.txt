@@ -34,7 +34,6 @@ ram block $__CC_BRAM_TDP_ {
 		}
 		portoption "WR_MODE" "WRITE_THROUGH" {
 			rdwr new;
-			wrtrans all new;
 		}
 		wrbe_separate;
 		optional_rw;
