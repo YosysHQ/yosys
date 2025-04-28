@@ -314,7 +314,7 @@ int main(int argc, char **argv)
 		auto result = options.parse(argc, argv);
 
 		if (result.count("M")) memhasher_on();
-		if (result.count("X")) yosys_xtrace++;
+		if (result.count("X")) yosys_xtrace += result.count("X");
 		if (result.count("A")) call_abort = true;
 		if (result.count("Q")) print_banner = false;
 		if (result.count("T")) print_stats = false;
