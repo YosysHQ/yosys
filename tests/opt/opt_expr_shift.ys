@@ -1,0 +1,50 @@
+# Testing edge cases where ports are signed/have different widths/shift amounts
+# greater than the size
+
+read_verilog <<EOT
+module top (
+	input  wire        [3:0]  in_u,
+	input  wire signed [3:0]  in_s,
+	output wire        [7:0]  shl_uu,
+	output wire signed [7:0]  shl_us,
+	output wire        [7:0]  shl_su,
+	output wire signed [7:0]  shl_ss,
+	output wire        [7:0]  shr_uu,
+	output wire signed [7:0]  shr_us,
+	output wire        [7:0]  shr_su,
+	output wire signed [7:0]  shr_ss,
+	output wire        [7:0] sshl_uu,
+	output wire signed [7:0] sshl_us,
+	output wire        [7:0] sshl_su,
+	output wire signed [7:0] sshl_ss,
+	output wire        [7:0] sshr_uu,
+	output wire signed [7:0] sshr_us,
+	output wire        [7:0] sshr_su,
+	output wire signed [7:0] sshr_ss
+);
+	assign  shl_uu = in_u << 20;
+	assign  shl_us = in_u << 20;
+	assign  shl_su = in_s << 20;
+	assign  shl_ss = in_s << 20;
+	assign  shr_uu = in_u >> 20;
+	assign  shr_us = in_u >> 20;
+	assign  shr_su = in_s >> 20;
+	assign  shr_ss = in_s >> 20;
+	assign sshl_uu = in_u <<< 20;
+	assign sshl_us = in_u <<< 20;
+	assign sshl_su = in_s <<< 20;
+	assign sshl_ss = in_s <<< 20;
+	assign sshr_uu = in_u >>> 20;
+	assign sshr_us = in_u >>> 20;
+	assign sshr_su = in_s >>> 20;
+	assign sshr_ss = in_s >>> 20;
+endmodule
+EOT
+
+equiv_opt opt_expr
+
+design -load postopt
+select -assert-none t:$shl
+select -assert-none t:$shr
+select -assert-none t:$sshl
+select -assert-none t:$sshr
