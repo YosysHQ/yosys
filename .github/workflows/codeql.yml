@@ -14,8 +14,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-       submodules: true
-       ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        submodules: true
+        persist-credentials: false
+        ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Setup environment
       uses: ./.github/actions/setup-build-env
@@ -29,8 +30,8 @@ jobs:
     - name: Build Verific
       run: cd verific/tclmain && make -j6
 
-    - name: Build Yosys
-      run: make yosys -j6 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
+    - name: Build
+      run: make yosys -j6
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
