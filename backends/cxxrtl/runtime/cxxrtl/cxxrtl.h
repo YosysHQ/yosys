@@ -1773,7 +1773,7 @@ value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
 		value<BitsY> extended_a = a.template scast<BitsY>();
 		return extended_a.shr(b);
 	}
-	return a.shr(b).template scast<BitsY>();
+	return a.template scast<BitsY>().shr(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
