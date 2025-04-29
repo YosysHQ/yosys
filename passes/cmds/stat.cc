@@ -350,8 +350,6 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 {
 	std::istream* f = uncompressed(liberty_file.c_str());
 	yosys_input_files.insert(liberty_file);
-	if (f->fail())
-		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
 	LibertyParser libparser(*f, liberty_file);
 	delete f;
 
