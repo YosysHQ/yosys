@@ -635,8 +635,6 @@ struct DfflibmapPass : public Pass {
 		LibertyMergedCells merged;
 		for (auto path : liberty_files) {
 			std::istream* f = uncompressed(path);
-			if (f->fail())
-				log_cmd_error("Can't open liberty file `%s': %s\n", path.c_str(), strerror(errno));
 			LibertyParser p(*f, path);
 			merged.merge(p);
 			delete f;
