@@ -1310,6 +1310,9 @@ struct Aiger2Backend : Backend {
         log("        allow descending into submodules and write a flattened view of the design\n");
         log("        hierarchy starting at the selected top\n");
         log("\n");
+		log("    -no_version\n");
+		log("        don't write Yosys version\n");
+		log("\n");
 		log("This command is able to ingest all combinational cells except for:\n");
 		log("\n");
 		pool<IdString> supported = {KNOWN_OPS};
@@ -1353,15 +1356,21 @@ struct Aiger2Backend : Backend {
 		size_t argidx;
 		AigerWriter writer;
 		writer.const_folding = true;
+		bool ys_version = true;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-strash")
 				writer.strashing = true;
 			else if (args[argidx] == "-flatten")
 				writer.flatten = true;
+			else if (args[argidx] == "-no_version")
+				ys_version = false;
 			else
 				break;
 		}
 		extra_args(f, filename, args, argidx);
+		// We don't actually ever print version yet,
+		// we have the arg just for consistency
+		(void)ys_version;
 
 		Module *top = design->top_module();
 
@@ -1414,6 +1423,9 @@ struct XAiger2Backend : Backend {
         log("        reintegrate a mapping\n");
         log("        (conflicts with -flatten)\n");
 		log("\n");
+		log("    -no_version\n");
+		log("        don't write Yosys version\n");
+		log("\n");
 	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, Design *design) override
@@ -1423,6 +1435,7 @@ struct XAiger2Backend : Backend {
 		size_t argidx;
 		XAigerWriter writer;
 		std::string map_filename;
+		bool ys_version = true;
 		writer.const_folding = true;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-strash")
@@ -1433,10 +1446,15 @@ struct XAiger2Backend : Backend {
 				writer.mapping_prep = true;
 			else if (args[argidx] == "-map2" && argidx + 1 < args.size())
 				map_filename = args[++argidx];
+			else if (args[argidx] == "-no_version")
+				ys_version = false;
 			else
 				break;
 		}
 		extra_args(f, filename, args, argidx);
+		// We don't actually ever print version yet,
+		// we have the arg just for consistency
+		(void)ys_version;
 
 		Module *top = design->top_module();
 
