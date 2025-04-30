@@ -122,6 +122,15 @@ struct AutonamePass : public Pass {
 				if (bit.wire != nullptr)
 					wire_score[bit.wire]++;
 
+			for (auto &it : wire_score) {
+				// (10000*score + new_name.size())*2 must be less than INT32_MAX
+				// using 24000 allows for a name 2000 characters long
+				if (it.second > INT32_MAX/24000)
+					// We can't guarantee an earlier module hasn't already been processed, so use log_error
+					log_error("Fanout of %s too high (%d bits), unable to continue.\n", it.first->name.c_str(), it.second);
+				
+			}
+
 			int count = 0, iter = 0;
 			while (1) {
 				iter++;
