@@ -888,6 +888,7 @@ SH_TEST_DIRS += tests/bram
 SH_TEST_DIRS += tests/svinterfaces
 SH_TEST_DIRS += tests/xprop
 SH_TEST_DIRS += tests/select
+SH_TEST_DIRS += tests/peepopt
 SH_TEST_DIRS += tests/proc
 SH_TEST_DIRS += tests/blif
 SH_TEST_DIRS += tests/arch
