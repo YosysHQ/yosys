@@ -791,7 +791,7 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in $(YOSYS_SRC)/Makefile
 .PHONY: check-git-abc
 
 check-git-abc:
-	@if [ ! -d "$(YOSYS_SRC)/abc" ]; then \
+	@if [ ! -d "$(YOSYS_SRC)/abc" ] && git -C "$(YOSYS_SRC)" status >/dev/null 2>&1; then \
 		echo "Error: The 'abc' directory does not exist."; \
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		exit 1; \
@@ -816,6 +816,12 @@ check-git-abc:
 		echo "2. Remove the existing 'abc' directory: Delete the 'abc' directory and all its contents."; \
 		echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
+		exit 1; \
+	elif ! git -C "$(YOSYS_SRC)" status >/dev/null 2>&1; then \
+		echo "$(realpath $(YOSYS_SRC)) is not configured as a git repository, and 'abc' folder is missing."; \
+		echo "If you already have ABC, set 'ABCEXTERNAL' make variable to point to ABC executable."; \
+		echo "Otherwise, download release archive 'yosys.tar.gz' from https://github.com/YosysHQ/yosys/releases."; \
+		echo "    ('Source code' archive does not contain submodules.)"; \
 		exit 1; \
 	else \
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
