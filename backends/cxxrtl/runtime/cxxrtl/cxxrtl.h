@@ -1769,10 +1769,6 @@ value<BitsY> shr_uu(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	if (BitsY > BitsA) {
-		value<BitsY> extended_a = a.template scast<BitsY>();
-		return extended_a.shr(b);
-	}
 	return a.template scast<BitsY>().shr(b);
 }
 
