@@ -533,7 +533,65 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	return TCL_OK;
 }
 
-int yosys_tcl_iterp_init(Tcl_Interp *interp)
+static int sdc_get_pins_cmd(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
+{
+	(void)interp;
+	bool hierarchical_flag = false;
+	bool regexp_flag = false;
+	bool nocase_flag = false;
+	std::string separator = "/";
+	Tcl_Obj* of_objects;
+	std::vector<std::string> patterns;
+	int i = 1;
+	for (; i < objc; i++) {
+		FLAG2(hierarchical)
+		FLAG2(regexp)
+		FLAG2(nocase)
+		if (!strcmp(Tcl_GetString(objv[i]), "-hsc")) {
+			i++;
+			separator = Tcl_GetString(objv[i]);
+			continue;
+		}
+		if (!strcmp(Tcl_GetString(objv[i]), "-of_objects")) {
+			i++;
+			of_objects = objv[i];
+			continue;
+		}
+		// Onto the next loop
+		break;
+	}
+	for (; i < objc; i++) {
+		patterns.push_back(Tcl_GetString(objv[i]));
+	}
+	log("get_pins patterns:\n");
+	for (auto pat : patterns) {
+		log("\t%s\n", pat.c_str());
+	}
+	(void)hierarchical_flag;
+	(void)regexp_flag;
+	(void)nocase_flag;
+	(void)separator;
+	(void)of_objects;
+	return TCL_OK;
+}
+static int sdc_dummy_cmd(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
+{
+	(void)interp;
+	(void)objc;
+	log("Ignoring known SDC command %s\n", Tcl_GetString(objv[0]));
+	return TCL_OK;
+}
+
+int yosys_sdc_interp_init(Tcl_Interp *interp)
+{
+	if (Tcl_Init(interp)!=TCL_OK)
+		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
+	Tcl_CreateObjCommand(interp, "set_false_path", sdc_dummy_cmd, NULL, NULL);
+	Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, NULL, NULL);
+	return TCL_OK;
+}
+
+int yosys_tcl_interp_init(Tcl_Interp *interp)
 {
 	if (Tcl_Init(interp)!=TCL_OK)
 		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
