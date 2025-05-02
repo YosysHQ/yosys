@@ -55,4 +55,7 @@ ENV PATH /opt/yosys/bin:$PATH
 RUN useradd -m yosys
 USER yosys
 
+VOLUME ["/app"]
+WORKDIR /app
+
 CMD ["yosys"]
