@@ -94,6 +94,7 @@ CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
+Tcl_Interp *yosys_sdc_interp = NULL;
 #endif
 
 std::set<std::string> yosys_input_files, yosys_output_files;
@@ -368,15 +369,24 @@ void rewrite_filename(std::string &filename)
 #ifdef YOSYS_ENABLE_TCL
 
 // defined in tclapi.cc
-extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
+extern int yosys_tcl_interp_init(Tcl_Interp *interp);
+extern int yosys_sdc_interp_init(Tcl_Interp *interp);
 
 extern Tcl_Interp *yosys_get_tcl_interp()
 {
 	if (yosys_tcl_interp == NULL) {
 		yosys_tcl_interp = Tcl_CreateInterp();
-		yosys_tcl_iterp_init(yosys_tcl_interp);
+		yosys_tcl_interp_init(yosys_tcl_interp);
 	}
 	return yosys_tcl_interp;
+}
+extern Tcl_Interp *yosys_get_sdc_interp()
+{
+	if (yosys_sdc_interp == NULL) {
+		yosys_sdc_interp = Tcl_CreateInterp();
+		yosys_sdc_interp_init(yosys_sdc_interp);
+	}
+	return yosys_sdc_interp;
 }
 
 struct TclPass : public Pass {
@@ -421,6 +431,26 @@ struct TclPass : public Pass {
 		Tcl_Release(interp);
 	}
 } TclPass;
+struct SdcPass : public Pass {
+	SdcPass() : Pass("sdc", "sniff at some SDC") { }
+	void execute(std::vector<std::string> args, RTLIL::Design *) override {
+		if (args.size() < 2)
+			log_cmd_error("Missing script file.\n");
+
+		std::vector<Tcl_Obj*> script_args;
+		for (auto it = args.begin() + 2; it != args.end(); ++it)
+			script_args.push_back(Tcl_NewStringObj((*it).c_str(), (*it).size()));
+
+		Tcl_Interp *interp = yosys_get_sdc_interp();
+		Tcl_Preserve(interp);
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(script_args.size()), 0);
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(script_args.size(), script_args.data()), 0);
+		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(args[1].c_str(), args[1].size()), 0);
+		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK)
+			log_cmd_error("SDC interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
+		Tcl_Release(interp);
+	}
+} SdcPass;
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
