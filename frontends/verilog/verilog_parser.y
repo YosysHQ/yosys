@@ -2249,7 +2249,8 @@ cell_parameter:
 		node->children.push_back($1);
 	} |
 	'.' TOK_ID '(' ')' {
-		// just ignore empty parameters
+		// delete unused TOK_ID
+		delete $2;
 	} |
 	'.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_PARASET);
