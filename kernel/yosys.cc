@@ -81,6 +81,7 @@ YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
 int yosys_xtrace = 0;
+bool yosys_write_versions = true;
 RTLIL::Design *yosys_design = NULL;
 CellTypes yosys_celltypes;
 

@@ -274,6 +274,7 @@ inline int GetSize(RTLIL::Wire *wire);
 
 extern int autoidx;
 extern int yosys_xtrace;
+extern bool yosys_write_versions;
 
 RTLIL::IdString new_id(std::string file, int line, std::string func);
 RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix);

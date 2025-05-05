@@ -252,6 +252,7 @@ int main(int argc, char **argv)
 	options.add_options("logging")
 		("Q", "suppress printing of banner (copyright, disclaimer, version)")
 		("T", "suppress printing of footer (log hash, version, timing statistics)")
+		("no-version", "suppress writing Yosys version in command outputs")
 		("q,quiet", "quiet operation. Only write warnings and error messages to console. " \
 					"Use this option twice to also quiet warning messages")
 		("v,verbose", "print log headers up to <level> to the console. " \
@@ -318,6 +319,7 @@ int main(int argc, char **argv)
 		if (result.count("A")) call_abort = true;
 		if (result.count("Q")) print_banner = false;
 		if (result.count("T")) print_stats = false;
+		if (result.count("no-version")) yosys_write_versions = false;
 		if (result.count("V")) {
 			std::cout << yosys_version_str << std::endl;
 			exit(0);
