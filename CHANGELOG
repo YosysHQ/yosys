@@ -2,8 +2,28 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.52 .. Yosys 0.53-dev
+Yosys 0.53 .. Yosys 0.54-dev
 --------------------------
+
+Yosys 0.52 .. Yosys 0.53
+--------------------------
+ * New commands and options
+    - Added "constmap" pass for technology mapping of coarse constant value.
+    - Added "timeest" pass to estimate the critical path in clock domain.
+    - Added "-blackbox" option to "cutpoint" pass to cut all instances of
+      blackboxes.
+    - Added "-noscopeinfo" option to "cutpoint" pass.
+    - Added "-nocleanup" option to "flatten" pass to prevent removal of
+      unused submodules.
+    - Added "-declockgate" option to "formalff" pass that turns clock
+      gating into clock enables.
+
+ * Various
+    - Added "$scopeinfo" cells to preserve information during "cutpoint" pass.
+    - Added dataflow tracking documentation.
+    - share: Restrict activation patterns to potentially relevant signal.
+    - liberty: More robust parsing.
+    - verific: bit blast RAM if using mem2reg attribute.
 
 Yosys 0.51 .. Yosys 0.52
 --------------------------
