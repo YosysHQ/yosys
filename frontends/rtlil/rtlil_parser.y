@@ -188,6 +188,9 @@ wire_stmt:
 wire_options:
 	wire_options TOK_WIDTH TOK_INT {
 		current_wire->width = $3;
+		// Width 1 specified -> single-bit vector rather than scalar
+		if (current_wire->width == 1)
+			current_wire->sbvector = true;
 	} |
 	wire_options TOK_WIDTH TOK_INVALID {
 		rtlil_frontend_yyerror("RTLIL error: invalid wire width");

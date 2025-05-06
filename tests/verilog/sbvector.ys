@@ -1,0 +1,20 @@
+read_verilog <<EOT
+module foo(
+	output o,
+	input [0:0] i1,
+	input i2
+);
+	assign o = i1 ^ i2;
+endmodule
+EOT
+
+logger -expect log "wire width 1 input 2 \\i1" 1
+logger -expect log "wire input 3 \\i2" 1
+dump
+logger -check-expected
+
+write_verilog verilog_sbvector.out
+!grep -qF 'wire [0:0] i1;' verilog_sbvector.out
+!grep -qF 'input [0:0] i1;' verilog_sbvector.out
+!grep -qF 'wire i2;' verilog_sbvector.out
+!grep -qF 'input i2;' verilog_sbvector.out

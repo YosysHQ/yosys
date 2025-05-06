@@ -350,6 +350,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " port=%d", port_id);
 	if (range_valid || range_left != -1 || range_right != 0)
 		fprintf(f, " %srange=[%d:%d]%s", range_swapped ? "swapped_" : "", range_left, range_right, range_valid ? "" : "!");
+	if (is_sbvector)
+		fprintf(f, " vector");
 	if (integer != 0)
 		fprintf(f, " int=%u", (int)integer);
 	if (realvalue != 0)

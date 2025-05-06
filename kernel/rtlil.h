@@ -1803,6 +1803,16 @@ namespace RTLIL_BACKEND {
 void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 }
 
+struct BoolStruct {
+private:
+	bool val;
+public:
+	BoolStruct(bool v) : val(v) {}
+	operator bool() const {
+		return val;
+	}
+};
+
 struct RTLIL::Wire : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
@@ -1827,7 +1837,16 @@ public:
 
 	RTLIL::Module *module;
 	int width, start_offset, port_id;
-	bool port_input, port_output, upto, is_signed;
+	bool port_input, port_output, is_signed;
+	// These are actually just total aliases, relying on
+	// common initial sequences of records to avoid UB.
+	// This is a retrofit and we don't know if we ensure
+	// only the active member is accessed
+	union {
+		BoolStruct upto; // if width >= 1
+		// "single bit vector" vs scalar
+		BoolStruct sbvector; // if width == 1
+	};
 
 	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
 	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };

@@ -130,10 +130,14 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 				wire->driverCell()->name.c_str(), wire->driverPort().c_str());
 	}
 	f << stringf("%s" "wire ", indent.c_str());
-	if (wire->width != 1)
+	if (wire->width == 1) {
+		if (wire->sbvector)
+			f << stringf("width %d ", wire->width);
+	} else {
 		f << stringf("width %d ", wire->width);
-	if (wire->upto)
-		f << stringf("upto ");
+		if (wire->upto)
+			f << stringf("upto ");
+	}
 	if (wire->start_offset != 0)
 		f << stringf("offset %d ", wire->start_offset);
 	if (wire->port_input && !wire->port_output)
