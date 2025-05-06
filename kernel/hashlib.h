@@ -14,6 +14,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
