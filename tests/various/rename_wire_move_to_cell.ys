@@ -1,0 +1,35 @@
+read_verilog <<EOF
+module top(input clk, rst, input [7:0] din, output [7:0] dout, input bin, output bout);
+    reg [7:0] dq;
+    reg bq;
+
+    always @(posedge clk, posedge rst) begin
+        if (rst) dq <= '0;
+        else dq <= din;
+    end
+
+    always @(posedge clk) bq <= bin;
+
+    assign dout = dq;
+    assign bout = bq;
+endmodule
+EOF
+
+proc
+hierarchy -top top
+
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$adff
+select -assert-count 0 t:$dff n:bq %i
+select -assert-count 0 t:$adff n:dq %i
+select -assert-count 1 w:bq
+select -assert-count 1 w:dq
+
+rename -wire -move-to-cell
+
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$dff n:bq %i
+select -assert-count 1 t:$adff n:dq %i
+select -assert-count 0 w:bq
+select -assert-count 0 w:dq
