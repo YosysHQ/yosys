@@ -48,3 +48,25 @@ select -assert-none t:$shl
 select -assert-none t:$shr
 select -assert-none t:$sshl
 select -assert-none t:$sshr
+
+design -reset
+
+read_verilog <<EOT
+module top (in, out1, out2);
+	input wire in;
+	output wire [7:0] out1;
+	output wire [7:0] out2;
+
+	assign out1 = (in >> 36'hfffffffff);
+	wire signed [35:0] shamt = 36'hfffffffff;
+	assign out2 = (in >> shamt);
+endmodule
+EOT
+
+equiv_opt opt_expr
+
+design -load postopt
+select -assert-none t:$shl
+select -assert-none t:$shr
+select -assert-none t:$sshl
+select -assert-none t:$sshr
