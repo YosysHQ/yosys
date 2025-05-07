@@ -860,7 +860,7 @@ struct HelpPass : public Pass {
 		// init json
 		json.begin_object();
 		json.entry("version", "Yosys internal cells");
-		json.entry("generator", yosys_version_str);
+		json.entry("generator", yosys_maybe_version());
 
 		dict<string, vector<string>> groups;
 		dict<string, pair<SimHelper, CellType>> cells;

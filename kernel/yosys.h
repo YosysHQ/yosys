@@ -81,6 +81,7 @@ extern std::set<std::string> yosys_input_files, yosys_output_files;
 
 // from kernel/version_*.o (cc source generated from Makefile)
 extern const char *yosys_version_str;
+const char* yosys_maybe_version();
 
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;

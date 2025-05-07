@@ -82,6 +82,13 @@ YOSYS_NAMESPACE_BEGIN
 int autoidx = 1;
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
+const char* yosys_maybe_version() {
+	if (yosys_write_versions)
+		return yosys_version_str;
+	else
+		return "Yosys";
+}
+
 RTLIL::Design *yosys_design = NULL;
 CellTypes yosys_celltypes;
 
@@ -145,7 +152,7 @@ void yosys_banner()
 	log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
-	log(" %s\n", yosys_version_str);
+	log(" %s\n", yosys_maybe_version());
 }
 
 #if !defined(YOSYS_DISABLE_SPAWN)
