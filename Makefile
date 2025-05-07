@@ -743,6 +743,7 @@ include $(YOSYS_SRC)/passes/equiv/Makefile.inc
 include $(YOSYS_SRC)/passes/cmds/Makefile.inc
 include $(YOSYS_SRC)/passes/silimate/Makefile.inc
 
+OBJS += passes/sat/recover_names.o
 OBJS += passes/sat/sim.o
 OBJS += passes/techmap/extract.o
 OBJS += passes/techmap/extract_reduce.o
