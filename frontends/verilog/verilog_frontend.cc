@@ -753,7 +753,7 @@ struct VerilogFileList : public Pass {
 			break;
 		}
 
-		extra_args(args, argidx, design);
+		extra_args(args, argidx, design, false);
 	}
 } VerilogFilelist;
 
