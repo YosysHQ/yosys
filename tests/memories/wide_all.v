@@ -14,7 +14,7 @@ module test(
 reg [7:0] mem[3:254];
 
 assign rd[7:0] = mem[{ra, 1'b0}];
-assign rd[15:0] = mem[{ra, 1'b1}];
+assign rd[15:8] = mem[{ra, 1'b1}];
 
 initial begin
 	mem[5] = 8'h12;
