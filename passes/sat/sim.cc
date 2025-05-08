@@ -2065,7 +2065,7 @@ struct SimWorker : SimShared
 
 		json.begin_object();
 		json.entry("version", "Yosys sim summary");
-		json.entry("generator", yosys_version_str);
+		json.entry("generator", yosys_maybe_version());
 		json.entry("steps", step);
 		json.entry("top", log_id(top->module->name));
 		json.name("assertions");
@@ -2344,7 +2344,7 @@ struct VCDWriter : public OutputWriter
 	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!vcdfile.is_open()) return;
-		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_version_str : "Yosys");
+		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_maybe_version() : "Yosys");
 
 		if (worker->date) {
 			std::time_t t = std::time(nullptr);
@@ -2412,7 +2412,7 @@ struct FSTWriter : public OutputWriter
 	{
 		if (!fstfile) return;
 		std::time_t t = std::time(nullptr);
-		fstWriterSetVersion(fstfile, worker->date ? yosys_version_str : "Yosys");
+		fstWriterSetVersion(fstfile, worker->date ? yosys_maybe_version() : "Yosys");
 		if (worker->date)
 			fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
 		else
