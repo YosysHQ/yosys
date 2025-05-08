@@ -14,7 +14,6 @@ module pingpong(input wire [1:0] x, output wire [3:0] y1, output wire [3:0] y2);
 endmodule
 EOF
 hierarchy -top pingpong
+logger -expect error "found logic loop in module pingpong:" 1
+logger -expect error "Found [0-9]+ severe problems in 'check'" 1
 prep
-logger -nowarn "found logic loop in module pingpong:"
-logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
-check -assert
