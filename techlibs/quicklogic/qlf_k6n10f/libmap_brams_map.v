@@ -27,6 +27,8 @@ parameter PORT_A_WR_BE_WIDTH = 1;
 parameter PORT_B_WIDTH = 1;
 parameter PORT_B_WR_BE_WIDTH = 1;
 
+parameter _TECHMAP_CONSTMSK_PORT_B_CLK_ = 1'bx;
+
 input PORT_A_CLK;
 input [14:0] PORT_A_ADDR;
 input [PORT_A_WIDTH-1:0] PORT_A_WR_DATA;
@@ -123,6 +125,7 @@ wire [17:0] RDATA_A2_o;
 wire [17:0] RDATA_B1_o;
 wire [17:0] RDATA_B2_o;
 
+wire CLK_B_i;
 
 // Set port width mode (In non-split mode A2/B2 is not active. Set same values anyway to match previous behavior.)
 localparam [ 2:0] RMODE_A1_i    = mode(PORT_A_WIDTH);
@@ -171,6 +174,11 @@ case (PORT_B_WIDTH)
 default: assign PORT_B_RD_DATA = RDATA_B1_o; // 1,2,4
 endcase
 
+case (_TECHMAP_CONSTMSK_PORT_B_CLK_)
+0: assign CLK_B_i = PORT_B_CLK;
+1: assign CLK_B_i = 1'bx;
+endcase
+
 defparam _TECHMAP_REPLACE_.MODE_BITS = { 1'b0,
 	UPAF2_i, UPAE2_i, PROTECT2_i, SLEEP2_i, POWERDN2_i, FMODE2_i, WMODE_B2_i, WMODE_A2_i, RMODE_B2_i, RMODE_A2_i, SYNC_FIFO2_i,
 	UPAF1_i, UPAE1_i, PROTECT1_i, SLEEP1_i, POWERDN1_i, FMODE1_i, WMODE_B1_i, WMODE_A1_i, RMODE_B1_i, RMODE_A1_i, SYNC_FIFO1_i
@@ -202,7 +210,7 @@ TDP36K #(
 	.REN_A2_i(REN_A1_i),
 	.RDATA_A2_o(RDATA_A2_o),
 
-	.CLK_B1_i(PORT_B_CLK),
+	.CLK_B1_i(CLK_B_i),
 	.ADDR_B1_i(PORT_B_ADDR),
 	.WEN_B1_i(WEN_B1_i),
 	.BE_B1_i(BE_B1_i),
@@ -210,7 +218,7 @@ TDP36K #(
 	.REN_B1_i(REN_B1_i),
 	.RDATA_B1_o(RDATA_B1_o),
 
-	.CLK_B2_i(PORT_B_CLK),
+	.CLK_B2_i(CLK_B_i),
 	.ADDR_B2_i(PORT_B_ADDR[13:0]),
 	.WEN_B2_i(WEN_B1_i),
 	.BE_B2_i(BE_B2_i),
@@ -234,6 +242,9 @@ parameter PORT_B1_WIDTH = 1;
 
 parameter PORT_A1_WR_BE_WIDTH = 1;
 parameter PORT_B1_WR_BE_WIDTH = 1;
+
+parameter _TECHMAP_CONSTMSK_PORT_B1_CLK_ = 1'bx;
+parameter _TECHMAP_CONSTMSK_PORT_B2_CLK_ = 1'bx;
 
 input PORT_A1_CLK;
 input [14:0] PORT_A1_ADDR;
@@ -350,6 +361,8 @@ wire [17:0] RDATA_A2_o;
 wire [17:0] RDATA_B1_o;
 wire [17:0] RDATA_B2_o;
 
+wire CLK_B1_i;
+wire CLK_B2_i;
 
 // Set port width mode (In non-split mode A2/B2 is not active. Set same values anyway to match previous behavior.)
 localparam [ 2:0] RMODE_A1_i    = mode(PORT_A1_WIDTH);
@@ -431,6 +444,16 @@ case (PORT_B2_WIDTH)
 default: assign PORT_B2_RD_DATA = RDATA_B2_o; // 1,2,4,8,16
 endcase
 
+case (_TECHMAP_CONSTMSK_PORT_B1_CLK_)
+0: assign CLK_B1_i = PORT_B1_CLK;
+1: assign CLK_B1_i = PORT_A1_CLK;
+endcase
+
+case (_TECHMAP_CONSTMSK_PORT_B2_CLK_)
+0: assign CLK_B2_i = PORT_B2_CLK;
+1: assign CLK_B2_i = PORT_A1_CLK;
+endcase
+
 defparam _TECHMAP_REPLACE_.MODE_BITS = {1'b1,
 			UPAF2_i, UPAE2_i, PROTECT2_i, SLEEP2_i, POWERDN2_i, FMODE2_i, WMODE_B2_i, WMODE_A2_i, RMODE_B2_i, RMODE_A2_i, SYNC_FIFO2_i,
 			UPAF1_i, UPAE1_i, PROTECT1_i, SLEEP1_i, POWERDN1_i, FMODE1_i, WMODE_B1_i, WMODE_A1_i, RMODE_B1_i, RMODE_A1_i, SYNC_FIFO1_i
@@ -467,8 +490,8 @@ TDP36K #(
 	.RDATA_B2_o(RDATA_B2_o),
 	.ADDR_B1_i(ADDR_B1_i),
 	.ADDR_B2_i(ADDR_B2_i),
-	.CLK_B1_i(PORT_B1_CLK),
-	.CLK_B2_i(PORT_B2_CLK),
+	.CLK_B1_i(CLK_B1_i),
+	.CLK_B2_i(CLK_B2_i),
 	.REN_B1_i(REN_B1_i),
 	.REN_B2_i(REN_B2_i),
 	.WEN_B1_i(WEN_B1_i),
