@@ -7,7 +7,7 @@ CONFIG := none
 # CONFIG := msys2-64
 
 # features (the more the better)
-ENABLE_TCL := 0
+ENABLE_TCL := 1
 ENABLE_ABC := 1
 ENABLE_GLOB := 1
 ENABLE_PLUGINS := 0
