@@ -1254,6 +1254,12 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 	return result;
 }
 
+void RTLIL::Design::run_pass(std::string command) {
+	log("\n-- Running command `%s' --\n", command.c_str());
+	Pass::call(this, command);
+	log_flush();
+}
+
 RTLIL::Module::Module()
 {
 	static unsigned int hashidx_count = 123456789;
