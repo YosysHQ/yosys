@@ -86,6 +86,8 @@ struct CheckPass : public Pass {
 		bool force_detailed_loop_check = false;
 		bool suggest_detail = false;
 		Mode mode = Mode::Smart;
+		if (design->scratchpad_get_bool("check.permissive"))
+			mode = Mode::Permissive;
 		// log_error always terminates and it's a huge hassle to refactor
 		std::vector<std::string> errors;
 		std::function<void(std::string)> bad = [&errors, &counter](std::string message) {
