@@ -1,0 +1,272 @@
+// derived from passes/pmgen/xilinx_dsp.pmg
+pattern ql_dsp_pack_regs
+
+state <SigBit> clock reset
+state <bool> clock_inferred
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock dffreset
+udata <Cell*> dff
+
+match dsp
+	select dsp->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
+endmatch
+
+code clock_inferred clock reset
+	clock_inferred = false;
+	clock = port(dsp, \clock_i);
+	reset = port(dsp, \reset_i);
+endcode
+
+// try packing on Z output
+code argD clock_inferred clock reset
+	if (port(dsp, \output_select_i)[2] == RTLIL::S0 &&
+			(!dsp->hasPort(\z_cout_o) || nusers(port(dsp, \z_cout_o)) == 1) &&
+			nusers(port(dsp, \z_o)) == 2) {
+		argD = port(dsp, \z_o);
+		subpattern(out_dffe);
+		if (dff) {
+			clock_inferred = true;
+			clock = dffclock;
+			reset = dffreset;
+			log("%s: inferring Z path register from flip-flop %s\n", log_id(dsp), log_id(dff));
+			dsp->connections_[\output_select_i][2] = RTLIL::S1;
+			dsp->setPort(\z_o, dffQ);
+			did_something = true;
+		}
+	}
+endcode
+
+// try packing on B input
+code argQ clock_inferred clock reset
+	if ((!dsp->hasPort(\b_cout_o) || nusers(port(dsp, \b_cout_o)) == 1) &&
+			!param(dsp, \B_REG).as_bool()) {
+		argQ = port(dsp, \b_i);
+		subpattern(in_dffe);
+		if (dff) {
+			clock_inferred = true;
+			clock = dffclock;
+			reset = dffreset;
+			log("%s: inferring B path register from flip-flop %s\n", log_id(dsp), log_id(dff));
+			dsp->parameters[\B_REG] = Const(1, 1);
+			dsp->setPort(\b_i, dffD);
+			did_something = true;
+		}
+	}
+endcode
+
+// try packing on A input
+code argQ clock_inferred clock reset
+	if ((!dsp->hasPort(\a_cout_o) || nusers(port(dsp, \a_cout_o)) == 1) &&
+			!param(dsp, \A_REG).as_bool()) {
+		argQ = port(dsp, \a_i);
+		subpattern(in_dffe);
+		if (dff) {
+			clock_inferred = true;
+			clock = dffclock;
+			reset = dffreset;
+			log("%s: inferring A path register from flip-flop %s\n", log_id(dsp), log_id(dff));
+			dsp->parameters[\A_REG] = Const(1, 1);
+			dsp->setPort(\a_i, dffD);
+			did_something = true;
+		}
+	}
+endcode
+
+code
+	if (clock_inferred) {
+		dsp->setPort(\clock_i, clock);
+		dsp->setPort(\reset_i, reset);
+	}
+endcode
+
+// #######################
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' output.
+subpattern in_dffe
+arg argQ clock reset
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		if (!c.wire) {
+			// Abandon matches when constant Q bits are non-zero
+			// (doesn't match DSPv2 init/reset behavior)
+			if (!SigSpec(c).is_fully_zero())
+				reject;
+			continue;
+		}
+
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set (not supported by DSPv2)
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $adff, $adffe)
+	// DSPv2 does not support polarity inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \ARST_VALUE).is_fully_zero()
+
+	// Check reset polarity, if present
+	filter ff->type.in($dff, $dffe) || param(ff, \ARST_POLARITY).as_bool()
+
+	// Check that the LSB argQ bit is present (the rest follow by the nusers(...)=2 condition)
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	define <SigBit> ff_reset (ff->type.in($dff, $dffe) ? RTLIL::S0 : port(ff, \ARST))
+	filter clock == RTLIL::Sx || port(ff, \CLK)[0] == clock
+	filter clock == RTLIL::Sx || ff_reset == reset
+endmatch
+
+code argD
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffreset = (ff->type.in($dff, $dffe) ? RTLIL::S0 : port(ff, \ARST));
+	dffD = argQ;
+	dffD.replace(port(ff, \Q), port(ff, \D));
+endcode
+
+
+// #######################
+// Subpattern for matching against output registers, based on knowledge of the
+//   'D' input.
+
+subpattern out_dffe
+arg argD clock reset
+
+code
+	dff = nullptr;
+	if (argD.empty())
+		reject;
+	for (const auto &c : argD.chunks()) {
+		// Abandon matches when 'D' has the keep attribute set
+		if (!c.wire || c.wire->get_bool_attribute(\keep))
+			reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $adff, $adffe)
+	// DSPv2 does not support polarity inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \ARST_VALUE).is_fully_zero()
+
+	// Check reset polarity, if present
+	filter ff->type.in($dff, $dffe) || param(ff, \ARST_POLARITY).as_bool()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \D)[offset] === argD[0]
+
+	define <SigBit> ff_reset (ff->type.in($dff, $dffe) ? RTLIL::S0 : port(ff, \ARST))
+	filter clock == RTLIL::Sx || port(ff, \CLK)[0] == clock
+	filter clock == RTLIL::Sx || ff_reset == reset
+endmatch
+
+code
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffreset = (ff->type.in($dff, $dffe) ? RTLIL::S0 : port(ff, \ARST));
+	dffQ = argD;
+	dffQ.replace(port(ff, \D), port(ff, \Q));
+
+	// Abandon matches when 'Q' has a defined init attribute set
+	// (not supported by DSPv2)
+	for (auto c : dffQ.chunks()) {
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx)
+					reject;
+	}
+
+	{
+		// Rewire retired flip-flop slice
+		SigSpec D = port(ff, \D);
+		SigSpec Q = port(ff, \Q);
+		D.replace(argD, module->addWire(NEW_ID, argD.size()), &Q);
+		D.replace(argD, Const(RTLIL::Sx, argD.size()));
+		ff->setPort(\D, D);
+		ff->setPort(\Q, Q);
+	}
+endcode
+
+pattern ql_dsp_cascade
+
+match dsp1
+	select dsp1->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
+	filter !dsp1->hasPort(\z_cout_o) || nusers(port(dsp1, \z_cout_o)) == 1
+endmatch
+
+match dsp2
+	select dsp2->type.in(\dspv2_32x18x64_cfg_ports, \dspv2_16x9x32_cfg_ports)
+	filter port(dsp2, \output_select_i).is_fully_const()
+	define <int> output_sel port(dsp2, \output_select_i).as_int()
+	filter output_sel == 0 || (output_sel == 4 && !param(dsp2, \M_REG).as_bool())
+	// expect `dsp2` and `add` for exclusive users
+	filter nusers(port(dsp2, \z_o)) == 2
+	filter !dsp2->hasPort(\z_cout_o) || nusers(port(dsp2, \z_cout_o)) == 1
+	filter dsp1 != dsp2
+endmatch
+
+match add
+	select add->type.in($add, $sub)
+	define <int> width param(add, \Y_WIDTH).as_int()
+
+	index <SigBit> port(add, \A)[0] === port(dsp1, \z_o)[0]
+	filter port(add, \A).size() >= width && port(dsp1, \z_o).size() >= width
+	filter port(add, \A).extract(0, width) == port(dsp1, \z_o).extract(0, width)
+
+	index <SigBit> port(add, \B)[0] === port(dsp2, \z_o)[0]
+	filter port(add, \B).size() >= width && port(dsp2, \z_o).size() >= width
+	filter port(add, \B).extract(0, width) == port(dsp2, \z_o).extract(0, width)
+endmatch
+
+code
+	const int z_width = 50;
+
+	log("%s: inferring post-adder from %s (type %s)\n", log_id(dsp2), log_id(add), log_id(add->type));
+	if (promote(module, dsp1))
+		log(" - promoting %s to non-fractured DSP block\n", log_id(dsp1));
+	if (promote(module, dsp2))
+		log(" - promoting %s to non-fractured DSP block\n", log_id(dsp2));
+
+	// link up z_cout_o of dsp1 to z_cin_i of dsp2
+	Wire *link = module->addWire(NEW_ID, z_width);
+	dsp1->setPort(\z_cout_o, link);
+	dsp2->setPort(\z_cin_i, link);
+
+	// configure the path inside dsp2
+	if (port(dsp2, \output_select_i).as_int() == 4) {
+		log("%s: inferring M register\n", log_id(dsp2));
+		dsp2->setParam(\M_REG, Const(1, 1));
+	}
+	dsp2->setParam(\SUBTRACT, Const(add->type == $sub, 1));
+	dsp2->setPort(\feedback_i, Const(3, 3));
+	dsp2->setPort(\output_select_i, Const(3, 3));
+	dsp2->setParam(\ROUND, Const(0, 3));
+	dsp2->setParam(\SHIFT_REG, Const(0, 6));
+	dsp2->setParam(\SATURATE, Const(0, 1));
+	dsp2->setParam(\ZCIN_REG, Const(1, 1));
+	dsp2->setPort(\z_o, {port(dsp2, \z_o).extract_end(port(add, \Y).size()), port(add, \Y)});
+
+	did_something = true;
+	autoremove(add);
+	accept;
+endcode
