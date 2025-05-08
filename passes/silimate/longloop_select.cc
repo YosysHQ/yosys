@@ -234,13 +234,13 @@ struct LongLoopSelect : public ScriptPass {
 						}
 					}
 					if (!abc_script.empty()) {
-						std::string command = "recover_names abc -map_src " + src_info + " -script " + abc_script;
+						std::string command = "abc -map_src " + src_info + " -script " + abc_script;
 						log("  Executing: %s\n", command.c_str());
 						log_flush();
 						Pass::call(design, command);
 					} else if (!abc_options.empty()) {
 						abc_options.erase(std::remove(abc_options.begin(), abc_options.end(), '"'), abc_options.end());
-						std::string command = "recover_names abc -map_src " + src_info + " " + abc_options;
+						std::string command = "abc -map_src " + src_info + " " + abc_options;
 						log("  Executing: %s\n", command.c_str());
 						log_flush();
 						Pass::call(design, command);
