@@ -1,0 +1,36 @@
+read_verilog <<EOT
+module buffer(
+	output o,
+	input i
+);
+	assign o = i;
+endmodule
+EOT
+
+write_json json_sbvector_no.out
+! ! grep -qF 'sbvector' json_sbvector_no.out
+
+design -reset
+read_verilog <<EOT
+module buffer(
+	output o,
+	input [0:0] i
+);
+	assign o = i;
+endmodule
+EOT
+
+write_json json_sbvector_yes.out
+! grep -qF 'sbvector' json_sbvector_yes.out
+
+design -reset
+read_json json_sbvector_yes.out
+logger -expect log "wire width 1 input 2 \\i" 1
+dump
+logger -check-expected
+design -reset
+
+read_json json_sbvector_no.out
+logger -expect log "wire input 2 \\i" 1
+dump
+logger -check-expected

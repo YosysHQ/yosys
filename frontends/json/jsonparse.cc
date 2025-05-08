@@ -345,6 +345,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 					port_wire->upto = val->data_number != 0;
 			}
 
+			if (port_node->data_dict.count("sbvector") != 0) {
+				JsonNode *val = port_node->data_dict.at("sbvector");
+				if (val->type == 'N')
+					port_wire->sbvector = val->data_number != 0;
+			}
+
 			if (port_node->data_dict.count("signed") != 0) {
 				JsonNode *val = port_node->data_dict.at("signed");
 				if (val->type == 'N')
@@ -441,6 +447,11 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				JsonNode *val = net_node->data_dict.at("upto");
 				if (val->type == 'N')
 					wire->upto = val->data_number != 0;
+			}
+			if (net_node->data_dict.count("sbvector") != 0) {
+				JsonNode *val = net_node->data_dict.at("sbvector");
+				if (val->type == 'N')
+					wire->sbvector = val->data_number != 0;
 			}
 
 			if (net_node->data_dict.count("offset") != 0) {

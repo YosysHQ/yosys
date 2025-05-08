@@ -223,6 +223,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	was_checked = false;
 	range_valid = false;
 	range_swapped = false;
+	is_sbvector = false;
 	is_custom_type = false;
 	port_id = 0;
 	range_left = -1;
@@ -350,6 +351,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " port=%d", port_id);
 	if (range_valid || range_left != -1 || range_right != 0)
 		fprintf(f, " %srange=[%d:%d]%s", range_swapped ? "swapped_" : "", range_left, range_right, range_valid ? "" : "!");
+	if (is_sbvector)
+		fprintf(f, " vector");
 	if (integer != 0)
 		fprintf(f, " int=%u", (int)integer);
 	if (realvalue != 0)

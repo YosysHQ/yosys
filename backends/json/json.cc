@@ -178,8 +178,10 @@ struct JsonWriter
 			f << stringf("          \"direction\": \"%s\",\n", w->port_input ? w->port_output ? "inout" : "input" : "output");
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
-			if (w->upto)
+			if (w->width != 1 && w->upto)
 				f << stringf("          \"upto\": 1,\n");
+			if (w->width == 1 && w->sbvector)
+				f << stringf("          \"sbvector\": 1,\n");
 			if (w->is_signed)
 				f << stringf("          \"signed\": %d,\n", w->is_signed);
 			f << stringf("          \"bits\": %s\n", get_bits(w).c_str());
@@ -270,8 +272,10 @@ struct JsonWriter
 			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
-			if (w->upto)
+			if (w->width != 1 && w->upto)
 				f << stringf("          \"upto\": 1,\n");
+			if (w->width == 1 && w->sbvector)
+				f << stringf("          \"sbvector\": 1,\n");
 			if (w->is_signed)
 				f << stringf("          \"signed\": %d,\n", w->is_signed);
 			f << stringf("          \"attributes\": {");
@@ -403,10 +407,12 @@ struct JsonBackend : public Backend {
 		log("      \"bits\": <bit_vector>\n");
 		log("      \"offset\": <the lowest bit index in use, if non-0>\n");
 		log("      \"upto\": <1 if the port bit indexing is MSB-first>\n");
+		log("      \"sbvector\": <1 if a single-bit port is a vector, not a scalar>\n");
 		log("      \"signed\": <1 if the port is signed>\n");
 		log("    }\n");
 		log("\n");
-		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.\n");
+		log("The \"offset\", \"upto\", and \"sbvector\" fields are skipped\n");
+		log("if their value would be 0.\n");
 		log("They don't affect connection semantics, and are only used to preserve original\n");
 		log("HDL bit indexing.\n");
 		log("And <cell_details> is:\n");
@@ -453,6 +459,7 @@ struct JsonBackend : public Backend {
 		log("      \"bits\": <bit_vector>\n");
 		log("      \"offset\": <the lowest bit index in use, if non-0>\n");
 		log("      \"upto\": <1 if the port bit indexing is MSB-first>\n");
+		log("      \"sbvector\": <1 if a single-bit port is a vector, not a scalar>\n");
 		log("      \"signed\": <1 if the port is signed>\n");
 		log("    }\n");
 		log("\n");
