@@ -1,5 +1,3 @@
-
-
 log -header "Test basic s?(a+b):a pattern gets transformed (a,b module inputs)"
 log -push
 design -reset
@@ -368,6 +366,151 @@ module top(a, b, s, y);
 	input wire s;
 	wire signed [4:0] ab = a + b;
 	assign y = s ? ab : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test transform when widths are uneven with no intermediate values"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [2:0] b;
+	output wire [4:0] y;
+	input wire s;
+	assign y = s ? a + b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$add %co1 %a w:y %i # assert adder rewired
+
+log -pop
+log -header "Test basic s ? (a * b) : a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	assign y = s ? a * b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$mul %co1 %a w:y %i # assert mult rewired
+
+log -pop
+log -header "Test basic s ? (a & b) : a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	assign y = s ? a & b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$and %co1 %a w:y %i # assert and rewired
+
+log -pop
+log -header "Test basic s ? (a | b) : a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire a;
+	input wire b;
+	output wire y;
+	input wire s;
+	assign y = s ? a | b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$or %co1 %a w:y %i # assert or rewired
+
+log -pop
+log -header "Test basic s ? (a ^ b) : a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	assign y = s ? a ^ b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$xor %co1 %a w:y %i # assert xor rewired
+
+log -pop
+log -header "Test basic s ? (a ~^ b) : a"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, s, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	output wire [3:0] y;
+	input wire s;
+	assign y = s ? a ~^ b : a;
+endmodule
+EOF
+check -assert
+wreduce
+opt_clean
+equiv_opt -assert peepopt -muxorder
+design -load postopt
+select -assert-any t:$xnor %co1 %a w:y %i # assert xnor rewired
+
+log -pop
+log -header "Nested conditionals"
+log -push
+design -reset
+read_verilog <<EOF
+module top(a, b, c, s0, s1, y);
+	input wire [3:0] a;
+	input wire [3:0] b;
+	input wire [3:0] c;
+	output wire [3:0] y;
+	input wire s0, s1;
+
+	wire [3:0] inter;
+	
+	assign inter = s0 ? a + b : a;
+	assign y = s1 ? inter + c : inter;
 endmodule
 EOF
 check -assert
