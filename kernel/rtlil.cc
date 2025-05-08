@@ -396,6 +396,9 @@ std::optional<int> RTLIL::Const::try_as_int(bool is_signed) const
 int RTLIL::Const::as_int_saturating(bool is_signed) const
 {
 	if (!convertible_to_int(is_signed)) {
+		if (!is_signed)
+			return std::numeric_limits<int>::max();
+
 		const auto min_size = get_min_size(is_signed);
 		log_assert(min_size > 0);
 		const auto neg = get_bits().at(min_size - 1);
