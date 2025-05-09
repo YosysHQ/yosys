@@ -1,3 +1,4 @@
+libcache -verbose
 libcache -enable busdef.lib
 
 logger -expect log "Caching is disabled by default." 1
@@ -14,14 +15,21 @@ logger -expect log "Caching data" 1
 read_liberty -lib busdef.lib; design -reset
 logger -check-expected
 
-logger -expect log "Using caching data" 1
-log Using caching data
+logger -expect log "Using cached data" 1
+log Using cached data
 read_liberty normal.lib; design -reset
 logger -check-expected
 
 logger -expect log "Using cached data" 1
 read_liberty -lib busdef.lib; design -reset
 logger -check-expected
+
+libcache -quiet
+logger -expect log "Using cached data" 1
+log Using cached data
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+libcache -verbose
 
 libcache -purge busdef.lib
 
