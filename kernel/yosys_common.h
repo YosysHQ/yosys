@@ -252,23 +252,6 @@ inline void memhasher() { if (memhasher_active) memhasher_do(); }
 void yosys_banner();
 int ceil_log2(int x) YS_ATTRIBUTE(const);
 
-int readsome(std::istream &f, char *s, int n);
-std::string next_token(std::string &text, const char *sep = " \t\r\n", bool long_strings = false);
-std::vector<std::string> split_tokens(const std::string &text, const char *sep = " \t\r\n");
-bool patmatch(const char *pattern, const char *string);
-#if !defined(YOSYS_DISABLE_SPAWN)
-int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
-#endif
-std::string get_base_tmpdir();
-std::string make_temp_file(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
-std::string make_temp_dir(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
-bool check_file_exists(std::string filename, bool is_exec = false);
-bool check_directory_exists(const std::string& dirname);
-bool is_absolute_path(std::string filename);
-void remove_directory(std::string dirname);
-bool create_directory(const std::string& dirname);
-std::string escape_filename_spaces(const std::string& filename);
-
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
 
