@@ -1280,4 +1280,4 @@ echo-cxx:
 FORCE:
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo wheel install_wheel
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo
