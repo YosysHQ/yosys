@@ -1,0 +1,153 @@
+log -header "Should not be turned into a tree"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x,
+  output wire y,
+  output wire z
+);
+  assign x = a & b;
+  assign y = x & c;
+  assign z = y & d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expand
+# equiv_opt -assert opt_balance_tree
+opt_balance_tree
+
+# TODO check design to make sure that it is not turned into a tree
+# design -load postopt
+
+design -reset
+log -pop
+
+log -header "With a cell"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire x,
+  output wire y,
+  output wire z
+);
+  wire temp;
+  assign y = ~temp;
+  assign x = a & b;
+  assign temp = x & c;
+  assign z = temp & d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expand
+# equiv_opt -assert opt_balance_tree
+opt_balance_tree
+
+# TODO check design to make sure that it is not turned into a tree
+# Note: this one already worked, just including here for completeness
+# design -load postopt
+
+design -reset
+log -pop
+
+log -header "Word out port"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [2:0] x
+);
+  assign x[0] = a & b;
+  assign x[1] = x[0] & c;
+  assign x[2] = x[1] & d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expand
+# equiv_opt -assert opt_balance_tree
+opt_balance_tree
+
+# TODO check design to make sure that it is not turned into a tree
+# Note: this one already worked, just including here for completeness
+# design -load postopt
+
+design -reset
+log -pop
+
+log -header "Fanout going to multiple outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [2:0] x,
+  output wire y
+);
+  assign x[0] = a & b;
+  assign x[1] = x[0] & c;
+  assign x[2] = x[1] & d;
+
+  assign y = x[1];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expand
+# equiv_opt -assert opt_balance_tree
+opt_balance_tree
+
+# TODO check design to make sure that it is not turned into a tree
+# Note: this one already worked, just including here for completeness
+# design -load postopt
+
+design -reset
+log -pop
+
+log -header "Fanout going to multiple of the same word"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [3:0] x,
+);
+  assign x[0] = a & b;
+  assign x[1] = x[0] & c;
+  assign x[2] = x[1] & d;
+  assign x[3] = x[1];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_expand
+# equiv_opt -assert opt_balance_tree
+opt_balance_tree
+
+# TODO check design to make sure that it is not turned into a tree
+# Note: this one already worked, just including here for completeness
+# design -load postopt
+
+design -reset
+log -pop
