@@ -127,7 +127,7 @@ module top (
   input wire b,
   input wire c,
   input wire d,
-  output wire [3:0] x,
+  output wire [3:0] x
 );
   assign x[0] = a & b;
   assign x[1] = x[0] & c;
