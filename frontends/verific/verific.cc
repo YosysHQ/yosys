@@ -3763,10 +3763,12 @@ struct VerificPass : public Pass {
 			verific_opt = true;
 			goto check_error;
 		}
+
 		if (GetSize(args) > argidx && args[argidx] == "-no_split_complex_ports") {
 			verific_no_split_complex_ports = true;
 			goto check_error;
 		}
+
 		if (GetSize(args) > argidx && args[argidx] == "-set_ignore_translate_off") {
 			veri_file::SetIgnoreTranslateOff(1);
 			goto check_error;
