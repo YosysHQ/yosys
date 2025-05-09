@@ -140,6 +140,7 @@ namespace Yosys
 		dict<std::string, std::shared_ptr<const LibertyAst>> cached;
 
 		bool cache_by_default = false;
+		bool verbose = false;
 		dict<std::string, bool> cache_path;
 
 		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname);

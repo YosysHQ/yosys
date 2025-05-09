@@ -41,7 +41,8 @@ std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string 
 	auto it = cached.find(fname);
 	if (it == cached.end())
 		return nullptr;
-	log("Using cached data for liberty file `%s'\n", fname.c_str());
+	if (verbose)
+		log("Using cached data for liberty file `%s'\n", fname.c_str());
 	return it->second;
 }
 
@@ -51,7 +52,8 @@ void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr
 	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
 	if (!should_cache)
 		return;
-	log("Caching data for liberty file `%s'\n", fname.c_str());
+	if (verbose)
+		log("Caching data for liberty file `%s'\n", fname.c_str());
 	cached.emplace(fname, ast);
 }
 
