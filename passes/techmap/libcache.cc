@@ -29,7 +29,7 @@
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    libcache [-verbose] {-enable|-disable|-purge} { -all | [path]... }\n");
+		log("    libcache {-enable|-disable|-purge} { -all | [path]... }\n");
 		log("\n");
 		log("Controls the default and per path caching of liberty file data.\n");
 		log("\n");
