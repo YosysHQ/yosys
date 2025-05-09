@@ -19,8 +19,7 @@ EOF
 check -assert
 
 # Check equivalence after opt_expand
-# equiv_opt -assert opt_balance_tree
-opt_balance_tree
+equiv_opt -assert opt_balance_tree
 
 # TODO check design to make sure that it is not turned into a tree
 # design -load postopt
@@ -51,8 +50,7 @@ EOF
 check -assert
 
 # Check equivalence after opt_expand
-# equiv_opt -assert opt_balance_tree
-opt_balance_tree
+equiv_opt -assert opt_balance_tree
 
 # TODO check design to make sure that it is not turned into a tree
 # Note: this one already worked, just including here for completeness
@@ -80,8 +78,7 @@ EOF
 check -assert
 
 # Check equivalence after opt_expand
-# equiv_opt -assert opt_balance_tree
-opt_balance_tree
+equiv_opt -assert opt_balance_tree
 
 # TODO check design to make sure that it is not turned into a tree
 # Note: this one already worked, just including here for completeness
@@ -112,8 +109,7 @@ EOF
 check -assert
 
 # Check equivalence after opt_expand
-# equiv_opt -assert opt_balance_tree
-opt_balance_tree
+equiv_opt -assert opt_balance_tree
 
 # TODO check design to make sure that it is not turned into a tree
 # Note: this one already worked, just including here for completeness
@@ -142,8 +138,7 @@ EOF
 check -assert
 
 # Check equivalence after opt_expand
-# equiv_opt -assert opt_balance_tree
-opt_balance_tree
+equiv_opt -assert opt_balance_tree
 
 # TODO check design to make sure that it is not turned into a tree
 # Note: this one already worked, just including here for completeness
