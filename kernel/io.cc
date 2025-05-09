@@ -247,7 +247,7 @@ std::string make_temp_dir(std::string template_str)
 #endif
 }
 
-bool check_directory_exists(const std::string& dirname)
+bool check_is_directory(const std::string& dirname)
 {
 #if defined(_WIN32)
 	struct _stat info;
@@ -267,16 +267,25 @@ bool check_directory_exists(const std::string& dirname)
 }
 
 #ifdef _WIN32
-bool check_file_exists(std::string filename, bool)
+bool check_accessible(const std::string& filename, bool)
 {
 	return _access(filename.c_str(), 0) == 0;
 }
 #else
-bool check_file_exists(std::string filename, bool is_exec)
+bool check_accessible(const std::string& filename, bool is_exec)
 {
 	return access(filename.c_str(), is_exec ? X_OK : F_OK) == 0;
 }
 #endif
+
+bool check_file_exists(const std::string& filename, bool is_exec)
+{
+	return check_accessible(filename, is_exec) && !check_is_directory(filename);
+}
+bool check_directory_exists(const std::string& filename, bool is_exec)
+{
+	return check_accessible(filename, is_exec) && check_is_directory(filename);
+}
 
 bool is_absolute_path(std::string filename)
 {

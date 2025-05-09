@@ -556,29 +556,29 @@ void init_share_dirname()
 	std::string proc_self_path = proc_self_dirname();
 #  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
 	std::string proc_share_path = proc_self_path + "share\\";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 	proc_share_path = proc_self_path + "..\\share\\";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 #  else
 	std::string proc_share_path = proc_self_path + "share/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 	proc_share_path = proc_self_path + "../share/" + proc_program_prefix()+ "yosys/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 #    ifdef YOSYS_DATDIR
 	proc_share_path = YOSYS_DATDIR "/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
