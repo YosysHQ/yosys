@@ -1932,6 +1932,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Prepare replacement node.
 			newNode = template_node->clone();
 			newNode->str = str;
+			if (newNode->attributes.count(ID::wiretype))
+				delete newNode->attributes[ID::wiretype];
 			newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 			newNode->is_input = is_input;
 			newNode->is_output = is_output;
