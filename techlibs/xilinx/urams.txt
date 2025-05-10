@@ -54,7 +54,6 @@ ram huge $__XILINX_URAM_SP_ {
 		portoption "RST_MODE" "ASYNC" {
 			rdarst zero;
 		}
-		wrtrans all new;
 		wrbe_separate;
 	}
 }
