@@ -1110,8 +1110,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 					for (auto c : node->children[0]->children) {
 						if (!c->is_simple_const_expr()) {
-							if (attributes.count(ID::dynports))
-								delete attributes.at(ID::dynports);
 							set_attribute(ID::dynports, AstNode::mkconst_int(1, true));
 						}
 					}
@@ -1159,8 +1157,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (node->is_signed)
 						first_node->is_signed = true;
 					for (auto &it : node->attributes) {
-						if (first_node->attributes.count(it.first) > 0)
-							delete first_node->attributes[it.first];
 						first_node->set_attribute(it.first, it.second->clone());
 					}
 					children.erase(children.begin()+(i--));
@@ -1919,8 +1915,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str, attributes);
-				if (newNode->attributes.count(ID::wiretype))
-					delete newNode->attributes[ID::wiretype];
 				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;

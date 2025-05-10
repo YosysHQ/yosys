@@ -1174,10 +1174,6 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				delete ast->attributes.at(ID::lib_whitebox);
 				ast->attributes.erase(ID::lib_whitebox);
 			} else {
-				if (ast->attributes.count(ID::whitebox)) {
-					delete ast->attributes.at(ID::whitebox);
-					ast->attributes.erase(ID::whitebox);
-				}
 				AstNode *n = ast->attributes.at(ID::lib_whitebox);
 				ast->set_attribute(ID::whitebox, n);
 				ast->attributes.erase(ID::lib_whitebox);

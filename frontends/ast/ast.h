@@ -360,6 +360,8 @@ namespace AST
 
 		void set_attribute(RTLIL::IdString key, AstNode *node)
 		{
+			if (attributes.count(key))
+				delete attributes.at(key);
 			attributes[key] = node;
 			node->set_in_param_flag(true);
 		}
