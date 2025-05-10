@@ -1,0 +1,50 @@
+read_verilog << EOT
+module top(input a, b, output o);
+    wire c, d, e;
+    bb bb1 (.a (a), .b (b), .o (c));
+    sub_mod sub_inst (.a (a), .b (b), .o (e));
+    some_mod some_inst (.a (c), .b (d), .c (e), .o (o));
+endmodule
+
+(* blackbox *)
+module bb #( parameter SOME_PARAM=0 ) (input a, b, output o);
+endmodule
+
+module sub_mod(input a, b, output o);
+    bb bb2 (.a (a), .b (b), .o (o));
+endmodule
+
+module some_mod(input a, b, c, output o);
+assign o = a & (b | c);
+endmodule
+EOT
+
+hierarchy -top top
+design -stash hier
+
+# removing cell
+design -load hier
+logger -expect log "Removing cell .*, making all cell outputs cutpoints" 1
+cutpoint sub_mod/bb2
+logger -check-expected
+logger -werror "Removing cell .*, making all cell outputs cutpoints"
+
+# removing wires
+design -load hier
+logger -expect log "Making wire .* a cutpoint" 1
+cutpoint top/c
+logger -check-expected
+logger -werror "Making wire .* a cutpoint"
+
+# removing output wires
+design -load hier
+logger -expect log "Making output wire .* a cutpoint" 1
+cutpoint sub_mod/o
+logger -check-expected
+logger -werror "Making output wire .* a cutpoint"
+
+# whole module optimization, doesn't do any of the previous
+design -load hier
+logger -expect log "Making all outputs of module .* cut points, removing module contents" 1
+cutpoint sub_mod
+logger -check-expected

@@ -86,6 +86,20 @@ struct CutpointPass : public Pass {
 
 		for (auto module : design->all_selected_modules())
 		{
+			if (module->is_selected_whole()) {
+				log("Making all outputs of module %s cut points, removing module contents.\n", log_id(module));
+				module->new_connections(std::vector<RTLIL::SigSig>());
+				for (auto cell : vector<Cell*>(module->cells()))
+					module->remove(cell);
+				vector<Wire*> output_wires;
+				for (auto wire : module->wires())
+					if (wire->port_output)
+						output_wires.push_back(wire);
+				for (auto wire : output_wires)
+					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
+				continue;
+			}
+
 			SigMap sigmap(module);
 			pool<SigBit> cutpoint_bits;
 
