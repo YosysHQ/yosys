@@ -8,7 +8,7 @@ EOT
 
 hierarchy -top top; proc
 
-logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect error "Drivers conflicting with a constant" 1
 logger -expect log "Found and reported 1 problems." 1
 check
 logger -check-expected
@@ -26,7 +26,7 @@ EOT
 
 hierarchy -top top; proc
 
-logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect error "Drivers conflicting with a constant" 1
 logger -expect log "Found and reported 1 problems." 1
 check
 logger -check-expected
@@ -45,7 +45,7 @@ EOT
 
 hierarchy -top top
 
-logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect error "Drivers conflicting with a constant" 1
 logger -expect log "Found and reported 1 problems." 1
 check
 logger -check-expected
