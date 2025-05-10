@@ -23,11 +23,17 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// TODO refactor such scattered program state
 std::map<std::string, RTLIL::Design*> saved_designs;
 std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
-	DesignPass() : Pass("design", "save, restore and reset current design") { }
+	DesignPass() : Pass("design", "save, restore and reset current design") {
+#ifdef WITH_PYTHON
+		// Ensure the index to outlive this pass so that we can free saved designs
+		(void)RTLIL::Module::get_all_modules();
+#endif
+	}
 	~DesignPass() override {
 		for (auto &it : saved_designs)
 			delete it.second;
