@@ -28,7 +28,7 @@ std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
-	~DesignPass() override {
+	void on_shutdown() override {
 		for (auto &it : saved_designs)
 			delete it.second;
 		saved_designs.clear();
