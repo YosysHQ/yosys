@@ -120,6 +120,8 @@ int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
+bool verific_opt; // SILIMATE: enable Verific optimizations
+bool verific_no_split_complex_ports; // SILIMATE: disable splitting of complex ports
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
@@ -3078,7 +3080,7 @@ void verific_cleanup()
 	verific_import_pending = false;
 }
 
-std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top, bool opt, bool no_split_complex_port)
+std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
 {
 	verific_sva_fsm_limit = 16;
 
@@ -3120,7 +3122,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg.c_str());
 
-	if (!no_split_complex_port)
+	if (!verific_no_split_complex_ports)
 		for (auto nl : nl_todo)
 			nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
@@ -3132,8 +3134,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		auto it = nl_todo.begin();
 		Netlist *nl = it->second;
 
-		// SILIMATE: use Verific optimization
-		if (opt) {
+		// SILIMATE: use Verific optimizations
+		if (verific_opt) {
 			log("  Optimizing netlist for %s.\n", it->first.c_str());
 
 			log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
@@ -3606,6 +3608,10 @@ struct VerificPass : public Pass {
 		verific_verbose = 0;
 		verific_sva_fsm_limit = 16;
 
+		// SILIMATE: added flags
+		verific_opt = false;
+		verific_no_split_complex_ports = false;
+
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
 		char *release_tmstr = ctime(&release_time);
@@ -3753,6 +3759,16 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-optimization") {
+			verific_opt = true;
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-no_split_complex_ports") {
+			verific_no_split_complex_ports = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && args[argidx] == "-set_ignore_translate_off") {
 			veri_file::SetIgnoreTranslateOff(1);
 			goto check_error;
@@ -3773,6 +3789,18 @@ struct VerificPass : public Pass {
 			veri_file::AddFileExtMode(".svp", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".h", veri_file::SYSTEM_VERILOG);
 			veri_file::AddFileExtMode(".inc", veri_file::SYSTEM_VERILOG);
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-set_relaxed_file_libext_modes") {
+			veri_file::AddLibExt(".v");
+			veri_file::AddLibExt(".vh");
+			veri_file::AddLibExt(".sv");
+			veri_file::AddLibExt(".sv1");
+			veri_file::AddLibExt(".svh");
+			veri_file::AddLibExt(".svp");
+			veri_file::AddLibExt(".h");
+			veri_file::AddLibExt(".inc");
 			goto check_error;
 		}
 

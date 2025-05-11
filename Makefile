@@ -7,7 +7,7 @@ CONFIG := none
 # CONFIG := msys2-64
 
 # features (the more the better)
-ENABLE_TCL := 0
+ENABLE_TCL := 1
 ENABLE_ABC := 1
 ENABLE_GLOB := 1
 ENABLE_PLUGINS := 0
@@ -23,7 +23,7 @@ ENABLE_VERIFIC_SILIMATE_EXTENSIONS := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
-ENABLE_VERIFIC_UPF := 1
+ENABLE_VERIFIC_UPF := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
@@ -1280,4 +1280,4 @@ echo-cxx:
 FORCE:
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo wheel install_wheel
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo
