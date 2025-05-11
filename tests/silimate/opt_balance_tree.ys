@@ -14,27 +14,31 @@ endmodule
 EOF
 check -assert
 
-autoname
-write_json pre.json
-exec -- netlistsvg pre.json -o pre.svg
-
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
 
 design -load postopt
-# opt_balance_tree
 
-autoname
-write_json post.json
-exec -- netlistsvg post.json -o post.svg
+# Checks if inputs to and gates has been rewired
+select -set a_wires i:a %co
+select -set driven_by_a @a_wires %co
+select -set and_a_cell t:$and @driven_by_a %i
 
-# Checks if y is still wired up to the correct gate
-# select -set y_wires o:y %ci
-# select -set y_driver @y_wires %ci
-# select -set and_y_cell t:$and @y_driver %i
-# select @and_y_cell -assert-count 1
-# select -set inputs @and_y_cell %ci
-# select -assert-count 1 @inputs i:c %i
+select -set b_wires i:b %co
+select -set driven_by_b @b_wires %co
+select -set and_b_cell t:$and @driven_by_b %i
+
+select -assert-none @and_a_cell @and_b_cell %d
+
+select -set c_wires i:c %co
+select -set driven_by_c @c_wires %co
+select -set and_c_cell t:$and @driven_by_c %i
+
+select -set d_wires i:d %co
+select -set driven_by_d @d_wires %co
+select -set and_d_cell t:$and @driven_by_d %i
+
+select -assert-none @and_c_cell @and_d_cell %d
 
 design -reset
 log -pop
@@ -187,6 +191,79 @@ equiv_opt -assert opt_balance_tree
 
 design -load postopt
 select -assert-count 3 t:$and
+
+design -reset
+log -pop
+
+log -header "Interesting tree situation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  input wire e, f, g, h,
+  output wire x,
+);
+  wire i, j;
+
+  assign i = a & b & c & d;
+  assign j = e & f & g & h & i;
+
+  assign x = i & j;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+
+design -load postopt
+
+# Checks if inputs to and gates has been rewired
+
+# a and b
+select -set a_wires i:a %co
+select -set driven_by_a @a_wires %co
+select -set and_a_cell t:$and @driven_by_a %i
+
+select -set b_wires i:b %co
+select -set driven_by_b @b_wires %co
+select -set and_b_cell t:$and @driven_by_b %i
+
+select -assert-none @and_a_cell @and_b_cell %d
+
+# c and d
+select -set c_wires i:c %co
+select -set driven_by_c @c_wires %co
+select -set and_c_cell t:$and @driven_by_c %i
+
+select -set d_wires i:d %co
+select -set driven_by_d @d_wires %co
+select -set and_d_cell t:$and @driven_by_d %i
+
+select -assert-none @and_c_cell @and_d_cell %d
+
+# e and f
+select -set e_wires i:e %co
+select -set driven_by_e @e_wires %co
+select -set and_e_cell t:$and @driven_by_e %i
+
+select -set f_wires i:f %co
+select -set driven_by_f @f_wires %co
+select -set and_f_cell t:$and @driven_by_f %i
+
+select -assert-none @and_e_cell @and_f_cell %d
+
+# g and h
+select -set g_wires i:g %co
+select -set driven_by_g @g_wires %co
+select -set and_g_cell t:$and @driven_by_g %i
+
+select -set h_wires i:h %co
+select -set driven_by_h @h_wires %co
+select -set and_h_cell t:$and @driven_by_h %i
+
+select -assert-none @and_g_cell @and_h_cell %d
 
 design -reset
 log -pop
