@@ -291,7 +291,7 @@ struct JsonWriter
 		design->sort();
 
 		f << stringf("{\n");
-		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
+		f << stringf("  \"creator\": %s,\n", get_string(yosys_maybe_version()).c_str());
 		f << stringf("  \"modules\": {\n");
 		vector<Module*> modules = use_selection ? design->selected_modules() : design->modules();
 		bool first_module = true;

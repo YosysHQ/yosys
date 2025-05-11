@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <set>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
