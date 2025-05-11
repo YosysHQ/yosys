@@ -2,9 +2,10 @@
 
 mv config.h config.h.bak
 rm -f *.txt *.cc *.h
-git clone --depth 1 https://github.com/gtkwave/gtkwave fst_upstream
-rm fst_upstream/lib/libfst/CMakeLists.txt
-mv fst_upstream/lib/libfst/*.{h,c,txt} .
+git clone --depth 1 https://github.com/gtkwave/libfst fst_upstream
+rm fst_upstream/src/meson.build
+mv fst_upstream/src/*.{h,c} .
+mv fst_upstream/doc/block_format.txt .
 rm -rf fst_upstream
 
 for src in *.c; do

@@ -2400,7 +2400,7 @@ struct VCDWriter : public OutputWriter
 struct FSTWriter : public OutputWriter
 {
 	FSTWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
-		fstfile = (struct fstContext *)fstWriterCreate(filename.c_str(),1);
+		fstfile = fstWriterCreate(filename.c_str(),1);
 	}
 
 	virtual ~FSTWriter()
@@ -2456,7 +2456,7 @@ struct FSTWriter : public OutputWriter
 		}
 	}
 
-	struct fstContext *fstfile = nullptr;
+	struct fstWriterContext *fstfile = nullptr;
 	std::map<int,fstHandle> mapping;
 };
 
