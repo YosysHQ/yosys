@@ -707,7 +707,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells, const std::string& map_src)
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool word_mode, bool abc_dress, std::vector<std::string> &dont_use_cells, const std::string& map_src)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -1210,7 +1210,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == ID(NOT)) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), word_mode ? ID($not) : ID($_NOT_)); // SILIMATE: use word-level primitives
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
@@ -1218,11 +1218,23 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
 					}
+					cell->fixup_parameters();
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					// SILIMATE: use word-level primitives
+					std::string cell_type;
+					if (c->type == ID(AND) && word_mode)
+						cell_type = "$and";
+					else if (c->type == ID(OR) && word_mode)
+						cell_type = "$or";
+					else if (c->type == ID(XOR) && word_mode)
+						cell_type = "$xor";
+					else
+						cell_type = stringf("$_%s_", c->type.c_str()+1);
+
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
@@ -1230,11 +1242,19 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
 					}
+					cell->fixup_parameters();
 					design->select(module, cell);
 					continue;
 				}
 				if (c->type.in(ID(MUX), ID(NMUX))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+					// SILIMATE: use word-level primitives
+					std::string cell_type;
+					if (c->type == ID(MUX) && word_mode)
+						cell_type = "$mux";
+					else
+						cell_type = stringf("$_%s_", c->type.c_str()+1);
+
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
@@ -1242,6 +1262,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
 					}
+					cell->fixup_parameters();
 					design->select(module, cell);
 					continue;
 				}
@@ -1684,7 +1705,7 @@ struct AbcPass : public Pass {
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
-		bool show_tempdir = false, sop_mode = false;
+		bool show_tempdir = false, sop_mode = false, word_mode = false;
 		bool abc_dress = false;
 		vector<int> lut_costs;
 		markgroups = false;
@@ -1716,6 +1737,7 @@ struct AbcPass : public Pass {
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		sop_mode = design->scratchpad_get_bool("abc.sop", sop_mode);
+		word_mode = design->scratchpad_get_bool("abc.word", word_mode);
 		map_mux4 = design->scratchpad_get_bool("abc.mux4", map_mux4);
 		map_mux8 = design->scratchpad_get_bool("abc.mux8", map_mux8);
 		map_mux16 = design->scratchpad_get_bool("abc.mux16", map_mux16);
@@ -1806,6 +1828,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-sop") {
 				sop_mode = true;
+				continue;
+			}
+			if (arg == "-word") {
+				word_mode = true;
 				continue;
 			}
 			if (arg == "-mux4") {
@@ -2078,7 +2104,7 @@ struct AbcPass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells, map_src);
+						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, word_mode, abc_dress, dont_use_cells, map_src);
 				continue;
 			}
 
@@ -2240,7 +2266,7 @@ struct AbcPass : public Pass {
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
 				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells, map_src);
+						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, word_mode, abc_dress, dont_use_cells, map_src);
 				assign_map.set(mod);
 			}
 		}
