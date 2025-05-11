@@ -202,10 +202,10 @@ struct OptBalanceTreeWorker {
 		cell->fixup_parameters();
 	}
 
-	void process_chain(vector<Cell*> &chain) {
+	bool process_chain(vector<Cell*> &chain) {
 		// If chain size is less than 3, no balancing needed
 		if (GetSize(chain) < 3)
-			return;
+			return false;
 
 		// Get mid, midnext (at index mid+1) and end of chain
 		Cell *mid_cell = chain[GetSize(chain) / 2];
@@ -262,6 +262,8 @@ struct OptBalanceTreeWorker {
 
 		// Width reduce mid cell
 		wreduce(mid_cell);
+
+		return true;
 	}
 
 	void cleanup() {
@@ -291,7 +293,24 @@ struct OptBalanceTreeWorker {
 			// For each chain, if len >= 3, convert to tree via "rotation" and recurse on subtrees
 			for (auto c : chain_start_cells) {
 				vector<Cell*> chain = create_chain(c);
-				process_chain(chain);
+				bool processed = process_chain(chain);
+
+				if (processed) {
+					// Rename cells and wires for formal check to pass as cells signals have changed functionalities post rotation
+					for (Cell *cell : chain) {
+						module->rename(cell, NEW_ID2_SUFFIX("rot_cell"));
+					}
+					for (Cell *cell : chain) {
+						SigSpec y_sig = sigmap(cell->getPort(ID::Y));
+						if (y_sig.is_wire()) {
+							Wire *wire = y_sig.as_wire();
+							if (wire && !wire->port_input && !wire->port_output) {
+								module->rename(y_sig.as_wire(), NEW_ID2_SUFFIX("rot_wire"));
+							}
+						}
+					}
+				}
+
 				cell_count[cell_type] += GetSize(chain);
 			}
 
