@@ -4,17 +4,27 @@ module foo(
 	input [0:0] i1,
 	input i2
 );
-	assign o = i1 ^ i2;
+    wire [0:0] w1 = i1 ^ i2;
+    wire w2 = ~i1;
+	assign o = w1 ^ w2;
 endmodule
 EOT
 
-logger -expect log "wire width 1 input 2 \\i1" 1
-logger -expect log "wire input 3 \\i2" 1
-dump
-logger -check-expected
+hierarchy
+proc
+select -assert-count 1 w:i1
+select -assert-count 1 w:i1 a:single_bit_vector %i
+select -assert-count 1 w:i2
+select -assert-count 0 w:i2 a:single_bit_vector %i
+select -assert-count 1 w:w1
+select -assert-count 1 w:w1 a:single_bit_vector %i
+select -assert-count 1 w:w2
+select -assert-count 0 w:w2 a:single_bit_vector %i
 
 write_verilog verilog_sbvector.out
 !grep -qF 'wire [0:0] i1;' verilog_sbvector.out
 !grep -qF 'input [0:0] i1;' verilog_sbvector.out
 !grep -qF 'wire i2;' verilog_sbvector.out
 !grep -qF 'input i2;' verilog_sbvector.out
+!grep -qF 'wire [0:0] w1;' verilog_sbvector.out
+!grep -qF 'wire w2;' verilog_sbvector.out
