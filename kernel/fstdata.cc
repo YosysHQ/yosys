@@ -261,12 +261,12 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderSetFacProcessMaskAll(ctx);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
-	if (last_time!=end_time && curr_cycle < last_cycle) {
+	if (last_time!=end_time && curr_cycle <= last_cycle) {
 		past_data = last_data;
 		callback(last_time);
 		curr_cycle++;
 	}
-	if (curr_cycle < last_cycle) {
+	if (curr_cycle <= last_cycle) {
 		past_data = last_data;
 		callback(end_time);
 		curr_cycle++;
