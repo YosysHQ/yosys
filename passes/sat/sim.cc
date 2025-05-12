@@ -1546,36 +1546,27 @@ struct SimWorker : SimShared
 			log(" for %d clock cycle(s)",numcycles);
 		log("\n");
 		bool all_samples = fst_clock.empty();
+		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 
-		try {
-			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
-				if (verbose)
-					log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
-				bool did_something = top->setInputs();
+		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
+			if (verbose)
+				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+			bool did_something = top->setInputs();
 
-				if (initial) {
-					if (!fst_noinit) did_something |= top->setInitState();
-					initialize_stable_past();
-					initial = false;
-				}
-				if (did_something)
-					update(true);
-				register_output_step(time);
+			if (initial) {
+				if (!fst_noinit) did_something |= top->setInitState();
+				initialize_stable_past();
+				initial = false;
+			}
+			if (did_something)
+				update(true);
+			register_output_step(time);
 
-				bool status = top->checkSignals();
-				if (status)
-					log_error("Signal difference\n");
-				cycle++;
-
-				// Limit to number of cycles if provided
-				if (cycles_set && cycle > numcycles *2)
-					throw fst_end_of_data_exception();
-				if (time==stopCount)
-					throw fst_end_of_data_exception();
-			});
-		} catch(fst_end_of_data_exception) {
-			// end of data detected
-		}
+			bool status = top->checkSignals();
+			if (status)
+				log_error("Signal difference\n");
+			cycle++;
+		});
 
 		write_output_files();
 		delete fst;
@@ -2248,40 +2239,31 @@ struct SimWorker : SimShared
 		log("Writing data to `%s`\n", (tb_filename+".txt").c_str());
 		std::ofstream data_file(tb_filename+".txt");
 		std::stringstream initstate;
-		try {
-			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
-				for(auto &item : clocks)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				for(auto &item : inputs)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				for(auto &item : outputs)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
+		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
+		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
+			for(auto &item : clocks)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			for(auto &item : inputs)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			for(auto &item : outputs)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
 
-				if (time==startCount) {
-					// initial state
-					for(auto var : fst->getVars()) {
-						if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
-							if (var.scope == scope) {
-								initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
-							} else if (var.scope.find(scope+".")==0) {
-								initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
-							}
+			if (time==startCount) {
+				// initial state
+				for(auto var : fst->getVars()) {
+					if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
+						if (var.scope == scope) {
+							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+						} else if (var.scope.find(scope+".")==0) {
+							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
 						}
 					}
 				}
-				cycle++;
-				prev_time = time;
-
-				// Limit to number of cycles if provided
-				if (cycles_set && cycle > numcycles *2)
-					throw fst_end_of_data_exception();
-				if (time==stopCount)
-					throw fst_end_of_data_exception();
-			});
-		} catch(fst_end_of_data_exception) {
-			// end of data detected
-		}
+			}
+			cycle++;
+			prev_time = time;
+		});
 
 		f << stringf("\treg [0:%d] data [0:%d];\n", data_len-1, cycle-1);
 		f << "\tinitial begin;\n";
