@@ -380,12 +380,8 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr)
 {
 	std::string abc_sname = abc_name.substr(1);
-	bool isnew = false;
-	if (abc_sname.compare(0, 4, "new_") == 0)
-	{
+	if (abc_sname.compare(0, 9, "new_ys__n") == 0)
 		abc_sname.erase(0, 4);
-		isnew = true;
-	}
 	if (abc_sname.compare(0, 5, "ys__n") == 0)
 	{
 		abc_sname.erase(0, 5);
@@ -403,8 +399,6 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 					std::string s = stringf("\\%s_ix%d", sig.bit.wire->name.c_str()+1, map_autoidx); // SILIMATE: Improve the naming
 					if (sig.bit.wire->width != 1)
 						s += stringf("[%d]", sig.bit.offset);
-					if (isnew)
-						s += "_new";
 					s += postfix;
 					if (orig_wire != nullptr)
 						*orig_wire = sig.bit.wire;
@@ -413,7 +407,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 			}
 		}
 	}
-	return stringf("\\%s_ix%d", abc_name.c_str()+1, map_autoidx); // SILIMATE: Improve the naming
+	return abc_name.str(); // SILIMATE: Improve the naming
 }
 
 void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
@@ -711,6 +705,22 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 {
 	module = current_module;
 	map_autoidx = autoidx++;
+
+	// SILIMATE: Create a map of all signals and their corresponding driver attributes
+	SigMap sigmap(module);
+	dict<SigSpec, dict<RTLIL::IdString, RTLIL::Const>> sig_to_driver_attrs;
+	for (auto wire : module->wires())
+		if (wire->port_input)
+			for (auto bit : sigmap(wire))
+				sig_to_driver_attrs[bit] = wire->attributes;
+	for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					if (GetSize(cell->attributes) > 0)
+						sig_to_driver_attrs[bit] = cell->attributes;
+					else
+						sig_to_driver_attrs[bit] = bit.wire->attributes;
 
 	signal_map.clear();
 	signal_list.clear();
@@ -1172,19 +1182,26 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 		log_header(design, "Re-integrating ABC results.\n");
 		RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
+		SigMap mapped_sigmap(mapped_mod);
+		FfInitVals mapped_initvals(&mapped_sigmap, mapped_mod);
 		if (mapped_mod == nullptr)
 			log_error("ABC output file does not contain a module `netlist'.\n");
 		for (auto w : mapped_mod->wires()) {
 			RTLIL::Wire *orig_wire = nullptr;
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
-			if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
-				wire->attributes[ID::src] = orig_wire->attributes[ID::src];
+			if (orig_wire != nullptr)
+				if (sig_to_driver_attrs.count(sigmap(orig_wire))) {
+					wire->attributes = sig_to_driver_attrs[sigmap(orig_wire)];
+					sig_to_driver_attrs[mapped_sigmap(wire)] = wire->attributes;
+					log_debug("Matched wire %s to driver attributes:\n", orig_wire->name.c_str());
+					for (auto &attr : wire->attributes)
+						log_debug("  %s = %s\n", attr.first.c_str(), attr.second.decode_string().c_str());
+				} else {
+					log_debug("No driver attributes found for wire %s\n", orig_wire->name.c_str());
+				}
 			if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, wire);
 		}
-
-		SigMap mapped_sigmap(mapped_mod);
-		FfInitVals mapped_initvals(&mapped_sigmap, mapped_mod);
 
 		dict<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
@@ -1217,6 +1234,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					for (auto name : {ID::A, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
+						if (name == ID::Y)
+							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
@@ -1241,6 +1260,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					for (auto name : {ID::A, ID::B, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
+						if (name == ID::Y)
+							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
@@ -1261,6 +1282,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
+						if (name == ID::Y)
+							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
