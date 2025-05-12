@@ -383,6 +383,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	if (attr2comment)
 		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
+		if (it->first == ID::single_bit_vector) continue;
 		if (it->first == ID::init && regattr) continue;
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
