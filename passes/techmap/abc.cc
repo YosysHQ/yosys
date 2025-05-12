@@ -407,7 +407,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 			}
 		}
 	}
-	return abc_name.str(); // SILIMATE: Improve the naming
+	return stringf("\\%s_ix%d", abc_sname.c_str(), map_autoidx); // SILIMATE: Improve the naming
 }
 
 void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)

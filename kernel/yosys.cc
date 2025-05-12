@@ -83,7 +83,6 @@ YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
 int yosys_xtrace = 0;
-std::set<string> seen_ids;
 bool yosys_write_versions = true;
 const char* yosys_maybe_version() {
 	if (yosys_write_versions)
