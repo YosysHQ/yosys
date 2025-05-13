@@ -17,7 +17,7 @@ std::string substringuntil(const std::string &str, char delimiter)
 }
 
 // Generate a meaningful name for a sigspec, uniquify if necessary
-RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "",
+RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "", int postfix_index = 0,
 				    bool cellName = false)
 {
 	if (sigspec.empty()) {
@@ -57,7 +57,10 @@ RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspe
 			ss << "\\sigspec_[" << max << ":" << min << "]";
 		}
 	}
-	ss << postfix;
+	if (ss.str().find(postfix) == std::string::npos)
+		ss << postfix;
+	if (!postfix.empty())
+		ss << "_" << postfix_index;
 	if (makeUnique) {
 		RTLIL::IdString base_name = RTLIL::IdString(ss.str());
 		// Ensure uniqueness
@@ -315,6 +318,7 @@ SigSpec updateToBuffer(Module *module, std::map<SigSpec, int> &bufferIndexes,
 // The capacity of the buffers might be larger than the limit in a given pass,
 // Recursion is used until all buffers capacity is under or at the limit.
 void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
+	       dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 	       std::map<Cell *, Wire *> &insertedBuffers, SigSpec sigToBuffer, int fanout, int limit, bool debug)
 {
 	if (sigToBuffer.is_fully_const()) {
@@ -359,8 +363,8 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	for (SigChunk chunk : sigToBuffer.chunks()) {
 		std::vector<std::pair<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
 		for (int i = 0; i < num_buffers; ++i) {
-			std::string wireName = generateSigSpecName(module, sigToBuffer, true, "_wbuf" + std::to_string(index_buffer)).c_str();
-			std::string cellName = generateSigSpecName(module, sigToBuffer, true, "_fbuf" + std::to_string(index_buffer), true).c_str();
+			std::string wireName = generateSigSpecName(module, sigToBuffer, true, "_wbuf", index_buffer).c_str();
+			std::string cellName = generateSigSpecName(module, sigToBuffer, true, "_fbuf", index_buffer, true).c_str();
 			RTLIL::Cell *buffer = module->addCell(cellName, ID($buf));
 			bufferActualFanout[buffer] = 0;
 			RTLIL::SigSpec buffer_output = module->addWire(wireName, chunk.size());
@@ -368,6 +372,12 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 			buffer->setPort(ID(A), chunk);
 			buffer->setPort(ID(Y), sigmap(buffer_output));
 			buffer->fixup_parameters();
+			if (sig2CellsInFanin.find(sigmap(chunk.wire)) != sig2CellsInFanin.end())
+				for (auto cell : sig2CellsInFanin[sigmap(chunk.wire)])
+					buffer->attributes = cell->attributes;
+			else
+				buffer->attributes = chunk.wire->attributes;
+			sig2CellsInFanin[sigmap(buffer_output)] = {buffer}; // needed for recursive calls
 			buffer_chunk_outputs.push_back(std::make_pair(buffer_output, buffer)); // Old - New
 			bufferIndexes[chunk] = 0;
 			index_buffer++;
@@ -441,17 +451,17 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 		} else {
 			// Recursively fix the fanout of the newly created buffers
 			RTLIL::SigSpec sig = getCellOutputSigSpec(itr->first, sigmap);
-			fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, sig, itr->second, limit, debug);
+			fixfanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, insertedBuffers, sig, itr->second, limit, debug);
 		}
 	}
 }
 
 // Calculate cells and nets fanout
 void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
-		     dict<RTLIL::SigSpec, std::set<SigSpec>> &sig2SigsInFanout, dict<Cell *, int> &cellFanout, dict<SigSpec, int> &sigFanout)
+		     dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin, dict<RTLIL::SigSpec, std::set<SigSpec>> &sig2SigsInFanout,
+		     dict<Cell *, int> &cellFanout, dict<SigSpec, int> &sigFanout)
 {
 	// Precompute cell output sigspec to cell map
-	dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 	sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
 	// Precompute lhs2rhs and rhs2lhs sigspec map
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
@@ -604,7 +614,8 @@ struct SplitHighFanoutNets : public ScriptPass {
 			dict<SigSpec, int> sigFanout;
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 			dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
-			calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
+			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
+			calculateFanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, sig2SigsInFanout, cellFanout, sigFanout);
 
 			// Cells output nets with high fanout
 			std::vector<RTLIL::SigSpec> netsToSplit;
@@ -714,6 +725,7 @@ struct AnnotateCellFanout : public ScriptPass {
 			bool fixedFanout = false;
 			// All the buffers inserted in the module
 			std::map<Cell *, Wire *> insertedBuffers;
+			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 			{
 				// Fix high fanout
 				SigMap sigmap(module);
@@ -721,7 +733,7 @@ struct AnnotateCellFanout : public ScriptPass {
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 				dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
-				calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
+				calculateFanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, sig2SigsInFanout, cellFanout, sigFanout);
 
 				// Fix cells outputs with high fanout
 				for (auto itrCell : cellFanout) {
@@ -737,7 +749,7 @@ struct AnnotateCellFanout : public ScriptPass {
 									SigSpec bit_sig = cellOutSig.extract(i, 1);
 									int bitfanout = sig2CellsInFanout[bit_sig].size();
 									bitfanout += sig2SigsInFanout[bit_sig].size();
-									fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig,
+									fixfanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, insertedBuffers, bit_sig,
 										  bitfanout, limit, debug);
 								}
 							}
@@ -797,7 +809,7 @@ struct AnnotateCellFanout : public ScriptPass {
 						SigSpec bit_sig = sig.first.extract(i, 1);
 						int bitfanout = sig2CellsInFanout[bit_sig].size();
 						bitfanout += sig2SigsInFanout[bit_sig].size();
-						fixfanout(module, sigmap, sig2CellsInFanout, insertedBuffers, bit_sig, bitfanout, limit, debug);
+						fixfanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, insertedBuffers, bit_sig, bitfanout, limit, debug);
 					}
 					fixedFanout = true;
 				}
@@ -810,7 +822,7 @@ struct AnnotateCellFanout : public ScriptPass {
 				dict<SigSpec, int> sigFanout;
 				dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 				dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
-				calculateFanout(module, sigmap, sig2CellsInFanout, sig2SigsInFanout, cellFanout, sigFanout);
+				calculateFanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, sig2SigsInFanout, cellFanout, sigFanout);
 
 				// Cleanup and annotation
 				for (auto itrCell : cellFanout) {
