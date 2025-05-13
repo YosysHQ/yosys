@@ -1206,6 +1206,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		dict<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
+			c->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remap_name(c->getPort(ID::Y).as_wire()->name)))];
 			if (builtin_lib)
 			{
 				cell_stats[RTLIL::unescape_id(c->type)]++;
@@ -1227,15 +1228,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type == ID(NOT)) {
+					// SILIMATE: use word-level primitives
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), word_mode ? ID($not) : ID($_NOT_)); // SILIMATE: use word-level primitives
+					cell->attributes = c->attributes;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
 					for (auto name : {ID::A, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
-						if (name == ID::Y)
-							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
@@ -1254,14 +1255,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						cell_type = stringf("$_%s_", c->type.c_str()+1);
 
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
+					cell->attributes = c->attributes;
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
-						if (name == ID::Y)
-							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
@@ -1276,14 +1276,13 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 						cell_type = stringf("$_%s_", c->type.c_str()+1);
 
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), cell_type);
+					cell->attributes = c->attributes;
 					if (!map_src.empty())
 						cell->attributes[ID::src] = map_src;
 					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
-						if (name == ID::Y)
-							cell->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remapped_name))];
 					}
 					cell->fixup_parameters();
 					design->select(module, cell);
@@ -1448,6 +1447,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			}
 
 			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+			cell->attributes = c->attributes;
 			if (!map_src.empty())
 				cell->attributes[ID::src] = map_src;
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
