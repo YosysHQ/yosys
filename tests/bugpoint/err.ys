@@ -38,6 +38,6 @@ select -assert-mod-count 1 zzy
 # raise_error -stderr prints to stderr and exits with 1
 design -load read
 rename top abc
-bugpoint -yosys ../../yosys -command "raise_error -stderr" -greperr "help me" -expect-return 1
+bugpoint -yosys ../../yosys -command "raise_error -stderr" -err_grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
