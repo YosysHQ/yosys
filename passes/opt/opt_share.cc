@@ -197,7 +197,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (auto &operand : muxed_operands) {
 		operand.sig.extend_u0(max_width, operand.is_signed);
 		if (operand.sign != muxed_operands[0].sign)
-			operand = ExtSigSpec(module->Neg(NEW_ID2_SUFFIX("neg"), operand.sig, operand.is_signed)); // SILIMATE: Improve the naming
+			operand = ExtSigSpec(module->Neg(NEW_ID2_SUFFIX("neg"), operand.sig, operand.is_signed, mux->get_src_attribute())); // SILIMATE: Improve the naming
 	}
 
 	for (const auto& p : ports) {
@@ -242,9 +242,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	SigSpec mux_to_oper;
 	if (GetSize(shared_pmux_s) == 1) {
-		mux_to_oper = module->Mux(NEW_ID2_SUFFIX("mux"), shared_pmux_a, shared_pmux_b, shared_pmux_s); // SILIMATE: Improve the naming
+		mux_to_oper = module->Mux(NEW_ID2_SUFFIX("mux"), shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->get_src_attribute()); // SILIMATE: Improve the naming
 	} else {
-		mux_to_oper = module->Pmux(NEW_ID2_SUFFIX("pmux"), shared_pmux_a, shared_pmux_b, shared_pmux_s); // SILIMATE: Improve the naming
+		mux_to_oper = module->Pmux(NEW_ID2_SUFFIX("pmux"), shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->get_src_attribute()); // SILIMATE: Improve the naming
 	}
 
 	if (shared_op->type.in(ID($alu))) {
