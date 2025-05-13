@@ -97,9 +97,7 @@ struct BmuxmapPass : public Pass {
 				IdString cell_name = cell->name; // SILIMATE: Save the original cell name
 				module->rename(cell_name, NEW_ID); // SILIMATE: Rename the original cell, which will be deleted
 				RTLIL::Cell *pmux = module->addPmux(cell_name, new_a, data, new_s, new_data); // SILIMATE: Improve the naming
-				for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
-					pmux->attributes[attr.first] = attr.second;
-				pmux->set_bool_attribute("\\bmuxmap"); // SILIMATE: Mark the cell as created by bmuxmap
+				pmux->attributes = cell->attributes; // SILIMATE: Copy all attributes from original cell to new cell
 				data = new_data;
 			}
 			else
@@ -112,9 +110,7 @@ struct BmuxmapPass : public Pass {
 							data.extract(i*2+width, width),
 							sel[idx],
 							new_data.extract(i, width));
-						for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
-							mux->attributes[attr.first] = attr.second;
-						mux->set_bool_attribute("\\bmuxmap"); // SILIMATE: Mark the cell as created by bmuxmap
+						mux->attributes = cell->attributes; // SILIMATE: Copy all attributes from original cell to new cell
 					}
 					data = new_data;
 				}
