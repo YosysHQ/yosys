@@ -242,7 +242,7 @@ struct QlDspSimdPass : public Pass {
 
 		// Get the module defining the cell (the previous condition ensures
 		// that the pointers are valid)
-		RTLIL::Module *mod = a_Cell->module->design->module(a_Cell->type);
+		RTLIL::Module *mod = a_Cell->upscope_module->design->module(a_Cell->type);
 		if (mod == nullptr) {
 			return std::make_pair(0, false);
 		}

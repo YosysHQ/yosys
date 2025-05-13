@@ -511,7 +511,7 @@ struct OptLutWorker
 					worklist.insert(lutM);
 					worklist.erase(lutR);
 
-					lutR->module->remove(lutR);
+					lutR->upscope_module->remove(lutR);
 
 					combined_count++;
 					if (limit > 0)

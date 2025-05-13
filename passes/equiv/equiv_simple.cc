@@ -41,7 +41,7 @@ struct EquivSimpleWorker
 	pool<pair<Cell*, int>> imported_cells_cache;
 
 	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool short_cones, bool verbose, bool model_undef) :
-			module(equiv_cells.front()->module), equiv_cells(equiv_cells), equiv_cell(nullptr),
+			module(equiv_cells.front()->upscope_module), equiv_cells(equiv_cells), equiv_cell(nullptr),
 			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), short_cones(short_cones), verbose(verbose)
 	{
 		satgen.model_undef = model_undef;

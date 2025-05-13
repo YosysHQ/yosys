@@ -30,7 +30,7 @@ void demorgan_worker(
 	unsigned int& cells_changed)
 {
 	SigMap& sigmap = index.sigmap;
-	auto m = cell->module;
+	auto m = cell->upscope_module;
 
 	//TODO: Add support for reduce_xor
 	//DeMorgan of XOR is either XOR (if even number of inputs) or XNOR (if odd number)

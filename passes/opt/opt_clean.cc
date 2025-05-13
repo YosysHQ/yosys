@@ -93,8 +93,8 @@ struct keep_cache_t
 		if (!purge_mode && cell->type == ID($scopeinfo))
 			return true;
 
-		if (cell->module && cell->module->design)
-			return query(cell->module->design->module(cell->type));
+		if (cell->upscope_module && cell->upscope_module->design)
+			return query(cell->upscope_module->design->module(cell->type));
 
 		return false;
 	}

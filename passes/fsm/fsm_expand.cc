@@ -189,12 +189,12 @@ struct FsmExpand
 
 		if (GetSize(input_sig) > 10)
 			log_warning("Cell %s.%s (%s) has %d input bits, merging into FSM %s.%s might be problematic.\n",
-					log_id(cell->module), log_id(cell), log_id(cell->type),
-					GetSize(input_sig), log_id(fsm_cell->module), log_id(fsm_cell));
+					log_id(cell->upscope_module), log_id(cell), log_id(cell->type),
+					GetSize(input_sig), log_id(fsm_cell->upscope_module), log_id(fsm_cell));
 
 		if (GetSize(fsm_data.transition_table) > 10000)
 			log_warning("Transition table for FSM %s.%s already has %d rows, merging more cells "
-					"into this FSM might be problematic.\n", log_id(fsm_cell->module), log_id(fsm_cell),
+					"into this FSM might be problematic.\n", log_id(fsm_cell->upscope_module), log_id(fsm_cell),
 					GetSize(fsm_data.transition_table));
 
 		std::vector<FsmData::transition_t> new_transition_table;

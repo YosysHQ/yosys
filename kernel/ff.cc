@@ -21,7 +21,7 @@
 
 USING_YOSYS_NAMESPACE
 
-FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initvals, cell_->name)
+FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->upscope_module, initvals, cell_->name)
 {
 	cell = cell_;
 	sig_q = cell->getPort(ID::Q);
@@ -460,31 +460,31 @@ void FfData::convert_ce_over_srst(bool val) {
 		if (!is_fine) {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->And(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->And(NEW_ID, sig_srst, sig_ce);
 				} else {
 					SigSpec tmp = module->Not(NEW_ID, sig_ce);
-					sig_srst = cell->module->And(NEW_ID, sig_srst, tmp);
+					sig_srst = cell->upscope_module->And(NEW_ID, sig_srst, tmp);
 				}
 			} else {
 				if (pol_ce) {
 					SigSpec tmp = module->Not(NEW_ID, sig_ce);
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, tmp);
+					sig_srst = cell->upscope_module->Or(NEW_ID, sig_srst, tmp);
 				} else {
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->Or(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		} else {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->AndGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->AndGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->AndnotGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->AndnotGate(NEW_ID, sig_srst, sig_ce);
 				}
 			} else {
 				if (pol_ce) {
-					sig_srst = cell->module->OrnotGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->OrnotGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->OrGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = cell->upscope_module->OrGate(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		}
