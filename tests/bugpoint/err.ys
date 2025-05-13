@@ -20,33 +20,24 @@ bugpoint -yosys ../../yosys -command raise_error -expect-return 7
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 top
 
-# raise_error with string prints message
+# raise_error with string prints message and exits with 1
 design -load read
 rename top abc
-bugpoint -yosys ../../yosys -command raise_error -grep "help me"
+bugpoint -yosys ../../yosys -command raise_error -grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
 
 # raise_error with no value exits with 1
 design -load read
 rename def zzy
+delete other
 bugpoint -yosys ../../yosys -command raise_error -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 zzy
 
-# raise_error -stderr exits with 1
+# raise_error -stderr prints to stderr and exits with 1
 design -load read
 rename top abc
-delete def
-bugpoint -yosys ../../yosys -command "raise_error -stderr" -expect-return 1
+bugpoint -yosys ../../yosys -command "raise_error -stderr" -greperr "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
-
-#TODO
-# raise_error -stderr prints to stderr
-design -load read
-rename top abc
-delete def
-# bugpoint -yosys ../../yosys -command "raise_error -stderr" -grep "help me"
-# select -assert-mod-count 1 =*
-# select -assert-mod-count 1 other
