@@ -224,6 +224,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "begin"	       { return TOK_BEGIN; }
 "end"          { return TOK_END; }
 "if"           { return TOK_IF; }
+"ifnone"       { return TOK_IFNONE; }
 "else"         { return TOK_ELSE; }
 "for"          { return TOK_FOR; }
 "posedge"      { return TOK_POSEDGE; }
