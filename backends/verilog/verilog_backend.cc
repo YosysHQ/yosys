@@ -2356,7 +2356,9 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 
-	for (auto w : module->wires())
+	std::vector<Wire*> wires = module->wires();
+	std::sort(wires.begin(), wires.end(), [](Wire *a, Wire *b) { return a->port_id < b->port_id; });
+	for (auto w : wires)
 		dump_wire(f, indent + "  ", w);
 
 	for (auto &mem : Mem::get_all_memories(module))
