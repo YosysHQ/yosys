@@ -558,13 +558,13 @@ struct OptSharePass : public Pass {
 			}
 
 			for (auto &shared : merged_ops) {
-				log("    Found cells that share an operand and can be merged by moving the %s %s in front "
+				log_debug("    Found cells that share an operand and can be merged by moving the %s %s in front "
 				    "of "
 				    "them:\n",
 				    log_id(shared.mux->type), log_id(shared.mux));
 				for (const auto& op : shared.ports)
-					log("        %s\n", log_id(op.op));
-				log("\n");
+					log_debug("        %s\n", log_id(op.op));
+				log_debug("\n");
 
 				merge_operators(module, shared.mux, shared.ports, shared.shared_operand, sigmap);
 			}

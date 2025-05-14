@@ -110,7 +110,7 @@ struct WreduceWorker
 			return;
 		}
 
-		log("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n",
+		log_debug("Removed top %d bits (of %d) from mux cell %s.%s (%s).\n",
 				GetSize(sig_removed), GetSize(sig_y), log_id(module), log_id(cell), log_id(cell->type));
 
 		int n_removed = GetSize(sig_removed);
@@ -209,7 +209,7 @@ struct WreduceWorker
 			return;
 		}
 
-		log("Removed top %d bits (of %d) from FF cell %s.%s (%s).\n", width_before - GetSize(sig_q), width_before,
+		log_debug("Removed top %d bits (of %d) from FF cell %s.%s (%s).\n", width_before - GetSize(sig_q), width_before,
 				log_id(module), log_id(cell), log_id(cell->type));
 
 		for (auto bit : sig_d)
@@ -257,7 +257,7 @@ struct WreduceWorker
 		}
 
 		if (bits_removed) {
-			log("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
+			log_debug("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(stringf("\\%c", port), sig);
 			did_something = true;
@@ -330,7 +330,7 @@ struct WreduceWorker
 			}
 
 			if (!port_a_signed && !port_b_signed && signed_cost < unsigned_cost) {
-				log("Converting cell %s.%s (%s) from unsigned to signed.\n",
+				log_debug("Converting cell %s.%s (%s) from unsigned to signed.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 1);
 				cell->setParam(ID::B_SIGNED, 1);
@@ -338,7 +338,7 @@ struct WreduceWorker
 				port_b_signed = true;
 				did_something = true;
 			} else if (port_a_signed && port_b_signed && unsigned_cost < signed_cost) {
-				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+				log_debug("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 0);
 				cell->setParam(ID::B_SIGNED, 0);
@@ -358,7 +358,7 @@ struct WreduceWorker
 			SigSpec sig_a = mi.sigmap(cell->getPort(ID::A)), sig_b = mi.sigmap(cell->getPort(ID::B));
 			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0 &&
 					GetSize(sig_b) > 0 && sig_b[GetSize(sig_b)-1] == State::S0) {
-				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+				log_debug("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 0);
 				cell->setParam(ID::B_SIGNED, 0);
@@ -371,7 +371,7 @@ struct WreduceWorker
 		if (cell->hasPort(ID::A) && !cell->hasPort(ID::B) && port_a_signed) {
 			SigSpec sig_a = mi.sigmap(cell->getPort(ID::A));
 			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0) {
-				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+				log_debug("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
 				cell->setParam(ID::A_SIGNED, 0);
 				port_a_signed = false;
@@ -437,7 +437,7 @@ struct WreduceWorker
 		}
 
 		if (bits_removed) {
-			log("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
+			log_debug("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(ID::Y, sig);
 			did_something = true;
@@ -510,7 +510,7 @@ struct WreduceWorker
 			if (complete_wires[mi.sigmap(w).extract(0, GetSize(w) - unused_top_bits)])
 				continue;
 
-			log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
+			log_debug("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
@@ -618,7 +618,7 @@ struct WreducePass : public Pass {
 							B.remove(GetSize(B)-1, 1);
 					}
 					if (original_b_width != GetSize(B)) {
-						log("Removed top %d bits (of %d) from port B of cell %s.%s (%s).\n",
+						log_debug("Removed top %d bits (of %d) from port B of cell %s.%s (%s).\n",
 								original_b_width-GetSize(B), original_b_width, log_id(module), log_id(c), log_id(c->type));
 						c->setPort(ID::B, B);
 						c->setParam(ID::B_WIDTH, GetSize(B));
@@ -632,7 +632,7 @@ struct WreducePass : public Pass {
 						int cur_addrbits = c->getParam(ID::ABITS).as_int();
 						int max_addrbits = ceil_log2(mem->start_offset + mem->size);
 						if (cur_addrbits > max_addrbits) {
-							log("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
+							log_debug("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
 									cur_addrbits-max_addrbits, cur_addrbits,
 									c->type == ID($memrd) ? "read" : c->type == ID($memwr) ? "write" : "init",
 									log_id(module), log_id(c), log_id(memid));
