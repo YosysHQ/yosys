@@ -716,11 +716,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	for (auto cell : module->cells())
 		for (auto &conn : cell->connections())
 			if (cell->output(conn.first))
-				for (auto bit : sigmap(conn.second))
+				for (auto bit : sigmap(conn.second)) {
 					if (GetSize(cell->attributes) > 0)
 						sig_to_driver_attrs[bit] = cell->attributes;
 					else
 						sig_to_driver_attrs[bit] = bit.wire->attributes;
+				}
 
 	signal_map.clear();
 	signal_list.clear();
@@ -1189,7 +1190,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		for (auto w : mapped_mod->wires()) {
 			RTLIL::Wire *orig_wire = nullptr;
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
-			if (orig_wire != nullptr)
+			if (orig_wire != nullptr) {
 				if (sig_to_driver_attrs.count(sigmap(orig_wire))) {
 					wire->attributes = sig_to_driver_attrs[sigmap(orig_wire)];
 					sig_to_driver_attrs[mapped_sigmap(wire)] = wire->attributes;
@@ -1199,6 +1200,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				} else {
 					log_debug("No driver attributes found for wire %s\n", orig_wire->name.c_str());
 				}
+			}
 			if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, wire);
 		}
