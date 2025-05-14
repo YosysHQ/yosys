@@ -1161,7 +1161,6 @@ def write_vlogtb_trace(steps, index):
         print("  initial genclock = 1;", file=f)
         print("`endif", file=f)
 
-        print("  reg genclock = 1;", file=f)
         print("  reg [31:0] cycle = 0;", file=f)
 
         primary_inputs = list()
