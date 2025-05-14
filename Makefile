@@ -191,7 +191,7 @@ CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
 # back to calling git directly.
 TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
 ifneq ($(findstring Format:,$(TARBALL_GIT_REV)),)
-GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
+GIT_REV := $(shell cd .. && git rev-parse --short=9 HEAD || echo UNKNOWN)
 else
 GIT_REV := $(TARBALL_GIT_REV)
 endif
