@@ -493,7 +493,7 @@
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
-%token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
+%token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_IFNONE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
@@ -1581,18 +1581,60 @@ list_of_specparam_assignments:
 specparam_assignment:
 	ignspec_id TOK_EQ ignspec_expr ;
 
-ignspec_opt_cond:
-	TOK_IF TOK_LPAREN ignspec_expr TOK_RPAREN | %empty;
-
 path_declaration :
 	simple_path_declaration TOK_SEMICOL
 	// | edge_sensitive_path_declaration
-	// | state_dependent_path_declaration
+	| state_dependent_path_declaration TOK_SEMICOL
 	;
 
 simple_path_declaration :
-	ignspec_opt_cond parallel_path_description TOK_EQ path_delay_value |
-	ignspec_opt_cond full_path_description TOK_EQ path_delay_value
+	parallel_path_description TOK_EQ path_delay_value |
+	full_path_description TOK_EQ path_delay_value
+	;
+
+state_dependent_path_declaration:
+	TOK_IF TOK_LPAREN module_path_expression TOK_RPAREN simple_path_declaration
+	// | TOK_IF TOK_LPAREN module_path_expression TOK_RPAREN edge_sensitive_path_declaration
+	| TOK_IFNONE simple_path_declaration
+	;
+
+module_path_expression:
+	module_path_primary
+	// Flatten out unary_operator to avoid shift/reduce conflict
+	| TOK_EXCL attr module_path_primary { free_attr($2); }
+	| TOK_TILDE attr module_path_primary { free_attr($2); }
+	| TOK_AMP attr module_path_primary { free_attr($2); }
+	| OP_NAND attr module_path_primary { free_attr($2); }
+	| TOK_PIPE attr module_path_primary { free_attr($2); }
+	| OP_NOR attr module_path_primary { free_attr($2); }
+	| TOK_CARET attr module_path_primary { free_attr($2); }
+	| OP_XNOR attr module_path_primary { free_attr($2); }
+	// Flatten out binary_operator to avoid shift/reduce conflict
+	| module_path_expression OP_EQ attr module_path_expression { free_attr($3); }
+	| module_path_expression OP_NE attr module_path_expression { free_attr($3); }
+	| module_path_expression OP_LAND attr module_path_expression { free_attr($3); }
+	| module_path_expression OP_LOR attr module_path_expression { free_attr($3); }
+	| module_path_expression TOK_AMP attr module_path_expression { free_attr($3); }
+	| module_path_expression TOK_PIPE attr module_path_expression { free_attr($3); }
+	| module_path_expression TOK_CARET attr module_path_expression { free_attr($3); }
+	| module_path_expression OP_XNOR attr module_path_expression { free_attr($3); }
+	// | module_path_conditional_expression
+	;
+
+module_path_primary:
+	number
+	| TOK_ID
+	// Deviate from specification: Normally string would not be allowed, however they are necessary for the ecp5 tests
+	| TOK_STRING
+	// | module_path_concatenation
+	// | module_path_multiple_concatenation
+	// | function_subroutine_call
+	// | TOK_LPAREN module_path_minmax_expression TOK_RPAREN
+	;
+
+number:
+	integral_number
+	| TOK_REALVAL
 	;
 
 path_delay_value :
