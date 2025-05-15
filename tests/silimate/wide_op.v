@@ -4,11 +4,10 @@
 		);
 			parameter width = 1024;
 
-			// ADD/SUB: 0/4 + (0 unsigned+unsigned, 1 unsigned+signed, 2 signed+unsigned, 3 signed+signed)
-			// reserved for MUL: 8
+			// ADD/SUB: 0/4 + (0 unsigned;unsigned, 1 unsigned;signed, 2 signed;unsigned, 3 signed;signed)
 			parameter op = 0;
 
-			localparam ywidth = (op == 8) ? width * 2 : width;
+			localparam ywidth = width; // (op == MUL) ? width * 2 : width;
 			input[width-1:0] a;
 			input[width-1:0] b;
 			output [width-1:0] y;
@@ -31,9 +30,5 @@
 				assign {c, y} = $signed(a) - b;
 			else if (op == 7)
 				assign {c, y} = $signed(a) - $signed(b);
-			else if (op == 8) begin
-				assign c = 0;
-				assign y = a * b;
-			end
 			endgenerate
 		endmodule

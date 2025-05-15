@@ -58,8 +58,6 @@
 		auto width_low = width / 2;
 		auto width_high = width - width_low; // Handle odd widths
 
-		auto a = cell->getPort(ID::A);
-		auto b = cell->getPort(ID::B);
 		bool aSigned = cell->parameters[ID::A_SIGNED].as_bool();
 		bool bSigned = cell->parameters[ID::B_SIGNED].as_bool();
 		SigSpec aHigh, aLow, bHigh, bLow;
@@ -198,6 +196,6 @@
 
 		 Pass::call(design, "clean *");
 	 }
- } SplitfanoutPass;
+ } SplitlargePass;
 
  PRIVATE_NAMESPACE_END
