@@ -12,6 +12,7 @@ OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/opt_balance_tree.o
 OBJS += passes/silimate/segv.o
 OBJS += passes/silimate/splitfanout.o
+OBJS += passes/silimate/splitlarge.o
 OBJS += passes/silimate/splitnetlist.o
 
 OBJS += passes/silimate/opt_expand.o
