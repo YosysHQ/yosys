@@ -206,6 +206,7 @@ static void reconstruct_clb_attimes(void *user_data, uint64_t pnt_time, fstHandl
 void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
 	if (pnt_time > end_time || !pnt_value) return;
+	if (curr_cycle > last_cycle) return;
 	// if we are past the timestamp
 	bool is_clock = false;
 	if (!all_samples) {
@@ -225,6 +226,7 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	if (pnt_time > last_time) {
 		if (all_samples) {
 			callback(last_time);
+			curr_cycle++;
 			last_time = pnt_time;
 		} else {
 			if (is_clock) {
@@ -232,6 +234,7 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 				std::string prev = past_data[pnt_facidx];
 				if ((prev!="1" && val=="1") || (prev!="0" && val=="0")) {
 					callback(last_time);
+					curr_cycle++;
 					last_time = pnt_time;
 				}
 			}
@@ -241,12 +244,14 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 	last_data[pnt_facidx] =  std::string((const char *)pnt_value);
 }
 
-void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start, uint64_t end, CallbackFunction cb)
+void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start, uint64_t end, unsigned int end_cycle, CallbackFunction cb)
 {
 	clk_signals = signal;
 	callback = cb;
 	start_time = start;
 	end_time = end;
+	curr_cycle = 0;
+	last_cycle = end_cycle;
 	last_data.clear();
 	last_time = start_time;
 	past_data.clear();
@@ -256,12 +261,16 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderSetFacProcessMaskAll(ctx);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
-	if (last_time!=end_time) {
+	if (last_time!=end_time && curr_cycle <= last_cycle) {
 		past_data = last_data;
 		callback(last_time);
+		curr_cycle++;
 	}
-	past_data = last_data;
-	callback(end_time);
+	if (curr_cycle <= last_cycle) {
+		past_data = last_data;
+		callback(end_time);
+		curr_cycle++;
+	}
 }
 
 std::string FstData::valueOf(fstHandle signal)
