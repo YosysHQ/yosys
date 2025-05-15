@@ -189,6 +189,11 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 
 void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool escape_comment = false)
 {
+	if (data.flags & RTLIL::CONST_FLAG_ID) {
+		f << stringf("%s", data.decode_string().c_str());
+		return;
+	}
+
 	bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 	if (width < 0)
 		width = data.size() - offset;
@@ -394,6 +399,14 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 			dump_const(f, it->second, -1, 0, false, as_comment);
 		f << stringf(" %s%s", as_comment ? "*/" : "*)", term.c_str());
 	}
+}
+
+void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
+{
+	f << stringf("%sparameter %s", indent.c_str(), id(id_string).c_str());
+	f << stringf(" = ");
+	dump_const(f, parameter);
+	f << stringf(";\n");
 }
 
 void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
@@ -2355,6 +2368,9 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		initial_id = NEW_ID;
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
+
+	for (auto p : module->parameter_default_values)
+		dump_parameter(f, indent + "  ", p.first, p.second);
 
 	for (auto w : module->wires())
 		dump_wire(f, indent + "  ", w);

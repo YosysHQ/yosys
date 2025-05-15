@@ -302,6 +302,9 @@ void json_import(Design *design, string &modname, JsonNode *node)
 	if (node->data_dict.count("attributes"))
 		json_parse_attr_param(module->attributes, node->data_dict.at("attributes"));
 
+	if (node->data_dict.count("parameter_default_values"))
+		json_parse_attr_param(module->parameter_default_values, node->data_dict.at("parameter_default_values"));
+
 	dict<int, SigBit> signal_bits;
 
 	if (node->data_dict.count("ports"))
