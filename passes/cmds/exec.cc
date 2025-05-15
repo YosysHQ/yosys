@@ -37,7 +37,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ExecPass : public Pass {
-	ExecPass() : Pass("exec", "execute commands in the operating system shell") { }
+	ExecPass() : Pass("exec", "execute commands in the operating system shell") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

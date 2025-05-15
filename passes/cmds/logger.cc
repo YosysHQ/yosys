@@ -24,7 +24,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct LoggerPass : public Pass {
-	LoggerPass() : Pass("logger", "set logger properties") { }
+	LoggerPass() : Pass("logger", "set logger properties") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -99,7 +99,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-warn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);		
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to warn list.\n", pattern.c_str());
 					log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern));
@@ -111,7 +111,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-nowarn" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to nowarn list.\n", pattern.c_str());
 					log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern));
@@ -123,7 +123,7 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-werror" && argidx+1 < args.size()) {
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);	
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				try {
 					log("Added regex '%s' for warnings to werror list.\n", pattern.c_str());
 					log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern));
@@ -156,7 +156,7 @@ struct LoggerPass : public Pass {
 				if (type=="error" && log_expect_error.size()>0)
 					log_cmd_error("Only single error message can be expected !\n");
 				std::string pattern = args[++argidx];
-				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);					
+				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);
 				int count = atoi(args[++argidx].c_str());
 				if (count<=0)
 					log_cmd_error("Number of expected messages must be higher then 0 !\n");

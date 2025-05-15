@@ -27,7 +27,7 @@ std::map<std::string, RTLIL::Design*> saved_designs;
 std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
-	DesignPass() : Pass("design", "save, restore and reset current design") { }
+	DesignPass() : Pass("design", "save, restore and reset current design") { abstract_modules_ok = true; }
 	~DesignPass() override {
 		for (auto &it : saved_designs)
 			delete it.second;
