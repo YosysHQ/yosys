@@ -1,2 +1,2 @@
-read_ilang bug1644.il.gz
+read_rtlil bug1644.il.gz
 synth_ice40 -top top -dsp -json adc_dac_pass_through.json -run :map_bram

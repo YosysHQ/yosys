@@ -148,7 +148,7 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 #else
 static inline bool ys_debug(int = 0) { return false; }
 #endif
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
+static inline void log_debug(const char *format, ...) { if (ys_debug(1)) { va_list args; va_start(args, format); logv(format, args); va_end(args); } }
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -206,6 +206,8 @@ void log_check_expected();
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(const RTLIL::IdString &id);
+const char *log_str(const char *str);
+const char *log_str(std::string const &str);
 
 template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
 	if (nullstr && obj == nullptr)
@@ -361,13 +363,13 @@ void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);
 
-template<typename K, typename T, typename OPS> static inline void log_dump_val_worker(dict<K, T, OPS> &v);
-template<typename K, typename OPS> static inline void log_dump_val_worker(pool<K, OPS> &v);
+template<typename K, typename T> static inline void log_dump_val_worker(dict<K, T> &v);
+template<typename K> static inline void log_dump_val_worker(pool<K> &v);
 template<typename K> static inline void log_dump_val_worker(std::vector<K> &v);
 template<typename T> static inline void log_dump_val_worker(T *ptr);
 
-template<typename K, typename T, typename OPS>
-static inline void log_dump_val_worker(dict<K, T, OPS> &v) {
+template<typename K, typename T>
+static inline void log_dump_val_worker(dict<K, T> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
@@ -380,8 +382,8 @@ static inline void log_dump_val_worker(dict<K, T, OPS> &v) {
 	log(" }");
 }
 
-template<typename K, typename OPS>
-static inline void log_dump_val_worker(pool<K, OPS> &v) {
+template<typename K>
+static inline void log_dump_val_worker(pool<K> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {

@@ -719,6 +719,8 @@ def smt_extract_mask(smt_expr, mask):
     return combined_chunks, ''.join(mask_index_order[start:end] for start, end in chunks)[::-1]
 
 def smt_concat(exprs):
+    if not isinstance(exprs, (tuple, list)):
+        exprs = tuple(exprs)
     if not exprs:
         return ""
     if len(exprs) == 1:
@@ -817,6 +819,9 @@ def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
                     bits = bits.replace('x', '?')
                 if not bits_re.match(bits):
                     raise ValueError("unsupported bit value in Yosys witness file")
+
+                if bits.count('?') == len(bits):
+                    continue
 
                 smt_expr = ywfile_signal(sig, map_steps.get(t, t))
 
@@ -1449,6 +1454,10 @@ def write_trace(steps_start, steps_stop, index, allregs=False):
     if outywfile is not None:
         write_yw_trace(steps, index, allregs)
 
+def escape_path_segment(segment):
+    if "." in segment:
+        return f"\\{segment} "
+    return segment
 
 def print_failed_asserts_worker(mod, state, path, extrainfo, infomap, infokey=()):
     assert mod in smt.modinfo
@@ -1459,7 +1468,8 @@ def print_failed_asserts_worker(mod, state, path, extrainfo, infomap, infokey=()
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
         cell_infokey = (mod, cellname, infokey)
-        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname, extrainfo, infomap, cell_infokey):
+        cell_path = path + "." + escape_path_segment(cellname)
+        if print_failed_asserts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), cell_path, extrainfo, infomap, cell_infokey):
             found_failed_assert = True
 
     for assertfun, assertinfo in smt.modinfo[mod].asserts.items():
@@ -1492,7 +1502,7 @@ def print_anyconsts_worker(mod, state, path):
     assert mod in smt.modinfo
 
     for cellname, celltype in smt.modinfo[mod].cells.items():
-        print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + cellname)
+        print_anyconsts_worker(celltype, "(|%s_h %s| %s)" % (mod, cellname, state), path + "." + escape_path_segment(cellname))
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
         if info[1] is None:
@@ -1512,18 +1522,21 @@ def print_anyconsts(state):
     print_anyconsts_worker(topmod, "s%d" % state, topmod)
 
 
-def get_cover_list(mod, base):
+def get_cover_list(mod, base, path=None):
+    path = path or mod
     assert mod in smt.modinfo
 
     cover_expr = list()
+    # A tuple of path and cell name
     cover_desc = list()
 
     for expr, desc in smt.modinfo[mod].covers.items():
         cover_expr.append("(ite (|%s| %s) #b1 #b0)" % (expr, base))
-        cover_desc.append(desc)
+        cover_desc.append((path, desc))
 
     for cell, submod in smt.modinfo[mod].cells.items():
-        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base))
+        cell_path = path + "." + escape_path_segment(cell)
+        e, d = get_cover_list(submod, "(|%s_h %s| %s)" % (mod, cell, base), cell_path)
         cover_expr += e
         cover_desc += d
 
@@ -1539,7 +1552,8 @@ def get_assert_map(mod, base, path, key_base=()):
         assert_map[(expr, key_base)] = ("(|%s| %s)" % (expr, base), path, desc)
 
     for cell, submod in smt.modinfo[mod].cells.items():
-        assert_map.update(get_assert_map(submod, "(|%s_h %s| %s)" % (mod, cell, base), path + "." + cell, (mod, cell, key_base)))
+        cell_path = path + "." + escape_path_segment(cell)
+        assert_map.update(get_assert_map(submod, "(|%s_h %s| %s)" % (mod, cell, base), cell_path, (mod, cell, key_base)))
 
     return assert_map
 
@@ -1898,7 +1912,9 @@ elif covermode:
                     new_cover_mask.append(cover_mask[i])
                     continue
 
-                print_msg("Reached cover statement at %s in step %d." % (cover_desc[i], step))
+                path = cover_desc[i][0]
+                name = cover_desc[i][1]
+                print_msg("Reached cover statement in step %d at %s: %s" % (step, path, name))
                 new_cover_mask.append("0")
 
             cover_mask = "".join(new_cover_mask)
@@ -1928,7 +1944,7 @@ elif covermode:
     if "1" in cover_mask:
         for i in range(len(cover_mask)):
             if cover_mask[i] == "1":
-                print_msg("Unreached cover statement at %s." % cover_desc[i])
+                print_msg("Unreached cover statement at %s: %s" % (cover_desc[i][0], cover_desc[i][1]))
 
 else:  # not tempind, covermode
     active_assert_keys = get_assert_keys()

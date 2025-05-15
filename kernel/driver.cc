@@ -18,7 +18,10 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/hashlib.h"
 #include "libs/sha1/sha1.h"
+#include "libs/cxxopts/include/cxxopts.hpp"
+#include <iostream>
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -27,6 +30,10 @@
 
 #ifdef YOSYS_ENABLE_EDITLINE
 #  include <editline/readline.h>
+#endif
+
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
 #endif
 
 #include <stdio.h>
@@ -54,55 +61,6 @@
 #endif
 
 USING_YOSYS_NAMESPACE
-
-char *optarg;
-int optind = 1, optcur = 1, optopt = 0;
-int getopt(int argc, char **argv, const char *optstring)
-{
-	if (optind >= argc)
-		return -1;
-
-	if (argv[optind][0] != '-' || argv[optind][1] == 0) {
-		optopt = 1;
-		optarg = argv[optind++];
-		return optopt;
-	}
-
-	bool takes_arg = false;
-	optopt = argv[optind][optcur];
-
-	if (optopt == '-') {
-		++optind;
-		return -1;
-	}
-
-	for (int i = 0; optstring[i]; i++)
-		if (optopt == optstring[i] && optstring[i + 1] == ':')
-			takes_arg = true;
-
-	if (!takes_arg) {
-		if (argv[optind][++optcur] == 0)
-			optind++, optcur = 1;
-		return optopt;
-	}
-
-	if (argv[optind][++optcur]) {
-		optarg = argv[optind++] + optcur;
-		optcur = 1;
-		return optopt;
-	}
-
-	if (++optind >= argc) {
-		fprintf(stderr, "%s: option '-%c' expects an argument\n", argv[0], optopt);
-		optopt = '?';
-		return optopt;
-	}
-
-	optarg = argv[optind];
-	optind++, optcur = 1;
-
-	return optopt;
-}
 
 #ifdef EMSCRIPTEN
 #  include <sys/stat.h>
@@ -153,7 +111,7 @@ void run(const char *command)
 		log_last_error = "";
 	} catch (...) {
 		while (GetSize(yosys_get_design()->selection_stack) > selSize)
-			yosys_get_design()->selection_stack.pop_back();
+			yosys_get_design()->pop_selection();
 		throw;
 	}
 }
@@ -235,12 +193,14 @@ int main(int argc, char **argv)
 	std::vector<std::string> passes_commands;
 	std::vector<std::string> frontend_files;
 	std::vector<std::string> plugin_filenames;
+	std::vector<std::string> special_args;
 	std::string output_filename = "";
 	std::string scriptfile = "";
 	std::string depsfile = "";
 	std::string topmodule = "";
 	std::string perffile = "";
 	bool scriptfile_tcl = false;
+	bool scriptfile_python = false;
 	bool print_banner = true;
 	bool print_stats = true;
 	bool call_abort = false;
@@ -250,292 +210,257 @@ int main(int argc, char **argv)
 	bool mode_v = false;
 	bool mode_q = false;
 
-	if (argc == 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "--help")))
-	{
-		printf("\n");
-		printf("Usage: %s [options] [<infile> [..]]\n", argv[0]);
-		printf("\n");
-		printf("    -Q\n");
-		printf("        suppress printing of banner (copyright, disclaimer, version)\n");
-		printf("\n");
-		printf("    -T\n");
-		printf("        suppress printing of footer (log hash, version, timing statistics)\n");
-		printf("\n");
-		printf("    -q\n");
-		printf("        quiet operation. only write warnings and error messages to console\n");
-		printf("        use this option twice to also quiet warning messages\n");
-		printf("\n");
-		printf("    -v <level>\n");
-		printf("        print log headers up to level <level> to the console. (this\n");
-		printf("        implies -q for everything except the 'End of script.' message.)\n");
-		printf("\n");
-		printf("    -t\n");
-		printf("        annotate all log messages with a time stamp\n");
-		printf("\n");
-		printf("    -d\n");
-		printf("        print more detailed timing stats at exit\n");
-		printf("\n");
-		printf("    -l logfile\n");
-		printf("        write log messages to the specified file\n");
-		printf("\n");
-		printf("    -L logfile\n");
-		printf("        like -l but open log file in line buffered mode\n");
-		printf("\n");
-		printf("    -o outfile\n");
-		printf("        write the design to the specified file on exit\n");
-		printf("\n");
-		printf("    -b backend\n");
-		printf("        use this backend for the output file specified on the command line\n");
-		printf("\n");
-		printf("    -f frontend\n");
-		printf("        use the specified frontend for the input files on the command line\n");
-		printf("\n");
-		printf("    -H\n");
-		printf("        print the command list\n");
-		printf("\n");
-		printf("    -h command\n");
-		printf("        print the help message for the specified command\n");
-		printf("\n");
-		printf("    -s scriptfile\n");
-		printf("        execute the commands in the script file\n");
+	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
+	options.set_width(SIZE_MAX);
+
+	options.add_options("operation")
+		("b,backend", "use <backend> for the output file specified on the command line",
+			cxxopts::value<std::string>(), "<backend>")
+		("f,frontend", "use <frontend> for the input files on the command line",
+			cxxopts::value<std::string>(), "<frontend>")
+		("s,scriptfile", "execute the commands in <scriptfile>",
+			cxxopts::value<std::string>(), "<scriptfile>")
 #ifdef YOSYS_ENABLE_TCL
-		printf("\n");
-		printf("    -c tcl_scriptfile\n");
-		printf("        execute the commands in the tcl script file (see 'help tcl' for details)\n");
-		printf("\n");
-		printf("    -C\n");
-		printf("        enters TCL interatcive shell mode\n");
-#endif
-		printf("\n");
-		printf("    -p command\n");
-		printf("        execute the commands (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')\n");
-		printf("\n");
-		printf("    -m module_file\n");
-		printf("        load the specified module (aka plugin)\n");
-		printf("\n");
-		printf("    -X\n");
-		printf("        enable tracing of core data structure changes. for debugging\n");
-		printf("\n");
-		printf("    -M\n");
-		printf("        will slightly randomize allocated pointer addresses. for debugging\n");
-		printf("\n");
-		printf("    -A\n");
-		printf("        will call abort() at the end of the script. for debugging\n");
-		printf("\n");
-		printf("    -r <module_name>\n");
-		printf("        elaborate command line arguments using the specified top module\n");
-		printf("\n");
-		printf("    -D <macro>[=<value>]\n");
-		printf("        set the specified Verilog define (via \"read -define\")\n");
-		printf("\n");
-		printf("    -P <header_id>[:<filename>]\n");
-		printf("        dump the design when printing the specified log header to a file.\n");
-		printf("        yosys_dump_<header_id>.il is used as filename if none is specified.\n");
-		printf("        Use 'ALL' as <header_id> to dump at every header.\n");
-		printf("\n");
-		printf("    -W regex\n");
-		printf("        print a warning for all log messages matching the regex.\n");
-		printf("\n");
-		printf("    -w regex\n");
-		printf("        if a warning message matches the regex, it is printed as regular\n");
-		printf("        message instead.\n");
-		printf("\n");
-		printf("    -e regex\n");
-		printf("        if a warning message matches the regex, it is printed as error\n");
-		printf("        message instead and the tool terminates with a nonzero return code.\n");
-		printf("\n");
-		printf("    -E <depsfile>\n");
-		printf("        write a Makefile dependencies file with in- and output file names\n");
-		printf("\n");
-		printf("    -x <feature>\n");
-		printf("        do not print warnings for the specified experimental feature\n");
-		printf("\n");
-		printf("    -g\n");
-		printf("        globally enable debug log messages\n");
-		printf("\n");
-		printf("    -V\n");
-		printf("        print version information and exit\n");
-		printf("\n");
-		printf("The option -S is a shortcut for calling the \"synth\" command, a default\n");
-		printf("script for transforming the Verilog input to a gate-level netlist. For example:\n");
-		printf("\n");
-		printf("    yosys -o output.blif -S input.v\n");
-		printf("\n");
-		printf("For more complex synthesis jobs it is recommended to use the read_* and write_*\n");
-		printf("commands in a script file instead of specifying input and output files on the\n");
-		printf("command line.\n");
-		printf("\n");
-		printf("When no commands, script files or input files are specified on the command\n");
-		printf("line, yosys automatically enters the interactive command mode. Use the 'help'\n");
-		printf("command to get information on the individual commands.\n");
-		printf("\n");
+		("c,tcl-scriptfile", "execute the commands in the TCL <tcl_scriptfile> (see 'help tcl' for details)",
+			cxxopts::value<std::string>(),"<tcl_scriptfile>")
+		("C,tcl-interactive", "enters TCL interactive shell mode")
+#endif // YOSYS_ENABLE_TCL
+#ifdef WITH_PYTHON
+		("y,py-scriptfile", "execute the Python <script>",
+			cxxopts::value<std::string>(), "<script>")
+#endif // WITH_PYTHON
+		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
+			cxxopts::value<std::vector<std::string>>(), "<commands>")
+		("r,top", "elaborate the specified HDL <top> module",
+			cxxopts::value<std::string>(), "<top>")
+		("m,plugin", "load the specified <plugin> module",
+			cxxopts::value<std::vector<std::string>>(), "<plugin>")
+		("D,define", "set the specified Verilog define to <value> if supplied via command \"read -define\"",
+			cxxopts::value<std::vector<std::string>>(), "<define>[=<value>]")
+		("S,synth", "shortcut for calling the \"synth\" command, a default script for transforming " \
+					"the Verilog input to a gate-level netlist. For example: " \
+					"yosys -o output.blif -S input.v " \
+					"For more complex synthesis jobs it is recommended to use the read_* and write_* " \
+					"commands in a script file instead of specifying input and output files on the " \
+					"command line.")
+		("H", "print the command list")
+		("h,help", "print this help message. If given, print help for <command>.",
+			cxxopts::value<std::string>(), "[<command>]")
+		("V,version", "print version information and exit")
+		("infile", "input files", cxxopts::value<std::vector<std::string>>())
+	;
+	options.add_options("logging")
+		("Q", "suppress printing of banner (copyright, disclaimer, version)")
+		("T", "suppress printing of footer (log hash, version, timing statistics)")
+		("no-version", "suppress writing out Yosys version anywhere excluding -V, --version")
+		("q,quiet", "quiet operation. Only write warnings and error messages to console. " \
+					"Use this option twice to also quiet warning messages")
+		("v,verbose", "print log headers up to <level> to the console. " \
+                      "Implies -q for everything except the 'End of script.' message.",
+			cxxopts::value<int>(), "<level>")
+		("t,timestamp", "annotate all log messages with a time stamp")
+		("d,detailed-timing", "print more detailed timing stats at exit")
+		("l,logfile", "write log messages to <logfile>",
+			cxxopts::value<std::vector<std::string>>(), "<logfile>")
+		("L,line-buffered-logfile", "like -l but open <logfile> in line buffered mode",
+			cxxopts::value<std::vector<std::string>>(), "<logfile>")
+		("o,outfile", "write the design to <outfile> on exit",
+			cxxopts::value<std::string>(), "<outfile>")
+		("P,dump-design", "dump the design when printing the specified log header to a file. " \
+						   "yosys_dump_<header_id>.il is used as filename if none is specified. " \
+						   "Use 'ALL' as <header_id> to dump at every header.",
+						   cxxopts::value<std::vector<std::string>>(), "<header_id>[:<filename>]")
+		("W,warning-as-warning", "print a warning for all log messages matching <regex>",
+			cxxopts::value<std::vector<std::string>>(), "<regex>")
+		("w,warning-as-message", "if a warning message matches <regex>, it is printed as regular message instead",
+			cxxopts::value<std::vector<std::string>>(), "<regex>")
+		("e,warning-as-error", "if a warning message matches <regex>, it is printed as error message instead",
+			cxxopts::value<std::vector<std::string>>(), "<regex>")
+		("E,deps-file", "write a Makefile dependencies file <depsfile> with input and output file names",
+			cxxopts::value<std::string>(), "<depsfile>")
+	;
+	options.add_options("developer")
+		("X,trace", "enable tracing of core data structure changes. for debugging")
+		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
+		("autoidx", "start counting autoidx up from <seed>, similar effect to --hash-seed",
+			cxxopts::value<uint64_t>(), "<idx>")
+		("hash-seed", "mix up hashing values with <seed>, for extreme optimization and testing",
+			cxxopts::value<uint64_t>(), "<seed>")
+		("A,abort", "will call abort() at the end of the script. for debugging")
+		("x,experimental", "do not print warnings for the experimental <feature>",
+			cxxopts::value<std::vector<std::string>>(), "<feature>")
+		("g,debug", "globally enable debug log messages")
+		("perffile", "write a JSON performance log to <perffile>", cxxopts::value<std::string>(), "<perffile>")
+	;
+
+	options.parse_positional({"infile"});
+	options.positional_help("[<infile> [..]]");
+
+	// We can't have -h optionally require an argument
+	// cxxopts does have an implit argument concept but that doesn't work for us
+	// cxxopts is therefore instructed allowed to only handle the command help case
+	if (argc == 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "--help"))) {
+		std::cout << options.help() << std::endl;
 		exit(0);
 	}
+	try {
+		// Check for "--" in arguments
+		auto it = std::find(argv, argv + argc, std::string("--"));
+		if (it != argv + argc) {
+			special_args.assign(it + 1, argv + argc);
+			// Remove these arguments from cxxopts parsing
+			argc = std::distance(argv, it);
+		}
 
-	if (argc == 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "-version") || !strcmp(argv[1], "--version")))
-	{
-		printf("%s\n", yosys_version_str);
-		exit(0);
-	}
+		auto result = options.parse(argc, argv);
 
-	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVCSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:r:D:P:E:x:B:")) != -1)
-	{
-		switch (opt)
-		{
-		case 'M':
-			memhasher_on();
-			break;
-		case 'X':
-			yosys_xtrace++;
-			break;
-		case 'A':
-			call_abort = true;
-			break;
-		case 'Q':
-			print_banner = false;
-			break;
-		case 'T':
-			print_stats = false;
-			break;
-		case 'V':
-			printf("%s\n", yosys_version_str);
+		if (result.count("M")) memhasher_on();
+		if (result.count("X")) yosys_xtrace += result.count("X");
+		if (result.count("A")) call_abort = true;
+		if (result.count("Q")) print_banner = false;
+		if (result.count("T")) print_stats = false;
+		if (result.count("no-version")) yosys_write_versions = false;
+		if (result.count("V")) {
+			std::cout << yosys_version_str << std::endl;
 			exit(0);
-		case 'S':
+		}
+		if (result.count("S")) {
 			passes_commands.push_back("synth");
 			run_shell = false;
-			break;
-		case 'g':
-			log_force_debug++;
-			break;
-		case 'm':
-			plugin_filenames.push_back(optarg);
-			break;
-		case 'f':
-			frontend_command = optarg;
-			break;
-		case 'H':
+		}
+		if (result.count("C")) run_tcl_shell = true;
+		if (result.count("g")) log_force_debug++;
+		if (result.count("m")) plugin_filenames = result["m"].as<std::vector<std::string>>();
+		if (result.count("f")) frontend_command = result["f"].as<std::string>();
+		if (result.count("H")) {
 			passes_commands.push_back("help");
 			run_shell = false;
-			break;
-		case 'h':
-			passes_commands.push_back(stringf("help %s", optarg));
+		}
+		if (result.count("h")) {
+			std::string res = result["h"].as<std::string>();
+			passes_commands.push_back("help " + res);
 			run_shell = false;
-			break;
-		case 'b':
-			backend_command = optarg;
+		}
+		if (result.count("b")) {
+			backend_command = result["b"].as<std::string>();
 			run_shell = false;
-			break;
-		case 'p':
-			passes_commands.push_back(optarg);
+		}
+		if (result.count("p")) {
+			auto cmds = result["p"].as<std::vector<std::string>>();
+			passes_commands.insert(passes_commands.end(), cmds.begin(), cmds.end());
 			run_shell = false;
-			break;
-		case 'o':
-			output_filename = optarg;
+		}
+		if (result.count("o")) {
+			output_filename = result["o"].as<std::string>();
 			run_shell = false;
-			break;
-		case 'l':
-		case 'L':
-			log_files.push_back(fopen(optarg, "wt"));
-			if (log_files.back() == NULL) {
-				fprintf(stderr, "Can't open log file `%s' for writing!\n", optarg);
-				exit(1);
+		}
+		for (const auto& key : {"l", "L"}) {
+			if (result.count(key)) {
+				for (const auto& filename : result[key].as<std::vector<std::string>>()) {
+					if (FILE* f = fopen(filename.c_str(), "wt")) {
+						log_files.push_back(f);
+						if (key[0] == 'L') setvbuf(f, NULL, _IOLBF, 0);
+					} else {
+						std::cerr << "Can't open log file `" << filename << "' for writing!\n";
+						exit(1);
+					}
+				}
 			}
-			if (opt == 'L')
-				setvbuf(log_files.back(), NULL, _IOLBF, 0);
-			break;
-		case 'q':
+		}
+		if (result.count("q")) {
 			mode_q = true;
-			if (log_errfile == stderr)
-				log_quiet_warnings = true;
+			if (log_errfile == stderr) log_quiet_warnings = true;
 			log_errfile = stderr;
-			break;
-		case 'v':
+		}
+		if (result.count("v")) {
 			mode_v = true;
 			log_errfile = stderr;
-			log_verbose_level = atoi(optarg);
-			break;
-		case 't':
-			log_time = true;
-			break;
-		case 'd':
-			timing_details = true;
-			break;
-		case 's':
-			scriptfile = optarg;
-			scriptfile_tcl = false;
+			log_verbose_level = result["v"].as<int>();
+		}
+		if (result.count("t")) log_time = true;
+		if (result.count("d")) timing_details = true;
+		for (const auto& key : {"s", "c"}) {
+			if (result.count(key)) {
+				scriptfile = result[key].as<std::string>();
+				scriptfile_tcl = std::string(key) == "c";
+				run_shell = false;
+			}
+		}
+		if (result.count("y")) {
+			scriptfile = result["y"].as<std::string>();
+			scriptfile_python = true;
 			run_shell = false;
-			break;
-		case 'c':
-			scriptfile = optarg;
-			scriptfile_tcl = true;
-			run_shell = false;
-			break;
-		case 'W':
-			log_warn_regexes.push_back(YS_REGEX_COMPILE(optarg));
-			break;
-		case 'w':
-			log_nowarn_regexes.push_back(YS_REGEX_COMPILE(optarg));
-			break;
-		case 'e':
-			log_werror_regexes.push_back(YS_REGEX_COMPILE(optarg));
-			break;
-		case 'r':
-			topmodule = optarg;
-			break;
-		case 'D':
-			vlog_defines.push_back(optarg);
-			break;
-		case 'P':
-			{
-				auto args = split_tokens(optarg, ":");
-				if (!args.empty() && args[0] == "ALL") {
-					if (GetSize(args) != 1) {
-						fprintf(stderr, "Invalid number of tokens in -D ALL.\n");
+		}
+		for (const auto& key : {"W", "w", "e"}) {
+			if (result.count(key)) {
+				auto regexes = result[key].as<std::vector<std::string>>();
+				for (const auto& regex : regexes) {
+					if (std::string(key) == "W")
+						log_warn_regexes.push_back(std::regex(regex));
+					if (std::string(key) == "w")
+						log_nowarn_regexes.push_back(std::regex(regex));
+					if (std::string(key) == "e")
+						log_werror_regexes.push_back(std::regex(regex));
+				}
+			}
+		}
+		if (result.count("r")) topmodule = result["r"].as<std::string>();
+		if (result.count("D")) vlog_defines = result["D"].as<std::vector<std::string>>();
+		if (result.count("P")) {
+			auto dump_args = result["P"].as<std::vector<std::string>>();
+			for (const auto& arg : dump_args) {
+				auto tokens = split_tokens(arg, ":");
+				if (!tokens.empty() && tokens[0] == "ALL") {
+					if (tokens.size() != 1) {
+						std::cerr << "Invalid number of tokens in -P ALL." << std::endl;
 						exit(1);
 					}
 					log_hdump_all = true;
 				} else {
-					if (!args.empty() && !args[0].empty() && args[0].back() == '.')
-						args[0].pop_back();
-					if (GetSize(args) == 1)
-						args.push_back("yosys_dump_" + args[0] + ".il");
-					if (GetSize(args) != 2) {
-						fprintf(stderr, "Invalid number of tokens in -D.\n");
+					if (!tokens.empty() && !tokens[0].empty() && tokens[0].back() == '.')
+						tokens[0].pop_back();
+					if (tokens.size() == 1)
+						tokens.push_back("yosys_dump_" + tokens[0] + ".il");
+					if (tokens.size() != 2) {
+						std::cerr << "Invalid number of tokens in -P." << std::endl;
 						exit(1);
 					}
-					log_hdump[args[0]].insert(args[1]);
+					log_hdump[tokens[0]].insert(tokens[1]);
 				}
 			}
-			break;
-		case 'E':
-			depsfile = optarg;
-			break;
-		case 'x':
-			log_experimentals_ignored.insert(optarg);
-			break;
-		case 'B':
-			perffile = optarg;
-			break;
-		case 'C':
-			run_tcl_shell = true;
-			break;
-		case '\001':
-			frontend_files.push_back(optarg);
-			break;
-		default:
-			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
-			exit(1);
 		}
-	}
+		if (result.count("E")) depsfile = result["E"].as<std::string>();
+		if (result.count("x")) {
+			auto ignores = result["x"].as<std::vector<std::string>>();
+			log_experimentals_ignored.insert(ignores.begin(), ignores.end());
+		}
+		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
+		if (result.count("infile")) {
+			frontend_files = result["infile"].as<std::vector<std::string>>();
+		}
+		if (result.count("autoidx")) {
+			int idx = result["autoidx"].as<uint64_t>();
+			autoidx = idx;
+		}
+		if (result.count("hash-seed")) {
+			int seed = result["hash-seed"].as<uint64_t>();
+			Hasher::set_fudge((Hasher::hash_t)seed);
+		}
 
-	if (log_errfile == NULL) {
-		log_files.push_back(stdout);
-		log_error_stderr = true;
-	}
+		if (log_errfile == NULL) {
+			log_files.push_back(stdout);
+			log_error_stderr = true;
+		}
 
-	if (print_banner)
-		yosys_banner();
+		if (print_banner)
+			yosys_banner();
+
+	}
+	catch (const cxxopts::exceptions::parsing& e) {
+		std::cerr << "Error parsing options: " << e.what() << std::endl;
+		std::cerr << "Run '" << argv[0] << " --help' for help." << std::endl;
+		exit(1);
+	}
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	std::string state_dir;
@@ -607,10 +532,11 @@ int main(int argc, char **argv)
 		run_pass(vdef_cmd);
 	}
 
-	if (scriptfile.empty() || !scriptfile_tcl) {
-		// Without a TCL script, arguments following '--' are also treated as frontend files
-		for (int i = optind; i < argc; ++i)
-			frontend_files.push_back(argv[i]);
+	if (scriptfile.empty() || (!scriptfile_tcl && !scriptfile_python)) {
+		// Without a TCL or Python script, arguments following '--'
+		// are also treated as frontend files
+		for (auto special_arg : special_args)
+			frontend_files.push_back(special_arg);
 	}
 
 	for (auto it = frontend_files.begin(); it != frontend_files.end(); ++it) {
@@ -623,11 +549,11 @@ int main(int argc, char **argv)
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
 #ifdef YOSYS_ENABLE_TCL
-			int tcl_argc = argc - optind;
+			int tcl_argc = special_args.size();
 			std::vector<Tcl_Obj*> script_args;
 			Tcl_Interp *interp = yosys_get_tcl_interp();
-			for (int i = optind; i < argc; ++i)
-				script_args.push_back(Tcl_NewStringObj(argv[i], strlen(argv[i])));
+			for (auto arg : special_args)
+				script_args.push_back(Tcl_NewStringObj(arg.c_str(), arg.length()));
 
 			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(tcl_argc), 0);
 			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(tcl_argc, script_args.data()), 0);
@@ -636,7 +562,37 @@ int main(int argc, char **argv)
 			if (Tcl_EvalFile(interp, scriptfile.c_str()) != TCL_OK)
 				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
 #else
-			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
+			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
+#endif
+		} else if (scriptfile_python) {
+#ifdef WITH_PYTHON
+			PyObject *sys = PyImport_ImportModule("sys");
+			int py_argc = special_args.size() + 1;
+			PyObject *new_argv = PyList_New(py_argc);
+			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
+			for (int i = 1; i < py_argc; ++i)
+				PyList_SetItem(new_argv, i, PyUnicode_FromString(special_args[i - 1].c_str()));
+
+			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
+			PyObject_SetAttrString(sys, "argv", new_argv);
+			Py_DECREF(old_argv);
+
+			PyObject *py_path = PyUnicode_FromString(scriptfile.c_str());
+			PyObject_SetAttrString(sys, "_yosys_script_path", py_path);
+			Py_DECREF(py_path);
+			PyRun_SimpleString("import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(sys._yosys_script_path)))");
+
+			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
+			if (scriptfp == nullptr) {
+				log_error("Failed to open file '%s' for reading.\n", scriptfile.c_str());
+			}
+			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
+				log_flush();
+				PyErr_Print();
+				log_error("Python interpreter encountered an exception.");
+			}
+#else
+			log_error("Can't execute Python script: this version of yosys is not built with Python support enabled.\n");
 #endif
 		} else
 			run_frontend(scriptfile, "script");
@@ -721,19 +677,23 @@ int main(int argc, char **argv)
 			ru_buffer.ru_utime.tv_usec += ru_buffer_children.ru_utime.tv_usec;
 			ru_buffer.ru_stime.tv_sec += ru_buffer_children.ru_stime.tv_sec;
 			ru_buffer.ru_stime.tv_usec += ru_buffer_children.ru_stime.tv_usec;
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
 			ru_buffer.ru_maxrss = std::max(ru_buffer.ru_maxrss, ru_buffer_children.ru_maxrss);
 #endif
 		}
 #if defined(__linux__) || defined(__FreeBSD__)
 		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / 1024.0);
+#elif defined(__APPLE__)
+// https://stackoverflow.com/questions/59913657/strange-values-of-get-rusage-maxrss-on-macos-and-linux
+		meminfo = stringf(", MEM: %.2f MB peak",
+				ru_buffer.ru_maxrss / (1024.0 * 1024.0));
 #endif
 		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
 				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
-		log("%s\n", yosys_version_str);
+		log("%s\n", yosys_maybe_version());
 
 		int64_t total_ns = 0;
 		std::set<tuple<int64_t, int, std::string>> timedat;
@@ -773,7 +733,7 @@ int main(int argc, char **argv)
 				log_error("Can't open performance log file for writing: %s\n", strerror(errno));
 
 			fprintf(f, "{\n");
-			fprintf(f, "  \"generator\": \"%s\",\n", yosys_version_str);
+			fprintf(f, "  \"generator\": \"%s\",\n", yosys_maybe_version());
 			fprintf(f, "  \"total_ns\": %" PRIu64 ",\n", total_ns);
 			fprintf(f, "  \"passes\": {");
 
@@ -781,10 +741,10 @@ int main(int argc, char **argv)
 			for (auto it = timedat.rbegin(); it != timedat.rend(); it++) {
 				if (!first)
 					fprintf(f, ",");
-				fprintf(f, "\n    \"%s\": {\n", std::get<2>(*it).c_str());
-				fprintf(f, "      \"runtime_ns\": %" PRIu64 ",\n", std::get<0>(*it));
-				fprintf(f, "      \"num_calls\": %u\n", std::get<1>(*it));
-				fprintf(f, "    }");
+				fprintf(f, "\n	\"%s\": {\n", std::get<2>(*it).c_str());
+				fprintf(f, "	  \"runtime_ns\": %" PRIu64 ",\n", std::get<0>(*it));
+				fprintf(f, "	  \"num_calls\": %u\n", std::get<1>(*it));
+				fprintf(f, "	}");
 				first = false;
 			}
 			fprintf(f, "\n  }\n}\n");

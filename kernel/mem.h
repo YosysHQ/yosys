@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/ffinit.h"
+#include "kernel/utils.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -222,6 +223,114 @@ struct Mem : RTLIL::AttrObject {
 	void emulate_read_first(FfInitVals *initvals);
 
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
+};
+
+// MemContents efficiently represents the contents of a potentially sparse memory by storing only those segments that are actually defined
+class MemContents {
+public:
+	class range; class iterator;
+	using addr_t = uint32_t;
+private:
+	// we ban _addr_width == sizeof(addr_t) * 8 because it adds too many cornercases
+	int _addr_width;
+	int _data_width;
+	RTLIL::Const _default_value;
+	// for each range, store the concatenation of the words at the start address
+	// invariants:
+	// - no overlapping or adjacent ranges
+	// - no empty ranges
+	// - all Consts are a multiple of the word size
+	std::map<addr_t, RTLIL::Const> _values;
+	// returns an iterator to the range containing addr, if it exists, or the first range past addr
+	std::map<addr_t, RTLIL::Const>::iterator _range_at(addr_t addr) const;
+	addr_t _range_size(std::map<addr_t, RTLIL::Const>::iterator it) const { return it->second.size() / _data_width; }
+	addr_t _range_begin(std::map<addr_t, RTLIL::Const>::iterator it) const { return it->first; }
+	addr_t _range_end(std::map<addr_t, RTLIL::Const>::iterator it) const { return _range_begin(it) + _range_size(it); }
+	// check if the iterator points to a range containing addr
+	bool _range_contains(std::map<addr_t, RTLIL::Const>::iterator it, addr_t addr) const;
+	// check if the iterator points to a range containing [begin_addr, end_addr). assumes end_addr >= begin_addr.
+	bool _range_contains(std::map<addr_t, RTLIL::Const>::iterator it, addr_t begin_addr, addr_t end_addr) const;
+	// check if the iterator points to a range overlapping with [begin_addr, end_addr)
+	bool _range_overlaps(std::map<addr_t, RTLIL::Const>::iterator it, addr_t begin_addr, addr_t end_addr) const;
+	// return the offset the addr would have in the range at `it`
+	size_t _range_offset(std::map<addr_t, RTLIL::Const>::iterator it, addr_t addr) const { return (addr - it->first) * _data_width; }
+	// assuming _range_contains(it, addr), return an iterator pointing to the data at addr
+	std::vector<State>::iterator _range_data(std::map<addr_t, RTLIL::Const>::iterator it, addr_t addr) { return it->second.bits().begin() + _range_offset(it, addr); }
+	// internal version of reserve_range that returns an iterator to the range
+	std::map<addr_t, RTLIL::Const>::iterator _reserve_range(addr_t begin_addr, addr_t end_addr);
+	// write a single word at addr, return iterator to next word
+	std::vector<State>::iterator _range_write(std::vector<State>::iterator it, RTLIL::Const const &data);
+public:
+	class range {
+		int _data_width;
+		addr_t _base;
+		RTLIL::Const const &_values;
+		friend class iterator;
+		range(int data_width, addr_t base, RTLIL::Const const &values)
+		: _data_width(data_width), _base(base), _values(values) {}
+	public:
+		addr_t base() const { return _base; }
+		addr_t size() const { return ((addr_t) _values.size()) / _data_width; }
+		addr_t limit() const { return _base + size(); }
+		RTLIL::Const const &concatenated() const { return _values; }
+		RTLIL::Const operator[](addr_t addr) const {
+			log_assert(addr - _base < size());
+			return _values.extract((addr - _base) * _data_width, _data_width);
+		}
+		RTLIL::Const at_offset(addr_t offset) const { return (*this)[_base + offset]; }
+	};
+	class iterator {
+		MemContents const *_memory;
+		// storing addr instead of an iterator gives more well-defined behaviour under insertions/deletions
+		// use ~0 for end so that all end iterators compare the same
+		addr_t _addr;
+		friend class MemContents;
+		iterator(MemContents const *memory, addr_t addr) : _memory(memory), _addr(addr) {}
+	public:
+		using iterator_category = std::input_iterator_tag;
+		using value_type = range;
+		using pointer = arrow_proxy<range>;
+		using reference = range;
+		using difference_type = addr_t;
+		reference operator *() const { return range(_memory->_data_width, _addr, _memory->_values.at(_addr)); }
+		pointer operator->() const { return arrow_proxy<range>(**this); }
+		bool operator !=(iterator const &other) const { return _memory != other._memory || _addr != other._addr; }
+		bool operator ==(iterator const &other) const { return !(*this != other); }
+		iterator &operator++();
+	};
+	MemContents(int addr_width, int data_width, RTLIL::Const default_value)
+		: _addr_width(addr_width), _data_width(data_width)
+		, _default_value((default_value.extu(data_width), std::move(default_value)))
+	{ log_assert(_addr_width > 0 && _addr_width < (int)sizeof(addr_t) * 8); log_assert(_data_width > 0); }
+	MemContents(int addr_width, int data_width) : MemContents(addr_width, data_width, RTLIL::Const(State::Sx, data_width)) {}
+	explicit MemContents(Mem *mem);
+	int addr_width() const { return _addr_width; }
+	int data_width() const { return _data_width; }
+	RTLIL::Const const &default_value() const { return _default_value; }
+	// return the value at the address if it exists, the default_value of the memory otherwise. address must not exceed 2**addr_width.
+	RTLIL::Const operator [](addr_t addr) const;
+	// return the number of defined words in the range [begin_addr, end_addr)
+	addr_t count_range(addr_t begin_addr, addr_t end_addr) const;
+	// allocate memory for the range [begin_addr, end_addr), but leave the contents undefined.
+	void reserve_range(addr_t begin_addr, addr_t end_addr) { _reserve_range(begin_addr, end_addr); }
+	// insert multiple words (provided as a single concatenated RTLIL::Const) at the given address, overriding any previous assignment.
+	void insert_concatenated(addr_t addr, RTLIL::Const const &values);
+	// insert multiple words at the given address, overriding any previous assignment.
+	template<typename Iterator> void insert_range(addr_t addr, Iterator begin, Iterator end) {
+		auto words = end - begin;
+		log_assert(addr < (addr_t)(1<<_addr_width)); log_assert(words <= (addr_t)(1<<_addr_width) - addr);
+		auto range = _reserve_range(addr, addr + words);
+		auto it = _range_data(range, addr);
+		for(; begin != end; ++begin)
+			it = _range_write(it, *begin);
+	}
+	// undefine all words in the range [begin_addr, end_addr)
+	void clear_range(addr_t begin_addr, addr_t end_addr);
+	// check invariants, abort if invariants failed
+	void check();
+	iterator end() const { return iterator(nullptr, ~(addr_t) 0); }
+	iterator begin() const { return _values.empty() ? end() : iterator(this, _values.begin()->first); }
+	bool empty() const { return _values.empty(); }
 };
 
 YOSYS_NAMESPACE_END

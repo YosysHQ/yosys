@@ -79,7 +79,7 @@ struct SubmodWorker
 				flag_wire(c.wire, create, set_int_used, set_ext_driven, set_ext_used);
 				if (set_int_driven)
 					for (int i = c.offset; i < c.offset+c.width; i++) {
-						wire_flags.at(c.wire).is_int_driven[i] = State::S1;
+						wire_flags.at(c.wire).is_int_driven.bits()[i] = State::S1;
 						flag_found_something = true;
 					}
 			}
@@ -185,8 +185,8 @@ struct SubmodWorker
 					auto it = sig[i].wire->attributes.find(ID::init);
 					if (it != sig[i].wire->attributes.end()) {
 						auto jt = new_wire->attributes.insert(std::make_pair(ID::init, Const(State::Sx, GetSize(sig)))).first;
-						jt->second[i] = it->second[sig[i].offset];
-						it->second[sig[i].offset] = State::Sx;
+						jt->second.bits()[i] = it->second[sig[i].offset];
+						it->second.bits()[sig[i].offset] = State::Sx;
 					}
 				}
 			}
@@ -246,7 +246,7 @@ struct SubmodWorker
 	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, bool hidden_mode = false, std::string opt_name = std::string()) :
 			design(design), module(module), sigmap(module), copy_mode(copy_mode), hidden_mode(hidden_mode), opt_name(opt_name)
 	{
-		if (!design->selected_whole_module(module->name) && opt_name.empty())
+		if (!module->is_selected_whole() && opt_name.empty())
 			return;
 
 		if (module->processes.size() > 0) {
@@ -279,7 +279,7 @@ struct SubmodWorker
 
 			for (auto cell : module->cells())
 			{
-				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].bits.size() == 0) {
+				if (cell->attributes.count(ID::submod) == 0 || cell->attributes[ID::submod].size() == 0) {
 					cell->attributes.erase(ID::submod);
 					continue;
 				}

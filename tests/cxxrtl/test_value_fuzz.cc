@@ -1,3 +1,4 @@
+#include <cinttypes>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -62,17 +63,17 @@ void test_binary_operation_for_bitsize(Operation &op)
 		for (size_t i = 0; i * chunk_bits < Bits; i++) {
 			if ((chunk_type)(iresult >> (i * chunk_bits)) != vresult.data[i]) {
 				std::printf("Test failure:\n");
-				std::printf("Bits:    %i\n", Bits);
-				std::printf("a:       %016lx\n", ia);
-				std::printf("b:       %016lx\n", ib);
-				std::printf("iresult: %016lx\n", iresult);
-				std::printf("vresult: %016lx\n", vresult.template get<uint64_t>());
+				std::printf("Bits:    %zu\n", Bits);
+				std::printf("a:       %016" PRIx64 "\n", ia);
+				std::printf("b:       %016" PRIx64 "\n", ib);
+				std::printf("iresult: %016" PRIx64 "\n", iresult);
+				std::printf("vresult: %016" PRIx64 "\n", vresult.template get<uint64_t>());
 
 				std::terminate();
 			}
 		}
 	}
-	std::printf("Test passed @ Bits = %i.\n", Bits);
+	std::printf("Test passed @ Bits = %zu.\n", Bits);
 }
 
 template<typename Operation>
@@ -240,7 +241,10 @@ struct CtlzTest
 	{
 		if (a == 0)
 			return bits;
-		return __builtin_clzl(a) - (64 - bits);
+		if (sizeof(long) == 4)
+			return __builtin_clzll(a) - (64 - bits);
+		else
+			return __builtin_clzl(a) - (64 - bits);
 	}
 
 	template<size_t Bits>

@@ -53,7 +53,7 @@ struct QlDspSimdPass : public Pass {
 		DspConfig(const DspConfig &ref) = default;
 		DspConfig(DspConfig &&ref) = default;
 
-		unsigned int hash() const { return connections.hash(); }
+		[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(connections); return h; }
 
 		bool operator==(const DspConfig &ref) const { return connections == ref.connections; }
 	};
@@ -176,7 +176,7 @@ struct QlDspSimdPass : public Pass {
 								sigspec.append(sig);
 							}
 
-							int padding = width / 2 - sigspec.bits().size();
+							int padding = width / 2 - sigspec.size();
 
 							if (padding) {
 								if (!isOutput)
@@ -200,8 +200,10 @@ struct QlDspSimdPass : public Pass {
 						auto val_a = dsp_a->getParam(it);
 						auto val_b = dsp_b->getParam(it);
 
-						mode_bits.bits.insert(mode_bits.end(), val_a.begin(), val_a.end());
-						mode_bits.bits.insert(mode_bits.end(), val_b.begin(), val_b.end());
+						mode_bits.bits().insert(mode_bits.bits().end(),
+							val_a.begin(), val_a.end());
+						mode_bits.bits().insert(mode_bits.bits().end(),
+							val_b.begin(), val_b.end());
 					}
 
 					// Enable the fractured mode by connecting the control

@@ -31,6 +31,11 @@ void rtlil_frontend_yyerror(char const *s)
 	YOSYS_NAMESPACE_PREFIX log_error("Parser error in line %d: %s\n", rtlil_frontend_yyget_lineno(), s);
 }
 
+void rtlil_frontend_yywarning(char const *s)
+{
+	YOSYS_NAMESPACE_PREFIX log_warning("In line %d: %s\n", rtlil_frontend_yyget_lineno(), s);
+}
+
 YOSYS_NAMESPACE_BEGIN
 
 struct RTLILFrontend : public Frontend {
@@ -95,21 +100,6 @@ struct RTLILFrontend : public Frontend {
 		rtlil_frontend_yylex_destroy();
 	}
 } RTLILFrontend;
-
-struct IlangFrontend : public Frontend {
-	IlangFrontend() : Frontend("ilang", "(deprecated) alias of read_rtlil") { }
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("See `help read_rtlil`.\n");
-		log("\n");
-	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		RTLILFrontend.execute(f, filename, args, design);
-	}
-} IlangFrontend;
 
 YOSYS_NAMESPACE_END
 

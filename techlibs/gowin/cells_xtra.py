@@ -13,7 +13,8 @@ class State(Enum):
     IN_MODULE = auto()
     IN_PARAMETER = auto()
 
-_skip = { 'ALU', 'DFF', 'DFFC', 'DFFCE', 'DFFE', 'DFFN', 'DFFNC', 'DFFNCE',
+_skip = { # These are already described, no need to extract them from the vendor files
+          'ALU', 'BANDGAP', 'DFF', 'DFFC', 'DFFCE', 'DFFE', 'DFFN', 'DFFNC', 'DFFNCE',
           'DFFNE', 'DFFNP', 'DFFNPE', 'DFFNR', 'DFFNRE', 'DFFNS', 'DFFNSE',
           'DFFP', 'DFFPE', 'DFFR', 'DFFRE', 'DFFS', 'DFFSE', 'DP', 'DPX9',
           'ELVDS_OBUF', 'GND', 'GSR', 'IBUF', 'IDDR', 'IDDRC', 'IDES10',
@@ -23,7 +24,13 @@ _skip = { 'ALU', 'DFF', 'DFFC', 'DFFCE', 'DFFE', 'DFFN', 'DFFNC', 'DFFNCE',
           'OSCO', 'OSCW', 'OSCZ', 'OSER10', 'OSER16', 'OSER10', 'OSER4',
           'OSER8', 'OVIDEO', 'PLLVR', 'RAM16S1', 'RAM16S2', 'RAM16S4',
           'RAM16SDP1', 'RAM16SDP2', 'RAM16SDP4', 'rPLL', 'SDP',
-          'SDPX9', 'SP', 'SPX9', 'TBUF', 'TLVDS_OBUF', 'VCC'
+          'SDPX9', 'SP', 'SPX9', 'TBUF', 'TLVDS_OBUF', 'VCC', 'DCS', 'EMCU',
+          # These are not planned for implementation
+          'MUX2_MUX8', 'MUX2_MUX16', 'MUX2_MUX32', 'MUX4', 'MUX8', 'MUX16',
+          'MUX32', 'DL', 'DLE', 'DLC', 'DLCE', 'DLP', 'DLPE', 'DLN', 'DLNE',
+          'DLNC', 'DLNCE', 'DLNP', 'DLNPE', 'rSDP', 'rSDPX9', 'rROM', 'rROMX9',
+          'TLVDS_OEN_BK', 'DLL', 'DCC', 'I3C', 'IODELAYA', 'IODELAYC', 'IODELAYB',
+          'SPMI', 'PLLO', 'DCCG', 'MIPI_DPHY_RX', 'CLKDIVG', 'PWRGRD', 'FLASH96KA',
         }
 def xtract_cells_decl(dir, fout):
     fname = os.path.join(dir, 'prim_sim.v')
@@ -63,14 +70,17 @@ if __name__ == '__main__':
     parser.add_argument('gowin_dir', nargs='?', default='/opt/gowin/')
     args = parser.parse_args()
 
-    dirs = [
-        os.path.join(args.gowin_dir, 'IDE/simlib/gw1n/'),
-    ]
+    families = {
+        'gw1n': os.path.join(args.gowin_dir, 'IDE/simlib/gw1n/'),
+        'gw2a': os.path.join(args.gowin_dir, 'IDE/simlib/gw2a/'),
+        'gw5a': os.path.join(args.gowin_dir, 'IDE/simlib/gw5a/'),
+    }
 
-    with open('cells_xtra.v', 'w') as fout:
-        fout.write('// Created by cells_xtra.py\n')
-        fout.write('\n')
-        for dir in dirs:
-            if not os.path.isdir(dir):
-                print(f'{dir} is not a directory')
-            xtract_cells_decl(dir, fout)
+    for family, dir in families.items():
+        if not os.path.isdir(dir):
+            print(f'{dir} is not a directory')
+        else:
+            with open(f'cells_xtra_{family}.v', 'w') as fout:
+                fout.write('// Created by cells_xtra.py\n')
+                fout.write('\n')
+                xtract_cells_decl(dir, fout)

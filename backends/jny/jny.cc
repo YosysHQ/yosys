@@ -125,7 +125,7 @@ struct JnyWriter
 
         f << "{\n";
         f << "  \"$schema\": \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\",\n";
-        f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_version_str).c_str());
+        f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_maybe_version()).c_str());
         f << "  \"version\": \"0.0.1\",\n";
         f << "  \"invocation\": \"" << escape_string(invk) << "\",\n";
         f << "  \"features\": [";

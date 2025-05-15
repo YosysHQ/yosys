@@ -39,13 +39,13 @@ bool AigNode::operator==(const AigNode &other) const
 	return true;
 }
 
-unsigned int AigNode::hash() const
+Hasher AigNode::hash_into(Hasher h) const
 {
-	unsigned int h = mkhash_init;
-	h = mkhash(portname.hash(), portbit);
-	h = mkhash(h, inverter);
-	h = mkhash(h, left_parent);
-	h = mkhash(h, right_parent);
+	h.eat(portname);
+	h.eat(portbit);
+	h.eat(inverter);
+	h.eat(left_parent);
+	h.eat(right_parent);
 	return h;
 }
 
@@ -54,9 +54,10 @@ bool Aig::operator==(const Aig &other) const
 	return name == other.name;
 }
 
-unsigned int Aig::hash() const
+Hasher Aig::hash_into(Hasher h) const
 {
-	return hash_ops<std::string>::hash(name);
+	h.eat(name);
+	return h;
 }
 
 struct AigMaker
@@ -290,7 +291,7 @@ Aig::Aig(Cell *cell)
 		}
 	}
 
-	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($_BUF_)))
+	if (cell->type.in(ID($not), ID($_NOT_), ID($pos), ID($buf), ID($_BUF_)))
 	{
 		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
 			int A = mk.inport(ID::A, i);

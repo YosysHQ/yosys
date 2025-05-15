@@ -33,7 +33,7 @@ hierarchy -auto-top
 
 design -save orig
 proc
-select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memrd_v2 a:src %i
 memory
 opt_dff
 design -stash postopt
@@ -80,7 +80,7 @@ hierarchy -auto-top
 
 design -save orig
 proc
-select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memrd_v2 a:src %i
 memory
 opt_dff
 design -stash postopt
@@ -127,7 +127,7 @@ hierarchy -auto-top
 
 design -save orig
 proc
-select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memrd_v2 a:src %i
 memory
 opt_dff
 design -stash postopt
@@ -175,7 +175,7 @@ hierarchy -auto-top
 
 design -save orig
 proc
-select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memrd_v2 a:src %i
 memory
 opt_dff
 design -stash postopt
@@ -188,7 +188,7 @@ equiv_opt -assert -run prepare: dummy
 
 design -reset
 
-read_ilang <<EOT
+read_rtlil <<EOT
 
 module \m
   wire width 3 input 1 \a

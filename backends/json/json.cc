@@ -34,6 +34,7 @@ struct JsonWriter
 	bool use_selection;
 	bool aig_mode;
 	bool compat_int_mode;
+	bool scopeinfo_mode;
 
 	Design *design;
 	Module *module;
@@ -43,9 +44,9 @@ struct JsonWriter
 	dict<SigBit, string> sigids;
 	pool<Aig> aig_models;
 
-	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode) :
+	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode, bool scopeinfo_mode) :
 			f(f), use_selection(use_selection), aig_mode(aig_mode),
-			compat_int_mode(compat_int_mode) { }
+			compat_int_mode(compat_int_mode), scopeinfo_mode(scopeinfo_mode) { }
 
 	string get_string(string str)
 	{
@@ -192,9 +193,7 @@ struct JsonWriter
 		for (auto c : module->cells()) {
 			if (use_selection && !module->selected(c))
 				continue;
-			// Eventually we will want to emit $scopeinfo, but currently this
-			// will break JSON netlist consumers like nextpnr
-			if (c->type == ID($scopeinfo))
+			if (!scopeinfo_mode && c->type == ID($scopeinfo))
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(c->name).c_str());
@@ -292,7 +291,7 @@ struct JsonWriter
 		design->sort();
 
 		f << stringf("{\n");
-		f << stringf("  \"creator\": %s,\n", get_string(yosys_version_str).c_str());
+		f << stringf("  \"creator\": %s,\n", get_string(yosys_maybe_version()).c_str());
 		f << stringf("  \"modules\": {\n");
 		vector<Module*> modules = use_selection ? design->selected_modules() : design->modules();
 		bool first_module = true;
@@ -353,6 +352,12 @@ struct JsonBackend : public Backend {
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
+		log("    -selected\n");
+		log("        output only select module\n");
+		log("\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
+		log("\n");
 		log("\n");
 		log("The general syntax of the JSON output created by this command is as follows:\n");
 		log("\n");
@@ -403,7 +408,7 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.\n");
 		log("They don't affect connection semantics, and are only used to preserve original\n");
-		log("HDL bit indexing.");
+		log("HDL bit indexing.\n");
 		log("And <cell_details> is:\n");
 		log("\n");
 		log("    {\n");
@@ -597,6 +602,8 @@ struct JsonBackend : public Backend {
 	{
 		bool aig_mode = false;
 		bool compat_int_mode = false;
+		bool use_selection = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -609,13 +616,21 @@ struct JsonBackend : public Backend {
 				compat_int_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-selected") {
+				use_selection = true;
+				continue;
+			}
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, false, aig_mode, compat_int_mode);
+		JsonWriter json_writer(*f, use_selection, aig_mode, compat_int_mode, scopeinfo_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
@@ -640,6 +655,9 @@ struct JsonPass : public Pass {
 		log("        emit 32-bit or smaller fully-defined parameter values directly\n");
 		log("        as JSON numbers (for compatibility with old parsers)\n");
 		log("\n");
+		log("    -noscopeinfo\n");
+		log("        don't include $scopeinfo cells in the output\n");
+		log("\n");
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
@@ -648,6 +666,7 @@ struct JsonPass : public Pass {
 		std::string filename;
 		bool aig_mode = false;
 		bool compat_int_mode = false;
+		bool scopeinfo_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -662,6 +681,10 @@ struct JsonPass : public Pass {
 			}
 			if (args[argidx] == "-compat-int") {
 				compat_int_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-noscopeinfo") {
+				scopeinfo_mode = false;
 				continue;
 			}
 			break;
@@ -685,7 +708,7 @@ struct JsonPass : public Pass {
 			f = &buf;
 		}
 
-		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode);
+		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode, scopeinfo_mode);
 		json_writer.write_design(design);
 
 		if (!empty) {

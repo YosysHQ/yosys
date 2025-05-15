@@ -1,17 +1,18 @@
 
-TARGETS += proc_01 proc_02 proc_03
-TARGETS += memory_01 memory_02
-TARGETS += techmap_01
+DOT_TARGETS += proc_01 proc_02 proc_03
+DOT_TARGETS += memory_01 memory_02
+DOT_TARGETS += techmap_01
 
 PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-DOTS = $(addsuffix .dot,$(TARGETS))
+DOTS = $(addsuffix .dot,$(DOT_TARGETS))
 
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: $(DOTS)
+examples:
 
 %.dot: %.v %.ys
 	$(YOSYS) -p 'script $*.ys; show -notitle -prefix $* -format dot'

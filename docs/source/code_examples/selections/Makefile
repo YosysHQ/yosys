@@ -11,14 +11,15 @@ MEMDEMO_DOTS := $(addsuffix .dot,$(MEMDEMO))
 SUBMOD = submod_00 submod_01 submod_02 submod_03
 SUBMOD_DOTS := $(addsuffix .dot,$(SUBMOD))
 
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS) $(SUBMOD_DOTS)
+examples: sumprod.out
 
 select.dot: select.v select.ys
 	$(YOSYS) select.ys
 
-$(SUMPROD_DOTS): sumprod.v sumprod.ys
+$(SUMPROD_DOTS) sumprod.out: sumprod.v sumprod.ys
 	$(YOSYS) sumprod.ys
 
 $(MEMDEMO_DOTS): memdemo.v memdemo.ys
@@ -30,3 +31,4 @@ $(SUBMOD_DOTS): memdemo.v submod.ys
 .PHONY: clean
 clean:
 	rm -rf *.dot
+	rm -f sumprod.out

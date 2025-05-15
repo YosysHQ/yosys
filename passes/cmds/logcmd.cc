@@ -59,7 +59,7 @@ struct LogPass : public Pass {
 		log("    -push\n");
 		log("        push a new level on the pass counter\n");
 		log("\n");
-		log("    -push\n");
+		log("    -pop\n");
 		log("        pop from the pass counter\n");
 		log("\n");
 	}

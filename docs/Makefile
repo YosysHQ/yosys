@@ -2,7 +2,7 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = -W --keep-going
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build
@@ -238,7 +238,7 @@ Makefile-%: FORCE
 	$(MAKE) -C $(@D) $(*F)
 
 CODE_EXAMPLES := $(wildcard source/code_examples/*/Makefile)
-TEST_EXAMPLES := $(addsuffix -all,$(CODE_EXAMPLES))
+TEST_EXAMPLES := $(addsuffix -examples,$(CODE_EXAMPLES))
 CLEAN_EXAMPLES := $(addsuffix -clean,$(CODE_EXAMPLES))
 test-examples: $(TEST_EXAMPLES)
 clean-examples: $(CLEAN_EXAMPLES)
@@ -250,6 +250,12 @@ test-macros:
 .PHONY: images
 images:
 	$(MAKE) -C source/_images
+	$(MAKE) -C source/_images convert
+
+.PHONY: gen
+gen:
+	$(MAKE) examples
+	$(MAKE) images
 
 .PHONY: reqs
 reqs:

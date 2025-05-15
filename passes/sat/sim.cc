@@ -123,6 +123,7 @@ struct SimShared
 	std::vector<TriggeredAssertion> triggered_assertions;
 	std::vector<DisplayOutput> display_output;
 	bool serious_asserts = false;
+	bool fst_noinit = false;
 	bool initstate = true;
 };
 
@@ -134,7 +135,7 @@ void zinit(State &v)
 
 void zinit(Const &v)
 {
-	for (auto &bit : v.bits)
+	for (auto &bit : v.bits())
 		zinit(bit);
 }
 
@@ -160,7 +161,7 @@ struct SimInstance
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
 	pool<IdString> dirty_memories;
-	pool<SimInstance*, hash_ptr_ops> dirty_children;
+	pool<SimInstance*> dirty_children;
 
 	struct ff_state_t
 	{
@@ -422,11 +423,11 @@ struct SimInstance
 
 		for (auto bit : sigmap(sig))
 			if (bit.wire == nullptr)
-				value.bits.push_back(bit.data);
+				value.bits().push_back(bit.data);
 			else if (state_nets.count(bit))
-				value.bits.push_back(state_nets.at(bit));
+				value.bits().push_back(state_nets.at(bit));
 			else
-				value.bits.push_back(State::Sz);
+				value.bits().push_back(State::Sz);
 
 		if (shared->debug)
 			log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
@@ -485,9 +486,9 @@ struct SimInstance
 
 		int offset = (addr - state.mem->start_offset) * state.mem->width;
 		for (int i = 0; i < GetSize(data); i++)
-			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data.bits[i] != State::Sa)
-				if (state.data.bits[i+offset] != data.bits[i])
-					dirty = true, state.data.bits[i+offset] = data.bits[i];
+			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data[i] != State::Sa)
+				if (state.data[i+offset] != data[i])
+					dirty = true, state.data.bits()[i+offset] = data[i];
 
 		if (dirty)
 			dirty_memories.insert(memid);
@@ -498,8 +499,8 @@ struct SimInstance
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
 			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
-		if (state.data.bits[offset] != data) {
-			state.data.bits[offset] = data;
+		if (state.data[offset] != data) {
+			state.data.bits()[offset] = data;
 			dirty_memories.insert(memid);
 		}
 	}
@@ -716,10 +717,10 @@ struct SimInstance
 
 				for(int i=0;i<ff.past_d.size();i++) {
 					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-						current_q[i] = State::S0;
+						current_q.bits()[i] = State::S0;
 					}
 					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-						current_q[i] = State::S1;
+						current_q.bits()[i] = State::S1;
 					}
 				}
 			}
@@ -768,8 +769,8 @@ struct SimInstance
 					int index = addr_int - mem.start_offset;
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
-							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
-								mdb.data.bits.at(index*mem.width+i) = data[i];
+							if (enable[i] == State::S1 && mdb.data.at(index*mem.width+i) != data[i]) {
+								mdb.data.bits().at(index*mem.width+i) = data[i];
 								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
@@ -970,7 +971,7 @@ struct SimInstance
 				if (w->attributes.count(ID::init) == 0)
 					w->attributes[ID::init] = Const(State::Sx, GetSize(w));
 
-				w->attributes[ID::init][sig_q[i].offset] = initval[i];
+				w->attributes[ID::init].bits()[sig_q[i].offset] = initval[i];
 			}
 		}
 
@@ -1553,7 +1554,7 @@ struct SimWorker : SimShared
 				bool did_something = top->setInputs();
 
 				if (initial) {
-					did_something |= top->setInitState();
+					if (!fst_noinit) did_something |= top->setInitState();
 					initialize_stable_past();
 					initial = false;
 				}
@@ -2064,7 +2065,7 @@ struct SimWorker : SimShared
 
 		json.begin_object();
 		json.entry("version", "Yosys sim summary");
-		json.entry("generator", yosys_version_str);
+		json.entry("generator", yosys_maybe_version());
 		json.entry("steps", step);
 		json.entry("top", log_id(top->module->name));
 		json.name("assertions");
@@ -2317,6 +2318,23 @@ struct SimWorker : SimShared
 	}
 };
 
+std::string form_vcd_name(const char *name, int size, Wire *w)
+{
+	std::string full_name = name;
+	bool have_bracket = strchr(name, '[');
+	if (w) {
+		if (have_bracket || !(w->start_offset==0 && w->width==1)) {
+			full_name += stringf(" [%d:%d]",
+				w->upto ? w->start_offset : w->start_offset + w->width - 1,
+				w->upto ? w->start_offset + w->width - 1 : w->start_offset);
+		}
+	} else {
+		// Special handling for memories
+		full_name += have_bracket ? stringf(" [%d:0]", size - 1) : std::string();
+	}
+	return full_name;
+}
+
 struct VCDWriter : public OutputWriter
 {
 	VCDWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
@@ -2326,7 +2344,7 @@ struct VCDWriter : public OutputWriter
 	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!vcdfile.is_open()) return;
-		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_version_str : "Yosys");
+		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_maybe_version() : "Yosys");
 
 		if (worker->date) {
 			std::time_t t = std::time(nullptr);
@@ -2342,16 +2360,14 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
-				if (use_signal.at(id)) {
-					// Works around gtkwave trying to parse everything past the last [ in a signal
-					// name. While the emitted range doesn't necessarily match the wire's range,
-					// this is consistent with the range gtkwave makes up if it doesn't find a
-					// range
-					std::string range = strchr(name, '[') ? stringf("[%d:0]", size - 1) : std::string();
-					vcdfile << stringf("$var %s %d n%d %s%s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", name, range.c_str());
-
-				}
+			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
+				if (!use_signal.at(id)) return;
+				// Works around gtkwave trying to parse everything past the last [ in a signal
+				// name. While the emitted range doesn't necessarily match the wire's range,
+				// this is consistent with the range gtkwave makes up if it doesn't find a
+				// range
+				std::string full_name = form_vcd_name(name, size, w);
+				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name.c_str());
 			}
 		);
 
@@ -2396,7 +2412,7 @@ struct FSTWriter : public OutputWriter
 	{
 		if (!fstfile) return;
 		std::time_t t = std::time(nullptr);
-		fstWriterSetVersion(fstfile, worker->date ? yosys_version_str : "Yosys");
+		fstWriterSetVersion(fstfile, worker->date ? yosys_maybe_version() : "Yosys");
 		if (worker->date)
 			fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
 		else
@@ -2410,10 +2426,11 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
+			[this,use_signal](const char *name, int size, Wire *w, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
+				std::string full_name = form_vcd_name(name, size, w);
 				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, size,
-												name, 0);
+												full_name.c_str(), 0);
 				mapping.emplace(id, fst_id);
 			}
 		);
@@ -2525,7 +2542,7 @@ struct AIWWriter : public OutputWriter
 			{
 				auto val = it.second ? State::S1 : State::S0;
 				SigBit bit = aiw_inputs.at(it.first);
-				auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+				auto v = current[mapping[bit.wire]].at(bit.offset);
 				if (v == val)
 					skip = true;
 			}
@@ -2535,7 +2552,7 @@ struct AIWWriter : public OutputWriter
 			{
 				if (aiw_inputs.count(i)) {
 					SigBit bit = aiw_inputs.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else
@@ -2544,7 +2561,7 @@ struct AIWWriter : public OutputWriter
 				}
 				if (aiw_inits.count(i)) {
 					SigBit bit = aiw_inits.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else
@@ -2671,6 +2688,10 @@ struct SimPass : public Pass {
 		log("    -assert\n");
 		log("        fail the simulation command if, in the course of simulating,\n");
 		log("        any of the asserts in the design fail\n");
+		log("\n");
+		log("    -fst-noinit\n");
+		log("        do not initialize latches and memories from an input FST or VCD file\n");
+		log("        (use the initial defined by the design instead)\n");
 		log("\n");
 		log("    -q\n");
 		log("        disable per-cycle/sample log message\n");
@@ -2834,6 +2855,10 @@ struct SimPass : public Pass {
 				worker.serious_asserts = true;
 				continue;
 			}
+			if (args[argidx] == "-fst-noinit") {
+				worker.fst_noinit = true;
+				continue;
+			}
 			if (args[argidx] == "-x") {
 				worker.ignore_x = true;
 				continue;
@@ -2862,7 +2887,7 @@ struct SimPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_whole_modules();
+			auto mods = design->selected_unboxed_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();
@@ -2991,7 +3016,7 @@ struct Fst2TbPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_whole_modules();
+			auto mods = design->selected_unboxed_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();

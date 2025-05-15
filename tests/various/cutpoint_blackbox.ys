@@ -1,0 +1,72 @@
+read_verilog -specify << EOT
+module top(input a, b, output o);
+    wire c, d, e;
+    bb #(.SOME_PARAM(1)) bb1 (.a (a), .b (b), .o (c));
+    bb #(.SOME_PARAM(2)) bb2 (.a (a), .b (b), .o (d));
+    wb wb1 (.a (a), .b (b), .o (e));
+    some_mod some_inst (.a (c), .b (d), .c (e), .o (o));
+endmodule
+
+(* blackbox *)
+module bb #( parameter SOME_PARAM=0 ) (input a, b, output o);
+assign o = a | b;
+specify
+	(a => o) = 1;
+endspecify
+endmodule
+
+(* whitebox *)
+module wb(input a, b, output o);
+assign o = a ^ b;
+endmodule
+
+module some_mod(input a, b, c, output o);
+assign o = a & (b | c);
+endmodule
+EOT
+
+hierarchy -top top
+design -save hier
+
+select -assert-none t:$anyseq
+select -assert-count 3 =t:?b
+cutpoint -blackbox
+
+select -assert-none =t:?b
+select -assert-none r:SOME_PARAM
+
+select -assert-count 3 t:$anyseq
+select -assert-count 3 t:$scopeinfo
+select -assert-count 3 t:$scopeinfo r:TYPE=blackbox %i
+select -assert-count 3 t:$scopeinfo n:*cutpoint.cc* %i
+
+# -noscopeinfo works with -blackbox
+design -load hier
+cutpoint -blackbox -noscopeinfo
+select -assert-none t:$scopeinfo
+
+# cutpoint -blackbox === cutpoint =A:whitebox =A:blackbox %u %C
+#                        (simplified to =A:*box %C)
+design -load hier
+cutpoint -blackbox
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gold
+select -write cutpoint.gold.sel =*
+
+design -load hier
+cutpoint =A:*box %C
+rename -enumerate -pattern A_% t:$scopeinfo
+rename -enumerate -pattern B_% t:$anyseq
+rename -enumerate -pattern C_% w:*Anyseq*
+design -save gate
+select -write cutpoint.gate.sel
+select -read cutpoint.gold.sel
+# nothing in gate but not gold
+select -assert-none % %n
+
+design -load gold
+select -read cutpoint.gate.sel
+# nothing in gold but not gate
+select -assert-none % %n

@@ -36,15 +36,15 @@ help() {
 		echo ""
 		echo "  $0 --datdir/simlib.v"
 		echo ""
-	} >&2
-	exit 1
+	} >&$(( $1 + 1))
+	exit $1
 }
 
 if [ $# -eq 0 ]; then
-	help
+	help 1
 fi
 
-if [ "$1" == "--build" ]; then
+if [ "$1" = "--build" ]; then
 	modname="$2"; shift 2
 	set -- --exec --cxx --cxxflags --ldflags -o "$modname" -shared "$@" --libs
 fi
@@ -83,7 +83,7 @@ for opt; do
 			tokens=( "${tokens[@]}" '@DATDIR@'"${opt#${prefix}datdir}" ) ;;
 		--help|-\?|-h)
 			if [ ${#tokens[@]} -eq 0 ]; then
-				help
+				help 0
 			else
 				tokens=( "${tokens[@]}" "$opt" )
 			fi ;;

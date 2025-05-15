@@ -459,8 +459,21 @@ void log_cmd_error(const char *format, ...)
 
 	if (log_cmd_error_throw) {
 		log_last_error = vstringf(format, ap);
+
+		// Make sure the error message gets through any selective silencing
+		// of log output
+		bool pop_errfile = false;
+		if (log_errfile != NULL) {
+			log_files.push_back(log_errfile);
+			pop_errfile = true;
+		}
+
 		log("ERROR: %s", log_last_error.c_str());
 		log_flush();
+
+		if (pop_errfile)
+			log_files.pop_back();
+
 		throw log_cmd_error_exception();
 	}
 
@@ -660,6 +673,16 @@ const char *log_id(const RTLIL::IdString &str)
 	if (p[1] >= '0' && p[1] <= '9')
 		return p;
 	return p+1;
+}
+
+const char *log_str(const char *str)
+{
+	log_id_cache.push_back(strdup(str));
+	return log_id_cache.back();
+}
+
+const char *log_str(std::string const &str) {
+	return log_str(str.c_str());
 }
 
 void log_module(RTLIL::Module *module, std::string indent)

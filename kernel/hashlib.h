@@ -14,29 +14,56 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
-
+#include <type_traits>
 #include <stdint.h>
 
+#define YS_HASHING_VERSION 1
+
 namespace hashlib {
+
+/**
+ * HASHING
+ *
+ * Also refer to docs/source/yosys_internals/hashing.rst
+ *
+ * The Hasher knows how to hash 32 and 64-bit integers. That's it.
+ * In the future, it could be expanded to do vectors with SIMD.
+ *
+ * The Hasher doesn't know how to hash common standard containers
+ * and compositions. However, hashlib provides centralized wrappers.
+ *
+ * Hashlib doesn't know how to hash silly Yosys-specific types.
+ * Hashlib doesn't depend on Yosys and can be used standalone.
+ * Please don't use hashlib standalone for new projects.
+ * Never directly include kernel/hashlib.h in Yosys code.
+ * Instead include kernel/yosys_common.h
+ *
+ * The hash_ops type is now always left to its default value, derived
+ * from templated functions through SFINAE. Providing custom ops is
+ * still supported.
+ *
+ * HASH TABLES
+ *
+ * We implement associative data structures with separate chaining.
+ * Linked lists use integers into the indirection hashtable array
+ * instead of pointers.
+ */
 
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
-// The XOR version of DJB2
-inline unsigned int mkhash(unsigned int a, unsigned int b) {
-	return ((a << 5) + a) ^ b;
-}
+namespace legacy {
+	inline uint32_t djb2_add(uint32_t a, uint32_t b) {
+		return ((a << 5) + a) + b;
+	}
+};
 
-// traditionally 5381 is used as starting value for the djb2 hash
-const unsigned int mkhash_init = 5381;
-
-// The ADD version of DJB2
-// (use this version for cache locality in b)
-inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
-	return ((a << 5) + a) + b;
-}
+template<typename T>
+struct hash_ops;
 
 inline unsigned int mkhash_xorshift(unsigned int a) {
 	if (sizeof(a) == 4) {
@@ -52,72 +79,113 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 	return a;
 }
 
-template<typename T> struct hash_ops {
+class HasherDJB32 {
+public:
+	using hash_t = uint32_t;
+
+	HasherDJB32() {
+		// traditionally 5381 is used as starting value for the djb2 hash
+		state = 5381;
+	}
+	static void set_fudge(hash_t f) {
+		fudge = f;
+	}
+
+private:
+	uint32_t state;
+	static uint32_t fudge;
+	// The XOR version of DJB2
+	[[nodiscard]]
+	static uint32_t djb2_xor(uint32_t a, uint32_t b) {
+		uint32_t hash = ((a << 5) + a) ^ b;
+		return hash;
+	}
+	public:
+	void hash32(uint32_t i) {
+		state = djb2_xor(i, state);
+		state = mkhash_xorshift(fudge ^ state);
+		return;
+	}
+	void hash64(uint64_t i) {
+		state = djb2_xor((uint32_t)(i & 0xFFFFFFFFULL), state);
+		state = djb2_xor((uint32_t)(i >> 32ULL), state);
+		state = mkhash_xorshift(fudge ^ state);
+		return;
+	}
+	[[nodiscard]]
+	hash_t yield() {
+		return (hash_t)state;
+	}
+
+	template<typename T>
+	void eat(T&& t) {
+		*this = hash_ops<std::remove_cv_t<std::remove_reference_t<T>>>::hash_into(std::forward<T>(t), *this);
+	}
+
+	template<typename T>
+	void eat(const T& t) {
+		*this = hash_ops<T>::hash_into(t, *this);
+	}
+
+	void commutative_eat(hash_t t) {
+		state ^= t;
+	}
+
+	void force(hash_t new_state) {
+		state = new_state;
+	}
+};
+
+using Hasher = HasherDJB32;
+
+// Boilerplate compressor for trivially implementing
+// top-level hash method with hash_into
+#define HASH_TOP_LOOP_FST [[nodiscard]] static inline Hasher hash
+#define HASH_TOP_LOOP_SND { \
+	Hasher h; \
+	h = hash_into(a, h); \
+	return h; \
+}
+
+template<typename T>
+struct hash_ops {
 	static inline bool cmp(const T &a, const T &b) {
 		return a == b;
 	}
-	static inline unsigned int hash(const T &a) {
-		return a.hash();
+	[[nodiscard]] static inline Hasher hash_into(const T &a, Hasher h) {
+		if constexpr (std::is_integral_v<T>) {
+			static_assert(sizeof(T) <= sizeof(uint64_t));
+			if (sizeof(T) == sizeof(uint64_t))
+				h.hash64(a);
+			else
+				h.hash32(a);
+			return h;
+		} else if constexpr (std::is_enum_v<T>) {
+			using u_type = std::underlying_type_t<T>;
+			return hash_ops<u_type>::hash_into((u_type) a, h);
+		} else if constexpr (std::is_pointer_v<T>) {
+			return hash_ops<uintptr_t>::hash_into((uintptr_t) a, h);
+		} else if constexpr (std::is_same_v<T, std::string>) {
+			for (auto c : a)
+				h.hash32(c);
+			return h;
+		} else {
+			return a.hash_into(h);
+		}
 	}
-};
-
-struct hash_int_ops {
-	template<typename T>
-	static inline bool cmp(T a, T b) {
-		return a == b;
-	}
-};
-
-template<> struct hash_ops<bool> : hash_int_ops
-{
-	static inline unsigned int hash(bool a) {
-		return a ? 1 : 0;
-	}
-};
-template<> struct hash_ops<int32_t> : hash_int_ops
-{
-	static inline unsigned int hash(int32_t a) {
-		return a;
-	}
-};
-template<> struct hash_ops<int64_t> : hash_int_ops
-{
-	static inline unsigned int hash(int64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
-};
-template<> struct hash_ops<uint32_t> : hash_int_ops
-{
-	static inline unsigned int hash(uint32_t a) {
-		return a;
-	}
-};
-template<> struct hash_ops<uint64_t> : hash_int_ops
-{
-	static inline unsigned int hash(uint64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
-};
-
-template<> struct hash_ops<std::string> {
-	static inline bool cmp(const std::string &a, const std::string &b) {
-		return a == b;
-	}
-	static inline unsigned int hash(const std::string &a) {
-		unsigned int v = 0;
-		for (auto c : a)
-			v = mkhash(v, c);
-		return v;
-	}
+	HASH_TOP_LOOP_FST (const T &a) HASH_TOP_LOOP_SND
 };
 
 template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
 		return a == b;
 	}
-	static inline unsigned int hash(std::pair<P, Q> a) {
-		return mkhash(hash_ops<P>::hash(a.first), hash_ops<Q>::hash(a.second));
+	[[nodiscard]] static inline Hasher hash_into(std::pair<P, Q> a, Hasher h) {
+		h = hash_ops<P>::hash_into(a.first, h);
+		h = hash_ops<Q>::hash_into(a.second, h);
+		return h;
 	}
+	HASH_TOP_LOOP_FST (std::pair<P, Q> a) HASH_TOP_LOOP_SND
 };
 
 template<typename... T> struct hash_ops<std::tuple<T...>> {
@@ -125,50 +193,66 @@ template<typename... T> struct hash_ops<std::tuple<T...>> {
 		return a == b;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I == sizeof...(T), unsigned int>::type hash(std::tuple<T...>) {
-		return mkhash_init;
+	static inline typename std::enable_if<I == sizeof...(T), Hasher>::type hash_into(std::tuple<T...>, Hasher h) {
+		return h;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I != sizeof...(T), unsigned int>::type hash(std::tuple<T...> a) {
+	static inline typename std::enable_if<I != sizeof...(T), Hasher>::type hash_into(std::tuple<T...> a, Hasher h) {
 		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
-		return mkhash(hash<I+1>(a), element_ops_t::hash(std::get<I>(a)));
+		h = hash_into<I+1>(a, h);
+		h = element_ops_t::hash_into(std::get<I>(a), h);
+		return h;
 	}
+	HASH_TOP_LOOP_FST (std::tuple<T...> a) HASH_TOP_LOOP_SND
 };
 
 template<typename T> struct hash_ops<std::vector<T>> {
 	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
 		return a == b;
 	}
-	static inline unsigned int hash(std::vector<T> a) {
-		unsigned int h = mkhash_init;
+	[[nodiscard]] static inline Hasher hash_into(std::vector<T> a, Hasher h) {
+		h.eat((uint32_t)a.size());
 		for (auto k : a)
-			h = mkhash(h, hash_ops<T>::hash(k));
+			h.eat(k);
 		return h;
 	}
+	HASH_TOP_LOOP_FST (std::vector<T> a) HASH_TOP_LOOP_SND
+};
+
+template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
+    static inline bool cmp(std::array<T, N> a, std::array<T, N> b) {
+        return a == b;
+    }
+    [[nodiscard]] static inline Hasher hash_into(std::array<T, N> a, Hasher h) {
+        for (const auto& k : a)
+            h = hash_ops<T>::hash_into(k, h);
+        return h;
+    }
+	HASH_TOP_LOOP_FST (std::array<T, N> a) HASH_TOP_LOOP_SND
 };
 
 struct hash_cstr_ops {
 	static inline bool cmp(const char *a, const char *b) {
-		for (int i = 0; a[i] || b[i]; i++)
-			if (a[i] != b[i])
-				return false;
-		return true;
+		return strcmp(a, b) == 0;
 	}
-	static inline unsigned int hash(const char *a) {
-		unsigned int hash = mkhash_init;
+	[[nodiscard]] static inline Hasher hash_into(const char *a, Hasher h) {
 		while (*a)
-			hash = mkhash(hash, *(a++));
-		return hash;
+			h.hash32(*(a++));
+		return h;
 	}
+	HASH_TOP_LOOP_FST (const char *a) HASH_TOP_LOOP_SND
 };
+
+template <> struct hash_ops<char*> : hash_cstr_ops {};
 
 struct hash_ptr_ops {
 	static inline bool cmp(const void *a, const void *b) {
 		return a == b;
 	}
-	static inline unsigned int hash(const void *a) {
-		return (uintptr_t)a;
+	[[nodiscard]] static inline Hasher hash_into(const void *a, Hasher h) {
+		return hash_ops<uintptr_t>::hash_into((uintptr_t)a, h);
 	}
+	HASH_TOP_LOOP_FST (const void *a) HASH_TOP_LOOP_SND
 };
 
 struct hash_obj_ops {
@@ -176,19 +260,73 @@ struct hash_obj_ops {
 		return a == b;
 	}
 	template<typename T>
-	static inline unsigned int hash(const T *a) {
-		return a ? a->hash() : 0;
+	[[nodiscard]] static inline Hasher hash_into(const T *a, Hasher h) {
+		if (a)
+			h = a->hash_into(h);
+		else
+			h.eat(0);
+		return h;
+	}
+	template<typename T>
+	HASH_TOP_LOOP_FST (const T *a) HASH_TOP_LOOP_SND
+};
+/**
+ * If you find yourself using this function, think hard
+ * about if it's the right thing to do. Mixing finalized
+ * hashes together with XORs or worse can destroy
+ * desirable qualities of the hash function
+ */
+template<typename T>
+[[nodiscard]]
+Hasher::hash_t run_hash(const T& obj) {
+	return hash_ops<T>::hash(obj).yield();
+}
+
+/** Refer to docs/source/yosys_internals/hashing.rst */
+template<typename T>
+[[nodiscard]]
+[[deprecated]]
+inline unsigned int mkhash(const T &v) {
+	return (unsigned int) run_hash<T>(v);
+}
+
+template<> struct hash_ops<std::monostate> {
+	static inline bool cmp(std::monostate a, std::monostate b) {
+		return a == b;
+	}
+	[[nodiscard]] static inline Hasher hash_into(std::monostate, Hasher h) {
+		return h;
 	}
 };
 
-template<typename T>
-inline unsigned int mkhash(const T &v) {
-	return hash_ops<T>().hash(v);
-}
+template<typename... T> struct hash_ops<std::variant<T...>> {
+	static inline bool cmp(std::variant<T...> a, std::variant<T...> b) {
+		return a == b;
+	}
+	[[nodiscard]] static inline Hasher hash_into(std::variant<T...> a, Hasher h) {
+		std::visit([& h](const auto &v) { h.eat(v); }, a);
+		h.eat(a.index());
+		return h;
+	}
+};
 
-inline int hashtable_size(int min_size)
+template<typename T> struct hash_ops<std::optional<T>> {
+	static inline bool cmp(std::optional<T> a, std::optional<T> b) {
+		return a == b;
+	}
+	[[nodiscard]] static inline Hasher hash_into(std::optional<T> a, Hasher h) {
+		if(a.has_value())
+			h.eat(*a);
+		else
+			h.eat(0);
+		return h;
+	}
+};
+
+inline unsigned int hashtable_size(unsigned int min_size)
 {
-	static std::vector<int> zero_and_some_primes = {
+	// Primes as generated by https://oeis.org/A175953
+	static std::vector<unsigned int> zero_and_some_primes = {
 		0, 23, 29, 37, 47, 59, 79, 101, 127, 163, 211, 269, 337, 431, 541, 677,
 		853, 1069, 1361, 1709, 2137, 2677, 3347, 4201, 5261, 6577, 8231, 10289,
 		12889, 16127, 20161, 25219, 31531, 39419, 49277, 61603, 77017, 96281,
@@ -196,13 +334,15 @@ inline int hashtable_size(int min_size)
 		897133, 1121423, 1401791, 1752239, 2190299, 2737937, 3422429, 4278037,
 		5347553, 6684443, 8355563, 10444457, 13055587, 16319519, 20399411,
 		25499291, 31874149, 39842687, 49803361, 62254207, 77817767, 97272239,
-		121590311, 151987889, 189984863, 237481091, 296851369, 371064217
+		121590311, 151987889, 189984863, 237481091, 296851369, 371064217,
+		463830313, 579787991, 724735009, 905918777, 1132398479, 1415498113,
+		1769372713, 2211715897, 2764644887, 3455806139
 	};
 
 	for (auto p : zero_and_some_primes)
 		if (p >= min_size) return p;
 
-	if (sizeof(int) == 4)
+	if (sizeof(unsigned int) == 4)
 		throw std::length_error("hash table exceeded maximum size.\nDesign is likely too large for yosys to handle, if possible try not to flatten the design.");
 
 	for (auto p : zero_and_some_primes)
@@ -217,8 +357,7 @@ template<typename K, typename OPS = hash_ops<K>> class pool;
 template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
-class dict
-{
+class dict {
 	struct entry_t
 	{
 		std::pair<K, T> udata;
@@ -242,11 +381,11 @@ class dict
 	}
 #endif
 
-	int do_hash(const K &key) const
+	Hasher::hash_t do_hash(const K &key) const
 	{
-		unsigned int hash = 0;
+		Hasher::hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -257,13 +396,13 @@ class dict
 
 		for (int i = 0; i < int(entries.size()); i++) {
 			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
-			int hash = do_hash(entries[i].udata.first);
+			Hasher::hash_t hash = do_hash(entries[i].udata.first);
 			entries[i].next = hashtable[hash];
 			hashtable[hash] = i;
 		}
 	}
 
-	int do_erase(int index, int hash)
+	int do_erase(int index, Hasher::hash_t hash)
 	{
 		do_assert(index < int(entries.size()));
 		if (hashtable.empty() || index < 0)
@@ -286,7 +425,7 @@ class dict
 
 		if (index != back_idx)
 		{
-			int back_hash = do_hash(entries[back_idx].udata.first);
+			Hasher::hash_t back_hash = do_hash(entries[back_idx].udata.first);
 
 			k = hashtable[back_hash];
 			do_assert(0 <= k && k < int(entries.size()));
@@ -312,7 +451,7 @@ class dict
 		return 1;
 	}
 
-	int do_lookup(const K &key, int &hash) const
+	int do_lookup(const K &key, Hasher::hash_t &hash) const
 	{
 		if (hashtable.empty())
 			return -1;
@@ -332,7 +471,7 @@ class dict
 		return index;
 	}
 
-	int do_insert(const K &key, int &hash)
+	int do_insert(const K &key, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(std::pair<K, T>(key, T()), -1);
@@ -345,7 +484,7 @@ class dict
 		return entries.size() - 1;
 	}
 
-	int do_insert(const std::pair<K, T> &value, int &hash)
+	int do_insert(const std::pair<K, T> &value, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(value, -1);
@@ -358,7 +497,7 @@ class dict
 		return entries.size() - 1;
 	}
 
-	int do_insert(std::pair<K, T> &&rvalue, int &hash)
+	int do_insert(std::pair<K, T> &&rvalue, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			auto key = rvalue.first;
@@ -470,7 +609,7 @@ public:
 
 	std::pair<iterator, bool> insert(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -480,7 +619,7 @@ public:
 
 	std::pair<iterator, bool> insert(const std::pair<K, T> &value)
 	{
-		int hash = do_hash(value.first);
+		Hasher::hash_t hash = do_hash(value.first);
 		int i = do_lookup(value.first, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -490,7 +629,7 @@ public:
 
 	std::pair<iterator, bool> insert(std::pair<K, T> &&rvalue)
 	{
-		int hash = do_hash(rvalue.first);
+		Hasher::hash_t hash = do_hash(rvalue.first);
 		int i = do_lookup(rvalue.first, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -500,7 +639,7 @@ public:
 
 	std::pair<iterator, bool> emplace(K const &key, T const &value)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -510,7 +649,7 @@ public:
 
 	std::pair<iterator, bool> emplace(K const &key, T &&rvalue)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -520,7 +659,7 @@ public:
 
 	std::pair<iterator, bool> emplace(K &&rkey, T const &value)
 	{
-		int hash = do_hash(rkey);
+		Hasher::hash_t hash = do_hash(rkey);
 		int i = do_lookup(rkey, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -530,7 +669,7 @@ public:
 
 	std::pair<iterator, bool> emplace(K &&rkey, T &&rvalue)
 	{
-		int hash = do_hash(rkey);
+		Hasher::hash_t hash = do_hash(rkey);
 		int i = do_lookup(rkey, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -540,35 +679,35 @@ public:
 
 	int erase(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int index = do_lookup(key, hash);
 		return do_erase(index, hash);
 	}
 
 	iterator erase(iterator it)
 	{
-		int hash = do_hash(it->first);
+		Hasher::hash_t hash = do_hash(it->first);
 		do_erase(it.index, hash);
 		return ++it;
 	}
 
 	int count(const K &key) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i < 0 ? 0 : 1;
 	}
 
 	int count(const K &key, const_iterator it) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i < 0 || i > it.index ? 0 : 1;
 	}
 
 	iterator find(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			return end();
@@ -577,7 +716,7 @@ public:
 
 	const_iterator find(const K &key) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			return end();
@@ -586,7 +725,7 @@ public:
 
 	T& at(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			throw std::out_of_range("dict::at()");
@@ -595,7 +734,7 @@ public:
 
 	const T& at(const K &key) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			throw std::out_of_range("dict::at()");
@@ -604,7 +743,7 @@ public:
 
 	const T& at(const K &key, const T &defval) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			return defval;
@@ -613,7 +752,7 @@ public:
 
 	T& operator[](const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			i = do_insert(std::pair<K, T>(key, T()), hash);
@@ -648,12 +787,14 @@ public:
 		return !operator==(other);
 	}
 
-	unsigned int hash() const {
-		unsigned int h = mkhash_init;
-		for (auto &entry : entries) {
-			h ^= hash_ops<K>::hash(entry.udata.first);
-			h ^= hash_ops<T>::hash(entry.udata.second);
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		for (auto &it : entries) {
+			Hasher entry_hash;
+			entry_hash.eat(it.udata.first);
+			entry_hash.eat(it.udata.second);
+			h.commutative_eat(entry_hash.yield());
 		}
+		h.eat(entries.size());
 		return h;
 	}
 
@@ -699,11 +840,11 @@ protected:
 	}
 #endif
 
-	int do_hash(const K &key) const
+	Hasher::hash_t do_hash(const K &key) const
 	{
-		unsigned int hash = 0;
+		Hasher::hash_t hash = 0;
 		if (!hashtable.empty())
-			hash = ops.hash(key) % (unsigned int)(hashtable.size());
+			hash = ops.hash(key).yield() % (unsigned int)(hashtable.size());
 		return hash;
 	}
 
@@ -714,13 +855,13 @@ protected:
 
 		for (int i = 0; i < int(entries.size()); i++) {
 			do_assert(-1 <= entries[i].next && entries[i].next < int(entries.size()));
-			int hash = do_hash(entries[i].udata);
+			Hasher::hash_t hash = do_hash(entries[i].udata);
 			entries[i].next = hashtable[hash];
 			hashtable[hash] = i;
 		}
 	}
 
-	int do_erase(int index, int hash)
+	int do_erase(int index, Hasher::hash_t hash)
 	{
 		do_assert(index < int(entries.size()));
 		if (hashtable.empty() || index < 0)
@@ -741,7 +882,7 @@ protected:
 
 		if (index != back_idx)
 		{
-			int back_hash = do_hash(entries[back_idx].udata);
+			Hasher::hash_t back_hash = do_hash(entries[back_idx].udata);
 
 			k = hashtable[back_hash];
 			if (k == back_idx) {
@@ -765,7 +906,7 @@ protected:
 		return 1;
 	}
 
-	int do_lookup(const K &key, int &hash) const
+	int do_lookup(const K &key, Hasher::hash_t &hash) const
 	{
 		if (hashtable.empty())
 			return -1;
@@ -785,7 +926,7 @@ protected:
 		return index;
 	}
 
-	int do_insert(const K &value, int &hash)
+	int do_insert(const K &value, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(value, -1);
@@ -798,7 +939,7 @@ protected:
 		return entries.size() - 1;
 	}
 
-	int do_insert(K &&rvalue, int &hash)
+	int do_insert(K &&rvalue, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(std::forward<K>(rvalue), -1);
@@ -905,7 +1046,7 @@ public:
 
 	std::pair<iterator, bool> insert(const K &value)
 	{
-		int hash = do_hash(value);
+		Hasher::hash_t hash = do_hash(value);
 		int i = do_lookup(value, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -915,7 +1056,7 @@ public:
 
 	std::pair<iterator, bool> insert(K &&rvalue)
 	{
-		int hash = do_hash(rvalue);
+		Hasher::hash_t hash = do_hash(rvalue);
 		int i = do_lookup(rvalue, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
@@ -931,35 +1072,35 @@ public:
 
 	int erase(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int index = do_lookup(key, hash);
 		return do_erase(index, hash);
 	}
 
 	iterator erase(iterator it)
 	{
-		int hash = do_hash(*it);
+		Hasher::hash_t hash = do_hash(*it);
 		do_erase(it.index, hash);
 		return ++it;
 	}
 
 	int count(const K &key) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i < 0 ? 0 : 1;
 	}
 
 	int count(const K &key, const_iterator it) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i < 0 || i > it.index ? 0 : 1;
 	}
 
 	iterator find(const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			return end();
@@ -968,7 +1109,7 @@ public:
 
 	const_iterator find(const K &key) const
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i < 0)
 			return end();
@@ -977,7 +1118,7 @@ public:
 
 	bool operator[](const K &key)
 	{
-		int hash = do_hash(key);
+		Hasher::hash_t hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		return i >= 0;
 	}
@@ -1016,11 +1157,12 @@ public:
 		return !operator==(other);
 	}
 
-	unsigned int hash() const {
-		unsigned int hashval = mkhash_init;
-		for (auto &it : entries)
-			hashval ^= ops.hash(it.udata);
-		return hashval;
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		for (auto &it : entries) {
+			h.commutative_eat(ops.hash(it.udata).yield());
+		}
+		h.eat(entries.size());
+		return h;
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }
@@ -1070,7 +1212,7 @@ public:
 
 	int operator()(const K &key)
 	{
-		int hash = database.do_hash(key);
+		Hasher::hash_t hash = database.do_hash(key);
 		int i = database.do_lookup(key, hash);
 		if (i < 0)
 			i = database.do_insert(key, hash);
@@ -1079,7 +1221,7 @@ public:
 
 	int at(const K &key) const
 	{
-		int hash = database.do_hash(key);
+		Hasher::hash_t hash = database.do_hash(key);
 		int i = database.do_lookup(key, hash);
 		if (i < 0)
 			throw std::out_of_range("idict::at()");
@@ -1088,7 +1230,7 @@ public:
 
 	int at(const K &key, int defval) const
 	{
-		int hash = database.do_hash(key);
+		Hasher::hash_t hash = database.do_hash(key);
 		int i = database.do_lookup(key, hash);
 		if (i < 0)
 			return defval;
@@ -1097,7 +1239,7 @@ public:
 
 	int count(const K &key) const
 	{
-		int hash = database.do_hash(key);
+		Hasher::hash_t hash = database.do_hash(key);
 		int i = database.do_lookup(key, hash);
 		return i < 0 ? 0 : 1;
 	}
@@ -1129,6 +1271,11 @@ public:
 	const_iterator end() const { return const_iterator(*this, offset + size()); }
 };
 
+/**
+ * Union-find data structure with a promotion method
+ * mfp stands for "merge, find, promote"
+ * i-prefixed methods operate on indices in parents
+*/
 template<typename K, typename OPS>
 class mfp
 {
@@ -1136,19 +1283,24 @@ class mfp
 	mutable std::vector<int> parents;
 
 public:
-	typedef typename idict<K, 0, OPS>::const_iterator const_iterator;
+	typedef typename idict<K, 0>::const_iterator const_iterator;
 
 	constexpr mfp()
 	{
 	}
 
+	// Finds a given element's index. If it isn't in the data structure,
+	// it is added as its own set
 	int operator()(const K &key) const
 	{
 		int i = database(key);
+		// If the lookup caused the database to grow,
+		// also add a corresponding entry in parents initialized to -1 (no parent)
 		parents.resize(database.size(), -1);
 		return i;
 	}
 
+	// Finds an element at given index
 	const K &operator[](int index) const
 	{
 		return database[index];
@@ -1161,6 +1313,11 @@ public:
 		while (parents[p] != -1)
 			p = parents[p];
 
+		// p is now the representative of i
+		// Now we traverse from i up to the representative again
+		// and make p the parent of all the nodes along the way.
+		// This is a side effect and doesn't affect the return value.
+		// It speeds up future find operations
 		while (k != p) {
 			int next_k = parents[k];
 			parents[k] = p;
@@ -1170,6 +1327,7 @@ public:
 		return p;
 	}
 
+	// Merge sets if the given indices belong to different sets
 	void imerge(int i, int j)
 	{
 		i = ifind(i);

@@ -114,6 +114,10 @@ struct SynthXilinxPass : public ScriptPass
 		log("        or above this number of inputs (minimum value 2, recommended value >= 5)\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -138,7 +142,7 @@ struct SynthXilinxPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, blif_file, family;
+	std::string top_opt, edif_file, blif_file, json_file, family;
 	bool flatten, retime, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -274,6 +278,10 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-dff") {
 				dff = true;
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
 				continue;
 			}
 			break;
@@ -716,6 +724,12 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
 				run(stringf("write_blif %s", blif_file.c_str()));
+		}
+
+		if (check_label("json"))
+		{
+			if (!json_file.empty() || help_mode)
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthXilinxPass;

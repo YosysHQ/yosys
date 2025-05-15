@@ -1,0 +1,83 @@
+name: Build docs artifact with Verific
+
+on: [push, pull_request]
+
+jobs:
+  check_docs_rebuild:
+    runs-on: ubuntu-latest
+    outputs:
+      skip_check: ${{ steps.skip_check.outputs.should_skip }}
+      docs_export: ${{ steps.docs_var.outputs.docs_export }}
+    env:
+      docs_export: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/docs-preview') || startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          paths_ignore: '["**/README.md"]'
+          # don't cancel in case we're updating docs
+          cancel_others: 'false'
+          # only run on push *or* pull_request, not both
+          concurrent_skipping: ${{ env.docs_export && 'never' || 'same_content_newer'}}
+      - id: docs_var
+        run: echo "docs_export=${docs_export}" >> $GITHUB_OUTPUT
+
+  prepare-docs:
+    # docs builds are needed for anything on main, any tagged versions, and any tag
+    # or branch starting with docs-preview
+    needs: check_docs_rebuild
+    if: ${{ needs.check_docs_rebuild.outputs.should_skip != 'true' }}
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Build Yosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          make -j$procs ENABLE_LTO=1
+
+      - name: Prepare docs
+        shell: bash
+        run:
+          make docs/prep -j$procs TARGETS= EXTRA_TARGETS=
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmd-ref-${{ github.sha }}
+          path: |
+            docs/source/cmd
+            docs/source/generated
+            docs/source/_images
+            docs/source/code_examples
+
+      - name: Install doc prereqs
+        shell: bash
+        run: |
+          make docs/reqs
+
+      - name: Test build docs
+        shell: bash
+        run: |
+          make -C docs html -j$procs TARGETS= EXTRA_TARGETS=
+
+      - name: Trigger RTDs build
+        if: ${{ needs.check_docs_rebuild.outputs.docs_export == 'true' }}
+        uses: dfm/rtds-action@v1.1.0
+        with:
+          webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
+          webhook_token: ${{ secrets.RTDS_WEBHOOK_TOKEN }}
+          commit_ref: ${{ github.ref }}

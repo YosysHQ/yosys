@@ -1,4 +1,4 @@
-read_ilang <<EOT
+read_rtlil <<EOT
 autoidx 2
 module \top
   wire output 3 $y

@@ -1,0 +1,34 @@
+name: Create source archive with vendored dependencies
+
+on: [push, workflow_dispatch]
+
+jobs:
+  vendor-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          persist-credentials: false
+
+      - name: Create clean tarball
+        run: |
+          git archive --format=tar HEAD -o yosys-src-vendored.tar
+          git submodule foreach '
+            git archive --format=tar --prefix="${sm_path}/" HEAD --output=${toplevel}/vendor-${name}.tar
+          '
+
+          # 2008 bug https://lists.gnu.org/archive/html/bug-tar/2008-08/msg00002.html
+          for file in vendor-*.tar; do
+              tar --concatenate --file=yosys-src-vendored.tar "$file"
+          done
+
+          gzip yosys-src-vendored.tar
+
+      - name: Store tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendored-sources
+          path: yosys-src-vendored.tar.gz
+          retention-days: 1

@@ -29,6 +29,10 @@
 #  include <editline/readline.h>
 #endif
 
+#ifdef YOSYS_ENABLE_TCL
+#  include <tcl.h>
+#endif
+
 #ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
 #endif
@@ -73,18 +77,23 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "libs/json11/json11.hpp"
-
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
 int yosys_xtrace = 0;
+bool yosys_write_versions = true;
+const char* yosys_maybe_version() {
+	if (yosys_write_versions)
+		return yosys_version_str;
+	else
+		return "Yosys";
+}
+
 RTLIL::Design *yosys_design = NULL;
 CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
-bool yosys_tcl_repl_active = false;
 #endif
 
 std::set<std::string> yosys_input_files, yosys_output_files;
@@ -92,6 +101,7 @@ std::set<std::string> yosys_input_files, yosys_output_files;
 bool memhasher_active = false;
 uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
+uint32_t Hasher::fudge = 0;
 
 std::string yosys_share_dirname;
 std::string yosys_abc_executable;
@@ -139,155 +149,10 @@ void yosys_banner()
 	log("\n");
 	log(" /----------------------------------------------------------------------------\\\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
-	log(" |  Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+	log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
-	log(" %s\n", yosys_version_str);
-}
-
-int ceil_log2(int x)
-{
-#if defined(__GNUC__)
-        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
-#else
-	if (x <= 0)
-		return 0;
-	for (int i = 0; i < 32; i++)
-		if (((x-1) >> i) == 0)
-			return i;
-	log_abort();
-#endif
-}
-
-int readsome(std::istream &f, char *s, int n)
-{
-	int rc = int(f.readsome(s, n));
-
-	// f.readsome() sometimes returns 0 on a non-empty stream..
-	if (rc == 0) {
-		int c = f.get();
-		if (c != EOF) {
-			*s = c;
-			rc = 1;
-		}
-	}
-
-	return rc;
-}
-
-std::string next_token(std::string &text, const char *sep, bool long_strings)
-{
-	size_t pos_begin = text.find_first_not_of(sep);
-
-	if (pos_begin == std::string::npos)
-		pos_begin = text.size();
-
-	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
-		string sep_string = sep;
-		for (size_t i = pos_begin+1; i < text.size(); i++) {
-			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
-				std::string token = text.substr(pos_begin, i-pos_begin+1);
-				text = text.substr(i+1);
-				return token;
-			}
-			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
-				std::string token = text.substr(pos_begin, i-pos_begin+1);
-				text = text.substr(i+2);
-				return token + ";";
-			}
-		}
-	}
-
-	size_t pos_end = text.find_first_of(sep, pos_begin);
-
-	if (pos_end == std::string::npos)
-		pos_end = text.size();
-
-	std::string token = text.substr(pos_begin, pos_end-pos_begin);
-	text = text.substr(pos_end);
-	return token;
-}
-
-std::vector<std::string> split_tokens(const std::string &text, const char *sep)
-{
-	std::vector<std::string> tokens;
-	std::string current_token;
-	for (char c : text) {
-		if (strchr(sep, c)) {
-			if (!current_token.empty()) {
-				tokens.push_back(current_token);
-				current_token.clear();
-			}
-		} else
-			current_token += c;
-	}
-	if (!current_token.empty()) {
-		tokens.push_back(current_token);
-		current_token.clear();
-	}
-	return tokens;
-}
-
-// this is very similar to fnmatch(). the exact rules used by this
-// function are:
-//
-//    ?        matches any character except
-//    *        matches any sequence of characters
-//    [...]    matches any of the characters in the list
-//    [!..]    matches any of the characters not in the list
-//
-// a backslash may be used to escape the next characters in the
-// pattern. each special character can also simply match itself.
-//
-bool patmatch(const char *pattern, const char *string)
-{
-	if (*pattern == 0)
-		return *string == 0;
-
-	if (*pattern == '\\') {
-		if (pattern[1] == string[0] && patmatch(pattern+2, string+1))
-			return true;
-	}
-
-	if (*pattern == '?') {
-		if (*string == 0)
-			return false;
-		return patmatch(pattern+1, string+1);
-	}
-
-	if (*pattern == '*') {
-		while (*string) {
-			if (patmatch(pattern+1, string++))
-				return true;
-		}
-		return pattern[1] == 0;
-	}
-
-	if (*pattern == '[') {
-		bool found_match = false;
-		bool inverted_list = pattern[1] == '!';
-		const char *p = pattern + (inverted_list ? 1 : 0);
-
-		while (*++p) {
-			if (*p == ']') {
-				if (found_match != inverted_list && patmatch(p+1, string+1))
-					return true;
-				break;
-			}
-
-			if (*p == '\\') {
-				if (*++p == *string)
-					found_match = true;
-			} else
-			if (*p == *string)
-				found_match = true;
-		}
-	}
-
-	if (*pattern == *string)
-		return patmatch(pattern+1, string+1);
-
-	return false;
+	log(" %s\n", yosys_maybe_version());
 }
 
 #if !defined(YOSYS_DISABLE_SPAWN)
@@ -321,225 +186,6 @@ int run_command(const std::string &command, std::function<void(const std::string
 }
 #endif
 
-std::string get_base_tmpdir()
-{
-	static std::string tmpdir;
-
-	if (!tmpdir.empty()) {
-		return tmpdir;
-	}
-
-#if defined(_WIN32)
-#  ifdef __MINGW32__
-	char longpath[MAX_PATH + 1];
-	char shortpath[MAX_PATH + 1];
-#  else
-	WCHAR longpath[MAX_PATH + 1];
-	TCHAR shortpath[MAX_PATH + 1];
-#  endif
-	if (!GetTempPath(MAX_PATH+1, longpath))
-		log_error("GetTempPath() failed.\n");
-	if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
-		log_error("GetShortPathName() failed.\n");
-	for (int i = 0; shortpath[i]; i++)
-		tmpdir += char(shortpath[i]);
-#else
-	char * var = std::getenv("TMPDIR");
-	if (var && strlen(var)!=0) {
-		tmpdir.assign(var);
-		// We return the directory name without the trailing '/'
-		while (!tmpdir.empty() && (tmpdir.back() == '/')) {
-			tmpdir.pop_back();
-		}
-	} else {
-		tmpdir.assign("/tmp");
-	}
-#endif
-	return tmpdir;
-}
-
-std::string make_temp_file(std::string template_str)
-{
-	size_t pos = template_str.rfind("XXXXXX");
-	log_assert(pos != std::string::npos);
-#if defined(__wasm)
-	static size_t index = 0;
-	template_str.replace(pos, 6, stringf("%06zu", index++));
-#elif defined(_WIN32)
-#ifndef YOSYS_WIN32_UNIX_DIR
-	std::replace(template_str.begin(), template_str.end(), '/', '\\');
-#endif
-	while (1) {
-		for (int i = 0; i < 6; i++) {
-			static std::string y = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-			static uint32_t x = 314159265 ^ uint32_t(time(NULL));
-			x ^= x << 13, x ^= x >> 17, x ^= x << 5;
-			template_str[pos+i] = y[x % y.size()];
-		}
-		if (_access(template_str.c_str(), 0) != 0)
-			break;
-	}
-#else
-	int suffixlen = GetSize(template_str) - pos - 6;
-
-	char *p = strdup(template_str.c_str());
-	close(mkstemps(p, suffixlen));
-	template_str = p;
-	free(p);
-#endif
-
-	return template_str;
-}
-
-std::string make_temp_dir(std::string template_str)
-{
-#if defined(_WIN32)
-	template_str = make_temp_file(template_str);
-	mkdir(template_str.c_str());
-	return template_str;
-#elif defined(__wasm)
-	template_str = make_temp_file(template_str);
-	mkdir(template_str.c_str(), 0777);
-	return template_str;
-#else
-#  ifndef NDEBUG
-	size_t pos = template_str.rfind("XXXXXX");
-	log_assert(pos != std::string::npos);
-
-	int suffixlen = GetSize(template_str) - pos - 6;
-	log_assert(suffixlen == 0);
-#  endif
-
-	char *p = strdup(template_str.c_str());
-	char *res = mkdtemp(p);
-	log_assert(res != NULL);
-	template_str = p;
-	free(p);
-
-	return template_str;
-#endif
-}
-
-bool check_directory_exists(const std::string& dirname)
-{
-#if defined(_WIN32)
-	struct _stat info;
-	if (_stat(dirname.c_str(), &info) != 0)
-	{
-		return false;
-	}
-	return (info.st_mode & _S_IFDIR) != 0;
-#else
-	struct stat info;
-	if (stat(dirname.c_str(), &info) != 0)
-	{
-		return false;
-	}
-	return (info.st_mode & S_IFDIR) != 0;
-#endif
-}
-
-#ifdef _WIN32
-bool check_file_exists(std::string filename, bool)
-{
-	return _access(filename.c_str(), 0) == 0;
-}
-#else
-bool check_file_exists(std::string filename, bool is_exec)
-{
-	return access(filename.c_str(), is_exec ? X_OK : F_OK) == 0;
-}
-#endif
-
-bool is_absolute_path(std::string filename)
-{
-#ifdef _WIN32
-	return filename[0] == '/' || filename[0] == '\\' || (filename[0] != 0 && filename[1] == ':');
-#else
-	return filename[0] == '/';
-#endif
-}
-
-void remove_directory(std::string dirname)
-{
-#ifdef _WIN32
-	run_command(stringf("rmdir /s /q \"%s\"", dirname.c_str()));
-#else
-	struct stat stbuf;
-	struct dirent **namelist;
-	int n = scandir(dirname.c_str(), &namelist, nullptr, alphasort);
-	log_assert(n >= 0);
-	for (int i = 0; i < n; i++) {
-		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-			std::string buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
-			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
-				remove(buffer.c_str());
-			} else
-				remove_directory(buffer);
-		}
-		free(namelist[i]);
-	}
-	free(namelist);
-	rmdir(dirname.c_str());
-#endif
-}
-
-bool create_directory(const std::string& dirname)
-{
-#if defined(_WIN32)
-	int ret = _mkdir(dirname.c_str());
-#else
-	mode_t mode = 0755;
-	int ret = mkdir(dirname.c_str(), mode);
-#endif
-	if (ret == 0)
-		return true;
-
-	switch (errno)
-	{
-	case ENOENT:
-		// parent didn't exist, try to create it
-		{
-			std::string::size_type pos = dirname.find_last_of('/');
-			if (pos == std::string::npos)
-#if defined(_WIN32)
-				pos = dirname.find_last_of('\\');
-			if (pos == std::string::npos)
-#endif
-				return false;
-			if (!create_directory( dirname.substr(0, pos) ))
-				return false;
-		}
-		// now, try to create again
-#if defined(_WIN32)
-		return 0 == _mkdir(dirname.c_str());
-#else
-		return 0 == mkdir(dirname.c_str(), mode);
-#endif
-
-	case EEXIST:
-		// done!
-		return check_directory_exists(dirname);
-
-	default:
-		return false;
-	}
-}
-
-std::string escape_filename_spaces(const std::string& filename)
-{
-	std::string out;
-	out.reserve(filename.size());
-	for (auto c : filename)
-	{
-		if (c == ' ')
-			out += "\\ ";
-		else
-			out.push_back(c);
-	}
-	return out;
-}
-
 bool already_setup = false;
 
 void yosys_setup()
@@ -547,19 +193,25 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
+
+#ifdef WITH_PYTHON
+	// With Python 3.12, calling PyImport_AppendInittab on an already
+	// initialized platform fails (such as when libyosys is imported
+	// from a Python interpreter)
+	if (!Py_IsInitialized()) {
+		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		Py_Initialize();
+		PyRun_SimpleString("import sys");
+		signal(SIGINT, SIG_DFL);
+	}
+#endif
+
 	init_share_dirname();
 	init_abc_executable_name();
 
 #define X(_id) RTLIL::ID::_id = "\\" # _id;
 #include "kernel/constids.inc"
 #undef X
-
-	#ifdef WITH_PYTHON
-		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
-		Py_Initialize();
-		PyRun_SimpleString("import sys");
-		signal(SIGINT, SIG_DFL);
-	#endif
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -668,11 +320,11 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	str += "yosys";
 	if (!design->selected_active_module.empty())
 		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module).c_str());
-	if (!design->selection_stack.empty() && !design->selection_stack.back().full_selection) {
+	if (!design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";
-		else if (design->selection_stack.back().selected_modules.size() != 1 || design->selection_stack.back().selected_members.size() != 0 ||
-				design->selection_stack.back().selected_modules.count(design->selected_active_module) == 0)
+		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
+				design->selection().selected_modules.count(design->selected_active_module) == 0)
 			str += "*";
 	}
 	snprintf(buffer, 100, "%s> ", str.c_str());
@@ -716,126 +368,8 @@ void rewrite_filename(std::string &filename)
 
 #ifdef YOSYS_ENABLE_TCL
 
-static Tcl_Obj *json_to_tcl(Tcl_Interp *interp, const json11::Json &json)
-{
-	if (json.is_null())
-		return Tcl_NewStringObj("null", 4);
-	else if (json.is_string()) {
-		auto string = json.string_value();
-		return Tcl_NewStringObj(string.data(), string.size());
-	} else if (json.is_number()) {
-		double value = json.number_value();
-		double round_val = std::nearbyint(value);
-		if (std::isfinite(round_val) && value == round_val && value >= LONG_MIN && value < -double(LONG_MIN))
-			return Tcl_NewLongObj((long)round_val);
-		else
-			return Tcl_NewDoubleObj(value);
-	} else if (json.is_bool()) {
-		return Tcl_NewBooleanObj(json.bool_value());
-	} else if (json.is_array()) {
-		auto list = json.array_items();
-		Tcl_Obj *result = Tcl_NewListObj(list.size(), nullptr);
-		for (auto &item : list)
-			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item));
-		return result;
-	} else if (json.is_object()) {
-		auto map = json.object_items();
-		Tcl_Obj *result = Tcl_NewListObj(map.size() * 2, nullptr);
-		for (auto &item : map) {
-			Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(item.first.data(), item.first.size()));
-			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item.second));
-		}
-		return result;
-	} else {
-		log_abort();
-	}
-}
-
-static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
-{
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; i++)
-		args.push_back(argv[i]);
-
-	if (args.size() >= 1 && args[0] == "-import") {
-		for (auto &it : pass_register) {
-			std::string tcl_command_name = it.first;
-			if (tcl_command_name == "proc")
-				tcl_command_name = "procs";
-			else if (tcl_command_name == "rename")
-				tcl_command_name = "renames";
-			Tcl_CmdInfo info;
-			if (Tcl_GetCommandInfo(interp, tcl_command_name.c_str(), &info) != 0) {
-				log("[TCL: yosys -import] Command name collision: found pre-existing command `%s' -> skip.\n", it.first.c_str());
-			} else {
-				std::string tcl_script = stringf("proc %s args { yosys %s {*}$args }", tcl_command_name.c_str(), it.first.c_str());
-				Tcl_Eval(interp, tcl_script.c_str());
-			}
-		}
-		return TCL_OK;
-	}
-
-	yosys_get_design()->scratchpad_unset("result.json");
-	yosys_get_design()->scratchpad_unset("result.string");
-
-	bool in_repl = yosys_tcl_repl_active;
-	bool restore_log_cmd_error_throw = log_cmd_error_throw;
-
-	log_cmd_error_throw = true;
-
-	try {
-		if (args.size() == 1) {
-			Pass::call(yosys_get_design(), args[0]);
-		} else {
-			Pass::call(yosys_get_design(), args);
-		}
-	} catch (log_cmd_error_exception) {
-		if (in_repl) {
-			auto design = yosys_get_design();
-			while (design->selection_stack.size() > 1)
-				design->selection_stack.pop_back();
-			log_reset_stack();
-		}
-		Tcl_SetResult(interp, (char *)"Yosys command produced an error", TCL_STATIC);
-
-		yosys_tcl_repl_active = in_repl;
-		log_cmd_error_throw = restore_log_cmd_error_throw;
-		return TCL_ERROR;
-	} catch (...) {
-		log_error("uncaught exception during Yosys command invoked from TCL\n");
-	}
-
-	yosys_tcl_repl_active = in_repl;
-	log_cmd_error_throw = restore_log_cmd_error_throw;
-
-	auto &scratchpad = yosys_get_design()->scratchpad;
-	auto result = scratchpad.find("result.json");
-	if (result != scratchpad.end()) {
-		std::string err;
-		auto json = json11::Json::parse(result->second, err);
-		if (err.empty()) {
-			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
-		} else
-			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
-	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
-		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
-	}
-
-	return TCL_OK;
-}
-
-int yosys_tcl_iterp_init(Tcl_Interp *interp)
-{
-	if (Tcl_Init(interp)!=TCL_OK)
-		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
-	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
-	return TCL_OK ;
-}
-
-void yosys_tcl_activate_repl()
-{
-	yosys_tcl_repl_active = true;
-}
+// defined in tclapi.cc
+extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
 
 extern Tcl_Interp *yosys_get_tcl_interp()
 {
@@ -864,9 +398,10 @@ struct TclPass : public Pass {
 		log("If any arguments are specified, these arguments are provided to the script via\n");
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
-		log("Note, tcl will not recieve the output of any yosys command. If the output\n");
+		log("Note, tcl will not receive the output of any yosys command. If the output\n");
 		log("of the tcl commands are needed, use the yosys command 'tee -s result.string'\n");
 		log("to redirect yosys's output to the 'result.string' scratchpad value.\n");
+		log("The 'result.string' value is then used as the tcl output value of the command.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override {
@@ -967,7 +502,7 @@ std::string proc_self_dirname()
 {
 	return "/";
 }
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__HAIKU__)
 char yosys_path[PATH_MAX];
 char *yosys_argv0;
 
@@ -1008,32 +543,42 @@ void init_share_dirname()
 #else
 void init_share_dirname()
 {
+#  ifdef WITH_PYTHON
+	PyObject *sys_obj = PyImport_ImportModule("sys");
+
+	if (PyObject_HasAttrString(sys_obj, "_pyosys_share_dirname")) {
+		PyObject *share_path_obj = PyObject_GetAttrString(sys_obj, "_pyosys_share_dirname");
+		const char *share_path = PyUnicode_AsUTF8(share_path_obj);
+		yosys_share_dirname = std::string(share_path);
+		return;
+	}
+#  endif
 	std::string proc_self_path = proc_self_dirname();
 #  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
 	std::string proc_share_path = proc_self_path + "share\\";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 	proc_share_path = proc_self_path + "..\\share\\";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 #  else
 	std::string proc_share_path = proc_self_path + "share/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 	proc_share_path = proc_self_path + "../share/" + proc_program_prefix()+ "yosys/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
 #    ifdef YOSYS_DATDIR
 	proc_share_path = YOSYS_DATDIR "/";
-	if (check_file_exists(proc_share_path, true)) {
+	if (check_directory_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
 	}
@@ -1053,12 +598,20 @@ void init_abc_executable_name()
 	}
 #else
 	yosys_abc_executable = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
-#endif
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
+#  ifdef _WIN32
 	if (!check_file_exists(yosys_abc_executable + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
 		yosys_abc_executable = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
+#  endif
+
+#  ifdef WITH_PYTHON
+	PyObject *sys_obj = PyImport_ImportModule("sys");
+
+	if (PyObject_HasAttrString(sys_obj, "_pyosys_abc")) {
+		PyObject *abc_path_obj = PyObject_GetAttrString(sys_obj, "_pyosys_abc");
+		const char *abc_path = PyUnicode_AsUTF8(abc_path_obj);
+		yosys_abc_executable = std::string(abc_path);
+	}
+#  endif
 #endif
 }
 
@@ -1126,31 +679,40 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		design = yosys_design;
 
 	if (command == "auto") {
-		std::string filename_trim = filename;
-		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
-			filename_trim.erase(filename_trim.size()-3);
-		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
-			command = " -vlog2k";
-		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
-			command = " -sv";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
-			command = " -vhdl";
-		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
-			command = "blif";
-		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
-			command = "blif";
-		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
-			command = "json";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
-			command = "rtlil";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
-			command = "script";
-		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
-			command = "tcl";
-		else if (filename == "-")
-			command = "script";
-		else
-			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+	  std::string filename_trim = filename;
+
+	  auto has_extension = [](const std::string& filename, const std::string& extension) {
+	    if (filename.size() >= extension.size()) {
+	      return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
+	    }
+	    return false;
+	  };
+
+	  if (has_extension(filename_trim, ".gz")) {
+	    filename_trim.erase(filename_trim.size() - 3);
+	  }
+
+	  if (has_extension(filename_trim, ".v")) {
+	    command = " -vlog2k";
+	  } else if (has_extension(filename_trim, ".sv")) {
+	    command = " -sv";
+	  } else if (has_extension(filename_trim, ".vhd") || has_extension(filename_trim, ".vhdl")) {
+	    command = " -vhdl";
+	  } else if (has_extension(filename_trim, ".blif") || has_extension(filename_trim, ".eblif")) {
+	    command = "blif";
+	  } else if (has_extension(filename_trim, ".json")) {
+	    command = "json";
+	  } else if (has_extension(filename_trim, ".il")) {
+	    command = "rtlil";
+	  } else if (has_extension(filename_trim, ".ys")) {
+	    command = "script";
+	  } else if (has_extension(filename_trim, ".tcl")) {
+	    command = "tcl";
+	  } else if (filename == "-") {
+	    command = "script";
+	  } else {
+	    log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+	  }
 	}
 
 	if (command == "script")
@@ -1425,7 +987,7 @@ void shell(RTLIL::Design *design)
 			Pass::call(design, command);
 		} catch (log_cmd_error_exception) {
 			while (design->selection_stack.size() > 1)
-				design->selection_stack.pop_back();
+				design->pop_selection();
 			log_reset_stack();
 		}
 		design->check();

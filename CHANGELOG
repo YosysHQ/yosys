@@ -2,8 +2,187 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.41 .. Yosys 0.42-dev
+Yosys 0.53 .. Yosys 0.54-dev
 --------------------------
+
+Yosys 0.52 .. Yosys 0.53
+--------------------------
+ * New commands and options
+    - Added "constmap" pass for technology mapping of coarse constant value.
+    - Added "timeest" pass to estimate the critical path in clock domain.
+    - Added "-blackbox" option to "cutpoint" pass to cut all instances of
+      blackboxes.
+    - Added "-noscopeinfo" option to "cutpoint" pass.
+    - Added "-nocleanup" option to "flatten" pass to prevent removal of
+      unused submodules.
+    - Added "-declockgate" option to "formalff" pass that turns clock
+      gating into clock enables.
+
+ * Various
+    - Added "$scopeinfo" cells to preserve information during "cutpoint" pass.
+    - Added dataflow tracking documentation.
+    - share: Restrict activation patterns to potentially relevant signal.
+    - liberty: More robust parsing.
+    - verific: bit blast RAM if using mem2reg attribute.
+
+Yosys 0.51 .. Yosys 0.52
+--------------------------
+ * New commands and options
+    - Added "-pattern-limit" option to "share" pass to limit analysis effort.
+    - Added "libcache" pass to control caching of technology library 
+      data parsed from liberty files.
+    - Added "read_verilog_file_list" to parse verilog file list.
+
+ * Various
+    - Added $macc_v2 cell.
+    - Improve lexer performance and zlib support for "read_liberty".
+    - opt_expr: optimize pow of 2 cells.
+
+
+Yosys 0.50 .. Yosys 0.51
+--------------------------
+ * New commands and options
+    - Added "abstract" pass to allow reducing and never increasing
+      the constraints on a circuit's behavior in a formal verification setting.
+
+ * Various
+    - "splitcells" pass now splits "aldff" cells.
+    - FunctionalIR documentation
+
+ * QuickLogic support
+    - Added IOFF inference for qlf_k6n10f
+
+ * Intel support
+    - Fixed RAM and DSP support.
+    - Overall performance improvement for "synth_intel".
+
+Yosys 0.49 .. Yosys 0.50
+--------------------------
+ * Various
+    - "write_verilog" emits "$check" cell names as labels.
+
+Yosys 0.48 .. Yosys 0.49
+--------------------------
+ * Various
+    - "$scopeinfo" cells are now part of JSON export by default.
+    - Added option to specify hierarchical separator for "flatten".
+    - Improved "wreduce" to handle more cases of operator size reduction.
+    - Updated hashing interface, see docs/source/yosys_internals/hashing.rst
+      for breaking API changes.
+
+ * New commands and options
+    - Added "-noscopeinfo" option to "json" and "write_json" pass.
+
+Yosys 0.47 .. Yosys 0.48
+--------------------------
+ * Various
+    - Removed "read_ilang" deprecated pass.
+    - Enhanced boxing features in the experimental "abc_new" command.
+    - Added new Tcl methods for design inspection.
+    - Added clock enable inference to "dfflibmap".
+    - Added a Han-Carlson and Sklansky option for $lcu mapping.
+
+ * New commands and options
+    - Added "-nopeepopt" option to "clk2fflogic" pass.
+    - Added "-liberty" and "-dont_use" options to "clockgate" pass.
+    - Added "-ignore_buses" option to "read_liberty" pass.
+    - Added "-dont_map" option to "techmap" pass.
+    - Added "-selected" option to "write_json" pass.
+    - Added "wrapcell" command for creating wrapper modules
+      around selected cells.
+    - Added "portarcs" command for deriving propagation timing arcs.
+    - Added "setenv" command for setting environment variables.
+
+ * Gowin support
+    - Added "-family" option to "synth_gowin" pass.
+    - Cell definitions split by family. 
+
+ * Verific support
+    - Improved blackbox support.
+
+Yosys 0.46 .. Yosys 0.47
+--------------------------
+ * Various
+    - Added cxxopts library for handling command line arguments.
+    - Added docs generation from cells help output.
+
+ * New commands and options
+    - Added "-json" option to "synth_xilinx" pass.
+    - Added "-derive_luts" option to "cellmatch" pass.
+    - Added "t:@<name>" syntax to "select" pass.
+    - Added "-list-mod" option to "select" pass.
+    - Removed deprecated "qwp" pass.
+
+ * Verific support
+    - Initial state handling for VHDL assertions.
+
+Yosys 0.45 .. Yosys 0.46
+--------------------------
+ * Various
+    - Added new "functional backend" infrastructure with three example
+      backends (C++, SMTLIB and Rosette).
+    - Added new coarse-grain buffer cell type "$buf" to RTLIL.
+    - Added "-y" command line option to execute a Python script with 
+      libyosys available as a built-in module.
+    - Added support for casting to type in Verilog frontend.
+
+ * New commands and options
+    - Added "clockgate" pass for automatic clock gating cell insertion.
+    - Added "bufnorm" experimental pass to convert design into
+      buffered-normalized form.
+    - Added experimental "aiger2" and "xaiger2" backends, and an 
+      experimental "abc_new" command
+    - Added "-force-detailed-loop-check" option to "check" pass.
+    - Added "-unit_delay" option to "read_liberty" pass.
+
+ * Verific support
+    - Added left and right bound properties to wires when using
+      specific VHDL types.
+
+Yosys 0.44 .. Yosys 0.45
+--------------------------
+ * Various
+    - Added cell types help messages.
+
+ * New back-ends
+    - Added initial NG-Ultra support. ( synth_nanoxplore )
+
+Yosys 0.43 .. Yosys 0.44
+--------------------------
+ * Various
+    - Added ENABLE_LTO compile option to enable link time
+      optimizations.
+    - Build support for Haiku OS.
+
+ * New commands and options
+    - Added "keep_hierarchy" pass to add attribute with 
+      same name to modules based on cost.
+    - Added options "-noopt","-bloat" and "-check_cost" to
+      "test_cell" pass. 
+
+ * New back-ends
+    - Added initial PolarFire support. ( synth_microchip )
+
+Yosys 0.42 .. Yosys 0.43
+--------------------------
+ * Various
+    - C++ compiler with C++17 support is required.
+    - Support for IO liberty files for verification.
+    - Limit padding from shiftadd for "peepopt" pass.
+
+ * Verific support
+    - Support building Yosys with various Verific library
+      configurations. Can be built now without YosysHQ 
+      specific patch and extension library.
+
+Yosys 0.41 .. Yosys 0.42
+--------------------------
+ * New commands and options
+    - Added "box_derive" pass to derive box modules.
+    - Added option "assert-mod-count" to "select" pass. 
+    - Added option "-header","-push" and "-pop" to "log" pass. 
+ * Intel support
+    - Dropped Quartus support in "synth_intel_alm" pass.
 
 Yosys 0.40 .. Yosys 0.41
 --------------------------

@@ -80,6 +80,7 @@ USING_YOSYS_NAMESPACE
 using namespace Verific;
 #endif
 
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 PRIVATE_NAMESPACE_BEGIN
 
 // Non-deterministic FSM
@@ -574,7 +575,7 @@ struct SvaFsm
 
 				if (delta_pos >= 0 && i_within_j && j_within_i) {
 					did_something = true;
-					values[i][delta_pos] = State::Sa;
+					values[i].bits()[delta_pos] = State::Sa;
 					values[j] = values.back();
 					values.pop_back();
 					goto next_pair;
@@ -1050,7 +1051,7 @@ struct VerificSvaImporter
 				msg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
-	dict<Net*, bool, hash_ptr_ops> check_expression_cache;
+	dict<Net*, bool> check_expression_cache;
 
 	bool check_expression(Net *net, bool raise_error = false)
 	{
@@ -1878,5 +1879,8 @@ bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net)
 	worker.importer = importer;
 	return worker.net_to_ast_driver(net) != nullptr;
 }
-
+#else
+YOSYS_NAMESPACE_BEGIN
+pool<int> verific_sva_prims = {};
+#endif
 YOSYS_NAMESPACE_END

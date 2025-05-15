@@ -1411,6 +1411,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			module->connect(conn);
 		}
 
+		cell_stats.sort();
 		for (auto &it : cell_stats)
 			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
 		int in_wires = 0, out_wires = 0;
@@ -1718,7 +1719,7 @@ struct AbcPass : public Pass {
 			show_tempdir = true;
 		}
 
-		size_t argidx, g_argidx;
+		size_t argidx, g_argidx = -1;
 		bool g_arg_from_cmd = false;
 #if defined(__wasm)
 		const char *pwd = ".";

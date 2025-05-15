@@ -49,6 +49,6 @@ exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-f \"veri
     clean; \
     check -assert * abc9_test037 %d; \
     select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%; \
-    setattr -mod -unset blackbox -unset whitebox'"
+    setattr -mod -unset blackbox -unset whitebox =*'"
 
 # NOTE: Skip 'check -assert' on abc9_test037 because it intentionally has a combinatorial loop

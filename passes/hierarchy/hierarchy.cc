@@ -219,7 +219,7 @@ struct IFExpander
 	                  const RTLIL::SigSpec &conn_signals)
 	{
 		// Check if the connected wire is a potential interface in the parent module
-		std::string interface_name_str = conn_signals.bits()[0].wire->name.str();
+		std::string interface_name_str = conn_signals[0].wire->name.str();
 		// Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 		interface_name_str.replace(0,23,"");
 		interface_name_str = "\\" + interface_name_str;
@@ -289,7 +289,7 @@ struct IFExpander
 			return;
 
 		// If the connection looks like an interface, handle it.
-		const auto &bits = conn_signals.bits();
+		const auto &bits = conn_signals;
 		if (bits.size() == 1 && bits[0].wire->get_bool_attribute(ID::is_interface))
 			on_interface(submodule, conn_name, conn_signals);
 	}
@@ -978,6 +978,11 @@ struct HierarchyPass : public Pass {
 			}
 		}
 
+		bool verific_mod = false;
+#ifdef YOSYS_ENABLE_VERIFIC
+		verific_mod = verific_import_pending;
+#endif
+
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
@@ -1003,8 +1008,10 @@ struct HierarchyPass : public Pass {
 
 		if (top_mod == nullptr)
 			for (auto mod : design->modules())
-				if (mod->get_bool_attribute(ID::top))
+				if (mod->get_bool_attribute(ID::top)) {
+					log("Attribute `top' found on module `%s'. Setting top module to %s.\n", log_id(mod), log_id(mod));
 					top_mod = mod;
+				}
 
 		if (top_mod == nullptr)
 		{
@@ -1416,13 +1423,18 @@ struct HierarchyPass : public Pass {
 				if (m == nullptr)
 					continue;
 
-				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
-					IdString new_m_name = m->derive(design, cell->parameters, true);
-					if (new_m_name.empty())
-						continue;
-					if (new_m_name != m->name) {
-						m = design->module(new_m_name);
-						blackbox_derivatives.insert(m);
+				bool boxed_params = false;
+				if (m->get_blackbox_attribute() && !cell->parameters.empty()) {
+					if (m->get_bool_attribute(ID::dynports)) {
+						IdString new_m_name = m->derive(design, cell->parameters, true);
+						if (new_m_name.empty())
+							continue;
+						if (new_m_name != m->name) {
+							m = design->module(new_m_name);
+							blackbox_derivatives.insert(m);
+						}
+					} else {
+						boxed_params = true;
 					}
 				}
 
@@ -1438,8 +1450,12 @@ struct HierarchyPass : public Pass {
 
 					SigSpec sig = conn.second;
 
-					if (!keep_portwidths && GetSize(w) != GetSize(conn.second))
-					{
+					bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
+					if (resize_widths && verific_mod && boxed_params)
+						log_warning("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
+								log_id(module), log_id(cell), log_id(conn.first)
+						);
+					else if (resize_widths) {
 						if (GetSize(w) < GetSize(conn.second))
 						{
 							int n = GetSize(conn.second) - GetSize(w);

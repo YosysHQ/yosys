@@ -25,7 +25,7 @@ wide range of real-world designs, including the `OpenRISC 1200 CPU`_, the
 
 .. _k68 CPU: http://opencores.org/projects/k68
 
-Yosys is written in C++, targeting C++11 at minimum. This chapter describes some
+Yosys is written in C++, targeting C++17 at minimum. This chapter describes some
 of the fundamental Yosys data structures. For the sake of simplicity the C++
 type names used in the Yosys implementation are used in this chapter, even
 though the chapter only explains the conceptual idea behind it and can be used
@@ -38,3 +38,5 @@ as reference to implement a similar system in any language.
    formats/index
    extending_yosys/index
    techmap
+   verilog
+   hashing

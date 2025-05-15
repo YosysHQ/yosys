@@ -26,6 +26,10 @@
  *
  */
 
+#if !defined(__wasm)
+#include <filesystem>
+#endif
+
 #include "verilog_frontend.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
@@ -671,6 +675,89 @@ struct VerilogDefines : public Pass {
 			cmd_error(args, argidx, "Extra argument.");
 	}
 } VerilogDefines;
+
+#if !defined(__wasm)
+
+static void parse_file_list(const std::string &file_list_path, RTLIL::Design *design, bool relative_to_file_list_path)
+{
+	std::ifstream flist(file_list_path);
+	if (!flist.is_open()) {
+		log_error("Verilog file list file does not exist");
+		exit(1);
+	}
+
+	std::filesystem::path file_list_parent_dir = std::filesystem::path(file_list_path).parent_path();
+
+	std::string v_file_name;
+	while (std::getline(flist, v_file_name)) {
+		if (v_file_name.empty()) {
+			continue;
+		}
+
+		std::filesystem::path verilog_file_path;
+		if (relative_to_file_list_path) {
+			verilog_file_path = file_list_parent_dir / v_file_name;
+		} else {
+			verilog_file_path = std::filesystem::current_path() / v_file_name;
+		}
+
+		bool is_sv = (verilog_file_path.extension() == ".sv");
+
+		std::vector<std::string> read_verilog_cmd = {"read_verilog", "-defer"};
+		if (is_sv) {
+			read_verilog_cmd.push_back("-sv");
+		}
+		read_verilog_cmd.push_back(verilog_file_path.string());
+		Pass::call(design, read_verilog_cmd);
+	}
+
+	flist.close();
+}
+
+struct VerilogFileList : public Pass {
+	VerilogFileList() : Pass("read_verilog_file_list", "parse a Verilog file list") {}
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    read_verilog_file_list [options]\n");
+		log("\n");
+		log("Parse a Verilog file list, and pass the list of Verilog files to read_verilog\n");
+		log("command\n");
+		log("\n");
+		log("    -F file_list_path\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is\n");
+		log("        treated relative to the file list file\n");
+		log("\n");
+		log("    -f file_list_path\n");
+		log("        File list file contains list of Verilog files to be parsed, any path is\n");
+		log("        treated relative to current working directroy\n");
+		log("\n");
+	}
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-F" && argidx + 1 < args.size()) {
+				std::string file_list_path = args[++argidx];
+				parse_file_list(file_list_path, design, true);
+				continue;
+			}
+			if (arg == "-f" && argidx + 1 < args.size()) {
+				std::string file_list_path = args[++argidx];
+				parse_file_list(file_list_path, design, false);
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
+	}
+} VerilogFilelist;
+
+#endif
 
 YOSYS_NAMESPACE_END
 

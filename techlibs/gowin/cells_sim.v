@@ -618,6 +618,21 @@ module OSER4(D3, D2, D1, D0, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	parameter HWL = "false";
 endmodule
 
+module OSER4_MEM (Q0, Q1, D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET)  ;
+    parameter GSREN = "";
+    parameter LSREN = "";
+    parameter HWL = "";
+    parameter TCLK_SOURCE = "";
+    parameter TXCLK_POL = "";
+
+    input D0, D1, D2, D3;
+    input TX0, TX1;
+    input PCLK, FCLK, TCLK, RESET;
+    output  Q0,  Q1;
+
+    parameter ID = "";
+endmodule
+
 module OSER8(D7, D6, D5, D4, D3, D2, D1, D0, TX3, TX2, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
 	output Q1;
 	output Q0;
@@ -727,6 +742,21 @@ RESET, CALIB, D);
 
 	parameter GSREN = "false";
 	parameter LSREN = "true";
+endmodule
+
+module IDES4_MEM (Q0, Q1, Q2, Q3, D, WADDR,
+RADDR, CALIB, PCLK, FCLK, ICLK, RESET)  ;
+parameter GSREN = "";
+parameter LSREN = "";
+
+input D, ICLK, FCLK, PCLK;
+input [2:0] WADDR;
+input [2:0] RADDR;
+input CALIB, RESET;
+
+output Q0,Q1,Q2,Q3;
+
+parameter ID = "";
 endmodule
 
 module IDES8(Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
@@ -842,6 +872,28 @@ module IDDRC(D, CLK, CLEAR, Q0, Q1);
 	parameter Q1_INIT = 1'b0;
 endmodule
 
+module DQS(DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID, RBURST, RFLAG,
+WFLAG, DQSIN, DLLSTEP, WSTEP, READ, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR,
+HOLD, RCLKSEL, PCLK, FCLK, RESET) ;
+    input DQSIN,PCLK,FCLK,RESET;
+    input [3:0] READ;
+    input [2:0] RCLKSEL;
+    input [7:0] DLLSTEP;
+    input [7:0] WSTEP;
+    input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+
+    output DQSR90, DQSW0, DQSW270;
+    output [2:0] RPOINT, WPOINT;
+    output RVALID,RBURST, RFLAG, WFLAG;
+
+    parameter FIFO_MODE_SEL = "";
+    parameter RD_PNTR = "";
+    parameter DQS_MODE = "";
+    parameter HWL = "";
+    parameter GSREN = "";
+    parameter ID = "";
+endmodule
+
 (* blackbox *)
 module ODDR(D0, D1, TX, CLK, Q0, Q1);
 	input D0;
@@ -867,8 +919,12 @@ module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
 	parameter INIT = 0;
 endmodule
 
+(* blackbox, keep *)
 module GSR (input GSRI);
-	wire GSRO = GSRI;
+endmodule
+
+(* blackbox, keep *)
+module BANDGAP (input BGEN);
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -949,7 +1005,7 @@ always @* begin
 			C = I0;
 		end
 		MULT: begin
-			S = I0 & I1;
+			S = (I0 & I1) ^ I3;
 			C = I0 & I1;
 		end
 	endcase
@@ -1901,3 +1957,112 @@ output OSCOUT;
 parameter FREQ_DIV = 100;
 parameter REGULATOR_EN = 1'b0;
 endmodule
+
+(* blackbox *)
+module DCS (CLK0, CLK1, CLK2, CLK3, CLKSEL, SELFORCE, CLKOUT);
+input CLK0, CLK1, CLK2, CLK3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";
+endmodule
+
+(* blackbox *)
+module EMCU (
+  input          FCLK,
+  input          PORESETN,
+  input          SYSRESETN,
+  input          RTCSRCCLK,
+  output  [15:0] IOEXPOUTPUTO,
+  output  [15:0] IOEXPOUTPUTENO,
+  input   [15:0] IOEXPINPUTI,
+  output         UART0TXDO,
+  output         UART1TXDO,
+  output         UART0BAUDTICK,
+  output         UART1BAUDTICK,
+  input          UART0RXDI,
+  input          UART1RXDI,
+  output         INTMONITOR,
+  output         MTXHRESETN,
+  output  [12:0] SRAM0ADDR,
+  output   [3:0] SRAM0WREN,
+  output  [31:0] SRAM0WDATA,
+  output         SRAM0CS,
+  input   [31:0] SRAM0RDATA,
+  output         TARGFLASH0HSEL,
+  output  [28:0] TARGFLASH0HADDR,
+  output   [1:0] TARGFLASH0HTRANS,
+  output   [2:0] TARGFLASH0HSIZE,
+  output   [2:0] TARGFLASH0HBURST,
+  output         TARGFLASH0HREADYMUX,
+  input   [31:0] TARGFLASH0HRDATA,
+  input    [2:0] TARGFLASH0HRUSER,
+  input          TARGFLASH0HRESP,
+  input          TARGFLASH0EXRESP,
+  input          TARGFLASH0HREADYOUT,
+  output         TARGEXP0HSEL,
+  output  [31:0] TARGEXP0HADDR,
+  output   [1:0] TARGEXP0HTRANS,
+  output         TARGEXP0HWRITE,
+  output   [2:0] TARGEXP0HSIZE,
+  output   [2:0] TARGEXP0HBURST,
+  output   [3:0] TARGEXP0HPROT,
+  output   [1:0] TARGEXP0MEMATTR,
+  output         TARGEXP0EXREQ,
+  output   [3:0] TARGEXP0HMASTER,
+  output  [31:0] TARGEXP0HWDATA,
+  output         TARGEXP0HMASTLOCK,
+  output         TARGEXP0HREADYMUX,
+  output         TARGEXP0HAUSER,
+  output   [3:0] TARGEXP0HWUSER,
+  input   [31:0] TARGEXP0HRDATA,
+  input          TARGEXP0HREADYOUT,
+  input          TARGEXP0HRESP,
+  input          TARGEXP0EXRESP,
+  input    [2:0] TARGEXP0HRUSER,
+  output  [31:0] INITEXP0HRDATA,
+  output         INITEXP0HREADY,
+  output         INITEXP0HRESP,
+  output         INITEXP0EXRESP,
+  output   [2:0] INITEXP0HRUSER,
+  input          INITEXP0HSEL,
+  input   [31:0] INITEXP0HADDR,
+  input    [1:0] INITEXP0HTRANS,
+  input          INITEXP0HWRITE,
+  input    [2:0] INITEXP0HSIZE,
+  input    [2:0] INITEXP0HBURST,
+  input    [3:0] INITEXP0HPROT,
+  input    [1:0] INITEXP0MEMATTR,
+  input          INITEXP0EXREQ,
+  input    [3:0] INITEXP0HMASTER,
+  input   [31:0] INITEXP0HWDATA,
+  input          INITEXP0HMASTLOCK,
+  input          INITEXP0HAUSER,
+  input    [3:0] INITEXP0HWUSER,
+  output   [3:0] APBTARGEXP2PSTRB,
+  output   [2:0] APBTARGEXP2PPROT,
+  output         APBTARGEXP2PSEL,
+  output         APBTARGEXP2PENABLE,
+  output  [11:0] APBTARGEXP2PADDR,
+  output         APBTARGEXP2PWRITE,
+  output  [31:0] APBTARGEXP2PWDATA,
+  input   [31:0] APBTARGEXP2PRDATA,
+  input          APBTARGEXP2PREADY,
+  input          APBTARGEXP2PSLVERR,
+  input    [3:0] MTXREMAP,
+  output         DAPTDO,
+  output         DAPJTAGNSW,
+  output         DAPNTDOEN,
+  input          DAPSWDITMS,
+  input          DAPTDI,
+  input          DAPNTRST,
+  input          DAPSWCLKTCK,
+  output   [3:0] TPIUTRACEDATA,
+  output         TPIUTRACECLK,
+  input    [4:0] GPINT,
+  input          FLASHERR,
+  input          FLASHINT
+
+ );
+endmodule
+
+

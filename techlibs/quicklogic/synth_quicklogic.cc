@@ -78,7 +78,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
-	bool abc9, inferAdder, nobram, bramTypes, dsp;
+	bool abc9, inferAdder, nobram, bramTypes, dsp, ioff;
 
 	void clear_flags() override
 	{
@@ -94,6 +94,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		bramTypes = false;
 		lib_path = "+/quicklogic/";
 		dsp = true;
+		ioff = true;
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -156,6 +157,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 			}
 			if (args[argidx] == "-nodsp" || args[argidx] == "-no_dsp") {
 				dsp = false;
+				continue;
+			}
+			if (args[argidx] == "-noioff") {
+				ioff = false;
 				continue;
 			}
 			break;
@@ -266,7 +271,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_gates")) {
 			if (inferAdder && family == "qlf_k6n10f") {
-				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v", "(unless -no_adder)");
+				run("techmap -map +/techmap.v -map " + lib_path + family + "/arith_map.v -D NODIV", "(unless -no_adder)");
+				run("techmap", "(unless -no_adder)");
 			} else {
 				run("techmap");
 			}
@@ -326,6 +332,13 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("techmap -map " + lib_path + family + "/lut_map.v");
 			run("clean");
 			run("opt_lut");
+		}
+		
+		if (check_label("iomap", "(for qlf_k6n10f, skip if -noioff)") && (family == "qlf_k6n10f" || help_mode)) {
+			if (ioff || help_mode) {
+				run("ql_ioff");
+				run("opt_clean");
+			}
 		}
 
 		if (check_label("check")) {

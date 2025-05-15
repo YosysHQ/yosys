@@ -1,0 +1,236 @@
+// ISC License
+// 
+// Copyright (C) 2024 Microchip Technology Inc. and its subsidiaries
+// 
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+// This file describes the third of three pattern matcher setups that
+//   forms the `microchip_dsp` pass described in microchip_dsp.cc
+// At a high level, it works as follows:
+//   (1) Starting from a DSP cell that 
+//         (a) CDIN_FDBK_SEL is set to default "00"
+//         (b) doesn't already use the 'PCOUT' port
+//   (2) Match another DSP cell that 
+//         (a) does not have the CREG enabled,
+//         (b) 'C' port is driven by the 'P' output of the previous DSP cell
+//         (c) has its 'PCIN' port unused
+//   (3) Recursively go to (2) until no more matches possible, keeping track
+//       of the longest possible chain found
+//   (4) The longest chain is then divided into chunks of no more than
+//       MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//       height of a DSP column) with each DSP in each chunk being rewritten
+//       to use [ABP]COUT -> [ABP]CIN cascading as appropriate
+
+pattern microchip_dsp_cascade
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+udata <vector<std::tuple<Cell*,int>>> chain longest_chain
+udata <std::set<Cell*>> visited
+state <Cell*> next
+state <SigSpec> clock
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+
+// Maximum of 24 cascaded blocks
+code
+#define MAX_DSP_CASCADE 24
+endcode
+
+// NOTE: Chain vector
+//  +--------+      +--------+
+//  | first  |----> |  next  | ----> ...
+//  +--------+      +--------+
+//  first.COUT cascades to next.CIN, so on and so forth
+
+// Helper function to remove unused bits
+code
+	unextend = [](const SigSpec &sig) {
+		int i;
+		for (i = GetSize(sig)-1; i > 0; i--)
+			if (sig[i] != sig[i-1])
+				break;
+		// Do not remove non-const sign bit
+		if (sig[i].wire)
+			++i;
+		return sig.extract(0, i);
+	};
+endcode
+
+// (1) Starting from a DSP cell that 
+//     (a) CDIN_FDBK_SEL is set to default "00"
+//     (b) doesn't already use the 'PCOUT' port
+match first
+	select first->type.in(\MACC_PA) && port(first, \CDIN_FDBK_SEL, Const(0, 2)) == Const::from_string("00")
+	select nusers(port(first, \CDOUT, SigSpec())) <= 1
+endmatch
+
+// (4) The longest chain is then divided into chunks of no more than
+//     MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//     height of a DSP column) with each DSP in each chunk being rewritten
+//     to use [ABP]COUT -> [ABP]CIN cascading as appropriate
+code
+	visited.clear();
+	visited.insert(first);
+
+	longest_chain.clear();
+	chain.emplace_back(first, -1);
+	subpattern(tail);
+finally
+
+	// longest cascade chain has been found with DSP "first" being the head of the chain
+	// do some post processing
+
+	chain.pop_back();
+	visited.clear();
+	log_assert(chain.empty());
+
+	if (GetSize(longest_chain) > 1) {
+		Cell *dsp = std::get<0>(longest_chain.front());
+
+		Cell *dsp_pcin;
+		int SHIFT = -1;
+		for (int i = 1; i < GetSize(longest_chain); i++) {
+			log_assert(dsp->type.in(\MACC_PA));
+
+			std::tie(dsp_pcin,SHIFT) = longest_chain[i];
+
+			// Chain length exceeds the maximum cascade length, must split it up
+			if (i % MAX_DSP_CASCADE > 0) {
+				Wire *cascade = module->addWire(NEW_ID, 48);
+
+				// zero port C and move wire to cascade
+				dsp_pcin->setPort(ID(C), Const(0, 48));
+				dsp_pcin->setPort(ID(CDIN), cascade);
+				dsp->setPort(ID(CDOUT), cascade);
+
+				// Configure wire to cascade the dsps
+				add_siguser(cascade, dsp_pcin);
+				add_siguser(cascade, dsp);
+
+				// configure mux to use cascade for signal E
+				SigSpec cdin_fdbk_sel = port(dsp_pcin, \CDIN_FDBK_SEL, Const(0, 2));
+				cdin_fdbk_sel[1] = State::S1;
+				dsp_pcin->setPort(\CDIN_FDBK_SEL, cdin_fdbk_sel);
+
+				// check if shifting is required for wide multiplier implmentation
+				if (SHIFT == 17)
+				{
+					dsp_pcin->setPort(\ARSHFT17, State::S1);
+				}
+				
+
+				log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+
+			} else {
+				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+			}
+
+			dsp = dsp_pcin;
+		}
+
+		accept;
+	}
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+arg next
+
+// (2) Match another DSP cell that 
+//          (a) does not have the CREG enabled,
+//          (b) 'C' port is driven by the 'P' output of the previous DSP cell
+//          (c) has its 'PCIN' port unused
+match nextP
+	// find candidates where nextP.C port is driven (maybe partially) by chain's tail DSP.P port
+	//      and with no registers in between (since cascade path cannot be pipelined)
+
+	// reg C must not be used
+	select port(nextP, \C_BYPASS, SigSpec()).is_fully_ones()
+
+	// must be same DSP type
+	select nextP->type.in(\MACC_PA)
+
+	// port C should be driven by something
+	select nusers(port(nextP, \C, SigSpec())) > 1
+
+	// CIN must be unused
+	select nusers(port(nextP, \PCIN, SigSpec())) == 0
+
+	// should not have internal feedback connection
+	select port(nextP, \CDIN_FDBK_SEL, SigSpec()).is_fully_zero()
+
+	// SHIFT should be unused
+	select port(nextP, \ARSHFT17_BYPASS).is_fully_ones()
+	select port(nextP, \ARSHFT17).is_fully_zero()
+	select nusers(port(nextP, \ARSHFT17, SigSpec())) == 0
+
+	// current DSP cell can be cascaded with the back of the cascade chain
+	// index <SigBit> port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[0] || port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[17]
+	filter port(nextP, \C)[0] == port(std::get<0>(chain.back()), \P)[0] || port(nextP, \C)[0] == port(std::get<0>(chain.back()), \P)[17]
+
+	// semioptional
+
+	optional
+endmatch
+
+code next
+	next = nextP;
+
+	// keep DSP type consistent in the chain
+	// currently since we only have one type anyways, this line is always false
+	if (next && next->type != first->type) reject;
+
+	// break infinite recursion when there's a combinational loop
+	if (visited.count(next) > 0) reject;
+
+endcode
+
+// (3) Recursively go to (2) until no more matches possible, recording the
+//     longest possible chain
+code
+	if (next) {
+		SigSpec driver_sigP = port(std::get<0>(chain.back()), \P);
+		int shift = 0;
+		if (port(next, \C)[0] == port(std::get<0>(chain.back()), \P)[17]) shift = 17;
+
+		chain.emplace_back(next, shift);
+		visited.insert(next);
+		
+		SigSpec sigC = unextend(port(next, \C));
+
+		// Make sure driverDSP.P === DSP.C
+		if (GetSize(sigC) + shift <= GetSize(driver_sigP) && driver_sigP.extract(shift, GetSize(sigC)) == sigC)
+		{
+			subpattern(tail);
+		}
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+	{
+		visited.erase(next);
+		chain.pop_back();
+	}
+		
+
+endcode

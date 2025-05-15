@@ -19,70 +19,13 @@
 
 #include "kernel/yosys.h"
 #include "kernel/satgen.h"
+#include "kernel/json.h"
+#include "kernel/gzip.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-
-#ifdef YOSYS_ENABLE_ZLIB
-#include <zlib.h>
-
-PRIVATE_NAMESPACE_BEGIN
-#define GZ_BUFFER_SIZE 8192
-void decompress_gzip(const std::string &filename, std::stringstream &out)
-{
-	char buffer[GZ_BUFFER_SIZE];
-	int bytes_read;
-	gzFile gzf = gzopen(filename.c_str(), "rb");
-	while(!gzeof(gzf)) {
-		bytes_read = gzread(gzf, reinterpret_cast<void *>(buffer), GZ_BUFFER_SIZE);
-		out.write(buffer, bytes_read);
-	}
-	gzclose(gzf);
-}
-
-/*
-An output stream that uses a stringbuf to buffer data internally,
-using zlib to write gzip-compressed data every time the stream is flushed.
-*/
-class gzip_ostream : public std::ostream  {
-public:
-	gzip_ostream() : std::ostream(nullptr)
-	{
-		rdbuf(&outbuf);
-	}
-	bool open(const std::string &filename)
-	{
-		return outbuf.open(filename);
-	}
-private:
-	class gzip_streambuf : public std::stringbuf {
-	public:
-		gzip_streambuf() { };
-		bool open(const std::string &filename)
-		{
-			gzf = gzopen(filename.c_str(), "wb");
-			return gzf != nullptr;
-		}
-		virtual int sync() override
-		{
-			gzwrite(gzf, reinterpret_cast<const void *>(str().c_str()), unsigned(str().size()));
-			str("");
-			return 0;
-		}
-		virtual ~gzip_streambuf()
-		{
-			sync();
-			gzclose(gzf);
-		}
-	private:
-		gzFile gzf = nullptr;
-	} outbuf;
-};
-PRIVATE_NAMESPACE_END
-
-#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -317,18 +260,18 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	pass_register[args[0]]->execute(args, design);
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
-		design->selection_stack.pop_back();
+		design->pop_selection();
 }
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->selection_stack.push_back(selection);
+	design->push_selection(selection);
 
 	Pass::call(design, command);
 
-	design->selection_stack.pop_back();
+	design->pop_selection();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -336,11 +279,11 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module.clear();
-	design->selection_stack.push_back(selection);
+	design->push_selection(selection);
 
 	Pass::call(design, args);
 
-	design->selection_stack.pop_back();
+	design->pop_selection();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -348,12 +291,12 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::str
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module = module->name.str();
-	design->selection_stack.push_back(RTLIL::Selection(false));
-	design->selection_stack.back().select(module);
+	design->push_empty_selection();
+	design->select(module);
 
 	Pass::call(design, command);
 
-	design->selection_stack.pop_back();
+	design->pop_selection();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -361,12 +304,12 @@ void Pass::call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vec
 {
 	std::string backup_selected_active_module = design->selected_active_module;
 	design->selected_active_module = module->name.str();
-	design->selection_stack.push_back(RTLIL::Selection(false));
-	design->selection_stack.back().select(module);
+	design->push_empty_selection();
+	design->select(module);
 
 	Pass::call(design, args);
 
-	design->selection_stack.pop_back();
+	design->pop_selection();
 	design->selected_active_module = backup_selected_active_module;
 }
 
@@ -526,47 +469,9 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 				next_args.insert(next_args.end(), args.begin(), args.begin()+argidx);
 				next_args.insert(next_args.end(), filenames.begin()+1, filenames.end());
 			}
-			std::ifstream *ff = new std::ifstream;
-			ff->open(filename.c_str(), bin_input ? std::ifstream::binary : std::ifstream::in);
 			yosys_input_files.insert(filename);
-			if (ff->fail()) {
-				delete ff;
-				ff = nullptr;
-			}
-			f = ff;
-			if (f != NULL) {
-				// Check for gzip magic
-				unsigned char magic[3];
-				int n = 0;
-				while (n < 3)
-				{
-					int c = ff->get();
-					if (c != EOF) {
-						magic[n] = (unsigned char) c;
-					}
-					n++;
-				}
-				if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
-	#ifdef YOSYS_ENABLE_ZLIB
-					log("Found gzip magic in file `%s', decompressing using zlib.\n", filename.c_str());
-					if (magic[2] != 8)
-						log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
-							filename.c_str(), unsigned(magic[2]));
-					delete ff;
-					std::stringstream *df = new std::stringstream();
-					decompress_gzip(filename, *df);
-					f = df;
-	#else
-					log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
-	#endif
-				} else {
-					ff->clear();
-					ff->seekg(0, std::ios::beg);
-				}
-			}
+			f = uncompressed(filename, bin_input ? std::ifstream::binary : std::ifstream::in);
 		}
-		if (f == NULL)
-			log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
 		for (size_t i = argidx+1; i < args.size(); i++)
 			if (args[i].compare(0, 1, "-") == 0)
@@ -744,17 +649,47 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	}
 
 	while (design->selection_stack.size() > orig_sel_stack_pos)
-		design->selection_stack.pop_back();
+		design->pop_selection();
+}
+
+struct SimHelper {
+	string name;
+	inline string filesafe_name() {
+		if (name.at(0) == '$')
+			if (name.at(1) == '_')
+				return "gate" + name.substr(1);
+			else
+				return "word_" + name.substr(1);
+		else
+			return name;
+	}
+	string title;
+	string ports;
+	string source;
+	string desc;
+	string code;
+	string group;
+	string ver;
+	string tags;
+};
+
+static bool is_code_getter(string name) {
+	return *(--(name.end())) == '+';
+}
+
+static string get_cell_name(string name) {
+	return is_code_getter(name) ? name.substr(0, name.length()-1) : name;
 }
 
 static struct CellHelpMessages {
-	dict<string, string> cell_help, cell_code;
+	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
 #include "techlibs/common/simlib_help.inc"
 #include "techlibs/common/simcells_help.inc"
 		cell_help.sort();
-		cell_code.sort();
 	}
+	bool contains(string name) { return cell_help.count(get_cell_name(name)) > 0; }
+	SimHelper get(string name) { return cell_help[get_cell_name(name)]; }
 } cell_help_messages;
 
 struct HelpPass : public Pass {
@@ -771,7 +706,7 @@ struct HelpPass : public Pass {
 		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
-	void write_rst(std::string cmd, std::string title, std::string text)
+	void write_cmd_rst(std::string cmd, std::string title, std::string text)
 	{
 		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
 		// make header
@@ -781,11 +716,11 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s", title_line.c_str());
 		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
 		fprintf(f, "%s\n", title_line.c_str());
-		fprintf(f, ".. raw:: latex\n\n    \\begin{comment}\n\n");
 
 		// render html
 		fprintf(f, ".. cmd:def:: %s\n", cmd.c_str());
-		fprintf(f, "    :title: %s\n\n", title.c_str());
+		fprintf(f, "   :title: %s\n\n", title.c_str());
+		fprintf(f, "   .. only:: html\n\n");
 		std::stringstream ss;
 		std::string textcp = text;
 		ss << text;
@@ -821,32 +756,32 @@ struct HelpPass : public Pass {
 			if (IsUsage) {
 				if (stripped_line.compare(0, 4, "See ") == 0) {
 					// description refers to another function
-					fprintf(f, "\n    %s\n", stripped_line.c_str());
+					fprintf(f, "\n      %s\n", stripped_line.c_str());
 				} else {
 					// usage should be the first line of help output
-					fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+					fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 					WasDefinition = true;
 				}
 				IsUsage = false;
 			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
 				// another usage block
-				fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = 0;
 			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
 				// format definition term
-				fprintf(f, "\n\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				fprintf(f, "\n\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
 			} else {
 				if (IsDedent) {
-					fprintf(f, "\n\n    ::\n");
+					fprintf(f, "\n\n      ::\n");
 					def_strip_count = first_pos;
 				} else if (WasDefinition) {
-					fprintf(f, " ::\n");
+					fprintf(f, "::\n");
 					WasDefinition = false;
 				}
-				fprintf(f, "\n        %s", line.substr(def_strip_count, std::string::npos).c_str());
+				fprintf(f, "\n         %s", line.substr(def_strip_count, std::string::npos).c_str());
 			}
 
 			blank_count = 0;
@@ -854,15 +789,154 @@ struct HelpPass : public Pass {
 		fputc('\n', f);
 
 		// render latex
-		fprintf(f, ".. raw:: latex\n\n    \\end{comment}\n\n");
 		fprintf(f, ".. only:: latex\n\n");
-		fprintf(f, "    ::\n\n");
+		fprintf(f, "   ::\n\n");
 		std::stringstream ss2;
 		ss2 << textcp;
 		for (std::string line; std::getline(ss2, line, '\n');) {
-			fprintf(f, "        %s\n", line.c_str());
+			fprintf(f, "      %s\n", line.c_str());
 		}
 		fclose(f);
+	}
+	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType ct)
+	{
+		// open
+		FILE *f = fopen(stringf("docs/source/cell/%s.rst", cell.filesafe_name().c_str()).c_str(), "wt");
+
+		// make header
+		string title_line;
+		if (cell.title.length())
+			title_line = stringf("%s - %s", cell.name.c_str(), cell.title.c_str());
+		else title_line = cell.name;
+		string underline = "\n";
+		underline.insert(0, title_line.length(), '=');
+		fprintf(f, "%s\n", title_line.c_str());
+		fprintf(f, "%s\n", underline.c_str());
+
+		// help text, with cell def for links
+		fprintf(f, ".. cell:def:: %s\n", cell.name.c_str());
+		if (cell.title.length())
+			fprintf(f, "   :title: %s\n\n", cell.title.c_str());
+		else
+			fprintf(f, "   :title: %s\n\n", cell.name.c_str());
+		std::stringstream ss;
+		ss << cell.desc;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			fprintf(f, "   %s\n", line.c_str());
+		}
+
+		// properties
+		fprintf(f, "\nProperties");
+		fprintf(f, "\n----------\n\n");
+		dict<string, bool> prop_dict = {
+			{"is_evaluable", ct.is_evaluable},
+			{"is_combinatorial", ct.is_combinatorial},
+			{"is_synthesizable", ct.is_synthesizable},
+		};
+		for (auto &it : prop_dict) {
+			fprintf(f, "- %s: %s\n", it.first.c_str(), it.second ? "true" : "false");
+		}
+
+		// source code
+		fprintf(f, "\nSimulation model (Verilog)");
+		fprintf(f, "\n--------------------------\n\n");
+		fprintf(f, ".. code-block:: verilog\n");
+		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
+		std::stringstream ss2;
+		ss2 << cell.code;
+		for (std::string line; std::getline(ss2, line, '\n');) {
+			fprintf(f, "   %s\n", line.c_str());
+		}
+
+		// footer
+		fprintf(f, "\n.. note::\n\n");
+		fprintf(f, "   This page was auto-generated from the output of\n");
+		fprintf(f, "   ``help %s``.\n", cell.name.c_str());
+
+		// close
+		fclose(f);
+	}
+	bool dump_cells_json(PrettyJson &json) {
+		// init json
+		json.begin_object();
+		json.entry("version", "Yosys internal cells");
+		json.entry("generator", yosys_maybe_version());
+
+		dict<string, vector<string>> groups;
+		dict<string, pair<SimHelper, CellType>> cells;
+
+		// iterate over cells
+		bool raise_error = false;
+		for (auto &it : yosys_celltypes.cell_types) {
+			auto name = it.first.str();
+			if (cell_help_messages.contains(name)) {
+				auto cell_help = cell_help_messages.get(name);
+				if (groups.count(cell_help.group) != 0) {
+					auto group_cells = &groups.at(cell_help.group);
+					group_cells->push_back(name);
+				} else {
+					auto group_cells = new vector<string>(1, name);
+					groups.emplace(cell_help.group, *group_cells);
+				}
+				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
+				cells.emplace(name, cell_pair);
+			} else {
+				log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
+				raise_error |= true;
+			}
+		}
+		for (auto &it : cell_help_messages.cell_help) {
+			if (cells.count(it.first) == 0) {
+				log_warning("Found cell model '%s' without matching cell type.\n", it.first.c_str());
+			}
+		}
+
+		// write to json
+		json.name("groups"); json.begin_object();
+		groups.sort();
+		for (auto &it : groups) {
+			json.name(it.first.c_str()); json.value(it.second);
+		}
+		json.end_object();
+
+		json.name("cells"); json.begin_object();
+		cells.sort();
+		for (auto &it : cells) {
+			auto ch = it.second.first;
+			auto ct = it.second.second;
+			json.name(ch.name.c_str()); json.begin_object();
+			json.name("title"); json.value(ch.title);
+			json.name("ports"); json.value(ch.ports);
+			json.name("source"); json.value(ch.source);
+			json.name("desc"); json.value(ch.desc);
+			json.name("code"); json.value(ch.code);
+			vector<string> inputs, outputs;
+			for (auto &input : ct.inputs)
+				inputs.push_back(input.str());
+			json.name("inputs"); json.value(inputs);
+			for (auto &output : ct.outputs)
+				outputs.push_back(output.str());
+			json.name("outputs"); json.value(outputs);
+			vector<string> properties;
+			// CellType properties
+			if (ct.is_evaluable) properties.push_back("is_evaluable");
+			if (ct.is_combinatorial) properties.push_back("is_combinatorial");
+			if (ct.is_synthesizable) properties.push_back("is_synthesizable");
+			// SimHelper properties
+			size_t last = 0; size_t next = 0;
+			while ((next = ch.tags.find(", ", last)) != string::npos) {
+				properties.push_back(ch.tags.substr(last, next-last));
+				last = next + 2;
+			}
+			auto final_tag = ch.tags.substr(last);
+			if (final_tag.size()) properties.push_back(final_tag);
+			json.name("properties"); json.value(properties);
+			json.end_object();
+		}
+		json.end_object();
+
+		json.end_object();
+		return raise_error;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
@@ -896,9 +970,8 @@ struct HelpPass : public Pass {
 			else if (args[1] == "-cells") {
 				log("\n");
 				for (auto &it : cell_help_messages.cell_help) {
-					string line = split_tokens(it.second, "\n").at(0);
-					string cell_name = next_token(line);
-					log("    %-15s %s\n", cell_name.c_str(), line.c_str());
+					SimHelper help_cell = it.second;
+					log("    %-15s %s\n", help_cell.name.c_str(), help_cell.ports.c_str());
 				}
 				log("\n");
 				log("Type 'help <cell_type>' for more information on a cell type.\n");
@@ -917,7 +990,23 @@ struct HelpPass : public Pass {
 						log("\n");
 					}
 					log_streams.pop_back();
-					write_rst(it.first, it.second->short_help, buf.str());
+					write_cmd_rst(it.first, it.second->short_help, buf.str());
+				}
+			}
+			// this option is also undocumented as it is for internal use only
+			else if (args[1] == "-write-rst-cells-manual") {
+				bool raise_error = false;
+				for (auto &it : yosys_celltypes.cell_types) {
+					auto name = it.first.str();
+					if (cell_help_messages.contains(name)) {
+						write_cell_rst(cell_help_messages.get(name), it.second);
+					} else {
+						log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
+						raise_error |= true;
+					}
+				}
+				if (raise_error) {
+					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
 				}
 			}
 			else if (pass_register.count(args[1])) {
@@ -928,17 +1017,41 @@ struct HelpPass : public Pass {
 					log("\n");
 				}
 			}
-			else if (cell_help_messages.cell_help.count(args[1])) {
-				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());
-				log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
-				log("\n");
-			}
-			else if (cell_help_messages.cell_code.count(args[1])) {
-				log("\n");
-				log("%s", cell_help_messages.cell_code.at(args[1]).c_str());
+			else if (cell_help_messages.contains(args[1])) {
+				auto help_cell = cell_help_messages.get(args[1]);
+				if (is_code_getter(args[1])) {
+						log("\n");
+						log("%s\n", help_cell.code.c_str());
+				} else {
+					log("\n    %s %s\n\n", help_cell.name.c_str(), help_cell.ports.c_str());
+					if (help_cell.ver == "2" || help_cell.ver == "2a") {
+						if (help_cell.title != "") log("%s:\n", help_cell.title.c_str());
+						std::stringstream ss;
+						ss << help_cell.desc;
+						for (std::string line; std::getline(ss, line, '\n');) {
+							if (line != "::") log("%s\n", line.c_str());
+						}
+					} else if (help_cell.desc.length()) {
+						log("%s\n", help_cell.desc.c_str());
+					} else {
+						log("No help message for this cell type found.\n");
+					}
+					log("\nRun 'help %s+' to display the Verilog model for this cell type.\n", args[1].c_str());
+					log("\n");
+				}
 			}
 			else
 				log("No such command or cell type: %s\n", args[1].c_str());
+			return;
+		} else if (args.size() == 3) {
+			if (args[1] == "-dump-cells-json") {
+				PrettyJson json;
+				if (!json.write_to_file(args[2]))
+					log_error("Can't open file `%s' for writing: %s\n", args[2].c_str(), strerror(errno));
+				if (dump_cells_json(json)) {
+					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
+				}
+			}
 			return;
 		}
 
@@ -1012,7 +1125,7 @@ struct LicensePass : public Pass {
 		log(" |                                                                            |\n");
 		log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 		log(" |                                                                            |\n");
-		log(" |  Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
+		log(" |  Copyright (C) 2012 - 2025  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 		log(" |                                                                            |\n");
 		log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 		log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");

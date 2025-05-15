@@ -15,7 +15,7 @@ TESTS := $(addprefix $(BINTEST)/, $(basename $(ALLTESTFILE:%Test.cc=%Test.o)))
 all: prepare $(TESTS) run-tests
 
 $(BINTEST)/%: $(OBJTEST)/%.o
-	$(CXX) -L$(ROOTPATH) $(RPATH)=$(ROOTPATH) -o $@ $^ $(LIBS) \
+	$(CXX) -L$(ROOTPATH) $(RPATH)=$(ROOTPATH) $(LINKFLAGS) -o $@ $^ $(LIBS) \
 		$(GTESTFLAG) $(EXTRAFLAGS)
 
 $(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc

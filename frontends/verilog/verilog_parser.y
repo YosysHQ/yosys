@@ -464,6 +464,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %%
 
 input: {
+	(void)frontend_verilog_yynerrs;
 	ast_stack.clear();
 	ast_stack.push_back(current_ast);
 } design {
@@ -2248,7 +2249,8 @@ cell_parameter:
 		node->children.push_back($1);
 	} |
 	'.' TOK_ID '(' ')' {
-		// just ignore empty parameters
+		// delete unused TOK_ID
+		delete $2;
 	} |
 	'.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_PARASET);
@@ -3501,6 +3503,12 @@ basic_expr:
 		SET_AST_NODE_LOC($$, @1, @4);
 	} |
 	basic_expr OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
+	typedef_base_type OP_CAST '(' expr ')' {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
 		$$ = new AstNode(AST_CAST_SIZE, $1, $4);

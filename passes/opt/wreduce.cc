@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -219,10 +220,10 @@ struct WreduceWorker
 
 		// Narrow ARST_VALUE parameter to new size.
 		if (cell->parameters.count(ID::ARST_VALUE)) {
-			rst_value.bits.resize(GetSize(sig_q));
+			rst_value.bits().resize(GetSize(sig_q));
 			cell->setParam(ID::ARST_VALUE, rst_value);
 		} else if (cell->parameters.count(ID::SRST_VALUE)) {
-			rst_value.bits.resize(GetSize(sig_q));
+			rst_value.bits().resize(GetSize(sig_q));
 			cell->setParam(ID::SRST_VALUE, rst_value);
 		}
 
@@ -263,11 +264,24 @@ struct WreduceWorker
 		}
 	}
 
+	int reduced_opsize(const SigSpec &inp, bool signed_)
+	{
+		int size = GetSize(inp);
+		if (signed_) {
+			while (size >= 2 && inp[size - 1] == inp[size - 2])
+				size--;
+		} else {
+			while (size >= 1 && inp[size - 1] == State::S0)
+				size--;
+		}
+		return size;
+	}
+
 	void run_cell(Cell *cell)
 	{
 		bool did_something = false;
 
-		if (!cell->type.in(config->supported_cell_types))
+		if (!config->supported_cell_types.count(cell->type))
 			return;
 
 		if (cell->type.in(ID($mux), ID($pmux)))
@@ -294,6 +308,45 @@ struct WreduceWorker
 
 		bool port_a_signed = false;
 		bool port_b_signed = false;
+
+		// For some operations if the output is no wider than either of the inputs
+		// we are free to choose the signedness of the operands
+		if (cell->type.in(ID($mul), ID($add), ID($sub)) &&
+				max_port_a_size == GetSize(sig) &&
+				max_port_b_size == GetSize(sig)) {
+			SigSpec sig_a = mi.sigmap(cell->getPort(ID::A)), sig_b = mi.sigmap(cell->getPort(ID::B));
+
+			// Remove top bits from sig_a and sig_b which are not visible on the output
+			sig_a.extend_u0(max_port_a_size);
+			sig_b.extend_u0(max_port_b_size);
+
+			int signed_cost, unsigned_cost;
+			if (cell->type == ID($mul)) {
+				signed_cost = reduced_opsize(sig_a, true) * reduced_opsize(sig_b, true);
+				unsigned_cost = reduced_opsize(sig_a, false) * reduced_opsize(sig_b, false);
+			} else {
+				signed_cost = max(reduced_opsize(sig_a, true), reduced_opsize(sig_b, true));
+				unsigned_cost = max(reduced_opsize(sig_a, false), reduced_opsize(sig_b, false));
+			}
+
+			if (!port_a_signed && !port_b_signed && signed_cost < unsigned_cost) {
+				log("Converting cell %s.%s (%s) from unsigned to signed.\n",
+						log_id(module), log_id(cell), log_id(cell->type));
+				cell->setParam(ID::A_SIGNED, 1);
+				cell->setParam(ID::B_SIGNED, 1);
+				port_a_signed = true;
+				port_b_signed = true;
+				did_something = true;
+			} else if (port_a_signed && port_b_signed && unsigned_cost < signed_cost) {
+				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
+						log_id(module), log_id(cell), log_id(cell->type));
+				cell->setParam(ID::A_SIGNED, 0);
+				cell->setParam(ID::B_SIGNED, 0);
+				port_a_signed = false;
+				port_b_signed = false;
+				did_something = true;
+			}
+		}
 
 		if (max_port_a_size >= 0 && cell->type != ID($shiftx))
 			run_reduce_inport(cell, 'A', max_port_a_size, port_a_signed, did_something);

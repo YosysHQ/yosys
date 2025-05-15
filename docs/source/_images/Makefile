@@ -1,31 +1,35 @@
-all: examples all_tex tidy
+all: examples all_tex
 
 # set a fake time in pdf generation to prevent unnecessary differences in output
 FAKETIME := TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001'
+
+ifneq ($(shell :; command -v rsync),)
+RSYNC_CP ?= rsync -t
+else
+RSYNC_CP ?= cp -a
+endif
 
 # find all code example makefiles
 .PHONY: examples
 CODE_EXAMPLES := ../code_examples/*/Makefile
 examples: $(CODE_EXAMPLES)
 
-# target to convert specified dot file(s)
+# target to convert all dot files
+# needs to be run *after* examples, otherwise no dot files will be found
 .PHONY: convert
-TARG_DOT ?=
-convert: $(TARG_DOT:.dot=.pdf) $(TARG_DOT:.dot=.svg)
+DOT_FILES := $(shell find . -name *.dot)
+convert: $(DOT_FILES:.dot=.pdf) $(DOT_FILES:.dot=.svg)
 
-# use empty FORCE target because .PHONY ignores % expansion, using find allows
-# us to generate everything in one pass, since we don't know all of the possible
-# outputs until the sub-makes run
+# use empty FORCE target because .PHONY ignores % expansion
 FORCE:
 ../%/Makefile: FORCE
 	@make -C $(@D) dots
 	@mkdir -p $*
-	@find $(@D) -name *.dot -exec cp -u {} -t $* \;
-	@find $* -name *.dot -printf "%p " | xargs -i make --no-print-directory convert TARG_DOT="{}"
+	@find $(@D) -name *.dot -exec $(RSYNC_CP) {} $* \;
 
 # find and build all tex files
 .PHONY: all_tex
-TEX_FILES := $(wildcard **/*.tex)
+TEX_FILES := $(shell find . -name *.tex)
 all_tex: $(TEX_FILES:.tex=.pdf) $(TEX_FILES:.tex=.svg)
 
 %.pdf: %.dot

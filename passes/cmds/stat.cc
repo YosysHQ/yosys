@@ -23,6 +23,7 @@
 #include "kernel/celltypes.h"
 #include "passes/techmap/libparse.h"
 #include "kernel/cost.h"
+#include "kernel/gzip.h"
 #include "libs/json11/json11.hpp"
 
 USING_YOSYS_NAMESPACE
@@ -39,16 +40,15 @@ struct statdata_t
 			X(num_ports) X(num_port_bits) X(num_memories) X(num_memory_bits) X(num_cells) \
 			X(num_processes)
 
-	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area)
+	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area) X(sequential_area)
 
 	#define X(_name) unsigned int _name;
 	STAT_INT_MEMBERS
 	#undef X
-	double area;
-	double sequential_area;
+	double area = 0;
+	double sequential_area = 0;
 	string tech;
 
-	std::map<RTLIL::IdString, int> techinfo;
 	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
 	std::set<RTLIL::IdString> unknown_cell_area;
 
@@ -230,8 +230,6 @@ struct statdata_t
 
 			if (gate_costs.count(ctype))
 				tran_cnt += cnum * gate_costs.at(ctype);
-			else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
-				tran_cnt += cnum * 16;
 			else
 				*tran_cnt_exact = false;
 		}
@@ -350,20 +348,17 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 
 void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string liberty_file)
 {
-	std::ifstream f;
-	f.open(liberty_file.c_str());
+	std::istream* f = uncompressed(liberty_file.c_str());
 	yosys_input_files.insert(liberty_file);
-	if (f.fail())
-		log_cmd_error("Can't open liberty file `%s': %s\n", liberty_file.c_str(), strerror(errno));
-	LibertyParser libparser(f);
-	f.close();
+	LibertyParser libparser(*f, liberty_file);
+	delete f;
 
 	for (auto cell : libparser.ast->children)
 	{
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
-		LibertyAst *ar = cell->find("area");
+		const LibertyAst *ar = cell->find("area");
 		bool is_flip_flop = cell->find("ff") != nullptr;
 		if (ar != nullptr && !ar->value.empty())
 			cell_area["\\" + cell->args[0]] = {/*area=*/atof(ar->value.c_str()), is_flip_flop};
@@ -449,7 +444,7 @@ struct StatPass : public Pass {
 
 		if (json_mode) {
 			log("{\n");
-			log("   \"creator\": %s,\n", json11::Json(yosys_version_str).dump().c_str());
+			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump().c_str());
 			std::stringstream invocation;
 			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
 			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump().c_str());
@@ -471,7 +466,7 @@ struct StatPass : public Pass {
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", log_id(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
+				log("=== %s%s ===\n", log_id(mod->name), mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
 				data.log_data(mod->name, false);
 			}

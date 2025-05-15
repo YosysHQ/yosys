@@ -131,7 +131,7 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 			info.arst_polarity = info.cell->parameters.at(ID::ARST_POLARITY).as_bool();
 			std::vector<RTLIL::SigBit> sig_d = sigmap(info.cell->getPort(ID::D)).to_sigbit_vector();
 			std::vector<RTLIL::SigBit> sig_q = sigmap(info.cell->getPort(ID::Q)).to_sigbit_vector();
-			std::vector<RTLIL::State> arst_value = info.cell->parameters.at(ID::ARST_VALUE).bits;
+			std::vector<RTLIL::State> arst_value = info.cell->parameters.at(ID::ARST_VALUE).to_bits();
 			for (size_t i = 0; i < sig_d.size(); i++) {
 				info.bit_d = sig_d.at(i);
 				info.arst_value = arst_value.at(i);

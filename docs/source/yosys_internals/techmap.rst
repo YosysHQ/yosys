@@ -1,9 +1,9 @@
 Techmap by example
 ------------------
 
-As a quick recap, the :cmd:ref:`techmap` command replaces cells in the design
-with implementations given as Verilog code (called "map files"). It can replace
-Yosys' internal cell types (such as ``$or``) as well as user-defined cell types.
+As a quick recap, the `techmap` command replaces cells in the design with
+implementations given as Verilog code (called "map files"). It can replace
+Yosys' internal cell types (such as `$or`) as well as user-defined cell types.
 
 - Verilog parameters are used extensively to customize the internal cell types.
 - Additional special parameters are used by techmap to communicate meta-data to
@@ -87,15 +87,15 @@ Scripting in map modules
 - You can even call techmap recursively!
 - Example use-cases:
 
-    - Using always blocks in map module: call :cmd:ref:`proc`
-    - Perform expensive optimizations (such as :cmd:ref:`freduce`) on cells
+    - Using always blocks in map module: call `proc`
+    - Perform expensive optimizations (such as `freduce`) on cells
       where this is known to work well.
     - Interacting with custom commands.
 
 .. note:: PROTIP:
 
-    Commands such as :cmd:ref:`shell`, ``show -pause``, and :cmd:ref:`dump` can
-    be used in the ``_TECHMAP_DO_*`` scripts for debugging map modules.
+    Commands such as `shell`, ``show -pause``, and `dump` can be used in the
+    ``_TECHMAP_DO_*`` scripts for debugging map modules.
 
 Example:
 

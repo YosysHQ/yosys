@@ -344,6 +344,16 @@ assign_stmt:
 	TOK_ASSIGN sigspec sigspec EOL {
 		if (attrbuf.size() != 0)
 			rtlil_frontend_yyerror("dangling attribute");
+
+		// See https://github.com/YosysHQ/yosys/pull/4765 for discussion on this
+		// warning
+		if (!switch_stack.back()->empty()) {
+			rtlil_frontend_yywarning(
+				"case rule assign statements after switch statements may cause unexpected behaviour. "
+				"The assign statement is reordered to come before all switch statements."
+			);
+		}
+
 		case_stack.back()->actions.push_back(RTLIL::SigSig(*$2, *$3));
 		delete $2;
 		delete $3;
@@ -412,8 +422,16 @@ constant:
 	TOK_VALUE {
 		char *ep;
 		int width = strtol($1, &ep, 10);
+		bool is_signed = false;
+		if (*ep == '\'') {
+			ep++;
+		}
+		if (*ep == 's') {
+			is_signed = true;
+			ep++;
+		}
 		std::list<RTLIL::State> bits;
-		while (*(++ep) != 0) {
+		while (*ep != 0) {
 			RTLIL::State bit = RTLIL::Sx;
 			switch (*ep) {
 			case '0': bit = RTLIL::S0; break;
@@ -424,7 +442,9 @@ constant:
 			case 'm': bit = RTLIL::Sm; break;
 			}
 			bits.push_front(bit);
+			ep++;
 		}
+
 		if (bits.size() == 0)
 			bits.push_back(RTLIL::Sx);
 		while ((int)bits.size() < width) {
@@ -437,7 +457,10 @@ constant:
 			bits.pop_back();
 		$$ = new RTLIL::Const;
 		for (auto it = bits.begin(); it != bits.end(); it++)
-			$$->bits.push_back(*it);
+			$$->bits().push_back(*it);
+		if (is_signed) {
+			$$->flags |= RTLIL::CONST_FLAG_SIGNED;
+		}
 		free($1);
 	} |
 	TOK_INT {

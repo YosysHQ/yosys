@@ -10,8 +10,10 @@ MAPDOT_NAMES += rdata_map_ffs rdata_map_luts rdata_map_cells
 DOTS := $(addsuffix .dot,$(DOT_NAMES))
 MAPDOTS := $(addsuffix .dot,$(MAPDOT_NAMES))
 
-all: dots fifo.out fifo.stat
+.PHONY: all dots examples
+all: dots examples
 dots: $(DOTS) $(MAPDOTS)
+examples: fifo.out fifo.stat
 
 $(DOTS) fifo.out: fifo.v fifo.ys
 	$(YOSYS) fifo.ys -l fifo.out -Q -T
@@ -22,3 +24,4 @@ $(MAPDOTS) fifo.stat: fifo.v fifo_map.ys
 .PHONY: clean
 clean:
 	rm -f *.dot
+	rm -f fifo.out fifo.stat

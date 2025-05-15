@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	bool is_signed = (cell->type != ID($buf)) && cell->getParam(ID::A_SIGNED).as_bool();
 	int a_width = GetSize(cell->getPort(ID::A));
 	int y_width = GetSize(cell->getPort(ID::Y));
 
@@ -247,19 +247,19 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 				db->add_edge(cell, ID::A, a_width - 1, ID::Y, i, -1);
 		}
 
-		for (int k = 0; k < b_width; k++) {
+		for (int k = 0; k < b_width_capped; k++) {
 			// left shifts
 			if (cell->type.in(ID($shl), ID($sshl))) {
 				if (a_width == 1 && is_signed) {
 					int skip = 1 << (k + 1);
 					int base = skip -1;
-					if (i % skip != base && i - a_width + 2 < 1 << b_width)
+					if (i % skip != base && i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);	
 				} else if (is_signed) {
-					if (i - a_width + 2 < 1 << b_width)
+					if (i - a_width + 2 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				} else {
-					if (i - a_width + 1 < 1 << b_width)
+					if (i - a_width + 1 < 1 << b_width_capped)
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 				}
 			// right shifts
@@ -268,7 +268,7 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 					bool shift_in_bulk = i < a_width - 1;
 					// can we jump into the zero-padding by toggling B[k]?
 					bool zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
-									&& (((y_width - i) & ~(1 << k)) < (1 << b_width)));
+									&& (((y_width - i) & ~(1 << k)) < (1 << b_width_capped)));
 
 					if (shift_in_bulk || (cell->type.in(ID($shr), ID($shift), ID($shiftx)) && zpad_jump))
 						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
@@ -279,7 +279,7 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 			// bidirectional shifts (positive B shifts right, negative left)
 			} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed) {
 				if (is_signed) {
-					if (k != b_width - 1) {
+					if (k != b_width_capped - 1) {
 						bool r_shift_in_bulk = i < a_width - 1;
 						// assuming B is positive, can we jump into the upper zero-padding by toggling B[k]?
 						bool r_zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
@@ -392,7 +392,7 @@ PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
 {
-	if (cell->type.in(ID($not), ID($pos))) {
+	if (cell->type.in(ID($not), ID($pos), ID($buf))) {
 		bitwise_unary_op(this, cell);
 		return true;
 	}
@@ -453,7 +453,7 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 	}
 
 	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
-	// FIXME: $lut $sop $alu $lcu $macc $fa
+	// FIXME: $lut $sop $alu $lcu $macc $macc_v2 $fa
 	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
 	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
 

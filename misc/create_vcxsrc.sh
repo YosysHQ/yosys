@@ -6,8 +6,8 @@ yosysver="$2"
 gitsha="$3"
 
 rm -rf YosysVS-Tpl-v2.zip YosysVS
-wget https://yosyshq.net/yosys/nogit/YosysVS-Tpl-v2.zip
-wget https://www.zlib.net/fossils/zlib-1.2.11.tar.gz
+wget https://github.com/YosysHQ/yosys/releases/download/resources/YosysVS-Tpl-v2.zip
+wget https://github.com/YosysHQ/yosys/releases/download/resources/zlib-1.2.11.tar.gz
 
 unzip YosysVS-Tpl-v2.zip
 rm -f YosysVS-Tpl-v2.zip
@@ -30,6 +30,7 @@ popd
 	tail -n +$((n+1)) "$vcxsrc"/YosysVS/YosysVS.vcxproj
 } > "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 
+sed -i 's,</AdditionalIncludeDirectories>,</AdditionalIncludeDirectories>\n      <LanguageStandard>stdcpp17</LanguageStandard>\n      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 mv "$vcxsrc"/YosysVS/YosysVS.vcxproj.new "$vcxsrc"/YosysVS/YosysVS.vcxproj
 
 mkdir -p "$vcxsrc"/yosys

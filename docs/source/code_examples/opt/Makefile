@@ -6,14 +6,14 @@ DOT_NAMES = opt_share opt_muxtree opt_merge opt_expr
 
 DOTS := $(addsuffix .dot,$(DOT_NAMES))
 
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: $(DOTS)
+examples:
 
-%_full.dot: %.ys
+%.dot: %.ys
 	$(YOSYS) $<
-
-%.dot: %_full.dot
-	gvpack -u $*_full.dot -o $@
+	gvpack -u -o $@ $*_full.dot
 
 .PHONY: clean
 clean:

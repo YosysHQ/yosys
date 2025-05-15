@@ -47,7 +47,7 @@ struct Scheduler {
 	struct Vertex {
 		T *data;
 		Vertex *prev, *next;
-		pool<Vertex*, hash_ptr_ops> preds, succs;
+		pool<Vertex*> preds, succs;
 
 		Vertex() : data(NULL), prev(this), next(this) {}
 		Vertex(T *data) : data(data), prev(NULL), next(NULL) {}
@@ -200,7 +200,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux), ID($bwmux));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -300,10 +300,10 @@ struct FlowGraph {
 	};
 
 	std::vector<Node*> nodes;
-	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
-	dict<Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_comb_defs, node_sync_defs, node_uses;
+	dict<const RTLIL::Wire*, pool<Node*>> wire_comb_defs, wire_sync_defs, wire_uses;
+	dict<Node*, pool<const RTLIL::Wire*>> node_comb_defs, node_sync_defs, node_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_inlinable;
-	dict<const RTLIL::Wire*, dict<Node*, bool, hash_ptr_ops>> wire_use_inlinable;
+	dict<const RTLIL::Wire*, dict<Node*, bool>> wire_use_inlinable;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
@@ -328,7 +328,7 @@ struct FlowGraph {
 					node_comb_defs[node].insert(chunk.wire);
 				}
 			}
-		for (auto bit : sig.bits())
+		for (auto bit : sig)
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
 		if (!is_ff && sig.is_wire()) {
@@ -365,7 +365,7 @@ struct FlowGraph {
 		return false;
 	}
 
-	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*, hash_ptr_ops> &nodes) const
+	bool is_inlinable(const RTLIL::Wire *wire, const pool<Node*> &nodes) const
 	{
 		// Can the wire be inlined, knowing that the given nodes are reachable?
 		if (nodes.size() != 1)
@@ -612,11 +612,11 @@ std::string escape_c_string(const std::string &input)
 	output.push_back('"');
 	for (auto c : input) {
 		if (::isprint(c)) {
-			if (c == '\\')
+			if (c == '\\' || c == '"')
 				output.push_back('\\');
 			output.push_back(c);
 		} else {
-			char l = c & 0x3, m = (c >> 3) & 0x3, h = (c >> 6) & 0x3;
+			char l = c & 0x7, m = (c >> 3) & 0x7, h = (c >> 6) & 0x3;
 			output.append("\\");
 			output.push_back('0' + h);
 			output.push_back('0' + m);
@@ -864,7 +864,7 @@ struct CxxrtlWorker {
 		if (!module->has_attribute(ID(cxxrtl_template)))
 			return {};
 
-		if (module->attributes.at(ID(cxxrtl_template)).flags != RTLIL::CONST_FLAG_STRING)
+		if (!(module->attributes.at(ID(cxxrtl_template)).flags & RTLIL::CONST_FLAG_STRING))
 			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
 
 		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");
@@ -1138,7 +1138,7 @@ struct CxxrtlWorker {
 		f << indent << "// cell " << cell->name.str() << " syncs\n";
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
-				if (is_cxxrtl_sync_port(cell, conn.first)) {
+				if (is_cxxrtl_sync_port(cell, conn.first) && !conn.second.empty()) {
 					f << indent;
 					dump_sigspec_lhs(conn.second, for_debug);
 					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
@@ -1196,6 +1196,14 @@ struct CxxrtlWorker {
 			f << ".bmux<";
 			f << cell->getParam(ID::WIDTH).as_int();
 			f << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
+		// Bitwise muxes
+		} else if (cell->type == ID($bwmux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".bwmux(";
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
+			f << ",";
 			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
 			f << ").val()";
 		// Demuxes
@@ -1665,15 +1673,15 @@ struct CxxrtlWorker {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits.push_back(RTLIL::S1);
-									compare_value.bits.push_back(bit);
+									compare_mask.bits().push_back(RTLIL::S1);
+									compare_value.bits().push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits.push_back(RTLIL::S0);
-									compare_value.bits.push_back(RTLIL::S0);
+									compare_mask.bits().push_back(RTLIL::S0);
+									compare_value.bits().push_back(RTLIL::S0);
 									break;
 
 								default:
@@ -2402,7 +2410,12 @@ struct CxxrtlWorker {
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
 						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
-						f << escape_cxx_string(cell->get_string_attribute(ID(module))) << ", ";
+						if (module_attrs.count(ID(hdlname))) {
+							f << escape_cxx_string(module_attrs.at(ID(hdlname)).decode_string());
+						} else {
+							f << escape_cxx_string(cell->get_string_attribute(ID(module)));
+						}
+						f << ", ";
 						dump_serialized_metadata(module_attrs);
 						f << ", ";
 						dump_serialized_metadata(cell_attrs);
@@ -2497,7 +2510,7 @@ struct CxxrtlWorker {
 							// Alias of a member wire
 							const RTLIL::Wire *aliasee = debug_wire_type.sig_subst.as_wire();
 							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
-							dump_debug_attrs(aliasee);
+							dump_debug_attrs(wire);
 							f << ", ";
 							// If the aliasee is an outline, then the alias must be an outline, too; otherwise downstream
 							// tooling has no way to find out about the outline.
@@ -3028,7 +3041,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init[bit.offset] = port.init_value[i];
+								init.bits()[bit.offset] = port.init_value[i];
 							}
 						}
 					}
@@ -3080,7 +3093,7 @@ struct CxxrtlWorker {
 			// without feedback arcs can generally be evaluated in a single pass, i.e. it always requires only
 			// a single delta cycle.
 			Scheduler<FlowGraph::Node> scheduler;
-			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_vertex_map;
+			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*> node_vertex_map;
 			for (auto node : flow.nodes)
 				node_vertex_map[node] = scheduler.add(node);
 			for (auto node_comb_def : flow.node_comb_defs) {
@@ -3095,7 +3108,7 @@ struct CxxrtlWorker {
 
 			// Find out whether the order includes any feedback arcs.
 			std::vector<FlowGraph::Node*> node_order;
-			pool<FlowGraph::Node*, hash_ptr_ops> evaluated_nodes;
+			pool<FlowGraph::Node*> evaluated_nodes;
 			pool<const RTLIL::Wire*> feedback_wires;
 			for (auto vertex : scheduler.schedule()) {
 				auto node = vertex->data;
@@ -3139,7 +3152,7 @@ struct CxxrtlWorker {
 			}
 
 			// Discover nodes reachable from primary outputs (i.e. members) and collect reachable wire users.
-			pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+			pool<FlowGraph::Node*> worklist;
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && !is_internal_cell(node->cell->type))
 					worklist.insert(node); // node evaluates a submodule
@@ -3159,8 +3172,8 @@ struct CxxrtlWorker {
 							worklist.insert(node); // node drives public wires
 				}
 			}
-			dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> live_wires;
-			pool<FlowGraph::Node*, hash_ptr_ops> live_nodes;
+			dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> live_wires;
+			pool<FlowGraph::Node*> live_nodes;
 			while (!worklist.empty()) {
 				auto node = worklist.pop();
 				live_nodes.insert(node);
@@ -3290,15 +3303,15 @@ struct CxxrtlWorker {
 
 				// Discover nodes reachable from primary outputs (i.e. outlines) up until primary inputs (i.e. members)
 				// and collect reachable wire users.
-				pool<FlowGraph::Node*, hash_ptr_ops> worklist;
+				pool<FlowGraph::Node*> worklist;
 				for (auto node : flow.nodes) {
 					if (flow.node_comb_defs.count(node))
 						for (auto wire : flow.node_comb_defs[node])
 							if (debug_wire_types[wire].is_outline())
 								worklist.insert(node); // node drives outline
 				}
-				dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> debug_live_wires;
-				pool<FlowGraph::Node*, hash_ptr_ops> debug_live_nodes;
+				dict<const RTLIL::Wire*, pool<FlowGraph::Node*>> debug_live_wires;
+				pool<FlowGraph::Node*> debug_live_nodes;
 				while (!worklist.empty()) {
 					auto node = worklist.pop();
 					debug_live_nodes.insert(node);

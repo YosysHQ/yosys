@@ -29,7 +29,11 @@ struct SigPool
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	pool<bitDef_t> bits;
@@ -143,7 +147,11 @@ struct SigSet
 	struct bitDef_t : public std::pair<RTLIL::Wire*, int> {
 		bitDef_t() : std::pair<RTLIL::Wire*, int>(NULL, 0) { }
 		bitDef_t(const RTLIL::SigBit &bit) : std::pair<RTLIL::Wire*, int>(bit.wire, bit.offset) { }
-		unsigned int hash() const { return first->name.hash() + second; }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first->name);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	dict<bitDef_t, std::set<T, Compare>> bits;
@@ -229,6 +237,13 @@ using sort_by_name_id_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell
 template<typename T>
 class SigSet<T, sort_by_name_id_guard<T>> : public SigSet<T, RTLIL::sort_by_name_id<typename std::remove_pointer<T>::type>> {};
 
+/**
+ * SigMap wraps a union-find "database"
+ * to map SigBits of a module to canonical representative SigBits.
+ * SigBits that are connected share a set in the underlying database.
+ * If a SigBit has a const state (impl: bit.wire is nullptr),
+ * it's promoted to a representative.
+ */
 struct SigMap
 {
 	mfp<SigBit> database;
@@ -249,6 +264,7 @@ struct SigMap
 		database.clear();
 	}
 
+	// Rebuild SigMap for all connections in module
 	void set(RTLIL::Module *module)
 	{
 		int bitcount = 0;
@@ -262,6 +278,7 @@ struct SigMap
 			add(it.first, it.second);
 	}
 
+	// Add connections from "from" to "to", bit-by-bit
 	void add(const RTLIL::SigSpec& from, const RTLIL::SigSpec& to)
 	{
 		log_assert(GetSize(from) == GetSize(to));
@@ -287,6 +304,7 @@ struct SigMap
 		}
 	}
 
+	// Add sig as disconnected from anything
 	void add(const RTLIL::SigBit &bit)
 	{
 		const auto &b = database.find(bit);
@@ -302,6 +320,7 @@ struct SigMap
 
 	inline void add(Wire *wire) { return add(RTLIL::SigSpec(wire)); }
 
+	// Modify bit to its representative
 	void apply(RTLIL::SigBit &bit) const
 	{
 		bit = database.find(bit);
@@ -332,6 +351,7 @@ struct SigMap
 		return sig;
 	}
 
+	// All non-const bits
 	RTLIL::SigSpec allbits() const
 	{
 		RTLIL::SigSpec sig;

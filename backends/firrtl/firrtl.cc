@@ -149,7 +149,7 @@ std::string dump_const(const RTLIL::Const &data)
 	// Numeric (non-real) parameter.
 	else
 	{
-		int width = data.bits.size();
+		int width = data.size();
 
 		// If a standard 32-bit int, then emit standard int value like "56" or
 		// "-56". Firrtl supports negative-valued int literals.
@@ -163,7 +163,7 @@ std::string dump_const(const RTLIL::Const &data)
 
 			for (int i = 0; i < width; i++)
 			{
-				switch (data.bits[i])
+				switch (data[i])
 				{
 					case State::S0:                      break;
 					case State::S1: int_val |= (1 << i); break;
@@ -205,7 +205,7 @@ std::string dump_const(const RTLIL::Const &data)
 			for (int i = width - 1; i >= 0; i--)
 			{
 				log_assert(i < width);
-				switch (data.bits[i])
+				switch (data[i])
 				{
 					case State::S0: res_str += "0"; break;
 					case State::S1: res_str += "1"; break;
@@ -1215,9 +1215,6 @@ struct FirrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		if (!design->full_selection())
-			log_cmd_error("This command only operates on fully selected designs!\n");
-
 		log_header(design, "Executing FIRRTL backend.\n");
 		log_push();
 
@@ -1230,7 +1227,7 @@ struct FirrtlBackend : public Backend {
 		autoid_counter = 0;
 
 		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
-		Module *top = design->top_module();
+		Module *top = nullptr;
 		Module *last = nullptr;
 		// Generate module and wire names.
 		for (auto module : design->modules()) {

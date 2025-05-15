@@ -498,6 +498,11 @@ struct value : public expr_base<value<Bits>> {
 		return result;
 	}
 
+	CXXRTL_ALWAYS_INLINE
+	value<Bits> bwmux(const value<Bits> &b, const value<Bits> &s) const {
+		return (bit_and(s.bit_not())).bit_or(b.bit_and(s));
+	}
+
 	template<size_t ResultBits, size_t SelBits>
 	value<ResultBits> demux(const value<SelBits> &sel) const {
 		static_assert(Bits << SelBits == ResultBits, "invalid sizes used in demux()");
@@ -1127,7 +1132,7 @@ struct fmt_part {
 			}
 
 			case UNICHAR: {
-				uint32_t codepoint = val.template get<uint32_t>();
+				uint32_t codepoint = val.template zcast<32>().template get<uint32_t>();
 				if (codepoint >= 0x10000)
 					buf += (char)(0xf0 |  (codepoint >> 18));
 				else if (codepoint >= 0x800)
@@ -1582,7 +1587,7 @@ struct module {
 
 	// Compatibility method.
 #if __has_attribute(deprecated)
-	__attribute__((deprecated("Use `debug_info(path, &items, /*scopes=*/nullptr);` instead. (`path` could be \"top \".)")))
+	__attribute__((deprecated("Use `debug_info(&items, /*scopes=*/nullptr, path);` instead.")))
 #endif
 	void debug_info(debug_items &items, std::string path) {
 		debug_info(&items, /*scopes=*/nullptr, path);
@@ -1764,7 +1769,7 @@ value<BitsY> shr_uu(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.shr(b).template scast<BitsY>();
+	return a.template scast<BitsY>().shr(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
@@ -2005,7 +2010,7 @@ std::pair<value<BitsY>, value<BitsY>> divmod_uu(const value<BitsA> &a, const val
 	value<Bits> quotient;
 	value<Bits> remainder;
 	value<Bits> dividend = a.template zext<Bits>();
-	value<Bits> divisor = b.template zext<Bits>();
+	value<Bits> divisor  = b.template trunc<BitsB>().template zext<Bits>();
 	std::tie(quotient, remainder) = dividend.udivmod(divisor);
 	return {quotient.template trunc<BitsY>(), remainder.template trunc<BitsY>()};
 }

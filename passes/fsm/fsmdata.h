@@ -48,8 +48,8 @@ struct FsmData
 		cell->parameters[ID::STATE_TABLE] = RTLIL::Const();
 
 		for (int i = 0; i < int(state_table.size()); i++) {
-			std::vector<RTLIL::State> &bits_table = cell->parameters[ID::STATE_TABLE].bits;
-			std::vector<RTLIL::State> &bits_state = state_table[i].bits;
+			std::vector<RTLIL::State> &bits_table = cell->parameters[ID::STATE_TABLE].bits();
+			std::vector<RTLIL::State> &bits_state = state_table[i].bits();
 			bits_table.insert(bits_table.end(), bits_state.begin(), bits_state.end());
 		}
 
@@ -57,16 +57,16 @@ struct FsmData
 		cell->parameters[ID::TRANS_TABLE] = RTLIL::Const();
 		for (int i = 0; i < int(transition_table.size()); i++)
 		{
-			std::vector<RTLIL::State> &bits_table = cell->parameters[ID::TRANS_TABLE].bits;
+			std::vector<RTLIL::State> &bits_table = cell->parameters[ID::TRANS_TABLE].bits();
 			transition_t &tr = transition_table[i];
 
 			RTLIL::Const const_state_in = RTLIL::Const(tr.state_in, state_num_log2);
 			RTLIL::Const const_state_out = RTLIL::Const(tr.state_out, state_num_log2);
-			std::vector<RTLIL::State> &bits_state_in = const_state_in.bits;
-			std::vector<RTLIL::State> &bits_state_out = const_state_out.bits;
+			std::vector<RTLIL::State> &bits_state_in = const_state_in.bits();
+			std::vector<RTLIL::State> &bits_state_out = const_state_out.bits();
 
-			std::vector<RTLIL::State> &bits_ctrl_in = tr.ctrl_in.bits;
-			std::vector<RTLIL::State> &bits_ctrl_out = tr.ctrl_out.bits;
+			std::vector<RTLIL::State> &bits_ctrl_in = tr.ctrl_in.bits();
+			std::vector<RTLIL::State> &bits_ctrl_out = tr.ctrl_out.bits();
 
 			// append lsb first
 			bits_table.insert(bits_table.end(), bits_ctrl_out.begin(), bits_ctrl_out.end());
@@ -97,23 +97,23 @@ struct FsmData
 		for (int i = 0; i < state_num; i++) {
 			RTLIL::Const state_code;
 			int off_begin = i*state_bits, off_end = off_begin + state_bits;
-			state_code.bits.insert(state_code.bits.begin(), state_table.bits.begin()+off_begin, state_table.bits.begin()+off_end);
+			state_code.bits().insert(state_code.bits().begin(), state_table.begin()+off_begin, state_table.begin()+off_end);
 			this->state_table.push_back(state_code);
 		}
 
 		for (int i = 0; i < trans_num; i++)
 		{
-			auto off_ctrl_out = trans_table.bits.begin() + i*(num_inputs+num_outputs+2*state_num_log2);
+			auto off_ctrl_out = trans_table.begin() + i*(num_inputs+num_outputs+2*state_num_log2);
 			auto off_state_out = off_ctrl_out + num_outputs;
 			auto off_ctrl_in = off_state_out + state_num_log2;
 			auto off_state_in = off_ctrl_in + num_inputs;
 			auto off_end = off_state_in + state_num_log2;
 
 			RTLIL::Const state_in, state_out, ctrl_in, ctrl_out;
-			ctrl_out.bits.insert(state_in.bits.begin(), off_ctrl_out, off_state_out);
-			state_out.bits.insert(state_out.bits.begin(), off_state_out, off_ctrl_in);
-			ctrl_in.bits.insert(ctrl_in.bits.begin(), off_ctrl_in, off_state_in);
-			state_in.bits.insert(state_in.bits.begin(), off_state_in, off_end);
+			ctrl_out.bits().insert(ctrl_out.bits().begin(), off_ctrl_out, off_state_out);
+			state_out.bits().insert(state_out.bits().begin(), off_state_out, off_ctrl_in);
+			ctrl_in.bits().insert(ctrl_in.bits().begin(), off_ctrl_in, off_state_in);
+			state_in.bits().insert(state_in.bits().begin(), off_state_in, off_end);
 
 			transition_t tr;
 			tr.state_in = state_in.as_int();

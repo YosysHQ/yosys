@@ -20,10 +20,10 @@
  *
  *  This is the AST frontend library.
  *
- *  The AST frontend library is not a frontend on it's own but provides a
- *  generic abstract syntax tree (AST) abstraction for HDL code and can be
- *  used by HDL frontends. See "ast.h" for an overview of the API and the
- *  Verilog frontend for an usage example.
+ *  The AST frontend library is not a frontend on its own but provides an
+ *  abstract syntax tree (AST) abstraction for the open source Verilog frontend
+ *  at frontends/verilog.
+ *
  *
  */
 
@@ -41,6 +41,8 @@ namespace AST {
 	std::string current_filename;
 	void (*set_line_num)(int) = NULL;
 	int (*get_line_num)() = NULL;
+	unsigned long long astnodes = 0;
+	unsigned long long astnode_count() { return astnodes; }
 }
 
 // instantiate global variables (private API)
@@ -204,6 +206,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
+	astnodes++;
 
 	this->type = type;
 	filename = current_filename;
@@ -292,6 +295,7 @@ void AstNode::delete_children()
 // AstNode destructor
 AstNode::~AstNode()
 {
+	astnodes--;
 	delete_children();
 }
 
@@ -472,6 +476,10 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		}
 		fprintf(f, " %s", id2vl(str).c_str());
 		fprintf(f, ";\n");
+		break;
+
+	case AST_WIRETYPE:
+		fprintf(f, "%s", id2vl(str).c_str());
 		break;
 
 	case AST_MEMORY:
@@ -690,7 +698,17 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_CAST_SIZE:
-		children[0]->dumpVlog(f, "");
+		switch (children[0]->type)
+		{
+		case AST_WIRE:
+			if (children[0]->children.size() > 0)
+				children[0]->children[0]->dumpVlog(f, "");
+			else
+				fprintf(f, "%d'", children[0]->range_left - children[0]->range_right + 1);
+			break;
+		default:
+			children[0]->dumpVlog(f, "");
+		}
 		fprintf(f, "'(");
 		children[1]->dumpVlog(f, "");
 		fprintf(f, ")");
@@ -859,16 +877,25 @@ AstNode *AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
 // create an AST node for a constant (using a string as value)
 AstNode *AstNode::mkconst_str(const std::string &str)
 {
-	std::vector<RTLIL::State> data;
-	data.reserve(str.size() * 8);
-	for (size_t i = 0; i < str.size(); i++) {
-		unsigned char ch = str[str.size() - i - 1];
-		for (int j = 0; j < 8; j++) {
-			data.push_back((ch & 1) ? State::S1 : State::S0);
-			ch = ch >> 1;
+	AstNode *node;
+
+	// LRM 1364-2005 5.2.3.3 The empty string literal ("") shall be considered
+	// equivalent to the ASCII NUL ("\0")
+	if (str.empty()) {
+		node = AstNode::mkconst_int(0, false, 8);
+	} else {
+		std::vector<RTLIL::State> data;
+		data.reserve(str.size() * 8);
+		for (size_t i = 0; i < str.size(); i++) {
+			unsigned char ch = str[str.size() - i - 1];
+			for (int j = 0; j < 8; j++) {
+				data.push_back((ch & 1) ? State::S1 : State::S0);
+				ch = ch >> 1;
+			}
 		}
+		node = AstNode::mkconst_bits(data, false);
 	}
-	AstNode *node = AstNode::mkconst_bits(data, false);
+
 	node->is_string = true;
 	node->str = str;
 	return node;
@@ -904,7 +931,7 @@ bool AstNode::bits_only_01() const
 RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 {
 	RTLIL::State extbit = bits.back();
-	while (width > int(bits.size()))
+	while (width > GetSize(bits))
 		bits.push_back(extbit);
 	return RTLIL::Const(bits);
 }
@@ -912,13 +939,13 @@ RTLIL::Const AstNode::bitsAsUnsizedConst(int width)
 RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 {
 	std::vector<RTLIL::State> bits = this->bits;
-	if (width >= 0 && width < int(bits.size()))
+	if (width >= 0 && width < GetSize(bits))
 		bits.resize(width);
-	if (width >= 0 && width > int(bits.size())) {
+	if (width >= 0 && width > GetSize(bits)) {
 		RTLIL::State extbit = RTLIL::State::S0;
 		if ((is_signed || is_unsized) && !bits.empty())
 			extbit = bits.back();
-		while (width > int(bits.size()))
+		while (width > GetSize(bits))
 			bits.push_back(extbit);
 	}
 	return RTLIL::Const(bits);
@@ -933,15 +960,7 @@ RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
-	RTLIL::Const val;
-	val.bits = bits;
-
-	if (is_string) {
-		val.flags |= RTLIL::CONST_FLAG_STRING;
-		log_assert(val.decode_string() == str);
-	}
-
-	return val;
+	return is_string ? RTLIL::Const(str) : RTLIL::Const(bits);
 }
 
 RTLIL::Const AstNode::asParaConst() const
@@ -987,7 +1006,7 @@ uint64_t AstNode::asInt(bool is_signed)
 		uint64_t ret = 0;
 
 		for (int i = 0; i < 64; i++)
-			if (v.bits.at(i) == RTLIL::State::S1)
+			if (v.at(i) == RTLIL::State::S1)
 				ret |= uint64_t(1) << i;
 
 		return ret;
@@ -1005,15 +1024,15 @@ double AstNode::asReal(bool is_signed)
 	{
 		RTLIL::Const val(bits);
 
-		bool is_negative = is_signed && !val.bits.empty() && val.bits.back() == RTLIL::State::S1;
+		bool is_negative = is_signed && !val.empty() && val.back() == RTLIL::State::S1;
 		if (is_negative)
-			val = const_neg(val, val, false, false, val.bits.size());
+			val = const_neg(val, val, false, false, val.size());
 
 		double v = 0;
-		for (size_t i = 0; i < val.bits.size(); i++)
+		for (auto i = 0; i < val.size(); i++)
 			// IEEE Std 1800-2012 Par 6.12.2: Individual bits that are x or z in
 			// the net or the variable shall be treated as zero upon conversion.
-			if (val.bits.at(i) == RTLIL::State::S1)
+			if (val.at(i) == RTLIL::State::S1)
 				v += exp2(i);
 		if (is_negative)
 			v *= -1;
@@ -1036,15 +1055,15 @@ RTLIL::Const AstNode::realAsConst(int width)
 #else
 	if (!std::isfinite(v)) {
 #endif
-		result.bits = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
+		result = std::vector<RTLIL::State>(width, RTLIL::State::Sx);
 	} else {
 		bool is_negative = v < 0;
 		if (is_negative)
 			v *= -1;
 		for (int i = 0; i < width; i++, v /= 2)
-			result.bits.push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
+			result.bits().push_back((fmod(floor(v), 2) != 0) ? RTLIL::State::S1 : RTLIL::State::S0);
 		if (is_negative)
-			result = const_neg(result, result, false, false, result.bits.size());
+			result = const_neg(result, result, false, false, result.size());
 	}
 	return result;
 }
@@ -1749,16 +1768,7 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 		res.push_back('r');
 	res += stringf("%d", GetSize(val));
 	res.push_back('\'');
-	for (int i = GetSize(val) - 1; i >= 0; i--) {
-		switch (val.bits[i]) {
-			case RTLIL::State::S0: res.push_back('0'); break;
-			case RTLIL::State::S1: res.push_back('1'); break;
-			case RTLIL::State::Sx: res.push_back('x'); break;
-			case RTLIL::State::Sz: res.push_back('z'); break;
-			case RTLIL::State::Sa: res.push_back('?'); break;
-			case RTLIL::State::Sm: res.push_back('m'); break;
-		}
-	}
+	res.append(val.as_string("?"));
 	return res;
 }
 
@@ -1850,7 +1860,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		} else if ((it->second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 			child->children[0] = AstNode::mkconst_str(it->second.decode_string());
 		else
-			child->children[0] = AstNode::mkconst_bits(it->second.bits, (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			child->children[0] = AstNode::mkconst_bits(it->second.to_bits(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
 		rewritten.insert(it->first);
 	}
 
@@ -1863,7 +1873,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 			if ((param.second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 				defparam->children.push_back(AstNode::mkconst_str(param.second.decode_string()));
 			else
-				defparam->children.push_back(AstNode::mkconst_bits(param.second.bits, (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
+				defparam->children.push_back(AstNode::mkconst_bits(param.second.to_bits(), (param.second.flags & RTLIL::CONST_FLAG_SIGNED) != 0));
 			new_ast->children.push_back(defparam);
 		}
 

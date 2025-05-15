@@ -20,7 +20,6 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
-#include "kernel/hashlib.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

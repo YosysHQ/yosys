@@ -1,0 +1,224 @@
+read_verilog -icells <<EOF
+module test();
+`define CELL_AY(typ)  \
+wire typ``_a, typ``_y; \
+$``typ typ(.A(typ``_a), .Y(typ``_y));
+`define CELL_ABY(typ)  \
+wire typ``_a, typ``_b, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .Y(typ``_y));
+`define CELL_SABY(typ)  \
+wire typ``_a, typ``_b, typ``_y, typ``_s; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .Y(typ``_y), .S(typ``_s));
+`define CELL_ABCY(typ)  \
+wire typ``_a, typ``_b, typ``_c, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .C(typ``_c), .Y(typ``_y));
+`define CELL_ABCDY(typ)  \
+wire typ``_a, typ``_b, typ``_c, typ``_d, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .C(typ``_c), .D(typ``_d), .Y(typ``_y));
+
+`CELL_AY(_BUF_)
+`CELL_AY(_NOT_)
+`CELL_ABY(_AND_)
+`CELL_ABY(_NAND_)
+`CELL_ABY(_OR_)
+`CELL_ABY(_NOR_)
+`CELL_ABY(_XOR_)
+`CELL_ABY(_XNOR_)
+`CELL_ABY(_ANDNOT_)
+`CELL_ABY(_ORNOT_)
+`CELL_SABY(_MUX_)
+`CELL_SABY(_NMUX_)
+`CELL_ABCY(_AOI3_)
+`CELL_ABCY(_OAI3_)
+`CELL_ABCDY(_AOI4_)
+`CELL_ABCDY(_OAI4_)
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+copy test gold
+select test
+write_aiger2 aiger2_gates.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_gates.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -make_outcmp -flatten gold test miter
+sat -verify -show-ports -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module test();
+
+`define BIOP(name,op,w1,w2,wy) \
+wire [w1-1:0] name``_a1; \
+wire [w2-1:0] name``_b1; \
+wire [wy-1:0] name``_y1; \
+assign name``_y1 = name``_a1 op name``_b1; \
+wire signed [w1-1:0] name``_a2; \
+wire signed [w2-1:0] name``_b2; \
+wire [wy-1:0] name``_y2; \
+assign name``_y2 = name``_a2 op name``_b2;
+
+`define UNOP(name,op,w1) \
+wire signed [w1-1:0] name``_a1; \
+wire signed [w1-1:0] name``_y1; \
+assign name``_y1 = op name``_a1; \
+wire [w1-1:0] name``_a2; \
+wire [w1-1:0] name``_y2; \
+assign name``_y2 = op name``_a2;
+
+`define UNOP_REDUCE(name,op,w1) \
+wire signed [w1-1:0] name``_a1; \
+wire name``_y1; \
+assign name``_y1 = op name``_a1; \
+wire [w1-1:0] name``_a2; \
+wire name``_y2; \
+assign name``_y2 = op name``_a2;
+
+`BIOP(and, &, 3, 4, 5)
+`BIOP(or, |, 4, 3, 2)
+`BIOP(xor, ^, 3, 3, 3)
+`BIOP(xnor, ~^, 3, 3, 3)
+`BIOP(logic_and, &&, 4, 3, 1)
+`BIOP(logic_or, ||, 3, 3, 2)
+`BIOP(eq, ==, 3, 3, 1)
+`BIOP(ne, !=, 3, 3, 1)
+`BIOP(lt, <, 3, 3, 1)
+`BIOP(le, <=, 3, 3, 1)
+`BIOP(gt, >, 3, 3, 1)
+`BIOP(ge, >=, 3, 3, 1)
+`UNOP(not, ~, 3)
+`UNOP_REDUCE(logic_not, !, 3)
+`UNOP_REDUCE(reduce_and, &, 3)
+`UNOP_REDUCE(reduce_or, |, 3)
+`UNOP_REDUCE(reduce_xor, ^, 3)
+`UNOP_REDUCE(reduce_xnor, ~^, 3)
+
+wire [3:0] mux_a, mux_b, mux_s, mux_y;
+assign mux_y = mux_s ? mux_b : mux_a;
+
+wire [1:0] fa_a, fa_b, fa_c, fa_x, fa_y;
+\$fa #(
+	.WIDTH(2)
+) fa(.A(fa_a), .B(fa_b), .C(fa_c), .X(fa_x), .Y(fa_y));
+
+wire [1:0] bwmux_a, bwmux_b, bwmux_s, bwmux_y;
+\$bwmux #(
+	.WIDTH(2)
+) bwmux(.A(bwmux_a), .B(bwmux_b), .S(bwmux_s), .Y(bwmux_y));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+copy test gold
+select test
+write_aiger2 aiger2_ops.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_ops.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -make_outcmp -flatten gold test miter
+sat -verify -show-ports -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module submodule1(a, y1, y2);
+	input wire [2:0] a;
+	output wire [2:0] y1 = a + 1;
+	output wire [2:0] y2 = a + 2;
+endmodule
+
+module submodule2(a, y1);
+	input wire [2:0] a;
+	output wire [2:0] y1 = ~a;
+endmodule
+
+module test(a, y1, y2);
+	input wire [2:0] a;
+	output wire [2:0] y1;
+	output wire [2:0] y2;
+
+	wire [2:0] m1;
+	wire [2:0] m2;
+
+	submodule2 s1(.a(a), .y1(m1));
+	submodule1 s2(.a(m1), .y1(y1), .y2(m2));
+	submodule2 s3(.a(m2), .y1(y2));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+copy test gold
+flatten gold
+techmap submodule1
+select test
+write_aiger2 -flatten aiger2_ops.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_ops.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -flatten gold test miter
+sat -verify -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module test();
+wire [1:0] pmux_a, pmux_s, pmux_y;
+wire [3:0] pmux_b;
+\$pmux #(
+	.S_WIDTH(2),
+	.WIDTH(2)
+) pmux(.A(pmux_a), .B(pmux_b), .S(pmux_s), .Y(pmux_y));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+opt_clean
+copy test gold
+select test
+write_aiger2 aiger2_xmodel.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_xmodel.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+
+equiv_make gold test equiv
+equiv_induct -undef equiv
+equiv_status -assert equiv
+
+design -reset
+read_verilog -icells <<EOF
+module sm2(input wire [1:0] a, output wire [1:0] y);
+	assign y = a + 1;
+endmodule
+
+module sm1(input wire [2:0] a, output wire [2:0] y);
+	sm2 inst(a[1:0], y[2:1]);
+	assign y[0] = !a[2];
+endmodule
+
+module top(input wire [4:0] a, output wire [4:0] y);
+	sm1 i1(.a(a[2:0]), .y(y[2:0]));
+	sm2 i2(.a(a[4:3]), .y(y[4:3]));
+endmodule
+EOF
+
+prep -top top
+# deal with arithmetic which is unsupported inside aiger2
+techmap t:$add
+
+splitnets -ports top
+write_aiger2 -flatten aiger2_flatten.aig
+flatten
+rename top gold
+read_aiger -module_name gate aiger2_flatten.aig
+miter -equiv -flatten gold gate miter
+sat -verify -prove trigger 0 miter

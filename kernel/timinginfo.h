@@ -36,7 +36,19 @@ struct TimingInfo
 		explicit NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
-		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
+		std::optional<SigBit> get_connection(RTLIL::Cell *cell) {
+			if (!cell->hasPort(name))
+				return {};
+			auto &port = cell->getPort(name);
+			if (offset >= port.size())
+				return {};
+			return port[offset];
+		}
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(name);
+			h.eat(offset);
+			return h;
+		}
 	};
 	struct BitBit
 	{
@@ -44,7 +56,11 @@ struct TimingInfo
 		BitBit(const NameBit &first, const NameBit &second) : first(first), second(second) {}
 		BitBit(const SigBit &first, const SigBit &second) : first(first), second(second) {}
 		bool operator==(const BitBit& bb) const { return bb.first == first && bb.second == second; }
-		unsigned int hash() const { return mkhash_add(first.hash(), second.hash()); }
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(first);
+			h.eat(second);
+			return h;
+		}
 	};
 
 	struct ModuleTiming

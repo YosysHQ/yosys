@@ -9,4 +9,6 @@ brew "python3"
 brew "tcl-tk"
 brew "xdot"
 brew "bash"
-brew 'boost-python3'
+brew "boost-python3"
+brew "llvm"
+brew "lld"
