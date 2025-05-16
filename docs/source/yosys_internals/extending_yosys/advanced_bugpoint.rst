@@ -6,27 +6,40 @@ in solving or investigating Yosys bugs.  This also applies if you are using a
 fuzzing tool; fuzzers have a tendency to find many variations of the same bug,
 so identifying the root cause is important for avoiding issue spam.
 
-- if the failing command was part of a larger script, such as one of the
-  :doc:`/using_yosys/synthesis/synth`, you could try to follow the design
-  through the script
+If you're familiar with C/C++, you might try to have a look at the source code
+of the command that's failing.  Even if you can't fix the problem yourself, it
+can be very helpful for anyone else investigating if you're able to identify
+where the issue is arising.
 
-  + sometimes when a command is raising an error, you're seeing a symptom rather
-    than the underlying issue
-  + an earlier command may be putting the design in an invalid state which isn't
-    picked up until the error is raised
-  + check out :ref:`yosys_internals/extending_yosys/advanced_bugpoint:why context matters`
 
-- if you're familiar with C/C++ you might try to have a look at the source
-  code of the command that's failing
+Finding the failing command
+---------------------------
 
-  + even if you can't fix the problem yourself, it can be very helpful for
-    anyone else investigating if you're able to identify where exactly the
-    issue is
+Using the ``-L`` flag can help here, allowing you to specify a file to log to,
+such as ``yosys -L out.log -s script.ys``.  Most commands will print a header
+message when they begin; something like ``2.48. Executing HIERARCHY pass
+(managing design hierarchy).``  The last header message will usually be the
+failing command.  There are some commands which don't print a header message, so
+you may want to add ``echo on`` to the start of your script.  The `echo` command
+echoes each command executed, along with any arguments given to it.  For the
+`hierarchy` example above this might be ``yosys> hierarchy -check``.
+
+.. note::
+
+   It may also be helpful to use the `log` command to add messages which you can
+   then search for either in the terminal or the logfile.  This can be quite
+   useful if your script contains script-passes, like the
+   :doc:`/using_yosys/synthesis/synth`, which call many sub-commands and you're
+   not sure exactly which script-pass is calling the failing command.
+
 
 Minimizing scripts
 ------------------
 
-.. TODO:: disclaimer this is intended as advanced usage, and generally not necessary for bug reports
+.. warning::
+
+   This section is intended as **advanced usage**, and generally not necessary
+   for normal bug reports.
 
 If you're using a command line prompt, such as ``yosys -p 'synth_xilinx' -o
 design.json design.v``, consider converting it to a script.  It's generally much
@@ -40,28 +53,10 @@ command line, as well as being better for sharing with others.
    synth_xilinx
    write_json design.json
 
-Next up you want to remove everything *after* the error occurs.  Using the
-``-L`` flag can help here, allowing you to specify a file to log to, such as
-``yosys -L out.log -s script.ys``.  Most commands will print a header message
-when they begin; something like ``2.48. Executing HIERARCHY pass (managing
-design hierarchy).``  The last header message will usually be the failing
-command.  There are some commands which don't print a header message, so you may
-want to add ``echo on`` to the start of your script.  The `echo` command echoes
-each command executed, along with any arguments given to it.  For the
-`hierarchy` example above this might be ``yosys> hierarchy -check``.
-
-.. note::
-
-   It may also be helpful to use the `log` command to add messages which you can
-   then search for either in the terminal or the logfile.  This can be quite
-   useful if your script contains script-passes, like the
-   :doc:`/using_yosys/synthesis/synth`, which call many sub-commands and you're
-   not sure exactly which script-pass is calling the failing command.
-
-If your final command calls sub-commands, replace it with its contents and
-repeat the previous step.  In the case of the
-:doc:`/using_yosys/synthesis/synth`, as well as certain other script-passes, you
-can use the ``-run`` option to simplify this.  For example we can replace
+Next up you want to remove everything *after* the error occurs.  If your final
+command calls sub-commands, replace it with its contents first.  In the case of
+the :doc:`/using_yosys/synthesis/synth`, as well as certain other script-passes,
+you can use the ``-run`` option to simplify this. For example we can replace
 ``synth -top <top> -lut`` with the :ref:`replace_synth`.  The options ``-top
 <top> -lut`` can be provided to each `synth` step, or to just the step(s) where
 it is relevant, as done here.
@@ -177,32 +172,85 @@ recovering context, checkout
 Why context matters
 -------------------
 
-- if you did minimized your script, and removed commands prior to the failure
-  to get a smaller design, try to work backwards and find which commands may
-  have contributed to the design failing
-- especially important when the bug is happening inside of a ``synth_*`` script
-- example (#4590)
+Sometimes when a command is raising an error, you're seeing a symptom rather
+than the underlying issue.  It's possible that an earlier command may be putting
+the design in an invalid state, which isn't picked up until the error is raised.
+This is particularly true for the pre-packaged
+:doc:`/using_yosys/synthesis/synth`, which rely on a combination of generic and
+architecture specific passes.  As new features are added to Yosys and more
+designs are supported, the types of cells output by a pass can grow and change;
+and sometimes this leads to a mismatch in what a pass is intended to handle.
+
+If you minimized your script, and removed commands prior to the failure to get a
+smaller reproducer, try to work backwards and find which commands may have
+contributed to the design failing.  From the minimized design you should have
+some understanding of the cell or cells which are producing the error; but where
+did those cells come from?  The name and/or type of the cell can often point you
+in the right direction:
+
+.. code-block::
+
+   # internal cell types start with a $
+   # lowercase for word-level, uppercase for bit-level
+   $and
+   $_AND_
+
+   # cell types with $__ are typically intermediate cells used in techmapping
+   $__MUL16X16
+
+   # cell types without a $ are either user-defined or architecture specific
+   my_module
+   SB_MAC16
+
+   # object names might give you the name of the pass that created them
+   $procdff$1204
+   $memory\rom$rdmux[0][0][0]$a$1550
+
+   # or even the line number in the Yosys source
+   $auto$muxcover.cc:557:implement_best_cover$2152
+   $auto$alumacc.cc:495:replace_alu$1209
+
+Try running the unminimized script and search the log for the names of the
+objects in your minimized design.  In the case of cells you can also search for
+the type of the cell.  Remember that calling `stat` will list all the types of
+cells currently used in the design, and `select -list =*` will list the names of
+of all the current objects.  You can add these commands to your script, or use
+an interactive terminal to run each command individually.  Adding them to the
+script can be more repeatable, but if it takes a long time to run to the point
+you're interested in then an interactive shell session can give you more
+flexibility once you reach that point.  You can also add a call to the `shell`
+command at any point in a script to start an interactive session at a given
+point; allowing you to script any preparation steps, then come back once it's
+done.
+
+A worked example
+~~~~~~~~~~~~~~~~
   
-  + say you did all the minimization and found that the error occurs when a call
-    to ``techmap -map +/xilinx/cells_map.v`` with ``MIN_MUX_INPUTS`` defined
-    parses a `$_MUX16_` with all inputs set to ``1'x``
-  + step through the original script, calling `stat` after each step to find
-    when the `$_MUX16_` is added
-  + find that the `$_MUX16_` is introduced by a call to `muxcover`, but all the
-    inputs are defined, so calling `techmap` now works as expected
+Say you did all the minimization and found that an error in `synth_xilinx`
+occurs when a call to ``techmap -map +/xilinx/cells_map.v`` with
+``MIN_MUX_INPUTS`` defined parses a `$_MUX16_` with all inputs set to ``1'x``.
+You could fix the bug in ``+/xilinx/cells_map.v``, but that might only solve
+this one case while leaving other problems that haven't been found yet.  So you
+step through the original script, calling `stat` after each step to find when
+the `$_MUX16_` is added.
 
-    * and from running `bugpoint` with the failing techmap you know that the
-      cell with index ``2297`` will fail, so you can now call ``select
-      top/*$2297`` to limit to just that cell, and optionally call ``design
-      -save pre_bug`` or ``write_rtlil -selected pre_bug.il`` to save this state
+You find that the `$_MUX16_` is introduced by a call to `muxcover`, but all the
+inputs are defined, so calling `techmap` now works as expected.  From running
+`bugpoint` with the failing techmap you know that the cell with index ``2297``
+will fail, so you call ``select top/*$2297`` to limit to just that cell.  This
+can then be saved with ``design -save pre_bug`` or ``write_rtlil -selected
+pre_bug.il``, so that you don't have to re-run all the earlier steps to get back
+here.
 
-  + next you step through the remaining commands and call `dump` after each to
-    find when the inputs are disconnected
-  + find that ``opt -full`` has optimized away portions of the circuit, leading
-    to `opt_expr` setting the undriven mux inputs to ``x``, but failing to
-    remove the now unnecessary `$_MUX16_`
+Next you step through the remaining commands and call `dump` after each to find
+when the inputs are disconnected.  You find that ``opt -full`` has optimized
+away portions of the circuit, leading to `opt_expr` setting the undriven mux
+inputs to ``x``, but failing to remove the now unnecessary `$_MUX16_`.  Now
+you've identified a problem in `opt_expr` that affects all of the wide muxes,
+and could happen in any synthesis flow, not just `synth_xilinx`.
 
-- in this example, you might've stopped with the minimal reproducer, fixed the
-  bug in ``+/xilinx/cells_map.v``, and carried on
-- but by following the failure back you've managed to identify a problem with
-  `opt_expr` that could be causing other problems either now or in the future
+.. seealso::
+
+   This example is taken from `YosysHQ/yosys#4590
+   <https://github.com/YosysHQ/yosys/issues/4590>`_ and can be reproduced with a
+   version of Yosys between 0.45 and 0.51.
