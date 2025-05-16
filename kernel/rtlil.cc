@@ -380,6 +380,33 @@ int RTLIL::Const::as_int(bool is_signed) const
 	return ret;
 }
 
+bool RTLIL::Const::convertible_to_int(bool is_signed) const
+{
+	auto size = get_min_size(is_signed);
+	return (size > 0 && size <= 32);
+}
+
+std::optional<int> RTLIL::Const::try_as_int(bool is_signed) const
+{
+	if (!convertible_to_int(is_signed))
+		return std::nullopt;
+	return as_int(is_signed);
+}
+
+int RTLIL::Const::as_int_saturating(bool is_signed) const
+{
+	if (!convertible_to_int(is_signed)) {
+		if (!is_signed)
+			return std::numeric_limits<int>::max();
+
+		const auto min_size = get_min_size(is_signed);
+		log_assert(min_size > 0);
+		const auto neg = get_bits().at(min_size - 1);
+		return neg ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
+	}
+	return as_int(is_signed);
+}
+
 int RTLIL::Const::get_min_size(bool is_signed) const
 {
 	if (empty()) return 0;
@@ -5460,6 +5487,38 @@ int RTLIL::SigSpec::as_int(bool is_signed) const
 	if (width_)
 		return RTLIL::Const(chunks_[0].data).as_int(is_signed);
 	return 0;
+}
+
+bool RTLIL::SigSpec::convertible_to_int(bool is_signed) const
+{
+	cover("kernel.rtlil.sigspec.convertible_to_int");
+
+	pack();
+	if (!is_fully_const())
+		return false;
+
+	return RTLIL::Const(chunks_[0].data).convertible_to_int(is_signed);
+}
+
+std::optional<int> RTLIL::SigSpec::try_as_int(bool is_signed) const
+{
+	cover("kernel.rtlil.sigspec.try_as_int");
+
+	pack();
+	if (!is_fully_const())
+		return std::nullopt;
+
+	return RTLIL::Const(chunks_[0].data).try_as_int(is_signed);
+}
+
+int RTLIL::SigSpec::as_int_saturating(bool is_signed) const
+{
+	cover("kernel.rtlil.sigspec.try_as_int");
+
+	pack();
+	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
+	log_assert(!empty());
+	return RTLIL::Const(chunks_[0].data).as_int_saturating(is_signed);
 }
 
 std::string RTLIL::SigSpec::as_string() const

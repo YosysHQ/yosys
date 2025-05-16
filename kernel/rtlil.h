@@ -754,6 +754,9 @@ public:
 	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
+	bool convertible_to_int(bool is_signed = false) const;
+	std::optional<int> try_as_int(bool is_signed = false) const;
+	int as_int_saturating(bool is_signed = false) const;
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
@@ -1131,6 +1134,9 @@ public:
 
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
+	bool convertible_to_int(bool is_signed = false) const;
+	std::optional<int> try_as_int(bool is_signed = false) const;
+	int as_int_saturating(bool is_signed = false) const;
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
