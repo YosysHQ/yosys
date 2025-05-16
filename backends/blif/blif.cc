@@ -44,6 +44,7 @@ struct BlifDumperConfig
 	bool iattr_mode;
 	bool blackbox_mode;
 	bool noalias_mode;
+	bool gatesi_mode;
 
 	std::string buf_type, buf_in, buf_out;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
@@ -51,7 +52,7 @@ struct BlifDumperConfig
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false),
 			cname_mode(false), iname_mode(false), param_mode(false), attr_mode(false), iattr_mode(false),
-			blackbox_mode(false), noalias_mode(false) { }
+			blackbox_mode(false), noalias_mode(false), gatesi_mode(false) { }
 };
 
 struct BlifDumper
@@ -228,6 +229,8 @@ struct BlifDumper
 		{
 			if (cell->type == ID($scopeinfo))
 				continue;
+
+			auto gate_init = cell->hasPort(ID::Q) ? str_init(cell->getPort(ID::Q)) : std::string("");
 
 			if (config->unbuf_types.count(cell->type)) {
 				auto portnames = config->unbuf_types.at(cell->type);
@@ -410,7 +413,13 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
-			f << stringf(".%s %s", subckt_or_gate(cell->type.str()), str(cell->type).c_str());
+			if (config->gatesi_mode && config->gates_mode) {
+				f << stringf(".%s %s%s", subckt_or_gate(cell->type.str()), str(cell->type).c_str(), gate_init.c_str());
+			}
+			else {
+				f << stringf(".%s %s", subckt_or_gate(cell->type.str()), str(cell->type).c_str());
+			}
+
 			for (auto &conn : cell->connections())
 			{
 				if (conn.second.size() == 1) {
@@ -550,6 +559,9 @@ struct BlifBackend : public Backend {
 		log("    -impltf\n");
 		log("        do not write definitions for the $true, $false and $undef wires.\n");
 		log("\n");
+		log("    -gatesi\n");
+		log("        append initial bit(s) for gates that needs to be initialized.\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -638,6 +650,10 @@ struct BlifBackend : public Backend {
 			}
 			if (args[argidx] == "-noalias") {
 				config.noalias_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-gatesi") {
+				config.gatesi_mode = true;
 				continue;
 			}
 			break;
