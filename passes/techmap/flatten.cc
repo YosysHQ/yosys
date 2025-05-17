@@ -43,7 +43,7 @@ IdString concat_name(RTLIL::Cell *cell, IdString object_name, const std::string 
 template<class T>
 IdString map_name(RTLIL::Cell *cell, T *object, const std::string &separator = ".")
 {
-	return cell->module->uniquify(concat_name(cell, object->name, separator));
+	return cell->upscope_module->uniquify(concat_name(cell, object->name, separator));
 }
 
 void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)

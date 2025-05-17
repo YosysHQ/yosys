@@ -659,7 +659,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 	Module *delay_module = design->module(ID($__ABC9_DELAY));
 	log_assert(delay_module);
 	for (auto cell : cells) {
-		auto module = cell->module;
+		auto module = cell->upscope_module;
 		auto inst_module = design->module(cell->type);
 		log_assert(inst_module);
 

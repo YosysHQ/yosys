@@ -224,7 +224,7 @@ bool is_effectful_cell(RTLIL::IdString type)
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 {
-	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	RTLIL::Module *cell_module = cell->upscope_module->design->module(cell->type);
 	log_assert(cell_module != nullptr);
 	return cell_module->get_bool_attribute(ID(cxxrtl_blackbox));
 }
@@ -261,7 +261,7 @@ CxxrtlPortType cxxrtl_port_type(RTLIL::Module *module, RTLIL::IdString port)
 
 CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, RTLIL::IdString port)
 {
-	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	RTLIL::Module *cell_module = cell->upscope_module->design->module(cell->type);
 	if (cell_module == nullptr || !cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
 		return CxxrtlPortType::UNKNOWN;
 	return cxxrtl_port_type(cell_module, port);
@@ -902,7 +902,7 @@ struct CxxrtlWorker {
 
 	std::string template_args(const RTLIL::Cell *cell)
 	{
-		RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+		RTLIL::Module *cell_module = cell->upscope_module->design->module(cell->type);
 		log_assert(cell_module != nullptr);
 		if (!cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return "";
@@ -921,12 +921,12 @@ struct CxxrtlWorker {
 			RTLIL::IdString id_param_name = '\\' + param_name;
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
-				              log_id(cell->module), log_id(cell), param_name.c_str(), log_id(cell_module));
+				              log_id(cell->upscope_module), log_id(cell), param_name.c_str(), log_id(cell_module));
 			RTLIL::Const param_value = cell->getParam(id_param_name);
 			if (((param_value.flags & ~RTLIL::CONST_FLAG_SIGNED) != 0) || param_value.as_int() < 0)
 				log_cmd_error("Parameter `%s' of cell `%s.%s', which is required by the templated module `%s', "
 				              "is not a positive integer.\n",
-				              param_name.c_str(), log_id(cell->module), log_id(cell), log_id(cell_module));
+				              param_name.c_str(), log_id(cell->upscope_module), log_id(cell), log_id(cell_module));
 			params += std::to_string(cell->getParam(id_param_name).as_int());
 		}
 		params += ">";
@@ -1543,7 +1543,7 @@ struct CxxrtlWorker {
 			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 			for (auto conn : cell->connections())
 				if (cell->input(conn.first)) {
-					RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+					RTLIL::Module *cell_module = cell->upscope_module->design->module(cell->type);
 					log_assert(cell_module != nullptr && cell_module->wire(conn.first));
 					RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
 					f << indent << mangle(cell) << access << mangle_wire_name(conn.first);

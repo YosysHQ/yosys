@@ -2350,7 +2350,7 @@ void RTLIL::Module::check()
 	pool<IdString> packed_memids;
 
 	for (auto &it : cells_) {
-		log_assert(this == it.second->module);
+		log_assert(this == it.second->upscope_module);
 		log_assert(it.first == it.second->name);
 		log_assert(!it.first.empty());
 		log_assert(!it.second->type.empty());
@@ -2585,7 +2585,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	log_assert(count_id(cell->name) == 0);
 	log_assert(refcount_cells_ == 0);
 	cells_[cell->name] = cell;
-	cell->module = this;
+	cell->upscope_module = this;
 }
 
 void RTLIL::Module::add(RTLIL::Process *process)
@@ -3933,7 +3933,7 @@ RTLIL::Process::Process() : module(nullptr)
 	hashidx_ = hashidx_count;
 }
 
-RTLIL::Cell::Cell() : module(nullptr)
+RTLIL::Cell::Cell() : upscope_module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -3974,15 +3974,15 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 
 	if (conn_it != connections_.end())
 	{
-		for (auto mon : module->monitors)
+		for (auto mon : upscope_module->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
-		if (module->design)
-			for (auto mon : module->design->monitors)
+		if (upscope_module->design)
+			for (auto mon : upscope_module->design->monitors)
 				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", log_id(this->module), log_id(this), log_id(portname));
+			log("#X# Unconnect %s.%s.%s\n", log_id(this->upscope_module), log_id(this), log_id(portname));
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
@@ -4101,19 +4101,19 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 	if (!r.second && conn_it->second == signal)
 		return;
 
-	for (auto mon : module->monitors)
+	for (auto mon : upscope_module->monitors)
 		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
-	if (module->design)
-		for (auto mon : module->design->monitors)
+	if (upscope_module->design)
+		for (auto mon : upscope_module->design->monitors)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->upscope_module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
-	while (module->design && module->design->flagBufferedNormalized && output(portname))
+	while (upscope_module->design && upscope_module->design->flagBufferedNormalized && output(portname))
 	{
 		pair<RTLIL::Cell*, RTLIL::IdString> key(this, portname);
 
@@ -4126,24 +4126,24 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 		}
 
 		if (GetSize(signal) == 0) {
-			module->bufNormQueue.erase(key);
+			upscope_module->bufNormQueue.erase(key);
 			break;
 		}
 
 		if (!signal.is_wire()) {
-			module->bufNormQueue.insert(key);
+			upscope_module->bufNormQueue.insert(key);
 			break;
 		}
 
 		Wire *w = signal.as_wire();
 		if (w->driverCell_ != nullptr) {
 			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
-			module->bufNormQueue.insert(other_key);
+			upscope_module->bufNormQueue.insert(other_key);
 		}
 		w->driverCell_ = this;
 		w->driverPort_ = portname;
 
-		module->bufNormQueue.erase(key);
+		upscope_module->bufNormQueue.erase(key);
 		break;
 	}
 
@@ -4164,7 +4164,7 @@ bool RTLIL::Cell::known() const
 {
 	if (yosys_celltypes.cell_known(type))
 		return true;
-	if (module && module->design && module->design->module(type))
+	if (upscope_module && upscope_module->design && upscope_module->design->module(type))
 		return true;
 	return false;
 }
@@ -4173,8 +4173,8 @@ bool RTLIL::Cell::input(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
-	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
+	if (upscope_module && upscope_module->design) {
+		RTLIL::Module *m = upscope_module->design->module(type);
 		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
 		return w && w->port_input;
 	}
@@ -4185,8 +4185,8 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
-	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
+	if (upscope_module && upscope_module->design) {
+		RTLIL::Module *m = upscope_module->design->module(type);
 		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
 		return w && w->port_output;
 	}
@@ -4213,8 +4213,8 @@ const RTLIL::Const &RTLIL::Cell::getParam(const RTLIL::IdString& paramname) cons
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())
 		return it->second;
-	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
+	if (upscope_module && upscope_module->design) {
+		RTLIL::Module *m = upscope_module->design->module(type);
 		if (m)
 			return m->parameter_default_values.at(paramname);
 	}

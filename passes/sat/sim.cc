@@ -798,7 +798,7 @@ struct SimInstance
 
 	void log_cell_w_hierarchy(std::string opening_verbiage, RTLIL::Cell *cell)
 	{
-		log_assert(cell->module == module);
+		log_assert(cell->upscope_module == module);
 		bool has_src = cell->has_attribute(ID::src);
 		log("%s %s%s\n", opening_verbiage.c_str(),
 			log_id(cell), has_src ? " at" : "");

@@ -1884,7 +1884,7 @@ public:
 	Cell(RTLIL::Cell &other) = delete;
 	void operator=(RTLIL::Cell &other) = delete;
 
-	RTLIL::Module *module;
+	RTLIL::Module *upscope_module;
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
@@ -1911,9 +1911,16 @@ public:
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
+	RTLIL::Module *get_proto_module() const {
+		if (upscope_module && upscope_module->design) {
+			return upscope_module->design->module(type);
+		}
+		return nullptr;
+	}
+
 	bool has_keep_attr() const {
-		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute(ID::keep));
+		return get_bool_attribute(ID::keep) || (upscope_module && upscope_module->design && upscope_module->design->module(type) &&
+				upscope_module->design->module(type)->get_bool_attribute(ID::keep));
 	}
 
 	template<typename T> void rewrite_sigspecs(T &functor);

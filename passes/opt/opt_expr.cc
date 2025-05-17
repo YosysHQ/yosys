@@ -309,7 +309,7 @@ void handle_polarity_inv(Cell *cell, IdString port, IdString param, const SigMap
 	SigSpec sig = assign_map(cell->getPort(port));
 	if (invert_map.count(sig)) {
 		log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
-				log_id(port), log_id(cell->type), log_id(cell), log_id(cell->module),
+				log_id(port), log_id(cell->type), log_id(cell), log_id(cell->upscope_module),
 				log_signal(sig), log_signal(invert_map.at(sig)));
 		cell->setPort(port, (invert_map.at(sig)));
 		cell->setParam(param, !cell->getParam(param).as_bool());
@@ -338,7 +338,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 		SigSpec sig = assign_map(cell->getPort(port));
 		if (invert_map.count(sig)) {
 			log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
-					log_id(port), log_id(cell->type), log_id(cell), log_id(cell->module),
+					log_id(port), log_id(cell->type), log_id(cell), log_id(cell->upscope_module),
 					log_signal(sig), log_signal(invert_map.at(sig)));
 			cell->setPort(port, (invert_map.at(sig)));
 			cell->type = cell->type == type1 ? type2 : type1;

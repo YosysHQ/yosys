@@ -52,7 +52,7 @@ struct AlumaccWorker
 				if (is_signed) {
 					get_of();
 					get_sf();
-					cached_lt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					cached_lt = alu_cell->upscope_module->Xor(NEW_ID, cached_of, cached_sf);
 				}
 				else
 					cached_lt = get_cf();
@@ -64,21 +64,21 @@ struct AlumaccWorker
 			if (GetSize(cached_gt) == 0) {
 				get_lt();
 				get_eq();
-				SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-				cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				SigSpec Or = alu_cell->upscope_module->Or(NEW_ID, cached_lt, cached_eq);
+				cached_gt = alu_cell->upscope_module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
 			}
 			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
+				cached_eq = alu_cell->upscope_module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
+				cached_ne = alu_cell->upscope_module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
 			return cached_ne;
 		}
 
@@ -86,7 +86,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
+				cached_cf = alu_cell->upscope_module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
 			}
 			return cached_cf;
 		}
@@ -95,7 +95,7 @@ struct AlumaccWorker
 			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				cached_of = alu_cell->upscope_module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
 			return cached_of;
 		}

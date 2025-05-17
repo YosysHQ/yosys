@@ -163,7 +163,7 @@ struct ModIndex : public RTLIL::Monitor
 
 	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
-		log_assert(module == cell->module);
+		log_assert(module == cell->upscope_module);
 
 		if (auto_reload_module)
 			return;

@@ -37,7 +37,7 @@ struct TraceMonitor : public RTLIL::Monitor
 
 	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
-		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", log_id(cell->module), log_id(cell), log_id(port), log_signal(sig), log_signal(old_sig));
+		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", log_id(cell->upscope_module), log_id(cell), log_id(port), log_signal(sig), log_signal(old_sig));
 	}
 
 	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) override

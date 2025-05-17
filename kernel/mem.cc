@@ -693,7 +693,7 @@ namespace {
 	}
 
 	Mem mem_from_cell(Cell *cell) {
-		Mem res(cell->module, cell->parameters.at(ID::MEMID).decode_string(),
+		Mem res(cell->upscope_module, cell->parameters.at(ID::MEMID).decode_string(),
 			cell->parameters.at(ID::WIDTH).as_int(),
 			cell->parameters.at(ID::OFFSET).as_int(),
 			cell->parameters.at(ID::SIZE).as_int()

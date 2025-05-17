@@ -86,7 +86,7 @@ void invert_gp_dff(Cell *cell, bool invert_input)
 		cell->type = stringf("\\GP_DFF%s%s%s", cell_type_s ? "S" : "", cell_type_r ? "R" : "", cell_type_i ? "I" : "");
 
 	log("Merged %s inverter into cell %s.%s: %s -> %s\n", invert_input ? "input" : "output",
-			log_id(cell->module), log_id(cell), cell_type.c_str()+1, log_id(cell->type));
+			log_id(cell->upscope_module), log_id(cell), cell_type.c_str()+1, log_id(cell->type));
 }
 
 struct Greenpak4DffInvPass : public Pass {

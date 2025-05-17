@@ -75,7 +75,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		auto D = cell->getPort(ID::D);
 		auto C = cell->getPort(ID::C);
 
-		auto newcell = cell->module->addCell(NEW_ID, ID(GP_SHREG));
+		auto newcell = cell->upscope_module->addCell(NEW_ID, ID(GP_SHREG));
 		newcell->setPort(ID(nRST), State::S1);
 		newcell->setPort(ID::CLK, C);
 		newcell->setPort(ID(IN), D);
