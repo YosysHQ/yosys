@@ -201,7 +201,7 @@ struct SmtrModule {
 	SmtrStruct output_struct;
 	SmtrStruct state_struct;
 
-	SmtrModule(Module *module, bool keyword_constructor)
+	SmtrModule(Module *module, bool keyword_helpers)
 		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
@@ -210,7 +210,7 @@ struct SmtrModule {
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
 		scope.reserve(name + "_initial");
-		if (keyword_constructor) {
+		if (keyword_helpers) {
 			input_kw_name = scope.unique_name(module->name.str() + "_inputs_kw");
 			scope.reserve(*input_kw_name);
 		}
@@ -314,8 +314,8 @@ struct FunctionalSmtrBackend : public Backend {
 		log("\n");
 		log("    -provides\n");
 		log("        include 'provide' statement(s) for loading output as a module\n");
-		log("    -keyword-constructor\n");
-		log("        provide a function which can construct inputs using keywords\n");
+		log("    -keyword-helpers\n");
+		log("        provide helper functions which can construct/destruct inputs/outputs using keywords\n");
 		log("        \n");
 		log("\n");
 	}
@@ -323,7 +323,7 @@ struct FunctionalSmtrBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		auto provides = false;
-		auto keyword_constructor = false;
+		auto keyword_helpers = false;
 
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
@@ -332,8 +332,8 @@ struct FunctionalSmtrBackend : public Backend {
 		{
 			if (args[argidx] == "-provides")
 				provides = true;
-			else if (args[argidx] == "-keyword-constructor")
-				keyword_constructor = true;
+			else if (args[argidx] == "-keyword-helpers")
+				keyword_helpers = true;
 			else
 				break;
 		}
@@ -346,7 +346,7 @@ struct FunctionalSmtrBackend : public Backend {
 
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
-			SmtrModule smtr(module, keyword_constructor);
+			SmtrModule smtr(module, keyword_helpers);
 			smtr.write(*f);
 		}
 	}
