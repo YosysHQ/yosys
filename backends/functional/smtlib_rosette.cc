@@ -211,7 +211,7 @@ struct SmtrModule {
 	SmtrStruct output_struct;
 	SmtrStruct state_struct;
 
-	SmtrModule(Module *module, bool keyword_helpers)
+	SmtrModule(Module *module, bool assoc_list_helpers)
 		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
@@ -220,7 +220,7 @@ struct SmtrModule {
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
 		scope.reserve(name + "_initial");
-		if (keyword_helpers) {
+		if (assoc_list_helpers) {
 			input_kw_name = scope.unique_name(module->name.str() + "_inputs_kw");
 			scope.reserve(*input_kw_name);
 			output_kw_name = scope.unique_name(module->name.str() + "_outputs_kw");
@@ -341,8 +341,8 @@ struct FunctionalSmtrBackend : public Backend {
 		log("\n");
 		log("    -provides\n");
 		log("        include 'provide' statement(s) for loading output as a module\n");
-		log("    -keyword-helpers\n");
-		log("        provide helper functions which can construct/destruct inputs/outputs using keywords\n");
+		log("    -assoc-list-helpers\n");
+		log("        provide helper functions which convert inputs/outputs from/to association lists\n");
 		log("        \n");
 		log("\n");
 	}
@@ -350,7 +350,7 @@ struct FunctionalSmtrBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		auto provides = false;
-		auto keyword_helpers = false;
+		auto assoc_list_helpers = false;
 
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
@@ -359,8 +359,8 @@ struct FunctionalSmtrBackend : public Backend {
 		{
 			if (args[argidx] == "-provides")
 				provides = true;
-			else if (args[argidx] == "-keyword-helpers")
-				keyword_helpers = true;
+			else if (args[argidx] == "-assoc-list-helpers")
+				assoc_list_helpers = true;
 			else
 				break;
 		}
@@ -373,7 +373,7 @@ struct FunctionalSmtrBackend : public Backend {
 
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
-			SmtrModule smtr(module, keyword_helpers);
+			SmtrModule smtr(module, assoc_list_helpers);
 			smtr.write(*f);
 		}
 	}
