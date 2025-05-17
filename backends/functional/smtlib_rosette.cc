@@ -205,6 +205,7 @@ struct SmtrModule {
 	SmtrScope scope;
 	std::string name;
 	std::optional<std::string> input_kw_name;
+	std::optional<std::string> output_kw_name;
 
 	SmtrStruct input_struct;
 	SmtrStruct output_struct;
@@ -222,6 +223,8 @@ struct SmtrModule {
 		if (keyword_helpers) {
 			input_kw_name = scope.unique_name(module->name.str() + "_inputs_kw");
 			scope.reserve(*input_kw_name);
+			output_kw_name = scope.unique_name(module->name.str() + "_outputs_kw");
+			scope.reserve(*output_kw_name);
 		}
 		for (auto input : ir.inputs())
 			input_struct.insert(input->name, input->sort);
@@ -278,8 +281,9 @@ struct SmtrModule {
 		w.pop();
 	}
 
-	void write_input_kw(SExprWriter &w)
+	void write_keyword_helpers(SExprWriter &w)
 	{
+		// Input struct keyword-based constructor.
 		w.push();
 		w.open(list("define"));
 		w.open(list(name + "_inputs_kw"));
@@ -290,6 +294,18 @@ struct SmtrModule {
 		w.open(list(input_struct.name));
 		for (auto name : input_struct.get_field_names()) {
 			w << name;
+		}
+		w.pop();
+		// Output struct keyword-based destructor.
+		w.push();
+		w.open(list("define"));
+		w.open(list(name + "_outputs_kw"));
+		const auto outputs_name = "outputs";
+		w << outputs_name;
+		w.close();
+		w.open(list("list"));
+		for (auto name : output_struct.get_field_names()) {
+			w << list("cons", "\"" + name + "\"", output_struct.access_by_base_name(outputs_name, name));
 		}
 		w.pop();
 	}
@@ -303,7 +319,9 @@ struct SmtrModule {
 		state_struct.write_definition(w);
 
 		if (input_kw_name) {
-			write_input_kw(w);
+			if (!output_kw_name)
+				log_error("if keyword helpers are enabled, both input and output helper names are expected");
+			write_keyword_helpers(w);
 		}
 
 		write_eval(w);
