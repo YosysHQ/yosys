@@ -195,12 +195,13 @@ struct SmtrModule {
 	Functional::IR ir;
 	SmtrScope scope;
 	std::string name;
-	
+	std::optional<std::string> input_kw_name;
+
 	SmtrStruct input_struct;
 	SmtrStruct output_struct;
 	SmtrStruct state_struct;
 
-	SmtrModule(Module *module)
+	SmtrModule(Module *module, bool keyword_constructor)
 		: ir(Functional::IR::from_module(module))
 		, scope()
 		, name(scope.unique_name(module->name))
@@ -209,6 +210,10 @@ struct SmtrModule {
 		, state_struct(scope.unique_name(module->name.str() + "_State"), scope)
 	{
 		scope.reserve(name + "_initial");
+		if (keyword_constructor) {
+			input_kw_name = scope.unique_name(module->name.str() + "_inputs_kw");
+			scope.reserve(*input_kw_name);
+		}
 		for (auto input : ir.inputs())
 			input_struct.insert(input->name, input->sort);
 		for (auto output : ir.outputs())
@@ -264,6 +269,22 @@ struct SmtrModule {
 		w.pop();
 	}
 
+	void write_input_kw(SExprWriter &w)
+	{
+		w.push();
+		w.open(list("define"));
+		w.open(list(name + "_inputs_kw"));
+		for (auto name : input_struct.get_field_names()) {
+			w << "#:" + name << name;
+		}
+		w.close();
+		w.open(list(input_struct.name));
+		for (auto name : input_struct.get_field_names()) {
+			w << name;
+		}
+		w.pop();
+	}
+
 	void write(std::ostream &out)
 	{    
 		SExprWriter w(out);
@@ -271,6 +292,10 @@ struct SmtrModule {
 		input_struct.write_definition(w);
 		output_struct.write_definition(w);
 		state_struct.write_definition(w);
+
+		if (input_kw_name) {
+			write_input_kw(w);
+		}
 
 		write_eval(w);
 		write_initial(w);
@@ -289,12 +314,16 @@ struct FunctionalSmtrBackend : public Backend {
 		log("\n");
 		log("    -provides\n");
 		log("        include 'provide' statement(s) for loading output as a module\n");
+		log("    -keyword-constructor\n");
+		log("        provide a function which can construct inputs using keywords\n");
+		log("        \n");
 		log("\n");
 	}
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		auto provides = false;
+		auto keyword_constructor = false;
 
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
@@ -303,6 +332,8 @@ struct FunctionalSmtrBackend : public Backend {
 		{
 			if (args[argidx] == "-provides")
 				provides = true;
+			else if (args[argidx] == "-keyword-constructor")
+				keyword_constructor = true;
 			else
 				break;
 		}
@@ -315,7 +346,7 @@ struct FunctionalSmtrBackend : public Backend {
 
 		for (auto module : design->selected_modules()) {
 			log("Processing module `%s`.\n", module->name.c_str());
-			SmtrModule smtr(module);
+			SmtrModule smtr(module, keyword_constructor);
 			smtr.write(*f);
 		}
 	}
