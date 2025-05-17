@@ -114,6 +114,15 @@ public:
 		size_t i = field_names.at(name);
 		return list(fields[i].accessor, std::move(record));
 	}
+	SExpr access_by_base_name(SExpr record, std::string base_name)
+	{
+		// Find the field by its base name
+		auto it = std::find_if(fields.begin(), fields.end(), [&](const Field &field) { return field.name == base_name; });
+		if (it == fields.end()) {
+			log_error("Field with base name '%s' not found in struct '%s'.\n", base_name.c_str(), name.c_str());
+		}
+		return list(it->accessor, std::move(record));
+	}
 	std::vector<std::string> get_field_names()
 	{
 		std::vector<std::string> names;
