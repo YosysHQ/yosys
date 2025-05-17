@@ -114,6 +114,13 @@ public:
 		size_t i = field_names.at(name);
 		return list(fields[i].accessor, std::move(record));
 	}
+	std::vector<std::string> get_field_names()
+	{
+		std::vector<std::string> names;
+		for (auto field : fields)
+			names.push_back(field.name);
+		return names;
+	}
 };
 
 std::string smt_const(RTLIL::Const const &c) {
