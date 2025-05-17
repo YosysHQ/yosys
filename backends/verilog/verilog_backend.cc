@@ -383,6 +383,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	if (attr2comment)
 		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
+		if (it->first == ID::single_bit_vector) continue;
 		if (it->first == ID::init && regattr) continue;
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
@@ -419,6 +420,9 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 			range = stringf(" [%d:%d]", wire->start_offset, wire->width - 1 + wire->start_offset);
 		else
 			range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	} else {
+		if (wire->attributes.count(ID::single_bit_vector))
+			range = stringf(" [%d:%d]", wire->start_offset, wire->start_offset);
 	}
 	if (wire->port_input && !wire->port_output)
 		f << stringf("%s" "input%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
