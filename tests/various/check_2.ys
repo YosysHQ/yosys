@@ -11,7 +11,5 @@ module top(input clk, input a, input b, output [9:0] x);
 endmodule
 EOF
 hierarchy -top top
+logger -expect error "found logic loop in module top:" 1
 prep
-logger -expect warning "found logic loop in module top:" 1
-logger -expect error "Found 1 problems in 'check -assert'" 1
-check -assert
