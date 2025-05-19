@@ -19,6 +19,8 @@ endmodule
 
 (* blackbox *)
 module DP16KD (...);
+    parameter CLKAMUX = "CLKA";
+    parameter CLKBMUX = "CLKB";
     parameter DATA_WIDTH_A = 18;
     parameter DATA_WIDTH_B = 18;
     parameter REGMODE_A = "NOREG";
@@ -215,6 +217,8 @@ endmodule
 
 (* blackbox *)
 module PDPW16KD (...);
+    parameter CLKRMUX = "CLKR";
+    parameter CLKWMUX = "CLKW";
     parameter DATA_WIDTH_W = 36;
     parameter DATA_WIDTH_R = 36;
     parameter GSR = "ENABLED";
