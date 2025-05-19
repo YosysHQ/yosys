@@ -170,9 +170,23 @@ struct OptDffWorker
 		return ret;
 	}
 
-	void simplify_patterns(patterns_t&)
+	void simplify_patterns(patterns_t& patterns)
 	{
-		// TBD
+		patterns_t new_patterns;
+		dict<SigBit, pool<bool>> sig_db;
+
+		for (auto &pt : patterns) {
+			pattern_t new_pattern;
+			for (auto &p : pt) {
+				if (sig_db.count(p.first) == 0 || sig_db[p.first].count(p.second) == 0) {
+					sig_db[p.first].insert(p.second);
+					new_pattern[p.first] = p.second;
+				}
+			}
+			new_patterns.insert(new_pattern);
+		}
+
+		patterns = std::move(new_patterns);
 	}
 
 	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
