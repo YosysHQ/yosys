@@ -204,8 +204,8 @@ struct SmtrModule {
 	Functional::IR ir;
 	SmtrScope scope;
 	std::string name;
-	std::optional<std::string> input_kw_name;
-	std::optional<std::string> output_kw_name;
+	std::optional<std::string> input_helper_name;
+	std::optional<std::string> output_helper_name;
 
 	SmtrStruct input_struct;
 	SmtrStruct output_struct;
@@ -221,10 +221,10 @@ struct SmtrModule {
 	{
 		scope.reserve(name + "_initial");
 		if (assoc_list_helpers) {
-			input_kw_name = scope.unique_name(module->name.str() + "_inputs_kw");
-			scope.reserve(*input_kw_name);
-			output_kw_name = scope.unique_name(module->name.str() + "_outputs_kw");
-			scope.reserve(*output_kw_name);
+			input_helper_name = scope.unique_name(module->name.str() + "_inputs_helper");
+			scope.reserve(*input_helper_name);
+			output_helper_name = scope.unique_name(module->name.str() + "_outputs_helper");
+			scope.reserve(*output_helper_name);
 		}
 		for (auto input : ir.inputs())
 			input_struct.insert(input->name, input->sort);
@@ -281,28 +281,36 @@ struct SmtrModule {
 		w.pop();
 	}
 
-	void write_keyword_helpers(SExprWriter &w)
+	void write_assoc_list_helpers(SExprWriter &w)
 	{
 		// Input struct keyword-based constructor.
 		w.push();
 		w.open(list("define"));
-		w.open(list(name + "_inputs_kw"));
-		for (auto name : input_struct.get_field_names()) {
-			w << "#:" + name << name;
-		}
+		const auto inputs_name = "inputs";
+		w.open(list(*input_helper_name, inputs_name));
 		w.close();
 		w.open(list(input_struct.name));
 		for (auto name : input_struct.get_field_names()) {
-			w << name;
+			w.push();
+			w.open(list("let"));
+			w.push();
+			w.open(list());
+			w.open(list("assoc-result"));
+			w << list("assoc", "\"" + name + "\"", inputs_name);
+			w.pop();
+			w.open(list("if", "assoc-result"));
+			w << list("cdr", "assoc-result");
+			w.open(list("begin"));
+			w << list("fprintf", list("current-error-port"), "\"%s not found in inputs\"");
+			w << "'not-found";
+			w.pop();
 		}
 		w.pop();
 		// Output struct keyword-based destructor.
 		w.push();
 		w.open(list("define"));
-		w.open(list(name + "_outputs_kw"));
 		const auto outputs_name = "outputs";
-		w << outputs_name;
-		w.close();
+		w << list(*output_helper_name, outputs_name);
 		w.open(list("list"));
 		for (auto name : output_struct.get_field_names()) {
 			w << list("cons", "\"" + name + "\"", output_struct.access_by_base_name(outputs_name, name));
@@ -318,10 +326,10 @@ struct SmtrModule {
 		output_struct.write_definition(w);
 		state_struct.write_definition(w);
 
-		if (input_kw_name) {
-			if (!output_kw_name)
+		if (input_helper_name) {
+			if (!output_helper_name)
 				log_error("if keyword helpers are enabled, both input and output helper names are expected");
-			write_keyword_helpers(w);
+			write_assoc_list_helpers(w);
 		}
 
 		write_eval(w);
