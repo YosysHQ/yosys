@@ -78,3 +78,195 @@ select -assert-count 1 t:$assert
 sat -tempinduct -verify -prove-asserts
 
 design -reset
+
+# A mix of different flop types all described together to stress test proc_dff
+# more
+read_verilog -formal <<EOT
+module top(
+	input wire clk,
+	input wire arst,
+	input wire [7:0] d0, d1, d2, d3,
+	input wire [7:0]        ad2,
+	output reg [7:0] q0, q1, q2, q3
+);
+
+wire never = '0;
+
+always @(posedge clk, posedge arst) begin
+	{q0, q1, q2, q3} <= {d0, d1, d2, d3};
+	if (arst)
+		{q0, q2[7:4], q3, q2[3:0]} <= {q0, ad2[3:0], 8'hFF, 4'h5};
+	else if (never)
+		{q0, q1, q2, q3} <= {q3, q2, q1, q0};
+end
+
+always @* begin
+	if (arst) begin
+		assert(q2 == {ad2[3:0], 4'h5});
+		assert(q3 == 8'hFF);
+	end
+end
+
+endmodule
+EOT
+
+proc
+opt_dff
+opt_clean
+
+# q0 is a standard $dffe
+select w:q0 %ci* c:* %i
+select -assert-count 1 %
+select -assert-count 1 % t:$dffe %i
+
+# q1 is an $aldff where both both aload and data take the same value
+select w:q1 %ci* c:* %i
+select -assert-count 1 %
+select -assert-count 1 % t:$aldff %i
+select -assert-count 1 % %ci:+[AD,D] w:* %i
+
+# q2 is part driven by an $adff, and part by an $aldff
+select w:q2 %ci* c:* %i
+select -assert-count 2 %
+select -assert-count 1 % t:$adff %i
+select -assert-count 1 % t:$aldff %i
+
+# q3 is driven by an $adff
+select w:q3 %ci* c:* %i
+select -assert-count 1 %
+select -assert-count 1 % t:$adff %i
+
+# never should appear in none of the cones of flops
+select -assert-none c:* %x* w:never %i
+
+select -clear
+
+clk2fflogic
+select -assert-any t:$assert
+sat -tempinduct -verify -prove-asserts
+
+design -reset
+
+# A design which is best mapped with different flops for different ranges of
+# the variable
+read_verilog <<EOT
+module top(
+	input wire clk,
+	input wire rsta,
+	input wire rstb,
+	input wire [7:0] d,
+	output reg [7:0] q
+);
+
+always @(posedge clk or posedge rsta or posedge rstb) begin
+	if (rsta)
+		q <= '0;
+	else if (rstb)
+		q[3:0] <= 4'b0;
+	else
+		q <= d;
+end
+
+endmodule
+EOT
+
+proc
+opt_dff
+opt_clean
+
+select w:q %ci* c:* %i
+select -assert-count 1 % t:$adffe %i
+select -assert-count 1 % t:$adff %i
+
+design -reset
+
+# Another design which is best mapped with different flops for different ranges
+# of the variable.
+read_verilog <<EOT
+module top(
+	input wire clk,
+	input wire rst,
+	output reg [7:0] q,
+	input wire [7:0] d
+);
+
+always @(posedge clk or posedge rst) begin
+	if (rst)
+		q[3:0] <= '0;
+	else
+		q <= d;
+end
+
+endmodule
+EOT
+
+proc
+opt_dff
+opt_clean
+
+select w:q %ci* c:* %i
+select -assert-count 1 % t:$dffe %i
+select -assert-count 1 % t:$adff %i
+
+design -reset
+
+# A design that relies on merging adjacent sync rules with the same priority
+# and folding low priority feedback rules into enables at the bit level
+read_verilog -formal <<EOT
+module top(
+	input wire clk,
+	input wire rsta, rstb, rstc, rstd,
+	input wire [2:0] d,
+	output reg [2:0] q
+);
+
+always @(posedge clk, posedge rsta, negedge rstb, posedge rstc, negedge rstd) begin
+	if (rsta)
+		q <= {1'b1, 1'b0, d[0]};
+	else if (!rstb)
+		q <= {1'b1, 1'b0, d[0]};
+	else if (rstc)
+		q <= {q[2], 1'b0, d[0]};
+	else if (~rstd)
+		q <= {q[2], 1'b1, d[0]};
+	else
+		q <= d;
+end
+
+always @* begin
+	if (rsta) begin
+		assert(q[2] == 1'b1);
+		assert(q[1] == 1'b0);
+		assert(q[0] == d[0]);
+	end else if (!rstb) begin
+		assert(q[2] == 1'b1);
+		assert(q[1] == 1'b0);
+		assert(q[0] == d[0]);
+	end else if (rstc) begin
+		assert(q[1] == 1'b0);
+		assert(q[0] == d[0]);
+	end else if (!rstd) begin
+		assert(q[1] == 1'b1);
+		assert(q[0] == d[0]);
+	end
+end
+
+endmodule
+EOT
+
+proc
+opt_dff
+opt_clean
+
+# q is driven by an adffe, a dffsr and an aldff per bit
+select w:q %ci1 c:* %i
+select -assert-count 3 %
+select -assert-count 1 % t:$adffe %i
+select -assert-count 1 % t:$dffsr %i
+select -assert-count 1 % t:$aldff %i
+
+select -clear
+
+clk2fflogic
+select -assert-any t:$assert
+sat -tempinduct -verify -prove-asserts
