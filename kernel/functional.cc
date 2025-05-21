@@ -518,10 +518,12 @@ public:
 			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
 				queue.emplace_back(cell);
 		}
-		for (auto wire : module->wires()) {
-			if (wire->port_input)
+		for (auto port : module->ports) {
+			auto *wire = module->wire(port);
+			if (wire && wire->port_input) {
 				factory.add_input(wire->name, ID($input), Sort(wire->width));
-			if (wire->port_output) {
+			}
+			if (wire && wire->port_output) {
 				auto &output = factory.add_output(wire->name, ID($output), Sort(wire->width));
 				output.set_value(enqueue(DriveChunk(DriveChunkWire(wire, 0, wire->width))));
 			}
