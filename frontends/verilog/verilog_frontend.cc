@@ -48,11 +48,11 @@ static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
 		log_file_error(node->filename, node->location.first_line, "Found DPI function %s.\n", node->str.c_str());
-	for (auto child : node->children)
-		error_on_dpi_function(child);
+	for (auto& child : node->children)
+		error_on_dpi_function(child.get());
 }
 
-static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<AST::AstNode *> &package_list)
+static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<std::unique_ptr<AST::AstNode>> &package_list)
 {
 	// prime the parser's user type lookup table with the package qualified names
 	// of typedefed names in the packages seen so far.
@@ -61,14 +61,16 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 		for (const auto &node: pkg->children) {
 			if (node->type == AST::AST_TYPEDEF) {
 				std::string s = pkg->str + "::" + node->str.substr(1);
-				user_types[s] = node;
+				user_types[s] = node.get();
 			}
 		}
 	}
 }
 
 struct VerilogFrontend : public Frontend {
-	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
+	VerilogLexer lexer;
+	frontend_verilog_yy::parser parser;
+	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file"), lexer(), parser(&lexer) { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -266,12 +268,14 @@ struct VerilogFrontend : public Frontend {
 		bool flag_noblackbox = false;
 		bool flag_nowb = false;
 		bool flag_nosynthesis = false;
+		bool flag_yydebug = false;
 		define_map_t defines_map;
 
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
 
-		frontend_verilog_yydebug = false;
+		lexer.set_debug(false);
+		parser.set_debug_level(0);
 		sv_mode = false;
 		formal_mode = false;
 		noassert_mode = false;
@@ -329,7 +333,8 @@ struct VerilogFrontend : public Frontend {
 				flag_dump_ast2 = true;
 				flag_dump_vlog1 = true;
 				flag_dump_vlog2 = true;
-				frontend_verilog_yydebug = true;
+				lexer.set_debug(true);
+				parser.set_debug_level(1);
 				continue;
 			}
 			if (arg == "-dump_ast1") {
@@ -357,7 +362,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-yydebug") {
-				frontend_verilog_yydebug = true;
+				flag_yydebug = true;
 				continue;
 			}
 			if (arg == "-nolatches") {
@@ -480,8 +485,6 @@ struct VerilogFrontend : public Frontend {
 				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
 
 		AST::current_filename = filename;
-		AST::set_line_num = &frontend_verilog_yyset_lineno;
-		AST::get_line_num = &frontend_verilog_yyget_lineno;
 
 		current_ast = new AST::AstNode(AST::AST_DESIGN);
 
@@ -499,9 +502,9 @@ struct VerilogFrontend : public Frontend {
 		add_package_types(pkg_user_types, design->verilog_packages);
 
 		UserTypeMap global_types_map;
-		for (auto def : design->verilog_globals) {
+		for (auto& def : design->verilog_globals) {
 			if (def->type == AST::AST_TYPEDEF) {
-				global_types_map[def->str] = def;
+				global_types_map[def->str] = def.get();
 			}
 		}
 
@@ -511,10 +514,16 @@ struct VerilogFrontend : public Frontend {
 		// add a new empty type map to allow overriding existing global definitions
 		user_type_stack.push_back(UserTypeMap());
 
-		frontend_verilog_yyset_lineno(1);
-		frontend_verilog_yyrestart(NULL);
-		frontend_verilog_yyparse();
-		frontend_verilog_yylex_destroy();
+		parser.~parser();
+		lexer.~VerilogLexer();
+		new (&lexer) VerilogLexer();
+		new (&parser) frontend_verilog_yy::parser(&lexer);
+		if (flag_yydebug) {
+			lexer.set_debug(true);
+			parser.set_debug_level(1);
+		}
+		parser.parse();
+		// frontend_verilog_yyset_lineno(1);
 
 		for (auto &child : current_ast->children) {
 			if (child->type == AST::AST_MODULE)
@@ -759,10 +768,8 @@ struct VerilogFileList : public Pass {
 
 #endif
 
-YOSYS_NAMESPACE_END
-
 // the yyerror function used by bison to report parser errors
-void frontend_verilog_yyerror(char const *fmt, ...)
+void VERILOG_FRONTEND::frontend_verilog_yyerror(char const *fmt, ...)
 {
 	va_list ap;
 	char buffer[1024];
@@ -771,7 +778,11 @@ void frontend_verilog_yyerror(char const *fmt, ...)
 	p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
 	va_end(ap);
 	p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-	YOSYS_NAMESPACE_PREFIX log_file_error(YOSYS_NAMESPACE_PREFIX AST::current_filename, frontend_verilog_yyget_lineno(),
-					      "%s", buffer);
+	// TODO fix loc
+	YOSYS_NAMESPACE_PREFIX log_file_error(YOSYS_NAMESPACE_PREFIX AST::current_filename, 999,
+											"%s", buffer);
 	exit(1);
 }
+
+YOSYS_NAMESPACE_END
+std::string fmt(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));

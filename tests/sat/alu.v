@@ -1,4 +1,4 @@
-module alu(
+module alu (
 	input clk,
 	input [7:0] A,
 	input [7:0] B,

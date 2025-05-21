@@ -111,7 +111,7 @@ endif
 
 PKG_CONFIG ?= pkg-config
 SED ?= sed
-BISON ?= bison
+BISON ?= bison -k
 STRIP ?= strip
 AWK ?= awk
 
