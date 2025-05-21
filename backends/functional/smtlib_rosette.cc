@@ -114,22 +114,6 @@ public:
 		size_t i = field_names.at(name);
 		return list(fields[i].accessor, std::move(record));
 	}
-	SExpr access_by_base_name(SExpr record, std::string base_name)
-	{
-		// Find the field by its base name
-		auto it = std::find_if(fields.begin(), fields.end(), [&](const Field &field) { return field.name == base_name; });
-		if (it == fields.end()) {
-			log_error("Field with base name '%s' not found in struct '%s'.\n", base_name.c_str(), name.c_str());
-		}
-		return list(it->accessor, std::move(record));
-	}
-	std::vector<std::string> get_field_names()
-	{
-		std::vector<std::string> names;
-		for (auto field : fields)
-			names.push_back(field.name);
-		return names;
-	}
 };
 
 std::string smt_const(RTLIL::Const const &c) {
@@ -290,13 +274,13 @@ struct SmtrModule {
 		w.open(list(*input_helper_name, inputs_name));
 		w.close();
 		w.open(list(input_struct.name));
-		for (auto name : input_struct.get_field_names()) {
+		for (auto input : ir.inputs()) {
 			w.push();
 			w.open(list("let"));
 			w.push();
 			w.open(list());
 			w.open(list("assoc-result"));
-			w << list("assoc", "\"" + name + "\"", inputs_name);
+			w << list("assoc", "\"" + RTLIL::unescape_id(input->name) + "\"", inputs_name);
 			w.pop();
 			w.open(list("if", "assoc-result"));
 			w << list("cdr", "assoc-result");
@@ -312,8 +296,8 @@ struct SmtrModule {
 		const auto outputs_name = "outputs";
 		w << list(*output_helper_name, outputs_name);
 		w.open(list("list"));
-		for (auto name : output_struct.get_field_names()) {
-			w << list("cons", "\"" + name + "\"", output_struct.access_by_base_name(outputs_name, name));
+		for (auto output : ir.outputs()) {
+			w << list("cons", "\"" + RTLIL::unescape_id(name) + "\"", output_struct.access("outputs", output->name));
 		}
 		w.pop();
 	}
