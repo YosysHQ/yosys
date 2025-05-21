@@ -518,8 +518,8 @@ public:
 			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
 				queue.emplace_back(cell);
 		}
-		for (auto port : module->ports) {
-			auto *wire = module->wire(port);
+		for (auto riter = module->ports.rbegin(); riter != module->ports.rend(); ++riter) {
+			auto *wire = module->wire(*riter);
 			if (wire && wire->port_input) {
 				factory.add_input(wire->name, ID($input), Sort(wire->width));
 			}
