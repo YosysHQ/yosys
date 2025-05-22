@@ -127,7 +127,8 @@ std::istream* uncompressed(const std::string filename, std::ios_base::openmode m
 				filename.c_str(), unsigned(magic[2]));
 		gzip_istream* s = new gzip_istream();
 		delete f;
-		log_assert(s->open(filename.c_str()));
+		bool ok = s->open(filename.c_str());
+		log_assert(ok && "Failed to open gzipped file.\n");
 		return s;
 #else
 		log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
