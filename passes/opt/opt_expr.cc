@@ -1307,7 +1307,12 @@ skip_fine_alu:
 		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && (keepdc ? assign_map(cell->getPort(ID::B)).is_fully_def() : assign_map(cell->getPort(ID::B)).is_fully_const()))
 		{
 			bool sign_ext = cell->type == ID($sshr) && cell->getParam(ID::A_SIGNED).as_bool();
-			int shift_bits = assign_map(cell->getPort(ID::B)).as_int(cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool());
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			const bool b_sign_ext = cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool();
+			// We saturate the value to prevent overflow, but note that this could
+			// cause incorrect opimization in the impractical case that A is 2^32 bits
+			// wide
+			int shift_bits = sig_b.as_int_saturating(b_sign_ext);
 
 			if (cell->type.in(ID($shl), ID($sshl)))
 				shift_bits *= -1;

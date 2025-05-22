@@ -753,7 +753,26 @@ public:
 
 	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
+
+	// Convert the constant value to a C++ int.
+	// NOTE: If the constant is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
+
+	// Returns true iff the constant can be converted to an int without
+	// over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, otherwise the max/min value for int depending on the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
 	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
 	std::vector<RTLIL::State> to_bits() const;
@@ -1130,7 +1149,27 @@ public:
 	bool is_onehot(int *pos = nullptr) const;
 
 	bool as_bool() const;
+
+	// Convert the SigSpec to a C++ int, assuming all bits are constant.
+	// NOTE: If the value is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
+
+	// Returns true iff the SigSpec is constant and can be converted to an int
+	// without over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the SigSpec's value as an int if it is a constant and can be
+	// represented without over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns an all constant SigSpec's value as an int if it can be represented
+	// without over/underflow, otherwise the max/min value for int depending on
+	// the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
