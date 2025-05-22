@@ -20,7 +20,11 @@ module top (
 	output wire        [7:0] sshr_uu,
 	output wire signed [7:0] sshr_us,
 	output wire        [7:0] sshr_su,
-	output wire signed [7:0] sshr_ss
+	output wire signed [7:0] sshr_ss,
+	output wire        [7:0] shiftx_uu,
+	output wire signed [7:0] shiftx_us,
+	output wire        [7:0] shiftx_su,
+	output wire signed [7:0] shiftx_ss
 );
 	assign  shl_uu = in_u << 20;
 	assign  shl_us = in_u << 20;
@@ -38,8 +42,19 @@ module top (
 	assign sshr_us = in_u >>> 20;
 	assign sshr_su = in_s >>> 20;
 	assign sshr_ss = in_s >>> 20;
+	wire [7:0] shamt = 20;
+	assign shiftx_uu = in_u[shamt +: 8];
+	assign shiftx_us = in_u[shamt +: 8];
+	assign shiftx_su = in_s[shamt +: 8];
+	assign shiftx_ss = in_s[shamt +: 8];
 endmodule
 EOT
+
+select -assert-count 4 t:$shl
+select -assert-count 4 t:$shr
+select -assert-count 4 t:$sshl
+select -assert-count 4 t:$sshr
+select -assert-count 4 t:$shiftx
 
 equiv_opt opt_expr
 
@@ -48,3 +63,51 @@ select -assert-none t:$shl
 select -assert-none t:$shr
 select -assert-none t:$sshl
 select -assert-none t:$sshr
+select -assert-none t:$shiftx
+
+design -reset
+
+read_verilog <<EOT
+module top (
+	input  wire        [3:0]  in,
+	output wire        [7:0]  shl,
+	output wire        [7:0]  shr,
+	output wire        [7:0] sshl,
+	output wire        [7:0] sshr,
+	output wire        [7:0] shiftx,
+
+	output wire        [7:0]  shl_s,
+	output wire        [7:0]  shr_s,
+	output wire        [7:0] sshl_s,
+	output wire        [7:0] sshr_s,
+	output wire        [7:0] shiftx_s,
+);
+	assign  shl = in << 36'hfffffffff;
+	assign  shr = in >> 36'hfffffffff;
+	assign sshl = in <<< 36'hfffffffff;
+	assign sshr = in >>> 36'hfffffffff;
+	assign shiftx = in[36'hfffffffff +: 8];
+
+	wire signed [35:0] shamt = 36'hfffffffff;
+	assign  shl_s = in << shamt;
+	assign  shr_s = in >> shamt;
+	assign sshl_s = in <<< shamt;
+	assign sshr_s = in >>> shamt;
+	assign shiftx_s = in[shamt +: 8];
+endmodule
+EOT
+
+select -assert-count 2 t:$shl
+select -assert-count 2 t:$shr
+select -assert-count 2 t:$sshl
+select -assert-count 2 t:$sshr
+select -assert-count 1 t:$shiftx
+
+equiv_opt opt_expr
+
+design -load postopt
+select -assert-none t:$shl
+select -assert-none t:$shr
+select -assert-none t:$sshl
+select -assert-none t:$sshr
+select -assert-none t:$shiftx
