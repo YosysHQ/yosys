@@ -297,7 +297,7 @@ struct SmtrModule {
 		w << list(*output_helper_name, outputs_name);
 		w.open(list("list"));
 		for (auto output : ir.outputs()) {
-			w << list("cons", "\"" + RTLIL::unescape_id(name) + "\"", output_struct.access("outputs", output->name));
+			w << list("cons", "\"" + RTLIL::unescape_id(output->name) + "\"", output_struct.access("outputs", output->name));
 		}
 		w.pop();
 	}
