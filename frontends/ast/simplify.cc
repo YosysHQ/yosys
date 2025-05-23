@@ -2086,6 +2086,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					std::swap(range_left, range_right);
 					range_swapped = force_upto;
 				}
+				if (range_left == range_right)
+					set_attribute(ID::single_bit_vector, mkconst_int(1, false));
 			}
 		} else {
 			if (!range_valid)
@@ -2094,6 +2096,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			range_swapped = false;
 			range_left = 0;
 			range_right = 0;
+			if (attributes.count(ID::single_bit_vector)) {
+				delete attributes[ID::single_bit_vector];
+				attributes.erase(ID::single_bit_vector);
+			}
 		}
 	}
 

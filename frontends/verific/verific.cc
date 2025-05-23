@@ -1557,6 +1557,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl, portbus->Size());
+		if (portbus->Size() == 1)
+			wire->set_bool_attribute(ID::single_bit_vector);
 		SetIter si ;
 		Port *port ;
 		FOREACH_PORT_OF_PORTBUS(portbus, si, port) {
@@ -1755,6 +1757,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				break;
 			}
 			import_attributes(wire->attributes, netbus, nl, netbus->Size());
+			if (netbus->Size() == 1)
+				wire->set_bool_attribute(ID::single_bit_vector);
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
