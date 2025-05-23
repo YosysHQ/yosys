@@ -31,6 +31,7 @@
 #endif
 
 #include "verilog_frontend.h"
+#include "verilog_lexer.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
@@ -68,9 +69,15 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 }
 
 struct VerilogFrontend : public Frontend {
+	ParseMode parse_mode;
+	ParseState parse_state;
 	VerilogLexer lexer;
 	frontend_verilog_yy::parser parser;
-	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file"), lexer(), parser(&lexer) { }
+	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file"),
+						parse_mode(),
+						parse_state(),
+						lexer(&parse_state, &parse_mode),
+						parser(&lexer, &parse_state, &parse_mode) { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -276,16 +283,16 @@ struct VerilogFrontend : public Frontend {
 
 		lexer.set_debug(false);
 		parser.set_debug_level(0);
-		sv_mode = false;
-		formal_mode = false;
-		noassert_mode = false;
-		noassume_mode = false;
-		norestrict_mode = false;
-		assume_asserts_mode = false;
-		assert_assumes_mode = false;
-		lib_mode = false;
-		specify_mode = false;
-		default_nettype_wire = true;
+		parse_mode.sv = false;
+		parse_mode.formal = false;
+		parse_mode.noassert = false;
+		parse_mode.noassume = false;
+		parse_mode.norestrict = false;
+		parse_mode.assume_asserts = false;
+		parse_mode.assert_assumes = false;
+		parse_mode.lib = false;
+		parse_mode.specify = false;
+		parse_state.default_nettype_wire = true;
 
 		args.insert(args.begin()+1, verilog_defaults.begin(), verilog_defaults.end());
 
@@ -293,11 +300,11 @@ struct VerilogFrontend : public Frontend {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-sv") {
-				sv_mode = true;
+				parse_mode.sv = true;
 				continue;
 			}
 			if (arg == "-formal") {
-				formal_mode = true;
+				parse_mode.formal = true;
 				continue;
 			}
 			if (arg == "-nosynthesis") {
@@ -305,23 +312,23 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-noassert") {
-				noassert_mode = true;
+				parse_mode.noassert = true;
 				continue;
 			}
 			if (arg == "-noassume") {
-				noassume_mode = true;
+				parse_mode.noassume = true;
 				continue;
 			}
 			if (arg == "-norestrict") {
-				norestrict_mode = true;
+				parse_mode.norestrict = true;
 				continue;
 			}
 			if (arg == "-assume-asserts") {
-				assume_asserts_mode = true;
+				parse_mode.assume_asserts = true;
 				continue;
 			}
 			if (arg == "-assert-assumes") {
-				assert_assumes_mode = true;
+				parse_mode.assert_assumes = true;
 				continue;
 			}
 			if (arg == "-nodisplay") {
@@ -398,7 +405,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-lib") {
-				lib_mode = true;
+				parse_mode.lib = true;
 				defines_map.add("BLACKBOX", "");
 				continue;
 			}
@@ -407,7 +414,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-specify") {
-				specify_mode = true;
+				parse_mode.specify = true;
 				continue;
 			}
 			if (arg == "-noopt") {
@@ -437,7 +444,7 @@ struct VerilogFrontend : public Frontend {
 				continue;
 			}
 			if (arg == "-noautowire") {
-				default_nettype_wire = false;
+				parse_state.default_nettype_wire = false;
 				continue;
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
@@ -474,32 +481,33 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 
-		if (formal_mode || !flag_nosynthesis)
-			defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
+		if (parse_mode.formal || !flag_nosynthesis)
+			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
 
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename.c_str());
 
 		log("Parsing %s%s input from `%s' to AST representation.\n",
-				formal_mode ? "formal " : "", sv_mode ? "SystemVerilog" : "Verilog", filename.c_str());
+				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
 
 		AST::current_filename = filename;
+		AST::sv_mode = parse_mode.sv;
 
-		current_ast = new AST::AstNode(AST::AST_DESIGN);
+		parse_state.current_ast = new AST::AstNode(AST::AST_DESIGN);
 
-		lexin = f;
+		parse_state.lexin = f;
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs);
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs, parse_state, parse_mode);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
-			lexin = new std::istringstream(code_after_preproc);
+			parse_state.lexin = new std::istringstream(code_after_preproc);
 		}
 
 		// make package typedefs available to parser
-		add_package_types(pkg_user_types, design->verilog_packages);
+		add_package_types(parse_state.pkg_user_types, design->verilog_packages);
 
 		UserTypeMap global_types_map;
 		for (auto& def : design->verilog_globals) {
@@ -508,16 +516,16 @@ struct VerilogFrontend : public Frontend {
 			}
 		}
 
-		log_assert(user_type_stack.empty());
+		log_assert(parse_state.user_type_stack.empty());
 		// use previous global typedefs as bottom level of user type stack
-		user_type_stack.push_back(std::move(global_types_map));
+		parse_state.user_type_stack.push_back(std::move(global_types_map));
 		// add a new empty type map to allow overriding existing global definitions
-		user_type_stack.push_back(UserTypeMap());
+		parse_state.user_type_stack.push_back(UserTypeMap());
 
 		parser.~parser();
 		lexer.~VerilogLexer();
-		new (&lexer) VerilogLexer();
-		new (&parser) frontend_verilog_yy::parser(&lexer);
+		new (&lexer) VerilogLexer(&parse_state, &parse_mode);
+		new (&parser) frontend_verilog_yy::parser(&lexer, &parse_state, &parse_mode);
 		if (flag_yydebug) {
 			lexer.set_debug(true);
 			parser.set_debug_level(1);
@@ -525,7 +533,7 @@ struct VerilogFrontend : public Frontend {
 		parser.parse();
 		// frontend_verilog_yyset_lineno(1);
 
-		for (auto &child : current_ast->children) {
+		for (auto &child : parse_state.current_ast->children) {
 			if (child->type == AST::AST_MODULE)
 				for (auto &attr : attributes)
 					if (child->attributes.count(attr) == 0)
@@ -533,21 +541,24 @@ struct VerilogFrontend : public Frontend {
 		}
 
 		if (flag_nodpi)
-			error_on_dpi_function(current_ast);
+			error_on_dpi_function(parse_state.current_ast);
 
-		AST::process(design, current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
+		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire);
+
+		log("Got this:\n");
+		Pass::call(design, "dump");
 
 
 		if (!flag_nopp)
-			delete lexin;
+			delete parse_state.lexin;
 
 		// only the previous and new global type maps remain
-		log_assert(user_type_stack.size() == 2);
-		user_type_stack.clear();
+		log_assert(parse_state.user_type_stack.size() == 2);
+		parse_state.user_type_stack.clear();
 
-		delete current_ast;
-		current_ast = NULL;
+		delete parse_state.current_ast;
+		parse_state.current_ast = NULL;
 
 		log("Successfully finished Verilog frontend.\n");
 	}

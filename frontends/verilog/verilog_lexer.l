@@ -40,8 +40,6 @@
 %option prefix="frontend_verilog_yy"
 
 %{
-//%option bison-locations
-//%option bison-bridge
 
 #ifdef __clang__
 // bison generates code using the 'register' storage class specifier
@@ -50,7 +48,7 @@
 #pragma clang diagnostic ignored "-Wmisleading-indentation"
 #endif
 
-#include "frontends/verilog/verilog_frontend.h"
+#include "frontends/verilog/verilog_lexer.h"
 #include "frontends/ast/ast.h"
 #include "kernel/log.h"
 #include <vector>
@@ -72,7 +70,7 @@ YOSYS_NAMESPACE_BEGIN
 YOSYS_NAMESPACE_END
 
 #define SV_KEYWORD(_tok) \
-	if (sv_mode) return _tok; \
+	if (mode->sv) return _tok; \
 	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
 			"recognized unless read_verilog is called with -sv!\n", YYText(), \
 			AST::current_filename.c_str(), yylineno); \
@@ -83,8 +81,8 @@ YOSYS_NAMESPACE_END
 	string_t val = new std::string(std::string("\\") + YYText()); \
 	return parser::make_TOK_ID(val, out_loc);
 
-#define YY_INPUT(buf,result,max_size) \
-	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
+// #define YY_INPUT(buf,result,max_size) \
+// 	result = readsome(*extra->lexin, buf, max_size)
 
 #define YY_USER_ACTION \
 		old_loc = real_loc; \
@@ -106,10 +104,10 @@ YOSYS_NAMESPACE_END
 #undef YY_BUF_SIZE
 #define YY_BUF_SIZE 65536
 
-static bool isUserType(std::string &s)
+static bool isUserType(ParseState* extra, std::string &s)
 {
 	// check current scope then outer scopes for a name
-	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
+	for (auto it = extra->user_type_stack.rbegin(); it != extra->user_type_stack.rend(); ++it) {
 		if (it->count(s) > 0) {
 				return true;
 		}
@@ -225,9 +223,9 @@ TIME_SCALE_SUFFIX [munpf]?s
 	while (*p != 0 && *p != ' ' && *p != '\t') p++;
 	while (*p == ' ' || *p == '\t') p++;
 	if (!strcmp(p, "none"))
-		VERILOG_FRONTEND::default_nettype_wire = false;
+		extra->default_nettype_wire = false;
 	else if (!strcmp(p, "wire"))
-		VERILOG_FRONTEND::default_nettype_wire = true;
+		extra->default_nettype_wire = true;
 	else
 		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
 }
@@ -245,7 +243,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "endfunction"  { return parser::make_TOK_ENDFUNCTION(out_loc); }
 "task"         { return parser::make_TOK_TASK(out_loc); }
 "endtask"      { return parser::make_TOK_ENDTASK(out_loc); }
-"specify"      { return specify_mode ? parser::make_TOK_SPECIFY(out_loc) : parser::make_TOK_IGNORED_SPECIFY(out_loc); }
+"specify"      { return mode->sv ? parser::make_TOK_SPECIFY(out_loc) : parser::make_TOK_IGNORED_SPECIFY(out_loc); }
 "endspecify"   { return parser::make_TOK_ENDSPECIFY(out_loc); }
 "specparam"    { return parser::make_TOK_SPECPARAM(out_loc); }
 "package"      { SV_KEYWORD(parser::make_TOK_PACKAGE(out_loc)); }
@@ -296,16 +294,16 @@ TIME_SCALE_SUFFIX [munpf]?s
 	return parser::make_TOK_SVA_LABEL(val, out_loc);
 }
 
-"assert"     { if (formal_mode) return parser::make_TOK_ASSERT(out_loc); SV_KEYWORD(parser::make_TOK_ASSERT(out_loc)); }
-"assume"     { if (formal_mode) return parser::make_TOK_ASSUME(out_loc); SV_KEYWORD(parser::make_TOK_ASSUME(out_loc)); }
-"cover"      { if (formal_mode) return parser::make_TOK_COVER(out_loc); SV_KEYWORD(parser::make_TOK_COVER(out_loc)); }
-"restrict"   { if (formal_mode) return parser::make_TOK_RESTRICT(out_loc); SV_KEYWORD(parser::make_TOK_RESTRICT(out_loc)); }
-"property"   { if (formal_mode) return parser::make_TOK_PROPERTY(out_loc); SV_KEYWORD(parser::make_TOK_PROPERTY(out_loc)); }
-"rand"       { if (formal_mode) return parser::make_TOK_RAND(out_loc); SV_KEYWORD(parser::make_TOK_RAND(out_loc)); }
-"const"      { if (formal_mode) return parser::make_TOK_CONST(out_loc); SV_KEYWORD(parser::make_TOK_CONST(out_loc)); }
-"checker"    { if (formal_mode) return parser::make_TOK_CHECKER(out_loc); SV_KEYWORD(parser::make_TOK_CHECKER(out_loc)); }
-"endchecker" { if (formal_mode) return parser::make_TOK_ENDCHECKER(out_loc); SV_KEYWORD(parser::make_TOK_ENDCHECKER(out_loc)); }
-"bind"       { if (formal_mode) return parser::make_TOK_BIND(out_loc); SV_KEYWORD(parser::make_TOK_BIND(out_loc)); }
+"assert"     { if (mode->formal) return parser::make_TOK_ASSERT(out_loc); SV_KEYWORD(parser::make_TOK_ASSERT(out_loc)); }
+"assume"     { if (mode->formal) return parser::make_TOK_ASSUME(out_loc); SV_KEYWORD(parser::make_TOK_ASSUME(out_loc)); }
+"cover"      { if (mode->formal) return parser::make_TOK_COVER(out_loc); SV_KEYWORD(parser::make_TOK_COVER(out_loc)); }
+"restrict"   { if (mode->formal) return parser::make_TOK_RESTRICT(out_loc); SV_KEYWORD(parser::make_TOK_RESTRICT(out_loc)); }
+"property"   { if (mode->formal) return parser::make_TOK_PROPERTY(out_loc); SV_KEYWORD(parser::make_TOK_PROPERTY(out_loc)); }
+"rand"       { if (mode->formal) return parser::make_TOK_RAND(out_loc); SV_KEYWORD(parser::make_TOK_RAND(out_loc)); }
+"const"      { if (mode->formal) return parser::make_TOK_CONST(out_loc); SV_KEYWORD(parser::make_TOK_CONST(out_loc)); }
+"checker"    { if (mode->formal) return parser::make_TOK_CHECKER(out_loc); SV_KEYWORD(parser::make_TOK_CHECKER(out_loc)); }
+"endchecker" { if (mode->formal) return parser::make_TOK_ENDCHECKER(out_loc); SV_KEYWORD(parser::make_TOK_ENDCHECKER(out_loc)); }
+"bind"       { if (mode->formal) return parser::make_TOK_BIND(out_loc); SV_KEYWORD(parser::make_TOK_BIND(out_loc)); }
 "final"      { SV_KEYWORD(parser::make_TOK_FINAL(out_loc)); }
 "logic"      { SV_KEYWORD(parser::make_TOK_LOGIC(out_loc)); }
 "var"        { SV_KEYWORD(parser::make_TOK_VAR(out_loc)); }
@@ -316,8 +314,8 @@ TIME_SCALE_SUFFIX [munpf]?s
 "longint"    { SV_KEYWORD(parser::make_TOK_LONGINT(out_loc)); }
 "void"       { SV_KEYWORD(parser::make_TOK_VOID(out_loc)); }
 
-"eventually"   { if (formal_mode) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
-"s_eventually" { if (formal_mode) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
+"eventually"   { if (mode->formal) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
+"s_eventually" { if (mode->formal) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
 
 "input"   { return parser::make_TOK_INPUT(out_loc); }
 "output"  { return parser::make_TOK_OUTPUT(out_loc); }
@@ -430,7 +428,7 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 }
 
 "$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
-	if (!specify_mode) REJECT;
+	if (!mode->sv) REJECT;
 	auto val = new std::string(YYText());
 	return parser::make_TOK_ID(val, out_loc);
 }
@@ -446,7 +444,7 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 [a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_$][a-zA-Z0-9_$]* {
 	// package qualifier
 	auto s = std::string("\\") + YYText();
-	if (pkg_user_types.count(s) > 0) {
+	if (extra->pkg_user_types.count(s) > 0) {
 		// package qualified typedefed name
 		auto val = new std::string(s);
 		return parser::make_TOK_PKG_USER_TYPE(val, out_loc);
@@ -462,7 +460,7 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 
 [a-zA-Z_$][a-zA-Z0-9_$]* {
 	auto s = std::string("\\") + YYText();
-	if (isUserType(s)) {
+	if (isUserType(extra, s)) {
 		// previously typedefed name
 		auto val = new std::string(s);
 		return parser::make_TOK_USER_TYPE(val, out_loc);
@@ -608,13 +606,13 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 ">>>=" { SV_KEYWORD(parser::make_TOK_SSHR_ASSIGN(out_loc)); }
 
 [-+]?[=*]> {
-	if (!specify_mode) REJECT;
+	if (!mode->sv) REJECT;
 	auto val = new std::string(YYText());
 	return parser::make_TOK_SPECIFY_OPER(val, out_loc);
 }
 
 "&&&" {
-	if (!specify_mode) return parser::make_TOK_IGNORED_SPECIFY_AND(out_loc);
+	if (!mode->sv) return parser::make_TOK_IGNORED_SPECIFY_AND(out_loc);
 	return parser::make_TOK_SPECIFY_AND(out_loc);
 }
 

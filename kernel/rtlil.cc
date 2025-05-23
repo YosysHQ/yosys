@@ -821,14 +821,19 @@ bool RTLIL::Selection::selected_module(const RTLIL::IdString &mod_name) const
 
 bool RTLIL::Selection::selected_whole_module(const RTLIL::IdString &mod_name) const
 {
+	log("one\n");
 	if (complete_selection)
 		return true;
+	log("two\n");
 	if (!selects_boxes && boxed_module(mod_name))
 		return false;
+	log("three\n");
 	if (full_selection)
 		return true;
+	log("four\n");
 	if (selected_modules.count(mod_name) > 0)
 		return true;
+	log("five\n");
 	return false;
 }
 

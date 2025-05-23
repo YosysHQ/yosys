@@ -408,6 +408,8 @@ namespace AST
 	// the AstNode constructor then uses current_filename and get_line_num()
 	// to initialize the filename and linenum properties of new nodes
 	extern std::string current_filename;
+	// also set by the language frontend to control some AST processing
+	extern bool sv_mode;
 
 	// for stats
 	unsigned long long astnode_count();
