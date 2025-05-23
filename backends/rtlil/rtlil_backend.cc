@@ -410,17 +410,13 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		f << stringf("autoidx %d\n", autoidx);
 	}
 
-	log("dumping %zu modules\n", design->modules().size());
-	log("selected is .%s. %d\n", design->selected_active_module.c_str(), only_selected);
 	for (auto module : design->modules()) {
-		log("dumping module %s %d\n", module->name.c_str(), design->selected(module));
 		if (!only_selected || design->selected(module)) {
 			if (only_selected)
 				f << stringf("\n");
 			dump_module(f, "", module, design, only_selected, flag_m, flag_n);
 		}
 	}
-	log("dumped modules\n");
 
 	log_assert(init_autoidx == autoidx);
 }

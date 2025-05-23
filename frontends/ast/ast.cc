@@ -1403,7 +1403,6 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 	log_assert(current_ast->type == AST_DESIGN);
 	for (const auto& child : current_ast->children)
 	{
-		child->dumpAst(stdout, "child: ");
 		if (child->type == AST_MODULE || child->type == AST_INTERFACE)
 		{
 			for (auto& n : design->verilog_globals)
@@ -1461,10 +1460,6 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 
 			process_module(design, child.get(), defer_local);
 			current_ast_mod = nullptr;
-			log("built this:\n");
-			log_module(design->module(child->str));
-			log("here:\n");
-			Pass::call(design, "dump");
 		}
 		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
