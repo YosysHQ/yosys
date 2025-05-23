@@ -148,14 +148,11 @@ struct ProcRmdeadPass : public Pass {
 
 		int total_counter = 0;
 		for (auto mod : design->modules()) {
-			log("sniff %s\n", mod->name.c_str());
 			if (!design->selected(mod))
 				continue;
-			log("selected\n");
 			for (auto &proc_it : mod->processes) {
 				if (!design->selected(mod, proc_it.second))
 					continue;
-				log("module %s is selected\n", log_id(mod));
 				int counter = 0, full_case_counter = 0;
 				for (auto switch_it : proc_it.second->root_case.switches)
 					proc_rmdead(switch_it, counter, full_case_counter);
