@@ -1925,8 +1925,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Prepare replacement node.
 			newNode = template_node->clone();
 			newNode->str = str;
-			if (newNode->attributes.count(ID::wiretype))
-				delete newNode->attributes[ID::wiretype];
 			newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 			newNode->is_input = is_input;
 			newNode->is_output = is_output;
@@ -2089,10 +2087,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			range_swapped = false;
 			range_left = 0;
 			range_right = 0;
-			if (attributes.count(ID::single_bit_vector)) {
-				delete attributes[ID::single_bit_vector];
-				attributes.erase(ID::single_bit_vector);
-			}
+			attributes.erase(ID::single_bit_vector);
 		}
 	}
 
