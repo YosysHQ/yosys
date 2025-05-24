@@ -67,7 +67,7 @@ struct LoggerPass : public Pass {
 		log("    -check-expected\n");
 		log("        verifies that the patterns previously set up by -expect have actually\n");
 		log("        been met, then clears the expected log list.  If this is not called\n");
-		log("        manually, the check will happen at yosys exist time instead.\n");
+		log("        manually, the check will happen at yosys exit time instead.\n");
 		log("\n");
 	}
 
