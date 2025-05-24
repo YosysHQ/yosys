@@ -43,6 +43,10 @@ YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 
+static int get_line_num() {
+	// TODO
+	return 999;
+}
 // divide an arbitrary length decimal number by two and return the rest
 static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 {
@@ -148,10 +152,10 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 }
 
 // convert the Verilog code for a constant to an AST node
-AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
+std::unique_ptr<AstNode> VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
 {
 	if (warn_z) {
-		AstNode *ret = const2ast(code, case_type);
+		auto ret = const2ast(code, case_type);
 		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
 			log_warning("Yosys has only limited support for tri-state logic at the moment. (%s:%d)\n",
 				current_filename.c_str(), get_line_num());
@@ -172,7 +176,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 				ch = ch >> 1;
 			}
 		}
-		AstNode *ast = AstNode::mkconst_bits(data, false);
+		auto ast = AstNode::mkconst_bits(data, false);
 		ast->str = code;
 		return ast;
 	}
