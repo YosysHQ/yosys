@@ -426,7 +426,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %type <boolean> opt_property always_comb_or_latch always_or_always_ff
 %type <boolean> opt_signedness_default_signed opt_signedness_default_unsigned
 %type <integer> integer_atom_type integer_vector_type
-%type <al> attr case_attr
+%type <al> attr if_attr case_attr
 %type <ast> struct_union
 %type <ast_node_type> asgn_binop inc_or_dec_op
 %type <ast> genvar_identifier
@@ -2871,7 +2871,7 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	attr TOK_IF '(' expr ')' {
+	if_attr TOK_IF '(' expr ')' {
 		AstNode *node = new AstNode(AST_CASE);
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
@@ -2899,6 +2899,29 @@ behavioral_stmt:
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
+	};
+
+if_attr:
+	attr {
+		$$ = $1;
+	} |
+	attr TOK_UNIQUE0 {
+		AstNode *context = ast_stack.back();
+		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+			frontend_verilog_yyerror("unique0 keyword cannot be used for 'else if' branch.");
+		$$ = $1; // accept unique0 keyword, but ignore it for now
+	} |
+	attr TOK_PRIORITY {
+		AstNode *context = ast_stack.back();
+		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+			frontend_verilog_yyerror("priority keyword cannot be used for 'else if' branch.");
+		$$ = $1; // accept priority keyword, but ignore it for now
+	} |
+	attr TOK_UNIQUE {
+		AstNode *context = ast_stack.back();
+		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+			frontend_verilog_yyerror("unique keyword cannot be used for 'else if' branch.");
+		$$ = $1; // accept unique keyword, but ignore it for now
 	};
 
 case_attr:
@@ -2948,6 +2971,7 @@ behavioral_stmt_list:
 optional_else:
 	TOK_ELSE {
 		AstNode *block = new AstNode(AST_BLOCK);
+		block->attributes[ID::promoted_if] = AstNode::mkconst_int(1, false );
 		AstNode *cond = new AstNode(AST_COND, new AstNode(AST_DEFAULT), block);
 		SET_AST_NODE_LOC(cond, @1, @1);
 

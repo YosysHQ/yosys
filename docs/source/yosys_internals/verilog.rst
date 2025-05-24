@@ -375,3 +375,9 @@ from SystemVerilog:
   ports are inputs or outputs are supported.
 
 - Assignments within expressions are supported.
+
+- The ``unique``, ``unique0``, and ``priority`` SystemVerilog keywords are
+  accepted on ``if`` and ``case`` conditionals.  (Those keywords are currently
+  handled in the same way as their equivalent ``full_case`` and
+  ``parallel_case`` attributes on ``case`` statements, and checked
+  for syntactic validity but otherwise ignored on ``if`` statements.)
