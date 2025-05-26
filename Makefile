@@ -455,6 +455,7 @@ endif
 
 ifeq ($(ENABLE_DEBUG),1)
 CXXFLAGS := -Og -DDEBUG $(filter-out $(OPT_LEVEL),$(CXXFLAGS))
+STRIP :=
 endif
 
 ifeq ($(ENABLE_ABC),1)
@@ -983,20 +984,20 @@ install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
 endif
 ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc; fi
 endif
 ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib; fi
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so; fi
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
