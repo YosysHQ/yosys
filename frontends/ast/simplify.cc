@@ -35,6 +35,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <math.h>
+#include <optional>
 // For std::gcd in C++17
 // #include <numeric>
 
@@ -4477,7 +4478,8 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 				continue;
 			}
 
-			auto value = VERILOG_FRONTEND::const2ast(stringf("%d'%c", mem_width, is_readmemh ? 'h' : 'b') + token);
+			VERILOG_FRONTEND::ConstParser p{mem_filename, std::nullopt};
+			auto value = p.const2ast(stringf("%d'%c", mem_width, is_readmemh ? 'h' : 'b') + token);
 
 			if (unconditional_init)
 			{

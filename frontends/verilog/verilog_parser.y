@@ -140,11 +140,13 @@
 		return lexer->nextToken();
 	}
 
-	#define SET_AST_NODE_LOC(WHICH, BEGIN, END) \
-		do { (WHICH)->location.first_line = (BEGIN).begin.line; \
-		(WHICH)->location.first_column = (BEGIN).begin.column; \
-		(WHICH)->location.last_line = (END).end.line; \
-		(WHICH)->location.last_column = (END).end.column; } while(0)
+	#define SET_LOC(WHICH, BEGIN, END) \
+		do { WHICH.first_line = (BEGIN).begin.line; \
+		WHICH.first_column = (BEGIN).begin.column; \
+		WHICH.last_line = (END).end.line; \
+		WHICH.last_column = (END).end.column; } while(0)
+
+	#define SET_AST_NODE_LOC(WHICH, BEGIN, END) SET_LOC((WHICH)->location, BEGIN, END)
 
 	#define SET_RULE_LOC(LHS, BEGIN, END) \
 		do { (LHS).begin = BEGIN.begin; \
@@ -152,6 +154,13 @@
 
 	YOSYS_NAMESPACE_BEGIN
 	namespace VERILOG_FRONTEND {
+		static ConstParser make_ConstParser_here(parser::location_type flex_loc) {
+			AstSrcLocType loc;
+			SET_LOC(loc, flex_loc, flex_loc);
+			std::optional<std::string> filename = flex_loc.begin.filename ? std::make_optional(*(flex_loc.begin.filename)) : std::nullopt;
+			ConstParser p{filename, loc};
+			return p;
+		}
 		static void append_attr(AstNode *ast, dict<IdString, std::unique_ptr<AstNode>> *al)
 		{
 			for (auto &it : *al) {
@@ -3162,7 +3171,8 @@ basic_expr:
 	TOK_LPAREN expr TOK_RPAREN integral_number {
 		if ($4->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
-		auto val = const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
+		auto p = make_ConstParser_here(@4);
+		auto val = p.const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		if (val == nullptr)
 			log_error("Value conversion failed: `%s'\n", $4->c_str());
 		$$ = std::make_unique<AstNode>(AST_TO_BITS, std::move($2), std::move(val));
@@ -3173,14 +3183,16 @@ basic_expr:
 		auto bits = std::make_unique<AstNode>(AST_IDENTIFIER);
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits.get(), @1, @1);
-		auto val = const2ast(*$2, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
+		auto p = make_ConstParser_here(@2);
+		auto val = p.const2ast(*$2, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC(val.get(), @2, @2);
 		if (val == nullptr)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = std::make_unique<AstNode>(AST_TO_BITS, std::move(bits), std::move(val));
 	} |
 	integral_number {
-		$$ = const2ast(*$1, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
+		auto p = make_ConstParser_here(@1);
+		$$ = p.const2ast(*$1, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC($$.get(), @1, @1);
 		if ($$ == nullptr)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());

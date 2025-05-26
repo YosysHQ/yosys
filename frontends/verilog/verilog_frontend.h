@@ -45,8 +45,25 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace VERILOG_FRONTEND
 {
-	// this function converts a Verilog constant to an AST_CONSTANT node
-	std::unique_ptr<AST::AstNode> const2ast(std::string code, char case_type = 0, bool warn_z = false);
+	/* Ephemeral context class */
+	struct ConstParser {
+		std::optional<std::string> filename;
+		std::optional<AST::AstSrcLocType> loc;
+	private:
+		std::string fmt_maybe_loc(std::string msg);
+		void log_maybe_loc_error(std::string msg);
+		void log_maybe_loc_warn(std::string msg);
+		// divide an arbitrary length decimal number by two and return the rest
+		int my_decimal_div_by_two(std::vector<uint8_t> &digits);
+		// find the number of significant bits in a binary number (not including the sign bit)
+		int my_ilog2(int x);
+		// parse a binary, decimal, hexadecimal or octal number with support for special bits ('x', 'z' and '?')
+		void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type, bool is_unsized);
+	public:
+		// convert the Verilog code for a constant to an AST node
+		std::unique_ptr<AST::AstNode> const2ast(std::string code, char case_type = 0, bool warn_z = false);
+
+	};
 	extern void frontend_verilog_yyerror(char const *fmt, ...);
 };
 
