@@ -1294,6 +1294,7 @@ struct debug_item : ::cxxrtl_object {
 		DRIVEN_SYNC = CXXRTL_DRIVEN_SYNC,
 		DRIVEN_COMB = CXXRTL_DRIVEN_COMB,
 		UNDRIVEN    = CXXRTL_UNDRIVEN,
+		GENERATED = CXXRTL_GENERATED,
 	};
 
 	debug_item(const ::cxxrtl_object &object) : cxxrtl_object(object) {}
