@@ -383,7 +383,23 @@ int RTLIL::Const::as_int(bool is_signed) const
 bool RTLIL::Const::convertible_to_int(bool is_signed) const
 {
 	auto size = get_min_size(is_signed);
-	return (size > 0 && size <= 32);
+
+	if (size <= 0)
+		return false;
+
+	// If it fits in 31 bits it is definitely convertible
+	if (size <= 31)
+		return true;
+
+	// If it fits in 32 bits, it is convertible if signed or if unsigned and the
+	// leading bit is not 1
+	if (size == 32) {
+		if (is_signed)
+			return true;
+		return get_bits().at(31) != State::S1;
+	}
+
+	return false;
 }
 
 std::optional<int> RTLIL::Const::try_as_int(bool is_signed) const
