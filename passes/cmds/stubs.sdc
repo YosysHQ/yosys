@@ -1,0 +1,1 @@
+proc set_false_path {args} {}
