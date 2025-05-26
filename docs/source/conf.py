@@ -64,7 +64,6 @@ if os.getenv("READTHEDOCS"):
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
-autosectionlabel_maxdepth = 1
 
 # include todos for previews
 extensions.append('sphinx.ext.todo')
