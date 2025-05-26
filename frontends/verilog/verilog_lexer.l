@@ -243,7 +243,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "endfunction"  { return parser::make_TOK_ENDFUNCTION(out_loc); }
 "task"         { return parser::make_TOK_TASK(out_loc); }
 "endtask"      { return parser::make_TOK_ENDTASK(out_loc); }
-"specify"      { return mode->sv ? parser::make_TOK_SPECIFY(out_loc) : parser::make_TOK_IGNORED_SPECIFY(out_loc); }
+"specify"      { return mode->specify ? parser::make_TOK_SPECIFY(out_loc) : parser::make_TOK_IGNORED_SPECIFY(out_loc); }
 "endspecify"   { return parser::make_TOK_ENDSPECIFY(out_loc); }
 "specparam"    { return parser::make_TOK_SPECPARAM(out_loc); }
 "package"      { SV_KEYWORD(parser::make_TOK_PACKAGE(out_loc)); }
@@ -428,7 +428,7 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 }
 
 "$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
-	if (!mode->sv) REJECT;
+	if (!mode->specify) REJECT;
 	auto val = new std::string(YYText());
 	return parser::make_TOK_ID(val, out_loc);
 }
@@ -606,13 +606,13 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 ">>>=" { SV_KEYWORD(parser::make_TOK_SSHR_ASSIGN(out_loc)); }
 
 [-+]?[=*]> {
-	if (!mode->sv) REJECT;
+	if (!mode->specify) REJECT;
 	auto val = new std::string(YYText());
 	return parser::make_TOK_SPECIFY_OPER(val, out_loc);
 }
 
 "&&&" {
-	if (!mode->sv) return parser::make_TOK_IGNORED_SPECIFY_AND(out_loc);
+	if (!mode->specify) return parser::make_TOK_IGNORED_SPECIFY_AND(out_loc);
 	return parser::make_TOK_SPECIFY_AND(out_loc);
 }
 
