@@ -27,7 +27,7 @@ always_comb @(d)
 
 endmodule
 EOT
-) 2>&1 | grep -F "<stdin>:3: ERROR: syntax error, unexpected '@'" > /dev/null
+) 2>&1 | grep -F "ERROR: syntax error, unexpected @" > /dev/null
 
 # Incorrect use of always_comb
 ((../../yosys -f "verilog -sv" -qp proc -|| true) <<EOT
