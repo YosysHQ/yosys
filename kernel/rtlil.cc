@@ -455,18 +455,7 @@ void RTLIL::Const::compress(bool is_signed)
 
 std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
 {
-	auto size = get_min_size(is_signed);
-	if(size == 0 || size > 32)
-		return std::nullopt;
-
-	int32_t ret = 0;
-	for (auto i = 0; i < size && i < 32; i++)
-		if ((*this)[i] == State::S1)
-			ret |= 1 << i;
-	if (is_signed && (*this)[size-1] == State::S1)
-		for (auto i = size; i < 32; i++)
-			ret |= 1 << i;
-	return ret;
+	return try_as_int(is_signed);
 }
 
 std::string RTLIL::Const::as_string(const char* any) const
