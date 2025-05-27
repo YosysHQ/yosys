@@ -237,7 +237,7 @@ module CC_ODDR #(
 
 endmodule
 
-
+(* abc9_box, lib_whitebox *)
 module CC_DFF #(
 	parameter [0:0] CLK_INV = 1'b0,
 	parameter [0:0] EN_INV  = 1'b0,
@@ -252,6 +252,15 @@ module CC_DFF #(
 	input SR,
 	output reg Q
 );
+	specify
+		if ((~EN_INV && EN) || (EN_INV && ~EN)) (posedge CLK => (Q : D)) = 500;
+
+		$setup(D, posedge CLK, 100);
+		$setup(EN, posedge CLK, 150);
+
+		if ((~SR_INV && SR) || (SR_INV && ~SR)) (SR => Q) = 150;
+	endspecify
+
 	wire clk, en, sr;
 	assign clk = (CLK_INV) ? ~CLK : CLK;
 	assign en  = (EN_INV)  ?  ~EN :  EN;
@@ -301,35 +310,50 @@ module CC_DLT #(
 
 endmodule
 
-
+(* abc9_lut=1 *)
 module CC_LUT1 (
 	output O,
 	input  I0
 );
 	parameter [1:0] INIT = 0;
 
+	specify
+		(I0 => O) = 453;
+	endspecify
+
 	assign O = I0 ? INIT[1] : INIT[0];
 
 endmodule
 
-
+(* abc9_lut=1 *)
 module CC_LUT2 (
 	output O,
 	input  I0, I1
 );
 	parameter [3:0] INIT = 0;
 
+	specify
+		(I0 => O) = 453;
+		(I1 => O) = 449;
+	endspecify
+
 	wire [1:0] s1 = I1 ? INIT[3:2] : INIT[1:0];
 	assign O = I0 ? s1[1] : s1[0];
 
 endmodule
 
-
+(* abc9_lut=1 *)
 module CC_LUT3 (
 	output O,
 	input  I0, I1, I2
 );
 	parameter [7:0] INIT = 0;
+
+	specify
+		(I0 => O) = 453;
+		(I1 => O) = 449;
+		(I2 => O) = 471;
+	endspecify
 
 	wire [3:0] s2 = I2 ? INIT[7:4] : INIT[3:0];
 	wire [1:0] s1 = I1 ? s2[3:2] : s2[1:0];
@@ -337,12 +361,19 @@ module CC_LUT3 (
 
 endmodule
 
-
+(* abc9_lut=2 *)
 module CC_LUT4 (
 	output O,
 	input  I0, I1, I2, I3
 );
 	parameter [15:0] INIT = 0;
+
+	specify
+		(I0 => O) = 453;
+		(I1 => O) = 449;
+		(I2 => O) = 488;
+		(I3 => O) = 484;
+	endspecify
 
 	wire [7:0] s3 = I3 ? INIT[15:8] : INIT[7:0];
 	wire [3:0] s2 = I2 ? s3[7:4] : s3[3:0];
@@ -361,12 +392,21 @@ module CC_MX2 (
 
 endmodule
 
-
+(* abc9_box, lib_whitebox *)
 module CC_MX4 (
 	input  D0, D1, D2, D3,
 	input  S0, S1,
 	output Y
 );
+	specify
+		(D0 => Y) = 453;
+		(D1 => Y) = 449;
+		(D2 => Y) = 488;
+		(D3 => Y) = 484;
+		(S0 => Y) = 422;
+		(S1 => Y) = 385;
+	endspecify
+
 	assign Y = S1 ? (S0 ? D3 : D2) :
 					(S0 ? D1 : D0);
 
@@ -386,11 +426,20 @@ module CC_MX8 (
 
 endmodule
 
-
+(* abc9_box, lib_whitebox *)
 module CC_ADDF (
-	input  A, B, CI,
-	output CO, S
+	input  A, B, (* abc9_carry *) input CI,
+	(* abc9_carry *) output CO, output S
 );
+	specify
+		(A => CO) = 0;
+		(B => CO) = 0;
+		(CI => CO) = 0;
+		(A => S) = 484;
+		(B => S) = 449;
+		(CI => S) = 0;
+	endspecify
+
 	assign {CO, S} = A + B + CI;
 
 endmodule

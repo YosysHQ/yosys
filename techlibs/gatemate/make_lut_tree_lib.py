@@ -186,7 +186,7 @@ for name, expr in base_cells:
         cells.append([name + "_X", 12, XOR(E, expr)])
 
 with open("techlibs/gatemate/lut_tree_cells.genlib", "w") as glf:
-    def mkGate(name, cost, expr, max_load=9999, block_delay = 10, fanout_delay = 5):
+    def mkGate(name, cost, expr, max_load=9999, block_delay = 422, fanout_delay = 5):
         name = name.replace(" ", "")
         expr = expr.map()
 
@@ -194,9 +194,22 @@ with open("techlibs/gatemate/lut_tree_cells.genlib", "w") as glf:
         if expr.isInv(): phase = "INV"
         if expr.isNonInv(): phase = "NONINV"
 
+        expr_genlib = expr.as_genlib_term()
+        if "E" in expr_genlib:
+            block_delay += 66
+
         print("", file=glf)
-        print("GATE %s %d Y=%s;" % (name, cost, expr.as_genlib_term()), file=glf)
-        print("PIN * %s 1 %d %d %d %d %d" % (phase, max_load, block_delay, fanout_delay, block_delay, fanout_delay), file=glf)
+        print("GATE %s %d Y=%s;" % (name, cost, expr_genlib), file=glf)
+        if "A" in expr_genlib:
+            print("PIN A %s 1 %d %d %d %d %d" % (phase, max_load, block_delay, fanout_delay, block_delay, fanout_delay), file=glf)
+        if "B" in expr_genlib:
+            print("PIN B %s 1 %d %d %d %d %d" % (phase, max_load, block_delay, fanout_delay, block_delay, fanout_delay), file=glf)
+        if "C" in expr_genlib:
+            print("PIN C %s 1 %d %d %d %d %d" % (phase, max_load, block_delay, fanout_delay, block_delay, fanout_delay), file=glf)
+        if "D" in expr_genlib:
+            print("PIN D %s 1 %d %d %d %d %d" % (phase, max_load, block_delay, fanout_delay, block_delay, fanout_delay), file=glf)
+        if "E" in expr_genlib:
+            print("PIN E %s 1 %d 66 %d 66 %d" % (phase, max_load, fanout_delay, fanout_delay), file=glf)
     print("GATE $__ZERO 0 Y=CONST0;", file=glf)
     print("GATE $__ONE 0 Y=CONST1;", file=glf)
     for name, cost, expr in cells:

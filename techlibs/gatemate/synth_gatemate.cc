@@ -308,21 +308,21 @@ struct SynthGateMatePass : public ScriptPass
 		if (check_label("map_luts"))
 		{
 			if (luttree || help_mode) {
-				std::string abc_args = " -genlib +/gatemate/lut_tree_cells.genlib";
+				std::string abc_args = " -genlib +/gatemate/lut_tree_cells.genlib -script \"+&sweep;&dc2;&nf\"";
 				if (dff) {
 					abc_args += " -dff";
 				}
-				run("abc " + abc_args, "(with -luttree)");
+				run("abc_new " + abc_args, "(with -luttree)");
 				run("techmap -map +/gatemate/lut_tree_map.v", "(with -luttree)");
 				run("gatemate_foldinv", "(with -luttree)");
 				run("techmap -map +/gatemate/inv_map.v", "(with -luttree)");
 			}
 			if (!luttree || help_mode) {
-				std::string abc_args = " -dress -lut 4";
+				std::string abc_args = " -maxlut 4";
 				if (dff) {
 					abc_args += " -dff";
 				}
-				run("abc " + abc_args, "(without -luttree)");
+				run("abc9 " + abc_args, "(without -luttree)");
 			}
 			run("clean");
 		}
