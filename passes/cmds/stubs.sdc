@@ -1,5 +1,14 @@
+# with Tcl's eager evaluation, we will still eval args if they're unused by a stub
 proc stub {function_name} {
     proc $function_name {args} {}
+}
+
+# OpenROAD
+proc get_name {thing} {
+    return thing
+}
+proc get_full_name {thing} {
+    return thing
 }
 
 # Vivado UG903
