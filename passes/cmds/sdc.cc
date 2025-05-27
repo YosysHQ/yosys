@@ -77,6 +77,14 @@ struct SdcObjects {
 	}
 	~SdcObjects() = default;
 	void dump() {
+		std::sort(design_ports.begin(), design_ports.end());
+		std::sort(design_cells.begin(), design_cells.end());
+		std::sort(design_pins.begin(), design_pins.end());
+		std::sort(design_nets.begin(), design_nets.end());
+		constrained_ports.sort();
+		constrained_cells.sort();
+		constrained_pins.sort();
+		constrained_nets.sort();
 		log("Design ports:\n");
 		for (auto name : design_ports) {
 			log("\t%s\n", name.c_str());
@@ -130,7 +138,6 @@ static bool parse_flag(char* arg, const char* flag_name, T& flag_var) {
 	return false;
 }
 
-// TODO return values like json_to_tcl on result.json?
 // TODO vectors
 // TODO cell arrays?
 
@@ -165,25 +172,34 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+	std::vector<std::pair<std::string, Cell*>> resolved;
 	for (auto pat : patterns) {
 		bool found = false;
 		for (auto [name, pin] : objects->design_pins) {
 			if (name == pat) {
 				found = true;
-				objects->constrained_pins.insert(std::make_pair(name, pin));
+				resolved.push_back(std::make_pair(name, pin));
 			}
 		}
 		if (!found)
-			log_warning("No matches in design for pattern %s\n", pat.c_str());
+			log_warning("No matches in design for pin %s\n", pat.c_str());
+	}
+	Tcl_Obj *result = Tcl_NewListObj(resolved.size(), nullptr);
+	for (auto obj : resolved) {
+		Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(obj.first.c_str(), obj.first.size()));
+		objects->constrained_pins.insert(obj);
 	}
 	(void)hierarchical_flag;
 	(void)regexp_flag;
 	(void)nocase_flag;
 	(void)of_objects;
+
 	if (separator != "/") {
-		Tcl_SetObjResult(interp, Tcl_NewStringObj("Only '/' accepted as separator", -1));
+		Tcl_SetResult(interp, (char *)"Only '/' accepted as separator", TCL_STATIC);
 		return TCL_ERROR;
 	}
+
+	Tcl_SetObjResult(interp, result);
 	return TCL_OK;
 }
 
@@ -204,19 +220,26 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+	std::vector<std::string> resolved;
 	for (auto pat : patterns) {
 		bool found = false;
 		for (auto name : objects->design_ports) {
 			if (name == pat) {
 				found = true;
-				objects->constrained_ports.insert(name);
+				resolved.push_back(name);
 			}
 		}
 		if (!found)
-			log_warning("No matches in design for pattern %s\n", pat.c_str());
+			log_warning("No matches in design for port %s\n", pat.c_str());
+	}
+	Tcl_Obj *result = Tcl_NewListObj(resolved.size(), nullptr);
+	for (auto obj : resolved) {
+		Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(obj.c_str(), obj.size()));
+		objects->constrained_ports.insert(obj);
 	}
 	(void)regexp_flag;
 	(void)nocase_flag;
+	Tcl_SetObjResult(interp, result);
 	return TCL_OK;
 }
 
