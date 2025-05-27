@@ -19,7 +19,9 @@ static bool parse_flag(char* arg, const char* flag_name, T& flag_var) {
 	return false;
 }
 
-// TODO return values like json_to_tcl on result.json
+// TODO return values like json_to_tcl on result.json?
+// TODO vectors
+// TODO cell arrays?
 
 static int sdc_get_pins_cmd(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
 {
@@ -82,7 +84,7 @@ static int sdc_get_ports_cmd(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj* 
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
-	log("get_pins patterns:\n");
+	log("get_ports patterns:\n");
 	for (auto pat : patterns) {
 		log("\t%s\n", pat.c_str());
 	}
@@ -179,6 +181,7 @@ struct SdcObjects {
 		sniff_module(hierarchy, top);
 	}
 	void dump() {
+		log("Dumping detected design objects visible to SDC constraints\n");
 		log("Ports:\n");
 		for (auto name : ports) {
 			log("\t%s\n", name.c_str());

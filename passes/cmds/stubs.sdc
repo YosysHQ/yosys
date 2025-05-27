@@ -44,7 +44,6 @@ stub delete_power_rails
 stub endgroup
 stub get_bel_pins
 stub get_bels
-stub get_cells
 stub get_clocks
 stub get_debug_cores
 stub get_debug_ports
@@ -52,16 +51,13 @@ stub get_generated_clocks
 stub get_hierarchy_separator
 stub get_iobanks
 stub get_macros
-stub get_nets
 stub get_nodes
 stub get_package_pins
 stub get_path_groups
 stub get_pblocks
-stub get_pins
 stub get_pips
 stub get_pkgpin_bytegroups
 stub get_pkgpin_nibbles
-stub get_ports
 stub get_power_rails
 stub get_property
 stub get_site_pins
@@ -71,7 +67,6 @@ stub get_slrs
 stub get_speed_models
 stub get_tiles
 stub get_timing_arcs
-stub get_wires
 stub group_path
 stub make_diff_pair_ports
 stub remove_cells_from_pblock
