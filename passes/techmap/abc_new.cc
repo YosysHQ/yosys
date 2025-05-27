@@ -68,6 +68,7 @@ struct AbcNewPass : public ScriptPass {
 		log("    -constr <file>\n");
 		log("    -dont_use <cell_name>\n");
 		log("    -liberty <file>\n");
+		log("    -genlib <file>\n");
 		log("        these options are passed on to the 'abc9_exe' command which invokes\n");
 		log("        the ABC tool on individual modules of the design. please see\n");
 		log("        'help abc9_exe' for more details\n");
@@ -90,7 +91,7 @@ struct AbcNewPass : public ScriptPass {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||
 					args[argidx] == "-D" ||
 					args[argidx] == "-constr" || args[argidx] == "-dont_use" ||
-					args[argidx] == "-liberty") {
+					args[argidx] == "-liberty" || args[argidx] == "-genlib") {
 				abc_exe_options += " " + args[argidx] + " " + args[argidx + 1];
 				argidx++;
 			} else if (args[argidx] == "-run" && argidx + 1 < args.size()) {
