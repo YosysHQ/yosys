@@ -2429,14 +2429,15 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					const auto &debug_wire_type = debug_wire_types[wire];
-					if (!wire->name.isPublic())
-						continue;
 					count_public_wires++;
 					switch (debug_wire_type.type) {
 						case WireType::BUFFERED:
 						case WireType::MEMBER: {
 							// Member wire
 							std::vector<std::string> flags;
+
+							if (!wire->name.isPublic())
+								flags.push_back("GENERATED");
 
 							if (wire->port_input && wire->port_output)
 								flags.push_back("INOUT");
