@@ -3956,6 +3956,7 @@ struct VerificPass : public Pass {
 
 			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
+			veri_file::UndefineMacro("SYNTHESIS");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
 
 			for (argidx++; argidx < GetSize(args) && GetSize(args[argidx]) >= 2 && args[argidx].compare(0, 2, "-D") == 0; argidx++) {
