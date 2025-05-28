@@ -4,6 +4,7 @@
 #include "kernel/log.h"
 #include <tcl.h>
 #include <list>
+#include <regex>
 
 
 USING_YOSYS_NAMESPACE
@@ -140,6 +141,25 @@ static bool parse_flag(char* arg, const char* flag_name, T& flag_var) {
 
 // TODO vectors
 // TODO cell arrays?
+struct MatchConfig {
+	enum MatchMode {
+		WILDCARD,
+		REGEX,
+	} match;
+	bool match_case;
+	enum HierMode {
+		FLAT,
+		TREE,
+	} hier;
+	MatchConfig(bool regexp_flag, bool nocase_flag, bool hierarchical_flag) :
+		match(regexp_flag ? REGEX : WILDCARD),
+		match_case(!nocase_flag),
+		hier(hierarchical_flag ? FLAT : TREE) { }
+};
+
+static bool matches(std::string name, const std::string& pat, const MatchConfig& config) {
+	return name == pat;
+}
 
 static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
 {
@@ -172,11 +192,13 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+
+	MatchConfig config(regexp_flag, nocase_flag, hierarchical_flag);
 	std::vector<std::pair<std::string, Cell*>> resolved;
 	for (auto pat : patterns) {
 		bool found = false;
 		for (auto [name, pin] : objects->design_pins) {
-			if (name == pat) {
+			if (matches(name, pat, config)) {
 				found = true;
 				resolved.push_back(std::make_pair(name, pin));
 			}
@@ -220,11 +242,12 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+	MatchConfig config(regexp_flag, nocase_flag, false);
 	std::vector<std::string> resolved;
 	for (auto pat : patterns) {
 		bool found = false;
 		for (auto name : objects->design_ports) {
-			if (name == pat) {
+			if (matches(name, pat, config)) {
 				found = true;
 				resolved.push_back(name);
 			}
