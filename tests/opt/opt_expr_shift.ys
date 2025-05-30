@@ -111,3 +111,50 @@ select -assert-none t:$shr
 select -assert-none t:$sshl
 select -assert-none t:$sshr
 select -assert-none t:$shiftx
+
+design -reset
+
+read_verilog <<EOT
+module top (
+	input  wire        [3:0]  in,
+	output wire        [7:0]  shl,
+	output wire        [7:0]  shr,
+	output wire        [7:0] sshl,
+	output wire        [7:0] sshr,
+	output wire        [7:0] shiftx,
+
+	output wire        [7:0]  shl_s,
+	output wire        [7:0]  shr_s,
+	output wire        [7:0] sshl_s,
+	output wire        [7:0] sshr_s,
+	output wire        [7:0] shiftx_s,
+);
+	assign  shl = in << 32'hffffffff;
+	assign  shr = in >> 32'hffffffff;
+	assign sshl = in <<< 32'hffffffff;
+	assign sshr = in >>> 32'hffffffff;
+	assign shiftx = in[32'hffffffff +: 8];
+
+	wire signed [31:0] shamt = 32'hffffffff;
+	assign  shl_s = in << shamt;
+	assign  shr_s = in >> shamt;
+	assign sshl_s = in <<< shamt;
+	assign sshr_s = in >>> shamt;
+	assign shiftx_s = in[shamt +: 8];
+endmodule
+EOT
+
+select -assert-count 2 t:$shl
+select -assert-count 2 t:$shr
+select -assert-count 2 t:$sshl
+select -assert-count 2 t:$sshr
+select -assert-count 1 t:$shiftx
+
+equiv_opt opt_expr
+
+design -load postopt
+select -assert-none t:$shl
+select -assert-none t:$shr
+select -assert-none t:$sshl
+select -assert-none t:$sshr
+select -assert-none t:$shiftx
