@@ -526,9 +526,9 @@ public:
 		typedef std::pair<K, T>* pointer;
 		typedef std::pair<K, T>& reference;
 		const_iterator() { }
-		const_iterator operator++() { index--; return *this; }
-		const_iterator operator+=(int amt) { index -= amt; return *this; }
-		bool operator<(const const_iterator &other) const { return index > other.index; }
+		const_iterator operator++() { index++; return *this; }
+		const_iterator operator+=(int amt) { index += amt; return *this; }
+		bool operator<(const const_iterator &other) const { return index < other.index; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
 		const std::pair<K, T> &operator*() const { return ptr->entries[index].udata; }
@@ -549,9 +549,9 @@ public:
 		typedef std::pair<K, T>* pointer;
 		typedef std::pair<K, T>& reference;
 		iterator() { }
-		iterator operator++() { index--; return *this; }
-		iterator operator+=(int amt) { index -= amt; return *this; }
-		bool operator<(const iterator &other) const { return index > other.index; }
+		iterator operator++() { index++; return *this; }
+		iterator operator+=(int amt) { index += amt; return *this; }
+		bool operator<(const iterator &other) const { return index < other.index; }
 		bool operator==(const iterator &other) const { return index == other.index; }
 		bool operator!=(const iterator &other) const { return index != other.index; }
 		std::pair<K, T> &operator*() { return ptr->entries[index].udata; }
@@ -803,13 +803,13 @@ public:
 	bool empty() const { return entries.empty(); }
 	void clear() { hashtable.clear(); entries.clear(); }
 
-	iterator begin() { return iterator(this, int(entries.size())-1); }
-	iterator element(int n) { return iterator(this, int(entries.size())-1-n); }
-	iterator end() { return iterator(nullptr, -1); }
+	iterator begin() { return iterator(this, 0); }
+	iterator element(int n) { return iterator(this, n); }
+	iterator end() { return iterator(this, int(entries.size())-1); }
 
-	const_iterator begin() const { return const_iterator(this, int(entries.size())-1); }
-	const_iterator element(int n) const { return const_iterator(this, int(entries.size())-1-n); }
-	const_iterator end() const { return const_iterator(nullptr, -1); }
+	const_iterator begin() const { return const_iterator(this, 0); }
+	const_iterator element(int n) const { return const_iterator(this, n); }
+	const_iterator end() const { return const_iterator(this, int(entries.size())-1); }
 };
 
 template<typename K, typename OPS>
