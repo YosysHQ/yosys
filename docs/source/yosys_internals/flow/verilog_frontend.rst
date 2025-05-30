@@ -626,7 +626,7 @@ pass and the passes it launches:
    | This pass replaces the ``RTLIL::SyncRule``\ s to d-type flip-flops (with
      asynchronous resets if necessary).
 
--  | `proc_dff`
+-  | `proc_memwr`
    | This pass replaces the ``RTLIL::MemWriteAction``\ s with `$memwr` cells.
 
 -  | `proc_clean`
