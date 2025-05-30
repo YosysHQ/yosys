@@ -518,6 +518,7 @@ public:
 			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($check)))
 				queue.emplace_back(cell);
 		}
+		// we are relying here on unsorted pools iterating last-in-first-out
 		for (auto riter = module->ports.rbegin(); riter != module->ports.rend(); ++riter) {
 			auto *wire = module->wire(*riter);
 			if (wire && wire->port_input) {
