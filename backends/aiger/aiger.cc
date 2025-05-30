@@ -153,6 +153,9 @@ struct AigerWriter
 				sigmap.add(wire);
 
 		// handle ports
+		// provided the input_bits and output_bits don't get sorted they
+		// will be returned in reverse order, so add them in reverse to
+		// match
 		for (auto riter = module->ports.rbegin(); riter != module->ports.rend(); ++riter) {
 			auto *wire = module->wire(*riter);
 			for (int i = 0; i < GetSize(wire); i++)
@@ -353,6 +356,7 @@ struct AigerWriter
 		}
 
 		init_map.sort();
+		// we are relying here on unsorted pools iterating last-in-first-out
 		if (!no_sort) {
 			input_bits.sort();
 			output_bits.sort();
