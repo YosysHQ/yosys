@@ -11,9 +11,12 @@ OBJS += techlibs/quicklogic/ql_ioff.o
 # --------------------------------------
 
 OBJS += techlibs/quicklogic/ql_dsp_macc.o
-GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v
+OBJS += techlibs/quicklogic/ql_dsp.o
+GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h techlibs/quicklogic/ql_dsp_pm.h techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v
 techlibs/quicklogic/ql_dsp_macc.o: techlibs/quicklogic/ql_dsp_macc_pm.h
+techlibs/quicklogic/ql_dsp.o: techlibs/quicklogic/ql_dsp_pm.h
 $(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_macc_pm.h))
+$(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_pm.h))
 
 # --------------------------------------
 
@@ -36,9 +39,13 @@ $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf
 $(eval $(call add_gen_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/cells_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/ffs_map.v))
-$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_sim.v))
-$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_map.v))
-$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_final_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv1_sim.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv1_sim_extra.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv1_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv1_final_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv2_sim.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv2_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dspv2_final_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/TDP18K_FIFO.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/ufifo_ctl.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/sram1024x18_mem.v))
