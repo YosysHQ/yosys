@@ -73,7 +73,7 @@ contain bits that are not 0 or 1 (i.e. ``x`` or ``z``). Ordinary 32-bit
 constants are written using decimal numbers.
 
 Single-bit signals are shown as thin arrows pointing from the driver to the
-load. Signals that are multiple bits wide are shown as think arrows.
+load. Signals that are multiple bits wide are shown as thick arrows.
 
 Finally *processes* are shown in boxes with round corners. Processes are Yosys'
 internal representation of the decision-trees and synchronization events
