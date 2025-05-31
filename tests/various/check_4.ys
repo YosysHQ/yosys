@@ -25,5 +25,5 @@ opt -keepdc
 memory_dff
 opt_clean
 logger -nowarn "found logic loop in module pingpong:"
-logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
+logger -expect error "Found [0-9]+ severe problems in 'check'" 1
 check -assert
