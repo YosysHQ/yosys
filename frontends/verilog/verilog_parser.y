@@ -336,7 +336,8 @@ static AstNode *addIncOrDecExpr(AstNode *lhs, dict<IdString, AstNode*> *attr, AS
 	log_assert(stmt->type == AST_ASSIGN_EQ);
 	AstNode *expr = stmt->children[0]->clone();
 	if (undo) {
-		AstNode *minus_one = AstNode::mkconst_int(-1, true, 1);
+		AstNode *one = AstNode::mkconst_int(1, false, 1);
+		AstNode *minus_one = new AstNode(AST_NEG, one);
 		expr = new AstNode(op, expr, minus_one);
 	}
 	SET_AST_NODE_LOC(expr, begin, end);
