@@ -377,4 +377,7 @@ from SystemVerilog:
 - Assignments within expressions are supported.
 
 - The ``unique``, ``unique0``, and ``priority`` SystemVerilog keywords are
-  supported on ``if`` and ``case`` conditionals.
+  supported on ``if`` and ``case`` conditionals.  (The Verilog frontend
+  will process conditionals using these keywords by annotating their
+  representation with the appropriate ``full_case`` and/or ``parallel_case``
+  attributes, which are described above.)
