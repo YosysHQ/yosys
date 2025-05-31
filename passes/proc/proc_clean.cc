@@ -208,19 +208,15 @@ struct ProcCleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->modules()) {
+		for (auto mod : design->all_selected_modules()) {
 			std::vector<RTLIL::Process *> delme;
-			if (!design->selected(mod))
-				continue;
-			for (auto &proc_it : mod->processes) {
-				if (!design->selected(mod, proc_it.second))
-					continue;
-				proc_clean(mod, proc_it.second, total_count, quiet);
-				if (proc_it.second->syncs.size() == 0 && proc_it.second->root_case.switches.size() == 0 &&
-						proc_it.second->root_case.actions.size() == 0) {
+			for (auto proc : mod->selected_processes()) {
+				proc_clean(mod, proc, total_count, quiet);
+				if (proc->syncs.size() == 0 && proc->root_case.switches.size() == 0 &&
+						proc->root_case.actions.size() == 0) {
 					if (!quiet)
-						log("Removing empty process `%s.%s'.\n", log_id(mod), proc_it.second->name.c_str());
-					delme.push_back(proc_it.second);
+						log("Removing empty process `%s.%s'.\n", log_id(mod), proc->name.c_str());
+					delme.push_back(proc);
 				}
 			}
 			for (auto proc : delme) {

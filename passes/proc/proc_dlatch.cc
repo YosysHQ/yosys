@@ -463,11 +463,10 @@ struct ProcDlatchPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto module : design->selected_modules()) {
-			proc_dlatch_db_t db(module);
-			for (auto &proc_it : module->processes)
-				if (design->selected(module, proc_it.second))
-					proc_dlatch(db, proc_it.second);
+		for (auto mod : design->all_selected_modules()) {
+			proc_dlatch_db_t db(mod);
+			for (auto proc : mod->selected_processes())
+				proc_dlatch(db, proc);
 			db.fixup_muxes();
 		}
 	}

@@ -288,43 +288,40 @@ struct ProcArstPass : public Pass {
 		extra_args(args, argidx, design);
 		pool<Wire*> delete_initattr_wires;
 
-		for (auto mod : design->modules())
-			if (design->selected(mod)) {
-				SigMap assign_map(mod);
-				for (auto &proc_it : mod->processes) {
-					if (!design->selected(mod, proc_it.second))
-						continue;
-					proc_arst(mod, proc_it.second, assign_map);
-					if (global_arst.empty() || mod->wire(global_arst) == nullptr)
-						continue;
-					std::vector<RTLIL::SigSig> arst_actions;
-					for (auto sync : proc_it.second->syncs)
-						if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn)
-							for (auto &act : sync->actions) {
-								RTLIL::SigSpec arst_sig, arst_val;
-								for (auto &chunk : act.first.chunks())
-									if (chunk.wire && chunk.wire->attributes.count(ID::init)) {
-										RTLIL::SigSpec value = chunk.wire->attributes.at(ID::init);
-										value.extend_u0(chunk.wire->width, false);
-										arst_sig.append(chunk);
-										arst_val.append(value.extract(chunk.offset, chunk.width));
-										delete_initattr_wires.insert(chunk.wire);
-									}
-								if (arst_sig.size()) {
-									log("Added global reset to process %s: %s <- %s\n",
-											proc_it.first.c_str(), log_signal(arst_sig), log_signal(arst_val));
-									arst_actions.push_back(RTLIL::SigSig(arst_sig, arst_val));
+		for (auto mod : design->all_selected_modules()) {
+			SigMap assign_map(mod);
+			for (auto proc : mod->selected_processes()) {
+				proc_arst(mod, proc, assign_map);
+				if (global_arst.empty() || mod->wire(global_arst) == nullptr)
+					continue;
+				std::vector<RTLIL::SigSig> arst_actions;
+				for (auto sync : proc->syncs)
+					if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn)
+						for (auto &act : sync->actions) {
+							RTLIL::SigSpec arst_sig, arst_val;
+							for (auto &chunk : act.first.chunks())
+								if (chunk.wire && chunk.wire->attributes.count(ID::init)) {
+									RTLIL::SigSpec value = chunk.wire->attributes.at(ID::init);
+									value.extend_u0(chunk.wire->width, false);
+									arst_sig.append(chunk);
+									arst_val.append(value.extract(chunk.offset, chunk.width));
+									delete_initattr_wires.insert(chunk.wire);
 								}
+							if (arst_sig.size()) {
+								log("Added global reset to process %s: %s <- %s\n",
+										proc->name.c_str(), log_signal(arst_sig), log_signal(arst_val));
+								arst_actions.push_back(RTLIL::SigSig(arst_sig, arst_val));
 							}
-					if (!arst_actions.empty()) {
-						RTLIL::SyncRule *sync = new RTLIL::SyncRule;
-						sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
-						sync->signal = mod->wire(global_arst);
-						sync->actions = arst_actions;
-						proc_it.second->syncs.push_back(sync);
-					}
+						}
+				if (!arst_actions.empty()) {
+					RTLIL::SyncRule *sync = new RTLIL::SyncRule;
+					sync->type = global_arst_neg ? RTLIL::SyncType::ST0 : RTLIL::SyncType::ST1;
+					sync->signal = mod->wire(global_arst);
+					sync->actions = arst_actions;
+					proc->syncs.push_back(sync);
 				}
 			}
+		}
 
 		for (auto wire : delete_initattr_wires)
 			wire->attributes.erase(ID::init);

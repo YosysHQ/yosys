@@ -123,7 +123,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", log_id(derived_type));
 
 				if (derived_module->has_processes())
-					Pass::call_on_module(design, derived_module, "proc");
+					Pass::call_on_module(design, derived_module, "proc -noopt");
 
 				bool found = false;
 				for (auto derived_cell : derived_module->cells()) {
@@ -204,7 +204,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 			if (!unmap_design->module(derived_type)) {
 				if (derived_module->has_processes())
-					Pass::call_on_module(design, derived_module, "proc");
+					Pass::call_on_module(design, derived_module, "proc -noopt");
 
 				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 					for (auto derived_cell : derived_module->cells())
@@ -834,7 +834,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				holes_cell = holes_module->addCell(NEW_ID, cell->type);
 
 				if (box_module->has_processes())
-					Pass::call_on_module(design, box_module, "proc");
+					Pass::call_on_module(design, box_module, "proc -noopt");
 
 				int box_inputs = 0;
 				for (auto port_name : box_ports.at(cell->type)) {

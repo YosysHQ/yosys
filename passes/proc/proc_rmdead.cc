@@ -147,21 +147,17 @@ struct ProcRmdeadPass : public Pass {
 		extra_args(args, 1, design);
 
 		int total_counter = 0;
-		for (auto mod : design->modules()) {
-			if (!design->selected(mod))
-				continue;
-			for (auto &proc_it : mod->processes) {
-				if (!design->selected(mod, proc_it.second))
-					continue;
+		for (auto mod : design->all_selected_modules()) {
+			for (auto proc : mod->selected_processes()) {
 				int counter = 0, full_case_counter = 0;
-				for (auto switch_it : proc_it.second->root_case.switches)
+				for (auto switch_it : proc->root_case.switches)
 					proc_rmdead(switch_it, counter, full_case_counter);
 				if (counter > 0)
 					log("Removed %d dead cases from process %s in module %s.\n", counter,
-							log_id(proc_it.first), log_id(mod));
+							log_id(proc), log_id(mod));
 				if (full_case_counter > 0)
 					log("Marked %d switch rules as full_case in process %s in module %s.\n",
-							full_case_counter, log_id(proc_it.first), log_id(mod));
+							full_case_counter, log_id(proc), log_id(mod));
 				total_counter += counter;
 			}
 		}
