@@ -20,6 +20,7 @@ passes/opt/opt_lut.cc          @whitequark
 passes/techmap/abc9*.cc        @eddiehung @Ravenslofty
 backends/aiger/xaiger.cc       @eddiehung
 docs/                          @KrystalDelusion
+docs/source/using_yosys/synthesis/abc.rst @KrystalDelusion @Ravenslofty
 .github/workflows/*.yml        @mmicko
 
 ## External Contributors
