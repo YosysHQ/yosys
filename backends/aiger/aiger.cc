@@ -713,7 +713,7 @@ struct AigerWriter
 				}
 
 				if (wire->port_output) {
-					int o = ordered_outputs.at(sig[i]);
+					int o = ordered_outputs.at(SigSpec(wire, i));
 					output_lines[o] += stringf("output %d %d %s\n", o, index, log_id(wire));
 				}
 

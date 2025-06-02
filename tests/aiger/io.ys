@@ -1,0 +1,10 @@
+read_verilog <<EOF
+module bad(
+	input in,
+	output reg [1:0] out
+);
+	assign out = {in, 1'b0};
+endmodule
+EOF
+proc
+write_aiger -vmap /dev/null /dev/null
