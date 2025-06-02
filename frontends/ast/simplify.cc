@@ -1433,6 +1433,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				current_ast_mod->children.push_back(wnode);
 			}
 			basic_prep = true;
+			is_custom_type = false;
 		}
 		break;
 

@@ -1855,7 +1855,7 @@ struct_decl:
 	}
 	;
 
-struct_type: struct_union { astbuf2 = $1; } struct_body { $$ = astbuf2; }
+struct_type: struct_union { astbuf2 = $1; astbuf2->is_custom_type = true; } struct_body { $$ = astbuf2; }
 	;
 
 struct_union:
