@@ -2087,7 +2087,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					std::swap(range_left, range_right);
 					range_swapped = force_upto;
 				}
-				if (range_left == range_right)
+				if (range_left == range_right && !attributes.count(ID::single_bit_vector))
 					set_attribute(ID::single_bit_vector, mkconst_int(1, false));
 			}
 		} else {
