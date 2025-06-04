@@ -2087,7 +2087,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					std::swap(range_left, range_right);
 					range_swapped = force_upto;
 				}
-				if (range_left == range_right)
+				if (range_left == range_right && !attributes.count(ID::single_bit_vector))
 					set_attribute(ID::single_bit_vector, mkconst_int(1, false));
 			}
 		} else {
@@ -4100,16 +4100,24 @@ skip_dynamic_range_lvalue_expansion:;
 						delete arg;
 						continue;
 					}
+
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
 					wire_id->str = wire->str;
-					AstNode *assign = child->is_input ?
-							new AstNode(AST_ASSIGN_EQ, wire_id, arg) :
-							new AstNode(AST_ASSIGN_EQ, arg, wire_id);
-					assign->children[0]->was_checked = true;
-					if (child->is_input)
+
+					if (child->is_input) {
+						AstNode *assign = new AstNode(AST_ASSIGN_EQ, wire_id->clone(), arg->clone());
+						assign->children[0]->was_checked = true;
 						new_stmts.push_back(assign);
-					else
+					}
+
+					if (child->is_output) {
+						AstNode *assign = new AstNode(AST_ASSIGN_EQ, arg->clone(), wire_id->clone());
+						assign->children[0]->was_checked = true;
 						output_assignments.push_back(assign);
+					}
+
+					delete arg;
+					delete wire_id;
 				}
 			}
 
