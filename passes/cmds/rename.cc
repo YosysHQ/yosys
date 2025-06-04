@@ -95,8 +95,6 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 		if (chunk.wire->width != chunk.width) {
 			int lhs = chunk.wire->to_hdl_index(chunk.offset + chunk.width - 1);
 			int rhs = chunk.wire->to_hdl_index(chunk.offset);
-			if (chunk.wire->upto)
-				std::swap(lhs, rhs);
 
 			if (lhs != rhs)
 				name += stringf("[%d:%d]", lhs, rhs);
