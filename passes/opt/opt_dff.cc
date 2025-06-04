@@ -737,6 +737,7 @@ struct OptDffWorker
 	bool run_constbits() {
 		ModWalker modwalker(module->design, module);
 		QuickConeSat qcsat(modwalker);
+		std::vector<RTLIL::Cell*> cells_to_remove;
 
 		// Run as a separate sub-pass, so that we don't mutate (non-FF) cells under ModWalker.
 		bool did_something = false;
@@ -830,7 +831,7 @@ struct OptDffWorker
 					if (!removed_sigbits.count(i))
 						keep_bits.push_back(i);
 				if (keep_bits.empty()) {
-					module->remove(cell);
+					cells_to_remove.emplace_back(cell);
 					did_something = true;
 					continue;
 				}
@@ -840,6 +841,8 @@ struct OptDffWorker
 				did_something = true;
 			}
 		}
+		for (auto* cell : cells_to_remove)
+			module->remove(cell);
 		return did_something;
 	}
 };
