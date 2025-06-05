@@ -1208,7 +1208,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		dict<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
-			c->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remap_name(c->getPort(ID::Y).as_wire()->name)))];
+			// SILIMATE: set output port to either Y or Q depending on the cell's ports
+			RTLIL::IdString output_port_name = (c->hasPort(ID::Y)) ? ID::Y : ID::Q;
+			c->attributes = sig_to_driver_attrs[mapped_sigmap(module->wire(remap_name(c->getPort(output_port_name).as_wire()->name)))];
 			if (builtin_lib)
 			{
 				cell_stats[RTLIL::unescape_id(c->type)]++;
