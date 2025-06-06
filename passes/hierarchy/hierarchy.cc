@@ -1452,7 +1452,7 @@ struct HierarchyPass : public Pass {
 
 					bool resize_widths = !keep_portwidths && GetSize(w) != GetSize(conn.second);
 					if (resize_widths && verific_mod && boxed_params)
-						log_warning("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
+						log_debug("Ignoring width mismatch on %s.%s.%s from verific, is port width parametrizable?\n",
 								log_id(module), log_id(cell), log_id(conn.first)
 						);
 					else if (resize_widths) {
