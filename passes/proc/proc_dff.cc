@@ -306,13 +306,11 @@ struct ProcDffPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod)) {
-				ConstEval ce(mod);
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_dff(mod, proc_it.second, ce);
-			}
+		for (auto mod : design->all_selected_modules()) {
+			ConstEval ce(mod);
+			for (auto proc : mod->selected_processes())
+				proc_dff(mod, proc, ce);
+		}
 	}
 } ProcDffPass;
 

@@ -468,11 +468,9 @@ struct ProcMuxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod))
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_mux(mod, proc_it.second, ifxmode);
+		for (auto mod : design->all_selected_modules())
+			for (auto proc : mod->selected_processes())
+				proc_mux(mod, proc, ifxmode);
 	}
 } ProcMuxPass;
 
