@@ -2873,16 +2873,34 @@ behavioral_stmt:
 		ast_stack.pop_back();
 	} |
 	if_attr TOK_IF '(' expr ')' {
-		AstNode *node = new AstNode(AST_CASE);
+		AstNode *node = 0;
+		AstNode *context = ast_stack.back();
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if)) {
+			AstNode *outer = ast_stack[ast_stack.size() - 2];
+			log_assert (outer && outer->type == AST_CASE);
+			if (outer->get_bool_attribute(ID::parallel_case)) {
+				// parallel "else if": append condition to outer "if"
+				node = outer;
+				log_assert (node->children.size());
+				delete node->children.back();
+				node->children.pop_back();
+			} else if (outer->get_bool_attribute(ID::full_case))
+				(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		}
+		AstNode *expr = new AstNode(AST_REDUCE_BOOL, $4);
+		if (!node) {
+			// not parallel "else if": begin new construction
+			node = new AstNode(AST_CASE);
+			append_attr(node, $1);
+			ast_stack.back()->children.push_back(node);
+			node->children.push_back(node->get_bool_attribute(ID::parallel_case) ? AstNode::mkconst_int(1, false, 1) : expr);
+		}
 		AstNode *block = new AstNode(AST_BLOCK);
-		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
+		AstNode *cond = new AstNode(AST_COND, node->get_bool_attribute(ID::parallel_case) ? expr : AstNode::mkconst_int(1, false, 1), block);
 		SET_AST_NODE_LOC(cond, @4, @4);
-		ast_stack.back()->children.push_back(node);
-		node->children.push_back(new AstNode(AST_REDUCE_BOOL, $4));
 		node->children.push_back(cond);
 		ast_stack.push_back(node);
 		ast_stack.push_back(block);
-		append_attr(node, $1);
 	} behavioral_stmt {
 		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 	} optional_else {
@@ -2908,21 +2926,25 @@ if_attr:
 	} |
 	attr TOK_UNIQUE0 {
 		AstNode *context = ast_stack.back();
-		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
 			frontend_verilog_yyerror("unique0 keyword cannot be used for 'else if' branch.");
-		$$ = $1; // accept unique0 keyword, but ignore it for now
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	} |
 	attr TOK_PRIORITY {
 		AstNode *context = ast_stack.back();
-		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
 			frontend_verilog_yyerror("priority keyword cannot be used for 'else if' branch.");
-		$$ = $1; // accept priority keyword, but ignore it for now
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	} |
 	attr TOK_UNIQUE {
 		AstNode *context = ast_stack.back();
-		if( context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if) )
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
 			frontend_verilog_yyerror("unique keyword cannot be used for 'else if' branch.");
-		$$ = $1; // accept unique keyword, but ignore it for now
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	};
 
 case_attr:
