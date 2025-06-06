@@ -148,7 +148,7 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 #else
 static inline bool ys_debug(int = 0) { return false; }
 #endif
-static inline void log_debug(const char *format, ...) { if (ys_debug(1)) { va_list args; va_start(args, format); logv(format, args); va_end(args); } }
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
