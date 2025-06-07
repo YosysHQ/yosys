@@ -336,7 +336,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 }
 
 \"		{ BEGIN(STRING); }
-<STRING>\\.	{ yymore(); real_location = old_location; }
+<STRING>([^\"]|\\.)+	{ yymore(); real_location = old_location; }
 <STRING>\"	{
 	BEGIN(0);
 	char *yystr = strdup(yytext);
@@ -376,7 +376,6 @@ TIME_SCALE_SUFFIX [munpf]?s
 	free(yystr);
 	return TOK_STRING;
 }
-<STRING>.	{ yymore(); real_location = old_location; }
 
 and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
 	yylval->string = new std::string(yytext);
