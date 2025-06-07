@@ -237,7 +237,7 @@ module CC_ODDR #(
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
+(* abc9_dff, lib_whitebox *)
 module CC_DFF #(
 	parameter [0:0] CLK_INV = 1'b0,
 	parameter [0:0] EN_INV  = 1'b0,
@@ -258,7 +258,7 @@ module CC_DFF #(
 		$setup(D, posedge CLK, 100);
 		$setup(EN, posedge CLK, 150);
 
-		if ((~SR_INV && SR) || (SR_INV && ~SR)) (SR => Q) = 150;
+		//if ((~SR_INV && SR) || (SR_INV && ~SR)) (SR => Q) = 150;
 	endspecify
 
 	wire clk, en, sr;
@@ -426,21 +426,22 @@ module CC_MX8 (
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
+//(* abc9_box, lib_whitebox *)
 module CC_ADDF (
 	input  A, B, (* abc9_carry *) input CI,
 	(* abc9_carry *) output CO, output S
 );
 	specify
-		(A => CO) = 0;
-		(B => CO) = 0;
-		(CI => CO) = 0;
+		(A => CO) = 1;
+		(B => CO) = 1;
+		(CI => CO) = 1;
 		(A => S) = 484;
 		(B => S) = 449;
-		(CI => S) = 0;
+		(CI => S) = 1;
 	endspecify
 
-	assign {CO, S} = A + B + CI;
+	assign CO = A ^ B ^ CI;
+	assign S = (A & B) | (A & CI) | (B & CI);
 
 endmodule
 

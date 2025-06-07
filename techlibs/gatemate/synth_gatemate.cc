@@ -307,6 +307,7 @@ struct SynthGateMatePass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
+			run("stat");
 			if (luttree || help_mode) {
 				std::string abc_args = " -genlib +/gatemate/lut_tree_cells.genlib -script \"+&sweep;&dc2;&nf\"";
 				if (dff) {
