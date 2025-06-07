@@ -187,12 +187,14 @@ int run_command(const std::string &command, std::function<void(const std::string
 #endif
 
 bool already_setup = false;
+bool already_shutdown = false;
 
 void yosys_setup()
 {
 	if(already_setup)
 		return;
 	already_setup = true;
+	already_shutdown = false;
 
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
@@ -224,12 +226,11 @@ bool yosys_already_setup()
 	return already_setup;
 }
 
-bool already_shutdown = false;
-
 void yosys_shutdown()
 {
 	if(already_shutdown)
 		return;
+	already_setup = false;
 	already_shutdown = true;
 	log_pop();
 
