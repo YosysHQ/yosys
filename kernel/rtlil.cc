@@ -2409,7 +2409,14 @@ void RTLIL::Module::check()
 			// assertion check below to make sure that there are no
 			// cases where a cell has a blackbox attribute since
 			// that is deprecated
+			#ifdef __GNUC__
+			#pragma GCC diagnostic push
+			#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+			#endif
 			log_assert(!it.second->get_blackbox_attribute());
+			#ifdef __GNUC__
+			#pragma GCC diagnostic pop
+			#endif
 		}
 	}
 
