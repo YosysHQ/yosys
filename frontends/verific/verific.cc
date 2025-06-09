@@ -3595,13 +3595,13 @@ struct VerificPass : public Pass {
 			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
-			// Downgrade warnings about things that are normal
-			// VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
-			Message::SetMessageType("VERI-1209", VERIFIC_INFO);
-			// VERIFIC-WARNING [VERI-1142] foo.sv:55: system task 'display' is ignored for synthesis
-			Message::SetMessageType("VERI-1142", VERIFIC_INFO);
-			// VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
-			Message::SetMessageType("VERI-2418", VERIFIC_INFO);
+			// // Downgrade warnings about things that are normal (SILIMATE: NO!!!)
+			// // VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
+			// Message::SetMessageType("VERI-1209", VERIFIC_INFO);
+			// // VERIFIC-WARNING [VERI-1142] foo.sv:55: system task 'display' is ignored for synthesis
+			// Message::SetMessageType("VERI-1142", VERIFIC_INFO);
+			// // VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
+			// Message::SetMessageType("VERI-2418", VERIFIC_INFO);
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
