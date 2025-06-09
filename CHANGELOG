@@ -2,8 +2,24 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.53 .. Yosys 0.54-dev
+Yosys 0.54 .. Yosys 0.55-dev
 --------------------------
+
+Yosys 0.53 .. Yosys 0.54
+--------------------------
+ * New commands and options
+    - Added "-genlib" option to "abc_new" and "abc9_exe" passes.
+    - Added "-verbose" and "-quiet" options to "libcache" pass.
+    - Added "-no-sort" option to "write_aiger" pass.
+
+ * Various
+    - Added "muldiv_c" peepopt.
+    - Accept (and ignore) SystemVerilog unique/priority if.
+    - "read_verilog" copy inout ports in and out of functions/tasks.
+    - Enable single-bit vector wires in RTLIL.
+
+ * Xilinx support
+    - Single-port URAM mapping to support memories 2048 x 144b 
 
 Yosys 0.52 .. Yosys 0.53
 --------------------------

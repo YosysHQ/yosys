@@ -91,13 +91,11 @@ struct ProcInitPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod)) {
-				SigMap sigmap(mod);
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_init(mod, sigmap, proc_it.second);
-			}
+		for (auto mod : design->all_selected_modules()) {
+			SigMap sigmap(mod);
+			for (auto proc : mod->selected_processes())
+				proc_init(mod, sigmap, proc);
+		}
 	}
 } ProcInitPass;
 
