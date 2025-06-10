@@ -12,6 +12,10 @@ PRIVATE_NAMESPACE_BEGIN
 
 
 struct SdcObjects {
+	enum GetterMode {
+		Simple,
+		Full
+	} mode;
 	std::vector<std::string> design_ports;
 	std::vector<std::pair<std::string, Cell*>> design_cells;
 	std::vector<std::pair<std::string, Cell*>> design_pins;
@@ -158,6 +162,8 @@ struct MatchConfig {
 };
 
 static bool matches(std::string name, const std::string& pat, const MatchConfig& config) {
+	(void)config;
+	// TODO implement full mode
 	return name == pat;
 }
 
@@ -192,10 +198,19 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+	if (objects->mode == SdcObjects::GetterMode::Simple) {
+		if (regexp_flag || hierarchical_flag || nocase_flag || separator != "/" || of_objects) {
+			log_error("get_pins got unexpected flags in simple mode\n");
+		}
+		if (patterns.size() != 1) {
+			log_error("get_pins got unexpected number of patterns in simple mode\n");
+		}
+	}
 
 	MatchConfig config(regexp_flag, nocase_flag, hierarchical_flag);
 	std::vector<std::pair<std::string, Cell*>> resolved;
 	for (auto pat : patterns) {
+		log("get_pins sniffs %s\n", pat.c_str());
 		bool found = false;
 		for (auto [name, pin] : objects->design_pins) {
 			if (matches(name, pat, config)) {
@@ -211,10 +226,6 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 		Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(obj.first.c_str(), obj.first.size()));
 		objects->constrained_pins.insert(obj);
 	}
-	(void)hierarchical_flag;
-	(void)regexp_flag;
-	(void)nocase_flag;
-	(void)of_objects;
 
 	if (separator != "/") {
 		Tcl_SetResult(interp, (char *)"Only '/' accepted as separator", TCL_STATIC);
@@ -242,6 +253,14 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 	for (; i < objc; i++) {
 		patterns.push_back(Tcl_GetString(objv[i]));
 	}
+	if (objects->mode == SdcObjects::GetterMode::Simple) {
+		if (regexp_flag || nocase_flag) {
+			log_error("get_ports got unexpected flags in simple mode\n");
+		}
+		if (patterns.size() != 1) {
+			log_error("get_ports got unexpected number of patterns in simple mode\n");
+		}
+	}
 	MatchConfig config(regexp_flag, nocase_flag, false);
 	std::vector<std::string> resolved;
 	for (auto pat : patterns) {
@@ -260,8 +279,7 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 		Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(obj.c_str(), obj.size()));
 		objects->constrained_ports.insert(obj);
 	}
-	(void)regexp_flag;
-	(void)nocase_flag;
+
 	Tcl_SetObjResult(interp, result);
 	return TCL_OK;
 }
@@ -301,17 +319,33 @@ struct SdcPass : public Pass {
 	// TODO help
 	SdcPass() : Pass("sdc", "sniff at some SDC") { }
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
-		if (args.size() < 2)
-			log_cmd_error("Missing SDC file.\n");
+		// if (args.size() < 2)
+		// 	log_cmd_error("Missing SDC file.\n");
 		// TODO optional extra stub file
+		size_t argidx;
+		std::vector<std::string> opensta_stubs_paths;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-stubs" && argidx+1 < args.size()) {
+				opensta_stubs_paths.push_back(args[++argidx]);
+				continue;
+			}
+			break;
+		}
+		if (argidx >= args.size())
+			log_cmd_error("Missing SDC file.\n");
+
+		std::string sdc_path = args[argidx];
 		SDCInterpreter& sdc = SDCInterpreter::get();
 		Tcl_Interp *interp = sdc.fresh_interp(design);
 		Tcl_Preserve(interp);
 		std::string stub_path = "+/sdc/stubs.sdc";
 		rewrite_filename(stub_path);
 		if (Tcl_EvalFile(interp, stub_path.c_str()) != TCL_OK)
-			log_cmd_error("SDC interpreter returned an error in stub file: %s\n", Tcl_GetStringResult(interp));
-		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK)
+			log_cmd_error("SDC interpreter returned an error in stub preamble file: %s\n", Tcl_GetStringResult(interp));
+		for (auto path : opensta_stubs_paths)
+			if (Tcl_EvalFile(interp, path.c_str()) != TCL_OK)
+				log_cmd_error("SDC interpreter returned an error in OpenSTA stub file %s: %s\n", path.c_str(), Tcl_GetStringResult(interp));
+		if (Tcl_EvalFile(interp, sdc_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
 		sdc.objects->dump();
 		Tcl_Release(interp);
