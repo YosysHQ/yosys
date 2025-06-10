@@ -128,4 +128,28 @@ struct DebugPass : public Pass {
 	}
 } DebugPass;
 
+struct DebugOnPass : public Pass {
+	DebugOnPass() : Pass("debugon", "enable debug log messages") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    debugon\n");
+		log("\n");
+		log("Turn debug log messages on\n");
+		log("\n");
+	}
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			// .. parse options ..
+			break;
+		}
+
+		log_force_debug++;
+	}
+} DebugOnPass;
+
 PRIVATE_NAMESPACE_END
