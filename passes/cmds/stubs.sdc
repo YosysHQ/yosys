@@ -15,7 +15,7 @@ proc get_clocks {args} {
 }
 
 stub current_design
-stub ys_track_typed_key
+#stub ys_track_typed_key
 stub ys_track_untyped_key
 stub ys_err_key
 stub ys_err_flag
