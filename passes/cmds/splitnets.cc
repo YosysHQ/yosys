@@ -230,8 +230,12 @@ struct SplitnetsPass : public Pass {
 						if (wire->width > 1 && (wire->port_id != 0) && design->selected(module, wire))
 							worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 					}
-					else if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
+					else if (((wire->width > 1) || (wire->has_attribute(ID::single_bit_vector)))
+						&& (wire->port_id == 0 || flag_ports)
+						&& design->selected(module, wire)) {
+						wire->attributes.erase(ID::single_bit_vector);
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+					}
 				}
 
 				for (auto &it : worker.splitmap)
