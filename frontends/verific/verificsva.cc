@@ -1613,7 +1613,10 @@ struct VerificSvaImporter
 		}
 		else
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
-				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION ||
+				(mode_cover && (
+					inst->Type() == PRIM_SVA_OVERLAPPED_FOLLOWED_BY ||
+					inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)))
 		{
 			Net *antecedent_net = inst->GetInput1();
 			Net *consequent_net = inst->GetInput2();
@@ -1621,7 +1624,7 @@ struct VerificSvaImporter
 
 			SvaFsm antecedent_fsm(clocking, trig);
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
-			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION || inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY) {
 				int next_node = antecedent_fsm.createNode();
 				antecedent_fsm.createEdge(node, next_node);
 				node = next_node;
