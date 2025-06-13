@@ -23,9 +23,12 @@ __dir__ = os.path.dirname(os.path.abspath(__file__))
 
 yosys_version_rx = re.compile(r"PREQORSOR_VERSION\s*:=\s*([\w\-\+\.]+)")
 
-version = yosys_version_rx.search(
-    open(os.path.join(__dir__, "../../Makefile"), encoding="utf8").read()
-)[1]
+try:
+    version = yosys_version_rx.search(
+        open(os.path.join(__dir__, "../../Makefile"), encoding="utf8").read()
+    )[1]
+except TypeError:
+    version = open(os.path.join(__dir__, "../../tmpl/version.txt"), encoding="utf8").read().strip()
 
 class libyosys_so_ext(Extension):
     def __init__(
