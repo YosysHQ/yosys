@@ -213,15 +213,30 @@ in the right direction:
 Try running the unminimized script and search the log for the names of the
 objects in your minimized design.  In the case of cells you can also search for
 the type of the cell.  Remember that calling `stat` will list all the types of
-cells currently used in the design, and `select -list =*` will list the names of
-of all the current objects.  You can add these commands to your script, or use
-an interactive terminal to run each command individually.  Adding them to the
-script can be more repeatable, but if it takes a long time to run to the point
-you're interested in then an interactive shell session can give you more
+cells currently used in the design, and ``select -list =*`` will list the names
+of of all the current objects.  You can add these commands to your script, or
+use an interactive terminal to run each command individually.  Adding them to
+the script can be more repeatable, but if it takes a long time to run to the
+point you're interested in then an interactive shell session can give you more
 flexibility once you reach that point.  You can also add a call to the `shell`
 command at any point in a script to start an interactive session at a given
 point; allowing you to script any preparation steps, then come back once it's
 done.
+
+The ``--dump-design`` option
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Yosys provides the ``--dump-design`` option (or ``-P`` for short) for dumping
+the design at specific steps of the script based on the log header.  If the last
+step before an error is ``7.2. Executing MEMORY_MAP pass (converting memories to
+logic and flip-flops)``, then calling Yosys with ``--dump-design 7.2:bad.il``
+will save the design *before* this command runs, in the file ``bad.il``.
+
+It is also possible to use this option multiple times, e.g. ``-P2:hierarchy.il
+-P7 -P7.2:bad.il``, to get multiple dumps in the same run.  This can make it
+easier to follow the design through each step to find where certain cells or
+connections are coming from.  ``--dump-design ALL`` is also allowed, writing out
+the design at each log header.
 
 A worked example
 ~~~~~~~~~~~~~~~~
