@@ -287,7 +287,7 @@ the ``-expect error "<string>" 1`` option to perform a similar role to
 is still valid.
 
 .. code-block:: bash
-   :caption: Example test.sh
+   :caption: Example test.sh for C-Reduce
    :name: egtest
 
    #!/bin/bash
@@ -318,6 +318,25 @@ minimize the design to just the failing code, while still being valid Verilog.
    module a;
    always begin $stop;
    end endmodule
+
+
+sv-bugpoint
+~~~~~~~~~~~
+
+sv-bugpoint works quite similarly to C-Reduce, except it requires an output
+directory to be provided and the check script needs to accept the target file as
+an input argument: ``sv-bugpoint outDir/ test.sh test.v``
+
+.. code-block:: bash
+   :caption: Example test.sh for sv-bugpoint
+
+   #!/bin/bash
+   verilator --lint-only $1 &&/
+   yosys -p "logger -expect error \"unsupported\" 1; read_verilog $1"
+
+Notice that the commands for ``yosys -p`` are now in double quotes (``"``), and
+the quotes around the error string are escaped (``\"``).  This is necessary for
+the ``$1`` argument subsitution to work correctly.
 
 
 Doing it manually
