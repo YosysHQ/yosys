@@ -270,7 +270,7 @@ lines or object names that might be causing the failure, and back up your source
 code before modifying it.  If you have multiple source files, you should start
 by reducing them down to a single file.  If a specific file is failing to read,
 try removing everything else and just focus on that one.  If your source uses
-the `include` directive, replace it with the contents of the file referenced.
+the ``include`` directive, replace it with the contents of the file referenced.
 
 Unlike RTLIL designs where we can use `bugpoint`, Yosys does not provide any
 tools for minimizing Verilog designs.  Instead, you should use an external tool
