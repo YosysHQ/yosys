@@ -64,9 +64,9 @@ static ffi_fptr resolve_fn (std::string symbol_name)
 	log_error("unable to resolve '%s'.\n", symbol_name.c_str());
 }
 
-AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args)
+std::unique_ptr<AST::AstNode> AST::dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<std::unique_ptr<AST::AstNode>> &args)
 {
-	AST::AstNode *newNode = nullptr;
+	std::unique_ptr<AST::AstNode> newNode = nullptr;
 	union value { double f64; float f32; int32_t i32; void *ptr; };
 	std::vector<value> value_store(args.size() + 1);
 	std::vector<ffi_type *> types(args.size() + 1);
@@ -125,11 +125,11 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
         ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values.data());
 
 	if (rtype == "real") {
-		newNode = new AstNode(AST_REALVALUE);
+		newNode = std::make_unique<AstNode>(AST_REALVALUE);
 		newNode->realvalue = value_store[args.size()].f64;
 		log("  return realvalue: %g\n", newNode->asReal(true));
 	} else if (rtype == "shortreal") {
-		newNode = new AstNode(AST_REALVALUE);
+		newNode = std::make_unique<AstNode>(AST_REALVALUE);
 		newNode->realvalue = value_store[args.size()].f32;
 		log("  return realvalue: %g\n", newNode->asReal(true));
 	} else if (rtype == "chandle") {
