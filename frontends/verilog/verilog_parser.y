@@ -244,7 +244,7 @@
 			node->children.push_back(std::move(rangeNode));
 		}
 
-		static void checkLabelsMatch(const frontend_verilog_yy::parser::location_type& loc, const char *element, const std::string *before, const std::string *after)
+		static void checkLabelsMatch(const frontend_verilog_yy::parser::location_type& loc, const char *element, const std::string* before, const std::string *after)
 		{
 			if (!before && after)
 				err_at_loc(loc, "%s missing where end label (%s) was given.",
@@ -271,7 +271,6 @@
 			node->is_custom_type = true;
 			node->children.push_back(std::make_unique<AstNode>(AST_WIRETYPE));
 			node->children.back()->str = *name;
-			delete name;
 		}
 
 		void ParseState::addTypedefNode(std::string *name, std::unique_ptr<AstNode> node)
@@ -287,7 +286,6 @@
 				auto qname = current_ast_mod->str + "::" + (*name).substr(1);
 				pkg_user_types[qname] = tnode;
 			}
-			delete name;
 		}
 
 		void ParseState::enterTypeScope()
@@ -479,7 +477,7 @@
 		specify_triple fall;
 	};
 
-	using string_t = std::string *;
+	using string_t = std::unique_ptr<std::string>;
 	using ast_t = std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>;
 	using al_t = YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>>*;
 	using specify_target_ptr_t = std::unique_ptr<struct specify_target>;
@@ -688,27 +686,27 @@ attr_assign:
 
 hierarchical_id:
 	TOK_ID {
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	hierarchical_id TOK_PACKAGESEP TOK_ID {
 		if ($3->compare(0, 1, "\\") == 0)
 			*$1 += "::" + $3->substr(1);
 		else
 			*$1 += "::" + *$3;
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	hierarchical_id TOK_DOT TOK_ID {
 		if ($3->compare(0, 1, "\\") == 0)
 			*$1 += "." + $3->substr(1);
 		else
 			*$1 += "." + *$3;
-		$$ = $1;
+		$$ = std::move($1);
 	};
 
 hierarchical_type_id:
-	TOK_USER_TYPE
-	| TOK_PKG_USER_TYPE				// package qualified type name
-	| TOK_LPAREN TOK_USER_TYPE TOK_RPAREN	{ $$ = $2; }		// non-standard grammar
+	TOK_USER_TYPE {$$ = std::move($1); }
+	| TOK_PKG_USER_TYPE {$$ = std::move($1); } // package qualified type name
+	| TOK_LPAREN TOK_USER_TYPE TOK_RPAREN	{ $$ = std::move($2); }		// non-standard grammar
 	;
 
 module:
@@ -729,7 +727,7 @@ module:
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @$);
 		extra->ast_stack.pop_back();
 		log_assert(extra->ast_stack.size() == 1);
-		checkLabelsMatch(@11, "Module name", $4, $11);
+		checkLabelsMatch(@11, "Module name", $4.get(), $11.get());
 		extra->current_ast_mod = nullptr;
 		extra->exitTypeScope();
 	};
@@ -837,7 +835,7 @@ package:
 		append_attr(mod, $1);
 	} TOK_SEMICOL package_body TOK_ENDPACKAGE opt_label {
 		extra->ast_stack.pop_back();
-		checkLabelsMatch(@9, "Package name", $4, $9);
+		checkLabelsMatch(@9, "Package name", $4.get(), $9.get());
 		extra->current_ast_mod = nullptr;
 		extra->exitTypeScope();
 	};
@@ -1054,7 +1052,7 @@ logic_type:
 		extra->astbuf3->is_signed = true;
 	} |
 	hierarchical_type_id {
-		extra->addWiretypeNode($1, extra->astbuf3.get());
+		extra->addWiretypeNode($1.get(), extra->astbuf3.get());
 	};
 
 integer_atom_type:
@@ -1322,7 +1320,7 @@ specify_item:
 		auto en_expr = std::move($1);
 		char specify_edge = $3;
 		auto src_expr = std::move($4);
-		string *oper = $5;
+		string *oper = $5.get();
 		specify_target_ptr_t target = std::move($6);
 		specify_rise_fall_ptr_t timing = std::move($9);
 
@@ -1398,8 +1396,6 @@ specify_item:
 			cell->children.push_back(std::make_unique<AstNode>(AST_ARGUMENT, std::move(target->dat)));
 			cell->children.back()->str = "\\DAT";
 		}
-
-		delete oper;
 	} |
 	TOK_ID TOK_LPAREN specify_edge expr specify_condition TOK_COMMA specify_edge expr specify_condition TOK_COMMA specify_triple specify_opt_triple TOK_RPAREN TOK_SEMICOL {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
@@ -1736,7 +1732,7 @@ param_implicit_type: param_signed param_range;
 param_type:
 	param_integer_type | param_real | param_range_type | param_implicit_type |
 	hierarchical_type_id {
-		extra->addWiretypeNode($1, extra->astbuf1.get());
+		extra->addWiretypeNode($1.get(), extra->astbuf1.get());
 	};
 
 param_decl:
@@ -1993,7 +1989,7 @@ member_type_token:
 
 member_type: type_atom type_signing
 	| type_vec type_signing
-	| hierarchical_type_id { extra->addWiretypeNode($1, extra->astbuf1.get()); }
+	| hierarchical_type_id { extra->addWiretypeNode($1.get(), extra->astbuf1.get()); }
 	;
 
 struct_var_list: struct_var
@@ -2172,8 +2168,8 @@ assign_expr:
 		SET_AST_NODE_LOC(node, @$, @$);
 	};
 
-type_name: TOK_ID		// first time seen
-	 | TOK_USER_TYPE	{ if (extra->isInLocalScope($1)) lexer->err("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); $$ = std::move($1); }
+type_name: TOK_ID { $$ = std::move($1); } // first time seen
+	 | TOK_USER_TYPE	{ if (extra->isInLocalScope($1.get())) lexer->err("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); $$ = std::move($1); }
 	 ;
 
 typedef_decl:
@@ -2191,15 +2187,15 @@ typedef_decl:
 			}
 			rewriteAsMemoryNode(extra->astbuf1.get(), std::move($5));
 		}
-		extra->addTypedefNode($4, std::move(extra->astbuf1)); }
-	| TOK_TYPEDEF enum_struct_type type_name TOK_SEMICOL   { extra->addTypedefNode($3, std::move($2)); }
+		extra->addTypedefNode($4.get(), std::move(extra->astbuf1)); }
+	| TOK_TYPEDEF enum_struct_type type_name TOK_SEMICOL   { extra->addTypedefNode($3.get(), std::move($2)); }
 	;
 
 typedef_base_type:
 	hierarchical_type_id {
 		$$ = std::make_unique<AstNode>(AST_WIRE);
 		$$->is_logic = true;
-		extra->addWiretypeNode($1, $$.get());
+		extra->addWiretypeNode($1.get(), $$.get());
 	} |
 	integer_vector_type opt_signedness_default_unsigned {
 		$$ = std::make_unique<AstNode>(AST_WIRE);
@@ -2242,10 +2238,10 @@ cell_stmt:
 
 tok_prim_wrapper:
 	TOK_PRIMITIVE {
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	TOK_OR {
-		$$ = new std::string("or");
+		$$ = std::make_unique<std::string>("or");
 	};
 
 cell_list:
@@ -2485,7 +2481,7 @@ always_event:
 
 opt_label:
 	TOK_COL TOK_ID {
-		$$ = $2;
+		$$ = std::move($2);
 	} |
 	%empty {
 		$$ = nullptr;
@@ -2493,7 +2489,7 @@ opt_label:
 
 opt_sva_label:
 	TOK_SVA_LABEL TOK_COL {
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	%empty {
 		$$ = nullptr;
@@ -2801,7 +2797,7 @@ behavioral_stmt:
 			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
 		extra->exitTypeScope();
-		checkLabelsMatch(@8, "Begin label", $4, $8);
+		checkLabelsMatch(@8, "Begin label", $4.get(), $8.get());
 		AstNode *node = extra->ast_stack.back();
 		// In SystemVerilog, unnamed blocks with block item declarations
 		// create an implicit hierarchy scope
@@ -3184,7 +3180,7 @@ gen_block:
 		node->str = $3 ? *$3 : std::string();
 	} module_gen_body TOK_END opt_label {
 		extra->exitTypeScope();
-		checkLabelsMatch(@7, "Begin label", $3, $7);
+		checkLabelsMatch(@7, "Begin label", $3.get(), $7.get());
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @1, @7);
 		extra->ast_stack.pop_back();
 	};
@@ -3530,8 +3526,8 @@ concat_list:
 	};
 
 integral_number:
-	TOK_CONSTVAL { $$ = $1; } |
-	TOK_UNBASED_UNSIZED_CONSTVAL { $$ = $1; } |
+	TOK_CONSTVAL { $$ = std::move($1); } |
+	TOK_UNBASED_UNSIZED_CONSTVAL { $$ = std::move($1); } |
 	TOK_BASE TOK_BASED_CONSTVAL {
 		$1->append(*$2);
 		$$ = std::move($1);
