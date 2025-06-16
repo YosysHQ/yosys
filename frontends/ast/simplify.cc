@@ -1036,7 +1036,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		return false;
 	}
 
-	current_filename = filename;
+	// current_filename = filename;
 
 	// we do not look inside a task or function
 	// (but as soon as a task or function is instantiated we process the generated AST as usual)
@@ -1844,7 +1844,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			current_scope[it->first] = it->second;
 	}
 
-	current_filename = filename;
+	// current_filename = filename;
 
 	if (type == AST_MODULE || type == AST_INTERFACE)
 		current_scope.clear();

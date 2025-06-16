@@ -1342,7 +1342,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// be instantiated for this type of AST node.
 	IdString type_name;
 
-	current_filename = filename;
+	// current_filename = filename;
 
 	switch (type)
 	{
