@@ -1,0 +1,6 @@
+read_verilog <<EOT
+module test (y);
+    output signed [2:0] y = 1'b1;
+endmodule
+EOT
+dump
