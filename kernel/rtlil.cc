@@ -384,7 +384,7 @@ bool RTLIL::Const::convertible_to_int(bool is_signed) const
 {
 	auto size = get_min_size(is_signed);
 
-	if (size <= 0)
+	if (size < 0)
 		return false;
 
 	// If it fits in 31 bits it is definitely convertible
@@ -5509,6 +5509,9 @@ bool RTLIL::SigSpec::convertible_to_int(bool is_signed) const
 	if (!is_fully_const())
 		return false;
 
+	if (empty())
+		return true;
+
 	return RTLIL::Const(chunks_[0].data).convertible_to_int(is_signed);
 }
 
@@ -5520,6 +5523,9 @@ std::optional<int> RTLIL::SigSpec::try_as_int(bool is_signed) const
 	if (!is_fully_const())
 		return std::nullopt;
 
+	if (empty())
+		return 0;
+
 	return RTLIL::Const(chunks_[0].data).try_as_int(is_signed);
 }
 
@@ -5529,7 +5535,10 @@ int RTLIL::SigSpec::as_int_saturating(bool is_signed) const
 
 	pack();
 	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	log_assert(!empty());
+
+	if (empty())
+		return 0;
+
 	return RTLIL::Const(chunks_[0].data).as_int_saturating(is_signed);
 }
 
