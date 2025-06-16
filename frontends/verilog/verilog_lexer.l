@@ -74,12 +74,12 @@ YOSYS_NAMESPACE_END
 	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
 			"recognized unless read_verilog is called with -sv!\n", YYText(), \
 			AST::current_filename.c_str(), yylineno); \
-	string_t val = new std::string(std::string("\\") + YYText()); \
-	return parser::make_TOK_ID(val, out_loc);
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
+	return parser::make_TOK_ID(std::move(val), out_loc);
 
 #define NON_KEYWORD() \
-	string_t val = new std::string(std::string("\\") + YYText()); \
-	return parser::make_TOK_ID(val, out_loc);
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
+	return parser::make_TOK_ID(std::move(val), out_loc);
 
 // #define YY_INPUT(buf,result,max_size) \
 // 	result = readsome(*extra->lexin, buf, max_size)
@@ -290,8 +290,8 @@ TIME_SCALE_SUFFIX [munpf]?s
 [a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
 	if (!strcmp(YYText(), "default"))
 		return parser::make_TOK_DEFAULT(out_loc);
-	string_t val = new std::string(std::string("\\") + YYText());
-	return parser::make_TOK_SVA_LABEL(val, out_loc);
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_SVA_LABEL(std::move(val), out_loc);
 }
 
 "assert"     { if (mode->formal) return parser::make_TOK_ASSERT(out_loc); SV_KEYWORD(parser::make_TOK_ASSERT(out_loc)); }
@@ -340,35 +340,35 @@ TIME_SCALE_SUFFIX [munpf]?s
 "packed"  { SV_KEYWORD(parser::make_TOK_PACKED(out_loc)); }
 
 {UNSIGNED_NUMBER} {
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_CONSTVAL(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_CONSTVAL(std::move(val), out_loc);
 }
 
 \'[01zxZX] {
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_UNBASED_UNSIZED_CONSTVAL(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_UNBASED_UNSIZED_CONSTVAL(std::move(val), out_loc);
 }
 
 \'[sS]?[bodhBODH] {
 	BEGIN(BASED_CONST);
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_BASE(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_BASE(std::move(val), out_loc);
 }
 
 <BASED_CONST>[0-9a-fA-FzxZX?][0-9a-fA-FzxZX?_]* {
 	BEGIN(0);
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_BASED_CONSTVAL(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_BASED_CONSTVAL(std::move(val), out_loc);
 }
 
 {FIXED_POINT_NUMBER_DEC} {
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_REALVAL(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_REALVAL(std::move(val), out_loc);
 }
 
 {FIXED_POINT_NUMBER_NO_DEC} {
-	string_t val = new std::string(YYText());
-	return parser::make_TOK_REALVAL(val, out_loc);
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_REALVAL(std::move(val), out_loc);
 }
 
 \"		{ BEGIN(STRING); }
@@ -408,33 +408,33 @@ TIME_SCALE_SUFFIX [munpf]?s
 		yystr[j++] = yystr[i++];
 	}
 	yystr[j] = 0;
-	string_t val = new std::string(yystr, j);
+	string_t val = std::make_unique<std::string>(yystr, j);
 	free(yystr);
-	return parser::make_TOK_STRING(val, out_loc);
+	return parser::make_TOK_STRING(std::move(val), out_loc);
 }
 
 and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
-	auto val = new std::string(YYText());
-	return parser::make_TOK_PRIMITIVE(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_PRIMITIVE(std::move(val), out_loc);
 }
 
 supply0 { return parser::make_TOK_SUPPLY0(out_loc); }
 supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 
 "$"(display[bho]?|write[bho]?|strobe|monitor|time|realtime|stop|finish|dumpfile|dumpvars|dumpon|dumpoff|dumpall) {
-	auto val = new std::string(YYText());
-	return parser::make_TOK_ID(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
 	if (!mode->specify) REJECT;
-	auto val = new std::string(YYText());
-	return parser::make_TOK_ID(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "$"(info|warning|error|fatal) {
-	auto val = new std::string(YYText());
-	return parser::make_TOK_MSG_TASKS(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_MSG_TASKS(std::move(val), out_loc);
 }
 
 "$signed"   { return parser::make_TOK_TO_SIGNED(out_loc); }
@@ -445,15 +445,15 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 	auto s = std::string("\\") + YYText();
 	if (extra->pkg_user_types.count(s) > 0) {
 		// package qualified typedefed name
-		auto val = new std::string(s);
-		return parser::make_TOK_PKG_USER_TYPE(val, out_loc);
+		auto val = std::make_unique<std::string>(s);
+		return parser::make_TOK_PKG_USER_TYPE(std::move(val), out_loc);
 	}
 	else {
 		// backup before :: just return first part
 		size_t len = strchr(YYText(), ':') - YYText();
 		yyless(len);
-		auto val = new std::string(std::string("\\") + YYText());
-		return parser::make_TOK_ID(val, out_loc);
+		auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+		return parser::make_TOK_ID(std::move(val), out_loc);
 	}
 }
 
@@ -461,18 +461,18 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 	auto s = std::string("\\") + YYText();
 	if (isUserType(extra, s)) {
 		// previously typedefed name
-		auto val = new std::string(s);
-		return parser::make_TOK_USER_TYPE(val, out_loc);
+		auto val = std::make_unique<std::string>(s);
+		return parser::make_TOK_USER_TYPE(std::move(val), out_loc);
 	}
 	else {
-		auto val = new std::string(std::string("\\") + YYText());
-		return parser::make_TOK_ID(val, out_loc);
+		auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+		return parser::make_TOK_ID(std::move(val), out_loc);
 	}
 }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {
-	auto val = new std::string(std::string("\\") + YYText());
-	return parser::make_TOK_ID(val, out_loc);
+	auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
@@ -533,8 +533,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 }
 
 <IMPORT_DPI>[a-zA-Z_$][a-zA-Z0-9_$]* {
-	auto val = new std::string(std::string("\\") + YYText());
-	return parser::make_TOK_ID(val, out_loc);
+	auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 <IMPORT_DPI>[ \t\r\n] /* ignore whitespaces */
@@ -549,8 +549,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 }
 
 "\\"[^ \t\r\n]+ {
-	auto val = new std::string(YYText());
-	return parser::make_TOK_ID(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "(*" { return parser::make_ATTR_BEGIN(out_loc); }
@@ -606,8 +606,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 [-+]?[=*]> {
 	if (!mode->specify) REJECT;
-	auto val = new std::string(YYText());
-	return parser::make_TOK_SPECIFY_OPER(val, out_loc);
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_SPECIFY_OPER(std::move(val), out_loc);
 }
 
 "&&&" {
