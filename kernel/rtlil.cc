@@ -952,10 +952,6 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-	for (auto n : verilog_packages)
-		delete n;
-	for (auto n : verilog_globals)
-		delete n;
 #ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
 #endif
@@ -5710,11 +5706,6 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 	tokens.push_back(text.substr(start));
 }
 
-static int sigspec_parse_get_dummy_line_num()
-{
-	return 0;
-}
-
 bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
 	cover("kernel.rtlil.sigspec.parse");
@@ -5735,12 +5726,11 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			cover("kernel.rtlil.sigspec.parse.const");
-			AST::get_line_num = sigspec_parse_get_dummy_line_num;
-			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
-			if (ast == NULL)
+			VERILOG_FRONTEND::ConstParser p;
+			auto ast = p.const2ast(netname);
+			if (ast == nullptr)
 				return false;
 			sig.append(RTLIL::Const(ast->bits));
-			delete ast;
 			continue;
 		}
 
