@@ -2855,6 +2855,7 @@ behavioral_stmt:
 		std::unique_ptr<AstNode> node_owned;
 		AstNode* node = nullptr;
 		AstNode *context = extra->ast_stack.back();
+		bool patch_block_on_stack = false;
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if)) {
 			AstNode *outer = extra->ast_stack[extra->ast_stack.size() - 2];
 			log_assert (outer && outer->type == AST_CASE);
@@ -2863,6 +2864,9 @@ behavioral_stmt:
 				node = outer;
 				log_assert (node->children.size());
 				node->children.pop_back();
+				// `context` has been killed as a grandchild of `outer`
+				// we have to undangle it from the stack
+				patch_block_on_stack = true;
 			} else if (outer->get_bool_attribute(ID::full_case))
 				(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
 		}
@@ -2874,12 +2878,17 @@ behavioral_stmt:
 			append_attr(node, $1);
 			node->children.push_back(node->get_bool_attribute(ID::parallel_case) ? AstNode::mkconst_int(1, false, 1) : expr->clone());
 			extra->ast_stack.back()->children.push_back(std::move(node_owned));
+		} else {
+			free_attr($1);
 		}
 		auto block_owned = std::make_unique<AstNode>(AST_BLOCK);
 		auto* block = block_owned.get();
 		auto cond_owned = std::make_unique<AstNode>(AST_COND, node->get_bool_attribute(ID::parallel_case) ? std::move(expr) : AstNode::mkconst_int(1, false, 1), std::move(block_owned));
 		SET_AST_NODE_LOC(cond_owned.get(), @4, @4);
 		node->children.push_back(std::move(cond_owned));
+		// Double it and give it to the next person
+		if (patch_block_on_stack)
+			extra->ast_stack.back() = block;
 		extra->ast_stack.push_back(node);
 		extra->ast_stack.push_back(block);
 	} behavioral_stmt {

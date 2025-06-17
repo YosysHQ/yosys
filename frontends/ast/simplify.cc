@@ -1571,7 +1571,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (children[0]->type == AST_WIRE) {
 			int width = 1;
 			std::unique_ptr<AstNode> node;
-			AstNode* child = children[0].release();
+			AstNode* child = children[0].get();
 			if (child->children.size() == 0) {
 				// Base type (e.g., int)
 				width = child->range_left - child->range_right +1;
