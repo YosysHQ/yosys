@@ -244,6 +244,17 @@
 			node->children.push_back(std::move(rangeNode));
 		}
 
+		[[noreturn]]
+		extern void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap);
+		[[noreturn]]
+		static void err_at_loc(frontend_verilog_yy::parser::location_type loc, char const *fmt, ...)
+		{
+			va_list args;
+			va_start(args, fmt);
+			verr_at(AST::current_filename, loc.begin.line, fmt, args);
+			va_end(args);
+		}
+
 		static void checkLabelsMatch(const frontend_verilog_yy::parser::location_type& loc, const char *element, const std::string* before, const std::string *after)
 		{
 			if (!before && after)
