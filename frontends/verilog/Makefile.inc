@@ -3,11 +3,9 @@ GENFILES += frontends/verilog/verilog_parser.tab.cc
 GENFILES += frontends/verilog/verilog_parser.tab.hh
 GENFILES += frontends/verilog/verilog_parser.output
 GENFILES += frontends/verilog/verilog_lexer.cc
-GENFILES += frontends/verilog/location.hh
-GENFILES += frontends/verilog/position.hh
 GENFILES += frontends/verilog/stack.hh
 
-frontends/verilog/verilog_parser.tab.cc: frontends/verilog/verilog_parser.y
+frontends/verilog/verilog_parser.tab.cc: frontends/verilog/verilog_parser.y frontends/verilog/verilog_location.h
 	$(Q) mkdir -p $(dir $@)
 	$(P) $(BISON) -Wall -Werror -o $@ -d -r all -b frontends/verilog/verilog_parser $<
 

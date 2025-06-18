@@ -47,7 +47,7 @@ using namespace VERILOG_FRONTEND;
 std::string ConstParser::fmt_maybe_loc(std::string msg) {
 	std::string s;
 
-	s += stringf("%s:%d:", loc.filename, loc.first_line);
+	s += stringf("%s:%d:", loc.begin.filename->c_str(), loc.begin.line);
 
 	s += msg;
 	return s;

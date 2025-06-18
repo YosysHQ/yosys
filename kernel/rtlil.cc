@@ -5710,7 +5710,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 {
 	cover("kernel.rtlil.sigspec.parse");
 
-	AST::current_filename = "input";
+	// AST::current_filename = "input";
 
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');
@@ -5726,7 +5726,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			cover("kernel.rtlil.sigspec.parse.const");
-			VERILOG_FRONTEND::ConstParser p;
+			VERILOG_FRONTEND::ConstParser p{location()};
 			auto ast = p.const2ast(netname);
 			if (ast == nullptr)
 				return false;

@@ -50,8 +50,10 @@
 
 #include "frontends/verilog/verilog_lexer.h"
 #include "frontends/ast/ast.h"
+#include "frontends/verilog/verilog_location.h"
 #include "kernel/log.h"
 #include <vector>
+#include <memory>
 
 USING_YOSYS_NAMESPACE
 using namespace AST;
@@ -73,7 +75,7 @@ YOSYS_NAMESPACE_END
 	if (mode->sv) return _tok; \
 	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
 			"recognized unless read_verilog is called with -sv!\n", YYText(), \
-			AST::current_filename.c_str(), yylineno); \
+			current_filename->c_str(), yylineno); \
 	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
 	return parser::make_TOK_ID(std::move(val), out_loc);
 
@@ -85,16 +87,17 @@ YOSYS_NAMESPACE_END
 // 	result = readsome(*extra->lexin, buf, max_size)
 
 #define YY_USER_ACTION \
-		out_loc.begin = out_loc.end; \
-		for(int i = 0; YYText()[i] != '\0'; ++i){ \
-				if(YYText()[i] == '\n') { \
-						out_loc.end.line++; \
-						out_loc.end.column = 1; \
-				} \
-				else { \
-						out_loc.end.column++; \
-				} \
-		}
+	out_loc.step(); \
+	for(int i = 0; YYText()[i] != '\0'; ++i){ \
+		if(YYText()[i] == '\n') { \
+			out_loc.lines(); \
+		} \
+		else { \
+			out_loc.columns(); \
+		} \
+	} \
+	out_loc.begin.filename = current_filename; \
+	out_loc.end.filename = current_filename;
 
 #define YY_BREAK \
     break;
@@ -175,11 +178,12 @@ TIME_SCALE_SUFFIX [munpf]?s
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
 	ln_stack.push_back(yylineno);
-	current_filename = YYText()+11;
-	if (!current_filename.empty() && current_filename.front() == '"')
-		current_filename = current_filename.substr(1);
-	if (!current_filename.empty() && current_filename.back() == '"')
-		current_filename = current_filename.substr(0, current_filename.size()-1);
+	std::string filename = YYText()+11;
+	if (!filename.empty() && filename.front() == '"')
+		filename = filename.substr(1);
+	if (!filename.empty() && filename.back() == '"')
+		filename = filename.substr(0, filename.size()-1);
+	current_filename = std::make_shared<std::string>(filename);
 	yylineno = (0);
 	out_loc.begin.line = out_loc.end.line = 0;
 }
@@ -201,7 +205,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 	while (*p == ' ' || *p == '\t') p++;
 	const char *q = *p ? p + 1 : p;
 	while (*q && *q != '"') q++;
-	current_filename = std::string(p).substr(1, q-p-1);
+	current_filename = std::make_shared<std::string>(std::string(p).substr(1, q-p-1));
 }
 
 "`file_notfound "[^\n]* {

@@ -33,6 +33,7 @@
 #include "verilog_frontend.h"
 #include "verilog_lexer.h"
 #include "verilog_error.h"
+#include "verilog_location.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
@@ -277,8 +278,8 @@ struct VerilogFrontend : public Frontend {
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
 
-		ParseMode parse_mode;
-		ParseState parse_state;
+		ParseMode parse_mode = {};
+		ParseState parse_state = {};
 		parse_mode.sv = false;
 		parse_mode.formal = false;
 		parse_mode.noassert = false;
@@ -479,11 +480,6 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 
-		VerilogLexer lexer(&parse_state, &parse_mode, &filename);
-		frontend_verilog_yy::parser parser(&lexer, &parse_state, &parse_mode);
-		lexer.set_debug(flag_debug_lexer);
-		parser.set_debug_level(flag_debug_parser ? 1 : 0);
-
 		if (parse_mode.formal || !flag_nosynthesis)
 			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
 
@@ -495,19 +491,24 @@ struct VerilogFrontend : public Frontend {
 				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
 
 		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
-
-		AstSrcLocType top_loc = AstSrcLocType ( "read_verilog", 0, 0, 0, 0);
-		parse_state.current_ast = new AST::AstNode(top_loc, AST::AST_DESIGN);
-
-		parse_state.lexin = f;
 		std::string code_after_preproc;
 
+		parse_state.lexin = f;
 		if (!flag_nopp) {
 			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs, parse_state, parse_mode);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			parse_state.lexin = new std::istringstream(code_after_preproc);
 		}
+
+		auto filename_shared = std::make_shared<std::string>(filename);
+		auto top_loc = location();
+		top_loc.begin.filename = filename_shared;
+		parse_state.current_ast = new AST::AstNode(top_loc, AST::AST_DESIGN);
+		VerilogLexer lexer(&parse_state, &parse_mode, filename_shared);
+		frontend_verilog_yy::parser parser(&lexer, &parse_state, &parse_mode);
+		lexer.set_debug(flag_debug_lexer);
+		parser.set_debug_level(flag_debug_parser ? 1 : 0);
 
 		// make package typedefs available to parser
 		add_package_types(parse_state.pkg_user_types, design->verilog_packages);

@@ -28,6 +28,7 @@
 
 #include "kernel/rtlil.h"
 #include "kernel/fmt.h"
+#include "frontends/verilog/verilog_location.h"
 #include <stdint.h>
 #include <set>
 
@@ -163,13 +164,7 @@ namespace AST
 		AST_BIND
 	};
 
-	struct AstSrcLocType {
-		std::string filename;
-		unsigned int first_line, last_line;
-		unsigned int first_column, last_column;
-		AstSrcLocType() : filename(""), first_line(0), last_line(0), first_column(0), last_column(0) {}
-		AstSrcLocType(std::string _filename, int _first_line, int _first_column, int _last_line, int _last_column) : filename(_filename), first_line(_first_line), last_line(_last_line), first_column(_first_column), last_column(_last_column) {}
-	};
+	using AstSrcLocType = location;
 
 	// convert an node type to a string (e.g. for debug output)
 	std::string type2str(AstNodeType type);
@@ -408,7 +403,7 @@ namespace AST
 	// this must be set by the language frontend before parsing the sources
 	// the AstNode constructor then uses current_filename and get_line_num()
 	// to initialize the filename and linenum properties of new nodes
-	extern std::string current_filename;
+	// extern std::string current_filename;
 	// also set by the language frontend to control some AST processing
 	extern bool sv_mode_but_global_and_used_for_literally_one_condition;
 
