@@ -32,10 +32,12 @@
 
 #include "verilog_frontend.h"
 #include "verilog_lexer.h"
+#include "verilog_error.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include <stdarg.h>
+#include <list>
 
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
@@ -47,10 +49,10 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 
 static void error_on_dpi_function(AST::AstNode *node)
 {
-	if (node->type == AST::AST_DPI_FUNCTION)
-		log_file_error(node->filename, node->location.first_line, "Found DPI function %s.\n", node->str.c_str());
-	for (auto& child : node->children)
-		error_on_dpi_function(child.get());
+    if (node->type == AST::AST_DPI_FUNCTION)
+        err_at_ast(node->location, "Found DPI function %s.\n", node->str.c_str());
+    for (auto& child : node->children)
+        error_on_dpi_function(child.get());
 }
 
 static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<std::unique_ptr<AST::AstNode>> &package_list)
@@ -69,15 +71,7 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 }
 
 struct VerilogFrontend : public Frontend {
-	ParseMode parse_mode;
-	ParseState parse_state;
-	VerilogLexer lexer;
-	frontend_verilog_yy::parser parser;
-	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file"),
-						parse_mode(),
-						parse_state(),
-						lexer(&parse_state, &parse_mode),
-						parser(&lexer, &parse_state, &parse_mode) { }
+	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -259,6 +253,8 @@ struct VerilogFrontend : public Frontend {
 		bool flag_dump_vlog1 = false;
 		bool flag_dump_vlog2 = false;
 		bool flag_dump_rtlil = false;
+		bool flag_debug_lexer = false;
+		bool flag_debug_parser = false;
 		bool flag_nolatches = false;
 		bool flag_nomeminit = false;
 		bool flag_nomem2reg = false;
@@ -281,8 +277,8 @@ struct VerilogFrontend : public Frontend {
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
 
-		lexer.set_debug(false);
-		parser.set_debug_level(0);
+		ParseMode parse_mode;
+		ParseState parse_state;
 		parse_mode.sv = false;
 		parse_mode.formal = false;
 		parse_mode.noassert = false;
@@ -340,8 +336,8 @@ struct VerilogFrontend : public Frontend {
 				flag_dump_ast2 = true;
 				flag_dump_vlog1 = true;
 				flag_dump_vlog2 = true;
-				lexer.set_debug(true);
-				parser.set_debug_level(1);
+				flag_debug_lexer = true;
+				flag_debug_parser = true;
 				continue;
 			}
 			if (arg == "-dump_ast1") {
@@ -370,6 +366,8 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-yydebug") {
 				flag_yydebug = true;
+				flag_debug_lexer = true;
+				flag_debug_parser = true;
 				continue;
 			}
 			if (arg == "-nolatches") {
@@ -481,6 +479,11 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 
+		VerilogLexer lexer(&parse_state, &parse_mode, &filename);
+		frontend_verilog_yy::parser parser(&lexer, &parse_state, &parse_mode);
+		lexer.set_debug(flag_debug_lexer);
+		parser.set_debug_level(flag_debug_parser ? 1 : 0);
+
 		if (parse_mode.formal || !flag_nosynthesis)
 			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
 
@@ -491,10 +494,10 @@ struct VerilogFrontend : public Frontend {
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
 
-		AST::current_filename = filename;
-		AST::sv_mode = parse_mode.sv;
+		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
 
-		parse_state.current_ast = new AST::AstNode(AST::AST_DESIGN);
+		AstSrcLocType top_loc = AstSrcLocType ( "read_verilog", 0, 0, 0, 0);
+		parse_state.current_ast = new AST::AstNode(top_loc, AST::AST_DESIGN);
 
 		parse_state.lexin = f;
 		std::string code_after_preproc;
@@ -522,10 +525,6 @@ struct VerilogFrontend : public Frontend {
 		// add a new empty type map to allow overriding existing global definitions
 		parse_state.user_type_stack.push_back(UserTypeMap());
 
-		parser.~parser();
-		lexer.~VerilogLexer();
-		new (&lexer) VerilogLexer(&parse_state, &parse_mode);
-		new (&parser) frontend_verilog_yy::parser(&lexer, &parse_state, &parse_mode);
 		if (flag_yydebug) {
 			lexer.set_debug(true);
 			parser.set_debug_level(1);
@@ -537,7 +536,7 @@ struct VerilogFrontend : public Frontend {
 			if (child->type == AST::AST_MODULE)
 				for (auto &attr : attributes)
 					if (child->attributes.count(attr) == 0)
-						child->attributes[attr] = AST::AstNode::mkconst_int(1, false);
+						child->attributes[attr] = AST::AstNode::mkconst_int(top_loc, 1, false);
 		}
 
 		if (flag_nodpi)
@@ -775,25 +774,5 @@ struct VerilogFileList : public Pass {
 } VerilogFilelist;
 
 #endif
-
-[[noreturn]]
-void VERILOG_FRONTEND::verr_at(std::string filename, int begin_line, char const *fmt, va_list ap)
-{
-    char buffer[1024];
-    char *p = buffer;
-    p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
-    p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-    YOSYS_NAMESPACE_PREFIX log_file_error(filename, begin_line, "%s", buffer);
-    exit(1);
-}
-
-[[noreturn]]
-void VERILOG_FRONTEND::err_at_ast(AstSrcLocType loc, char const *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	verr_at(AST::current_filename, loc.first_line, fmt, args);
-	va_end(args);
-}
 
 YOSYS_NAMESPACE_END

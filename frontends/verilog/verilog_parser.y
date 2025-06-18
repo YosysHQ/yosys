@@ -45,7 +45,7 @@
 
 %code requires {
 	#include "kernel/yosys_common.h"
-	// #include "frontends/verilog/verilog_lexer.h"
+	#include "frontends/verilog/verilog_error.h"
 	// start requires
 	YOSYS_NAMESPACE_BEGIN
 	namespace VERILOG_FRONTEND {
@@ -157,8 +157,7 @@
 		static ConstParser make_ConstParser_here(parser::location_type flex_loc) {
 			AstSrcLocType loc;
 			SET_LOC(loc, flex_loc, flex_loc);
-			std::optional<std::string> filename = flex_loc.begin.filename ? std::make_optional(*(flex_loc.begin.filename)) : std::nullopt;
-			ConstParser p{filename, loc};
+			ConstParser p{loc};
 			return p;
 		}
 		static void append_attr(AstNode *ast, dict<IdString, std::unique_ptr<AstNode>> *al)
@@ -242,17 +241,6 @@
 			} else
 				rewriteRange(rangeNode.get());
 			node->children.push_back(std::move(rangeNode));
-		}
-
-		[[noreturn]]
-		extern void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap);
-		[[noreturn]]
-		static void err_at_loc(frontend_verilog_yy::parser::location_type loc, char const *fmt, ...)
-		{
-			va_list args;
-			va_start(args, fmt);
-			verr_at(AST::current_filename, loc.begin.line, fmt, args);
-			va_end(args);
 		}
 
 		static void checkLabelsMatch(const frontend_verilog_yy::parser::location_type& loc, const char *element, const std::string* before, const std::string *after)
@@ -733,7 +721,7 @@ module:
 		append_attr(mod, $1);
 	} module_para_opt module_args_opt TOK_SEMICOL module_body TOK_ENDMODULE opt_label {
 		if (extra->port_stubs.size() != 0)
-			lexer->err("Missing details for module port `%s'.",
+			err_at_loc(@7, "Missing details for module port `%s'.",
 					extra->port_stubs.begin()->first.c_str());
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @$);
 		extra->ast_stack.pop_back();
@@ -787,7 +775,7 @@ module_arg_opt_assignment:
 					extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(AST_ASSIGN, std::move(wire), std::move($2)));
 			}
 		} else
-			lexer->err("SystemVerilog interface in module port list cannot have a default value.");
+			err_at_loc(@2, "SystemVerilog interface in module port list cannot have a default value.");
 	} |
 	%empty;
 
@@ -801,7 +789,7 @@ module_arg:
 			extra->ast_stack.back()->children.push_back(std::move(node));
 		} else {
 			if (extra->port_stubs.count(*$1) != 0)
-				lexer->err("Duplicate module port `%s'.", $1->c_str());
+				err_at_loc(@1, "Duplicate module port `%s'.", $1->c_str());
 			extra->port_stubs[*$1] = ++extra->port_counter;
 		}
 	} module_arg_opt_assignment |
@@ -811,7 +799,7 @@ module_arg:
 		extra->astbuf1->children[0]->str = *$1;
 	} TOK_ID {  /* SV interfaces */
 		if (!mode->sv)
-			lexer->err("Interface found in port list (%s). This is not supported unless read_verilog is called with -sv!", $3->c_str());
+			err_at_loc(@3, "Interface found in port list (%s). This is not supported unless read_verilog is called with -sv!", $3->c_str());
 		extra->astbuf2 = extra->astbuf1->clone(); // really only needed if multiple instances of same type.
 		extra->astbuf2->str = *$3;
 		extra->astbuf2->port_id = ++extra->port_counter;
@@ -826,9 +814,9 @@ module_arg:
 		if (range != nullptr)
 			node->children.push_back(std::move(range));
 		if (!node->is_input && !node->is_output)
-			lexer->err("Module port `%s' is neither input nor output.", $4->c_str());
+			err_at_loc(@4, "Module port `%s' is neither input nor output.", $4->c_str());
 		if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
-			lexer->err("Input port `%s' is declared as register.", $4->c_str());
+			err_at_loc(@4, "Input port `%s' is declared as register.", $4->c_str());
 		append_attr(node.get(), $1);
 		extra->ast_stack.back()->children.push_back(std::move(node));
 	} module_arg_opt_assignment |
@@ -878,7 +866,7 @@ interface:
 		intf->str = *$3;
 	} module_para_opt module_args_opt TOK_SEMICOL interface_body TOK_ENDINTERFACE {
 		if (extra->port_stubs.size() != 0)
-			lexer->err("Missing details for module port `%s'.",
+			err_at_loc(@6, "Missing details for module port `%s'.",
 				extra->port_stubs.begin()->first.c_str());
 		extra->ast_stack.pop_back();
 		log_assert(extra->ast_stack.size() == 1);
@@ -1295,7 +1283,7 @@ task_func_port:
 		extra->astbuf2 = checkRange(extra->astbuf1.get(), std::move($3));
 		if (!extra->astbuf1->is_input && !extra->astbuf1->is_output) {
 			if (!mode->sv)
-				lexer->err("task/function argument direction missing");
+				err_at_loc(@2, "task/function argument direction missing");
 			extra->astbuf1->is_input = prev_was_input;
 			extra->astbuf1->is_output = prev_was_output;
 		}
@@ -1303,7 +1291,7 @@ task_func_port:
 	{
 		if (!extra->astbuf1) {
 			if (!mode->sv)
-				lexer->err("task/function argument direction missing");
+				err_at_loc(@$, "task/function argument direction missing");
 			extra->albuf = new dict<IdString, std::unique_ptr<AstNode>>;
 			extra->astbuf1 = std::make_unique<AstNode>(AST_WIRE);
 			extra->current_wire_rand = false;
@@ -1336,7 +1324,7 @@ specify_item:
 		specify_rise_fall_ptr_t timing = std::move($9);
 
 		if (specify_edge != 0 && target->dat == nullptr)
-			lexer->err("Found specify edge but no data spec.\n");
+			err_at_loc(@3, "Found specify edge but no data spec.\n");
 
 		auto cell_owned = std::make_unique<AstNode>(AST_CELL);
 		auto cell = cell_owned.get();
@@ -1411,7 +1399,7 @@ specify_item:
 	TOK_ID TOK_LPAREN specify_edge expr specify_condition TOK_COMMA specify_edge expr specify_condition TOK_COMMA specify_triple specify_opt_triple TOK_RPAREN TOK_SEMICOL {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
-			lexer->err("Unsupported specify rule type: %s\n", $1->c_str());
+			err_at_loc(@1, "Unsupported specify rule type: %s\n", $1->c_str());
 
 		auto src_pen = AstNode::mkconst_int($3 != 0, false, 1);
 		auto src_pol = AstNode::mkconst_int($3 == 'p', false, 1);
@@ -1777,10 +1765,10 @@ single_param_decl:
 		AstNode *decl = extra->ast_stack.back()->children.back().get();
 		if (decl->type != AST_PARAMETER) {
 			log_assert(decl->type == AST_LOCALPARAM);
-			lexer->err("localparam initialization is missing!");
+			err_at_loc(@1, "localparam initialization is missing!");
 		}
 		if (!mode->sv)
-			lexer->err("Parameter defaults can only be omitted in SystemVerilog mode!");
+			err_at_loc(@1, "Parameter defaults can only be omitted in SystemVerilog mode!");
 		decl->children.erase(decl->children.begin());
 	};
 
@@ -1789,7 +1777,7 @@ single_param_decl_ident:
 		std::unique_ptr<AstNode> node_owned;
 		if (extra->astbuf1 == nullptr) {
 			if (!mode->sv)
-				lexer->err("In pure Verilog (not SystemVerilog), parameter/localparam with an initializer must use the parameter/localparam keyword");
+				err_at_loc(@1, "In pure Verilog (not SystemVerilog), parameter/localparam with an initializer must use the parameter/localparam keyword");
 			node_owned = std::make_unique<AstNode>(AST_PARAMETER);
 			node_owned->children.push_back(AstNode::mkconst_int(0, true));
 		} else {
@@ -1940,7 +1928,7 @@ struct_body: opt_packed TOK_LCURL struct_member_list TOK_RCURL
 
 opt_packed:
 	TOK_PACKED opt_signed_struct |
-	%empty { lexer->err("Only PACKED supported at this time"); };
+	%empty { err_at_loc(@$, "Only PACKED supported at this time"); };
 
 opt_signed_struct:
 	  TOK_SIGNED		{ extra->astbuf2->is_signed = true; }
@@ -2125,7 +2113,7 @@ wire_name_and_opt_assign:
 wire_name:
 	TOK_ID range_or_multirange {
 		if (extra->astbuf1 == nullptr)
-			lexer->err("Internal error - should not happen - no AST_WIRE node.");
+			err_at_loc(@1, "Internal error - should not happen - no AST_WIRE node.");
 		auto node = extra->astbuf1->clone();
 		node->str = *$1;
 		append_attr_clone(node.get(), extra->albuf);
@@ -2133,7 +2121,7 @@ wire_name:
 			node->children.push_back(extra->astbuf2->clone());
 		if ($2 != nullptr) {
 			if (node->is_input || node->is_output)
-				lexer->err("input/output/inout ports cannot have unpacked dimensions.");
+				err_at_loc(@2, "input/output/inout ports cannot have unpacked dimensions.");
 			if (!extra->astbuf2 && !node->is_custom_type) {
 				addRange(node.get(), 0, 0, false);
 			}
@@ -2144,21 +2132,21 @@ wire_name:
 				node->port_id = extra->current_function_or_task_port_id++;
 		} else if (extra->ast_stack.back()->type == AST_GENBLOCK) {
 			if (node->is_input || node->is_output)
-				lexer->err("Cannot declare module port `%s' within a generate block.", $1->c_str());
+				err_at_loc(@1, "Cannot declare module port `%s' within a generate block.", $1->c_str());
 		} else {
 			if (extra->do_not_require_port_stubs && (node->is_input || node->is_output) && extra->port_stubs.count(*$1) == 0) {
 				extra->port_stubs[*$1] = ++extra->port_counter;
 			}
 			if (extra->port_stubs.count(*$1) != 0) {
 				if (!node->is_input && !node->is_output)
-					lexer->err("Module port `%s' is neither input nor output.", $1->c_str());
+					err_at_loc(@1, "Module port `%s' is neither input nor output.", $1->c_str());
 				if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
-					lexer->err("Input port `%s' is declared as register.", $1->c_str());
+					err_at_loc(@1, "Input port `%s' is declared as register.", $1->c_str());
 				node->port_id = extra->port_stubs[*$1];
 				extra->port_stubs.erase(*$1);
 			} else {
 				if (node->is_input || node->is_output)
-					lexer->err("Module port `%s' is not declared in module header.", $1->c_str());
+					err_at_loc(@1, "Module port `%s' is not declared in module header.", $1->c_str());
 			}
 		}
 		//FIXME: for some reason, TOK_ID has a location which always points to one column *after* the real last column...
@@ -2180,7 +2168,7 @@ assign_expr:
 	};
 
 type_name: TOK_ID { $$ = std::move($1); } // first time seen
-	 | TOK_USER_TYPE	{ if (extra->isInLocalScope($1.get())) lexer->err("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); $$ = std::move($1); }
+	 | TOK_USER_TYPE	{ if (extra->isInLocalScope($1.get())) err_at_loc(@1, "Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); $$ = std::move($1); }
 	 ;
 
 typedef_decl:
@@ -2358,7 +2346,7 @@ cell_port_list:
 		}
 
 		if (has_positional_args && has_named_args)
-			lexer->err("Mix of positional and named cell ports.");
+			err_at_loc(@1, "Mix of positional and named cell ports.");
 	};
 
 cell_port_list_rules:
@@ -2399,7 +2387,7 @@ cell_port:
 	} |
 	attr TOK_WILDCARD_CONNECT {
 		if (!mode->sv)
-			lexer->err("Wildcard port connections are only supported in SystemVerilog mode.");
+			err_at_loc(@2, "Wildcard port connections are only supported in SystemVerilog mode.");
 		extra->cell_hack->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
 		free_attr($1);
 	};
@@ -2738,11 +2726,11 @@ for_initialization:
 		extra->ast_stack.back()->children.push_back(std::move(node));
 	} |
 	non_io_wire_type range TOK_ID {
-		lexer->err("For loop variable declaration is missing initialization!");
+		err_at_loc(@3, "For loop variable declaration is missing initialization!");
 	} |
 	non_io_wire_type range TOK_ID TOK_EQ expr {
 		if (!mode->sv)
-			lexer->err("For loop inline variable declaration is only supported in SystemVerilog mode!");
+			err_at_loc(@4, "For loop inline variable declaration is only supported in SystemVerilog mode!");
 
 		// loop variable declaration
 		auto wire = std::move($1);
@@ -2926,21 +2914,21 @@ if_attr:
 	attr TOK_UNIQUE0 {
 		AstNode *context = extra->ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
-			lexer->err("unique0 keyword cannot be used for 'else if' branch.");
+			err_at_loc(@2, "unique0 keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	} |
 	attr TOK_PRIORITY {
 		AstNode *context = extra->ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
-			lexer->err("priority keyword cannot be used for 'else if' branch.");
+			err_at_loc(@2, "priority keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	} |
 	attr TOK_UNIQUE {
 		AstNode *context = extra->ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
-			lexer->err("unique keyword cannot be used for 'else if' branch.");
+			err_at_loc(@2, "unique keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
@@ -3138,11 +3126,11 @@ genvar_identifier:
 
 genvar_initialization:
 	TOK_GENVAR genvar_identifier {
-		lexer->err("Generate for loop variable declaration is missing initialization!");
+		err_at_loc(@2, "Generate for loop variable declaration is missing initialization!");
 	} |
 	TOK_GENVAR genvar_identifier TOK_EQ expr {
 		if (!mode->sv)
-			lexer->err("Generate for loop inline variable declaration is only supported in SystemVerilog mode!");
+			err_at_loc(@3, "Generate for loop inline variable declaration is only supported in SystemVerilog mode!");
 		AstNode* node = extra->saveChild(std::make_unique<AstNode>(AST_GENVAR));
 		node->is_reg = true;
 		node->is_signed = true;
@@ -3244,7 +3232,7 @@ basic_expr:
 	} |
 	TOK_LPAREN expr TOK_RPAREN integral_number {
 		if ($4->compare(0, 1, "'") != 0)
-			lexer->err("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
+			err_at_loc(@4, "Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		auto p = make_ConstParser_here(@4);
 		auto val = p.const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		if (val == nullptr)
@@ -3253,7 +3241,7 @@ basic_expr:
 	} |
 	hierarchical_id integral_number {
 		if ($2->compare(0, 1, "'") != 0)
-			lexer->err("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
+			err_at_loc(@2, "Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		auto bits = std::make_unique<AstNode>(AST_IDENTIFIER);
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits.get(), @1, @1);
@@ -3502,25 +3490,25 @@ basic_expr:
 	} |
 	TOK_SIGNED OP_CAST TOK_LPAREN expr TOK_RPAREN {
 		if (!mode->sv)
-			lexer->err("Static cast is only supported in SystemVerilog mode.");
+			err_at_loc(@2, "Static cast is only supported in SystemVerilog mode.");
 		$$ = std::make_unique<AstNode>(AST_TO_SIGNED, std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
 	} |
 	TOK_UNSIGNED OP_CAST TOK_LPAREN expr TOK_RPAREN {
 		if (!mode->sv)
-			lexer->err("Static cast is only supported in SystemVerilog mode.");
+			err_at_loc(@2, "Static cast is only supported in SystemVerilog mode.");
 		$$ = std::make_unique<AstNode>(AST_TO_UNSIGNED, std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
 	} |
 	basic_expr OP_CAST TOK_LPAREN expr TOK_RPAREN {
 		if (!mode->sv)
-			lexer->err("Static cast is only supported in SystemVerilog mode.");
+			err_at_loc(@2, "Static cast is only supported in SystemVerilog mode.");
 		$$ = std::make_unique<AstNode>(AST_CAST_SIZE, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
 	} |
 	typedef_base_type OP_CAST TOK_LPAREN expr TOK_RPAREN {
 		if (!mode->sv)
-			lexer->err("Static cast is only supported in SystemVerilog mode.");
+			err_at_loc(@2, "Static cast is only supported in SystemVerilog mode.");
 		$$ = std::make_unique<AstNode>(AST_CAST_SIZE, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
 	} |

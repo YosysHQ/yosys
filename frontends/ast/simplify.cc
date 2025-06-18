@@ -155,7 +155,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 		while (node_arg->simplify(true, stage, -1, false)) { }
 
 		VerilogFmtArg arg = {};
-		arg.filename = filename;
+		arg.filename = location.filename;
 		arg.first_line = location.first_line;
 		if (node_arg->type == AST_CONSTANT && node_arg->is_string) {
 			arg.type = VerilogFmtArg::STRING;
@@ -173,10 +173,10 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
 		} else if (may_fail) {
-			log_file_info(filename, location.first_line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_info(location.filename, location.first_line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 			return Fmt();
 		} else {
-			log_file_error(filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_error(location.filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 		}
 		args.push_back(arg);
 	}
@@ -240,20 +240,20 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 			RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
 			enum_item_str.append(val.as_string());
 			//set attribute for available val to enum item name mappings
-			set_attribute(enum_item_str.c_str(), mkconst_str(enum_item->str));
+			set_attribute(enum_item_str.c_str(), mkconst_str(location, enum_item->str));
 		}
 	}
 }
 
-static std::unique_ptr<AstNode> make_range(int left, int right, bool is_signed = false)
+static std::unique_ptr<AstNode> make_range(AstSrcLocType loc, int left, int right, bool is_signed = false)
 {
 	// generate a pre-validated range node for a fixed signal range.
-	auto range = std::make_unique<AstNode>(AST_RANGE);
+	auto range = std::make_unique<AstNode>(loc, AST_RANGE);
 	range->range_left = left;
 	range->range_right = right;
 	range->range_valid = true;
-	range->children.push_back(AstNode::mkconst_int(left, true));
-	range->children.push_back(AstNode::mkconst_int(right, true));
+	range->children.push_back(AstNode::mkconst_int(loc, left, true));
+	range->children.push_back(AstNode::mkconst_int(loc, right, true));
 	range->is_signed = is_signed;
 	return range;
 }
@@ -388,30 +388,32 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 	return width;
 }
 
-static std::unique_ptr<AstNode> node_int(int ival)
+static std::unique_ptr<AstNode> node_int(AstSrcLocType loc, int ival)
 {
-	return AstNode::mkconst_int(ival, true);
+	return AstNode::mkconst_int(loc, ival, true);
 }
 
 static std::unique_ptr<AstNode> multiply_by_const(std::unique_ptr<AstNode> expr_node, int stride)
 {
-	return std::make_unique<AstNode>(AST_MUL, std::move(expr_node), node_int(stride));
+	auto loc = expr_node->location;
+	return std::make_unique<AstNode>(loc, AST_MUL, std::move(expr_node), node_int(loc, stride));
 }
 
 static std::unique_ptr<AstNode> normalize_index(AstNode *expr, AstNode *decl_node, int dimension)
 {
 	auto new_expr = expr->clone();
+	auto loc = expr->location;
 
 	int offset = decl_node->dimensions[dimension].range_right;
 	if (offset) {
-		new_expr = std::make_unique<AstNode>(AST_SUB, std::move(new_expr), node_int(offset));
+		new_expr = std::make_unique<AstNode>(loc, AST_SUB, std::move(new_expr), node_int(loc, offset));
 	}
 
 	// Packed dimensions are normally indexed by lsb, while unpacked dimensions are normally indexed by msb.
 	if ((dimension < decl_node->unpacked_dimensions) ^ decl_node->dimensions[dimension].range_swapped) {
 		// Swap the index if the dimension is declared the "wrong" way.
 		int left = decl_node->dimensions[dimension].range_width - 1;
-		new_expr = std::make_unique<AstNode>(AST_SUB, node_int(left), std::move(new_expr));
+		new_expr = std::make_unique<AstNode>(loc, AST_SUB, node_int(loc, left), std::move(new_expr));
 	}
 
 	return new_expr;
@@ -433,7 +435,7 @@ static std::unique_ptr<AstNode> index_msb_offset(std::unique_ptr<AstNode> lsb_of
 	std::unique_ptr<AstNode> add_offset;
 	if (rnode->children.size() == 1) {
 		// Index, e.g. s.a[i]
-		add_offset = node_int(stride - 1);
+		add_offset = node_int(rnode->location, stride - 1);
 	}
 	else {
 		// rnode->children.size() == 2
@@ -620,7 +622,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 
 	auto reprocess_after = [this] (const std::string &modname) {
 		if (!attributes.count(ID::reprocess_after))
-			set_attribute(ID::reprocess_after, AstNode::mkconst_str(modname));
+			set_attribute(ID::reprocess_after, AstNode::mkconst_str(location, modname));
 	};
 
 	const AstNode *celltype = nullptr;
@@ -929,7 +931,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, filename.c_str(), location.first_line, type2str(type).c_str(), this);
+	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.filename.c_str(), location.first_line, type2str(type).c_str(), this);
 	log("const_fold=%d, stage=%d, width_hint=%d, sign_hint=%d\n",
 			int(const_fold), int(stage), int(width_hint), int(sign_hint));
 	// dumpAst(nullptr, "> ");
@@ -1020,7 +1022,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					for (auto &it : node->attributes)
 						if (it.first != ID::mem2reg)
 							reg->set_attribute(it.first, it.second->clone());
-					reg->filename = node->filename;
+					reg->location.filename = node->location.filename;
 					reg->location = node->location;
 					while (reg->simplify(true, 1, -1, false)) { }
 					children.push_back(std::move(reg));
@@ -1049,7 +1051,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_file_warning(filename, location.first_line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
+		log_file_warning(location.filename, location.first_line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
 		delete_children();
 		str = std::string();
 	}
@@ -1059,7 +1061,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		 str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
 		if (!current_always) {
-			log_file_warning(filename, location.first_line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
+			log_file_warning(location.filename, location.first_line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
 			delete_children();
 			str = std::string();
 		} else {
@@ -1402,7 +1404,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// create the indirection wire
 				std::stringstream sstr;
-				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
 				std::string tmp_str = sstr.str();
 				add_wire_for_ref(ref, tmp_str);
 
@@ -2240,7 +2242,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			int width = std::abs(children[1]->range_left - children[1]->range_right) + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
-				log_file_warning(filename, location.first_line, "converting real value %e to binary %s.\n",
+				log_file_warning(location.filename, location.first_line, "converting real value %e to binary %s.\n",
 						children[0]->realvalue, log_signal(constvalue));
 				children[0] = mkconst_bits(constvalue.to_bits(), sign_hint);
 				fixup_hierarchy_flags();
@@ -2382,7 +2384,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			std::swap(data_range_left, data_range_right);
 
 		std::stringstream sstr;
-		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
 		std::string wire_id = sstr.str();
 
 		auto wire_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
@@ -2602,7 +2604,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		for (size_t i = 0; i < children.size(); i++)
 			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
 			{
-				log_assert(!sv_mode);
+				log_assert(!sv_mode_but_global_and_used_for_literally_one_condition);
 				children[i]->input_error("Local declaration in unnamed block is only supported in SystemVerilog mode!\n");
 			}
 	}
@@ -3139,7 +3141,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			auto wire_tmp_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(width_hint-1, true), mkconst_int(0, true)));
 			auto wire_tmp = wire_tmp_owned.get();
-			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line, autoidx++);
 			current_scope[wire_tmp->str] = wire_tmp;
 			current_ast_mod->children.push_back(std::move(wire_tmp_owned));
 			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
@@ -3181,7 +3183,7 @@ skip_dynamic_range_lvalue_expansion:;
 			input_error("Insufficient number of array indices for %s.\n", log_id(str));
 
 		std::stringstream sstr;
-		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		int mem_width, mem_size, addr_bits;
@@ -3452,7 +3454,7 @@ skip_dynamic_range_lvalue_expansion:;
 					auto* reg = reg_owned.get();
 					current_ast_mod->children.push_back(std::move(reg_owned));
 
-					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, myidx, i);
+					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line, myidx, i);
 					reg->is_reg = true;
 					reg->is_signed = sign_hint;
 
@@ -3828,7 +3830,7 @@ skip_dynamic_range_lvalue_expansion:;
 						input_error("Failed to evaluate DPI function with non-constant argument.\n");
 				}
 
-				newNode = dpi_call(rtype, fname, argtypes, args);
+				newNode = dpi_call(dpi_decl->location, rtype, fname, argtypes, args);
 
 				goto apply_newNode;
 			}
@@ -3912,7 +3914,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 
 		std::stringstream sstr;
-		sstr << str << "$func$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++) << '.';
+		sstr << str << "$func$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++) << '.';
 		std::string prefix = sstr.str();
 
 		auto* decl = current_scope[str];
@@ -4442,7 +4444,7 @@ apply_newNode:
 		// newNode->dumpAst(stderr, "+ ");
 		log_assert(newNode != nullptr);
 		// newNode->null_check();
-		newNode->filename = filename;
+		newNode->location.filename = location.filename;
 		newNode->location = location;
 		newNode->cloneInto(*this);
 		fixup_hierarchy_flags();
@@ -4489,7 +4491,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 #else
 		char slash = '/';
 #endif
-		std::string path = filename.substr(0, filename.find_last_of(slash)+1);
+		std::string path = location.filename.substr(0, location.filename.find_last_of(slash)+1);
 		f.open(path + mem_filename.c_str());
 		yosys_input_files.insert(path + mem_filename);
 	} else {
@@ -4546,7 +4548,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 				continue;
 			}
 
-			VERILOG_FRONTEND::ConstParser p{mem_filename, std::nullopt};
+			VERILOG_FRONTEND::ConstParser p{memory->location};
 			auto value = p.const2ast(stringf("%d'%c", mem_width, is_readmemh ? 'h' : 'b') + token);
 
 			if (unconditional_init)
@@ -4768,7 +4770,7 @@ static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &
 	if (that->type == AST_IDENTIFIER && that->id2ast && that->id2ast->type == AST_MEMORY) {
 		AstNode *mem = that->id2ast;
 		if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_CMPLX_LHS))
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(that->filename).c_str(), that->location.first_line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(that->location.filename).c_str(), that->location.first_line));
 		mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CMPLX_LHS;
 	}
 }
@@ -4796,14 +4798,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// activate mem2reg if this is assigned in an async proc
 			if (flags & AstNode::MEM2REG_FL_ASYNC) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ASYNC))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ASYNC;
 			}
 
 			// remember if this is assigned blocking (=)
 			if (type == AST_ASSIGN_EQ) {
 				if (!(proc_flags[mem] & AstNode::MEM2REG_FL_EQ1))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
 			}
 
@@ -4820,11 +4822,11 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// remember where this is
 			if (flags & MEM2REG_FL_INIT) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_INIT))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_INIT;
 			} else {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ELSE))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ELSE;
 			}
 		}
@@ -4841,7 +4843,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 
 		// flag if used after blocking assignment (in same proc)
 		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(filename).c_str(), location.first_line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
 			mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_EQ2;
 		}
 	}
@@ -5027,7 +5029,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
-		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 		int mem_width, mem_size, addr_bits;
@@ -5146,7 +5148,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		else
 		{
 			std::stringstream sstr;
-			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
 			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 			int mem_width, mem_size, addr_bits;

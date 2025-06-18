@@ -38,8 +38,7 @@ using namespace AST_INTERNAL;
 
 // instantiate global variables (public API)
 namespace AST {
-	std::string current_filename;
-	bool sv_mode;
+	bool sv_mode_but_global_and_used_for_literally_one_condition;
 	unsigned long long astnodes = 0;
 	unsigned long long astnode_count() { return astnodes; }
 }
@@ -201,7 +200,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 // create new node (AstNode constructor)
 // (the optional child arguments make it easier to create AST trees)
-AstNode::AstNode(AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_ptr<AstNode> child2, std::unique_ptr<AstNode> child3, std::unique_ptr<AstNode> child4)
+AstNode::AstNode(AstSrcLocType loc, AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_ptr<AstNode> child2, std::unique_ptr<AstNode> child3, std::unique_ptr<AstNode> child4)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -209,7 +208,7 @@ AstNode::AstNode(AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_
 	astnodes++;
 
 	this->type = type;
-	filename = current_filename;
+	loc = loc;
 	is_input = false;
 	is_output = false;
 	is_reg = false;
@@ -253,7 +252,7 @@ AstNode::AstNode(AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_
 // create a (deep recursive) copy of a node
 std::unique_ptr<AstNode> AstNode::clone() const
 {
-	auto that = std::make_unique<AstNode>(this->type);
+	auto that = std::make_unique<AstNode>(this->location, this->type);
 	cloneInto(*that.get());
 	return that;
 }
@@ -288,7 +287,6 @@ void AstNode::cloneInto(AstNode &other) const
 	other.id2ast = id2ast;
 	other.basic_prep = basic_prep;
 	other.lookahead = lookahead;
-	other.filename = filename;
 	other.location = location;
 	other.in_lvalue = in_lvalue;
 	other.in_param = in_param;
@@ -843,9 +841,9 @@ bool AstNode::contains(const AstNode *other) const
 }
 
 // create an AST node for a constant (using a 32 bit int as value)
-std::unique_ptr<AstNode> AstNode::mkconst_int(uint32_t v, bool is_signed, int width)
+std::unique_ptr<AstNode> AstNode::mkconst_int(AstSrcLocType loc, uint32_t v, bool is_signed, int width)
 {
-	auto node = std::make_unique<AstNode>(AST_CONSTANT);
+	auto node = std::make_unique<AstNode>(loc, AST_CONSTANT);
 	node->integer = v;
 	node->is_signed = is_signed;
 	for (int i = 0; i < width; i++) {
@@ -859,9 +857,9 @@ std::unique_ptr<AstNode> AstNode::mkconst_int(uint32_t v, bool is_signed, int wi
 }
 
 // create an AST node for a constant (using a bit vector as value)
-std::unique_ptr<AstNode> AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized)
+std::unique_ptr<AstNode> AstNode::mkconst_bits(AstSrcLocType loc, const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized)
 {
-	auto node = std::make_unique<AstNode>(AST_CONSTANT);
+	auto node = std::make_unique<AstNode>(loc, AST_CONSTANT);
 	node->is_signed = is_signed;
 	node->bits = v;
 	for (size_t i = 0; i < 32; i++) {
@@ -877,15 +875,15 @@ std::unique_ptr<AstNode> AstNode::mkconst_bits(const std::vector<RTLIL::State> &
 	return node;
 }
 
-std::unique_ptr<AstNode> AstNode::mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed)
+std::unique_ptr<AstNode> AstNode::mkconst_bits(AstSrcLocType loc, const std::vector<RTLIL::State> &v, bool is_signed)
 {
-	return mkconst_bits(v, is_signed, false);
+	return mkconst_bits(loc, v, is_signed, false);
 }
 
 // create an AST node for a constant (using a string in bit vector form as value)
-std::unique_ptr<AstNode> AstNode::mkconst_str(const std::vector<RTLIL::State> &v)
+std::unique_ptr<AstNode> AstNode::mkconst_str(AstSrcLocType loc, const std::vector<RTLIL::State> &v)
 {
-	auto node = mkconst_str(RTLIL::Const(v).decode_string());
+	auto node = mkconst_str(loc, RTLIL::Const(v).decode_string());
 	while (GetSize(node->bits) < GetSize(v))
 		node->bits.push_back(RTLIL::State::S0);
 	log_assert(node->bits == v);
@@ -893,14 +891,14 @@ std::unique_ptr<AstNode> AstNode::mkconst_str(const std::vector<RTLIL::State> &v
 }
 
 // create an AST node for a constant (using a string as value)
-std::unique_ptr<AstNode> AstNode::mkconst_str(const std::string &str)
+std::unique_ptr<AstNode> AstNode::mkconst_str(AstSrcLocType loc, const std::string &str)
 {
 	std::unique_ptr<AstNode> node;
 
 	// LRM 1364-2005 5.2.3.3 The empty string literal ("") shall be considered
 	// equivalent to the ASCII NUL ("\0")
 	if (str.empty()) {
-		node = AstNode::mkconst_int(0, false, 8);
+		node = AstNode::mkconst_int(loc, 0, false, 8);
 	} else {
 		std::vector<RTLIL::State> data;
 		data.reserve(str.size() * 8);
@@ -911,7 +909,7 @@ std::unique_ptr<AstNode> AstNode::mkconst_str(const std::string &str)
 				ch = ch >> 1;
 			}
 		}
-		node = AstNode::mkconst_bits(data, false);
+		node = AstNode::mkconst_bits(loc, data, false);
 	}
 
 	node->is_string = true;
@@ -920,19 +918,19 @@ std::unique_ptr<AstNode> AstNode::mkconst_str(const std::string &str)
 }
 
 // create a temporary register
-std::unique_ptr<AstNode> AstNode::mktemp_logic(const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed)
+std::unique_ptr<AstNode> AstNode::mktemp_logic(AstSrcLocType loc, const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed)
 {
-	auto wire_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(range_left, true), mkconst_int(range_right, true)));
+	auto wire_owned = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, mkconst_int(loc, range_left, true), mkconst_int(loc, range_right, true)));
 	auto* wire = wire_owned.get();
-	wire->str = stringf("%s%s:%d$%d", name.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+	wire->str = stringf("%s%s:%d$%d", name.c_str(), RTLIL::encode_filename(location.filename).c_str(), location.first_line, autoidx++);
 	if (nosync)
-		wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+		wire->set_attribute(ID::nosync, AstNode::mkconst_int(loc, 1, false));
 	wire->is_signed = is_signed;
 	wire->is_logic = true;
 	mod->children.push_back(std::move(wire_owned));
 	while (wire->simplify(true, 1, -1, false)) { }
 
-	auto ident = std::make_unique<AstNode>(AST_IDENTIFIER);
+	auto ident = std::make_unique<AstNode>(loc, AST_IDENTIFIER);
 	ident->str = wire->str;
 	ident->id2ast = wire;
 
@@ -986,7 +984,7 @@ RTLIL::Const AstNode::asParaConst() const
 {
 	if (type == AST_REALVALUE)
 	{
-		auto strnode = AstNode::mkconst_str(stringf("%f", realvalue));
+		auto strnode = AstNode::mkconst_str(location, stringf("%f", realvalue));
 		RTLIL::Const val = strnode->asAttrConst();
 		val.flags |= RTLIL::CONST_FLAG_REAL;
 		return val;
@@ -1088,7 +1086,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 
 std::string AstNode::loc_string() const
 {
-	return stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+	return stringf("%s:%d.%d-%d.%d", location.filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 }
 
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
@@ -1446,7 +1444,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			if (design->has(child->str)) {
 				RTLIL::Module *existing_mod = design->module(child->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
-					log_file_error(child->filename, child->location.first_line, "Re-definition of module `%s'!\n", child->str.c_str());
+					log_file_error(child->location.filename, child->location.first_line, "Re-definition of module `%s'!\n", child->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s.\n",
 							child->str.c_str(), child->loc_string().c_str());
@@ -1925,7 +1923,7 @@ void AstNode::input_error(const char *format, ...) const
 {
 	va_list ap;
 	va_start(ap, format);
-	logv_file_error(filename, location.first_line, format, ap);
+	logv_file_error(location.filename, location.first_line, format, ap);
 }
 
 YOSYS_NAMESPACE_END
