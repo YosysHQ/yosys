@@ -5,6 +5,7 @@
 #include "frontends/ast/ast.h"
 #include "frontends/verilog/verilog_parser.tab.hh"
 #include <string>
+#include <memory>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -15,7 +16,7 @@ namespace VERILOG_FRONTEND {
 		ParseMode* mode;
 	public:
 		parser::location_type out_loc; // TODO private?
-		VerilogLexer(ParseState* e, ParseMode* m, std::string* filename) : frontend_verilog_yyFlexLexer(e->lexin), extra(e), mode(m) {
+		VerilogLexer(ParseState* e, ParseMode* m, std::shared_ptr<string> filename) : frontend_verilog_yyFlexLexer(e->lexin), extra(e), mode(m) {
 			out_loc.begin.filename = filename;
 		}
 		~VerilogLexer() override {}
@@ -27,7 +28,8 @@ namespace VERILOG_FRONTEND {
 			return parser::make_FRONTEND_VERILOG_YYEOF(out_loc);
 		}
 	private:
-		std::vector<std::string> fn_stack;
+		std::shared_ptr<std::string> current_filename;
+		std::vector<std::shared_ptr<std::string>> fn_stack;
 		std::vector<int> ln_stack;
 		int LexerInput(char* buf, int max_size) override {
 			return readsome(*extra->lexin, buf, max_size);
