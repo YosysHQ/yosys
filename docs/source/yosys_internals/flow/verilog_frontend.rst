@@ -48,7 +48,7 @@ The lexer does little more than identifying all keywords and literals recognised
 by the Yosys Verilog frontend.
 
 The lexer keeps track of the current location in the Verilog source code using
-some global variables. These variables are used by the constructor of AST nodes
+some VerilogLexer member variables. These variables are used by the constructor of AST nodes
 to annotate each node with the source code location it originated from.
 
 Finally the lexer identifies and handles special comments such as "``// synopsys
@@ -189,10 +189,11 @@ the bison code for parsing multiplications:
 .. code:: none
    	:number-lines:
 
-	basic_expr '*' attr basic_expr {
-		$$ = new AstNode(AST_MUL, $1, $4);
-		append_attr($$, $3);
-	} |
+  basic_expr TOK_ASTER attr basic_expr {
+    $$ = std::make_unique<AstNode>(AST_MUL, std::move($1), std::move($4));
+    SET_AST_NODE_LOC($$.get(), @1, @4);
+    append_attr($$.get(), $3);
+  } |
 
 The generated AST data structure is then passed directly to the AST frontend
 that performs the actual conversion to RTLIL.
