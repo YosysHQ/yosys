@@ -788,15 +788,6 @@ void VERILOG_FRONTEND::verr_at(std::string filename, int begin_line, char const 
 }
 
 [[noreturn]]
-void VERILOG_FRONTEND::err_at_loc(parser::location_type loc, char const *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	verr_at(AST::current_filename, loc.begin.line, fmt, args);
-	va_end(args);
-}
-
-[[noreturn]]
 void VERILOG_FRONTEND::err_at_ast(AstSrcLocType loc, char const *fmt, ...)
 {
 	va_list args;
