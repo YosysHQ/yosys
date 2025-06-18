@@ -164,10 +164,11 @@ namespace AST
 	};
 
 	struct AstSrcLocType {
+		std::string filename;
 		unsigned int first_line, last_line;
 		unsigned int first_column, last_column;
-		AstSrcLocType() : first_line(0), last_line(0), first_column(0), last_column(0) {}
-		AstSrcLocType(int _first_line, int _first_column, int _last_line, int _last_column) : first_line(_first_line), last_line(_last_line), first_column(_first_column), last_column(_last_column) {}
+		AstSrcLocType() : filename(""), first_line(0), last_line(0), first_column(0), last_column(0) {}
+		AstSrcLocType(std::string _filename, int _first_line, int _first_column, int _last_line, int _last_column) : filename(_filename), first_line(_first_line), last_line(_last_line), first_column(_first_column), last_column(_last_column) {}
 	};
 
 	// convert an node type to a string (e.g. for debug output)
@@ -224,7 +225,6 @@ namespace AST
 		// this is the original sourcecode location that resulted in this AST node
 		// it is automatically set by the constructor using AST::current_filename and
 		// the AST::get_line_num() callback function.
-		std::string filename;
 		AstSrcLocType location;
 
 		// are we embedded in an lvalue, param?
@@ -235,7 +235,7 @@ namespace AST
 		bool in_param_from_above;
 
 		// creating and deleting nodes
-		AstNode(AstNodeType type = AST_NONE, std::unique_ptr<AstNode> child1 = nullptr, std::unique_ptr<AstNode> child2 = nullptr, std::unique_ptr<AstNode> child3 = nullptr, std::unique_ptr<AstNode> child4 = nullptr);
+		AstNode(AstSrcLocType loc, AstNodeType type = AST_NONE, std::unique_ptr<AstNode> child1 = nullptr, std::unique_ptr<AstNode> child2 = nullptr, std::unique_ptr<AstNode> child3 = nullptr, std::unique_ptr<AstNode> child4 = nullptr);
 		std::unique_ptr<AstNode> clone() const;
 		void cloneInto(AstNode &other) const;
 		void delete_children();
@@ -323,14 +323,14 @@ namespace AST
 		AstNode operator=(AstNode) = delete;
 
 		// helper functions for creating AST nodes for constants
-		static std::unique_ptr<AstNode> mkconst_int(uint32_t v, bool is_signed, int width = 32);
-		static std::unique_ptr<AstNode> mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized);
-		static std::unique_ptr<AstNode> mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
-		static std::unique_ptr<AstNode> mkconst_str(const std::vector<RTLIL::State> &v);
-		static std::unique_ptr<AstNode> mkconst_str(const std::string &str);
+		static std::unique_ptr<AstNode> mkconst_int(AstSrcLocType loc, uint32_t v, bool is_signed, int width = 32);
+		static std::unique_ptr<AstNode> mkconst_bits(AstSrcLocType loc, const std::vector<RTLIL::State> &v, bool is_signed, bool is_unsized);
+		static std::unique_ptr<AstNode> mkconst_bits(AstSrcLocType loc, const std::vector<RTLIL::State> &v, bool is_signed);
+		static std::unique_ptr<AstNode> mkconst_str(AstSrcLocType loc, const std::vector<RTLIL::State> &v);
+		static std::unique_ptr<AstNode> mkconst_str(AstSrcLocType loc, const std::string &str);
 
 		// helper function to create an AST node for a temporary register
-		std::unique_ptr<AstNode> mktemp_logic(const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed);
+		std::unique_ptr<AstNode> mktemp_logic(AstSrcLocType loc, const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed);
 
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
@@ -410,7 +410,7 @@ namespace AST
 	// to initialize the filename and linenum properties of new nodes
 	extern std::string current_filename;
 	// also set by the language frontend to control some AST processing
-	extern bool sv_mode;
+	extern bool sv_mode_but_global_and_used_for_literally_one_condition;
 
 	// for stats
 	unsigned long long astnode_count();
@@ -420,7 +420,7 @@ namespace AST
 	void use_internal_line_num();
 
 	// call a DPI function
-	std::unique_ptr<AstNode> dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<std::unique_ptr<AstNode>> &args);
+	std::unique_ptr<AstNode> dpi_call(AstSrcLocType loc, const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<std::unique_ptr<AstNode>> &args);
 
 	// Helper functions related to handling SystemVerilog interfaces
 	std::pair<std::string,std::string> split_modport_from_type(std::string name_type);
