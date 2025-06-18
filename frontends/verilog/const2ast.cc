@@ -46,11 +46,8 @@ using namespace VERILOG_FRONTEND;
 
 std::string ConstParser::fmt_maybe_loc(std::string msg) {
 	std::string s;
-	s += filename.value_or("INTERNAL");
 
-	if (loc)
-		s += stringf("%d", loc->first_line);
-	s += ": ";
+	s += stringf("%s:%d:", loc.filename, loc.first_line);
 
 	s += msg;
 	return s;
@@ -191,7 +188,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 				ch = ch >> 1;
 			}
 		}
-		auto ast = AstNode::mkconst_bits(data, false);
+		auto ast = AstNode::mkconst_bits(loc, data, false);
 		ast->str = code;
 		return ast;
 	}
@@ -210,7 +207,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 		my_strtobin(data, str, -1, 10, case_type, false);
 		if (data.back() == State::S1)
 			data.push_back(State::S0);
-		return AstNode::mkconst_bits(data, true);
+		return AstNode::mkconst_bits(loc, data, true);
 	}
 
 	// unsized constant
@@ -258,7 +255,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 			if (is_signed && data.back() == State::S1)
 				data.push_back(State::S0);
 		}
-		return AstNode::mkconst_bits(data, is_signed, is_unsized);
+		return AstNode::mkconst_bits(loc, data, is_signed, is_unsized);
 	}
 
 	return NULL;

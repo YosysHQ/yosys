@@ -39,7 +39,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <list>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -47,8 +46,7 @@ namespace VERILOG_FRONTEND
 {
 	/* Ephemeral context class */
 	struct ConstParser {
-		std::optional<std::string> filename;
-		std::optional<AST::AstSrcLocType> loc;
+		AST::AstSrcLocType loc;
 	private:
 		std::string fmt_maybe_loc(std::string msg);
 		void log_maybe_loc_error(std::string msg);
@@ -64,8 +62,6 @@ namespace VERILOG_FRONTEND
 		std::unique_ptr<AST::AstNode> const2ast(std::string code, char case_type = 0, bool warn_z = false);
 
 	};
-	[[noreturn]]
-	extern void err_at_ast(AST::AstSrcLocType loc, char const *fmt, ...);
 };
 
 YOSYS_NAMESPACE_END

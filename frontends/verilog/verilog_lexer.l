@@ -85,17 +85,16 @@ YOSYS_NAMESPACE_END
 // 	result = readsome(*extra->lexin, buf, max_size)
 
 #define YY_USER_ACTION \
-		real_loc.begin = real_loc.end; \
+		out_loc.begin = out_loc.end; \
 		for(int i = 0; YYText()[i] != '\0'; ++i){ \
 				if(YYText()[i] == '\n') { \
-						real_loc.end.line++; \
-						real_loc.end.column = 1; \
+						out_loc.end.line++; \
+						out_loc.end.column = 1; \
 				} \
 				else { \
-						real_loc.end.column++; \
+						out_loc.end.column++; \
 				} \
-		} \
-		out_loc = real_loc;
+		}
 
 #define YY_BREAK \
     break;
@@ -183,7 +182,6 @@ TIME_SCALE_SUFFIX [munpf]?s
 		current_filename = current_filename.substr(0, current_filename.size()-1);
 	yylineno = (0);
 	out_loc.begin.line = out_loc.end.line = 0;
-	real_loc.begin.line = real_loc.end.line = 0;
 }
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_pop"[^\n]*\n {
@@ -191,7 +189,6 @@ TIME_SCALE_SUFFIX [munpf]?s
 	fn_stack.pop_back();
 	yylineno = (ln_stack.back());
 	out_loc.begin.line = out_loc.end.line = ln_stack.back();
-	real_loc.begin.line = real_loc.end.line = ln_stack.back();
 	ln_stack.pop_back();
 }
 
@@ -200,7 +197,6 @@ TIME_SCALE_SUFFIX [munpf]?s
 	while (*p == ' ' || *p == '\t') p++;
 	yylineno = (atoi(p));
 	out_loc.begin.line = out_loc.end.line = atoi(p);
-	real_loc.begin.line = real_loc.end.line = atoi(p);
 	while (*p && *p != ' ' && *p != '\t') p++;
 	while (*p == ' ' || *p == '\t') p++;
 	const char *q = *p ? p + 1 : p;
@@ -226,14 +222,14 @@ TIME_SCALE_SUFFIX [munpf]?s
 	else if (!strcmp(p, "wire"))
 		extra->default_nettype_wire = true;
 	else
-		err("Unsupported default nettype: %s", p);
+		err_at_loc(out_loc, "Unsupported default nettype: %s", p);
 }
 
 "`protect"[^\n]* /* ignore `protect*/
 "`endprotect"[^\n]* /* ignore `endprotect*/
 
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
-	err("Unimplemented compiler directive or undefined macro %s.", YYText());
+	err_at_loc(out_loc, "Unimplemented compiler directive or undefined macro %s.", YYText());
 }
 
 "module"       { return parser::make_TOK_MODULE(out_loc); }
