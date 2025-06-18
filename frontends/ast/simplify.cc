@@ -155,8 +155,8 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 		while (node_arg->simplify(true, stage, -1, false)) { }
 
 		VerilogFmtArg arg = {};
-		arg.filename = location.filename;
-		arg.first_line = location.first_line;
+		arg.filename = *location.begin.filename;
+		arg.first_line = location.begin.line;
 		if (node_arg->type == AST_CONSTANT && node_arg->is_string) {
 			arg.type = VerilogFmtArg::STRING;
 			arg.str = node_arg->bitsAsConst().decode_string();
@@ -173,10 +173,10 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
 		} else if (may_fail) {
-			log_file_info(location.filename, location.first_line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_info(*location.begin.filename, location.begin.line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 			return Fmt();
 		} else {
-			log_file_error(location.filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 		}
 		args.push_back(arg);
 	}
@@ -424,12 +424,13 @@ static std::unique_ptr<AstNode> index_offset(std::unique_ptr<AstNode> offset, As
 	stride /= decl_node->dimensions[dimension].range_width;
 	auto right = normalize_index(rnode->children.back().get(), decl_node, dimension);
 	auto add_offset = stride > 1 ? multiply_by_const(std::move(right), stride) : std::move(right);
-	return offset ? std::make_unique<AstNode>(AST_ADD, std::move(offset), std::move(add_offset)) : std::move(add_offset);
+	return offset ? std::make_unique<AstNode>(rnode->location, AST_ADD, std::move(offset), std::move(add_offset)) : std::move(add_offset);
 }
 
 static std::unique_ptr<AstNode> index_msb_offset(std::unique_ptr<AstNode> lsb_offset, AstNode *rnode, AstNode *decl_node, int dimension, int stride)
 {
 	log_assert(rnode->children.size() <= 2);
+	auto loc = rnode->location;
 
 	// Offset to add to LSB
 	std::unique_ptr<AstNode> add_offset;
@@ -442,15 +443,15 @@ static std::unique_ptr<AstNode> index_msb_offset(std::unique_ptr<AstNode> lsb_of
 		// Slice, e.g. s.a[i:j]
 		auto left = normalize_index(rnode->children[0].get(), decl_node, dimension);
 		auto right = normalize_index(rnode->children[1].get(), decl_node, dimension);
-		add_offset = std::make_unique<AstNode>(AST_SUB, std::move(left), std::move(right));
+		add_offset = std::make_unique<AstNode>(loc, AST_SUB, std::move(left), std::move(right));
 		if (stride > 1) {
 			// offset = (msb - lsb + 1)*stride - 1
-			auto slice_width = std::make_unique<AstNode>(AST_ADD, std::move(add_offset), node_int(1));
-			add_offset = std::make_unique<AstNode>(AST_SUB, multiply_by_const(std::move(slice_width), stride), node_int(1));
+			auto slice_width = std::make_unique<AstNode>(loc, AST_ADD, std::move(add_offset), node_int(loc, 1));
+			add_offset = std::make_unique<AstNode>(loc, AST_SUB, multiply_by_const(std::move(slice_width), stride), node_int(loc, 1));
 		}
 	}
 
-	return std::make_unique<AstNode>(AST_ADD, std::move(lsb_offset), std::move(add_offset));
+	return std::make_unique<AstNode>(loc, AST_ADD, std::move(lsb_offset), std::move(add_offset));
 }
 
 
@@ -461,7 +462,7 @@ std::unique_ptr<AstNode> AstNode::make_index_range(AstNode *decl_node, bool unpa
 	// such as array indexing or slicing
 	if (children.empty()) {
 		// no range operations apply, return the whole width
-		return make_range(decl_node->range_left - decl_node->range_right, 0);
+		return make_range(decl_node->location, decl_node->range_left - decl_node->range_right, 0);
 	}
 
 	log_assert(children.size() == 1);
@@ -495,7 +496,7 @@ std::unique_ptr<AstNode> AstNode::make_index_range(AstNode *decl_node, bool unpa
 		input_error("Unsupported range operation for %s\n", str.c_str());
 	}
 
-	std::unique_ptr<AstNode>index_range = std::make_unique<AstNode>(AST_RANGE);
+	std::unique_ptr<AstNode> index_range = std::make_unique<AstNode>(rnode->location, AST_RANGE);
 
 	if (!unpacked_range && (stride > 1 || GetSize(rnode->children) == 2)) {
 		// Calculate MSB offset for the final index / slice of packed dimensions.
@@ -537,7 +538,8 @@ static void add_members_to_scope(AstNode *snode, std::string name)
 std::unique_ptr<AstNode> make_packed_struct(AstNode *template_node, std::string &name, decltype(AstNode::attributes) &attributes)
 {
 	// create a wire for the packed struct
-	auto wnode = std::make_unique<AstNode>(AST_WIRE, make_range(template_node->range_left, 0));
+	auto loc = template_node->location;
+	auto wnode = std::make_unique<AstNode>(loc, AST_WIRE, make_range(loc, template_node->range_left, 0));
 	wnode->str = name;
 	wnode->is_logic = true;
 	wnode->range_valid = true;
@@ -557,8 +559,9 @@ std::unique_ptr<AstNode> make_packed_struct(AstNode *template_node, std::string 
 static void prepend_ranges(std::unique_ptr<AstNode> &range, AstNode *range_add)
 {
 	// Convert range to multirange.
+	auto loc = range->location;
 	if (range->type == AST_RANGE)
-		range = std::make_unique<AstNode>(AST_MULTIRANGE, std::move(range));
+		range = std::make_unique<AstNode>(loc, AST_MULTIRANGE, std::move(range));
 
 	// Add range or ranges.
 	if (range_add->type == AST_RANGE)
@@ -693,15 +696,15 @@ static bool contains_unbased_unsized(const AstNode *node)
 
 // adds a wire to the current module with the given name that matches the
 // dimensions of the given wire reference
-void add_wire_for_ref(const RTLIL::Wire *ref, const std::string &str)
+void add_wire_for_ref(location loc, const RTLIL::Wire *ref, const std::string &str)
 {
-	std::unique_ptr<AstNode> left = AstNode::mkconst_int(ref->width - 1 + ref->start_offset, true);
-	std::unique_ptr<AstNode> right = AstNode::mkconst_int(ref->start_offset, true);
+	std::unique_ptr<AstNode> left = AstNode::mkconst_int(loc, ref->width - 1 + ref->start_offset, true);
+	std::unique_ptr<AstNode> right = AstNode::mkconst_int(loc, ref->start_offset, true);
 	if (ref->upto)
 		std::swap(left, right);
-	std::unique_ptr<AstNode> range = std::make_unique<AstNode>(AST_RANGE, std::move(left), std::move(right));
+	std::unique_ptr<AstNode> range = std::make_unique<AstNode>(loc, AST_RANGE, std::move(left), std::move(right));
 
-	std::unique_ptr<AstNode> wire = std::make_unique<AstNode>(AST_WIRE, std::move(range));
+	std::unique_ptr<AstNode> wire = std::make_unique<AstNode>(loc, AST_WIRE, std::move(range));
 	wire->is_signed = ref->is_signed;
 	wire->is_logic = true;
 	wire->str = str;
@@ -790,7 +793,7 @@ std::unique_ptr<AstNode> AstNode::clone_at_zero()
 		YS_FALLTHROUGH
 	case AST_MEMRD:
 		detectSignWidth(width_hint, sign_hint);
-		return mkconst_int(0, sign_hint, width_hint);
+		return mkconst_int(location, 0, sign_hint, width_hint);
 
 	default:
 		break;
@@ -842,7 +845,7 @@ static void mark_auto_nosync(AstNode *block, const AstNode *wire)
 {
 	log_assert(block->type == AST_BLOCK);
 	log_assert(wire->type == AST_WIRE);
-	block->set_attribute(auto_nosync_prefix + wire->str, AstNode::mkconst_int(1, false));
+	block->set_attribute(auto_nosync_prefix + wire->str, AstNode::mkconst_int(block->location, 1, false));
 }
 
 // block names can be prefixed with an explicit scope during elaboration
@@ -883,7 +886,7 @@ static void check_auto_nosync(AstNode *node)
 		// mark the wire with `nosync`
 		AstNode *wire = it->second;
 		log_assert(wire->type == AST_WIRE);
-		wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+		wire->set_attribute(ID::nosync, AstNode::mkconst_int(wire->location, 1, false));
 	}
 
 	// remove the attributes we've "consumed"
@@ -931,7 +934,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.filename.c_str(), location.first_line, type2str(type).c_str(), this);
+	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.begin.filename->c_str(), location.begin.line, type2str(type).c_str(), this);
 	log("const_fold=%d, stage=%d, width_hint=%d, sign_hint=%d\n",
 			int(const_fold), int(stage), int(width_hint), int(sign_hint));
 	// dumpAst(nullptr, "> ");
@@ -1013,16 +1016,17 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (node->children[0]->range_swapped)
 					std::swap(data_range_left, data_range_right);
 
+				auto loc = node->location;
 				for (int i = 0; i < mem_size; i++) {
-					auto reg = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE,
-							mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
+					auto reg = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE,
+							mkconst_int(loc, data_range_left, true), mkconst_int(loc, data_range_right, true)));
 					reg->str = stringf("%s[%d]", node->str.c_str(), i);
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
 					for (auto &it : node->attributes)
 						if (it.first != ID::mem2reg)
 							reg->set_attribute(it.first, it.second->clone());
-					reg->location.filename = node->location.filename;
+					reg->location.begin.filename = node->location.begin.filename;
 					reg->location = node->location;
 					while (reg->simplify(true, 1, -1, false)) { }
 					children.push_back(std::move(reg));
@@ -1051,7 +1055,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_file_warning(location.filename, location.first_line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
+		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
 		delete_children();
 		str = std::string();
 	}
@@ -1061,7 +1065,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		 str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
 		if (!current_always) {
-			log_file_warning(location.filename, location.first_line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
+			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
 			delete_children();
 			str = std::string();
 		} else {
@@ -1178,7 +1182,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 					for (auto& c : node->children[0]->children) {
 						if (!c->is_simple_const_expr())
-							set_attribute(ID::dynports, AstNode::mkconst_int(1, true));
+							set_attribute(ID::dynports, AstNode::mkconst_int(c->location, 1, true));
 					}
 				}
 				if (this_wire_scope.count(node->str) > 0) {
@@ -1404,15 +1408,15 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// create the indirection wire
 				std::stringstream sstr;
-				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
+				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 				std::string tmp_str = sstr.str();
-				add_wire_for_ref(ref, tmp_str);
+				add_wire_for_ref(location, ref, tmp_str);
 
-				auto asgn_owned = std::make_unique<AstNode>(AST_ASSIGN);
+				auto asgn_owned = std::make_unique<AstNode>(child->location, AST_ASSIGN);
 				auto* asgn = asgn_owned.get();
 				current_ast_mod->children.push_back(std::move(asgn_owned));
 
-				auto ident = std::make_unique<AstNode>(AST_IDENTIFIER);
+				auto ident = std::make_unique<AstNode>(child->location, AST_IDENTIFIER);
 				ident->str = tmp_str;
 				child->children[0] = ident->clone();
 
@@ -1575,7 +1579,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (child->children.size() == 0) {
 				// Base type (e.g., int)
 				width = child->range_left - child->range_right +1;
-				node = mkconst_int(width, child->is_signed);
+				node = mkconst_int(child->location, width, child->is_signed);
 			} else {
 				// User defined type
 				log_assert(child->children[0]->type == AST_WIRETYPE);
@@ -1598,7 +1602,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (template_node->children.size() > 0 && template_node->children[0]->type == AST_RANGE)
 						width = range_width(this, template_node->children[0].get());
 					child->delete_children();
-					node = mkconst_int(width, true);
+					node = mkconst_int(child->location, width, true);
 					break;
 				}
 
@@ -1606,7 +1610,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				case AST_UNION: {
 					child->delete_children();
 					width = size_packed_struct(template_node, 0);
-					node = mkconst_int(width, false);
+					node = mkconst_int(child->location, width, false);
 					break;
 				}
 
@@ -1938,7 +1942,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			input_error("Defparam argument `%s . %s` does not match a cell!\n",
 					RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str());
 
-		auto paraset = std::make_unique<AstNode>(AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : nullptr);
+		auto paraset = std::make_unique<AstNode>(location, AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : nullptr);
 		paraset->str = paramname;
 
 		AstNode *cell = current_scope.at(modname);
@@ -1980,7 +1984,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
 				newNode = make_packed_struct(template_node.get(), str, attributes);
-				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
+				newNode->set_attribute(ID::wiretype, mkconst_str(newNode->location, resolved_type_node->str));
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
 				newNode->is_output = this->is_output;
@@ -1991,7 +1995,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Prepare replacement node.
 			newNode = template_node->clone();
 			newNode->str = str;
-			newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
+			newNode->set_attribute(ID::wiretype, mkconst_str(newNode->location, resolved_type_node->str));
 			newNode->is_input = is_input;
 			newNode->is_output = is_output;
 			newNode->is_wand = is_wand;
@@ -2082,7 +2086,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (children[1]->type != AST_CONSTANT)
 			input_error("Right operand of to_bits expression is not constant!\n");
 		RTLIL::Const new_value = children[1]->bitsAsConst(children[0]->bitsAsConst().as_int(), children[1]->is_signed);
-		newNode = mkconst_bits(new_value.to_bits(), children[1]->is_signed);
+		newNode = mkconst_bits(location, new_value.to_bits(), children[1]->is_signed);
 		goto apply_newNode;
 	}
 
@@ -2144,7 +2148,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					range_swapped = force_upto;
 				}
 				if (range_left == range_right && !attributes.count(ID::single_bit_vector))
-					set_attribute(ID::single_bit_vector, mkconst_int(1, false));
+					set_attribute(ID::single_bit_vector, mkconst_int(location, 1, false));
 			}
 		} else {
 			if (!range_valid)
@@ -2171,7 +2175,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					int left = width - 1, right = 0;
 					if (i)
 						std::swap(left, right);
-					children[i] = std::make_unique<AstNode>(AST_RANGE, mkconst_int(left, true), mkconst_int(right, true));
+					auto loc = children[i]->location;
+					children[i] = std::make_unique<AstNode>(loc, AST_RANGE, mkconst_int(loc, left, true), mkconst_int(loc, right, true));
 					fixup_hierarchy_flags();
 					did_something = true;
 				} else if (children[i]->type == AST_RANGE) {
@@ -2242,9 +2247,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			int width = std::abs(children[1]->range_left - children[1]->range_right) + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
-				log_file_warning(location.filename, location.first_line, "converting real value %e to binary %s.\n",
+				log_file_warning(*location.begin.filename, location.begin.line, "converting real value %e to binary %s.\n",
 						children[0]->realvalue, log_signal(constvalue));
-				children[0] = mkconst_bits(constvalue.to_bits(), sign_hint);
+				children[0] = mkconst_bits(location, constvalue.to_bits(), sign_hint);
 				fixup_hierarchy_flags();
 				did_something = true;
 			}
@@ -2252,7 +2257,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (width != int(children[0]->bits.size())) {
 					RTLIL::SigSpec sig(children[0]->bits);
 					sig.extend_u0(width, children[0]->is_signed);
-					children[0] = mkconst_bits(sig.as_const().to_bits(), is_signed);
+					children[0] = mkconst_bits(location, sig.as_const().to_bits(), is_signed);
 					fixup_hierarchy_flags();
 				}
 				children[0]->is_signed = is_signed;
@@ -2264,7 +2269,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		} else
 		if (children.size() > 1 && children[1]->type == AST_REALVALUE && children[0]->type == AST_CONSTANT) {
 			double as_realvalue = children[0]->asReal(sign_hint);
-			children[0] = std::make_unique<AstNode>(AST_REALVALUE);
+			children[0] = std::make_unique<AstNode>(location, AST_REALVALUE);
 			children[0]->realvalue = as_realvalue;
 			fixup_hierarchy_flags();
 			did_something = true;
@@ -2293,7 +2298,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (found_sname) {
 					// structure member, rewrite this node to reference the packed struct wire
 					auto range = make_index_range(item_node);
-					newNode = std::make_unique<AstNode>(AST_IDENTIFIER, std::move(range));
+					newNode = std::make_unique<AstNode>(location, AST_IDENTIFIER, std::move(range));
 					newNode->str = sname;
 					// save type and original number of dimensions for $size() etc.
 					newNode->set_attribute(ID::wiretype, item_node->clone());
@@ -2305,7 +2310,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					}
 					newNode->basic_prep = true;
 					if (item_node->is_signed)
-						newNode = std::make_unique<AstNode>(AST_TO_SIGNED, std::move(newNode));
+						newNode = std::make_unique<AstNode>(location, AST_TO_SIGNED, std::move(newNode));
 					goto apply_newNode;
 				}
 			}
@@ -2353,7 +2358,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (current_ast_mod == nullptr) {
 				input_error("Identifier `%s' is implicitly declared outside of a module.\n", str.c_str());
 			} else if (flag_autowire || str == "\\$global_clock") {
-				auto auto_wire = std::make_unique<AstNode>(AST_AUTOWIRE);
+				auto auto_wire = std::make_unique<AstNode>(location, AST_AUTOWIRE);
 				auto_wire->str = str;
 				current_scope[str] = auto_wire.get();
 				current_ast_mod->children.push_back(std::move(auto_wire));
@@ -2384,21 +2389,21 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			std::swap(data_range_left, data_range_right);
 
 		std::stringstream sstr;
-		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 		std::string wire_id = sstr.str();
 
-		auto wire_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
+		auto wire_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, data_range_left, true), mkconst_int(location, data_range_right, true)));
 		auto* wire = wire_owned.get();
 		current_ast_mod->children.push_back(std::move(wire_owned));
 		wire->str = wire_id;
 		if (current_block)
-			wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+			wire->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 		while (wire->simplify(true, 1, -1, false)) { }
 
 		auto data = clone();
 		data->children.pop_back();
 
-		auto assign = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), std::move(data));
+		auto assign = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), std::move(data));
 		assign->children[0]->str = wire_id;
 		assign->children[0]->was_checked = true;
 
@@ -2413,12 +2418,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 		else
 		{
-			auto proc = std::make_unique<AstNode>(AST_ALWAYS, std::make_unique<AstNode>(AST_BLOCK));
+			auto proc = std::make_unique<AstNode>(location, AST_ALWAYS, std::make_unique<AstNode>(location, AST_BLOCK));
 			proc->children[0]->children.push_back(std::move(assign));
 			current_ast_mod->children.push_back(std::move(proc));
 		}
 
-		newNode = std::make_unique<AstNode>(AST_IDENTIFIER, children[1]->clone());
+		newNode = std::make_unique<AstNode>(location, AST_IDENTIFIER, children[1]->clone());
 		newNode->str = wire_id;
 		newNode->integer = integer; // save original number of dimensions for $size() etc.
 		newNode->id2ast = wire;
@@ -2508,7 +2513,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 		}
 
-		varbuf = std::make_unique<AstNode>(AST_LOCALPARAM, std::move(varbuf));
+		varbuf = std::make_unique<AstNode>(location, AST_LOCALPARAM, std::move(varbuf));
 		varbuf->str = init_ast->children[0]->str;
 
 		AstNode *backup_scope_varbuf = current_scope[varbuf->str];
@@ -2673,7 +2678,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (buf)
 		{
 			if (buf->type != AST_GENBLOCK)
-				buf = std::make_unique<AstNode>(AST_GENBLOCK, std::move(buf));
+				buf = std::make_unique<AstNode>(location, AST_GENBLOCK, std::move(buf));
 
 			if (!buf->str.empty()) {
 				buf->expand_genblock(buf->str + ".");
@@ -2773,7 +2778,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children.at(0)->range_valid)
 			input_error("Non-constant array range on cell array.\n");
 
-		newNode = std::make_unique<AstNode>(AST_GENBLOCK);
+		newNode = std::make_unique<AstNode>(location, AST_GENBLOCK);
 		int num = max(children.at(0)->range_left, children.at(0)->range_right) - min(children.at(0)->range_left, children.at(0)->range_right) + 1;
 
 		for (int i = 0; i < num; i++) {
@@ -2818,15 +2823,15 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			auto& mux_input = children_list.at(1);
 			if (str == "notif0" || str == "notif1") {
-				mux_input = std::make_unique<AstNode>(AST_BIT_NOT, std::move(mux_input));
+				mux_input = std::make_unique<AstNode>(location, AST_BIT_NOT, std::move(mux_input));
 			}
-			auto node = std::make_unique<AstNode>(AST_TERNARY, std::move(children_list.at(2)));
+			auto node = std::make_unique<AstNode>(location, AST_TERNARY, std::move(children_list.at(2)));
 			if (str == "bufif0") {
-				node->children.push_back(AstNode::mkconst_bits(z_const, false));
+				node->children.push_back(AstNode::mkconst_bits(location, z_const, false));
 				node->children.push_back(std::move(mux_input));
 			} else {
 				node->children.push_back(std::move(mux_input));
-				node->children.push_back(AstNode::mkconst_bits(z_const, false));
+				node->children.push_back(AstNode::mkconst_bits(location, z_const, false));
 			}
 
 			str.clear();
@@ -2841,11 +2846,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		{
 			auto& input = children_list.back();
 			if (str == "not")
-				input = std::make_unique<AstNode>(AST_BIT_NOT, std::move(input));
+				input = std::make_unique<AstNode>(location, AST_BIT_NOT, std::move(input));
 
-			newNode = std::make_unique<AstNode>(AST_GENBLOCK);
+			newNode = std::make_unique<AstNode>(location, AST_GENBLOCK);
 			for (auto it = children_list.begin(); it != std::prev(children_list.end()); it++) {
-				newNode->children.push_back(std::make_unique<AstNode>(AST_ASSIGN, std::move(*it), input->clone()));
+				newNode->children.push_back(std::make_unique<AstNode>(location, AST_ASSIGN, std::move(*it), input->clone()));
 				newNode->children.back()->was_checked = true;
 			}
 
@@ -2873,11 +2878,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			auto& node = children_list[1];
 			if (op_type != AST_POS)
 				for (size_t i = 2; i < children_list.size(); i++) {
-					node = std::make_unique<AstNode>(op_type, std::move(node), std::move(children_list[i]));
+					node = std::make_unique<AstNode>(location, op_type, std::move(node), std::move(children_list[i]));
 					node->location = location;
 				}
 			if (invert_results)
-				node = std::make_unique<AstNode>(AST_BIT_NOT, std::move(node));
+				node = std::make_unique<AstNode>(location, AST_BIT_NOT, std::move(node));
 
 			str.clear();
 			type = AST_ASSIGN;
@@ -3012,13 +3017,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			int rvalue_width;
 			bool rvalue_sign;
 			children[1]->detectSignWidth(rvalue_width, rvalue_sign);
-			auto rvalue = mktemp_logic("$bitselwrite$rvalue$", current_ast_mod, true, rvalue_width - 1, 0, rvalue_sign);
+			auto rvalue = mktemp_logic(location, "$bitselwrite$rvalue$", current_ast_mod, true, rvalue_width - 1, 0, rvalue_sign);
 			auto* rvalue_leaky = rvalue.get();
 			log("make 1\n");
-			auto case_node_owned = std::make_unique<AstNode>(AST_CASE, std::move(shift_expr));
+			auto case_node_owned = std::make_unique<AstNode>(location, AST_CASE, std::move(shift_expr));
 			auto* case_node = case_node_owned.get();
-			newNode = std::make_unique<AstNode>(AST_BLOCK,
-						  std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(rvalue), children[1]->clone()),
+			newNode = std::make_unique<AstNode>(location, AST_BLOCK,
+						  std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::move(rvalue), children[1]->clone()),
 						  std::move(case_node_owned));
 
 			did_something = true;
@@ -3032,14 +3037,14 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (start_bit%bitno_div != 0 || (stride == 0 && start_bit != 0))
 					continue;
 
-				auto cond = std::make_unique<AstNode>(AST_COND, mkconst_int(start_bit, case_sign_hint, max_width));
+				auto cond = std::make_unique<AstNode>(location, AST_COND, mkconst_int(location, start_bit, case_sign_hint, max_width));
 				auto lvalue = children[0]->clone();
 				lvalue->delete_children();
 				if (member_node)
 					lvalue->set_attribute(ID::wiretype, member_node->clone());
-				lvalue->children.push_back(std::make_unique<AstNode>(AST_RANGE,
-						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
-				cond->children.push_back(std::make_unique<AstNode>(AST_BLOCK, std::make_unique<AstNode>(std::move(type), std::move(lvalue), rvalue_leaky->clone())));
+				lvalue->children.push_back(std::make_unique<AstNode>(location, AST_RANGE,
+						mkconst_int(location, end_bit, true), mkconst_int(location, start_bit, true)));
+				cond->children.push_back(std::make_unique<AstNode>(location, AST_BLOCK, std::make_unique<AstNode>(location, std::move(type), std::move(lvalue), rvalue_leaky->clone())));
 				case_node->children.push_back(std::move(cond));
 			}
 		} else {
@@ -3060,50 +3065,50 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			shift_expr->detectSignWidth(shift_width_hint, shift_sign_hint);
 
 			// All operations are carried out in a new block.
-			newNode = std::make_unique<AstNode>(AST_BLOCK);
+			newNode = std::make_unique<AstNode>(location, AST_BLOCK);
 
 			// Temporary register holding the result of the bit- or part-select position expression.
-			auto pos = mktemp_logic("$bitselwrite$pos$", current_ast_mod, true, shift_width_hint - 1, 0, shift_sign_hint);
+			auto pos = mktemp_logic(location, "$bitselwrite$pos$", current_ast_mod, true, shift_width_hint - 1, 0, shift_sign_hint);
 			// Calculate lsb from position.
 			auto shift_val = pos->clone();
 
-			newNode->children.push_back(std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(pos), std::move(shift_expr)));
+			newNode->children.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::move(pos), std::move(shift_expr)));
 
 			// If the expression is signed, we must add an extra bit for possible negation of the most negative number.
 			// If the expression is unsigned, we must add an extra bit for sign.
-			shift_val = std::make_unique<AstNode>(AST_CAST_SIZE, mkconst_int(shift_width_hint + 1, true), std::move(shift_val));
+			shift_val = std::make_unique<AstNode>(location, AST_CAST_SIZE, mkconst_int(location, shift_width_hint + 1, true), std::move(shift_val));
 			if (!shift_sign_hint)
-				shift_val = std::make_unique<AstNode>(AST_TO_SIGNED, std::move(shift_val));
+				shift_val = std::make_unique<AstNode>(location, AST_TO_SIGNED, std::move(shift_val));
 
 			// offset the shift amount by the lower bound of the dimension
 			if (wire_offset != 0)
-				shift_val = std::make_unique<AstNode>(AST_SUB, std::move(shift_val), mkconst_int(wire_offset, true));
+				shift_val = std::make_unique<AstNode>(location, AST_SUB, std::move(shift_val), mkconst_int(location, wire_offset, true));
 
 			// reflect the shift amount if the dimension is swapped
 			if (children[0]->id2ast->range_swapped)
-				shift_val = std::make_unique<AstNode>(AST_SUB, mkconst_int(wire_width - result_width, true), std::move(shift_val));
+				shift_val = std::make_unique<AstNode>(location, AST_SUB, mkconst_int(location, wire_width - result_width, true), std::move(shift_val));
 
 			// AST_SHIFT uses negative amounts for shifting left
-			shift_val = std::make_unique<AstNode>(AST_NEG, std::move(shift_val));
+			shift_val = std::make_unique<AstNode>(location, AST_NEG, std::move(shift_val));
 			auto also_shift_val = shift_val->clone();
 
 			// dst = (dst & ~(width'1 << lsb)) | unsigned'(width'(src)) << lsb)
 			did_something = true;
-			auto bitmask = mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false);
+			auto bitmask = mkconst_bits(location, std::vector<RTLIL::State>(result_width, State::S1), false);
 			newNode->children.push_back(
-				std::make_unique<AstNode>(std::move(type),
+				std::make_unique<AstNode>(location, std::move(type),
 						std::move(lvalue),
-						std::make_unique<AstNode>(AST_BIT_OR,
-							std::make_unique<AstNode>(AST_BIT_AND,
+						std::make_unique<AstNode>(location, AST_BIT_OR,
+							std::make_unique<AstNode>(location, AST_BIT_AND,
 									std::move(old_data),
-									std::make_unique<AstNode>(AST_BIT_NOT,
-										std::make_unique<AstNode>(AST_SHIFT,
+									std::make_unique<AstNode>(location, AST_BIT_NOT,
+										std::make_unique<AstNode>(location, AST_SHIFT,
 												std::move(bitmask),
 												std::move(shift_val)))),
-							std::make_unique<AstNode>(AST_SHIFT,
-									std::make_unique<AstNode>(AST_TO_UNSIGNED,
-										std::make_unique<AstNode>(AST_CAST_SIZE,
-												mkconst_int(result_width, true),
+							std::make_unique<AstNode>(location, AST_SHIFT,
+									std::make_unique<AstNode>(location, AST_TO_UNSIGNED,
+										std::make_unique<AstNode>(location, AST_CAST_SIZE,
+												mkconst_int(location, result_width, true),
 												children[1]->clone())),
 									std::move(also_shift_val)))));
 
@@ -3119,7 +3124,7 @@ skip_dynamic_range_lvalue_expansion:;
 			children.size() == 1 && children[0]->type == AST_RANGE && children[0]->children.size() == 1) {
 		if (integer < (unsigned)id2ast->unpacked_dimensions)
 			input_error("Insufficient number of array indices for %s.\n", log_id(str));
-		newNode = std::make_unique<AstNode>(AST_MEMRD, children[0]->children[0]->clone());
+		newNode = std::make_unique<AstNode>(location, AST_MEMRD, children[0]->children[0]->clone());
 		newNode->str = str;
 		newNode->id2ast = id2ast;
 		goto apply_newNode;
@@ -3137,22 +3142,22 @@ skip_dynamic_range_lvalue_expansion:;
 
 		if (found_nontrivial_member)
 		{
-			newNode = std::make_unique<AstNode>(AST_BLOCK);
+			newNode = std::make_unique<AstNode>(location, AST_BLOCK);
 
-			auto wire_tmp_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(width_hint-1, true), mkconst_int(0, true)));
+			auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, width_hint-1, true), mkconst_int(location, 0, true)));
 			auto wire_tmp = wire_tmp_owned.get();
-			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line, autoidx++);
+			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line, autoidx++);
 			current_scope[wire_tmp->str] = wire_tmp;
 			current_ast_mod->children.push_back(std::move(wire_tmp_owned));
-			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 			while (wire_tmp->simplify(true, 1, -1, false)) { }
 			wire_tmp->is_logic = true;
 
-			auto wire_tmp_id_owned = std::make_unique<AstNode>(AST_IDENTIFIER);
+			auto wire_tmp_id_owned = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 			auto* wire_tmp_id = wire_tmp_id_owned.get();
 			wire_tmp_id->str = wire_tmp->str;
 
-			newNode->children.push_back(std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(wire_tmp_id_owned), children[1]->clone()));
+			newNode->children.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::move(wire_tmp_id_owned), children[1]->clone()));
 			newNode->children.back()->was_checked = true;
 
 			int cursor = 0;
@@ -3163,8 +3168,8 @@ skip_dynamic_range_lvalue_expansion:;
 				child->detectSignWidth(child_width_hint, child_sign_hint);
 
 				auto rhs = wire_tmp_id->clone();
-				rhs->children.push_back(std::make_unique<AstNode>(AST_RANGE, AstNode::mkconst_int(cursor+child_width_hint-1, true), AstNode::mkconst_int(cursor, true)));
-				newNode->children.push_back(std::make_unique<AstNode>(type, child->clone(), std::move(rhs)));
+				rhs->children.push_back(std::make_unique<AstNode>(location, AST_RANGE, AstNode::mkconst_int(location, cursor+child_width_hint-1, true), AstNode::mkconst_int(location, cursor, true)));
+				newNode->children.push_back(std::make_unique<AstNode>(location, type, child->clone(), std::move(rhs)));
 
 				cursor += child_width_hint;
 			}
@@ -3183,15 +3188,15 @@ skip_dynamic_range_lvalue_expansion:;
 			input_error("Insufficient number of array indices for %s.\n", log_id(str));
 
 		std::stringstream sstr;
-		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		int mem_width, mem_size, addr_bits;
 		bool mem_signed = children[0]->id2ast->is_signed;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-		newNode = std::make_unique<AstNode>(AST_BLOCK);
-		auto defNode = std::make_unique<AstNode>(AST_BLOCK);
+		newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+		auto defNode = std::make_unique<AstNode>(location, AST_BLOCK);
 
 		int data_range_left = children[0]->id2ast->children[0]->range_left;
 		int data_range_right = children[0]->id2ast->children[0]->range_right;
@@ -3214,7 +3219,7 @@ skip_dynamic_range_lvalue_expansion:;
 		if (children[0]->children[0]->children[0]->isConst()) {
 			node_addr = children[0]->children[0]->children[0]->clone();
 		} else {
-			auto wire_addr_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
+			auto wire_addr_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, addr_bits-1, true), mkconst_int(location, 0, true)));
 			auto* wire_addr = wire_addr_owned.get();
 			wire_addr->str = id_addr;
 			wire_addr->was_checked = true;
@@ -3222,17 +3227,17 @@ skip_dynamic_range_lvalue_expansion:;
 			current_scope[wire_addr->str] = wire_addr;
 			while (wire_addr->simplify(true, 1, -1, false)) { }
 
-			auto assign_addr = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
+			auto assign_addr = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), mkconst_bits(location, x_bits_addr, false));
 			assign_addr->children[0]->str = id_addr;
 			assign_addr->children[0]->was_checked = true;
 			defNode->children.push_back(std::move(assign_addr));
 
-			assign_addr = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
+			assign_addr = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 			assign_addr->children[0]->str = id_addr;
 			assign_addr->children[0]->was_checked = true;
 			newNode->children.push_back(std::move(assign_addr));
 
-			node_addr = std::make_unique<AstNode>(AST_IDENTIFIER);
+			node_addr = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 			node_addr->str = id_addr;
 		}
 
@@ -3240,7 +3245,7 @@ skip_dynamic_range_lvalue_expansion:;
 		if (children[0]->children.size() == 1 && children[1]->isConst()) {
 			node_data = children[1]->clone();
 		} else {
-			auto wire_data_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			auto wire_data_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, mem_width-1, true), mkconst_int(location, 0, true)));
 			auto* wire_data = wire_data_owned.get();
 			wire_data->str = id_data;
 			wire_data->was_checked = true;
@@ -3249,16 +3254,16 @@ skip_dynamic_range_lvalue_expansion:;
 			current_ast_mod->children.push_back(std::move(wire_data_owned));
 			while (wire_data->simplify(true, 1, -1, false)) { }
 
-			auto assign_data = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
+			auto assign_data = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), mkconst_bits(location, x_bits_data, false));
 			assign_data->children[0]->str = id_data;
 			assign_data->children[0]->was_checked = true;
 			defNode->children.push_back(std::move(assign_data));
 
-			node_data = std::make_unique<AstNode>(AST_IDENTIFIER);
+			node_data = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 			node_data->str = id_data;
 		}
 
-		auto wire_en_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+		auto wire_en_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, mem_width-1, true), mkconst_int(location, 0, true)));
 		auto* wire_en = wire_en_owned.get();
 		wire_en->str = id_en;
 		wire_en->was_checked = true;
@@ -3266,12 +3271,12 @@ skip_dynamic_range_lvalue_expansion:;
 		current_ast_mod->children.push_back(std::move(wire_en_owned));
 		while (wire_en->simplify(true, 1, -1, false)) { }
 
-		auto assign_en_first = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
+		auto assign_en_first = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), mkconst_int(location, 0, false, mem_width));
 		assign_en_first->children[0]->str = id_en;
 		assign_en_first->children[0]->was_checked = true;
 		defNode->children.push_back(std::move(assign_en_first));
 
-		auto node_en = std::make_unique<AstNode>(AST_IDENTIFIER);
+		auto node_en = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 		node_en->str = id_en;
 
 		if (!defNode->children.empty())
@@ -3289,14 +3294,14 @@ skip_dynamic_range_lvalue_expansion:;
 
 				std::vector<RTLIL::State> padding_x(offset, RTLIL::State::Sx);
 
-				assign_data = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER),
-						std::make_unique<AstNode>(AST_CONCAT, mkconst_bits(padding_x, false), children[1]->clone()));
+				assign_data = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER),
+						std::make_unique<AstNode>(location, AST_CONCAT, mkconst_bits(location, padding_x, false), children[1]->clone()));
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 
 				for (int i = 0; i < mem_width; i++)
 					set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
-				assign_en = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+				assign_en = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), mkconst_bits(location, set_bits_en, false));
 				assign_en->children[0]->str = id_en;
 				assign_en->children[0]->was_checked = true;
 			}
@@ -3315,17 +3320,17 @@ skip_dynamic_range_lvalue_expansion:;
 					offset_ast = the_range->children[0]->clone();
 
 				if (mem_data_range_offset)
-					offset_ast = std::make_unique<AstNode>(AST_SUB, std::move(offset_ast), mkconst_int(mem_data_range_offset, true));
+					offset_ast = std::make_unique<AstNode>(location, AST_SUB, std::move(offset_ast), mkconst_int(location, mem_data_range_offset, true));
 
-				assign_data = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER),
-						std::make_unique<AstNode>(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
+				assign_data = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER),
+						std::make_unique<AstNode>(location, AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 
 				for (int i = 0; i < mem_width; i++)
 					set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
-				assign_en = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER),
-						std::make_unique<AstNode>(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
+				assign_en = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER),
+						std::make_unique<AstNode>(location, AST_SHIFT_LEFT, mkconst_bits(location, set_bits_en, false), offset_ast->clone()));
 				assign_en->children[0]->str = id_en;
 				assign_en->children[0]->was_checked = true;
 			}
@@ -3333,12 +3338,12 @@ skip_dynamic_range_lvalue_expansion:;
 		else
 		{
 			if (!(children[0]->children.size() == 1 && children[1]->isConst())) {
-				assign_data = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), children[1]->clone());
+				assign_data = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), children[1]->clone());
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 			}
 
-			assign_en = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+			assign_en = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), mkconst_bits(location, set_bits_en, false));
 			assign_en->children[0]->str = id_en;
 			assign_en->children[0]->was_checked = true;
 		}
@@ -3349,21 +3354,21 @@ skip_dynamic_range_lvalue_expansion:;
 
 		std::unique_ptr<AstNode> wrnode;
 		if (current_always->type == AST_INITIAL)
-			wrnode = std::make_unique<AstNode>(AST_MEMINIT, std::move(node_addr), std::move(node_data), std::move(node_en), mkconst_int(1, false));
+			wrnode = std::make_unique<AstNode>(location, AST_MEMINIT, std::move(node_addr), std::move(node_data), std::move(node_en), mkconst_int(location, 1, false));
 		else
-			wrnode = std::make_unique<AstNode>(AST_MEMWR, std::move(node_addr), std::move(node_data), std::move(node_en));
+			wrnode = std::make_unique<AstNode>(location, AST_MEMWR, std::move(node_addr), std::move(node_data), std::move(node_en));
 		wrnode->str = children[0]->str;
 		wrnode->id2ast = children[0]->id2ast;
 		wrnode->location = location;
 		if (wrnode->type == AST_MEMWR) {
 			int portid = current_memwr_count[wrnode->str]++;
-			wrnode->children.push_back(mkconst_int(portid, false));
+			wrnode->children.push_back(mkconst_int(location, portid, false));
 			std::vector<RTLIL::State> priority_mask;
 			for (int i = 0; i < portid; i++) {
 				bool has_prio = current_memwr_visible[wrnode->str].count(i);
 				priority_mask.push_back(State(has_prio));
 			}
-			wrnode->children.push_back(mkconst_bits(priority_mask, false));
+			wrnode->children.push_back(mkconst_bits(location, priority_mask, false));
 			current_memwr_visible[wrnode->str].insert(portid);
 			current_always->children.push_back(std::move(wrnode));
 		} else {
@@ -3371,7 +3376,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		if (newNode->children.empty()) {
-			newNode = std::make_unique<AstNode>();
+			newNode = std::make_unique<AstNode>(location);
 		}
 		goto apply_newNode;
 	}
@@ -3385,13 +3390,13 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				int myidx = autoidx++;
 
-				auto wire_owned = std::make_unique<AstNode>(AST_WIRE);
+				auto wire_owned = std::make_unique<AstNode>(location, AST_WIRE);
 				auto* wire = wire_owned.get();
 				current_ast_mod->children.push_back(std::move(wire_owned));
 				wire->str = stringf("$initstate$%d_wire", myidx);
 				while (wire->simplify(true, 1, -1, false)) { }
 
-				auto cell = std::make_unique<AstNode>(AST_CELL, std::make_unique<AstNode>(AST_CELLTYPE), std::make_unique<AstNode>(AST_ARGUMENT, std::make_unique<AstNode>(AST_IDENTIFIER)));
+				auto cell = std::make_unique<AstNode>(location, AST_CELL, std::make_unique<AstNode>(location, AST_CELLTYPE), std::make_unique<AstNode>(location, AST_ARGUMENT, std::make_unique<AstNode>(location, AST_IDENTIFIER)));
 				cell->str = stringf("$initstate$%d", myidx);
 				cell->children[0]->str = "$initstate";
 				cell->children[1]->str = "\\Y";
@@ -3400,7 +3405,7 @@ skip_dynamic_range_lvalue_expansion:;
 				current_ast_mod->children.push_back(std::move(cell));
 				while (cell->simplify(true, 1, -1, false)) { }
 
-				newNode = std::make_unique<AstNode>(AST_IDENTIFIER);
+				newNode = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 				newNode->str = wire->str;
 				newNode->id2ast = wire;
 				goto apply_newNode;
@@ -3449,19 +3454,19 @@ skip_dynamic_range_lvalue_expansion:;
 
 				for (int i = 0; i < num_steps; i++)
 				{
-					auto reg_owned = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE,
-							mkconst_int(width_hint-1, true), mkconst_int(0, true)));
+					auto reg_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE,
+							mkconst_int(location, width_hint-1, true), mkconst_int(location, 0, true)));
 					auto* reg = reg_owned.get();
 					current_ast_mod->children.push_back(std::move(reg_owned));
 
-					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line, myidx, i);
+					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line, myidx, i);
 					reg->is_reg = true;
 					reg->is_signed = sign_hint;
 
 
 					while (reg->simplify(true, 1, -1, false)) { }
 
-					auto regid = std::make_unique<AstNode>(AST_IDENTIFIER);
+					auto regid = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 					regid->str = reg->str;
 					regid->id2ast = reg;
 					regid->was_checked = true;
@@ -3471,16 +3476,16 @@ skip_dynamic_range_lvalue_expansion:;
 					if (outreg == nullptr) {
 						rhs = children.at(0)->clone();
 					} else {
-						rhs = std::make_unique<AstNode>(AST_IDENTIFIER);
+						rhs = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 						rhs->str = outreg->str;
 						rhs->id2ast = outreg;
 					}
 
-					block->children.push_back(std::make_unique<AstNode>(AST_ASSIGN_LE, std::move(regid), std::move(rhs)));
+					block->children.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_LE, std::move(regid), std::move(rhs)));
 					outreg = reg;
 				}
 
-				newNode = std::make_unique<AstNode>(AST_IDENTIFIER);
+				newNode = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 				newNode->str = outreg->str;
 				newNode->id2ast = outreg;
 				goto apply_newNode;
@@ -3501,20 +3506,20 @@ skip_dynamic_range_lvalue_expansion:;
 				past->str = "\\$past";
 
 				if (str == "\\$stable")
-					newNode = std::make_unique<AstNode>(AST_EQ, std::move(past), std::move(present));
+					newNode = std::make_unique<AstNode>(location, AST_EQ, std::move(past), std::move(present));
 
 				else if (str == "\\$changed")
-					newNode = std::make_unique<AstNode>(AST_NE, std::move(past), std::move(present));
+					newNode = std::make_unique<AstNode>(location, AST_NE, std::move(past), std::move(present));
 
 				else if (str == "\\$rose")
-					newNode = std::make_unique<AstNode>(AST_LOGIC_AND,
-							std::make_unique<AstNode>(AST_LOGIC_NOT, std::make_unique<AstNode>(AST_BIT_AND, std::move(past), mkconst_int(1,false))),
-							std::make_unique<AstNode>(AST_BIT_AND, std::move(present), mkconst_int(1,false)));
+					newNode = std::make_unique<AstNode>(location, AST_LOGIC_AND,
+							std::make_unique<AstNode>(location, AST_LOGIC_NOT, std::make_unique<AstNode>(location, AST_BIT_AND, std::move(past), mkconst_int(location, 1, false))),
+							std::make_unique<AstNode>(location, AST_BIT_AND, std::move(present), mkconst_int(location, 1, false)));
 
 				else if (str == "\\$fell")
-					newNode = std::make_unique<AstNode>(AST_LOGIC_AND,
-							std::make_unique<AstNode>(AST_BIT_AND, std::move(past), mkconst_int(1,false)),
-							std::make_unique<AstNode>(AST_LOGIC_NOT, std::make_unique<AstNode>(AST_BIT_AND, std::move(present), mkconst_int(1,false))));
+					newNode = std::make_unique<AstNode>(location, AST_LOGIC_AND,
+							std::make_unique<AstNode>(location, AST_BIT_AND, std::move(past), mkconst_int(location, 1, false)),
+							std::make_unique<AstNode>(location, AST_LOGIC_NOT, std::make_unique<AstNode>(location, AST_BIT_AND, std::move(present), mkconst_int(location, 1, false))));
 
 				else
 					log_abort();
@@ -3548,7 +3553,7 @@ skip_dynamic_range_lvalue_expansion:;
 					if (arg_value.at(i) == RTLIL::State::S1)
 						result = i + 1;
 
-				newNode = mkconst_int(result, true);
+				newNode = mkconst_int(location, result, true);
 				goto apply_newNode;
 			}
 
@@ -3639,7 +3644,7 @@ skip_dynamic_range_lvalue_expansion:;
 				else { // str == "\\$bits"
 					result = width * mem_depth;
 				}
-				newNode = mkconst_int(result, true);
+				newNode = mkconst_int(location, result, true);
 				goto apply_newNode;
 			}
 
@@ -3685,9 +3690,9 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				if (str == "\\$rtoi") {
-					newNode = AstNode::mkconst_int(x, true);
+					newNode = AstNode::mkconst_int(location, x, true);
 				} else {
-					newNode = std::make_unique<AstNode>(AST_REALVALUE);
+					newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 					if (str == "\\$ln")		 newNode->realvalue = ::log(x);
 					else if (str == "\\$log10") newNode->realvalue = ::log10(x);
 					else if (str == "\\$exp")   newNode->realvalue = ::exp(x);
@@ -3717,7 +3722,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (str == "\\$sformatf") {
 				Fmt fmt = processFormat(stage, /*sformat_like=*/true);
-				newNode = AstNode::mkconst_str(fmt.render());
+				newNode = AstNode::mkconst_str(location, fmt.render());
 				goto apply_newNode;
 			}
 
@@ -3745,24 +3750,24 @@ skip_dynamic_range_lvalue_expansion:;
 				auto& exp = children[0];
 				exp->detectSignWidth(exp_width, exp_sign, nullptr);
 
-				newNode = mkconst_int(0, false);
+				newNode = mkconst_int(location, 0, false);
 
 				for (int i = 0; i < exp_width; i++) {
 					// Generate nodes for:  exp << i >> ($size(exp) - 1)
 					//						  ^^   ^^
-					auto lsh_node = std::make_unique<AstNode>(AST_SHIFT_LEFT, exp->clone(), mkconst_int(i, false));
-					auto rsh_node = std::make_unique<AstNode>(AST_SHIFT_RIGHT, std::move(lsh_node), mkconst_int(exp_width - 1, false));
+					auto lsh_node = std::make_unique<AstNode>(location, AST_SHIFT_LEFT, exp->clone(), mkconst_int(location, i, false));
+					auto rsh_node = std::make_unique<AstNode>(location, AST_SHIFT_RIGHT, std::move(lsh_node), mkconst_int(location, exp_width - 1, false));
 
 					std::unique_ptr<AstNode> or_node = nullptr;
 
 					for (RTLIL::State control_bit : control_bits) {
 						// Generate node for:  (exp << i >> ($size(exp) - 1)) === control_bit
 						//													^^^
-						auto eq_node = std::make_unique<AstNode>(AST_EQX, rsh_node->clone(), mkconst_bits({control_bit}, false));
+						auto eq_node = std::make_unique<AstNode>(location, AST_EQX, rsh_node->clone(), mkconst_bits(location, {control_bit}, false));
 
 						// Or the result for each checked bit value
 						if (or_node)
-							or_node = std::make_unique<AstNode>(AST_LOGIC_OR, std::move(or_node), std::move(eq_node));
+							or_node = std::make_unique<AstNode>(location, AST_LOGIC_OR, std::move(or_node), std::move(eq_node));
 						else
 							or_node = std::move(eq_node);
 					}
@@ -3772,7 +3777,7 @@ skip_dynamic_range_lvalue_expansion:;
 					log_assert(or_node != nullptr);
 
 					// Generate node for adding with result of previous bit
-					newNode = std::make_unique<AstNode>(AST_ADD, std::move(newNode), std::move(or_node));
+					newNode = std::make_unique<AstNode>(location, AST_ADD, std::move(newNode), std::move(or_node));
 				}
 
 				goto apply_newNode;
@@ -3787,18 +3792,18 @@ skip_dynamic_range_lvalue_expansion:;
 				countbits->str = "\\$countbits";
 
 				if (str == "\\$countones") {
-					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
+					countbits->children.push_back(mkconst_bits(location, {RTLIL::State::S1}, false));
 					newNode = std::move(countbits);
 				} else if (str == "\\$isunknown") {
-					countbits->children.push_back(mkconst_bits({RTLIL::Sx}, false));
-					countbits->children.push_back(mkconst_bits({RTLIL::Sz}, false));
-					newNode = std::make_unique<AstNode>(AST_GT, std::move(countbits), mkconst_int(0, false));
+					countbits->children.push_back(mkconst_bits(location, {RTLIL::Sx}, false));
+					countbits->children.push_back(mkconst_bits(location, {RTLIL::Sz}, false));
+					newNode = std::make_unique<AstNode>(location, AST_GT, std::move(countbits), mkconst_int(location, 0, false));
 				} else if (str == "\\$onehot") {
-					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
-					newNode = std::make_unique<AstNode>(AST_EQ, std::move(countbits), mkconst_int(1, false));
+					countbits->children.push_back(mkconst_bits(location, {RTLIL::State::S1}, false));
+					newNode = std::make_unique<AstNode>(location, AST_EQ, std::move(countbits), mkconst_int(location, 1, false));
 				} else if (str == "\\$onehot0") {
-					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
-					newNode = std::make_unique<AstNode>(AST_LE, std::move(countbits), mkconst_int(1, false));
+					countbits->children.push_back(mkconst_bits(location, {RTLIL::State::S1}, false));
+					newNode = std::make_unique<AstNode>(location, AST_LE, std::move(countbits), mkconst_int(location, 1, false));
 				} else {
 					log_abort();
 				}
@@ -3914,7 +3919,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 
 		std::stringstream sstr;
-		sstr << str << "$func$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++) << '.';
+		sstr << str << "$func$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++) << '.';
 		std::string prefix = sstr.str();
 
 		auto* decl = current_scope[str];
@@ -3977,11 +3982,11 @@ skip_dynamic_range_lvalue_expansion:;
 			current_ast_mod->children.push_back(std::move(wire));
 			while (wire_leaky->simplify(true, 1, -1, false)) { }
 
-			auto lvalue = std::make_unique<AstNode>(AST_IDENTIFIER);
+			auto lvalue = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 			lvalue->str = wire_leaky->str;
 
-			auto always = std::make_unique<AstNode>(AST_ALWAYS, std::make_unique<AstNode>(AST_BLOCK,
-					std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(lvalue), clone())));
+			auto always = std::make_unique<AstNode>(location, AST_ALWAYS, std::make_unique<AstNode>(location, AST_BLOCK,
+					std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::move(lvalue), clone())));
 			always->children[0]->children[0]->was_checked = true;
 
 			current_ast_mod->children.push_back(std::move(always));
@@ -4001,14 +4006,14 @@ skip_dynamic_range_lvalue_expansion:;
 			} else
 				celltype = RTLIL::escape_id(celltype);
 
-			auto cell = std::make_unique<AstNode>(AST_CELL, std::make_unique<AstNode>(AST_CELLTYPE));
+			auto cell = std::make_unique<AstNode>(location, AST_CELL, std::make_unique<AstNode>(location, AST_CELLTYPE));
 			cell->str = prefix.substr(0, GetSize(prefix)-1);
 			cell->children[0]->str = celltype;
 
 			for (auto& attr : decl->attributes)
 				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
 				{
-					auto cell_arg = std::make_unique<AstNode>(AST_PARASET, attr.second->clone());
+					auto cell_arg = std::make_unique<AstNode>(location, AST_PARASET, attr.second->clone());
 					cell_arg->str = RTLIL::escape_id(attr.first.substr(strlen("\\via_celltype_defparam_")));
 					cell->children.push_back(std::move(cell_arg));
 				}
@@ -4023,15 +4028,15 @@ skip_dynamic_range_lvalue_expansion:;
 					current_ast_mod->children.push_back(std::move(wire));
 					while (wire->simplify(true, 1, -1, false)) { }
 
-					auto wire_id = std::make_unique<AstNode>(AST_IDENTIFIER);
+					auto wire_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 					wire_id->str = wire->str;
 
 					if ((child->is_input || child->is_output) && arg_count < children.size())
 					{
 						auto arg = children[arg_count++]->clone();
 						auto assign = child->is_input ?
-								std::make_unique<AstNode>(AST_ASSIGN_EQ, wire_id->clone(), std::move(arg)) :
-								std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(arg), wire_id->clone());
+								std::make_unique<AstNode>(location, AST_ASSIGN_EQ, wire_id->clone(), std::move(arg)) :
+								std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::move(arg), wire_id->clone());
 						assign->children[0]->was_checked = true;
 
 						for (auto it = current_block->children.begin(); it != current_block->children.end(); it++) {
@@ -4042,7 +4047,7 @@ skip_dynamic_range_lvalue_expansion:;
 						}
 					}
 
-					auto cell_arg = std::make_unique<AstNode>(AST_ARGUMENT, std::move(wire_id));
+					auto cell_arg = std::make_unique<AstNode>(location, AST_ARGUMENT, std::move(wire_id));
 					cell_arg->str = child->str == str ? outport : child->str;
 					cell->children.push_back(std::move(cell_arg));
 				}
@@ -4083,7 +4088,7 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_input = false;
 					wire->is_output = false;
 					wire->is_reg = true;
-					wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+					wire->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 					if (child->type == AST_ENUM_ITEM)
 						wire->set_attribute(ID::enum_base_type, std::move(child->attributes[ID::enum_base_type]));
 
@@ -4114,10 +4119,10 @@ skip_dynamic_range_lvalue_expansion:;
 									break;
 								}
 							if (!uses_explicit_size) {
-								auto range = std::make_unique<AstNode>();
+								auto range = std::make_unique<AstNode>(location);
 								range->type = AST_RANGE;
-								range->children.push_back(mkconst_int(0, true));
-								range->children.push_back(mkconst_int(0, true));
+								range->children.push_back(mkconst_int(location, 0, true));
+								range->children.push_back(mkconst_int(location, 0, true));
 								wire->children.push_back(std::move(range));
 							}
 						}
@@ -4127,16 +4132,16 @@ skip_dynamic_range_lvalue_expansion:;
 						continue;
 					}
 
-					auto wire_id = std::make_unique<AstNode>(AST_IDENTIFIER);
+					auto wire_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
 					wire_id->str = wire->str;
 					if (child->is_input) {
-						auto assign = std::make_unique<AstNode>(AST_ASSIGN_EQ, wire_id->clone(), arg->clone());
+						auto assign = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, wire_id->clone(), arg->clone());
 						assign->children[0]->was_checked = true;
 						new_stmts.push_back(std::move(assign));
 					}
 
 					if (child->is_output) {
-						auto assign = std::make_unique<AstNode>(AST_ASSIGN_EQ, arg->clone(), wire_id->clone());
+						auto assign = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, arg->clone(), wire_id->clone());
 						assign->children[0]->was_checked = true;
 						output_assignments.push_back(std::move(assign));
 					}
@@ -4207,7 +4212,7 @@ replace_fcall_later:;
 							else
 								data.push_back(RTLIL::State::Sx);
 						}
-						newNode = mkconst_bits(data, false);
+						newNode = mkconst_bits(location, data, false);
 					} else
 					if (children.size() == 0)
 						newNode = current_scope[str]->children[0]->clone();
@@ -4219,14 +4224,14 @@ replace_fcall_later:;
 		case AST_BIT_NOT:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = RTLIL::const_not(children[0]->bitsAsConst(width_hint, sign_hint), dummy_arg, sign_hint, false, width_hint);
-				newNode = mkconst_bits(y.to_bits(), sign_hint);
+				newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 			}
 			break;
 		case AST_TO_SIGNED:
 		case AST_TO_UNSIGNED:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = children[0]->bitsAsConst(width_hint, sign_hint);
-				newNode = mkconst_bits(y.to_bits(), type == AST_TO_SIGNED);
+				newNode = mkconst_bits(location, y.to_bits(), type == AST_TO_SIGNED);
 			}
 			break;
 		if (0) { case AST_BIT_AND:  const_func = RTLIL::const_and;  }
@@ -4236,7 +4241,7 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-				newNode = mkconst_bits(y.to_bits(), sign_hint);
+				newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 			}
 			break;
 		if (0) { case AST_REDUCE_AND:  const_func = RTLIL::const_reduce_and;  }
@@ -4246,16 +4251,16 @@ replace_fcall_later:;
 		if (0) { case AST_REDUCE_BOOL: const_func = RTLIL::const_reduce_bool; }
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), dummy_arg, false, false, -1);
-				newNode = mkconst_bits(y.to_bits(), false);
+				newNode = mkconst_bits(location, y.to_bits(), false);
 			}
 			break;
 		case AST_LOGIC_NOT:
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = RTLIL::const_logic_not(RTLIL::Const(children[0]->bits), dummy_arg, children[0]->is_signed, false, -1);
-				newNode = mkconst_bits(y.to_bits(), false);
+				newNode = mkconst_bits(location, y.to_bits(), false);
 			} else
 			if (children[0]->isConst()) {
-				newNode = mkconst_int(children[0]->asReal(sign_hint) == 0, false, 1);
+				newNode = mkconst_int(location, children[0]->asReal(sign_hint) == 0, false, 1);
 			}
 			break;
 		if (0) { case AST_LOGIC_AND: const_func = RTLIL::const_logic_and; }
@@ -4263,13 +4268,13 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), RTLIL::Const(children[1]->bits),
 						children[0]->is_signed, children[1]->is_signed, -1);
-				newNode = mkconst_bits(y.to_bits(), false);
+				newNode = mkconst_bits(location, y.to_bits(), false);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				if (type == AST_LOGIC_AND)
-					newNode = mkconst_int((children[0]->asReal(sign_hint) != 0) && (children[1]->asReal(sign_hint) != 0), false, 1);
+					newNode = mkconst_int(location, (children[0]->asReal(sign_hint) != 0) && (children[1]->asReal(sign_hint) != 0), false, 1);
 				else
-					newNode = mkconst_int((children[0]->asReal(sign_hint) != 0) || (children[1]->asReal(sign_hint) != 0), false, 1);
+					newNode = mkconst_int(location, (children[0]->asReal(sign_hint) != 0) || (children[1]->asReal(sign_hint) != 0), false, 1);
 			}
 			break;
 		if (0) { case AST_SHIFT_LEFT:   const_func = RTLIL::const_shl;  }
@@ -4280,10 +4285,10 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						RTLIL::Const(children[1]->bits), sign_hint, type == AST_POW ? children[1]->is_signed : false, width_hint);
-				newNode = mkconst_bits(y.to_bits(), sign_hint);
+				newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 			} else
 			if (type == AST_POW && children[0]->isConst() && children[1]->isConst()) {
-				newNode = std::make_unique<AstNode>(AST_REALVALUE);
+				newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 				newNode->realvalue = pow(children[0]->asReal(sign_hint), children[1]->asReal(sign_hint));
 			}
 			break;
@@ -4300,19 +4305,19 @@ replace_fcall_later:;
 				bool cmp_signed = children[0]->is_signed && children[1]->is_signed;
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(cmp_width, cmp_signed),
 						children[1]->bitsAsConst(cmp_width, cmp_signed), cmp_signed, cmp_signed, 1);
-				newNode = mkconst_bits(y.to_bits(), false);
+				newNode = mkconst_bits(location, y.to_bits(), false);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
 				bool cmp_signed = (children[0]->type == AST_REALVALUE || children[0]->is_signed) && (children[1]->type == AST_REALVALUE || children[1]->is_signed);
 				switch (type) {
-				case AST_LT:  newNode = mkconst_int(children[0]->asReal(cmp_signed) <  children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_LE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) <= children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_EQ:  newNode = mkconst_int(children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_NE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_EQX: newNode = mkconst_int(children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_NEX: newNode = mkconst_int(children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_GE:  newNode = mkconst_int(children[0]->asReal(cmp_signed) >= children[1]->asReal(cmp_signed), false, 1); break;
-				case AST_GT:  newNode = mkconst_int(children[0]->asReal(cmp_signed) >  children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_LT:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) <  children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_LE:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) <= children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_EQ:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_NE:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_EQX: newNode = mkconst_int(location, children[0]->asReal(cmp_signed) == children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_NEX: newNode = mkconst_int(location, children[0]->asReal(cmp_signed) != children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_GE:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) >= children[1]->asReal(cmp_signed), false, 1); break;
+				case AST_GT:  newNode = mkconst_int(location, children[0]->asReal(cmp_signed) >  children[1]->asReal(cmp_signed), false, 1); break;
 				default: log_abort();
 				}
 			}
@@ -4325,10 +4330,10 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT && children[1]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint),
 						children[1]->bitsAsConst(width_hint, sign_hint), sign_hint, sign_hint, width_hint);
-				newNode = mkconst_bits(y.to_bits(), sign_hint);
+				newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 			} else
 			if (children[0]->isConst() && children[1]->isConst()) {
-				newNode = std::make_unique<AstNode>(AST_REALVALUE);
+				newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 				switch (type) {
 				case AST_ADD: newNode->realvalue = children[0]->asReal(sign_hint) + children[1]->asReal(sign_hint); break;
 				case AST_SUB: newNode->realvalue = children[0]->asReal(sign_hint) - children[1]->asReal(sign_hint); break;
@@ -4344,10 +4349,10 @@ replace_fcall_later:;
 		if (0) { case AST_NEG: const_func = RTLIL::const_neg; }
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(children[0]->bitsAsConst(width_hint, sign_hint), dummy_arg, sign_hint, false, width_hint);
-				newNode = mkconst_bits(y.to_bits(), sign_hint);
+				newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 			} else
 			if (children[0]->isConst()) {
-				newNode = std::make_unique<AstNode>(AST_REALVALUE);
+				newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 				if (type == AST_NEG)
 					newNode->realvalue = -children[0]->asReal(sign_hint);
 				else
@@ -4367,15 +4372,15 @@ replace_fcall_later:;
 						bool other_sign_hint = sign_hint, other_real = false;
 						not_choice->detectSignWidth(other_width_hint, other_sign_hint, &other_real);
 						if (other_real) {
-							newNode = std::make_unique<AstNode>(AST_REALVALUE);
+							newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 							choice->detectSignWidth(width_hint, sign_hint);
 							newNode->realvalue = choice->asReal(sign_hint);
 						} else {
 							RTLIL::Const y = choice->bitsAsConst(width_hint, sign_hint);
 							if (choice->is_string && y.size() % 8 == 0 && sign_hint == false)
-								newNode = mkconst_str(y.to_bits());
+								newNode = mkconst_str(location, y.to_bits());
 							else
-								newNode = mkconst_bits(y.to_bits(), sign_hint);
+								newNode = mkconst_bits(location, y.to_bits(), sign_hint);
 						}
 					} else
 					if (choice->isConst()) {
@@ -4388,9 +4393,9 @@ replace_fcall_later:;
 					for (auto i = 0; i < a.size(); i++)
 						if (a[i] != b[i])
 							a.bits()[i] = RTLIL::State::Sx;
-					newNode = mkconst_bits(a.to_bits(), sign_hint);
+					newNode = mkconst_bits(location, a.to_bits(), sign_hint);
 				} else if (children[1]->isConst() && children[2]->isConst()) {
-					newNode = std::make_unique<AstNode>(AST_REALVALUE);
+					newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 					if (children[1]->asReal(sign_hint) == children[2]->asReal(sign_hint))
 						newNode->realvalue = children[1]->asReal(sign_hint);
 					else
@@ -4409,7 +4414,7 @@ replace_fcall_later:;
 					val = children[1]->bitsAsUnsizedConst(width);
 				else
 					val = children[1]->bitsAsConst(width);
-				newNode = mkconst_bits(val.to_bits(), children[1]->is_signed);
+				newNode = mkconst_bits(location, val.to_bits(), children[1]->is_signed);
 			}
 			break;
 		case AST_CONCAT:
@@ -4421,14 +4426,14 @@ replace_fcall_later:;
 					string_op = false;
 				tmp_bits.insert(tmp_bits.end(), (*it)->bits.begin(), (*it)->bits.end());
 			}
-			newNode = string_op ? mkconst_str(tmp_bits) : mkconst_bits(tmp_bits, false);
+			newNode = string_op ? mkconst_str(location, tmp_bits) : mkconst_bits(location, tmp_bits, false);
 			break;
 		case AST_REPLICATE:
 			if (children.at(0)->type != AST_CONSTANT || children.at(1)->type != AST_CONSTANT)
 				goto not_const;
 			for (int i = 0; i < children[0]->bitsAsConst().as_int(); i++)
 				tmp_bits.insert(tmp_bits.end(), children.at(1)->bits.begin(), children.at(1)->bits.end());
-			newNode = children.at(1)->is_string ? mkconst_str(tmp_bits) : mkconst_bits(tmp_bits, false);
+			newNode = children.at(1)->is_string ? mkconst_str(location, tmp_bits) : mkconst_bits(location, tmp_bits, false);
 			break;
 		default:
 		not_const:
@@ -4444,7 +4449,7 @@ apply_newNode:
 		// newNode->dumpAst(stderr, "+ ");
 		log_assert(newNode != nullptr);
 		// newNode->null_check();
-		newNode->location.filename = location.filename;
+		newNode->location.begin.filename = location.begin.filename;
 		newNode->location = location;
 		newNode->cloneInto(*this);
 		fixup_hierarchy_flags();
@@ -4472,7 +4477,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	int mem_width, mem_size, addr_bits;
 	memory->meminfo(mem_width, mem_size, addr_bits);
 
-	auto block = std::make_unique<AstNode>(AST_BLOCK);
+	auto block = std::make_unique<AstNode>(location, AST_BLOCK);
 
 	AstNode* meminit = nullptr;
 	int next_meminit_cursor=0;
@@ -4491,7 +4496,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 #else
 		char slash = '/';
 #endif
-		std::string path = location.filename.substr(0, location.filename.find_last_of(slash)+1);
+		std::string path = location.begin.filename->substr(0, location.begin.filename->find_last_of(slash)+1);
 		f.open(path + mem_filename.c_str());
 		yosys_input_files.insert(path + mem_filename);
 	} else {
@@ -4556,15 +4561,15 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 				if (meminit == nullptr || cursor != next_meminit_cursor)
 				{
 					if (meminit != nullptr) {
-						meminit->children[1] = AstNode::mkconst_bits(meminit_bits, false);
-						meminit->children[3] = AstNode::mkconst_int(meminit_size, false);
+						meminit->children[1] = AstNode::mkconst_bits(location, meminit_bits, false);
+						meminit->children[3] = AstNode::mkconst_int(location, meminit_size, false);
 					}
 
-					auto meminit_owned = std::make_unique<AstNode>(AST_MEMINIT);
+					auto meminit_owned = std::make_unique<AstNode>(location, AST_MEMINIT);
 					meminit = meminit_owned.get();
-					meminit->children.push_back(AstNode::mkconst_int(cursor, false));
+					meminit->children.push_back(AstNode::mkconst_int(location, cursor, false));
 					meminit->children.push_back(nullptr);
-					meminit->children.push_back(AstNode::mkconst_bits(en_bits, false));
+					meminit->children.push_back(AstNode::mkconst_bits(location, en_bits, false));
 					meminit->children.push_back(nullptr);
 					meminit->str = memory->str;
 					meminit->id2ast = memory;
@@ -4581,7 +4586,13 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 			}
 			else
 			{
-				block->children.push_back(std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER, std::make_unique<AstNode>(AST_RANGE, AstNode::mkconst_int(cursor, false))), std::move(value)));
+				block->children.push_back(
+					std::make_unique<AstNode>(location,
+						AST_ASSIGN_EQ, std::make_unique<AstNode>(location,
+							AST_IDENTIFIER, std::make_unique<AstNode>(location,
+								AST_RANGE, AstNode::mkconst_int(location,
+									cursor, false))),
+							std::move(value)));
 				block->children.back()->children[0]->str = memory->str;
 				block->children.back()->children[0]->id2ast = memory;
 				block->children.back()->children[0]->was_checked = true;
@@ -4597,8 +4608,8 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	}
 
 	if (meminit != nullptr) {
-		meminit->children[1] = AstNode::mkconst_bits(meminit_bits, false);
-		meminit->children[3] = AstNode::mkconst_int(meminit_size, false);
+		meminit->children[1] = AstNode::mkconst_bits(location, meminit_bits, false);
+		meminit->children[3] = AstNode::mkconst_int(location, meminit_size, false);
 	}
 
 	return block;
@@ -4770,7 +4781,7 @@ static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &
 	if (that->type == AST_IDENTIFIER && that->id2ast && that->id2ast->type == AST_MEMORY) {
 		AstNode *mem = that->id2ast;
 		if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_CMPLX_LHS))
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(that->location.filename).c_str(), that->location.first_line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*that->location.begin.filename).c_str(), that->location.begin.line));
 		mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CMPLX_LHS;
 	}
 }
@@ -4798,14 +4809,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// activate mem2reg if this is assigned in an async proc
 			if (flags & AstNode::MEM2REG_FL_ASYNC) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ASYNC))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ASYNC;
 			}
 
 			// remember if this is assigned blocking (=)
 			if (type == AST_ASSIGN_EQ) {
 				if (!(proc_flags[mem] & AstNode::MEM2REG_FL_EQ1))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
 			}
 
@@ -4822,11 +4833,11 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// remember where this is
 			if (flags & MEM2REG_FL_INIT) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_INIT))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_INIT;
 			} else {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ELSE))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ELSE;
 			}
 		}
@@ -4843,7 +4854,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 
 		// flag if used after blocking assignment (in same proc)
 		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(location.filename).c_str(), location.first_line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
 			mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_EQ2;
 		}
 	}
@@ -4960,7 +4971,9 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 
 		if (length != 0)
 		{
-			auto block_owned = std::make_unique<AstNode>(AST_INITIAL, std::make_unique<AstNode>(AST_BLOCK));
+			auto block_owned = std::make_unique<AstNode>(location,
+				AST_INITIAL, std::make_unique<AstNode>(location,
+					AST_BLOCK));
 			auto block = block_owned.get();
 			mod->children.push_back(std::move(block_owned));
 			block = block->children[0].get();
@@ -4977,7 +4990,9 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 						while (epos < wordsz && en[epos] == State::S1)
 							epos++;
 						int clen = epos - pos;
-						auto range = std::make_unique<AstNode>(AST_RANGE, AstNode::mkconst_int(cursor+i, false));
+						auto range = std::make_unique<AstNode>(location,
+							AST_RANGE, AstNode::mkconst_int(location,
+								cursor+i, false));
 						if (pos != 0 || epos != wordsz) {
 							int left;
 							int right;
@@ -4989,20 +5004,29 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 								right = mrange->range_right + pos;
 								left = mrange->range_right + epos - 1;
 							}
-							range = std::make_unique<AstNode>(AST_MULTIRANGE, std::move(range), std::make_unique<AstNode>(AST_RANGE, AstNode::mkconst_int(left, true), AstNode::mkconst_int(right, true)));
+							range = std::make_unique<AstNode>(location,
+								AST_MULTIRANGE, std::move(range), std::make_unique<AstNode>(location,
+									AST_RANGE,
+									AstNode::mkconst_int(location, left, true),
+									AstNode::mkconst_int(location, right, true)));
 						}
-						auto target = std::make_unique<AstNode>(AST_IDENTIFIER, std::move(range));
+						auto target = std::make_unique<AstNode>(location, AST_IDENTIFIER, std::move(range));
 						target->str = str;
 						target->id2ast = id2ast;
 						target->was_checked = true;
-						block->children.push_back(std::make_unique<AstNode>(AST_ASSIGN_EQ, std::move(target), mkconst_bits(data.extract(i*wordsz + pos, clen).to_bits(), false)));
+						block->children.push_back(std::make_unique<AstNode>(location,
+							AST_ASSIGN_EQ,
+							std::move(target),
+							mkconst_bits(location,
+								data.extract(i*wordsz + pos, clen).to_bits(),
+								false)));
 						pos = epos;
 					}
 				}
 			}
 		}
 
-		auto newNode = std::make_unique<AstNode>(AST_NONE);
+		auto newNode = std::make_unique<AstNode>(location, AST_NONE);
 		newNode->cloneInto(*this);
 		did_something = true;
 	}
@@ -5010,7 +5034,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 	if (type == AST_ASSIGN && block == nullptr && children[0]->mem2reg_check(mem2reg_set))
 	{
 		if (async_block == nullptr) {
-			auto async_block_owned = std::make_unique<AstNode>(AST_ALWAYS, std::make_unique<AstNode>(AST_BLOCK));
+			auto async_block_owned = std::make_unique<AstNode>(location, AST_ALWAYS, std::make_unique<AstNode>(location, AST_BLOCK));
 			async_block = async_block_owned.get();
 			mod->children.push_back(std::move(async_block_owned));
 		}
@@ -5020,7 +5044,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		newNode->children[0]->was_checked = true;
 		async_block->children[0]->children.push_back(std::move(newNode));
 
-		newNode = std::make_unique<AstNode>(AST_NONE);
+		newNode = std::make_unique<AstNode>(location, AST_NONE);
 		newNode->cloneInto(*this);
 		did_something = true;
 	}
@@ -5029,27 +5053,27 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
-		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
+		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 		int mem_width, mem_size, addr_bits;
 		bool mem_signed = children[0]->id2ast->is_signed;
 		children[0]->id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-		auto wire_addr = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
+		auto wire_addr = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, addr_bits-1, true), mkconst_int(location, 0, true)));
 		wire_addr->str = id_addr;
 		wire_addr->is_reg = true;
 		wire_addr->was_checked = true;
-		wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+		wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 		while (wire_addr->simplify(true, 1, -1, false)) { }
 		mod->children.push_back(std::move(wire_addr));
 
-		auto wire_data = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+		auto wire_data = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, mem_width-1, true), mkconst_int(location, 0, true)));
 		wire_data->str = id_data;
 		wire_data->is_reg = true;
 		wire_data->was_checked = true;
 		wire_data->is_signed = mem_signed;
-		wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+		wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 		while (wire_data->simplify(true, 1, -1, false)) { }
 		mod->children.push_back(std::move(wire_data));
 
@@ -5059,18 +5083,18 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			assign_idx++;
 		log_assert(assign_idx < block->children.size());
 
-		auto assign_addr = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
+		auto assign_addr = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 		assign_addr->children[0]->str = id_addr;
 		assign_addr->children[0]->was_checked = true;
 		block->children.insert(block->children.begin()+assign_idx+1, std::move(assign_addr));
 
-		auto case_node = std::make_unique<AstNode>(AST_CASE, std::make_unique<AstNode>(AST_IDENTIFIER));
+		auto case_node = std::make_unique<AstNode>(location, AST_CASE, std::make_unique<AstNode>(location, AST_IDENTIFIER));
 		case_node->children[0]->str = id_addr;
 		for (int i = 0; i < mem_size; i++) {
 			if (children[0]->children[0]->children[0]->type == AST_CONSTANT && int(children[0]->children[0]->children[0]->integer) != i)
 				continue;
-			auto cond_node = std::make_unique<AstNode>(AST_COND, AstNode::mkconst_int(i, false, addr_bits), std::make_unique<AstNode>(AST_BLOCK));
-			auto assign_reg = std::make_unique<AstNode>(type, std::make_unique<AstNode>(AST_IDENTIFIER), std::make_unique<AstNode>(AST_IDENTIFIER));
+			auto cond_node = std::make_unique<AstNode>(location, AST_COND, AstNode::mkconst_int(location, i, false, addr_bits), std::make_unique<AstNode>(location, AST_BLOCK));
+			auto assign_reg = std::make_unique<AstNode>(location, type, std::make_unique<AstNode>(location, AST_IDENTIFIER), std::make_unique<AstNode>(location, AST_IDENTIFIER));
 			if (children[0]->children.size() == 2)
 				assign_reg->children[0]->children.push_back(children[0]->children[1]->clone());
 			assign_reg->children[0]->str = stringf("%s[%d]", children[0]->str.c_str(), i);
@@ -5141,51 +5165,51 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 				std::vector<RTLIL::State> x_bits;
 				for (int i = 0; i < width; i++)
 					x_bits.push_back(RTLIL::State::Sx);
-				std::unique_ptr<AstNode> constant = AstNode::mkconst_bits(x_bits, false);
+				std::unique_ptr<AstNode> constant = AstNode::mkconst_bits(location, x_bits, false);
 				constant->cloneInto(*this);
 			}
 		}
 		else
 		{
 			std::stringstream sstr;
-			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(location.filename) << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 			int mem_width, mem_size, addr_bits;
 			bool mem_signed = id2ast->is_signed;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-			auto wire_addr = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(addr_bits-1, true), mkconst_int(0, true)));
+			auto wire_addr = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, addr_bits-1, true), mkconst_int(location, 0, true)));
 			wire_addr->str = id_addr;
 			wire_addr->is_reg = true;
 			wire_addr->was_checked = true;
 			if (block)
-				wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+				wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 			while (wire_addr->simplify(true, 1, -1, false)) { }
 			mod->children.push_back(std::move(wire_addr));
 
-			auto wire_data = std::make_unique<AstNode>(AST_WIRE, std::make_unique<AstNode>(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+			auto wire_data = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, mem_width-1, true), mkconst_int(location, 0, true)));
 			wire_data->str = id_data;
 			wire_data->is_reg = true;
 			wire_data->was_checked = true;
 			wire_data->is_signed = mem_signed;
 			if (block)
-				wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+				wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
 			while (wire_data->simplify(true, 1, -1, false)) { }
 			mod->children.push_back(std::move(wire_data));
 
-			auto assign_addr = std::make_unique<AstNode>(block ? AST_ASSIGN_EQ : AST_ASSIGN, std::make_unique<AstNode>(AST_IDENTIFIER), children[0]->children[0]->clone());
+			auto assign_addr = std::make_unique<AstNode>(location, block ? AST_ASSIGN_EQ : AST_ASSIGN, std::make_unique<AstNode>(location, AST_IDENTIFIER), children[0]->children[0]->clone());
 			assign_addr->children[0]->str = id_addr;
 			assign_addr->children[0]->was_checked = true;
 
-			auto case_node = std::make_unique<AstNode>(AST_CASE, std::make_unique<AstNode>(AST_IDENTIFIER));
+			auto case_node = std::make_unique<AstNode>(location, AST_CASE, std::make_unique<AstNode>(location, AST_IDENTIFIER));
 			case_node->children[0]->str = id_addr;
 
 			for (int i = 0; i < mem_size; i++) {
 				if (children[0]->children[0]->type == AST_CONSTANT && int(children[0]->children[0]->integer) != i)
 					continue;
-				auto cond_node = std::make_unique<AstNode>(AST_COND, AstNode::mkconst_int(i, false, addr_bits), std::make_unique<AstNode>(AST_BLOCK));
-				auto assign_reg = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), std::make_unique<AstNode>(AST_IDENTIFIER));
+				auto cond_node = std::make_unique<AstNode>(location, AST_COND, AstNode::mkconst_int(location, i, false, addr_bits), std::make_unique<AstNode>(location, AST_BLOCK));
+				auto assign_reg = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), std::make_unique<AstNode>(location, AST_IDENTIFIER));
 				assign_reg->children[0]->str = id_data;
 				assign_reg->children[0]->was_checked = true;
 				assign_reg->children[1]->str = stringf("%s[%d]", str.c_str(), i);
@@ -5197,8 +5221,8 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			for (int i = 0; i < mem_width; i++)
 				x_bits.push_back(RTLIL::State::Sx);
 
-			auto cond_node = std::make_unique<AstNode>(AST_COND, std::make_unique<AstNode>(AST_DEFAULT), std::make_unique<AstNode>(AST_BLOCK));
-			auto assign_reg = std::make_unique<AstNode>(AST_ASSIGN_EQ, std::make_unique<AstNode>(AST_IDENTIFIER), AstNode::mkconst_bits(x_bits, false));
+			auto cond_node = std::make_unique<AstNode>(location, AST_COND, std::make_unique<AstNode>(location, AST_DEFAULT), std::make_unique<AstNode>(location, AST_BLOCK));
+			auto assign_reg = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), AstNode::mkconst_bits(location, x_bits, false));
 			assign_reg->children[0]->str = id_data;
 			assign_reg->children[0]->was_checked = true;
 			cond_node->children[1]->children.push_back(std::move(assign_reg));
@@ -5218,7 +5242,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			}
 			else
 			{
-				auto proc = std::make_unique<AstNode>(AST_ALWAYS, std::make_unique<AstNode>(AST_BLOCK, std::move(case_node)));
+				auto proc = std::make_unique<AstNode>(location, AST_ALWAYS, std::make_unique<AstNode>(location, AST_BLOCK, std::move(case_node)));
 				mod->children.push_back(std::move(proc));
 				mod->children.push_back(std::move(assign_addr));
 				mod->fixup_hierarchy_flags();
@@ -5373,7 +5397,7 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			offset = -offset;
 		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits();
 		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
-		auto newNode = mkconst_bits(new_bits, variables.at(str).is_signed);
+		auto newNode = mkconst_bits(location, new_bits, variables.at(str).is_signed);
 		newNode->cloneInto(*this);
 		return true;
 	}
@@ -5389,7 +5413,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 {
 	std::map<std::string, AstNode*> backup_scope = current_scope;
 	std::map<std::string, AstNode::varinfo_t> variables;
-	auto block = std::make_unique<AstNode>(AST_BLOCK);
+	auto block = std::make_unique<AstNode>(location, AST_BLOCK);
 	std::unique_ptr<AstNode> result = nullptr;
 
 	size_t argidx = 0;
@@ -5614,7 +5638,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 					if (!cond->replace_variables(variables, fcall, must_succeed))
 						goto finished;
 
-					cond = std::make_unique<AstNode>(AST_EQ, expr->clone(), std::move(cond));
+					cond = std::make_unique<AstNode>(location, AST_EQ, expr->clone(), std::move(cond));
 					cond->set_in_param_flag(true);
 					while (cond->simplify(true, 1, -1, false)) { }
 
@@ -5666,7 +5690,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 		log_abort();
 	}
 
-	result = AstNode::mkconst_bits(variables.at(str).val.to_bits(), variables.at(str).is_signed);
+	result = AstNode::mkconst_bits(location, variables.at(str).val.to_bits(), variables.at(str).is_signed);
 
 finished:
 	current_scope = backup_scope;
@@ -5682,12 +5706,12 @@ void AstNode::allocateDefaultEnumValues()
 	int last_enum_int = -1;
 	for (auto& node : children) {
 		log_assert(node->type==AST_ENUM_ITEM);
-		node->set_attribute(ID::enum_base_type, mkconst_str(str));
+		node->set_attribute(ID::enum_base_type, mkconst_str(node->location, str));
 		for (size_t i = 0; i < node->children.size(); i++) {
 			switch (node->children[i]->type) {
 			case AST_NONE:
 				// replace with auto-incremented constant
-				node->children[i] = AstNode::mkconst_int(++last_enum_int, true);
+				node->children[i] = AstNode::mkconst_int(node->location, ++last_enum_int, true);
 				break;
 			case AST_CONSTANT:
 				// explicit constant (or folded expression)
