@@ -31,7 +31,6 @@
 
 #include "kernel/yosys.h"
 #include "frontends/ast/ast.h"
-#include "frontends/verilog/location.hh"
 
 #if ! defined(yyFlexLexerOnce)
 #define yyFlexLexer frontend_verilog_yyFlexLexer
@@ -65,10 +64,6 @@ namespace VERILOG_FRONTEND
 		std::unique_ptr<AST::AstNode> const2ast(std::string code, char case_type = 0, bool warn_z = false);
 
 	};
-	[[noreturn]]
-	extern void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap);
-	[[noreturn]]
-	extern void err_at_loc(frontend_verilog_yy::location loc, char const *fmt, ...);
 	[[noreturn]]
 	extern void err_at_ast(AST::AstSrcLocType loc, char const *fmt, ...);
 };

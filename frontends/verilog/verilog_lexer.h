@@ -8,7 +8,8 @@
 YOSYS_NAMESPACE_BEGIN
 
 namespace VERILOG_FRONTEND {
-    // lexer input stream
+	[[noreturn]]
+	extern void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap);
 	using parser = frontend_verilog_yy::parser;
 	class VerilogLexer : public frontend_verilog_yyFlexLexer {
 		ParseState* extra;
