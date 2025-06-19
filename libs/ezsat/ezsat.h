@@ -295,7 +295,7 @@ public:
 
 	// printing CNF and internal state
 
-	void printDIMACS(FILE *f, bool verbose = false) const;
+	void printDIMACS(FILE *f, bool verbose = false, const std::vector<std::vector<int>> &extraClauses = std::vector<std::vector<int>>()) const;
 	void printInternalState(FILE *f) const;
 
 	// more sophisticated constraints (designed to be used directly with assume(..))
