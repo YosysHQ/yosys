@@ -371,7 +371,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 }
 
 \"		{ BEGIN(STRING); }
-<STRING>([^\"]|\\.)+	{ yymore(); }
+<STRING>([^\\"]|\\.)+	{ yymore(); }
 <STRING>\"	{
 	BEGIN(0);
 	char *yystr = strdup(YYText());
