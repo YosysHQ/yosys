@@ -263,16 +263,17 @@ struct AttrmapPass : public Pass {
 
 		if (modattr_mode)
 		{
-			for (auto module : design->selected_whole_modules())
+			for (auto module : design->all_selected_whole_modules())
 				attrmap_apply(stringf("%s", log_id(module)), actions, module->attributes);
 		}
 		else
 		{
-			for (auto module : design->selected_modules())
+			for (auto module : design->all_selected_modules())
 			{
-				for (auto wire : module->selected_members())
-					attrmap_apply(stringf("%s.%s", log_id(module), log_id(wire)), actions, wire->attributes);
+				for (auto memb : module->selected_members())
+					attrmap_apply(stringf("%s.%s", log_id(module), log_id(memb)), actions, memb->attributes);
 
+				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())
 				{
 					std::vector<RTLIL::CaseRule*> all_cases = {&proc->root_case};
