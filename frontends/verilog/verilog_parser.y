@@ -2875,6 +2875,7 @@ behavioral_stmt:
 	if_attr TOK_IF '(' expr ')' {
 		AstNode *node = 0;
 		AstNode *context = ast_stack.back();
+		bool patch_block_on_stack = false;
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if)) {
 			AstNode *outer = ast_stack[ast_stack.size() - 2];
 			log_assert (outer && outer->type == AST_CASE);
@@ -2882,10 +2883,15 @@ behavioral_stmt:
 				// parallel "else if": append condition to outer "if"
 				node = outer;
 				log_assert (node->children.size());
+				// `context` has been killed as a grandchild of `outer`
+				// we have to undangle it from the stack
+				patch_block_on_stack = true;
 				delete node->children.back();
 				node->children.pop_back();
 			} else if (outer->get_bool_attribute(ID::full_case))
 				(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		} else {
+			free_attr($1);
 		}
 		AstNode *expr = new AstNode(AST_REDUCE_BOOL, $4);
 		if (!node) {
@@ -2899,6 +2905,9 @@ behavioral_stmt:
 		AstNode *cond = new AstNode(AST_COND, node->get_bool_attribute(ID::parallel_case) ? expr : AstNode::mkconst_int(1, false, 1), block);
 		SET_AST_NODE_LOC(cond, @4, @4);
 		node->children.push_back(cond);
+		// Double it and give it to the next person
+		if (patch_block_on_stack)
+			ast_stack.back() = block;
 		ast_stack.push_back(node);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
