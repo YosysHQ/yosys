@@ -115,6 +115,7 @@ struct ChformalPass : public Pass {
 		log("\n");
 #endif
 		log("    -assert2assume\n");
+		log("    -assert2cover\n");
 		log("    -assume2assert\n");
 		log("    -live2fair\n");
 		log("    -fair2live\n");
@@ -129,6 +130,7 @@ struct ChformalPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool assert2assume = false;
+		bool assert2cover = false;
 		bool assume2assert = false;
 		bool live2fair = false;
 		bool fair2live = false;
@@ -187,6 +189,11 @@ struct ChformalPass : public Pass {
 				mode = 'c';
 				continue;
 			}
+			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2cover") {
+				assert2cover = true;
+				mode = 'c';
+				continue;
+			}
 			if ((mode == 0 || mode == 'c') && args[argidx] == "-assume2assert") {
 				assume2assert = true;
 				mode = 'c';
@@ -216,6 +223,10 @@ struct ChformalPass : public Pass {
 			constr_types.insert(ID($live));
 			constr_types.insert(ID($fair));
 			constr_types.insert(ID($cover));
+		}
+
+		if (assert2assume && assert2cover) {
+			log_cmd_error("Cannot use both -assert2assume and -assert2cover.\n");
 		}
 
 		if (mode == 0)
@@ -381,6 +392,8 @@ struct ChformalPass : public Pass {
 					IdString flavor = formal_flavor(cell);
 					if (assert2assume && flavor == ID($assert))
 						set_formal_flavor(cell, ID($assume));
+					if (assert2cover && flavor == ID($assert))
+						set_formal_flavor(cell, ID($cover));
 					else if (assume2assert && flavor == ID($assume))
 						set_formal_flavor(cell, ID($assert));
 					else if (live2fair && flavor == ID($live))
