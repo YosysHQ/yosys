@@ -1,0 +1,60 @@
+read_rtlil <<EOT
+module \module137
+  wire input 1 \clk
+  wire width 1 output 1 \qa
+  wire width 1 \qb
+  cell $dff \dffa
+    parameter \CLK_POLARITY 1
+    parameter \WIDTH 1
+    connect \CLK \clk
+    connect \D \qb
+    connect \Q \qa
+  end
+  cell $dff \dffb
+    parameter \CLK_POLARITY 1
+    parameter \WIDTH 1
+    connect \CLK \clk
+    connect \D 1'x
+    connect \Q \qb
+  end
+end
+EOT
+equiv_opt -assert opt_dff -sat
+
+design -reset
+
+read_rtlil <<EOT
+module \module137
+  wire output 1 width 9 $2\reg204[8:0]
+  wire input 1 \clk
+  wire width 9 $auto$wreduce.cc:514:run$19340
+  wire width 9 $auto$wreduce.cc:514:run$19341
+  wire width 15 \dffout
+  attribute \init 9'000000000
+  wire width 9 \reg204
+  cell $dff $auto$ff.cc:266:slice$26225
+    parameter \CLK_POLARITY 1
+    parameter \WIDTH 15
+    connect \CLK \clk
+    connect \D { 9'x \reg204 [8:3] }
+    connect \Q \dffout
+  end
+  cell $dff $auto$ff.cc:266:slice$26292
+    parameter \CLK_POLARITY 1
+    parameter \WIDTH 9
+    connect \CLK \clk
+    connect \D $2\reg204[8:0]
+    connect \Q \reg204
+  end
+  cell $mux $procmux$4510
+    parameter \WIDTH 9
+    connect \A 9'x
+    connect \B 9'x
+    connect \S 1'x
+    connect \Y $auto$wreduce.cc:514:run$19340
+  end
+  connect $2\reg204[8:0] $auto$wreduce.cc:514:run$19340
+  connect $auto$wreduce.cc:514:run$19341 [8:3] 6'000000
+end
+EOT
+equiv_opt -assert opt_dff -sat
