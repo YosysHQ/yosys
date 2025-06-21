@@ -35,6 +35,7 @@ struct JsonWriter
 	bool aig_mode;
 	bool compat_int_mode;
 	bool scopeinfo_mode;
+	bool wide_mode;
 
 	Design *design;
 	Module *module;
@@ -44,9 +45,9 @@ struct JsonWriter
 	dict<SigBit, string> sigids;
 	pool<Aig> aig_models;
 
-	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode, bool scopeinfo_mode) :
+	JsonWriter(std::ostream &f, bool use_selection, bool aig_mode, bool compat_int_mode, bool scopeinfo_mode, bool wide_mode) :
 			f(f), use_selection(use_selection), aig_mode(aig_mode),
-			compat_int_mode(compat_int_mode), scopeinfo_mode(scopeinfo_mode) { }
+			compat_int_mode(compat_int_mode), scopeinfo_mode(scopeinfo_mode), wide_mode(wide_mode) { }
 
 	string get_string(string str)
 	{
@@ -229,7 +230,16 @@ struct JsonWriter
 			bool first2 = true;
 			for (auto &conn : c->connections()) {
 				f << stringf("%s\n", first2 ? "" : ",");
-				f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+				if (wide_mode) {
+					if (conn.second.is_wire())
+						f << stringf("            %s: %d", get_name(conn.first).c_str(), conn.second.as_wire()->hashidx_);
+					else if (conn.second.is_fully_const())
+						f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+					else
+						log_error("weird connection: %s %s", conn.first.c_str(), log_signal(conn.second));
+				} else {
+					f << stringf("            %s: %s", get_name(conn.first).c_str(), get_bits(conn.second).c_str());
+				}
 				first2 = false;
 			}
 			f << stringf("\n          }\n");
@@ -267,7 +277,10 @@ struct JsonWriter
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(w->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
-			f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
+			if (wide_mode)
+				f << stringf("          \"idx\": %d,\n", w->hashidx_);
+			else
+				f << stringf("          \"bits\": %s,\n", get_bits(w).c_str());
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
 			if (w->upto)
@@ -604,6 +617,7 @@ struct JsonBackend : public Backend {
 		bool compat_int_mode = false;
 		bool use_selection = false;
 		bool scopeinfo_mode = true;
+		bool wide_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -624,13 +638,17 @@ struct JsonBackend : public Backend {
 				scopeinfo_mode = false;
 				continue;
 			}
+			if (args[argidx] == "-wide") {
+				wide_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing JSON backend.\n");
 
-		JsonWriter json_writer(*f, use_selection, aig_mode, compat_int_mode, scopeinfo_mode);
+		JsonWriter json_writer(*f, use_selection, aig_mode, compat_int_mode, scopeinfo_mode, wide_mode);
 		json_writer.write_design(design);
 	}
 } JsonBackend;
@@ -667,6 +685,7 @@ struct JsonPass : public Pass {
 		bool aig_mode = false;
 		bool compat_int_mode = false;
 		bool scopeinfo_mode = true;
+		bool wide_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -685,6 +704,10 @@ struct JsonPass : public Pass {
 			}
 			if (args[argidx] == "-noscopeinfo") {
 				scopeinfo_mode = false;
+				continue;
+			}
+			if (args[argidx] == "-wide") {
+				wide_mode = true;
 				continue;
 			}
 			break;
@@ -708,7 +731,7 @@ struct JsonPass : public Pass {
 			f = &buf;
 		}
 
-		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode, scopeinfo_mode);
+		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode, scopeinfo_mode, wide_mode);
 		json_writer.write_design(design);
 
 		if (!empty) {
