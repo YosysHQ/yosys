@@ -41,6 +41,7 @@
 #pragma clang diagnostic ignored "-Wmisleading-indentation"
 #endif
 
+#include <cctype>
 #include "kernel/log.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/ast/ast.h"
@@ -388,7 +389,20 @@ TIME_SCALE_SUFFIX [munpf]?s
 					yystr[i + 1] = yystr[i] * 8 + yystr[i + 1] - '0';
 					i++;
 				}
-			}
+			} else if (yystr[i] == 'x' && isxdigit(yystr[i + 1])) {
+				i++;
+				if (isdigit(yystr[i]))
+					yystr[i] = yystr[i] - '0';
+				else
+					yystr[i] = (yystr[i] | 0x20) - 'a' + 0xA;
+				if (isxdigit(yystr[i + 1])) {
+					if (isdigit(yystr[i + 1]))
+						yystr[i + 1] = yystr[i] * 0x10 + yystr[i + 1] - '0';
+					else
+						yystr[i + 1] = yystr[i] * 0x10 + (yystr[i + 1] | 0x20) - 'a' + 0xA;
+					i++;
+				}
+			}			
 		}
 		yystr[j++] = yystr[i++];
 	}
