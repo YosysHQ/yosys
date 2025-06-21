@@ -1,0 +1,7 @@
+read_verilog << EOF
+module top;
+	wire[7:0] a = "\x2A";
+	wire[7:0] b = 42;
+endmodule
+EOF
+sat -prove a b
