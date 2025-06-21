@@ -336,13 +336,24 @@ TIME_SCALE_SUFFIX [munpf]?s
 }
 
 \"		{ BEGIN(STRING); }
-<STRING>([^\\"]|\\.)+	{ yymore(); real_location = old_location; }
+<STRING>([^\\"]|\\.|\\\n)+	{ yymore(); real_location = old_location; }
 <STRING>\"	{
 	BEGIN(0);
 	char *yystr = strdup(yytext);
 	yystr[strlen(yytext) - 1] = 0;
 	int i = 0, j = 0;
 	while (yystr[i]) {
+		if (yystr[i] == '\n' || yystr[i] =='\r') {
+			static bool printed_warning = false;
+			if (!printed_warning) {
+				log_warning(
+					"Multi-line string literals are not "
+					"legal Verilog unless escaped with "
+					"\\ (backslash).\n"
+				);
+				printed_warning = true;
+			}
+		 }
 		if (yystr[i] == '\\' && yystr[i + 1]) {
 			i++;
 			if (yystr[i] == 'a')
@@ -357,7 +368,17 @@ TIME_SCALE_SUFFIX [munpf]?s
 				yystr[i] = '\t';
 			else if (yystr[i] == 'v')
 				yystr[i] = '\v';
-			else if ('0' <= yystr[i] && yystr[i] <= '7') {
+			else if (yystr[i] == '\n') {
+				i++;
+				if (yystr[i] == '\r')
+					i++;
+				continue;
+			} else if (yystr[i] == '\r') {
+				i++;
+				if (yystr[i] == '\n')
+					i++;
+				continue;
+			} else if ('0' <= yystr[i] && yystr[i] <= '7') {
 				yystr[i] = yystr[i] - '0';
 				if ('0' <= yystr[i + 1] && yystr[i + 1] <= '7') {
 					yystr[i + 1] = yystr[i] * 8 + yystr[i + 1] - '0';

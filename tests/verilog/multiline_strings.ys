@@ -1,0 +1,21 @@
+logger -expect-no-warnings
+read_verilog << EOF
+module top;
+	wire[31:0] a = "ab\
+cd";
+	wire [31:0] b = 32'h61626364;
+endmodule
+EOF
+sat -prove a b
+logger -check-expected
+design -reset
+
+logger -expect warning "Multi-line string literals are not legal Verilog" 1
+read_verilog << EOF
+module top;
+	reg[31:0] a = "x
+yz";
+endmodule
+EOF
+logger -check-expected
+
