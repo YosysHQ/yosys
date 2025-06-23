@@ -336,7 +336,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 }
 
 \"		{ BEGIN(STRING); }
-<STRING>([^\"]|\\.)+	{ yymore(); real_location = old_location; }
+<STRING>([^\\"]|\\.)+	{ yymore(); real_location = old_location; }
 <STRING>\"	{
 	BEGIN(0);
 	char *yystr = strdup(yytext);

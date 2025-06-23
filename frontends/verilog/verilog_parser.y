@@ -2874,6 +2874,7 @@ behavioral_stmt:
 	} |
 	if_attr TOK_IF '(' expr ')' {
 		AstNode *node = 0;
+		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *context = ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if)) {
 			AstNode *outer = ast_stack[ast_stack.size() - 2];
@@ -2882,8 +2883,10 @@ behavioral_stmt:
 				// parallel "else if": append condition to outer "if"
 				node = outer;
 				log_assert (node->children.size());
+				ast_stack.pop_back();
 				delete node->children.back();
 				node->children.pop_back();
+				ast_stack.push_back(block);
 			} else if (outer->get_bool_attribute(ID::full_case))
 				(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
 		}
@@ -2894,8 +2897,8 @@ behavioral_stmt:
 			append_attr(node, $1);
 			ast_stack.back()->children.push_back(node);
 			node->children.push_back(node->get_bool_attribute(ID::parallel_case) ? AstNode::mkconst_int(1, false, 1) : expr);
-		}
-		AstNode *block = new AstNode(AST_BLOCK);
+		} else
+			free_attr($1);
 		AstNode *cond = new AstNode(AST_COND, node->get_bool_attribute(ID::parallel_case) ? expr : AstNode::mkconst_int(1, false, 1), block);
 		SET_AST_NODE_LOC(cond, @4, @4);
 		node->children.push_back(cond);
