@@ -38,6 +38,7 @@ struct SubmodWorker
 	bool copy_mode;
 	bool hidden_mode;
 	std::string opt_name;
+	std::string separator;
 
 	struct SubModule
 	{
@@ -244,8 +245,8 @@ struct SubmodWorker
 		}
 	}
 
-	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, bool hidden_mode = false, std::string opt_name = std::string()) :
-			design(design), module(module), sigmap(module), copy_mode(copy_mode), hidden_mode(hidden_mode), opt_name(opt_name)
+	SubmodWorker(RTLIL::Design *design, RTLIL::Module *module, bool copy_mode = false, bool hidden_mode = false, std::string opt_name = std::string(), std::string separator = "_") :
+			design(design), module(module), sigmap(module), copy_mode(copy_mode), hidden_mode(hidden_mode), opt_name(opt_name), separator(separator)
 	{
 		if (!module->is_selected_whole() && opt_name.empty())
 			return;
@@ -290,10 +291,10 @@ struct SubmodWorker
 
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
-					submodules[submod_str].full_name = module->name.str() + "_" + submod_str;
+					submodules[submod_str].full_name = module->name.str() + separator + submod_str;
 					while (design->module(submodules[submod_str].full_name) != nullptr ||
 							module->count_id(submodules[submod_str].full_name) != 0)
-						submodules[submod_str].full_name += "_";
+						submodules[submod_str].full_name += separator;
 				}
 
 				submodules[submod_str].cells.insert(cell);
@@ -352,6 +353,10 @@ struct SubmodPass : public Pass {
 		log("        private names so that a subsequent 'flatten; clean' call will restore\n");
 		log("        the original module with original public names.\n");
 		log("\n");
+		log("    -separator <string>\n");
+		log("        use the specified string as separator between module name and submodule\n");
+		log("        name when creating submodule names. default is \"_\".\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -361,6 +366,7 @@ struct SubmodPass : public Pass {
 		std::string opt_name;
 		bool copy_mode = false;
 		bool hidden_mode = false;
+		std::string separator = "_";
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -374,6 +380,10 @@ struct SubmodPass : public Pass {
 			}
 			if (args[argidx] == "-hidden") {
 				hidden_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-separator" && argidx+1 < args.size()) {
+				separator = args[++argidx];
 				continue;
 			}
 			break;
@@ -396,7 +406,7 @@ struct SubmodPass : public Pass {
 						queued_modules.push_back(mod->name);
 				for (auto &modname : queued_modules)
 					if (design->module(modname) != nullptr) {
-						SubmodWorker worker(design, design->module(modname), copy_mode, hidden_mode);
+						SubmodWorker worker(design, design->module(modname), copy_mode, hidden_mode, "", separator);
 						handled_modules.insert(modname);
 						did_something = true;
 					}
@@ -417,7 +427,7 @@ struct SubmodPass : public Pass {
 			else {
 				Pass::call_on_module(design, module, "opt_clean");
 				log_header(design, "Continuing SUBMOD pass.\n");
-				SubmodWorker worker(design, module, copy_mode, hidden_mode, opt_name);
+				SubmodWorker worker(design, module, copy_mode, hidden_mode, opt_name, separator);
 			}
 		}
 
