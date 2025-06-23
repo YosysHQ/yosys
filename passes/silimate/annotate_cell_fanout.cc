@@ -17,8 +17,7 @@ std::string substringuntil(const std::string &str, char delimiter)
 }
 
 // Generate a meaningful name for a sigspec, uniquify if necessary
-RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, bool makeUnique = false, std::string postfix = "", int postfix_index = 0,
-				    bool cellName = false)
+RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspec, std::string postfix = "", int postfix_index = 0, bool cellName = false)
 {
 	if (sigspec.empty()) {
 		return RTLIL::IdString(); // Empty SigSpec, return empty IdString
@@ -61,23 +60,7 @@ RTLIL::IdString generateSigSpecName(Module *module, const RTLIL::SigSpec &sigspe
 		ss << postfix;
 	if (!postfix.empty())
 		ss << "_" << postfix_index;
-	if (makeUnique) {
-		RTLIL::IdString base_name = RTLIL::IdString(ss.str());
-		// Ensure uniqueness
-		int counter = 0;
-		if (cellName) {
-			while (module->cells_.count(RTLIL::IdString(ss.str()))) {
-				ss.str("");
-				ss << base_name.str() << "_" << counter++;
-			}
-		} else {
-			while (module->wires_.count(RTLIL::IdString(ss.str()))) {
-				ss.str("");
-				ss << base_name.str() << "_" << counter++;
-			}
-		}
-	}
-	return RTLIL::IdString(ss.str());
+	return module->uniquify(ss.str());
 }
 
 // Collect fanout cells of a given sig, collects all bits connections
@@ -363,8 +346,8 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 	for (SigChunk chunk : sigToBuffer.chunks()) {
 		std::vector<std::pair<RTLIL::SigSpec, Cell *>> buffer_chunk_outputs;
 		for (int i = 0; i < num_buffers; ++i) {
-			std::string wireName = generateSigSpecName(module, sigToBuffer, true, "_wbuf", index_buffer).c_str();
-			std::string cellName = generateSigSpecName(module, sigToBuffer, true, "_fbuf", index_buffer, true).c_str();
+			std::string wireName = generateSigSpecName(module, sigToBuffer, "_wbuf", index_buffer).c_str();
+			std::string cellName = generateSigSpecName(module, sigToBuffer, "_fbuf", index_buffer).c_str();
 			RTLIL::Cell *buffer = module->addCell(cellName, ID($buf));
 			bufferActualFanout[buffer] = 0;
 			RTLIL::SigSpec buffer_output = module->addWire(wireName, chunk.size());
