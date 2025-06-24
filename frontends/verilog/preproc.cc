@@ -34,7 +34,7 @@
 
 #include "preproc.h"
 #include "verilog_frontend.h"
-#include "verilog_parser.tab.hh"
+#include "frontends/verilog/verilog_parser.tab.hh"
 #include "kernel/log.h"
 #include <assert.h>
 #include <stack>
