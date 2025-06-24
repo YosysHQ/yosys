@@ -12,7 +12,9 @@
 
 CODEOWNERS                     @nakengelhardt
 passes/cmds/scratchpad.cc      @nakengelhardt
+frontends/ast/                 @widlarizer
 frontends/rpc/                 @whitequark
+frontends/verilog/             @widlarizer
 backends/cxxrtl/               @whitequark
 passes/cmds/bugpoint.cc        @whitequark
 passes/techmap/flowmap.cc      @whitequark
@@ -29,9 +31,6 @@ docs/source/using_yosys/synthesis/abc.rst @KrystalDelusion @Ravenslofty
 # contributors here too, so we know who to ask to take a look.
 # These still override previous lines, so be careful not to
 # accidentally disable any of the above rules.
-
-frontends/verilog/             @zachjs
-frontends/ast/                 @zachjs
 
 techlibs/intel_alm/            @Ravenslofty
 techlibs/gowin/                @pepijndevos
