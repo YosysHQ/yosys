@@ -13,6 +13,8 @@ frontends/verilog/verilog_parser.tab.hh: frontends/verilog/verilog_parser.tab.cc
 frontends/verilog/verilog_frontend.h: frontends/verilog/verilog_parser.tab.hh
 frontends/verilog/verilog_error.h: frontends/verilog/verilog_parser.tab.hh
 
+frontends/verilog/preproc.o: frontends/verilog/verilog_parser.tab.hh
+
 frontends/verilog/verilog_lexer.cc: frontends/verilog/verilog_lexer.l frontends/verilog/verilog_parser.tab.cc
 	$(Q) mkdir -p $(dir $@)
 	$(P) flex -o frontends/verilog/verilog_lexer.cc $<
