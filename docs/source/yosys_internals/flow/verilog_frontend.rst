@@ -187,13 +187,13 @@ simplifies the creation of AST nodes for simple expressions a bit. For example
 the bison code for parsing multiplications:
 
 .. code:: none
-   	:number-lines:
+   :number-lines:
 
-  basic_expr TOK_ASTER attr basic_expr {
-    $$ = std::make_unique<AstNode>(AST_MUL, std::move($1), std::move($4));
-    SET_AST_NODE_LOC($$.get(), @1, @4);
-    append_attr($$.get(), $3);
-  } |
+   basic_expr TOK_ASTER attr basic_expr {
+     $$ = std::make_unique<AstNode>(AST_MUL, std::move($1), std::move($4));
+     SET_AST_NODE_LOC($$.get(), @1, @4);
+     append_attr($$.get(), $3);
+   } |
 
 The generated AST data structure is then passed directly to the AST frontend
 that performs the actual conversion to RTLIL.
