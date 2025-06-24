@@ -428,7 +428,14 @@
 
 	void frontend_verilog_yy::parser::error(const frontend_verilog_yy::parser::location_type& loc, const std::string& msg)
 	{
-		err_at_loc(loc, "%s", msg.c_str());
+		std::string new_msg(msg);
+		size_t pos = new_msg.find("\"'");
+		if (pos != std::string::npos)
+			new_msg.replace(pos, 2, "'");
+		pos = new_msg.find("'\"");
+		if (pos != std::string::npos)
+			new_msg.replace(pos, 2, "'");
+		err_at_loc(loc, "%s", new_msg.c_str());
 	}
 	// end unqual
 }
@@ -589,7 +596,7 @@
 %precedence OP_CAST
 %precedence UNARY_OPS
 
-%define parse.error detailed
+%define parse.error verbose
 %define parse.lac full
 
 %precedence FAKE_THEN

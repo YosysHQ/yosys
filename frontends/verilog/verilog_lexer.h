@@ -25,7 +25,7 @@ namespace VERILOG_FRONTEND {
 		// get rid of override virtual function warning
 		using FlexLexer::yylex;
 		parser::symbol_type terminate() {
-			return parser::make_FRONTEND_VERILOG_YYEOF(out_loc);
+			return parser::symbol_type(0, std::move(out_loc));
 		}
 	private:
 		std::shared_ptr<std::string> current_filename;
