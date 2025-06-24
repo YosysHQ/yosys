@@ -32,11 +32,6 @@
 #include "kernel/yosys.h"
 #include "frontends/ast/ast.h"
 
-#if ! defined(yyFlexLexerOnce)
-#define yyFlexLexer frontend_verilog_yyFlexLexer
-#include <FlexLexer.h>
-#endif
-
 #include <stdio.h>
 #include <stdint.h>
 
