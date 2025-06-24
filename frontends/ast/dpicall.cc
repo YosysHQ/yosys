@@ -153,7 +153,7 @@ YOSYS_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
-AST::AstNode *AST::dpi_call(AstSrcLocType loc, const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<AstNode*>&)
+std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType, const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<std::unique_ptr<AST::AstNode>>&)
 {
 	log_error("Can't call DPI function `%s': this version of yosys is built without plugin support\n", fname.c_str());
 }
