@@ -82,6 +82,7 @@ jobs:
           ENABLE_ZLIB := 0
           END
 
+          sudo apt-get install libfl-dev
           make -C build -f ../Makefile CXX=clang -j$(nproc)
 
   nix-build:
