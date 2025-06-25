@@ -22,7 +22,7 @@ public:
 		log("\n");
 		log("    publish\n");
 		log("Makes all module names and cell types public by prefixing\n");
-		log("% with \\.\n");
+		log("%% with \\.\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{

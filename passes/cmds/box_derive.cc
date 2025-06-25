@@ -86,7 +86,6 @@ struct BoxDerivePass : Pass {
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
-				log_cell(cell);
 				Module *inst_module = d->module(cell->type);
 				if (!inst_module || !inst_module->get_blackbox_attribute())
 					continue;
@@ -97,27 +96,29 @@ struct BoxDerivePass : Pass {
 
 				auto index = std::make_pair(base->name, cell->parameters);
 
-				if (cell->parameters.empty() || done.count(index))
+				if (cell->parameters.empty())
 					continue;
 
-				IdString derived_type = base->derive(d, cell->parameters);
-				Module *derived = d->module(derived_type);
-				log_assert(derived && "Failed to derive module\n");
-				log_debug("derived %s\n", derived_type.c_str());
+				if (!done.count(index)) {
+					IdString derived_type = base->derive(d, cell->parameters);
+					Module *derived = d->module(derived_type);
+					log_assert(derived && "Failed to derive module\n");
+					log("derived %s\n", derived_type.c_str());
 
-				if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
-					IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
-					if (!new_name.isPublic())
-						log_error("Derived module %s cannot be renamed to private name %s.\n",
-								  log_id(derived), log_id(new_name));
-					derived->attributes.erase(naming_attr);
-					d->rename(derived, new_name);
+					if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
+						IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
+						if (!new_name.isPublic())
+							log_error("Derived module %s cannot be renamed to private name %s.\n",
+									  log_id(derived), log_id(new_name));
+						derived->attributes.erase(naming_attr);
+						d->rename(derived, new_name);
+					}
+
+					done[index] = derived;
 				}
 
-				done[index] = derived;
 				if (apply_mode)
-					cell->type = derived_type;
-				log_cell(cell);
+					cell->type = done[index]->name;
 			}
 		}
 	}
