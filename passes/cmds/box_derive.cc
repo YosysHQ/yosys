@@ -51,6 +51,9 @@ struct BoxDerivePass : Pass {
 		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
 		log("        modules start with '$paramod$')\n");
 		log("\n");
+		log("    -apply\n");
+		log("        use the derived modules\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
@@ -59,11 +62,14 @@ struct BoxDerivePass : Pass {
 		size_t argidx;
 		IdString naming_attr;
 		IdString base_name;
+		bool apply_mode;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-naming_attr" && argidx + 1 < args.size())
 				naming_attr = RTLIL::escape_id(args[++argidx]);
 			else if (args[argidx] == "-base" && argidx + 1 < args.size())
 				base_name = RTLIL::escape_id(args[++argidx]);
+			else if (args[argidx] == "-apply")
+				apply_mode = true;
 			else
 				break;
 		}
@@ -80,6 +86,7 @@ struct BoxDerivePass : Pass {
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
+				log_cell(cell);
 				Module *inst_module = d->module(cell->type);
 				if (!inst_module || !inst_module->get_blackbox_attribute())
 					continue;
@@ -108,6 +115,9 @@ struct BoxDerivePass : Pass {
 				}
 
 				done[index] = derived;
+				if (apply_mode)
+					cell->type = derived_type;
+				log_cell(cell);
 			}
 		}
 	}
