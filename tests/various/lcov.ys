@@ -1,0 +1,4 @@
+read_verilog lcov.v
+prep -top top
+linecoverage -lcov lcov.out o:\out1 %ci*
+exec -expect-return 0 -- diff -q lcov.out lcov.gold
