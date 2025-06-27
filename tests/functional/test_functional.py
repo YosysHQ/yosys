@@ -74,7 +74,8 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 @pytest.mark.rkt
-def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
+@pytest.mark.parametrize("use_assoc_list_helpers", [True, False])
+def test_rkt(cell, parameters, tmp_path, num_steps, rnd, use_assoc_list_helpers):
     import rkt_vcd
 
     rtlil_file = tmp_path / 'rtlil.il'
@@ -83,8 +84,9 @@ def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
     cell.write_rtlil_file(rtlil_file, parameters)
-    yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_rosette -provides {quote(rkt_file)}")
-    rkt_vcd.simulate_rosette(rkt_file, vcd_functional_file, num_steps, rnd(cell.name + "-rkt"))
+    use_assoc_helpers_flag = '-assoc-list-helpers' if use_assoc_list_helpers else ''
+    yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_rosette -provides {use_assoc_helpers_flag} {quote(rkt_file)}")
+    rkt_vcd.simulate_rosette(rkt_file, vcd_functional_file, num_steps, rnd(cell.name + "-rkt"), use_assoc_list_helpers=use_assoc_list_helpers)
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 def test_print_graph(tmp_path):

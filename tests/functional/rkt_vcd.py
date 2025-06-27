@@ -43,21 +43,37 @@ def write_vcd(filename: Path, signals: SignalStepMap, timescale='1 ns', date='to
                         if change_time == time:
                             f.write(f"{value} {signal_name}\n")
 
-def simulate_rosette(rkt_file_path: Path, vcd_path: Path, num_steps: int, rnd: Random):
+
+def simulate_rosette(
+    rkt_file_path: Path,
+    vcd_path: Path,
+    num_steps: int,
+    rnd: Random,
+    use_assoc_list_helpers: bool = False,
+):
+    """
+    Args:
+      - use_assoc_list_helpers: If True, will use the association list helpers
+        in the Racket file. The file should have been generated with the
+        -assoc-list-helpers flag in the yosys command.
+    """
     signals: dict[str, list[str]] = {}
     inputs: SignalWidthMap = {}
     outputs: SignalWidthMap = {}
 
     current_struct_name: str = ""
-    with open(rkt_file_path, 'r') as rkt_file:
+    with open(rkt_file_path, "r") as rkt_file:
         for line in rkt_file:
-            m = re.search(r'gold_(Inputs|Outputs|State)', line)
+            m = re.search(r"gold_(Inputs|Outputs|State)", line)
             if m:
                 current_struct_name = m.group(1)
-                if current_struct_name == "State": break
-            elif not current_struct_name: continue # skip lines before structs
-            m = re.search(r'; (.+?)\b \(bitvector (\d+)\)', line)
-            if not m: continue # skip non matching lines (probably closing the struct)
+                if current_struct_name == "State":
+                    break
+            elif not current_struct_name:
+                continue  # skip lines before structs
+            m = re.search(r"; (.+?)\b \(bitvector (\d+)\)", line)
+            if not m:
+                continue  # skip non matching lines (probably closing the struct)
             signal = m.group(1)
             width = int(m.group(2))
             if current_struct_name == "Inputs":
@@ -69,43 +85,86 @@ def simulate_rosette(rkt_file_path: Path, vcd_path: Path, num_steps: int, rnd: R
         step_list: list[int] = []
         for step in range(num_steps):
             value = rnd.getrandbits(width)
-            binary_string = format(value, '0{}b'.format(width))
+            binary_string = format(value, "0{}b".format(width))
             step_list.append(binary_string)
         signals[signal] = step_list
 
-    test_rkt_file_path = rkt_file_path.with_suffix('.tst.rkt')
-    with open(test_rkt_file_path, 'w') as test_rkt_file:
-        test_rkt_file.writelines([
-            '#lang rosette\n',
-            f'(require "{rkt_file_path.name}")\n',
-        ])
+    test_rkt_file_path = rkt_file_path.with_suffix(".tst.rkt")
+    with open(test_rkt_file_path, "w") as test_rkt_file:
+        test_rkt_file.writelines(
+            [
+                "#lang rosette\n",
+                f'(require "{rkt_file_path.name}")\n',
+            ]
+        )
 
         for step in range(num_steps):
             this_step = f"step_{step}"
             value_list: list[str] = []
-            for signal, width in inputs.items():
-                value = signals[signal][step]
-                value_list.append(f"(bv #b{value} {width})")
-            gold_Inputs = f"(gold_Inputs {' '.join(value_list)})"
+            if use_assoc_list_helpers:
+                # Generate inputs as a list of cons pairs making up the
+                # association list.
+                for signal, width in inputs.items():
+                    value = signals[signal][step]
+                    value_list.append(f'(cons "{signal}" (bv #b{value} {width}))')
+            else:
+                # Otherwise, we generate the inputs as a list of bitvectors.
+                for signal, width in inputs.items():
+                    value = signals[signal][step]
+                    value_list.append(f"(bv #b{value} {width})")
+            gold_Inputs = (
+                f"(gold_inputs_helper (list {' '.join(value_list)}))"
+                if use_assoc_list_helpers
+                else f"(gold_Inputs {' '.join(value_list)})"
+            )
             gold_State = f"(cdr step_{step-1})" if step else "gold_initial"
-            test_rkt_file.write(f"(define {this_step} (gold {gold_Inputs} {gold_State})) (car {this_step})\n")
+            get_value_expr = (
+                f"(gold_outputs_helper (car {this_step}))"
+                if use_assoc_list_helpers
+                else f"(car {this_step})"
+            )
+            test_rkt_file.write(
+                f"(define {this_step} (gold {gold_Inputs} {gold_State})) {get_value_expr}\n"
+            )
+
 
     cmd = ["racket", test_rkt_file_path]
-    status = subprocess.run(cmd, capture_output=True)
-    assert status.returncode == 0, f"{cmd[0]} failed"
+    try:
+        status = subprocess.run(cmd, capture_output=True, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Racket simulation failed with command: {cmd}\n"
+            f"Error: {e.stderr.decode()}"
+        ) from e
 
     for signal in outputs.keys():
         signals[signal] = []
 
     for line in status.stdout.decode().splitlines():
-        m = re.match(r'\(gold_Outputs( \(bv \S+ \d+\))+\)', line)
+        m = (
+            re.match(r"\(list( \(cons \"\S+\" \(bv \S+ \d+\)\))+\)", line)
+            if use_assoc_list_helpers
+            else re.match(r"\(gold_Outputs( \(bv \S+ \d+\))+\)", line)
+        )
         assert m, f"Incomplete output definition {line!r}"
-        for output, (value, width) in zip(outputs.keys(), re.findall(r'\(bv (\S+) (\d+)\)', line)):
+        outputs_values_and_widths = (
+            {
+                output: re.findall(
+                    r"\(cons \"" + output + r"\" \(bv (\S+) (\d+)\)\)", line
+                )[0]
+                for output in outputs.keys()
+            }.items()
+            if use_assoc_list_helpers
+            else zip(outputs.keys(), re.findall(r"\(bv (\S+) (\d+)\)", line))
+        )
+        for output, (value, width) in outputs_values_and_widths:
             assert isinstance(value, str), f"Bad value {value!r}"
-            assert value.startswith(('#b', '#x')), f"Non-binary value {value!r}"
-            assert int(width) == outputs[output], f"Width mismatch for output {output!r} (got {width}, expected {outputs[output]})"
-            int_value = int(value[2:], 16 if value.startswith('#x') else 2)
-            binary_string = format(int_value, '0{}b'.format(width))
+            assert value.startswith(("#b", "#x")), f"Non-binary value {value!r}"
+            assert (
+                int(width) == outputs[output]
+            ), f"Width mismatch for output {output!r} (got {width}, expected {outputs[output]})"
+            int_value = int(value[2:], 16 if value.startswith("#x") else 2)
+            binary_string = format(int_value, "0{}b".format(width))
             signals[output].append(binary_string)
 
     vcd_signals: SignalStepMap = {}
