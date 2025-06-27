@@ -237,6 +237,7 @@ struct SynthGateMatePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
+			run("booth");
 			run("alumacc");
 			run("opt");
 			run("memory -nomap");
