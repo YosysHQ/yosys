@@ -357,6 +357,10 @@ struct SubmodPass : public Pass {
 		log("        use the specified string as separator between module name and submodule\n");
 		log("        name when creating submodule names. default is \"_\".\n");
 		log("\n");
+		log("    -noclean\n");
+		log("        disable all calls to 'opt_clean' pass. by default, the pass calls\n");
+		log("        'opt_clean' before and after processing modules.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -366,6 +370,7 @@ struct SubmodPass : public Pass {
 		std::string opt_name;
 		bool copy_mode = false;
 		bool hidden_mode = false;
+		bool noclean_mode = false;
 		std::string separator = "_";
 
 		size_t argidx;
@@ -382,6 +387,10 @@ struct SubmodPass : public Pass {
 				hidden_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-noclean") {
+				noclean_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-separator" && argidx+1 < args.size()) {
 				separator = args[++argidx];
 				continue;
@@ -392,7 +401,8 @@ struct SubmodPass : public Pass {
 
 		if (opt_name.empty())
 		{
-			Pass::call(design, "opt_clean");
+			if (!noclean_mode)
+				Pass::call(design, "opt_clean");
 			log_header(design, "Continuing SUBMOD pass.\n");
 
 			std::set<RTLIL::IdString> handled_modules;
@@ -412,7 +422,8 @@ struct SubmodPass : public Pass {
 					}
 			}
 
-			Pass::call(design, "opt_clean");
+			if (!noclean_mode)
+				Pass::call(design, "opt_clean");
 		}
 		else
 		{
@@ -425,7 +436,8 @@ struct SubmodPass : public Pass {
 			if (module == nullptr)
 				log("Nothing selected -> do nothing.\n");
 			else {
-				Pass::call_on_module(design, module, "opt_clean");
+				if (!noclean_mode)
+					Pass::call_on_module(design, module, "opt_clean");
 				log_header(design, "Continuing SUBMOD pass.\n");
 				SubmodWorker worker(design, module, copy_mode, hidden_mode, opt_name, separator);
 			}
