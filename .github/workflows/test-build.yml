@@ -40,6 +40,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -57,7 +58,7 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-$CC
-          echo 'SANITIZER = undefined' >> Makefile.conf
+          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
           make -f ../Makefile -j$procs ENABLE_LTO=1
 
       - name: Log yosys-config output
@@ -73,7 +74,7 @@ jobs:
       - name: Store build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
+          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
           path: build.tar
           retention-days: 1
 
@@ -84,10 +85,12 @@ jobs:
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
+      ASAN_OPTIONS: halt_on_error=1
       UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -136,7 +139,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.os }}
+          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
 
       - name: Uncompress build
         shell: bash
@@ -168,6 +171,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
+        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -181,7 +185,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.os }}
+          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
 
       - name: Uncompress build
         shell: bash
