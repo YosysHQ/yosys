@@ -1,5 +1,6 @@
 add_library(yosys_passes_pmgen INTERFACE)
 
+
 function(pmgen_command  _name _path)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/${_path}/${_name}_pm.h
@@ -42,6 +43,7 @@ add_custom_command(
 
 target_sources(yosys_passes_pmgen INTERFACE
     test_pmgen.cc
+
     ${CMAKE_SOURCE_DIR}/techlibs/ice40/ice40_dsp.cc
     ${CMAKE_SOURCE_DIR}/techlibs/ice40/ice40_wrapcarry.cc
     ${CMAKE_SOURCE_DIR}/techlibs/xilinx/xilinx_dsp.cc

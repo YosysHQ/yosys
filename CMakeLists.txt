@@ -438,3 +438,4 @@ foreach(dir IN LISTS MK_TEST_DIRS)
                          ENVIRONMENT "${_YOSYS_TEST_ENV}"
                          DEPENDS yosys)
 endforeach()
+
