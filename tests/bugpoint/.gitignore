@@ -1,0 +1,5 @@
+bugpoint-case.*
+*.log
+*.err
+*.temp
+run-test.mk
