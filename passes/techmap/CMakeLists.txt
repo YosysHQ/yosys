@@ -7,6 +7,7 @@ target_sources(yosys_passes_techmap INTERFACE
     dfflibmap.cc
     maccmap.cc
     booth.cc
+    libcache.cc
     libparse.cc
     iopadmap.cc
     clkbufmap.cc
@@ -39,6 +40,7 @@ target_sources(yosys_passes_techmap INTERFACE
     extractinv.cc
     cellmatch.cc
     clockgate.cc
+    constmap.cc
 )
 
 if (ENABLE_ABC)

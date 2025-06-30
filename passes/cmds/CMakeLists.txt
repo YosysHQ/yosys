@@ -49,6 +49,8 @@ target_sources(yosys_passes_cmds INTERFACE
     portarcs.cc
     wrapcell.cc
     setenv.cc
+    test_select.cc
+    abstract.cc
 )
 
 if (NOT DISABLE_SPAWN)

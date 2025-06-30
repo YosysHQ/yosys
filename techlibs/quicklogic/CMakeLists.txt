@@ -18,6 +18,7 @@ target_sources(yosys_techlibs_quicklogic INTERFACE
     ql_dsp_simd.cc
     ql_dsp_io_regs.cc
     ql_dsp_macc.cc
+    ql_ioff.cc
 )
 
 add_custom_command(
