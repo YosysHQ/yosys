@@ -1,5 +1,9 @@
+
 read_verilog ../common/mux.v
 design -save read
+
+
+# mux2
 
 hierarchy -top mux2
 proc
@@ -8,8 +12,11 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd mux2 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT3
 
+# Ensure there are no other cells
 select -assert-none t:LUT3 %% t:* %D
 
+
+# mux4
 
 design -load read
 hierarchy -top mux4
@@ -19,8 +26,11 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd mux4 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT6
 
+# Ensure there are no other cells
 select -assert-none t:LUT6 %% t:* %D
 
+
+# mux8 without widemux
 
 design -load read
 hierarchy -top mux8
@@ -31,8 +41,42 @@ cd mux8 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT3
 select -assert-count 2 t:LUT6
 
+# Ensure there are no other cells
 select -assert-none t:LUT3 t:LUT6 %% t:* %D
 
+
+# mux8 with widemux 5
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad -widemux 5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 2 t:LUT6
+select -assert-count 1 t:MUXF7
+
+# Ensure there are no other cells
+select -assert-none t:LUT6 t:MUXF7 %% t:* %D
+
+
+# mux12 with widemux 5
+# There is no equivalence check because selection values 12 to 15 are unspecified
+
+design -load read
+hierarchy -top mux12
+proc
+synth_xilinx -noiopad -widemux 5
+cd mux12 # Constrain all select calls below inside the top module
+select -assert-count 3 t:LUT6
+select -assert-max   2 t:MUXF7
+select -assert-count 1 t:MUXF8
+
+# Ensure there are no other cells
+select -assert-none t:LUT6 t:MUXF7 t:MUXF8 %% t:* %D
+
+
+# mux16 without widemux
 
 design -load read
 hierarchy -top mux16
@@ -47,4 +91,45 @@ select -assert-max 7 t:LUT6
 select -assert-max 2 t:MUXF7
 dump
 
+# Ensure there are no other cells
 select -assert-none t:LUT6 t:LUT4 t:LUT3 t:MUXF7 %% t:* %D
+
+
+# mux16 with widemux 5
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad -widemux 5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-count 4 t:LUT6
+select -assert-count 2 t:MUXF7
+select -assert-count 1 t:MUXF8
+dump
+
+# Ensure there are no other cells
+select -assert-none t:LUT6 t:MUXF7 t:MUXF8 %% t:* %D
+
+
+# mux20 with widemux 5
+# Expect one mux16 (4 lut6 + 2 muxf7 + muxf8) + one mux4 (one lut6), then one mux2 (one lut3)
+# These mapping results are achieved only with abc9 (without abc, we get undesired additional muxf7/muxf8)
+# There is no equivalence check because selection values 20 to 31 are unspecified
+
+design -load read
+hierarchy -top mux20
+proc
+scratchpad -set abc9.D 5000 # Set a period high enough so we get area-optimized result
+synth_xilinx -noiopad -widemux 5 -abc9
+cd mux20 # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT3
+select -assert-count 5 t:LUT6
+select -assert-count 2 t:MUXF7
+select -assert-count 1 t:MUXF8
+dump
+
+# Ensure there are no other cells
+select -assert-none t:LUT3 t:LUT6 t:MUXF7 t:MUXF8 %% t:* %D
+
+
