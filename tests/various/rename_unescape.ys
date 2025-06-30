@@ -1,0 +1,41 @@
+read_verilog <<EOF
+module top();
+    wire \a[0] ;
+    wire \0b ;
+    wire c;
+    wire d_;
+    wire d$;
+    wire \$e ;
+    wire \wire ;
+    wire add = c + d$;
+endmodule
+EOF
+
+dump
+# Replace brackets with _
+select -assert-count 1 w:a[0]
+# Prefix first character numeric with _
+select -assert-count 1 w:\0b
+# Do nothing to simple identifiers
+select -assert-count 1 w:c
+select -assert-count 1 w:d_
+# Replace dollars with _
+# and resolve conflict with existing d_
+select -assert-count 1 w:d$
+# Public but starts with dollar is legal
+select -assert-count 1 w:$e
+# Colliding with keyword
+select -assert-count 1 w:wire
+# Don't touch internal names
+select -assert-count 1 w:$add$<<EOF:*$1_Y
+
+rename -unescape
+
+select -assert-count 1 w:a_0_
+select -assert-count 1 w:_0b
+select -assert-count 1 w:c
+select -assert-count 1 w:d_
+select -assert-count 1 w:d__1
+select -assert-count 1 w:_e
+select -assert-count 1 w:wire_
+select -assert-count 1 w:$add$<<EOF:*$1_Y
