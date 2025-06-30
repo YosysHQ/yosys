@@ -46,7 +46,10 @@ target_sources(yosys_kernel INTERFACE
     fmt.h
     functional.cc
     functional.h
+    gzip.cc
+    gzip.h
     hashlib.h
+    io.cc
     json.cc
     json.h
     log.cc
