@@ -52,4 +52,8 @@ module top (
     assign out1 = cone1_3 | (reg1 ^ 8'hA5);
     assign out2 = cone2_3 & (reg3 | 8'h5A);
 
+    always @(posedge clk) begin
+        assert (out1 == 8'h42);
+    end
+
 endmodule
