@@ -11,6 +11,7 @@ import re
 class State(Enum):
     OUTSIDE = auto()
     IN_MODULE = auto()
+    IN_MODULE_MULTILINE = auto()
     IN_PARAMETER = auto()
 
 _skip = { # These are already described, no need to extract them from the vendor files
@@ -47,12 +48,20 @@ def xtract_cells_decl(dir, fout):
                 fout.write(l)
                 if l[-1] != '\n':
                     fout.write('\n')
+                if l.rstrip()[-1] != ';':
+                    state = State.IN_MODULE_MULTILINE
             elif l.startswith('parameter') and state == State.IN_MODULE:
                 fout.write(l)
                 if l.rstrip()[-1] == ',':
                     state = State.IN_PARAMETER
                 if l[-1] != '\n':
                     fout.write('\n')
+            elif l and state == State.IN_MODULE_MULTILINE:
+                fout.write(l)
+                if l[-1] != '\n':
+                    fout.write('\n')
+                if l.rstrip()[-1] == ';':
+                    state = State.IN_MODULE
             elif state == State.IN_PARAMETER:
                 fout.write(l)
                 if l.rstrip()[-1] == ';':
@@ -64,6 +73,7 @@ def xtract_cells_decl(dir, fout):
                 fout.write('endmodule\n')
                 if l[-1] != '\n':
                     fout.write('\n')
+
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Extract Gowin blackbox cell definitions.')
