@@ -638,7 +638,7 @@ private:
 			}
 		}
 	}
-	void undriven(const char *name) {
+	void undriven(const std::string& name) {
 		log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
 			"Call setundef with appropriate options to avoid this error.\n", name);
 	}
@@ -646,7 +646,7 @@ private:
 	void check_undriven(DriveSpec const& spec, std::string const& name) {
 		for(auto const &chunk : spec.chunks())
 			if(chunk.is_none())
-				undriven(name.c_str());
+				undriven(name);
 	}
 public:
 	void process_queue()
