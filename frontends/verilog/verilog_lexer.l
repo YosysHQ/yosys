@@ -154,11 +154,132 @@ parser::symbol_type char_tok(char c, parser::location_type loc) {
 			return parser::make_ch_t(c, loc);
 	}
 }
+static bool is_hex_dig(char c, int *val, parser::location_type loc)
+{
+	if ('0' <= c && c <= '9') {
+		*val = c - '0';
+		return true;
+	} else if ('a' <= c && c <= 'f') {
+		*val = c - 'a' + 0xA;
+		return true;
+	} else if ('A' <= c && c <= 'F') {
+		*val = c - 'A' + 0xA;
+		return true;
+	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
+		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in hex escape sequence.\n", c);
+		*val = 0; // not semantically valid in hex escape...
+		return true; // ...but still processed as part of hex token
+	}
+
+	return false;
+}
+
+static bool is_oct_dig(char c, int *val, parser::location_type loc)
+{
+	if ('0' <= c && c <= '7') {
+		*val = c - '0';
+		return true;
+	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
+		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in octal escape sequence.\n", c);
+		*val = 0; // not semantically valid in octal escape...
+		return true; // ...but still processed as part of octal token
+	}
+
+	return false;
+}
+
+static parser::symbol_type process_str(char *str, int len, bool triple, parser::location_type loc)
+{
+	char *in, *out; // Overwrite input buffer: flex manual states "Actions
+		// are free to modify 'yytext' except for lengthening it".
+
+	for (in = str, out = str; in < str + len; in++)
+		switch (*in) {
+		case '\n':
+		case '\r':
+			if (in + 1 < str + len && (in[1] ^ *in) == ('\n' ^ '\r'))
+				in++;
+			if (!triple)
+				log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "Multi-line string literals should be triple-quoted or escaped.\n");
+			*out++ = '\n';
+			break;
+		case '\\':
+			in++;
+			log_assert(in < str + len);
+			switch (*in) {
+			case 'a':
+				*out++ = '\a';
+				break;
+			case 'f':
+				*out++ = '\f';
+				break;
+			case 'n':
+				*out++ = '\n';
+				break;
+			case 'r': /* not part of IEEE-1800 2023, but seems
+				     like a good idea to support it anyway */
+				*out++ = '\r';
+				break;
+			case 't':
+				*out++ = '\t';
+				break;
+			case 'v':
+				*out++ = '\v';
+				break;
+			case 'x':
+				int val;
+				if (in + 1 < str + len && is_hex_dig(in[1], &val, loc)) {
+					*out = val;
+					in++;
+					if (in + 1 < str + len && is_hex_dig(in[1], &val, loc)) {
+						*out = *out * 0x10 + val;
+						in++;
+					}
+					out++;
+				} else
+					log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "ignoring invalid hex escape.\n");
+				break;
+			case '\\':
+				*out++ = '\\';
+				break;
+			case '"':
+				*out++ = '"';
+				break;
+			case '\n':
+			case '\r':
+				if (in + 1 < str + len && (in[1] ^ *in) == ('\n' ^ '\r'))
+					in++;
+				break;
+			default:
+				if ('0' <= *in && *in <= '7') {
+					int val;
+
+					*out = *in - '0';
+					if (in + 1 < str + len && is_oct_dig(in[1], &val, loc)) {
+						*out = *out * 010 + val;
+						in++;
+						if (in + 1 < str + len && is_oct_dig(in[1], &val, loc)) {
+							if (*out >= 040)
+								log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "octal escape exceeds \\377\n");
+							*out = *out * 010 + val;
+							in++;
+						}
+					}
+					out++;
+				} else
+					*out++ = *in;
+			}
+			break;
+		default:
+			*out++ = *in;
+		}
+
+	return parser::make_TOK_STRING(std::make_unique<std::string>(str, out - str), loc);
+}
 
 %}
 
 %x COMMENT
-%x STRING
 %x SYNOPSYS_TRANSLATE_OFF
 %x SYNOPSYS_FLAGS
 %x IMPORT_DPI
@@ -371,47 +492,9 @@ TIME_SCALE_SUFFIX [munpf]?s
 	return parser::make_TOK_REALVAL(std::move(val), out_loc);
 }
 
-\"		{ BEGIN(STRING); }
-<STRING>([^\\"]|\\.)+	{ yymore(); }
-<STRING>\"	{
-	BEGIN(0);
-	char *yystr = strdup(YYText());
-	yystr[strlen(YYText()) - 1] = 0;
-	int i = 0, j = 0;
-	while (yystr[i]) {
-		if (yystr[i] == '\\' && yystr[i + 1]) {
-			i++;
-			if (yystr[i] == 'a')
-				yystr[i] = '\a';
-			else if (yystr[i] == 'f')
-				yystr[i] = '\f';
-			else if (yystr[i] == 'n')
-				yystr[i] = '\n';
-			else if (yystr[i] == 'r')
-				yystr[i] = '\r';
-			else if (yystr[i] == 't')
-				yystr[i] = '\t';
-			else if (yystr[i] == 'v')
-				yystr[i] = '\v';
-			else if ('0' <= yystr[i] && yystr[i] <= '7') {
-				yystr[i] = yystr[i] - '0';
-				if ('0' <= yystr[i + 1] && yystr[i + 1] <= '7') {
-					yystr[i + 1] = yystr[i] * 8 + yystr[i + 1] - '0';
-					i++;
-				}
-				if ('0' <= yystr[i + 1] && yystr[i + 1] <= '7') {
-					yystr[i + 1] = yystr[i] * 8 + yystr[i + 1] - '0';
-					i++;
-				}
-			}
-		}
-		yystr[j++] = yystr[i++];
-	}
-	yystr[j] = 0;
-	string_t val = std::make_unique<std::string>(yystr, j);
-	free(yystr);
-	return parser::make_TOK_STRING(std::move(val), out_loc);
-}
+\"([^\\"]|\\.|\\\n)*\"			{ return process_str(yytext + 1, yyleng - 2, false, out_loc); }
+
+\"{3}(\"{0,2}([^\\"]|\\.|\\\n))*\"{3}	{ return process_str(yytext + 3, yyleng - 6, true, out_loc); }
 
 and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
 	auto val = std::make_unique<std::string>(YYText());
