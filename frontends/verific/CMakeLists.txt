@@ -5,4 +5,4 @@ target_sources(yosys_frontends_verific INTERFACE
     #verificsva.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_verific)
+target_link_libraries(yosys PUBLIC yosys_frontends_verific)

@@ -6,4 +6,4 @@ target_sources(yosys_passes_tests INTERFACE
     test_abcloop.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_tests)
+target_link_libraries(yosys PUBLIC yosys_passes_tests)

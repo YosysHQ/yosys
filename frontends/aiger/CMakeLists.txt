@@ -5,4 +5,4 @@ target_sources(yosys_frontends_aiger INTERFACE
     aigerparse.h
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_aiger)
+target_link_libraries(yosys PUBLIC yosys_frontends_aiger)

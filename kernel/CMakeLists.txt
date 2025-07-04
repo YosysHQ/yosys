@@ -10,7 +10,7 @@ find_package(Git)
 if(Git_FOUND)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} rev-parse --short=9 HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${yosys_SOURCE_DIR}
         OUTPUT_VARIABLE CURRENT_GIT_VERSION
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -34,7 +34,7 @@ target_sources(yosys_kernel INTERFACE
     constids.inc
     cost.cc
     cost.h
-    driver.cc
+    # driver.cc
     drivertools.cc
     drivertools.h
     ff.cc
@@ -90,4 +90,4 @@ target_sources(yosys_kernel INTERFACE
 )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_kernel)
+target_link_libraries(yosys PUBLIC yosys_kernel)

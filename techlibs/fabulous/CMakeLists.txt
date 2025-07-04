@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_fabulous INTERFACE
     synth_fabulous.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_fabulous)
+target_link_libraries(yosys PUBLIC yosys_techlibs_fabulous)
 
 add_share_file("share/fabulous" "cells_map.v")
 add_share_file("share/fabulous" "prims.v")

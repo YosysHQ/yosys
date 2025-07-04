@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_ecp5 INTERFACE
     synth_ecp5.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_ecp5)
+target_link_libraries(yosys PUBLIC yosys_techlibs_ecp5)
 
 add_share_file("share/ecp5" "cells_ff.vh")
 add_share_file("share/ecp5" "cells_io.vh")

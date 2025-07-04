@@ -10,4 +10,4 @@ target_sources(yosys_frontends_ast INTERFACE
     simplify.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_ast)
+target_link_libraries(yosys PUBLIC yosys_frontends_ast)

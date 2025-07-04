@@ -4,4 +4,4 @@ target_sources(yosys_backends_intersynth INTERFACE
     intersynth.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_intersynth)
+target_link_libraries(yosys PUBLIC yosys_backends_intersynth)

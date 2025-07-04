@@ -24,4 +24,4 @@ target_sources(yosys_passes_opt INTERFACE
     muxpack.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_opt)
+target_link_libraries(yosys PUBLIC yosys_passes_opt)

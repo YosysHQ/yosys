@@ -1,12 +1,16 @@
 add_library(yosys_techlibs_quicklogic INTERFACE)
 
 function(pmgen_command  _name)
+    set(CUSTOM_TARGET_NAME ${_name}_pm_gen)
+    set(GENERATED_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${_name}_pm.h)
     add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_name}_pm.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/passes/pmgen/pmgen.py -o ${CMAKE_CURRENT_BINARY_DIR}/${_name}_pm.h -p ${_name} ${CMAKE_CURRENT_SOURCE_DIR}/${_name}.pmg
-        DEPENDS ${CMAKE_SOURCE_DIR}/passes/pmgen/pmgen.py ${CMAKE_CURRENT_SOURCE_DIR}/${_name}.pmg
+        OUTPUT ${GENERATED_HEADER}
+        COMMAND ${Python3_EXECUTABLE} ${yosys_SOURCE_DIR}/passes/pmgen/pmgen.py -o ${GENERATED_HEADER} -p ${_name} ${CMAKE_CURRENT_SOURCE_DIR}/${_name}.pmg
+        DEPENDS ${yosys_SOURCE_DIR}/passes/pmgen/pmgen.py ${CMAKE_CURRENT_SOURCE_DIR}/${_name}.pmg
         COMMENT "Generating passes/pmgen/${_name}_pm.h..."
     )
+    add_custom_target(${CUSTOM_TARGET_NAME} DEPENDS ${GENERATED_HEADER})
+    add_dependencies(yosys_techlibs_quicklogic ${CUSTOM_TARGET_NAME})
 endfunction()
 
 pmgen_command(ql_dsp_macc)
@@ -29,12 +33,12 @@ add_custom_command(
 	COMMENT "Generating techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v..."
 )
 
-target_sources(yosys_techlibs_quicklogic PRIVATE 
-    ${CMAKE_CURRENT_BINARY_DIR}/ql_dsp_macc_pm.h
-    ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
+target_sources(yosys_techlibs_quicklogic PUBLIC 
+    # ${CMAKE_CURRENT_BINARY_DIR}/ql_dsp_macc_pm.h
+    # ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_quicklogic)
+target_link_libraries(yosys PUBLIC yosys_techlibs_quicklogic)
 
 add_share_file("share/quicklogic/common" "common/cells_sim.v")
 add_share_file("share/quicklogic/pp3" "pp3/ffs_map.v")

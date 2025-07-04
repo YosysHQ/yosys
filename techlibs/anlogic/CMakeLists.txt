@@ -6,7 +6,7 @@ target_sources(yosys_techlibs_anlogic INTERFACE
     anlogic_fixcarry.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_anlogic)
+target_link_libraries(yosys PUBLIC yosys_techlibs_anlogic)
 
 add_share_file("share/anlogic" "cells_map.v")
 add_share_file("share/anlogic" "arith_map.v")

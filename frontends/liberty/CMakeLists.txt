@@ -4,4 +4,4 @@ target_sources(yosys_frontends_liberty INTERFACE
     liberty.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_liberty)
+target_link_libraries(yosys PUBLIC yosys_frontends_liberty)

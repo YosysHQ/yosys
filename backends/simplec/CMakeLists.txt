@@ -4,4 +4,4 @@ target_sources(yosys_backends_simplec INTERFACE
     simplec.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_simplec)
+target_link_libraries(yosys PUBLIC yosys_backends_simplec)

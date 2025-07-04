@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_nexus INTERFACE
     synth_nexus.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_nexus)
+target_link_libraries(yosys PUBLIC yosys_techlibs_nexus)
 
 add_share_file("share/nexus" "cells_map.v")
 add_share_file("share/nexus" "cells_sim.v")

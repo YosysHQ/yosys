@@ -4,7 +4,7 @@ target_sources(yosys_backends_cxxrtl INTERFACE
     cxxrtl_backend.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_cxxrtl)
+target_link_libraries(yosys PUBLIC yosys_backends_cxxrtl)
 
 add_include_file("backends/cxxrtl/runtime/cxxrtl" "runtime/cxxrtl/cxxrtl.h")
 add_include_file("backends/cxxrtl/runtime/cxxrtl" "runtime/cxxrtl/cxxrtl_vcd.h")

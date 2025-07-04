@@ -13,4 +13,4 @@ target_sources(yosys_passes_fsm INTERFACE
     fsmdata.h
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_fsm)
+target_link_libraries(yosys PUBLIC yosys_passes_fsm)

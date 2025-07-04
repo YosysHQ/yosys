@@ -53,7 +53,7 @@ if (ENABLE_ABC)
     )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_passes_techmap)
+target_link_libraries(yosys PUBLIC yosys_passes_techmap)
 
 if (NOT DISABLE_SPAWN)
     set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})

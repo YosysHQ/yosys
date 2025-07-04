@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_intel_alm INTERFACE
     synth_intel_alm.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_intel_alm)
+target_link_libraries(yosys PUBLIC yosys_techlibs_intel_alm)
 
 # Techmap
 add_share_file("share/intel_alm/common" "common/abc9_map.v")

@@ -27,7 +27,7 @@ target_sources(yosys_techlib_common INTERFACE
 
 add_dependencies(yosys_techlib_common yosys_techlib_common_gen)
 
-target_link_libraries(yosys PRIVATE yosys_techlib_common)
+target_link_libraries(yosys PUBLIC yosys_techlib_common)
 
 add_share_file("share" "simlib.v")
 add_share_file("share" "simcells.v")
