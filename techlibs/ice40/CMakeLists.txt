@@ -6,7 +6,7 @@ target_sources(yosys_techlibs_ice40 INTERFACE
     ice40_opt.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_ice40)
+target_link_libraries(yosys PUBLIC yosys_techlibs_ice40)
 
 add_share_file("share/ice40" "arith_map.v")
 add_share_file("share/ice40" "cells_map.v")

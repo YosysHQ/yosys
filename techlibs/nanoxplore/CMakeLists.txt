@@ -5,7 +5,7 @@ target_sources(yosys_techlibs_nanoxplore INTERFACE
     nx_carry.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_nanoxplore)
+target_link_libraries(yosys PUBLIC yosys_techlibs_nanoxplore)
 
 # Techmap
 add_share_file("share/nanoxplore" "arith_map.v")

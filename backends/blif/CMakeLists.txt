@@ -4,4 +4,4 @@ target_sources(yosys_backends_blif INTERFACE
     blif.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_blif)
+target_link_libraries(yosys PUBLIC yosys_backends_blif)

@@ -67,4 +67,4 @@ target_sources(yosys_libs INTERFACE
 )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_libs)
+target_link_libraries(yosys PUBLIC yosys_libs)

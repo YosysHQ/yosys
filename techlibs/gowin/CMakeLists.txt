@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_gowin INTERFACE
     synth_gowin.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_gowin)
+target_link_libraries(yosys PUBLIC yosys_techlibs_gowin)
 
 add_share_file("share/gowin" "cells_map.v")
 add_share_file("share/gowin" "cells_sim.v")

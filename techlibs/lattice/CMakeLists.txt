@@ -5,7 +5,7 @@ target_sources(yosys_techlibs_lattice INTERFACE
     lattice_gsr.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_lattice)
+target_link_libraries(yosys PUBLIC yosys_techlibs_lattice)
 
 add_share_file("share/lattice" "cells_ff.vh")
 add_share_file("share/lattice" "cells_io.vh")

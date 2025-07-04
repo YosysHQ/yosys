@@ -4,4 +4,4 @@ target_sources(yosys_backends_edif INTERFACE
     edif.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_edif)
+target_link_libraries(yosys PUBLIC yosys_backends_edif)

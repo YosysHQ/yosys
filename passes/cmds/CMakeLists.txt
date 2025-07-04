@@ -49,6 +49,8 @@ target_sources(yosys_passes_cmds INTERFACE
     portarcs.cc
     wrapcell.cc
     setenv.cc
+    test_select.cc
+    abstract.cc
 )
 
 if (NOT DISABLE_SPAWN)
@@ -58,4 +60,4 @@ target_sources(yosys_passes_cmds INTERFACE
 )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_passes_cmds)
+target_link_libraries(yosys PUBLIC yosys_passes_cmds)

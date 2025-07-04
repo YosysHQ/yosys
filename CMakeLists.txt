@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(yosys LANGUAGES CXX C)
 set(YOSYS_VER "0.50+1")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # features (the more the better)
 
@@ -53,12 +54,12 @@ if (ENABLE_ABC)
     add_subdirectory(abc EXCLUDE_FROM_ALL)
 
     add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/yosys-abc
+        OUTPUT ${yosys_BINARY_DIR}/yosys-abc
         DEPENDS abc  # Depend on the target, not the generator expression
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:abc> ${CMAKE_BINARY_DIR}/yosys-abc
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:abc> ${yosys_BINARY_DIR}/yosys-abc
     )
 
-    add_custom_target(yosys-abc-copy ALL DEPENDS ${CMAKE_BINARY_DIR}/yosys-abc)
+    add_custom_target(yosys-abc-copy ALL DEPENDS ${yosys_BINARY_DIR}/yosys-abc)
 endif()
 
 set(CMAKE_CXX_STANDARD ${CXXSTD})
@@ -73,13 +74,18 @@ find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.0 REQUIRED)
 find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
-add_executable(yosys)
-#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-#target_compile_definitions(yosys PRIVATE _YOSYS_)
+add_library(yosys STATIC)
+#target_include_directories(yosys PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+#target_include_directories(yosys PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+#target_compile_definitions(yosys PUBLIC _YOSYS_)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(yosys PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_compile_definitions(_YOSYS_)
+target_compile_definitions(yosys PUBLIC _YOSYS_)
 
 if (ENABLE_READLINE AND ENABLE_EDITLINE)
     message(FATAL_ERROR "Not possible to enable both ENABLE_READLINE and ENABLE_EDITLINE")
@@ -88,26 +94,26 @@ endif()
 if (ENABLE_READLINE)
     find_package(Readline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_READLINE)
-    target_link_libraries(yosys PRIVATE ${READLINE_LIBRARY})
+    target_link_libraries(yosys PUBLIC ${READLINE_LIBRARY})
 endif()
 
 if (ENABLE_EDITLINE)
     find_package(Editline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_EDITLINE)
-    target_link_libraries(yosys PRIVATE ${EDITLINE_LIBRARY})
+    target_link_libraries(yosys PUBLIC ${EDITLINE_LIBRARY})
 endif()
 
 if (ENABLE_TCL)
     find_package(TCL 8.6 REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_TCL)
-    target_include_directories(yosys PRIVATE ${TCL_INCLUDE_PATH})
-    target_link_libraries(yosys PRIVATE ${TCL_LIBRARY})
+    target_include_directories(yosys PUBLIC ${TCL_INCLUDE_PATH})
+    target_link_libraries(yosys PUBLIC ${TCL_LIBRARY})
 endif()
 
 if (ENABLE_ZLIB)
     find_package(ZLIB REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_ZLIB)
-    target_link_libraries(yosys PRIVATE ZLIB::ZLIB)
+    target_link_libraries(yosys PUBLIC ZLIB::ZLIB)
 endif()
 
 if (ENABLE_COVER)
@@ -140,7 +146,7 @@ if (ENABLE_ABC)
     add_compile_definitions(YOSYS_ENABLE_ABC)
     if (LINK_ABC)
         add_compile_definitions(YOSYS_LINK_ABC)
-        target_link_libraries(yosys PRIVATE $<TARGET_FILE:libabc>)
+        target_link_libraries(yosys PUBLIC $<TARGET_FILE:libabc>)
         add_dependencies(yosys libabc)
     endif()        
 endif()
@@ -149,7 +155,7 @@ if (ENABLE_PLUGINS)
     find_package(LibFFI REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_PLUGINS)
     include_directories(${LIBFFI_INCLUDE_DIR})
-    target_link_libraries(yosys PRIVATE ${LIBFFI_LIBRARY})
+    target_link_libraries(yosys PUBLIC ${LIBFFI_LIBRARY})
 endif()
 
 if (DISABLE_SPAWN)
@@ -283,3 +289,171 @@ if (ENABLE_ZLIB)
 endif()
 
 set_property(SOURCE kernel/log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC="${PROJECT_SOURCE_DIR}")
+
+if (ENABLE_LIBYOSYS)
+    add_library(yosys_shared SHARED)
+    target_link_libraries(yosys_shared PUBLIC yosys)
+    set_target_properties(yosys_shared PROPERTIES OUTPUT_NAME yosys)
+    install(TARGETS yosys_shared
+            LIBRARY DESTINATION .)
+endif()
+
+add_executable(yosys_exe
+    kernel/driver.cc)
+target_link_libraries(yosys_exe PUBLIC yosys)
+set_target_properties(yosys_exe PROPERTIES OUTPUT_NAME yosys)
+
+#### yosys-config setup ####
+# compiler
+get_filename_component(_CXX_BASENAME "${CMAKE_CXX_COMPILER}" NAME)
+set(YOSYS_CFG_CXX "${_CXX_BASENAME}"
+        CACHE STRING "C++ compiler that appears in yosys-config")
+
+# compile flags
+set(_CFG_CXXFLAGS
+        -Wall -Wextra -ggdb
+        "-I\"${CMAKE_INSTALL_PREFIX}/share/yosys/include\""
+        -MD -MP -D_YOSYS_ -fPIC
+        -I${CMAKE_INSTALL_PREFIX}/include
+        -std=c++${CXXSTD} -O3)
+
+if (ENABLE_READLINE)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_READLINE)
+endif()
+if (ENABLE_PLUGINS)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_PLUGINS)
+endif()
+if (ENABLE_GLOB)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_GLOB)
+endif()
+if (ENABLE_ZLIB)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_ZLIB)
+endif()
+if (ENABLE_TCL)
+    list(APPEND _CFG_CXXFLAGS -I${TCL_INCLUDE_PATH} -DYOSYS_ENABLE_TCL)
+endif()
+if (ENABLE_ABC)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_ABC)
+endif()
+if (ENABLE_COVER)
+    list(APPEND _CFG_CXXFLAGS -DYOSYS_ENABLE_COVER)
+endif()
+
+string (REPLACE ";" " " YOSYS_CFG_CXXFLAGS "${_CFG_CXXFLAGS}")
+
+# link flags
+set(YOSYS_CFG_LINKFLAGS "-rdynamic" CACHE STRING "link flags for yosys-config")
+
+# libraries
+set(_CFG_LIBS -lstdc++ -lm)
+if (NOT (${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD"))
+    list(APPEND _CFG_LIBS -lrt)
+endif()
+if (ENABLE_READLINE)
+    list(APPEND _CFG_LIBS -lreadline)
+endif()
+if (ENABLE_PLUGINS)
+    list(APPEND _CFG_LIBS -lffi)
+    if (NOT APPLE)
+        list(APPEND _CFG_LIBS -ldl)
+    endif()
+endif()
+if (ENABLE_ZLIB)
+    list(APPEND _CFG_LIBS -lz)
+endif()
+if (ENABLE_TCL)
+    get_filename_component(_TCL "${TCL_LIBRARY}" NAME_WE)
+    string(REGEX REPLACE "^lib" "" _TCL "${_TCL}")
+    list(APPEND _CFG_LIBS "-l${_TCL}")
+endif()
+string (REPLACE ";" " " YOSYS_CFG_LIBS "${_CFG_LIBS}")
+
+# bindir / datadir (installation paths)
+set(YOSYS_CFG_PREFIX "/usr/local"
+    CACHE STRING "prefix that yosys-config reports")
+
+set(YOSYS_CFG_BINDIR "${YOSYS_CFG_PREFIX}/bin")
+set(YOSYS_CFG_DATDIR "${YOSYS_CFG_PREFIX}/share/yosys")
+
+# abort if something is missing
+foreach(var YOSYS_CFG_CXX YOSYS_CFG_CXXFLAGS YOSYS_CFG_LINKFLAGS
+        YOSYS_CFG_LIBS YOSYS_CFG_BINDIR YOSYS_CFG_DATDIR)
+    if("${${var}}" STREQUAL "")
+        message(FATAL_ERROR "${var} is empty – cannot create yosys-config")
+    endif()
+endforeach()
+
+set(CXX        "${YOSYS_CFG_CXX}")
+set(CXXFLAGS   "${YOSYS_CFG_CXXFLAGS}")
+set(LINKFLAGS  "${YOSYS_CFG_LINKFLAGS}")
+set(LIBS       "${YOSYS_CFG_LIBS}")
+set(BINDIR     "${YOSYS_CFG_BINDIR}")
+set(DATDIR     "${YOSYS_CFG_DATDIR}")
+
+configure_file(misc/yosys-config.in ${yosys_BINARY_DIR}/yosys-config @ONLY)
+file(CHMOD ${yosys_BINARY_DIR}/yosys-config
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+        GROUP_READ GROUP_EXECUTE
+        WORLD_READ WORLD_EXECUTE)
+
+add_custom_target(yosys-config-copy ALL
+        DEPENDS ${yosys_BINARY_DIR}/yosys-config)
+
+#### INSTALL ####
+install(TARGETS yosys
+        RUNTIME DESTINATION .)
+
+if (ENABLE_ABC)
+    install(PROGRAMS $<TARGET_FILE:abc>
+            DESTINATION .
+            RENAME yosys-abc)
+endif()
+
+install(PROGRAMS ${yosys_BINARY_DIR}/yosys-config DESTINATION .)
+
+#### TESTING ####
+include(cmake/TestFiles.cmake)
+enable_testing()
+
+set(_YOSYS_TEST_ENV
+    "PATH=${PROJECT_SOURCE_DIR}:$ENV{PATH};")
+
+foreach(dir IN LISTS SH_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    seed-tests.${name}
+        COMMAND bash -c
+                "cd \"${PROJECT_SOURCE_DIR}/${dir}\" && bash run-test.sh ${SEEDOPT}"
+    )
+    set_tests_properties(seed-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys)
+endforeach()
+
+foreach(dir IN LISTS SH_ABC_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    abcopt-tests.${name}
+        COMMAND bash -c
+                "cd \"${PROJECT_SOURCE_DIR}/${dir}\" && bash run-test.sh ${ABCOPT} ${SEEDOPT}"
+    )
+    set_tests_properties(abcopt-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys)
+endforeach()
+
+foreach(dir IN LISTS MK_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    makefile-tests.${name}
+        COMMAND bash -c
+                "
+                cd \"${PROJECT_SOURCE_DIR}/${dir}\" &&
+                bash run-test.sh &&
+                ${CMAKE_MAKE_PROGRAM} -f run-test.mk
+                "
+    )
+    set_tests_properties(makefile-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys)
+endforeach()

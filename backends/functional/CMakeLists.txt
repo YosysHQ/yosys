@@ -7,4 +7,4 @@ target_sources(yosys_backends_functional INTERFACE
     test_generic.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_functional)
+target_link_libraries(yosys PUBLIC yosys_backends_functional)

@@ -5,4 +5,4 @@ target_sources(yosys_backends_rtlil INTERFACE
     rtlil_backend.h
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_rtlil)
+target_link_libraries(yosys PUBLIC yosys_backends_rtlil)

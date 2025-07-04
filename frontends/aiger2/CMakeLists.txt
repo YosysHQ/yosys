@@ -4,4 +4,4 @@ target_sources(yosys_frontends_aiger2 INTERFACE
     xaiger.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_frontends_aiger2)
+target_link_libraries(yosys PUBLIC yosys_frontends_aiger2)

@@ -4,4 +4,4 @@ target_sources(yosys_backends_spice INTERFACE
     spice.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_spice)
+target_link_libraries(yosys PUBLIC yosys_backends_spice)

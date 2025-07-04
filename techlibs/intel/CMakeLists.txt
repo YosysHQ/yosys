@@ -4,7 +4,7 @@ target_sources(yosys_techlibs_intel INTERFACE
     synth_intel.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_intel)
+target_link_libraries(yosys PUBLIC yosys_techlibs_intel)
 
 add_share_file("share/intel/common" "common/m9k_bb.v")
 add_share_file("share/intel/common" "common/altpll_bb.v")

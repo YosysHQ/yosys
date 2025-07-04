@@ -5,7 +5,7 @@ target_sources(yosys_techlibs_xilinx INTERFACE
     xilinx_dffopt.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_xilinx)
+target_link_libraries(yosys PUBLIC yosys_techlibs_xilinx)
 
 add_share_file("share/xilinx" "cells_map.v")
 add_share_file("share/xilinx" "cells_sim.v")

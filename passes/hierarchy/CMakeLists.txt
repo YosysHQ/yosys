@@ -7,4 +7,4 @@ target_sources(yosys_passes_hierarchy INTERFACE
     keep_hierarchy.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_hierarchy)
+target_link_libraries(yosys PUBLIC yosys_passes_hierarchy)

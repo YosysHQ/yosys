@@ -17,4 +17,4 @@ target_sources(yosys_passes_memory INTERFACE
     memlib.h
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_memory)
+target_link_libraries(yosys PUBLIC yosys_passes_memory)

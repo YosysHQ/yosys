@@ -4,4 +4,4 @@ target_sources(yosys_backends_firrtl INTERFACE
     firrtl.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_backends_firrtl)
+target_link_libraries(yosys PUBLIC yosys_backends_firrtl)
