@@ -9,6 +9,7 @@ do
     opt_merge
     opt_share  (-full only)
     opt_dff  (except when called with -noff)
+    opt_hier (-hier only)
     opt_clean
     opt_expr
 while <changed design>
