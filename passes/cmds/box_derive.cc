@@ -17,9 +17,60 @@
  *
  */
 #include "kernel/yosys.h"
+#include "kernel/celltypes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+struct LibertyStubber {
+	CellTypes ct;
+	CellTypes ct_ff;
+	LibertyStubber() {
+		ct.setup();
+		ct.setup_internals_ff();
+	}
+	void liberty_prefix(std::ostream& f)
+	{
+		f << "library (yosys) {\n";
+		f << "\tinput_threshold_pct_fall : 50;\n";
+		f << "\tinput_threshold_pct_rise : 50;\n";
+		f << "\toutput_threshold_pct_fall : 50;\n";
+		f << "\toutput_threshold_pct_rise : 50;\n";
+		f << "\tslew_lower_threshold_pct_fall : 1;\n";
+		f << "\tslew_lower_threshold_pct_rise : 1;\n";
+		f << "\tslew_upper_threshold_pct_fall : 99;\n";
+		f << "\tslew_upper_threshold_pct_rise : 99;\n";
+	}
+	void liberty_suffix(std::ostream& f)
+	{
+		f << "}\n";
+	}
+	void liberty_cell(Module* base, Module* derived, std::ostream& f)
+	{
+		auto base_name = base->name.str().substr(1);
+		auto derived_name = derived->name.str().substr(1);
+		if (!ct.cell_types.count(base_name)) {
+			log_debug("skip skeleton for %s\n", base_name.c_str());
+			return;
+		}
+		auto& base_type = ct.cell_types[base_name];
+		f << "\tcell (" << derived_name << ") {\n";
+		for (auto x : derived->ports) {
+			bool is_input = base_type.inputs.count(x);
+			bool is_output = base_type.outputs.count(x);
+			f << "\t\tpin (" << RTLIL::unescape_id(x.str()) << ") {\n";
+			if (is_input && !is_output) {
+				f << "\t\t\tdirection : input;\n";
+			} else if (!is_input && is_output) {
+				f << "\t\t\tdirection : output;\n";
+			} else {
+				f << "\t\t\tdirection : inout;\n";
+			}
+			f << "\t\t}\n";
+		}
+		f << "\t}\n";
+	}
+};
 
 struct BoxDerivePass : Pass {
 	BoxDerivePass() : Pass("box_derive", "derive box modules") {}
@@ -51,6 +102,8 @@ struct BoxDerivePass : Pass {
 		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
 		log("        modules start with '$paramod$')\n");
 		log("\n");
+		log("    -liberty <file>\n"); // TODO
+		log("\n");
 		log("    -apply\n");
 		log("        use the derived modules\n");
 		log("\n");
@@ -62,18 +115,31 @@ struct BoxDerivePass : Pass {
 		size_t argidx;
 		IdString naming_attr;
 		IdString base_name;
+		std::string liberty_filename;
+		std::ofstream* liberty_file = new std::ofstream;
+
 		bool apply_mode;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-naming_attr" && argidx + 1 < args.size())
 				naming_attr = RTLIL::escape_id(args[++argidx]);
 			else if (args[argidx] == "-base" && argidx + 1 < args.size())
 				base_name = RTLIL::escape_id(args[++argidx]);
+			else if (args[argidx] == "-liberty" && argidx + 1 < args.size())
+				liberty_filename = args[++argidx];
 			else if (args[argidx] == "-apply")
 				apply_mode = true;
 			else
 				break;
 		}
 		extra_args(args, argidx, d);
+
+		if (liberty_filename.size()) {
+			liberty_file->open(liberty_filename.c_str());
+			if (liberty_file->fail()) {
+				delete liberty_file;
+				log_error("Can't open file `%s' for writing: %s\n", liberty_filename.c_str(), strerror(errno));
+			}
+		}
 
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {
@@ -83,6 +149,10 @@ struct BoxDerivePass : Pass {
 		}
 
 		dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Module*> done;
+		LibertyStubber stubber = {};
+
+		if (liberty_file)
+			stubber.liberty_prefix(*liberty_file);
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
@@ -114,12 +184,21 @@ struct BoxDerivePass : Pass {
 						d->rename(derived, new_name);
 					}
 
+					if (liberty_file)
+						stubber.liberty_cell(base, derived, *liberty_file);
 					done[index] = derived;
 				}
 
-				if (apply_mode)
+				if (apply_mode) {
 					cell->type = done[index]->name;
+					cell->parameters.clear();
+				}
 			}
+		}
+
+		if (liberty_file) {
+			stubber.liberty_suffix(*liberty_file);
+			delete liberty_file;
 		}
 	}
 } BoxDerivePass;
