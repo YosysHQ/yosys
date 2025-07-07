@@ -276,7 +276,7 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("    rename -unescape [selection]\n");
 		log("\n");
-		log("Rename all selected public wires and cells that have to be escaped.\n");
+		log("Rename all selected public wires and cells that have to be escaped in Verilog.\n");
 		log("Replaces characters with underscores or adds additional underscores and numbers.\n");
 		log("\n");
 	}
