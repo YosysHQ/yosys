@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "backends/verilog/verilog_backend.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -186,6 +187,26 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 	return has_witness_signals;
 }
 
+static std::string renamed_unescaped(const std::string& str)
+{
+	std::string new_str = "";
+
+	if ('0' <= str[0] && str[0] <= '9')
+		new_str = '_' + new_str;
+
+	for (char c : str) {
+		if (VERILOG_BACKEND::char_is_verilog_escaped(c))
+			new_str += '_';
+		else
+			new_str += c;
+	}
+
+	if (VERILOG_BACKEND::verilog_keywords().count(str))
+		new_str += "_";
+
+	return new_str;
+}
+
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
 	void help() override
@@ -252,6 +273,12 @@ struct RenamePass : public Pass {
 		log("can be used to change the random number generator seed from the default, but it\n");
 		log("must be non-zero.\n");
 		log("\n");
+		log("\n");
+		log("    rename -unescape [selection]\n");
+		log("\n");
+		log("Rename all selected public wires and cells that have to be escaped in Verilog.\n");
+		log("Replaces characters with underscores or adds additional underscores and numbers.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -265,6 +292,7 @@ struct RenamePass : public Pass {
 		bool flag_top = false;
 		bool flag_output = false;
 		bool flag_scramble_name = false;
+		bool flag_unescape = false;
 		bool got_mode = false;
 		unsigned int seed = 1;
 
@@ -309,6 +337,11 @@ struct RenamePass : public Pass {
 			}
 			if (arg == "-scramble-name" && !got_mode) {
 				flag_scramble_name = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-unescape" && !got_mode) {
+				flag_unescape = true;
 				got_mode = true;
 				continue;
 			}
@@ -482,6 +515,48 @@ struct RenamePass : public Pass {
 				for (auto cell : module->selected_cells()) {
 					seed = mkhash_xorshift(seed);
 					new_cell_names[cell] = stringf("$_%u_", seed);
+				}
+
+				for (auto &it : new_wire_names)
+					module->rename(it.first, it.second);
+
+				for (auto &it : new_cell_names)
+					module->rename(it.first, it.second);
+			}
+		}
+		else if (flag_unescape)
+		{
+			extra_args(args, argidx, design);
+
+			for (auto module : design->selected_modules())
+			{
+				dict<RTLIL::Wire *, IdString> new_wire_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
+
+				for (auto wire : module->selected_wires()) {
+					auto name = wire->name.str();
+					if (name[0] != '\\')
+						continue;
+					name = name.substr(1);
+					if (!VERILOG_BACKEND::id_is_verilog_escaped(name))
+						continue;
+					new_wire_names[wire] = module->uniquify("\\" + renamed_unescaped(name));
+					auto new_name = new_wire_names[wire].str().substr(1);
+					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
+						log_error("Failed to rename wire %s -> %s\n", name.c_str(), new_name.c_str());
+				}
+
+				for (auto cell : module->selected_cells()) {
+					auto name = cell->name.str();
+					if (name[0] != '\\')
+						continue;
+					name = name.substr(1);
+					if (!VERILOG_BACKEND::id_is_verilog_escaped(name))
+						continue;
+					new_cell_names[cell] = module->uniquify("\\" + renamed_unescaped(name));
+					auto new_name = new_cell_names[cell].str().substr(1);
+					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
+						log_error("Failed to rename cell %s -> %s\n", name.c_str(), new_name.c_str());
 				}
 
 				for (auto &it : new_wire_names)
