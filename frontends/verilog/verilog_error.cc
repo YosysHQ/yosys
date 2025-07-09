@@ -25,6 +25,12 @@
 
 USING_YOSYS_NAMESPACE
 
+/**
+ * Legacy behavior is to only track lines. Now we have columns too, but we don't
+ * report them in errors.
+ * TODO: report columns, too
+ */
+
 [[noreturn]]
 static void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap)
 {
@@ -34,14 +40,6 @@ static void verr_at(std::string filename, int begin_line, char const *fmt, va_li
     p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
     YOSYS_NAMESPACE_PREFIX log_file_error(filename, begin_line, "%s", buffer);
     exit(1);
-}
-
-void VERILOG_FRONTEND::err_at_ast(AST::AstSrcLocType loc, char const *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    verr_at(*loc.begin.filename, loc.begin.line, fmt, args);
-    va_end(args);
 }
 
 [[noreturn]]
