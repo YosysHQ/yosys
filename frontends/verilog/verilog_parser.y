@@ -200,7 +200,7 @@
 			if (type_node->range_left >= 0 && type_node->range_right >= 0) {
 				// type already restricts the range
 				if (range_node) {
-					err_at_ast(type_node->location, "integer/genvar types cannot have packed dimensions.");
+					err_at_loc(type_node->location, "integer/genvar types cannot have packed dimensions.");
 				}
 				else {
 					range_node = makeRange(type_node->location, type_node->range_left, type_node->range_right, false);
@@ -217,7 +217,7 @@
 					}
 				}
 				if (!valid)
-					err_at_ast(type_node->location, "wire/reg/logic packed dimension must be of the form [<expr>:<expr>]");
+					err_at_loc(type_node->location, "wire/reg/logic packed dimension must be of the form [<expr>:<expr>]");
 			}
 
 			return range_node;
