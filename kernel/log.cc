@@ -664,15 +664,9 @@ const char *log_const(const RTLIL::Const &value, bool autoint)
 
 const char *log_id(const RTLIL::IdString &str)
 {
-	log_id_cache.push_back(strdup(str.c_str()));
-	const char *p = log_id_cache.back();
-	if (p[0] != '\\')
-		return p;
-	if (p[1] == '$' || p[1] == '\\' || p[1] == 0)
-		return p;
-	if (p[1] >= '0' && p[1] <= '9')
-		return p;
-	return p+1;
+	std::string unescaped = RTLIL::unescape_id(str);
+	log_id_cache.push_back(strdup(unescaped.c_str()));
+	return log_id_cache.back();
 }
 
 const char *log_str(const char *str)
