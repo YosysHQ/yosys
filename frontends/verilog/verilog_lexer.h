@@ -7,6 +7,11 @@
 #include <string>
 #include <memory>
 
+#if ! defined(yyFlexLexerOnce)
+#define yyFlexLexer frontend_verilog_yyFlexLexer
+#include <FlexLexer.h>
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace VERILOG_FRONTEND {
