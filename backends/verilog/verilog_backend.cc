@@ -1163,9 +1163,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI3_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI3_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI3_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI3_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" ");
 		dump_cell_expr_port(f, cell, "C", false);
@@ -1178,13 +1178,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI4_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI4_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" (");
 		dump_cell_expr_port(f, cell, "C", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "D", false);
 		f << stringf("));\n");
 		return true;
@@ -1407,7 +1407,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (!noattr)
 				f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 			f << stringf("%s" "  casez (s)", indent.c_str());
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+			f << (noattr ? " // synopsys parallel_case\n" : "\n");
 		}
 
 		for (int i = 0; i < s_width; i++)
