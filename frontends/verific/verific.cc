@@ -4124,6 +4124,9 @@ struct VerificPass : public Pass {
 			if (argidx > GetSize(args) && args[argidx].compare(0, 1, "-") == 0)
 				cmd_error(args, argidx, "unknown option");
 
+			if ((unsigned long)verific_sva_fsm_limit >= sizeof(1ull)*8)
+				log_cmd_error("-L %d: limit too large; maximum allowed value is %zu.\n", verific_sva_fsm_limit, sizeof(1ull)*8-1);
+
 			std::set<std::string> top_mod_names;
 
 			if (mode_all)

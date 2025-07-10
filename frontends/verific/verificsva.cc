@@ -479,14 +479,14 @@ struct SvaFsm
 					GetSize(dnode.ctrl), verific_sva_fsm_limit);
 		}
 
-		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
+		for (unsigned long long i = 0; i < (1ull << GetSize(dnode.ctrl)); i++)
 		{
 			Const ctrl_val(i, GetSize(dnode.ctrl));
 			pool<SigBit> ctrl_bits;
 
-			for (int i = 0; i < GetSize(dnode.ctrl); i++)
-				if (ctrl_val[i] == State::S1)
-					ctrl_bits.insert(dnode.ctrl[i]);
+			for (int j = 0; j < GetSize(dnode.ctrl); j++)
+				if (ctrl_val[j] == State::S1)
+					ctrl_bits.insert(dnode.ctrl[j]);
 
 			vector<int> new_state;
 			bool accept = false, cond = false;
