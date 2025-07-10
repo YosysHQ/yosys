@@ -10,6 +10,7 @@ frontends/verilog/verilog_parser.tab.cc: frontends/verilog/verilog_parser.y
 
 frontends/verilog/verilog_parser.tab.hh: frontends/verilog/verilog_parser.tab.cc
 
+frontends/verilog/verilog_frontend.o: frontends/verilog/verilog_parser.tab.hh
 frontends/verilog/preproc.o: frontends/verilog/verilog_parser.tab.hh
 
 frontends/verilog/verilog_lexer.h: frontends/verilog/verilog_parser.tab.hh
