@@ -121,7 +121,7 @@ extern int log_debug_suppressed;
 
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
-void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
+
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
@@ -144,6 +144,15 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 static inline bool ys_debug(int = 0) { return false; }
 #endif
 #  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
+
+void log_formatted_string(std::string_view format, std::string str);
+template <typename... Args>
+inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	log_formatted_string(fmt.format_string(), fmt.format(args...));
+}
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -346,8 +355,22 @@ static inline void log_dump_val_worker(unsigned long int v) { log("%lu", v); }
 static inline void log_dump_val_worker(long long int v) { log("%lld", v); }
 static inline void log_dump_val_worker(unsigned long long int v) { log("%lld", v); }
 #endif
-static inline void log_dump_val_worker(char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
-static inline void log_dump_val_worker(unsigned char c) { log(c >= 32 && c < 127 ? "'%c'" : "'\\x%02x'", c); }
+static inline void log_dump_val_worker(char c)
+{
+	if (c >= 32 && c < 127) {
+		log("'%c'", c);
+	} else {
+		log("'\\x%02x'", c);
+	}
+}
+static inline void log_dump_val_worker(unsigned char c)
+{
+	if (c >= 32 && c < 127) {
+		log("'%c'", c);
+	} else {
+		log("'\\x%02x'", c);
+	}
+}
 static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false"); }
 static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(char *v) { log("%s", v); }
@@ -369,7 +392,7 @@ static inline void log_dump_val_worker(dict<K, T> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it.first);
 		log(": ");
 		log_dump_val_worker(it.second);
@@ -383,7 +406,7 @@ static inline void log_dump_val_worker(pool<K> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it);
 		first = false;
 	}
@@ -395,7 +418,7 @@ static inline void log_dump_val_worker(std::vector<K> &v) {
 	log("{");
 	bool first = true;
 	for (auto &it : v) {
-		log(first ? " " : ", ");
+		log("%s ", first ? "" : ",");
 		log_dump_val_worker(it);
 		first = false;
 	}
