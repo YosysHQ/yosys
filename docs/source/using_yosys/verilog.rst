@@ -379,6 +379,3 @@ from SystemVerilog:
   will process conditionals using these keywords by annotating their
   representation with the appropriate ``full_case`` and/or ``parallel_case``
   attributes, which are described above.)
-
-- SystemVerilog string literals are supported (triple-quoted strings and
-  escape sequences such as line continuations and hex escapes).
