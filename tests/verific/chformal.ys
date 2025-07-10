@@ -1,8 +1,8 @@
-read_verilog -formal <<EOT
+verific -formal <<EOT
 
 module top(input clk, a, en);
-    wire a_q = '0;
-    wire en_q = '0;
+    reg a_q = '0;
+    reg en_q = '0;
 
     always @(posedge clk) begin
         a_q <= a;
@@ -19,15 +19,15 @@ prep
 
 design -save prep
 
-select -assert-count 1 t:$check r:FLAVOR=assert %i
+select -assert-count 1 t:$assert
 
 chformal -assert2assume
 
-select -assert-count 1 t:$check r:FLAVOR=assume %i
+select -assert-count 1 t:$assume
 
 chformal -assume2assert
 
-select -assert-count 1 t:$check r:FLAVOR=assert %i
+select -assert-count 1 t:$assert
 
 async2sync
 
@@ -38,7 +38,7 @@ design -load prep
 
 chformal -assert2cover
 
-select -assert-count 1 t:$check r:FLAVOR=cover %i
+select -assert-count 1 t:$cover
 
 design -load prep
 
@@ -72,8 +72,3 @@ design -copy-from gate -as gate top
 miter -equiv -flatten -make_assert gold gate miter
 
 sat -verify -prove-asserts -tempinduct miter
-
-design -load prep
-
-logger -expect error "Cannot use both" 1
-chformal -assert2assume -assert2cover
