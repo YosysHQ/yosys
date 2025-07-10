@@ -206,7 +206,8 @@ constexpr void check_format(std::string_view fmt, int fmt_start, FoundFormatSpec
 		*specs = found;
 		break;
 	case CONVSPEC_CHAR_PTR:
-		if constexpr (!std::is_convertible_v<Arg, const char *>) {
+		if constexpr (!std::is_convertible_v<Arg, const char *> &&
+		              !std::is_convertible_v<Arg, const std::string &>) {
 			YOSYS_ABORT("Expected type convertible to char *");
 		}
 		*specs = found;
@@ -274,8 +275,17 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 		format_emit_type<Arg, double>(result, spec, dynamic_ints, num_dynamic_ints, arg);
 		return;
 	case CONVSPEC_CHAR_PTR:
-		format_emit_type<Arg, const char *>(result, spec, dynamic_ints, num_dynamic_ints, arg);
-		return;
+		if constexpr (std::is_convertible_v<Arg, const char *>) {
+			format_emit_type<Arg, const char *>(result, spec, dynamic_ints, num_dynamic_ints, arg);
+			return;
+		}
+		if constexpr (std::is_convertible_v<Arg, const std::string &>) {
+			const std::string &s = arg;
+			format_emit_type<const char *, const char *>(result, spec, dynamic_ints, num_dynamic_ints,
+					s.c_str());
+			return;
+		}
+		break;
 	case CONVSPEC_VOID_PTR:
 		format_emit_type<Arg, void *>(result, spec, dynamic_ints, num_dynamic_ints, arg);
 		return;

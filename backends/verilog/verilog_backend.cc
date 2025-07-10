@@ -1395,10 +1395,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int s_width = cell->getPort(ID::S).size();
 		std::string func_name = cellname(cell);
 
-		f << stringf("%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
-		f << stringf("%s" "  input [%d:0] a;\n", indent.c_str(), width-1);
-		f << stringf("%s" "  input [%d:0] b;\n", indent.c_str(), s_width*width-1);
-		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
+		f << stringf("%s" "function [%d:0] %s;\n", indent, width-1, func_name);
+		f << stringf("%s" "  input [%d:0] a;\n", indent, width-1);
+		f << stringf("%s" "  input [%d:0] b;\n", indent, s_width*width-1);
+		f << stringf("%s" "  input [%d:0] s;\n", indent, s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
 		if (noparallelcase)
