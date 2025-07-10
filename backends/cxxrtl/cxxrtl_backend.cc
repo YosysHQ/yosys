@@ -3478,8 +3478,8 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int DEFAULT_DEBUG_LEVEL = 4;
+	static constexpr int DEFAULT_OPT_LEVEL = 6;
+	static constexpr int DEFAULT_DEBUG_LEVEL = 4;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override

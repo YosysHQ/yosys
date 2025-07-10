@@ -331,7 +331,7 @@ struct EquivSimpleWorker
 			construct_ezsat(input_bits, step);
 
 			if (!ez->solve(ez_context)) {
-				log(cfg.verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
+				log("%s", cfg.verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				// Replace $equiv cell with a short
 				cell->setPort(ID::B, cell->getPort(ID::A));
 				ez->assume(ez->NOT(ez_context));
