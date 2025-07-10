@@ -102,17 +102,16 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-static void logv(const char *format, va_list ap)
-{
-	while (format[0] == '\n' && format[1] != 0) {
-		log("\n");
-		format++;
+static void logv_string(std::string_view format, std::string str) {
+	size_t remove_leading = 0;
+	while (format.size() > 1 && format[0] == '\n') {
+		logv_string("\n", "\n");
+		format = format.substr(1);
+		++remove_leading;
 	}
-
-	if (log_make_debug && !ys_debug(1))
-		return;
-
-	std::string str = vstringf(format, ap);
+	if (remove_leading > 0) {
+		str = str.substr(remove_leading);
+	}
 
 	if (str.empty())
 		return;
@@ -145,13 +144,13 @@ static void logv(const char *format, va_list ap)
 			time_str += stringf("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
 		}
 
-		if (format[0] && format[strlen(format)-1] == '\n')
+		if (!format.empty() && format[format.size() - 1] == '\n')
 			next_print_log = true;
 
 		// Special case to detect newlines in Python log output, since
 		// the binding always calls `log("%s", payload)` and the newline
 		// is then in the first formatted argument
-		if (!strcmp(format, "%s") && str.back() == '\n')
+		if (format == "%s" && str.back() == '\n')
 			next_print_log = true;
 
 		for (auto f : log_files)
@@ -202,6 +201,20 @@ static void logv(const char *format, va_list ap)
 
 		log_warn_regex_recusion_guard = false;
 	}
+}
+
+static void logv(const char *format, va_list ap)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	logv_string(format, vstringf(format, ap));
+}
+
+void log_formatted_string(std::string_view format, std::string str)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	logv_string(format, std::move(str));
 }
 
 static void logv_header(RTLIL::Design *design, const char *format, va_list ap)
@@ -410,14 +423,6 @@ void log_file_error(const string &filename, int lineno,
 	va_list ap;
 	va_start(ap, format);
 	logv_file_error(filename, lineno, format, ap);
-}
-
-void log(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv(format, ap);
-	va_end(ap);
 }
 
 void log_header(RTLIL::Design *design, const char *format, ...)
