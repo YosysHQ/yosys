@@ -81,3 +81,19 @@ clean
 select -assert-count 0 t:dffn
 select -assert-count 5 t:dffsr
 select -assert-count 1 t:dffe
+
+design -load orig
+dfflibmap -liberty dfflibmap.lib -liberty dfflibmap_dffsr_mixedpol.lib -dont_use dffsr
+clean
+# We have one more _NOT_ than with the regular dffsr
+select -assert-count 6 t:$_NOT_
+select -assert-count 1 t:dffn
+select -assert-count 4 t:dffsr_mixedpol
+select -assert-count 1 t:dffe
+# The additional NOT is on ff2.
+# Originally, ff2.R is an active high "set".
+# dffsr_mixedpol has functionally swapped labels due to the next_state inversion,
+# so we use its CLEAR port for the "set",
+# but we have to invert it because the CLEAR pin is active low.
+# ff2.CLEAR = !R
+select -assert-count 1 c:ff2 %x:+[CLEAR] %ci t:$_NOT_ %i
