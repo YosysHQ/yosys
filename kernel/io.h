@@ -350,6 +350,7 @@ public:
 		format_emit(result, fmt, 0, specs, dynamic_ints, 0, args...);
 		return result;
 	}
+	std::string_view format_string() const { return fmt; }
 private:
 	std::string_view fmt;
 	FoundFormatSpec specs[sizeof...(Args)] = {};
