@@ -620,7 +620,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 	for (int i = 0; i < 64; i++)
 	{
-		log(verbose ? "\n" : ".");
+		log("%s", verbose ? "\n" : ".");
 		gold_ce.clear();
 		gate_ce.clear();
 

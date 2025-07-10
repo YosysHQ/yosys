@@ -437,6 +437,7 @@ public:
 	{
 		return format_emit_toplevel(fmt, has_escapes, specs, args...);
 	}
+	std::string_view format_string() const { return fmt; }
 private:
 	std::string_view fmt;
 	bool has_escapes = false;

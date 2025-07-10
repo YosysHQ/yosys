@@ -101,13 +101,13 @@ struct LogPass : public Pass {
 			text += args[argidx] + ' ';
 		if (!text.empty()) text.resize(text.size()-1);
 
-		const char *fmtline = newline ? "%s\n" : "%s";
+		const char *line_end = newline ? "\n" : "";
 
-		if (to_stdout) fprintf(stdout, fmtline, text.c_str());
-		if (to_stderr) fprintf(stderr, fmtline, text.c_str());
+		if (to_stdout) fprintf(stdout, "%s%s", text.c_str(), line_end);
+		if (to_stderr) fprintf(stderr, "%s%s", text.c_str(), line_end);
 		if (to_log) {
-			if (!header) log(fmtline, text.c_str());
-			else log_header(design, fmtline, text.c_str());
+			if (!header) log("%s%s", text.c_str(), line_end);
+			else log_header(design, "%s%s", text.c_str(), line_end);
 		}
 	}
 } LogPass;
