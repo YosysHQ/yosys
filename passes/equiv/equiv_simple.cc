@@ -202,7 +202,7 @@ struct EquivSimpleWorker
 				log("    Problem size at t=%d: %d literals, %d clauses\n", step, ez->numCnfVariables(), ez->numCnfClauses());
 
 			if (!ez->solve(ez_context)) {
-				log(verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
+				log("%s", verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
 				equiv_cell->setPort(ID::B, equiv_cell->getPort(ID::A));
 				ez->assume(ez->NOT(ez_context));
 				return true;
