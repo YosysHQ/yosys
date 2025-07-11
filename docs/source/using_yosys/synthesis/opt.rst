@@ -192,6 +192,13 @@ control inputs.
 Called with ``-nodffe`` and ``-nosdff``, this pass is used to prepare a design
 for :doc:`/using_yosys/synthesis/fsm`.
 
+Hierarchical optimization - `opt_hier` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This pass considers the design hierarchy and propagates unused signals, constant
+signals, and tied-together signals across module boundaries to facilitate
+optimization by other passes.
+
 Removing unused cells and wires - `opt_clean` pass
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
