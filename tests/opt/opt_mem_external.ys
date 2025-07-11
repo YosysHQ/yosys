@@ -1,0 +1,55 @@
+read_verilog << EOF
+module Mem #(
+    parameter WIDTH = 8,
+    parameter SIZE = 16,
+    parameter IDX_SIZE = 16
+) (
+    input wire [WIDTH-1:0] addr,
+    input wire [WIDTH-1:0] write_data,
+    input wire write_en,
+
+    input wire clk,
+
+    output reg [WIDTH-1:0] read_data,
+
+);
+  reg [WIDTH-1:0] mem[SIZE-1:0];
+
+  always @(posedge clk) begin
+    if (write_en)
+      mem[addr0[IDX_SIZE-1:0]] <= write_data;
+
+    read_data <= mem[addr0[IDX_SIZE-1:0]];
+  end
+
+endmodule
+
+module test_keep_at_instance (clk, addr, data);
+
+input wire clk;
+input wire [15:0] addr;
+output wire[7:0] data;
+
+Mem mem (
+    .clk(clk),
+    .addr(addr),
+    .read_data(data),
+    .write_en(1'b0),
+    .write_data()
+);
+
+endmodule
+
+EOF
+
+hierarchy -auto-top;
+flatten;
+proc;
+
+select -assert-any t:$mem*
+opt_mem -external-init
+select -assert-any t:$mem*
+
+select -assert-any t:$mem*
+opt_mem
+select -assert-none t:$mem*
