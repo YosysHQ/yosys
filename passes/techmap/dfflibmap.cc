@@ -92,6 +92,9 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	auto expr = attr->value;
 	auto cell_name = cell->args[0];
 
+	for (size_t pos = expr.find_first_of("\"\t"); pos != std::string::npos; pos = expr.find_first_of("\"\t"))
+		expr.erase(pos, 1);
+
 	// if this isn't an enable flop, the next_state variable is usually just the input pin name.
 	if (expr[expr.size()-1] == '\'') {
 		data_name = expr.substr(0, expr.size()-1);
