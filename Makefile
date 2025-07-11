@@ -868,6 +868,7 @@ MK_TEST_DIRS += tests/arch/nexus
 MK_TEST_DIRS += tests/arch/quicklogic/pp3
 MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
 MK_TEST_DIRS += tests/arch/xilinx
+MK_TEST_DIRS += tests/bugpoint
 MK_TEST_DIRS += tests/opt
 MK_TEST_DIRS += tests/sat
 MK_TEST_DIRS += tests/sim
