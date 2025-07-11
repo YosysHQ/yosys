@@ -44,6 +44,7 @@ std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
+dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
 int log_warnings_count_noexpect = 0;
@@ -178,7 +179,7 @@ void logv(const char *format, va_list ap)
 	{
 		log_warn_regex_recusion_guard = true;
 
-		if (log_warn_regexes.empty() && log_expect_log.empty())
+		if (log_warn_regexes.empty() && log_expect_log.empty() && log_expect_prefix_log.empty())
 		{
 			linebuffer.clear();
 		}
@@ -191,9 +192,9 @@ void logv(const char *format, va_list ap)
 					if (std::regex_search(linebuffer, re))
 						log_warning("Found log message matching -W regex:\n%s", str.c_str());
 
-				for (auto &item : log_expect_log)
-					if (std::regex_search(linebuffer, item.second.pattern))
-						item.second.current_count++;
+				for (auto &[_, item] : log_expect_log)
+					if (std::regex_search(linebuffer, item.pattern))
+						item.current_count++;
 
 				linebuffer.clear();
 			}
@@ -266,9 +267,15 @@ static void logv_warning_with_prefix(const char *prefix,
 				log_error("%s",  message.c_str());
 
 		bool warning_match = false;
-		for (auto &item : log_expect_warning)
-			if (std::regex_search(message, item.second.pattern)) {
-				item.second.current_count++;
+		for (auto &[_, item] : log_expect_warning)
+			if (std::regex_search(message, item.pattern)) {
+				item.current_count++;
+				warning_match = true;
+			}
+
+		for (auto &[_, item] : log_expect_prefix_warning)
+			if (std::regex_search(string(prefix) + message, item.pattern)) {
+				item.current_count++;
 				warning_match = true;
 			}
 
@@ -355,9 +362,13 @@ static void logv_error_with_prefix(const char *prefix,
 
 	log_make_debug = bak_log_make_debug;
 
-	for (auto &item : log_expect_error)
-		if (std::regex_search(log_last_error, item.second.pattern))
-			item.second.current_count++;
+	for (auto &[_, item] : log_expect_error)
+		if (std::regex_search(log_last_error, item.pattern))
+			item.current_count++;
+
+	for (auto &[_, item] : log_expect_prefix_error)
+		if (std::regex_search(string(prefix) + string(log_last_error), item.pattern))
+			item.current_count++;
 
 	log_check_expected();
 
@@ -705,38 +716,39 @@ void log_check_expected()
 	// copy out all of the expected logs so that they cannot be re-checked
 	// or match against themselves
 	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
+	dict<std::string, LogExpectedItem> expect_prefix_log, expect_prefix_warning, expect_prefix_error;
 	std::swap(expect_warning, log_expect_warning);
 	std::swap(expect_log, log_expect_log);
 	std::swap(expect_error, log_expect_error);
+	std::swap(expect_prefix_warning, log_expect_prefix_warning);
+	std::swap(expect_prefix_log, log_expect_prefix_log);
+	std::swap(expect_prefix_error, log_expect_prefix_error);
 
-	for (auto &item : expect_warning) {
-		if (item.second.current_count == 0) {
+	auto check = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
+		if (item.current_count == 0) {
 			log_warn_regexes.clear();
-			log_error("Expected warning pattern '%s' not found !\n", item.first.c_str());
+			log_error("Expected %s pattern '%s' not found !\n", kind.c_str(), pattern.c_str());
 		}
-		if (item.second.current_count != item.second.expected_count) {
+		if (item.current_count != item.expected_count) {
 			log_warn_regexes.clear();
-			log_error("Expected warning pattern '%s' found %d time(s), instead of %d time(s) !\n",
-				item.first.c_str(), item.second.current_count, item.second.expected_count);
+			log_error("Expected %s pattern '%s' found %d time(s), instead of %d time(s) !\n",
+				kind.c_str(), pattern.c_str(), item.current_count, item.expected_count);
 		}
-	}
+	};
 
-	for (auto &item : expect_log) {
-		if (item.second.current_count == 0) {
-			log_warn_regexes.clear();
-			log_error("Expected log pattern '%s' not found !\n", item.first.c_str());
-		}
-		if (item.second.current_count != item.second.expected_count) {
-			log_warn_regexes.clear();
-			log_error("Expected log pattern '%s' found %d time(s), instead of %d time(s) !\n",
-				item.first.c_str(), item.second.current_count, item.second.expected_count);
-		}
-	}
+	for (auto &[pattern, item] : expect_warning)
+		check("warning", pattern, item);
+	for (auto &[pattern, item] : expect_prefix_warning)
+		check("prefixed warning", pattern, item);
+	for (auto &[pattern, item] : expect_log)
+		check("log", pattern, item);
+	for (auto &[pattern, item] : expect_prefix_log)
+		check("prefixed log", pattern, item);
 
-	for (auto &item : expect_error)
-		if (item.second.current_count == item.second.expected_count) {
+	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
+		if (item.current_count == item.expected_count) {
 			log_warn_regexes.clear();
-			log("Expected error pattern '%s' found !!!\n", item.first.c_str());
+			log("Expected %s pattern '%s' found !!!\n", kind.c_str(), pattern.c_str());
 			yosys_shutdown();
 			#ifdef EMSCRIPTEN
 				throw 0;
@@ -747,8 +759,13 @@ void log_check_expected()
 			#endif
 		} else {
 			log_warn_regexes.clear();
-			log_error("Expected error pattern '%s' not found !\n", item.first.c_str());
+			log_error("Expected %s pattern '%s' not found !\n", kind.c_str(), pattern.c_str());
 		}
+	};
+	for (auto &[pattern, item] : expect_error)
+		check_err("error", pattern, item);
+	for (auto &[pattern, item] : expect_prefix_error)
+		check_err("prefixed error", pattern, item);
 }
 
 // ---------------------------------------------------
