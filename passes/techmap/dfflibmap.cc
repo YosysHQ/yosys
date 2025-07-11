@@ -117,6 +117,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	// the next_state variable isn't just a pin name; perhaps this is an enable?
 	auto helper = LibertyExpression::Lexer(expr);
 	auto tree = LibertyExpression::parse(helper);
+	log_debug("liberty expression:\n%s\n", tree.str().c_str());
 
 	if (tree.kind == LibertyExpression::Kind::EMPTY) {
 		if (!warned_cells.count(cell_name)) {

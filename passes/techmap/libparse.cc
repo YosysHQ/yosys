@@ -306,6 +306,47 @@ bool LibertyExpression::eval(dict<std::string, bool>& values) {
 	}
 	return false;
 }
+
+std::string LibertyExpression::str(int indent)
+{
+	std::string prefix;
+	prefix = std::string(indent, ' ');
+	switch (kind) {
+		case AND:
+			prefix += "(and ";
+			break;
+		case OR:
+			prefix += "(or ";
+			break;
+		case NOT:
+			prefix += "(not ";
+			break;
+		case XOR:
+			prefix += "(xor ";
+			break;
+		case PIN:
+			prefix += "(pin \"" + name + "\"";
+			break;
+		case EMPTY:
+			prefix += "(";
+			break;
+		default:
+			log_assert(false);
+	}
+	size_t add_indent = prefix.length();
+	bool first = true;
+	for (auto child : children) {
+		if (!first) {
+			prefix += "\n" + child.str(indent + add_indent);
+		} else {
+			prefix += child.str(0);
+		}
+		first = false;
+	}
+	prefix += ")";
+	return prefix;
+}
+
 #endif
 
 int LibertyParser::lexer(std::string &str)
