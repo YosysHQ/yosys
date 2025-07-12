@@ -1163,9 +1163,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI3_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI3_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI3_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI3_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" ");
 		dump_cell_expr_port(f, cell, "C", false);
@@ -1178,13 +1178,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI4_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI4_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" (");
 		dump_cell_expr_port(f, cell, "C", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "D", false);
 		f << stringf("));\n");
 		return true;
@@ -1395,10 +1395,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int s_width = cell->getPort(ID::S).size();
 		std::string func_name = cellname(cell);
 
-		f << stringf("%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
-		f << stringf("%s" "  input [%d:0] a;\n", indent.c_str(), width-1);
-		f << stringf("%s" "  input [%d:0] b;\n", indent.c_str(), s_width*width-1);
-		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
+		f << stringf("%s" "function [%d:0] %s;\n", indent, width-1, func_name);
+		f << stringf("%s" "  input [%d:0] a;\n", indent, width-1);
+		f << stringf("%s" "  input [%d:0] b;\n", indent, s_width*width-1);
+		f << stringf("%s" "  input [%d:0] s;\n", indent, s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
 		if (noparallelcase)
@@ -1407,7 +1407,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (!noattr)
 				f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 			f << stringf("%s" "  casez (s)", indent.c_str());
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+			f << (noattr ? " // synopsys parallel_case\n" : "\n");
 		}
 
 		for (int i = 0; i < s_width; i++)
