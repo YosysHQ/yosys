@@ -142,6 +142,7 @@ design -copy-from gate -as gate gate
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
 sat -prove-asserts -show-public -verify -set-init-zero equiv
 
+scratchpad -set check.permissive true
 ###
 ## Part select with obvious latch, expected to fail due comparison with old shift&mask AST transformation    
 design -reset
