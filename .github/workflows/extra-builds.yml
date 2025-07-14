@@ -72,6 +72,7 @@ jobs:
           cat > build/Makefile.conf <<END
           export PATH := $(pwd)/${WASI_SDK}/bin:${PATH}
           WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
+          ln -s /usr/include/FlexLexer.h ${WASI_SYSROOT}/include/
 
           CONFIG := wasi
           PREFIX := /
