@@ -1,11 +1,12 @@
-add_library(yosys_techlibs_efinix INTERFACE)
 
-target_sources(yosys_techlibs_efinix INTERFACE
+
+add_library(yosys_techlibs_efinix OBJECT
     synth_efinix.cc
     efinix_fixcarry.cc
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_efinix)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_efinix>)
 
 add_share_file("share/efinix" "cells_map.v")
 add_share_file("share/efinix" "arith_map.v")

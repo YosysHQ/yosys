@@ -1,11 +1,12 @@
-add_library(yosys_techlibs_microchip INTERFACE)
 
-target_sources(yosys_techlibs_microchip INTERFACE
+
+add_library(yosys_techlibs_microchip OBJECT
     synth_microchip.cc
     microchip_dffopt.cc
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_microchip)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_microchip>)
 
 add_share_file("share/microchip" "arith_map.v")
 add_share_file("share/microchip" "cells_map.v")

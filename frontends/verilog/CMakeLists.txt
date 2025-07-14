@@ -27,8 +27,8 @@
 flex_target(VERILOG_LEXER "verilog_lexer.l" "${CMAKE_CURRENT_BINARY_DIR}/verilog_lexer.cc")
 bison_target(VERILOG_PARSER "verilog_parser.y" "${CMAKE_CURRENT_BINARY_DIR}/verilog_parser.tab.cc" DEFINES_FILE "${CMAKE_CURRENT_BINARY_DIR}/verilog_parser.tab.hh" COMPILE_FLAGS "-Wall -Werror -d -r all")
 
-add_library(yosys_frontends_verilog INTERFACE)
-target_sources(yosys_frontends_verilog INTERFACE
+
+add_library(yosys_frontends_verilog OBJECT
     const2ast.cc
     preproc.cc
     preproc.h
@@ -44,3 +44,5 @@ add_library(yosys_frontends_verilog_gen OBJECT
     #${CMAKE_CURRENT_BINARY_DIR}/verilog_parser.tab.hh
 )
 target_link_libraries(yosys PUBLIC yosys_frontends_verilog yosys_frontends_verilog_gen)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog>)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog_gen>)

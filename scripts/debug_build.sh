@@ -8,7 +8,7 @@ git submodule update --init --recursive
 
 # 2. Build the project
 mkdir -p build
-cmake -B build
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -D ENABLE_CCACHE:BOOL=ON -D CMAKE_INSTALL_PREFIX:PATH=/usr/local
 cmake --build build --parallel $(nproc)
 
 # 3. Install the project into test install dir

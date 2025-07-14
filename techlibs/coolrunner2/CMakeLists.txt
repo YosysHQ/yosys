@@ -1,12 +1,13 @@
-add_library(yosys_techlibs_coolrunner2 INTERFACE)
 
-target_sources(yosys_techlibs_coolrunner2 INTERFACE
+
+add_library(yosys_techlibs_coolrunner2 OBJECT
     synth_coolrunner2.cc
     coolrunner2_sop.cc
     coolrunner2_fixup.cc
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_coolrunner2)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_coolrunner2>)
 
 add_share_file("share/coolrunner2" "cells_latch.v")
 add_share_file("share/coolrunner2" "cells_sim.v")

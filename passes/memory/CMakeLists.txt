@@ -1,6 +1,6 @@
-add_library(yosys_passes_memory INTERFACE)
 
-target_sources(yosys_passes_memory INTERFACE
+
+add_library(yosys_passes_memory OBJECT
     memory.cc
     memory_dff.cc
     memory_share.cc
@@ -18,3 +18,4 @@ target_sources(yosys_passes_memory INTERFACE
 )
 
 target_link_libraries(yosys PUBLIC yosys_passes_memory)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_memory>)

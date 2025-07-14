@@ -74,10 +74,7 @@ find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.0 REQUIRED)
 find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
-add_library(yosys STATIC)
-#target_include_directories(yosys PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-#target_include_directories(yosys PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-#target_compile_definitions(yosys PUBLIC _YOSYS_)
+add_library(yosys OBJECT)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(yosys PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}
@@ -291,7 +288,9 @@ endif()
 set_property(SOURCE kernel/log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC="${PROJECT_SOURCE_DIR}")
 
 if (ENABLE_LIBYOSYS)
-    add_library(yosys_shared SHARED)
+    add_library(yosys_shared SHARED
+        $<TARGET_OBJECTS:yosys>
+    )
     target_link_libraries(yosys_shared PUBLIC yosys)
     set_target_properties(yosys_shared PROPERTIES OUTPUT_NAME yosys)
     install(TARGETS yosys_shared
@@ -299,9 +298,13 @@ if (ENABLE_LIBYOSYS)
 endif()
 
 add_executable(yosys_exe
-    kernel/driver.cc)
+    kernel/driver.cc
+    $<TARGET_OBJECTS:yosys>
+)
 target_link_libraries(yosys_exe PUBLIC yosys)
 set_target_properties(yosys_exe PROPERTIES OUTPUT_NAME yosys)
+install(TARGETS yosys_exe
+        RUNTIME DESTINATION .)
 
 #### yosys-config setup ####
 # compiler
@@ -314,7 +317,7 @@ set(_CFG_CXXFLAGS
         -Wall -Wextra -ggdb
         "-I\"${CMAKE_INSTALL_PREFIX}/share/yosys/include\""
         -MD -MP -D_YOSYS_ -fPIC
-        -I${CMAKE_INSTALL_PREFIX}/include
+        -DYOSYS_VERSION="${YOSYS_VER}"
         -std=c++${CXXSTD} -O3)
 
 if (ENABLE_READLINE)

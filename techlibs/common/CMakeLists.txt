@@ -1,4 +1,4 @@
-add_library(yosys_techlib_common INTERFACE)
+
 
 add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/techlibs/common
@@ -20,7 +20,7 @@ add_custom_target(yosys_techlib_common_gen DEPENDS
 	${CMAKE_CURRENT_BINARY_DIR}/simcells_help.inc
 )
 
-target_sources(yosys_techlib_common INTERFACE
+add_library(yosys_techlib_common OBJECT
     synth.cc
     prep.cc
 )
@@ -28,6 +28,7 @@ target_sources(yosys_techlib_common INTERFACE
 add_dependencies(yosys_techlib_common yosys_techlib_common_gen)
 
 target_link_libraries(yosys PUBLIC yosys_techlib_common)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlib_common>)
 
 add_share_file("share" "simlib.v")
 add_share_file("share" "simcells.v")

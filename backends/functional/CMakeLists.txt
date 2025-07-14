@@ -1,6 +1,6 @@
-add_library(yosys_backends_functional INTERFACE)
 
-target_sources(yosys_backends_functional INTERFACE
+
+add_library(yosys_backends_functional OBJECT
     cxx.cc
     smtlib.cc
     smtlib_rosette.cc
@@ -8,3 +8,4 @@ target_sources(yosys_backends_functional INTERFACE
 )
 
 target_link_libraries(yosys PUBLIC yosys_backends_functional)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_backends_functional>)

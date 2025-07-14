@@ -1,6 +1,6 @@
-add_library(yosys_passes_cmds INTERFACE)
 
-target_sources(yosys_passes_cmds INTERFACE
+
+add_library(yosys_passes_cmds OBJECT
     add.cc
     delete.cc
     design.cc
@@ -54,10 +54,11 @@ target_sources(yosys_passes_cmds INTERFACE
 )
 
 if (NOT DISABLE_SPAWN)
-target_sources(yosys_passes_cmds INTERFACE
+target_sources(yosys_passes_cmds PRIVATE
     exec.cc
     bugpoint.cc
 )
 endif()
 
 target_link_libraries(yosys PUBLIC yosys_passes_cmds)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_cmds>)

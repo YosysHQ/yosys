@@ -1,6 +1,6 @@
-add_library(yosys_passes_sat INTERFACE)
 
-target_sources(yosys_passes_sat INTERFACE
+
+add_library(yosys_passes_sat OBJECT
     sat.cc
     freduce.cc
     eval.cc
@@ -21,15 +21,16 @@ target_sources(yosys_passes_sat INTERFACE
 )
 
 if (ENABLE_ZLIB)
-target_sources(yosys_passes_sat INTERFACE
+target_sources(yosys_passes_sat PRIVATE
     sim.cc
 )
 endif()
 
 if (NOT DISABLE_SPAWN)
-target_sources(yosys_passes_sat INTERFACE
+target_sources(yosys_passes_sat PRIVATE
     qbfsat.cc
 )
 endif()
 
 target_link_libraries(yosys PUBLIC yosys_passes_sat)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_sat>)

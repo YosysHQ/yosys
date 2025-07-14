@@ -1,4 +1,4 @@
-add_library(yosys_kernel INTERFACE)
+
 
 #if(CMAKE_PROJECT_VERSION_PATCH GREATER 0)
 #    set(YOSYS_VERSION "${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}+${CMAKE_PROJECT_VERSION_PATCH}")
@@ -18,8 +18,9 @@ if(Git_FOUND)
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cc.in ${CMAKE_CURRENT_BINARY_DIR}/version.cc)
+set_property(SOURCE log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC="${PROJECT_SOURCE_DIR}")
 
-target_sources(yosys_kernel INTERFACE
+add_library(yosys_kernel OBJECT
     binding.cc
     binding.h
     bitpattern.h
@@ -84,10 +85,13 @@ target_sources(yosys_kernel INTERFACE
 )
 
 if (ENABLE_ZLIB)
-target_sources(yosys_kernel INTERFACE
+target_sources(yosys_kernel PRIVATE
     fstdata.cc
     fstdata.h
 )
 endif()
 
+add_dependencies(yosys_kernel yosys_techlib_common)
+
 target_link_libraries(yosys PUBLIC yosys_kernel)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_kernel>)

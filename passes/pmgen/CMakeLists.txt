@@ -1,4 +1,12 @@
-add_library(yosys_passes_pmgen INTERFACE)
+add_library(yosys_passes_pmgen OBJECT
+    test_pmgen.cc
+    ${yosys_SOURCE_DIR}/techlibs/ice40/ice40_dsp.cc
+    ${yosys_SOURCE_DIR}/techlibs/ice40/ice40_wrapcarry.cc
+    ${yosys_SOURCE_DIR}/techlibs/xilinx/xilinx_dsp.cc
+    ${yosys_SOURCE_DIR}/techlibs/microchip/microchip_dsp.cc
+    ${yosys_SOURCE_DIR}/passes/opt/peepopt.cc
+    ${yosys_SOURCE_DIR}/techlibs/xilinx/xilinx_srl.cc
+)
 
 function(pmgen_command  _name _path)
     set(CUSTOM_TARGET_NAME ${_name}_pm_gen)
@@ -46,15 +54,7 @@ add_custom_command(
 add_custom_target(peepopt_pm DEPENDS ${yosys_BINARY_DIR}/passes/opt/peepopt_pm.h)
 add_dependencies(yosys_passes_pmgen peepopt_pm)
 
-target_sources(yosys_passes_pmgen INTERFACE
-    test_pmgen.cc
-    ${yosys_SOURCE_DIR}/techlibs/ice40/ice40_dsp.cc
-    ${yosys_SOURCE_DIR}/techlibs/ice40/ice40_wrapcarry.cc
-    ${yosys_SOURCE_DIR}/techlibs/xilinx/xilinx_dsp.cc
-    ${yosys_SOURCE_DIR}/techlibs/microchip/microchip_dsp.cc
-    ${yosys_SOURCE_DIR}/passes/opt/peepopt.cc
-    ${yosys_SOURCE_DIR}/techlibs/xilinx/xilinx_srl.cc
-)
+
 
 # target_sources(yosys_passes_pmgen PUBLIC ${yosys_BINARY_DIR}/passes/pmgen/test_pmgen_pm.h)
 
@@ -75,3 +75,4 @@ target_sources(yosys_passes_pmgen INTERFACE
 # target_sources(yosys_passes_pmgen PUBLIC ${yosys_BINARY_DIR}/techlibs/xilinx/xilinx_srl_pm.h)
 
 target_link_libraries(yosys PUBLIC yosys_passes_pmgen)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_pmgen>)

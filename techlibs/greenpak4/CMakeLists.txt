@@ -1,11 +1,12 @@
-add_library(yosys_techlibs_greenpak4 INTERFACE)
 
-target_sources(yosys_techlibs_greenpak4 INTERFACE
+
+add_library(yosys_techlibs_greenpak4 OBJECT
     synth_greenpak4.cc
     greenpak4_dffinv.cc
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_greenpak4)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_greenpak4>)
 
 add_share_file("share/greenpak4" "cells_blackbox.v")
 add_share_file("share/greenpak4" "cells_latch.v")

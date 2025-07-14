@@ -1,10 +1,11 @@
-add_library(yosys_techlibs_gowin INTERFACE)
 
-target_sources(yosys_techlibs_gowin INTERFACE
+
+add_library(yosys_techlibs_gowin OBJECT
     synth_gowin.cc
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_gowin)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_gowin>)
 
 add_share_file("share/gowin" "cells_map.v")
 add_share_file("share/gowin" "cells_sim.v")

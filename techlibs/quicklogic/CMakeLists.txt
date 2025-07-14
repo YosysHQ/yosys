@@ -1,4 +1,12 @@
-add_library(yosys_techlibs_quicklogic INTERFACE)
+add_library(yosys_techlibs_quicklogic OBJECT
+    synth_quicklogic.cc
+    ql_bram_merge.cc
+    ql_bram_types.cc
+    ql_dsp_simd.cc
+    ql_dsp_io_regs.cc
+    ql_dsp_macc.cc
+    ql_ioff.cc
+)
 
 function(pmgen_command  _name)
     set(CUSTOM_TARGET_NAME ${_name}_pm_gen)
@@ -15,15 +23,7 @@ endfunction()
 
 pmgen_command(ql_dsp_macc)
 
-target_sources(yosys_techlibs_quicklogic INTERFACE
-    synth_quicklogic.cc
-    ql_bram_merge.cc
-    ql_bram_types.cc
-    ql_dsp_simd.cc
-    ql_dsp_io_regs.cc
-    ql_dsp_macc.cc
-    ql_ioff.cc
-)
+
 
 add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f
@@ -38,7 +38,17 @@ target_sources(yosys_techlibs_quicklogic PUBLIC
     # ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
 )
 
+## Custom target to generate the ql_dsp_macc_pm.h file
+add_custom_target(yosys_techlibs_quicklogic_gen
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/ql_dsp_macc_pm.h
+        ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
+)
+
+add_dependencies(yosys yosys_techlibs_quicklogic_gen)
+
 target_link_libraries(yosys PUBLIC yosys_techlibs_quicklogic)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_quicklogic>)
 
 add_share_file("share/quicklogic/common" "common/cells_sim.v")
 add_share_file("share/quicklogic/pp3" "pp3/ffs_map.v")

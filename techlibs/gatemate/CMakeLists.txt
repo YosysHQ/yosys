@@ -1,6 +1,6 @@
-add_library(yosys_techlibs_gatemate INTERFACE)
 
-target_sources(yosys_techlibs_gatemate INTERFACE
+
+add_library(yosys_techlibs_gatemate OBJECT
     synth_gatemate.cc
     gatemate_foldinv.cc
 )
@@ -19,6 +19,7 @@ target_sources(yosys_techlibs_gatemate PRIVATE
 )
 
 target_link_libraries(yosys PUBLIC yosys_techlibs_gatemate)
+target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_gatemate>)
 
 add_share_file("share/gatemate" "reg_map.v")
 add_share_file("share/gatemate" "mux_map.v")
