@@ -499,7 +499,7 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, signal_str(signal_list[n].bit).c_str(),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
@@ -560,7 +560,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 		int id = *workpool.begin();
 		workpool.erase(id);
 
-		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
+		// log("Removing non-loop node %d from graph: %s\n", id, signal_str(signal_list[id].bit).c_str());
 
 		for (int id2 : edges[id]) {
 			log_assert(in_edges_count[id2] > 0);
@@ -610,13 +610,14 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			RTLIL::Wire *wire = module->addWire(sstr.str());
 
 			bool first_line = true;
+			std::string wire_str = signal_str(RTLIL::SigSpec(wire));
 			for (int id2 : edges[id1]) {
 				if (first_line)
-					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+					log("Breaking loop using new signal %s: %s -> %s\n", wire_str.c_str(),
+							signal_str(signal_list[id1].bit).c_str(), signal_str(signal_list[id2].bit).c_str());
 				else
-					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+					log("                               %*s  %s -> %s\n", int(wire_str.size()), "",
+							signal_str(signal_list[id1].bit).c_str(), signal_str(signal_list[id2].bit).c_str());
 				first_line = false;
 			}
 
@@ -945,13 +946,13 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
 		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", signal_str(clk_sig).c_str());
 			if (en_sig.size() != 0)
-				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
+				log(", enabled by %s%s", en_polarity ? "" : "!", signal_str(en_sig).c_str());
 			if (arst_sig.size() != 0)
-				log(", asynchronously reset by %s%s", arst_polarity ? "" : "!", log_signal(arst_sig));
+				log(", asynchronously reset by %s%s", arst_polarity ? "" : "!", signal_str(arst_sig).c_str());
 			if (srst_sig.size() != 0)
-				log(", synchronously reset by %s%s", srst_polarity ? "" : "!", log_signal(srst_sig));
+				log(", synchronously reset by %s%s", srst_polarity ? "" : "!", signal_str(srst_sig).c_str());
 			log("\n");
 		}
 	}
@@ -1004,7 +1005,7 @@ void AbcModuleState::run_abc()
 		if (!si.is_port || si.type != G(NONE))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
-		pi_map[count_input++] = log_signal(si.bit);
+		pi_map[count_input++] = signal_str(si.bit);
 	}
 	if (count_input == 0)
 		fprintf(f, " dummy_input\n");
@@ -1016,12 +1017,12 @@ void AbcModuleState::run_abc()
 		if (!si.is_port || si.type == G(NONE))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
-		po_map[count_output++] = log_signal(si.bit);
+		po_map[count_output++] = signal_str(si.bit);
 	}
 	fprintf(f, "\n");
 
 	for (auto &si : signal_list)
-		fprintf(f, "# ys__n%-5d %s\n", si.id, log_signal(si.bit));
+		fprintf(f, "# ys__n%-5d %s\n", si.id, signal_str(si.bit).c_str());
 
 	for (auto &si : signal_list) {
 		if (si.bit.wire == nullptr) {
@@ -2323,10 +2324,10 @@ struct AbcPass : public Pass {
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
 				log("  %d cells in clk=%s%s, en=%s%s, arst=%s%s, srst=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)),
-						std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)),
-						std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
+						std::get<0>(it.first) ? "" : "!", signal_str(std::get<1>(it.first)).c_str(),
+						std::get<2>(it.first) ? "" : "!", signal_str(std::get<3>(it.first)).c_str(),
+						std::get<4>(it.first) ? "" : "!", signal_str(std::get<5>(it.first)).c_str(),
+						std::get<6>(it.first) ? "" : "!", signal_str(std::get<7>(it.first)).c_str());
 
 			{
 				std::vector<std::vector<RTLIL::Cell*>*> cell_sets;
