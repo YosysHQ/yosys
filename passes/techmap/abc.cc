@@ -143,7 +143,6 @@ struct AbcModuleState {
 
 	int map_autoidx = 0;
 	SigMap assign_map;
-	RTLIL::Module *module = nullptr;
 	std::vector<gate_t> signal_list;
 	dict<RTLIL::SigBit, int> signal_map;
 	FfInitVals initvals;
@@ -165,13 +164,13 @@ struct AbcModuleState {
 
 	int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(RTLIL::SigSpec sig);
-	void extract_cell(RTLIL::Cell *cell, bool keepff);
+	void extract_cell(RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
 	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
-	void handle_loops();
-	void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, const std::vector<RTLIL::Cell*> &cells,
+	void handle_loops(RTLIL::Module *module);
+	void abc_module(RTLIL::Design *design, RTLIL::Module *module, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void extract(RTLIL::Design *design);
+	void extract(RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
 
@@ -220,7 +219,7 @@ void AbcModuleState::mark_port(RTLIL::SigSpec sig)
 			signal_list[signal_map[bit]].is_port = true;
 }
 
-void AbcModuleState::extract_cell(RTLIL::Cell *cell, bool keepff)
+void AbcModuleState::extract_cell(RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
 	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 		FfData ff(&initvals, cell);
@@ -491,7 +490,7 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	fprintf(f, "}\n");
 }
 
-void AbcModuleState::handle_loops()
+void AbcModuleState::handle_loops(RTLIL::Module *module)
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
@@ -751,10 +750,9 @@ struct abc_output_filter
 	}
 };
 
-void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *current_module, const std::vector<RTLIL::Cell*> &cells,
+void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, const std::vector<RTLIL::Cell*> &cells,
 	bool dff_mode, std::string clk_str)
 {
-	module = current_module;
 	initvals.set(&assign_map, module);
 	map_autoidx = autoidx++;
 
@@ -938,7 +936,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *current_mo
 
 	had_init = false;
 	for (auto c : cells)
-		extract_cell(c, config.keepff);
+		extract_cell(module, c, config.keepff);
 
 	if (undef_bits_lost)
 		log("Replacing %d occurrences of constant undef bits with constant zero bits\n", undef_bits_lost);
@@ -964,7 +962,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *current_mo
 	if (srst_sig.size() != 0)
 		mark_port(srst_sig);
 
-	handle_loops();
+	handle_loops(module);
 
 	buffer = stringf("%s/input.blif", tempdir_name.c_str());
 	f = fopen(buffer.c_str(), "wt");
@@ -1207,7 +1205,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *current_mo
 	log("Don't call ABC as there is nothing to map.\n");
 }
 
-void AbcModuleState::extract(RTLIL::Design *design)
+void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 {
 	if (!did_run_abc) {
 		return;
@@ -2087,7 +2085,7 @@ struct AbcPass : public Pass {
 				AbcModuleState state(config);
 				state.assign_map.set(mod);
 				state.abc_module(design, mod, mod->selected_cells(), dff_mode, clk_str);
-				state.extract(design);
+				state.extract(design, mod);
 				state.finish();
 				continue;
 			}
@@ -2256,7 +2254,7 @@ struct AbcPass : public Pass {
 				state.srst_polarity = std::get<6>(it.first);
 				state.srst_sig = assign_map(std::get<7>(it.first));
 				state.abc_module(design, mod, it.second, !state.clk_sig.empty(), "$");
-				state.extract(design);
+				state.extract(design, mod);
 				state.finish();
 			}
 		}
