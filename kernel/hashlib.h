@@ -451,16 +451,21 @@ class dict {
 		return 1;
 	}
 
-	int do_lookup(const K &key, Hasher::hash_t &hash) const
+	int do_lookup(const K &key, Hasher::hash_t &hash)
 	{
 		if (hashtable.empty())
 			return -1;
 
 		if (entries.size() * hashtable_size_trigger > hashtable.size()) {
-			((dict*)this)->do_rehash();
+			do_rehash();
 			hash = do_hash(key);
 		}
 
+		return do_lookup_internal(key, hash);
+	}
+
+	int do_lookup_internal(const K &key, Hasher::hash_t hash) const
+	{
 		int index = hashtable[hash];
 
 		while (index >= 0 && !ops.cmp(entries[index].udata.first, key)) {
@@ -469,6 +474,14 @@ class dict {
 		}
 
 		return index;
+	}
+
+	int do_lookup_no_rehash(const K &key, Hasher::hash_t hash) const
+	{
+		if (hashtable.empty())
+			return -1;
+
+		return do_lookup_internal(key, hash);
 	}
 
 	int do_insert(const K &key, Hasher::hash_t &hash)
@@ -694,14 +707,14 @@ public:
 	int count(const K &key) const
 	{
 		Hasher::hash_t hash = do_hash(key);
-		int i = do_lookup(key, hash);
+		int i = do_lookup_no_rehash(key, hash);
 		return i < 0 ? 0 : 1;
 	}
 
 	int count(const K &key, const_iterator it) const
 	{
 		Hasher::hash_t hash = do_hash(key);
-		int i = do_lookup(key, hash);
+		int i = do_lookup_no_rehash(key, hash);
 		return i < 0 || i > it.index ? 0 : 1;
 	}
 
@@ -717,7 +730,7 @@ public:
 	const_iterator find(const K &key) const
 	{
 		Hasher::hash_t hash = do_hash(key);
-		int i = do_lookup(key, hash);
+		int i = do_lookup_no_rehash(key, hash);
 		if (i < 0)
 			return end();
 		return const_iterator(this, i);
@@ -735,7 +748,7 @@ public:
 	const T& at(const K &key) const
 	{
 		Hasher::hash_t hash = do_hash(key);
-		int i = do_lookup(key, hash);
+		int i = do_lookup_no_rehash(key, hash);
 		if (i < 0)
 			throw std::out_of_range("dict::at()");
 		return entries[i].udata.second;
@@ -744,7 +757,7 @@ public:
 	const T& at(const K &key, const T &defval) const
 	{
 		Hasher::hash_t hash = do_hash(key);
-		int i = do_lookup(key, hash);
+		int i = do_lookup_no_rehash(key, hash);
 		if (i < 0)
 			return defval;
 		return entries[i].udata.second;
