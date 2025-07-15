@@ -1223,6 +1223,7 @@ struct FirrtlBackend : public Backend {
 		Pass::call(design, "demuxmap");
 		Pass::call(design, "bwmuxmap");
 
+		used_names.clear();
 		namecache.clear();
 		autoid_counter = 0;
 
@@ -1262,6 +1263,7 @@ struct FirrtlBackend : public Backend {
 			}
 		}
 
+		used_names.clear();
 		namecache.clear();
 		autoid_counter = 0;
 	}
