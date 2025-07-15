@@ -24,7 +24,7 @@ $(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc
 .PHONY: prepare run-tests clean
 
 run-tests: $(TESTS)
-	$(subst Test ,Test; ,$^)
+	$(subst Test ,Test&& ,$^)
 
 prepare:
 	mkdir -p $(addprefix $(BINTEST)/,$(TESTDIRS))
