@@ -981,6 +981,12 @@ unit-test: libyosys.so
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
 
+install-dev: $(PROGRAM_PREFIX)yosys-config share
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(PROGRAM_PREFIX)yosys-config $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
+	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
+
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
@@ -1223,5 +1229,5 @@ echo-cxx:
 
 FORCE:
 
-.PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc
+.PHONY: all top-all abc test install-dev install install-abc docs clean mrproper qtcreator coverage vcxsrc
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo
