@@ -240,7 +240,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 
 			if (isspace(c)) {
 				// Rewind past this space and any further spaces
-				while (isspace(c) && !s.empty()) {
+				while (isspace(c)) {
 					if (s.empty())
 						return lhs;
 					s.next();
@@ -257,6 +257,8 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 			}
 
 			auto rhs = parse(s, 4);
+			if (rhs.kind == EMPTY)
+				continue;
 			auto n = LibertyExpression{};
 			n.kind = Kind::AND;
 			n.children.push_back(lhs);
