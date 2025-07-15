@@ -92,7 +92,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	auto expr = attr->value;
 	auto cell_name = cell->args[0];
 
-	for (size_t pos = expr.find_first_of("\" \t"); pos != std::string::npos; pos = expr.find_first_of("\" \t"))
+	for (size_t pos = expr.find_first_of("\"\t"); pos != std::string::npos; pos = expr.find_first_of("\"\t"))
 		expr.erase(pos, 1);
 
 	// if this isn't an enable flop, the next_state variable is usually just the input pin name.
@@ -117,6 +117,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	// the next_state variable isn't just a pin name; perhaps this is an enable?
 	auto helper = LibertyExpression::Lexer(expr);
 	auto tree = LibertyExpression::parse(helper);
+	// log_debug("liberty expression:\n%s\n", tree.str().c_str());
 
 	if (tree.kind == LibertyExpression::Kind::EMPTY) {
 		if (!warned_cells.count(cell_name)) {

@@ -163,6 +163,12 @@ void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string i
 }
 
 #ifndef FILTERLIB
+
+// binary operators excluding ' '
+bool LibertyExpression::is_nice_binop(char c) {
+	return c == '*' || c == '&' || c == '^' || c == '+' || c == '|';
+}
+
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	if (s.empty())
@@ -201,15 +207,8 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	while (true) {
 		if (s.empty())
 			break;
-		
-		c = s.peek();
 
-		while (isspace(c)) {
-			if (s.empty())
-				return lhs;
-			s.next();
-			c = s.peek();
-		}
+		c = s.peek();
 
 		if (c == '\'') { // postfix NOT
 			if (min_prio > 7)
@@ -235,13 +234,31 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 			lhs = std::move(n);
 
 			continue;
-		} else if (c == '&' || c == '*') { // infix AND
-			// technically space should be considered infix AND. it seems rare in practice.
+		} else if (c == '&' || c == '*' || isspace(c)) { // infix AND
 			if (min_prio > 3)
 				break;
-			s.next();
+
+			if (isspace(c)) {
+				// Rewind past this space and any further spaces
+				while (isspace(c)) {
+					if (s.empty())
+						return lhs;
+					s.next();
+					c = s.peek();
+				}
+				if (is_nice_binop(c)) {
+					// We found a real binop, so this space wasn't an AND
+					// and we just discard it as meaningless whitespace
+					continue;
+				}
+			} else {
+				// Rewind past this op
+				s.next();
+			}
 
 			auto rhs = parse(s, 4);
+			if (rhs.kind == EMPTY)
+				continue;
 			auto n = LibertyExpression{};
 			n.kind = Kind::AND;
 			n.children.push_back(lhs);
@@ -306,6 +323,45 @@ bool LibertyExpression::eval(dict<std::string, bool>& values) {
 	}
 	return false;
 }
+
+std::string LibertyExpression::str(int indent)
+{
+	std::string prefix;
+	switch (kind) {
+		case AND:
+			prefix += "(and ";
+			break;
+		case OR:
+			prefix += "(or ";
+			break;
+		case NOT:
+			prefix += "(not ";
+			break;
+		case XOR:
+			prefix += "(xor ";
+			break;
+		case PIN:
+			prefix += "(pin \"" + name + "\"";
+			break;
+		case EMPTY:
+			prefix += "(";
+			break;
+		default:
+			log_assert(false);
+	}
+	size_t add_indent = prefix.length();
+	bool first = true;
+	for (auto child : children) {
+		if (!first) {
+			prefix += "\n" + std::string(indent + add_indent, ' ');
+		}
+		prefix += child.str(indent + add_indent);
+		first = false;
+	}
+	prefix += ")";
+	return prefix;
+}
+
 #endif
 
 int LibertyParser::lexer(std::string &str)
