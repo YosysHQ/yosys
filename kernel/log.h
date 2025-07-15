@@ -203,6 +203,7 @@ struct LogExpectedItem
 extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
+std::string signal_str(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(const RTLIL::IdString &id);
