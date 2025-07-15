@@ -460,7 +460,7 @@ struct Smt2Worker
 	{
 		RTLIL::SigSpec sig_a, sig_b;
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-		bool is_signed = type == 'U' ? false : cell->getParam(ID::A_SIGNED).as_bool();
+		bool is_signed = type == 'U' ? false : cell->hasParam(ID::A_SIGNED) && cell->getParam(ID::A_SIGNED).as_bool();
 		int width = GetSize(sig_y);
 
 		if (type == 's' || type == 'S' || type == 'd' || type == 'b') {
