@@ -113,23 +113,42 @@ bool map_mux8;
 bool map_mux16;
 
 bool markgroups;
-int map_autoidx;
-SigMap assign_map;
-RTLIL::Module *module;
-std::vector<gate_t> signal_list;
-dict<RTLIL::SigBit, int> signal_map;
-FfInitVals initvals;
+
 pool<std::string> enabled_gates;
 bool cmos_cost;
-bool had_init;
 
-bool clk_polarity, en_polarity, arst_polarity, srst_polarity;
-RTLIL::SigSpec clk_sig, en_sig, arst_sig, srst_sig;
-dict<int, std::string> pi_map, po_map;
+struct AbcModuleState {
+	int map_autoidx = 0;
+	SigMap assign_map;
+	RTLIL::Module *module = nullptr;
+	std::vector<gate_t> signal_list;
+	dict<RTLIL::SigBit, int> signal_map;
+	FfInitVals initvals;
+	bool had_init = false;
 
-int undef_bits_lost;
+	bool clk_polarity = false;
+	bool en_polarity = false;
+	bool arst_polarity = false;
+	bool srst_polarity = false;
+	RTLIL::SigSpec clk_sig, en_sig, arst_sig, srst_sig;
+	dict<int, std::string> pi_map, po_map;
 
-int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
+	int undef_bits_lost = 0;
+
+	int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
+	void mark_port(RTLIL::SigSpec sig);
+	void extract_cell(RTLIL::Cell *cell, bool keepff);
+	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
+	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
+	void handle_loops();
+	void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
+		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
+		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
+		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells);
+};
+
+int AbcModuleState::map_signal(RTLIL::SigBit bit, gate_type_t gate_type, int in1, int in2, int in3, int in4)
 {
 	assign_map.apply(bit);
 
@@ -167,14 +186,14 @@ int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1,
 	return gate.id;
 }
 
-void mark_port(RTLIL::SigSpec sig)
+void AbcModuleState::mark_port(RTLIL::SigSpec sig)
 {
 	for (auto &bit : assign_map(sig))
 		if (bit.wire != nullptr && signal_map.count(bit) > 0)
 			signal_list[signal_map[bit]].is_port = true;
 }
 
-void extract_cell(RTLIL::Cell *cell, bool keepff)
+void AbcModuleState::extract_cell(RTLIL::Cell *cell, bool keepff)
 {
 	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 		FfData ff(&initvals, cell);
@@ -377,7 +396,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 	}
 }
 
-std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr)
+std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire)
 {
 	std::string abc_sname = abc_name.substr(1);
 	bool isnew = false;
@@ -416,7 +435,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
-void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
+void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
 {
 	if (f == nullptr)
 		return;
@@ -445,7 +464,7 @@ void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &w
 	fprintf(f, "}\n");
 }
 
-void handle_loops()
+void AbcModuleState::handle_loops()
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
@@ -646,13 +665,15 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 
 struct abc_output_filter
 {
+	const AbcModuleState &state;
 	bool got_cr;
 	int escape_seq_state;
 	std::string linebuf;
 	std::string tempdir_name;
 	bool show_tempdir;
 
-	abc_output_filter(std::string tempdir_name, bool show_tempdir) : tempdir_name(tempdir_name), show_tempdir(show_tempdir)
+	abc_output_filter(const AbcModuleState& state, std::string tempdir_name, bool show_tempdir)
+		: state(state), tempdir_name(tempdir_name), show_tempdir(show_tempdir)
 	{
 		got_cr = false;
 		escape_seq_state = 0;
@@ -693,8 +714,8 @@ struct abc_output_filter
 		int pi, po;
 		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
 			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-					pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-					po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+					pi, state.pi_map.count(pi) ? state.pi_map.at(pi).c_str() : "???",
+					po, state.po_map.count(po) ? state.po_map.at(po).c_str() : "???");
 			return;
 		}
 
@@ -703,19 +724,15 @@ struct abc_output_filter
 	}
 };
 
-void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
 		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
 		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
 		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells)
 {
 	module = current_module;
+	initvals.set(&assign_map, module);
 	map_autoidx = autoidx++;
-
-	signal_map.clear();
-	signal_list.clear();
-	pi_map.clear();
-	po_map.clear();
 
 	if (clk_str != "$")
 	{
@@ -1109,7 +1126,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
-		abc_output_filter filt(tempdir_name, show_tempdir);
+		abc_output_filter filt(*this, tempdir_name, show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 #else
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
@@ -1652,13 +1669,6 @@ struct AbcPass : public Pass {
 		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
 
-		assign_map.clear();
-		signal_list.clear();
-		signal_map.clear();
-		initvals.clear();
-		pi_map.clear();
-		po_map.clear();
-
 		std::string exe_file = yosys_abc_executable;
 		std::string script_file, default_liberty_file, constr_file, clk_str;
 		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
@@ -1667,13 +1677,6 @@ struct AbcPass : public Pass {
 		bool show_tempdir = false, sop_mode = false;
 		bool abc_dress = false;
 		vector<int> lut_costs;
-		markgroups = false;
-
-		map_mux4 = false;
-		map_mux8 = false;
-		map_mux16 = false;
-		enabled_gates.clear();
-		cmos_cost = false;
 
 		// get arguments from scratchpad first, then override by command arguments
 		std::string lut_arg, luts_arg, g_arg;
@@ -2049,11 +2052,10 @@ struct AbcPass : public Pass {
 				continue;
 			}
 
-			assign_map.set(mod);
-			initvals.set(&assign_map, mod);
-
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				AbcModuleState state;
+				state.assign_map.set(mod);
+				state.abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells);
 				continue;
 			}
@@ -2074,6 +2076,10 @@ struct AbcPass : public Pass {
 			dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			dict<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
+			SigMap assign_map;
+			assign_map.set(mod);
+			FfInitVals initvals;
+			initvals.set(&assign_map, mod);
 			for (auto cell : all_cells)
 			{
 				clkdomain_t key;
@@ -2207,26 +2213,20 @@ struct AbcPass : public Pass {
 						std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
 
 			for (auto &it : assigned_cells) {
-				clk_polarity = std::get<0>(it.first);
-				clk_sig = assign_map(std::get<1>(it.first));
-				en_polarity = std::get<2>(it.first);
-				en_sig = assign_map(std::get<3>(it.first));
-				arst_polarity = std::get<4>(it.first);
-				arst_sig = assign_map(std::get<5>(it.first));
-				srst_polarity = std::get<6>(it.first);
-				srst_sig = assign_map(std::get<7>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				AbcModuleState state;
+				state.assign_map.set(mod);
+				state.clk_polarity = std::get<0>(it.first);
+				state.clk_sig = assign_map(std::get<1>(it.first));
+				state.en_polarity = std::get<2>(it.first);
+				state.en_sig = assign_map(std::get<3>(it.first));
+				state.arst_polarity = std::get<4>(it.first);
+				state.arst_sig = assign_map(std::get<5>(it.first));
+				state.srst_polarity = std::get<6>(it.first);
+				state.srst_sig = assign_map(std::get<7>(it.first));
+				state.abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !state.clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells);
-				assign_map.set(mod);
 			}
 		}
-
-		assign_map.clear();
-		signal_list.clear();
-		signal_map.clear();
-		initvals.clear();
-		pi_map.clear();
-		po_map.clear();
 
 		log_pop();
 	}
