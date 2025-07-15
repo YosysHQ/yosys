@@ -255,7 +255,8 @@ struct FlattenWorker
 
 				for (int i = 0; i < GetSize(new_conn.first); i++) {
 					const auto lhs = new_conn.first[i], rhs = new_conn.second[i];
-					auto& sigsig = !lhs.is_wire() || !lhs.wire->name.isPublic() ? skip_conn : barrier_conn;
+					log_assert(lhs.is_wire());
+					auto& sigsig = !lhs.wire->name.isPublic() ? skip_conn : barrier_conn;
 					sigsig.first.append(lhs);
 					sigsig.second.append(rhs);
 				}
