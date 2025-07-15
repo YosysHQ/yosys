@@ -20,6 +20,13 @@ mv zlib-1.2.11/* "$vcxsrc"/yosys/libs/zlib/.
 rm -rf zlib-1.2.11
 pushd "$vcxsrc"/yosys
 ls libs/zlib/*.c | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]'  >> ../../srcfiles.txt
+
+if [ -f "/usr/include/FlexLexer.h" ] ; then
+	mkdir -p libs/flex
+	cp /usr/include/FlexLexer.h libs/flex/FlexLexer.h
+	ls libs/flex/*.h >> ../../srcfiles.txt
+fi
+
 popd
 {
 	n=$(grep -B999 '<ItemGroup>' "$vcxsrc"/YosysVS/YosysVS.vcxproj | wc -l)
