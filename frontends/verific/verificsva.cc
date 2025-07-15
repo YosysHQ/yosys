@@ -479,14 +479,14 @@ struct SvaFsm
 					GetSize(dnode.ctrl), verific_sva_fsm_limit);
 		}
 
-		for (int i = 0; i < (1 << GetSize(dnode.ctrl)); i++)
+		for (unsigned long long i = 0; i < (1ull << GetSize(dnode.ctrl)); i++)
 		{
 			Const ctrl_val(i, GetSize(dnode.ctrl));
 			pool<SigBit> ctrl_bits;
 
-			for (int i = 0; i < GetSize(dnode.ctrl); i++)
-				if (ctrl_val[i] == State::S1)
-					ctrl_bits.insert(dnode.ctrl[i]);
+			for (int j = 0; j < GetSize(dnode.ctrl); j++)
+				if (ctrl_val[j] == State::S1)
+					ctrl_bits.insert(dnode.ctrl[j]);
 
 			vector<int> new_state;
 			bool accept = false, cond = false;
@@ -1613,7 +1613,10 @@ struct VerificSvaImporter
 		}
 		else
 		if (inst->Type() == PRIM_SVA_OVERLAPPED_IMPLICATION ||
-				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)
+				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION ||
+				(mode_cover && (
+					inst->Type() == PRIM_SVA_OVERLAPPED_FOLLOWED_BY ||
+					inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)))
 		{
 			Net *antecedent_net = inst->GetInput1();
 			Net *consequent_net = inst->GetInput2();
@@ -1621,7 +1624,7 @@ struct VerificSvaImporter
 
 			SvaFsm antecedent_fsm(clocking, trig);
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
-			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
+			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION || inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY) {
 				int next_node = antecedent_fsm.createNode();
 				antecedent_fsm.createEdge(node, next_node);
 				node = next_node;

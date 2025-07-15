@@ -2,8 +2,15 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.54 .. Yosys 0.55-dev
+Yosys 0.55 .. Yosys 0.56-dev
 --------------------------
+
+Yosys 0.54 .. Yosys 0.55
+--------------------------
+ * Various
+    - read_verilog: Implemented SystemVerilog unique/priority if.
+    - "attrmap" pass is able to alter memory attributes.
+    - verific: Support SVA followed-by operator in cover mode.
 
 Yosys 0.53 .. Yosys 0.54
 --------------------------

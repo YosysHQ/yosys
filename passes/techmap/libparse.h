@@ -26,6 +26,11 @@
 #include <vector>
 #include <set>
 
+/**
+ * This file is likely to change in the near future.
+ * Rely on it in your plugins at your own peril
+ */
+
 namespace Yosys
 {
 	struct LibertyAst
