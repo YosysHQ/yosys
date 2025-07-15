@@ -1,0 +1,168 @@
+# Examples from #3426
+
+read_verilog <<EOT
+module top(
+	input wire in,
+	output wire out1, out2
+);
+
+wire int1, int2;
+assign int1 = in;
+assign out1 = in;
+assign out2 = int2;
+
+endmodule
+EOT
+
+optbarriers
+select -assert-any t:$barrier
+
+opt_clean
+
+# Check connections through barriers, e.g. out2 has int2 as input
+select -assert-count 0 w:out2 %ci2 w:int1 %i
+select -assert-count 1 w:out2 %ci2 w:int2 %i
+select -assert-count 0 w:out2 %ci2 w:in   %i
+select -assert-count 0 w:out2 %ci2 w:out1 %i
+
+select -assert-count 0 w:out1 %ci2 w:int1 %i
+select -assert-count 0 w:out1 %ci2 w:int2 %i
+select -assert-count 1 w:out1 %ci2 w:in   %i
+select -assert-count 0 w:out1 %ci2 w:out2 %i
+
+select -assert-count 0 w:int1 %ci2 w:int2 %i
+select -assert-count 0 w:int1 %ci2 w:in   %i
+select -assert-count 0 w:int1 %ci2 w:out1 %i
+select -assert-count 0 w:int1 %ci2 w:out2 %i
+
+select -assert-count 0 w:int2 %ci2 w:int1 %i
+select -assert-count 0 w:int2 %ci2 w:in   %i
+select -assert-count 0 w:int2 %ci2 w:out1 %i
+select -assert-count 0 w:int2 %ci2 w:out2 %i
+
+select -assert-count 0 w:in %ci2 w:int1 %i
+select -assert-count 0 w:in %ci2 w:int2 %i
+select -assert-count 0 w:in %ci2 w:out1 %i
+select -assert-count 0 w:in %ci2 w:out2 %i
+
+design -reset
+
+read_verilog <<EOT
+module top(
+	input wire in,
+	output wire out1, out2, out3
+);
+
+wire int1, int2;
+assign int1 = in;
+assign int2 = int1;
+
+assign out1 = int1;
+assign out2 = int2;
+assign out3 = out1 | out2;
+
+endmodule
+EOT
+
+optbarriers
+opt_clean
+
+# Ensure int1 is still in fanin of int2/out1/out2/out3
+select -assert-count 1 w:int2 %ci* w:int1 %i
+select -assert-count 1 w:out1 %ci* w:int1 %i
+select -assert-count 1 w:out2 %ci* w:int1 %i
+select -assert-count 1 w:out3 %ci* w:int1 %i
+
+design -reset
+
+# Some basic tests that adding and removing barriers is a no-op functionally and
+# prevents optimizations
+
+read_verilog <<EOT
+module top(
+	output wire [7:0] d
+);
+
+wire [7:0] a, b, c;
+
+assign d = a + b + c;
+
+assign a = 12;
+assign b = 13;
+assign c = 61;
+
+endmodule
+EOT
+
+# Without barriers additions are const folded
+design -push-copy
+prep
+select -assert-none t:$add
+design -pop
+
+# With barriers they aren't
+prep -barriers
+select -assert-count 2 t:$add
+
+design -reset
+
+# Processes including self-assignment
+
+read_verilog <<EOT
+module top(
+	input wire clk,
+	input wire rst,
+	input wire [7:0] a,
+	input wire [7:0] b,
+	output wire [7:0] c,
+	output wire [7:0] d
+);
+
+always @(posedge clk) begin
+	if (rst) begin
+		c <= '0;
+		d <= b;
+	end else begin
+		c <= a;
+	end
+end
+
+endmodule
+EOT
+
+copy top top_gold
+optbarriers top
+proc
+select -assert-any t:$barrier
+optbarriers -remove
+select -assert-none t:$barrier
+
+equiv_make top top_gold equiv
+equiv_induct equiv
+equiv_status -assert
+
+design -reset
+
+read_verilog <<EOT
+module top(
+	input wire [7:0] a,
+	input wire [7:0] b,
+	output wire [7:0] c,
+	output wire [7:0] d
+);
+
+assign c = a + b;
+assign d = a + b;
+
+endmodule
+EOT
+
+# Without barriers c and d are merged
+design -push-copy
+prep
+select -assert-any w:c %ci1 w:d %ci1 %i
+design -pop
+
+# With barriers they aren't
+prep -barriers
+select -assert-none w:c %ci1 w:d %ci1 %i
