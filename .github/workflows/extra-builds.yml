@@ -67,6 +67,7 @@ jobs:
           WASI_SDK=wasi-sdk-19.0
           WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
           if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
+          sudo apt-get install libfl-dev
           ln -s /usr/include/FlexLexer.h ${WASI_SDK}/share/wasi-sysroot/include/
 
           mkdir -p build
