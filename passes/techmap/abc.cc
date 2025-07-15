@@ -180,8 +180,9 @@ struct AbcModuleState {
 	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
-	void abc_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
+	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
+	void run_abc();
 	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
@@ -775,7 +776,7 @@ struct abc_output_filter
 	}
 };
 
-void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
+void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 	bool dff_mode, std::string clk_str)
 {
 	map_autoidx = autoidx++;
@@ -987,9 +988,12 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 		mark_port(assign_map, srst_sig);
 
 	handle_loops(assign_map, module);
+}
 
-	buffer = stringf("%s/input.blif", tempdir_name);
-	f = fopen(buffer.c_str(), "wt");
+void AbcModuleState::run_abc()
+{
+	std::string buffer = stringf("%s/input.blif", tempdir_name);
+	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 
@@ -1111,8 +1115,6 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	log_push();
 	if (count_output > 0)
 	{
-		log_header(design, "Executing ABC.\n");
-
 		auto &cell_cost = cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
 
 		buffer = stringf("%s/stdcells.genlib", tempdir_name);
@@ -1522,8 +1524,6 @@ void AbcModuleState::finish()
 		log("Removing temp directory.\n");
 		remove_directory(tempdir_name);
 	}
-
-	log_pop();
 }
 
 // For every signal that connects cells from different sets, or a cell in a set to a cell not in any set,
@@ -2163,7 +2163,8 @@ struct AbcPass : public Pass {
 				assign_cell_connection_ports(mod, {&cells}, assign_map);
 
 				AbcModuleState state(config, initvals);
-				state.abc_module(design, mod, assign_map, cells, dff_mode, clk_str);
+				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
+				state.run_abc();
 				state.extract(assign_map, design, mod);
 				state.finish();
 				continue;
@@ -2333,7 +2334,8 @@ struct AbcPass : public Pass {
 				state.arst_sig = assign_map(std::get<5>(it.first));
 				state.srst_polarity = std::get<6>(it.first);
 				state.srst_sig = assign_map(std::get<7>(it.first));
-				state.abc_module(design, mod, assign_map, it.second, !state.clk_sig.empty(), "$");
+				state.prepare_module(design, mod, assign_map, it.second, !state.clk_sig.empty(), "$");
+				state.run_abc();
 				state.extract(assign_map, design, mod);
 				state.finish();
 			}
