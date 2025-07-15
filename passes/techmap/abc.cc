@@ -947,8 +947,8 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, co
 	}
 
 	for (auto cell : module->cells())
-	for (auto &port_it : cell->connections())
-		mark_port(port_it.second);
+		for (auto &port_it : cell->connections())
+			mark_port(port_it.second);
 
 	if (clk_sig.size() != 0)
 		mark_port(clk_sig);
