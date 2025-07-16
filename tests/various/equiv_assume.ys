@@ -1,0 +1,26 @@
+read_verilog -sv <<EOT
+module gold (input D, output Q);
+assign Q = '0;
+endmodule
+
+module gate (input D, output Q);
+assume property (D == '0);
+assign Q = D;
+endmodule
+EOT
+
+chformal -lower
+async2sync
+design -stash input
+
+# using $assert cells in sat verifies
+design -load input
+equiv_make -make_assert gold gate equiv
+prep -top equiv
+sat -set-assumes -prove-asserts -verify
+
+# so should $equiv
+design -load input
+equiv_make gold gate equiv
+equiv_simple equiv
+equiv_status -assert equiv
