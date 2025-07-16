@@ -38,6 +38,9 @@ popd
 } > "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
 
 sed -i 's,</AdditionalIncludeDirectories>,</AdditionalIncludeDirectories>\n      <LanguageStandard>stdcpp17</LanguageStandard>\n      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
+if [ -f "/usr/include/FlexLexer.h" ] ; then
+	sed -i 's,</AdditionalIncludeDirectories>,;..\\yosys\\libs\\flex</AdditionalIncludeDirectories>,g' "$vcxsrc"/YosysVS/YosysVS.vcxproj.new
+fi
 mv "$vcxsrc"/YosysVS/YosysVS.vcxproj.new "$vcxsrc"/YosysVS/YosysVS.vcxproj
 
 mkdir -p "$vcxsrc"/yosys
