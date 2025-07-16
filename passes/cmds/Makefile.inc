@@ -57,3 +57,4 @@ OBJS += passes/cmds/abstract.o
 OBJS += passes/cmds/test_select.o
 OBJS += passes/cmds/timeest.o
 OBJS += passes/cmds/publish.o
+OBJS += passes/cmds/icell_liberty.o
