@@ -29,7 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 static const std::regex src_re("(.*):(\\d+)\\.(\\d+)-(\\d+)\\.(\\d+)");
 
 struct CoveragePass : public Pass {
-	CoveragePass() : Pass("linecoverage", "write coverage information to file") { }
+	CoveragePass() : Pass("linecoverage", "report coverage information") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
