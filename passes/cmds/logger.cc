@@ -153,8 +153,6 @@ struct LoggerPass : public Pass {
 				std::string type = args[++argidx];
 				if (type!="error" && type!="warning" && type!="log")
 					log_cmd_error("Expect command require type to be 'log', 'warning' or 'error' !\n");
-				if (type=="error" && log_expect_error.size()>0)
-					log_cmd_error("Only single error message can be expected !\n");
 				std::string pattern = args[++argidx];
 				if (pattern.front() == '\"' && pattern.back() == '\"') pattern = pattern.substr(1, pattern.size() - 2);					
 				int count = atoi(args[++argidx].c_str());
