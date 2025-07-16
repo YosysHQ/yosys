@@ -6,8 +6,8 @@ add_library(yosys_techlibs_coolrunner2 OBJECT
     coolrunner2_fixup.cc
 )
 
-target_link_libraries(yosys PUBLIC yosys_techlibs_coolrunner2)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_coolrunner2>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_coolrunner2)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_coolrunner2>)
 
 add_share_file("share/coolrunner2" "cells_latch.v")
 add_share_file("share/coolrunner2" "cells_sim.v")

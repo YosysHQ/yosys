@@ -27,8 +27,8 @@ add_library(yosys_techlib_common OBJECT
 
 add_dependencies(yosys_techlib_common yosys_techlib_common_gen)
 
-target_link_libraries(yosys PUBLIC yosys_techlib_common)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlib_common>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlib_common)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlib_common>)
 
 add_share_file("share" "simlib.v")
 add_share_file("share" "simcells.v")

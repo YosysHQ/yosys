@@ -13,6 +13,6 @@ add_library(yosys_frontends_rtlil_gen OBJECT
     ${FLEX_RTLIL_LEXER_OUTPUTS}
     ${BISON_RTLIL_PARSER_OUTPUTS}
 )
-target_link_libraries(yosys PUBLIC yosys_frontends_rtlil yosys_frontends_rtlil_gen)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_rtlil>)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_rtlil_gen>)
+target_link_libraries(yosys_obj PUBLIC yosys_frontends_rtlil yosys_frontends_rtlil_gen)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_frontends_rtlil>)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_frontends_rtlil_gen>)

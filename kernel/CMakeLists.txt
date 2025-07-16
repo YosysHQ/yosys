@@ -93,5 +93,5 @@ endif()
 
 add_dependencies(yosys_kernel yosys_techlib_common)
 
-target_link_libraries(yosys PUBLIC yosys_kernel)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_kernel>)
+target_link_libraries(yosys_obj PUBLIC yosys_kernel)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_kernel>)

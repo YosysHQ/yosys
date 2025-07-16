@@ -45,10 +45,10 @@ add_custom_target(yosys_techlibs_quicklogic_gen
         ${CMAKE_CURRENT_BINARY_DIR}/qlf_k6n10f/bram_types_sim.v
 )
 
-add_dependencies(yosys yosys_techlibs_quicklogic_gen)
+add_dependencies(yosys_obj yosys_techlibs_quicklogic_gen)
 
-target_link_libraries(yosys PUBLIC yosys_techlibs_quicklogic)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_quicklogic>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_quicklogic)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_quicklogic>)
 
 add_share_file("share/quicklogic/common" "common/cells_sim.v")
 add_share_file("share/quicklogic/pp3" "pp3/ffs_map.v")

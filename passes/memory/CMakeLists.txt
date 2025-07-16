@@ -17,5 +17,5 @@ add_library(yosys_passes_memory OBJECT
     memlib.h
 )
 
-target_link_libraries(yosys PUBLIC yosys_passes_memory)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_memory>)
+target_link_libraries(yosys_obj PUBLIC yosys_passes_memory)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_passes_memory>)

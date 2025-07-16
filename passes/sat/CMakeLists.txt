@@ -32,5 +32,5 @@ target_sources(yosys_passes_sat PRIVATE
 )
 endif()
 
-target_link_libraries(yosys PUBLIC yosys_passes_sat)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_sat>)
+target_link_libraries(yosys_obj PUBLIC yosys_passes_sat)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_passes_sat>)

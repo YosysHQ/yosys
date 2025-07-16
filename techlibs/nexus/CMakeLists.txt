@@ -4,8 +4,8 @@ add_library(yosys_techlibs_nexus OBJECT
     synth_nexus.cc
 )
 
-target_link_libraries(yosys PUBLIC yosys_techlibs_nexus)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_nexus>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_nexus)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_nexus>)
 
 add_share_file("share/nexus" "cells_map.v")
 add_share_file("share/nexus" "cells_sim.v")

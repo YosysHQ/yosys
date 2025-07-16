@@ -18,8 +18,8 @@ target_sources(yosys_techlibs_gatemate PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/lut_tree_map.v
 )
 
-target_link_libraries(yosys PUBLIC yosys_techlibs_gatemate)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_gatemate>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_gatemate)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_gatemate>)
 
 add_share_file("share/gatemate" "reg_map.v")
 add_share_file("share/gatemate" "mux_map.v")

@@ -95,15 +95,15 @@ find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.0 REQUIRED)
 find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
-add_library(yosys OBJECT)
+add_library(yosys_obj OBJECT)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(yosys PUBLIC
+target_include_directories(yosys_obj PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_compile_definitions(_YOSYS_)
-target_compile_definitions(yosys PUBLIC _YOSYS_)
+target_compile_definitions(yosys_obj PUBLIC _YOSYS_)
 
 if (ENABLE_READLINE AND ENABLE_EDITLINE)
     message(FATAL_ERROR "Not possible to enable both ENABLE_READLINE and ENABLE_EDITLINE")
@@ -112,26 +112,26 @@ endif()
 if (ENABLE_READLINE)
     find_package(Readline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_READLINE)
-    target_link_libraries(yosys PUBLIC ${READLINE_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${READLINE_LIBRARY})
 endif()
 
 if (ENABLE_EDITLINE)
     find_package(Editline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_EDITLINE)
-    target_link_libraries(yosys PUBLIC ${EDITLINE_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${EDITLINE_LIBRARY})
 endif()
 
 if (ENABLE_TCL)
     find_package(TCL 8.6 REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_TCL)
-    target_include_directories(yosys PUBLIC ${TCL_INCLUDE_PATH})
-    target_link_libraries(yosys PUBLIC ${TCL_LIBRARY})
+    target_include_directories(yosys_obj PUBLIC ${TCL_INCLUDE_PATH})
+    target_link_libraries(yosys_obj PUBLIC ${TCL_LIBRARY})
 endif()
 
 if (ENABLE_ZLIB)
     find_package(ZLIB REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_ZLIB)
-    target_link_libraries(yosys PUBLIC ZLIB::ZLIB)
+    target_link_libraries(yosys_obj PUBLIC ZLIB::ZLIB)
 endif()
 
 if (ENABLE_COVER)
@@ -164,8 +164,8 @@ if (ENABLE_ABC)
     add_compile_definitions(YOSYS_ENABLE_ABC)
     if (LINK_ABC)
         add_compile_definitions(YOSYS_LINK_ABC)
-        target_link_libraries(yosys PUBLIC $<TARGET_FILE:libabc>)
-        add_dependencies(yosys libabc)
+        target_link_libraries(yosys_obj PUBLIC $<TARGET_FILE:libabc>)
+        add_dependencies(yosys_obj libabc)
     endif()        
 endif()
 
@@ -173,7 +173,7 @@ if (ENABLE_PLUGINS)
     find_package(LibFFI REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_PLUGINS)
     include_directories(${LIBFFI_INCLUDE_DIR})
-    target_link_libraries(yosys PUBLIC ${LIBFFI_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${LIBFFI_LIBRARY})
 endif()
 
 if (DISABLE_SPAWN)
@@ -310,37 +310,34 @@ set_property(SOURCE kernel/log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC=
 
 if (ENABLE_LIBYOSYS)
     add_library(yosys_shared SHARED
-        $<TARGET_OBJECTS:yosys>
+        $<TARGET_OBJECTS:yosys_obj>
     )
-    target_link_libraries(yosys_shared PUBLIC yosys)
-    set_target_properties(yosys_shared PROPERTIES OUTPUT_NAME yosys)
+    target_link_libraries(yosys_shared PUBLIC yosys_obj)
+    # set_target_properties(yosys_shared PROPERTIES OUTPUT_NAME yosys)
     install(TARGETS yosys_shared
-            LIBRARY DESTINATION .)
+            LIBRARY DESTINATION lib)
 endif()
 
 add_executable(yosys_exe
     kernel/driver.cc
-    $<TARGET_OBJECTS:yosys>
+    $<TARGET_OBJECTS:yosys_obj>
 )
-target_link_libraries(yosys_exe PUBLIC yosys)
+target_link_libraries(yosys_exe PUBLIC yosys_obj)
 set_target_properties(yosys_exe PROPERTIES OUTPUT_NAME yosys)
 install(TARGETS yosys_exe
-        RUNTIME DESTINATION .)
+        RUNTIME DESTINATION bin)
 
 #### yosys-config setup ####
 include(cmake/YosysConfig.cmake)
 
 #### INSTALL ####
-install(TARGETS yosys
-        RUNTIME DESTINATION .)
-
 if (ENABLE_ABC)
     install(PROGRAMS $<TARGET_FILE:abc>
-            DESTINATION .
+            DESTINATION bin
             RENAME yosys-abc)
 endif()
 
-install(PROGRAMS ${yosys_BINARY_DIR}/yosys-config DESTINATION .)
+install(PROGRAMS ${yosys_BINARY_DIR}/yosys-config DESTINATION bin)
 
 #### TESTING ####
 include(cmake/TestFiles.cmake)
@@ -358,7 +355,7 @@ foreach(dir IN LISTS SH_TEST_DIRS)
     )
     set_tests_properties(seed-tests.${name} PROPERTIES
                          ENVIRONMENT "${_YOSYS_TEST_ENV}"
-                         DEPENDS yosys)
+                         DEPENDS yosys_exe)
 endforeach()
 
 foreach(dir IN LISTS SH_ABC_TEST_DIRS)
@@ -370,7 +367,7 @@ foreach(dir IN LISTS SH_ABC_TEST_DIRS)
     )
     set_tests_properties(abcopt-tests.${name} PROPERTIES
                          ENVIRONMENT "${_YOSYS_TEST_ENV}"
-                         DEPENDS yosys)
+                         DEPENDS yosys_exe)
 endforeach()
 
 foreach(dir IN LISTS MK_TEST_DIRS)
@@ -386,5 +383,5 @@ foreach(dir IN LISTS MK_TEST_DIRS)
     )
     set_tests_properties(makefile-tests.${name} PROPERTIES
                          ENVIRONMENT "${_YOSYS_TEST_ENV}"
-                         DEPENDS yosys)
+                         DEPENDS yosys_exe)
 endforeach()

@@ -53,8 +53,8 @@ if (ENABLE_ABC)
     )
 endif()
 
-target_link_libraries(yosys PUBLIC yosys_passes_techmap)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_passes_techmap>)
+target_link_libraries(yosys_obj PUBLIC yosys_passes_techmap)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_passes_techmap>)
 
 if (NOT DISABLE_SPAWN)
     set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})

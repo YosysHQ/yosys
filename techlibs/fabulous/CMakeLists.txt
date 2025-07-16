@@ -4,8 +4,8 @@ add_library(yosys_techlibs_fabulous OBJECT
     synth_fabulous.cc
 )
 
-target_link_libraries(yosys PUBLIC yosys_techlibs_fabulous)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_techlibs_fabulous>)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_fabulous)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_fabulous>)
 
 add_share_file("share/fabulous" "cells_map.v")
 add_share_file("share/fabulous" "prims.v")

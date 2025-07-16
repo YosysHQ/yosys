@@ -43,6 +43,6 @@ add_library(yosys_frontends_verilog_gen OBJECT
     #${CMAKE_CURRENT_BINARY_DIR}/verilog_parser.tab.cc
     #${CMAKE_CURRENT_BINARY_DIR}/verilog_parser.tab.hh
 )
-target_link_libraries(yosys PUBLIC yosys_frontends_verilog yosys_frontends_verilog_gen)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog>)
-target_sources(yosys PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog_gen>)
+target_link_libraries(yosys_obj PUBLIC yosys_frontends_verilog yosys_frontends_verilog_gen)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog>)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_frontends_verilog_gen>)
