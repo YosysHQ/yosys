@@ -36,7 +36,7 @@ struct CoveragePass : public Pass {
 		log("\n");
 		log("    linecoverage [options] [selection]\n");
 		log("\n");
-		log("This command writes coverage information on the design based on the current\n");
+		log("This command prints coverage information on the design based on the current\n");
 		log("selection, where items in the selection are considered covered and items not in\n");
 		log("the selection are considered uncovered. If the same source location is found\n");
 		log("both on items inside and out of the selection, it is considered uncovered.\n");
@@ -125,8 +125,12 @@ struct CoveragePass : public Pass {
 			log_debug("\n");
 		}
 
-		if(!ofile.empty()) {
-			for (const auto& file_entry : all_lines) {
+		for (const auto& file_entry : all_lines) {
+			int lines_found = file_entry.second.size();
+			int lines_hit = file_entry.second.size() - (uncovered_lines.count(file_entry.first) ? uncovered_lines[file_entry.first].size() : 0);
+			log("File %s: %d/%d lines covered\n", file_entry.first.c_str(), lines_hit, lines_found);
+
+			if(!ofile.empty()) {
 				fout << "SF:" << file_entry.first << "\n";
 				for (int l : file_entry.second) {
 					fout << "DA:" << l << ",";
@@ -136,8 +140,8 @@ struct CoveragePass : public Pass {
 						fout << "1";
 					fout << "\n";
 				}
-				fout << "LF:" << file_entry.second.size() << "\n";
-				fout << "LH:" << (uncovered_lines.count(file_entry.first) ? uncovered_lines[file_entry.first].size() : 0) << "\n";
+				fout << "LF:" << lines_found << "\n";
+				fout << "LH:" << lines_hit << "\n";
 				fout << "end_of_record\n";
 			}
 		}
