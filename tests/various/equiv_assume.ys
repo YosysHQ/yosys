@@ -18,9 +18,11 @@ design -load input
 equiv_make -make_assert gold gate equiv
 prep -top equiv
 sat -set-assumes -prove-asserts -verify
+# this fails
+# sat -prove-asserts -verify
 
 # so should $equiv
 design -load input
 equiv_make gold gate equiv
-equiv_simple equiv
+equiv_simple -set-assumes equiv
 equiv_status -assert equiv
