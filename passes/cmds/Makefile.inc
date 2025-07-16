@@ -58,3 +58,4 @@ OBJS += passes/cmds/test_select.o
 OBJS += passes/cmds/timeest.o
 OBJS += passes/cmds/linecoverage.o
 OBJS += passes/cmds/sort.o
+OBJS += passes/cmds/icell_liberty.o
