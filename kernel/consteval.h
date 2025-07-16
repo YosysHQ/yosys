@@ -349,7 +349,11 @@ struct ConstEval
 				return false;
 
 			bool eval_err = false;
-			RTLIL::Const eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_c.as_const(), sig_d.as_const(), &eval_err);
+			RTLIL::Const eval_ret;
+			if (sig_s.size() > 0 && eval(sig_s, undef, cell)) {
+				eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_s.as_const(), &eval_err);
+			} else
+				eval_ret = CellTypes::eval(cell, sig_a.as_const(), sig_b.as_const(), sig_c.as_const(), sig_d.as_const(), &eval_err);
 
 			if (eval_err)
 				return false;
