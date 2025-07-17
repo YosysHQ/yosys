@@ -51,10 +51,32 @@ module mux8 ( S, D, Y );
     end
 endmodule
 
+module mux12 (D, S, Y);
+    input  [11:0] D;
+    input  [3:0] S;
+    output Y;
+
+    wire[15:0] D16;
+
+    assign D16 = {4'bx, D};
+    assign Y = D16[S];
+endmodule
+
 module mux16 (D, S, Y);
- 	input  [15:0] D;
- 	input  [3:0] S;
- 	output Y;
+    input  [15:0] D;
+    input  [3:0] S;
+    output Y;
 
     assign Y = D[S];
+endmodule
+
+module mux20 (D, S, Y);
+    input  [19:0] D;
+    input  [4:0] S;
+    output Y;
+
+    wire[31:0] D32;
+
+    assign D32 = {12'bx, D};
+    assign Y = D32[S];
 endmodule
