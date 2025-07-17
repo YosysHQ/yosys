@@ -1759,7 +1759,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			break;
 		if (type == AST_GENBLOCK)
 			break;
-		if (type == AST_CELLARRAY && children[i]->type == AST_CELL)
+		if (type == AST_CELLARRAY && (children[i]->type == AST_CELL || children[i]->type == AST_PRIMITIVE))
 			continue;
 		if (type == AST_BLOCK && !str.empty())
 			break;
@@ -2752,6 +2752,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (new_cell->type == AST_PRIMITIVE) {
 				input_error("Cell arrays of primitives are currently not supported.\n");
 			} else {
+				this->dumpAst(NULL, "    ");
 				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
 				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str.c_str());
 			}
