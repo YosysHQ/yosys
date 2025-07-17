@@ -33,13 +33,13 @@ jobs:
         with:
           name: vcxsrc
           path: yosys-win32-vcxsrc-latest.zip
-  
+
   vs-build:
     name: Visual Studio build
     runs-on: windows-latest
     needs: [vs-prep, pre_job]
     if: needs.pre_job.outputs.should_skip != 'true'
-    steps:  
+    steps:
       - uses: actions/download-artifact@v4
         with:
           name: vcxsrc
@@ -67,11 +67,21 @@ jobs:
           WASI_SDK=wasi-sdk-19.0
           WASI_SDK_URL=https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz
           if ! [ -d ${WASI_SDK} ]; then curl -L ${WASI_SDK_URL} | tar xzf -; fi
-          ln -s /usr/include/FlexLexer.h ${WASI_SDK}/share/wasi-sysroot/include/
+
+          FLEX_VER=2.6.4
+          FLEX=flex-${FLEX_VER}
+          FLEX_URL=https://github.com/westes/flex/releases/download/v${FLEX_VER}/${FLEX}.tar.gz
+          if ! [ -d ${FLEX} ]; then curl -L ${FLEX_URL} | tar xzf -; fi
+
+          mkdir -p flex-build
+          (cd flex-build &&
+            ../${FLEX}/configure --prefix=$(pwd)/../flex-prefix &&
+            make &&
+            make install)
 
           mkdir -p build
           cat > build/Makefile.conf <<END
-          export PATH := $(pwd)/${WASI_SDK}/bin:${PATH}
+          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/${FLEX}/bin:${PATH}
           WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
 
           CONFIG := wasi
@@ -81,6 +91,8 @@ jobs:
           ENABLE_READLINE := 0
           ENABLE_PLUGINS := 0
           ENABLE_ZLIB := 0
+
+          CXXFLAGS += -I$(pwd)/${FLEX}/include
           END
 
           make -C build -f ../Makefile CXX=clang -j$(nproc)
