@@ -1,6 +1,6 @@
-add_library(yosys_passes_fsm INTERFACE)
 
-target_sources(yosys_passes_fsm INTERFACE
+
+add_library(yosys_passes_fsm OBJECT
     fsm.cc
     fsm_detect.cc
     fsm_extract.cc
@@ -13,4 +13,5 @@ target_sources(yosys_passes_fsm INTERFACE
     fsmdata.h
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_fsm)
+target_link_libraries(yosys_obj PUBLIC yosys_passes_fsm)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_passes_fsm>)

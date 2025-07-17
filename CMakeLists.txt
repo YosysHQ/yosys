@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(yosys LANGUAGES CXX C)
 set(YOSYS_VER "0.50+1")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # features (the more the better)
 
@@ -53,16 +54,28 @@ if (ENABLE_ABC)
     add_subdirectory(abc EXCLUDE_FROM_ALL)
 
     add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/yosys-abc
+        OUTPUT ${yosys_BINARY_DIR}/yosys-abc
         DEPENDS abc  # Depend on the target, not the generator expression
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:abc> ${CMAKE_BINARY_DIR}/yosys-abc
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:abc> ${yosys_BINARY_DIR}/yosys-abc
     )
 
-    add_custom_target(yosys-abc-copy ALL DEPENDS ${CMAKE_BINARY_DIR}/yosys-abc)
+    add_custom_target(yosys-abc-copy ALL DEPENDS ${yosys_BINARY_DIR}/yosys-abc)
 endif()
 
-set(CMAKE_CXX_STANDARD ${CXXSTD})
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+get_property(cxx_features GLOBAL PROPERTY CMAKE_CXX_KNOWN_FEATURES)
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 23)
+    message(STATUS "C++23 support enabled")
+else()
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    message(STATUS "C++ standard set to ${CMAKE_CXX_STANDARD}")
+endif()
+
+# Ensure C++17 support is available
+if(NOT "cxx_std_17" IN_LIST cxx_features)
+    message(FATAL_ERROR "C++17 support is required but not available")
+endif()
+
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_C_STANDARD 99)
@@ -73,13 +86,15 @@ find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.0 REQUIRED)
 find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
-add_executable(yosys)
-#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-#target_include_directories(yosys PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-#target_compile_definitions(yosys PRIVATE _YOSYS_)
+add_library(yosys_obj OBJECT)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(yosys_obj PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_compile_definitions(_YOSYS_)
+target_compile_definitions(yosys_obj PUBLIC _YOSYS_)
 
 if (ENABLE_READLINE AND ENABLE_EDITLINE)
     message(FATAL_ERROR "Not possible to enable both ENABLE_READLINE and ENABLE_EDITLINE")
@@ -88,26 +103,26 @@ endif()
 if (ENABLE_READLINE)
     find_package(Readline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_READLINE)
-    target_link_libraries(yosys PRIVATE ${READLINE_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${READLINE_LIBRARY})
 endif()
 
 if (ENABLE_EDITLINE)
     find_package(Editline REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_EDITLINE)
-    target_link_libraries(yosys PRIVATE ${EDITLINE_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${EDITLINE_LIBRARY})
 endif()
 
 if (ENABLE_TCL)
     find_package(TCL 8.6 REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_TCL)
-    target_include_directories(yosys PRIVATE ${TCL_INCLUDE_PATH})
-    target_link_libraries(yosys PRIVATE ${TCL_LIBRARY})
+    target_include_directories(yosys_obj PUBLIC ${TCL_INCLUDE_PATH})
+    target_link_libraries(yosys_obj PUBLIC ${TCL_LIBRARY})
 endif()
 
 if (ENABLE_ZLIB)
     find_package(ZLIB REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_ZLIB)
-    target_link_libraries(yosys PRIVATE ZLIB::ZLIB)
+    target_link_libraries(yosys_obj PUBLIC ZLIB::ZLIB)
 endif()
 
 if (ENABLE_COVER)
@@ -140,8 +155,8 @@ if (ENABLE_ABC)
     add_compile_definitions(YOSYS_ENABLE_ABC)
     if (LINK_ABC)
         add_compile_definitions(YOSYS_LINK_ABC)
-        target_link_libraries(yosys PRIVATE $<TARGET_FILE:libabc>)
-        add_dependencies(yosys libabc)
+        target_link_libraries(yosys_obj PUBLIC $<TARGET_FILE:libabc>)
+        add_dependencies(yosys_obj libabc)
     endif()        
 endif()
 
@@ -149,7 +164,7 @@ if (ENABLE_PLUGINS)
     find_package(LibFFI REQUIRED)
     add_compile_definitions(YOSYS_ENABLE_PLUGINS)
     include_directories(${LIBFFI_INCLUDE_DIR})
-    target_link_libraries(yosys PRIVATE ${LIBFFI_LIBRARY})
+    target_link_libraries(yosys_obj PUBLIC ${LIBFFI_LIBRARY})
 endif()
 
 if (DISABLE_SPAWN)
@@ -283,3 +298,81 @@ if (ENABLE_ZLIB)
 endif()
 
 set_property(SOURCE kernel/log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC="${PROJECT_SOURCE_DIR}")
+
+if (ENABLE_LIBYOSYS)
+    add_library(yosys_shared SHARED
+        $<TARGET_OBJECTS:yosys_obj>
+    )
+    target_link_libraries(yosys_shared PUBLIC yosys_obj)
+    # set_target_properties(yosys_shared PROPERTIES OUTPUT_NAME yosys)
+    install(TARGETS yosys_shared
+            LIBRARY DESTINATION lib)
+endif()
+
+add_executable(yosys_exe
+    kernel/driver.cc
+    $<TARGET_OBJECTS:yosys_obj>
+)
+target_link_libraries(yosys_exe PUBLIC yosys_obj)
+set_target_properties(yosys_exe PROPERTIES OUTPUT_NAME yosys)
+install(TARGETS yosys_exe
+        RUNTIME DESTINATION bin)
+
+#### yosys-config setup ####
+include(cmake/YosysConfig.cmake)
+
+#### INSTALL ####
+if (ENABLE_ABC)
+    install(PROGRAMS $<TARGET_FILE:abc>
+            DESTINATION bin
+            RENAME yosys-abc)
+endif()
+
+install(PROGRAMS ${yosys_BINARY_DIR}/yosys-config DESTINATION bin)
+
+#### TESTING ####
+include(cmake/TestFiles.cmake)
+enable_testing()
+
+set(_YOSYS_TEST_ENV
+    "PATH=${PROJECT_SOURCE_DIR}:$ENV{PATH};")
+
+foreach(dir IN LISTS SH_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    seed-tests.${name}
+        COMMAND bash -c
+                "cd \"${PROJECT_SOURCE_DIR}/${dir}\" && bash run-test.sh ${SEEDOPT}"
+    )
+    set_tests_properties(seed-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys_exe)
+endforeach()
+
+foreach(dir IN LISTS SH_ABC_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    abcopt-tests.${name}
+        COMMAND bash -c
+                "cd \"${PROJECT_SOURCE_DIR}/${dir}\" && bash run-test.sh ${ABCOPT} ${SEEDOPT}"
+    )
+    set_tests_properties(abcopt-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys_exe)
+endforeach()
+
+foreach(dir IN LISTS MK_TEST_DIRS)
+    string(REPLACE "/" "_" name "${dir}")
+    add_test(
+        NAME    makefile-tests.${name}
+        COMMAND bash -c
+                "
+                cd \"${PROJECT_SOURCE_DIR}/${dir}\" &&
+                bash run-test.sh &&
+                ${CMAKE_MAKE_PROGRAM} -f run-test.mk
+                "
+    )
+    set_tests_properties(makefile-tests.${name} PROPERTIES
+                         ENVIRONMENT "${_YOSYS_TEST_ENV}"
+                         DEPENDS yosys_exe)
+endforeach()

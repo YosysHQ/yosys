@@ -1,6 +1,6 @@
-add_library(yosys_techlibs_gatemate INTERFACE)
 
-target_sources(yosys_techlibs_gatemate INTERFACE
+
+add_library(yosys_techlibs_gatemate OBJECT
     synth_gatemate.cc
     gatemate_foldinv.cc
 )
@@ -10,7 +10,7 @@ add_custom_command(
 	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/make_lut_tree_lib.py
 	OUTPUT lut_tree_cells.genlib lut_tree_map.v
 	COMMENT "Generating techlibs/gatemate/lut_tree_map.v..."
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${yosys_BINARY_DIR}
 )
 
 target_sources(yosys_techlibs_gatemate PRIVATE
@@ -18,7 +18,8 @@ target_sources(yosys_techlibs_gatemate PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/lut_tree_map.v
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_gatemate)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_gatemate)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_gatemate>)
 
 add_share_file("share/gatemate" "reg_map.v")
 add_share_file("share/gatemate" "mux_map.v")

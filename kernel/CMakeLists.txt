@@ -1,4 +1,4 @@
-add_library(yosys_kernel INTERFACE)
+
 
 #if(CMAKE_PROJECT_VERSION_PATCH GREATER 0)
 #    set(YOSYS_VERSION "${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}+${CMAKE_PROJECT_VERSION_PATCH}")
@@ -10,7 +10,7 @@ find_package(Git)
 if(Git_FOUND)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} rev-parse --short=9 HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${yosys_SOURCE_DIR}
         OUTPUT_VARIABLE CURRENT_GIT_VERSION
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -18,8 +18,9 @@ if(Git_FOUND)
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cc.in ${CMAKE_CURRENT_BINARY_DIR}/version.cc)
+set_property(SOURCE log.cc APPEND PROPERTY COMPILE_DEFINITIONS YOSYS_SRC="${PROJECT_SOURCE_DIR}")
 
-target_sources(yosys_kernel INTERFACE
+add_library(yosys_kernel OBJECT
     binding.cc
     binding.h
     bitpattern.h
@@ -34,7 +35,7 @@ target_sources(yosys_kernel INTERFACE
     constids.inc
     cost.cc
     cost.h
-    driver.cc
+    # driver.cc
     drivertools.cc
     drivertools.h
     ff.cc
@@ -46,7 +47,10 @@ target_sources(yosys_kernel INTERFACE
     fmt.h
     functional.cc
     functional.h
+    gzip.cc
+    gzip.h
     hashlib.h
+    io.cc
     json.cc
     json.h
     log.cc
@@ -81,10 +85,13 @@ target_sources(yosys_kernel INTERFACE
 )
 
 if (ENABLE_ZLIB)
-target_sources(yosys_kernel INTERFACE
+target_sources(yosys_kernel PRIVATE
     fstdata.cc
     fstdata.h
 )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_kernel)
+add_dependencies(yosys_kernel yosys_techlib_common)
+
+target_link_libraries(yosys_obj PUBLIC yosys_kernel)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_kernel>)

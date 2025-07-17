@@ -18,7 +18,7 @@
         yosys = pkgs.clangStdenv.mkDerivation {
           name = "yosys";
           src = ./. ;
-          buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 zlib git pkg-configUpstream llvmPackages.bintools ];
+          buildInputs = with pkgs; [ clang bison flex libffi tcl tk readline python3 zlib git pkg-configUpstream llvmPackages.bintools ];
           checkInputs = with pkgs; [ gtest ];
           propagatedBuildInputs = [ abc-verifier ];
           preConfigure = "make config-clang";
@@ -41,7 +41,7 @@
         packages.default = yosys;
         defaultPackage = yosys;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ clang llvmPackages.bintools gcc bison flex libffi tcl readline python3 zlib git gtest abc-verifier verilog boost python3Packages.boost ];
+          buildInputs = with pkgs; [ gtkwave cmake clang ccache llvmPackages.bintools ninja gcc bison flex libffi tcl tk readline python3 zlib git gtest abc-verifier verilog boost python3Packages.boost ];
         };
       }
     );

@@ -1,6 +1,6 @@
-add_library(yosys_passes_opt INTERFACE)
 
-target_sources(yosys_passes_opt INTERFACE
+
+add_library(yosys_passes_opt OBJECT
     opt.cc
     opt_merge.cc
     opt_mem.cc
@@ -24,4 +24,5 @@ target_sources(yosys_passes_opt INTERFACE
     muxpack.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_passes_opt)
+target_link_libraries(yosys_obj PUBLIC yosys_passes_opt)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_passes_opt>)

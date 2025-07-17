@@ -1,6 +1,6 @@
-add_library(yosys_libs INTERFACE)
 
-target_sources(yosys_libs INTERFACE
+
+add_library(yosys_libs OBJECT
     bigint/BigInteger.cc
     bigint/BigInteger.hh
     bigint/BigIntegerAlgorithms.cc
@@ -55,7 +55,7 @@ target_sources(yosys_libs INTERFACE
 )
 
 if (ENABLE_ZLIB)
-target_sources(yosys_libs INTERFACE
+target_sources(yosys_libs PRIVATE
     fst/config.h
     fst/fastlz.cc
     fst/fastlz.h
@@ -67,4 +67,5 @@ target_sources(yosys_libs INTERFACE
 )
 endif()
 
-target_link_libraries(yosys PRIVATE yosys_libs)
+target_link_libraries(yosys_obj PUBLIC yosys_libs)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_libs>)

@@ -1,11 +1,12 @@
-add_library(yosys_techlibs_nanoxplore INTERFACE)
 
-target_sources(yosys_techlibs_nanoxplore INTERFACE
+
+add_library(yosys_techlibs_nanoxplore OBJECT
     synth_nanoxplore.cc
     nx_carry.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_nanoxplore)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_nanoxplore)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_nanoxplore>)
 
 # Techmap
 add_share_file("share/nanoxplore" "arith_map.v")

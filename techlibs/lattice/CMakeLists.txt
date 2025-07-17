@@ -1,11 +1,12 @@
-add_library(yosys_techlibs_lattice INTERFACE)
 
-target_sources(yosys_techlibs_lattice INTERFACE
+
+add_library(yosys_techlibs_lattice OBJECT
     synth_lattice.cc
     lattice_gsr.cc
 )
 
-target_link_libraries(yosys PRIVATE yosys_techlibs_lattice)
+target_link_libraries(yosys_obj PUBLIC yosys_techlibs_lattice)
+target_sources(yosys_obj PUBLIC $<TARGET_OBJECTS:yosys_techlibs_lattice>)
 
 add_share_file("share/lattice" "cells_ff.vh")
 add_share_file("share/lattice" "cells_io.vh")
