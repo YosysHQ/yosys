@@ -81,7 +81,7 @@ jobs:
 
           mkdir -p build
           cat > build/Makefile.conf <<END
-          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/${FLEX}/bin:${PATH}
+          export PATH := $(pwd)/${WASI_SDK}/bin:$(pwd)/flex-prefix/bin:${PATH}
           WASI_SYSROOT := $(pwd)/${WASI_SDK}/share/wasi-sysroot
 
           CONFIG := wasi
@@ -92,7 +92,7 @@ jobs:
           ENABLE_PLUGINS := 0
           ENABLE_ZLIB := 0
 
-          CXXFLAGS += -I$(pwd)/${FLEX}/include
+          CXXFLAGS += -I$(pwd)/flex-prefix/include
           END
 
           make -C build -f ../Makefile CXX=clang -j$(nproc)
