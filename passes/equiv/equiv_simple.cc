@@ -27,6 +27,7 @@ struct EquivSimpleWorker
 {
 	Module *module;
 	const vector<Cell*> &equiv_cells;
+	const vector<Cell*> &assume_cells;
 	Cell *equiv_cell;
 
 	SigMap &sigmap;
@@ -37,12 +38,13 @@ struct EquivSimpleWorker
 	int max_seq;
 	bool short_cones;
 	bool verbose;
+	bool set_assumes;
 
 	pool<pair<Cell*, int>> imported_cells_cache;
 
-	EquivSimpleWorker(const vector<Cell*> &equiv_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool short_cones, bool verbose, bool model_undef) :
-			module(equiv_cells.front()->module), equiv_cells(equiv_cells), equiv_cell(nullptr),
-			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), short_cones(short_cones), verbose(verbose)
+	EquivSimpleWorker(const vector<Cell*> &equiv_cells, const vector<Cell*> &assume_cells, SigMap &sigmap, dict<SigBit, Cell*> &bit2driver, int max_seq, bool short_cones, bool verbose, bool model_undef, bool set_assumes) :
+			module(equiv_cells.front()->module), equiv_cells(equiv_cells), assume_cells(assume_cells), equiv_cell(nullptr),
+			sigmap(sigmap), bit2driver(bit2driver), satgen(ez.get(), &sigmap), max_seq(max_seq), short_cones(short_cones), verbose(verbose), set_assumes(set_assumes)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -182,6 +184,53 @@ struct EquivSimpleWorker
 			#endif
 			}
 
+			if (set_assumes) {
+				pool<Cell*> extra_problem_cells;
+				for (auto assume : assume_cells) {
+					pool<SigBit> assume_seed, next_assume_seed;
+					assume_seed.insert(sigmap(assume->getPort(ID::A)).as_bit());
+					assume_seed.insert(sigmap(assume->getPort(ID::EN)).as_bit());
+					pool<Cell*> assume_cells_cone;
+					pool<SigBit> assume_bits_cone;
+					pool<SigBit> overlap_bits;
+					for (auto bit_x : assume_seed) {
+						find_input_cone(next_assume_seed, assume_cells_cone, assume_bits_cone, short_cells_cone_a, short_bits_cone_a, &overlap_bits, bit_x);
+					}
+					if (GetSize(overlap_bits)) {
+						extra_problem_cells.insert(assume);
+						extra_problem_cells.insert(assume_cells_cone.begin(), assume_cells_cone.end());
+						overlap_bits.clear();
+					}
+					assume_cells_cone.clear();
+					assume_bits_cone.clear();
+					for (auto bit_x : assume_seed) {
+						find_input_cone(next_assume_seed, assume_cells_cone, assume_bits_cone, short_cells_cone_b, short_bits_cone_b, &overlap_bits, bit_x);
+					}
+					if (GetSize(overlap_bits)) {
+						extra_problem_cells.insert(assume);
+						extra_problem_cells.insert(assume_cells_cone.begin(), assume_cells_cone.end());
+						overlap_bits.clear();
+					}
+					assume_cells_cone.clear();
+					assume_bits_cone.clear();
+					next_assume_seed.clear();
+				}
+
+				if (GetSize(extra_problem_cells)) {
+					auto old_size = GetSize(problem_cells);
+					problem_cells.insert(extra_problem_cells.begin(), extra_problem_cells.end());
+					if (verbose) {
+						log("    Adding %d new cells to check assumptions (and reusing %d).\n",
+							GetSize(problem_cells) - old_size,
+							old_size - (GetSize(problem_cells) - GetSize(extra_problem_cells)));
+					#if 0
+						for (auto cell : extra_problem_cells)
+							log("      cell: %s\n", log_id(cell));
+					#endif
+					}
+				}
+			}
+
 			for (auto cell : problem_cells) {
 				auto key = pair<Cell*, int>(cell, step+1);
 				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1)) {
@@ -191,6 +240,14 @@ struct EquivSimpleWorker
 						log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
 				}
 				imported_cells_cache.insert(key);
+			}
+
+			if (set_assumes) {
+				RTLIL::SigSpec assumes_a, assumes_en;
+				satgen.getAssumes(assumes_a, assumes_en, step+1);
+				for (int i = 0; i < GetSize(assumes_a); i++)
+					log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+				ez->assume(satgen.importAssumes(step+1));
 			}
 
 			if (satgen.model_undef) {
@@ -301,10 +358,14 @@ struct EquivSimplePass : public Pass {
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
+		log("    -set-assumes\n");
+		log("        set all assumptions provided via $assume cells\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool verbose = false, short_cones = false, model_undef = false, nogroup = false;
+		bool set_assumes = false;
 		int success_counter = 0;
 		int max_seq = 1;
 
@@ -332,6 +393,10 @@ struct EquivSimplePass : public Pass {
 				max_seq = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-set-assumes") {
+				set_assumes = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -347,9 +412,10 @@ struct EquivSimplePass : public Pass {
 			SigMap sigmap(module);
 			dict<SigBit, Cell*> bit2driver;
 			dict<SigBit, dict<SigBit, Cell*>> unproven_equiv_cells;
+			vector<Cell*> assumes;
 			int unproven_cells_counter = 0;
 
-			for (auto cell : module->selected_cells())
+			for (auto cell : module->selected_cells()) {
 				if (cell->type == ID($equiv) && cell->getPort(ID::A) != cell->getPort(ID::B)) {
 					auto bit = sigmap(cell->getPort(ID::Y).as_bit());
 					auto bit_group = bit;
@@ -357,7 +423,10 @@ struct EquivSimplePass : public Pass {
 						bit_group.offset = 0;
 					unproven_equiv_cells[bit_group][bit] = cell;
 					unproven_cells_counter++;
+				} else if (cell->type == ID($assume)) {
+					assumes.push_back(cell);
 				}
+			}
 
 			if (unproven_equiv_cells.empty())
 				continue;
@@ -383,7 +452,7 @@ struct EquivSimplePass : public Pass {
 				for (auto it2 : it.second)
 					cells.push_back(it2.second);
 
-				EquivSimpleWorker worker(cells, sigmap, bit2driver, max_seq, short_cones, verbose, model_undef);
+				EquivSimpleWorker worker(cells, assumes, sigmap, bit2driver, max_seq, short_cones, verbose, model_undef, set_assumes);
 				success_counter += worker.run();
 			}
 		}
