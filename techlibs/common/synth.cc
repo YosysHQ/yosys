@@ -47,6 +47,11 @@ struct SynthPass : public ScriptPass {
 		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
 		log("        'hierarchy' if no top module is specified.\n");
 		log("\n");
+		log("    -hieropt\n");
+		log("        enable hierarchical optimization. this option is useful when `-flatten'\n");
+		log("        is not used, or when selected modules are marked with 'keep_hierarchy'\n.");
+		log("        to prevent their dissolution.\n");
+		log("\n");
 		log("    -encfile <file>\n");
 		log("        passed to 'fsm_recode' via 'fsm'\n");
 		log("\n");
@@ -99,7 +104,7 @@ struct SynthPass : public ScriptPass {
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, hieropt;
 	int lut;
 	std::vector<std::string> techmap_maps;
 
@@ -118,6 +123,7 @@ struct SynthPass : public ScriptPass {
 		noshare = false;
 		flowmap = false;
 		booth = false;
+		hieropt = false;
 		abc = "abc";
 		techmap_maps.clear();
 	}
@@ -201,6 +207,10 @@ struct SynthPass : public ScriptPass {
 				techmap_maps.push_back(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-hieropt") {
+				hieropt = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -223,6 +233,12 @@ struct SynthPass : public ScriptPass {
 
 	void script() override
 	{
+		std::string hieropt_flag;
+		if (help_mode)
+			hieropt_flag = " [-hier]";
+		else
+			hieropt_flag = hieropt ? " -hier" : "";
+
 		if (check_label("begin")) {
 			if (help_mode) {
 				run("hierarchy -check [-top <top> | -auto-top]");
@@ -247,7 +263,7 @@ struct SynthPass : public ScriptPass {
 			run("opt -nodffe -nosdff");
 			if (!nofsm || help_mode)
 				run("fsm" + fsm_opts, "      (unless -nofsm)");
-			run("opt");
+			run("opt" + hieropt_flag);
 			run("wreduce");
 			run("peepopt");
 			run("opt_clean");
@@ -261,13 +277,13 @@ struct SynthPass : public ScriptPass {
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
 				run("share", "    (unless -noshare)");
-			run("opt");
+			run("opt" + hieropt_flag);
 			run("memory -nomap" + memory_opts);
 			run("opt_clean");
 		}
 
 		if (check_label("fine")) {
-			run("opt -fast -full");
+			run("opt -fast -full" + hieropt_flag);
 			run("memory_map");
 			run("opt -full");
 			if (help_mode) {
@@ -291,7 +307,7 @@ struct SynthPass : public ScriptPass {
 			} else if (flowmap) {
 				run(stringf("flowmap -maxlut %d", lut));
 			}
-			run("opt -fast");
+			run("opt -fast" + hieropt_flag);
 
 			if ((!noabc && !flowmap) || help_mode) {
 #ifdef YOSYS_ENABLE_ABC

@@ -46,6 +46,7 @@ struct OptPass : public Pass {
 		log("        opt_merge [-share_all]\n");
 		log("        opt_share  (-full only)\n");
 		log("        opt_dff [-nodffe] [-nosdff] [-keepdc] [-sat]  (except when called with -noff)\n");
+		log("        opt_hier (-hier only)\n");
 		log("        opt_clean [-purge]\n");
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-noclkinv] [-fine] [-full] [-keepdc]\n");
 		log("    while <changed design>\n");
@@ -56,6 +57,7 @@ struct OptPass : public Pass {
 		log("        opt_expr [-mux_undef] [-mux_bool] [-undriven] [-noclkinv] [-fine] [-full] [-keepdc]\n");
 		log("        opt_merge [-share_all]\n");
 		log("        opt_dff [-nodffe] [-nosdff] [-keepdc] [-sat]  (except when called with -noff)\n");
+		log("        opt_hier (-hier only)\n");
 		log("        opt_clean [-purge]\n");
 		log("    while <changed design in opt_dff>\n");
 		log("\n");
@@ -74,6 +76,7 @@ struct OptPass : public Pass {
 		bool opt_share = false;
 		bool fast_mode = false;
 		bool noff_mode = false;
+		bool hier_mode = false;
 
 		log_header(design, "Executing OPT pass (performing simple optimizations).\n");
 		log_push();
@@ -141,6 +144,10 @@ struct OptPass : public Pass {
 				noff_mode = true;
 				continue;
 			}
+			if (args[argidx] == "-hier") {
+				hier_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -155,6 +162,8 @@ struct OptPass : public Pass {
 					Pass::call(design, "opt_dff" + opt_dff_args);
 				if (design->scratchpad_get_bool("opt.did_something") == false)
 					break;
+				if (hier_mode)
+					Pass::call(design, "opt_hier");
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				log_header(design, "Rerunning OPT passes. (Removed registers in this run.)\n");
 			}
@@ -173,6 +182,8 @@ struct OptPass : public Pass {
 					Pass::call(design, "opt_share");
 				if (!noff_mode)
 					Pass::call(design, "opt_dff" + opt_dff_args);
+				if (hier_mode)
+					Pass::call(design, "opt_hier");
 				Pass::call(design, "opt_clean" + opt_clean_args);
 				Pass::call(design, "opt_expr" + opt_expr_args);
 				if (design->scratchpad_get_bool("opt.did_something") == false)
