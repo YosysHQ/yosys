@@ -138,6 +138,16 @@ struct AbcConfig
 	bool abc_dress = false;
 };
 
+// A SigModuleMap maps from *canonical* SigBits to the wires of a module that
+// have that signal, and the cells of a module with at least one connection that
+// has that signal. The keys are the canonical SigBits as determined by an associated
+// SigMap, so must be updated when connections are added to the SigMap.
+// This only has entries for SigBits which are wires, not constants.
+struct SigModuleMap {
+	dict<SigBit, pool<RTLIL::Wire*>> wires;
+	dict<SigBit, pool<RTLIL::Cell*>> cells;
+};
+
 struct AbcModuleState {
 	const AbcConfig &config;
 
@@ -163,13 +173,13 @@ struct AbcModuleState {
 
 	int map_signal(const SigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const SigMap &assign_map, RTLIL::SigSpec sig);
-	void extract_cell(const SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
+	void extract_cell(const SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
 	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
-	void handle_loops(SigMap &assign_map, RTLIL::Module *module);
-	void abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
-		bool dff_mode, std::string clk_str);
-	void extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
+	void handle_loops(SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Module *module);
+	void abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, SigModuleMap &mod_map,
+		const std::vector<RTLIL::Cell*> &cells, bool dff_mode, std::string clk_str);
+	void extract(SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
 
@@ -218,7 +228,18 @@ void AbcModuleState::mark_port(const SigMap &assign_map, RTLIL::SigSpec sig)
 			signal_list[signal_map[bit]].is_port = true;
 }
 
-void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
+void remove_cell_from_module_map(const SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Cell *cell)
+{
+	for (auto &c : cell->connections()) {
+		for (auto &bit : assign_map(c.second)) {
+			auto it = mod_map.cells.find(bit);
+			if (it != mod_map.cells.end())
+				mod_map.cells[bit].erase(cell);
+		}
+	}
+}
+
+void AbcModuleState::extract_cell(const SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
 	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 		FfData ff(&initvals, cell);
@@ -297,6 +318,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 
 		map_signal(assign_map, ff.sig_q, type, map_signal(assign_map, ff.sig_d));
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		ff.remove();
 		return;
 	}
@@ -311,6 +333,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 
 		map_signal(assign_map, sig_y, cell->type == ID($_BUF_) ? G(BUF) : G(NOT), map_signal(assign_map, sig_a));
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		module->remove(cell);
 		return;
 	}
@@ -347,6 +370,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		else
 			log_abort();
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		module->remove(cell);
 		return;
 	}
@@ -369,6 +393,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 
 		map_signal(assign_map, sig_y, cell->type == ID($_MUX_) ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		module->remove(cell);
 		return;
 	}
@@ -391,6 +416,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI3_) ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		module->remove(cell);
 		return;
 	}
@@ -416,6 +442,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI4_) ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
 
+		remove_cell_from_module_map(assign_map, mod_map, cell);
 		module->remove(cell);
 		return;
 	}
@@ -489,13 +516,51 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	fprintf(f, "}\n");
 }
 
-void connect(SigMap &assign_map, RTLIL::Module *module, const RTLIL::SigSig &conn)
+void update_module_map_for_sigmap(SigMap &assign_map, SigModuleMap &mod_map, SigBit bit) {
+	SigBit assign_bit = assign_map(bit);
+	if (assign_bit.wire != nullptr) {
+		// Move the elements out of `mod_map.cells[bit]`. This is important for safety;
+		// when we evaluate `mod_map.cells[assign_bit]` below, that could rehash
+		// `mod_map.cells`, invalidating any reference to `mod_map.cells[bit]` if
+		// we kept one around.
+		// Moving the elements out is fine since we're going to delete the entry anyway.
+		pool<Cell*> from_cells = std::move(mod_map.cells[bit]);
+		mod_map.cells[assign_bit].insert(from_cells.begin(), from_cells.end());
+		pool<Wire*> from_wires = std::move(mod_map.wires[bit]);
+		mod_map.wires[assign_bit].insert(from_wires.begin(), from_wires.end());
+	}
+	mod_map.cells.erase(bit);
+	mod_map.wires.erase(bit);
+}
+
+void connect(SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Module *module, const RTLIL::SigSig &conn)
 {
 	module->connect(conn);
 	assign_map.add(conn.first, conn.second);
+	if (assign_map(conn.first) != conn.first)
+		for (auto &bit : conn.first)
+			update_module_map_for_sigmap(assign_map, mod_map, bit);
+	if (assign_map(conn.second) != conn.second)
+		for (auto &bit : conn.second)
+			update_module_map_for_sigmap(assign_map, mod_map, bit);
 }
 
-void AbcModuleState::handle_loops(SigMap &assign_map, RTLIL::Module *module)
+void add_wire_to_module_map(const SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Wire *wire)
+{
+	for (auto &bit : assign_map(wire))
+		if (bit.wire != nullptr)
+			mod_map.wires[bit].insert(wire);
+}
+
+void add_cell_to_module_map(const SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Cell *cell)
+{
+	for (auto &c : cell->connections())
+		for (auto &bit : assign_map(c.second))
+			if (bit.wire != nullptr)
+				mod_map.cells[bit].insert(cell);
+}
+
+void AbcModuleState::handle_loops(SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Module *module)
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
@@ -588,6 +653,7 @@ void AbcModuleState::handle_loops(SigMap &assign_map, RTLIL::Module *module)
 			std::stringstream sstr;
 			sstr << "$abcloop$" << (autoidx++);
 			RTLIL::Wire *wire = module->addWire(sstr.str());
+			add_wire_to_module_map(assign_map, mod_map, wire);
 
 			bool first_line = true;
 			for (int id2 : edges[id1]) {
@@ -619,7 +685,7 @@ void AbcModuleState::handle_loops(SigMap &assign_map, RTLIL::Module *module)
 			}
 			edges[id1].swap(edges[id3]);
 
-			connect(assign_map, module, RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
+			connect(assign_map, mod_map, module, RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
 			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 		}
 	}
@@ -755,8 +821,8 @@ struct abc_output_filter
 	}
 };
 
-void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
-	bool dff_mode, std::string clk_str)
+void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, SigModuleMap &mod_map,
+	const std::vector<RTLIL::Cell*> &cells, bool dff_mode, std::string clk_str)
 {
 	initvals.set(&assign_map, module);
 	map_autoidx = autoidx++;
@@ -941,19 +1007,32 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Si
 
 	had_init = false;
 	for (auto c : cells)
-		extract_cell(assign_map, module, c, config.keepff);
+		extract_cell(assign_map, mod_map, module, c, config.keepff);
 
 	if (undef_bits_lost)
 		log("Replacing %d occurrences of constant undef bits with constant zero bits\n", undef_bits_lost);
 
-	for (auto wire : module->wires()) {
-		if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
-			mark_port(assign_map, wire);
-	}
+	{
+		pool<Cell*> relevant_cells;
+		pool<Wire*> relevant_wires;
+		for (auto it : signal_map) {
+			if (it.first.wire != nullptr) {
+				auto wire_it = mod_map.wires.find(it.first);
+				if (wire_it != mod_map.wires.end())
+					relevant_wires.insert(wire_it->second.begin(), wire_it->second.end());
+				auto cell_it = mod_map.cells.find(it.first);
+				if (cell_it != mod_map.cells.end())
+					relevant_cells.insert(cell_it->second.begin(), cell_it->second.end());
+			}
+		}
 
-	for (auto cell : module->cells())
-		for (auto &port_it : cell->connections())
-			mark_port(assign_map, port_it.second);
+		for (auto wire : relevant_wires)
+			if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+				mark_port(assign_map, wire);
+		for (auto cell : relevant_cells)
+			for (auto &port_it : cell->connections())
+				mark_port(assign_map, port_it.second);
+	}
 
 	if (clk_sig.size() != 0)
 		mark_port(assign_map, clk_sig);
@@ -967,7 +1046,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Si
 	if (srst_sig.size() != 0)
 		mark_port(assign_map, srst_sig);
 
-	handle_loops(assign_map, module);
+	handle_loops(assign_map, mod_map, module);
 
 	buffer = stringf("%s/input.blif", tempdir_name.c_str());
 	f = fopen(buffer.c_str(), "wt");
@@ -1210,7 +1289,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Si
 	log("Don't call ABC as there is nothing to map.\n");
 }
 
-void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
+void AbcModuleState::extract(SigMap &assign_map, SigModuleMap &mod_map, RTLIL::Design *design, RTLIL::Module *module)
 {
 	if (!did_run_abc) {
 		return;
@@ -1238,6 +1317,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 		if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
 			wire->attributes[ID::src] = orig_wire->attributes[ID::src];
 		if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
+		add_wire_to_module_map(assign_map, mod_map, wire);
 		design->select(module, wire);
 	}
 
@@ -1255,7 +1335,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
-				connect(assign_map, module, conn);
+				connect(assign_map, mod_map, module, conn);
 				continue;
 			}
 			if (c->type == ID(BUF)) {
@@ -1264,7 +1344,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 				RTLIL::IdString name_a = remap_name(c->getPort(ID::A).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = module->wire(name_a);
-				connect(assign_map, module, conn);
+				connect(assign_map, mod_map, module, conn);
 				continue;
 			}
 			if (c->type == ID(NOT)) {
@@ -1274,6 +1354,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1284,6 +1365,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1294,6 +1376,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1304,6 +1387,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1314,6 +1398,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1325,6 +1410,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1335,6 +1421,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1345,6 +1432,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1385,6 +1473,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 				ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
 				RTLIL::Cell *cell = ff.emit();
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				add_cell_to_module_map(assign_map, mod_map, cell);
 				design->select(module, cell);
 				continue;
 			}
@@ -1396,7 +1485,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 			RTLIL::SigSig conn;
 			conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
 			conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
-			connect(assign_map, module, conn);
+			connect(assign_map, mod_map, module, conn);
 			continue;
 		}
 
@@ -1434,6 +1523,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 			ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
 			RTLIL::Cell *cell = ff.emit();
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+			add_cell_to_module_map(assign_map, mod_map, cell);
 			design->select(module, cell);
 			continue;
 		}
@@ -1441,7 +1531,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 		if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
 			SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
 			SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
-			connect(assign_map, module, RTLIL::SigSig(my_a, my_y));
+			connect(assign_map, mod_map, module, RTLIL::SigSig(my_a, my_y));
 			continue;
 		}
 
@@ -1458,6 +1548,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 			}
 			cell->setPort(conn.first, newsig);
 		}
+		add_cell_to_module_map(assign_map, mod_map, cell);
 		design->select(module, cell);
 	}
 
@@ -1466,7 +1557,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 			conn.first = module->wire(remap_name(conn.first.as_wire()->name));
 		if (!conn.second.is_fully_const())
 			conn.second = module->wire(remap_name(conn.second.as_wire()->name));
-		connect(assign_map, module, conn);
+		connect(assign_map, mod_map, module, conn);
 	}
 
 	cell_stats.sort();
@@ -1487,7 +1578,7 @@ void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::M
 				conn.second = si.bit;
 				in_wires++;
 			}
-			connect(assign_map, module, conn);
+			connect(assign_map, mod_map, module, conn);
 		}
 	log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
@@ -2084,6 +2175,15 @@ struct AbcPass : public Pass {
 			SigMap assign_map;
 			assign_map.set(mod);
 
+			SigModuleMap mod_map;
+			for (auto wire : mod->wires()) {
+				add_wire_to_module_map(assign_map, mod_map, wire);
+			}
+
+			for (auto cell : mod->cells()) {
+				add_cell_to_module_map(assign_map, mod_map, cell);
+			}
+
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
@@ -2091,8 +2191,8 @@ struct AbcPass : public Pass {
 
 			if (!dff_mode || !clk_str.empty()) {
 				AbcModuleState state(config);
-				state.abc_module(design, mod, assign_map, mod->selected_cells(), dff_mode, clk_str);
-				state.extract(assign_map, design, mod);
+				state.abc_module(design, mod, assign_map, mod_map, mod->selected_cells(), dff_mode, clk_str);
+				state.extract(assign_map, mod_map, design, mod);
 				state.finish();
 				continue;
 			}
@@ -2257,8 +2357,8 @@ struct AbcPass : public Pass {
 				state.arst_sig = assign_map(std::get<5>(it.first));
 				state.srst_polarity = std::get<6>(it.first);
 				state.srst_sig = assign_map(std::get<7>(it.first));
-				state.abc_module(design, mod, assign_map, it.second, !state.clk_sig.empty(), "$");
-				state.extract(assign_map, design, mod);
+				state.abc_module(design, mod, assign_map, mod_map, it.second, !state.clk_sig.empty(), "$");
+				state.extract(assign_map, mod_map, design, mod);
 				state.finish();
 			}
 		}
