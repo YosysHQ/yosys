@@ -384,4 +384,16 @@ std::string escape_filename_spaces(const std::string& filename)
 	return out;
 }
 
+void format_emit_no_conversions(std::string &result, std::string_view fmt)
+{
+	result.reserve(result.size() + fmt.size());
+	for (size_t i = 0; i < fmt.size(); ++i) {
+		char ch = fmt[i];
+		result.push_back(ch);
+		if (ch == '%' && i + 1 < fmt.size() && fmt[i + 1] == '%') {
+			++i;
+		}
+	}
+}
+
 YOSYS_NAMESPACE_END

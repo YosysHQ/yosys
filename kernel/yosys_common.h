@@ -134,6 +134,14 @@
 #  define YS_COLD
 #endif
 
+#ifdef __cpp_consteval
+#define YOSYS_CONSTEVAL consteval
+#else
+#define YOSYS_CONSTEVAL
+#endif
+
+#define YOSYS_ABORT(s) abort()
+
 #include "kernel/io.h"
 
 YOSYS_NAMESPACE_BEGIN
