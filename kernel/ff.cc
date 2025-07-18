@@ -21,245 +21,316 @@
 
 USING_YOSYS_NAMESPACE
 
-FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initvals, cell_->name)
-{
-	cell = cell_;
-	sig_q = cell->getPort(ID::Q);
-	width = GetSize(sig_q);
-	attributes = cell->attributes;
+// sorry
+template<typename InputType, typename OutputType, typename = std::enable_if_t<std::is_base_of_v<FfTypeData, OutputType>>>
+void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
+	Cell* cell = nullptr;
+	IdString type;
+	constexpr bool have_cell = std::is_same_v<InputType, Cell*>;
+	if constexpr (std::is_same_v<InputType, IdString>) {
+		type = flop;
+	} else {
+		static_assert(std::is_same_v<InputType, Cell*>);
+		cell = flop;
+		type = flop->type;
+	}
+	if constexpr (have_cell) {
+		info.sig_q = cell->getPort(ID::Q);
+		info.width = GetSize(info.sig_q);
+		info.attributes = cell->attributes;
+		if (initvals)
+			info.val_init = (*initvals)(info.sig_q);
+	}
 
-	if (initvals)
-		val_init = (*initvals)(sig_q);
 
-	std::string type_str = cell->type.str();
+	std::string type_str = type.str();
 
-	if (cell->type.in(ID($anyinit), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
-		if (cell->type.in(ID($anyinit), ID($ff))) {
-			has_gclk = true;
-			sig_d = cell->getPort(ID::D);
-			if (cell->type == ID($anyinit)) {
-				is_anyinit = true;
-				log_assert(val_init.is_fully_undef());
+	if (type.in(ID($anyinit), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
+		if (type.in(ID($anyinit), ID($ff))) {
+			info.has_gclk = true;
+			if constexpr (have_cell)
+				info.sig_d = cell->getPort(ID::D);
+			if (type == ID($anyinit)) {
+				info.is_anyinit = true;
+				if constexpr (have_cell)
+					log_assert(info.val_init.is_fully_undef());
 			}
-		} else if (cell->type == ID($sr)) {
+		} else if (type == ID($sr)) {
 			// No data input at all.
-		} else if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
-			has_aload = true;
-			sig_aload = cell->getPort(ID::EN);
-			pol_aload = cell->getParam(ID::EN_POLARITY).as_bool();
-			sig_ad = cell->getPort(ID::D);
+		} else if (type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
+			info.has_aload = true;
+			if constexpr (have_cell) {
+				info.sig_aload = cell->getPort(ID::EN);
+				info.pol_aload = cell->getParam(ID::EN_POLARITY).as_bool();
+				info.sig_ad = cell->getPort(ID::D);
+			}
 		} else {
-			has_clk = true;
-			sig_clk = cell->getPort(ID::CLK);
-			pol_clk = cell->getParam(ID::CLK_POLARITY).as_bool();
-			sig_d = cell->getPort(ID::D);
+			info.has_clk = true;
+			if constexpr (have_cell) {
+				info.sig_clk = cell->getPort(ID::CLK);
+				info.pol_clk = cell->getParam(ID::CLK_POLARITY).as_bool();
+				info.sig_d = cell->getPort(ID::D);
+			}
 		}
-		if (cell->type.in(ID($dffe), ID($dffsre), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce))) {
-			has_ce = true;
-			sig_ce = cell->getPort(ID::EN);
-			pol_ce = cell->getParam(ID::EN_POLARITY).as_bool();
+		if (type.in(ID($dffe), ID($dffsre), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce))) {
+			info.has_ce = true;
+			if constexpr (have_cell) {
+				info.sig_ce = cell->getPort(ID::EN);
+				info.pol_ce = cell->getParam(ID::EN_POLARITY).as_bool();
+			}
 		}
-		if (cell->type.in(ID($dffsr), ID($dffsre), ID($dlatchsr), ID($sr))) {
-			has_sr = true;
-			sig_clr = cell->getPort(ID::CLR);
-			sig_set = cell->getPort(ID::SET);
-			pol_clr = cell->getParam(ID::CLR_POLARITY).as_bool();
-			pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
+		if (type.in(ID($dffsr), ID($dffsre), ID($dlatchsr), ID($sr))) {
+			info.has_sr = true;
+			if constexpr (have_cell) {
+				info.sig_clr = cell->getPort(ID::CLR);
+				info.sig_set = cell->getPort(ID::SET);
+				info.pol_clr = cell->getParam(ID::CLR_POLARITY).as_bool();
+				info.pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
+			}
 		}
-		if (cell->type.in(ID($aldff), ID($aldffe))) {
-			has_aload = true;
-			sig_aload = cell->getPort(ID::ALOAD);
-			pol_aload = cell->getParam(ID::ALOAD_POLARITY).as_bool();
-			sig_ad = cell->getPort(ID::AD);
+		if (type.in(ID($aldff), ID($aldffe))) {
+			info.has_aload = true;
+			if constexpr (have_cell) {
+				info.sig_aload = cell->getPort(ID::ALOAD);
+				info.pol_aload = cell->getParam(ID::ALOAD_POLARITY).as_bool();
+				info.sig_ad = cell->getPort(ID::AD);
+			}
 		}
-		if (cell->type.in(ID($adff), ID($adffe), ID($adlatch))) {
-			has_arst = true;
-			sig_arst = cell->getPort(ID::ARST);
-			pol_arst = cell->getParam(ID::ARST_POLARITY).as_bool();
-			val_arst = cell->getParam(ID::ARST_VALUE);
+		if (type.in(ID($adff), ID($adffe), ID($adlatch))) {
+			info.has_arst = true;
+			if constexpr (have_cell) {
+				info.sig_arst = cell->getPort(ID::ARST);
+				info.pol_arst = cell->getParam(ID::ARST_POLARITY).as_bool();
+				info.val_arst = cell->getParam(ID::ARST_VALUE);
+			}
 		}
-		if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
-			has_srst = true;
-			sig_srst = cell->getPort(ID::SRST);
-			pol_srst = cell->getParam(ID::SRST_POLARITY).as_bool();
-			val_srst = cell->getParam(ID::SRST_VALUE);
-			ce_over_srst = cell->type == ID($sdffce);
+		if (type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
+			info.has_srst = true;
+			if constexpr (have_cell) {
+				info.sig_srst = cell->getPort(ID::SRST);
+				info.pol_srst = cell->getParam(ID::SRST_POLARITY).as_bool();
+				info.val_srst = cell->getParam(ID::SRST_VALUE);
+			}
+			info.ce_over_srst = type == ID($sdffce);
 		}
-	} else if (cell->type == ID($_FF_)) {
-		is_fine = true;
-		has_gclk = true;
-		sig_d = cell->getPort(ID::D);
+	} else if (type == ID($_FF_)) {
+		info.is_fine = true;
+		info.has_gclk = true;
+		if constexpr (have_cell)
+			info.sig_d = cell->getPort(ID::D);
 	} else if (type_str.substr(0, 5) == "$_SR_") {
-		is_fine = true;
-		has_sr = true;
-		pol_set = type_str[5] == 'P';
-		pol_clr = type_str[6] == 'P';
-		sig_set = cell->getPort(ID::S);
-		sig_clr = cell->getPort(ID::R);
+		info.is_fine = true;
+		info.has_sr = true;
+		info.pol_set = type_str[5] == 'P';
+		info.pol_clr = type_str[6] == 'P';
+		if constexpr (have_cell) {
+			info.sig_set = cell->getPort(ID::S);
+			info.sig_clr = cell->getPort(ID::R);
+		}
 	} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 8) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[6] == 'P';
-		sig_clk = cell->getPort(ID::C);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[6] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+		}
 	} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 10) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[7] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_ce = true;
-		pol_ce = type_str[8] == 'P';
-		sig_ce = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[7] == 'P';
+		info.has_ce = true;
+		info.pol_ce = type_str[8] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 10) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[6] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_arst = true;
-		pol_arst = type_str[7] == 'P';
-		sig_arst = cell->getPort(ID::R);
-		val_arst = type_str[8] == '1' ? State::S1 : State::S0;
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[6] == 'P';
+		info.has_arst = true;
+		info.pol_arst = type_str[7] == 'P';
+		info.val_arst = type_str[8] == '1' ? State::S1 : State::S0;
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_arst = cell->getPort(ID::R);
+		}
 	} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 12) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[7] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_arst = true;
-		pol_arst = type_str[8] == 'P';
-		sig_arst = cell->getPort(ID::R);
-		val_arst = type_str[9] == '1' ? State::S1 : State::S0;
-		has_ce = true;
-		pol_ce = type_str[10] == 'P';
-		sig_ce = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[7] == 'P';
+		info.has_arst = true;
+		info.pol_arst = type_str[8] == 'P';
+		info.val_arst = type_str[9] == '1' ? State::S1 : State::S0;
+		info.has_ce = true;
+		info.pol_ce = type_str[10] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_arst = cell->getPort(ID::R);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 8) == "$_ALDFF_" && type_str.size() == 11) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[8] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_aload = true;
-		pol_aload = type_str[9] == 'P';
-		sig_aload = cell->getPort(ID::L);
-		sig_ad = cell->getPort(ID::AD);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[8] == 'P';
+		info.has_aload = true;
+		info.pol_aload = type_str[9] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_aload = cell->getPort(ID::L);
+			info.sig_ad = cell->getPort(ID::AD);
+		}
 	} else if (type_str.substr(0, 9) == "$_ALDFFE_" && type_str.size() == 13) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[9] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_aload = true;
-		pol_aload = type_str[10] == 'P';
-		sig_aload = cell->getPort(ID::L);
-		sig_ad = cell->getPort(ID::AD);
-		has_ce = true;
-		pol_ce = type_str[11] == 'P';
-		sig_ce = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[9] == 'P';
+		info.has_aload = true;
+		info.pol_aload = type_str[10] == 'P';
+		info.has_ce = true;
+		info.pol_ce = type_str[11] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_aload = cell->getPort(ID::L);
+			info.sig_ad = cell->getPort(ID::AD);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 8) == "$_DFFSR_" && type_str.size() == 12) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[8] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_sr = true;
-		pol_set = type_str[9] == 'P';
-		pol_clr = type_str[10] == 'P';
-		sig_set = cell->getPort(ID::S);
-		sig_clr = cell->getPort(ID::R);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[8] == 'P';
+		info.has_sr = true;
+		info.pol_set = type_str[9] == 'P';
+		info.pol_clr = type_str[10] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_set = cell->getPort(ID::S);
+			info.sig_clr = cell->getPort(ID::R);
+		}
 	} else if (type_str.substr(0, 9) == "$_DFFSRE_" && type_str.size() == 14) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[9] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_sr = true;
-		pol_set = type_str[10] == 'P';
-		pol_clr = type_str[11] == 'P';
-		sig_set = cell->getPort(ID::S);
-		sig_clr = cell->getPort(ID::R);
-		has_ce = true;
-		pol_ce = type_str[12] == 'P';
-		sig_ce = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[9] == 'P';
+		info.has_sr = true;
+		info.pol_set = type_str[10] == 'P';
+		info.pol_clr = type_str[11] == 'P';
+		info.has_ce = true;
+		info.pol_ce = type_str[12] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_set = cell->getPort(ID::S);
+			info.sig_clr = cell->getPort(ID::R);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 7) == "$_SDFF_" && type_str.size() == 11) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[7] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_srst = true;
-		pol_srst = type_str[8] == 'P';
-		sig_srst = cell->getPort(ID::R);
-		val_srst = type_str[9] == '1' ? State::S1 : State::S0;
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[7] == 'P';
+		info.has_srst = true;
+		info.pol_srst = type_str[8] == 'P';
+		info.val_srst = type_str[9] == '1' ? State::S1 : State::S0;
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_srst = cell->getPort(ID::R);
+		}
 	} else if (type_str.substr(0, 8) == "$_SDFFE_" && type_str.size() == 13) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[8] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_srst = true;
-		pol_srst = type_str[9] == 'P';
-		sig_srst = cell->getPort(ID::R);
-		val_srst = type_str[10] == '1' ? State::S1 : State::S0;
-		has_ce = true;
-		pol_ce = type_str[11] == 'P';
-		sig_ce = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[8] == 'P';
+		info.has_srst = true;
+		info.pol_srst = type_str[9] == 'P';
+		info.val_srst = type_str[10] == '1' ? State::S1 : State::S0;
+		info.has_ce = true;
+		info.pol_ce = type_str[11] == 'P';
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_srst = cell->getPort(ID::R);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 9) == "$_SDFFCE_" && type_str.size() == 14) {
-		is_fine = true;
-		sig_d = cell->getPort(ID::D);
-		has_clk = true;
-		pol_clk = type_str[9] == 'P';
-		sig_clk = cell->getPort(ID::C);
-		has_srst = true;
-		pol_srst = type_str[10] == 'P';
-		sig_srst = cell->getPort(ID::R);
-		val_srst = type_str[11] == '1' ? State::S1 : State::S0;
-		has_ce = true;
-		pol_ce = type_str[12] == 'P';
-		sig_ce = cell->getPort(ID::E);
-		ce_over_srst = true;
+		info.is_fine = true;
+		info.has_clk = true;
+		info.pol_clk = type_str[9] == 'P';
+		info.has_srst = true;
+		info.pol_srst = type_str[10] == 'P';
+		info.val_srst = type_str[11] == '1' ? State::S1 : State::S0;
+		info.has_ce = true;
+		info.pol_ce = type_str[12] == 'P';
+		info.ce_over_srst = true;
+		if constexpr (have_cell) {
+			info.sig_d = cell->getPort(ID::D);
+			info.sig_clk = cell->getPort(ID::C);
+			info.sig_srst = cell->getPort(ID::R);
+			info.sig_ce = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 11) {
-		is_fine = true;
-		has_aload = true;
-		sig_ad = cell->getPort(ID::D);
-		has_aload = true;
-		pol_aload = type_str[9] == 'P';
-		sig_aload = cell->getPort(ID::E);
+		info.is_fine = true;
+		info.has_aload = true;
+		info.has_aload = true;
+		info.pol_aload = type_str[9] == 'P';
+		if constexpr (have_cell) {
+			info.sig_ad = cell->getPort(ID::D);
+			info.sig_aload = cell->getPort(ID::E);
+		}
 	} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 13) {
-		is_fine = true;
-		has_aload = true;
-		sig_ad = cell->getPort(ID::D);
-		has_aload = true;
-		pol_aload = type_str[9] == 'P';
-		sig_aload = cell->getPort(ID::E);
-		has_arst = true;
-		pol_arst = type_str[10] == 'P';
-		sig_arst = cell->getPort(ID::R);
-		val_arst = type_str[11] == '1' ? State::S1 : State::S0;
+		info.is_fine = true;
+		info.has_aload = true;
+		info.has_aload = true;
+		info.pol_aload = type_str[9] == 'P';
+		info.has_arst = true;
+		info.pol_arst = type_str[10] == 'P';
+		info.val_arst = type_str[11] == '1' ? State::S1 : State::S0;
+		if constexpr (have_cell) {
+			info.sig_ad = cell->getPort(ID::D);
+			info.sig_aload = cell->getPort(ID::E);
+			info.sig_arst = cell->getPort(ID::R);
+		}
 	} else if (type_str.substr(0, 11) == "$_DLATCHSR_" && type_str.size() == 15) {
-		is_fine = true;
-		has_aload = true;
-		sig_ad = cell->getPort(ID::D);
-		has_aload = true;
-		pol_aload = type_str[11] == 'P';
-		sig_aload = cell->getPort(ID::E);
-		has_sr = true;
-		pol_set = type_str[12] == 'P';
-		pol_clr = type_str[13] == 'P';
-		sig_set = cell->getPort(ID::S);
-		sig_clr = cell->getPort(ID::R);
+		info.is_fine = true;
+		info.has_aload = true;
+		info.has_aload = true;
+		info.pol_aload = type_str[11] == 'P';
+		info.has_sr = true;
+		info.pol_set = type_str[12] == 'P';
+		info.pol_clr = type_str[13] == 'P';
+		if constexpr (have_cell) {
+			info.sig_ad = cell->getPort(ID::D);
+			info.sig_aload = cell->getPort(ID::E);
+			info.sig_set = cell->getPort(ID::S);
+			info.sig_clr = cell->getPort(ID::R);
+		}
 	} else {
 		log_assert(0);
 	}
-	if (has_aload && !has_clk && !has_sr && !has_arst && sig_ad.is_fully_const()) {
-		// Plain D latches with const D treated specially.
-		has_aload = false;
-		has_arst = true;
-		sig_arst = sig_aload;
-		pol_arst = pol_aload;
-		val_arst = sig_ad.as_const();
-	}
+	if constexpr (have_cell)
+		if (info.has_aload && !info.has_clk && !info.has_sr && !info.has_arst && info.sig_ad.is_fully_const()) {
+			// Plain D latches with const D treated specially.
+			info.has_aload = false;
+			info.has_arst = true;
+			info.sig_arst = info.sig_aload;
+			info.pol_arst = info.pol_aload;
+			info.val_arst = info.sig_ad.as_const();
+		}
+}
+
+FfTypeData::FfTypeData(IdString type) : FfTypeData()
+{
+	manufacture_info(type, *this, nullptr);
+}
+
+FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initvals, cell_->name)
+{
+	cell = cell_;
+	manufacture_info(cell, *this, initvals);
 }
 
 FfData FfData::slice(const std::vector<int> &bits) {
