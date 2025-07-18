@@ -78,31 +78,20 @@ YOSYS_NAMESPACE_BEGIN
 // - has_arst [does not correspond to a native cell, represented as dlatch with const D input]
 // - empty set [not a cell — will be emitted as a simple direct connection]
 
-struct FfData {
-	Module *module;
-	FfInitVals *initvals;
-	Cell *cell;
-	IdString name;
-	// The FF output.
-	SigSpec sig_q;
-	// The sync data input, present if has_clk or has_gclk.
-	SigSpec sig_d;
-	// The async data input, present if has_aload.
-	SigSpec sig_ad;
-	// The sync clock, present if has_clk.
-	SigSpec sig_clk;
-	// The clock enable, present if has_ce.
-	SigSpec sig_ce;
-	// The async load enable, present if has_aload.
-	SigSpec sig_aload;
-	// The async reset, preset if has_arst.
-	SigSpec sig_arst;
-	// The sync reset, preset if has_srst.
-	SigSpec sig_srst;
-	// The async clear (per-lane), present if has_sr.
-	SigSpec sig_clr;
-	// The async set (per-lane), present if has_sr.
-	SigSpec sig_set;
+struct FfTypeData {
+	FfTypeData(IdString type);
+	FfTypeData() {
+		has_clk = false;
+		has_gclk = false;
+		has_ce = false;
+		has_aload = false;
+		has_srst = false;
+		has_arst = false;
+		has_sr = false;
+		ce_over_srst = false;
+		is_fine = false;
+		is_anyinit = false;
+	}
 	// True if this is a clocked (edge-sensitive) flip-flop.
 	bool has_clk;
 	// True if this is a $ff, exclusive with every other has_*.
@@ -143,9 +132,38 @@ struct FfData {
 	bool pol_clr;
 	bool pol_set;
 	// The value loaded by sig_arst.
+	// Zero length if unknowable from just type
 	Const val_arst;
 	// The value loaded by sig_srst.
+	// Zero length if unknowable from just type
 	Const val_srst;
+};
+
+struct FfData : FfTypeData {
+	Module *module;
+	FfInitVals *initvals;
+	Cell *cell;
+	IdString name;
+	// The FF output.
+	SigSpec sig_q;
+	// The sync data input, present if has_clk or has_gclk.
+	SigSpec sig_d;
+	// The async data input, present if has_aload.
+	SigSpec sig_ad;
+	// The sync clock, present if has_clk.
+	SigSpec sig_clk;
+	// The clock enable, present if has_ce.
+	SigSpec sig_ce;
+	// The async load enable, present if has_aload.
+	SigSpec sig_aload;
+	// The async reset, preset if has_arst.
+	SigSpec sig_arst;
+	// The sync reset, preset if has_srst.
+	SigSpec sig_srst;
+	// The async clear (per-lane), present if has_sr.
+	SigSpec sig_clr;
+	// The async set (per-lane), present if has_sr.
+	SigSpec sig_set;
 	// The initial value at power-up.
 	Const val_init;
 	// The FF data width in bits.
@@ -154,16 +172,6 @@ struct FfData {
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;
-		has_clk = false;
-		has_gclk = false;
-		has_ce = false;
-		has_aload = false;
-		has_srst = false;
-		has_arst = false;
-		has_sr = false;
-		ce_over_srst = false;
-		is_fine = false;
-		is_anyinit = false;
 		pol_clk = false;
 		pol_aload = false;
 		pol_ce = false;
