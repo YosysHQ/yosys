@@ -79,7 +79,7 @@ jobs:
       - if: ${{ matrix.os.family == 'windows' }}
         name: "[Windows] Flex/Bison"
         run: |
-          choco install winflexbison3 --source https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_bison-2.5.25.zip
+          choco install winflexbison3
       - if: ${{ matrix.os.family == 'macos' && matrix.os.archs == 'arm64' }}
         name: "[macOS/arm64] Install Python 3.8 (see: https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64)"
         uses: actions/setup-python@v5
