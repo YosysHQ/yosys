@@ -67,7 +67,7 @@ YOSYS_NAMESPACE_BEGIN
 #define YY_DECL parser::symbol_type VerilogLexer::nextToken()
 
 #undef yyterminate
-#define yyterminate() terminate()
+#define yyterminate() return terminate()
 
 YOSYS_NAMESPACE_END
 
