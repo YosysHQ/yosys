@@ -5704,7 +5704,6 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 {
 	cover("kernel.rtlil.sigspec.parse");
 
-	// AST::current_filename = "input";
 
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');
