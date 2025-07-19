@@ -83,8 +83,6 @@ YOSYS_NAMESPACE_END
 	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
 	return parser::make_TOK_ID(std::move(val), out_loc);
 
-// #define YY_INPUT(buf,result,max_size) \
-// 	result = readsome(*extra->lexin, buf, max_size)
 
 #define YY_USER_ACTION \
 	out_loc.step(); \
