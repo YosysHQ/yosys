@@ -59,8 +59,6 @@ USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 using parser = frontend_verilog_yy::parser;
-//#define YYSTYPE FRONTEND_VERILOG_YYSTYPE
-//#define YYLTYPE FRONTEND_VERILOG_YYLTYPE
 
 YOSYS_NAMESPACE_BEGIN
 #undef YY_DECL
