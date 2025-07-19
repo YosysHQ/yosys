@@ -49,7 +49,6 @@
 	#include "kernel/yosys_common.h"
 	#include "frontends/verilog/verilog_error.h"
 	#include "frontends/verilog/verilog_location.h"
-	// start requires
 	YOSYS_NAMESPACE_BEGIN
 	namespace VERILOG_FRONTEND {
 		struct ParseState;
@@ -57,11 +56,9 @@
 		class VerilogLexer;
 	};
 	YOSYS_NAMESPACE_END
-	// end requires
 }
 
 %code provides {
-	// start provides
 	USING_YOSYS_NAMESPACE;
 	using namespace AST;
 	using namespace VERILOG_FRONTEND;
@@ -70,7 +67,6 @@
 	namespace VERILOG_FRONTEND {
 		typedef std::map<std::string, AST::AstNode*> UserTypeMap;
 		struct ParseState {
-			// TODO initialization?
 			int port_counter;
 			dict<std::string, int> port_stubs;
 			dict<IdString, std::unique_ptr<AstNode>> *attr_list, default_attr_list;
@@ -122,11 +118,9 @@
 		};
 	};
 	YOSYS_NAMESPACE_END
-	// end provides
 }
 
 %code {
-	// start unqual
 	#include <list>
 	#include <stack>
 	#include <memory>
@@ -430,11 +424,9 @@
 	{
 		err_at_loc(loc, "%s", msg.c_str());
 	}
-	// end unqual
 }
 
 %code requires {
-	// start requires
 	#include <map>
 	#include <string>
 	#include <memory>
@@ -480,7 +472,6 @@
 	using ch_t = char;
 	using integer_t = int;
 	using ast_node_type_t = YOSYS_NAMESPACE_PREFIX AST::AstNodeType;
-	// end requires
 }
 
 %token <string_t> string_t "string"
