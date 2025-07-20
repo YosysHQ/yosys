@@ -112,6 +112,8 @@ extensions.append('util.cmdref')
 extensions.append('sphinx.ext.autodoc')
 extensions.append('util.cellref')
 cells_json = Path(__file__).parent / 'generated' / 'cells.json'
+extensions.append('util.newcmdref')
+cmds_json = Path(__file__).parent / 'generated' / 'cmds.json'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:

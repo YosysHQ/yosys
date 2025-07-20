@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import re
 from typing import cast
+import warnings
 
 from docutils import nodes
-from docutils.nodes import Node, Element, system_message
+from docutils.nodes import Node, Element
 from docutils.parsers.rst import directives
+from docutils.parsers.rst.roles import GenericRole
 from docutils.parsers.rst.states import Inliner
 from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
@@ -17,7 +19,7 @@ from sphinx.roles import XRefRole
 from sphinx.directives import ObjectDescription
 from sphinx.directives.code import container_wrapper
 from sphinx.util.nodes import make_refnode
-from sphinx.util.docfields import Field
+from sphinx.util.docfields import Field, GroupedField
 from sphinx import addnodes
 
 class TocNode(ObjectDescription):    
@@ -63,10 +65,15 @@ class CommandNode(TocNode):
     name = 'cmd'
     required_arguments = 1
 
-    option_spec = {
+    option_spec = TocNode.option_spec.copy()
+    option_spec.update({
         'title': directives.unchanged,
         'tags': directives.unchanged
-    }
+    })
+
+    doc_field_types = [
+        GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
+    ]
 
     def handle_signature(self, sig, signode: addnodes.desc_signature):
         signode['fullname'] = sig
@@ -92,6 +99,120 @@ class CommandNode(TocNode):
                          self.env.docname,
                          idx,
                          0))
+
+class CommandUsageNode(TocNode):
+    """A custom node that describes command usages"""
+
+    name = 'cmdusage'
+
+    option_spec = TocNode.option_spec
+    option_spec.update({
+        'usage': directives.unchanged,
+    })
+
+    doc_field_types = [
+        GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
+    ]
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        try:
+            cmd, use = sig.split('::')
+        except ValueError:
+            cmd, use = sig, ''
+        signode['fullname'] = sig
+        usage = self.options.get('usage', use or sig)
+        if usage:
+            signode['tocname'] = usage
+            signode += addnodes.desc_name(text=usage)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         1))
+
+class CommandOptionGroupNode(TocNode):
+    """A custom node that describes a group of related options"""
+
+    name = 'cmdoptiongroup'
+
+    option_spec = TocNode.option_spec
+
+    doc_field_types = [
+        Field('opt', ('option',), label='', rolename='option')
+    ]
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        try:
+            cmd, name = sig.split('::')
+        except ValueError:
+            cmd, name = '', sig
+        signode['fullname'] = sig
+        signode['tocname'] = name
+        signode += addnodes.desc_name(text=name)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         1))
+    
+    def transform_content(self, contentnode: addnodes.desc_content) -> None:
+        """hack `:option -thing: desc` into a proper option list"""
+        newchildren = []
+        for node in contentnode:
+            newnode = node
+            if isinstance(node, nodes.field_list):
+                newnode = nodes.option_list()
+                for field in node:
+                    is_option = False
+                    option_list_item = nodes.option_list_item()
+                    for child in field:
+                        if isinstance(child, nodes.field_name):
+                            option_group = nodes.option_group()
+                            option_list_item += option_group
+                            option = nodes.option()
+                            option_group += option
+                            name, text = child.rawsource.split(' ', 1)
+                            is_option = name == 'option'
+                            option += nodes.option_string(text=text)
+                            if not is_option: warnings.warn(f'unexpected option \'{name}\' in {field.source}')
+                        elif isinstance(child, nodes.field_body):
+                            description = nodes.description()
+                            description += child.children
+                            option_list_item += description
+                    if is_option:
+                        newnode += option_list_item
+            newchildren.append(newnode)
+        contentnode.children = newchildren
 
 class PropNode(TocNode):
     name = 'prop'
@@ -517,6 +638,8 @@ class CommandDomain(Domain):
 
     directives = {
         'def': CommandNode,
+        'usage': CommandUsageNode,
+        'optiongroup': CommandOptionGroupNode,
     }
 
     indices = {

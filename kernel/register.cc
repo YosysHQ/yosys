@@ -29,30 +29,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-#define MAX_LINE_LEN 80
-void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newline=false) {
-	if (pass_str.empty())
-		return;
-	std::string indent_str(indent*4, ' ');
-	std::istringstream iss(pass_str);
-	if (leading_newline)
-		log("\n");
-	for (std::string line; std::getline(iss, line);) {
-		log("%s", indent_str.c_str());
-		auto curr_len = indent_str.length();
-		std::istringstream lss(line);
-		for (std::string word; std::getline(lss, word, ' ');) {
-			if (curr_len + word.length() >= MAX_LINE_LEN) {
-				curr_len = 0;
-				log("\n%s", indent_str.c_str());
-			}
-			log("%s ", word.c_str());
-			curr_len += word.length() + 1;
-		}
-		log("\n");
-	}
-}
-
 #define MAX_REG_COUNT 1000
 
 bool echo_mode = false;
@@ -65,7 +41,7 @@ std::map<std::string, Backend*> backend_register;
 
 std::vector<std::string> Frontend::next_args;
 
-Pass::Pass(std::string name, std::string short_help, const vector<PassUsageBlock> usages) : pass_name(name), short_help(short_help), pass_usages(usages)
+Pass::Pass(std::string name, std::string short_help, const vector<std::string> doc_string, const vector<PassUsageBlock> usages) : pass_name(name), short_help(short_help), doc_string(doc_string), pass_usages(usages)
 {
 	next_queued_pass = first_queued_pass;
 	first_queued_pass = this;
@@ -138,6 +114,37 @@ void Pass::post_execute(Pass::pre_post_exec_state_t state)
 		current_pass->runtime_ns -= time_ns;
 }
 
+#define MAX_LINE_LEN 80
+void log_pass_str(const std::string &pass_str, std::string indent_str, bool leading_newline=false) {
+	if (pass_str.empty())
+		return;
+	std::istringstream iss(pass_str);
+	if (leading_newline)
+		log("\n");
+	for (std::string line; std::getline(iss, line);) {
+		log("%s", indent_str.c_str());
+		auto curr_len = indent_str.length();
+		std::istringstream lss(line);
+		for (std::string word; std::getline(lss, word, ' ');) {
+			while (word[0] == '`' && word.back() == '`')
+				word = word.substr(1, word.length()-2);
+			if (curr_len + word.length() >= MAX_LINE_LEN-1) {
+				curr_len = 0;
+				log("\n%s", indent_str.c_str());
+			}
+			if (word.length()) {
+				log("%s ", word.c_str());
+				curr_len += word.length() + 1;
+			}
+		}
+		log("\n");
+	}
+}
+void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newline=false) {
+	std::string indent_str(indent*4, ' ');
+	log_pass_str(pass_str, indent_str, leading_newline);
+}
+
 void Pass::help()
 {
 	if (HasUsages()) {
@@ -149,6 +156,28 @@ void Pass::help()
 				log_pass_str(option.description, 2, false);
 			}
 			log_pass_str(usage.postscript, 0, true);
+		}
+		log("\n");
+	} else if (HasDocstring()) {
+		log("\n");
+		auto print_empty = true;
+		for (auto doc_line : doc_string) {
+			if (doc_line.find("..") == 0 && doc_line.find(":: ") != std::string::npos) {
+				auto command_pos = doc_line.find(":: ");
+				auto command_str = doc_line.substr(0, command_pos);
+				if (command_str.compare(".. cmd:usage") == 0) {
+					log_pass_str(doc_line.substr(command_pos+3), 1);
+				} else {
+					print_empty = false;
+				}
+			} else if (doc_line.length()) {
+				std::size_t first_pos = doc_line.find_first_not_of(" \t");
+				auto indent_str = doc_line.substr(0, first_pos);
+				log_pass_str(doc_line, indent_str);
+				print_empty = true;
+			} else if (print_empty) {
+				log("\n");
+			}
 		}
 		log("\n");
 	} else {
@@ -852,7 +881,7 @@ struct HelpPass : public Pass {
 			vector<PassUsageBlock> usages;
 			auto experimental_flag = pass->experimental_flag;
 
-			if (pass->HasUsages()) {
+			if (pass->HasUsages() || pass->HasDocstring()) {
 				for (auto usage : pass->pass_usages)
 					usages.push_back(usage);
 			} else {
@@ -949,23 +978,28 @@ struct HelpPass : public Pass {
 			// write to json
 			json.name(name.c_str()); json.begin_object();
 			json.entry("title", title);
-			json.name("usages"); json.begin_array();
-			for (auto usage : usages) {
-				json.begin_object();
-				json.entry("signature", usage.signature);
-				json.entry("description", usage.description);
-				json.name("options"); json.begin_array();
-				for (auto option : usage.options) {
-					json.begin_array();
-					json.value(option.keyword);
-					json.value(option.description);
+			if (pass->HasDocstring()) {
+				json.entry("content", pass->doc_string);
+			}
+			if (usages.size()) {
+				json.name("usages"); json.begin_array();
+				for (auto usage : usages) {
+					json.begin_object();
+					json.entry("signature", usage.signature);
+					json.entry("description", usage.description);
+					json.name("options"); json.begin_array();
+					for (auto option : usage.options) {
+						json.begin_array();
+						json.value(option.keyword);
+						json.value(option.description);
+						json.end_array();
+					}
 					json.end_array();
+					json.entry("postscript", usage.postscript);
+					json.end_object();
 				}
 				json.end_array();
-				json.entry("postscript", usage.postscript);
-				json.end_object();
 			}
-			json.end_array();
 			json.entry("experimental_flag", experimental_flag);
 			json.end_object();
 		}
