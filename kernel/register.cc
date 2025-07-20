@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include <filesystem>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -967,9 +966,10 @@ struct HelpPass : public Pass {
 				else if (source_file.find("techlibs/") == 0 || (!has_source && name.find("synth_") == 0))
 					cmd_help.group = "techlibs";
 				else if (has_source) {
-					auto p = std::filesystem::path(source_file);
-					if (p.has_parent_path()) {
-						cmd_help.group = string(p.parent_path());
+					auto last_slash = source_file.find_last_of('/');
+					if (last_slash != string::npos) {
+						auto parent_path = source_file.substr(0, last_slash);
+						cmd_help.group = parent_path;
 					}
 				}
 				// implicit !has_source
