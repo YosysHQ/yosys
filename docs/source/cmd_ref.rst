@@ -12,6 +12,8 @@ Command reference
 
 .. todo:: Can we warn on command groups that aren't included anywhere?
 
+:ref:`List of all commands<cmd-cmd>`
+
 .. toctree::
    :maxdepth: 2
 

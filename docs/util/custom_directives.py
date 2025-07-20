@@ -474,7 +474,7 @@ class TagIndex(Index):
                 lis.append((
                     dispname, 0, docname,
                     anchor,
-                    docname, '', typ
+                    '', '', ''
                 ))
         ret = [(k, v) for k, v in sorted(content.items())]
 
@@ -513,18 +513,19 @@ class CommandIndex(Index):
         Qualifier and description are not rendered e.g. in LaTeX output.
         """
 
-        content = {}
+        content: dict[str, list[tuple]] = {}
         items = ((name, dispname, typ, docname, anchor)
                  for name, dispname, typ, docname, anchor, prio
                  in self.domain.get_objects()
                  if typ == self.name)
         items = sorted(items, key=lambda item: item[0])
         for name, dispname, typ, docname, anchor in items:
+            title = self.domain.data['obj2title'].get(name)
             lis = content.setdefault(self.shortname, [])
             lis.append((
                 dispname, 0, docname,
                 anchor,
-                '', '', typ
+                '', '', title 
             ))
         ret = [(k, v) for k, v in sorted(content.items())]
 
