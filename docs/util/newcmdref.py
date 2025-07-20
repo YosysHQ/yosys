@@ -305,7 +305,10 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         return False
 
     def get_sourcename(self) -> str:
-        return self.object.source_file
+        try:
+            return self.object.source_file
+        except AttributeError:
+            return super().get_sourcename()
     
     def format_name(self) -> str:
         return self.object.name

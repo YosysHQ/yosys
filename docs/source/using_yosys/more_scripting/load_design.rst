@@ -1,9 +1,11 @@
 Loading a design
 ~~~~~~~~~~~~~~~~
 
+.. TODO:: fill out this page better
+
 keyword: Frontends
 
-- :doc:`/cmd/read_verilog`
+- :doc:`/cmd/index_frontends`
 
 .. todo:: include ``read_verilog <<EOF``, also other methods of loading designs
 
@@ -37,12 +39,6 @@ keyword: Frontends
 
 Others:
 
-- :doc:`/cmd/read`
 - `GHDL plugin`_ for VHDL
-- :doc:`/cmd/read_rtlil` (direct textual representation of Yosys internal state)
-- :doc:`/cmd/read_aiger`
-- :doc:`/cmd/read_blif`
-- :doc:`/cmd/read_json`
-- :doc:`/cmd/read_liberty`
 
 .. _GHDL plugin: https://github.com/ghdl/ghdl-yosys-plugin

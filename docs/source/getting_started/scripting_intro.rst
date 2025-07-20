@@ -122,7 +122,7 @@ module.
 
 Detailed documentation of the select framework can be found under
 :doc:`/using_yosys/more_scripting/selections` or in the command reference at
-:doc:`/cmd/select`.
+:cmd:ref:`select`.
 
 .. _show_intro:
 
@@ -219,7 +219,7 @@ those used in options, must be a single expression instead.
 .. _GraphViz color docs: https://graphviz.org/doc/info/colors
 
 For all of the options available to `show`, check the command reference at
-:doc:`/cmd/show`.
+:cmd:ref:`show`.
 
 .. seealso:: :ref:`interactive_show` on the
    :doc:`/using_yosys/more_scripting/interactive_investigation` page.
