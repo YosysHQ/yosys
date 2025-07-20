@@ -19,4 +19,5 @@ Command line reference
    /cmd/index_formal
    /cmd/index_passes*
    /cmd/index_techlibs
+   /cmd/index_internal
    /cmd/index_other

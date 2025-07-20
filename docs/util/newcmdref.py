@@ -53,6 +53,7 @@ class YosysCmd:
     source_line: int
     source_func: str
     experimental_flag: bool
+    internal_flag: bool
 
     def __init__(
             self,
@@ -62,7 +63,8 @@ class YosysCmd:
             source_file: str = "",
             source_line: int = 0,
             source_func: str = "",
-            experimental_flag: bool = False
+            experimental_flag: bool = False,
+            internal_flag: bool = False,
     ) -> None:
         self.name = name
         self.title = title
@@ -72,6 +74,7 @@ class YosysCmd:
         self.source_line = source_line
         self.source_func = source_func
         self.experimental_flag = experimental_flag
+        self.internal_flag = internal_flag
     
 class YosysCmdGroupDocumenter(Documenter):
     objtype = 'cmdgroup'
@@ -342,6 +345,10 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         if self.object.experimental_flag:
             self.add_line(f'.. warning:: This command is experimental', source_name, source_line)
+            self.add_line('\n', source_name)
+
+        if self.object.internal_flag:
+            self.add_line(f'.. warning:: This command is intended for internal developer use only', source_name, source_line)
             self.add_line('\n', source_name)
 
         def render(content_list: YosysCmdContentListing, indent: int=0):

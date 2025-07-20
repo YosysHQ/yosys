@@ -1,0 +1,5 @@
+internal
+------------------
+
+.. autocmdgroup:: internal
+   :members:

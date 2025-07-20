@@ -842,7 +842,6 @@ struct HelpPass : public Pass {
 			auto name = it.first;
 			auto pass = it.second;
 			auto title = pass->short_help;
-			auto experimental_flag = pass->experimental_flag;
 
 			auto cmd_help = PrettyHelp();
 			auto has_pretty_help = pass->formatted_help();
@@ -982,7 +981,9 @@ struct HelpPass : public Pass {
 			if (!cmd_help.has_group()) {
 				string source_file = pass->location.file_name();
 				bool has_source = source_file.compare("unknown") != 0;
-				if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
+				if (pass->internal_flag)
+					cmd_help.group = "internal";
+				else if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
 					cmd_help.group = "backends";
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
@@ -1006,8 +1007,6 @@ struct HelpPass : public Pass {
 					cmd_help.group = "passes/opt";
 				else if (name.find("proc") == 0)
 					cmd_help.group = "passes/proc";
-				else if (name.find("test") == 0)
-					cmd_help.group = "passes/tests";
 			}
 
 			if (groups.count(cmd_help.group) == 0) {
@@ -1026,7 +1025,8 @@ struct HelpPass : public Pass {
 			json.entry("source_file", pass->location.file_name());
 			json.entry("source_line", pass->location.line());
 			json.entry("source_func", pass->location.function_name());
-			json.entry("experimental_flag", experimental_flag);
+			json.entry("experimental_flag", pass->experimental_flag);
+			json.entry("internal_flag", pass->internal_flag);
 			json.end_object();
 		}
 		json.end_object();
