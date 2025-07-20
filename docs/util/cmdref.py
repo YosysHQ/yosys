@@ -162,8 +162,9 @@ class CommandOptionGroupNode(TocNode):
         except ValueError:
             cmd, name = '', sig
         signode['fullname'] = sig
-        signode['tocname'] = name
-        signode += addnodes.desc_name(text=name)
+        if name:
+            signode['tocname'] = name
+            signode += addnodes.desc_name(text=name)
         return signode['fullname']
 
     def add_target_and_index(

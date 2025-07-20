@@ -22,31 +22,42 @@ cmd_ext_sig_re = re.compile(
           \s* $                  # and nothing more
           ''', re.VERBOSE)
 
-@dataclass
-class YosysCmdUsage:
-    signature: str
-    description: str
-    options: list[tuple[str,str]]
-    postscript: str
+class YosysCmdContentListing:
+    type: str
+    body: str
+    source_file: str
+    source_line: int
+    content: list[YosysCmdContentListing]
+
+    def __init__(
+            self,
+            type: str = "",
+            body: str = "",
+            source_file: str = "unknown",
+            source_line: int = 0,
+            content: list[dict[str]] = [],
+    ):
+        self.type = type
+        self.body = body
+        self.source_file = source_file
+        self.source_line = source_line
+        self.content = [YosysCmdContentListing(**c) for c in content]
 
 class YosysCmd:
     name: str
     title: str
-    content: list[str]
-    usages: list[YosysCmdUsage]
+    content: list[YosysCmdContentListing]
     experimental_flag: bool
 
     def __init__(
             self,
             name:str = "", title:str = "",
-            content: list[str] = [],
-            usages: list[dict[str]] = [],
+            content: list[dict[str]] = [],
             experimental_flag: bool = False
     ) -> None:
         self.name = name
         self.title = title
-        self.content = content
-        self.usages = [YosysCmdUsage(**u) for u in usages]
+        self.content = [YosysCmdContentListing(**c) for c in content]
         self.experimental_flag = experimental_flag
 
     @property
@@ -314,6 +325,8 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         # cmd definition
         self.add_line(f'.. {domain}:{directive}:: {sig}', source_name, source_line)
+        if self.object.title:
+            self.add_line(f'   :title: {self.object.title}', source_name, source_line)
 
         if self.options.noindex:
             self.add_line('   :noindex:', source_name)
@@ -323,28 +336,33 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         domain = getattr(self, 'domain', self.objtype)
         source_name = self.object.source_file
 
-        for usage in self.object.usages:
-            self.add_line('', source_name)
-            if usage.signature:
-                self.add_line(f'   .. {domain}:usage:: {self.name}::{usage.signature}', source_name)
+        def render(content_list: YosysCmdContentListing, indent: int=0):
+            content_source = content_list.source_file or source_name
+            indent_str = '   '*indent
+            if content_list.type in ['usage', 'optiongroup']:
+                if content_list.body:
+                    self.add_line(f'{indent_str}.. {domain}:{content_list.type}:: {self.name}::{content_list.body}', content_source)
+                else:
+                    self.add_line(f'{indent_str}.. {domain}:{content_list.type}:: {self.name}::', content_source)
+                    self.add_line(f'{indent_str}   :noindex:', source_name)
                 self.add_line('', source_name)
-            for line in usage.description.splitlines():
-                self.add_line(f'   {line}', source_name)
+            elif content_list.type in ['option']:
+                self.add_line(f'{indent_str}:{content_list.type} {content_list.body}:', content_source)
+            elif content_list.type == 'text':
+                self.add_line(f'{indent_str}{content_list.body}', content_source)
                 self.add_line('', source_name)
-            if usage.options:
-                self.add_line(f'   .. {domain}:optiongroup:: {self.name}::something', source_name)
+            elif content_list.type == 'code':
+                self.add_line(f'{indent_str}::', source_name)
                 self.add_line('', source_name)
-                for opt, desc in usage.options:
-                    self.add_line(f'      :option {opt}: {desc}', source_name)
+                self.add_line(f'{indent_str}   {content_list.body}', content_source)
                 self.add_line('', source_name)
-            for line in usage.postscript.splitlines():
-                self.add_line(f'   {line}', source_name)
-                self.add_line('', source_name)
+            else:
+                logger.warning(f"unknown content type '{content_list.type}'")
+            for content in content_list.content:
+                render(content, indent+1)
 
-        for line in self.object.content:
-            if line.startswith('..') and ':: ' in line:
-                line = line.replace(':: ', f':: {self.name}::', 1)
-            self.add_line(line, source_name)
+        for content in self.object.content:
+            render(content)
 
         # add additional content (e.g. from document), if present
         if more_content:
@@ -364,56 +382,6 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         want_all: bool
     ) -> tuple[bool, list[tuple[str, Any]]]:
 
-        return False, []
-
-class YosysCmdUsageDocumenter(YosysCmdDocumenter):
-    objtype = 'cmdusage'
-    priority = 20
-    object: YosysCmdUsage
-    parent: YosysCmd
-
-    def add_directive_header(self, sig: str) -> None:
-        domain = getattr(self, 'domain', 'cmd')
-        directive = getattr(self, 'directivetype', 'usage')
-        name = self.format_name()
-        sourcename = self.parent.source_file
-        cmd = self.parent
-
-        # cmd definition
-        self.add_line(f'.. {domain}:{directive}:: {sig}', sourcename)
-        if self.object.signature:
-            self.add_line(f'   :usage: {self.object.signature}', sourcename)
-        else:
-            self.add_line(f'   :noindex:', sourcename)
-        # for usage in self.object.signature.splitlines():
-        #     self.add_line(f'   :usage: {usage}', sourcename)
-
-        # if self.options.linenos:
-        #     self.add_line(f'   :source: {cmd.source.split(":")[0]}', sourcename)
-        # else:
-        #     self.add_line(f'   :source: {cmd.source}', sourcename)
-        # self.add_line(f'   :language: verilog', sourcename)
-
-        if self.options.noindex:
-            self.add_line('   :noindex:', sourcename)
-    
-    def add_content(self, more_content: Any | None) -> None:
-        # set sourcename and add content from attribute documentation
-        sourcename = self.parent.source_file
-        startline = self.parent.source_line
-
-        for line in self.object.description.splitlines():
-            self.add_line(line, sourcename)
-
-        # add additional content (e.g. from document), if present
-        if more_content:
-            for line, src in zip(more_content.data, more_content.items):
-                self.add_line(line, src[0], src[1])
-
-    def get_object_members(
-        self,
-        want_all: bool
-    ) -> tuple[bool, list[tuple[str, Any]]]:
         return False, []
 
 def setup(app: Sphinx) -> dict[str, Any]:
