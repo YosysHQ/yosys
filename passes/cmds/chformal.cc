@@ -73,7 +73,7 @@ static bool is_triggered_check_cell(RTLIL::Cell * cell)
 struct ChformalPass : public Pass {
 	ChformalPass() : Pass("chformal", "change formal constraints of the design") {}
 
-	bool help_v2() override {
+	bool formatted_help() override {
 		auto *help = PrettyHelp::get_current();
 		help->set_group("formal");
 		help->usage("chformal [types] [mode] [options] [selection]");

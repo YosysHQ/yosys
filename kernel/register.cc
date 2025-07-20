@@ -118,14 +118,14 @@ void Pass::post_execute(Pass::pre_post_exec_state_t state)
 
 void Pass::help()
 {
-	if (!help_v2()) {
+	if (!formatted_help()) {
 		log("\n");
 		log("No help message for command `%s'.\n", pass_name.c_str());
 		log("\n");
 	}
 }
 
-bool Pass::help_v2()
+bool Pass::formatted_help()
 {
 	return false;
 }
@@ -825,7 +825,7 @@ struct HelpPass : public Pass {
 			auto experimental_flag = pass->experimental_flag;
 
 			auto cmd_help = PrettyHelp(PrettyHelp::Mode::LISTING);
-			auto has_pretty_help = pass->help_v2();
+			auto has_pretty_help = pass->formatted_help();
 
 			if (!has_pretty_help) {
 				enum PassUsageState {
