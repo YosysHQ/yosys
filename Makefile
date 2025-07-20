@@ -115,12 +115,6 @@ BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
 
-ifneq ($(shell :; command -v rsync),)
-RSYNC_CP ?= rsync -rc
-else
-RSYNC_CP ?= cp -ru
-endif
-
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
 LINKFLAGS += -rdynamic
@@ -1033,14 +1027,6 @@ ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) rmdir $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 endif
 endif
-
-# also others, but so long as it doesn't fail this is enough to know we tried
-docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cmd
-	$(Q) mkdir -p temp/docs/source/cmd
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
-	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
-	$(Q) rm -rf temp
 
 docs/source/generated/cmds.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cmds-json $@'

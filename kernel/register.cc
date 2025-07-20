@@ -735,98 +735,6 @@ struct HelpPass : public Pass {
 		log("    help <celltype>+  ....  print verilog code for given cell type\n");
 		log("\n");
 	}
-	void write_cmd_rst(std::string cmd, std::string title, std::string text)
-	{
-		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
-		// make header
-		size_t char_len = cmd.length() + 3 + title.length();
-		std::string title_line = "\n";
-		title_line.insert(0, char_len, '=');
-		fprintf(f, "%s", title_line.c_str());
-		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
-		fprintf(f, "%s\n", title_line.c_str());
-
-		// render html
-		fprintf(f, ".. cmd:def:: %s\n", cmd.c_str());
-		fprintf(f, "   :title: %s\n\n", title.c_str());
-		fprintf(f, "   .. only:: html\n\n");
-		std::stringstream ss;
-		std::string textcp = text;
-		ss << text;
-		bool IsUsage = true;
-		int blank_count = 0;
-		size_t def_strip_count = 0;
-		bool WasDefinition = false;
-		for (std::string line; std::getline(ss, line, '\n');) {
-			// find position of first non space character
-			std::size_t first_pos = line.find_first_not_of(" \t");
-			std::size_t last_pos = line.find_last_not_of(" \t");
-			if (first_pos == std::string::npos) {
-				// skip formatting empty lines
-				if (!WasDefinition)
-					fputc('\n', f);
-				blank_count += 1;
-				continue;
-			}
-
-			// strip leading and trailing whitespace
-			std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
-			bool IsDefinition = stripped_line[0] == '-';
-			IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
-			bool IsDedent = def_strip_count && first_pos <= def_strip_count;
-			bool IsIndent = first_pos == 2 || first_pos == 4;
-			if (cmd.compare(0, 7, "verific") == 0)
-				// verific.cc has strange and different formatting from the rest
-				IsIndent = false;
-
-			// another usage block
-			bool NewUsage = stripped_line.find(cmd) == 0;
-
-			if (IsUsage) {
-				if (stripped_line.compare(0, 4, "See ") == 0) {
-					// description refers to another function
-					fprintf(f, "\n      %s\n", stripped_line.c_str());
-				} else {
-					// usage should be the first line of help output
-					fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
-					WasDefinition = true;
-				}
-				IsUsage = false;
-			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
-				// another usage block
-				fprintf(f, "\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
-				WasDefinition = true;
-				def_strip_count = 0;
-			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
-				// format definition term
-				fprintf(f, "\n\n      .. code:: yoscrypt\n\n         %s\n\n      ", stripped_line.c_str());
-				WasDefinition = true;
-				def_strip_count = first_pos;
-			} else {
-				if (IsDedent) {
-					fprintf(f, "\n\n      ::\n");
-					def_strip_count = first_pos;
-				} else if (WasDefinition) {
-					fprintf(f, "::\n");
-					WasDefinition = false;
-				}
-				fprintf(f, "\n         %s", line.substr(def_strip_count, std::string::npos).c_str());
-			}
-
-			blank_count = 0;
-		}
-		fputc('\n', f);
-
-		// render latex
-		fprintf(f, ".. only:: latex\n\n");
-		fprintf(f, "   ::\n\n");
-		std::stringstream ss2;
-		ss2 << textcp;
-		for (std::string line; std::getline(ss2, line, '\n');) {
-			fprintf(f, "      %s\n", line.c_str());
-		}
-		fclose(f);
-	}
 	bool dump_cmds_json(PrettyJson &json) {
 		// init json
 		json.begin_object();
@@ -1150,17 +1058,6 @@ struct HelpPass : public Pass {
 				log("Type 'help <cell_type>' for more information on a cell type.\n");
 				log("\n");
 				return;
-			}
-			// this option is undocumented as it is for internal use only
-			else if (args[1] == "-write-rst-command-reference-manual") {
-				for (auto &it : pass_register) {
-					std::ostringstream buf;
-					log_streams.push_back(&buf);
-					it.second->help();
-					log_warning_flags(it.second);
-					log_streams.pop_back();
-					write_cmd_rst(it.first, it.second->short_help, buf.str());
-				}
 			}
 			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
