@@ -18,7 +18,9 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -178,6 +180,12 @@ void SynthPropWorker::run()
 
 struct SyntProperties : public Pass {
 	SyntProperties() : Pass("synthprop", "synthesize SVA properties") { }
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 
 	virtual void help()
 	{

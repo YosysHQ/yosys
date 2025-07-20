@@ -1,5 +1,5 @@
-formal
-------------------
+Formal verification
+-------------------
 
 .. autocmdgroup:: formal
    :members:
