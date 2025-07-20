@@ -693,6 +693,23 @@ static string get_cell_name(string name) {
 	return is_code_getter(name) ? name.substr(0, name.length()-1) : name;
 }
 
+static void log_warning_flags(Pass *pass) {
+	bool has_warnings = false;
+	const string name = pass->pass_name;
+	if (pass->experimental_flag) {
+		if (!has_warnings) log("\n");
+		has_warnings = true;
+		log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", name.c_str());
+	}
+	if (pass->internal_flag) {
+		if (!has_warnings) log("\n");
+		has_warnings = true;
+		log("WARNING: THE '%s' COMMAND IS INTENDED FOR INTERNAL DEVELOPER USE ONLY.\n", name.c_str());
+	}
+	if (has_warnings)
+		log("\n");
+}
+
 static struct CellHelpMessages {
 	dict<string, SimHelper> cell_help;
 	CellHelpMessages() {
@@ -1123,11 +1140,7 @@ struct HelpPass : public Pass {
 						log("=");
 					log("\n");
 					it.second->help();
-					if (it.second->experimental_flag) {
-						log("\n");
-						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
-						log("\n");
-					}
+					log_warning_flags(it.second);
 				}
 			}
 			else if (args[1] == "-cells") {
@@ -1147,22 +1160,14 @@ struct HelpPass : public Pass {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
 					it.second->help();
-					if (it.second->experimental_flag) {
-						log("\n");
-						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
-						log("\n");
-					}
+					log_warning_flags(it.second);
 					log_streams.pop_back();
 					write_cmd_rst(it.first, it.second->short_help, buf.str());
 				}
 			}
 			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
-				if (pass_register.at(args[1])->experimental_flag) {
-					log("\n");
-					log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", args[1].c_str());
-					log("\n");
-				}
+				log_warning_flags(pass_register.at(args[1]));
 			}
 			else if (cell_help_messages.contains(args[1])) {
 				auto help_cell = cell_help_messages.get(args[1]);

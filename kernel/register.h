@@ -69,9 +69,14 @@ struct Pass
 	int call_counter;
 	int64_t runtime_ns;
 	bool experimental_flag = false;
+	bool internal_flag = false;
 
 	void experimental() {
 		experimental_flag = true;
+	}
+
+	void internal() {
+		internal_flag = true;
 	}
 
 	struct pre_post_exec_state_t {
