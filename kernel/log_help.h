@@ -32,12 +32,14 @@ public:
 	string body;
 	const char* source_file;
 	int source_line;
+	std::map<string, string> options;
 
 	ContentListing(
 		string type = "root", string body = "",
 		const char* source_file = "unknown", int source_line = 0
 	) : type(type), body(body), source_file(source_file), source_line(source_line) {
 		_content = {};
+		options = {};
 	}
 
 	ContentListing(string type, string body, source_location location) :
@@ -59,6 +61,10 @@ public:
 	}
 	ContentListing* back() {
 		return _content.back();
+	}
+
+	void set_option(string key, string val = "") {
+		options[key] = val;
 	}
 
 	void usage(

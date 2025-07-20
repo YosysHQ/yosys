@@ -47,7 +47,8 @@ The ``formatted_help()`` method
       added automatically
     * ``codeblock`` content is displayed verbatim, use line breaks as desired;
       takes an optional ``language`` argument for assigning the language in RST
-      output for code syntax highlighting (currently not implemented)
+      output for code syntax highlighting (use ``yoscrypt`` for yosys script
+      syntax highlighting)
     * ``option`` lists a single option for the command, usually starting with a
       dash (``-``); takes an optional second argument which adds a paragraph
       node as a means of description
@@ -61,8 +62,6 @@ The ``formatted_help()`` method
     be used to e.g. add multiple paragraphs to an option's description
   + paragraphs are treated as raw RST, allowing for inline formatting and
     references as if it were written in the RST file itself
-
-.. todo:: Support ``ContentListing::codeblock`` language argument
 
 .. todo:: Support anonymous optiongroup
 

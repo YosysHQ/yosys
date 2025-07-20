@@ -27,6 +27,7 @@ Json ContentListing::to_json() {
 	if (body.length()) object["body"] = body;
 	if (strcmp(source_file, "unknown") != 0) object["source_file"] = source_file;
 	if (source_line != 0) object["source_line"] = source_line;
+	object["options"] = Json(options);
 	Json::array content_array;
 	for (auto child : _content) content_array.push_back(child->to_json());
 	object["content"] = content_array;
@@ -52,6 +53,7 @@ void ContentListing::codeblock(const string &code, const string &language,
 	const source_location location)
 {
 	add_content("code", code, location);
+	back()->set_option("language", language);
 }
 
 void ContentListing::paragraph(const string &text,

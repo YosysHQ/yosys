@@ -28,6 +28,7 @@ class YosysCmdContentListing:
     body: str
     source_file: str
     source_line: int
+    options: dict[str, str]
     content: list[YosysCmdContentListing]
 
     def __init__(
@@ -36,12 +37,14 @@ class YosysCmdContentListing:
             body: str = "",
             source_file: str = "unknown",
             source_line: int = 0,
+            options: dict[str, str] = {},
             content: list[dict[str]] = [],
     ):
         self.type = type
         self.body = body
         self.source_file = source_file
         self.source_line = source_line
+        self.options = options
         self.content = [YosysCmdContentListing(**c) for c in content]
 
 class YosysCmd:
@@ -375,9 +378,11 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
                 self.add_line(f'{indent_str}{content_list.body}', content_source)
                 self.add_line('', source_name)
             elif content_list.type == 'code':
-                self.add_line(f'{indent_str}::', source_name)
+                language_str = content_list.options.get('language', '')
+                self.add_line(f'{indent_str}.. code-block:: {language_str}', source_name)
                 self.add_line('', source_name)
-                self.add_line(f'{indent_str}   {content_list.body}', content_source)
+                for body_line in content_list.body.splitlines():
+                    self.add_line(f'{indent_str}   {body_line}', content_source)
                 self.add_line('', source_name)
             else:
                 logger.warning(f"unknown content type '{content_list.type}'")
