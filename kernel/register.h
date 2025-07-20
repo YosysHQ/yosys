@@ -25,10 +25,24 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+struct PassOption {
+	string keyword;
+	string description;
+};
+
+struct PassUsageBlock {
+	string signature = "";
+	string description = "";
+	vector<PassOption> options = {};
+	string postscript = "";
+};
+
 struct Pass
 {
 	std::string pass_name, short_help;
-	Pass(std::string name, std::string short_help = "** document me **");
+	const vector<PassUsageBlock> pass_usages;
+	Pass(std::string name, std::string short_help = "** document me **",
+		const vector<PassUsageBlock> usages = {});
 	// Prefer overriding 'Pass::on_shutdown()' if possible
 	virtual ~Pass();
 
@@ -42,6 +56,10 @@ struct Pass
 
 	void experimental() {
 		experimental_flag = true;
+	}
+
+	bool HasUsages() {
+		return !pass_usages.empty();
 	}
 
 	struct pre_post_exec_state_t {

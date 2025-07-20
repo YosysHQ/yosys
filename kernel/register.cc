@@ -29,6 +29,30 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+#define MAX_LINE_LEN 80
+void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newline=false) {
+	if (pass_str.empty())
+		return;
+	std::string indent_str(indent*4, ' ');
+	std::istringstream iss(pass_str);
+	if (leading_newline)
+		log("\n");
+	for (std::string line; std::getline(iss, line);) {
+		log("%s", indent_str.c_str());
+		auto curr_len = indent_str.length();
+		std::istringstream lss(line);
+		for (std::string word; std::getline(lss, word, ' ');) {
+			if (curr_len + word.length() >= MAX_LINE_LEN) {
+				curr_len = 0;
+				log("\n%s", indent_str.c_str());
+			}
+			log("%s ", word.c_str());
+			curr_len += word.length() + 1;
+		}
+		log("\n");
+	}
+}
+
 #define MAX_REG_COUNT 1000
 
 bool echo_mode = false;
@@ -41,7 +65,7 @@ std::map<std::string, Backend*> backend_register;
 
 std::vector<std::string> Frontend::next_args;
 
-Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_help(short_help)
+Pass::Pass(std::string name, std::string short_help, const vector<PassUsageBlock> usages) : pass_name(name), short_help(short_help), pass_usages(usages)
 {
 	next_queued_pass = first_queued_pass;
 	first_queued_pass = this;
@@ -116,9 +140,22 @@ void Pass::post_execute(Pass::pre_post_exec_state_t state)
 
 void Pass::help()
 {
-	log("\n");
-	log("No help message for command `%s'.\n", pass_name.c_str());
-	log("\n");
+	if (HasUsages()) {
+		for (auto usage : pass_usages) {
+			log_pass_str(usage.signature, 1, true);
+			log_pass_str(usage.description, 0, true);
+			for (auto option : usage.options) {
+				log_pass_str(option.keyword, 1, true);
+				log_pass_str(option.description, 2, false);
+			}
+			log_pass_str(usage.postscript, 0, true);
+		}
+		log("\n");
+	} else {
+		log("\n");
+		log("No help message for command `%s'.\n", pass_name.c_str());
+		log("\n");
+	}
 }
 
 void Pass::clear_flags()
