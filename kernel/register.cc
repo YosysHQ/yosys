@@ -835,6 +835,145 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
+	bool dump_cmds_json(PrettyJson &json) {
+		// init json
+		json.begin_object();
+		json.entry("version", "Yosys command reference");
+		json.entry("generator", yosys_version_str);
+
+		bool raise_error = false;
+
+		json.name("cmds"); json.begin_object();
+		// iterate over commands
+		for (auto &it : pass_register) {
+			auto name = it.first;
+			auto pass = it.second;
+			auto title = pass->short_help;
+			vector<PassUsageBlock> usages;
+			auto experimental_flag = pass->experimental_flag;
+
+			if (pass->HasUsages()) {
+				for (auto usage : pass->pass_usages)
+					usages.push_back(usage);
+			} else {
+				enum PassUsageState {
+					PUState_signature,
+					PUState_description,
+					PUState_options,
+					PUState_postscript,
+				};
+
+				// dump command help
+				std::ostringstream buf;
+				log_streams.push_back(&buf);
+				pass->help();
+				log_streams.pop_back();
+				std::stringstream ss;
+				ss << buf.str();
+
+				// parse command help
+				int blank_count = 0;
+				size_t def_strip_count = 0;
+				auto current_state = PUState_postscript;
+				auto catch_verific = false;
+				for (string line; std::getline(ss, line, '\n');) {
+					// find position of first non space character
+					std::size_t first_pos = line.find_first_not_of(" \t");
+					std::size_t last_pos = line.find_last_not_of(" \t");
+					if (first_pos == std::string::npos) {
+						// skip empty lines
+						blank_count += 1;
+						continue;
+					}
+
+					// strip leading and trailing whitespace
+					std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
+					bool IsDefinition = stripped_line[0] == '-';
+					IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
+					bool IsDedent = def_strip_count && first_pos < def_strip_count;
+					bool IsIndent = first_pos == 2 || first_pos == 4 || first_pos == 8;
+
+					// line looks like a signature
+					bool IsSignature = stripped_line.find(name) == 0;
+
+					// start new usage block if it's a signature and we left the current signature
+					// or if we are adding new options after we left the options
+					bool NewUsage = (IsSignature && current_state != PUState_signature)
+							|| (IsDefinition && current_state == PUState_postscript);
+
+					if (NewUsage) {
+						current_state = PUState_signature;
+						usages.push_back({});
+						def_strip_count = first_pos;
+						catch_verific = false;
+					} else if (IsDedent) {
+						def_strip_count = first_pos;
+						if (current_state == PUState_signature)
+							current_state = PUState_description;
+						else
+							current_state = PUState_postscript;
+					}
+
+					if (IsDefinition && IsIndent && !catch_verific) {
+						current_state = PUState_options;
+						usages.back().options.push_back(PassOption({stripped_line, ""}));
+						def_strip_count = first_pos;
+					} else {
+						string *desc_str;
+						if (current_state == PUState_signature) {
+							desc_str = &(usages.back().signature);
+							blank_count += 1;
+						} else if (current_state == PUState_description) {
+							desc_str = &(usages.back().description);
+						} else if (current_state == PUState_options) {
+							desc_str = &(usages.back().options.back().description);
+						} else if (current_state == PUState_postscript) {
+							desc_str = &(usages.back().postscript);
+						} else {
+							log_abort();
+						}
+						if (desc_str->empty())
+							*desc_str = stripped_line;
+						else if (catch_verific)
+							*desc_str += (IsIndent ? "\n" : " ") + stripped_line;
+						else
+							*desc_str += (blank_count > 0 ? "\n" : " ") + stripped_line;
+						if (stripped_line.compare("Command file parser supports following commands in file:") == 0)
+							catch_verific = true;
+					}
+
+					blank_count = 0;
+				}
+			}
+
+			// write to json
+			json.name(name.c_str()); json.begin_object();
+			json.entry("title", title);
+			json.name("usages"); json.begin_array();
+			for (auto usage : usages) {
+				json.begin_object();
+				json.entry("signature", usage.signature);
+				json.entry("description", usage.description);
+				json.name("options"); json.begin_array();
+				for (auto option : usage.options) {
+					json.begin_array();
+					json.value(option.keyword);
+					json.value(option.description);
+					json.end_array();
+				}
+				json.end_array();
+				json.entry("postscript", usage.postscript);
+				json.end_object();
+			}
+			json.end_array();
+			json.entry("experimental_flag", experimental_flag);
+			json.end_object();
+		}
+		json.end_object();
+
+		json.end_object();
+		return raise_error;
+	}
 	bool dump_cells_json(PrettyJson &json) {
 		// init json
 		json.begin_object();
@@ -1007,7 +1146,17 @@ struct HelpPass : public Pass {
 				log("No such command or cell type: %s\n", args[1].c_str());
 			return;
 		} else if (args.size() == 3) {
-			if (args[1] == "-dump-cells-json") {
+			// this option is undocumented as it is for internal use only
+			if (args[1] == "-dump-cmds-json") {
+				PrettyJson json;
+				if (!json.write_to_file(args[2]))
+					log_error("Can't open file `%s' for writing: %s\n", args[2].c_str(), strerror(errno));
+				if (dump_cmds_json(json)) {
+					log_abort();
+				}
+			}
+			// this option is undocumented as it is for internal use only
+			else if (args[1] == "-dump-cells-json") {
 				PrettyJson json;
 				if (!json.write_to_file(args[2]))
 					log_error("Can't open file `%s' for writing: %s\n", args[2].c_str(), strerror(errno));
@@ -1015,6 +1164,8 @@ struct HelpPass : public Pass {
 					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
 				}
 			}
+			else
+				log("Unknown help command: `%s %s'\n", args[1].c_str(), args[2].c_str());
 			return;
 		}
 
