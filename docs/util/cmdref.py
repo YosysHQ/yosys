@@ -715,10 +715,18 @@ class CellDomain(CommandDomain):
 
 def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
-    role = 'cell:ref' if text[0] == '$' else 'cmd:ref'
-    if text.startswith("help ") and text.count(' ') == 1:
-        _, cmd = text.split(' ', 1)
-        text = f'{text} <{cmd}>'
+    words = text.split(' ')
+    if len(words) == 2 and words[0] == "help":
+        IsLinkable = True
+        thing = words[1]
+    else:
+        IsLinkable = len(words) == 1 and words[0][0] != '-'
+        thing = words[0]
+    if IsLinkable:
+        role = 'cell:ref' if thing[0] == '$' else 'cmd:ref'
+        text = f'{text} <{thing}>'
+    else:
+        role = 'yoscrypt'
     return inliner.interpreted(rawtext, text, role, lineno)
 
 def setup(app: Sphinx):
