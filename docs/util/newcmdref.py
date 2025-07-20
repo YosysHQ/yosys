@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 # cmd signature
 cmd_ext_sig_re = re.compile(
-    r'''^ ([\w$._]+?)            # module name
+    r'''^ ([\w/]+::)?            # optional group
+          ([\w$._]+?)            # module name
           (?:\.([\w_]+))?        # optional: thing name
           (::[\w_]+)?            #           attribute
           \s* $                  # and nothing more
@@ -47,22 +48,21 @@ class YosysCmd:
     name: str
     title: str
     content: list[YosysCmdContentListing]
+    source_file: str
     experimental_flag: bool
 
     def __init__(
             self,
             name:str = "", title:str = "",
             content: list[dict[str]] = [],
+            source_file:str = 'unknown',
             experimental_flag: bool = False
     ) -> None:
         self.name = name
         self.title = title
         self.content = [YosysCmdContentListing(**c) for c in content]
+        self.source_file = source_file
         self.experimental_flag = experimental_flag
-
-    @property
-    def source_file(self) -> str:
-        return ""
 
     @property
     def source_line(self) -> int:
@@ -86,7 +86,7 @@ class YosysCmdGroupDocumenter(Documenter):
     def cmd_lib(self) -> dict[str, list[str] | dict[str]]:
         if not self.__cmd_lib:
             self.__cmd_lib = {}
-            cmds_obj: dict[str, dict[str, list[str] | dict[str]]]
+            cmds_obj: dict[str, dict[str, dict[str]]]
             try:
                 with open(self.config.cmds_json, "r") as f:
                     cmds_obj = json.loads(f.read())
@@ -96,8 +96,19 @@ class YosysCmdGroupDocumenter(Documenter):
                     type = 'cmdref',
                     subtype = 'cmd_lib'
                 )
-            else:
-                for (name, obj) in cmds_obj.get(self.lib_key, {}).items():
+                cmds_obj = {}
+            for (name, obj) in cmds_obj.get('cmds', {}).items():
+                if self.lib_key == 'groups':
+                    source_file: str = obj.get('source_file', 'unknown')
+                    if source_file == 'unknown':
+                        source_group = 'unknown'
+                    else:
+                        source_group = str(Path(source_file).parent)
+                    try:
+                        self.__cmd_lib[source_group].append(name)
+                    except KeyError:
+                        self.__cmd_lib[source_group] = [name,]
+                else:
                     self.__cmd_lib[name] = obj
         return self.__cmd_lib
     
@@ -139,25 +150,10 @@ class YosysCmdGroupDocumenter(Documenter):
         return self.modname
     
     def add_directive_header(self, sig: str) -> None:
-        domain = getattr(self, 'domain', 'cmd')
-        directive = getattr(self, 'directivetype', 'group')
-        name = self.format_name()
-        sourcename = self.get_sourcename()
-        cmd_list = self.object
-
-        # cmd definition
-        self.add_line(f'.. {domain}:{directive}:: {sig}', sourcename)
-        self.add_line(f'   :caption: {name}', sourcename)
-
-        if self.options.noindex:
-            self.add_line('   :noindex:', sourcename)
+        pass
     
     def add_content(self, more_content: Any | None) -> None:
-        # groups have no native content
-        # add additional content (e.g. from document), if present
-        if more_content:
-            for line, src in zip(more_content.data, more_content.items):
-                self.add_line(line, src[0], src[1])
+        pass
 
     def filter_members(
         self,
@@ -290,13 +286,14 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
     def parse_name(self) -> bool:
         try:
             matched = cmd_ext_sig_re.match(self.name)
-            modname, thing, attribute = matched.groups()
+            group, modname, thing, attribute = matched.groups()
         except AttributeError:
             logger.warning(('invalid signature for auto%s (%r)') % (self.objtype, self.name),
                            type='cmdref')
             return False
 
         self.modname = modname
+        self.groupname = group or ''
         self.attribute = attribute or ''
         self.fullname = ((self.modname) + (thing or ''))
 
@@ -364,18 +361,14 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         for content in self.object.content:
             render(content)
 
+        if self.get_sourcename() != 'unknown':
+            self.add_line('\n', source_name)
+            self.add_line(f'.. note:: Help text automatically generated from :file:`{source_name}`', source_name)
+
         # add additional content (e.g. from document), if present
         if more_content:
             for line, src in zip(more_content.data, more_content.items):
                 self.add_line(line, src[0], src[1])
-
-        # fields
-        self.add_line('\n', source_name)
-        field_attrs = ["properties", ]
-        for field in field_attrs:
-            attr = getattr(self.object, field, [])
-            for val in attr:
-                self.add_line(f':{field} {val}:', source_name)
 
     def get_object_members(
         self,

@@ -949,6 +949,7 @@ struct HelpPass : public Pass {
 			for (auto content : cmd_help.get_content())
 				json.value(content->to_json());
 			json.end_array();
+			json.entry("source_file", cmd_help.source_file());
 			json.entry("experimental_flag", experimental_flag);
 			json.end_object();
 		}

@@ -115,12 +115,11 @@ class CommandUsageNode(TocNode):
     ]
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        try:
-            cmd, use = sig.split('::')
-        except ValueError:
-            cmd, use = sig, ''
-        signode['fullname'] = sig
-        usage = self.options.get('usage', use or sig)
+        parts = sig.split('::')
+        if len(parts) > 2: parts.pop(0)
+        use = parts[-1]
+        signode['fullname'] = '::'.join(parts)
+        usage = self.options.get('usage', use)
         if usage:
             signode['tocname'] = usage
             signode += addnodes.desc_name(text=usage)
@@ -145,46 +144,16 @@ class CommandUsageNode(TocNode):
                          idx,
                          1))
 
-class CommandOptionGroupNode(TocNode):
+class CommandOptionGroupNode(CommandUsageNode):
     """A custom node that describes a group of related options"""
 
     name = 'cmdoptiongroup'
 
-    option_spec = TocNode.option_spec
+    option_spec = CommandUsageNode.option_spec
 
     doc_field_types = [
         Field('opt', ('option',), label='', rolename='option')
     ]
-
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        try:
-            cmd, name = sig.split('::')
-        except ValueError:
-            cmd, name = '', sig
-        signode['fullname'] = sig
-        if name:
-            signode['tocname'] = name
-            signode += addnodes.desc_name(text=name)
-        return signode['fullname']
-
-    def add_target_and_index(
-        self,
-        name: str,
-        sig: str,
-        signode: addnodes.desc_signature
-    ) -> None:
-        idx = ".".join(name.split("::"))
-        signode['ids'].append(idx)
-        if 'noindex' not in self.options:
-            tocname: str = signode.get('tocname', name)
-            objs = self.env.domaindata[self.domain]['objects']
-            # (name, sig, typ, docname, anchor, prio)
-            objs.append((name,
-                         tocname,
-                         type(self).name,
-                         self.env.docname,
-                         idx,
-                         1))
     
     def transform_content(self, contentnode: addnodes.desc_content) -> None:
         """hack `:option -thing: desc` into a proper option list"""
