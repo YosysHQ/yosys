@@ -1050,7 +1050,7 @@ docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -qQT -h '$*' -l $@
 
 docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
-	cp $^ $@
+	$(Q) cp $< $@
 
 PHONY: docs/gen/chformal
 docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
