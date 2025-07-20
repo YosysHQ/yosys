@@ -27,11 +27,18 @@
 #if __cpp_lib_source_location == 201907L
   #include <source_location>
   using std::source_location;
-#else
-  #include <experimental/source_location>
-#  ifdef __cpp_lib_experimental_source_location
+#elif defined(__has_include)
+#  if __has_include(<experimental/source_location>)
+    #include <experimental/source_location>
     using std::experimental::source_location;
 #  else
+    #define SOURCE_FALLBACK
+#  endif
+#else
+  #define SOURCE_FALLBACK
+#endif
+
+#ifdef SOURCE_FALLBACK
 struct source_location { // dummy placeholder
 	int line() const { return 0; }
 	int column() const { return 0; }
@@ -39,7 +46,6 @@ struct source_location { // dummy placeholder
 	const char* function_name() const { return "unknown"; }
 	static const source_location current(...) { return source_location(); }
 };
-#  endif
 #endif
 
 YOSYS_NAMESPACE_BEGIN
