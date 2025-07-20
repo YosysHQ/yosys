@@ -822,7 +822,7 @@ struct HelpPass : public Pass {
 			auto title = pass->short_help;
 			auto experimental_flag = pass->experimental_flag;
 
-			auto cmd_help = PrettyHelp();
+			auto cmd_help = PrettyHelp(PrettyHelp::Mode::LISTING);
 			auto has_pretty_help = pass->help_v2();
 
 			if (!has_pretty_help) {
@@ -919,7 +919,10 @@ struct HelpPass : public Pass {
 			// write to json
 			json.name(name.c_str()); json.begin_object();
 			json.entry("title", title);
-			// json.entry("content", cmd_help);
+			json.name("content"); json.begin_array();
+			for (auto content : cmd_help.get_content())
+				json.value(content->to_json());
+			json.end_array();
 			json.entry("experimental_flag", experimental_flag);
 			json.end_object();
 		}

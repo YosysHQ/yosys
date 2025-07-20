@@ -21,6 +21,18 @@
 
 USING_YOSYS_NAMESPACE
 
+Json ContentListing::to_json() {
+	Json::object object;
+	object["type"] = type;
+	if (body.length()) object["body"] = body;
+	if (source_file != nullptr) object["source_file"] = source_file;
+	if (source_line != 0) object["source_line"] = source_line;
+	Json::array content_array;
+	for (auto child : content) content_array.push_back(child->to_json());
+	object["content"] = content_array;
+	return object;
+}
+
 #define MAX_LINE_LEN 80
 void log_pass_str(const std::string &pass_str, std::string indent_str, bool leading_newline=false) {
 	if (pass_str.empty())
@@ -54,15 +66,22 @@ void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newlin
 
 PrettyHelp *current_help = nullptr;
 
-PrettyHelp::PrettyHelp()
+PrettyHelp::PrettyHelp(Mode mode)
 {
-	prior = current_help;
+	_prior = current_help;
+	_mode = mode;
+	_root_listing = ContentListing({
+		.type = "root"
+	});
+	_root_listing.type = "root";
+	_current_listing = &_root_listing;
+
 	current_help = this;
 }
 
 PrettyHelp::~PrettyHelp()
 {
-	current_help = prior;
+	current_help = _prior;
 }
 
 PrettyHelp *PrettyHelp::get_current()
@@ -73,16 +92,21 @@ PrettyHelp *PrettyHelp::get_current()
 		return new PrettyHelp();
 }
 
-bool PrettyHelp::has_content()
-{
-	return false;
-}
-
 void PrettyHelp::usage(const string &usage,
 	const source_location location)
 {
-	log_pass_str(usage, current_indent+1, true);
-	log("\n");
+	switch (_mode)
+	{
+	case LOG:
+		log_pass_str(usage, _current_indent+1, true);
+		log("\n");
+		break;
+	case LISTING:
+		_current_listing->add_content("usage", usage, location);
+		break;
+	default:
+		log_abort();
+	}
 }
 
 void PrettyHelp::option(const string &text, const string &description,
@@ -90,40 +114,108 @@ void PrettyHelp::option(const string &text, const string &description,
 {
 	open_option(text);
 	if (description.length()) {
-		log_pass_str(description, current_indent);
-		log("\n");
+		switch (_mode)
+		{
+		case LOG:
+			log_pass_str(description, _current_indent);
+			log("\n");
+			break;
+		case LISTING:
+			_current_listing->add_content("text", description, location);
+			break;
+		default:
+			log_abort();
+		}
 	}
 	close(1);
 }
 
-void PrettyHelp::codeblock(const string &code, const string &,
+void PrettyHelp::codeblock(const string &code, const string &language,
 	const source_location location)
 {
-	log("%s\n", code.c_str());
+	switch (_mode)
+	{
+	case LOG:
+		log("%s\n", code.c_str());
+		break;
+	case LISTING:
+		_current_listing->add_content("code", code, location);
+		break;
+	default:
+		log_abort();
+	}
 }
 
 void PrettyHelp::paragraph(const string &text,
 	const source_location location)
 {
-	log_pass_str(text, current_indent);
-	log("\n");
+	switch (_mode)
+	{
+	case LOG:
+		log_pass_str(text, _current_indent);
+		log("\n");
+		break;
+	case LISTING:
+		_current_listing->add_content("text", text, location);
+		break;
+	default:
+		log_abort();
+	}
 }
 
-void PrettyHelp::open_optiongroup(const string &,
+void PrettyHelp::open_optiongroup(const string &name,
 	const source_location location)
 {
-	current_indent += 1;
+	switch (_mode)
+	{
+	case LOG:
+		break;
+	case LISTING:
+		_current_listing->add_content("optiongroup", name, location);
+		_current_listing = _current_listing->content.back();
+		break;
+	default:
+		log_abort();
+	}
+	_current_indent += 1;
 }
 
 void PrettyHelp::open_option(const string &text,
 	const source_location location)
 {
-	log_pass_str(text, current_indent);
-	current_indent += 1;
+	switch (_mode)
+	{
+	case LOG:
+		log_pass_str(text, _current_indent);
+		break;
+	case LISTING:
+		_current_listing->add_content("option", text, location);
+		_current_listing = _current_listing->content.back();
+		break;
+	default:
+		log_abort();
+	}
+	_current_indent += 1;
 }
 
 void PrettyHelp::close(int levels)
 {
-	current_indent -= levels;
-	log_assert(current_indent >= 0);
+	
+	switch (_mode)
+	{
+	case LOG:
+		_current_indent -= levels;
+		log_assert(_current_indent >= 0);
+		break;
+	case LISTING:
+		for (int i=0; i<levels; i++) {
+			_current_indent--;
+			log_assert(_current_indent >= 0);
+			_current_listing = _current_listing->parent;
+			log_assert(_current_listing != nullptr);
+		}
+		break;
+	default:
+		log_abort();
+	}
 }

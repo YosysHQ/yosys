@@ -38,17 +38,57 @@ struct source_location { // dummy placeholder
 
 YOSYS_NAMESPACE_BEGIN
 
+struct ContentListing {
+	string type = "root";
+	string body = "";
+	const char* source_file = nullptr;
+	int source_line = 0;
+	vector<ContentListing *> content = {};
+	ContentListing *parent = nullptr;
+
+	void add_content(ContentListing *new_content) {
+		new_content->parent = this;
+		content.push_back(new_content);
+	}
+
+	void add_content(string type, string body, source_location location) {
+		auto new_content = new ContentListing();
+		new_content->type = type;
+		new_content->body = body;
+		new_content->source_file = location.file_name();
+		new_content->source_line = location.line();
+		add_content(new_content);
+	}
+
+	Json to_json();
+};
+
 class PrettyHelp
 {
-	PrettyHelp *prior = nullptr;
-	int current_indent = 0;
 public:
-	PrettyHelp();
+	enum Mode {
+		LOG,
+		LISTING,
+	};
+
+private:
+	PrettyHelp *_prior;
+	Mode _mode;
+
+	int _current_indent = 0;
+	ContentListing _root_listing;
+	ContentListing *_current_listing;
+public:
+	PrettyHelp(Mode mode = LOG);
 	~PrettyHelp();
 
 	static PrettyHelp *get_current();
 
-	bool has_content();
+	bool has_content() { return _root_listing.content.size();}
+	const vector<ContentListing *> get_content() {
+		const vector<ContentListing *> content = _root_listing.content;
+		return content;
+	}
 
 	void usage(
 		const string &usage,
@@ -70,7 +110,7 @@ public:
 	);
 
 	void open_optiongroup(
-		const string &group = "",
+		const string &name = "",
 		const source_location location = source_location::current()
 	);
 	void open_option(
