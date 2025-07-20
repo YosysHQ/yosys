@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <filesystem>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -814,6 +815,7 @@ struct HelpPass : public Pass {
 		json.entry("generator", yosys_version_str);
 
 		bool raise_error = false;
+		std::map<string, vector<string>> groups;
 
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
@@ -954,6 +956,42 @@ struct HelpPass : public Pass {
 				}
 			}
 
+			// attempt auto group
+			if (!cmd_help.has_group()) {
+				string source_file = pass->location.file_name();
+				bool has_source = source_file.compare("unknown") != 0;
+				if (source_file.find("backends/") == 0 || (!has_source && name.find("read_") == 0))
+					cmd_help.group = "backends";
+				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
+					cmd_help.group = "frontends";
+				else if (source_file.find("techlibs/") == 0 || (!has_source && name.find("synth_") == 0))
+					cmd_help.group = "techlibs";
+				else if (has_source) {
+					auto p = std::filesystem::path(source_file);
+					if (p.has_parent_path()) {
+						cmd_help.group = string(p.parent_path());
+					}
+				}
+				// implicit !has_source
+				else if (name.find("equiv") == 0)
+					cmd_help.group = "passes/equiv";
+				else if (name.find("fsm") == 0)
+					cmd_help.group = "passes/fsm";
+				else if (name.find("memory") == 0)
+					cmd_help.group = "passes/memory";
+				else if (name.find("opt") == 0)
+					cmd_help.group = "passes/opt";
+				else if (name.find("proc") == 0)
+					cmd_help.group = "passes/proc";
+				else if (name.find("test") == 0)
+					cmd_help.group = "passes/tests";
+			}
+
+			if (groups.count(cmd_help.group) == 0) {
+				groups[cmd_help.group] = vector<string>();
+			}
+			groups[cmd_help.group].push_back(name);
+
 			// write to json
 			json.name(name.c_str()); json.begin_object();
 			json.entry("title", title);
@@ -961,11 +999,16 @@ struct HelpPass : public Pass {
 			for (auto content : cmd_help.get_content())
 				json.value(content->to_json());
 			json.end_array();
-			json.entry("source_file", cmd_help.source_file());
+			json.entry("group", cmd_help.group);
+			json.entry("source_file", pass->location.file_name());
+			json.entry("source_line", pass->location.line());
+			json.entry("source_func", pass->location.function_name());
 			json.entry("experimental_flag", experimental_flag);
 			json.end_object();
 		}
 		json.end_object();
+
+		json.entry("groups", groups);
 
 		json.end_object();
 		return raise_error;
