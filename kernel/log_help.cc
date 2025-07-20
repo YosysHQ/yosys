@@ -25,7 +25,7 @@ Json ContentListing::to_json() {
 	Json::object object;
 	object["type"] = type;
 	if (body.length()) object["body"] = body;
-	if (source_file != nullptr) object["source_file"] = source_file;
+	if (strcmp(source_file, "unknown") != 0) object["source_file"] = source_file;
 	if (source_line != 0) object["source_line"] = source_line;
 	Json::array content_array;
 	for (auto child : content) content_array.push_back(child->to_json());
@@ -84,12 +84,13 @@ PrettyHelp::~PrettyHelp()
 	current_help = _prior;
 }
 
-PrettyHelp *PrettyHelp::get_current()
+PrettyHelp *PrettyHelp::get_current(source_location location)
 {
-	if (current_help != nullptr)
-		return current_help;
-	else
-		return new PrettyHelp();
+	if (current_help == nullptr)
+		new PrettyHelp();
+	current_help->_root_listing.source_file = location.file_name();
+	current_help->_root_listing.source_line = location.line();
+	return current_help;
 }
 
 void PrettyHelp::usage(const string &usage,

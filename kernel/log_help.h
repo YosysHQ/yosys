@@ -30,8 +30,8 @@ using std::experimental::source_location;
 struct source_location { // dummy placeholder
 	int line() const { return 0; }
 	int column() const { return 0; }
-	const char* file_name() const { return nullptr; }
-	const char* function_name() const { return nullptr; }
+	const char* file_name() const { return "unknown"; }
+	const char* function_name() const { return "unknown"; }
 	static const source_location current(...) { return source_location(); }
 };
 #endif
@@ -41,7 +41,7 @@ YOSYS_NAMESPACE_BEGIN
 struct ContentListing {
 	string type = "root";
 	string body = "";
-	const char* source_file = nullptr;
+	const char* source_file = "unknown";
 	int source_line = 0;
 	vector<ContentListing *> content = {};
 	ContentListing *parent = nullptr;
@@ -94,13 +94,15 @@ public:
 	PrettyHelp(Mode mode = LOG);
 	~PrettyHelp();
 
-	static PrettyHelp *get_current();
+	static PrettyHelp *get_current(source_location location = source_location::current());
 
 	bool has_content() { return _root_listing.content.size();}
 	const vector<ContentListing *> get_content() {
 		const vector<ContentListing *> content = _root_listing.content;
 		return content;
 	}
+
+	const char* source_file() const { return _root_listing.source_file; }
 
 	void usage(
 		const string &usage,
