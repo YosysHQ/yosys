@@ -1,5 +1,5 @@
-passes/equiv
-------------------
+Equivalence checking
+--------------------
 
 .. autocmdgroup:: passes/equiv
    :members:

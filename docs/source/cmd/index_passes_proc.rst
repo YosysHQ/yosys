@@ -1,5 +1,5 @@
-passes/proc
-------------------
+Converting process blocks
+-------------------------
 
 .. autocmdgroup:: passes/proc
    :members:

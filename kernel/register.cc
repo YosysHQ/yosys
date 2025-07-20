@@ -987,8 +987,6 @@ struct HelpPass : public Pass {
 					cmd_help.group = "backends";
 				else if (source_file.find("frontends/") == 0 || (!has_source && name.find("write_") == 0))
 					cmd_help.group = "frontends";
-				else if (source_file.find("techlibs/") == 0 || (!has_source && name.find("synth_") == 0))
-					cmd_help.group = "techlibs";
 				else if (has_source) {
 					auto last_slash = source_file.find_last_of('/');
 					if (last_slash != string::npos) {

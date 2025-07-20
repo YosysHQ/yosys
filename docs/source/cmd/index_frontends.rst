@@ -1,5 +1,5 @@
-frontends
-------------------
+Reading input files
+-------------------
 
 .. autocmdgroup:: frontends
    :members:

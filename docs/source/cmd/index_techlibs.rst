@@ -1,9 +1,11 @@
-techlibs
-------------------
+Technology libraries
+====================
 
-.. TODO:: disambiguate `synth_intel` and `synth_intel_alm`
+Listed in alphabetical order.
 
-   (MAX10, Cyclone IV) and (Cyclone V, Arria V, Cyclone 10 GX) respectively
+.. toctree::
+   :maxdepth: 2
+   :glob:
 
-.. autocmdgroup:: techlibs
-   :members:
+   /cmd/index_techlibs_common
+   /cmd/index_techlibs_*

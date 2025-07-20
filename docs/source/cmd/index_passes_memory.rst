@@ -1,5 +1,5 @@
-passes/memory
-------------------
+Memory handling
+---------------
 
 .. autocmdgroup:: passes/memory
    :members:

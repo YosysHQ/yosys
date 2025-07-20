@@ -1,4 +1,4 @@
-passes/hierarchy
+hierarchy
 ------------------
 
 .. autocmdgroup:: passes/hierarchy

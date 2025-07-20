@@ -1,5 +1,5 @@
-passes/fsm
-------------------
+FSM handling
+------------
 
 .. autocmdgroup:: passes/fsm
    :members:

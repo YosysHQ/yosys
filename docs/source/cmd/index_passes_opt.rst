@@ -1,5 +1,5 @@
-passes/opt
-------------------
+Optimization passes
+-------------------
 
 .. autocmdgroup:: passes/opt
    :members:

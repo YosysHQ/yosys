@@ -735,4 +735,7 @@ def setup(app: Sphinx):
 
     app.add_role('autoref', autoref)
     
-    return {'version': '0.2'}
+    return {
+        'version': '0.3',    
+        'parallel_read_safe': False,
+    }

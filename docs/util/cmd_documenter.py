@@ -228,13 +228,20 @@ class YosysCmdGroupDocumenter(Documenter):
 
         sourcename = self.get_sourcename()
 
-        if not self.import_object():
+        imported_object = self.import_object();
+        if self.lib_key == 'groups' and self.name == 'unknown':
+            if imported_object:
+                logger.warning(f"Found commands assigned to group {self.name}: {[x[0] for x in self.object]}", type='cmdref')
+            else:
+                return
+        elif not imported_object:
             log_msg = f"unable to load {self.name} with {type(self)}"
             if self.lib_key == 'groups':
                 logger.info(log_msg, type = 'cmdref')
                 self.add_line(f'.. warning:: No commands found for group {self.name!r}', sourcename)
                 self.add_line('', sourcename)
                 self.add_line('   Documentation may have been built without ``source_location`` support.', sourcename)
+                self.add_line('   Try check :doc:`/cmd/index_other`.', sourcename)
             else:
                 logger.warning(log_msg, type = 'cmdref')
             return
@@ -401,6 +408,6 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_autodocumenter(YosysCmdGroupDocumenter)
     app.add_autodocumenter(YosysCmdDocumenter)
     return {
-        'version': '1',
+        'version': '2',
         'parallel_read_safe': True,
     }

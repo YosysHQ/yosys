@@ -1,4 +1,4 @@
-passes/sat
+sat
 ------------------
 
 .. autocmdgroup:: passes/sat

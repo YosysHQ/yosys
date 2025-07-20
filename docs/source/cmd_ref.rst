@@ -1,5 +1,3 @@
-.. _cmd_ref:
-
 ================================================================================
 Command line reference
 ================================================================================
@@ -7,17 +5,31 @@ Command line reference
 .. literalinclude:: /generated/yosys
     :start-at: Usage
 
+.. _cmd_ref:
+
+Command reference
+-----------------
+
+.. todo:: Can we warn on command groups that aren't included anywhere?
+
 .. toctree::
-   :caption: Command reference
    :maxdepth: 2
-   :glob:
 
    /appendix/env_vars
-   /cmd/index_backends
    /cmd/index_frontends
+   /cmd/index_backends
    /cmd/index_kernel
    /cmd/index_formal
-   /cmd/index_passes*
+
+.. toctree::
+   :maxdepth: 3
+
+   /cmd/index_passes
    /cmd/index_techlibs
-   /cmd/index_internal
-   /cmd/index_other
+
+.. TODO:: Fix index_internal not being included in pdf
+
+.. note::
+
+   Commands intended for internal developer use can also be found under
+   :doc:`/cmd/index_internal`
