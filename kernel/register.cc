@@ -827,11 +827,15 @@ struct HelpPass : public Pass {
 
 			if (!has_pretty_help) {
 				enum PassUsageState {
+					PUState_none,
 					PUState_signature,
 					PUState_description,
 					PUState_options,
-					PUState_postscript,
+					PUState_optionbody,
 				};
+
+				source_location null_source;
+				string current_buffer = "";
 
 				// dump command help
 				std::ostringstream buf;
@@ -842,17 +846,31 @@ struct HelpPass : public Pass {
 				ss << buf.str();
 
 				// parse command help
-				int blank_count = 0;
 				size_t def_strip_count = 0;
-				auto current_state = PUState_postscript;
+				auto current_state = PUState_none;
 				auto catch_verific = false;
 				for (string line; std::getline(ss, line, '\n');) {
 					// find position of first non space character
 					std::size_t first_pos = line.find_first_not_of(" \t");
 					std::size_t last_pos = line.find_last_not_of(" \t");
 					if (first_pos == std::string::npos) {
+						switch (current_state)
+						{
+						case PUState_signature:
+							cmd_help.usage(current_buffer, null_source);
+							current_state = PUState_none;
+							break;
+						case PUState_none:
+							if (!current_buffer.empty()) cmd_help.codeblock(current_buffer, "none", null_source);
+							break;
+						case PUState_optionbody:
+							if (!current_buffer.empty()) cmd_help.codeblock(current_buffer, "none", null_source);
+							break;
+						default:
+							break;
+						}
 						// skip empty lines
-						blank_count += 1;
+						current_buffer = "";
 						continue;
 					}
 
@@ -861,58 +879,58 @@ struct HelpPass : public Pass {
 					bool IsDefinition = stripped_line[0] == '-';
 					IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
 					bool IsDedent = def_strip_count && first_pos < def_strip_count;
-					bool IsIndent = first_pos == 2 || first_pos == 4 || first_pos == 8;
+					bool IsIndent = def_strip_count < first_pos;
 
 					// line looks like a signature
 					bool IsSignature = stripped_line.find(name) == 0;
 
-					// start new usage block if it's a signature and we left the current signature
-					// or if we are adding new options after we left the options
-					bool NewUsage = (IsSignature && current_state != PUState_signature)
-							|| (IsDefinition && current_state == PUState_postscript);
-
-					if (NewUsage) {
+					if (IsSignature) {
+						if (current_state == PUState_options || current_state == PUState_optionbody) {
+							cmd_help.close(2);
+						}
+						if (current_state == PUState_signature) {
+							cmd_help.usage(current_buffer, null_source);
+							current_buffer = "";
+						}
 						current_state = PUState_signature;
-						// usages.push_back({});
 						def_strip_count = first_pos;
 						catch_verific = false;
 					} else if (IsDedent) {
 						def_strip_count = first_pos;
-						if (current_state == PUState_signature)
-							current_state = PUState_description;
+						if (current_state == PUState_optionbody) {
+							current_state = PUState_options;
+							if (!current_buffer.empty()) {
+								cmd_help.codeblock(current_buffer, "none", null_source);
+							}
+						}
 						else
-							current_state = PUState_postscript;
+							current_state = PUState_none;
 					}
 
-					if (IsDefinition && IsIndent && !catch_verific) {
+					if (IsDefinition && !catch_verific && current_state != PUState_signature) {
+						if (current_state == PUState_options || current_state == PUState_optionbody) {
+							cmd_help.close(1);
+						}  else {
+							cmd_help.open_optiongroup("", null_source);
+						}
 						current_state = PUState_options;
-						// usages.back().options.push_back(PassOption({stripped_line, ""}));
+						cmd_help.open_option(stripped_line, null_source);
 						def_strip_count = first_pos;
 					} else {
-						string *desc_str;
-						if (current_state == PUState_signature) {
-							// desc_str = &(usages.back().signature);
-							blank_count += 1;
-						} else if (current_state == PUState_description) {
-							// desc_str = &(usages.back().description);
-						} else if (current_state == PUState_options) {
-							// desc_str = &(usages.back().options.back().description);
-						} else if (current_state == PUState_postscript) {
-							// desc_str = &(usages.back().postscript);
-						} else {
-							log_abort();
+						if (current_state == PUState_options) {
+							current_state = PUState_optionbody;
 						}
-						if (desc_str->empty())
-							*desc_str = stripped_line;
-						else if (catch_verific)
-							*desc_str += (IsIndent ? "\n" : " ") + stripped_line;
-						else
-							*desc_str += (blank_count > 0 ? "\n" : " ") + stripped_line;
+						if (current_buffer.empty())
+							current_buffer = stripped_line;
+						else if (current_state == PUState_signature && IsIndent)
+							current_buffer += stripped_line;
+						else if (current_state == PUState_none) {
+							current_buffer += "\n" + line;
+						} else
+							current_buffer += "\n" + stripped_line;
 						if (stripped_line.compare("Command file parser supports following commands in file:") == 0)
 							catch_verific = true;
 					}
-
-					blank_count = 0;
 				}
 			}
 
