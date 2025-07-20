@@ -14,7 +14,7 @@ from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
 from sphinx.domains.std import StandardDomain
 from sphinx.environment import BuildEnvironment
-from sphinx.roles import XRefRole
+from sphinx.roles import XRefRole, SphinxRole
 from sphinx.directives import ObjectDescription
 from sphinx.directives.code import container_wrapper
 from sphinx.util.nodes import make_refnode
@@ -155,7 +155,7 @@ class CommandOptionGroupNode(CommandUsageNode):
     ]
     
     def transform_content(self, contentnode: addnodes.desc_content) -> None:
-        """hack `:option -thing: desc` into a proper option list"""
+        """hack `:option -thing: desc` into a proper option list with yoscrypt highlighting"""
         newchildren = []
         for node in contentnode:
             newnode = node
@@ -172,7 +172,10 @@ class CommandOptionGroupNode(CommandUsageNode):
                             option_group += option
                             name, text = child.rawsource.split(' ', 1)
                             is_option = name == 'option'
-                            option += nodes.option_string(text=text)
+                            literal = nodes.literal(text=text)
+                            literal['classes'] += ['code', 'highlight', 'yoscrypt']
+                            literal['language'] = 'yoscrypt'
+                            option += literal
                             if not is_option: warnings.warn(f'unexpected option \'{name}\' in {field.source}')
                         elif isinstance(child, nodes.field_body):
                             description = nodes.description()
@@ -601,6 +604,10 @@ class TitleRefRole(XRefRole):
     """XRefRole used which has the cmd title as the displayed text."""
     pass
 
+class OptionRole(SphinxRole):
+    def run(self) -> tuple[list[Node], list]:
+        return self.inliner.interpreted(self.rawtext, self.text, 'yoscrypt', self.lineno)
+
 class CommandDomain(Domain):
     name = 'cmd'
     label = 'Yosys commands'
@@ -608,6 +615,7 @@ class CommandDomain(Domain):
     roles = {
         'ref': XRefRole(),
         'title': TitleRefRole(),
+        'option': OptionRole(),
     }
 
     directives = {
