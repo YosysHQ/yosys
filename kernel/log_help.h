@@ -53,6 +53,7 @@ struct ContentListing {
 class PrettyHelp
 {
 public:
+	string group = "unknown";
 	enum Mode {
 		LOG,
 		LISTING,
@@ -88,6 +89,9 @@ public:
 		const vector<ContentListing *> content = _root_listing.content;
 		return content;
 	}
+
+	void set_group(const string g) { group = g; }
+	bool has_group() { return group.compare("unknown") != 0; }
 
 	void usage(
 		const string &usage,

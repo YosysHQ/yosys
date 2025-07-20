@@ -75,6 +75,7 @@ struct ChformalPass : public Pass {
 
 	bool help_v2() override {
 		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
 		help->usage("chformal [types] [mode] [options] [selection]");
 		help->paragraph(
 			"Make changes to the formal constraints of the design. The [types] options "
