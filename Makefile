@@ -1060,6 +1060,15 @@ docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc bac
 PHONY: docs/gen/functional_ir
 docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
 
+docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -qQT -h '$*' -l $@
+
+docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
+	cp $^ $@
+
+PHONY: docs/gen/chformal
+docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
+
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
 	$(Q) $(MAKE) -C docs gen
@@ -1095,7 +1104,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal
 
 DOC_TARGET ?= html
 docs: docs/prep
