@@ -84,12 +84,10 @@ PrettyHelp::~PrettyHelp()
 	current_help = _prior;
 }
 
-PrettyHelp *PrettyHelp::get_current(source_location location)
+PrettyHelp *PrettyHelp::get_current()
 {
 	if (current_help == nullptr)
 		new PrettyHelp();
-	current_help->_root_listing.source_file = location.file_name();
-	current_help->_root_listing.source_line = location.line();
 	return current_help;
 }
 

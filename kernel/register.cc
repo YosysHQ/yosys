@@ -42,7 +42,8 @@ std::map<std::string, Backend*> backend_register;
 
 std::vector<std::string> Frontend::next_args;
 
-Pass::Pass(std::string name, std::string short_help) : pass_name(name), short_help(short_help)
+Pass::Pass(std::string name, std::string short_help, source_location location) : 
+	pass_name(name), short_help(short_help), location(location)
 {
 	next_queued_pass = first_queued_pass;
 	first_queued_pass = this;
@@ -389,8 +390,8 @@ void ScriptPass::help_script()
 	script();
 }
 
-Frontend::Frontend(std::string name, std::string short_help) :
-		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "read_" + name, short_help),
+Frontend::Frontend(std::string name, std::string short_help, source_location location) :
+		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "read_" + name, short_help, location),
 		frontend_name(name.rfind("=", 0) == 0 ? name.substr(1) : name)
 {
 }
@@ -535,8 +536,8 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 	}
 }
 
-Backend::Backend(std::string name, std::string short_help) :
-		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "write_" + name, short_help),
+Backend::Backend(std::string name, std::string short_help, source_location location) :
+		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "write_" + name, short_help, location),
 		backend_name(name.rfind("=", 0) == 0 ? name.substr(1) : name)
 {
 }

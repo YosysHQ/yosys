@@ -23,19 +23,6 @@
 #include "kernel/yosys_common.h"
 #include "kernel/json.h"
 
-#ifdef YOSYS_ENABLE_SOURCE_LOCATION
-#include <experimental/source_location>
-using std::experimental::source_location;
-#else
-struct source_location { // dummy placeholder
-	int line() const { return 0; }
-	int column() const { return 0; }
-	const char* file_name() const { return "unknown"; }
-	const char* function_name() const { return "unknown"; }
-	static const source_location current(...) { return source_location(); }
-};
-#endif
-
 YOSYS_NAMESPACE_BEGIN
 
 struct ContentListing {
@@ -94,15 +81,13 @@ public:
 	PrettyHelp(Mode mode = LOG);
 	~PrettyHelp();
 
-	static PrettyHelp *get_current(source_location location = source_location::current());
+	static PrettyHelp *get_current();
 
 	bool has_content() { return _root_listing.content.size();}
 	const vector<ContentListing *> get_content() {
 		const vector<ContentListing *> content = _root_listing.content;
 		return content;
 	}
-
-	const char* source_file() const { return _root_listing.source_file; }
 
 	void usage(
 		const string &usage,
