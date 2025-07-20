@@ -33,7 +33,7 @@ class TocNode(ObjectDescription):
         signode['ids'].append(idx)
 
     def _object_hierarchy_parts(self, sig_node: addnodes.desc_signature) -> tuple[str, ...]:
-        if 'fullname' not in sig_node:
+        if 'tocname' not in sig_node:
             return ()
 
         modname = sig_node.get('module')

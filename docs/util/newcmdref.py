@@ -322,6 +322,10 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         source_name = self.object.source_file
         source_line = self.object.source_line
 
+        title = f'{self.object.name} - {self.object.title}'
+        self.add_line(title, source_name, source_line)
+        self.add_line('#' * len(title), source_name, source_line)
+
         # cmd definition
         self.add_line(f'.. {domain}:{directive}:: {sig}', source_name, source_line)
         if self.object.title:
