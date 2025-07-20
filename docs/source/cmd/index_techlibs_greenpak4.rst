@@ -1,4 +1,4 @@
-greenpak4
+GreenPAK4
 ------------------
 
 .. autocmdgroup:: techlibs/greenpak4

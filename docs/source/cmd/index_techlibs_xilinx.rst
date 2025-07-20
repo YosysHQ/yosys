@@ -1,4 +1,4 @@
-xilinx
+Xilinx
 ------------------
 
 .. autocmdgroup:: techlibs/xilinx

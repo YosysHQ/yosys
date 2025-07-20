@@ -1,4 +1,4 @@
-easic
+eASIC
 ------------------
 
 .. autocmdgroup:: techlibs/easic

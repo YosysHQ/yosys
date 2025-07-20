@@ -1,4 +1,4 @@
-achronix
+Achronix
 ------------------
 
 .. autocmdgroup:: techlibs/achronix

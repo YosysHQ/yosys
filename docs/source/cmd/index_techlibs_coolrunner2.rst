@@ -1,4 +1,4 @@
-coolrunner2
+CoolRunner-II
 ------------------
 
 .. autocmdgroup:: techlibs/coolrunner2

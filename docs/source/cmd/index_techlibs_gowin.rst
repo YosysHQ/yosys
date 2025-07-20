@@ -1,4 +1,4 @@
-gowin
+Gowin
 ------------------
 
 .. autocmdgroup:: techlibs/gowin

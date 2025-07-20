@@ -1,4 +1,4 @@
-nanoxplore
+NanoXplore
 ------------------
 
 .. autocmdgroup:: techlibs/nanoxplore

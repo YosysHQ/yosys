@@ -1,4 +1,4 @@
-ecp5
+ECP5
 ------------------
 
 .. autocmdgroup:: techlibs/ecp5

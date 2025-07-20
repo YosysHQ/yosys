@@ -1,4 +1,4 @@
-lattice
+Lattice
 ------------------
 
 .. autocmdgroup:: techlibs/lattice

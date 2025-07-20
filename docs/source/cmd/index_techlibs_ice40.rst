@@ -1,4 +1,4 @@
-ice40
+iCE40
 ------------------
 
 .. autocmdgroup:: techlibs/ice40

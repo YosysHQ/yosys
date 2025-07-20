@@ -1,4 +1,4 @@
-microchip
+Microchip
 ------------------
 
 .. autocmdgroup:: techlibs/microchip

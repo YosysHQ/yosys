@@ -1,4 +1,4 @@
-gatemate
+Gatemate
 ------------------
 
 .. autocmdgroup:: techlibs/gatemate

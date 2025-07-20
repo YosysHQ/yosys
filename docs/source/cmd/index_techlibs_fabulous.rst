@@ -1,4 +1,4 @@
-fabulous
+FABulous
 ------------------
 
 .. autocmdgroup:: techlibs/fabulous

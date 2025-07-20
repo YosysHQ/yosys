@@ -1,4 +1,4 @@
-nexus
+Lattice Nexus
 ------------------
 
 .. autocmdgroup:: techlibs/nexus

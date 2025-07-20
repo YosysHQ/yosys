@@ -1,4 +1,4 @@
-anlogic
+Anlogic
 ------------------
 
 .. autocmdgroup:: techlibs/anlogic

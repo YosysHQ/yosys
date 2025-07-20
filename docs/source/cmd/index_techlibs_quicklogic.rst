@@ -1,4 +1,4 @@
-quicklogic
+QuickLogic
 ------------------
 
 .. autocmdgroup:: techlibs/quicklogic
