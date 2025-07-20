@@ -972,7 +972,11 @@ struct HelpPass : public Pass {
 				}
 
 				if (!current_buffer.empty()) {
-					current_listing->codeblock(current_buffer, "none", null_source);
+					if (current_buffer.size() > 64 && current_buffer.substr(0, 64).compare("The following commands are executed by this synthesis command:\n\n") == 0) {
+						current_listing->paragraph(current_buffer.substr(0, 62), null_source);
+						current_listing->codeblock(current_buffer.substr(64), "yoscrypt", null_source);
+					} else
+						current_listing->codeblock(current_buffer, "none", null_source);
 					current_buffer = "";
 				}
 			}
