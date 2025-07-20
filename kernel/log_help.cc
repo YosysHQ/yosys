@@ -78,13 +78,15 @@ bool PrettyHelp::has_content()
 	return false;
 }
 
-void PrettyHelp::usage(const string &usage)
+void PrettyHelp::usage(const string &usage,
+	const source_location location)
 {
 	log_pass_str(usage, current_indent+1, true);
 	log("\n");
 }
 
-void PrettyHelp::option(const string &text, const string &description)
+void PrettyHelp::option(const string &text, const string &description,
+	const source_location location)
 {
 	open_option(text);
 	if (description.length()) {
@@ -94,23 +96,27 @@ void PrettyHelp::option(const string &text, const string &description)
 	close(1);
 }
 
-void PrettyHelp::codeblock(const string &code, const string &)
+void PrettyHelp::codeblock(const string &code, const string &,
+	const source_location location)
 {
 	log("%s\n", code.c_str());
 }
 
-void PrettyHelp::paragraph(const string &text)
+void PrettyHelp::paragraph(const string &text,
+	const source_location location)
 {
 	log_pass_str(text, current_indent);
 	log("\n");
 }
 
-void PrettyHelp::open_optiongroup(const string &)
+void PrettyHelp::open_optiongroup(const string &,
+	const source_location location)
 {
 	current_indent += 1;
 }
 
-void PrettyHelp::open_option(const string &text)
+void PrettyHelp::open_option(const string &text,
+	const source_location location)
 {
 	log_pass_str(text, current_indent);
 	current_indent += 1;

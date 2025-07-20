@@ -532,6 +532,9 @@ LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VE
 endif
 endif
 
+ifeq ($(ENABLE_SOURCE_LOCATION),1)
+CXXFLAGS += -DYOSYS_ENABLE_SOURCE_LOCATION
+endif
 
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER

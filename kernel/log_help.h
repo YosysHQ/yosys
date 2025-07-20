@@ -23,6 +23,19 @@
 #include "kernel/yosys_common.h"
 #include "kernel/json.h"
 
+#ifdef YOSYS_ENABLE_SOURCE_LOCATION
+#include <experimental/source_location>
+using std::experimental::source_location;
+#else
+struct source_location { // dummy placeholder
+	int line() const { return 0; }
+	int column() const { return 0; }
+	const char* file_name() const { return nullptr; }
+	const char* function_name() const { return nullptr; }
+	static const source_location current(...) { return source_location(); }
+};
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 class PrettyHelp
@@ -37,13 +50,33 @@ public:
 
 	bool has_content();
 
-	void usage(const string &usage);
-	void option(const string &text, const string &description = "");
-	void codeblock(const string &code, const string &language = "none");
-	void paragraph(const string &text);
+	void usage(
+		const string &usage,
+		const source_location location = source_location::current()
+	);
+	void option(
+		const string &text,
+		const string &description = "",
+		const source_location location = source_location::current()
+	);
+	void codeblock(
+		const string &code,
+		const string &language = "none",
+		const source_location location = source_location::current()
+	);
+	void paragraph(
+		const string &text,
+		const source_location location = source_location::current()
+	);
 
-	void open_optiongroup(const string &group = "");
-	void open_option(const string &text);
+	void open_optiongroup(
+		const string &group = "",
+		const source_location location = source_location::current()
+	);
+	void open_option(
+		const string &text,
+		const source_location location = source_location::current()
+	);
 	void close(int levels = 1);
 };
 
