@@ -102,7 +102,7 @@ void PrettyHelp::usage(const string &usage,
 		log("\n");
 		break;
 	case LISTING:
-		_current_listing->add_content("usage", usage, location);
+		add_content("usage", usage, location);
 		break;
 	default:
 		log_abort();
@@ -121,7 +121,7 @@ void PrettyHelp::option(const string &text, const string &description,
 			log("\n");
 			break;
 		case LISTING:
-			_current_listing->add_content("text", description, location);
+			add_content("text", description, location);
 			break;
 		default:
 			log_abort();
@@ -139,7 +139,7 @@ void PrettyHelp::codeblock(const string &code, const string &language,
 		log("%s\n", code.c_str());
 		break;
 	case LISTING:
-		_current_listing->add_content("code", code, location);
+		add_content("code", code, location);
 		break;
 	default:
 		log_abort();
@@ -156,7 +156,7 @@ void PrettyHelp::paragraph(const string &text,
 		log("\n");
 		break;
 	case LISTING:
-		_current_listing->add_content("text", text, location);
+		add_content("text", text, location);
 		break;
 	default:
 		log_abort();
@@ -171,8 +171,7 @@ void PrettyHelp::open_optiongroup(const string &name,
 	case LOG:
 		break;
 	case LISTING:
-		_current_listing->add_content("optiongroup", name, location);
-		_current_listing = _current_listing->content.back();
+		push_content("optiongroup", name, location);
 		break;
 	default:
 		log_abort();
@@ -189,8 +188,7 @@ void PrettyHelp::open_option(const string &text,
 		log_pass_str(text, _current_indent);
 		break;
 	case LISTING:
-		_current_listing->add_content("option", text, location);
-		_current_listing = _current_listing->content.back();
+		push_content("option", text, location);
 		break;
 	default:
 		log_abort();
@@ -211,8 +209,7 @@ void PrettyHelp::close(int levels)
 		for (int i=0; i<levels; i++) {
 			_current_indent--;
 			log_assert(_current_indent >= 0);
-			_current_listing = _current_listing->parent;
-			log_assert(_current_listing != nullptr);
+			pop_content();
 		}
 		break;
 	default:

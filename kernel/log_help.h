@@ -78,6 +78,18 @@ private:
 	int _current_indent = 0;
 	ContentListing _root_listing;
 	ContentListing *_current_listing;
+
+	void add_content(string type, string body, source_location location) {
+		_current_listing->add_content(type, body, location);
+	}
+	void push_content(string type, string body, source_location location) {
+		add_content(type, body, location);
+		_current_listing = _current_listing->content.back();
+	}
+	void pop_content() {
+		_current_listing = _current_listing->parent;
+		log_assert(_current_listing != nullptr);
+	}
 public:
 	PrettyHelp(Mode mode = LOG);
 	~PrettyHelp();
