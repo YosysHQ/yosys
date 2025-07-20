@@ -340,6 +340,10 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         source_name = self.object.source_file
         source_line = self.object.source_line
 
+        if self.object.experimental_flag:
+            self.add_line(f'.. warning:: This command is experimental', source_name, source_line)
+            self.add_line('\n', source_name)
+
         def render(content_list: YosysCmdContentListing, indent: int=0):
             content_source = content_list.source_file or source_name
             indent_str = '   '*indent
