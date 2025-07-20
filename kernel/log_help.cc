@@ -28,9 +28,54 @@ Json ContentListing::to_json() {
 	if (strcmp(source_file, "unknown") != 0) object["source_file"] = source_file;
 	if (source_line != 0) object["source_line"] = source_line;
 	Json::array content_array;
-	for (auto child : content) content_array.push_back(child->to_json());
+	for (auto child : _content) content_array.push_back(child->to_json());
 	object["content"] = content_array;
 	return object;
+}
+
+void ContentListing::usage(const string &usage,
+	const source_location location)
+{
+	log_assert(type.compare("root") == 0);
+	add_content("usage", usage, location);
+}
+
+void ContentListing::option(const string &text, const string &description,
+	const source_location location)
+{
+	auto option = open_option(text);
+	if (description.length())
+		option->add_content("text", description, location);
+}
+
+void ContentListing::codeblock(const string &code, const string &language,
+	const source_location location)
+{
+	add_content("code", code, location);
+}
+
+void ContentListing::paragraph(const string &text,
+	const source_location location)
+{
+	add_content("text", text, location);
+}
+
+ContentListing* ContentListing::open_optiongroup(const string &name,
+	const source_location location)
+{
+	log_assert(type.compare("root") == 0);
+	auto optiongroup = new ContentListing("optiongroup", name, location);
+	add_content(optiongroup);
+	return optiongroup;
+}
+
+ContentListing* ContentListing::open_option(const string &text,
+	const source_location location)
+{
+	log_assert(type.compare("optiongroup") == 0);
+	auto option = new ContentListing("option", text, location);
+	add_content(option);
+	return option;
 }
 
 #define MAX_LINE_LEN 80
@@ -66,15 +111,10 @@ void log_pass_str(const std::string &pass_str, int indent=0, bool leading_newlin
 
 PrettyHelp *current_help = nullptr;
 
-PrettyHelp::PrettyHelp(Mode mode)
+PrettyHelp::PrettyHelp()
 {
 	_prior = current_help;
-	_mode = mode;
-	_root_listing = ContentListing({
-		.type = "root"
-	});
-	_root_listing.type = "root";
-	_current_listing = &_root_listing;
+	_root_listing = ContentListing("root", "");
 
 	current_help = this;
 }
@@ -91,127 +131,22 @@ PrettyHelp *PrettyHelp::get_current()
 	return current_help;
 }
 
-void PrettyHelp::usage(const string &usage,
-	const source_location location)
+void PrettyHelp::log_help()
 {
-	switch (_mode)
-	{
-	case LOG:
-		log_pass_str(usage, _current_indent+1, true);
-		log("\n");
-		break;
-	case LISTING:
-		add_content("usage", usage, location);
-		break;
-	default:
-		log_abort();
-	}
-}
-
-void PrettyHelp::option(const string &text, const string &description,
-	const source_location location)
-{
-	open_option(text);
-	if (description.length()) {
-		switch (_mode)
-		{
-		case LOG:
-			log_pass_str(description, _current_indent);
+	for (auto content : _root_listing.get_content()) {
+		if (content->type.compare("usage") == 0) {
+			log_pass_str(content->body, 1, true);
+		} else if (content->type.compare("optiongroup") == 0) {
+			for (auto option : content->get_content()) {
+				log_pass_str(option->body, 1);
+				for (auto text : option->get_content()) {
+					log_pass_str(text->body, 2);
+					log("\n");
+				}
+			}
+		} else {
+			log_pass_str(content->body, 0, true);
 			log("\n");
-			break;
-		case LISTING:
-			add_content("text", description, location);
-			break;
-		default:
-			log_abort();
 		}
-	}
-	close(1);
-}
-
-void PrettyHelp::codeblock(const string &code, const string &language,
-	const source_location location)
-{
-	switch (_mode)
-	{
-	case LOG:
-		log("%s\n", code.c_str());
-		break;
-	case LISTING:
-		add_content("code", code, location);
-		break;
-	default:
-		log_abort();
-	}
-}
-
-void PrettyHelp::paragraph(const string &text,
-	const source_location location)
-{
-	switch (_mode)
-	{
-	case LOG:
-		log_pass_str(text, _current_indent);
-		log("\n");
-		break;
-	case LISTING:
-		add_content("text", text, location);
-		break;
-	default:
-		log_abort();
-	}
-}
-
-void PrettyHelp::open_optiongroup(const string &name,
-	const source_location location)
-{
-	switch (_mode)
-	{
-	case LOG:
-		break;
-	case LISTING:
-		push_content("optiongroup", name, location);
-		break;
-	default:
-		log_abort();
-	}
-	_current_indent += 1;
-}
-
-void PrettyHelp::open_option(const string &text,
-	const source_location location)
-{
-	switch (_mode)
-	{
-	case LOG:
-		log_pass_str(text, _current_indent);
-		break;
-	case LISTING:
-		push_content("option", text, location);
-		break;
-	default:
-		log_abort();
-	}
-	_current_indent += 1;
-}
-
-void PrettyHelp::close(int levels)
-{
-	
-	switch (_mode)
-	{
-	case LOG:
-		_current_indent -= levels;
-		log_assert(_current_indent >= 0);
-		break;
-	case LISTING:
-		for (int i=0; i<levels; i++) {
-			_current_indent--;
-			log_assert(_current_indent >= 0);
-			pop_content();
-		}
-		break;
-	default:
-		log_abort();
 	}
 }

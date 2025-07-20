@@ -25,73 +25,41 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct ContentListing {
-	string type = "root";
-	string body = "";
-	const char* source_file = "unknown";
-	int source_line = 0;
-	vector<ContentListing *> content = {};
-	ContentListing *parent = nullptr;
+class ContentListing {
+	vector<ContentListing *> _content;
+public:
+	string type;
+	string body;
+	const char* source_file;
+	int source_line;
+
+	ContentListing(
+		string type = "root", string body = "",
+		const char* source_file = "unknown", int source_line = 0
+	) : type(type), body(body), source_file(source_file), source_line(source_line) {
+		_content = {};
+	}
+
+	ContentListing(string type, string body, source_location location) :
+		ContentListing(type, body, location.file_name(), location.line()) { }
 
 	void add_content(ContentListing *new_content) {
-		new_content->parent = this;
-		content.push_back(new_content);
+		_content.push_back(new_content);
 	}
 
 	void add_content(string type, string body, source_location location) {
-		auto new_content = new ContentListing();
-		new_content->type = type;
-		new_content->body = body;
-		new_content->source_file = location.file_name();
-		new_content->source_line = location.line();
+		auto new_content = new ContentListing(type, body, location);
 		add_content(new_content);
 	}
 
-	Json to_json();
-};
-
-class PrettyHelp
-{
-public:
-	string group = "unknown";
-	enum Mode {
-		LOG,
-		LISTING,
-	};
-
-private:
-	PrettyHelp *_prior;
-	Mode _mode;
-
-	int _current_indent = 0;
-	ContentListing _root_listing;
-	ContentListing *_current_listing;
-
-	void add_content(string type, string body, source_location location) {
-		_current_listing->add_content(type, body, location);
-	}
-	void push_content(string type, string body, source_location location) {
-		add_content(type, body, location);
-		_current_listing = _current_listing->content.back();
-	}
-	void pop_content() {
-		_current_listing = _current_listing->parent;
-		log_assert(_current_listing != nullptr);
-	}
-public:
-	PrettyHelp(Mode mode = LOG);
-	~PrettyHelp();
-
-	static PrettyHelp *get_current();
-
-	bool has_content() { return _root_listing.content.size();}
+	bool has_content() { return _content.size() != 0; }
 	const vector<ContentListing *> get_content() {
-		const vector<ContentListing *> content = _root_listing.content;
+		const vector<ContentListing *> content = _content;
 		return content;
 	}
-
-	void set_group(const string g) { group = g; }
-	bool has_group() { return group.compare("unknown") != 0; }
+	ContentListing* back() {
+		return _content.back();
+	}
 
 	void usage(
 		const string &usage,
@@ -112,15 +80,45 @@ public:
 		const source_location location = source_location::current()
 	);
 
-	void open_optiongroup(
+	ContentListing* open_optiongroup(
 		const string &name = "",
 		const source_location location = source_location::current()
 	);
-	void open_option(
+	ContentListing* open_option(
 		const string &text,
 		const source_location location = source_location::current()
 	);
-	void close(int levels = 1);
+
+	Json to_json();
+};
+
+class PrettyHelp
+{
+public:
+	string group = "unknown";
+
+private:
+	PrettyHelp *_prior;
+	ContentListing _root_listing;
+
+public:
+	PrettyHelp();
+	~PrettyHelp();
+
+	static PrettyHelp *get_current();
+
+	bool has_content() { return _root_listing.has_content(); }
+	const vector<ContentListing *> get_content() {
+		return _root_listing.get_content();
+	}
+	ContentListing* get_root() {
+		return &_root_listing;
+	}
+
+	void set_group(const string g) { group = g; }
+	bool has_group() { return group.compare("unknown") != 0; }
+
+	void log_help();
 };
 
 YOSYS_NAMESPACE_END

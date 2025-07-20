@@ -76,58 +76,58 @@ struct ChformalPass : public Pass {
 	bool formatted_help() override {
 		auto *help = PrettyHelp::get_current();
 		help->set_group("formal");
-		help->usage("chformal [types] [mode] [options] [selection]");
-		help->paragraph(
+
+		auto content_root = help->get_root();
+
+		content_root->usage("chformal [types] [mode] [options] [selection]");
+		content_root->paragraph(
 			"Make changes to the formal constraints of the design. The [types] options "
 			"the type of constraint to operate on. If none of the following options are "
 			"given, the command will operate on all constraint types:"
 		);
 
-		help->open_optiongroup("[types]");
-		help->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
-		help->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
-		help->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
-		help->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
-		help->option("-cover", "`$cover` cells, representing ``cover()`` statements");
-		help->paragraph(
+		auto types_group = content_root->open_optiongroup("[types]");
+		types_group->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
+		types_group->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
+		types_group->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
+		types_group->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
+		types_group->option("-cover", "`$cover` cells, representing ``cover()`` statements");
+		types_group->paragraph(
 			"Additionally chformal will operate on `$check` cells corresponding to the "
 			"selected constraint types."
 		);
-		help->close();
 
-		help->paragraph("Exactly one of the following modes must be specified:");
+		content_root->paragraph("Exactly one of the following modes must be specified:");
 
-		help->open_optiongroup("[mode]");
-		help->option("-remove", "remove the cells and thus constraints from the design");
-		help->option("-early",
+		auto modes_group = content_root->open_optiongroup("[mode]");
+		modes_group->option("-remove", "remove the cells and thus constraints from the design");
+		modes_group->option("-early",
 			"bypass FFs that only delay the activation of a constraint. When inputs "
 			"of the bypassed FFs do not remain stable between clock edges, this may "
 			"result in unexpected behavior."
 		);
-		help->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
-		help->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
-		help->open_option("-coverenable");
-		help->paragraph(
+		modes_group->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
+		modes_group->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
+		auto cover_option = modes_group->open_option("-coverenable");
+		cover_option->paragraph(
 			"add cover statements for the enable signals of the constraints"
 		);
 #ifdef YOSYS_ENABLE_VERIFIC
-		help->paragraph(
+		cover_option->paragraph(
 			"Note: For the Verific frontend it is currently not guaranteed that a "
 			"reachable SVA statement corresponds to an active enable signal."
 		);
 #endif
-		help->close();
-		help->option("-assert2assume");
-		help->option("-assert2cover");
-		help->option("-assume2assert");
-		help->option("-live2fair");
-		help->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
-		help->option("-lower",
+		modes_group->option("-assert2assume");
+		modes_group->option("-assert2cover");
+		modes_group->option("-assume2assert");
+		modes_group->option("-live2fair");
+		modes_group->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
+		modes_group->option("-lower",
 			"convert each $check cell into an $assert, $assume, $live, $fair or "
 			"$cover cell. If the $check cell contains a message, also produce a "
 			"$print cell."
 		);
-		help->close();
 		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
