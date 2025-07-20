@@ -1,0 +1,5 @@
+formal
+------------------
+
+.. autocmdgroup:: formal
+   :members:

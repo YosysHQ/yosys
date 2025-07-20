@@ -1,0 +1,5 @@
+techlibs
+------------------
+
+.. autocmdgroup:: techlibs
+   :members:

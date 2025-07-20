@@ -1,0 +1,5 @@
+frontends
+------------------
+
+.. autocmdgroup:: frontends
+   :members:

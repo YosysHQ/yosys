@@ -1,0 +1,5 @@
+kernel
+------------------
+
+.. autocmdgroup:: kernel
+   :members:

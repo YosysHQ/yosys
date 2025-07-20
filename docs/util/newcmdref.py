@@ -48,25 +48,30 @@ class YosysCmd:
     name: str
     title: str
     content: list[YosysCmdContentListing]
+    group: str
     source_file: str
+    source_line: int
+    source_func: str
     experimental_flag: bool
 
     def __init__(
             self,
             name:str = "", title:str = "",
             content: list[dict[str]] = [],
-            source_file:str = 'unknown',
+            group: str = 'unknown',
+            source_file: str = "",
+            source_line: int = 0,
+            source_func: str = "",
             experimental_flag: bool = False
     ) -> None:
         self.name = name
         self.title = title
         self.content = [YosysCmdContentListing(**c) for c in content]
+        self.group = group
         self.source_file = source_file
+        self.source_line = source_line
+        self.source_func = source_func
         self.experimental_flag = experimental_flag
-
-    @property
-    def source_line(self) -> int:
-        return 0
     
 class YosysCmdGroupDocumenter(Documenter):
     objtype = 'cmdgroup'
@@ -97,19 +102,8 @@ class YosysCmdGroupDocumenter(Documenter):
                     subtype = 'cmd_lib'
                 )
                 cmds_obj = {}
-            for (name, obj) in cmds_obj.get('cmds', {}).items():
-                if self.lib_key == 'groups':
-                    source_file: str = obj.get('source_file', 'unknown')
-                    if source_file == 'unknown':
-                        source_group = 'unknown'
-                    else:
-                        source_group = str(Path(source_file).parent)
-                    try:
-                        self.__cmd_lib[source_group].append(name)
-                    except KeyError:
-                        self.__cmd_lib[source_group] = [name,]
-                else:
-                    self.__cmd_lib[name] = obj
+            for (name, obj) in cmds_obj.get(self.lib_key, {}).items():
+                self.__cmd_lib[name] = obj
         return self.__cmd_lib
     
     @classmethod
@@ -332,6 +326,7 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         # set sourcename and add content from attribute documentation
         domain = getattr(self, 'domain', self.objtype)
         source_name = self.object.source_file
+        source_line = self.object.source_line
 
         def render(content_list: YosysCmdContentListing, indent: int=0):
             content_source = content_list.source_file or source_name
@@ -363,7 +358,7 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         if self.get_sourcename() != 'unknown':
             self.add_line('\n', source_name)
-            self.add_line(f'.. note:: Help text automatically generated from :file:`{source_name}`', source_name)
+            self.add_line(f'.. note:: Help text automatically generated from :file:`{source_name}:{source_line}`', source_name)
 
         # add additional content (e.g. from document), if present
         if more_content:
