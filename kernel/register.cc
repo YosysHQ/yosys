@@ -848,7 +848,7 @@ struct HelpPass : public Pass {
 				size_t def_strip_count = 0;
 				auto current_state = PUState_none;
 				auto catch_verific = false;
-				auto blank_lines = 0;
+				auto blank_lines = 2;
 				for (string line; std::getline(ss, line, '\n');) {
 					// find position of first non space character
 					std::size_t first_pos = line.find_first_not_of(" \t");
@@ -880,9 +880,9 @@ struct HelpPass : public Pass {
 					bool IsIndent = def_strip_count < first_pos;
 
 					// line looks like a signature
-					bool IsSignature = stripped_line.find(name) == 0;
+					bool IsSignature = stripped_line.find(name) == 0 && (stripped_line.length() == name.length() || stripped_line.at(name.size()) == ' ');
 
-					if (IsSignature) {
+					if (IsSignature && first_pos <= 4 && (blank_lines >= 2 || current_state == PUState_signature)) {
 						if (current_state == PUState_options || current_state == PUState_optionbody) {
 							cmd_help.codeblock(current_buffer, "none", null_source);
 							current_buffer = "";
@@ -900,14 +900,20 @@ struct HelpPass : public Pass {
 					} else if (IsDedent) {
 						def_strip_count = first_pos;
 						if (current_state == PUState_optionbody) {
-							current_state = PUState_options;
 							if (!current_buffer.empty()) {
 								cmd_help.codeblock(current_buffer, "none", null_source);
 								current_buffer = "";
 							}
-						}
-						else
+							if (IsIndent) {
+								current_state = PUState_options;
+								cmd_help.close(1);
+							} else {
+								current_state = PUState_none;
+								cmd_help.close(2);
+							}
+						} else {
 							current_state = PUState_none;
+						}
 					}
 
 					if (IsDefinition && !catch_verific && current_state != PUState_signature) {
@@ -939,6 +945,11 @@ struct HelpPass : public Pass {
 							catch_verific = true;
 					}
 					blank_lines = 0;
+				}
+
+				if (!current_buffer.empty()) {
+					cmd_help.codeblock(current_buffer, "none", null_source);
+					current_buffer = "";
 				}
 			}
 
