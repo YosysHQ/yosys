@@ -223,11 +223,17 @@ class YosysCmdGroupDocumenter(Documenter):
             )
             return
 
+        sourcename = self.get_sourcename()
+
         if not self.import_object():
-            logger.warning(
-                f"unable to load {self.name} with {type(self)}",
-                type = 'cmdref'
-            )
+            log_msg = f"unable to load {self.name} with {type(self)}"
+            if self.lib_key == 'groups':
+                logger.info(log_msg, type = 'cmdref')
+                self.add_line(f'.. warning:: No commands found for group {self.name!r}', sourcename)
+                self.add_line('', sourcename)
+                self.add_line('   Documentation may have been built without ``source_location`` support.', sourcename)
+            else:
+                logger.warning(log_msg, type = 'cmdref')
             return
 
         # check __module__ of object (for members not given explicitly)
@@ -235,7 +241,6 @@ class YosysCmdGroupDocumenter(Documenter):
         #     if not self.check_module():
         #         return
 
-        sourcename = self.get_sourcename()
         self.add_line('', sourcename)
 
         # format the object's signature, if any
