@@ -38,12 +38,13 @@ public:
 	bool has_content();
 
 	void usage(const string &usage);
-	void option(const string &option, const string &description = "");
+	void option(const string &text, const string &description = "");
 	void codeblock(const string &code, const string &language = "none");
 	void paragraph(const string &text);
 
-	void optiongroup(const string &group = "");
-	void endgroup();
+	void open_optiongroup(const string &group = "");
+	void open_option(const string &text);
+	void close(int levels = 1);
 };
 
 YOSYS_NAMESPACE_END

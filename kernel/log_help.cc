@@ -84,13 +84,14 @@ void PrettyHelp::usage(const string &usage)
 	log("\n");
 }
 
-void PrettyHelp::option(const string &option, const string &description)
+void PrettyHelp::option(const string &text, const string &description)
 {
-	log_pass_str(option, current_indent);
+	open_option(text);
 	if (description.length()) {
-		log_pass_str(description, current_indent+1);
+		log_pass_str(description, current_indent);
 		log("\n");
 	}
+	close(1);
 }
 
 void PrettyHelp::codeblock(const string &code, const string &)
@@ -104,13 +105,19 @@ void PrettyHelp::paragraph(const string &text)
 	log("\n");
 }
 
-void PrettyHelp::optiongroup(const string &)
+void PrettyHelp::open_optiongroup(const string &)
 {
 	current_indent += 1;
 }
 
-void PrettyHelp::endgroup()
+void PrettyHelp::open_option(const string &text)
 {
-	current_indent -= 1;
+	log_pass_str(text, current_indent);
+	current_indent += 1;
+}
+
+void PrettyHelp::close(int levels)
+{
+	current_indent -= levels;
 	log_assert(current_indent >= 0);
 }

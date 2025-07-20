@@ -82,7 +82,7 @@ struct ChformalPass : public Pass {
 			"given, the command will operate on all constraint types:"
 		);
 
-		help->optiongroup("[types]");
+		help->open_optiongroup("[types]");
 		help->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
 		help->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
 		help->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
@@ -92,11 +92,11 @@ struct ChformalPass : public Pass {
 			"Additionally chformal will operate on `$check` cells corresponding to the "
 			"selected constraint types."
 		);
-		help->endgroup();
+		help->close();
 
 		help->paragraph("Exactly one of the following modes must be specified:");
 
-		help->optiongroup("[mode]");
+		help->open_optiongroup("[mode]");
 		help->option("-remove", "remove the cells and thus constraints from the design");
 		help->option("-early",
 			"bypass FFs that only delay the activation of a constraint. When inputs "
@@ -105,14 +105,17 @@ struct ChformalPass : public Pass {
 		);
 		help->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
 		help->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
-		help->option("-coverenable", 
+		help->open_option("-coverenable");
+		help->paragraph(
 			"add cover statements for the enable signals of the constraints"
+		);
 #ifdef YOSYS_ENABLE_VERIFIC
-			"\n\n"
+		help->paragraph(
 			"Note: For the Verific frontend it is currently not guaranteed that a "
 			"reachable SVA statement corresponds to an active enable signal."
-#endif
 		);
+#endif
+		help->close();
 		help->option("-assert2assume");
 		help->option("-assert2cover");
 		help->option("-assume2assert");
@@ -123,6 +126,7 @@ struct ChformalPass : public Pass {
 			"$cover cell. If the $check cell contains a message, also produce a "
 			"$print cell."
 		);
+		help->close();
 		return true;
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
