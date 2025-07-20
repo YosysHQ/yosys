@@ -798,64 +798,6 @@ struct HelpPass : public Pass {
 		}
 		fclose(f);
 	}
-	void write_cell_rst(Yosys::SimHelper cell, Yosys::CellType ct)
-	{
-		// open
-		FILE *f = fopen(stringf("docs/source/cell/%s.rst", cell.filesafe_name().c_str()).c_str(), "wt");
-
-		// make header
-		string title_line;
-		if (cell.title.length())
-			title_line = stringf("%s - %s", cell.name.c_str(), cell.title.c_str());
-		else title_line = cell.name;
-		string underline = "\n";
-		underline.insert(0, title_line.length(), '=');
-		fprintf(f, "%s\n", title_line.c_str());
-		fprintf(f, "%s\n", underline.c_str());
-
-		// help text, with cell def for links
-		fprintf(f, ".. cell:def:: %s\n", cell.name.c_str());
-		if (cell.title.length())
-			fprintf(f, "   :title: %s\n\n", cell.title.c_str());
-		else
-			fprintf(f, "   :title: %s\n\n", cell.name.c_str());
-		std::stringstream ss;
-		ss << cell.desc;
-		for (std::string line; std::getline(ss, line, '\n');) {
-			fprintf(f, "   %s\n", line.c_str());
-		}
-
-		// properties
-		fprintf(f, "\nProperties");
-		fprintf(f, "\n----------\n\n");
-		dict<string, bool> prop_dict = {
-			{"is_evaluable", ct.is_evaluable},
-			{"is_combinatorial", ct.is_combinatorial},
-			{"is_synthesizable", ct.is_synthesizable},
-		};
-		for (auto &it : prop_dict) {
-			fprintf(f, "- %s: %s\n", it.first.c_str(), it.second ? "true" : "false");
-		}
-
-		// source code
-		fprintf(f, "\nSimulation model (Verilog)");
-		fprintf(f, "\n--------------------------\n\n");
-		fprintf(f, ".. code-block:: verilog\n");
-		fprintf(f, "   :caption: %s\n\n", cell.source.c_str());
-		std::stringstream ss2;
-		ss2 << cell.code;
-		for (std::string line; std::getline(ss2, line, '\n');) {
-			fprintf(f, "   %s\n", line.c_str());
-		}
-
-		// footer
-		fprintf(f, "\n.. note::\n\n");
-		fprintf(f, "   This page was auto-generated from the output of\n");
-		fprintf(f, "   ``help %s``.\n", cell.name.c_str());
-
-		// close
-		fclose(f);
-	}
 	bool dump_cells_json(PrettyJson &json) {
 		// init json
 		json.begin_object();
@@ -991,22 +933,6 @@ struct HelpPass : public Pass {
 					}
 					log_streams.pop_back();
 					write_cmd_rst(it.first, it.second->short_help, buf.str());
-				}
-			}
-			// this option is also undocumented as it is for internal use only
-			else if (args[1] == "-write-rst-cells-manual") {
-				bool raise_error = false;
-				for (auto &it : yosys_celltypes.cell_types) {
-					auto name = it.first.str();
-					if (cell_help_messages.contains(name)) {
-						write_cell_rst(cell_help_messages.get(name), it.second);
-					} else {
-						log("ERROR: Missing cell help for cell '%s'.\n", name.c_str());
-						raise_error |= true;
-					}
-				}
-				if (raise_error) {
-					log_error("One or more cells defined in celltypes.h are missing help documentation.\n");
 				}
 			}
 			else if (pass_register.count(args[1])) {
