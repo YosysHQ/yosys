@@ -829,7 +829,6 @@ struct HelpPass : public Pass {
 				enum PassUsageState {
 					PUState_none,
 					PUState_signature,
-					PUState_description,
 					PUState_options,
 					PUState_optionbody,
 				};
@@ -849,6 +848,7 @@ struct HelpPass : public Pass {
 				size_t def_strip_count = 0;
 				auto current_state = PUState_none;
 				auto catch_verific = false;
+				auto blank_lines = 0;
 				for (string line; std::getline(ss, line, '\n');) {
 					// find position of first non space character
 					std::size_t first_pos = line.find_first_not_of(" \t");
@@ -859,18 +859,16 @@ struct HelpPass : public Pass {
 						case PUState_signature:
 							cmd_help.usage(current_buffer, null_source);
 							current_state = PUState_none;
+							current_buffer = "";
 							break;
 						case PUState_none:
-							if (!current_buffer.empty()) cmd_help.codeblock(current_buffer, "none", null_source);
-							break;
 						case PUState_optionbody:
-							if (!current_buffer.empty()) cmd_help.codeblock(current_buffer, "none", null_source);
+							blank_lines += 1;
 							break;
 						default:
 							break;
 						}
 						// skip empty lines
-						current_buffer = "";
 						continue;
 					}
 
@@ -886,10 +884,14 @@ struct HelpPass : public Pass {
 
 					if (IsSignature) {
 						if (current_state == PUState_options || current_state == PUState_optionbody) {
+							cmd_help.codeblock(current_buffer, "none", null_source);
+							current_buffer = "";
 							cmd_help.close(2);
-						}
-						if (current_state == PUState_signature) {
+						} else if (current_state == PUState_signature) {
 							cmd_help.usage(current_buffer, null_source);
+							current_buffer = "";
+						} else if (current_state == PUState_none && !current_buffer.empty()) {
+							cmd_help.codeblock(current_buffer, "none", null_source);
 							current_buffer = "";
 						}
 						current_state = PUState_signature;
@@ -901,6 +903,7 @@ struct HelpPass : public Pass {
 							current_state = PUState_options;
 							if (!current_buffer.empty()) {
 								cmd_help.codeblock(current_buffer, "none", null_source);
+								current_buffer = "";
 							}
 						}
 						else
@@ -908,6 +911,10 @@ struct HelpPass : public Pass {
 					}
 
 					if (IsDefinition && !catch_verific && current_state != PUState_signature) {
+						if (!current_buffer.empty()) {
+							cmd_help.codeblock(current_buffer, "none", null_source);
+							current_buffer = "";
+						}
 						if (current_state == PUState_options || current_state == PUState_optionbody) {
 							cmd_help.close(1);
 						}  else {
@@ -925,12 +932,13 @@ struct HelpPass : public Pass {
 						else if (current_state == PUState_signature && IsIndent)
 							current_buffer += stripped_line;
 						else if (current_state == PUState_none) {
-							current_buffer += "\n" + line;
+							current_buffer += (blank_lines > 0 ? "\n\n" : "\n") + line;
 						} else
-							current_buffer += "\n" + stripped_line;
+							current_buffer += (blank_lines > 0 ? "\n\n" : "\n") + stripped_line;
 						if (stripped_line.compare("Command file parser supports following commands in file:") == 0)
 							catch_verific = true;
 					}
+					blank_lines = 0;
 				}
 			}
 
