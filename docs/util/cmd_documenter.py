@@ -403,11 +403,35 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         return False, []
 
+class YosysCmdRstDocumenter(YosysCmdDocumenter):
+    objtype = 'cmd_rst'
+    priority = 0
+
+    @classmethod
+    def can_document_member(cls, *args) -> bool:
+        return False
+
+    def add_directive_header(self, sig):
+        source_name = self.object.source_file
+        cmd = self.object.name
+        self.add_line(f'.. code-block:: rst', source_name)
+        self.add_line(f'   :caption: Generated rst for ``.. autocmd:: {cmd}``', source_name)
+
+    def add_content(self, more_content):
+        source_name = self.object.source_file
+        cmd = self.object.name
+        self.domain = 'cmd'
+        super().add_directive_header(cmd)
+        self.add_line('', source_name)
+        self.indent += self.content_indent
+        super().add_content(more_content)
+
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value('cmds_json', False, 'html', [Path, PosixPath, WindowsPath])
     app.setup_extension('sphinx.ext.autodoc')
     app.add_autodocumenter(YosysCmdGroupDocumenter)
     app.add_autodocumenter(YosysCmdDocumenter)
+    app.add_autodocumenter(YosysCmdRstDocumenter)
     return {
         'version': '2',
         'parallel_read_safe': True,
