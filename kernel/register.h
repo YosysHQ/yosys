@@ -23,10 +23,15 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#ifdef YOSYS_ENABLE_SOURCE_LOCATION
-#include <experimental/source_location>
-using std::experimental::source_location;
+#include <version>
+#if __cpp_lib_source_location == 201907L
+  #include <source_location>
+  using std::source_location;
 #else
+  #include <experimental/source_location>
+#  ifdef __cpp_lib_experimental_source_location
+    using std::experimental::source_location;
+#  else
 struct source_location { // dummy placeholder
 	int line() const { return 0; }
 	int column() const { return 0; }
@@ -34,6 +39,7 @@ struct source_location { // dummy placeholder
 	const char* function_name() const { return "unknown"; }
 	static const source_location current(...) { return source_location(); }
 };
+#  endif
 #endif
 
 YOSYS_NAMESPACE_BEGIN
