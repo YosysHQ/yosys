@@ -15,7 +15,7 @@ General synthesis
 ~~~~~~~~~~~~~~~~~
 
 In addition to the above hardware-specific synth commands, there is also
-:cmd:ref:`prep`.  This command is limited to coarse-grain synthesis, without
+:cmd:title:`prep`.  This command is limited to coarse-grain synthesis, without
 getting into any architecture-specific mappings or optimizations.  Among other
 things, this is useful for design verification.
 

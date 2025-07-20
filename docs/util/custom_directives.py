@@ -7,9 +7,8 @@ from typing import cast
 import warnings
 
 from docutils import nodes
-from docutils.nodes import Node, Element
+from docutils.nodes import Node, Element, Text
 from docutils.parsers.rst import directives
-from docutils.parsers.rst.roles import GenericRole
 from docutils.parsers.rst.states import Inliner
 from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
@@ -598,12 +597,17 @@ class PropIndex(TagIndex):
 
         return (ret, True)
 
+class TitleRefRole(XRefRole):
+    """XRefRole used which has the cmd title as the displayed text."""
+    pass
+
 class CommandDomain(Domain):
     name = 'cmd'
     label = 'Yosys commands'
 
     roles = {
-        'ref': XRefRole()
+        'ref': XRefRole(),
+        'title': TitleRefRole(),
     }
 
     directives = {
@@ -635,7 +639,7 @@ class CommandDomain(Domain):
 
     def resolve_xref(self, env, fromdocname, builder, typ,
                      target, node, contnode):
-        
+
         match = [(docname, anchor, name)
                  for name, sig, typ, docname, anchor, prio
                  in self.get_objects() if sig == target]
@@ -645,9 +649,17 @@ class CommandDomain(Domain):
             targ = match[0][1]
             qual_name = match[0][2]
             title = self.data['obj2title'].get(qual_name, targ)
-            
-            return make_refnode(builder,fromdocname,todocname,
-                                targ, contnode, title)
+
+            if typ == 'title':
+                # caller wants the title in the content of the node
+                cmd = contnode.astext()
+                contnode = Text(f'{cmd} - {title}')
+                return make_refnode(builder, fromdocname, todocname,
+                                    targ, contnode)
+            else:
+                # cmd title as hover text
+                return make_refnode(builder, fromdocname, todocname,
+                                    targ, contnode, title)
         else:
             print(f"Missing ref for {target} in {fromdocname} ")
             return None

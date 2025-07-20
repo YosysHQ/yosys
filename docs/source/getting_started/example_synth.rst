@@ -143,8 +143,8 @@ line refers to the line numbers of the start/end of the corresponding ``always
 @`` block.  In the case of an ``initial`` block, we instead see the ``PROC``
 referring to line 0.
 
-To handle these, let us now introduce the next command: :cmd:ref:`proc`. `proc`
-is a macro command like `synth_ice40`.  Rather than modifying the design
+To handle these, let us now introduce the next command: :cmd:title:`proc`.
+`proc` is a macro command like `synth_ice40`.  Rather than modifying the design
 directly, it instead calls a series of other commands.  In the case of `proc`,
 these sub-commands work to convert the behavioral logic of processes into
 multiplexers and registers.  Let's see what happens when we run it.  For now, we
@@ -188,7 +188,7 @@ opt_expr <adv_opt_expr>`.
 
 .. note::
 
-   :cmd:ref:`clean` can also be called with two semicolons after any command,
+   :cmd:title:`clean` can also be called with two semicolons after any command,
    for example we could have called :yoscrypt:`opt_expr;;` instead of
    :yoscrypt:`opt_expr; clean`.  You may notice some scripts will end each line
    with ``;;``.  It is beneficial to run `clean` before inspecting intermediate
@@ -215,8 +215,8 @@ Note that if we tried to run this command now then we would get an error.  This
 is because we already removed all of the modules other than ``addr_gen``.  We
 could restart our shell session, but instead let's use two new commands:
 
-- :cmd:ref:`design`, and
-- :cmd:ref:`read_verilog`.
+- :cmd:title:`design`, and
+- :cmd:title:`read_verilog`.
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -251,7 +251,7 @@ our design won't run into this issue, we can skip the ``-defer``.
 We can also run `proc` now to finish off the full :ref:`synth_begin`. Because
 the design schematic is quite large, we will be showing just the data path for
 the ``rdata`` output.  If you would like to see the entire design for yourself,
-you can do so with :cmd:ref:`show`.  Note that the `show` command only works
+you can do so with :cmd:title:`show`.  Note that the `show` command only works
 with a single module, so you may need to call it with :yoscrypt:`show fifo`.
 :ref:`show_intro` section in :doc:`/getting_started/scripting_intro` has more on
 how to use `show`.
@@ -371,7 +371,7 @@ wasting time on something we know is impossible.
 Next up is :yoscrypt:`opt -nodffe -nosdff` performing a set of simple
 optimizations on the design.  This command also ensures that only a specific
 subset of FF types are included, in preparation for the next command:
-:cmd:ref:`fsm`.  Both `opt` and `fsm` are macro commands which are explored in
+:cmd:title:`fsm`.  Both `opt` and `fsm` are macro commands which are explored in
 more detail in :doc:`/using_yosys/synthesis/opt` and
 :doc:`/using_yosys/synthesis/fsm` respectively.
 
@@ -411,7 +411,7 @@ The next group of commands performs a series of optimizations:
    :caption: ``coarse`` section (part 2)
    :name: synth_coarse2
 
-First up is :cmd:ref:`wreduce`.  If we run this we get the following:
+First up is :cmd:title:`wreduce`.  If we run this we get the following:
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -432,7 +432,7 @@ the schematic and see the output of that cell has now changed.
 
    ``rdata`` output after `wreduce`
 
-The next two (new) commands are :cmd:ref:`peepopt` and :cmd:ref:`share`.
+The next two (new) commands are :cmd:title:`peepopt` and :cmd:title:`share`.
 Neither of these affect our design, and they're explored in more detail in
 :doc:`/using_yosys/synthesis/opt`, so let's skip over them.  :yoscrypt:`techmap
 -map +/cmp2lut.v -D LUT_WIDTH=4` optimizes certain comparison operators by
@@ -440,7 +440,7 @@ converting them to LUTs instead.  The usage of `techmap` is explored more in
 :doc:`/using_yosys/synthesis/techmap_synth`.
 
 Our next command to run is
-:cmd:ref:`memory_dff`.
+:cmd:title:`memory_dff`.
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -543,7 +543,7 @@ Once these cells have been inserted, the call to `opt` can combine cells which
 are now identical but may have been missed due to e.g. the difference between
 `$add` and `$sub`.
 
-The other new command in this part is :cmd:ref:`memory`.  `memory` is another
+The other new command in this part is :cmd:title:`memory`.  `memory` is another
 macro command which we examine in more detail in
 :doc:`/using_yosys/synthesis/memory`.  For this document, let us focus just on
 the step most relevant to our example: `memory_collect`. Up until this point,
@@ -793,9 +793,9 @@ tidy up:
 
 The new commands here are:
 
-- :cmd:ref:`autoname`,
-- :cmd:ref:`stat`, and
-- :cmd:ref:`blackbox`.
+- :cmd:title:`autoname`,
+- :cmd:title:`stat`, and
+- :cmd:title:`blackbox`.
 
 The output from `stat` is useful for checking resource utilization; providing a
 list of cells used in the design and the number of each, as well as the number
@@ -847,4 +847,4 @@ is beyond the scope of this documentation.
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 
-.. seealso:: :cmd:ref:`synth_ice40`
+.. seealso:: :cmd:title:`synth_ice40`
