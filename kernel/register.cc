@@ -945,13 +945,8 @@ struct HelpPass : public Pass {
 							current_listing->codeblock(current_buffer, "none", null_source);
 							current_buffer = "";
 						}
-						if (current_state == PUState_options || current_state == PUState_optionbody) {
-							current_listing = root_listing->back();
-						}  else {
-							current_listing = root_listing->open_optiongroup("", null_source);
-						}
 						current_state = PUState_options;
-						current_listing = current_listing->open_option(stripped_line, null_source);
+						current_listing = root_listing->open_option(stripped_line, null_source);
 						def_strip_count = first_pos;
 					} else {
 						if (current_state == PUState_options) {

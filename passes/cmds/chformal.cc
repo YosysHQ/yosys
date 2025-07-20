@@ -86,29 +86,27 @@ struct ChformalPass : public Pass {
 			"given, the command will operate on all constraint types:"
 		);
 
-		auto types_group = content_root->open_optiongroup("[types]");
-		types_group->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
-		types_group->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
-		types_group->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
-		types_group->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
-		types_group->option("-cover", "`$cover` cells, representing ``cover()`` statements");
-		types_group->paragraph(
+		content_root->option("-assert", "`$assert` cells, representing ``assert(...)`` constraints");
+		content_root->option("-assume", "`$assume` cells, representing ``assume(...)`` constraints");
+		content_root->option("-live", "`$live` cells, representing ``assert(s_eventually ...)``");
+		content_root->option("-fair", "`$fair` cells, representing ``assume(s_eventually ...)``");
+		content_root->option("-cover", "`$cover` cells, representing ``cover()`` statements");
+		content_root->paragraph(
 			"Additionally chformal will operate on `$check` cells corresponding to the "
 			"selected constraint types."
 		);
 
 		content_root->paragraph("Exactly one of the following modes must be specified:");
 
-		auto modes_group = content_root->open_optiongroup("[mode]");
-		modes_group->option("-remove", "remove the cells and thus constraints from the design");
-		modes_group->option("-early",
+		content_root->option("-remove", "remove the cells and thus constraints from the design");
+		content_root->option("-early",
 			"bypass FFs that only delay the activation of a constraint. When inputs "
 			"of the bypassed FFs do not remain stable between clock edges, this may "
 			"result in unexpected behavior."
 		);
-		modes_group->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
-		modes_group->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
-		auto cover_option = modes_group->open_option("-coverenable");
+		content_root->option("-delay <N>", "delay activation of the constraint by <N> clock cycles");
+		content_root->option("-skip <N>", "ignore activation of the constraint in the first <N> clock cycles");
+		auto cover_option = content_root->open_option("-coverenable");
 		cover_option->paragraph(
 			"add cover statements for the enable signals of the constraints"
 		);
@@ -118,12 +116,12 @@ struct ChformalPass : public Pass {
 			"reachable SVA statement corresponds to an active enable signal."
 		);
 #endif
-		modes_group->option("-assert2assume");
-		modes_group->option("-assert2cover");
-		modes_group->option("-assume2assert");
-		modes_group->option("-live2fair");
-		modes_group->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
-		modes_group->option("-lower",
+		content_root->option("-assert2assume");
+		content_root->option("-assert2cover");
+		content_root->option("-assume2assert");
+		content_root->option("-live2fair");
+		content_root->option("-fair2live", "change the roles of cells as indicated. these options can be combined");
+		content_root->option("-lower",
 			"convert each $check cell into an $assert, $assume, $live, $fair or "
 			"$cover cell. If the $check cell contains a message, also produce a "
 			"$print cell."

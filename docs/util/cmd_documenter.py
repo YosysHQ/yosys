@@ -365,14 +365,14 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
         def render(content_list: YosysCmdContentListing, indent: int=0):
             content_source = content_list.source_file or source_name
             indent_str = '   '*indent
-            if content_list.type in ['usage', 'optiongroup']:
+            if content_list.type == 'usage':
                 if content_list.body:
                     self.add_line(f'{indent_str}.. {domain}:{content_list.type}:: {self.name}::{content_list.body}', content_source)
                 else:
                     self.add_line(f'{indent_str}.. {domain}:{content_list.type}:: {self.name}::', content_source)
                     self.add_line(f'{indent_str}   :noindex:', source_name)
                 self.add_line('', source_name)
-            elif content_list.type in ['option']:
+            elif content_list.type == 'option':
                 self.add_line(f'{indent_str}:{content_list.type} {content_list.body}:', content_source)
             elif content_list.type == 'text':
                 self.add_line(f'{indent_str}{content_list.body}', content_source)

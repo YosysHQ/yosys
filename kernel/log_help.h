@@ -68,7 +68,7 @@ public:
 	}
 
 	void usage(
-		const string &usage,
+		const string &text,
 		const source_location location = source_location::current()
 	);
 	void option(
@@ -86,8 +86,8 @@ public:
 		const source_location location = source_location::current()
 	);
 
-	ContentListing* open_optiongroup(
-		const string &name = "",
+	ContentListing* open_usage(
+		const string &text,
 		const source_location location = source_location::current()
 	);
 	ContentListing* open_option(

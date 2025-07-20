@@ -58,100 +58,11 @@ class TocNode(ObjectDescription):
             return '.'.join(parents + [name])
         return ''
 
-class CommandNode(TocNode):
-    """A custom node that describes a command."""
-
-    name = 'cmd'
-    required_arguments = 1
-
-    option_spec = TocNode.option_spec.copy()
-    option_spec.update({
-        'title': directives.unchanged,
-        'tags': directives.unchanged
-    })
+class NodeWithOptions(TocNode):
+    """A custom node with options."""
 
     doc_field_types = [
         GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
-    ]
-
-    def handle_signature(self, sig, signode: addnodes.desc_signature):
-        signode['fullname'] = sig
-        signode += addnodes.desc_addname(text="yosys> help ")
-        signode += addnodes.desc_name(text=sig)
-        return signode['fullname']
-
-    def add_target_and_index(self, name_cls, sig, signode):
-        idx = type(self).name + '-' + sig
-        signode['ids'].append(idx)
-        if 'noindex' not in self.options:
-            name = "{}.{}.{}".format(self.name, type(self).__name__, sig)
-            tagmap = self.env.domaindata[type(self).name]['obj2tag']
-            tagmap[name] = list(self.options.get('tags', '').split(' '))
-            title = self.options.get('title', sig)
-            titlemap = self.env.domaindata[type(self).name]['obj2title']
-            titlemap[name] = title
-            objs = self.env.domaindata[type(self).name]['objects']
-            # (name, sig, typ, docname, anchor, prio)
-            objs.append((name,
-                         sig,
-                         type(self).name,
-                         self.env.docname,
-                         idx,
-                         0))
-
-class CommandUsageNode(TocNode):
-    """A custom node that describes command usages"""
-
-    name = 'cmdusage'
-
-    option_spec = TocNode.option_spec
-    option_spec.update({
-        'usage': directives.unchanged,
-    })
-
-    doc_field_types = [
-        GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
-    ]
-
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        parts = sig.split('::')
-        if len(parts) > 2: parts.pop(0)
-        use = parts[-1]
-        signode['fullname'] = '::'.join(parts)
-        usage = self.options.get('usage', use)
-        if usage:
-            signode['tocname'] = usage
-            signode += addnodes.desc_name(text=usage)
-        return signode['fullname']
-
-    def add_target_and_index(
-        self,
-        name: str,
-        sig: str,
-        signode: addnodes.desc_signature
-    ) -> None:
-        idx = ".".join(name.split("::"))
-        signode['ids'].append(idx)
-        if 'noindex' not in self.options:
-            tocname: str = signode.get('tocname', name)
-            objs = self.env.domaindata[self.domain]['objects']
-            # (name, sig, typ, docname, anchor, prio)
-            objs.append((name,
-                         tocname,
-                         type(self).name,
-                         self.env.docname,
-                         idx,
-                         1))
-
-class CommandOptionGroupNode(CommandUsageNode):
-    """A custom node that describes a group of related options"""
-
-    name = 'cmdoptiongroup'
-
-    option_spec = CommandUsageNode.option_spec
-
-    doc_field_types = [
-        Field('opt', ('option',), label='', rolename='option')
     ]
     
     def transform_content(self, contentnode: addnodes.desc_content) -> None:
@@ -185,6 +96,83 @@ class CommandOptionGroupNode(CommandUsageNode):
                         newnode += option_list_item
             newchildren.append(newnode)
         contentnode.children = newchildren
+
+class CommandNode(NodeWithOptions):
+    """A custom node that describes a command."""
+
+    name = 'cmd'
+    required_arguments = 1
+
+    option_spec = NodeWithOptions.option_spec.copy()
+    option_spec.update({
+        'title': directives.unchanged,
+        'tags': directives.unchanged
+    })
+
+    def handle_signature(self, sig, signode: addnodes.desc_signature):
+        signode['fullname'] = sig
+        signode += addnodes.desc_addname(text="yosys> help ")
+        signode += addnodes.desc_name(text=sig)
+        return signode['fullname']
+
+    def add_target_and_index(self, name_cls, sig, signode):
+        idx = type(self).name + '-' + sig
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            name = "{}.{}.{}".format(self.name, type(self).__name__, sig)
+            tagmap = self.env.domaindata[type(self).name]['obj2tag']
+            tagmap[name] = list(self.options.get('tags', '').split(' '))
+            title = self.options.get('title', sig)
+            titlemap = self.env.domaindata[type(self).name]['obj2title']
+            titlemap[name] = title
+            objs = self.env.domaindata[type(self).name]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         sig,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         0))
+
+class CommandUsageNode(NodeWithOptions):
+    """A custom node that describes command usages"""
+
+    name = 'cmdusage'
+
+    option_spec = NodeWithOptions.option_spec
+    option_spec.update({
+        'usage': directives.unchanged,
+    })
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        parts = sig.split('::')
+        if len(parts) > 2: parts.pop(0)
+        use = parts[-1]
+        signode['fullname'] = '::'.join(parts)
+        usage = self.options.get('usage', use)
+        if usage:
+            signode['tocname'] = usage
+            signode += addnodes.desc_name(text=usage)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         1))
 
 class PropNode(TocNode):
     name = 'prop'
@@ -621,7 +609,6 @@ class CommandDomain(Domain):
     directives = {
         'def': CommandNode,
         'usage': CommandUsageNode,
-        'optiongroup': CommandOptionGroupNode,
     }
 
     indices = {
