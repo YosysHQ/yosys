@@ -228,7 +228,7 @@ struct OptDffWorker
 					new_patterns.erase(right);
 			}
 		}
-		patterns = std::move(new_patterns)
+		patterns = std::move(new_patterns);
 	}
 
 	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
