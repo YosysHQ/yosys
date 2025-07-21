@@ -170,9 +170,65 @@ struct OptDffWorker
 		return ret;
 	}
 
-	void simplify_patterns(patterns_t&)
+	void simplify_patterns(patterns_t& patterns)
 	{
-		// TBD
+		// remove complimentary patterns
+
+		auto new_patterns = patterns;
+		bool optimized;
+		do {
+			optimized = false;
+			for (auto i = patterns.begin(); i != patterns.end(); i++) {
+				for (auto j = std::next(i, 1); j != patterns.end(); j++) {
+					const auto& smaller = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+					const auto& larger = (GetSize(*i) < GetSize(*j)) ? *j : *i;
+					auto left = std::move(smaller);
+					auto right = std::move(larger);
+
+					std::optional<RTLIL::SigBit> complimentary_var;
+
+					for (const auto &pt : left)
+						if (right.count(pt.first) == 0)
+								goto next;
+						else if (right[pt.first] == pt.second)
+								continue;
+						else
+							if (complimentary_var)
+								goto next;
+							else
+								complimentary_var = pt.first;
+					if (complimentary_var) {
+						new_patterns.erase(right);
+						right.erase(complimentary_var.value());
+						new_patterns.insert(right);
+						optimized = true;
+					}
+					next:
+					continue;
+				}
+			}
+			patterns = new_patterns;
+		} while(optimized);
+
+		// remove redundant patterns
+
+		for (auto i = patterns.begin(); i != patterns.end(); ++i) {
+			for (auto j = std::next(i, 1); j != patterns.end(); ++j) { 
+				const auto& smaller = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+				const auto& larger = (GetSize(*i) < GetSize(*j)) ? *j : *i;
+				auto left = std::move(smaller);
+				auto right = std::move(larger);
+
+		            	bool redundant = true;
+
+				for (const auto& pt : left)
+					if (right.count(pt.first) == 0 || right[pt.first] != pt.second)
+						redundant = false;
+				if (redundant)
+					new_patterns.erase(right);
+			}
+		}
+		patterns = std::move(new_patterns)
 	}
 
 	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
