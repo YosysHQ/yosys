@@ -1,5 +1,4 @@
 
-OBJS += passes/techmap/flatten.o
 OBJS += passes/techmap/techmap.o
 OBJS += passes/techmap/simplemap.o
 OBJS += passes/techmap/dfflibmap.o

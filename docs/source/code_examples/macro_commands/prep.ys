@@ -1,0 +1,23 @@
+#start:The following commands are executed by this synthesis command:
+#end:$
+begin:
+    hierarchy -check [-top <top> | -auto-top]
+
+coarse:
+    proc [-ifx]
+    flatten    (if -flatten)
+    future
+    opt_expr -keepdc
+    opt_clean
+    check
+    opt -noff -keepdc
+    wreduce -keepdc [-memx]
+    memory_dff    (if -rdff)
+    memory_memx    (if -memx)
+    opt_clean
+    memory_collect
+    opt -noff -keepdc -fast
+
+check:
+    stat
+    check
