@@ -1368,6 +1368,7 @@ struct RTLIL::Design
 	std::string scratchpad_get_string(const std::string &varname, const std::string &default_value = std::string()) const;
 
 	void sort();
+	void sort_modules();
 	void check();
 	void optimize();
 
