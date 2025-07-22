@@ -162,7 +162,7 @@ static bool is_hex_dig(char c, int *val, parser::location_type loc)
 		*val = c - 'A' + 0xA;
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in hex escape sequence.\n", c);
+		log_file_warning(*loc.begin.filename, loc.begin.line, "'%c' not a valid digit in hex escape sequence.\n", c);
 		*val = 0; // not semantically valid in hex escape...
 		return true; // ...but still processed as part of hex token
 	}
@@ -176,7 +176,7 @@ static bool is_oct_dig(char c, int *val, parser::location_type loc)
 		*val = c - '0';
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in octal escape sequence.\n", c);
+		log_file_warning(*loc.begin.filename, loc.begin.line, "'%c' not a valid digit in octal escape sequence.\n", c);
 		*val = 0; // not semantically valid in octal escape...
 		return true; // ...but still processed as part of octal token
 	}
@@ -196,7 +196,7 @@ static parser::symbol_type process_str(char *str, int len, bool triple, parser::
 			if (in + 1 < str + len && (in[1] ^ *in) == ('\n' ^ '\r'))
 				in++;
 			if (!triple)
-				log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "Multi-line string literals should be triple-quoted or escaped.\n");
+				log_file_warning(*loc.begin.filename, loc.begin.line, "Multi-line string literals should be triple-quoted or escaped.\n");
 			*out++ = '\n';
 			break;
 		case '\\':
@@ -233,7 +233,7 @@ static parser::symbol_type process_str(char *str, int len, bool triple, parser::
 					}
 					out++;
 				} else
-					log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "ignoring invalid hex escape.\n");
+					log_file_warning(*loc.begin.filename, loc.begin.line, "ignoring invalid hex escape.\n");
 				break;
 			case '\\':
 				*out++ = '\\';
@@ -256,7 +256,7 @@ static parser::symbol_type process_str(char *str, int len, bool triple, parser::
 						in++;
 						if (in + 1 < str + len && is_oct_dig(in[1], &val, loc)) {
 							if (*out >= 040)
-								log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "octal escape exceeds \\377\n");
+								log_file_warning(*loc.begin.filename, loc.begin.line, "octal escape exceeds \\377\n");
 							*out = *out * 010 + val;
 							in++;
 						}
