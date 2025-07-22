@@ -124,7 +124,6 @@ extern int log_debug_suppressed;
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
 
-[[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 [[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 [[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
@@ -180,6 +179,13 @@ void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity
 	if (log_make_debug && !ys_debug(1))
 		return;
 	log_formatted_file_info(filename, lineno, fmt.format(args...));
+}
+
+[[noreturn]] void log_formatted_error(std::string str);
+template <typename... Args>
+[[noreturn]] void log_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_error(fmt.format(args...));
 }
 
 static inline void log_suppressed() {

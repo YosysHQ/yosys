@@ -268,7 +268,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
-				log_error("%s",  message.c_str());
+				log_error("%s", message);
 
 		bool warning_match = false;
 		for (auto &[_, item] : log_expect_warning)
@@ -321,8 +321,7 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 }
 
 [[noreturn]]
-static void logv_error_with_prefix(const char *prefix,
-                                   const char *format, va_list ap)
+static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
 #ifdef EMSCRIPTEN
 	auto backup_log_files = log_files;
@@ -339,8 +338,8 @@ static void logv_error_with_prefix(const char *prefix,
 			if (f == stdout)
 				f = stderr;
 
-	log_last_error = vstringf(format, ap);
-	log("%s%s", prefix, log_last_error.c_str());
+	log_last_error = std::move(str);
+	log("%s%s", prefix, log_last_error);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -373,18 +372,12 @@ static void logv_error_with_prefix(const char *prefix,
 #endif
 }
 
-[[noreturn]]
-static void logv_error(const char *format, va_list ap)
-{
-	logv_error_with_prefix("ERROR: ", format, ap);
-}
-
 void logv_file_error(const string &filename, int lineno,
                      const char *format, va_list ap)
 {
 	std::string prefix = stringf("%s:%d: ERROR: ",
 				     filename.c_str(), lineno);
-	logv_error_with_prefix(prefix.c_str(), format, ap);
+	log_error_with_prefix(prefix, vstringf(format, ap));
 }
 
 void log_file_error(const string &filename, int lineno,
@@ -403,11 +396,9 @@ void log_experimental(const std::string &str)
 	}
 }
 
-void log_error(const char *format, ...)
+void log_formatted_error(std::string str)
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_error(format, ap);
+	log_error_with_prefix("ERROR: ", std::move(str));
 }
 
 void log_assert_failure(const char *expr, const char *file, int line)
@@ -445,7 +436,7 @@ void log_cmd_error(const char *format, ...)
 		throw log_cmd_error_exception();
 	}
 
-	logv_error(format, ap);
+	log_formatted_error(vstringf(format, ap));
 }
 
 void log_spacer()
