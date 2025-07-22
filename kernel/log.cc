@@ -102,7 +102,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-void logv(const char *format, va_list ap)
+static void logv(const char *format, va_list ap)
 {
 	while (format[0] == '\n' && format[1] != 0) {
 		log("\n");
@@ -204,7 +204,7 @@ void logv(const char *format, va_list ap)
 	}
 }
 
-void logv_header(RTLIL::Design *design, const char *format, va_list ap)
+static void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 {
 	bool pop_errfile = false;
 
@@ -305,12 +305,12 @@ static void logv_warning_with_prefix(const char *prefix,
 	}
 }
 
-void logv_warning(const char *format, va_list ap)
+static void logv_warning(const char *format, va_list ap)
 {
 	logv_warning_with_prefix("Warning: ", format, ap);
 }
 
-void logv_warning_noprefix(const char *format, va_list ap)
+static void logv_warning_noprefix(const char *format, va_list ap)
 {
 	logv_warning_with_prefix("", format, ap);
 }
@@ -390,7 +390,8 @@ static void logv_error_with_prefix(const char *prefix,
 #endif
 }
 
-void logv_error(const char *format, va_list ap)
+[[noreturn]]
+static void logv_error(const char *format, va_list ap)
 {
 	logv_error_with_prefix("ERROR: ", format, ap);
 }
