@@ -217,7 +217,7 @@ void log_formatted_string(std::string_view format, std::string str)
 	logv_string(format, std::move(str));
 }
 
-static void logv_header(RTLIL::Design *design, const char *format, va_list ap)
+void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
 	bool pop_errfile = false;
 
@@ -236,7 +236,7 @@ static void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
 	log("%s. ", header_id.c_str());
-	logv(format, ap);
+	log_formatted_string(format, std::move(str));
 	log_flush();
 
 	if (log_hdump_all)
@@ -423,14 +423,6 @@ void log_file_error(const string &filename, int lineno,
 	va_list ap;
 	va_start(ap, format);
 	logv_file_error(filename, lineno, format, ap);
-}
-
-void log_header(RTLIL::Design *design, const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_header(design, format, ap);
-	va_end(ap);
 }
 
 void log_warning(const char *format, ...)
