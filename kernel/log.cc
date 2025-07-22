@@ -407,13 +407,10 @@ void log_abort_internal(const char *file, int line)
 	log_error("Abort in %s:%d.\n", file, line);
 }
 
-void log_cmd_error(const char *format, ...)
+void log_formatted_cmd_error(std::string str)
 {
-	va_list ap;
-	va_start(ap, format);
-
 	if (log_cmd_error_throw) {
-		log_last_error = vstringf(format, ap);
+		log_last_error = str;
 
 		// Make sure the error message gets through any selective silencing
 		// of log output
@@ -423,7 +420,7 @@ void log_cmd_error(const char *format, ...)
 			pop_errfile = true;
 		}
 
-		log("ERROR: %s", log_last_error.c_str());
+		log("ERROR: %s", log_last_error);
 		log_flush();
 
 		if (pop_errfile)
@@ -432,7 +429,7 @@ void log_cmd_error(const char *format, ...)
 		throw log_cmd_error_exception();
 	}
 
-	log_formatted_error(vstringf(format, ap));
+	log_formatted_error(str);
 }
 
 void log_spacer()
