@@ -124,8 +124,6 @@ extern int log_debug_suppressed;
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
 
-[[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
 #else
@@ -192,6 +190,13 @@ template <typename... Args>
 [[noreturn]] void log_file_error(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	log_formatted_file_error(filename, lineno, fmt.format(args...));
+}
+
+[[noreturn]] void log_formatted_cmd_error(std::string str);
+template <typename... Args>
+[[noreturn]] void log_cmd_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_cmd_error(fmt.format(args...));
 }
 
 static inline void log_suppressed() {
