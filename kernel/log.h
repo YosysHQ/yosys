@@ -122,7 +122,6 @@ extern int log_debug_suppressed;
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 
-void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
@@ -152,6 +151,13 @@ inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	if (log_make_debug && !ys_debug(1))
 		return;
 	log_formatted_string(fmt.format_string(), fmt.format(args...));
+}
+
+void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
+template <typename... Args>
+inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_header(design, fmt.format_string(), fmt.format(args...));
 }
 
 static inline void log_suppressed() {
