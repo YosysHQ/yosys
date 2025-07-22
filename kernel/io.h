@@ -207,7 +207,8 @@ constexpr void check_format(std::string_view fmt, int fmt_start, FoundFormatSpec
 		break;
 	case CONVSPEC_CHAR_PTR:
 		if constexpr (!std::is_convertible_v<Arg, const char *> &&
-		              !std::is_convertible_v<Arg, const std::string &>) {
+		        !std::is_convertible_v<Arg, const std::string &> &&
+			!std::is_convertible_v<Arg, const std::string_view &>) {
 			YOSYS_ABORT("Expected type convertible to char *");
 		}
 		*specs = found;
@@ -256,6 +257,14 @@ inline void format_emit_type(std::string &result, std::string_view spec, int *dy
 	YOSYS_ABORT("Internal error");
 }
 
+// Emit the string representation of `arg` that has been converted to a `std::string'.
+void format_emit_string(std::string &result, std::string_view spec, int *dynamic_ints,
+	uint8_t num_dynamic_ints, const std::string &arg);
+
+// Emit the string representation of `arg` that has been converted to a `std::string_view'.
+void format_emit_string_view(std::string &result, std::string_view spec, int *dynamic_ints,
+	uint8_t num_dynamic_ints, std::string_view arg);
+
 // Emit the string representation of `arg` according to the given `FoundFormatSpec`,
 // appending it to `result`.
 template <typename Arg>
@@ -281,8 +290,12 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 		}
 		if constexpr (std::is_convertible_v<Arg, const std::string &>) {
 			const std::string &s = arg;
-			format_emit_type<const char *, const char *>(result, spec, dynamic_ints, num_dynamic_ints,
-					s.c_str());
+			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s);
+			return;
+		}
+		if constexpr (std::is_convertible_v<Arg, const std::string_view &>) {
+			const std::string_view &s = arg;
+			format_emit_string_view(result, spec, dynamic_ints, num_dynamic_ints, s);
 			return;
 		}
 		break;
