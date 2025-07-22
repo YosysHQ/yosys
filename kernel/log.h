@@ -122,7 +122,6 @@ extern int log_debug_suppressed;
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 
-void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
@@ -132,7 +131,6 @@ extern void (*log_verific_callback)(int msg_type, const char *message_id, const 
 void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
-void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 [[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 [[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 [[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
@@ -158,6 +156,18 @@ template <typename... Args>
 inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	log_formatted_header(design, fmt.format_string(), fmt.format(args...));
+}
+
+void log_formatted_warning(std::string_view prefix, std::string str);
+template <typename... Args>
+inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_warning("Warning: ", fmt.format(args...));
+}
+template <typename... Args>
+inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_warning("", fmt.format(args...));
 }
 
 static inline void log_suppressed() {
