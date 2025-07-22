@@ -203,13 +203,6 @@ static void logv_string(std::string_view format, std::string str) {
 	}
 }
 
-static void logv(const char *format, va_list ap)
-{
-	if (log_make_debug && !ys_debug(1))
-		return;
-	logv_string(format, vstringf(format, ap));
-}
-
 void log_formatted_string(std::string_view format, std::string str)
 {
 	if (log_make_debug && !ys_debug(1))
@@ -322,15 +315,9 @@ void log_formatted_file_warning(std::string_view filename, int lineno, std::stri
 	log_formatted_warning(prefix, std::move(str));
 }
 
-void log_file_info(const std::string &filename, int lineno,
-                      const char *format, ...)
+void log_formatted_file_info(std::string_view filename, int lineno, std::string str)
 {
-	va_list ap;
-	va_start(ap, format);
-	std::string fmt = stringf("%s:%d: Info: %s",
-			filename.c_str(), lineno, format);
-	logv(fmt.c_str(), ap);
-	va_end(ap);
+	log("%s:%d: Info: %s", filename, lineno, str);
 }
 
 [[noreturn]]
