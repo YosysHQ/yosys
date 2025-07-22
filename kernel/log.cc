@@ -256,10 +256,8 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 		log_files.pop_back();
 }
 
-static void logv_warning_with_prefix(const char *prefix,
-                                     const char *format, va_list ap)
+void log_formatted_warning(std::string_view prefix, std::string message)
 {
-	std::string message = vstringf(format, ap);
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
@@ -268,7 +266,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 	if (suppressed)
 	{
-		log("Suppressed %s%s", prefix, message.c_str());
+		log("Suppressed %s%s", prefix, message);
 	}
 	else
 	{
@@ -294,7 +292,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 		if (log_warnings.count(message))
 		{
-			log("%s%s", prefix, message.c_str());
+			log("%s%s", prefix, message);
 			log_flush();
 		}
 		else
@@ -302,7 +300,7 @@ static void logv_warning_with_prefix(const char *prefix,
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("%s%s", prefix, message.c_str());
+			log("%s%s", prefix, message);
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -318,16 +316,6 @@ static void logv_warning_with_prefix(const char *prefix,
 	}
 }
 
-static void logv_warning(const char *format, va_list ap)
-{
-	logv_warning_with_prefix("Warning: ", format, ap);
-}
-
-static void logv_warning_noprefix(const char *format, va_list ap)
-{
-	logv_warning_with_prefix("", format, ap);
-}
-
 void log_file_warning(const std::string &filename, int lineno,
                       const char *format, ...)
 {
@@ -335,7 +323,7 @@ void log_file_warning(const std::string &filename, int lineno,
 	va_start(ap, format);
 	std::string prefix = stringf("%s:%d: Warning: ",
 			filename.c_str(), lineno);
-	logv_warning_with_prefix(prefix.c_str(), format, ap);
+	log_formatted_warning(prefix, vstringf(format, ap));
 	va_end(ap);
 }
 
@@ -425,14 +413,6 @@ void log_file_error(const string &filename, int lineno,
 	logv_file_error(filename, lineno, format, ap);
 }
 
-void log_warning(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_warning(format, ap);
-	va_end(ap);
-}
-
 void log_experimental(const char *format, ...)
 {
 	va_list ap;
@@ -444,14 +424,6 @@ void log_experimental(const char *format, ...)
 		log_warning("Feature '%s' is experimental.\n", s.c_str());
 		log_experimentals.insert(s);
 	}
-}
-
-void log_warning_noprefix(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_warning_noprefix(format, ap);
-	va_end(ap);
 }
 
 void log_error(const char *format, ...)
