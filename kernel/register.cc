@@ -265,7 +265,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
 
 	if (pass_register[args[0]]->experimental_flag)
-		log_experimental("%s", args[0].c_str());
+		log_experimental(args[0]);
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	auto state = pass_register[args[0]]->pre_execute();
