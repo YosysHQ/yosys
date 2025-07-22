@@ -372,20 +372,16 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 #endif
 }
 
+void log_formatted_file_error(std::string_view filename, int lineno, std::string str)
+{
+	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
+	log_error_with_prefix(prefix, str);
+}
+
 void logv_file_error(const string &filename, int lineno,
                      const char *format, va_list ap)
 {
-	std::string prefix = stringf("%s:%d: ERROR: ",
-				     filename.c_str(), lineno);
-	log_error_with_prefix(prefix, vstringf(format, ap));
-}
-
-void log_file_error(const string &filename, int lineno,
-                    const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_file_error(filename, lineno, format, ap);
+	log_formatted_file_error(filename, lineno, vstringf(format, ap));
 }
 
 void log_experimental(const std::string &str)
