@@ -413,16 +413,11 @@ void log_file_error(const string &filename, int lineno,
 	logv_file_error(filename, lineno, format, ap);
 }
 
-void log_experimental(const char *format, ...)
+void log_experimental(const std::string &str)
 {
-	va_list ap;
-	va_start(ap, format);
-	string s = vstringf(format, ap);
-	va_end(ap);
-
-	if (log_experimentals_ignored.count(s) == 0 && log_experimentals.count(s) == 0) {
-		log_warning("Feature '%s' is experimental.\n", s.c_str());
-		log_experimentals.insert(s);
+	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
+		log_warning("Feature '%s' is experimental.\n", str);
+		log_experimentals.insert(str);
 	}
 }
 
