@@ -316,15 +316,10 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 	}
 }
 
-void log_file_warning(const std::string &filename, int lineno,
-                      const char *format, ...)
+void log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
 {
-	va_list ap;
-	va_start(ap, format);
-	std::string prefix = stringf("%s:%d: Warning: ",
-			filename.c_str(), lineno);
-	log_formatted_warning(prefix, vstringf(format, ap));
-	va_end(ap);
+	std::string prefix = stringf("%s:%d: Warning: ", filename, lineno);
+	log_formatted_warning(prefix, std::move(str));
 }
 
 void log_file_info(const std::string &filename, int lineno,
