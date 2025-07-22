@@ -121,9 +121,6 @@ extern int log_debug_suppressed;
 
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
-
-void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
 
@@ -169,6 +166,8 @@ inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Arg
 {
 	log_formatted_warning("", fmt.format(args...));
 }
+
+void log_experimental(const std::string &str);
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
