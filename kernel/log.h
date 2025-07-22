@@ -124,8 +124,6 @@ extern int log_debug_suppressed;
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
 
-// Log with filename to report a problem in a source file.
-void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
 [[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
@@ -168,6 +166,14 @@ inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Arg
 }
 
 void log_experimental(const std::string &str);
+
+// Log with filename to report a problem in a source file.
+void log_formatted_file_warning(std::string_view filename, int lineno, std::string str);
+template <typename... Args>
+void log_file_warning(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_file_warning(filename, lineno, fmt.format(args...));
+}
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
