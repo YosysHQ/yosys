@@ -21,7 +21,7 @@
 
 USING_YOSYS_NAMESPACE
 
-Json ContentListing::to_json() {
+Json ContentListing::to_json() const {
 	Json::object object;
 	object["type"] = type;
 	if (body.length()) object["body"] = body;
@@ -29,7 +29,7 @@ Json ContentListing::to_json() {
 	if (source_line != 0) object["source_line"] = source_line;
 	object["options"] = Json(options);
 	Json::array content_array;
-	for (auto child : _content) content_array.push_back(child->to_json());
+	for (auto child : _content) content_array.push_back(child.to_json());
 	object["content"] = content_array;
 	return object;
 }
@@ -73,9 +73,8 @@ ContentListing* ContentListing::open_option(const string &text,
 	const source_location location)
 {
 	log_assert(type.compare("root") == 0 || type.compare("usage") == 0);
-	auto option = new ContentListing("option", text, location);
-	add_content(option);
-	return option;
+	add_content("option", text, location);
+	return back();
 }
 
 #define MAX_LINE_LEN 80
@@ -131,20 +130,20 @@ PrettyHelp *PrettyHelp::get_current()
 	return current_help;
 }
 
-void PrettyHelp::log_help()
+void PrettyHelp::log_help() const
 {
-	for (auto content : _root_listing.get_content()) {
-		if (content->type.compare("usage") == 0) {
-			log_pass_str(content->body, 1, true);
+	for (auto &content : _root_listing) {
+		if (content.type.compare("usage") == 0) {
+			log_pass_str(content.body, 1, true);
 			log("\n");
-		} else if (content->type.compare("option") == 0) {
-			log_pass_str(content->body, 1);
-			for (auto text : content->get_content()) {
-				log_pass_str(text->body, 2);
+		} else if (content.type.compare("option") == 0) {
+			log_pass_str(content.body, 1);
+			for (auto text : content) {
+				log_pass_str(text.body, 2);
 				log("\n");
 			}
 		} else {
-			log_pass_str(content->body, 0);
+			log_pass_str(content.body, 0);
 			log("\n");
 		}
 	}

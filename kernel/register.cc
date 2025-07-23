@@ -923,8 +923,8 @@ struct HelpPass : public Pass {
 			json.name(name.c_str()); json.begin_object();
 			json.entry("title", title);
 			json.name("content"); json.begin_array();
-			for (auto content : cmd_help.get_content())
-				json.value(content->to_json());
+			for (auto &content : cmd_help)
+				json.value(content.to_json());
 			json.end_array();
 			json.entry("group", cmd_help.group);
 			json.entry("source_file", pass->location.file_name());
