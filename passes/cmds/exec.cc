@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/log_help.h"
+#include "kernel/register.h"
+#include "kernel/log.h"
 #include <cstdio>
 
 #if defined(_WIN32)
@@ -38,11 +38,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ExecPass : public Pass {
 	ExecPass() : Pass("exec", "execute commands in the operating system shell") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("passes/status");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

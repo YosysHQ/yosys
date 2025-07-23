@@ -22,7 +22,6 @@
 #include "kernel/modtools.h"
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
-#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -953,11 +952,6 @@ struct DftTagWorker {
 
 struct DftTagPass : public Pass {
 	DftTagPass() : Pass("dft_tag", "create tagging logic for data flow tracking") {}
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

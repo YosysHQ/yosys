@@ -90,10 +90,10 @@ public:
     template<typename T>
     void array(const T &&values)
     {
-        begin_array();
+        begin_object();
         for (auto &item : values)
             value(item);
-        end_array();
+        end_object();
     }
 };
 

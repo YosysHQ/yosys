@@ -116,9 +116,7 @@ struct MemContentsTest {
 
 struct FunctionalTestGeneric : public Pass
 {
-	FunctionalTestGeneric() : Pass("test_generic", "test the generic compute graph") {
-		internal();
-	}
+	FunctionalTestGeneric() : Pass("test_generic", "test the generic compute graph") {}
 
     void help() override
 	{

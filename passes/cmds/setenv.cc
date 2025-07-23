@@ -17,18 +17,15 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/log_help.h"
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
+#include "kernel/log.h"
+#include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 struct SetenvPass : public Pass {
 	SetenvPass() : Pass("setenv", "set an environment variable") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("passes/status");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

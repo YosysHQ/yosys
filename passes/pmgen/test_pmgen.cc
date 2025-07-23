@@ -117,9 +117,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 }
 
 struct TestPmgenPass : public Pass {
-	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") {
-		internal();
-	}
+	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

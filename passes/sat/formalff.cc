@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -487,11 +486,6 @@ void HierarchyWorker::propagate()
 
 struct FormalFfPass : public Pass {
 	FormalFfPass() : Pass("formalff", "prepare FFs for formal") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

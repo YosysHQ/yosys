@@ -18,9 +18,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-
 #include "kernel/yosys.h"
-#include "kernel/log_help.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -181,13 +179,7 @@ void SynthPropWorker::run()
 struct SyntProperties : public Pass {
 	SyntProperties() : Pass("synthprop", "synthesize SVA properties") { }
 
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
-
-	void help() override
+	virtual void help()
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -216,7 +208,7 @@ struct SyntProperties : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design* design) override
+	virtual void execute(std::vector<std::string> args, RTLIL::Design* design)
 	{
 		log_header(design, "Executing SYNTHPROP pass.\n");
 		SynthPropWorker worker(design);
