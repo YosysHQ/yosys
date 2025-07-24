@@ -29,7 +29,8 @@ ezSAT
 
 The files in ``libs/ezsat`` provide a library for simplifying generating CNF
 formulas for SAT solvers. It also contains bindings of MiniSAT. The ezSAT
-library is written by C. Wolf. It is used by the `sat` pass.
+library is written by C. Wolf. It is used by the `sat` pass (see
+:doc:`/cmd/sat`).
 
 fst
 ---
@@ -77,4 +78,4 @@ SubCircuit
 The files in ``libs/subcircuit`` provide a library for solving the subcircuit
 isomorphism problem. It is written by C. Wolf and based on the Ullmann Subgraph
 Isomorphism Algorithm :cite:p:`UllmannSubgraphIsomorphism`. It is used by the
-`extract` pass.
+extract pass (see :doc:`../cmd/extract`).

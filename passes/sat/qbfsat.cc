@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/log_help.h"
 #include "kernel/consteval.h"
 #include "qbfsat.h"
 
@@ -505,11 +504,6 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 
 struct QbfSatPass : public Pass {
 	QbfSatPass() : Pass("qbfsat", "solve a 2QBF-SAT problem in the circuit") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

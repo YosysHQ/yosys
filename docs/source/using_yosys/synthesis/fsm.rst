@@ -10,7 +10,7 @@ other commands:
    :start-after: #end:
    :caption: Passes called by `fsm`
 
-See also :doc:`/cmd/index_passes_fsm`.
+See also :doc:`/cmd/fsm`.
 
 The algorithms used for FSM detection and extraction are influenced by a more
 general reported technique :cite:p:`fsmextract`.

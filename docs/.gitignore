@@ -1,4 +1,5 @@
 /build/
+/source/cmd
 /source/generated
 /source/_images/**/*.log
 /source/_images/**/*.aux

@@ -59,6 +59,7 @@ jobs:
         with:
           name: cmd-ref-${{ github.sha }}
           path: |
+            docs/source/cmd
             docs/source/generated
             docs/source/_images
             docs/source/code_examples

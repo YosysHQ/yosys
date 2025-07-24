@@ -21,17 +21,15 @@ struct ExampleWorker
 
 struct ExampleDtPass : public Pass
 {
-	ExampleDtPass() : Pass("example_dt", "drivertools example") {
-		internal();
-	}
+	ExampleDtPass() : Pass("example_dt", "drivertools example") {}
 
-	void help() override
+    void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("TODO: add help message\n");
 		log("\n");
-	}
+    }
 
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

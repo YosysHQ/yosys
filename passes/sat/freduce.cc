@@ -17,12 +17,17 @@
  *
  */
 
+#include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
 #include "kernel/sigtools.h"
+#include "kernel/log.h"
 #include "kernel/satgen.h"
-#include "kernel/yosys.h"
-#include "kernel/log_help.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <algorithm>
+#include <limits>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -756,11 +761,6 @@ struct FreduceWorker
 
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

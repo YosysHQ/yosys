@@ -326,9 +326,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 }
 
 struct TestAutotbBackend : public Backend {
-	TestAutotbBackend() : Backend("=test_autotb", "generate simple test benches") {
-		internal();
-	}
+	TestAutotbBackend() : Backend("=test_autotb", "generate simple test benches") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

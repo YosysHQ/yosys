@@ -17,9 +17,10 @@
  *
  */
 
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
 #include "kernel/utils.h"
-#include "kernel/yosys.h"
-#include "kernel/log_help.h"
+#include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -423,12 +424,6 @@ public:
 
 struct GliftPass : public Pass {
 	GliftPass() : Pass("glift", "create GLIFT models and optimization problems") {}
-
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 
 	void help() override
 	{

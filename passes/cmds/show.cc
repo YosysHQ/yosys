@@ -17,9 +17,10 @@
  *
  */
 
-#include "kernel/yosys.h"
+#include "kernel/register.h"
 #include "kernel/celltypes.h"
-#include "kernel/log_help.h"
+#include "kernel/log.h"
+#include <string.h>
 
 #ifndef _WIN32
 #  include <dirent.h>
@@ -657,11 +658,6 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("passes/status");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

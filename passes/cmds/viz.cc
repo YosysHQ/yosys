@@ -19,7 +19,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/log_help.h"
 
 #ifndef _WIN32
 #  include <dirent.h>
@@ -818,11 +817,6 @@ struct VizWorker
 
 struct VizPass : public Pass {
 	VizPass() : Pass("viz", "visualize data flow graph") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("passes/status");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

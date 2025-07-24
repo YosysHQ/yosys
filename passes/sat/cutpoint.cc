@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 
 USING_YOSYS_NAMESPACE
@@ -26,11 +25,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CutpointPass : public Pass {
 	CutpointPass() : Pass("cutpoint", "adds formal cut points to the design") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("formal");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
