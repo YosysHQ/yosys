@@ -23,6 +23,9 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include <string_view>
+#include <unordered_map>
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL
@@ -122,7 +125,7 @@ struct RTLIL::IdString
 	} destruct_guard;
 
 	static std::vector<char*> global_id_storage_;
-	static dict<char*, int> global_id_index_;
+	static std::unordered_map<std::string_view, int> global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
 	static std::vector<int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
