@@ -384,4 +384,64 @@ std::string escape_filename_spaces(const std::string& filename)
 	return out;
 }
 
+void format_emit_no_conversions(std::string &result, std::string_view fmt)
+{
+	result.reserve(result.size() + fmt.size());
+	for (size_t i = 0; i < fmt.size(); ++i) {
+		char ch = fmt[i];
+		result.push_back(ch);
+		if (ch == '%' && i + 1 < fmt.size() && fmt[i + 1] == '%') {
+			++i;
+		}
+	}
+}
+
+void format_emit_string(std::string &result, std::string_view spec, int *dynamic_ints,
+	uint8_t num_dynamic_ints, const std::string &arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += arg;
+		return;
+	}
+	// Delegate nontrivial formats to the C library.
+	switch (num_dynamic_ints) {
+	case 0:
+		result += string_view_stringf(spec, arg.c_str());
+		return;
+	case 1:
+		result += string_view_stringf(spec, dynamic_ints[0], arg.c_str());
+		return;
+	case 2:
+		result += string_view_stringf(spec, dynamic_ints[0], dynamic_ints[1], arg.c_str());
+		return;
+	}
+	YOSYS_ABORT("Internal error");
+}
+
+void format_emit_string_view(std::string &result, std::string_view spec, int *dynamic_ints,
+	uint8_t num_dynamic_ints, std::string_view arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		// We can output the string without creating a temporary copy.
+		result += arg;
+		return;
+	}
+	// Delegate nontrivial formats to the C library. We need to construct
+	// a temporary string to ensure null termination.
+	switch (num_dynamic_ints) {
+	case 0:
+		result += string_view_stringf(spec, std::string(arg).c_str());
+		return;
+	case 1:
+		result += string_view_stringf(spec, dynamic_ints[0], std::string(arg).c_str());
+		return;
+	case 2:
+		result += string_view_stringf(spec, dynamic_ints[0], dynamic_ints[1], std::string(arg).c_str());
+		return;
+	}
+	YOSYS_ABORT("Internal error");
+}
+
 YOSYS_NAMESPACE_END

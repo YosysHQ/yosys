@@ -553,11 +553,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			new_cell->setPort("\\" + port.first, sig);
 		}
 
-		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
+		stats[stringf("%s cells to %s cells", cell_type.c_str(), new_cell->type.c_str())]++;
 	}
 
 	for (auto &stat: stats)
-		log(stat.first.c_str(), stat.second);
+		log("  mapped %d %s.\n", stat.second, stat.first);
 }
 
 struct DfflibmapPass : public Pass {
