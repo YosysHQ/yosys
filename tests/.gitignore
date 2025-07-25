@@ -1,3 +1,4 @@
 *.log
 *.out
 *.err
+run-test.mk

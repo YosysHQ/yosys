@@ -1,5 +1,2 @@
-t_*.log
-t_*.out
 t_*.v
 t_*.ys
-run-test.mk
