@@ -2978,6 +2978,9 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 	return top_mod_names;
 }
 
+static bool set_verific_global_flags = true;
+static bool already_imported = false;
+
 void verific_cleanup()
 {
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
@@ -3001,6 +3004,7 @@ void verific_cleanup()
 	Libset::Reset();
 	Message::Reset();
 	RuntimeFlags::DeleteAllFlags();
+	set_verific_global_flags = true;
 	LineFile::DeleteAllLineFiles();
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 	verific_incdirs.clear();
@@ -3432,7 +3436,6 @@ struct VerificPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		static bool set_verific_global_flags = true;
 
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
@@ -4127,6 +4130,9 @@ struct VerificPass : public Pass {
 			if ((unsigned long)verific_sva_fsm_limit >= sizeof(1ull)*8)
 				log_cmd_error("-L %d: limit too large; maximum allowed value is %zu.\n", verific_sva_fsm_limit, sizeof(1ull)*8-1);
 
+			if (already_imported)
+				log_warning("Note that all Verific flags were reset to defaults after last -import.\n");
+
 			std::set<std::string> top_mod_names;
 
 			if (mode_all)
@@ -4204,6 +4210,7 @@ struct VerificPass : public Pass {
 			}
 
 			verific_cleanup();
+			already_imported = true;
 			goto check_error;
 		}
 
