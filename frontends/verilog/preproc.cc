@@ -34,6 +34,7 @@
 
 #include "preproc.h"
 #include "verilog_frontend.h"
+#include "frontends/verilog/verilog_parser.tab.hh"
 #include "kernel/log.h"
 #include <assert.h>
 #include <stack>
@@ -749,7 +750,9 @@ frontend_verilog_preproc(std::istream                 &f,
                          std::string                   filename,
                          const define_map_t           &pre_defines,
                          define_map_t                 &global_defines_cache,
-                         const std::list<std::string> &include_dirs)
+                         const std::list<std::string> &include_dirs,
+                         ParseState                   &parse_state,
+                         ParseMode                    &parse_mode)
 {
 	define_map_t defines;
 	defines.merge(pre_defines);
@@ -961,11 +964,11 @@ frontend_verilog_preproc(std::istream                 &f,
 		}
 
 		if (tok == "`resetall") {
-			default_nettype_wire = true;
+			parse_state.default_nettype_wire = true;
 			continue;
 		}
 
-		if (tok == "`undefineall" && sv_mode) {
+		if (tok == "`undefineall" && parse_mode.sv) {
 			defines.clear();
 			global_defines_cache.clear();
 			continue;
