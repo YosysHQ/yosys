@@ -195,20 +195,18 @@ module \$__XILINX_SHIFTX (A, B, Y);
     else if (A_WIDTH < `MIN_MUX_INPUTS) begin
       wire _TECHMAP_FAIL_ = 1;
     end
-    else if (A_WIDTH == 2) begin
-      MUXF7 fpga_hard_mux (.I0(A[0]), .I1(A[1]), .S(B[0]), .O(Y));
+    else if (A_WIDTH == 1) begin
+      assign Y = A[0];
     end
+    // Use one LUT3 instead of a MUXF7 because a MUXF7 gets its inputs from 2 LUT6.O6 anyway
+    else if (A_WIDTH == 2) begin
+      assign Y = B[0] ? A[1] : A[0];
+    end
+    // Use one LUT6 instead of 2 LUT3 + MUXF7 because a MUXF7 gets its inputs from 2 LUT6.O6 anyway
     else if (A_WIDTH <= 4) begin
-      wire [4-1:0] Ax;
-      if (A_WIDTH == 4)
-        assign Ax = A;
-      else
-        // Rather than extend with 1'bx which gets flattened to 1'b0
-        // causing the "don't care" status to get lost, extend with
-        // the same driver of F7B.I0 so that we can optimise F7B away
-        // later
-        assign Ax = {A[1], A};
-      \$__XILINX_MUXF78 fpga_hard_mux (.I0(Ax[0]), .I1(Ax[2]), .I2(Ax[1]), .I3(Ax[3]), .S0(B[1]), .S1(B[0]), .O(Y));
+      wire [4-1:0] Ax = {{(4-A_WIDTH){1'bx}}, A};
+      assign Y = B[1] ? (B[0] ? Ax[3] : Ax[2])
+                      : (B[0] ? Ax[1] : Ax[0]);
     end
     // Note that the following decompositions are 'backwards' in that
     // the LSBs are placed on the hard resources, and the soft resources
@@ -232,15 +230,46 @@ module \$__XILINX_SHIFTX (A, B, Y);
     // but that the 'backwards' mapping (left) is more delay efficient
     // since smaller LUTs are faster than wider ones.
     else if (A_WIDTH <= 8) begin
-      wire [8-1:0] Ax = {{{8-A_WIDTH}{1'bx}}, A};
-      wire T0 = B[2] ? Ax[4] : Ax[0];
-      wire T1 = B[2] ? Ax[5] : Ax[1];
-      wire T2 = B[2] ? Ax[6] : Ax[2];
-      wire T3 = B[2] ? Ax[7] : Ax[3];
-      \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T1), .I3(T3), .S0(B[1]), .S1(B[0]), .O(Y));
+      wire [8-1:0] Ax = {{(8-A_WIDTH){1'bx}}, A};
+      // For 5-8 inputs, there are 2 possible implementations:
+      // - Using 4 LUT3 + 2 MUXF7 + MUXF8
+      //   The MUXF7 inputs come from LUT6.O6 outputs so at best this would mean I5=1, inputs I4-I3-I2 for the MUX, leaving only I1-I0 available for other logic
+      //   This means only 4 other LUT2 operations can be mapped to the slice (or larger ones assuming input sharing)
+      // - Using 2 LUT6 + MUXF7
+      //   This leaves 2 LUT6 + 2 inputs Cx and Dx available for other logic
+      // The solution used here is 2 LUT6 + MUXF7 for the following reasons :
+      // - Area report is much closer to what a user would expect
+      // - The rest of the slice is probably easier to use by place and route tools
+      // - Delay should be rather similar
+      wire T0 = B[1] ? (B[2] ? Ax[6] : Ax[2])
+                     : (B[2] ? Ax[4] : Ax[0]);
+      wire T1 = B[1] ? (B[2] ? Ax[7] : Ax[3])
+                     : (B[2] ? Ax[5] : Ax[1]);
+      MUXF7 fpga_hard_mux (.I0(T0), .I1(T1), .S(B[0]), .O(Y));
+    end
+    else if (A_WIDTH <= 12) begin
+      wire [12-1:0] Ax = {{(12-A_WIDTH){1'bx}}, A};
+      // For 9-12 inputs, only 3 LUT6 are needed
+      // Note that an explicit user objective of optimization for delay might make the mux16 below preferrable
+      // (not a binary decision though : the overall design would be larger, which is not good for wire delay)
+      wire T0 = B[1] ? (B[0] ? Ax[ 3] : Ax[ 2])
+                     : (B[0] ? Ax[ 1] : Ax[ 0]);
+      wire T1 = B[1] ? (B[0] ? Ax[ 7] : Ax[ 6])
+                     : (B[0] ? Ax[ 5] : Ax[ 4]);
+      wire T2 = B[1] ? (B[0] ? Ax[11] : Ax[10])
+                     : (B[0] ? Ax[ 9] : Ax[ 8]);
+      // Set parameters _TECHMAP_* to indicate that I2===I3 so that the upper MUXF7 is bypassed (assuming this is well handled by pnr tools)
+      \$__XILINX_MUXF78 #(
+        ._TECHMAP_BITS_CONNMAP_(2),
+        ._TECHMAP_CONNMAP_I0_(2'd0),
+        ._TECHMAP_CONNMAP_I1_(2'd1),
+        ._TECHMAP_CONNMAP_I2_(2'd2),
+        ._TECHMAP_CONNMAP_I3_(2'd2)
+      ) fpga_hard_mux (.I0(T0), .I1(T1), .I2(T2), .I3(T2), .S0(B[2]), .S1(B[3]), .O(Y));
     end
     else if (A_WIDTH <= 16) begin
-      wire [16-1:0] Ax = {{{16-A_WIDTH}{1'bx}}, A};
+      // For 13-16 inputs, use the full slice with 'backwards' decomposition described above
+      wire [16-1:0] Ax = {{(16-A_WIDTH){1'bx}}, A};
       wire T0 = B[2] ? B[3] ? Ax[12] : Ax[4]
                      : B[3] ? Ax[ 8] : Ax[0];
       wire T1 = B[2] ? B[3] ? Ax[13] : Ax[5]
@@ -252,32 +281,36 @@ module \$__XILINX_SHIFTX (A, B, Y);
       \$__XILINX_MUXF78 fpga_hard_mux (.I0(T0), .I1(T2), .I2(T1), .I3(T3), .S0(B[1]), .S1(B[0]), .O(Y));
     end
     else begin
+      // For more than 16 inputs, recursively split into sub-multiplexers of size at most 16
       localparam num_mux16 = (A_WIDTH+15) / 16;
       localparam clog2_num_mux16 = $clog2(num_mux16);
       wire [num_mux16-1:0] T;
-      wire [num_mux16*16-1:0] Ax = {{(num_mux16*16-A_WIDTH){1'bx}}, A};
-      for (i = 0; i < num_mux16; i++)
+      for (i = 0; i < num_mux16; i++) begin
+        localparam local_num_in = (A_WIDTH-i*16 < 16) ? A_WIDTH-i*16 : 16;
+        localparam clog2_num_in = $clog2(local_num_in);
         \$__XILINX_SHIFTX  #(
           .A_SIGNED(A_SIGNED),
           .B_SIGNED(B_SIGNED),
-          .A_WIDTH(16),
-          .B_WIDTH(4),
+          .A_WIDTH(local_num_in),
+          .B_WIDTH(clog2_num_in),
           .Y_WIDTH(Y_WIDTH)
         ) fpga_mux (
-          .A(Ax[i*16+:16]),
-          .B(B[3:0]),
+          .A(A[i*16+:local_num_in]),
+          .B(B[clog2_num_in-1:0]),
           .Y(T[i])
         );
+      end
       \$__XILINX_SHIFTX  #(
-          .A_SIGNED(A_SIGNED),
-          .B_SIGNED(B_SIGNED),
-          .A_WIDTH(num_mux16),
-          .B_WIDTH(clog2_num_mux16),
-          .Y_WIDTH(Y_WIDTH)
+        .A_SIGNED(A_SIGNED),
+        .B_SIGNED(B_SIGNED),
+        .A_WIDTH(num_mux16),
+        .B_WIDTH(clog2_num_mux16),
+        .Y_WIDTH(Y_WIDTH)
       ) _TECHMAP_REPLACE_ (
-          .A(T),
-          .B(B[B_WIDTH-1-:clog2_num_mux16]),
-          .Y(Y));
+        .A(T),
+        .B(B[4+:clog2_num_mux16]),
+        .Y(Y)
+      );
     end
   endgenerate
 endmodule
