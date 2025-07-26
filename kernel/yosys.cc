@@ -177,7 +177,7 @@ int run_command(const std::string &command, std::function<void(const std::string
 
 	int ret = pclose(f);
 	if (ret < 0)
-		return -1;
+		return -2;
 #ifdef _WIN32
 	return ret;
 #else
