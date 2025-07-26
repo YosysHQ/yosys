@@ -44,7 +44,12 @@ LINK_ABC := 0
 # Needed for environments that can't run executables (i.e. emscripten, wasm)
 DISABLE_SPAWN := 0
 # Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
+ENABLE_THREADS := 1
+ifeq ($(ENABLE_THREADS),1)
 DISABLE_ABC_THREADS := 0
+else
+DISABLE_ABC_THREADS := 1
+endif
 
 # clang sanitizers
 SANITIZER =
@@ -300,6 +305,7 @@ DISABLE_SPAWN := 1
 
 ifeq ($(ENABLE_ABC),1)
 LINK_ABC := 1
+ENABLE_THREADS := 0
 DISABLE_ABC_THREADS := 1
 endif
 
@@ -457,6 +463,11 @@ CXXFLAGS := -Og -DDEBUG $(filter-out $(OPT_LEVEL),$(CXXFLAGS))
 STRIP :=
 endif
 
+ifeq ($(ENABLE_THREADS),1)
+CXXFLAGS += -DYOSYS_ENABLE_THREADS
+LIBS += -lpthread
+endif
+
 ifeq ($(ENABLE_ABC),1)
 CXXFLAGS += -DYOSYS_ENABLE_ABC
 ifeq ($(LINK_ABC),1)
@@ -612,6 +623,7 @@ $(eval $(call add_include_file,kernel/satgen.h))
 $(eval $(call add_include_file,kernel/scopeinfo.h))
 $(eval $(call add_include_file,kernel/sexpr.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
+$(eval $(call add_include_file,kernel/threading.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
 $(eval $(call add_include_file,kernel/yosys.h))
@@ -638,7 +650,7 @@ OBJS += kernel/log_compat.o
 endif
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
-OBJS += kernel/drivertools.o kernel/functional.o
+OBJS += kernel/drivertools.o kernel/functional.o kernel/threading.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif

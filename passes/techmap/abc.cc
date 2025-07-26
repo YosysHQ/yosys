@@ -48,6 +48,7 @@
 #include "kernel/ff.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
+#include "kernel/threading.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,7 @@
 #include <cerrno>
 #include <sstream>
 #include <climits>
+#include <memory>
 #include <vector>
 
 #ifndef _WIN32
@@ -153,30 +155,41 @@ struct AbcSigVal {
 
 using AbcSigMap = SigValMap<AbcSigVal>;
 
-struct AbcModuleState {
+// Used by off-main-threads. Contains no direct or indirect access to RTLIL.
+struct RunAbcState {
 	const AbcConfig &config;
 
-	int map_autoidx = 0;
+	std::string tempdir_name;
 	std::vector<gate_t> signal_list;
+	bool did_run = false;
+	bool err = false;
+	DeferredLogs logs;
+	dict<int, std::string> pi_map, po_map;
+
+	RunAbcState(const AbcConfig &config) : config(config) {}
+	void run();
+};
+
+struct AbcModuleState {
+	RunAbcState run_abc;
+
+	int map_autoidx = 0;
 	std::vector<RTLIL::SigBit> signal_bits;
 	dict<RTLIL::SigBit, int> signal_map;
 	FfInitVals &initvals;
 	bool had_init = false;
-	bool did_run_abc = false;
 
 	bool clk_polarity = false;
 	bool en_polarity = false;
 	bool arst_polarity = false;
 	bool srst_polarity = false;
 	RTLIL::SigSpec clk_sig, en_sig, arst_sig, srst_sig;
-	dict<int, std::string> pi_map, po_map;
 
 	int undef_bits_lost = 0;
 
-	std::string tempdir_name;
-
 	AbcModuleState(const AbcConfig &config, FfInitVals &initvals)
-		: config(config), initvals(initvals) {}
+		: run_abc(config), initvals(initvals) {}
+	AbcModuleState(AbcModuleState&&) = delete;
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
@@ -186,7 +199,6 @@ struct AbcModuleState {
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
 	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void run_abc();
 	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
@@ -200,7 +212,7 @@ int AbcModuleState::map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, g
 
 	if (signal_map.count(bit) == 0) {
 		gate_t gate;
-		gate.id = signal_list.size();
+		gate.id = run_abc.signal_list.size();
 		gate.type = G(NONE);
 		gate.in1 = -1;
 		gate.in2 = -1;
@@ -212,11 +224,11 @@ int AbcModuleState::map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, g
 		gate.init = initvals(bit);
 		gate.bit_str = std::string(log_signal(bit));
 		signal_map[bit] = gate.id;
-		signal_list.push_back(std::move(gate));
+		run_abc.signal_list.push_back(std::move(gate));
 		signal_bits.push_back(bit);
 	}
 
-	gate_t &gate = signal_list[signal_map[bit]];
+	gate_t &gate = run_abc.signal_list[signal_map[bit]];
 
 	if (gate_type != G(NONE))
 		gate.type = gate_type;
@@ -236,7 +248,7 @@ void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 {
 	for (auto &bit : assign_map(sig))
 		if (bit.wire != nullptr && signal_map.count(bit) > 0)
-			signal_list[signal_map[bit]].is_port = true;
+			run_abc.signal_list[signal_map[bit]].is_port = true;
 }
 
 bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
@@ -315,7 +327,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 		if (keepff) {
 			SigBit bit = ff.sig_q;
 			if (assign_map(bit).wire != nullptr) {
-				signal_list[gate_id].is_port = true;
+				run_abc.signal_list[gate_id].is_port = true;
 			}
 			if (bit.wire != nullptr)
 				bit.wire->attributes[ID::keep] = 1;
@@ -467,7 +479,7 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
 			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
 
-			if (sid < GetSize(signal_list))
+			if (sid < GetSize(run_abc.signal_list))
 			{
 				const auto &bit = signal_bits.at(sid);
 				if (bit.wire != nullptr)
@@ -507,7 +519,7 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, signal_list[n].bit_str.c_str(),
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, run_abc.signal_list[n].bit_str.c_str(),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
@@ -529,7 +541,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
 
 	dict<int, pool<int>> edges;
-	std::vector<int> in_edges_count(signal_list.size());
+	std::vector<int> in_edges_count(run_abc.signal_list.size());
 	pool<int> workpool;
 
 	FILE *dot_f = nullptr;
@@ -538,7 +550,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 	// uncomment for troubleshooting the loop detection code
 	// dot_f = fopen("test.dot", "w");
 
-	for (auto &g : signal_list) {
+	for (auto &g : run_abc.signal_list) {
 		if (g.type == G(NONE) || g.type == G(FF) || g.type == G(FF0) || g.type == G(FF1)) {
 			workpool.insert(g.id);
 		} else {
@@ -621,29 +633,29 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			for (int id2 : edges[id1]) {
 				if (first_line)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							signal_list[id1].bit_str, signal_list[id2].bit_str);
+							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				else
 					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							signal_list[id1].bit_str, signal_list[id2].bit_str);
+							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				first_line = false;
 			}
 
 			int id3 = map_signal(assign_map, RTLIL::SigSpec(wire));
-			signal_list[id1].is_port = true;
-			signal_list[id3].is_port = true;
+			run_abc.signal_list[id1].is_port = true;
+			run_abc.signal_list[id3].is_port = true;
 			log_assert(id3 == int(in_edges_count.size()));
 			in_edges_count.push_back(0);
 			workpool.insert(id3);
 
 			for (int id2 : edges[id1]) {
-				if (signal_list[id2].in1 == id1)
-					signal_list[id2].in1 = id3;
-				if (signal_list[id2].in2 == id1)
-					signal_list[id2].in2 = id3;
-				if (signal_list[id2].in3 == id1)
-					signal_list[id2].in3 = id3;
-				if (signal_list[id2].in4 == id1)
-					signal_list[id2].in4 = id3;
+				if (run_abc.signal_list[id2].in1 == id1)
+					run_abc.signal_list[id2].in1 = id3;
+				if (run_abc.signal_list[id2].in2 == id1)
+					run_abc.signal_list[id2].in2 = id3;
+				if (run_abc.signal_list[id2].in3 == id1)
+					run_abc.signal_list[id2].in3 = id3;
+				if (run_abc.signal_list[id2].in4 == id1)
+					run_abc.signal_list[id2].in4 = id3;
 			}
 			edges[id1].swap(edges[id3]);
 
@@ -724,14 +736,14 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 
 struct abc_output_filter
 {
-	const AbcModuleState &state;
+	RunAbcState &state;
 	bool got_cr;
 	int escape_seq_state;
 	std::string linebuf;
 	std::string tempdir_name;
 	bool show_tempdir;
 
-	abc_output_filter(const AbcModuleState& state, std::string tempdir_name, bool show_tempdir)
+	abc_output_filter(RunAbcState& state, std::string tempdir_name, bool show_tempdir)
 		: state(state), tempdir_name(tempdir_name), show_tempdir(show_tempdir)
 	{
 		got_cr = false;
@@ -759,7 +771,7 @@ struct abc_output_filter
 			return;
 		}
 		if (ch == '\n') {
-			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir));
+			state.logs.log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir));
 			got_cr = false, linebuf.clear();
 			return;
 		}
@@ -772,7 +784,7 @@ struct abc_output_filter
 	{
 		int pi, po;
 		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
-			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
+			state.logs.log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
 					pi, state.pi_map.count(pi) ? state.pi_map.at(pi).c_str() : "???",
 					po, state.po_map.count(po) ? state.po_map.at(po).c_str() : "???");
 			return;
@@ -858,16 +870,17 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
+	const AbcConfig &config = run_abc.config;
 	if (config.cleanup)
-		tempdir_name = get_base_tmpdir() + "/";
+		run_abc.tempdir_name = get_base_tmpdir() + "/";
 	else
-		tempdir_name = "_tmp_";
-	tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
-	tempdir_name = make_temp_dir(tempdir_name);
+		run_abc.tempdir_name = "_tmp_";
+	run_abc.tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
+	run_abc.tempdir_name = make_temp_dir(run_abc.tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
-			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, config.show_tempdir).c_str());
+			module->name.c_str(), replace_tempdir(run_abc.tempdir_name, run_abc.tempdir_name, config.show_tempdir).c_str());
 
-	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", tempdir_name);
+	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.tempdir_name);
 
 	if (!config.liberty_files.empty() || !config.genlib_files.empty()) {
 		std::string dont_use_args;
@@ -933,15 +946,15 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + config.lutin_shared + abc_script.substr(pos+3);
 	if (config.abc_dress)
-		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name);
-	abc_script += stringf("; write_blif %s/output.blif", tempdir_name);
+		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.tempdir_name);
+	abc_script += stringf("; write_blif %s/output.blif", run_abc.tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
 		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
 			abc_script[i+1] = '\n';
 
-	std::string buffer = stringf("%s/abc.script", tempdir_name);
+	std::string buffer = stringf("%s/abc.script", run_abc.tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
@@ -997,12 +1010,15 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	handle_loops(assign_map, module);
 }
 
-void AbcModuleState::run_abc()
+void RunAbcState::run()
 {
 	std::string buffer = stringf("%s/input.blif", tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
-	if (f == nullptr)
-		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
+	if (f == nullptr) {
+		logs.log("Opening %s for writing failed: %s\n", buffer, strerror(errno));
+		err = true;
+		return;
+	}
 
 	fprintf(f, ".model netlist\n");
 
@@ -1117,13 +1133,14 @@ void AbcModuleState::run_abc()
 	fprintf(f, ".end\n");
 	fclose(f);
 
-	log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
+	logs.log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
 			count_gates, GetSize(signal_list), count_input, count_output);
 	if (count_output > 0)
 	{
 		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file, tempdir_name);
-		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir));
+		logs.log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir));
 
+		errno = 0;
 #ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(*this, tempdir_name, config.show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
@@ -1172,10 +1189,10 @@ void AbcModuleState::run_abc()
 		temp_stdouterr_r.close();
 #endif
 		if (ret != 0) {
-			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer, ret);
+			logs.log_error("ABC: execution of command \"%s\" failed: return code %d (errno=%d).\n", buffer, ret, errno);
 			return;
 		}
-		did_run_abc = true;
+		did_run = true;
 		return;
 	}
 	log("Don't call ABC as there is nothing to map.\n");
@@ -1242,19 +1259,23 @@ void emit_global_input_files(const AbcConfig &config)
 
 void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
 {
-	if (!did_run_abc) {
+	log_push();
+	log_header(design, "Executed ABC.\n");
+	run_abc.logs.flush();
+	if (!run_abc.did_run) {
+		finish();
 		return;
 	}
 
-	std::string buffer = stringf("%s/%s", tempdir_name, "output.blif");
+	std::string buffer = stringf("%s/%s", run_abc.tempdir_name, "output.blif");
 	std::ifstream ifs;
 	ifs.open(buffer);
 	if (ifs.fail())
 		log_error("Can't open ABC output file `%s'.\n", buffer);
 
-	bool builtin_lib = config.liberty_files.empty() && config.genlib_files.empty();
+	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
 	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, config.sop_mode);
+	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, run_abc.config.sop_mode);
 
 	ifs.close();
 
@@ -1503,7 +1524,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	for (auto &it : cell_stats)
 		log("ABC RESULTS:   %15s cells: %8d\n", it.first, it.second);
 	int in_wires = 0, out_wires = 0;
-	for (auto &si : signal_list)
+	for (auto &si : run_abc.signal_list)
 		if (si.is_port) {
 			char buffer[100];
 			snprintf(buffer, 100, "\\ys__n%d", si.id);
@@ -1519,20 +1540,22 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			}
 			connect(assign_map, module, conn);
 		}
-	log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
+	log("ABC RESULTS:        internal signals: %8d\n", int(run_abc.signal_list.size()) - in_wires - out_wires);
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
 	delete mapped_design;
+	finish();
 }
 
 void AbcModuleState::finish()
 {
-	if (config.cleanup)
+	if (run_abc.config.cleanup)
 	{
 		log("Removing temp directory.\n");
-		remove_directory(tempdir_name);
+		remove_directory(run_abc.tempdir_name);
 	}
+	log_pop();
 }
 
 // For every signal that connects cells from different sets, or a cell in a set to a cell not in any set,
@@ -2182,12 +2205,8 @@ struct AbcPass : public Pass {
 
 				AbcModuleState state(config, initvals);
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
-				log_push();
-				log_header(design, "Executing ABC.\n");
-				state.run_abc();
+				state.run_abc.run();
 				state.extract(assign_map, design, mod);
-				state.finish();
-				log_pop();
 				continue;
 			}
 
@@ -2332,36 +2351,74 @@ struct AbcPass : public Pass {
 			}
 
 			log_header(design, "Summary of detected clock domains:\n");
-			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s, en=%s%s, arst=%s%s, srst=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)),
-						std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)),
-						std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
-
 			{
 				std::vector<std::vector<RTLIL::Cell*>*> cell_sets;
-				for (auto &it : assigned_cells)
+				for (auto &it : assigned_cells) {
+					log("  %d cells in clk=%s%s, en=%s%s, arst=%s%s, srst=%s%s\n", GetSize(it.second),
+							std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
+							std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)),
+							std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)),
+							std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
 					cell_sets.push_back(&it.second);
+				}
 				assign_cell_connection_ports(mod, cell_sets, assign_map);
 			}
+
+			// Reserve one core for our main thread, and don't create more worker threads
+			// than ABC runs.
+			int max_threads = assigned_cells.size();
+			if (max_threads <= 1) {
+				// Just do everything on the main thread.
+				max_threads = 0;
+			}
+#ifdef YOSYS_LINK_ABC
+			// ABC does't support multithreaded calls so don't call it off the main thread.
+			max_threads = 0;
+#endif
+			int num_worker_threads = ThreadPool::pool_size(1, max_threads);
+			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
+			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
+			int work_finished_count = 0;
+			ThreadPool worker_threads(num_worker_threads, [&](int){
+					while (std::optional<std::unique_ptr<AbcModuleState>> work =
+							work_queue.pop_front()) {
+						// Only the `run_abc` component is safe to touch here!
+						(*work)->run_abc.run();
+						work_finished_queue.push_back(std::move(*work));
+					}
+				});
 			for (auto &it : assigned_cells) {
-				AbcModuleState state(config, initvals);
-				state.clk_polarity = std::get<0>(it.first);
-				state.clk_sig = assign_map(std::get<1>(it.first));
-				state.en_polarity = std::get<2>(it.first);
-				state.en_sig = assign_map(std::get<3>(it.first));
-				state.arst_polarity = std::get<4>(it.first);
-				state.arst_sig = assign_map(std::get<5>(it.first));
-				state.srst_polarity = std::get<6>(it.first);
-				state.srst_sig = assign_map(std::get<7>(it.first));
-				state.prepare_module(design, mod, assign_map, it.second, !state.clk_sig.empty(), "$");
-				log_push();
-				log_header(design, "Executing ABC.\n");
-				state.run_abc();
-				state.extract(assign_map, design, mod);
-				state.finish();
-				log_pop();
+				// Process ABC results that have already finished before queueing another ABC.
+				// This should keep our memory usage down.
+				while (std::optional<std::unique_ptr<AbcModuleState>> work =
+						work_finished_queue.try_pop_front()) {
+					(*work)->extract(assign_map, design, mod);
+					++work_finished_count;
+				}
+				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals);
+				state->clk_polarity = std::get<0>(it.first);
+				state->clk_sig = assign_map(std::get<1>(it.first));
+				state->en_polarity = std::get<2>(it.first);
+				state->en_sig = assign_map(std::get<3>(it.first));
+				state->arst_polarity = std::get<4>(it.first);
+				state->arst_sig = assign_map(std::get<5>(it.first));
+				state->srst_polarity = std::get<6>(it.first);
+				state->srst_sig = assign_map(std::get<7>(it.first));
+				state->prepare_module(design, mod, assign_map, it.second, !state->clk_sig.empty(), "$");
+				if (num_worker_threads > 0) {
+					work_queue.push_back(std::move(state));
+				} else {
+					// Just run everything on the main thread.
+					state->run_abc.run();
+					work_finished_queue.push_back(std::move(state));
+				}
+			}
+			work_queue.close();
+			while (work_finished_count < static_cast<int>(assigned_cells.size())) {
+				std::optional<std::unique_ptr<AbcModuleState>> work =
+					work_finished_queue.pop_front();
+				(*work)->extract(assign_map, design, mod);
+				++work_finished_count;
 			}
 		}
 
