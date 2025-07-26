@@ -291,12 +291,13 @@ void AbcModuleState::extract_cell(RTLIL::Module *module, RTLIL::Cell *cell, bool
 				return;
 		}
 
-		if (keepff)
-			for (auto &c : ff.sig_q.chunks())
-				if (c.wire != nullptr)
-					c.wire->attributes[ID::keep] = 1;
-
-		map_signal(ff.sig_q, type, map_signal(ff.sig_d));
+		int gate_id = map_signal(ff.sig_q, type, map_signal(ff.sig_d));
+		if (keepff) {
+			SigBit bit = ff.sig_q;
+			if (assign_map(bit).wire != nullptr) {
+				signal_list[gate_id].is_port = true;
+			}
+		}
 
 		ff.remove();
 		return;
@@ -942,7 +943,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, co
 		log("Replacing %d occurrences of constant undef bits with constant zero bits\n", undef_bits_lost);
 
 	for (auto wire : module->wires()) {
-		if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+		if (wire->port_id > 0)
 			mark_port(wire);
 	}
 
