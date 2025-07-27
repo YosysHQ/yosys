@@ -138,6 +138,18 @@ struct AbcConfig
 	bool abc_dress = false;
 };
 
+struct AbcSigVal {
+	bool is_port;
+
+	AbcSigVal(bool is_port = false) : is_port(is_port) {}
+	AbcSigVal &operator|=(const AbcSigVal &other) {
+		is_port |= other.is_port;
+		return *this;
+	}
+};
+
+using AbcSigMap = SigValMap<AbcSigVal>;
+
 struct AbcModuleState {
 	const AbcConfig &config;
 
@@ -161,21 +173,21 @@ struct AbcModuleState {
 
 	AbcModuleState(const AbcConfig &config) : config(config) {}
 
-	int map_signal(const SigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
-	void mark_port(const SigMap &assign_map, RTLIL::SigSpec sig);
-	void extract_cell(const SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
+	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
+	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
+	bool extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
 	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
-	void handle_loops(SigMap &assign_map, RTLIL::Module *module);
-	void abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
+	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
+	void abc_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
+	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
 
-int AbcModuleState::map_signal(const SigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type, int in1, int in2, int in3, int in4)
+int AbcModuleState::map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type, int in1, int in2, int in3, int in4)
 {
-	assign_map.apply(bit);
+	AbcSigVal val = assign_map.apply_and_get_value(bit);
 
 	if (bit == State::Sx)
 		undef_bits_lost++;
@@ -188,7 +200,7 @@ int AbcModuleState::map_signal(const SigMap &assign_map, RTLIL::SigBit bit, gate
 		gate.in2 = -1;
 		gate.in3 = -1;
 		gate.in4 = -1;
-		gate.is_port = false;
+		gate.is_port = bit.wire != nullptr && val.is_port;
 		gate.bit = bit;
 		gate.init = initvals(bit);
 		signal_list.push_back(gate);
@@ -211,40 +223,40 @@ int AbcModuleState::map_signal(const SigMap &assign_map, RTLIL::SigBit bit, gate
 	return gate.id;
 }
 
-void AbcModuleState::mark_port(const SigMap &assign_map, RTLIL::SigSpec sig)
+void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 {
 	for (auto &bit : assign_map(sig))
 		if (bit.wire != nullptr && signal_map.count(bit) > 0)
 			signal_list[signal_map[bit]].is_port = true;
 }
 
-void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
+bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
 	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 		FfData ff(&initvals, cell);
 		gate_type_t type = G(FF);
 		if (!ff.has_clk)
-			return;
+			return false;
 		if (ff.has_gclk)
-			return;
+			return false;
 		if (ff.has_aload)
-			return;
+			return false;
 		if (ff.has_sr)
-			return;
+			return false;
 		if (!ff.is_fine)
-			return;
+			return false;
 		if (clk_polarity != ff.pol_clk)
-			return;
+			return false;
 		if (clk_sig != assign_map(ff.sig_clk))
-			return;
+			return false;
 		if (ff.has_ce) {
 			if (en_polarity != ff.pol_ce)
-				return;
+				return false;
 			if (en_sig != assign_map(ff.sig_ce))
-				return;
+				return false;
 		} else {
 			if (GetSize(en_sig) != 0)
-				return;
+				return false;
 		}
 		if (ff.val_init == State::S1) {
 			type = G(FF1);
@@ -255,39 +267,39 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		}
 		if (ff.has_arst) {
 			if (arst_polarity != ff.pol_arst)
-				return;
+				return false;
 			if (arst_sig != assign_map(ff.sig_arst))
-				return;
+				return false;
 			if (ff.val_arst == State::S1) {
 				if (type == G(FF0))
-					return;
+					return false;
 				type = G(FF1);
 			} else if (ff.val_arst == State::S0) {
 				if (type == G(FF1))
-					return;
+					return false;
 				type = G(FF0);
 			}
 		} else {
 			if (GetSize(arst_sig) != 0)
-				return;
+				return false;
 		}
 		if (ff.has_srst) {
 			if (srst_polarity != ff.pol_srst)
-				return;
+				return false;
 			if (srst_sig != assign_map(ff.sig_srst))
-				return;
+				return false;
 			if (ff.val_srst == State::S1) {
 				if (type == G(FF0))
-					return;
+					return false;
 				type = G(FF1);
 			} else if (ff.val_srst == State::S0) {
 				if (type == G(FF1))
-					return;
+					return false;
 				type = G(FF0);
 			}
 		} else {
 			if (GetSize(srst_sig) != 0)
-				return;
+				return false;
 		}
 
 		int gate_id = map_signal(assign_map, ff.sig_q, type, map_signal(assign_map, ff.sig_d));
@@ -303,7 +315,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		map_signal(assign_map, ff.sig_q, type, map_signal(assign_map, ff.sig_d));
 
 		ff.remove();
-		return;
+		return true;
 	}
 
 	if (cell->type.in(ID($_BUF_), ID($_NOT_)))
@@ -317,7 +329,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		map_signal(assign_map, sig_y, cell->type == ID($_BUF_) ? G(BUF) : G(NOT), map_signal(assign_map, sig_a));
 
 		module->remove(cell);
-		return;
+		return true;
 	}
 
 	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
@@ -353,7 +365,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 			log_abort();
 
 		module->remove(cell);
-		return;
+		return true;
 	}
 
 	if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
@@ -375,7 +387,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		map_signal(assign_map, sig_y, cell->type == ID($_MUX_) ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
 
 		module->remove(cell);
-		return;
+		return true;
 	}
 
 	if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
@@ -397,7 +409,7 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI3_) ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
 
 		module->remove(cell);
-		return;
+		return true;
 	}
 
 	if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
@@ -422,8 +434,10 @@ void AbcModuleState::extract_cell(const SigMap &assign_map, RTLIL::Module *modul
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI4_) ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
 
 		module->remove(cell);
-		return;
+		return true;
 	}
+
+	return false;
 }
 
 std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire)
@@ -494,13 +508,13 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	fprintf(f, "}\n");
 }
 
-void connect(SigMap &assign_map, RTLIL::Module *module, const RTLIL::SigSig &conn)
+void connect(AbcSigMap &assign_map, RTLIL::Module *module, const RTLIL::SigSig &conn)
 {
 	module->connect(conn);
 	assign_map.add(conn.first, conn.second);
 }
 
-void AbcModuleState::handle_loops(SigMap &assign_map, RTLIL::Module *module)
+void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
@@ -760,7 +774,7 @@ struct abc_output_filter
 	}
 };
 
-void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, SigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
+void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 	bool dff_mode, std::string clk_str)
 {
 	initvals.set(&assign_map, module);
@@ -945,18 +959,18 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Si
 	undef_bits_lost = 0;
 
 	had_init = false;
+	std::vector<RTLIL::Cell *> kept_cells;
 	for (auto c : cells)
-		extract_cell(assign_map, module, c, config.keepff);
+		if (!extract_cell(assign_map, module, c, config.keepff))
+			kept_cells.push_back(c);
 
 	if (undef_bits_lost)
 		log("Replacing %d occurrences of constant undef bits with constant zero bits\n", undef_bits_lost);
 
-	for (auto wire : module->wires()) {
-		if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
-			mark_port(assign_map, wire);
-	}
-
-	for (auto cell : module->cells())
+	// Wires with port_id > 0, ID::keep, and connections to cells outside our cell set have already
+	// been accounted for via AbcSigVal::is_port. Now we just need to account for
+	// connections to cells inside our cell set that weren't removed by extract_cell().
+	for (auto cell : kept_cells)
 		for (auto &port_it : cell->connections())
 			mark_port(assign_map, port_it.second);
 
@@ -1215,7 +1229,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Si
 	log("Don't call ABC as there is nothing to map.\n");
 }
 
-void AbcModuleState::extract(SigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
+void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
 {
 	if (!did_run_abc) {
 		return;
@@ -1510,6 +1524,47 @@ void AbcModuleState::finish()
 	}
 
 	log_pop();
+}
+
+// For every signal that connects cells from different sets, or a cell in a set to a cell not in any set,
+// mark it as a port in `assign_map`.
+void assign_cell_connection_ports(RTLIL::Module *module, const std::vector<std::vector<RTLIL::Cell *> *> &cell_sets,
+	AbcSigMap &assign_map)
+{
+	pool<RTLIL::Cell *> cells_in_no_set;
+	for (RTLIL::Cell *cell : module->cells()) {
+		cells_in_no_set.insert(cell);
+	}
+	// For every canonical signal in `assign_map`, the index of the set it is connected to,
+	// or -1 if it connects a cell in one set to a cell in another set or not in any set.
+	dict<SigBit, int> signal_cell_set;
+	for (int i = 0; i < int(cell_sets.size()); ++i) {
+		for (RTLIL::Cell *cell : *cell_sets[i]) {
+			cells_in_no_set.erase(cell);
+			for (auto &port_it : cell->connections()) {
+				for (SigBit bit : port_it.second) {
+					assign_map.apply(bit);
+					auto it = signal_cell_set.find(bit);
+					if (it == signal_cell_set.end())
+						signal_cell_set[bit] = i;
+					else if (it->second >= 0 && it->second != i) {
+						it->second = -1;
+						assign_map.addVal(bit, AbcSigVal(true));
+					}
+				}
+			}
+		}
+	}
+	for (RTLIL::Cell *cell : cells_in_no_set) {
+		for (auto &port_it : cell->connections()) {
+			for (SigBit bit : port_it.second) {
+				assign_map.apply(bit);
+				auto it = signal_cell_set.find(bit);
+				if (it != signal_cell_set.end() && it->second >= 0)
+					assign_map.addVal(bit, AbcSigVal(true));
+			}
+		}
+	}
 }
 
 struct AbcPass : public Pass {
@@ -2086,17 +2141,24 @@ struct AbcPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		{
-			SigMap assign_map;
-			assign_map.set(mod);
-
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
 			}
 
+			AbcSigMap assign_map;
+			assign_map.set(mod);
+
+			for (auto wire : mod->wires())
+				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+					assign_map.addVal(SigSpec(wire), AbcSigVal(true));
+
 			if (!dff_mode || !clk_str.empty()) {
+				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
+				assign_cell_connection_ports(mod, {&cells}, assign_map);
+
 				AbcModuleState state(config);
-				state.abc_module(design, mod, assign_map, mod->selected_cells(), dff_mode, clk_str);
+				state.abc_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				state.extract(assign_map, design, mod);
 				state.finish();
 				continue;
@@ -2252,6 +2314,12 @@ struct AbcPass : public Pass {
 						std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)),
 						std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
 
+			{
+				std::vector<std::vector<RTLIL::Cell*>*> cell_sets;
+				for (auto &it : assigned_cells)
+					cell_sets.push_back(&it.second);
+				assign_cell_connection_ports(mod, cell_sets, assign_map);
+			}
 			for (auto &it : assigned_cells) {
 				AbcModuleState state(config);
 				state.clk_polarity = std::get<0>(it.first);

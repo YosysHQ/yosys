@@ -1353,7 +1353,8 @@ public:
 		return p;
 	}
 
-	// Merge sets if the given indices belong to different sets
+	// Merge sets if the given indices belong to different sets.
+	// Makes ifind(j) the root of the merged set.
 	void imerge(int i, int j)
 	{
 		i = ifind(i);
