@@ -1,0 +1,9 @@
+logger -expect error "Cell arrays of primitives are currently not supported" 1
+read_verilog <<EOT
+module test(in1, in2, out1);
+  input in1, in2;
+  output out1;
+
+  nand  #2 t_nand[0:7](out1, in1, in2);
+endmodule
+EOT
