@@ -1,0 +1,27 @@
+read_verilog -noblackbox << EOF
+(* raise_error=7 *)
+module top();
+endmodule
+
+(* raise_error="help me" *)
+module other();
+endmodule
+
+module zzy();
+endmodule
+EOF
+select -assert-mod-count 3 =*
+design -stash read
+
+# raise_error with int exits with status
+design -load read
+bugpoint -yosys ../../yosys -command raise_error -expect-return 7
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 top
+
+# raise_error with string prints message
+design -load read
+rename top abc
+bugpoint -yosys ../../yosys -command raise_error -grep "help me"
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 other
