@@ -16,14 +16,14 @@ design -stash read
 
 # raise_error with int exits with status
 design -load read
-bugpoint -yosys ../../yosys -command raise_error -expect-return 7
+bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 7
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 top
 
 # raise_error with string prints message and exits with 1
 design -load read
 rename top abc
-bugpoint -yosys ../../yosys -command raise_error -grep "help me" -expect-return 1
+bugpoint -suffix error -yosys ../../yosys -command raise_error -grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
 
@@ -31,13 +31,13 @@ select -assert-mod-count 1 other
 design -load read
 rename def zzy
 delete other
-bugpoint -yosys ../../yosys -command raise_error -expect-return 1
+bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 zzy
 
 # raise_error -stderr prints to stderr and exits with 1
 design -load read
 rename top abc
-bugpoint -yosys ../../yosys -command "raise_error -stderr" -err-grep "help me" -expect-return 1
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -stderr" -err-grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other

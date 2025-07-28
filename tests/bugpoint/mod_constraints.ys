@@ -1,0 +1,83 @@
+read_rtlil mods.il
+select -assert-count 7 w:*
+select -assert-mod-count 3 =*
+select -assert-count 4 c:*
+design -stash base
+
+# everything is removed by default
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3
+select -assert-count 1 w:*
+select -assert-mod-count 1 =*
+select -assert-none c:*
+
+# don't remove wires
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3 -modules -cells
+select -assert-count 3 w:*
+select -assert-mod-count 1 =*
+select -assert-none c:*
+
+# don't remove cells or their connections
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3 -wires -modules
+select -assert-count 5 w:*
+select -assert-mod-count 1 =*
+select -assert-count 4 c:*
+
+# don't remove cells but do remove their connections
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3 -wires -modules -connections
+select -assert-count 1 w:*
+select -assert-mod-count 1 =*
+select -assert-count 4 c:*
+
+# don't remove modules
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3 -wires -cells
+select -assert-count 1 w:*
+select -assert-mod-count 3 =*
+select -assert-none c:*
+
+# can keep wires
+design -load base
+setattr -set bugpoint_keep 1 w:w_b
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3
+select -assert-count 2 w:*
+select -assert-mod-count 1 =*
+select -assert-none c:*
+
+# a wire with keep won't keep the cell/module containing it
+design -load base
+setattr -set bugpoint_keep 1 w:w_o
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3
+select -assert-count 1 w:*
+select -assert-mod-count 1 =*
+select -assert-none c:*
+
+# can keep cells (and do it without the associated module)
+design -load base
+setattr -set bugpoint_keep 1 c:c_a
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3
+select -assert-count 1 w:*
+select -assert-mod-count 1 =*
+select -assert-count 1 c:*
+
+# can keep modules
+design -load base
+setattr -mod -set bugpoint_keep 1 m_a
+bugpoint -suffix mods -yosys ../../yosys -command raise_error -expect-return 3
+select -assert-count 1 w:*
+select -assert-mod-count 2 =*
+select -assert-none c:*
+
+# minimize to just the path connecting w_a and w_c
+# which happens via w_b, w_i, w_o, m_a, c_a and c_b
+write_file script.temp << EOF
+select -assert-none w:w_a %co* w:w_c %ci* %i
+EOF
+design -load base
+bugpoint -suffix mods -yosys ../../yosys -script script.temp -grep "Assertion failed"
+select -assert-count 5 w:*
+select -assert-mod-count 2 =*
+select -assert-count 2 c:*
