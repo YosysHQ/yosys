@@ -77,7 +77,7 @@ struct BugpointPass : public Pass {
 		log("    -runner \"<prefix>\"\n");
 		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
 		log("\n");
-		log("    -greperr \"<string>\"\n");
+		log("    -err_grep \"<string>\"\n");
 		log("        only consider crashes that print this string on stderr. useful for\n");
 		log("        errors outside of yosys.\n");
 		log("\n");
@@ -162,9 +162,9 @@ struct BugpointPass : public Pass {
 		return false;
 	}
 
-	bool check_logfiles(string grep, string greperr)
+	bool check_logfiles(string grep, string err_grep)
 	{
-		return check_logfile(grep) && check_logfile(greperr, true);
+		return check_logfile(grep) && check_logfile(err_grep, true);
 	}
 
 	RTLIL::Design *clean_design(RTLIL::Design *design, bool do_clean = true, bool do_delete = false)
@@ -441,7 +441,7 @@ struct BugpointPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		string yosys_cmd = "yosys", yosys_arg, grep, greperr, runner;
+		string yosys_cmd = "yosys", yosys_arg, grep, err_grep, runner;
 		bool flag_expect_return = false, has_check = false, check_err = false;
 		int expect_return_value = 0;
 		bool fast = false, clean = false;
@@ -474,10 +474,10 @@ struct BugpointPass : public Pass {
 				grep = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-greperr" && argidx + 1 < args.size()) {
+			if (args[argidx] == "-err_grep" && argidx + 1 < args.size()) {
 				has_check = true;
 				check_err = true;
-				greperr = args[++argidx];
+				err_grep = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-expect-return") {
@@ -578,7 +578,7 @@ struct BugpointPass : public Pass {
 			log_cmd_error("The provided script file or command and Yosys binary do not crash on this design!\n");
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
-		if (!check_logfile(greperr, true))
+		if (!check_logfile(err_grep, true))
 			log_cmd_error("The provided grep string is not found in stderr log!\n");
 
 		int seed = 0;
@@ -601,21 +601,21 @@ struct BugpointPass : public Pass {
 				}
 
 				bool crashes = false;
-				if (flag_expect_return && retval == expect_return_value && check_logfiles(grep, greperr))
+				if (flag_expect_return && retval == expect_return_value && check_logfiles(grep, err_grep))
 				{
 					log("Testcase matches expected crash.\n");
 					crashes = true;
 				}
 				else if (!flag_expect_return && retval == 0)
 					log("Testcase does not crash.\n");
-				else if (!flag_expect_return && check_logfiles(grep, greperr))
+				else if (!flag_expect_return && check_logfiles(grep, err_grep))
 				{
 					log("Testcase crashes.\n");
 					crashes = true;
 				}
 				else
-					// flag_expect_return && !(retval == expect_return_value && check_logfiles(grep, greperr))
-					// !flag_expect_return && !(retval == 0 && check_logfiles(grep, greperr))
+					// flag_expect_return && !(retval == expect_return_value && check_logfiles(grep, err_grep))
+					// !flag_expect_return && !(retval == 0 && check_logfiles(grep, err_grep))
 					log("Testcase does not match expected crash.\n");
 
 				if (crashes)
