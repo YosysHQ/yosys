@@ -89,6 +89,10 @@ struct BugpointPass : public Pass {
 		log("    -updates\n");
 		log("        try to remove process updates from syncs.\n");
 		log("\n");
+		log("    -wires\n");
+		log("        try to remove wires. wires with a (* bugpoint_keep *) attribute will be\n");
+		log("        skipped.\n");
+		log("\n");
 		log("    -runner \"<prefix>\"\n");
 		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
 		log("\n");
