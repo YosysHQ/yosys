@@ -20,6 +20,15 @@
 #include "kernel/yosys.h"
 #include "backends/rtlil/rtlil_backend.h"
 
+#if defined(_WIN32)
+#  define WIFEXITED(x) 1
+#  define WIFSIGNALED(x) 0
+#  define WIFSTOPPED(x) 0
+#  define WEXITSTATUS(x) ((x) & 0xff)
+#  define WTERMSIG(x) SIGTERM
+#  define WSTOPSIG(x) 0
+#endif
+
 USING_YOSYS_NAMESPACE
 using namespace RTLIL_BACKEND;
 PRIVATE_NAMESPACE_BEGIN
