@@ -77,7 +77,7 @@ struct BugpointPass : public Pass {
 		log("    -runner \"<prefix>\"\n");
 		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
 		log("\n");
-		log("    -err_grep \"<string>\"\n");
+		log("    -err-grep \"<string>\"\n");
 		log("        only consider crashes that print this string on stderr. useful for\n");
 		log("        errors outside of yosys.\n");
 		log("\n");
@@ -474,7 +474,7 @@ struct BugpointPass : public Pass {
 				grep = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-err_grep" && argidx + 1 < args.size()) {
+			if (args[argidx] == "-err-grep" && argidx + 1 < args.size()) {
 				has_check = true;
 				check_err = true;
 				err_grep = args[++argidx];
