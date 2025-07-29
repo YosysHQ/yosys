@@ -20,8 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
-#include <string.h>
-#include <errno.h>
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -1085,6 +1084,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1664,6 +1668,11 @@ struct SelectPass : public Pass {
 
 struct CdPass : public Pass {
 	CdPass() : Pass("cd", "a shortcut for 'select -module <name>'") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1776,6 +1785,11 @@ static void log_matches(const char *title, Module *module, const T &list)
 
 struct LsPass : public Pass {
 	LsPass() : Pass("ls", "list modules or objects in modules") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/status");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

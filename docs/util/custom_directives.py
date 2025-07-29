@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import re
 from typing import cast
+import warnings
 
 from docutils import nodes
-from docutils.nodes import Node, Element, system_message
+from docutils.nodes import Node, Element, Text
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.states import Inliner
 from sphinx.application import Sphinx
 from sphinx.domains import Domain, Index
 from sphinx.domains.std import StandardDomain
 from sphinx.environment import BuildEnvironment
-from sphinx.roles import XRefRole
+from sphinx.roles import XRefRole, SphinxRole
 from sphinx.directives import ObjectDescription
 from sphinx.directives.code import container_wrapper
 from sphinx.util.nodes import make_refnode
-from sphinx.util.docfields import Field
+from sphinx.util.docfields import Field, GroupedField
 from sphinx import addnodes
 
 class TocNode(ObjectDescription):    
@@ -31,7 +32,7 @@ class TocNode(ObjectDescription):
         signode['ids'].append(idx)
 
     def _object_hierarchy_parts(self, sig_node: addnodes.desc_signature) -> tuple[str, ...]:
-        if 'fullname' not in sig_node:
+        if 'tocname' not in sig_node:
             return ()
 
         modname = sig_node.get('module')
@@ -57,16 +58,56 @@ class TocNode(ObjectDescription):
             return '.'.join(parents + [name])
         return ''
 
-class CommandNode(TocNode):
+class NodeWithOptions(TocNode):
+    """A custom node with options."""
+
+    doc_field_types = [
+        GroupedField('opts', label='Options', names=('option', 'options', 'opt', 'opts')),
+    ]
+    
+    def transform_content(self, contentnode: addnodes.desc_content) -> None:
+        """hack `:option -thing: desc` into a proper option list with yoscrypt highlighting"""
+        newchildren = []
+        for node in contentnode:
+            newnode = node
+            if isinstance(node, nodes.field_list):
+                newnode = nodes.option_list()
+                for field in node:
+                    is_option = False
+                    option_list_item = nodes.option_list_item()
+                    for child in field:
+                        if isinstance(child, nodes.field_name):
+                            option_group = nodes.option_group()
+                            option_list_item += option_group
+                            option = nodes.option()
+                            option_group += option
+                            name, text = child.rawsource.split(' ', 1)
+                            is_option = name == 'option'
+                            literal = nodes.literal(text=text)
+                            literal['classes'] += ['code', 'highlight', 'yoscrypt']
+                            literal['language'] = 'yoscrypt'
+                            option += literal
+                            if not is_option: warnings.warn(f'unexpected option \'{name}\' in {field.source}')
+                        elif isinstance(child, nodes.field_body):
+                            description = nodes.description()
+                            description += child.children
+                            option_list_item += description
+                    if is_option:
+                        newnode += option_list_item
+            newchildren.append(newnode)
+        contentnode.children = newchildren
+
+class CommandNode(NodeWithOptions):
     """A custom node that describes a command."""
 
     name = 'cmd'
     required_arguments = 1
 
-    option_spec = {
+    option_spec = NodeWithOptions.option_spec.copy()
+    option_spec.update({
         'title': directives.unchanged,
         'tags': directives.unchanged
-    }
+    })
 
     def handle_signature(self, sig, signode: addnodes.desc_signature):
         signode['fullname'] = sig
@@ -92,6 +133,46 @@ class CommandNode(TocNode):
                          self.env.docname,
                          idx,
                          0))
+
+class CommandUsageNode(NodeWithOptions):
+    """A custom node that describes command usages"""
+
+    name = 'cmdusage'
+
+    option_spec = NodeWithOptions.option_spec
+    option_spec.update({
+        'usage': directives.unchanged,
+    })
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        parts = sig.split('::')
+        if len(parts) > 2: parts.pop(0)
+        use = parts[-1]
+        signode['fullname'] = '::'.join(parts)
+        usage = self.options.get('usage', use)
+        if usage:
+            signode['tocname'] = usage
+            signode += addnodes.desc_name(text=usage)
+        return signode['fullname']
+
+    def add_target_and_index(
+        self,
+        name: str,
+        sig: str,
+        signode: addnodes.desc_signature
+    ) -> None:
+        idx = ".".join(name.split("::"))
+        signode['ids'].append(idx)
+        if 'noindex' not in self.options:
+            tocname: str = signode.get('tocname', name)
+            objs = self.env.domaindata[self.domain]['objects']
+            # (name, sig, typ, docname, anchor, prio)
+            objs.append((name,
+                         tocname,
+                         type(self).name,
+                         self.env.docname,
+                         idx,
+                         1))
 
 class PropNode(TocNode):
     name = 'prop'
@@ -393,7 +474,7 @@ class TagIndex(Index):
                 lis.append((
                     dispname, 0, docname,
                     anchor,
-                    docname, '', typ
+                    '', '', ''
                 ))
         ret = [(k, v) for k, v in sorted(content.items())]
 
@@ -432,18 +513,19 @@ class CommandIndex(Index):
         Qualifier and description are not rendered e.g. in LaTeX output.
         """
 
-        content = {}
+        content: dict[str, list[tuple]] = {}
         items = ((name, dispname, typ, docname, anchor)
                  for name, dispname, typ, docname, anchor, prio
                  in self.domain.get_objects()
                  if typ == self.name)
         items = sorted(items, key=lambda item: item[0])
         for name, dispname, typ, docname, anchor in items:
+            title = self.domain.data['obj2title'].get(name)
             lis = content.setdefault(self.shortname, [])
             lis.append((
                 dispname, 0, docname,
                 anchor,
-                '', '', typ
+                '', '', title 
             ))
         ret = [(k, v) for k, v in sorted(content.items())]
 
@@ -507,16 +589,27 @@ class PropIndex(TagIndex):
 
         return (ret, True)
 
+class TitleRefRole(XRefRole):
+    """XRefRole used which has the cmd title as the displayed text."""
+    pass
+
+class OptionRole(SphinxRole):
+    def run(self) -> tuple[list[Node], list]:
+        return self.inliner.interpreted(self.rawtext, self.text, 'yoscrypt', self.lineno)
+
 class CommandDomain(Domain):
     name = 'cmd'
     label = 'Yosys commands'
 
     roles = {
-        'ref': XRefRole()
+        'ref': XRefRole(),
+        'title': TitleRefRole(),
+        'option': OptionRole(),
     }
 
     directives = {
         'def': CommandNode,
+        'usage': CommandUsageNode,
     }
 
     indices = {
@@ -542,7 +635,7 @@ class CommandDomain(Domain):
 
     def resolve_xref(self, env, fromdocname, builder, typ,
                      target, node, contnode):
-        
+
         match = [(docname, anchor, name)
                  for name, sig, typ, docname, anchor, prio
                  in self.get_objects() if sig == target]
@@ -552,9 +645,17 @@ class CommandDomain(Domain):
             targ = match[0][1]
             qual_name = match[0][2]
             title = self.data['obj2title'].get(qual_name, targ)
-            
-            return make_refnode(builder,fromdocname,todocname,
-                                targ, contnode, title)
+
+            if typ == 'title':
+                # caller wants the title in the content of the node
+                cmd = contnode.astext()
+                contnode = Text(f'{cmd} - {title}')
+                return make_refnode(builder, fromdocname, todocname,
+                                    targ, contnode)
+            else:
+                # cmd title as hover text
+                return make_refnode(builder, fromdocname, todocname,
+                                    targ, contnode, title)
         else:
             print(f"Missing ref for {target} in {fromdocname} ")
             return None
@@ -592,10 +693,18 @@ class CellDomain(CommandDomain):
 
 def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
-    role = 'cell:ref' if text[0] == '$' else 'cmd:ref'
-    if text.startswith("help ") and text.count(' ') == 1:
-        _, cmd = text.split(' ', 1)
-        text = f'{text} <{cmd}>'
+    words = text.split(' ')
+    if len(words) == 2 and words[0] == "help":
+        IsLinkable = True
+        thing = words[1]
+    else:
+        IsLinkable = len(words) == 1 and words[0][0] != '-'
+        thing = words[0]
+    if IsLinkable:
+        role = 'cell:ref' if thing[0] == '$' else 'cmd:ref'
+        text = f'{text} <{thing}>'
+    else:
+        role = 'yoscrypt'
     return inliner.interpreted(rawtext, text, role, lineno)
 
 def setup(app: Sphinx):
@@ -622,4 +731,7 @@ def setup(app: Sphinx):
 
     app.add_role('autoref', autoref)
     
-    return {'version': '0.2'}
+    return {
+        'version': '0.3',    
+        'parallel_read_safe': False,
+    }

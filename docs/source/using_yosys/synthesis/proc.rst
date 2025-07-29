@@ -17,7 +17,7 @@ commands in a sensible order:
 
 After all the ``proc_*`` commands, `opt_expr` is called. This can be disabled by
 calling :yoscrypt:`proc -noopt`.  For more information about `proc`, such as
-disabling certain sub commands, see :doc:`/cmd/proc`.
+disabling certain sub commands, see :doc:`/cmd/index_passes_proc`.
 
 Many commands can not operate on modules with "processess" in them. Usually a
 call to `proc` is the first command in the actual synthesis procedure after

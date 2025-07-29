@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 
@@ -182,6 +183,11 @@ struct AssertpmuxWorker
 
 struct AssertpmuxPass : public Pass {
 	AssertpmuxPass() : Pass("assertpmux", "adds asserts for parallel muxes") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
