@@ -1,9 +1,6 @@
-/*.log
-/*.out
 /*.sel
 /write_gzip.v
 /write_gzip.v.gz
-/run-test.mk
 /plugin.so
 /plugin.so.dSYM
 /temp
