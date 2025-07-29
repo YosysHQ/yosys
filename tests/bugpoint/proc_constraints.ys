@@ -1,0 +1,49 @@
+read_rtlil procs.il
+select -assert-count 2 p:*
+design -stash err_q
+
+# processes get removed by default
+design -load err_q
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4
+select -assert-none p:*
+
+# individual processes can be kept
+design -load err_q
+setattr -set bugpoint_keep 1 p:proc_a
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4
+select -assert-count 1 p:*
+
+# all processes can be kept
+design -load err_q
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4 -wires
+select -assert-count 2 p:*
+
+# d and clock are connected after proc
+design -load err_q
+proc
+select -assert-count 3 w:d %co
+select -assert-count 3 w:clock %co
+
+# no assigns means no d
+design -load err_q
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4 -assigns
+proc
+select -assert-count 1 w:d %co
+
+# no updates means no clock
+design -load err_q
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4 -updates
+proc
+select -assert-count 1 w:clock %co
+
+# can remove ports
+design -load err_q
+select -assert-count 5 x:*
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4 -ports
+select -assert-none x:*
+
+# can keep ports
+design -load err_q
+setattr -set bugpoint_keep 1 i:d o:q
+bugpoint -suffix procs -yosys ../../yosys -command raise_error -expect-return 4 -ports
+select -assert-count 2 x:*
