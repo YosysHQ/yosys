@@ -24,20 +24,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <string_view>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-IdString concat_name(RTLIL::Cell *cell, IdString object_name, const std::string &separator = ".")
+template <typename... Args>
+[[nodiscard]] std::string concat_views(const Args&... views) {
+    static_assert((std::is_convertible_v<Args, std::string_view> && ...),
+                  "All arguments must be convertible to std::string_view.");
+    const std::size_t total_size = (std::string_view(views).size() + ... + 0);
+
+    std::string result;
+    result.reserve(total_size);
+
+    (result.append(views), ...);
+    return result;
+}
+
+IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::string &separator = ".")
 {
-	if (object_name[0] == '\\')
-		return stringf("%s%s%s", cell->name.c_str(), separator.c_str(), object_name.c_str() + 1);
-	else {
-		std::string object_name_str = object_name.str();
-		if (object_name_str.substr(0, 8) == "$flatten")
-			object_name_str.erase(0, 8);
-		return stringf("$flatten%s%s%s", cell->name.c_str(), separator.c_str(), object_name_str.c_str());
+	std::string_view object_name_view(object_name.c_str());
+	if (object_name_view[0] == '\\'){
+		return concat_views(cell->name.c_str(), separator, object_name_view.substr(1));
 	}
+
+	constexpr std::string_view prefix = "$flatten";
+	if (object_name_view.substr(0, prefix.size()) == prefix){
+		object_name_view.remove_prefix(prefix.size());
+	}
+	return concat_views(prefix, cell->name.c_str(), separator, object_name_view);
 }
 
 template<class T>
