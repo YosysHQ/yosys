@@ -1139,6 +1139,12 @@ void RTLIL::Design::sort()
 		it.second->sort();
 }
 
+void RTLIL::Design::sort_modules()
+{
+	scratchpad.sort();
+	modules_.sort(sort_by_id_str());
+}
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG
