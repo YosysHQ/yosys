@@ -392,7 +392,7 @@ template <typename... Args>
 inline std::string format_emit_toplevel(std::string_view fmt, bool has_escapes, const FoundFormatSpec* specs, const Args &... args)
 {
 	std::string result;
-	int dynamic_ints[2] = { 0, 0 };
+	int dynamic_ints[3] = { 0, 0, 0 };
 	format_emit(result, fmt, 0, has_escapes, specs, dynamic_ints, DynamicIntCount::NONE, args...);
 	return result;
 }
