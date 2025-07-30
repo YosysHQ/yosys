@@ -172,60 +172,57 @@ struct OptDffWorker
 
 	void simplify_patterns(patterns_t& patterns)
 	{
-		// remove complimentary patterns
-
 		auto new_patterns = patterns;
+		auto find_comp = [](const auto& left, const auto& right) -> std::optional<RTLIL::SigBit> {
+			std::optional<RTLIL::SigBit> ret;
+			for (const auto &pt: left)
+				if (right.count(pt.first) == 0)
+					return {};
+				else if (right.at(pt.first) == pt.second)
+					continue;
+				else
+					if (ret)
+						return {};
+					else
+						ret = pt.first;
+			return ret;
+		};
+
+		// remove complimentary patterns
 		bool optimized;
 		do {
 			optimized = false;
 			for (auto i = patterns.begin(); i != patterns.end(); i++) {
 				for (auto j = std::next(i, 1); j != patterns.end(); j++) {
-					const auto& smaller = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
-					const auto& larger = (GetSize(*i) < GetSize(*j)) ? *j : *i;
-					auto left = std::move(smaller);
-					auto right = std::move(larger);
+					const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+					auto right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
 
-					std::optional<RTLIL::SigBit> complimentary_var;
+					const auto complimentary_var = find_comp(left, right);
 
-					for (const auto &pt : left)
-						if (right.count(pt.first) == 0)
-								goto next;
-						else if (right[pt.first] == pt.second)
-								continue;
-						else
-							if (complimentary_var)
-								goto next;
-							else
-								complimentary_var = pt.first;
 					if (complimentary_var) {
 						new_patterns.erase(right);
 						right.erase(complimentary_var.value());
 						new_patterns.insert(right);
 						optimized = true;
 					}
-					next:
-					continue;
 				}
 			}
 			patterns = new_patterns;
 		} while(optimized);
 
 		// remove redundant patterns
-
 		for (auto i = patterns.begin(); i != patterns.end(); ++i) {
-			for (auto j = std::next(i, 1); j != patterns.end(); ++j) { 
-				const auto& smaller = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
-				const auto& larger = (GetSize(*i) < GetSize(*j)) ? *j : *i;
-				auto left = std::move(smaller);
-				auto right = std::move(larger);
+			for (auto j = std::next(i, 1); j != patterns.end(); ++j) {
+				const auto& left = (GetSize(*j) <= GetSize(*i)) ? *j : *i;
+				const auto& right = (GetSize(*i) < GetSize(*j)) ? *j : *i;
 
 		            	bool redundant = true;
 
-				for (const auto& pt : left)
-					if (right.count(pt.first) == 0 || right[pt.first] != pt.second)
+				for (const auto& pt : smaller)
+					if (larger.count(pt.first) == 0 || larger[pt.first] != pt.second)
 						redundant = false;
 				if (redundant)
-					new_patterns.erase(right);
+					new_patterns.erase(larger);
 			}
 		}
 		patterns = std::move(new_patterns);
