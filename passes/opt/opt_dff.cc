@@ -218,8 +218,8 @@ struct OptDffWorker
 
 		            	bool redundant = true;
 
-				for (const auto& pt : smaller)
-					if (larger.count(pt.first) == 0 || larger[pt.first] != pt.second)
+				for (const auto& pt : left)
+					if (right.count(pt.first) == 0 || right.at(pt.first) != pt.second)
 						redundant = false;
 				if (redundant)
 					new_patterns.erase(right);
