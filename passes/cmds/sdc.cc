@@ -384,7 +384,7 @@ public:
 			log_error("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
 
 		objects = std::make_unique<SdcObjects>(design);
-		objects->collect_mode = SdcObjects::CollectMode::FullConstraint;
+		objects->collect_mode = SdcObjects::CollectMode::SimpleGetter;
 		Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_ports", sdc_get_ports_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "ys_track_typed_key", ys_track_typed_key_cmd, (ClientData) objects.get(), NULL);
@@ -396,7 +396,8 @@ public:
 struct SdcPass : public Pass {
 	// TODO help
 	SdcPass() : Pass("sdc", "sniff at some SDC") { }
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+		log_header(design, "Executing SDC pass.\n");
 		// if (args.size() < 2)
 		// 	log_cmd_error("Missing SDC file.\n");
 		// TODO optional extra stub file
