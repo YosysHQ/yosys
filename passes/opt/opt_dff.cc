@@ -222,7 +222,7 @@ struct OptDffWorker
 					if (larger.count(pt.first) == 0 || larger[pt.first] != pt.second)
 						redundant = false;
 				if (redundant)
-					new_patterns.erase(larger);
+					new_patterns.erase(right);
 			}
 		}
 		patterns = std::move(new_patterns);
