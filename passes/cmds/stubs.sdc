@@ -7,15 +7,22 @@ proc is_suppressed {args} {
     return 0
 }
 
-proc create_clock {args} {
-    return "CLOCK@"
-}
-proc get_clocks {args} {
-    return "CLOCK@"
-}
-
-stub current_design
+# stub current_design
 #stub ys_track_typed_key
 stub ys_track_untyped_key
 stub ys_err_key
 stub ys_err_flag
+
+proc unknown {args} {
+    global sdc_call_index
+    global sdc_calls
+    if {![info exists index]} {
+        set sdc_call_index 0
+    }
+    if {![info exists sdc_calls]} {
+        set sdc_calls {}
+    }
+    incr sdc_call_index
+    lappend sdc_calls $args
+    return $sdc_call_index
+}
