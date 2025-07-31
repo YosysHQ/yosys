@@ -13,6 +13,7 @@ stub ys_track_untyped_key
 stub ys_err_key
 stub ys_err_flag
 
+# TODO move to separate file and tie to graph value mode
 proc unknown {args} {
     global sdc_call_index
     global sdc_calls
@@ -24,5 +25,9 @@ proc unknown {args} {
     }
     incr sdc_call_index
     lappend sdc_calls $args
-    return $sdc_call_index
+    puts "unknown $args, returning YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
+    return "YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
+}
+proc list {args} {
+    unknown "list" $args
 }
