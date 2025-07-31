@@ -161,6 +161,40 @@ jobs:
         run: |
           find tests/**/*.err -print -exec cat {} \;
 
+  test-cells:
+    name: Run test_cell
+    runs-on: ubuntu-latest
+    needs: [build-yosys, pre_job]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-ubuntu-latest
+
+      - name: Uncompress build
+        shell: bash
+        run:
+          tar -xvf build.tar
+
+      - name: test_cell
+        shell: bash
+        run: |
+          ./yosys -p 'test_cell all'
+          ./yosys -p 'test_cell -nosat -aigmap $pow $pmux'
+          ./yosys -p 'test_cell -nosat -aigmap $eqx $nex $bweqx'
+          ./yosys -p 'test_cell -aigmap $buf'
+
   test-docs:
     name: Run docs tests
     runs-on: ${{ matrix.os }}
