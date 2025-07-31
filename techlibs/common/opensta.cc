@@ -99,8 +99,13 @@ struct OpenstaPass : public Pass
 		f_script << "read_sdc " << sdc_filename << "\n";
 		f_script << "write_sdc " << sdc_expanded_filename << "\n";
 		f_script.close();
-		std::string command = opensta_exe + " -exit " + script_filename; 
-		int ret = run_command(command);
+		std::string command = opensta_exe + " -exit " + script_filename;
+		auto process_line = [](const std::string &line) {
+			if (line.find("does not match net size") != std::string::npos)
+				return;
+			log("OpenSTA: %s", line.c_str());
+		};
+		int ret = run_command(command, process_line);
 		if (ret)
 			log_error("OpenSTA return %d (error)\n", ret);
 		else
