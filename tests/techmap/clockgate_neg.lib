@@ -1,0 +1,55 @@
+library(test) {
+    /* Integrated clock gating cells */
+    cell (neg_big) {
+        area : 10;
+        clock_gating_integrated_cell : latch_negedge;
+        pin (GCLK) {
+            clock_gate_out_pin : true;
+            direction : output;
+        }
+        pin (CLK) {
+            clock_gate_clock_pin : true;
+            direction : input;
+        }
+        pin (CE) {
+            clock_gate_enable_pin : true;
+            direction : input;
+        }
+    }
+    cell (neg_small_tielo) {
+        area : 1;
+        clock_gating_integrated_cell : latch_negedge_precontrol;
+        pin (GCLK) {
+            clock_gate_out_pin : true;
+            direction : output;
+        }
+        pin (CLK) {
+            clock_gate_clock_pin : true;
+            direction : input;
+        }
+        pin (CE) {
+            clock_gate_enable_pin : true;
+            direction : input;
+        }
+        pin (SE) {
+            clock_gate_test_pin : true;
+            direction : input;
+        }
+    }
+    cell (neg_small) {
+        area : 1;
+        clock_gating_integrated_cell : latch_negedge;
+        pin (GCLK) {
+            clock_gate_out_pin : true;
+            direction : output;
+        }
+        pin (CLK) {
+            clock_gate_clock_pin : true;
+            direction : input;
+        }
+        pin (CE) {
+            clock_gate_enable_pin : true;
+            direction : input;
+        }
+    }
+}

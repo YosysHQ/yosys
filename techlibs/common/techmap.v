@@ -59,7 +59,7 @@ module _90_simplemap_compare_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $slice $concat $mux $tribuf $bmux $bwmux $bweqx" *)
+(* techmap_celltype = "$buf $pos $slice $concat $mux $tribuf $bmux $bwmux $bweqx" *)
 module _90_simplemap_various;
 endmodule
 
@@ -290,7 +290,7 @@ module _90_alu (A, B, CI, BI, X, Y, CO);
 endmodule
 
 (* techmap_maccmap *)
-(* techmap_celltype = "$macc" *)
+(* techmap_celltype = "$macc $macc_v2" *)
 module _90_macc;
 endmodule
 
@@ -304,6 +304,7 @@ endmodule
 // Divide and Modulo
 // --------------------------------------------------------
 
+`ifndef NODIV
 module \$__div_mod_u (A, B, Y, R);
 	parameter WIDTH = 1;
 
@@ -531,7 +532,7 @@ module _90_modfloor (A, B, Y);
 		.R(Y)
 	);
 endmodule
-
+`endif
 
 // --------------------------------------------------------
 // Power

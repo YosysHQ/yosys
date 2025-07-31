@@ -108,8 +108,8 @@ struct SigSnippets
 
 struct SnippetSwCache
 {
-	dict<RTLIL::SwitchRule*, pool<RTLIL::SigBit>, hash_ptr_ops> full_case_bits_cache;
-	dict<RTLIL::SwitchRule*, pool<int>, hash_ptr_ops> cache;
+	dict<RTLIL::SwitchRule*, pool<RTLIL::SigBit>> full_case_bits_cache;
+	dict<RTLIL::SwitchRule*, pool<int>> cache;
 	const SigSnippets *snippets;
 	int current_snippet;
 
@@ -318,7 +318,7 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 	return swcache.full_case_bits_cache.at(sw);
 }
 
-RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> &swpara,
+RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool> &swpara,
 		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
 {
 	RTLIL::SigSpec result = defval;
@@ -421,7 +421,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 	swcache.snippets = &sigsnip;
 	swcache.insert(&proc->root_case);
 
-	dict<RTLIL::SwitchRule*, bool, hash_ptr_ops> swpara;
+	dict<RTLIL::SwitchRule*, bool> swpara;
 
 	int cnt = 0;
 	for (int idx : sigsnip.snippets)
@@ -468,11 +468,9 @@ struct ProcMuxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->modules())
-			if (design->selected(mod))
-				for (auto &proc_it : mod->processes)
-					if (design->selected(mod, proc_it.second))
-						proc_mux(mod, proc_it.second, ifxmode);
+		for (auto mod : design->all_selected_modules())
+			for (auto proc : mod->selected_processes())
+				proc_mux(mod, proc, ifxmode);
 	}
 } ProcMuxPass;
 

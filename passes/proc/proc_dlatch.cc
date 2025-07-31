@@ -127,11 +127,10 @@ struct proc_dlatch_db_t
 			return signal == other.signal && match == other.match && children == other.children;
 		}
 
-		unsigned int hash() const {
-			unsigned int h = mkhash_init;
-			mkhash(h, signal.hash());
-			mkhash(h, match.hash());
-			for (auto i : children) mkhash(h, i);
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(signal);
+			h.eat(match);
+			h.eat(children);
 			return h;
 		}
 	};
@@ -464,11 +463,10 @@ struct ProcDlatchPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto module : design->selected_modules()) {
-			proc_dlatch_db_t db(module);
-			for (auto &proc_it : module->processes)
-				if (design->selected(module, proc_it.second))
-					proc_dlatch(db, proc_it.second);
+		for (auto mod : design->all_selected_modules()) {
+			proc_dlatch_db_t db(mod);
+			for (auto proc : mod->selected_processes())
+				proc_dlatch(db, proc);
 			db.fixup_muxes();
 		}
 	}

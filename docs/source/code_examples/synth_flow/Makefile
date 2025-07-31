@@ -9,9 +9,10 @@ YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
 DOTS = $(addsuffix .dot,$(DOT_TARGETS))
 
-.PHONY: all dots
-all: dots
+.PHONY: all dots examples
+all: dots examples
 dots: $(DOTS)
+examples:
 
 %.dot: %.v %.ys
 	$(YOSYS) -p 'script $*.ys; show -notitle -prefix $* -format dot'

@@ -263,33 +263,27 @@ struct AttrmapPass : public Pass {
 
 		if (modattr_mode)
 		{
-			for (auto module : design->selected_whole_modules())
+			for (auto module : design->all_selected_whole_modules())
 				attrmap_apply(stringf("%s", log_id(module)), actions, module->attributes);
 		}
 		else
 		{
-			for (auto module : design->selected_modules())
+			for (auto module : design->all_selected_modules())
 			{
-				for (auto wire : module->selected_wires())
-					attrmap_apply(stringf("%s.%s", log_id(module), log_id(wire)), actions, wire->attributes);
+				for (auto memb : module->selected_members())
+					attrmap_apply(stringf("%s.%s", log_id(module), log_id(memb)), actions, memb->attributes);
 
-				for (auto cell : module->selected_cells())
-					attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->attributes);
-
-				for (auto proc : module->processes)
+				// attrmap already applied to process itself during above loop, but not its children
+				for (auto proc : module->selected_processes())
 				{
-					if (!design->selected(module, proc.second))
-						continue;
-					attrmap_apply(stringf("%s.%s", log_id(module), log_id(proc.first)), actions, proc.second->attributes);
-
-					std::vector<RTLIL::CaseRule*> all_cases = {&proc.second->root_case};
+					std::vector<RTLIL::CaseRule*> all_cases = {&proc->root_case};
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
-						attrmap_apply(stringf("%s.%s (case)", log_id(module), log_id(proc.first)), actions, cs->attributes);
+						attrmap_apply(stringf("%s.%s (case)", log_id(module), log_id(proc)), actions, cs->attributes);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc.first)), actions, sw->attributes);
+							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc)), actions, sw->attributes);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}

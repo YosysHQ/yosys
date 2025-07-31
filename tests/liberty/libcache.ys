@@ -1,0 +1,66 @@
+libcache -verbose
+libcache -enable busdef.lib
+
+logger -expect log "Caching is disabled by default." 1
+logger -expect log "Caching is enabled for `busdef.lib'." 1
+libcache -list
+logger -check-expected
+
+logger -expect log "Caching data" 1
+log Caching data
+read_liberty normal.lib; design -reset
+logger -check-expected
+
+logger -expect log "Caching data" 1
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+
+logger -expect log "Using cached data" 1
+log Using cached data
+read_liberty normal.lib; design -reset
+logger -check-expected
+
+logger -expect log "Using cached data" 1
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+
+libcache -quiet
+logger -expect log "Using cached data" 1
+log Using cached data
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+libcache -verbose
+
+libcache -purge busdef.lib
+
+logger -expect log "Caching is disabled by default." 1
+logger -expect log "Caching is enabled for `busdef.lib'." 1
+log Caching is enabled for `busdef.lib'.
+libcache -list
+logger -check-expected
+
+libcache -enable -all
+
+logger -expect log "Caching is enabled by default." 1
+libcache -list
+logger -check-expected
+
+logger -expect log "Caching data" 1
+read_liberty normal.lib; design -reset
+logger -check-expected
+
+logger -expect log "Caching data" 1
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+
+logger -expect log "Using cached data" 1
+read_liberty -lib busdef.lib; design -reset
+logger -check-expected
+
+logger -expect log "Using cached data" 1
+read_liberty normal.lib; design -reset
+logger -check-expected
+
+logger -expect log "Using cached data" 1
+dfflibmap -liberty normal.lib
+logger -check-expected

@@ -38,3 +38,5 @@ as reference to implement a similar system in any language.
    formats/index
    extending_yosys/index
    techmap
+   verilog
+   hashing

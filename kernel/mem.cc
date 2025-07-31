@@ -157,10 +157,10 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				rd_wide_continuation.bits.push_back(State(sub != 0));
-				rd_clk_enable.bits.push_back(State(port.clk_enable));
-				rd_clk_polarity.bits.push_back(State(port.clk_polarity));
-				rd_ce_over_srst.bits.push_back(State(port.ce_over_srst));
+				rd_wide_continuation.bits().push_back(State(sub != 0));
+				rd_clk_enable.bits().push_back(State(port.clk_enable));
+				rd_clk_polarity.bits().push_back(State(port.clk_polarity));
+				rd_ce_over_srst.bits().push_back(State(port.ce_over_srst));
 				rd_clk.append(port.clk);
 				rd_arst.append(port.arst);
 				rd_srst.append(port.srst);
@@ -170,17 +170,17 @@ void Mem::emit() {
 				rd_addr.append(addr);
 				log_assert(GetSize(addr) == abits);
 				for (auto idx : wr_port_xlat) {
-					rd_transparency_mask.bits.push_back(State(bool(port.transparency_mask[idx])));
-					rd_collision_x_mask.bits.push_back(State(bool(port.collision_x_mask[idx])));
+					rd_transparency_mask.bits().push_back(State(bool(port.transparency_mask[idx])));
+					rd_collision_x_mask.bits().push_back(State(bool(port.collision_x_mask[idx])));
 				}
 			}
 			rd_data.append(port.data);
-			for (auto &bit : port.arst_value)
-				rd_arst_value.bits.push_back(bit);
-			for (auto &bit : port.srst_value)
-				rd_srst_value.bits.push_back(bit);
-			for (auto &bit : port.init_value)
-				rd_init_value.bits.push_back(bit);
+			for (auto bit : port.arst_value)
+				rd_arst_value.bits().push_back(bit);
+			for (auto bit : port.srst_value)
+				rd_srst_value.bits().push_back(bit);
+			for (auto bit : port.init_value)
+				rd_init_value.bits().push_back(bit);
 		}
 		if (rd_ports.empty()) {
 			rd_wide_continuation = State::S0;
@@ -222,12 +222,12 @@ void Mem::emit() {
 			}
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				wr_wide_continuation.bits.push_back(State(sub != 0));
-				wr_clk_enable.bits.push_back(State(port.clk_enable));
-				wr_clk_polarity.bits.push_back(State(port.clk_polarity));
+				wr_wide_continuation.bits().push_back(State(sub != 0));
+				wr_clk_enable.bits().push_back(State(port.clk_enable));
+				wr_clk_polarity.bits().push_back(State(port.clk_polarity));
 				wr_clk.append(port.clk);
 				for (auto idx : wr_port_xlat)
-					wr_priority_mask.bits.push_back(State(bool(port.priority_mask[idx])));
+					wr_priority_mask.bits().push_back(State(bool(port.priority_mask[idx])));
 				SigSpec addr = port.sub_addr(sub);
 				addr.extend_u0(abits, false);
 				wr_addr.append(addr);
@@ -414,7 +414,7 @@ void Mem::coalesce_inits() {
 			if (!init.en.is_fully_ones()) {
 				for (int i = 0; i < GetSize(init.data); i++)
 					if (init.en[i % width] != State::S1)
-						init.data[i] = State::Sx;
+						init.data.bits()[i] = State::Sx;
 				init.en = Const(State::S1, width);
 			}
 			continue;
@@ -427,7 +427,7 @@ void Mem::coalesce_inits() {
 			log_assert(offset + GetSize(init.data) <= GetSize(cdata));
 			for (int i = 0; i < GetSize(init.data); i++)
 				if (init.en[i % width] == State::S1)
-					cdata.bits[i+offset] = init.data.bits[i];
+					cdata.bits()[i+offset] = init.data[i];
 			init.removed = true;
 		}
 		MemInit new_init;
@@ -446,7 +446,7 @@ Const Mem::get_init_data() const {
 		int offset = (init.addr.as_int() - start_offset) * width;
 		for (int i = 0; i < GetSize(init.data); i++)
 			if (0 <= i+offset && i+offset < GetSize(init_data) && init.en[i % width] == State::S1)
-				init_data.bits[i+offset] = init.data.bits[i];
+				init_data.bits()[i+offset] = init.data[i];
 	}
 	return init_data;
 }
@@ -1680,8 +1680,6 @@ SigSpec MemWr::decompress_en(const std::vector<int> &swizzle, SigSpec sig) {
 	return res;
 }
 
-using addr_t = MemContents::addr_t;
-
 MemContents::MemContents(Mem *mem) :
 	MemContents(ceil_log2(mem->size), mem->width)
 {
@@ -1702,7 +1700,7 @@ MemContents::MemContents(Mem *mem) :
 				RTLIL::Const previous = (*this)[addr + i];
 				for(int j = 0; j < _data_width; j++)
 					if(init.en[j] != State::S1)
-						data[_data_width * i + j] = previous[j];
+						data.bits()[_data_width * i + j] = previous[j];
 			}
 			insert_concatenated(init.addr.as_int(), data);
 		}
@@ -1758,7 +1756,7 @@ bool MemContents::_range_overlaps(std::map<addr_t, RTLIL::Const>::iterator it, a
 	return !(top1 < begin_addr || top2 < _range_begin(it));
 }
 
-std::map<addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_range_at(addr_t addr) const {
 	// allow addr == 1<<_addr_width (which will just return end())
 	log_assert(addr <= (addr_t)(1<<_addr_width));
 	// get the first range with base > addr
@@ -1786,7 +1784,7 @@ RTLIL::Const MemContents::operator[](addr_t addr) const {
 		return _default_value;
 }
 
-addr_t MemContents::count_range(addr_t begin_addr, addr_t end_addr) const {
+MemContents::addr_t MemContents::count_range(addr_t begin_addr, addr_t end_addr) const {
 	addr_t count = 0;
 	for(auto it = _range_at(begin_addr); _range_overlaps(it, begin_addr, end_addr); it++) {
 		auto first = std::max(_range_begin(it), begin_addr);
@@ -1829,7 +1827,7 @@ void MemContents::clear_range(addr_t begin_addr, addr_t end_addr) {
 	_values.erase(begin_it, end_it);
 }
 
-std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begin_addr, addr_t end_addr) {
+std::map<MemContents::addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begin_addr, addr_t end_addr) {
 	if(begin_addr >= end_addr)
 		return _values.end(); // need a dummy value to return, end() is cheap
 	// find the first range containing any addr >= begin_addr - 1
@@ -1848,7 +1846,7 @@ std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begi
 		// we have two different ranges touching at either end, we need to merge them
 		auto upper_end = _range_end(upper_it);
 		// make range bigger (maybe reserve here instead of resize?)
-		lower_it->second.bits.resize(_range_offset(lower_it, upper_end), State::Sx);
+		lower_it->second.bits().resize(_range_offset(lower_it, upper_end), State::Sx);
 		// copy only the data beyond our range
 		std::copy(_range_data(upper_it, end_addr), _range_data(upper_it, upper_end), _range_data(lower_it, end_addr));
 		// keep lower_it, but delete upper_it
@@ -1856,7 +1854,7 @@ std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begi
 		return lower_it;
 	} else if (lower_touch) {
 		// we have a range to the left, just make it bigger and delete any other that may exist.
-		lower_it->second.bits.resize(_range_offset(lower_it, end_addr), State::Sx);
+		lower_it->second.bits().resize(_range_offset(lower_it, end_addr), State::Sx);
 		// keep lower_it and upper_it
 		_values.erase(std::next(lower_it), upper_it);
 		return lower_it;
@@ -1865,7 +1863,7 @@ std::map<addr_t, RTLIL::Const>::iterator MemContents::_reserve_range(addr_t begi
 		// since we need to erase and reinsert to a new address, steal the data
 		RTLIL::Const data = std::move(upper_it->second);
 		// note that begin_addr is not in upper_it, otherwise the whole range covered check would have tripped
-		data.bits.insert(data.bits.begin(), (_range_begin(upper_it) - begin_addr) * _data_width, State::Sx);
+		data.bits().insert(data.bits().begin(), (_range_begin(upper_it) - begin_addr) * _data_width, State::Sx);
 		// delete lower_it and upper_it, then reinsert
 		_values.erase(lower_it, std::next(upper_it));
 		return _values.emplace(begin_addr, std::move(data)).first;
@@ -1883,14 +1881,14 @@ void MemContents::insert_concatenated(addr_t addr, RTLIL::Const const &values) {
 	log_assert(words <= (addr_t)(1<<_addr_width) - addr);
 	auto it = _reserve_range(addr, addr + words);
 	auto to_begin = _range_data(it, addr);
-	std::copy(values.bits.begin(), values.bits.end(), to_begin);
+	std::copy(values.begin(), values.end(), to_begin);
 	// if values is not word-aligned, fill any missing bits with 0
 	std::fill(to_begin + values.size(), to_begin + words * _data_width, State::S0);
 }
 
 std::vector<State>::iterator MemContents::_range_write(std::vector<State>::iterator it, RTLIL::Const const &word) {
-	auto from_end = word.size() <= _data_width ? word.bits.end() : word.bits.begin() + _data_width;
-	auto to_end = std::copy(word.bits.begin(), from_end, it);
+	auto from_end = word.size() <= _data_width ? word.end() : word.begin() + _data_width;
+	auto to_end = std::copy(word.begin(), from_end, it);
 	auto it_next = std::next(it, _data_width);
 	std::fill(to_end, it_next, State::S0);
 	return it_next;

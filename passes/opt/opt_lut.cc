@@ -493,7 +493,7 @@ struct OptLutWorker
 							eval_inputs[lutM_new_inputs[i]] = (eval >> i) & 1;
 						}
 						eval_inputs[lutA_output] = evaluate_lut(lutA, eval_inputs);
-						lutM_new_table[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
+						lutM_new_table.bits()[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
 					}
 
 					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string().c_str());

@@ -22,6 +22,7 @@
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
 #include "kernel/modtools.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -363,7 +364,7 @@ struct PropagateWorker
 
 		for (auto wire : module->wires())
 			if (wire->has_attribute(ID::replaced_by_gclk))
-				replace_clk_bit(SigBit(wire), wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1, false);
+				replace_clk_bit(SigBit(wire), wire->attributes[ID::replaced_by_gclk].at(0) == State::S1, false);
 
 		for (auto cell : module->cells()) {
 			if (cell->type.in(ID($not), ID($_NOT_))) {
@@ -537,6 +538,12 @@ struct FormalFfPass : public Pass {
 		log("        Add assumptions that constrain wires with the 'replaced_by_gclk'\n");
 		log("        attribute to the value they would have before an active clock edge.\n");
 		log("\n");
+		log("    -declockgate\n");
+		log("        Detect clock-gating patterns and modify any FFs clocked by the gated\n");
+		log("        clock to use the ungated clock with the gate signal as clock enable.\n");
+		log("        This doesn't affect the design's behavior during FV but can enable the\n");
+		log("        use of formal verification methods that only support a single global\n");
+		log("        clock.\n");
 
 		// TODO: An option to check whether all FFs use the same clock before changing it to the global clock
 	}
@@ -549,6 +556,7 @@ struct FormalFfPass : public Pass {
 		bool flag_setundef = false;
 		bool flag_hierarchy = false;
 		bool flag_assume = false;
+		bool flag_declockgate = false;
 
 		log_header(design, "Executing FORMALFF pass.\n");
 
@@ -583,21 +591,236 @@ struct FormalFfPass : public Pass {
 				flag_assume = true;
 				continue;
 			}
+			if (args[argidx] == "-declockgate") {
+				flag_declockgate = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (!(flag_clk2ff || flag_ff2anyinit || flag_anyinit2ff || flag_hierarchy || flag_assume))
+		if (!(flag_clk2ff || flag_ff2anyinit || flag_anyinit2ff || flag_hierarchy || flag_assume || flag_declockgate))
 			log_cmd_error("One of the options -clk2ff, -ff2anyinit, -anyinit2ff, -hierarchy or -assume must be specified.\n");
 
 		if (flag_ff2anyinit && flag_anyinit2ff)
 			log_cmd_error("The options -ff2anyinit and -anyinit2ff are exclusive.\n");
+
+		if (flag_ff2anyinit && flag_declockgate)
+			log_cmd_error("The options -ff2anyinit and -declockgate are exclusive.\n");
 
 		if (flag_fine && !flag_anyinit2ff)
 			log_cmd_error("The option -fine requries the -anyinit2ff option.\n");
 
 		if (flag_fine && flag_clk2ff)
 			log_cmd_error("The options -fine and -clk2ff are exclusive.\n");
+
+		if (flag_declockgate)
+		{
+			for (auto module : design->selected_modules())
+			{
+				ModWalker modwalker(design);
+				modwalker.setup(module);
+				SigMap &sigmap = modwalker.sigmap;
+				FfInitVals initvals(&modwalker.sigmap, module);
+
+				dict<IdString, Mem> memories;
+
+				for (auto mem : Mem::get_selected_memories(module)) {
+					if (!mem.packed)
+						continue;
+					memories.emplace(mem.cell->name, std::move(mem));
+				}
+
+				dict<pair<SigBit, bool>, vector<Cell *>> clk_bits;
+				pool<SigBit> input_bits;
+				pool<pair<SigBit, bool>> input_clk_bits;
+				for (auto cell : module->selected_cells()) {
+					if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+						FfData ff(&initvals, cell);
+						if (!ff.has_clk)
+							continue;
+						SigBit clk = sigmap(ff.sig_clk);
+						clk_bits[{clk, ff.pol_clk}].push_back(cell);
+					} else if (cell->type == ID($mem_v2)) {
+						auto const &mem = memories.at(cell->name);
+						for (auto &rd_port : mem.rd_ports)
+							if (rd_port.clk_enable)
+								clk_bits[{rd_port.clk, rd_port.clk_polarity}].push_back(mem.cell);
+						for (auto &wr_port : mem.wr_ports)
+							if (wr_port.clk_enable)
+								clk_bits[{wr_port.clk, wr_port.clk_polarity}].push_back(mem.cell);
+					}
+					// XXX $check $print
+				}
+
+				log_debug("%s has %d clk bits\n", log_id(module), GetSize(clk_bits));
+
+				for (auto port : module->ports) {
+					Wire *wire = module->wire(port);
+					if (!wire->port_input)
+						continue;
+					for (auto bit : SigSpec(wire)) {
+						input_bits.insert(bit);
+						for (bool pol : {false, true}) {
+							if (clk_bits.count({bit, pol})) {
+								input_clk_bits.insert({bit, pol});
+								clk_bits.erase({bit, pol});
+							}
+						}
+					}
+				}
+				log_debug("%s has %d non-input clk bits\n", log_id(module), GetSize(clk_bits));
+
+				if (clk_bits.empty())
+					continue;
+
+				for (auto &clk_bit : clk_bits)
+				{
+					SigBit clk = clk_bit.first.first;
+					bool pol_clk = clk_bit.first.second;
+					vector<Cell *> &clocked_cells = clk_bit.second;
+
+					if (!clk.is_wire()) {
+						log_debug("constant clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						continue;
+					}
+					if (input_bits.count(clk)) {
+						log_debug("input clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						continue;
+					}
+					auto found = modwalker.signal_drivers.find(clk);
+					if (found == modwalker.signal_drivers.end() || found->second.empty()) {
+						log_debug("undriven clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						continue;
+					}
+
+					if (found->second.size() > 1) {
+						log_debug("multiple drivers for clk bit %s.%s\n", log_id(module), log_signal(SigSpec(clk)));
+						continue;
+					}
+
+					auto driver = *found->second.begin();
+
+					bool is_gate =
+					  pol_clk ? driver.cell->type.in(ID($and), ID($_AND_)) : driver.cell->type.in(ID($or), ID($_OR_));
+
+					if (!is_gate) {
+						log_debug("unsupported gating logic %s.%s (%s) for clock %s %s.%s\n", log_id(module),
+							  log_id(driver.cell), log_id(driver.cell->type), pol_clk ? "posedge" : "negedge",
+							  log_id(module), log_signal(SigSpec(clk)));
+
+						continue;
+					}
+					SigBit gate_clock = sigmap(driver.cell->getPort(ID::A)[driver.offset]);
+					SigBit gate_enable = sigmap(driver.cell->getPort(ID::B)[driver.offset]);
+
+					std::swap(gate_clock, gate_enable);
+					for (int i = 0; i < 2; i++) {
+						std::swap(gate_clock, gate_enable);
+
+						log_debug("clock %s.%s for gated clk bit %s.%s\n", log_id(module), log_signal(SigSpec(gate_clock)),
+							  log_id(module), log_signal(SigSpec(clk)));
+						log_debug("enable %s.%s for gated clk bit %s.%s\n", log_id(module), log_signal(SigSpec(gate_enable)),
+							  log_id(module), log_signal(SigSpec(clk)));
+
+						found = modwalker.signal_drivers.find(gate_enable);
+						if (found == modwalker.signal_drivers.end() || found->second.empty()) {
+							log_debug("undriven gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
+								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							continue;
+						}
+						if (found->second.size() > 1) {
+							log_debug("multiple drivers for gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
+								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							continue;
+						}
+
+						auto gate_driver = *found->second.begin();
+
+						if (!RTLIL::builtin_ff_cell_types().count(gate_driver.cell->type)) {
+							log_debug("non FF driver for gate enable %s.%s of gated clk bit %s.%s\n", log_id(module),
+								  log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)));
+							continue;
+						}
+
+						FfData ff(&initvals, gate_driver.cell);
+						if (ff.has_gclk || ff.has_ce || ff.has_sr || ff.has_srst || ff.has_arst || (ff.has_aload && ff.has_clk)) {
+							log_debug(
+							  "FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible type: %s\n",
+							  log_id(module), log_signal(SigSpec(gate_enable)), log_id(module), log_signal(SigSpec(clk)),
+							  log_id(gate_driver.cell->type));
+							continue;
+						}
+
+						if (ff.has_aload) {
+							// this ff is intentionally not emitted!
+							ff.has_aload = false;
+							ff.has_clk = true;
+							ff.pol_clk = !ff.pol_arst;
+							ff.sig_clk = ff.sig_aload;
+							ff.sig_d = ff.sig_ad;
+						}
+
+						if (!ff.has_clk || sigmap(ff.sig_clk) != gate_clock || ff.pol_clk != pol_clk) {
+							log_debug("FF driver for gate enable %s.%s of gated clk bit %s.%s has incompatible clocking: "
+								  "%s %s.%s\n",
+								  log_id(module), log_signal(SigSpec(gate_enable)), log_id(module),
+								  log_signal(SigSpec(clk)), ff.pol_clk ? "posedge" : "negedge", log_id(module),
+								  log_signal(SigSpec(ff.sig_clk)));
+							continue;
+						}
+
+						SigBit sig_gate = ff.sig_d[gate_driver.offset];
+
+						log_debug("found clock gate, rewriting %d cells\n", GetSize(clocked_cells));
+
+						for (auto clocked_cell : clocked_cells) {
+							log_debug("rewriting cell %s.%s (%s)\n", log_id(module), log_id(clocked_cell),
+								  log_id(clocked_cell->type));
+
+							if (RTLIL::builtin_ff_cell_types().count(clocked_cell->type)) {
+
+								FfData ff(&initvals, clocked_cell);
+								log_assert(ff.has_clk);
+								ff.unmap_ce();
+								ff.pol_ce = pol_clk;
+								ff.sig_ce = sig_gate;
+								ff.has_ce = true;
+								ff.sig_clk = gate_clock;
+								ff.emit();
+							} else if (clocked_cell->type == ID($mem_v2)) {
+								auto &mem = memories.at(clocked_cell->name);
+								bool changed = false;
+								for (auto &rd_port : mem.rd_ports) {
+									if (rd_port.clk_enable && rd_port.clk == clk && rd_port.clk_polarity == pol_clk) {
+										log_debug("patching rd port\n");
+										changed = true;
+										rd_port.clk = gate_clock;
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigSpec en_mask = SigSpec(en_bit, GetSize(rd_port.en));
+										rd_port.en = module->And(NEW_ID, rd_port.en, en_mask);
+									}
+								}
+								for (auto &wr_port : mem.wr_ports) {
+									if (wr_port.clk_enable && wr_port.clk == clk && wr_port.clk_polarity == pol_clk) {
+										log_debug("patching wr port\n");
+										changed = true;
+										wr_port.clk = gate_clock;
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigSpec en_mask = SigSpec(en_bit, GetSize(wr_port.en));
+										wr_port.en = module->And(NEW_ID, wr_port.en, en_mask);
+									}
+								}
+								if (changed)
+									mem.emit();
+							}
+						}
+
+						break;
+					}
+				}
+			}
+		}
 
 		for (auto module : design->selected_modules())
 		{
@@ -622,7 +845,7 @@ struct FormalFfPass : public Pass {
 						auto before = ff.val_init;
 						for (int i = 0; i < ff.width; i++)
 							if (ff.val_init[i] == State::Sx && !worker.is_initval_used(ff.sig_q[i]))
-								ff.val_init[i] = State::S0;
+								ff.val_init.bits()[i] = State::S0;
 
 						if (ff.val_init != before) {
 							log("Setting unused undefined initial value of %s.%s (%s) from %s to %s\n",
@@ -745,7 +968,7 @@ struct FormalFfPass : public Pass {
 				for (auto wire : module->wires()) {
 					if (!wire->has_attribute(ID::replaced_by_gclk))
 						continue;
-					bool clk_pol = wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1;
+					bool clk_pol = wire->attributes[ID::replaced_by_gclk].at(0) == State::S1;
 
 					found.emplace_back(SigSpec(wire), clk_pol);
 				}

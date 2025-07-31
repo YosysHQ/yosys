@@ -393,8 +393,8 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			RTLIL::Const &val = it2->second;
 			SigSpec sig = assign_map(wire);
 			for (int i = 0; i < GetSize(val) && i < GetSize(sig); i++)
-				if (val.bits[i] != State::Sx)
-					init_bits[sig[i]] = val.bits[i];
+				if (val[i] != State::Sx)
+					init_bits[sig[i]] = val[i];
 			wire->attributes.erase(it2);
 		}
 	}
@@ -406,7 +406,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		for (int i = 0; i < wire->width; i++) {
 			auto it = init_bits.find(RTLIL::SigBit(wire, i));
 			if (it != init_bits.end()) {
-				val.bits[i] = it->second;
+				val.bits()[i] = it->second;
 				found = true;
 			}
 		}
@@ -425,7 +425,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		if (wire->attributes.count(ID::init))
 			initval = wire->attributes.at(ID::init);
 		if (GetSize(initval) != GetSize(wire))
-			initval.bits.resize(GetSize(wire), State::Sx);
+			initval.bits().resize(GetSize(wire), State::Sx);
 		if (initval.is_fully_undef())
 			wire->attributes.erase(ID::init);
 
@@ -457,7 +457,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				if (s1[i] != s2[i]) {
 					if (s2[i] == State::Sx && (initval[i] == State::S0 || initval[i] == State::S1)) {
 						s2[i] = initval[i];
-						initval[i] = State::Sx;
+						initval.bits()[i] = State::Sx;
 					}
 					new_conn.first.append(s1[i]);
 					new_conn.second.append(s2[i]);
@@ -601,7 +601,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
-		if (cell->type.in(ID($pos), ID($_BUF_)) && !cell->has_keep_attr()) {
+		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec y = cell->getPort(ID::Y);
@@ -734,7 +734,7 @@ struct CleanPass : public Pass {
 		count_rm_cells = 0;
 		count_rm_wires = 0;
 
-		for (auto module : design->selected_whole_modules()) {
+		for (auto module : design->selected_unboxed_whole_modules()) {
 			if (module->has_processes())
 				continue;
 			rmunused_module(module, purge_mode, ys_debug(), true);

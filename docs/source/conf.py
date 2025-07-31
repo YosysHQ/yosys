@@ -1,45 +1,50 @@
 #!/usr/bin/env python3
+from pathlib import Path
 import sys
 import os
 
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
-copyright ='2024 YosysHQ GmbH'
-yosys_ver = "0.45"
+copyright ='2025 YosysHQ GmbH'
+yosys_ver = "0.55"
 
 # select HTML theme
-html_theme = 'furo'
-templates_path = ["_templates"]
-html_logo = '_static/logo.png'
-html_favicon = '_static/favico.png'
-html_css_files = ['yosyshq.css', 'custom.css']
-
-html_theme_options = {
-    "sidebar_hide_name": True,
-
-    "light_css_variables": {
-        "color-brand-primary": "#d6368f",
-        "color-brand-content": "#4b72b8",
-        "color-api-name": "#8857a3",
-        "color-api-pre-name": "#4b72b8",
-        "color-link": "#8857a3",
-    },
-
-    "dark_css_variables": {
-        "color-brand-primary": "#e488bb",
-        "color-brand-content": "#98bdff",
-        "color-api-name": "#8857a3",
-        "color-api-pre-name": "#4b72b8",
-        "color-link": "#be95d5",
-    },
+html_theme = 'furo-ys'
+html_css_files = ['custom.css']
+html_theme_options: dict[str] = {
+    "source_repository": "https://github.com/YosysHQ/yosys/",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
 }
+html_context: dict[str] = {}
+
+# try to fix the readthedocs detection
+if os.getenv("READTHEDOCS"):
+    html_context.update({
+        "READTHEDOCS": True,
+        "display_github": True,
+        "github_user": "YosysHQ",
+        "github_repo": "yosys",
+        "slug": "yosys",
+    })
+
+# override source_branch if not main
+git_slug = os.getenv("READTHEDOCS_VERSION_NAME")
+if git_slug not in [None, "latest", "stable"]:
+    html_theme_options["source_branch"] = git_slug
+
+# edit only works on branches, not tags
+if os.getenv("READTHEDOCS_VERSION_TYPE", "branch") != "branch":
+        html_theme_options["top_of_page_buttons"] = ["view"]
 
 # These folders are copied to the documentation's HTML output
 html_static_path = ['_static', "_images"]
 
-# code blocks style 
-pygments_style = 'colorful'
+# default to no highlight
 highlight_language = 'none'
+
+# default single quotes to attempt auto reference, or fallback to code
+default_role = 'autoref'
 
 extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
@@ -76,6 +81,9 @@ if os.getenv("READTHEDOCS"):
     else:
         release = yosys_ver
         todo_include_todos = False
+elif os.getenv("YOSYS_DOCS_RELEASE") is not None:
+    release = yosys_ver
+    todo_include_todos = False
 else:
     release = yosys_ver
     todo_include_todos = True
@@ -87,6 +95,9 @@ bibtex_bibfiles = ['literature.bib']
 latex_elements = {
         'releasename': 'Version',
         'preamble': r'''
+\pdfinfoomitdate 1
+\pdfsuppressptexinfo 1
+\pdftrailerid{}
 \usepackage{lmodern}
 \usepackage{comment}
 
@@ -97,9 +108,19 @@ latex_elements = {
 sys.path += [os.path.dirname(__file__) + "/../"]
 extensions.append('util.cmdref')
 
-def setup(sphinx):
-	from util.RtlilLexer import RtlilLexer
-	sphinx.add_lexer("RTLIL", RtlilLexer)
+# use autodocs
+extensions.append('sphinx.ext.autodoc')
+extensions.append('util.cellref')
+cells_json = Path(__file__).parent / 'generated' / 'cells.json'
 
-	from util.YoscryptLexer import YoscryptLexer
-	sphinx.add_lexer("yoscrypt", YoscryptLexer)
+from sphinx.application import Sphinx
+def setup(app: Sphinx) -> None:
+    from util.RtlilLexer import RtlilLexer
+    app.add_lexer("RTLIL", RtlilLexer)
+
+    try:
+        from furo_ys.lexers.YoscryptLexer import YoscryptLexer
+        app.add_lexer("yoscrypt", YoscryptLexer)
+    except ModuleNotFoundError:
+        from pygments.lexers.special import TextLexer
+        app.add_lexer("yoscrypt", TextLexer)

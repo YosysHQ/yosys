@@ -278,38 +278,42 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 		return;
 	}
 
-	for (auto &port : macc.ports)
-		if (GetSize(port.in_b) == 0)
-			log("  %s %s (%d bits, %s)\n", port.do_subtract ? "sub" : "add", log_signal(port.in_a),
-					GetSize(port.in_a), port.is_signed ? "signed" : "unsigned");
+	for (auto &term : macc.terms)
+		if (GetSize(term.in_b) == 0)
+			log("  %s %s (%d bits, %s)\n", term.do_subtract ? "sub" : "add", log_signal(term.in_a),
+					GetSize(term.in_a), term.is_signed ? "signed" : "unsigned");
 		else
-			log("  %s %s * %s (%dx%d bits, %s)\n", port.do_subtract ? "sub" : "add", log_signal(port.in_a), log_signal(port.in_b),
-					GetSize(port.in_a), GetSize(port.in_b), port.is_signed ? "signed" : "unsigned");
-
-	if (GetSize(macc.bit_ports) != 0)
-		log("  add bits %s (%d bits)\n", log_signal(macc.bit_ports), GetSize(macc.bit_ports));
+			log("  %s %s * %s (%dx%d bits, %s)\n", term.do_subtract ? "sub" : "add", log_signal(term.in_a), log_signal(term.in_b),
+					GetSize(term.in_a), GetSize(term.in_b), term.is_signed ? "signed" : "unsigned");
 
 	if (unmap)
 	{
 		typedef std::pair<RTLIL::SigSpec, bool> summand_t;
 		std::vector<summand_t> summands;
 
-		for (auto &port : macc.ports) {
+		RTLIL::SigSpec bit_terms;
+
+		for (auto &term : macc.terms) {
 			summand_t this_summand;
-			if (GetSize(port.in_b)) {
+			if (GetSize(term.in_b)) {
 				this_summand.first = module->addWire(NEW_ID, width);
-				module->addMul(NEW_ID, port.in_a, port.in_b, this_summand.first, port.is_signed);
-			} else if (GetSize(port.in_a) != width) {
+				module->addMul(NEW_ID, term.in_a, term.in_b, this_summand.first, term.is_signed);
+			} else if (GetSize(term.in_a) == 1 && GetSize(term.in_b) == 0 && !term.is_signed && !term.do_subtract) {
+				// Mimic old 'bit_terms' treatment in case it's relevant for performance,
+				// i.e. defer single-bit summands to be the last ones
+				bit_terms.append(term.in_a);
+				continue;
+			} else if (GetSize(term.in_a) != width) {
 				this_summand.first = module->addWire(NEW_ID, width);
-				module->addPos(NEW_ID, port.in_a, this_summand.first, port.is_signed);
+				module->addPos(NEW_ID, term.in_a, this_summand.first, term.is_signed);
 			} else {
-				this_summand.first = port.in_a;
+				this_summand.first = term.in_a;
 			}
-			this_summand.second = port.do_subtract;
+			this_summand.second = term.do_subtract;
 			summands.push_back(this_summand);
 		}
 
-		for (auto &bit : macc.bit_ports)
+		for (auto &bit : bit_terms)
 			summands.push_back(summand_t(bit, false));
 
 		if (GetSize(summands) == 0)
@@ -346,14 +350,20 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 	else
 	{
 		MaccmapWorker worker(module, width);
+		RTLIL::SigSpec bit_terms;
 
-		for (auto &port : macc.ports)
-			if (GetSize(port.in_b) == 0)
-				worker.add(port.in_a, port.is_signed, port.do_subtract);
+		for (auto &term : macc.terms) {
+			// Mimic old 'bit_terms' treatment in case it's relevant for performance,
+			// i.e. defer single-bit summands to be the last ones
+			if (GetSize(term.in_a) == 1 && GetSize(term.in_b) == 0 && !term.is_signed && !term.do_subtract)
+				bit_terms.append(term.in_a);
+			else if (GetSize(term.in_b) == 0)
+				worker.add(term.in_a, term.is_signed, term.do_subtract);
 			else
-				worker.add(port.in_a, port.in_b, port.is_signed, port.do_subtract);
+				worker.add(term.in_a, term.in_b, term.is_signed, term.do_subtract);
+		}
 
-		for (auto &bit : macc.bit_ports)
+		for (auto bit : bit_terms)
 			worker.add(bit, 0);
 
 		module->connect(cell->getPort(ID::Y), worker.synth());
@@ -393,7 +403,7 @@ struct MaccmapPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		for (auto cell : mod->selected_cells())
-			if (cell->type == ID($macc)) {
+			if (cell->type.in(ID($macc), ID($macc_v2))) {
 				log("Mapping %s.%s (%s).\n", log_id(mod), log_id(cell), log_id(cell->type));
 				maccmap(mod, cell, unmap_mode);
 				mod->remove(cell);

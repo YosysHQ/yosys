@@ -1,0 +1,15 @@
+read_rtlil <<EOT
+autoidx 1
+module \top
+  wire output 1 \Y
+  cell $reduce_or $reduce_or$rtl.v:29$20
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 0
+    parameter \Y_WIDTH 1
+    connect \A { }
+    connect \Y \Y
+  end
+end
+EOT
+
+equiv_opt -assert opt_demorgan

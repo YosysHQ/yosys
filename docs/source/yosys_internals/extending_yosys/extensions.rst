@@ -11,17 +11,13 @@ Writing extensions
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
 
-The `guidelines/` directory of the Yosys source code contains notes on various
-aspects of Yosys development. In particular, the files GettingStarted and
-CodingStyle may be of interest.
-
-.. todo:: what's in guidelines/GettingStarted that's missing from the manual?
+.. todo:: mention coding guide
 
 Quick guide
 -----------
 
-Code examples from this section are included in the
-|code_examples/extensions|_ directory of the Yosys source code.
+Code examples from this section are included in the |code_examples/extensions|_
+directory of the Yosys source code.
 
 .. |code_examples/extensions| replace:: :file:`docs/source/code_examples/extensions`
 .. _code_examples/extensions: https://github.com/YosysHQ/yosys/tree/main/docs/source/code_examples/extensions
@@ -35,7 +31,7 @@ about the internal data storage format used in Yosys and the classes that it
 provides.
 
 This document will focus on the much simpler version of RTLIL left after the
-commands :cmd:ref:`proc` and :cmd:ref:`memory` (or :yoscrypt:`memory -nomap`):
+commands `proc` and `memory` (or :yoscrypt:`memory -nomap`):
 
 .. figure:: /_images/internals/simplified_rtlil.*
     :class: width-helper invert-helper
@@ -56,10 +52,9 @@ It is possible to only work on this simpler version:
     }
 
 When trying to understand what a command does, creating a small test case to
-look at the output of :cmd:ref:`dump` and :cmd:ref:`show` before and after the
-command has been executed can be helpful.
-:doc:`/using_yosys/more_scripting/selections` has more information on using
-these commands.
+look at the output of `dump` and `show` before and after the command has been
+executed can be helpful. :doc:`/using_yosys/more_scripting/selections` has more
+information on using these commands.
 
 Creating a command
 ~~~~~~~~~~~~~~~~~~
@@ -151,8 +146,8 @@ Most commands modify existing modules, not create new ones.
 
 When modifying existing modules, stick to the following DOs and DON'Ts:
 
-- Do not remove wires. Simply disconnect them and let a successive
-  :cmd:ref:`clean` command worry about removing it.
+- Do not remove wires. Simply disconnect them and let a successive `clean`
+  command worry about removing it.
 - Use ``module->fixup_ports()`` after changing the ``port_*`` properties of
   wires.
 - You can safely remove cells or change the ``connections`` property of a cell,
@@ -242,7 +237,7 @@ Use ``log_cmd_error()`` to report a recoverable error:
 
 .. code:: C++
 
-    if (design->selection_stack.back().empty())
+    if (design->selection().empty())
         log_cmd_error("This command can't operator on an empty selection!\n");
 
 Use ``log_assert()`` and ``log_abort()`` instead of ``assert()`` and ``abort()``.

@@ -336,7 +336,8 @@ static AstNode *addIncOrDecExpr(AstNode *lhs, dict<IdString, AstNode*> *attr, AS
 	log_assert(stmt->type == AST_ASSIGN_EQ);
 	AstNode *expr = stmt->children[0]->clone();
 	if (undo) {
-		AstNode *minus_one = AstNode::mkconst_int(-1, true, 1);
+		AstNode *one = AstNode::mkconst_int(1, false, 1);
+		AstNode *minus_one = new AstNode(AST_NEG, one);
 		expr = new AstNode(op, expr, minus_one);
 	}
 	SET_AST_NODE_LOC(expr, begin, end);
@@ -426,7 +427,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %type <boolean> opt_property always_comb_or_latch always_or_always_ff
 %type <boolean> opt_signedness_default_signed opt_signedness_default_unsigned
 %type <integer> integer_atom_type integer_vector_type
-%type <al> attr case_attr
+%type <al> attr if_attr case_attr
 %type <ast> struct_union
 %type <ast_node_type> asgn_binop inc_or_dec_op
 %type <ast> genvar_identifier
@@ -464,6 +465,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %%
 
 input: {
+	(void)frontend_verilog_yynerrs;
 	ast_stack.clear();
 	ast_stack.push_back(current_ast);
 } design {
@@ -1854,7 +1856,7 @@ struct_decl:
 	}
 	;
 
-struct_type: struct_union { astbuf2 = $1; } struct_body { $$ = astbuf2; }
+struct_type: struct_union { astbuf2 = $1; astbuf2->is_custom_type = true; } struct_body { $$ = astbuf2; }
 	;
 
 struct_union:
@@ -2248,7 +2250,8 @@ cell_parameter:
 		node->children.push_back($1);
 	} |
 	'.' TOK_ID '(' ')' {
-		// just ignore empty parameters
+		// delete unused TOK_ID
+		delete $2;
 	} |
 	'.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_PARASET);
@@ -2869,17 +2872,38 @@ behavioral_stmt:
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
-	attr TOK_IF '(' expr ')' {
-		AstNode *node = new AstNode(AST_CASE);
+	if_attr TOK_IF '(' expr ')' {
+		AstNode *node = 0;
 		AstNode *block = new AstNode(AST_BLOCK);
-		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
+		AstNode *context = ast_stack.back();
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if)) {
+			AstNode *outer = ast_stack[ast_stack.size() - 2];
+			log_assert (outer && outer->type == AST_CASE);
+			if (outer->get_bool_attribute(ID::parallel_case)) {
+				// parallel "else if": append condition to outer "if"
+				node = outer;
+				log_assert (node->children.size());
+				ast_stack.pop_back();
+				delete node->children.back();
+				node->children.pop_back();
+				ast_stack.push_back(block);
+			} else if (outer->get_bool_attribute(ID::full_case))
+				(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		}
+		AstNode *expr = new AstNode(AST_REDUCE_BOOL, $4);
+		if (!node) {
+			// not parallel "else if": begin new construction
+			node = new AstNode(AST_CASE);
+			append_attr(node, $1);
+			ast_stack.back()->children.push_back(node);
+			node->children.push_back(node->get_bool_attribute(ID::parallel_case) ? AstNode::mkconst_int(1, false, 1) : expr);
+		} else
+			free_attr($1);
+		AstNode *cond = new AstNode(AST_COND, node->get_bool_attribute(ID::parallel_case) ? expr : AstNode::mkconst_int(1, false, 1), block);
 		SET_AST_NODE_LOC(cond, @4, @4);
-		ast_stack.back()->children.push_back(node);
-		node->children.push_back(new AstNode(AST_REDUCE_BOOL, $4));
 		node->children.push_back(cond);
 		ast_stack.push_back(node);
 		ast_stack.push_back(block);
-		append_attr(node, $1);
 	} behavioral_stmt {
 		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 	} optional_else {
@@ -2897,6 +2921,33 @@ behavioral_stmt:
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
+	};
+
+if_attr:
+	attr {
+		$$ = $1;
+	} |
+	attr TOK_UNIQUE0 {
+		AstNode *context = ast_stack.back();
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
+			frontend_verilog_yyerror("unique0 keyword cannot be used for 'else if' branch.");
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
+	} |
+	attr TOK_PRIORITY {
+		AstNode *context = ast_stack.back();
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
+			frontend_verilog_yyerror("priority keyword cannot be used for 'else if' branch.");
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
+	} |
+	attr TOK_UNIQUE {
+		AstNode *context = ast_stack.back();
+		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
+			frontend_verilog_yyerror("unique keyword cannot be used for 'else if' branch.");
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
 	};
 
 case_attr:
@@ -2946,6 +2997,7 @@ behavioral_stmt_list:
 optional_else:
 	TOK_ELSE {
 		AstNode *block = new AstNode(AST_BLOCK);
+		block->attributes[ID::promoted_if] = AstNode::mkconst_int(1, false );
 		AstNode *cond = new AstNode(AST_COND, new AstNode(AST_DEFAULT), block);
 		SET_AST_NODE_LOC(cond, @1, @1);
 
@@ -3501,6 +3553,12 @@ basic_expr:
 		SET_AST_NODE_LOC($$, @1, @4);
 	} |
 	basic_expr OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
+	typedef_base_type OP_CAST '(' expr ')' {
 		if (!sv_mode)
 			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
 		$$ = new AstNode(AST_CAST_SIZE, $1, $4);

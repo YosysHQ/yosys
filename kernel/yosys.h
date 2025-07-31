@@ -32,8 +32,6 @@
 //
 // This header is very boring. It just defines some general things that
 // belong nowhere else and includes the interesting headers.
-//
-// Find more information in the "guidelines/GettingStarted" file.
 
 
 #ifndef YOSYS_H
@@ -44,6 +42,10 @@
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
+
+#ifdef YOSYS_ENABLE_TCL
+struct Tcl_Interp;
+#endif
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -79,6 +81,7 @@ extern std::set<std::string> yosys_input_files, yosys_output_files;
 
 // from kernel/version_*.o (cc source generated from Makefile)
 extern const char *yosys_version_str;
+const char* yosys_maybe_version();
 
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;

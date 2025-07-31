@@ -735,10 +735,10 @@ struct AST_INTERNAL::ProcessGenerator
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits.push_back(RTLIL::S1);
+						polarity.bits().push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits.push_back(RTLIL::S0);
+						polarity.bits().push_back(RTLIL::S0);
 					}
 				}
 
@@ -832,10 +832,10 @@ struct AST_INTERNAL::ProcessGenerator
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits.push_back(RTLIL::S1);
+						polarity.bits().push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits.push_back(RTLIL::S0);
+						polarity.bits().push_back(RTLIL::S0);
 					}
 				}
 
@@ -892,7 +892,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
 					int new_bit = port_map[std::make_pair(memid, i)];
-					priority_mask.bits[new_bit] = orig_priority_mask.bits[i];
+					priority_mask.bits()[new_bit] = orig_priority_mask[i];
 				}
 				action.priority_mask = priority_mask;
 				sync->mem_write_actions.push_back(action);
@@ -984,7 +984,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		// unallocated enum, ignore
 		break;
 	case AST_CONSTANT:
-		width_hint = max(width_hint, int(bits.size()));
+		width_hint = max(width_hint, GetSize(bits));
 		if (!is_signed)
 			sign_hint = false;
 		break;
@@ -1446,6 +1446,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->port_input = is_input;
 			wire->port_output = is_output;
 			wire->upto = range_swapped;
+
 			wire->is_signed = is_signed;
 
 			for (auto &attr : attributes) {

@@ -1,4 +1,2 @@
-*.log
-test.ys
-*.filtered
+/*.filtered
 *.verilogsim

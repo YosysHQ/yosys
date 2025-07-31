@@ -135,7 +135,7 @@ void zinit(State &v)
 
 void zinit(Const &v)
 {
-	for (auto &bit : v.bits)
+	for (auto &bit : v.bits())
 		zinit(bit);
 }
 
@@ -161,7 +161,7 @@ struct SimInstance
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
 	pool<IdString> dirty_memories;
-	pool<SimInstance*, hash_ptr_ops> dirty_children;
+	pool<SimInstance*> dirty_children;
 
 	struct ff_state_t
 	{
@@ -423,11 +423,11 @@ struct SimInstance
 
 		for (auto bit : sigmap(sig))
 			if (bit.wire == nullptr)
-				value.bits.push_back(bit.data);
+				value.bits().push_back(bit.data);
 			else if (state_nets.count(bit))
-				value.bits.push_back(state_nets.at(bit));
+				value.bits().push_back(state_nets.at(bit));
 			else
-				value.bits.push_back(State::Sz);
+				value.bits().push_back(State::Sz);
 
 		if (shared->debug)
 			log("[%s] get %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
@@ -486,9 +486,9 @@ struct SimInstance
 
 		int offset = (addr - state.mem->start_offset) * state.mem->width;
 		for (int i = 0; i < GetSize(data); i++)
-			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data.bits[i] != State::Sa)
-				if (state.data.bits[i+offset] != data.bits[i])
-					dirty = true, state.data.bits[i+offset] = data.bits[i];
+			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data[i] != State::Sa)
+				if (state.data[i+offset] != data[i])
+					dirty = true, state.data.bits()[i+offset] = data[i];
 
 		if (dirty)
 			dirty_memories.insert(memid);
@@ -499,8 +499,8 @@ struct SimInstance
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
 			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
-		if (state.data.bits[offset] != data) {
-			state.data.bits[offset] = data;
+		if (state.data[offset] != data) {
+			state.data.bits()[offset] = data;
 			dirty_memories.insert(memid);
 		}
 	}
@@ -717,10 +717,10 @@ struct SimInstance
 
 				for(int i=0;i<ff.past_d.size();i++) {
 					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-						current_q[i] = State::S0;
+						current_q.bits()[i] = State::S0;
 					}
 					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-						current_q[i] = State::S1;
+						current_q.bits()[i] = State::S1;
 					}
 				}
 			}
@@ -769,8 +769,8 @@ struct SimInstance
 					int index = addr_int - mem.start_offset;
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
-							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
-								mdb.data.bits.at(index*mem.width+i) = data[i];
+							if (enable[i] == State::S1 && mdb.data.at(index*mem.width+i) != data[i]) {
+								mdb.data.bits().at(index*mem.width+i) = data[i];
 								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
@@ -971,7 +971,7 @@ struct SimInstance
 				if (w->attributes.count(ID::init) == 0)
 					w->attributes[ID::init] = Const(State::Sx, GetSize(w));
 
-				w->attributes[ID::init][sig_q[i].offset] = initval[i];
+				w->attributes[ID::init].bits()[sig_q[i].offset] = initval[i];
 			}
 		}
 
@@ -1546,36 +1546,27 @@ struct SimWorker : SimShared
 			log(" for %d clock cycle(s)",numcycles);
 		log("\n");
 		bool all_samples = fst_clock.empty();
+		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 
-		try {
-			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
-				if (verbose)
-					log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
-				bool did_something = top->setInputs();
+		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
+			if (verbose)
+				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+			bool did_something = top->setInputs();
 
-				if (initial) {
-					if (!fst_noinit) did_something |= top->setInitState();
-					initialize_stable_past();
-					initial = false;
-				}
-				if (did_something)
-					update(true);
-				register_output_step(time);
+			if (initial) {
+				if (!fst_noinit) did_something |= top->setInitState();
+				initialize_stable_past();
+				initial = false;
+			}
+			if (did_something)
+				update(true);
+			register_output_step(time);
 
-				bool status = top->checkSignals();
-				if (status)
-					log_error("Signal difference\n");
-				cycle++;
-
-				// Limit to number of cycles if provided
-				if (cycles_set && cycle > numcycles *2)
-					throw fst_end_of_data_exception();
-				if (time==stopCount)
-					throw fst_end_of_data_exception();
-			});
-		} catch(fst_end_of_data_exception) {
-			// end of data detected
-		}
+			bool status = top->checkSignals();
+			if (status)
+				log_error("Signal difference\n");
+			cycle++;
+		});
 
 		write_output_files();
 		delete fst;
@@ -2065,7 +2056,7 @@ struct SimWorker : SimShared
 
 		json.begin_object();
 		json.entry("version", "Yosys sim summary");
-		json.entry("generator", yosys_version_str);
+		json.entry("generator", yosys_maybe_version());
 		json.entry("steps", step);
 		json.entry("top", log_id(top->module->name));
 		json.name("assertions");
@@ -2248,40 +2239,31 @@ struct SimWorker : SimShared
 		log("Writing data to `%s`\n", (tb_filename+".txt").c_str());
 		std::ofstream data_file(tb_filename+".txt");
 		std::stringstream initstate;
-		try {
-			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
-				for(auto &item : clocks)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				for(auto &item : inputs)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				for(auto &item : outputs)
-					data_file << stringf("%s",fst->valueOf(item.second).c_str());
-				data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
+		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
+		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
+			for(auto &item : clocks)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			for(auto &item : inputs)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			for(auto &item : outputs)
+				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+			data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
 
-				if (time==startCount) {
-					// initial state
-					for(auto var : fst->getVars()) {
-						if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
-							if (var.scope == scope) {
-								initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
-							} else if (var.scope.find(scope+".")==0) {
-								initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
-							}
+			if (time==startCount) {
+				// initial state
+				for(auto var : fst->getVars()) {
+					if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
+						if (var.scope == scope) {
+							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+						} else if (var.scope.find(scope+".")==0) {
+							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
 						}
 					}
 				}
-				cycle++;
-				prev_time = time;
-
-				// Limit to number of cycles if provided
-				if (cycles_set && cycle > numcycles *2)
-					throw fst_end_of_data_exception();
-				if (time==stopCount)
-					throw fst_end_of_data_exception();
-			});
-		} catch(fst_end_of_data_exception) {
-			// end of data detected
-		}
+			}
+			cycle++;
+			prev_time = time;
+		});
 
 		f << stringf("\treg [0:%d] data [0:%d];\n", data_len-1, cycle-1);
 		f << "\tinitial begin;\n";
@@ -2344,7 +2326,7 @@ struct VCDWriter : public OutputWriter
 	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!vcdfile.is_open()) return;
-		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_version_str : "Yosys");
+		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_maybe_version() : "Yosys");
 
 		if (worker->date) {
 			std::time_t t = std::time(nullptr);
@@ -2400,7 +2382,7 @@ struct VCDWriter : public OutputWriter
 struct FSTWriter : public OutputWriter
 {
 	FSTWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
-		fstfile = (struct fstContext *)fstWriterCreate(filename.c_str(),1);
+		fstfile = fstWriterCreate(filename.c_str(),1);
 	}
 
 	virtual ~FSTWriter()
@@ -2412,7 +2394,7 @@ struct FSTWriter : public OutputWriter
 	{
 		if (!fstfile) return;
 		std::time_t t = std::time(nullptr);
-		fstWriterSetVersion(fstfile, worker->date ? yosys_version_str : "Yosys");
+		fstWriterSetVersion(fstfile, worker->date ? yosys_maybe_version() : "Yosys");
 		if (worker->date)
 			fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
 		else
@@ -2456,7 +2438,7 @@ struct FSTWriter : public OutputWriter
 		}
 	}
 
-	struct fstContext *fstfile = nullptr;
+	struct fstWriterContext *fstfile = nullptr;
 	std::map<int,fstHandle> mapping;
 };
 
@@ -2542,7 +2524,7 @@ struct AIWWriter : public OutputWriter
 			{
 				auto val = it.second ? State::S1 : State::S0;
 				SigBit bit = aiw_inputs.at(it.first);
-				auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+				auto v = current[mapping[bit.wire]].at(bit.offset);
 				if (v == val)
 					skip = true;
 			}
@@ -2552,7 +2534,7 @@ struct AIWWriter : public OutputWriter
 			{
 				if (aiw_inputs.count(i)) {
 					SigBit bit = aiw_inputs.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else
@@ -2561,7 +2543,7 @@ struct AIWWriter : public OutputWriter
 				}
 				if (aiw_inits.count(i)) {
 					SigBit bit = aiw_inits.at(i);
-					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					auto v = current[mapping[bit.wire]].at(bit.offset);
 					if (v == State::S1)
 						aiwfile << '1';
 					else
@@ -2887,7 +2869,7 @@ struct SimPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_whole_modules();
+			auto mods = design->selected_unboxed_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();
@@ -3016,7 +2998,7 @@ struct Fst2TbPass : public Pass {
 			if (!top_mod)
 				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
 		} else {
-			auto mods = design->selected_whole_modules();
+			auto mods = design->selected_unboxed_whole_modules();
 			if (GetSize(mods) != 1)
 				log_cmd_error("Only one top module must be selected.\n");
 			top_mod = mods.front();

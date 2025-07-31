@@ -168,10 +168,10 @@ undef_bit_in_next_state:
 			ctrl_in_bit_indices[ctrl_in[i]] = i;
 
 		for (auto &it : ctrl_in_bit_indices)
-			if (tr.ctrl_in.bits.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
+			if (tr.ctrl_in.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
 				for (auto &dc_bit : exclusive_ctrls.at(it.first))
 					if (ctrl_in_bit_indices.count(dc_bit))
-						tr.ctrl_in.bits.at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
+						tr.ctrl_in.bits().at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
 
 		RTLIL::Const log_state_in = RTLIL::Const(RTLIL::State::Sx, fsm_data.state_bits);
 		if (state_in >= 0)
@@ -377,6 +377,13 @@ static void extract_fsm(RTLIL::Wire *wire)
 	fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 	fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
 	fsm_cell->attributes = wire->attributes;
+	if(fsm_cell->attributes.count(ID::hdlname)) {
+		auto hdlname = fsm_cell->get_hdlname_attribute();
+		hdlname.pop_back();
+		fsm_cell->set_hdlname_attribute(hdlname);
+		fsm_cell->set_string_attribute(ID(scopename), fsm_cell->get_string_attribute(ID::hdlname));
+		fsm_cell->attributes.erase(ID::hdlname);
+	}
 	fsm_data.copy_to_cell(fsm_cell);
 
 	// rename original state wire
@@ -385,6 +392,13 @@ static void extract_fsm(RTLIL::Wire *wire)
 	wire->attributes.erase(ID::fsm_encoding);
 	wire->name = stringf("$fsm$oldstate%s", wire->name.c_str());
 	module->wires_[wire->name] = wire;
+	if(wire->attributes.count(ID::hdlname)) {
+		auto hdlname = wire->get_hdlname_attribute();
+		hdlname.pop_back();
+		wire->set_hdlname_attribute(hdlname);
+		wire->set_string_attribute(ID(scopename), wire->get_string_attribute(ID::hdlname));
+		wire->attributes.erase(ID::hdlname);
+	}
 
 	// unconnect control outputs from old drivers
 

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 source ../gen-tests-makefile.sh
-run_tests --yosys-scripts --bash --yosys-args "-e 'select out of bounds'"
+generate_mk --yosys-scripts --tcl-scripts --bash --yosys-args "-e 'select out of bounds'"

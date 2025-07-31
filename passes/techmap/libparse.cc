@@ -32,6 +32,88 @@
 
 using namespace Yosys;
 
+#ifndef FILTERLIB
+
+LibertyAstCache LibertyAstCache::instance;
+
+std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string &fname)
+{
+	auto it = cached.find(fname);
+	if (it == cached.end())
+		return nullptr;
+	if (verbose)
+		log("Using cached data for liberty file `%s'\n", fname.c_str());
+	return it->second;
+}
+
+void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast)
+{
+	auto it = cache_path.find(fname);
+	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
+	if (!should_cache)
+		return;
+	if (verbose)
+		log("Caching data for liberty file `%s'\n", fname.c_str());
+	cached.emplace(fname, ast);
+}
+
+#endif
+
+bool LibertyInputStream::extend_buffer_once()
+{
+	if (eof)
+		return false;
+
+	// To support unget we leave the last already read character in the buffer
+	if (buf_pos > 1) {
+		size_t move_pos = buf_pos - 1;
+		memmove(buffer.data(), buffer.data() + move_pos, buf_end - move_pos);
+		buf_pos -= move_pos;
+		buf_end -= move_pos;
+	}
+
+	const size_t chunk_size = 4096;
+	if (buffer.size() < buf_end + chunk_size) {
+		buffer.resize(buf_end + chunk_size);
+	}
+
+	size_t read_size = f.rdbuf()->sgetn((char *)buffer.data() + buf_end, chunk_size);
+	buf_end += read_size;
+	if (read_size < chunk_size)
+		eof = true;
+	return read_size != 0;
+}
+
+bool LibertyInputStream::extend_buffer_at_least(size_t size) {
+	while (buffered_size() < size) {
+		if (!extend_buffer_once())
+			return false;
+	}
+	return true;
+}
+
+int LibertyInputStream::get_cold()
+{
+	if (buf_pos == buf_end) {
+		if (!extend_buffer_at_least())
+			return EOF;
+	}
+
+	int c = buffer[buf_pos];
+	buf_pos += 1;
+	return c;
+}
+
+int LibertyInputStream::peek_cold(size_t offset)
+{
+	if (buf_pos + offset >= buf_end) {
+		if (!extend_buffer_at_least(offset + 1))
+			return EOF;
+	}
+
+	return buffer[buf_pos + offset];
+}
+
 LibertyAst::~LibertyAst()
 {
 	for (auto child : children)
@@ -80,6 +162,208 @@ void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string i
 		fprintf(f, " ;\n");
 }
 
+#ifndef FILTERLIB
+
+// binary operators excluding ' '
+bool LibertyExpression::is_nice_binop(char c) {
+	return c == '*' || c == '&' || c == '^' || c == '+' || c == '|';
+}
+
+// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
+	if (s.empty())
+		return LibertyExpression{};
+
+	char c = s.peek();
+	auto lhs = LibertyExpression{};
+
+	while (isspace(c)) {
+		if (s.empty())
+			return lhs;
+		s.next();
+		c = s.peek();
+	}
+
+	if (isalpha(c)) { // pin
+		lhs.kind = Kind::PIN;
+		lhs.name = s.pin();
+	} else if (c == '(') { // parens
+		s.next();
+		lhs = parse(s);
+		if (s.peek() != ')') {
+			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr().c_str());
+			return lhs;
+		}
+		s.next();
+	} else if (c == '!') { // prefix NOT
+		s.next();
+		lhs.kind = Kind::NOT;
+		lhs.children.push_back(parse(s, 7));
+	} else {
+		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr().c_str());
+		return lhs;
+	}
+
+	while (true) {
+		if (s.empty())
+			break;
+
+		c = s.peek();
+
+		if (c == '\'') { // postfix NOT
+			if (min_prio > 7)
+				break;
+			s.next();
+
+			auto n = LibertyExpression{};
+			n.kind = Kind::NOT;
+			n.children.push_back(lhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '^') { // infix XOR
+			if (min_prio > 5)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 6);
+			auto n = LibertyExpression{};
+			n.kind = Kind::XOR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '&' || c == '*' || isspace(c)) { // infix AND
+			if (min_prio > 3)
+				break;
+
+			if (isspace(c)) {
+				// Rewind past this space and any further spaces
+				while (isspace(c)) {
+					if (s.empty())
+						return lhs;
+					s.next();
+					c = s.peek();
+				}
+				if (is_nice_binop(c)) {
+					// We found a real binop, so this space wasn't an AND
+					// and we just discard it as meaningless whitespace
+					continue;
+				}
+			} else {
+				// Rewind past this op
+				s.next();
+			}
+
+			auto rhs = parse(s, 4);
+			if (rhs.kind == EMPTY)
+				continue;
+			auto n = LibertyExpression{};
+			n.kind = Kind::AND;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		} else if (c == '+' || c == '|') { // infix OR
+			if (min_prio > 1)
+				break;
+			s.next();
+
+			auto rhs = parse(s, 2);
+			auto n = LibertyExpression{};
+			n.kind = Kind::OR;
+			n.children.push_back(lhs);
+			n.children.push_back(rhs);
+			lhs = std::move(n);
+
+			continue;
+		}
+		break;
+	}
+
+	return lhs;
+}
+
+void LibertyExpression::get_pin_names(pool<std::string>& names) {
+	if (kind == Kind::PIN) {
+		names.insert(name);
+	} else {
+		for (auto& child : children)
+			child.get_pin_names(names);
+	}
+}
+
+bool LibertyExpression::eval(dict<std::string, bool>& values) {
+	bool result = false;
+	switch (kind) {
+	case Kind::AND:
+		result = true;
+		for (auto& child : children)
+			result &= child.eval(values);
+		return result;
+	case Kind::OR:
+		result = false;
+		for (auto& child : children)
+			result |= child.eval(values);
+		return result;
+	case Kind::NOT:
+		log_assert(children.size() == 1);
+		return !children[0].eval(values);
+	case Kind::XOR:
+		result = false;
+		for (auto& child : children)
+			result ^= child.eval(values);
+		return result;
+	case Kind::PIN:
+		return values.at(name);
+	case Kind::EMPTY:
+		log_assert(false);
+	}
+	return false;
+}
+
+std::string LibertyExpression::str(int indent)
+{
+	std::string prefix;
+	switch (kind) {
+		case AND:
+			prefix += "(and ";
+			break;
+		case OR:
+			prefix += "(or ";
+			break;
+		case NOT:
+			prefix += "(not ";
+			break;
+		case XOR:
+			prefix += "(xor ";
+			break;
+		case PIN:
+			prefix += "(pin \"" + name + "\"";
+			break;
+		case EMPTY:
+			prefix += "(";
+			break;
+		default:
+			log_assert(false);
+	}
+	size_t add_indent = prefix.length();
+	bool first = true;
+	for (auto child : children) {
+		if (!first) {
+			prefix += "\n" + std::string(indent + add_indent, ' ');
+		}
+		prefix += child.str(indent + add_indent);
+		first = false;
+	}
+	prefix += ")";
+	return prefix;
+}
+
+#endif
+
 int LibertyParser::lexer(std::string &str)
 {
 	int c;
@@ -91,15 +375,19 @@ int LibertyParser::lexer(std::string &str)
 
 	// search for identifiers, numbers, plus or minus.
 	if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.') {
-		str = static_cast<char>(c);
-		while (1) {
-			c = f.get();
+		f.unget();
+		size_t i = 1;
+		while (true) {
+			c = f.peek(i);
 			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
-				str += c;
+				i += 1;
 			else
 				break;
 		}
-		f.unget();
+		str.clear();
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i);
+
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
 			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
@@ -114,16 +402,24 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
-		str = "";
-		while (1) {
-			c = f.get();
-			if (c == '\n')
-				line++;
-			if (c == '"')
+		size_t i = 0;
+		while (true) {
+			c = f.peek(i);
+			line += (c == '\n');
+			if (c != '"')
+				i += 1;
+			else
 				break;
-			str += c;
 		}
-		// fprintf(stderr, "LEX: string >>%s<<\n", str.c_str());
+		str.clear();
+#ifdef FILTERLIB
+		f.unget();
+		str.append(f.buffered_data(), f.buffered_data() + i + 2);
+		f.consume(i + 2);
+#else
+		str.append(f.buffered_data(), f.buffered_data() + i);
+		f.consume(i + 1);
+#endif
 		return 'v';
 	}
 
@@ -179,7 +475,77 @@ int LibertyParser::lexer(std::string &str)
 	return c;
 }
 
-LibertyAst *LibertyParser::parse()
+void LibertyParser::report_unexpected_token(int tok)
+{
+	std::string eReport;
+	switch(tok)
+	{
+	case 'n':
+		error("Unexpected newline.");
+		break;
+	case '[':
+	case ']':
+	case '}':
+	case '{':
+	case '\"':
+	case ':':
+		eReport = "Unexpected '";
+		eReport += static_cast<char>(tok);
+		eReport += "'.";
+		error(eReport);
+		break;
+	case EOF:
+		error("Unexpected end of file");
+		break;
+	default:
+		eReport = "Unexpected token: ";
+		eReport += static_cast<char>(tok);
+		error(eReport);
+	}
+}
+
+// FIXME: the AST needs to be extended to store
+//        these vector ranges.
+void LibertyParser::parse_vector_range(int tok)
+{
+	// parse vector range [A] or [A:B]
+	std::string arg;
+	tok = lexer(arg);
+	if (tok != 'v')
+	{
+		// expected a vector array index
+		error("Expected a number.");
+	}
+	else
+	{
+		// fixme: check for number A
+	}
+	tok = lexer(arg);
+	// optionally check for : in case of [A:B]
+	// if it isn't we just expect ']'
+	// as we have [A]
+	if (tok == ':')
+	{
+		tok = lexer(arg);
+		if (tok != 'v')
+		{
+			// expected a vector array index
+			error("Expected a number.");
+		}
+		else
+		{
+			// fixme: check for number B
+			tok = lexer(arg);
+		}
+	}
+	// expect a closing bracket of array range
+	if (tok != ']')
+	{
+		error("Expected ']' on array range.");
+	}
+}
+
+LibertyAst *LibertyParser::parse(bool top_level)
 {
 	std::string str;
 
@@ -193,30 +559,17 @@ LibertyAst *LibertyParser::parse()
 	while ((tok == 'n') || (tok == ';'))
 		tok = lexer(str);
 
-	if (tok == '}' || tok < 0)
+	if (tok == EOF) {
+		if (top_level)
+			return NULL;
+		report_unexpected_token(tok);
+	}
+
+	if (tok == '}')
 		return NULL;
 
 	if (tok != 'v') {
-		std::string eReport;
-		switch(tok)
-		{
-		case 'n':
-			error("Unexpected newline.");
-			break;
-		case '[':
-		case ']':
-		case '}':
-		case '{':
-		case '\"':
-		case ':':
-			eReport = "Unexpected '";
-			eReport += static_cast<char>(tok);
-			eReport += "'.";
-			error(eReport);
-			break;
-		default:
-			error();
-		}
+		report_unexpected_token(tok);	
 	}
 
 	LibertyAst *ast = new LibertyAst;
@@ -234,7 +587,11 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok == 'v') {
-    				tok = lexer(str);
+				tok = lexer(str);
+				if (tok == '[') {
+					parse_vector_range(tok);
+					tok = lexer(str);
+				}
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -265,67 +622,15 @@ LibertyAst *LibertyParser::parse()
 				if (tok == ')')
 					break;
 				
-				// FIXME: the AST needs to be extended to store
-				//        these vector ranges.
 				if (tok == '[')
 				{
-					// parse vector range [A] or [A:B]
-					std::string arg;
-					tok = lexer(arg);
-					if (tok != 'v')
-					{
-						// expected a vector array index
-						error("Expected a number.");
-					}
-					else
-					{
-						// fixme: check for number A
-					}
-					tok = lexer(arg);
-					// optionally check for : in case of [A:B]
-					// if it isn't we just expect ']'
-					// as we have [A]
-					if (tok == ':')
-					{
-						tok = lexer(arg);
-						if (tok != 'v')
-						{
-							// expected a vector array index
-							error("Expected a number.");
-						}
-						else
-						{
-							// fixme: check for number B
-							tok = lexer(arg);                            
-						}
-					}
-					// expect a closing bracket of array range
-					if (tok != ']')
-					{
-						error("Expected ']' on array range.");
-					}
+					parse_vector_range(tok);
 					continue;           
 				}
+				if (tok == 'n')
+					continue;
 				if (tok != 'v') {
-					std::string eReport;
-					switch(tok)
-					{
-					case 'n':
-					  continue;
-					case '[':
-					case ']':
-					case '}':
-					case '{':
-					case '\"':
-					case ':':
-						eReport = "Unexpected '";
-						eReport += static_cast<char>(tok);
-						eReport += "'.";
-						error(eReport);
-						break;
-					default:
-						error();
-					}
+					report_unexpected_token(tok);
 				}
 				ast->args.push_back(arg);
 			}
@@ -333,16 +638,22 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '{') {
+			bool terminated = false;
 			while (1) {
-				LibertyAst *child = parse();
-				if (child == NULL)
+				LibertyAst *child = parse(false);
+				if (child == NULL) {
+					terminated = true;
 					break;
+				}
 				ast->children.push_back(child);
+			}
+			if (!terminated) {
+				report_unexpected_token(EOF);
 			}
 			break;
 		}
 
-		error();
+		report_unexpected_token(tok);
 	}
 
 	return ast;
@@ -350,12 +661,12 @@ LibertyAst *LibertyParser::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParser::error()
+void LibertyParser::error() const
 {
 	log_error("Syntax error in liberty file on line %d.\n", line);
 }
 
-void LibertyParser::error(const std::string &str)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
@@ -365,13 +676,13 @@ void LibertyParser::error(const std::string &str)
 
 #else
 
-void LibertyParser::error()
+void LibertyParser::error() const
 {
 	fprintf(stderr, "Syntax error in liberty file on line %d.\n", line);
 	exit(1);
 }
 
-void LibertyParser::error(const std::string &str)
+void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";

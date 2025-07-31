@@ -22,7 +22,7 @@ list of cells from that module:
     foobar_pm pm(module, module->selected_cells());
 
 The caller must make sure that none of the cells in the 2nd argument are
-deleted for as long as the patter matcher instance is used.
+deleted for as long as the pattern matcher instance is used.
 
 At any time it is possible to disable cells, preventing them from showing
 up in any future matches:

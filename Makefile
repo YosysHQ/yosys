@@ -2,9 +2,7 @@
 CONFIG := none
 # CONFIG := clang
 # CONFIG := gcc
-# CONFIG := afl-gcc
 # CONFIG := wasi
-# CONFIG := mxe
 # CONFIG := msys2-32
 # CONFIG := msys2-64
 
@@ -104,6 +102,7 @@ LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
 PLUGIN_LIBS :=
 EXE_LINKFLAGS :=
+EXE_LIBS :=
 ifeq ($(OS), MINGW)
 EXE_LINKFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
 PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
@@ -116,16 +115,23 @@ BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
 
+ifneq ($(shell :; command -v rsync),)
+RSYNC_CP ?= rsync -rc
+else
+RSYNC_CP ?= cp -ru
+endif
+
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
+LINKFLAGS += -rdynamic
 
 # homebrew search paths
 ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
 ifeq ($(ENABLE_PYOSYS),1)
-CXXFLAGS += -I$(BREW_PREFIX)/boost/include/boost
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib
+CXXFLAGS += -I$(BREW_PREFIX)/boost/include
+LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -L$(BREW_PREFIX)/boost-python3/lib
 endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
@@ -154,7 +160,14 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.45+106
+YOSYS_VER := 0.55+146
+YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
+YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
+YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
+CXXFLAGS += -DYOSYS_VER=\\"$(YOSYS_VER)\\" \
+			-DYOSYS_MAJOR=$(YOSYS_MAJOR) \
+			-DYOSYS_MINOR=$(YOSYS_MINOR) \
+			-DYOSYS_COMMIT=$(YOSYS_COMMIT)
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -170,7 +183,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9ed031d.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 60f126c.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -191,17 +204,17 @@ endif
 include Makefile.conf
 endif
 
-PYTHON_EXECUTABLE := $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
+PYTHON_EXECUTABLE ?= $(shell if python3 -c ""; then echo "python3"; else echo "python"; fi)
 ifeq ($(ENABLE_PYOSYS),1)
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
 
-ENABLE_PYTHON_CONFIG_EMBED ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
-ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
-PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
-else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
+PYTHON_CONFIG_FOR_EXE := $(PYTHON_CONFIG)
+PYTHON_CONFIG_EMBED_AVAILABLE ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
+ifeq ($(PYTHON_CONFIG_EMBED_AVAILABLE),1)
+PYTHON_CONFIG_FOR_EXE := $(PYTHON_CONFIG) --embed
 endif
 
 PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
@@ -264,16 +277,6 @@ ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
-else ifeq ($(CONFIG),afl-gcc)
-CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
-CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL)
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
-
-else ifeq ($(CONFIG),cygwin)
-CXX = g++
-CXXFLAGS += -std=gnu++11 $(OPT_LEVEL)
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
-
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
 CXX = clang++
@@ -301,25 +304,13 @@ LINK_ABC := 1
 DISABLE_ABC_THREADS := 1
 endif
 
-else ifeq ($(CONFIG),mxe)
-PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
-CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
-CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
-LIBS := $(filter-out -lrt,$(LIBS))
-ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-# TODO: Try to solve pthread linking issue in more appropriate way
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LINKFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
-EXE = .exe
-
 else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DWIN32 -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
@@ -329,7 +320,7 @@ CXXFLAGS += -std=$(CXXSTD) $(OPT_LEVEL) -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
 LIBS := $(filter-out -lrt,$(LIBS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DWIN32 -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
 EXE = .exe
 
@@ -339,7 +330,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 LTOFLAGS =
 
 else
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, mxe, msys2-32, msys2-64, none)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, msys2-32, msys2-64, none)
 endif
 
 
@@ -353,8 +344,14 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
+# python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
+LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
+LIBS += $(shell $(PYTHON_CONFIG) --libs)
+EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+
 # Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(EXE_LIBS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
 	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
@@ -366,15 +363,11 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-# python-config --ldflags includes LIBS for some reason
-LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-
+LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -391,20 +384,20 @@ ifeq ($(LINK_TERMCAP),1)
 LIBS += -ltermcap
 ABCMKARGS += "ABC_READLINE_LIBRARIES=-lreadline -ltermcap"
 endif
-ifeq ($(CONFIG),mxe)
-LIBS += -ltermcap
-endif
 else
 ifeq ($(ENABLE_EDITLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_EDITLINE
-LIBS += -ledit -ltinfo -lbsd
-else
-ABCMKARGS += "ABC_USE_NO_READLINE=1"
+LIBS += -ledit
 endif
+ABCMKARGS += "ABC_USE_NO_READLINE=1"
 endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
+endif
+
+ifeq ($(LINK_ABC),1)
+ABCMKARGS += "ABC_USE_PIC=1"
 endif
 
 ifeq ($(DISABLE_SPAWN),1)
@@ -443,12 +436,10 @@ TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
 TCL_LIBS ?= -l$(TCL_VERSION)
 endif
 
-ifeq ($(CONFIG),mxe)
-CXXFLAGS += -DYOSYS_ENABLE_TCL
-LIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
-else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
 LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
+ifneq (,$(findstring TCL_WITH_EXTERNAL_TOMMATH,$(CXXFLAGS)))
+LIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libtommath || echo)
 endif
 endif
 
@@ -464,6 +455,7 @@ endif
 
 ifeq ($(ENABLE_DEBUG),1)
 CXXFLAGS := -Og -DDEBUG $(filter-out $(OPT_LEVEL),$(CXXFLAGS))
+STRIP :=
 endif
 
 ifeq ($(ENABLE_ABC),1)
@@ -607,7 +599,9 @@ $(eval $(call add_include_file,kernel/fmt.h))
 ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,kernel/fstdata.h))
 endif
+$(eval $(call add_include_file,kernel/gzip.h))
 $(eval $(call add_include_file,kernel/hashlib.h))
+$(eval $(call add_include_file,kernel/io.h))
 $(eval $(call add_include_file,kernel/json.h))
 $(eval $(call add_include_file,kernel/log.h))
 $(eval $(call add_include_file,kernel/macc.h))
@@ -633,13 +627,14 @@ endif
 $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
+$(eval $(call add_include_file,passes/techmap/libparse.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
-OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
-OBJS += kernel/binding.o
+OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/io.o kernel/gzip.o
+OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o
 ifeq ($(ENABLE_ZLIB),1)
@@ -679,6 +674,9 @@ OBJS += libs/fst/fstapi.o
 OBJS += libs/fst/fastlz.o
 OBJS += libs/fst/lz4.o
 endif
+
+techlibs/%_pm.h: passes/pmgen/pmgen.py techlibs/%.pmg
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(notdir $*) $(filter-out $<,$^)
 
 ifneq ($(SMALL),1)
 
@@ -737,12 +735,18 @@ compile-only: $(OBJS) $(GENFILES) $(EXTRA_TARGETS)
 	@echo "  Compile successful."
 	@echo ""
 
+.PHONY: share
+share: $(EXTRA_TARGETS)
+	@echo ""
+	@echo "  Share directory created."
+	@echo ""
+
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LINKFLAGS) $(LINKFLAGS) $(OBJS) $(EXE_LIBS) $(LIBS) $(LIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(CXX) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
+	$(P) $(CXX) -o libyosys.so -shared -undefined dynamic_lookup -Wl,-install_name,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 else
 	$(P) $(CXX) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LINKFLAGS) $^ $(LIBS) $(LIBS_VERIFIC)
 endif
@@ -758,7 +762,7 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
 	$(Q) mkdir -p $(dir $@)
-	$(P) python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
 endif
 
 %.o: %.cpp
@@ -789,7 +793,7 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in $(YOSYS_SRC)/Makefile
 .PHONY: check-git-abc
 
 check-git-abc:
-	@if [ ! -d "$(YOSYS_SRC)/abc" ]; then \
+	@if [ ! -d "$(YOSYS_SRC)/abc" ] && git -C "$(YOSYS_SRC)" status >/dev/null 2>&1; then \
 		echo "Error: The 'abc' directory does not exist."; \
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		exit 1; \
@@ -798,6 +802,15 @@ check-git-abc:
 	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && ! grep -q '\$$Format:%[hH]\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "'abc' comes from a tarball. Continuing."; \
 		exit 0; \
+	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^+'; then \
+		echo "'abc' submodule does not match expected commit."; \
+		echo "Run 'git submodule update' to check out the correct version."; \
+		echo "Note: If testing a different version of abc, call 'git commit abc' in the Yosys source directory to update the expected commit."; \
+		exit 1; \
+	elif git -C "$(YOSYS_SRC)" submodule status abc 2>/dev/null | grep -q '^U'; then \
+		echo "'abc' submodule has merge conflicts."; \
+		echo "Please resolve merge conflicts before continuing."; \
+		exit 1; \
 	elif [ -f "$(YOSYS_SRC)/abc/.gitcommit" ] && grep -q '\$$Format:%[hH]\$$' "$(YOSYS_SRC)/abc/.gitcommit"; then \
 		echo "Error: 'abc' is not configured as a git submodule."; \
 		echo "To resolve this:"; \
@@ -805,6 +818,12 @@ check-git-abc:
 		echo "2. Remove the existing 'abc' directory: Delete the 'abc' directory and all its contents."; \
 		echo "3. Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
 		echo "4. Reapply your changes: Move your saved changes back to the 'abc' directory, if necessary."; \
+		exit 1; \
+	elif ! git -C "$(YOSYS_SRC)" status >/dev/null 2>&1; then \
+		echo "$(realpath $(YOSYS_SRC)) is not configured as a git repository, and 'abc' folder is missing."; \
+		echo "If you already have ABC, set 'ABCEXTERNAL' make variable to point to ABC executable."; \
+		echo "Otherwise, download release archive 'yosys.tar.gz' from https://github.com/YosysHQ/yosys/releases."; \
+		echo "    ('Source code' archive does not contain submodules.)"; \
 		exit 1; \
 	else \
 		echo "Initialize the submodule: Run 'git submodule update --init' to set up 'abc' as a submodule."; \
@@ -833,71 +852,104 @@ else
 ABCOPT=""
 endif
 
-# When YOSYS_NOVERIFIC is set as a make variable, also export it to the
-# enviornment, so that `YOSYS_NOVERIFIC=1 make test` _and_
-# `make test YOSYS_NOVERIFIC=1` will run with verific disabled.
-ifeq ($(YOSYS_NOVERIFIC),1)
-export YOSYS_NOVERIFIC
+# Tests that generate .mk with tests/gen-tests-makefile.sh
+MK_TEST_DIRS =
+MK_TEST_DIRS += tests/arch/anlogic
+MK_TEST_DIRS += tests/arch/ecp5
+MK_TEST_DIRS += tests/arch/efinix
+MK_TEST_DIRS += tests/arch/gatemate
+MK_TEST_DIRS += tests/arch/gowin
+MK_TEST_DIRS += tests/arch/ice40
+MK_TEST_DIRS += tests/arch/intel_alm
+MK_TEST_DIRS += tests/arch/machxo2
+MK_TEST_DIRS += tests/arch/microchip
+MK_TEST_DIRS += tests/arch/nanoxplore
+MK_TEST_DIRS += tests/arch/nexus
+MK_TEST_DIRS += tests/arch/quicklogic/pp3
+MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
+MK_TEST_DIRS += tests/arch/xilinx
+MK_TEST_DIRS += tests/bugpoint
+MK_TEST_DIRS += tests/opt
+MK_TEST_DIRS += tests/sat
+MK_TEST_DIRS += tests/sim
+MK_TEST_DIRS += tests/svtypes
+MK_TEST_DIRS += tests/techmap
+MK_TEST_DIRS += tests/various
+ifeq ($(ENABLE_VERIFIC),1)
+ifneq ($(YOSYS_NOVERIFIC),1)
+MK_TEST_DIRS += tests/verific
+endif
+endif
+MK_TEST_DIRS += tests/verilog
+
+# Tests that don't generate .mk
+SH_TEST_DIRS =
+SH_TEST_DIRS += tests/simple
+SH_TEST_DIRS += tests/simple_abc9
+SH_TEST_DIRS += tests/hana
+SH_TEST_DIRS += tests/asicworld
+# SH_TEST_DIRS += tests/realmath
+SH_TEST_DIRS += tests/share
+SH_TEST_DIRS += tests/opt_share
+SH_TEST_DIRS += tests/fsm
+SH_TEST_DIRS += tests/memlib
+SH_TEST_DIRS += tests/bram
+SH_TEST_DIRS += tests/svinterfaces
+SH_TEST_DIRS += tests/xprop
+SH_TEST_DIRS += tests/select
+SH_TEST_DIRS += tests/peepopt
+SH_TEST_DIRS += tests/proc
+SH_TEST_DIRS += tests/blif
+SH_TEST_DIRS += tests/arch
+SH_TEST_DIRS += tests/rpc
+SH_TEST_DIRS += tests/memfile
+SH_TEST_DIRS += tests/fmt
+SH_TEST_DIRS += tests/cxxrtl
+SH_TEST_DIRS += tests/liberty
+ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
+SH_TEST_DIRS += tests/functional
 endif
 
-test: $(TARGETS) $(EXTRA_TARGETS)
-ifeq ($(ENABLE_VERIFIC),1)
-ifeq ($(YOSYS_NOVERIFIC),1)
-	@echo
-	@echo "Running tests without verific support due to YOSYS_NOVERIFIC=1"
-	@echo
-else
-	+cd tests/verific && bash run-test.sh $(SEEDOPT)
-endif
-endif
-	+cd tests/simple && bash run-test.sh $(SEEDOPT)
-	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
-	+cd tests/hana && bash run-test.sh $(SEEDOPT)
-	+cd tests/asicworld && bash run-test.sh $(SEEDOPT)
-	# +cd tests/realmath && bash run-test.sh $(SEEDOPT)
-	+cd tests/share && bash run-test.sh $(SEEDOPT)
-	+cd tests/opt_share && bash run-test.sh $(SEEDOPT)
-	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
-	+cd tests/techmap && bash run-test.sh
-	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
-	+cd tests/memlib && bash run-test.sh $(SEEDOPT)
-	+cd tests/bram && bash run-test.sh $(SEEDOPT)
-	+cd tests/various && bash run-test.sh
-	+cd tests/select && bash run-test.sh
-	+cd tests/sat && bash run-test.sh
-	+cd tests/sim && bash run-test.sh
-	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
-	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
-	+cd tests/proc && bash run-test.sh
-	+cd tests/blif && bash run-test.sh
-	+cd tests/opt && bash run-test.sh
-	+cd tests/aiger && bash run-test.sh $(ABCOPT)
-	+cd tests/arch && bash run-test.sh
-	+cd tests/arch/ice40 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/xilinx && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/ecp5 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/machxo2 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/nanoxplore && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/nexus && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/quicklogic/pp3 && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/quicklogic/qlf_k6n10f && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/gatemate && bash run-test.sh $(SEEDOPT)
-	+cd tests/arch/microchip && bash run-test.sh $(SEEDOPT)
-	+cd tests/rpc && bash run-test.sh
-	+cd tests/memfile && bash run-test.sh
-	+cd tests/verilog && bash run-test.sh
-	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
-	+cd tests/fmt && bash run-test.sh
-	+cd tests/cxxrtl && bash run-test.sh
-ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
-	+cd tests/functional && bash run-test.sh
-endif
+# Tests that don't generate .mk and need special args
+SH_ABC_TEST_DIRS =
+SH_ABC_TEST_DIRS += tests/memories
+SH_ABC_TEST_DIRS += tests/aiger
+SH_ABC_TEST_DIRS += tests/alumacc
+
+# seed-tests/ is a dummy string, not a directory
+.PHONY: seed-tests
+seed-tests: $(SH_TEST_DIRS:%=seed-tests/%)
+.PHONY: seed-tests/%
+seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+	+cd $* && bash run-test.sh $(SEEDOPT)
+	+@echo "...passed tests in $*"
+
+# abcopt-tests/ is a dummy string, not a directory
+.PHONY: abcopt-tests
+abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-tests/%)
+abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
+	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
+	+@echo "...passed tests in $*"
+
+# makefile-tests/ is a dummy string, not a directory
+.PHONY: makefile-tests
+makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
+# this target actually emits .mk files
+%.mk:
+	+cd $(dir $*) && bash run-test.sh
+# this one spawns submake on each
+makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
+	$(MAKE) -C $* -f run-test.mk
+	+@echo "...passed tests in $*"
+
+test: makefile-tests abcopt-tests seed-tests
 	@echo ""
 	@echo "  Passed \"make test\"."
+ifeq ($(ENABLE_VERIFIC),1)
+ifeq ($(YOSYS_NOVERIFIC),1)
+	@echo "  Ran tests without verific support due to YOSYS_NOVERIFIC=1."
+endif
+endif
 	@echo ""
 
 VALGRIND ?= valgrind --error-exitcode=1 --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
@@ -924,33 +976,43 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 
 # Unit test
 unit-test: libyosys.so
-	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
-		CXXFLAGS="$(CXXFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
+	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" \
+		CXXFLAGS="$(CXXFLAGS)" LINKFLAGS="$(LINKFLAGS)" LIBS="$(LIBS)" ROOTPATH="$(CURDIR)"
 
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
+
+install-dev: $(PROGRAM_PREFIX)yosys-config share
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) cp $(PROGRAM_PREFIX)yosys-config $(DESTDIR)$(BINDIR)
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
+	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
 ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys; fi
 endif
 ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc; fi
 endif
 ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib; fi
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
+	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so; fi
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+ifeq ($(ENABLE_ABC),1)
+	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
+endif
 	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
@@ -975,27 +1037,46 @@ endif
 
 # also others, but so long as it doesn't fail this is enough to know we tried
 docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	mkdir -p docs/source/cmd
-	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) mkdir -p docs/source/cmd
+	$(Q) mkdir -p temp/docs/source/cmd
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
+	$(Q) rm -rf temp
+docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) mkdir -p docs/source/cell
+	$(Q) mkdir -p temp/docs/source/cell
+	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
+	$(Q) $(RSYNC_CP) temp/docs/source/cell docs/source
+	$(Q) rm -rf temp
 
-PHONY: docs/gen_examples docs/gen_images docs/guidelines docs/usage docs/reqs
-docs/gen_examples:
-	$(Q) $(MAKE) -C docs examples
+docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
 
-docs/gen_images:
-	$(Q) $(MAKE) -C docs images
+docs/source/generated/%.cc: backends/%.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) cp $< $@
 
-DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
-docs/guidelines docs/source/generated:
+# diff returns exit code 1 if the files are different, but it's not an error
+docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc backends/functional/smtlib_rosette.cc
+	$(Q) mkdir -p $(@D)
+	$(Q) diff -U 20 $^ > $@ || exit 0
+
+PHONY: docs/gen/functional_ir
+docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
+
+PHONY: docs/gen docs/usage docs/reqs
+docs/gen: $(TARGETS)
+	$(Q) $(MAKE) -C docs gen
+
+docs/source/generated:
 	$(Q) mkdir -p docs/source/generated
-	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/generated
 
 # some commands return an error and print the usage text to stderr
 define DOC_USAGE_STDERR
-docs/source/generated/$(1): $(TARGETS) docs/source/generated
+docs/source/generated/$(1): $(TARGETS) docs/source/generated FORCE
 	-$(Q) ./$(PROGRAM_PREFIX)$(1) --help 2> $$@
 endef
-DOCS_USAGE_STDERR := yosys-config yosys-filterlib
+DOCS_USAGE_STDERR := yosys-filterlib
 
 # The in-tree ABC (yosys-abc) is only built when ABCEXTERNAL is not set.
 ifeq ($(ABCEXTERNAL),)
@@ -1007,9 +1088,9 @@ $(foreach usage,$(DOCS_USAGE_STDERR),$(eval $(call DOC_USAGE_STDERR,$(usage))))
 # others print to stdout
 define DOC_USAGE_STDOUT
 docs/source/generated/$(1): $(TARGETS) docs/source/generated
-	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@
+	$(Q) ./$(PROGRAM_PREFIX)$(1) --help > $$@ || rm $$@
 endef
-DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness
+DOCS_USAGE_STDOUT := yosys yosys-smtbmc yosys-witness yosys-config
 $(foreach usage,$(DOCS_USAGE_STDOUT),$(eval $(call DOC_USAGE_STDOUT,$(usage))))
 
 docs/usage: $(addprefix docs/source/generated/,$(DOCS_USAGE_STDOUT) $(DOCS_USAGE_STDERR))
@@ -1018,7 +1099,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/gen_examples docs/gen_images docs/guidelines docs/usage
+docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage docs/gen/functional_ir
 
 DOC_TARGET ?= html
 docs: docs/prep
@@ -1029,6 +1110,7 @@ clean:
 	rm -rf kernel/*.pyh
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
+	rm -f kernel/python_wrappers.o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -1039,9 +1121,11 @@ clean:
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
+	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
-	-$(MAKE) -C docs/images clean
 	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -f *.whl
+	rm -f libyosys.so
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
@@ -1078,24 +1162,12 @@ vcxsrc: $(GENFILES) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-vcxsrc-$(YOSYS_VER){,.zip}
 	set -e; for f in `ls $(filter %.cc %.cpp,$(GENFILES)) $(addsuffix .cc,$(basename $(OBJS))) $(addsuffix .cpp,$(basename $(OBJS))) 2> /dev/null`; do \
 		echo "Analyse: $$f" >&2; cpp -std=c++17 -MM -I. -D_YOSYS_ $$f; done | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]' | sort -u | grep -v kernel/version_ > srcfiles.txt
+	echo "libs/fst/fst_win_unistd.h" >> srcfiles.txt
 	bash misc/create_vcxsrc.sh yosys-win32-vcxsrc $(YOSYS_VER) $(GIT_REV)
 	echo "namespace Yosys { extern const char *yosys_version_str; const char *yosys_version_str=\"Yosys (Version Information Unavailable)\"; }" > kernel/version.cc
 	zip yosys-win32-vcxsrc-$(YOSYS_VER)/genfiles.zip $(GENFILES) kernel/version.cc
 	zip -r yosys-win32-vcxsrc-$(YOSYS_VER).zip yosys-win32-vcxsrc-$(YOSYS_VER)/
 	rm -f srcfiles.txt kernel/version.cc
-
-ifeq ($(CONFIG),mxe)
-mxebin: $(TARGETS) $(EXTRA_TARGETS)
-	rm -rf yosys-win32-mxebin-$(YOSYS_VER){,.zip}
-	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
-	cp -r $(PROGRAM_PREFIX)yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
-ifeq ($(ENABLE_ABC),1)
-	cp -r $(PROGRAM_PREFIX)yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
-endif
-	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
-	echo -en 'Documentation at https://yosyshq.net/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
-	zip -r yosys-win32-mxebin-$(YOSYS_VER).zip yosys-win32-mxebin-$(YOSYS_VER)/
-endif
 
 config-clean: clean
 	rm -f Makefile.conf
@@ -1112,9 +1184,6 @@ config-gcc-static: clean
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 
-config-afl-gcc: clean
-	echo 'CONFIG := afl-gcc' > Makefile.conf
-
 config-wasi: clean
 	echo 'CONFIG := wasi' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
@@ -1123,10 +1192,6 @@ config-wasi: clean
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
 
-config-mxe: clean
-	echo 'CONFIG := mxe' > Makefile.conf
-	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
-
 config-msys2-32: clean
 	echo 'CONFIG := msys2-32' > Makefile.conf
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
@@ -1134,9 +1199,6 @@ config-msys2-32: clean
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
-
-config-cygwin: clean
-	echo 'CONFIG := cygwin' > Makefile.conf
 
 config-gcov: clean
 	echo 'CONFIG := gcc' > Makefile.conf
@@ -1166,5 +1228,7 @@ echo-cxx:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc mxebin
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-afl-gcc config-gprof config-sudo
+FORCE:
+
+.PHONY: all top-all abc test install-dev install install-abc docs clean mrproper qtcreator coverage vcxsrc
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-gprof config-sudo

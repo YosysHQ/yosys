@@ -210,14 +210,8 @@ struct SmtrModule {
 			state_struct.insert(state->name, state->sort);
 	}
 
-	void write(std::ostream &out)
-	{    
-		SExprWriter w(out);
-
-		input_struct.write_definition(w);
-		output_struct.write_definition(w);
-		state_struct.write_definition(w);
-
+	void write_eval(SExprWriter &w)
+	{
 		w.push();
 		w.open(list("define", list(name, "inputs", "state")));
 		auto inlined = [&](Functional::Node n) {
@@ -240,7 +234,10 @@ struct SmtrModule {
 		output_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.output(name).value()); });
 		state_struct.write_value(w, [&](IdString name) { return node_to_sexpr(ir.state(name).next_value()); });
 		w.pop();
+	}
 
+	void write_initial(SExprWriter &w)
+	{
 		w.push();
 		auto initial = name + "_initial";
 		w.open(list("define", initial));
@@ -259,6 +256,18 @@ struct SmtrModule {
 		}
 		w.pop();
 	}
+
+	void write(std::ostream &out)
+	{    
+		SExprWriter w(out);
+
+		input_struct.write_definition(w);
+		output_struct.write_definition(w);
+		state_struct.write_definition(w);
+
+		write_eval(w);
+		write_initial(w);
+	}
 };
 
 struct FunctionalSmtrBackend : public Backend {
@@ -267,7 +276,7 @@ struct FunctionalSmtrBackend : public Backend {
     	void help() override {
         	//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_functional_rosette [options] [selection] [filename]\n");
+		log("    write_functional_rosette [options] [filename]\n");
 		log("\n");
 		log("Functional Rosette Backend.\n");
 		log("\n");

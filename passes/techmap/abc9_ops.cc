@@ -123,7 +123,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", log_id(derived_type));
 
 				if (derived_module->has_processes())
-					Pass::call_on_module(design, derived_module, "proc");
+					Pass::call_on_module(design, derived_module, "proc -noopt");
 
 				bool found = false;
 				for (auto derived_cell : derived_module->cells()) {
@@ -204,7 +204,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 			if (!unmap_design->module(derived_type)) {
 				if (derived_module->has_processes())
-					Pass::call_on_module(design, derived_module, "proc");
+					Pass::call_on_module(design, derived_module, "proc -noopt");
 
 				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 					for (auto derived_cell : derived_module->cells())
@@ -454,7 +454,7 @@ void prep_bypass(RTLIL::Design *design)
 
 void prep_dff(RTLIL::Design *design)
 {
-	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection(false)));
+	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection::EmptySelection(design)));
 	auto &modules_sel = r.first->second;
 
 	for (auto module : design->selected_modules())
@@ -834,7 +834,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				holes_cell = holes_module->addCell(NEW_ID, cell->type);
 
 				if (box_module->has_processes())
-					Pass::call_on_module(design, box_module, "proc");
+					Pass::call_on_module(design, box_module, "proc -noopt");
 
 				int box_inputs = 0;
 				for (auto port_name : box_ports.at(cell->type)) {
@@ -969,13 +969,10 @@ void prep_box(RTLIL::Design *design)
 		if (it == module->attributes.end())
 			continue;
 		bool box = it->second.as_bool();
-		module->attributes.erase(it);
 		if (!box)
 			continue;
 
 		auto r = module->attributes.insert(ID::abc9_box_id);
-		if (!r.second)
-			continue;
 		r.first->second = abc9_box_id++;
 
 		if (module->get_bool_attribute(ID::abc9_flop)) {
@@ -1078,7 +1075,8 @@ void prep_box(RTLIL::Design *design)
 			}
 
 			ss << log_id(module) << " " << module->attributes.at(ID::abc9_box_id).as_int();
-			ss << " " << (module->get_bool_attribute(ID::whitebox) ? "1" : "0");
+			bool has_model = module->get_bool_attribute(ID::whitebox) || !module->get_bool_attribute(ID::blackbox);
+			ss << " " << (has_model ? "1" : "0");
 			ss << " " << GetSize(inputs) << " " << GetSize(outputs) << std::endl;
 
 			bool first = true;
@@ -1096,8 +1094,9 @@ void prep_box(RTLIL::Design *design)
 			ss << std::endl;
 
 			auto &t = timing.setup_module(module);
-			if (t.comb.empty())
+			if (t.comb.empty() && !outputs.empty() && !inputs.empty()) {
 				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", log_id(module));
+			}
 
 			for (const auto &o : outputs) {
 				first = true;
@@ -1217,7 +1216,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			auto Qi = initmap(Q);
 			auto it = Qi.wire->attributes.find(ID::init);
 			if (it != Qi.wire->attributes.end())
-				it->second[Qi.offset] = State::Sx;
+				it->second.bits()[Qi.offset] = State::Sx;
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
@@ -1528,7 +1527,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			int i = 0;
 			while (i < GetSize(mask)) {
 				for (int j = 0; j < (1 << index); j++)
-					std::swap(mask[i+j], mask[i+j+(1 << index)]);
+					std::swap(mask.bits()[i+j], mask.bits()[i+j+(1 << index)]);
 				i += 1 << (index+1);
 			}
 			A[index] = y_bit;
@@ -1543,7 +1542,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		// and get cleaned away
 clone_lut:
 		driver_mask = driver_lut->getParam(ID::LUT);
-		for (auto &b : driver_mask.bits) {
+		for (auto &b : driver_mask.bits()) {
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}

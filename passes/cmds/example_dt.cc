@@ -27,6 +27,8 @@ struct ExampleDtPass : public Pass
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
+		log("TODO: add help message\n");
+		log("\n");
     }
 
 
@@ -50,8 +52,10 @@ struct ExampleDtPass : public Pass
 					return name == other.name && parameters == other.parameters;
 				}
 
-				unsigned int hash() const {
-					return mkhash(name.hash(), parameters.hash());
+				[[nodiscard]] Hasher hash_into(Hasher h) const {
+					h.eat(name);
+					h.eat(parameters);
+					return h;
 				}
 			};
 

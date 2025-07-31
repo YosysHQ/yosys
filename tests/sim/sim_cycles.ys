@@ -1,0 +1,51 @@
+read_verilog dff.v
+prep
+
+# create fst with 20 clock cycles (41 samples, 202ns)
+sim -clock clk -fst sim_cycles.fst -n 20
+
+logger -expect-no-warnings
+
+# final step is 41
+logger -expect log "Co-simulating cycle 41" 2
+logger -warn "Co-simulating cycle 42"
+sim -clock clk -r sim_cycles.fst -scope dff -n 21 -sim-cmp
+sim -clock clk -r sim_cycles.fst -scope dff -stop 202 -sim-cmp
+logger -check-expected
+
+# over limit stops at final step
+logger -expect log "Co-simulating cycle 41" 2
+sim -clock clk -r sim_cycles.fst -scope dff -n 30 -sim-cmp
+# -stop warns for over limit
+logger -nowarn "Stop time is after simulation file end time"
+sim -clock clk -r sim_cycles.fst -scope dff -stop 300 -sim-cmp
+logger -check-expected
+
+# don't auto step last
+logger -expect log "Co-simulating cycle 40" 2
+logger -warn "Co-simulating cycle 41"
+sim -clock clk -r sim_cycles.fst -scope dff -n 20 -sim-cmp
+sim -clock clk -r sim_cycles.fst -scope dff -stop 200 -sim-cmp
+logger -check-expected
+
+# -n 10 == -stop 100
+# should simulate up to 20 and not more
+logger -expect log "Co-simulating cycle 20" 2
+logger -warn "Co-simulating cycle 21"
+sim -clock clk -r sim_cycles.fst -scope dff -n 10 -sim-cmp
+sim -clock clk -r sim_cycles.fst -scope dff -stop 100 -sim-cmp
+logger -check-expected
+
+# -n 1 == -stop 10
+logger -expect log "Co-simulating cycle 2" 2
+logger -warn "Co-simulating cycle 3"
+sim -clock clk -r sim_cycles.fst -scope dff -n 1 -sim-cmp
+sim -clock clk -r sim_cycles.fst -scope dff -stop 10 -sim-cmp
+logger -check-expected
+
+# -n 0 == -stop 0
+logger -expect log "Co-simulating cycle 0" 2
+logger -warn "Co-simulating cycle 1"
+sim -clock clk -r sim_cycles.fst -scope dff -n 0 -sim-cmp
+sim -clock clk -r sim_cycles.fst -scope dff -stop 0 -sim-cmp
+logger -check-expected

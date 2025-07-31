@@ -96,32 +96,16 @@ struct SetattrPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->modules())
+		for (auto module : design->all_selected_modules())
 		{
 			if (flag_mod) {
-				if (design->selected_whole_module(module->name))
+				if (module->is_selected_whole())
 					do_setunset(module->attributes, setunset_list);
 				continue;
 			}
 
-			if (!design->selected(module))
-				continue;
-
-			for (auto wire : module->wires())
-				if (design->selected(module, wire))
-					do_setunset(wire->attributes, setunset_list);
-
-			for (auto &it : module->memories)
-				if (design->selected(module, it.second))
-					do_setunset(it.second->attributes, setunset_list);
-
-			for (auto cell : module->cells())
-				if (design->selected(module, cell))
-					do_setunset(cell->attributes, setunset_list);
-
-			for (auto &it : module->processes)
-				if (design->selected(module, it.second))
-					do_setunset(it.second->attributes, setunset_list);
+			for (auto memb : module->selected_members())
+				do_setunset(memb->attributes, setunset_list);
 		}
 	}
 } SetattrPass;
@@ -152,16 +136,8 @@ struct WbflipPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (Module *module : design->modules())
-		{
-			if (!design->selected(module))
-				continue;
-
-			if (module->get_bool_attribute(ID::blackbox))
-				continue;
-
+		for (auto *module : design->selected_modules(RTLIL::SELECT_ALL, RTLIL::SB_EXCL_BB_ONLY))
 			module->set_bool_attribute(ID::whitebox, !module->get_bool_attribute(ID::whitebox));
-		}
 	}
 } WbflipPass;
 

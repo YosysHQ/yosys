@@ -10,20 +10,19 @@ fine-grained optimisation and LUT mapping.
 Yosys has two different commands, which both use this logic toolbox, but use it
 in different ways.
 
-The :cmd:ref:`abc` pass can be used for both ASIC (e.g. :yoscrypt:`abc
--liberty`) and FPGA (:yoscrypt:`abc -lut`) mapping, but this page will focus on
-FPGA mapping.
+The `abc` pass can be used for both ASIC (e.g. :yoscrypt:`abc -liberty`) and
+FPGA (:yoscrypt:`abc -lut`) mapping, but this page will focus on FPGA mapping.
 
-The :cmd:ref:`abc9` pass generally provides superior mapping quality due to
-being aware of combination boxes and DFF and LUT timings, giving it a more
-global view of the mapping problem.
+The `abc9` pass generally provides superior mapping quality due to being aware
+of combination boxes and DFF and LUT timings, giving it a more global view of
+the mapping problem.
 
 .. _ABC: https://github.com/berkeley-abc/abc
 
 ABC: the unit delay model, simple and efficient
 -----------------------------------------------
 
-The :cmd:ref:`abc` pass uses a highly simplified view of an FPGA:
+The `abc` pass uses a highly simplified view of an FPGA:
 
 - An FPGA is made up of a network of inputs that connect through LUTs to a
   network of outputs. These inputs may actually be I/O pins, D flip-flops,
@@ -126,7 +125,7 @@ guide to the syntax:
 
 By convention, all delays in ``specify`` blocks are in integer picoseconds.
 Files containing ``specify`` blocks should be read with the ``-specify`` option
-to :cmd:ref:`read_verilog` so that they aren't skipped.
+to `read_verilog` so that they aren't skipped.
 
 LUTs
 ^^^^
@@ -145,9 +144,9 @@ DFFs
 
 DFFs should be annotated with an ``(* abc9_flop *)`` attribute, however ABC9 has
 some specific requirements for this to be valid: - the DFF must initialise to
-zero (consider using :cmd:ref:`dfflegalize` to ensure this). - the DFF cannot
-have any asynchronous resets/sets (see the simplification idiom and the Boxes
-section for what to do here).
+zero (consider using `dfflegalize` to ensure this). - the DFF cannot have any
+asynchronous resets/sets (see the simplification idiom and the Boxes section for
+what to do here).
 
 It is worth noting that in pure ``abc9`` mode, only the setup and arrival times
 are passed to ABC9 (specifically, they are modelled as buffers with the given
@@ -158,9 +157,9 @@ Some vendors have universal DFF models which include async sets/resets even when
 they're unused. Therefore *the simplification idiom* exists to handle this: by
 using a ``techmap`` file to discover flops which have a constant driver to those
 asynchronous controls, they can be mapped into an intermediate, simplified flop
-which qualifies as an ``(* abc9_flop *)``, ran through :cmd:ref:`abc9`, and then
-mapped back to the original flop. This is used in :cmd:ref:`synth_intel_alm` and
-:cmd:ref:`synth_quicklogic` for the PolarPro3.
+which qualifies as an ``(* abc9_flop *)``, ran through `abc9`, and then mapped
+back to the original flop. This is used in `synth_intel_alm` and
+`synth_quicklogic` for the PolarPro3.
 
 DFFs are usually specified to have setup constraints against the clock on the
 input signals, and an arrival time for the ``Q`` output.
@@ -177,5 +176,6 @@ implemented as whiteboxes too.
 Boxes are arguably the biggest advantage that ABC9 has over ABC: by being aware
 of carry chains and DSPs, it avoids optimising for a path that isn't the actual
 critical path, while the generally-longer paths result in ABC9 being able to
-reduce design area by mapping other logic to larger-but-slower cells.
+reduce design area by mapping other logic to slower cells with greater logic
+density.
 

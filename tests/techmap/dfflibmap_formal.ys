@@ -1,0 +1,116 @@
+##################################################################
+
+read_verilog -sv -icells <<EOT
+
+module top(input C, D, E, S, R, output [11:0] Q);
+
+$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
+$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
+$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+
+// Formal checking of directly instantiated DFFSR doesn't work at the moment
+// likely due to an equiv_induct assume bug #5196
+
+// // Workaround for DFFSR bug #5194
+// assume property (~R || ~S);
+// $_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
+// $_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+
+$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
+
+assign Q[11:6] = ~Q[5:0];
+
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffn_dffe.lib
+read_liberty dfflibmap_dffsr_not_next.lib
+
+copy top top_unmapped
+dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+design -reset
+read_verilog -sv -icells <<EOT
+
+module top(input C, D, E, S, R, output [11:0] Q);
+
+$_DFF_P_ ff0 (.C(C), .D(D), .Q(Q[0]));
+$_DFF_PP0_ ff1 (.C(C), .D(D), .R(R), .Q(Q[1]));
+$_DFF_PP1_ ff2 (.C(C), .D(D), .R(R), .Q(Q[2]));
+
+// Formal checking of directly instantiated DFFSR doesn't work at the moment
+// likely due to an equiv_induct assume bug #5196
+
+// // Workaround for DFFSR bug #5194
+// assume property (~R || ~S);
+// $_DFFSR_PPP_ ff3 (.C(C), .D(D), .R(R), .S(S), .Q(Q[3]));
+// $_DFFSR_NNN_ ff4 (.C(C), .D(D), .R(~R), .S(~S), .Q(Q[4]));
+
+$_DFFE_PP_ ff5 (.C(C), .D(D), .E(E), .Q(Q[5]));
+
+assign Q[11:6] = ~Q[5:0];
+
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffr_not_next.lib
+
+copy top top_unmapped
+dfflibmap -liberty dfflibmap_dffr_not_next.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+##################################################################
+
+design -reset
+read_verilog <<EOT
+
+module top(input C, D, E, S, R, output Q);
+// DFFSR with priority R over S
+always @(posedge C, posedge R, posedge S)
+    if (R == 1)
+        Q <= 0;
+    else if (S == 1)
+        Q <= 1;
+    else
+        Q <= D;
+
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffn_dffe.lib
+read_liberty dfflibmap_dffsr_not_next.lib
+
+copy top top_unmapped
+simplemap top
+dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dffsr_not_next.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv

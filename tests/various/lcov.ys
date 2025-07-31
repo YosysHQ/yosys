@@ -1,0 +1,8 @@
+read_verilog -formal lcov.v
+prep -top top
+async2sync
+chformal -lower
+select -set covered t:$assert %ci*
+select -set irrelevant o:* %ci* %n
+linecoverage -lcov lcov.out @covered @irrelevant %u
+exec -expect-return 0 -- diff -q lcov.out lcov.gold

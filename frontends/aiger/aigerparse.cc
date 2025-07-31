@@ -448,7 +448,7 @@ void AigerReader::parse_xaiger()
 					bool success = ce.eval(o);
 					log_assert(success);
 					log_assert(o.wire == nullptr);
-					lut_mask[gray] = o.data;
+					lut_mask.bits()[gray] = o.data;
 				}
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);

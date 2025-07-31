@@ -77,7 +77,7 @@ struct SplitnetsWorker
 		if (it != wire->attributes.end()) {
 			Const old_init = it->second, new_init;
 			for (int i = offset; i < offset+width; i++)
-				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
+				new_init.bits().push_back(i < GetSize(old_init) ? old_init.at(i) : State::Sx);
 			new_wire->attributes.emplace(ID::init, new_init);
 		}
 
@@ -207,8 +207,12 @@ struct SplitnetsPass : public Pass {
 			else
 			{
 				for (auto wire : module->wires()) {
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
+					if (((wire->width > 1) || (wire->has_attribute(ID::single_bit_vector)))
+						&& (wire->port_id == 0 || flag_ports)
+						&& design->selected(module, wire)) {
+						wire->attributes.erase(ID::single_bit_vector);
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
+					}
 				}
 
 				for (auto &it : worker.splitmap)

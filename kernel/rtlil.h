@@ -23,6 +23,9 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include <string_view>
+#include <unordered_map>
+
 YOSYS_NAMESPACE_BEGIN
 
 namespace RTLIL
@@ -47,6 +50,8 @@ namespace RTLIL
 		STi = 7  // init
 	};
 
+	// Semantic metadata - how can this constant be interpreted?
+	// Values may be generally non-exclusive
 	enum ConstFlags : unsigned char {
 		CONST_FLAG_NONE   = 0,
 		CONST_FLAG_STRING = 1,
@@ -54,8 +59,33 @@ namespace RTLIL
 		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
+	enum SelectPartials : unsigned char {
+		SELECT_ALL = 0,          // include partial modules
+		SELECT_WHOLE_ONLY = 1,   // ignore partial modules
+		SELECT_WHOLE_WARN = 2,   // call log_warning on partial module
+		SELECT_WHOLE_ERR = 3,    // call log_error on partial module
+		SELECT_WHOLE_CMDERR = 4  // call log_cmd_error on partial module
+	};
+
+	enum SelectBoxes : unsigned char {
+		SB_ALL = 0,            // include boxed modules
+		SB_WARN = 1,           // helper for log_warning (not for direct use)
+		SB_ERR = 2,            // helper for log_error (not for direct use)
+		SB_CMDERR = 3,         // helper for log_cmd_error (not for direct use)
+		SB_UNBOXED_ONLY = 4,   // ignore boxed modules
+		SB_UNBOXED_WARN = 5,   // call log_warning on boxed module
+		SB_UNBOXED_ERR = 6,    // call log_error on boxed module
+		SB_UNBOXED_CMDERR = 7, // call log_cmd_error on boxed module
+		SB_INCL_WB = 8,        // helper for white boxes (not for direct use)
+		SB_EXCL_BB_ONLY = 12,  // ignore black boxes, but not white boxes
+		SB_EXCL_BB_WARN = 13,  // call log_warning on black boxed module
+		SB_EXCL_BB_ERR = 14,   // call log_error on black boxed module
+		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
+	};
+
 	struct Const;
 	struct AttrObject;
+	struct NamedObject;
 	struct Selection;
 	struct Monitor;
 	struct Design;
@@ -74,329 +104,357 @@ namespace RTLIL
 	struct SyncRule;
 	struct Process;
 	struct Binding;
+	struct IdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
+};
 
-	struct IdString
+struct RTLIL::IdString
+{
+	#undef YOSYS_XTRACE_GET_PUT
+	#undef YOSYS_SORT_ID_FREE_LIST
+	#undef YOSYS_USE_STICKY_IDS
+	#undef YOSYS_NO_IDS_REFCNT
+
+	// the global id string cache
+
+	static bool destruct_guard_ok; // POD, will be initialized to zero
+	static struct destruct_guard_t {
+		destruct_guard_t() { destruct_guard_ok = true; }
+		~destruct_guard_t() { destruct_guard_ok = false; }
+	} destruct_guard;
+
+	static std::vector<char*> global_id_storage_;
+	static std::unordered_map<std::string_view, int> global_id_index_;
+#ifndef YOSYS_NO_IDS_REFCNT
+	static std::vector<int> global_refcount_storage_;
+	static std::vector<int> global_free_idx_list_;
+#endif
+
+#ifdef YOSYS_USE_STICKY_IDS
+	static int last_created_idx_ptr_;
+	static int last_created_idx_[8];
+#endif
+
+	static inline void xtrace_db_dump()
 	{
-		#undef YOSYS_XTRACE_GET_PUT
-		#undef YOSYS_SORT_ID_FREE_LIST
-		#undef YOSYS_USE_STICKY_IDS
-		#undef YOSYS_NO_IDS_REFCNT
-
-		// the global id string cache
-
-		static bool destruct_guard_ok; // POD, will be initialized to zero
-		static struct destruct_guard_t {
-			destruct_guard_t() { destruct_guard_ok = true; }
-			~destruct_guard_t() { destruct_guard_ok = false; }
-		} destruct_guard;
-
-		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, hash_cstr_ops> global_id_index_;
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static std::vector<int> global_refcount_storage_;
-		static std::vector<int> global_free_idx_list_;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+		{
+			if (global_id_storage_.at(idx) == nullptr)
+				log("#X# DB-DUMP index %d: FREE\n", idx);
+			else
+				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+		}
 	#endif
+	}
 
+	static inline void checkpoint()
+	{
 	#ifdef YOSYS_USE_STICKY_IDS
-		static int last_created_idx_ptr_;
-		static int last_created_idx_[8];
+		last_created_idx_ptr_ = 0;
+		for (int i = 0; i < 8; i++) {
+			if (last_created_idx_[i])
+				put_reference(last_created_idx_[i]);
+			last_created_idx_[i] = 0;
+		}
 	#endif
+	#ifdef YOSYS_SORT_ID_FREE_LIST
+		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+	#endif
+	}
 
-		static inline void xtrace_db_dump()
-		{
-		#ifdef YOSYS_XTRACE_GET_PUT
-			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
-			{
-				if (global_id_storage_.at(idx) == nullptr)
-					log("#X# DB-DUMP index %d: FREE\n", idx);
-				else
-					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
-			}
-		#endif
+	static inline int get_reference(int idx)
+	{
+		if (idx) {
+	#ifndef YOSYS_NO_IDS_REFCNT
+			global_refcount_storage_[idx]++;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace)
+				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+	#endif
+		}
+		return idx;
+	}
+
+	static int get_reference(const char *p)
+	{
+		log_assert(destruct_guard_ok);
+
+		if (!p[0])
+			return 0;
+
+		auto it = global_id_index_.find((char*)p);
+		if (it != global_id_index_.end()) {
+	#ifndef YOSYS_NO_IDS_REFCNT
+			global_refcount_storage_.at(it->second)++;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+			if (yosys_xtrace)
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+	#endif
+			return it->second;
 		}
 
-		static inline void checkpoint()
-		{
-		#ifdef YOSYS_USE_STICKY_IDS
-			last_created_idx_ptr_ = 0;
-			for (int i = 0; i < 8; i++) {
-				if (last_created_idx_[i])
-					put_reference(last_created_idx_[i]);
-				last_created_idx_[i] = 0;
-			}
-		#endif
-		#ifdef YOSYS_SORT_ID_FREE_LIST
-			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
-		#endif
-		}
+		log_assert(p[0] == '$' || p[0] == '\\');
+		log_assert(p[1] != 0);
+		for (const char *c = p; *c; c++)
+			if ((unsigned)*c <= (unsigned)' ')
+				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
-		static inline int get_reference(int idx)
-		{
-			if (idx) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_[idx]++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-			}
-			return idx;
-		}
-
-		static int get_reference(const char *p)
-		{
-			log_assert(destruct_guard_ok);
-
-			if (!p[0])
-				return 0;
-
-			auto it = global_id_index_.find((char*)p);
-			if (it != global_id_index_.end()) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_.at(it->second)++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
-		#endif
-				return it->second;
-			}
-
-			log_assert(p[0] == '$' || p[0] == '\\');
-			log_assert(p[1] != 0);
-			for (const char *c = p; *c; c++)
-				if ((unsigned)*c <= (unsigned)' ')
-					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
-
-		#ifndef YOSYS_NO_IDS_REFCNT
-			if (global_free_idx_list_.empty()) {
-				if (global_id_storage_.empty()) {
-					global_refcount_storage_.push_back(0);
-					global_id_storage_.push_back((char*)"");
-					global_id_index_[global_id_storage_.back()] = 0;
-				}
-				log_assert(global_id_storage_.size() < 0x40000000);
-				global_free_idx_list_.push_back(global_id_storage_.size());
-				global_id_storage_.push_back(nullptr);
-				global_refcount_storage_.push_back(0);
-			}
-
-			int idx = global_free_idx_list_.back();
-			global_free_idx_list_.pop_back();
-			global_id_storage_.at(idx) = strdup(p);
-			global_id_index_[global_id_storage_.at(idx)] = idx;
-			global_refcount_storage_.at(idx)++;
-		#else
+	#ifndef YOSYS_NO_IDS_REFCNT
+		if (global_free_idx_list_.empty()) {
 			if (global_id_storage_.empty()) {
+				global_refcount_storage_.push_back(0);
 				global_id_storage_.push_back((char*)"");
 				global_id_index_[global_id_storage_.back()] = 0;
 			}
-			int idx = global_id_storage_.size();
-			global_id_storage_.push_back(strdup(p));
-			global_id_index_[global_id_storage_.back()] = idx;
-		#endif
-
-			if (yosys_xtrace) {
-				log("#X# New IdString '%s' with index %d.\n", p, idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
-
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-
-		#ifdef YOSYS_USE_STICKY_IDS
-			// Avoid Create->Delete->Create pattern
-			if (last_created_idx_[last_created_idx_ptr_])
-				put_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_[last_created_idx_ptr_] = idx;
-			get_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-		#endif
-
-			return idx;
+			log_assert(global_id_storage_.size() < 0x40000000);
+			global_free_idx_list_.push_back(global_id_storage_.size());
+			global_id_storage_.push_back(nullptr);
+			global_refcount_storage_.push_back(0);
 		}
 
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static inline void put_reference(int idx)
-		{
-			// put_reference() may be called from destructors after the destructor of
-			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard_ok || !idx)
-				return;
-
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
-				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
-		#endif
-
-			int &refcount = global_refcount_storage_[idx];
-
-			if (--refcount > 0)
-				return;
-
-			log_assert(refcount == 0);
-			free_reference(idx);
-		}
-		static inline void free_reference(int idx)
-		{
-			if (yosys_xtrace) {
-				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
-
-			global_id_index_.erase(global_id_storage_.at(idx));
-			free(global_id_storage_.at(idx));
-			global_id_storage_.at(idx) = nullptr;
-			global_free_idx_list_.push_back(idx);
-		}
+		int idx = global_free_idx_list_.back();
+		global_free_idx_list_.pop_back();
+		global_id_storage_.at(idx) = strdup(p);
+		global_id_index_[global_id_storage_.at(idx)] = idx;
+		global_refcount_storage_.at(idx)++;
 	#else
-		static inline void put_reference(int) { }
+		if (global_id_storage_.empty()) {
+			global_id_storage_.push_back((char*)"");
+			global_id_index_[global_id_storage_.back()] = 0;
+		}
+		int idx = global_id_storage_.size();
+		global_id_storage_.push_back(strdup(p));
+		global_id_index_[global_id_storage_.back()] = idx;
 	#endif
 
-		// the actual IdString object is just is a single int
-
-		int index_;
-
-		inline IdString() : index_(0) { }
-		inline IdString(const char *str) : index_(get_reference(str)) { }
-		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
-		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-		inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-		inline ~IdString() { put_reference(index_); }
-
-		inline void operator=(const IdString &rhs) {
-			put_reference(index_);
-			index_ = get_reference(rhs.index_);
+		if (yosys_xtrace) {
+			log("#X# New IdString '%s' with index %d.\n", p, idx);
+			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
-		inline void operator=(const char *rhs) {
-			IdString id(rhs);
-			*this = id;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace)
+			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+	#endif
+
+	#ifdef YOSYS_USE_STICKY_IDS
+		// Avoid Create->Delete->Create pattern
+		if (last_created_idx_[last_created_idx_ptr_])
+			put_reference(last_created_idx_[last_created_idx_ptr_]);
+		last_created_idx_[last_created_idx_ptr_] = idx;
+		get_reference(last_created_idx_[last_created_idx_ptr_]);
+		last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+	#endif
+
+		return idx;
+	}
+
+#ifndef YOSYS_NO_IDS_REFCNT
+	static inline void put_reference(int idx)
+	{
+		// put_reference() may be called from destructors after the destructor of
+		// global_refcount_storage_ has been run. in this case we simply do nothing.
+		if (!destruct_guard_ok || !idx)
+			return;
+
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace) {
+			log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+		}
+	#endif
+
+		int &refcount = global_refcount_storage_[idx];
+
+		if (--refcount > 0)
+			return;
+
+		log_assert(refcount == 0);
+		free_reference(idx);
+	}
+	static inline void free_reference(int idx)
+	{
+		if (yosys_xtrace) {
+			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
-		inline void operator=(const std::string &rhs) {
-			IdString id(rhs);
-			*this = id;
-		}
-
-		inline const char *c_str() const {
-			return global_id_storage_.at(index_);
-		}
-
-		inline std::string str() const {
-			return std::string(global_id_storage_.at(index_));
-		}
-
-		inline bool operator<(const IdString &rhs) const {
-			return index_ < rhs.index_;
-		}
-
-		inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
-
-		// The methods below are just convenience functions for better compatibility with std::string.
-
-		bool operator==(const std::string &rhs) const { return c_str() == rhs; }
-		bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
-
-		bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
-		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
-
-		char operator[](size_t i) const {
-                        const char *p = c_str();
-#ifndef NDEBUG
-			for (; i != 0; i--, p++)
-				log_assert(*p != 0);
-			return *p;
+		global_id_index_.erase(global_id_storage_.at(idx));
+		free(global_id_storage_.at(idx));
+		global_id_storage_.at(idx) = nullptr;
+		global_free_idx_list_.push_back(idx);
+	}
 #else
-			return *(p + i);
+	static inline void put_reference(int) { }
 #endif
+
+	// the actual IdString object is just is a single int
+
+	int index_;
+
+	inline IdString() : index_(0) { }
+	inline IdString(const char *str) : index_(get_reference(str)) { }
+	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
+	inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+	inline ~IdString() { put_reference(index_); }
+
+	inline void operator=(const IdString &rhs) {
+		put_reference(index_);
+		index_ = get_reference(rhs.index_);
+	}
+
+	inline void operator=(const char *rhs) {
+		IdString id(rhs);
+		*this = id;
+	}
+
+	inline void operator=(const std::string &rhs) {
+		IdString id(rhs);
+		*this = id;
+	}
+
+	inline const char *c_str() const {
+		return global_id_storage_.at(index_);
+	}
+
+	inline std::string str() const {
+		return std::string(global_id_storage_.at(index_));
+	}
+
+	inline bool operator<(const IdString &rhs) const {
+		return index_ < rhs.index_;
+	}
+
+	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
+	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+
+	// The methods below are just convenience functions for better compatibility with std::string.
+
+	bool operator==(const std::string &rhs) const { return c_str() == rhs; }
+	bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
+
+	bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
+	bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
+
+	char operator[](size_t i) const {
+					const char *p = c_str();
+#ifndef NDEBUG
+		for (; i != 0; i--, p++)
+			log_assert(*p != 0);
+		return *p;
+#else
+		return *(p + i);
+#endif
+	}
+
+	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
+		if (len == std::string::npos || len >= strlen(c_str() + pos))
+			return std::string(c_str() + pos);
+		else
+			return std::string(c_str() + pos, len);
+	}
+
+	int compare(size_t pos, size_t len, const char* s) const {
+		return strncmp(c_str()+pos, s, len);
+	}
+
+	bool begins_with(const char* prefix) const {
+		size_t len = strlen(prefix);
+		if (size() < len) return false;
+		return compare(0, len, prefix) == 0;
+	}
+
+	bool ends_with(const char* suffix) const {
+		size_t len = strlen(suffix);
+		if (size() < len) return false;
+		return compare(size()-len, len, suffix) == 0;
+	}
+
+	bool contains(const char* str) const {
+		return strstr(c_str(), str);
+	}
+
+	size_t size() const {
+		return strlen(c_str());
+	}
+
+	bool empty() const {
+		return c_str()[0] == 0;
+	}
+
+	void clear() {
+		*this = IdString();
+	}
+
+	[[nodiscard]] Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
+
+	[[nodiscard]] Hasher hash_top() const {
+		Hasher h;
+		h.force((Hasher::hash_t) index_);
+		return h;
+	}
+
+	// The following is a helper key_compare class. Instead of for example std::set<Cell*>
+	// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
+	// set has an influence on the algorithm.
+
+	template<typename T> struct compare_ptr_by_name {
+		bool operator()(const T *a, const T *b) const {
+			return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
 		}
-
-		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-			if (len == std::string::npos || len >= strlen(c_str() + pos))
-				return std::string(c_str() + pos);
-			else
-				return std::string(c_str() + pos, len);
-		}
-
-		int compare(size_t pos, size_t len, const char* s) const {
-			return strncmp(c_str()+pos, s, len);
-		}
-
-		bool begins_with(const char* prefix) const {
-			size_t len = strlen(prefix);
-			if (size() < len) return false;
-			return compare(0, len, prefix) == 0;
-		}
-
-		bool ends_with(const char* suffix) const {
-			size_t len = strlen(suffix);
-			if (size() < len) return false;
-			return compare(size()-len, len, suffix) == 0;
-		}
-
-		bool contains(const char* str) const {
-			return strstr(c_str(), str);
-		}
-
-		size_t size() const {
-			return strlen(c_str());
-		}
-
-		bool empty() const {
-			return c_str()[0] == 0;
-		}
-
-		void clear() {
-			*this = IdString();
-		}
-
-		unsigned int hash() const {
-			return index_;
-		}
-
-		// The following is a helper key_compare class. Instead of for example std::set<Cell*>
-		// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
-		// set has an influence on the algorithm.
-
-		template<typename T> struct compare_ptr_by_name {
-			bool operator()(const T *a, const T *b) const {
-				return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
-			}
-		};
-
-		// often one needs to check if a given IdString is part of a list (for example a list
-		// of cell types). the following functions helps with that.
-
-		template<typename... Args>
-		bool in(Args... args) const {
-			// Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
-			bool result = false;
-			(void) std::initializer_list<int>{ (result = result || in(args), 0)... };
-			return result;
-		}
-
-		bool in(const IdString &rhs) const { return *this == rhs; }
-		bool in(const char *rhs) const { return *this == rhs; }
-		bool in(const std::string &rhs) const { return *this == rhs; }
-		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
-
-		bool isPublic() const { return begins_with("\\"); }
 	};
 
+	// often one needs to check if a given IdString is part of a list (for example a list
+	// of cell types). the following functions helps with that.
+	template<typename... Args>
+	bool in(Args... args) const {
+		return (... || in(args));
+	}
+
+	bool in(const IdString &rhs) const { return *this == rhs; }
+	bool in(const char *rhs) const { return *this == rhs; }
+	bool in(const std::string &rhs) const { return *this == rhs; }
+	inline bool in(const pool<IdString> &rhs) const;
+	inline bool in(const pool<IdString> &&rhs) const;
+
+	bool isPublic() const { return begins_with("\\"); }
+};
+
+namespace hashlib {
+	template <>
+	struct hash_ops<RTLIL::IdString> {
+		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
+			return a == b;
+		}
+		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString id) {
+			return id.hash_top();
+		}
+		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString id, Hasher h) {
+			return id.hash_into(h);
+		}
+	};
+};
+
+/**
+ * How to not use these methods:
+ * 1. if(celltype.in({...})) -> if(celltype.in(...))
+ * 2. pool<IdString> p; ... a.in(p) -> (bool)p.count(a)
+ */
+[[deprecated]]
+inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
+[[deprecated]]
+inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
+
+namespace RTLIL {
 	namespace ID {
 #define X(_id) extern IdString _id;
 #include "kernel/constids.inc"
 #undef X
 	};
-
 	extern dict<std::string, std::string> constpad;
 
 	const pool<IdString> &builtin_ff_cell_types();
@@ -503,6 +561,7 @@ namespace RTLIL
 	RTLIL::Const const_pow         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 
 	RTLIL::Const const_pos         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
+	RTLIL::Const const_buf         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 	RTLIL::Const const_neg         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len);
 
 	RTLIL::Const const_mux         (const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3);
@@ -657,35 +716,136 @@ namespace RTLIL
 
 struct RTLIL::Const
 {
-	int flags;
-	std::vector<RTLIL::State> bits;
+	short int flags;
+private:
+	friend class KernelRtlilTest;
+	FRIEND_TEST(KernelRtlilTest, ConstStr);
+	using bitvectype = std::vector<RTLIL::State>;
+	enum class backing_tag: bool { bits, string };
+	// Do not access the union or tag even in Const methods unless necessary
+	mutable backing_tag tag;
+	union {
+		mutable bitvectype bits_;
+		mutable std::string str_;
+	};
 
-	Const() : flags(RTLIL::CONST_FLAG_NONE) {}
+	// Use these private utilities instead
+	bool is_bits() const { return tag == backing_tag::bits; }
+	bool is_str() const { return tag == backing_tag::string; }
+
+	bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
+	std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
+
+	bitvectype& get_bits() const;
+	std::string& get_str() const;
+public:
+	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
 	Const(const std::string &str);
-	Const(int val, int width = 32);
+	Const(long long val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
+	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
 	Const(const std::vector<bool> &bits);
-	Const(const RTLIL::Const &c) = default;
-	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
+	Const(const RTLIL::Const &other);
+	Const(RTLIL::Const &&other);
+	RTLIL::Const &operator =(const RTLIL::Const &other);
+	~Const();
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
+	std::vector<RTLIL::State>& bits();
 	bool as_bool() const;
+
+	// Convert the constant value to a C++ int.
+	// NOTE: If the constant is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
-	std::string as_string() const;
+
+	// Returns true iff the constant can be converted to an int without
+	// over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns the constant's value as an int if it can be represented without
+	// over/underflow, otherwise the max/min value for int depending on the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
+	std::string as_string(const char* any = "-") const;
 	static Const from_string(const std::string &str);
+	std::vector<RTLIL::State> to_bits() const;
 
 	std::string decode_string() const;
+	int size() const;
+	bool empty() const;
+	void bitvectorize() const;
 
-	inline int size() const { return bits.size(); }
-	inline bool empty() const { return bits.empty(); }
-	inline RTLIL::State &operator[](int index) { return bits.at(index); }
-	inline const RTLIL::State &operator[](int index) const { return bits.at(index); }
-	inline decltype(bits)::iterator begin() { return bits.begin(); }
-	inline decltype(bits)::iterator end() { return bits.end(); }
+	void append(const RTLIL::Const &other);
+
+	class const_iterator {
+	private:
+		const Const& parent;
+		size_t idx;
+
+	public:
+		using iterator_category = std::input_iterator_tag;
+		using value_type = State;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const State*;
+		using reference = const State&;
+
+		const_iterator(const Const& c, size_t i) : parent(c), idx(i) {}
+
+		State operator*() const;
+
+		const_iterator& operator++() { ++idx; return *this; }
+		const_iterator& operator--() { --idx; return *this; }
+		const_iterator& operator++(int) { ++idx; return *this; }
+		const_iterator& operator--(int) { --idx; return *this; }
+		const_iterator& operator+=(int i) { idx += i; return *this; }
+
+		const_iterator operator+(int add) {
+			return const_iterator(parent, idx + add);
+		}
+		const_iterator operator-(int sub) {
+			return const_iterator(parent, idx - sub);
+		}
+		int operator-(const const_iterator& other) {
+			return idx - other.idx;
+		}
+
+		bool operator==(const const_iterator& other) const {
+			return idx == other.idx;
+		}
+
+		bool operator!=(const const_iterator& other) const {
+			return !(*this == other);
+		}
+	};
+
+	const_iterator begin() const {
+		return const_iterator(*this, 0);
+	}
+	const_iterator end() const {
+		return const_iterator(*this, size());
+	}
+	State back() const {
+		return *(end() - 1);
+	}
+	State front() const {
+		return *begin();
+	}
+	State at(size_t i) const {
+		return *const_iterator(*this, i);
+	}
+	State operator[](size_t i) const {
+		return *const_iterator(*this, i);
+	}
 
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
@@ -694,26 +854,29 @@ struct RTLIL::Const
 	bool is_fully_undef_x_only() const;
 	bool is_onehot(int *pos = nullptr) const;
 
-	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
-		RTLIL::Const ret;
-		ret.bits.reserve(len);
-		for (int i = offset; i < offset + len; i++)
-			ret.bits.push_back(i < GetSize(bits) ? bits[i] : padding);
-		return ret;
-	}
+	RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const;
+
+	// find the MSB without redundant leading bits
+	int get_min_size(bool is_signed) const;
+
+	// compress representation to the minimum required bits
+	void compress(bool is_signed = false);
+
+	std::optional<int> as_int_compress(bool is_signed) const;
 
 	void extu(int width) {
-		bits.resize(width, RTLIL::State::S0);
+		bits().resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bits.resize(width, bits.empty() ? RTLIL::State::Sx : bits.back());
+		bitvectype& bv = bits();
+		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
 	}
 
-	inline unsigned int hash() const {
-		unsigned int h = mkhash_init;
-		for (auto b : bits)
-			h = mkhash(h, b);
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		h.eat(size());
+		for (auto b : *this)
+			h.eat(b);
 		return h;
 	}
 };
@@ -727,6 +890,7 @@ struct RTLIL::AttrObject
 	void set_bool_attribute(const RTLIL::IdString &id, bool value=true);
 	bool get_bool_attribute(const RTLIL::IdString &id) const;
 
+	[[deprecated("Use Module::get_blackbox_attribute() instead.")]]
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
@@ -752,6 +916,11 @@ struct RTLIL::AttrObject
 	vector<int> get_intvec_attribute(const RTLIL::IdString &id) const;
 };
 
+struct RTLIL::NamedObject : public RTLIL::AttrObject
+{
+	RTLIL::IdString name;
+};
+
 struct RTLIL::SigChunk
 {
 	RTLIL::Wire *wire;
@@ -759,8 +928,8 @@ struct RTLIL::SigChunk
 	int width, offset;
 
 	SigChunk() : wire(nullptr), width(0), offset(0) {}
-	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.bits), width(GetSize(data)), offset(0) {}
-	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(std::move(value.bits)), width(GetSize(data)), offset(0) {}
+	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
+	SigChunk(RTLIL::Const &&value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}
@@ -802,7 +971,23 @@ struct RTLIL::SigBit
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
 	bool operator !=(const RTLIL::SigBit &other) const;
-	unsigned int hash() const;
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
+	[[nodiscard]] Hasher hash_top() const;
+};
+
+namespace hashlib {
+	template <>
+	struct hash_ops<RTLIL::SigBit> {
+		static inline bool cmp(const RTLIL::SigBit &a, const RTLIL::SigBit &b) {
+			return a == b;
+		}
+		[[nodiscard]] static inline Hasher hash(const RTLIL::SigBit sb) {
+			return sb.hash_top();
+		}
+		[[nodiscard]] static inline Hasher hash_into(const RTLIL::SigBit sb, Hasher h) {
+			return sb.hash_into(h);
+		}
+	};
 };
 
 struct RTLIL::SigSpecIterator
@@ -843,7 +1028,7 @@ struct RTLIL::SigSpec
 {
 private:
 	int width_;
-	unsigned long hash_;
+	Hasher::hash_t hash_;
 	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
 	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
 
@@ -883,11 +1068,6 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
-
-	size_t get_hash() const {
-		if (!hash_) hash();
-		return hash_;
-	}
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
@@ -972,7 +1152,27 @@ public:
 	bool is_onehot(int *pos = nullptr) const;
 
 	bool as_bool() const;
+
+	// Convert the SigSpec to a C++ int, assuming all bits are constant.
+	// NOTE: If the value is too wide to fit in int (32 bits) this will
+	// truncate any higher bits, potentially over/underflowing. Consider using
+	// try_as_int, as_int_saturating, or guarding behind convertible_to_int
+	// instead.
 	int as_int(bool is_signed = false) const;
+
+	// Returns true iff the SigSpec is constant and can be converted to an int
+	// without over/underflow.
+	bool convertible_to_int(bool is_signed = false) const;
+
+	// Returns the SigSpec's value as an int if it is a constant and can be
+	// represented without over/underflow, or std::nullopt otherwise.
+	std::optional<int> try_as_int(bool is_signed = false) const;
+
+	// Returns an all constant SigSpec's value as an int if it can be represented
+	// without over/underflow, otherwise the max/min value for int depending on
+	// the sign.
+	int as_int_saturating(bool is_signed = false) const;
+
 	std::string as_string() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
@@ -995,7 +1195,7 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
-	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
+	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -1006,38 +1206,100 @@ public:
 
 struct RTLIL::Selection
 {
+	// selection includes boxed modules
+	bool selects_boxes;
+	// selection covers full design, including boxed modules
+	bool complete_selection;
+	// selection covers full design, not including boxed modules
 	bool full_selection;
 	pool<RTLIL::IdString> selected_modules;
 	dict<RTLIL::IdString, pool<RTLIL::IdString>> selected_members;
+	RTLIL::Design *current_design;
 
-	Selection(bool full = true) : full_selection(full) { }
+	// create a new selection
+	Selection(
+		// should the selection cover the full design
+		bool full = true,
+		// should the selection include boxed modules
+		bool boxes = false,
+		// the design to select from
+		RTLIL::Design *design = nullptr
+	) :
+		selects_boxes(boxes), complete_selection(full && boxes), full_selection(full && !boxes), current_design(design) { }
 
+	// checks if the given module exists in the current design and is a
+	// boxed module, warning the user if the current design is not set
+	bool boxed_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is included in this selection
 	bool selected_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is wholly included in this selection,
+	// i.e. not partially selected
 	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given member from the given module is included in this
+	// selection
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
+
+	// optimizes this selection for the given design by:
+	// - removing non-existent modules and members, any boxed modules and
+	//   their members (if selection does not include boxes), and any
+	//   partially selected modules with no selected members;
+	// - marking partially selected modules as wholly selected if all
+	//   members of that module are selected; and
+	// - marking selection as a complete_selection if all modules in the
+	//   given design are selected, or a full_selection if it does not
+	//   include boxes.
 	void optimize(RTLIL::Design *design);
 
+	// checks if selection covers full design (may or may not include
+	// boxed-modules)
+	bool selects_all() const {
+		return full_selection || complete_selection;
+	}
+
+	// add whole module to this selection
 	template<typename T1> void select(T1 *module) {
-		if (!full_selection && selected_modules.count(module->name) == 0) {
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_modules.insert(module->name);
 			selected_members.erase(module->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
 		}
 	}
 
+	// add member of module to this selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!full_selection && selected_modules.count(module->name) == 0)
+		if (!selects_all() && selected_modules.count(module->name) == 0) {
 			selected_members[module->name].insert(member->name);
+			if (module->get_blackbox_attribute())
+				selects_boxes = true;
+		}
 	}
 
+	// checks if selection is empty
 	bool empty() const {
-		return !full_selection && selected_modules.empty() && selected_members.empty();
+		return !selects_all() && selected_modules.empty() && selected_members.empty();
 	}
+
+	// clear this selection, leaving it empty
+	void clear();
+
+	// create a new selection which is empty
+	static Selection EmptySelection(RTLIL::Design *design = nullptr) { return Selection(false, false, design); };
+
+	// create a new selection with all non-boxed modules
+	static Selection FullSelection(RTLIL::Design *design = nullptr) { return Selection(true, false, design); };
+
+	// create a new selection with all modules, including boxes
+	static Selection CompleteSelection(RTLIL::Design *design = nullptr) { return Selection(true, true, design); };
 };
 
 struct RTLIL::Monitor
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Monitor() {
 		static unsigned int hashidx_count = 123456789;
@@ -1059,11 +1321,14 @@ struct define_map_t;
 
 struct RTLIL::Design
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
+
+	bool flagBufferedNormalized = false;
+	void bufNormalize(bool enable=true);
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
@@ -1082,7 +1347,7 @@ struct RTLIL::Design
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(const RTLIL::IdString &name);
 	const RTLIL::Module *module(const RTLIL::IdString &name) const;
-	RTLIL::Module *top_module();
+	RTLIL::Module *top_module() const;
 
 	bool has(const RTLIL::IdString &id) const {
 		return modules_.count(id) != 0;
@@ -1106,63 +1371,125 @@ struct RTLIL::Design
 	std::string scratchpad_get_string(const std::string &varname, const std::string &default_value = std::string()) const;
 
 	void sort();
+	void sort_modules();
 	void check();
 	void optimize();
 
+	// checks if the given module is included in the current selection
 	bool selected_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given module is wholly included in the current
+	// selection, i.e. not partially selected
 	bool selected_whole_module(const RTLIL::IdString &mod_name) const;
+
+	// checks if the given member from the given module is included in the
+	// current selection
 	bool selected_member(const RTLIL::IdString &mod_name, const RTLIL::IdString &memb_name) const;
 
+	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::Module *mod) const;
+
+	// checks if the given module is wholly included in the current
+	// selection, i.e. not partially selected
 	bool selected_whole_module(RTLIL::Module *mod) const;
 
+	// push the given selection to the selection stack
+	void push_selection(RTLIL::Selection sel);
+	// push a new selection to the selection stack, with nothing selected
+	void push_empty_selection();
+	// push a new selection to the selection stack, with all non-boxed
+	// modules selected
+	void push_full_selection();
+	// push a new selection to the selection stack, with all modules
+	// selected including boxes
+	void push_complete_selection();
+	// pop the current selection from the stack, returning to a full
+	// selection (no boxes) if the stack is empty
+	void pop_selection();
+
+	// get the current selection
 	RTLIL::Selection &selection() {
 		return selection_stack.back();
 	}
 
+	// get the current selection
 	const RTLIL::Selection &selection() const {
 		return selection_stack.back();
 	}
 
+	// is the current selection a full selection (no boxes)
 	bool full_selection() const {
-		return selection_stack.back().full_selection;
+		return selection().full_selection;
 	}
 
+	// is the given module in the current selection
 	template<typename T1> bool selected(T1 *module) const {
 		return selected_module(module->name);
 	}
 
+	// is the given member of the given module in the current selection
 	template<typename T1, typename T2> bool selected(T1 *module, T2 *member) const {
 		return selected_member(module->name, member->name);
 	}
 
+	// add whole module to the current selection
 	template<typename T1> void select(T1 *module) {
-		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
-			sel.select(module);
-		}
+		RTLIL::Selection &sel = selection();
+		sel.select(module);
 	}
 
+	// add member of module to the current selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (selection_stack.size() > 0) {
-			RTLIL::Selection &sel = selection_stack.back();
-			sel.select(module, member);
-		}
+		RTLIL::Selection &sel = selection();
+		sel.select(module, member);
 	}
 
 
-	std::vector<RTLIL::Module*> selected_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const;
+	// returns all selected modules
+	std::vector<RTLIL::Module*> selected_modules(
+		// controls if partially selected modules are included
+		RTLIL::SelectPartials partials = SELECT_ALL,
+		// controls if boxed modules are included
+		RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN
+	) const;
+
+	// returns all selected modules, and may include boxes
+	std::vector<RTLIL::Module*> all_selected_modules() const { return selected_modules(SELECT_ALL, SB_ALL); }
+	// returns all selected unboxed modules, silently ignoring any boxed
+	// modules in the selection
+	std::vector<RTLIL::Module*> selected_unboxed_modules() const { return selected_modules(SELECT_ALL, SB_UNBOXED_ONLY); }
+	// returns all selected unboxed modules, warning the user if any boxed
+	// modules have been ignored
+	std::vector<RTLIL::Module*> selected_unboxed_modules_warn() const { return selected_modules(SELECT_ALL, SB_UNBOXED_WARN); }
+
+	[[deprecated("Use select_unboxed_whole_modules() to maintain prior behaviour, or consider one of the other selected whole module helpers.")]]
+	std::vector<RTLIL::Module*> selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_WARN); }
+	// returns all selected whole modules, silently ignoring partially
+	// selected modules, and may include boxes
+	std::vector<RTLIL::Module*> all_selected_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_ALL); }
+	// returns all selected whole modules, warning the user if any partially
+	// selected or boxed modules have been ignored; optionally includes
+	// selected whole modules with the 'whitebox' attribute
+	std::vector<RTLIL::Module*> selected_whole_modules_warn(
+		// should whole modules with the 'whitebox' attribute be
+		// included
+		bool include_wb = false
+	) const { return selected_modules(SELECT_WHOLE_WARN, include_wb ? SB_EXCL_BB_WARN : SB_UNBOXED_WARN); }
+	// returns all selected unboxed whole modules, silently ignoring
+	// partially selected or boxed modules
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules() const { return selected_modules(SELECT_WHOLE_ONLY, SB_UNBOXED_ONLY); }
+	// returns all selected unboxed whole modules, warning the user if any
+	// partially selected or boxed modules have been ignored
+	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
 };
 
-struct RTLIL::Module : public RTLIL::AttrObject
+struct RTLIL::Module : public RTLIL::NamedObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	void add(RTLIL::Wire *wire);
@@ -1182,7 +1509,6 @@ public:
 	std::vector<RTLIL::SigSig>   connections_;
 	std::vector<RTLIL::Binding*> bindings_;
 
-	RTLIL::IdString name;
 	idict<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
@@ -1201,6 +1527,10 @@ public:
 	virtual void optimize();
 	virtual void makeblackbox();
 
+	bool get_blackbox_attribute(bool ignore_wb=false) const {
+		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
+	}
+
 	void connect(const RTLIL::SigSig &conn);
 	void connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs);
 	void new_connections(const std::vector<RTLIL::SigSig> &new_conn);
@@ -1208,6 +1538,9 @@ public:
 
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
+
+	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -1220,8 +1553,14 @@ public:
 	bool has_memories_warn() const;
 	bool has_processes_warn() const;
 
+	bool is_selected() const;
+	bool is_selected_whole() const;
+
 	std::vector<RTLIL::Wire*> selected_wires() const;
 	std::vector<RTLIL::Cell*> selected_cells() const;
+	std::vector<RTLIL::Memory*> selected_memories() const;
+	std::vector<RTLIL::Process*> selected_processes() const;
+	std::vector<RTLIL::NamedObject*> selected_members() const;
 
 	template<typename T> bool selected(T *member) const {
 		return design->selected_member(name, member->name);
@@ -1280,6 +1619,7 @@ public:
 
 	RTLIL::Cell* addNot (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 	RTLIL::Cell* addPos (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
+	RTLIL::Cell* addBuf (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 	RTLIL::Cell* addNeg (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
 
 	RTLIL::Cell* addAnd  (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");
@@ -1414,6 +1754,7 @@ public:
 
 	RTLIL::SigSpec Not (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 	RTLIL::SigSpec Pos (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
+	RTLIL::SigSpec Buf (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 	RTLIL::SigSpec Neg (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed = false, const std::string &src = "");
 
 	RTLIL::SigSpec And  (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed = false, const std::string &src = "");
@@ -1501,10 +1842,14 @@ public:
 #endif
 };
 
-struct RTLIL::Wire : public RTLIL::AttrObject
+namespace RTLIL_BACKEND {
+void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+}
+
+struct RTLIL::Wire : public RTLIL::NamedObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
@@ -1512,15 +1857,36 @@ protected:
 	Wire();
 	~Wire();
 
+	friend struct RTLIL::Design;
+	friend struct RTLIL::Cell;
+	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
+	RTLIL::Cell *driverCell_ = nullptr;
+	RTLIL::IdString driverPort_;
+
 public:
 	// do not simply copy wires
 	Wire(RTLIL::Wire &other) = delete;
 	void operator=(RTLIL::Wire &other) = delete;
 
 	RTLIL::Module *module;
-	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
+
+	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
+	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
+
+	int from_hdl_index(int hdl_index) {
+		int zero_index = hdl_index - start_offset;
+		int rtlil_index = upto ? width - 1 - zero_index : zero_index;
+		return rtlil_index >= 0 && rtlil_index < width ? rtlil_index : INT_MIN;
+	}
+
+	int to_hdl_index(int rtlil_index) {
+		if (rtlil_index < 0 || rtlil_index >= width)
+			return INT_MIN;
+		int zero_index = upto ? width - 1 - rtlil_index : rtlil_index;
+		return zero_index + start_offset;
+	}
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
@@ -1531,14 +1897,13 @@ inline int GetSize(RTLIL::Wire *wire) {
 	return wire->width;
 }
 
-struct RTLIL::Memory : public RTLIL::AttrObject
+struct RTLIL::Memory : public RTLIL::NamedObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
 
-	RTLIL::IdString name;
 	int width, start_offset, size;
 #ifdef WITH_PYTHON
 	~Memory();
@@ -1546,10 +1911,10 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 #endif
 };
 
-struct RTLIL::Cell : public RTLIL::AttrObject
+struct RTLIL::Cell : public RTLIL::NamedObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
@@ -1563,7 +1928,6 @@ public:
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::Module *module;
-	RTLIL::IdString name;
 	RTLIL::IdString type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
@@ -1656,10 +2020,10 @@ struct RTLIL::SyncRule
 	RTLIL::SyncRule *clone() const;
 };
 
-struct RTLIL::Process : public RTLIL::AttrObject
+struct RTLIL::Process : public RTLIL::NamedObject
 {
-	unsigned int hashidx_;
-	unsigned int hash() const { return hashidx_; }
+	Hasher::hash_t hashidx_;
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes
@@ -1668,7 +2032,6 @@ protected:
 	~Process();
 
 public:
-	RTLIL::IdString name;
 	RTLIL::Module *module;
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
@@ -1703,10 +2066,25 @@ inline bool RTLIL::SigBit::operator!=(const RTLIL::SigBit &other) const {
 	return (wire != other.wire) || (wire ? (offset != other.offset) : (data != other.data));
 }
 
-inline unsigned int RTLIL::SigBit::hash() const {
-	if (wire)
-		return mkhash_add(wire->name.hash(), offset);
-	return data;
+inline Hasher RTLIL::SigBit::hash_into(Hasher h) const {
+	if (wire) {
+		h.eat(offset);
+		h.eat(wire->name);
+		return h;
+	}
+	h.eat(data);
+	return h;
+}
+
+
+inline Hasher RTLIL::SigBit::hash_top() const {
+	Hasher h;
+	if (wire) {
+		h.force(hashlib::legacy::djb2_add(wire->name.index_, offset));
+		return h;
+	}
+	h.force(data);
+	return h;
 }
 
 inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {

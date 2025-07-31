@@ -30,7 +30,7 @@ struct BitPatternPool
 	int width;
 	struct bits_t {
 		std::vector<RTLIL::State> bitdata;
-		mutable unsigned int cached_hash;
+		mutable Hasher::hash_t cached_hash;
 		bits_t(int width = 0) : bitdata(width), cached_hash(0) { }
 		RTLIL::State &operator[](int index) {
 			return bitdata[index];
@@ -39,14 +39,15 @@ struct BitPatternPool
 			return bitdata[index];
 		}
 		bool operator==(const bits_t &other) const {
-			if (hash() != other.hash())
+			if (run_hash(*this) != run_hash(other))
 				return false;
 			return bitdata == other.bitdata;
 		}
-		unsigned int hash() const {
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
 			if (!cached_hash)
-				cached_hash = hash_ops<std::vector<RTLIL::State>>::hash(bitdata);
-			return cached_hash;
+				cached_hash = run_hash(bitdata);
+			h.eat(cached_hash);
+			return h;
 		}
 	};
 	pool<bits_t> database;
@@ -80,7 +81,7 @@ struct BitPatternPool
 	bits_t sig2bits(RTLIL::SigSpec sig)
 	{
 		bits_t bits;
-		bits.bitdata = sig.as_const().bits;
+		bits.bitdata = sig.as_const().bits();
 		for (auto &b : bits.bitdata)
 			if (b > RTLIL::State::S1)
 				b = RTLIL::State::Sa;

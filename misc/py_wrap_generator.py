@@ -375,6 +375,10 @@ class PoolTranslator(PythonListTranslator):
 	insert_name = ".insert"
 	orig_name = "pool"
 
+#Sub-type for ObjRange
+class ObjRangeTranslator(PythonListTranslator):
+	orig_name = "RTLIL::ObjRange"
+
 #Translates dict-types (dict, std::map), that only differ in their name and
 #the name of the insertion function
 class PythonDictTranslator(Translator):
@@ -536,13 +540,14 @@ class TupleTranslator(PythonDictTranslator):
 
 #Associate the Translators with their c++ type
 known_containers = {
-	"std::set"		:	SetTranslator,
-	"std::vector"	:	VectorTranslator,
-	"pool"			:	PoolTranslator,
-	"idict"			:	IDictTranslator,
-	"dict"			:	DictTranslator,
-	"std::pair"		:	TupleTranslator,
-	"std::map"		:	MapTranslator
+	"std::set"        : SetTranslator,
+	"std::vector"     : VectorTranslator,
+	"pool"            : PoolTranslator,
+	"idict"           : IDictTranslator,
+	"dict"            : DictTranslator,
+	"std::pair"       : TupleTranslator,
+	"std::map"        : MapTranslator,
+	"RTLIL::ObjRange" : ObjRangeTranslator
 }
 
 class Attribute:
@@ -850,7 +855,11 @@ class WClass:
 		if self.hash_id != None:
 			text += "\n\t\tunsigned int get_hash_py()"
 			text += "\n\t\t{"
-			text += "\n\t\t\treturn get_cpp_obj()->" + self.hash_id + ";"
+			suffix = f"->{self.hash_id}" if self.hash_id else f"->{self.hash_id}"
+			if self.hash_id == "":
+				text += f"\n\t\t\treturn run_hash(*(get_cpp_obj()));"
+			else:
+				text += f"\n\t\t\treturn run_hash(get_cpp_obj()->{self.hash_id});"
 			text += "\n\t\t}"
 
 		text += "\n\t};\n"
@@ -951,7 +960,7 @@ class WClass:
 
 sources = [
 	Source("kernel/celltypes",[
-		WClass("CellType", link_types.pointer, None, None, "type.hash()", True),
+		WClass("CellType", link_types.pointer, None, None, "type", True),
 		WClass("CellTypes", link_types.pointer, None, None, None, True)
 		]
 		),
@@ -965,23 +974,24 @@ sources = [
 		]
 		),
 	Source("kernel/rtlil",[
-		WClass("IdString", link_types.ref_copy, None, "str()", "hash()"),
-		WClass("Const", link_types.ref_copy, None, "as_string()", "hash()"),
+		WClass("IdString", link_types.ref_copy, None, "str()", ""),
+		WClass("Const", link_types.ref_copy, None, "as_string()", ""),
 		WClass("AttrObject", link_types.ref_copy, None, None, None),
+		WClass("NamedObject", link_types.ref_copy, None, None, None),
 		WClass("Selection", link_types.ref_copy, None, None, None),
 		WClass("Monitor", link_types.derive, None, None, None),
 		WClass("CaseRule",link_types.ref_copy, None, None, None, True),
 		WClass("SwitchRule",link_types.ref_copy, None, None, None, True),
 		WClass("SyncRule", link_types.ref_copy, None, None, None, True),
-		WClass("Process",  link_types.ref_copy, None, "name.c_str()", "name.hash()"),
+		WClass("Process",  link_types.ref_copy, None, "name.c_str()", "name"),
 		WClass("SigChunk", link_types.ref_copy, None, None, None),
-		WClass("SigBit", link_types.ref_copy, None, None, "hash()"),
-		WClass("SigSpec", link_types.ref_copy, None, None, "hash()"),
-		WClass("Cell", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Wire", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Memory", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Module", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", "hash()"),
-		WClass("Design", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "hashidx_", "hash()")
+		WClass("SigBit", link_types.ref_copy, None, None, ""),
+		WClass("SigSpec", link_types.ref_copy, None, None, ""),
+		WClass("Cell", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Wire", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Memory", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Module", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "name.c_str()", ""),
+		WClass("Design", link_types.global_list, Attribute(WType("unsigned int"), "hashidx_"), "hashidx_", "")
 		]
 		),
 	#Source("kernel/satgen",[
@@ -1268,6 +1278,11 @@ class WFunction:
 		func.duplicate = False
 		func.namespace = namespace
 		str_def = str_def.replace("operator ","operator")
+
+		# remove attributes from the start
+		if str.startswith(str_def, "[[") and "]]" in str_def:
+			str_def = str_def[str_def.find("]]")+2:]
+
 		if str.startswith(str_def, "static "):
 			func.is_static = True
 			str_def = str_def[7:]
@@ -1569,10 +1584,15 @@ class WFunction:
 		return_stmt = "return " if self.ret_type.name != "void" else ""
 
 		text += ")\n\t\t{"
-		text += "\n\t\t\tif (boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\"))"
-		text += f"\n\t\t\t\t{return_stmt}" + call_string
-		text += "\n\t\t\telse"
+		text += "\n\t\t\tif (boost::python::override py_" + self.alias + " = this->get_override(\"py_" + self.alias + "\")) {"
+		text += "\n\t\t\t\ttry {"
+		text += f"\n\t\t\t\t\t{return_stmt}" + call_string
+		text += "\n\t\t\t\t} catch (boost::python::error_already_set &) {"
+		text += "\n\t\t\t\t\tlog_python_exception_as_error();"
+		text += "\n\t\t\t\t}"
+		text += "\n\t\t\t} else {"
 		text += f"\n\t\t\t\t{return_stmt}" + self.member_of.name + "::" + call_string
+		text += "\n\t\t\t}"
 		text += "\n\t\t}"
 
 		text += "\n\n\t\t" + self.ret_type.gen_text() + " default_py_" + self.alias + "("
@@ -1958,7 +1978,10 @@ def assure_length(text, length, left = False):
 	if left:
 		return text + " "*(length - len(text))
 	return " "*(length - len(text)) + text
-	
+
+def nesting_delta(s):
+	return s.count("{") - s.count("}")
+
 def parse_header(source):
 	debug("Parsing " + source.name + ".pyh",1)
 	source_file = open(source.name + ".pyh", "r")
@@ -1976,12 +1999,13 @@ def parse_header(source):
 	i = 0
 
 	namespaces = []
-	class_ = None
+	classes = []
 	private_segment = False
 
 	while i < len(source_text):
 		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 		ugly_line = unpretty_string(line)
+		debug(f"READ:>> {line}", 2)
 
 		# for anonymous unions, ignore union enclosure by skipping start line and replacing end line with new line
 		if 'union {' in line:
@@ -2004,15 +2028,15 @@ def parse_header(source):
 			continue
 
 		if len(namespaces) != 0:
-			namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + ugly_line.count("{") - ugly_line.count("}"))
+			namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + nesting_delta(ugly_line))
 			if namespaces[-1][1] == 0:
 				debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
-				del namespaces[-1]
+				namespaces.pop()
 				i += 1
 				continue
 
-		if class_ == None and (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
-
+		if (str.startswith(ugly_line, "struct ") or str.startswith(ugly_line, "class")) and ugly_line.count(";") == 0:
+			# Opening a record declaration which isn't a forward declaration
 			struct_name = ugly_line.split(" ")[1].split("::")[-1]
 			impl_namespaces = ugly_line.split(" ")[1].split("::")[:-1]
 			complete_namespace = concat_namespace(namespaces)
@@ -2030,24 +2054,29 @@ def parse_header(source):
 				debug("\t  " + struct_name + " is derived from " + base_class_name,2)
 			base_class = class_by_name(base_class_name)
 
-			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
+			c = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
+			debug(f"switch to {struct_name} in namespace {namespaces}", 2)
 			if struct_name in classnames:
-				class_[0].namespace = complete_namespace
-				class_[0].base_class = base_class
+				c[0].namespace = complete_namespace
+				c[0].base_class = base_class
+			classes.append(c)
 			i += 1
 			continue
 
-		if class_ != None:
-			class_ = (class_[0], class_[1] + ugly_line.count("{") - ugly_line.count("}"))
-			if class_[1] == 0:
-				if class_[0] == None:
+		if len(classes):
+			c = (classes[-1][0], classes[-1][1] + nesting_delta(ugly_line))
+			classes[-1] = c
+			if c[1] == 0:
+				if c[0] == None:
 					debug("\tExiting unknown class", 3)
 				else:
-					debug("\tExiting class " + class_[0].name, 3)
-				class_ = None
+					debug("\tExiting class " + c[0].name, 3)
+				classes.pop()
 				private_segment = False
 				i += 1
 				continue
+
+		class_ = classes[-1] if classes else None
 
 		if class_ != None and (line.find("private:") != -1 or line.find("protected:") != -1):
 			private_segment = True
@@ -2156,18 +2185,19 @@ def parse_header(source):
 				line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 				ugly_line = unpretty_string(line)
 				if len(namespaces) != 0:
-					namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + ugly_line.count("{") - ugly_line.count("}"))
+					namespaces[-1] = (namespaces[-1][0], namespaces[-1][1] + nesting_delta(ugly_line))
 					if namespaces[-1][1] == 0:
 						debug("-----END NAMESPACE " + concat_namespace(namespaces) + "-----",3)
-						del namespaces[-1]
-				if class_ != None:
-					class_ = (class_[0] , class_[1] + ugly_line.count("{") - ugly_line.count("}"))
-					if class_[1] == 0:
-						if class_[0] == None:
+						namespaces.pop()
+				if len(classes):
+					c = (classes[-1][0] , classes[-1][1] + nesting_delta(ugly_line))
+					classes[-1] = c
+					if c[1] == 0:
+						if c[0] == None:
 							debug("\tExiting unknown class", 3)
 						else:
-							debug("\tExiting class " + class_[0].name, 3)
-						class_ = None
+							debug("\tExiting class " + c[0].name, 3)
+						classes.pop()
 						private_segment = False
 			i += 1
 		else:
@@ -2314,6 +2344,11 @@ def gen_wrappers(filename, debug_level_ = 0):
 USING_YOSYS_NAMESPACE
 
 namespace YOSYS_PYTHON {
+
+	[[noreturn]] static void log_python_exception_as_error() {
+		PyErr_Print();
+		log_error("Python interpreter encountered an exception.\\n");
+	}
 
 	struct YosysStatics{};
 """)

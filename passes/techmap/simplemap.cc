@@ -42,6 +42,14 @@ void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_buf(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+	RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+
+	module->connect(RTLIL::SigSig(sig_y, sig_a));
+}
+
 void simplemap_pos(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
@@ -411,6 +419,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 {
 	mappers[ID($not)]         = simplemap_not;
 	mappers[ID($pos)]         = simplemap_pos;
+	mappers[ID($buf)]         = simplemap_buf;
 	mappers[ID($and)]         = simplemap_bitop;
 	mappers[ID($or)]          = simplemap_bitop;
 	mappers[ID($xor)]         = simplemap_bitop;

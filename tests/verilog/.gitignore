@@ -1,7 +1,3 @@
-/*.log
-/*.out
-/*.err
-/run-test.mk
 /const_arst.v
 /const_sr.v
 /doubleslash.v

@@ -39,7 +39,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 			Const priority_mask(State::S0, port_id);
 			for (int i = 0; i < GetSize(prev_port_ids); i++)
 				if (memwr.priority_mask[i] == State::S1)
-					priority_mask[prev_port_ids[i]] = State::S1;
+					priority_mask.bits()[prev_port_ids[i]] = State::S1;
 			prev_port_ids.push_back(port_id);
 
 			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
@@ -99,9 +99,9 @@ struct ProcMemWrPass : public Pass {
 
 		extra_args(args, 1, design);
 
-		for (auto module : design->selected_modules()) {
+		for (auto mod : design->all_selected_modules()) {
 			dict<IdString, int> next_port_id;
-			for (auto cell : module->cells()) {
+			for (auto cell : mod->cells()) {
 				if (cell->type.in(ID($memwr), ID($memwr_v2))) {
 					bool is_compat = cell->type == ID($memwr);
 					IdString memid = cell->parameters.at(ID::MEMID).decode_string();
@@ -110,9 +110,8 @@ struct ProcMemWrPass : public Pass {
 						next_port_id[memid] = port_id + 1;
 				}
 			}
-			for (auto &proc_it : module->processes)
-				if (design->selected(module, proc_it.second))
-					proc_memwr(module, proc_it.second, next_port_id);
+			for (auto proc : mod->selected_processes())
+				proc_memwr(mod, proc, next_port_id);
 		}
 	}
 } ProcMemWrPass;

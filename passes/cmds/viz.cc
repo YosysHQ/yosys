@@ -70,13 +70,13 @@ struct GraphNode {
 
 	pool<IdString> names_;
 	dict<int, uint8_t> tags_;
-	pool<GraphNode*, hash_ptr_ops> upstream_;
-	pool<GraphNode*, hash_ptr_ops> downstream_;
+	pool<GraphNode*> upstream_;
+	pool<GraphNode*> downstream_;
 
 	pool<IdString> &names() { return get()->names_; }
 	dict<int, uint8_t> &tags() { return get()->tags_; }
-	pool<GraphNode*, hash_ptr_ops> &upstream() { return get()->upstream_; }
-	pool<GraphNode*, hash_ptr_ops> &downstream() { return get()->downstream_; }
+	pool<GraphNode*> &upstream() { return get()->upstream_; }
+	pool<GraphNode*> &downstream() { return get()->downstream_; }
 
 	uint8_t tag(int index) {
 		return tags().at(index, 0);
@@ -154,8 +154,8 @@ struct Graph {
 			nodes.push_back(n);
 			n->index = GetSize(nodes);
 
-			pool<GraphNode*, hash_ptr_ops> new_upstream;
-			pool<GraphNode*, hash_ptr_ops> new_downstream;
+			pool<GraphNode*> new_upstream;
+			pool<GraphNode*> new_downstream;
 
 			for (auto g : n->upstream()) {
 				if (n != (g = g->get()))
@@ -302,7 +302,7 @@ struct Graph {
 			}
 		}
 
-		pool<GraphNode*, hash_ptr_ops> excluded;
+		pool<GraphNode*> excluded;
 
 		for (auto grp : config.groups)
 		{
@@ -348,7 +348,7 @@ struct Graph {
 			excluded.insert(g->get());
 
 		dict<Cell*, GraphNode*> cell_nodes;
-		dict<SigBit, pool<GraphNode*, hash_ptr_ops>> sig_users;
+		dict<SigBit, pool<GraphNode*>> sig_users;
 
 		for (auto cell : module->selected_cells()) {
 			auto g = new GraphNode;
@@ -483,8 +483,8 @@ struct Graph {
 
 			{
 				header("Any nodes with identical connections");
-				typedef pair<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> node_conn_t;
-				dict<node_conn_t, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn;
+				typedef pair<pool<GraphNode*>, pool<GraphNode*>> node_conn_t;
+				dict<node_conn_t, pool<GraphNode*>> nodes_by_conn;
 				for (auto g : term ? term_nodes : nonterm_nodes) {
 					auto &entry = nodes_by_conn[node_conn_t(g->upstream(), g->downstream())];
 					for (auto n : entry)
@@ -506,8 +506,8 @@ struct Graph {
 
 				header("Sibblings with identical tags");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
-						dict<std::vector<int>, pool<GraphNode*, hash_ptr_ops>> nodes_by_tags;
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
+						dict<std::vector<int>, pool<GraphNode*>> nodes_by_tags;
 						for (auto n : stream) {
 							if (n->terminal) continue;
 							std::vector<int> key;
@@ -556,7 +556,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (strict)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -585,7 +585,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (non-strict)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -603,7 +603,7 @@ struct Graph {
 
 			{
 				header("Any nodes with identical fan-in or fan-out");
-				dict<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn[2];
+				dict<pool<GraphNode*>, pool<GraphNode*>> nodes_by_conn[2];
 				for (auto g : term ? term_nodes : nonterm_nodes) {
 					auto &up_entry = nodes_by_conn[0][g->upstream()];
 					auto &down_entry = nodes_by_conn[1][g->downstream()];
@@ -629,7 +629,7 @@ struct Graph {
 			if (!term) {
 				header("Sibblings with similar tags (lax)");
 				for (auto g : nonterm_nodes) {
-					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+					auto process_conns = [&](const pool<GraphNode*> &stream) {
 						std::vector<GraphNode*> nodes;
 						for (auto n : stream)
 							if (!n->terminal) nodes.push_back(n);
@@ -720,9 +720,9 @@ struct VizWorker
 		fprintf(f, "digraph \"%s\" {\n", log_id(module));
 		fprintf(f, "  rankdir = LR;\n");
 
-		dict<GraphNode*, std::vector<std::vector<std::string>>, hash_ptr_ops> extra_lines;
-		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
-		pool<GraphNode*, hash_ptr_ops> bypass_candidates;
+		dict<GraphNode*, std::vector<std::vector<std::string>>> extra_lines;
+		dict<GraphNode*, GraphNode*> bypass_nodes;
+		pool<GraphNode*> bypass_candidates;
 
 		auto bypass = [&](GraphNode *g, GraphNode *n) {
 			log_assert(g->terminal);
@@ -950,8 +950,8 @@ struct VizPass : public Pass {
 				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G :
 					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U :
 					arg == "-x" || arg == "-X" ? VizConfig::TYPE_X : VizConfig::TYPE_S;
-				config.groups.push_back({type, design->selection_stack.back()});
-				design->selection_stack.pop_back();
+				config.groups.push_back({type, design->selection()});
+				design->pop_selection();
 				continue;
 			}
 			if (arg == "-0" || arg == "-1" || arg == "-2" || arg == "-3" || arg == "-4" ||

@@ -189,30 +189,31 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 			} else
 				size_b = 0;
 
-			Macc::port_t this_port;
+			Macc::term_t this_term;
 
 			wire_a->width += size_a;
-			this_port.in_a = RTLIL::SigSpec(wire_a, wire_a->width - size_a, size_a);
+			this_term.in_a = RTLIL::SigSpec(wire_a, wire_a->width - size_a, size_a);
 
 			wire_a->width += size_b;
-			this_port.in_b = RTLIL::SigSpec(wire_a, wire_a->width - size_b, size_b);
+			this_term.in_b = RTLIL::SigSpec(wire_a, wire_a->width - size_b, size_b);
 
-			this_port.is_signed = xorshift32(2) == 1;
-			this_port.do_subtract = xorshift32(2) == 1;
-			macc.ports.push_back(this_port);
+			this_term.is_signed = xorshift32(2) == 1;
+			this_term.do_subtract = xorshift32(2) == 1;
+			macc.terms.push_back(this_term);
 		}
-
-		wire = module->addWire(ID::B);
-		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
-		wire->port_input = true;
-		macc.bit_ports = wire;
+		// Macc::to_cell sets the input ports
+		macc.to_cell(cell);
 
 		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
 
-		macc.to_cell(cell);
+		// override the B input (macc helpers always sets an empty vector)
+		wire = module->addWire(ID::B);
+		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
+		wire->port_input = true;
+		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type == ID($lut))
@@ -544,13 +545,13 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			RTLIL::Const in_value;
 			for (int i = 0; i < GetSize(gold_wire); i++)
-				in_value.bits.push_back(xorshift32(2) ? State::S1 : State::S0);
+				in_value.bits().push_back(xorshift32(2) ? State::S1 : State::S0);
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
 				for (int i = 0; i < GetSize(gold_wire); i++)
 					if (xorshift32(inv_chance) == 0)
-						in_value.bits[i] = RTLIL::Sx;
+						in_value.bits()[i] = RTLIL::Sx;
 			}
 
 			if (verbose)

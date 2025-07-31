@@ -151,7 +151,7 @@ namespace Functional {
 		// returns the data width of a bitvector sort, errors out for other sorts
 		int data_width() const { return std::get<1>(_v).second; }
 		bool operator==(Sort const& other) const { return _v == other._v; }
-		unsigned int hash() const { return mkhash(_v); }
+		[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(_v); return h; }
 	};
 	class IR;
 	class Factory;
@@ -225,8 +225,10 @@ namespace Functional {
 			const RTLIL::Const &as_const() const { return std::get<RTLIL::Const>(_extra); }
 			std::pair<IdString, IdString> as_idstring_pair() const { return std::get<std::pair<IdString, IdString>>(_extra); }
 			int as_int() const { return std::get<int>(_extra); }
-			int hash() const {
-				return mkhash((unsigned int) _fn, mkhash(_extra));
+			[[nodiscard]] Hasher hash_into(Hasher h) const {
+				h.eat((unsigned int) _fn);
+				h.eat(_extra);
+				return h;
 			}
 			bool operator==(NodeData const &other) const {
 				return _fn == other._fn && _extra == other._extra;
@@ -537,7 +539,8 @@ namespace Functional {
 			return add(Fn::memory_write, mem.sort(), {mem, addr, data});
 		}
 		Node constant(RTLIL::Const value) {
-			return add(IR::NodeData(Fn::constant, std::move(value)), Sort(value.size()), {});
+			int s = value.size();
+			return add(IR::NodeData(Fn::constant, std::move(value)), Sort(s), {});
 		}
 		Node create_pending(int width) {
 			return add(Fn::buf, Sort(width), {});

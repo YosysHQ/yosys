@@ -57,6 +57,7 @@ synth -top my_design -booth
 
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
+#include "kernel/macc.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -207,12 +208,33 @@ struct BoothPassWorker {
 	void run()
 	{
 		for (auto cell : module->selected_cells()) {
-			if (cell->type != ID($mul))
-				continue;
+			SigSpec A, B, Y;
+			bool is_signed;
 
-			SigSpec A = cell->getPort(ID::A);
-			SigSpec B = cell->getPort(ID::B);
-			SigSpec Y = cell->getPort(ID::Y);
+			if (cell->type == ID($mul)) {
+				A = cell->getPort(ID::A);
+				B = cell->getPort(ID::B);
+				Y = cell->getPort(ID::Y);
+
+				log_assert(cell->getParam(ID::A_SIGNED).as_bool() == cell->getParam(ID::B_SIGNED).as_bool());
+				is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+			} else if (cell->type.in(ID($macc), ID($macc_v2))) {
+				Macc macc;
+				macc.from_cell(cell);
+
+				if (!macc.is_simple_product()) {
+					log_debug("Not mapping cell %s: not a simple macc cell\n", log_id(cell));
+					continue;
+				}
+
+				A = macc.terms[0].in_a;
+				B = macc.terms[0].in_b;
+				is_signed = macc.terms[0].is_signed;
+				Y = cell->getPort(ID::Y);
+			} else {
+				continue;
+			}
+
 			int x_sz = GetSize(A), y_sz = GetSize(B), z_sz = GetSize(Y);
 
 			if (x_sz < 4 || y_sz < 4 || z_sz < 8) {
@@ -220,9 +242,6 @@ struct BoothPassWorker {
 					  log_id(cell), x_sz, y_sz, z_sz);
 				continue;
 			}
-
-			log_assert(cell->getParam(ID::A_SIGNED).as_bool() == cell->getParam(ID::B_SIGNED).as_bool());
-			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
 			log("Mapping cell %s to %s Booth multiplier\n", log_id(cell), is_signed ? "signed" : "unsigned");
 

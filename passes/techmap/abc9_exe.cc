@@ -167,8 +167,8 @@ struct abc9_output_filter
 void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe_file,
 		vector<int> lut_costs, bool dff_mode, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
 		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, std::string tempdir_name
-)
+		std::vector<std::string> liberty_files, std::string wire_delay, std::string tempdir_name,
+		std::string constr_file, std::vector<std::string> dont_use_cells, std::vector<std::string> genlib_files)
 {
 	std::string abc9_script;
 
@@ -176,8 +176,21 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
 	else if (!lut_file.empty())
 		abc9_script += stringf("read_lut \"%s\"; ", lut_file.c_str());
-	else
-		log_abort();
+	else if (!liberty_files.empty()) {
+		std::string dont_use_args;
+		for (std::string dont_use_cell : dont_use_cells) {
+			dont_use_args += stringf("-X \"%s\" ", dont_use_cell.c_str());
+		}
+		for (std::string liberty_file : liberty_files) {
+			abc9_script += stringf("read_lib %s -w \"%s\" ; ", dont_use_args.c_str(), liberty_file.c_str());
+		}
+		if (!constr_file.empty())
+			abc9_script += stringf("read_constr -v \"%s\"; ", constr_file.c_str());
+	} else if (!genlib_files.empty()) {
+		for (std::string genlib_file : genlib_files) {
+			abc9_script += stringf("read_genlib \"%s\"; ", genlib_file.c_str());
+		}
+	}
 
 	log_assert(!box_file.empty());
 	abc9_script += stringf("read_box \"%s\"; ", box_file.c_str());
@@ -359,6 +372,31 @@ struct Abc9ExePass : public Pass {
 		log("        of output quality):\n");
 		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
+		log("    -constr <file>\n");
+		log("        pass this file with timing constraints to ABC.\n");
+		log("        use with -liberty.\n");
+		log("\n");
+		log("        a constr file contains two lines:\n");
+		log("            set_driving_cell <cell_name>\n");
+		log("            set_load <floating_point_number>\n");
+		log("\n");
+		log("        the set_driving_cell statement defines which cell type is assumed to\n");
+		log("        drive the primary inputs and the set_load statement sets the load in\n");
+		log("        femtofarads for each primary output.\n");
+		log("\n");
+		log("    -liberty <file>\n");
+		log("        read the given Liberty file as a description of the target cell library.\n");
+		log("        this option can be used multiple times.\n");
+		log("\n");
+		log("    -genlib <file>\n");
+		log("        read the given genlib file as a description of the target cell library.\n");
+		log("        this option can be used multiple times.\n");
+		log("\n");
+		log("    -dont_use <cell_name>\n");
+		log("        avoid usage of the technology cell <cell_name> when mapping the design.\n");
+		log("        this option can be used multiple times. only supported with Liberty\n");
+		log("        cell libraries.\n");
+		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
@@ -411,7 +449,8 @@ struct Abc9ExePass : public Pass {
 		log_header(design, "Executing ABC9_EXE pass (technology mapping using ABC9).\n");
 
 		std::string exe_file = yosys_abc_executable;
-		std::string script_file, clk_str, box_file, lut_file;
+		std::string script_file, clk_str, box_file, lut_file, constr_file;
+		std::vector<std::string> liberty_files, genlib_files, dont_use_cells;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		std::string tempdir_name;
 		bool fast_mode = false, dff_mode = false;
@@ -499,6 +538,24 @@ struct Abc9ExePass : public Pass {
 				tempdir_name = args[++argidx];
 				continue;
 			}
+			if (arg == "-liberty" && argidx+1 < args.size()) {
+				rewrite_filename(args[argidx+1]);
+				liberty_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-genlib" && argidx+1 < args.size()) {
+				rewrite_filename(args[argidx+1]);
+				genlib_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-dont_use" && argidx+1 < args.size()) {
+				dont_use_cells.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-constr" && argidx+1 < args.size()) {
+				constr_file = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -559,10 +616,13 @@ struct Abc9ExePass : public Pass {
 		if (tempdir_name.empty())
 			log_cmd_error("abc9_exe '-cwd' option is mandatory.\n");
 
+		if (!genlib_files.empty() && !dont_use_cells.empty())
+			log_cmd_error("abc9_exe '-genlib' is incompatible with '-dont_use'.\n");
 
 		abc9_module(design, script_file, exe_file, lut_costs, dff_mode,
 				delay_target, lutin_shared, fast_mode, show_tempdir,
-				box_file, lut_file, wire_delay, tempdir_name);
+				box_file, lut_file, liberty_files, wire_delay, tempdir_name,
+				constr_file, dont_use_cells, genlib_files);
 	}
 } Abc9ExePass;
 

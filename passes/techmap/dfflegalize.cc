@@ -869,17 +869,17 @@ struct DffLegalizePass : public Pass {
 			if (ff.has_arst) {
 				if (ff.val_arst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_arst[i] = State::S0;
+						ff.val_arst.bits()[i] = State::S0;
 					if (!(supported & (mask << 4)))
-						ff.val_arst[i] = State::S1;
+						ff.val_arst.bits()[i] = State::S1;
 				}
 			}
 			if (ff.has_srst) {
 				if (ff.val_srst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_srst[i] = State::S0;
+						ff.val_srst.bits()[i] = State::S0;
 					if (!(supported & (mask << 4)))
-						ff.val_srst[i] = State::S1;
+						ff.val_srst.bits()[i] = State::S1;
 				}
 			}
 		}

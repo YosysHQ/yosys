@@ -28,12 +28,71 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 #include "kernel/fmt.h"
+#include "backends/verilog/verilog_backend.h"
 #include <string>
 #include <sstream>
 #include <set>
 #include <map>
 
 USING_YOSYS_NAMESPACE
+
+using namespace VERILOG_BACKEND;
+
+const pool<string> VERILOG_BACKEND::verilog_keywords() {
+	static const pool<string> res = {
+		// IEEE 1800-2017 Annex B
+		"accept_on", "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before",
+		"begin", "bind", "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle",
+		"checker", "class", "clocking", "cmos", "config", "const", "constraint", "context", "continue", "cover", "covergroup", "coverpoint",
+		"cross", "deassign", "default", "defparam", "design", "disable", "dist", "do", "edge", "else", "end", "endcase", "endchecker",
+		"endclass", "endclocking", "endconfig", "endfunction", "endgenerate", "endgroup", "endinterface", "endmodule", "endpackage",
+		"endprimitive", "endprogram", "endproperty", "endsequence", "endspecify", "endtable", "endtask", "enum", "event", "eventually",
+		"expect", "export", "extends", "extern", "final", "first_match", "for", "force", "foreach", "forever", "fork", "forkjoin", "function",
+		"generate", "genvar", "global", "highz0", "highz1", "if", "iff", "ifnone", "ignore_bins", "illegal_bins", "implements", "implies",
+		"import", "incdir", "include", "initial", "inout", "input", "inside", "instance", "int", "integer", "interconnect", "interface",
+		"intersect", "join", "join_any", "join_none", "large", "let", "liblist", "library", "local", "localparam", "logic", "longint",
+		"macromodule", "matches", "medium", "modport", "module", "nand", "negedge", "nettype", "new", "nexttime", "nmos", "nor",
+		"noshowcancelled", "not", "notif0", "notif1", "null", "or", "output", "package", "packed", "parameter", "pmos", "posedge", "primitive",
+		"priority", "program", "property", "protected", "pull0", "pull1", "pulldown", "pullup", "pulsestyle_ondetect", "pulsestyle_onevent",
+		"pure", "rand", "randc", "randcase", "randsequence", "rcmos", "real", "realtime", "ref", "reg", "reject_on", "release", "repeat",
+		"restrict", "return", "rnmos", "rpmos", "rtran", "rtranif0", "rtranif1", "s_always", "s_eventually", "s_nexttime", "s_until",
+		"s_until_with", "scalared", "sequence", "shortint", "shortreal", "showcancelled", "signed", "small", "soft", "solve", "specify",
+		"specparam", "static", "string", "strong", "strong0", "strong1", "struct", "super", "supply0", "supply1", "sync_accept_on",
+		"sync_reject_on", "table", "tagged", "task", "this", "throughout", "time", "timeprecision", "timeunit", "tran", "tranif0", "tranif1",
+		"tri", "tri0", "tri1", "triand", "trior", "trireg", "type", "typedef", "union", "unique", "unique0", "unsigned", "until", "until_with",
+		"untyped", "use", "uwire", "var", "vectored", "virtual", "void", "wait", "wait_order", "wand", "weak", "weak0", "weak1", "while",
+		"wildcard", "wire", "with", "within", "wor", "xnor", "xor",
+	};
+	return res;
+}
+
+bool VERILOG_BACKEND::char_is_verilog_escaped(char c) {
+	if ('0' <= c && c <= '9')
+		return false;
+	if ('a' <= c && c <= 'z')
+		return false;
+	if ('A' <= c && c <= 'Z')
+		return false;
+	if (c == '_')
+		return false;
+
+	return true;
+}
+
+bool VERILOG_BACKEND::id_is_verilog_escaped(const std::string &str) {
+	if ('0' <= str[0] && str[0] <= '9')
+		return true;
+
+	for (int i = 0; str[i]; i++)
+		if (char_is_verilog_escaped(str[i]))
+			return true;
+
+	if (verilog_keywords().count(str))
+		return true;
+
+	return false;
+}
+
 PRIVATE_NAMESPACE_BEGIN
 
 bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
@@ -105,7 +164,6 @@ std::string next_auto_id()
 std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 {
 	const char *str = internal_id.c_str();
-	bool do_escape = false;
 
 	if (may_rename && auto_name_map.count(internal_id) != 0)
 		return stringf("%s_%0*d_", auto_prefix.c_str(), auto_name_digits, auto_name_offset + auto_name_map[internal_id]);
@@ -113,51 +171,7 @@ std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 	if (*str == '\\')
 		str++;
 
-	if ('0' <= *str && *str <= '9')
-		do_escape = true;
-
-	for (int i = 0; str[i]; i++)
-	{
-		if ('0' <= str[i] && str[i] <= '9')
-			continue;
-		if ('a' <= str[i] && str[i] <= 'z')
-			continue;
-		if ('A' <= str[i] && str[i] <= 'Z')
-			continue;
-		if (str[i] == '_')
-			continue;
-		do_escape = true;
-		break;
-	}
-
-	static const pool<string> keywords = {
-		// IEEE 1800-2017 Annex B
-		"accept_on", "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before",
-		"begin", "bind", "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle",
-		"checker", "class", "clocking", "cmos", "config", "const", "constraint", "context", "continue", "cover", "covergroup", "coverpoint",
-		"cross", "deassign", "default", "defparam", "design", "disable", "dist", "do", "edge", "else", "end", "endcase", "endchecker",
-		"endclass", "endclocking", "endconfig", "endfunction", "endgenerate", "endgroup", "endinterface", "endmodule", "endpackage",
-		"endprimitive", "endprogram", "endproperty", "endsequence", "endspecify", "endtable", "endtask", "enum", "event", "eventually",
-		"expect", "export", "extends", "extern", "final", "first_match", "for", "force", "foreach", "forever", "fork", "forkjoin", "function",
-		"generate", "genvar", "global", "highz0", "highz1", "if", "iff", "ifnone", "ignore_bins", "illegal_bins", "implements", "implies",
-		"import", "incdir", "include", "initial", "inout", "input", "inside", "instance", "int", "integer", "interconnect", "interface",
-		"intersect", "join", "join_any", "join_none", "large", "let", "liblist", "library", "local", "localparam", "logic", "longint",
-		"macromodule", "matches", "medium", "modport", "module", "nand", "negedge", "nettype", "new", "nexttime", "nmos", "nor",
-		"noshowcancelled", "not", "notif0", "notif1", "null", "or", "output", "package", "packed", "parameter", "pmos", "posedge", "primitive",
-		"priority", "program", "property", "protected", "pull0", "pull1", "pulldown", "pullup", "pulsestyle_ondetect", "pulsestyle_onevent",
-		"pure", "rand", "randc", "randcase", "randsequence", "rcmos", "real", "realtime", "ref", "reg", "reject_on", "release", "repeat",
-		"restrict", "return", "rnmos", "rpmos", "rtran", "rtranif0", "rtranif1", "s_always", "s_eventually", "s_nexttime", "s_until",
-		"s_until_with", "scalared", "sequence", "shortint", "shortreal", "showcancelled", "signed", "small", "soft", "solve", "specify",
-		"specparam", "static", "string", "strong", "strong0", "strong1", "struct", "super", "supply0", "supply1", "sync_accept_on",
-		"sync_reject_on", "table", "tagged", "task", "this", "throughout", "time", "timeprecision", "timeunit", "tran", "tranif0", "tranif1",
-		"tri", "tri0", "tri1", "triand", "trior", "trireg", "type", "typedef", "union", "unique", "unique0", "unsigned", "until", "until_with",
-		"untyped", "use", "uwire", "var", "vectored", "virtual", "void", "wait", "wait_order", "wand", "weak", "weak0", "weak1", "while",
-		"wildcard", "wire", "with", "within", "wor", "xnor", "xor",
-	};
-	if (keywords.count(str))
-		do_escape = true;
-
-	if (do_escape)
+	if (id_is_verilog_escaped(str))
 		return "\\" + std::string(str) + " ";
 	return std::string(str);
 }
@@ -191,7 +205,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 {
 	bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 	if (width < 0)
-		width = data.bits.size() - offset;
+		width = data.size() - offset;
 	if (width == 0) {
 		// See IEEE 1364-2005 Clause 5.1.14.
 		f << "{0{1'b0}}";
@@ -199,14 +213,14 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 	}
 	if (nostr)
 		goto dump_hex;
-	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.bits.size()) {
+	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.size()) {
 		if (width == 32 && !no_decimal && !nodec) {
 			int32_t val = 0;
 			for (int i = offset+width-1; i >= offset; i--) {
-				log_assert(i < (int)data.bits.size());
-				if (data.bits[i] != State::S0 && data.bits[i] != State::S1)
+				log_assert(i < (int)data.size());
+				if (data[i] != State::S0 && data[i] != State::S1)
 					goto dump_hex;
-				if (data.bits[i] == State::S1)
+				if (data[i] == State::S1)
 					val |= 1 << (i - offset);
 			}
 			if (decimal)
@@ -221,8 +235,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				goto dump_bin;
 			vector<char> bin_digits, hex_digits;
 			for (int i = offset; i < offset+width; i++) {
-				log_assert(i < (int)data.bits.size());
-				switch (data.bits[i]) {
+				log_assert(i < (int)data.size());
+				switch (data[i]) {
 				case State::S0: bin_digits.push_back('0'); break;
 				case State::S1: bin_digits.push_back('1'); break;
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
@@ -275,8 +289,8 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 			if (width == 0)
 				f << stringf("0");
 			for (int i = offset+width-1; i >= offset; i--) {
-				log_assert(i < (int)data.bits.size());
-				switch (data.bits[i]) {
+				log_assert(i < (int)data.size());
+				switch (data[i]) {
 				case State::S0: f << stringf("0"); break;
 				case State::S1: f << stringf("1"); break;
 				case RTLIL::Sx: f << stringf("x"); break;
@@ -318,10 +332,10 @@ void dump_reg_init(std::ostream &f, SigSpec sig)
 
 	for (auto bit : active_sigmap(sig)) {
 		if (active_initdata.count(bit)) {
-			initval.bits.push_back(active_initdata.at(bit));
+			initval.bits().push_back(active_initdata.at(bit));
 			gotinit = true;
 		} else {
-			initval.bits.push_back(State::Sx);
+			initval.bits().push_back(State::Sx);
 		}
 	}
 
@@ -383,6 +397,7 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	if (attr2comment)
 		as_comment = true;
 	for (auto it = attributes.begin(); it != attributes.end(); ++it) {
+		if (it->first == ID::single_bit_vector) continue;
 		if (it->first == ID::init && regattr) continue;
 		f << stringf("%s" "%s %s", indent.c_str(), as_comment ? "/*" : "(*", id(it->first).c_str());
 		f << stringf(" = ");
@@ -419,6 +434,9 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 			range = stringf(" [%d:%d]", wire->start_offset, wire->width - 1 + wire->start_offset);
 		else
 			range = stringf(" [%d:%d]", wire->width - 1 + wire->start_offset, wire->start_offset);
+	} else {
+		if (wire->attributes.count(ID::single_bit_vector))
+			range = stringf(" [%d:%d]", wire->start_offset, wire->start_offset);
 	}
 	if (wire->port_input && !wire->port_output)
 		f << stringf("%s" "input%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
@@ -751,7 +769,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					if (port.wide_log2) {
 						Const addr_lo;
 						for (int i = 0; i < port.wide_log2; i++)
-							addr_lo.bits.push_back(State(sub >> i & 1));
+							addr_lo.bits().push_back(State(sub >> i & 1));
 						os << "{";
 						os << temp_id;
 						os << ", ";
@@ -1044,16 +1062,23 @@ void dump_cell_expr_print(std::ostream &f, std::string indent, const RTLIL::Cell
 void dump_cell_expr_check(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
 	std::string flavor = cell->getParam(ID(FLAVOR)).decode_string();
+	std::string label = "";
+	if (cell->name.isPublic()) {
+		label = stringf("%s: ", id(cell->name).c_str());
+	}
+
 	if (flavor == "assert")
-		f << stringf("%s" "assert (", indent.c_str());
+		f << stringf("%s" "%s" "assert (", indent.c_str(), label.c_str());
 	else if (flavor == "assume")
-		f << stringf("%s" "assume (", indent.c_str());
+		f << stringf("%s" "%s" "assume (", indent.c_str(), label.c_str());
 	else if (flavor == "live")
-		f << stringf("%s" "assert (eventually ", indent.c_str());
+		f << stringf("%s" "%s" "assert (eventually ", indent.c_str(), label.c_str());
 	else if (flavor == "fair")
-		f << stringf("%s" "assume (eventually ", indent.c_str());
+		f << stringf("%s" "%s" "assume (eventually ", indent.c_str(), label.c_str());
 	else if (flavor == "cover")
-		f << stringf("%s" "cover (", indent.c_str());
+		f << stringf("%s" "%s" "cover (", indent.c_str(), label.c_str());
+	else
+		log_abort();
 	dump_sigspec(f, cell->getPort(ID::A));
 	f << stringf(");\n");
 }
@@ -1071,7 +1096,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == ID($_BUF_)) {
+	if (cell->type.in(ID($_BUF_), ID($buf))) {
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
@@ -1138,9 +1163,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI3_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI3_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI3_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI3_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" ");
 		dump_cell_expr_port(f, cell, "C", false);
@@ -1153,13 +1178,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ~((");
 		dump_cell_expr_port(f, cell, "A", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "B", false);
-		f << stringf(cell->type == ID($_AOI4_) ? ") |" : ") &");
+		f << (cell->type == ID($_AOI4_) ? ") |" : ") &");
 		dump_attributes(f, "", cell->attributes, " ");
 		f << stringf(" (");
 		dump_cell_expr_port(f, cell, "C", false);
-		f << stringf(cell->type == ID($_AOI4_) ? " & " : " | ");
+		f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 		dump_cell_expr_port(f, cell, "D", false);
 		f << stringf("));\n");
 		return true;
@@ -1370,10 +1395,10 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		int s_width = cell->getPort(ID::S).size();
 		std::string func_name = cellname(cell);
 
-		f << stringf("%s" "function [%d:0] %s;\n", indent.c_str(), width-1, func_name.c_str());
-		f << stringf("%s" "  input [%d:0] a;\n", indent.c_str(), width-1);
-		f << stringf("%s" "  input [%d:0] b;\n", indent.c_str(), s_width*width-1);
-		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
+		f << stringf("%s" "function [%d:0] %s;\n", indent, width-1, func_name);
+		f << stringf("%s" "  input [%d:0] a;\n", indent, width-1);
+		f << stringf("%s" "  input [%d:0] b;\n", indent, s_width*width-1);
+		f << stringf("%s" "  input [%d:0] s;\n", indent, s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
 		if (noparallelcase)
@@ -1382,7 +1407,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (!noattr)
 				f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
 			f << stringf("%s" "  casez (s)", indent.c_str());
-			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+			f << (noattr ? " // synopsys parallel_case\n" : "\n");
 		}
 
 		for (int i = 0; i < s_width; i++)
@@ -2332,19 +2357,15 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
-	bool keep_running = true;
 	int cnt = 0;
-	for (int port_id = 1; keep_running; port_id++) {
-		keep_running = false;
-		for (auto wire : module->wires()) {
-			if (wire->port_id == port_id) {
-				if (port_id != 1)
-					f << stringf(", ");
-				f << stringf("%s", id(wire->name).c_str());
-				keep_running = true;
-				if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
-				continue;
-			}
+	for (auto port : module->ports) {
+		Wire *wire = module->wire(port);
+		if (wire) {
+			if (port != module->ports[0])
+				f << stringf(", ");
+			f << stringf("%s", id(wire->name).c_str());
+			if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
+			continue;
 		}
 	}
 	f << stringf(");\n");
@@ -2591,9 +2612,10 @@ struct VerilogBackend : public Backend {
 		Pass::call(design, "clean_zerowidth");
 		log_pop();
 
-		design->sort();
+               design->sort_modules();
 
-		*f << stringf("/* Generated by %s */\n", yosys_version_str);
+		*f << stringf("/* Generated by %s */\n", yosys_maybe_version());
+
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() != blackboxes)
 				continue;
@@ -2603,6 +2625,7 @@ struct VerilogBackend : public Backend {
 				continue;
 			}
 			log("Dumping module `%s'.\n", module->name.c_str());
+			module->sort();
 			dump_module(*f, "", module);
 		}
 

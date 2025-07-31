@@ -21,6 +21,7 @@
 #include "subcircuit.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>

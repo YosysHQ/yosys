@@ -361,9 +361,9 @@ struct OptDffWorker
 					bool failed = false;
 					for (int i = 0; i < ff.width; i++) {
 						if (ff.sig_clr[i] == sig_arst && ff.sig_set[i] == val_neutral)
-							val_arst.bits.push_back(State::S0);
+							val_arst.bits().push_back(State::S0);
 						else if (ff.sig_set[i] == sig_arst && ff.sig_clr[i] == val_neutral)
-							val_arst.bits.push_back(State::S1);
+							val_arst.bits().push_back(State::S1);
 						else
 							failed = true;
 					}
@@ -626,7 +626,7 @@ struct OptDffWorker
 							groups[resets].push_back(i);
 						} else
 							remaining_indices.push_back(i);
-						val_srst.bits.push_back(reset_val);
+						val_srst.bits().push_back(reset_val);
 					}
 
 					for (auto &it : groups) {
@@ -634,7 +634,7 @@ struct OptDffWorker
 						new_ff.val_srst = Const();
 						for (int i = 0; i < new_ff.width; i++) {
 							int j = it.second[i];
-							new_ff.val_srst.bits.push_back(val_srst[j]);
+							new_ff.val_srst.bits().push_back(val_srst[j]);
 						}
 						ctrl_t srst = combine_resets(it.first, ff.is_fine);
 
@@ -738,7 +738,11 @@ struct OptDffWorker
 		ModWalker modwalker(module->design, module);
 		QuickConeSat qcsat(modwalker);
 
-		// Run as a separate sub-pass, so that we don't mutate (non-FF) cells under ModWalker.
+		// Defer mutating cells by removing them/emiting new flip flops so that
+		// cell references in modwalker are not invalidated
+		std::vector<RTLIL::Cell*> cells_to_remove;
+		std::vector<FfData> ffs_to_emit;
+
 		bool did_something = false;
 		for (auto cell : module->selected_cells()) {
 			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
@@ -830,16 +834,20 @@ struct OptDffWorker
 					if (!removed_sigbits.count(i))
 						keep_bits.push_back(i);
 				if (keep_bits.empty()) {
-					module->remove(cell);
+					cells_to_remove.emplace_back(cell);
 					did_something = true;
 					continue;
 				}
 				ff = ff.slice(keep_bits);
 				ff.cell = cell;
-				ff.emit();
+				ffs_to_emit.emplace_back(ff);
 				did_something = true;
 			}
 		}
+		for (auto* cell : cells_to_remove)
+			module->remove(cell);
+		for (auto& ff : ffs_to_emit)
+			ff.emit();
 		return did_something;
 	}
 };

@@ -67,7 +67,7 @@ struct LoggerPass : public Pass {
 		log("    -check-expected\n");
 		log("        verifies that the patterns previously set up by -expect have actually\n");
 		log("        been met, then clears the expected log list.  If this is not called\n");
-		log("        manually, the check will happen at yosys exist time instead.\n");
+		log("        manually, the check will happen at yosys exit time instead.\n");
 		log("\n");
 	}
 
@@ -162,7 +162,8 @@ struct LoggerPass : public Pass {
 					log_cmd_error("Number of expected messages must be higher then 0 !\n");
 				if (type=="error" && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
-				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
+				log("Added regex '%s' to expected %s messages list.\n",
+					pattern.c_str(), type.c_str());
 				try {
 					if (type == "error")
 						log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);

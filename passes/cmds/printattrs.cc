@@ -40,12 +40,12 @@ struct PrintAttrsPass : public Pass {
 	}
 
 	static void log_const(const RTLIL::IdString &s, const RTLIL::Const &x, const unsigned int indent) {
-		if (x.flags == RTLIL::CONST_FLAG_STRING)
+		if (x.flags & RTLIL::CONST_FLAG_STRING)
 			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent).c_str(), log_id(s), x.decode_string().c_str());
-		else if (x.flags == RTLIL::CONST_FLAG_NONE)
+		else if (x.flags == RTLIL::CONST_FLAG_NONE || x.flags == RTLIL::CONST_FLAG_SIGNED)
 			log("%s(* %s=%s *)\n", get_indent_str(indent).c_str(), log_id(s), x.as_string().c_str());
 		else
-			log_assert(x.flags == RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
+			log_assert(x.flags & RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

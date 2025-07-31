@@ -30,24 +30,22 @@ jobs:
           - ubuntu-latest
         compiler:
           # oldest supported
-          - 'clang-14'
+          - 'clang-10'
           - 'gcc-10'
-          # newest
-          - 'clang'
-          - 'gcc'
+          # newest, make sure to update maximum standard step to match
+          - 'clang-19'
+          - 'gcc-13'
         include:
           # macOS
           - os: macos-13
             compiler: 'clang'
-          # oldest clang not available on ubuntu-latest
-          - os: ubuntu-20.04
-            compiler: 'clang-10'
       fail-fast: false
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
         with:
           submodules: true
+          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
@@ -72,7 +70,7 @@ jobs:
 
       # maximum standard, only on newest compilers
       - name: Build C++20
-        if: ${{ matrix.compiler == 'clang' || matrix.compiler == 'gcc'}}
+        if: ${{ matrix.compiler == 'clang-19' || matrix.compiler == 'gcc-13' }}
         shell: bash
         run: |
           make config-$CC_SHORT

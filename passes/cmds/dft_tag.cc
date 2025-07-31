@@ -47,7 +47,7 @@ struct DftTagWorker {
 		bool operator<(const tag_set &other) const { return index < other.index; }
 		bool operator==(const tag_set &other) const { return index == other.index; }
 
-		unsigned int hash() const { return hash_ops<int>::hash(index); }
+		[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(index); return h; }
 
 		bool empty() const { return index == 0; }
 	};
@@ -883,7 +883,7 @@ struct DftTagWorker {
 	{
 		if (sig_a.is_fully_const()) {
 			auto const_val = sig_a.as_const();
-			for (auto &bit : const_val.bits)
+			for (State& bit : const_val.bits())
 				bit = bit == State::S0 ? State::S1 : bit == State::S1 ? State::S0 : bit;
 			return const_val;
 		}

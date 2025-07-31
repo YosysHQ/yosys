@@ -386,7 +386,7 @@ module TRELLIS_IO(
 );
 	parameter DIR = "INPUT";
 	reg T_pd;
-	always @(*) if (T === 1'bz) T_pd <= 1'b0; else T_pd <= T;
+	always @(*) if (T === 1'bz) T_pd = 1'b0; else T_pd = T;
 
 	generate
 		if (DIR == "INPUT") begin

@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Update flake.lock

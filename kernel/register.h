@@ -29,6 +29,7 @@ struct Pass
 {
 	std::string pass_name, short_help;
 	Pass(std::string name, std::string short_help = "** document me **");
+	// Prefer overriding 'Pass::on_shutdown()' if possible
 	virtual ~Pass();
 
 	virtual void help();

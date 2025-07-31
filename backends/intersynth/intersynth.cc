@@ -176,11 +176,11 @@ struct IntersynthBackend : public Backend {
 					}
 				}
 				for (auto &param : cell->parameters) {
-					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), log_id(param.first));
-					if (param.second.bits.size() != 32) {
+					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), log_id(param.first));
+					if (param.second.size() != 32) {
 						node_code += stringf(" %s '", log_id(param.first));
-						for (int i = param.second.bits.size()-1; i >= 0; i--)
-							node_code += param.second.bits[i] == State::S1 ? "1" : "0";
+						for (int i = param.second.size()-1; i >= 0; i--)
+							node_code += param.second[i] == State::S1 ? "1" : "0";
 					} else
 						node_code += stringf(" %s 0x%x", log_id(param.first), param.second.as_int());
 				}

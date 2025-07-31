@@ -24,26 +24,42 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <string_view>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-IdString concat_name(RTLIL::Cell *cell, IdString object_name)
+template <typename... Args>
+[[nodiscard]] std::string concat_views(const Args&... views) {
+    static_assert((std::is_convertible_v<Args, std::string_view> && ...),
+                  "All arguments must be convertible to std::string_view.");
+    const std::size_t total_size = (std::string_view(views).size() + ... + 0);
+
+    std::string result;
+    result.reserve(total_size);
+
+    (result.append(views), ...);
+    return result;
+}
+
+IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::string &separator = ".")
 {
-	if (object_name[0] == '\\')
-		return stringf("%s.%s", cell->name.c_str(), object_name.c_str() + 1);
-	else {
-		std::string object_name_str = object_name.str();
-		if (object_name_str.substr(0, 8) == "$flatten")
-			object_name_str.erase(0, 8);
-		return stringf("$flatten%s.%s", cell->name.c_str(), object_name_str.c_str());
+	std::string_view object_name_view(object_name.c_str());
+	if (object_name_view[0] == '\\'){
+		return concat_views(cell->name.c_str(), separator, object_name_view.substr(1));
 	}
+
+	constexpr std::string_view prefix = "$flatten";
+	if (object_name_view.substr(0, prefix.size()) == prefix){
+		object_name_view.remove_prefix(prefix.size());
+	}
+	return concat_views(prefix, cell->name.c_str(), separator, object_name_view);
 }
 
 template<class T>
-IdString map_name(RTLIL::Cell *cell, T *object)
+IdString map_name(RTLIL::Cell *cell, T *object, const std::string &separator = ".")
 {
-	return cell->module->uniquify(concat_name(cell, object->name));
+	return cell->module->uniquify(concat_name(cell, object->name, separator));
 }
 
 void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
@@ -60,6 +76,7 @@ struct FlattenWorker
 	bool ignore_wb = false;
 	bool create_scopeinfo = true;
 	bool create_scopename = false;
+	std::string separator = ".";
 
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
@@ -107,13 +124,13 @@ struct FlattenWorker
 		}
 	}
 
-	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells, const std::string &separator)
 	{
 		// Copy the contents of the flattened cell
 
 		dict<IdString, IdString> memory_map;
 		for (auto &tpl_memory_it : tpl->memories) {
-			RTLIL::Memory *new_memory = module->addMemory(map_name(cell, tpl_memory_it.second), tpl_memory_it.second);
+			RTLIL::Memory *new_memory = module->addMemory(map_name(cell, tpl_memory_it.second, separator), tpl_memory_it.second);
 			map_attributes(cell, new_memory, tpl_memory_it.second->name);
 			memory_map[tpl_memory_it.first] = new_memory->name;
 			design->select(module, new_memory);
@@ -127,7 +144,7 @@ struct FlattenWorker
 
 			RTLIL::Wire *new_wire = nullptr;
 			if (tpl_wire->name[0] == '\\') {
-				RTLIL::Wire *hier_wire = module->wire(concat_name(cell, tpl_wire->name));
+				RTLIL::Wire *hier_wire = module->wire(concat_name(cell, tpl_wire->name, separator));
 				if (hier_wire != nullptr && hier_wire->get_bool_attribute(ID::hierconn)) {
 					hier_wire->attributes.erase(ID::hierconn);
 					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
@@ -139,7 +156,7 @@ struct FlattenWorker
 				}
 			}
 			if (new_wire == nullptr) {
-				new_wire = module->addWire(map_name(cell, tpl_wire), tpl_wire);
+				new_wire = module->addWire(map_name(cell, tpl_wire, separator), tpl_wire);
 				new_wire->port_input = new_wire->port_output = false;
 				new_wire->port_id = false;
 			}
@@ -150,7 +167,7 @@ struct FlattenWorker
 		}
 
 		for (auto &tpl_proc_it : tpl->processes) {
-			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second), tpl_proc_it.second);
+			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second, separator), tpl_proc_it.second);
 			map_attributes(cell, new_proc, tpl_proc_it.second->name);
 			for (auto new_proc_sync : new_proc->syncs)
 				for (auto &memwr_action : new_proc_sync->mem_write_actions)
@@ -161,14 +178,14 @@ struct FlattenWorker
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
-			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell), tpl_cell);
+			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell, separator), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->has_memid()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));
 			} else if (new_cell->is_mem_cell()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
-				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid).str()));
+				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid, separator).str()));
 			}
 			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
 			new_cell->rewrite_sigspecs(rewriter);
@@ -279,7 +296,7 @@ struct FlattenWorker
 			module->rename(scopeinfo, cell_name);
 	}
 
-	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules)
+	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules, const std::string &separator)
 	{
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return;
@@ -308,7 +325,7 @@ struct FlattenWorker
 			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
 			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
 			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.
-			flatten_cell(design, module, cell, tpl, sigmap, worklist);
+			flatten_cell(design, module, cell, tpl, sigmap, worklist, separator);
 		}
 	}
 };
@@ -345,6 +362,13 @@ struct FlattenPass : public Pass {
 		log("        with a public name the enclosing scope can be found via their\n");
 		log("        'hdlname' attribute.\n");
 		log("\n");
+		log("    -separator <char>\n");
+		log("        Use this separator char instead of '.' when concatenating design levels.\n");
+		log("\n");
+		log("    -nocleanup\n");
+		log("        Don't remove unused submodules, leave a flattened version of each\n");
+		log("        submodule in the design.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -352,6 +376,11 @@ struct FlattenPass : public Pass {
 		log_push();
 
 		FlattenWorker worker;
+
+		if (design->scratchpad.count("flatten.separator"))
+			worker.separator = design->scratchpad_get_string("flatten.separator");
+
+		bool cleanup = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -365,6 +394,14 @@ struct FlattenPass : public Pass {
 			}
 			if (args[argidx] == "-scopename") {
 				worker.create_scopename = true;
+				continue;
+			}
+			if (args[argidx] == "-separator" && argidx + 1 < args.size()) {
+				worker.separator = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-nocleanup") {
+				cleanup = false;
 				continue;
 			}
 			break;
@@ -401,9 +438,9 @@ struct FlattenPass : public Pass {
 			log_error("Cannot flatten a design containing recursive instantiations.\n");
 
 		for (auto module : topo_modules.sorted)
-			worker.flatten_module(design, module, used_modules);
+			worker.flatten_module(design, module, used_modules, worker.separator);
 
-		if (top != nullptr)
+		if (cleanup && top != nullptr)
 			for (auto module : design->modules().to_vector())
 				if (!used_modules[module] && !module->get_blackbox_attribute(worker.ignore_wb)) {
 					log("Deleting now unused module %s.\n", log_id(module));

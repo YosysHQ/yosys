@@ -83,7 +83,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			auto cursor = initbits.find(bit);
 			if (cursor != initbits.end()) {
 				revisit_initwires.insert(cursor->second.first);
-				val[i] = cursor->second.second;
+				val.bits()[i] = cursor->second.second;
 			}
 		}
 
@@ -101,7 +101,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 			Const initval = wire->attributes.at(ID::init);
 			for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++) {
 				if (SigBit(initval[i]) == sig[i])
-					initval[i] = State::Sx;
+					initval.bits()[i] = State::Sx;
 			}
 			if (initval.is_fully_undef()) {
 				log_debug("Removing init attribute from %s/%s.\n", log_id(module), log_id(wire));
@@ -351,21 +351,21 @@ bool is_one_or_minus_one(const Const &value, bool is_signed, bool &is_negative)
 	bool all_bits_one = true;
 	bool last_bit_one = true;
 
-	if (GetSize(value.bits) < 1)
+	if (GetSize(value) < 1)
 		return false;
 
-	if (GetSize(value.bits) == 1) {
-		if (value.bits[0] != State::S1)
+	if (GetSize(value) == 1) {
+		if (value[0] != State::S1)
 			return false;
 		if (is_signed)
 			is_negative = true;
 		return true;
 	}
 
-	for (int i = 0; i < GetSize(value.bits); i++) {
-		if (value.bits[i] != State::S1)
+	for (int i = 0; i < GetSize(value); i++) {
+		if (value[i] != State::S1)
 			all_bits_one = false;
-		if (value.bits[i] != (i ? State::S0 : State::S1))
+		if (value[i] != (i ? State::S0 : State::S1))
 			last_bit_one = false;
 	}
 
@@ -487,7 +487,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_N??_", "$_DLATCHSR_P??_", ID::E, assign_map, invert_map);
 		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_?N?_", "$_DLATCHSR_?P?_", ID::S, assign_map, invert_map);
-		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);	
+		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);
 	}
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
@@ -1307,7 +1307,12 @@ skip_fine_alu:
 		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && (keepdc ? assign_map(cell->getPort(ID::B)).is_fully_def() : assign_map(cell->getPort(ID::B)).is_fully_const()))
 		{
 			bool sign_ext = cell->type == ID($sshr) && cell->getParam(ID::A_SIGNED).as_bool();
-			int shift_bits = assign_map(cell->getPort(ID::B)).as_int(cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool());
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			const bool b_sign_ext = cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool();
+			// We saturate the value to prevent overflow, but note that this could
+			// cause incorrect opimization in the impractical case that A is 2^32 bits
+			// wide
+			int shift_bits = sig_b.as_int_saturating(b_sign_ext);
 
 			if (cell->type.in(ID($shl), ID($sshl)))
 				shift_bits *= -1;
@@ -1317,6 +1322,11 @@ skip_fine_alu:
 
 			if (cell->type != ID($shiftx) && GetSize(sig_a) < GetSize(sig_y))
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
+
+			// Limit indexing to the size of a, which is behaviourally identical (result is all 0)
+			// and avoids integer overflow of i + shift_bits when e.g. ID::B == INT_MAX.
+			// We do this after sign-extending a so this accounts for the output size
+			shift_bits = min(shift_bits, GetSize(sig_a));
 
 			for (int i = 0; i < GetSize(sig_y); i++) {
 				int idx = i + shift_bits;
@@ -1569,6 +1579,20 @@ skip_identity:
 			}
 		}
 
+		if (mux_undef && cell->type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_))) {
+			int num_inputs = 4;
+			if (cell->type == ID($_MUX8_)) num_inputs = 8;
+			if (cell->type == ID($_MUX16_)) num_inputs = 16;
+			int undef_inputs = 0;
+			for (auto &conn : cell->connections())
+				if (!conn.first.in(ID::S, ID::T, ID::U, ID::V, ID::Y))
+					undef_inputs += conn.second.is_fully_undef();
+			if (undef_inputs == num_inputs) {
+				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
+				goto next_cell;
+			}
+		}
+
 #define FOLD_1ARG_CELL(_t) \
 		if (cell->type == ID($##_t)) { \
 			RTLIL::SigSpec a = cell->getPort(ID::A); \
@@ -1686,7 +1710,38 @@ skip_identity:
 			else if (inA == inB)
 				ACTION_DO(ID::Y, cell->getPort(ID::A));
 		}
+		if (cell->type == ID($pow) && cell->getPort(ID::A).is_fully_const() && !cell->parameters[ID::B_SIGNED].as_bool()) {
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+			int y_size = GetSize(sig_y);
 
+			int bit_idx;
+			const auto onehot = sig_a.is_onehot(&bit_idx);
+
+			if (onehot) {
+				if (bit_idx == 1) {
+					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n",
+							cell->name.c_str(), module->name.c_str());
+					cell->type = ID($shl);
+					cell->parameters[ID::A_WIDTH] = 1;
+					cell->setPort(ID::A, Const(State::S1, 1));
+				}
+				else {
+					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n",
+							cell->name.c_str(), module->name.c_str());
+					cell->type = ID($mul);
+					cell->parameters[ID::A_SIGNED] = 0;
+					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
+
+					SigSpec y_wire = module->addWire(NEW_ID, y_size);
+					cell->setPort(ID::Y, y_wire);
+
+					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y);
+				}
+				did_something = true;
+				goto next_cell;
+			}
+		}
 		if (!keepdc && cell->type == ID($mul))
 		{
 			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();

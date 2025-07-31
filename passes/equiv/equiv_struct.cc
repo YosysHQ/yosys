@@ -46,11 +46,11 @@ struct EquivStructWorker
 					parameters == other.parameters && port_sizes == other.port_sizes;
 		}
 
-		unsigned int hash() const {
-			unsigned int h = mkhash_init;
-			h = mkhash(h, mkhash(type));
-			h = mkhash(h, mkhash(parameters));
-			h = mkhash(h, mkhash(connections));
+		[[nodiscard]] Hasher hash_into(Hasher h) const {
+			h.eat(type);
+			h.eat(parameters);
+			h.eat(port_sizes);
+			h.eat(connections);
 			return h;
 		}
 	};
