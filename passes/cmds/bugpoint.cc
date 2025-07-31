@@ -20,6 +20,16 @@
 #include "kernel/yosys.h"
 #include "backends/rtlil/rtlil_backend.h"
 
+#if defined(_WIN32)
+#  include <csignal>
+#  define WIFEXITED(x) 1
+#  define WIFSIGNALED(x) 0
+#  define WIFSTOPPED(x) 0
+#  define WEXITSTATUS(x) ((x) & 0xff)
+#  define WTERMSIG(x) SIGTERM
+#  define WSTOPSIG(x) 0
+#endif
+
 USING_YOSYS_NAMESPACE
 using namespace RTLIL_BACKEND;
 PRIVATE_NAMESPACE_BEGIN
@@ -50,6 +60,10 @@ struct BugpointPass : public Pass {
 		log("    -grep \"<string>\"\n");
 		log("        only consider crashes that place this string in the log file.\n");
 		log("\n");
+		log("    -expect-return <int>\n");
+		log("        only consider crashes that return the specified value. e.g. SEGFAULT\n");
+		log("        returns a value of 139.\n");
+		log("\n");
 		log("    -fast\n");
 		log("        run `proc_clean; clean -purge` after each minimization step. converges\n");
 		log("        faster, but produces larger testcases, and may fail to produce any\n");
@@ -59,6 +73,17 @@ struct BugpointPass : public Pass {
 		log("        run `proc_clean; clean -purge` before checking testcase and after\n");
 		log("        finishing. produces smaller and more useful testcases, but may fail to\n");
 		log("        produce any testcase at all if the crash is related to dangling wires.\n");
+		log("\n");
+		log("    -runner \"<prefix>\"\n");
+		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
+		log("\n");
+		log("    -err-grep \"<string>\"\n");
+		log("        only consider crashes that print this string on stderr. useful for\n");
+		log("        errors outside of yosys.\n");
+		log("\n");
+		log("    -suffix \"<string>\"\n");
+		log("        add suffix to generated file names. useful when running more than one\n");
+		log("        instance of bugpoint in the same directory. limited to 8 characters.\n");
 		log("\n");
 		log("It is possible to constrain which parts of the design will be considered for\n");
 		log("removal. Unless one or more of the following options are specified, all parts\n");
@@ -89,24 +114,39 @@ struct BugpointPass : public Pass {
 		log("    -updates\n");
 		log("        try to remove process updates from syncs.\n");
 		log("\n");
-		log("    -runner \"<prefix>\"\n");
-		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
+		log("    -wires\n");
+		log("        try to remove wires. wires with a (* bugpoint_keep *) attribute will be\n");
+		log("        skipped.\n");
 		log("\n");
 	}
 
-	bool run_yosys(RTLIL::Design *design, string runner, string yosys_cmd, string yosys_arg)
+	int run_yosys(RTLIL::Design *design, string runner, string yosys_cmd, string yosys_arg, string suffix, bool catch_err)
 	{
 		design->sort();
 
-		std::ofstream f("bugpoint-case.il");
+		string bugpoint_file = "bugpoint-case";
+		if (suffix.size())
+			bugpoint_file += stringf(".%.8s", suffix.c_str());
+
+		std::ofstream f(bugpoint_file + ".il");
 		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
-		string yosys_cmdline = stringf("%s %s -qq -L bugpoint-case.log %s bugpoint-case.il", runner.c_str(), yosys_cmd.c_str(), yosys_arg.c_str());
-		return run_command(yosys_cmdline) == 0;
+		string yosys_cmdline = stringf("%s %s -qq -L %s.log %s %s.il", runner.c_str(), yosys_cmd.c_str(), bugpoint_file.c_str(), yosys_arg.c_str(), bugpoint_file.c_str());
+		if (catch_err) yosys_cmdline += stringf(" 2>%s.err", bugpoint_file.c_str());
+		auto status = run_command(yosys_cmdline);
+		// we're not processing lines, which means we're getting raw system() returns
+		if(WIFEXITED(status))
+			return WEXITSTATUS(status);
+		else if(WIFSIGNALED(status))
+			return WTERMSIG(status);
+		else if(WIFSTOPPED(status))
+			return WSTOPSIG(status);
+		else
+			return 0;
 	}
 
-	bool check_logfile(string grep)
+	bool check_logfile(string grep, string suffix, bool err=false)
 	{
 		if (grep.empty())
 			return true;
@@ -114,7 +154,13 @@ struct BugpointPass : public Pass {
 		if (grep.size() > 2 && grep.front() == '"' && grep.back() == '"')
 			grep = grep.substr(1, grep.size() - 2);
 
-		std::ifstream f("bugpoint-case.log");
+		string bugpoint_file = "bugpoint-case";
+		if (suffix.size())
+			bugpoint_file += stringf(".%.8s", suffix.c_str());
+		bugpoint_file += err ? ".err" : ".log";
+
+		std::ifstream f(bugpoint_file);
+
 		while (!f.eof())
 		{
 			string line;
@@ -123,6 +169,11 @@ struct BugpointPass : public Pass {
 				return true;
 		}
 		return false;
+	}
+
+	bool check_logfiles(string grep, string err_grep, string suffix)
+	{
+		return check_logfile(grep, suffix) && check_logfile(err_grep, suffix, true);
 	}
 
 	RTLIL::Design *clean_design(RTLIL::Design *design, bool do_clean = true, bool do_delete = false)
@@ -399,7 +450,9 @@ struct BugpointPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		string yosys_cmd = "yosys", yosys_arg, grep, runner;
+		string yosys_cmd = "yosys", yosys_arg, grep, err_grep, runner, suffix;
+		bool flag_expect_return = false, has_check = false, check_err = false;
+		int expect_return_value = 0;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, wires = false, has_part = false;
 
@@ -426,7 +479,23 @@ struct BugpointPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-grep" && argidx + 1 < args.size()) {
+				has_check = true;
 				grep = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-err-grep" && argidx + 1 < args.size()) {
+				has_check = true;
+				check_err = true;
+				err_grep = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-expect-return") {
+				flag_expect_return = true;
+				++argidx;
+				if (argidx >= args.size())
+					log_cmd_error("No expected return value specified.\n");
+
+				expect_return_value = atoi(args[argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-fast") {
@@ -485,12 +554,23 @@ struct BugpointPass : public Pass {
 				}
 				continue;
 			}
+			if (args[argidx] == "-suffix" && argidx + 1 < args.size()) {
+				suffix = args[++argidx];
+				if (suffix.size() && suffix.at(0) == '"') {
+					log_assert(suffix.back() == '"');
+					suffix = suffix.substr(1, suffix.size() - 2);
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (yosys_arg.empty())
 			log_cmd_error("Missing -script or -command option.\n");
+
+		if (flag_expect_return && expect_return_value == 0 && !has_check)
+			log_cmd_error("Nothing to match on for -expect-return 0; change value or use -grep.\n");
 
 		if (!has_part)
 		{
@@ -508,10 +588,15 @@ struct BugpointPass : public Pass {
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		RTLIL::Design *crashing_design = clean_design(design, clean);
-		if (run_yosys(crashing_design, runner, yosys_cmd, yosys_arg))
+		int retval = run_yosys(crashing_design, runner, yosys_cmd, yosys_arg, suffix, check_err);
+		if (flag_expect_return && retval != expect_return_value)
+			log_cmd_error("The provided script file or command and Yosys binary returned value %d instead of expected %d on this design!\n", retval, expect_return_value);
+		if (!flag_expect_return && retval == 0)
 			log_cmd_error("The provided script file or command and Yosys binary do not crash on this design!\n");
-		if (!check_logfile(grep))
+		if (!check_logfile(grep, suffix))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
+		if (!check_logfile(err_grep, suffix, true))
+			log_cmd_error("The provided grep string is not found in stderr log!\n");
 
 		int seed = 0;
 		bool found_something = false, stage2 = false;
@@ -521,21 +606,37 @@ struct BugpointPass : public Pass {
 			{
 				simplified = clean_design(simplified, fast, /*do_delete=*/true);
 
-				bool crashes;
 				if (clean)
 				{
 					RTLIL::Design *testcase = clean_design(simplified);
-					crashes = !run_yosys(testcase, runner, yosys_cmd, yosys_arg);
+					retval = run_yosys(testcase, runner, yosys_cmd, yosys_arg, suffix, check_err);
 					delete testcase;
 				}
 				else
 				{
-					crashes = !run_yosys(simplified, runner, yosys_cmd, yosys_arg);
+					retval = run_yosys(simplified, runner, yosys_cmd, yosys_arg, suffix, check_err);
 				}
 
-				if (crashes && check_logfile(grep))
+				bool crashes = false;
+				if (flag_expect_return && retval == expect_return_value && check_logfiles(grep, err_grep, suffix))
+				{
+					log("Testcase matches expected crash.\n");
+					crashes = true;
+				}
+				else if (!flag_expect_return && retval == 0)
+					log("Testcase does not crash.\n");
+				else if (!flag_expect_return && check_logfiles(grep, err_grep, suffix))
 				{
 					log("Testcase crashes.\n");
+					crashes = true;
+				}
+				else
+					// flag_expect_return && !(retval == expect_return_value && check_logfiles(grep, err_grep, suffix))
+					// !flag_expect_return && !(retval == 0 && check_logfiles(grep, err_grep, suffix))
+					log("Testcase does not match expected crash.\n");
+
+				if (crashes)
+				{
 					if (crashing_design != design)
 						delete crashing_design;
 					crashing_design = simplified;
@@ -543,7 +644,6 @@ struct BugpointPass : public Pass {
 				}
 				else
 				{
-					log("Testcase does not crash.\n");
 					delete simplified;
 					seed++;
 				}

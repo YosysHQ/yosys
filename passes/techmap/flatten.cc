@@ -24,11 +24,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <string_view>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-IdString concat_name(RTLIL::Cell *cell, IdString object_name, const std::string &separator = ".")
+template <typename... Args>
+[[nodiscard]] std::string concat_views(const Args&... views) {
+    static_assert((std::is_convertible_v<Args, std::string_view> && ...),
+                  "All arguments must be convertible to std::string_view.");
+    const std::size_t total_size = (std::string_view(views).size() + ... + 0);
+
+    std::string result;
+    result.reserve(total_size);
+
+    (result.append(views), ...);
+    return result;
+}
+
+IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::string &separator = ".")
 {
 	return stringf("%s%s%s", cell->name.c_str(), separator.c_str(), object_name.c_str() + 1);
 }

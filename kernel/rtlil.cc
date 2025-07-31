@@ -37,7 +37,7 @@ YOSYS_NAMESPACE_BEGIN
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int> RTLIL::IdString::global_id_index_;
+std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
 std::vector<int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
@@ -1147,6 +1147,12 @@ void RTLIL::Design::sort()
 	modules_.sort(sort_by_id_str());
 	for (auto &it : modules_)
 		it.second->sort();
+}
+
+void RTLIL::Design::sort_modules()
+{
+	scratchpad.sort();
+	modules_.sort(sort_by_id_str());
 }
 
 void RTLIL::Design::check()
