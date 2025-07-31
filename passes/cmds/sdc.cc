@@ -14,10 +14,19 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SdcObjects {
 	enum CollectMode {
+		// getter-side object tracking with minimal features
 		SimpleGetter,
+		// getter-side object tracking with everything
 		FullGetter,
+		// constraint-side tracking
 		FullConstraint,
 	} collect_mode;
+	enum ValueMode {
+		// return something sensible and error on unknown
+		Normal,
+		// return a new graph node assuming unknown is overridden
+		Graph,
+	} value_mode;
 	struct BitSelection {
 		bool all = false;
 		std::vector<bool> bits = {};
@@ -263,6 +272,85 @@ static std::pair<bool, SdcObjects::BitSelection> matches(std::string name, const
 	}
 }
 
+
+static int redirect_unknown(Tcl_Interp *interp, int objc, Tcl_Obj* const objv[]) {
+    Tcl_Obj *newCmd = Tcl_NewStringObj("unknown", -1);
+    Tcl_Obj **newObjv = new Tcl_Obj*[objc+1];
+    newObjv[0] = newCmd;
+    for (int i = 1; i < objc + 1; i++) {
+        newObjv[i] = objv[i - 1];
+    }
+    int result = Tcl_EvalObjv(interp, objc, newObjv, 0);
+    Tcl_DecrRefCount(newCmd);
+    delete[] newObjv;
+	return result;
+}
+
+void inspect_globals(Tcl_Interp* interp) {
+	auto get_var = [&](const char* name) -> const char* {
+	    return Tcl_GetVar(interp, name, TCL_GLOBAL_ONLY);
+	};
+	const char* idx_s = get_var("sdc_call_index");
+	log_assert(idx_s);
+	size_t node_count = std::stoi(idx_s);
+
+	// else
+	//     printf("sdc_call_index: unset\n");
+	// if (auto calls = get_var("sdc_calls"))
+	//     printf("sdc_calls: %s\n", calls);
+	// else
+	//     printf("sdc_calls: unset\n");
+	Tcl_Obj* listObj = Tcl_GetVar2Ex(interp, "sdc_calls", nullptr, TCL_GLOBAL_ONLY);
+	int listLength;
+
+	// Get list length first
+	std::vector<std::vector<std::string>> nestedData;
+	if (Tcl_ListObjLength(interp, listObj, &listLength) == TCL_OK) {
+		for (int i = 0; i < listLength; i++) {
+			Tcl_Obj* subListObj;
+			std::vector<std::string> subList;
+			if (Tcl_ListObjIndex(interp, listObj, i, &subListObj) != TCL_OK) {
+				log_error("broken list of lists\n");
+			}
+			int subListLength;
+			if (Tcl_ListObjLength(interp, subListObj, &subListLength) == TCL_OK) {
+				// It's a valid list - extract elements
+				for (int j = 0; j < subListLength; j++) {
+					Tcl_Obj* elementObj;
+					if (Tcl_ListObjIndex(interp, subListObj, j, &elementObj) == TCL_OK) {
+						const char* elementStr = Tcl_GetString(elementObj);
+						subList.push_back(std::string(elementStr));
+					}
+				}
+			} else {
+				// It's a single element, not a list
+				const char* elementStr = Tcl_GetString(subListObj);
+				subList.push_back(std::string(elementStr));
+			}
+			nestedData.push_back(subList);
+		}
+	}
+	std::vector<bool> has_parent;
+	log_assert(nestedData.size() == node_count);
+	has_parent.resize(node_count);
+	for (size_t i = 0; i < node_count; i++) {
+		for (size_t j = 0; j < nestedData[i].size(); j++) {
+			auto arg = nestedData[i][j];
+			auto pos = arg.find("YOSYS_SDC_MAGIC_NODE_");
+			if (pos == std::string::npos)
+				continue;
+			std::string rest = arg.substr(pos);
+			for (auto c : rest)
+				if (!std::isdigit(c))
+					log_error("weird thing %s\n", rest.c_str());
+			size_t arg_node_idx = std::stoi(rest);
+			log("%zu %zu %s IDX %zu\n", i, j, arg.c_str(), arg_node_idx);
+			// log("%zu %zu %s\n", i, j, arg.c_str());
+
+		}
+	}
+}
+
 static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
 {
 	auto* objects = (SdcObjects*)data;
@@ -322,19 +410,26 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 		return TCL_ERROR;
 	}
 
-	Tcl_Obj *result = Tcl_NewListObj(resolved.size(), nullptr);
+	Tcl_Obj *result = nullptr;
 	for (auto [name, pin, matching_bits] : resolved) {
-		// TODO change this to graph tracking if desired
-		size_t width = (size_t)pin.first->getPort(pin.second).size();
-		for (size_t i = 0; i < width; i++)
-			if (matching_bits.is_set(i))
-				Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(name.c_str(), name.size()));
+		if (objects->value_mode == SdcObjects::ValueMode::Normal) {
+			if (!result)
+				result = Tcl_NewListObj(resolved.size(), nullptr);
+			size_t width = (size_t)pin.first->getPort(pin.second).size();
+			for (size_t i = 0; i < width; i++)
+				if (matching_bits.is_set(i))
+					Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(name.c_str(), name.size()));
+		}
 
 		if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
 			objects->constrained_pins[std::make_pair(name, pin)].merge(matching_bits);
 	}
 
-	Tcl_SetObjResult(interp, result);
+	if (objects->value_mode == SdcObjects::ValueMode::Graph) {
+		return redirect_unknown(interp, objc, objv);
+	}
+	if (result)
+		Tcl_SetObjResult(interp, result);
 	return TCL_OK;
 }
 
@@ -493,6 +588,7 @@ public:
 
 		objects = std::make_unique<SdcObjects>(design);
 		objects->collect_mode = SdcObjects::CollectMode::SimpleGetter;
+		objects->value_mode = SdcObjects::ValueMode::Graph;
 		Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_ports", sdc_get_ports_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "ys_track_typed_key", ys_track_typed_key_cmd, (ClientData) objects.get(), NULL);
@@ -535,6 +631,7 @@ void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		if (Tcl_EvalFile(interp, sdc_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
 		sdc.objects->dump();
+		inspect_globals(interp);
 		Tcl_Release(interp);
 	}
 } SdcPass;
