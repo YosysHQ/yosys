@@ -31,4 +31,4 @@ def pytest_generate_tests(metafunc):
         seed1 = metafunc.config.getoption("seed")
         rnd = lambda seed2: random.Random('{}-{}'.format(seed1, seed2))
         names, cases = generate_test_cases(per_cell, rnd)
-        metafunc.parametrize("cell,parameters", cases, ids=names)
+        metafunc.parametrize("name,cell,parameters", cases, ids=names)
