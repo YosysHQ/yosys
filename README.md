@@ -29,11 +29,19 @@ Documentation from this repository is automatically built and available on Read
 the Docs:
 - https://yosyshq.readthedocs.io/projects/yosys
 
-Users interested in formal verification might want to use the formal
-verification front-end for Yosys, SBY:
-- https://yosyshq.readthedocs.io/projects/sby/
-- https://github.com/YosysHQ/sby
+If you have any Yosys-related questions, please post them on the Discourse group:
+- https://yosyshq.discourse.group
 
+The directory `guidelines` contains additional information
+for people interested in using the Yosys C++ APIs.
+
+Users interested in formal verification might want to use the formal verification
+front-end for Yosys, SymbiYosys:
+- https://symbiyosys.readthedocs.io/en/latest/
+- https://github.com/YosysHQ/SymbiYosys
+
+The Yosys blog has news and articles from users:
+- https://blog.yosyshq.com
 
 Installation
 ============
@@ -242,7 +250,7 @@ Note that there is no need to build the manual if you just want to read it.
 Simply visit https://yosys.readthedocs.io/en/latest/ instead.
 
 In addition to those packages listed above for building Yosys from source, the
-following are used for building the website: 
+following are used for building the website:
 
 	$ sudo apt install pdf2svg faketime
 
@@ -258,7 +266,7 @@ build process for the website.  Or, run the following:
 Or for MacOS, using homebrew:
 
   $ brew install basictex
-  $ sudo tlmgr update --self   
+  $ sudo tlmgr update --self
   $ sudo tlmgr install collection-latexextra latexmk tex-gyre
 
 The Python package, Sphinx, is needed along with those listed in
@@ -268,5 +276,5 @@ The Python package, Sphinx, is needed along with those listed in
 
 From the root of the repository, run `make docs`.  This will build/rebuild yosys
 as necessary before generating the website documentation from the yosys help
-commands.  To build for pdf instead of html, call 
+commands.  To build for pdf instead of html, call
 `make docs DOC_TARGET=latexpdf`.
