@@ -62,7 +62,7 @@ enum ConversionSpecifier : uint8_t
 	CONVSPEC_UNSIGNED_INT,
 	// Consumes a "double"
 	CONVSPEC_DOUBLE,
-	// Consumes a "const char*"
+	// Consumes a "const char*" or other string type
 	CONVSPEC_CHAR_PTR,
 	// Consumes a "void*"
 	CONVSPEC_VOID_PTR,
