@@ -23,11 +23,12 @@ proc unknown {args} {
     if {![info exists sdc_calls]} {
         set sdc_calls {}
     }
+    set ret "YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
     incr sdc_call_index
     lappend sdc_calls $args
     puts "unknown $args, returning YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
-    return "YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
+    return $ret
 }
 proc list {args} {
-    unknown "list" $args
+    return [unknown "list" {*}$args]
 }
