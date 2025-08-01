@@ -6,6 +6,7 @@
 #include <list>
 #include <regex>
 #include <optional>
+#include <iostream>
 
 
 USING_YOSYS_NAMESPACE
@@ -89,7 +90,7 @@ struct SdcObjects {
 		}
 	};
 	using CellPin = std::pair<Cell*, IdString>;
-	std::vector<std::string> design_ports;
+	std::vector<std::pair<std::string, Wire*>> design_ports;
 	std::vector<std::pair<std::string, Cell*>> design_cells;
 	std::vector<std::pair<std::string, CellPin>> design_pins;
 	std::vector<std::pair<std::string, Wire*>> design_nets;
@@ -149,7 +150,7 @@ struct SdcObjects {
 		if (!top)
 			log_error("Top module couldn't be determined. Check 'top' attribute usage");
 		for (auto port : top->ports) {
-			design_ports.push_back(port.str().substr(1));
+			design_ports.push_back(std::make_pair(port.str().substr(1), top->wire(port)));
 		}
 		std::list<std::string> hierarchy{};
 		sniff_module(hierarchy, top);
@@ -275,36 +276,59 @@ static std::pair<bool, SdcObjects::BitSelection> matches(std::string name, const
 
 static int redirect_unknown(Tcl_Interp *interp, int objc, Tcl_Obj* const objv[]) {
     Tcl_Obj *newCmd = Tcl_NewStringObj("unknown", -1);
-    Tcl_Obj **newObjv = new Tcl_Obj*[objc+1];
+	auto newObjc = objc + 1;
+    Tcl_Obj **newObjv = new Tcl_Obj*[newObjc];
     newObjv[0] = newCmd;
-    for (int i = 1; i < objc + 1; i++) {
+    for (int i = 1; i < newObjc; i++) {
         newObjv[i] = objv[i - 1];
+		log("newObjv %s\n", Tcl_GetString(newObjv[i]));
     }
-    int result = Tcl_EvalObjv(interp, objc, newObjv, 0);
+    int result = Tcl_EvalObjv(interp, newObjc, newObjv, 0);
     Tcl_DecrRefCount(newCmd);
     delete[] newObjv;
 	return result;
 }
 
-void inspect_globals(Tcl_Interp* interp) {
-	auto get_var = [&](const char* name) -> const char* {
-	    return Tcl_GetVar(interp, name, TCL_GLOBAL_ONLY);
-	};
-	const char* idx_s = get_var("sdc_call_index");
+struct SdcGraphNode {
+    using Child = std::variant<SdcGraphNode*, std::string>;
+    std::vector<Child> children;
+    SdcGraphNode() = default;
+    void addChild(SdcGraphNode* child) {
+        children.push_back(child);
+    }
+    void addChild(std::string tcl_string) {
+        children.push_back(tcl_string);
+    }
+    void dump(std::ostream& os) const {
+		bool first = true;
+		for (auto child : children) {
+			if (first) {
+				first = false;
+			} else {
+				os << " ";
+			}
+			if (auto* s = std::get_if<std::string>(&child))
+				os << *s;
+			else if (SdcGraphNode*& c = *std::get_if<SdcGraphNode*>(&child)) {
+				os << "[";
+				c->dump(os);
+				os << "]";
+			} else {
+				log_assert(false);
+			}
+		}
+    }
+};
+
+std::vector<std::vector<std::string>> gather_nested_calls(Tcl_Interp* interp) {
+	const char* idx_s = Tcl_GetVar(interp, "sdc_call_index", TCL_GLOBAL_ONLY);
 	log_assert(idx_s);
 	size_t node_count = std::stoi(idx_s);
 
-	// else
-	//     printf("sdc_call_index: unset\n");
-	// if (auto calls = get_var("sdc_calls"))
-	//     printf("sdc_calls: %s\n", calls);
-	// else
-	//     printf("sdc_calls: unset\n");
 	Tcl_Obj* listObj = Tcl_GetVar2Ex(interp, "sdc_calls", nullptr, TCL_GLOBAL_ONLY);
 	int listLength;
 
-	// Get list length first
-	std::vector<std::vector<std::string>> nestedData;
+	std::vector<std::vector<std::string>> sdc_calls;
 	if (Tcl_ListObjLength(interp, listObj, &listLength) == TCL_OK) {
 		for (int i = 0; i < listLength; i++) {
 			Tcl_Obj* subListObj;
@@ -314,7 +338,7 @@ void inspect_globals(Tcl_Interp* interp) {
 			}
 			int subListLength;
 			if (Tcl_ListObjLength(interp, subListObj, &subListLength) == TCL_OK) {
-				// It's a valid list - extract elements
+				// Valid list - extract elements
 				for (int j = 0; j < subListLength; j++) {
 					Tcl_Obj* elementObj;
 					if (Tcl_ListObjIndex(interp, subListObj, j, &elementObj) == TCL_OK) {
@@ -323,32 +347,70 @@ void inspect_globals(Tcl_Interp* interp) {
 					}
 				}
 			} else {
-				// It's a single element, not a list
+				// Single element, not a list
 				const char* elementStr = Tcl_GetString(subListObj);
 				subList.push_back(std::string(elementStr));
 			}
-			nestedData.push_back(subList);
+			sdc_calls.push_back(subList);
 		}
 	}
-	std::vector<bool> has_parent;
-	log_assert(nestedData.size() == node_count);
-	has_parent.resize(node_count);
+	log_assert(sdc_calls.size() == node_count);
+	return sdc_calls;
+}
+
+std::vector<SdcGraphNode> build_graph(const std::vector<std::vector<std::string>>& sdc_calls) {
+	size_t node_count = sdc_calls.size();
+	std::vector<SdcGraphNode> graph(node_count);
 	for (size_t i = 0; i < node_count; i++) {
-		for (size_t j = 0; j < nestedData[i].size(); j++) {
-			auto arg = nestedData[i][j];
-			auto pos = arg.find("YOSYS_SDC_MAGIC_NODE_");
-			if (pos == std::string::npos)
-				continue;
-			std::string rest = arg.substr(pos);
-			for (auto c : rest)
-				if (!std::isdigit(c))
-					log_error("weird thing %s\n", rest.c_str());
-			size_t arg_node_idx = std::stoi(rest);
-			log("%zu %zu %s IDX %zu\n", i, j, arg.c_str(), arg_node_idx);
-			// log("%zu %zu %s\n", i, j, arg.c_str());
+		auto& new_node = graph[i];
+		for (size_t j = 0; j < sdc_calls[i].size(); j++) {
+			auto arg = sdc_calls[i][j];
+			const std::string prefix = "YOSYS_SDC_MAGIC_NODE_";
+			auto pos = arg.find(prefix);
+			if (pos != std::string::npos) {
+				std::string rest = arg.substr(pos + prefix.length());
+				for (auto c : rest)
+					if (!std::isdigit(c))
+						log_error("weird thing %s in %s\n", rest.c_str(), arg.c_str());
+				size_t arg_node_idx = std::stoi(rest);
+				log_assert(arg_node_idx < graph.size());
+				new_node.addChild(&graph[arg_node_idx]);
+			} else {
+				new_node.addChild(arg);
+			}
 
 		}
 	}
+	return graph;
+}
+
+std::vector<bool> node_ownership(const std::vector<SdcGraphNode>& graph) {
+	std::vector<bool> has_parent(graph.size());
+	for (auto node : graph) {
+		for (auto child : node.children) {
+			if (SdcGraphNode** pp = std::get_if<SdcGraphNode*>(&child)) {
+				size_t idx = std::distance(&graph.front(), (const SdcGraphNode*)*pp);
+				log_assert(idx < has_parent.size());
+				has_parent[idx] = true;
+			}
+		}
+	}
+	return has_parent;
+}
+
+void dump_sdc_graph(const std::vector<SdcGraphNode>& graph, const std::vector<bool>& has_parent) {
+	for (size_t i = 0; i < graph.size(); i++) {
+		if (!has_parent[i]) {
+			graph[i].dump(std::cout);
+			std::cout << "\n";
+		}
+	}
+}
+
+void inspect_globals(Tcl_Interp* interp) {
+	std::vector<std::vector<std::string>> sdc_calls = gather_nested_calls(interp);
+	std::vector<SdcGraphNode> graph = build_graph(sdc_calls);
+	dump_sdc_graph(graph, node_ownership(graph));
 }
 
 static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
@@ -458,29 +520,40 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 		}
 	}
 	MatchConfig config(regexp_flag, nocase_flag, false);
-	std::vector<std::tuple<std::string, SdcObjects::BitSelection>> resolved;
+	std::vector<std::tuple<std::string, Wire*, SdcObjects::BitSelection>> resolved;
 	for (auto pat : patterns) {
 		bool found = false;
-		for (auto name : objects->design_ports) {
+		for (auto [name, wire] : objects->design_ports) {
 			auto [does_match, matching_bits] = matches(name, pat, config);
 			if (does_match) {
 				found = true;
-				resolved.push_back(std::make_tuple(name, matching_bits));
+				resolved.push_back(std::make_tuple(name, wire, matching_bits));
 			}
 		}
 		if (!found)
 			log_warning("No matches in design for port %s\n", pat.c_str());
 	}
-	Tcl_Obj *result = Tcl_NewListObj(resolved.size(), nullptr);
-	for (auto [obj, matching_bits] : resolved) {
-		Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(obj.c_str(), obj.size()));
+	Tcl_Obj *result = nullptr;
+	for (auto [name, wire, matching_bits] : resolved) {
+		if (objects->value_mode == SdcObjects::ValueMode::Normal) {
+			if (!result)
+				result = Tcl_NewListObj(resolved.size(), nullptr);
+			size_t width = wire->width;
+			for (size_t i = 0; i < width; i++)
+				if (matching_bits.is_set(i))
+					Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(name.c_str(), name.size()));
+		}
 		if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint) {
-			if (objects->constrained_ports.count(obj) == 0) {
-				objects->constrained_ports[obj] = matching_bits;
+			if (objects->constrained_ports.count(name) == 0) {
+				objects->constrained_ports[name] = matching_bits;
 			} else {
-				objects->constrained_ports[obj].merge(matching_bits);
+				objects->constrained_ports[name].merge(matching_bits);
 			}
 		}
+	}
+
+	if (objects->value_mode == SdcObjects::ValueMode::Graph) {
+		return redirect_unknown(interp, objc, objv);
 	}
 
 	Tcl_SetObjResult(interp, result);
@@ -545,13 +618,14 @@ static int ys_track_typed_key_cmd(ClientData data, Tcl_Interp *interp, int objc,
 				log_error("%s: pin %s not found\n", proc_name.c_str(), str);
 		} else if (key_expect_type == "port") {
 			bool found = false;
-			for (auto name : objects->design_ports) {
-				if (name == str) {
-					found = true;
-					objects->constrained_ports.insert(name);
-					break; // resolved, expected unique
-				}
-			}
+			log_error("TODO temporarily disabled due to working on a different flow\n");
+			// for (auto [name, ] : objects->design_ports) {
+			// 	if (name == str) {
+			// 		found = true;
+			// 		objects->constrained_ports.insert(name);
+			// 		break; // resolved, expected unique
+			// 	}
+			// }
 			if (!found)
 				log_error("%s: port %s not found\n", proc_name.c_str(), str);
 		} else {
