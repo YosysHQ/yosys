@@ -14,6 +14,12 @@ EOF
 select -assert-mod-count 3 =*
 design -stash read
 
+# empty design does not raise_error
+design -reset
+logger -expect log "'raise_error' attribute not found" 1
+raise_error
+logger -check-expected
+
 # raise_error with int exits with status
 design -load read
 bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 7
@@ -41,3 +47,8 @@ rename top abc
 bugpoint -suffix error -yosys ../../yosys -command "raise_error -stderr" -err-grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
+
+# empty design can raise_error -always
+design -reset
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always" -grep "ERROR: No 'raise_error' attribute found" -expect-return 1
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always -stderr" -err-grep "No 'raise_error' attribute found" -expect-return 1
