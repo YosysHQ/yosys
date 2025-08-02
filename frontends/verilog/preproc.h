@@ -35,6 +35,11 @@ YOSYS_NAMESPACE_BEGIN
 struct define_body_t;
 struct arg_map_t;
 
+namespace VERILOG_FRONTEND {
+	struct ParseState;
+	struct ParseMode;
+};
+
 struct define_map_t
 {
 	define_map_t();
@@ -71,7 +76,9 @@ frontend_verilog_preproc(std::istream                 &f,
                          std::string                   filename,
                          const define_map_t           &pre_defines,
                          define_map_t                 &global_defines_cache,
-                         const std::list<std::string> &include_dirs);
+                         const std::list<std::string> &include_dirs,
+                         VERILOG_FRONTEND::ParseState &parse_state,
+                         VERILOG_FRONTEND::ParseMode  &parse_mode);
 
 YOSYS_NAMESPACE_END
 
