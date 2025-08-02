@@ -20,18 +20,25 @@ struct RaiseErrorPass : public Pass {
 		log("    -stderr\n");
 		log("        Log error messages directly to stderr instead of using 'log_error'.\n");
 		log("\n");
+		log("    -always\n");
+		log("        Raise an error even if the 'raise_error' attribute is missing.\n");
+		log("\n");
 	}
 	void execute(vector<string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing RAISE_ERROR pass.\n");
 
-		bool use_stderr = false;
+		bool use_stderr = false, always = false;
 
 		int argidx;
 		for (argidx = 1; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-stderr") {
 				use_stderr = true;
+				continue;
+			}
+			if (args[argidx] == "-always") {
+				always = true;
 				continue;
 			}
 			break;
@@ -55,27 +62,40 @@ struct RaiseErrorPass : public Pass {
 			if (err_obj != nullptr) break;
 		}
 
+
+		if (err_obj == nullptr && !always) {
+			log("'raise_error' attribute not found\n");
+			return;
+		}
+
+		int err_no = 1;
+		string err_msg = "";
 		if (err_obj != nullptr) {
 			log("Raising error from '%s'.\n", log_id(err_obj));
-			auto err_no = err_obj->attributes[ID::raise_error].as_int();
-			if (err_no < 256) {
-				log_flush();
-			} else {
-				auto err_msg = err_obj->get_string_attribute(ID::raise_error);
-				if (use_stderr) {
-					std::cerr << err_msg << std::endl;
-					err_no = 1;
-				} else {
-					log_error("%s\n", err_msg.c_str());
-				}
+			err_no = err_obj->attributes[ID::raise_error].as_int();
+			if (err_no > 256) {
+				err_msg = err_obj->get_string_attribute(ID::raise_error);
+				err_no = 1;
 			}
+		} else {
+			err_msg = "No 'raise_error' attribute found";
+		}
+
+		if (err_msg.size() > 0) {
+			if (use_stderr) {
+				std::cerr << err_msg << std::endl;
+			} else {
+				log_error("%s\n", err_msg.c_str());
+			}
+		}
+
+		if (err_no < 256) {
+			log_flush();
 		#if defined(_MSC_VER)
 			_exit(err_no);
 		#else
 			_Exit(err_no);
 		#endif
-		} else {
-			log("'raise_error' attribute not found\n");
 		}
 	}
 } RaiseErrorPass;
