@@ -26,6 +26,12 @@ bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 7
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 top
 
+# raise_error -always still uses 'raise_error' attribute if possible
+design -load read
+bugpoint -suffix error -yosys ../../yosys -command "raise_error -always" -expect-return 7
+select -assert-mod-count 1 =*
+select -assert-mod-count 1 top
+
 # raise_error with string prints message and exits with 1
 design -load read
 rename top abc
