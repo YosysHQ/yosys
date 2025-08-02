@@ -31,7 +31,7 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-no-rw-check] [-bram <bram_rules>] [selection]\n");
+		log("    memory [-external-init] [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-no-rw-check] [-bram <bram_rules>] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
@@ -59,6 +59,7 @@ struct MemoryPass : public Pass {
 		bool flag_nomap = false;
 		bool flag_nordff = false;
 		bool flag_memx = false;
+		string opt_mem_opts;
 		string memory_dff_opts;
 		string memory_bram_opts;
 		string memory_share_opts;
@@ -68,6 +69,10 @@ struct MemoryPass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-external-init") {
+				opt_mem_opts += " -external-init";
+				continue;
+			}
 			if (args[argidx] == "-norom") {
 				flag_norom = true;
 				continue;
@@ -105,7 +110,7 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		Pass::call(design, "opt_mem");
+		Pass::call(design, "opt_mem" + opt_mem_opts);
 		Pass::call(design, "opt_mem_priority");
 		Pass::call(design, "opt_mem_feedback");
 		if (!flag_norom)
