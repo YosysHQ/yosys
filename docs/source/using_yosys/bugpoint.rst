@@ -45,43 +45,64 @@ Yosys script.
 Can I use bugpoint?
 ~~~~~~~~~~~~~~~~~~~
 
-- only usable on platforms where Yosys can spawn executables
+The first thing to be aware of is that `bugpoint` is not available in every
+build of Yosys.  Because the command works by invoking external processes, it
+requires that Yosys can spawn executables.  Notably this means `bugpoint` is not
+able to be used in WebAssembly builds such as that available via YoWASP.  The
+easiest way to check your build of Yosys is by running ``yosys -qq -p '!echo
+test'``.  If this echoes ``test`` in the console, then `bugpoint` will work as
+expected.  If instead if it displays the text ``ERROR: Shell is not available.``
+then `bugpoint` will not work either.
 
-  + unavailable on emscripten and wasm
-  + can test by running e.g. ``yosys -qqp '!echo test'``
+.. note::
 
-    * the ``-qq`` prevents Yosys from outputting non-error messages to the
-      console, so this will either display the text ``test``, or an error
-      message about ``Shell`` being unavailable
-    * check :ref:`getting_started/scripting_intro:script parsing` for more about
-      the ``-p`` option and common pitfalls
+   The console command ``yosys -qq -p '!echo test'`` uses the ``-qq`` flag to
+   prevent Yosys from outputting non-error messages to the console.  The ``-p``
+   option executes ``!echo test`` as a Yosys command, attempting to pass ``echo
+   test`` to the shell for execution.  For more about the ``-p`` option and
+   common pitfalls, check out :ref:`getting_started/scripting_intro:script
+   parsing` in the :doc:`/getting_started/index` section.
 
-- single command (``yosys -p '<command>' design.il``)
-- *or* multiple commands in a separate script file
+.. TODO:: Add ``YOSYS_DISABLE_SPAWN`` check in ``bugpoint.cc``.
 
-  + script shouldn't load the design
-  + ``yosys -s <failure.ys> design.il``
-  + `minimize your script`_ to reduce the time needed by `bugpoint`
+   At least in the help text, so that ``yosys -h bugpoint`` will correctly
+   indicate if the command will work instead of this roundabout method.
 
-- doesn't require design to be in RTLIL format
+Next you need to separate loading the design from the failure point; you should
+be aiming to reproduce the failure by running ``yosys -s <load.ys> -s
+<failure.ys>``.  If the failure occurs while loading the design, such as during
+`read_verilog` you will instead have to minimize the input design yourself.
+Check out the instructions for :ref:`using_yosys/bugpoint:minimizing verilog
+designs` below.
 
-  + can e.g. ``read_verilog <design.v>; prep -top <top>;`` before `bugpoint`
-  + this method may be more useful if you are trying to find a bug in your
-    design rather than Yosys
-  + but, `bugpoint` itself calls the command/script with an RTLIL dump, so if it
-    isn't reproducible from RTLIL then `bugpoint` won't work
+The commands in ``<load.ys>`` only need to be run once, while those in
+``<failure.ys>`` will be run on each iteration of `bugpoint`.  If you haven't
+already, following the instructions for :ref:`using_yosys/bugpoint:minimizing
+scripts` will also help with identifying exactly which commands are needed to
+produce the failure and which can be safely moved to the loading script.
 
-- works with user-defined failures in scripts
+.. note::
 
-  + e.g. `select` command with ``-assert-*`` option
-  + or `equiv_opt`
-  + can even call another tool with `exec`
-  
-    * useful for when Yosys is outputting an invalid design
-    * use the ``-expect-*`` options to ensure the script correctly returns the
-      failure state to `bugpoint`
-    * can call shell scripts with e.g. ``exec -expect-return 1 -- bash
-      <script.sh>``
+   You should also be able to run the two scripts separately, calling first
+   ``yosys -s <load.ys> -p 'write_rtlil design.il'`` and then ``yosys -s
+   <failure.ys> design.il``.  If this doesn't work then it may mean that the
+   failure isn't reproducible from RTLIL and `bugpoint` won't work either.
+
+When we talk about failure points here, it doesn't just mean crashes or errors
+in Yosys.  The ``<failure.ys>`` script can also be a user-defined failure such
+as the `select` command with one of the ``-assert-*`` options; an example where
+this might be useful is when a pass is supposed to remove a certain kind of
+cell, but there is some edge case where the cell is not removed.  Another
+use-case would be minimizing a design which fails with the `equiv_opt` command,
+suggesting that the optimization in question alters the circuit in some way.
+
+It is even possible to use `bugpoint` with failures *external* to Yosys, by
+making use of the `exec` command in ``<failure.ys>``.  This is especially useful
+when Yosys is outputting an invalid design, or when some other tool is
+incompatible with the design.  Be sure to use the ``exec -expect-*`` options so
+that the pass/fail can be detected correctly.  Multiple calls to `exec` can be
+made, or even entire shell scripts (e.g. ``exec -expect-return 1 -- bash
+<script.sh>``).
 
 
 How do I use bugpoint?
@@ -142,6 +163,7 @@ What do I do with the minimized design?
 - check out :ref:`using_yosys/bugpoint:identifying issues` for more on what to
   do next
 
+
 .. _minimize your script:
 
 Minimizing scripts
@@ -187,7 +209,6 @@ Minimizing scripts
    synth -top <top> -run :fine
    opt -fast -full
    memory_map
-
 
 - try ``write_rtlil <design.il>; design -reset; read_rtlil <design.il>;`` before
   the failure point
@@ -347,7 +368,6 @@ Creating an issue on GitHub
    OR
 
    `yosys -p ': minimum sequence of commands;' min.v`
-
 
 - alternatively can provide a single code-block which includes the minimized
   design as a "here document" followed by the sequence of commands which
