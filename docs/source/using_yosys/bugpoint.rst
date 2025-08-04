@@ -44,14 +44,10 @@ Minimizing RTLIL designs with bugpoint
     * the ``-qq`` prevents Yosys from outputting non-error messages to the
       console, so this will either display the text ``test``, or an error
       message about ``Shell`` being unavailable
-    * be careful about using ``!`` in bash as it will perform a history
-      substitution if not escaped with single quotes (double quotes will not
-      escape it)
-    * ``!`` does not need to be escaped in *Yosys* scripts or when called within
-      the interactive Yosys shell, *only* when called on the command line with
-      ``-p``
+    * check :ref:`getting_started/scripting_intro:script parsing` for more about
+      the ``-p`` option and common pitfalls
 
-- single command (``yosys -p "<command>" design.il``)
+- single command (``yosys -p '<command>' design.il``)
 - *or* multiple commands in a separate script file
 
   + script shouldn't load the design
@@ -68,26 +64,30 @@ Minimizing RTLIL designs with bugpoint
 
 - follow `bugpoint` instructions
 
-   + output design after `bugpoint` with `write_rtlil`
-   + use ``-grep "<string>"`` to only accept a minimized design that crashes
-     with the ``<string>`` in the log file
-   + ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
-     parts of the design to be removed
+  + output design after `bugpoint` with `write_rtlil`
+  + use ``-grep "<string>"`` to only accept a minimized design that crashes
+    with the ``<string>`` in the log file
+  + ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
+    parts of the design to be removed
 
-     * use the ``bugpoint_keep`` attribute on objects you don't want to be
-       removed, usually because you already know they are related to the failure
-     * ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
-       RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
+    * use the ``bugpoint_keep`` attribute on objects you don't want to be
+      removed, usually because you already know they are related to the failure
+    * ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
+      RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
 
-   + ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another
-     command
-   + can also use `setenv` before `bugpoint` to set environment variables for
-     the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
+  + ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another
+    command
+  + can also use `setenv` before `bugpoint` to set environment variables for
+    the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
 
 .. note::
 
-   Using `setenv` in this way **does not affect the current process**.  Only
-   child processes will respect the assigned ``halt_on_error``.
+   Using `setenv` in this way may not affect the current process as some
+   environment variables are only read on start up.  For instance the
+   ``UBSAN_OPTIONS halt_on_error`` here only affects child processes, as does
+   the :doc:`Yosys environment variable</appendix/env_vars>` ``ABC``.  While
+   others such as ``YOSYS_NOVERIFIC`` and ``HOME`` are evaluated each time they
+   are used.
 
 
 .. _minimize your script:
@@ -187,15 +187,34 @@ Minimizing Verilog designs
 Creating an issue on GitHub
 ---------------------------
 
-- "Reproduction Steps" is ideally a single code-block (starting and ending with
-  triple backquotes), containing the minimized yosys script file, which includes
-  the minimized design as a "here document" followed by the sequence of commands
-  which reproduce the error
+- "Reproduction Steps" is ideally a code-block (starting and ending with triple
+  backquotes) containing the minimized design (Verilog or RTLIL), followed by a
+  code-block containing the minimized yosys script OR a command line call to
+  yosys with code-formatting (starting and ending with single backquotes)
 
-.. TODO:: https://tldp.org/LDP/abs/html/here-docs.html
+.. code-block:: markdown
 
-   Actually fill out :doc:`/using_yosys/more_scripting/load_design` with here
-   docs info and then link to it from here
+   min.v
+   ```verilog
+   // minimized Verilog design
+   ```
+
+   min.ys
+   ```
+   read_verilog min.v
+   # minimum sequence of commands to reproduce error
+   ```
+
+   OR
+
+   `yosys -p ': minimum sequence of commands;' min.v`
+
+
+- alternatively can provide a single code-block which includes the minimized
+  design as a "here document" followed by the sequence of commands which
+  reproduce the error
+
+  + see :doc:`/using_yosys/more_scripting/load_design` for more on heredocs.
 
 .. code-block:: markdown
 
@@ -203,7 +222,7 @@ Creating an issue on GitHub
    read_rtlil <<EOF
    # minimized RTLIL design
    EOF
-   # minimum sequence of commands to reproduce error
+   # minimum sequence of commands
    ```
 
 - any environment variables or command line options should also be mentioned in
