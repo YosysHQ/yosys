@@ -171,9 +171,12 @@ error code returned.
 
 .. note::
 
-   Checking the error message or return status with is optional, but helps to
-   ensure that the minimized design is reproducing the right error, especially
-   when ``<failure.ys>`` contains more than one command.
+   Checking the error message or return status is optional, but highly
+   recommended.  `bugpoint` can quite easily introduce bugs by creating
+   malformed designs that commands were not intended to handle.  By having some
+   way to check the error, `bugpoint` can ensure that it is the *right* error
+   being reproduced.  This is even more important when ``<failure.ys>`` contains
+   more than one command.
 
 By default, `bugpoint` is able to remove any part of the design.  In order to
 keep certain parts, for instance because you already know they are related to
