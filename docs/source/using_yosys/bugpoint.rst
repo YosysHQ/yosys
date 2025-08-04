@@ -262,20 +262,74 @@ Minimizing Verilog designs
    This section is not specific to Yosys, so feel free to use another guide such
    as Stack Overflow's `How to create a Minimal, Reproducible Example`_.
 
-Unlike RTLIL designs where we can use `bugpoint`, minimizing Verilog designs is
-a much more manual, iterative process.  Be sure to check any errors or warnings
-for messages that might identify source lines or object names that might be
-causing the failure, and back up your source code before modifying it.  At any
-point in the process, you can check for anything that is unused or totally
-disconnected (ports, wires, etc) and remove them too.  If you have multiple
-source files, try to reduce them down to a single file; either by removing files
-or combining them.
+Be sure to check any errors or warnings for messages that might identify source
+lines or object names that might be causing the failure, and back up your source
+code before modifying it.  If you have multiple source files, you should start
+by reducing them down to a single file.  If a specific file is failing to read,
+try removing everything else and just focus on that one.  If your source uses
+the `include` directive, replace it with the contents of the file referenced.
 
-.. note::
+Unlike RTLIL designs where we can use `bugpoint`, Yosys does not provide any
+tools for minimizing Verilog designs.  Instead, you should use an external tool
+like `C-Reduce`_ (with the ``--not-c`` flag) or `sv-bugpoint`_.
 
-   If a specific module is causing the problem, try to set that as the top
-   module instead.  Any parameters should have their default values changed to
-   match the failing usage.
+.. _C-Reduce: https://github.com/csmith-project/creduce
+.. _sv-bugpoint: https://github.com/antmicro/sv-bugpoint
+
+C-Reduce
+~~~~~~~~
+
+As a very brief overview for using C-Reduce, you want your failing source design
+(``test.v``), and some shell script which checks for the error being
+investigated (``test.sh``).  Below is an :ref:`egtest` which uses `logger` and
+the ``-expect error "<string>" 1`` option to perform a similar role to
+``bugpoint -grep``, along with ``verilator`` to lint the code and make sure it
+is still valid.
+
+.. code-block:: bash
+   :caption: Example test.sh
+   :name: egtest
+
+   #!/bin/bash
+   verilator --lint-only test.v &&/
+   yosys -p 'logger -expect error "unsupported" 1; read_verilog test.v'
+
+.. code-block:: verilog
+   :caption: input test.v
+
+   module top(input clk, a, b, c, output x, y, z);
+      always @(posedge clk) begin
+         if (a == 1'b1)
+            $stop;
+      end
+      assign x = a;
+      assign y = a ^ b;
+      assign z = c;
+   endmodule
+
+In this example ``read_verilog test.v`` is giving an error message that contains
+the string "unsupported" because the ``$stop`` system task is only supported in
+``initial`` blocks.  By calling ``creduce ./test.sh test.v --not-c`` we can
+minimize the design to just the failing code, while still being valid Verilog.
+
+.. code-block:: verilog
+   :caption: output test.v
+
+   module a;
+   always begin $stop;
+   end endmodule
+
+
+Doing it manually
+~~~~~~~~~~~~~~~~~
+
+If for some reason you are unable to use a tool to minimize your code, you can
+still do it manually.  But it can be a time consuming process and requires a lot
+of iteration.  At any point in the process, you can check for anything that is
+unused or totally disconnected (ports, wires, etc) and remove them. If a
+specific module is causing the problem, try to set that as the top module
+instead.  Any parameters should have their default values changed to match the
+failing usage.
 
 As a rule of thumb, try to split things roughly in half at each step; similar to
 a "binary search".  If you have 10 cells (instances of modules) in your top
@@ -317,15 +371,6 @@ Check if there are any operations that you can simplify, like replacing ``a &
 the error still occurs.  Try reducing ``if .. else`` and ``case`` blocks to a
 single case.  Even if that doesn't work, you may still be able to remove some
 paths; start with cases that appear to be unreachable and go from there.
-
-If you're planning to share the minimized code, remember to make sure there is
-no sensitive or proprietary data in the design.  Maybe rename that
-``ibex_prefetch_buffer`` module to ``buf``, and ``very_important_signal_name``
-could just as easily be ``sig``.  The point here isn't to make names as small as
-possible, but rather to remove the context that is no longer necessary.  Calling
-something ``multiplier_output_value`` doesn't mean as much if you no longer have
-the multiplier being referred to; but if the name does still make sense then
-it's fine to leave it as-is.
 
 .. note::
 
