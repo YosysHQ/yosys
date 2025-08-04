@@ -311,8 +311,8 @@ cells, as the net-names are usually suppressed in the circuit diagram if they
 are auto-generated.  Note that the output is in the RTLIL representation,
 described in :doc:`/yosys_internals/formats/rtlil_rep`.
 
-Interactive Design Investigation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Design Investigation
+~~~~~~~~~~~~~~~~~~~~
 
 Yosys can also be used to investigate designs (or netlists created from other
 tools).
