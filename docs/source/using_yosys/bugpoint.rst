@@ -36,6 +36,11 @@ Minimizing failing (or bugged) designs
 Minimizing RTLIL designs with bugpoint
 --------------------------------------
 
+- what is `bugpoint`
+
+Can I use bugpoint?
+~~~~~~~~~~~~~~~~~~~
+
 - `bugpoint`, only usable on platforms where Yosys can spawn executables
 
   + unavailable on emscripten and wasm
@@ -62,26 +67,29 @@ Minimizing RTLIL designs with bugpoint
   + but, `bugpoint` itself calls the command/script with an RTLIL dump, so if it
     isn't reproducible from RTLIL then `bugpoint` won't work
 
+
+How do I use bugpoint?
+~~~~~~~~~~~~~~~~~~~~~~
+
 - follow `bugpoint` instructions
+- output design after `bugpoint` with `write_rtlil`
+- use ``-grep "<string>"`` to only accept a minimized design that crashes
+- with the ``<string>`` in the log file
 
-  + output design after `bugpoint` with `write_rtlil`
-  + use ``-grep "<string>"`` to only accept a minimized design that crashes
-    with the ``<string>`` in the log file
+  + only checks log file, will not match runtime errors
 
-    * only checks log file, will not match runtime errors
+- ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
+- parts of the design to be removed (default is allow removing all)
 
-  + ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
-    parts of the design to be removed (default is allow removing all)
+  + use the ``bugpoint_keep`` attribute on objects you don't want to be
+    removed, usually because you already know they are related to the failure
+  + ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
+    RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
 
-    * use the ``bugpoint_keep`` attribute on objects you don't want to be
-      removed, usually because you already know they are related to the failure
-    * ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
-      RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
-
-  + ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another
-    command
-  + can also use `setenv` before `bugpoint` to set environment variables for
-    the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
+- ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another
+- command
+- can also use `setenv` before `bugpoint` to set environment variables for
+- the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
 
 .. note::
 
@@ -92,14 +100,13 @@ Minimizing RTLIL designs with bugpoint
    others such as ``YOSYS_NOVERIFIC`` and ``HOME`` are evaluated each time they
    are used.
 
-- check minimized design still fails, especially if not using `write_rtlil`
 
-  + e.g. if you ran :ref:`bugpoint_script` below, then calling ``yosys -s
-    <failure.ys> min.v`` should still fail in the same way
-  + `write_rtlil` is more reliable since `bugpoint` will have run that exact
-    code through the failing script; other ``write_*`` commands convert from the
-    RTLIL and then back again during the ``read_*`` which can result in
-    differences which mean the design no longer fails
+What do I do with the minimized design?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- check minimized design still fails, especially if not using `write_rtlil`
+- e.g. if you ran :ref:`bugpoint_script` below, then calling ``yosys -s
+  <failure.ys> min.v`` should still fail in the same way
 
 .. code-block:: yoscrypt
    :caption: example `bugpoint` minimizer
@@ -109,6 +116,12 @@ Minimizing RTLIL designs with bugpoint
    bugpoint -script <failure.ys>
    write_verilog min.v
 
+- `write_rtlil` is more reliable since `bugpoint` will have run that exact
+  code through the failing script; other ``write_*`` commands convert from the
+  RTLIL and then back again during the ``read_*`` which can result in
+  differences which mean the design no longer fails
+- check out :ref:`using_yosys/bugpoint:identifying issues` for more on what to
+  do next
 
 .. _minimize your script:
 
@@ -145,8 +158,8 @@ Minimizing scripts
     this easier
   + say we ran :ref:`replace_synth` and were able to remove the ``synth -run
     check:`` and still got our error, then we check the log and we see the last
-    thing before the error was `7.2. Executing MEMORY_MAP pass (converting
-    memories to logic and flip-flops).`
+    thing before the error was ``7.2. Executing MEMORY_MAP pass (converting
+    memories to logic and flip-flops).``
   + we can then update our script to the following:
 
 .. code-block:: yoscrypt
@@ -237,6 +250,58 @@ Minimizing Verilog designs
     name like ``a`` or ``x``
   + please try to keep things in English, using the letters a-z and numbers 0-9
     (unless the error is arising because of the names used)
+
+
+Identifying issues
+------------------
+
+- does the failing command indicate limited support, or does it mention some
+  other command that needs to be run first?
+- if you're able to, try to match the minimized design back to its original
+  context
+
+  + could you achieve the same thing a different way?
+  + and if so, does this other method have the same issue?
+
+- try to change the design in small ways and see what happens
+
+  + `bugpoint` can reduce and simplify a design, but it doesn't *change* much
+  + what happens if you change operators, for example a left shift (or `$shl`)
+    to a right shift (or `$shr`)?
+  + is the issue tied to specific parameters, widths, or values?
+
+- if you're familiar with C/C++ you might try to have a look at the source
+  code of the command that's failing
+
+  + even if you can't fix the problem yourself, it can be very helpful for
+    anyone else investigating if you're able to identify where exactly the
+    issue is
+  + if you're using a fuzzer to find issues in Yosys, you should be prepared to
+    do this step
+
+.. warning::
+
+   In the event that you are unable to identify the root cause of a fuzzer
+   generated issue, **do not** open more than one issue at a time.  You have no
+   way of being able to tell if multiple fuzzer generated issues are simply
+   different cases of the same problem, and opening multiple issues for the same
+   problem means more time is spent on triaging and diagnosing bug reports and
+   less on fixing the problem.  If you are found to be doing this, your issues
+   may be closed without further investigation.
+
+- search `the existing issues`_ and see if someone has already made a bug report
+
+  + this is where changing the design and finding the limits of what causes the
+    failure really comes in handy
+  + if you're more familiar with how the problem can arise, you may be able to
+    find a related issue more easily
+  + if an issue already exists for one case of the problem but you've found
+    other cases, you can comment on the issue and help get it solved
+
+.. _the existing issues: https://github.com/YosysHQ/yosys/issues
+
+- if there are no existing or related issues already, the check out the steps
+  for :ref:`using_yosys/bugpoint:creating an issue on github`
 
 
 Creating an issue on GitHub
