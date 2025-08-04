@@ -412,7 +412,25 @@ void inspect_globals(Tcl_Interp* interp) {
 	std::vector<SdcGraphNode> graph = build_graph(sdc_calls);
 	dump_sdc_graph(graph, node_ownership(graph));
 }
-
+template <typename T, typename U>
+std::vector<std::tuple<std::string, T, SdcObjects::BitSelection>>
+find_matching(U objects, const MatchConfig& config, const std::vector<std::string> &patterns, const char* obj_type)
+{
+	std::vector<std::tuple<std::string, T, SdcObjects::BitSelection>> resolved;
+	for (auto pat : patterns) {
+		bool found = false;
+		for (auto [name, obj] : objects) {
+			auto [does_match, matching_bits] = matches(name, pat, config);
+			if (does_match) {
+				found = true;
+				resolved.push_back(std::make_tuple(name, obj, matching_bits));
+			}
+		}
+		if (!found)
+			log_warning("No matches in design for %s %s\n", obj_type, pat.c_str());
+	}
+	return resolved;
+}
 static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
 {
 	auto* objects = (SdcObjects*)data;
@@ -454,18 +472,8 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 
 	MatchConfig config(regexp_flag, nocase_flag, hierarchical_flag);
 	std::vector<std::tuple<std::string, SdcObjects::CellPin, SdcObjects::BitSelection>> resolved;
-	for (auto pat : patterns) {
-		bool found = false;
-		for (auto [name, pin] : objects->design_pins) {
-			auto [does_match, matching_bits] = matches(name, pat, config);
-			if (does_match) {
-				found = true;
-				resolved.push_back(std::make_tuple(name, pin, matching_bits));
-			}
-		}
-		if (!found)
-			log_warning("No matches in design for pin %s\n", pat.c_str());
-	}
+	const auto& pins = objects->design_pins;
+	resolved = find_matching<SdcObjects::CellPin, decltype(pins)>(pins, config, patterns, "pin");
 
 	if (separator != "/") {
 		Tcl_SetResult(interp, (char *)"Only '/' accepted as separator", TCL_STATIC);
@@ -519,20 +527,12 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 			log_error("get_ports got unexpected number of patterns in simple mode\n");
 		}
 	}
+
 	MatchConfig config(regexp_flag, nocase_flag, false);
 	std::vector<std::tuple<std::string, Wire*, SdcObjects::BitSelection>> resolved;
-	for (auto pat : patterns) {
-		bool found = false;
-		for (auto [name, wire] : objects->design_ports) {
-			auto [does_match, matching_bits] = matches(name, pat, config);
-			if (does_match) {
-				found = true;
-				resolved.push_back(std::make_tuple(name, wire, matching_bits));
-			}
-		}
-		if (!found)
-			log_warning("No matches in design for port %s\n", pat.c_str());
-	}
+	const auto& ports = objects->design_ports;
+	resolved = find_matching<Wire*, decltype(ports)>(ports, config, patterns, "port");
+
 	Tcl_Obj *result = nullptr;
 	for (auto [name, wire, matching_bits] : resolved) {
 		if (objects->value_mode == SdcObjects::ValueMode::Normal) {
@@ -676,9 +676,6 @@ struct SdcPass : public Pass {
 	SdcPass() : Pass("sdc", "sniff at some SDC") { }
 void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing SDC pass.\n");
-		// if (args.size() < 2)
-		// 	log_cmd_error("Missing SDC file.\n");
-		// TODO optional extra stub file
 		size_t argidx;
 		std::vector<std::string> opensta_stubs_paths;
 		for (argidx = 1; argidx < args.size(); argidx++) {
