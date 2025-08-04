@@ -24,6 +24,13 @@ Minimizing failing (or bugged) designs
 .. _iverilog: https://steveicarus.github.io/iverilog/
 .. _verilator: https://www.veripool.org/verilator/
 
+- are there any warnings before the error (either immediately before or in an
+  earlier command) that could be related?
+- does calling `check` before the failure give any errors or warnings?
+- did you call `hierarchy` before the failure?
+
+  + can you call ``hierarchy -check``?
+
 - make sure to back up your code (design source and yosys script(s)) before
   making any modifications
 
@@ -50,9 +57,15 @@ build of Yosys.  Because the command works by invoking external processes, it
 requires that Yosys can spawn executables.  Notably this means `bugpoint` is not
 able to be used in WebAssembly builds such as that available via YoWASP.  The
 easiest way to check your build of Yosys is by running ``yosys -h bugpoint``. If
-Yosys displays the help text for `bugpoint` then it is available for use, but if
-it instead prints "No such command or cell type: bugpoint", then `bugpoint` is
-not available.
+Yosys displays the help text for `bugpoint` then it is available for use.
+
+.. code-block:: console
+   :caption: `bugpoint` is unavailable
+
+   $ yosys -h bugpoint
+
+   -- Running command `help bugpoint' --
+   No such command or cell type: bugpoint
 
 Next you need to separate loading the design from the failure point; you should
 be aiming to reproduce the failure by running ``yosys -s <load.ys> -s
@@ -87,8 +100,11 @@ making use of the `exec` command in ``<failure.ys>``.  This is especially useful
 when Yosys is outputting an invalid design, or when some other tool is
 incompatible with the design.  Be sure to use the ``exec -expect-*`` options so
 that the pass/fail can be detected correctly.  Multiple calls to `exec` can be
-made, or even entire shell scripts (e.g. ``exec -expect-return 1 -- bash
-<script.sh>``).
+made, or even entire shell scripts:
+
+.. code-block:: yoscrypt
+
+   exec -expect-return 1 --bash <script.sh>
 
 Our final failure we can use with `bugpoint` is one returned by a wrapper
 process, such as ``valgrind`` or ``timeout``.  In this case you will be calling
@@ -97,6 +113,8 @@ run under a wrapper process which checks for some failure state, like a memory
 leak or excessive runtime.  Note however that unlike the `exec` command, there
 is currently no way to check the return status or messages from the wrapper
 process; only a binary pass/fail.
+
+.. TODO:: above note pending updated bugpoint #5068
 
 
 How do I use bugpoint?
@@ -140,11 +158,7 @@ For more about the options available, check ``help bugpoint`` or
    work with runtime errors such as a ``SEGFAULT`` as it is only able to match
    strings from the log file.
 
-.. TODO::  Consider checking ``run_command`` return value for runtime errors.
-
-   Currently ``BugpointPass::run_yosys`` returns ``run_command(yosys_cmdline) ==
-   0``, so it shouldn't be too hard to add an option for it.  Could also be
-   used with the ``-runner`` option, which might give it a bit more flexibility.
+.. TODO::  above note pending updated bugpoint #5068
 
 By default, `bugpoint` is able to remove any part of the design.  In order to
 keep certain parts, for instance because you already know they are related to
@@ -176,6 +190,8 @@ you are using the ``-runner`` option, try replacing the `bugpoint` command with
 ``write_rtlil test.il`` and then on a new line, ``!<wrapper> yosys -s
 <failure.ys> test.il`` to check it works as expected and returns a non-zero
 status.
+
+.. TODO:: note on ``!`` (link to :ref:`getting_started/scripting_intro:script parsing`)
 
 Depending on the size of your design, and the length of your ``<failure.ys>``,
 `bugpoint` may take some time; remember, it will run ``yosys -s <failure.ys>``
