@@ -15,3 +15,4 @@ ways Yosys can interact with designs for a deeper investigation.
 
    synthesis/index
    more_scripting/index
+   bugpoint
