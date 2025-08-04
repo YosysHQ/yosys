@@ -1103,6 +1103,42 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		int counter = 0;
 		label_genblks(existing, counter);
 		std::map<std::string, AstNode*> this_wire_scope;
+		
+		// Process package imports after clearing the scope but before processing module declarations
+		for (auto &child : children) {
+			if (child->type == AST_IMPORT) {
+				// Find the package in the design
+				AstNode *package_node = nullptr;
+				for (auto &design_child : current_ast->children) {
+					if (design_child->type == AST_PACKAGE && design_child->str == child->str) {
+						package_node = design_child;
+						break;
+					}
+				}
+				
+				if (package_node) {
+					// Import all names from the package into current scope
+					for (auto &pkg_child : package_node->children) {
+						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM || 
+							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION || 
+							pkg_child->type == AST_TASK || pkg_child->type == AST_ENUM) {
+							current_scope[pkg_child->str] = pkg_child;
+						}
+						if (pkg_child->type == AST_ENUM) {
+							for (auto enode : pkg_child->children) {
+								log_assert(enode->type==AST_ENUM_ITEM);
+								if (current_scope.count(enode->str) == 0)
+									current_scope[enode->str] = enode;
+								else
+									input_error("enum item %s already exists in current scope\n", enode->str.c_str());
+							}
+						}
+					}
+				} else {
+					input_error("Package `%s' not found for import\n", child->str.c_str());
+				}
+			}
+		}
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
 

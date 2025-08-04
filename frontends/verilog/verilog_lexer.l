@@ -334,6 +334,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "specparam"    { return TOK_SPECPARAM; }
 "package"      { SV_KEYWORD(TOK_PACKAGE); }
 "endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
+"import"       { SV_KEYWORD(TOK_IMPORT); }
 "interface"    { SV_KEYWORD(TOK_INTERFACE); }
 "endinterface" { SV_KEYWORD(TOK_ENDINTERFACE); }
 "modport"      { SV_KEYWORD(TOK_MODPORT); }
