@@ -119,9 +119,44 @@ Minimizing scripts
 - if you're using command line, convert it to a script
 - if you're using one of the :doc:`/using_yosys/synthesis/synth`, replace it
   with its contents
+
+  + can also do this piece-wise with the ``-run`` option
+  + e.g. replacing ``synth -top <top> -lut`` with :ref:`replace_synth`
+  + the options ``-top <top> -lut`` can be provided to each `synth` step, or
+    to just the step(s) where it is relevant, as done here
+
+.. code-block:: yoscrypt
+   :caption: example replacement script for `synth` command
+   :name: replace_synth
+
+   synth -top <top> -run :coarse
+   synth -lut -run coarse:fine
+   synth -lut -run fine:check
+   synth -run check:
+
 - remove everything *after* the error occurs
 - can use `log` command to print messages to help locate the failure point
 - `echo` can also help (``echo on``)
+
+  + if you used a ``-run`` option like in :ref:`replace_synth` above, you can
+    now replace the failing step with its contents and repeat the above if
+    needed
+  + checking the log should tell you the last command that ran which can make
+    this easier
+  + say we ran :ref:`replace_synth` and were able to remove the ``synth -run
+    check:`` and still got our error, then we check the log and we see the last
+    thing before the error was `7.2. Executing MEMORY_MAP pass (converting
+    memories to logic and flip-flops).`
+  + we can then update our script to the following:
+
+.. code-block:: yoscrypt
+   :caption: example replacement script for `synth` when `memory_map` is failing
+
+   synth -top <top> -run :fine
+   opt -fast -full
+   memory_map
+
+
 - try ``write_rtlil <design.il>; design -reset; read_rtlil <design.il>;`` before
   the failure point
 
