@@ -104,33 +104,75 @@ that the pass/fail can be detected correctly.  Multiple calls to `exec` can be
 made, or even entire shell scripts (e.g. ``exec -expect-return 1 -- bash
 <script.sh>``).
 
+Our final failure we can use with `bugpoint` is one returned by a wrapper
+process, such as ``valgrind`` or ``timeout``.  In this case you will be calling
+something like ``<wrapper> yosys -s <failure.ys> design.il``.  Here, Yosys is
+run under a wrapper process which checks for some failure state, like a memory
+leak or excessive runtime.  Note however that unlike the `exec` command, there
+is currently no way to check the return status or messages from the wrapper
+process; only a binary pass/fail.
+
 
 How do I use bugpoint?
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- follow `bugpoint` instructions
-- output design after `bugpoint` with `write_rtlil`
-- use ``-grep "<string>"`` to only accept a minimized design that crashes
-  with the ``<string>`` in the log file
+At this point you should have:
 
-  + only checks log file, will not match runtime errors
-  + can be particularly important for scripts with multiple commands to avoid
-    unrelated failures
-  + call e.g. ``yosys -qqp '<command>' design.il`` or  ``yosys -qqs <failure.ys>
-    design.il`` to print only the error message(s) and use that (or a portion of
-    that) as the ``<string>`` to search for
+1. either an RTLIL file containing the design to minimize (referred to here as
+   ``design.il``), or a Yosys script, ``<load.ys>``, which loads it; and
+2. a Yosys script, ``<failure.ys>``, which produces the failure and returns a
+   non-zero return status.
 
-- ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
-  parts of the design to be removed (default is to allow removing all)
+Now call ``yosys -qq -s <failure.ys> design.il`` and take note of the error(s)
+that get printed.  A template script, ``<bugpoint.ys>``, is provided here which
+you can use.  Make sure to configure it with the correct filenames and use only
+one of the methods to load the design.  Fill in the ``-grep`` option with the
+error message printed just before.  If you are using a wrapper process for your
+failure state, add the ``-runner "<wrapper>"`` option to the `bugpoint` call.
+For more about the options available, check ``help bugpoint`` or
+:doc:`/cmd/bugpoint`.
 
-  + use the ``bugpoint_keep`` attribute on objects you don't want to be
-    removed, usually because you already know they are related to the failure
-  + ``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in
-    RTLIL, or ``setattr -set bugpoint_keep 1 [selection]`` from script
+.. code-block:: yoscrypt
+   :caption: ``<bugpoint.ys>`` template script
 
-- ``-runner "<prefix>"`` can allow running ``yosys`` wrapped by another command
-- can also use `setenv` before `bugpoint` to set environment variables for
-  the spawned processes (e.g. ``setenv UBSAN_OPTIONS halt_on_error=1``)
+   # Load design
+   read_rtlil design.il
+   ## OR
+   script <load.ys>
+
+   # Call bugpoint with failure
+   bugpoint -script <failure.ys> -grep "<string>"
+
+   # Save minimized design
+   write_rtlil min.il
+
+.. note::
+
+   Using ``-grep "<string>"`` with `bugpoint` is optional, but helps to ensure
+   that the minimized design is reproducing the right error, especially when
+   ``<failure.ys>`` contains more than one command.  Unfortunately this does not
+   work with runtime errors such as a ``SEGFAULT`` as it is only able to match
+   strings from the log file.
+
+.. TODO::  Consider checking ``run_command`` return value for runtime errors.
+
+   Currently ``BugpointPass::run_yosys`` returns ``run_command(yosys_cmdline) ==
+   0``, so it shouldn't be too hard to add an option for it.  Could also be
+   used with the ``-runner`` option, which might give it a bit more flexibility.
+
+By default, `bugpoint` is able to remove any part of the design.  In order to
+keep certain parts, for instance because you already know they are related to
+the failure, you can use the ``bugpoint_keep`` attribute.  This can be done with
+``(* bugpoint_keep *)`` in Verilog, ``attribute \bugpoint_keep 1`` in RTLIL, or
+``setattr -set bugpoint_keep 1 [selection]`` from a Yosys script.  It is also
+possible to limit `bugpoint` to only removing certain *kinds* of objects, such
+as only removing entire modules or cells (instances of modules).  For more about
+the options available, check ``help bugpoint`` or :doc:`/cmd/bugpoint`.
+
+In some situations, it may also be helpful to use `setenv` before `bugpoint` to
+set environment variables for the spawned processes.  An example of this is
+``setenv UBSAN_OPTIONS halt_on_error=1`` for where you are trying to raise an
+error on undefined behaviour but only want the child process to halt on error.
 
 .. note::
 
@@ -139,6 +181,24 @@ How do I use bugpoint?
    processes, as does the :doc:`Yosys environment variable</appendix/env_vars>`
    ``ABC`` because they are only read on start-up.  While others, such as
    ``YOSYS_NOVERIFIC`` and ``HOME``, are evaluated each time they are used.
+
+Once you have finished configuration, you can now run ``yosys <bugpoint.ys>``.
+The first thing `bugpoint` will do is test the input design fails.  If it
+doesn't, make sure you are using the right ``yosys`` executable; unless the
+``-yosys`` option is provided, it will use whatever the shell defaults to.  If
+you are using the ``-runner`` option, try replacing the `bugpoint` command with
+``write_rtlil test.il`` and then on a new line, ``!<wrapper> yosys -s
+<failure.ys> test.il`` to check it works as expected and returns a non-zero
+status.
+
+Depending on the size of your design, and the length of your ``<failure.ys>``,
+`bugpoint` may take some time; remember, it will run ``yosys -s <failure.ys>``
+on each iteration of the design.  The bigger the design, the more iterations.
+The longer the ``<failure.ys>``, the longer each iteration will take.  As the
+design shrinks and `bugpoint` converges, each iteration should take less and
+less time.  Once all simplifications are exhausted and there are no more objects
+that can be removed, the script will continue and the minimized design can be
+saved.
 
 
 What do I do with the minimized design?
