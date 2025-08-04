@@ -1,41 +1,62 @@
 Minimizing failing (or bugged) designs
 ======================================
 
-- how to guide
-- assumes knowledge and familiarity with Yosys
-- something is wrong with your design OR something is wrong with Yosys
+.. TODO:: pending merge of https://github.com/YosysHQ/yosys/pull/5068
 
-  + how to work out which
+This document is a how-to guide for reducing problematic designs to the bare
+minimum needed for reproducing the issue.  This is a Yosys specific alternative
+to the Stack Overflow article: `How to create a Minimal, Reproducible Example`_,
+and is intended to help when there's something wrong with your design, or with
+Yosys itself.
 
-- *read* the error message
-- is it a Yosys error? (starts with ERROR:)
+.. _How to create a Minimal, Reproducible Example: https://stackoverflow.com/help/minimal-reproducible-example
 
-  + does it give you a line number from your design
+.. note::
 
-- is it a runtime error, e.g. SEGFAULT
-- are you using the latest release of Yosys
+   This guide assumes a moderate degree of familiarity with Yosys and requires
+   some amount of problem solving ability.
 
-  + has your problem already been fixed
 
-- is your input design valid?
+Before you start
+----------------
 
-  + if you're using Verilog, try load it with `iverilog`_ or `verilator`_
+The first (and often overlooked) step, is to check for and *read* any error
+messages or warnings.  Passing the ``-q`` flag when running Yosys will make it
+so that only warnings and error messages are written to the console.  Don't just
+read the last message either, there may be warnings that indicate a problem
+before it happens.  While some things may only be regarded as warnings, such as
+multiple drivers for the same signal or logic loops, these can cause problems in
+some synthesis flows but not others.
+
+A Yosys error (one that starts with ``ERROR:``) may give you a line number from
+your design, or the name of the object causing issues.  If so, you may already
+have enough information to resolve the problem, or at least understand why it's
+happening.
+
+.. note::
+
+   If you're not already, try using the latest version from the `Yosys GitHub`_.
+   You may find that your issue has already been fixed!  And even if it isn't,
+   testing with two different versions is a good way to ensure reproducibility.
+
+.. _Yosys GitHub: https://github.com/YosysHQ/yosys
+
+Another thing to be aware of is that Yosys generally doesn't perform rigorous
+checking of input designs to ensure they are valid.  This is especially true for
+the `read_verilog` frontend.  It is instead recommended that you try load it
+with `iverilog`_ or `verilator`_ first, as an invalid design can often lead to
+unexpected issues.
 
 .. _iverilog: https://steveicarus.github.io/iverilog/
 .. _verilator: https://www.veripool.org/verilator/
 
-- are there any warnings before the error (either immediately before or in an
-  earlier command) that could be related?
-- does calling `check` before the failure give any errors or warnings?
-- did you call `hierarchy` before the failure?
-
-  + can you call ``hierarchy -check``?
-
-- make sure to back up your code (design source and yosys script(s)) before
-  making any modifications
-
-  + even if the code itself isn't important, this can help avoid "losing" the
-    error while trying to debug it
+If you're using a custom synthesis script, try take a bit of time to figure out
+which command is failing.  Calling ``echo on`` at the start of your script will
+`echo` each command executed; the last echo before the error should then be
+where the error has come from.  Check the help message for the failing command;
+does it indicate limited support, or mention some other command that needs to be
+run first?  You can also try to call `check` and/or ``hierarchy -check`` before
+the failure to see if they report and errors or warnings.
 
 
 Minimizing RTLIL designs with bugpoint
@@ -46,6 +67,12 @@ smallest portion of that design which still results in failure.  While initially
 developed for Yosys crashes, `bugpoint` can also be used for designs that lead
 to non-fatal errors, or even failures in other tools that use the output of a
 Yosys script.
+
+.. note::
+
+   Make sure to back up your code (design source and yosys script(s)) before
+   making any modifications.  Even if the code itself isn't important, this can
+   help avoid "losing" the error while trying to debug it.
 
 Can I use bugpoint?
 ~~~~~~~~~~~~~~~~~~~
@@ -102,11 +129,7 @@ Our final failure we can use with `bugpoint` is one returned by a wrapper
 process, such as ``valgrind`` or ``timeout``.  In this case you will be calling
 something like ``<wrapper> yosys -s <failure.ys> design.il``.  Here, Yosys is
 run under a wrapper process which checks for some failure state, like a memory
-leak or excessive runtime.  Note however that unlike the `exec` command, there
-is currently no way to check the return status or messages from the wrapper
-process; only a binary pass/fail.
-
-.. TODO:: above note pending updated bugpoint #5068
+leak or excessive runtime.
 
 
 How do I use bugpoint?
@@ -125,8 +148,6 @@ you can use.  Make sure to configure it with the correct filenames and use only
 one of the methods to load the design.  Fill in the ``-grep`` option with the
 error message printed just before.  If you are using a wrapper process for your
 failure state, add the ``-runner "<wrapper>"`` option to the `bugpoint` call.
-For more about the options available, check ``help bugpoint`` or
-:doc:`/cmd/bugpoint`.
 
 .. code-block:: yoscrypt
    :caption: ``<bugpoint.ys>`` template script
@@ -142,15 +163,17 @@ For more about the options available, check ``help bugpoint`` or
    # Save minimized design
    write_rtlil min.il
 
+The ``-grep`` option is used to search the log file generated by the Yosys under
+test.  If the error message is generated by something else, such as a wrapper
+process or compiler sanitizer, then you should instead use ``-err_grep``.  For
+an OS error, like a SEGFAULT, you can also use ``-expect-return`` to check the
+error code returned.
+
 .. note::
 
-   Using ``-grep "<string>"`` with `bugpoint` is optional, but helps to ensure
-   that the minimized design is reproducing the right error, especially when
-   ``<failure.ys>`` contains more than one command.  Unfortunately this does not
-   work with runtime errors such as a ``SEGFAULT`` as it is only able to match
-   strings from the log file.
-
-.. TODO::  above note pending updated bugpoint #5068
+   Checking the error message or return status with is optional, but helps to
+   ensure that the minimized design is reproducing the right error, especially
+   when ``<failure.ys>`` contains more than one command.
 
 By default, `bugpoint` is able to remove any part of the design.  In order to
 keep certain parts, for instance because you already know they are related to
@@ -177,13 +200,16 @@ error on undefined behaviour but only want the child process to halt on error.
 Once you have finished configuration, you can now run ``yosys <bugpoint.ys>``.
 The first thing `bugpoint` will do is test the input design fails.  If it
 doesn't, make sure you are using the right ``yosys`` executable; unless the
-``-yosys`` option is provided, it will use whatever the shell defaults to.  If
-you are using the ``-runner`` option, try replacing the `bugpoint` command with
-``write_rtlil test.il`` and then on a new line, ``!<wrapper> yosys -s
-<failure.ys> test.il`` to check it works as expected and returns a non-zero
-status.
+``-yosys`` option is provided, it will use whatever the shell defaults to, *not*
+the current ``yosys``.  If you are using the ``-runner`` option, try replacing
+the `bugpoint` command with ``write_rtlil test.il`` and then on a new line,
+``!<wrapper> yosys -s <failure.ys> test.il`` to check it works as expected and
+returns a non-zero status.
 
-.. TODO:: note on ``!`` (link to :ref:`getting_started/scripting_intro:script parsing`)
+.. seealso::
+
+   For more on script parsing and the use of ``!``, check out
+   :ref:`getting_started/scripting_intro:script parsing`.
 
 Depending on the size of your design, and the length of your ``<failure.ys>``,
 `bugpoint` may take some time; remember, it will run ``yosys -s <failure.ys>``
@@ -231,12 +257,19 @@ Once you've verified the failure still happens, check out
 Minimizing Verilog designs
 --------------------------
 
+.. seealso::
+
+   This section is not specific to Yosys, so feel free to use another guide such
+   as Stack Overflow's `How to create a Minimal, Reproducible Example`_.
+
 Unlike RTLIL designs where we can use `bugpoint`, minimizing Verilog designs is
 a much more manual, iterative process.  Be sure to check any errors or warnings
 for messages that might identify source lines or object names that might be
 causing the failure, and back up your source code before modifying it.  At any
 point in the process, you can check for anything that is unused or totally
-disconnected (ports, wires, etc) and remove them too.
+disconnected (ports, wires, etc) and remove them too.  If you have multiple
+source files, try to reduce them down to a single file; either by removing files
+or combining them.
 
 .. note::
 
@@ -264,7 +297,7 @@ those too.  Any signals which are written but never read can also be removed.
 
    Depending on where the design is failing, there are some commands which may
    help in identifying unused objects in the design.  `hierarchy` will identify
-   which modules are used and which are not, but check for `$paramod` modules
+   which modules are used and which are not, but check for ``$paramod`` modules
    before removing unused ones. ``debug clean`` will list all unused wires in
    each module, as well as unused cells which were automatically generated
    (giving the line number of the source that generated them).  Adding the
@@ -272,48 +305,70 @@ those too.  Any signals which are written but never read can also be removed.
    by `clean`.  Though when there are large numbers of unused wires it is often
    easier to just delete sections of the code and see what happens.
 
-- try to remove or reduce assignments and operations
+Next, try to remove or reduce assignments (``a = b``) and operations (``a +
+b``).  A good place to start is by checking for any wires/registers which are
+read but never written.  Try removing the signal declaration and replacing
+references to it with ``'0`` or ``'x``.  Do this with any constants too.  Try to
+replace strings with numeric values, and wide signals with smaller ones, then
+see if the error persists.
 
-  + are there any wires/registers which get read but never written?
+Check if there are any operations that you can simplify, like replacing ``a &
+'0`` with ``'0``.  If you have enable or reset logic, try removing it and see if
+the error still occurs.  Try reducing ``if .. else`` and ``case`` blocks to a
+single case.  Even if that doesn't work, you may still be able to remove some
+paths; start with cases that appear to be unreachable and go from there.
 
-    * try removing the signal declaration and replacing references to it with
-      ``'0`` or ``'x``
-    * try this with constants too
+If you're planning to share the minimized code, remember to make sure there is
+no sensitive or proprietary data in the design.  Maybe rename that
+``ibex_prefetch_buffer`` module to ``buf``, and ``very_important_signal_name``
+could just as easily be ``sig``.  The point here isn't to make names as small as
+possible, but rather to remove the context that is no longer necessary.  Calling
+something ``multiplier_output_value`` doesn't mean as much if you no longer have
+the multiplier being referred to; but if the name does still make sense then
+it's fine to leave it as-is.
 
-  + can you replace strings with numeric values?
-  + are you able to simplify any operations?  like replacing ``a & '0`` with
-    ``'0``
-  + if you have enable or reset logic, does the error still happen without that?
-  + can you reduce an ``if .. else`` to a single case?
-  + can you remove states from a ``case`` block?
+.. note::
 
-- if you're planning to share the minimized code:
-
-  + make sure there is no sensitive or proprietary data in the design
-  + instead of a long string of numbers and letters that had some meaning (or
-    were randomly or sequentially generated), can you give it a single character
-    name like ``a`` or ``x``
-  + please try to keep things in English, using the letters a-z and numbers 0-9
-    (unless the error is arising because of the names used)
+   When sharing code on the `Yosys GitHub`_, please try to keep things in
+   English.  Declarations and strings should stick to the letters a-z and
+   numbers 0-9, unless the error is arising because of the names/characters
+   used.
 
 
 Identifying issues
 ------------------
 
-- does the failing command indicate limited support, or does it mention some
-  other command that needs to be run first?
-- if you're able to, try to match the minimized design back to its original
-  context
+When identifying issues, it is quite useful to understand the conditions under
+which the issue is occurring.  While there are occasionally bugs that affect a
+significant number of designs, Yosys changes are tested on a variety of designs
+and operating systems which typically catch any such issues before they make it
+into the main branch.  So what is is it about your situation that makes it
+unusual?
 
-  + could you achieve the same thing a different way?
-  + and if so, does this other method have the same issue?
+.. note::
 
-- try to change the design in small ways and see what happens
+   If you have access to a different platform you could also check if your issue
+   is reproducible there.  Some issues may be specific to the platform or build
+   of Yosys.
 
-  + `bugpoint` can reduce and simplify a design, but it doesn't *change* much
-  + what happens if you change operators, for example a left shift (or `$shl`)
-    to a right shift (or `$shr`)?
-  + is the issue tied to specific parameters, widths, or values?
+Try to match the minimized design back to its original context.  Could you
+achieve the same thing a different way, and if so, does this other method have
+the same issue?  Try to change the design in small ways and see what happens;
+while `bugpoint` can reduce and simplify a design, it doesn't *change* much.
+What happens if you change operators, for example a left shift (or `$shl`) to a
+right shift (or `$shr`)?  Try to see if the issue is tied to specific
+parameters, widths, or values.
+
+Search `the existing issues`_ and see if someone has already made a bug report.
+This is where changing the design and finding the limits of what causes the
+failure really comes in handy.  If you're more familiar with how the problem can
+arise, you may be able to find a related issue more easily.  If an issue already
+exists for one case of the problem but you've found other cases, you can comment
+on the issue and help get it solved.  If there are no existing or related issues
+already, then check out the steps for
+:ref:`yosys_internals/extending_yosys/contributing:reporting bugs`.
+
+.. _the existing issues: https://github.com/YosysHQ/yosys/issues
 
 .. warning::
 
@@ -322,17 +377,3 @@ Identifying issues
    more than one fuzzer generated issue at a time if you can not identify the
    root cause.  If you are found to be doing this, your issues may be closed
    without further investigation.
-
-- search `the existing issues`_ and see if someone has already made a bug report
-
-  + this is where changing the design and finding the limits of what causes the
-    failure really comes in handy
-  + if you're more familiar with how the problem can arise, you may be able to
-    find a related issue more easily
-  + if an issue already exists for one case of the problem but you've found
-    other cases, you can comment on the issue and help get it solved
-
-.. _the existing issues: https://github.com/YosysHQ/yosys/issues
-
-- if there are no existing or related issues already, then check out the steps
-  for :ref:`yosys_internals/extending_yosys/contributing:reporting bugs`
