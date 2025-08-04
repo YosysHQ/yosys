@@ -119,6 +119,11 @@ jobs:
   upload_wheels:
     name: Upload Wheels
     runs-on: ubuntu-latest
+    # Specifying a GitHub environment is optional, but strongly encouraged
+    environment: pypi
+    permissions:
+      # IMPORTANT: this permission is mandatory for Trusted Publishing
+      id-token: write
     needs: build_wheels
     steps:
       - uses: actions/download-artifact@v4
@@ -132,6 +137,3 @@ jobs:
           mv *.whl ./dist
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
-          repository-url: ${{ vars.PYPI_INDEX || 'https://upload.pypi.org/legacy/' }}
