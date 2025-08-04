@@ -1109,10 +1109,24 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (child->type == AST_IMPORT) {
 				// Find the package in the design
 				AstNode *package_node = nullptr;
+				
+				// First look in current_ast->children (for packages in same file)
 				for (auto &design_child : current_ast->children) {
-					if (design_child->type == AST_PACKAGE && design_child->str == child->str) {
-						package_node = design_child;
-						break;
+					if (design_child->type == AST_PACKAGE) {
+						if (design_child->str == child->str) {
+							package_node = design_child;
+							break;
+						}
+					}
+				}
+				
+				// If not found, look in design->verilog_packages (for packages from other files)
+				if (!package_node && simplify_design_context != nullptr) {
+					for (auto &design_package : simplify_design_context->verilog_packages) {
+						if (design_package->str == child->str) {
+							package_node = design_package;
+							break;
+						}
 					}
 				}
 				
