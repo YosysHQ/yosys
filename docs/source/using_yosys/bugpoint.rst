@@ -49,24 +49,10 @@ The first thing to be aware of is that `bugpoint` is not available in every
 build of Yosys.  Because the command works by invoking external processes, it
 requires that Yosys can spawn executables.  Notably this means `bugpoint` is not
 able to be used in WebAssembly builds such as that available via YoWASP.  The
-easiest way to check your build of Yosys is by running ``yosys -qq -p '!echo
-test'``.  If this echoes ``test`` in the console, then `bugpoint` will work as
-expected.  If instead if it displays the text ``ERROR: Shell is not available.``
-then `bugpoint` will not work either.
-
-.. note::
-
-   The console command ``yosys -qq -p '!echo test'`` uses the ``-qq`` flag to
-   prevent Yosys from outputting non-error messages to the console.  The ``-p``
-   option executes ``!echo test`` as a Yosys command, attempting to pass ``echo
-   test`` to the shell for execution.  For more about the ``-p`` option and
-   common pitfalls, check out :ref:`getting_started/scripting_intro:script
-   parsing` in the :doc:`/getting_started/index` section.
-
-.. TODO:: Add ``YOSYS_DISABLE_SPAWN`` check in ``bugpoint.cc``.
-
-   At least in the help text, so that ``yosys -h bugpoint`` will correctly
-   indicate if the command will work instead of this roundabout method.
+easiest way to check your build of Yosys is by running ``yosys -h bugpoint``. If
+Yosys displays the help text for `bugpoint` then it is available for use, but if
+it instead prints "No such command or cell type: bugpoint", then `bugpoint` is
+not available.
 
 Next you need to separate loading the design from the failure point; you should
 be aiming to reproduce the failure by running ``yosys -s <load.ys> -s
@@ -314,6 +300,15 @@ used.
    Before continuing further, *back up your code*.  The following steps can
    remove context and lead to over-minimizing scripts, hiding underlying issues.
    Check out :ref:`using_yosys/bugpoint:Why context matters` to learn more.
+
+When a problem is occurring many steps into a script, minimizing the design at
+the start of the script isn't always enough to identify the cause of the issue.
+Each extra step of the script can lead to larger sections of the input design
+being needed for the specific problem to be preserved until it causes a crash.
+So to find the smallest possible reproducer it can sometimes be helpful to
+remove commands prior to the failure point.
+
+
 
 - try ``write_rtlil <design.il>; design -reset; read_rtlil <design.il>;`` before
   the failure point
@@ -588,8 +583,8 @@ Reproduction Steps
   + you can browse the source repository for a certain commit with the failure
     and open the source file, select the relevant lines (click on the line
     number for the first relevant line, then while holding shift click on the
-    line number for the last relevant line), click on the `...` that appears and
-    select "Copy permalink"
+    line number for the last relevant line), click on the ``...`` that appears
+    and select "Copy permalink"
   + should look something like
     ``https://github.com/YosysHQ/yosys/blob/<commit_hash>/path/to/file#L139-L147``
   + clicking on "Preview" should reveal a code block containing the lines of
