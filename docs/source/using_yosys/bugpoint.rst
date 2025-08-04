@@ -231,29 +231,47 @@ Once you've verified the failure still happens, check out
 Minimizing Verilog designs
 --------------------------
 
-- manual process
-- made easier if the error message is able to identify the source line or name
-  of the object
-- reminder to back up original code before modifying it
-- if a specific module is causing the problem, try to set that as the top
-  module, you can then remove 
+Unlike RTLIL designs where we can use `bugpoint`, minimizing Verilog designs is
+a much more manual, iterative process.  Be sure to check any errors or warnings
+for messages that might identify source lines or object names that might be
+causing the failure, and back up your source code before modifying it.  At any
+point in the process, you can check for anything that is unused or totally
+disconnected (ports, wires, etc) and remove them too.
 
-  + if the problem is parameter specific you may be able to change the default
-    parameters so that they match the problematic configuration
+.. note::
 
-- if you have no idea what is or is not relevant, try to follow a "binary
-  search" type approach where you remove (or comment out) roughly half of what's
-  left at a time
-- focusing on one type of object at a time simplifies the process, removing as
-  many as you can until the error disappears if any of the remaining objects are
-  removed
-- periodically check if anything is totally disconnected (ports, wires, etc), if
-  it is then it can be removed too
-- start by removing cells (instances of modules)
+   If a specific module is causing the problem, try to set that as the top
+   module instead.  Any parameters should have their default values changed to
+   match the failing usage.
 
-  + if a module has no more instances, remove it entirely
+As a rule of thumb, try to split things roughly in half at each step; similar to
+a "binary search".  If you have 10 cells (instances of modules) in your top
+module, and have no idea what is causing the issue, split them into two groups
+of 5 cells.  For each group of cells, try remove them and see if the failure
+still happens.  If the error still occurs with the first group removed, but
+disappears when the second group is removed, then the first group can be safely
+removed.  If a module has no more instances, remove it entirely.  Repeat this
+for each remaining group of cells until each group only has 1 cell in it and no
+more cells can be removed without making the error disappear.  You can also
+repeat this for each module still in your design.
 
-- then processes
+After minimizing the number of cells, do the same for the process blocks in your
+top module.  And again for any generate blocks and combinational blocks.
+Remember to check for any ports or signals which are no longer used and remove
+those too.  Any signals which are written but never read can also be removed.
+
+.. note::
+
+   Depending on where the design is failing, there are some commands which may
+   help in identifying unused objects in the design.  `hierarchy` will identify
+   which modules are used and which are not, but check for `$paramod` modules
+   before removing unused ones. ``debug clean`` will list all unused wires in
+   each module, as well as unused cells which were automatically generated
+   (giving the line number of the source that generated them).  Adding the
+   ``-purge`` flag will also include named wires that would normally be ignored
+   by `clean`.  Though when there are large numbers of unused wires it is often
+   easier to just delete sections of the code and see what happens.
+
 - try to remove or reduce assignments and operations
 
   + are there any wires/registers which get read but never written?
@@ -267,6 +285,7 @@ Minimizing Verilog designs
     ``'0``
   + if you have enable or reset logic, does the error still happen without that?
   + can you reduce an ``if .. else`` to a single case?
+  + can you remove states from a ``case`` block?
 
 - if you're planning to share the minimized code:
 
