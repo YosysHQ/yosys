@@ -1,8 +1,6 @@
 Notes on Verilog support in Yosys
 =================================
 
-.. TODO:: how much of this is specific to the read_verilog and should be in :doc:`/yosys_internals/flow/verilog_frontend`?
-
 Unsupported Verilog-2005 Features
 ---------------------------------
 
