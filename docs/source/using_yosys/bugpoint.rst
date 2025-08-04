@@ -67,8 +67,11 @@ Minimizing RTLIL designs with bugpoint
   + output design after `bugpoint` with `write_rtlil`
   + use ``-grep "<string>"`` to only accept a minimized design that crashes
     with the ``<string>`` in the log file
+
+    * only checks log file, will not match runtime errors
+
   + ``-modules``, ``-ports``, ``-cells``, and ``-processes`` will enable those
-    parts of the design to be removed
+    parts of the design to be removed (default is allow removing all)
 
     * use the ``bugpoint_keep`` attribute on objects you don't want to be
       removed, usually because you already know they are related to the failure
@@ -88,6 +91,23 @@ Minimizing RTLIL designs with bugpoint
    the :doc:`Yosys environment variable</appendix/env_vars>` ``ABC``.  While
    others such as ``YOSYS_NOVERIFIC`` and ``HOME`` are evaluated each time they
    are used.
+
+- check minimized design still fails, especially if not using `write_rtlil`
+
+  + e.g. if you ran :ref:`bugpoint_script` below, then calling ``yosys -s
+    <failure.ys> min.v`` should still fail in the same way
+  + `write_rtlil` is more reliable since `bugpoint` will have run that exact
+    code through the failing script; other ``write_*`` commands convert from the
+    RTLIL and then back again during the ``read_*`` which can result in
+    differences which mean the design no longer fails
+
+.. code-block:: yoscrypt
+   :caption: example `bugpoint` minimizer
+   :name: bugpoint_script
+
+   read_verilog design.v
+   bugpoint -script <failure.ys>
+   write_verilog min.v
 
 
 .. _minimize your script:
