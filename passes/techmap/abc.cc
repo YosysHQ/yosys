@@ -156,7 +156,7 @@ struct AbcModuleState {
 	int map_autoidx = 0;
 	std::vector<gate_t> signal_list;
 	dict<RTLIL::SigBit, int> signal_map;
-	FfInitVals initvals;
+	FfInitVals &initvals;
 	bool had_init = false;
 	bool did_run_abc = false;
 
@@ -171,7 +171,8 @@ struct AbcModuleState {
 
 	std::string tempdir_name;
 
-	AbcModuleState(const AbcConfig &config) : config(config) {}
+	AbcModuleState(const AbcConfig &config, FfInitVals &initvals)
+		: config(config), initvals(initvals) {}
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
@@ -777,7 +778,6 @@ struct abc_output_filter
 void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 	bool dff_mode, std::string clk_str)
 {
-	initvals.set(&assign_map, module);
 	map_autoidx = autoidx++;
 
 	if (clk_str != "$")
@@ -2148,6 +2148,11 @@ struct AbcPass : public Pass {
 
 			AbcSigMap assign_map;
 			assign_map.set(mod);
+			// Create an FfInitVals and use it for all ABC runs. FfInitVals only cares about
+			// wires with the ID::init attribute and we don't add or remove any such wires
+			// in this pass.
+			FfInitVals initvals;
+			initvals.set(&assign_map, mod);
 
 			for (auto wire : mod->wires())
 				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
@@ -2157,7 +2162,7 @@ struct AbcPass : public Pass {
 				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
 				assign_cell_connection_ports(mod, {&cells}, assign_map);
 
-				AbcModuleState state(config);
+				AbcModuleState state(config, initvals);
 				state.abc_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				state.extract(assign_map, design, mod);
 				state.finish();
@@ -2180,8 +2185,6 @@ struct AbcPass : public Pass {
 			dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
 			dict<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			FfInitVals initvals;
-			initvals.set(&assign_map, mod);
 			for (auto cell : all_cells)
 			{
 				clkdomain_t key;
@@ -2321,7 +2324,7 @@ struct AbcPass : public Pass {
 				assign_cell_connection_ports(mod, cell_sets, assign_map);
 			}
 			for (auto &it : assigned_cells) {
-				AbcModuleState state(config);
+				AbcModuleState state(config, initvals);
 				state.clk_polarity = std::get<0>(it.first);
 				state.clk_sig = assign_map(std::get<1>(it.first));
 				state.en_polarity = std::get<2>(it.first);
