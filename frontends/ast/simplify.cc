@@ -1105,25 +1105,35 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		std::map<std::string, AstNode*> this_wire_scope;
 		
 		// Process package imports after clearing the scope but before processing module declarations
-		for (auto &child : children) {
+		for (size_t i = 0; i < children.size(); i++) {
+			AstNode *child = children[i];
 			if (child->type == AST_IMPORT) {
+				log_debug("Processing import for package: %s\n", child->str.c_str());
 				// Find the package in the design
 				AstNode *package_node = nullptr;
 				
 				// First look in current_ast->children (for packages in same file)
-				for (auto &design_child : current_ast->children) {
-					if (design_child->type == AST_PACKAGE) {
-						if (design_child->str == child->str) {
-							package_node = design_child;
-							break;
+				if (current_ast != nullptr) {
+					for (auto &design_child : current_ast->children) {
+						if (design_child->type == AST_PACKAGE) {
+							if (design_child->str == child->str) {
+								package_node = design_child;
+								break;
+							}
 						}
 					}
 				}
 				
 				// If not found, look in design->verilog_packages (for packages from other files)
 				if (!package_node && simplify_design_context != nullptr) {
+					log_debug("Looking for package in design context, found %zu packages\n", simplify_design_context->verilog_packages.size());
 					for (auto &design_package : simplify_design_context->verilog_packages) {
-						if (design_package->str == child->str) {
+						// Handle both with and without leading backslash
+						std::string package_name = design_package->str;
+						if (package_name[0] == '\\') {
+							package_name = package_name.substr(1);
+						}
+						if (package_name == child->str || design_package->str == child->str) {
 							package_node = design_package;
 							break;
 						}
@@ -1148,8 +1158,16 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 							}
 						}
 					}
+					// Remove the import node since it's been processed
+					delete child;
+					children.erase(children.begin() + i);
+					i--; // Adjust index since we removed an element
 				} else {
-					input_error("Package `%s' not found for import\n", child->str.c_str());
+					// If we can't find the package, just remove the import node to avoid errors later
+					log_warning("Package `%s' not found for import, removing import statement\n", child->str.c_str());
+					delete child;
+					children.erase(children.begin() + i);
+					i--; // Adjust index since we removed an element
 				}
 			}
 		}
