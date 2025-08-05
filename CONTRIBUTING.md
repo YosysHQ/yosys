@@ -19,14 +19,14 @@ much easier for someone to respond and help.
 
 ### Bug reports
 
-Before you submit an issue, please have a search of the existing issues in case
-one already exists.  Making sure that you have a minimal, complete and
-verifiable example (MVCE) is a great way to quickly check an existing issue
-against a new one.  Stack overflow has a guide on [how to create an
-MVCE](https://stackoverflow.com/help/minimal-reproducible-example).  The
-[`bugpoint`
-command](https://yosyshq.readthedocs.io/projects/yosys/en/latest/cmd/bugpoint.html)
-in Yosys can be helpful for this process.
+Before you submit an issue, please check out the [how-to guide for
+`bugpoint`](https://yosys.readthedocs.io/en/latest/using_yosys/bugpoint.html).
+This guide will take you through the process of using the [`bugpoint`
+command](https://yosys.readthedocs.io/en/latest/cmd/bugpoint.html) in Yosys to
+produce a [minimal, complete and verifiable
+example](https://stackoverflow.com/help/minimal-reproducible-example) (MVCE).
+Providing an MVCE with your bug report drastically increases the likelihood that
+someone will be able to help resolve your issue.
 
 
 # Using pull requests
