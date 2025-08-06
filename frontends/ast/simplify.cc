@@ -1108,7 +1108,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *child = children[i];
 			if (child->type == AST_IMPORT) {
-				log_debug("Processing import for package: %s\n", child->str.c_str());
 				// Find the package in the design
 				AstNode *package_node = nullptr;
 
@@ -1126,7 +1125,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// If not found, look in design->verilog_packages (for packages from other files)
 				if (!package_node && simplify_design_context != nullptr) {
-					log_debug("Looking for package in design context, found %zu packages\n", simplify_design_context->verilog_packages.size());
 					for (auto &design_package : simplify_design_context->verilog_packages) {
 						// Handle both with and without leading backslash
 						std::string package_name = design_package->str;
