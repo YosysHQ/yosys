@@ -86,7 +86,7 @@ Yosys frontends
 The `read_verilog` command
 """"""""""""""""""""""""""
 
-- :doc:`/cmd/read_verilog`
+- :doc:`/cmd/index_frontends`
 - supports most of Verilog-2005
 - limited support for SystemVerilog
 - some non-standard features/extensions for enabling formal verification

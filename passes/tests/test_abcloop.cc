@@ -243,7 +243,9 @@ static void test_abcloop()
 }
 
 struct TestAbcloopPass : public Pass {
-	TestAbcloopPass() : Pass("test_abcloop", "automatically test handling of loops in abc command") { }
+	TestAbcloopPass() : Pass("test_abcloop", "automatically test handling of loops in abc command") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

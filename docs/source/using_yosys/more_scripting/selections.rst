@@ -93,7 +93,7 @@ Special patterns can be used to select by object property or type. For example:
   A:blabla`
 - select all `$add` cells from the module foo: :yoscrypt:`select foo/t:$add`
 
-A complete list of pattern expressions can be found in :doc:`/cmd/select`.
+A complete list of pattern expressions can be found in :cmd:title:`select`.
 
 Operations on selections
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,7 +141,7 @@ Some of the special ``%``-codes:
 - ``%i``: intersection of top two elements on stack -- pop 2, push 1
 - ``%n``: inverse of top element on stack -- pop 1, push 1
 
-See :doc:`/cmd/select` for the full list.
+See :cmd:title:`select` for the full list.
 
 Expanding selections
 ^^^^^^^^^^^^^^^^^^^^
@@ -354,7 +354,7 @@ boolean operations such as intersection (``%i``) and difference (``%d``) are
 powerful tools for extracting the relevant portions of the circuit under
 investigation.
 
-Again, see :doc:`/cmd/select` for full documentation of these expressions.
+Again, see :cmd:title:`select` for full documentation of these expressions.
 
 Incremental selection
 ^^^^^^^^^^^^^^^^^^^^^
