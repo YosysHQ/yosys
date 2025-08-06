@@ -124,7 +124,7 @@ static bool is_hex_dig(char c, int *val)
 		*val = c - 'A' + 0xA;
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "'%c' not a valid digit in hex escape sequence.\n", c);
+		log_file_warning(AST::current_filename, frontend_verilog_yyget_lineno(), "'%c' not a valid digit in hex escape sequence.\n", c);
 		*val = 0; // not semantically valid in hex escape...
 		return true; // ...but still processed as part of hex token
 	}
@@ -138,7 +138,7 @@ static bool is_oct_dig(char c, int *val)
 		*val = c - '0';
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "'%c' not a valid digit in octal escape sequence.\n", c);
+		log_file_warning(AST::current_filename, frontend_verilog_yyget_lineno(), "'%c' not a valid digit in octal escape sequence.\n", c);
 		*val = 0; // not semantically valid in octal escape...
 		return true; // ...but still processed as part of octal token
 	}
@@ -158,7 +158,7 @@ static std::string *process_str(char *str, int len, bool triple)
 			if (in + 1 < str + len && (in[1] ^ *in) == ('\n' ^ '\r'))
 				in++;
 			if (!triple)
-				log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "Multi-line string literals should be triple-quoted or escaped.\n");
+				log_file_warning(AST::current_filename, frontend_verilog_yyget_lineno(), "Multi-line string literals should be triple-quoted or escaped.\n");
 			*out++ = '\n';
 			break;
 		case '\\':
@@ -195,7 +195,7 @@ static std::string *process_str(char *str, int len, bool triple)
 					}
 					out++;
 				} else
-					log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "ignoring invalid hex escape.\n");
+					log_file_warning(AST::current_filename, frontend_verilog_yyget_lineno(), "ignoring invalid hex escape.\n");
 				break;
 			case '\\':
 				*out++ = '\\';
@@ -218,7 +218,7 @@ static std::string *process_str(char *str, int len, bool triple)
 						in++;
 						if (in + 1 < str + len && is_oct_dig(in[1], &val)) {
 							if (*out >= 040)
-								log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "octal escape exceeds \\377\n");
+								log_file_warning(AST::current_filename, frontend_verilog_yyget_lineno(), "octal escape exceeds \\377\n");
 							*out = *out * 010 + val;
 							in++;
 						}

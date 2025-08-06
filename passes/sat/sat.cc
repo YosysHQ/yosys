@@ -634,10 +634,10 @@ struct SatHelper
 						    "---------------------------------------------------------------------------------------------------"
 						    "---------------------------------------------------------------------------------------------------";
 				if (last_timestep == -2) {
-					log(max_timestep > 0 ? "  Time " : "  ");
+					log("%s", max_timestep > 0 ? "  Time " : "  ");
 					log("%-*s %11s %9s %*s\n", maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
-				log(max_timestep > 0 ? "  ---- " : "  ");
+				log("%s", max_timestep > 0 ? "  ---- " : "  ");
 				log("%*.*s %11.11s %9.9s %*.*s\n", maxModelName+5, maxModelName+5,
 						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
