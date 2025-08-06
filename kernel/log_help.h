@@ -26,7 +26,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 class ContentListing {
-	vector<ContentListing *> _content;
+	vector<ContentListing> _content;
 public:
 	string type;
 	string body;
@@ -45,22 +45,17 @@ public:
 	ContentListing(string type, string body, source_location location) :
 		ContentListing(type, body, location.file_name(), location.line()) { }
 
-	void add_content(ContentListing *new_content) {
-		_content.push_back(new_content);
-	}
-
 	void add_content(string type, string body, source_location location) {
-		auto new_content = new ContentListing(type, body, location);
-		add_content(new_content);
+		_content.push_back({type, body, location});
 	}
 
-	bool has_content() { return _content.size() != 0; }
-	const vector<ContentListing *> get_content() {
-		const vector<ContentListing *> content = _content;
-		return content;
-	}
+	bool has_content() const { return _content.size() != 0; }
+
+	vector<ContentListing>::const_iterator begin() const { return _content.cbegin(); }
+	vector<ContentListing>::const_iterator end() const { return _content.cend(); }
+
 	ContentListing* back() {
-		return _content.back();
+		return &_content.back();
 	}
 
 	void set_option(string key, string val = "") {
@@ -95,7 +90,7 @@ public:
 		const source_location location = source_location::current()
 	);
 
-	Json to_json();
+	Json to_json() const;
 };
 
 class PrettyHelp
@@ -113,18 +108,19 @@ public:
 
 	static PrettyHelp *get_current();
 
-	bool has_content() { return _root_listing.has_content(); }
-	const vector<ContentListing *> get_content() {
-		return _root_listing.get_content();
-	}
+	bool has_content() const { return _root_listing.has_content(); }
+
+	vector<ContentListing>::const_iterator begin() const { return _root_listing.begin(); }
+	vector<ContentListing>::const_iterator end() const { return _root_listing.end(); }
+
 	ContentListing* get_root() {
 		return &_root_listing;
 	}
 
 	void set_group(const string g) { group = g; }
-	bool has_group() { return group.compare("unknown") != 0; }
+	bool has_group() const { return group.compare("unknown") != 0; }
 
-	void log_help();
+	void log_help() const;
 };
 
 YOSYS_NAMESPACE_END
