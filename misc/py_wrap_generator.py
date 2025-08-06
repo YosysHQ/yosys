@@ -515,11 +515,11 @@ class TupleTranslator(PythonDictTranslator):
 		if types[0].name.split(" ")[-1] in primitive_types:
 			text += varname + "___tmp_0, "
 		else:
-			text += varname + "___tmp_0.get_cpp_obj(), "
+			text += "*" + varname + "___tmp_0.get_cpp_obj(), "
 		if types[1].name.split(" ")[-1] in primitive_types:
 			text += varname + "___tmp_1);"
 		else:
-			text += varname + "___tmp_1.get_cpp_obj());"
+			text += "*" + varname + "___tmp_1.get_cpp_obj());"
 		return text
 
 	#Generate c++ code to translate to a boost::python::tuple
