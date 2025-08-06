@@ -22,9 +22,16 @@ sat -set-assumes -prove-asserts -verify
 # sat -prove-asserts -verify
 
 # so should $equiv
+## in equiv_simple
 design -load input
 equiv_make gold gate equiv
 equiv_simple -set-assumes equiv
+equiv_status -assert equiv
+
+## and equiv_induct
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 # and it works through cells
@@ -53,6 +60,11 @@ sat -set-assumes -prove-asserts -verify
 design -load input2
 equiv_make gold gate equiv
 equiv_simple -set-assumes equiv
+equiv_status -assert equiv
+
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
 equiv_status -assert equiv
 
 # and registers
@@ -87,6 +99,11 @@ equiv_make gold gate equiv
 equiv_simple -set-assumes equiv
 equiv_status -assert equiv
 
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
+equiv_status -assert equiv
+
 # so long as the assumption doesn't end up after the equiv
 design -reset
 read_verilog -sv <<EOT
@@ -105,6 +122,9 @@ chformal -lower
 async2sync
 design -stash input4
 
+logger -expect log "model found: FAIL!" 1
+logger -expect log "Found a total of 2 unproven .equiv cells." 2
+
 design -load input4
 equiv_make -make_assert gold gate equiv
 prep -top equiv
@@ -113,4 +133,9 @@ sat -set-assumes -prove-asserts
 design -load input4
 equiv_make gold gate equiv
 equiv_simple -set-assumes equiv
+equiv_status equiv
+
+delete equiv
+equiv_make gold gate equiv
+equiv_induct -set-assumes equiv
 equiv_status equiv
