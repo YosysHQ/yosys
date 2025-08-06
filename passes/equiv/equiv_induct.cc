@@ -79,10 +79,12 @@ struct EquivInductWorker
 		}
 
 		if (set_assumes) {
-			RTLIL::SigSpec assumes_a, assumes_en;
-			satgen.getAssumes(assumes_a, assumes_en, step);
-			for (int i = 0; i < GetSize(assumes_a); i++)
-				log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+			if (step == 1) {
+				RTLIL::SigSpec assumes_a, assumes_en;
+				satgen.getAssumes(assumes_a, assumes_en, step);
+				for (int i = 0; i < GetSize(assumes_a); i++)
+					log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+			}
 			ez->assume(satgen.importAssumes(step));
 		}
 

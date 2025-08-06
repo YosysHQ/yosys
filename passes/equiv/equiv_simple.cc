@@ -243,10 +243,12 @@ struct EquivSimpleWorker
 			}
 
 			if (set_assumes) {
-				RTLIL::SigSpec assumes_a, assumes_en;
-				satgen.getAssumes(assumes_a, assumes_en, step+1);
-				for (int i = 0; i < GetSize(assumes_a); i++)
-					log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+				if (verbose && step == max_seq) {
+					RTLIL::SigSpec assumes_a, assumes_en;
+					satgen.getAssumes(assumes_a, assumes_en, step+1);
+					for (int i = 0; i < GetSize(assumes_a); i++)
+						log("    Import constraint from assume cell: %s when %s (%d).\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]), step);
+				}
 				ez->assume(satgen.importAssumes(step+1));
 			}
 
