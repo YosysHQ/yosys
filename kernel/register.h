@@ -116,7 +116,7 @@ struct ScriptPass : Pass
 	RTLIL::Design *active_design;
 	std::string active_run_from, active_run_to;
 
-	ScriptPass(std::string name, std::string short_help = "** document me **", source_location location = source_location::current()) : 
+	ScriptPass(std::string name, std::string short_help = "** document me **", source_location location = source_location::current()) :
 		Pass(name, short_help, location) { }
 
 	virtual void script() = 0;
