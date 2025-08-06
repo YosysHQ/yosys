@@ -200,7 +200,7 @@ class WType:
 
 			t.cont = candidate
 			if(t.name not in known_containers):
-				return None	
+				return None
 			return t
 
 		prefix = ""
@@ -447,7 +447,7 @@ class PythonDictTranslator(Translator):
 			if types[0].attr_type != attr_types.star:
 				text += "*"
 			text += key_tmp_name + "->get_cpp_obj()"
-		
+
 		text += ", "
 		if types[1].name not in classnames:
 			text += val_tmp_name
@@ -457,7 +457,7 @@ class PythonDictTranslator(Translator):
 			text += val_tmp_name + "->get_cpp_obj()"
 		text += "));\n" + prefix + "}"
 		return text
-	
+
 	#Generate c++ code to translate to a boost::python::dict
 	@classmethod
 	def translate_cpp(c, varname, types, prefix, ref):
@@ -498,7 +498,7 @@ class DictTranslator(PythonDictTranslator):
 #Sub_type for std::map
 class MapTranslator(PythonDictTranslator):
 	insert_name = "insert"
-	orig_name = "std::map"	
+	orig_name = "std::map"
 
 #Translator for std::pair. Derived from PythonDictTranslator because the
 #gen_type function is the same (because both have two template parameters)
@@ -684,7 +684,7 @@ class Attribute:
 		if self.wtype.name in known_containers:
 			return known_containers[self.wtype.name].typename
 		return prefix + self.wtype.name
-		
+
 	#Generate Translation code for the attribute
 	def gen_translation(self):
 		if self.wtype.name in known_containers:
@@ -948,7 +948,7 @@ class WClass:
 			text = "\n\t\tclass_<" + self.name + base_info + ">(\"" + self.name + "\""
 			text += body
 		return text
-	
+
 
 	def contains_default_constr(self):
 		for c in self.found_constrs:
@@ -1773,7 +1773,7 @@ class WMember:
 		if self.wtype.name in classnames:
 			text += ")"
 		text += ";"
-		
+
 		if self.wtype.name in classnames:
 			text += "\n\t\treturn *ret_;"
 		elif self.wtype.name in known_containers:
@@ -1795,12 +1795,12 @@ class WMember:
 		text += "\n\t{"
 		text += ret.gen_translation()
 		text += "\n\t\tthis->get_cpp_obj()->" + self.name + " = " + ret.gen_call() + ";"
-		text += "\n\t}\n"		
+		text += "\n\t}\n"
 
 		return text;
 
 	def gen_boost_py(self):
-		text = "\n\t\t\t.add_property(\"" + self.name + "\", &" + self.member_of.name + "::get_var_py_" + self.name 
+		text = "\n\t\t\t.add_property(\"" + self.name + "\", &" + self.member_of.name + "::get_var_py_" + self.name
 		if not self.is_const:
 			text += ", &" + self.member_of.name + "::set_var_py_" + self.name
 		text += ")"
@@ -1926,7 +1926,7 @@ class WGlobal:
 		if self.wtype.name in classnames:
 			text += ")"
 		text += ";"
-		
+
 		if self.wtype.name in classnames:
 			text += "\n\t\treturn *ret_;"
 		elif self.wtype.name in known_containers:
@@ -1948,12 +1948,12 @@ class WGlobal:
 		text += "\n\t{"
 		text += ret.gen_translation()
 		text += "\n\t\t" + self.namespace + "::" + self.name + " = " + ret.gen_call() + ";"
-		text += "\n\t}\n"		
+		text += "\n\t}\n"
 
 		return text;
 
 	def gen_boost_py(self):
-		text = "\n\t\t\t.add_static_property(\"" + self.name + "\", &" + "YOSYS_PYTHON::get_var_py_" + self.name 
+		text = "\n\t\t\t.add_static_property(\"" + self.name + "\", &" + "YOSYS_PYTHON::get_var_py_" + self.name
 		if not self.is_const:
 			text += ", &YOSYS_PYTHON::set_var_py_" + self.name
 		text += ")"
