@@ -1103,7 +1103,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		int counter = 0;
 		label_genblks(existing, counter);
 		std::map<std::string, AstNode*> this_wire_scope;
-		
+
 		// Process package imports after clearing the scope but before processing module declarations
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *child = children[i];
@@ -1111,7 +1111,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				log_debug("Processing import for package: %s\n", child->str.c_str());
 				// Find the package in the design
 				AstNode *package_node = nullptr;
-				
+
 				// First look in current_ast->children (for packages in same file)
 				if (current_ast != nullptr) {
 					for (auto &design_child : current_ast->children) {
@@ -1123,7 +1123,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						}
 					}
 				}
-				
+
 				// If not found, look in design->verilog_packages (for packages from other files)
 				if (!package_node && simplify_design_context != nullptr) {
 					log_debug("Looking for package in design context, found %zu packages\n", simplify_design_context->verilog_packages.size());
@@ -1139,12 +1139,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						}
 					}
 				}
-				
+
 				if (package_node) {
 					// Import all names from the package into current scope
 					for (auto &pkg_child : package_node->children) {
-						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM || 
-							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION || 
+						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM ||
+							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION ||
 							pkg_child->type == AST_TASK || pkg_child->type == AST_ENUM) {
 							current_scope[pkg_child->str] = pkg_child;
 						}
