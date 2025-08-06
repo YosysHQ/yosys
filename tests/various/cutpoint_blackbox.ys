@@ -70,3 +70,20 @@ design -load gold
 select -read cutpoint.gate.sel
 # nothing in gold but not gate
 select -assert-none % %n
+
+# replacing the blackbox with a verific-style unknown module should work too
+# (note this specific example loses the values of SOME_PARAM which would
+#  normally be retained by verific)
+design -load hier
+delete =bb
+read_rtlil << EOT
+attribute \blackbox 1
+module \bb
+    parameter \SOME_PARAM 0
+    wire inout 3 \o
+    wire inout 2 \b
+    wire inout 1 \a
+end
+EOT
+cutpoint -blackbox
+check -assert
