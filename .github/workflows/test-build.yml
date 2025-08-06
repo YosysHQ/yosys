@@ -225,6 +225,7 @@ jobs:
         run: |
           make config-clang
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
           make -j$procs
 
       - name: Install doc prereqs

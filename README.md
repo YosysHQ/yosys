@@ -281,4 +281,6 @@ It is recommended to use the `ENABLE_HELP_SOURCE` make option for Yosys builds
 that will be used to build the documentation.  This option enables source
 location tracking for passes and improves the command reference through grouping
 related commands and allowing for the documentation to link to the corresponding
-source files.
+source files.  Without this, a warning will be raised during the Sphinx build
+about `Found commands assigned to group unknown` and `make docs` is configured
+to fail on warnings by default.
