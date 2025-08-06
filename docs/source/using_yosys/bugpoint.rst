@@ -185,7 +185,7 @@ the failure, you can use the ``bugpoint_keep`` attribute.  This can be done with
 ``setattr -set bugpoint_keep 1 [selection]`` from a Yosys script.  It is also
 possible to limit `bugpoint` to only removing certain *kinds* of objects, such
 as only removing entire modules or cells (instances of modules).  For more about
-the options available, check ``help bugpoint`` or :doc:`/cmd/bugpoint`.
+the options available, check ``help bugpoint`` or :cmd:title:`bugpoint`.
 
 In some situations, it may also be helpful to use `setenv` before `bugpoint` to
 set environment variables for the spawned processes.  An example of this is

@@ -57,6 +57,7 @@ The `read` command
 Yosys frontends
 ~~~~~~~~~~~~~~~
 
+- :doc:`/cmd/index_frontends`
 - typically start with ``read_``
 - built-in support for heredocs
 
@@ -86,7 +87,12 @@ Yosys frontends
 The `read_verilog` command
 """"""""""""""""""""""""""
 
-- :doc:`/cmd/index_frontends`
+- :cmd:title:`read_verilog`; also
+
+  + :cmd:title:`verilog_defaults`,
+  + :cmd:title:`verilog_defines`, and
+  + :cmd:title:`read_verilog_file_list`
+
 - supports most of Verilog-2005
 - limited support for SystemVerilog
 - some non-standard features/extensions for enabling formal verification
@@ -117,12 +123,12 @@ The `read_verilog` command
 Other built-in ``read_*`` commands
 """"""""""""""""""""""""""""""""""
 
-- :doc:`/cmd/read_rtlil`
-- :doc:`/cmd/read_aiger`
-- :doc:`/cmd/read_blif`
-- :doc:`/cmd/read_json`
-- :doc:`/cmd/read_liberty`
-- :doc:`/cmd/read_xaiger2`
+- :cmd:title:`read_rtlil`
+- :cmd:title:`read_aiger`
+- :cmd:title:`read_blif`
+- :cmd:title:`read_json`
+- :cmd:title:`read_liberty`
+- :cmd:title:`read_xaiger2`
 
 .. TODO:: does `write_file` count?
 
