@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 
@@ -237,6 +238,11 @@ struct FmcombineWorker
 
 struct FmcombinePass : public Pass {
 	FmcombinePass() : Pass("fmcombine", "combine two instances of a cell into one") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

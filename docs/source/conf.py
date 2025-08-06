@@ -43,8 +43,12 @@ html_static_path = ['_static', "_images"]
 # default to no highlight
 highlight_language = 'none'
 
-# default single quotes to attempt auto reference, or fallback to code
+# default single quotes to attempt auto reference, or fallback to yoscrypt
 default_role = 'autoref'
+rst_prolog = """
+.. role:: yoscrypt(code)
+   :language: yoscrypt
+"""
 
 extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
@@ -105,12 +109,14 @@ latex_elements = {
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]
-extensions.append('util.cmdref')
+extensions.append('util.custom_directives')
 
 # use autodocs
 extensions.append('sphinx.ext.autodoc')
-extensions.append('util.cellref')
+extensions.append('util.cell_documenter')
 cells_json = Path(__file__).parent / 'generated' / 'cells.json'
+extensions.append('util.cmd_documenter')
+cmds_json = Path(__file__).parent / 'generated' / 'cmds.json'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:

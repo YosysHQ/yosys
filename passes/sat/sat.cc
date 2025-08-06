@@ -21,17 +21,12 @@
 // Niklas Een and Niklas Sörensson (2003)
 // http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8161
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/consteval.h"
 #include "kernel/sigtools.h"
-#include "kernel/log.h"
 #include "kernel/satgen.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <algorithm>
-#include <errno.h>
-#include <string.h>
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -902,6 +897,11 @@ void print_qed()
 
 struct SatPass : public Pass {
 	SatPass() : Pass("sat", "solve a SAT problem in the circuit") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
