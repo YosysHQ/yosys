@@ -71,7 +71,7 @@ keyword_aliases = {
 
 #These can be used without any explicit conversion
 primitive_types = ["void", "bool", "int", "double", "size_t", "std::string",
-		"string", "State", "char_p"]
+		"string", "State", "char_p", "std::source_location", "source_location"]
 
 from enum import Enum
 
@@ -1137,10 +1137,18 @@ class WConstructor:
 		str_def = str_def[0:found].strip()
 		if len(str_def) == 0:
 			return con
-		for arg in split_list(str_def, ","):
+		args = split_list(str_def, ",")
+		for i, arg in enumerate(args):
 			parsed = Attribute.from_string(arg.strip(), containing_file, line_number)
 			if parsed == None:
 				return None
+			# Only allow std::source_location as defaulted last argument, and
+			# don't append so it takes default value
+			if parsed.wtype.name in ["std::source_location", "source_location"]:
+				if parsed.default_value is None or i != len(args) - 1:
+					debug("std::source_location not defaulted last arg of " + class_.name + " is unsupported", 2)
+					return None
+				continue
 			con.args.append(parsed)
 		return con
 
@@ -1379,12 +1387,20 @@ class WFunction:
 		str_def = str_def[:found].strip()
 		if(len(str_def) == 0):
 			return func
-		for arg in split_list(str_def, ","):
+		args = split_list(str_def, ",")
+		for i, arg in enumerate(args):
 			if arg.strip() == "...":
 				continue
 			parsed = Attribute.from_string(arg.strip(), containing_file, line_number)
 			if parsed == None:
 				return None
+			# Only allow std::source_location as defaulted last argument, and
+			# don't append so it takes default value
+			if parsed.wtype.name in ["std::source_location", "source_location"]:
+				if parsed.default_value is None or i != len(args) - 1:
+					debug("std::source_location not defaulted last arg of " + func.name + " is unsupported", 2)
+					return None
+				continue
 			func.args.append(parsed)
 		return func
 
