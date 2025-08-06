@@ -23,22 +23,22 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#include <version>
-#if __cpp_lib_source_location == 201907L
-  #include <source_location>
-  using std::source_location;
-#elif defined(__has_include)
-#  if __has_include(<experimental/source_location>)
-    #include <experimental/source_location>
-    using std::experimental::source_location;
-#  else
-    #define SOURCE_FALLBACK
-#  endif
-#else
-  #define SOURCE_FALLBACK
+#ifdef YOSYS_ENABLE_HELP_SOURCE
+	#include <version>
+#	if __cpp_lib_source_location == 201907L
+		#include <source_location>
+		using std::source_location;
+		#define HAS_SOURCE_LOCATION
+#	elif defined(__has_include)
+#		if __has_include(<experimental/source_location>)
+			#include <experimental/source_location>
+			using std::experimental::source_location;
+			#define HAS_SOURCE_LOCATION
+#		endif
+#	endif
 #endif
 
-#ifdef SOURCE_FALLBACK
+#ifndef HAS_SOURCE_LOCATION
 struct source_location { // dummy placeholder
 	int line() const { return 0; }
 	int column() const { return 0; }

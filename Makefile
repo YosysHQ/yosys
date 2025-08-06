@@ -24,6 +24,7 @@ ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_HELP_SOURCE := 0
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -107,6 +108,10 @@ ifeq ($(OS), MINGW)
 EXE_LINKFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
 PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
 PLUGIN_LIBS := -lyosys_exe
+endif
+
+ifeq ($(ENABLE_HELP_SOURCE),1)
+CXXFLAGS += -DYOSYS_ENABLE_HELP_SOURCE
 endif
 
 PKG_CONFIG ?= pkg-config
