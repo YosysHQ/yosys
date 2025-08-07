@@ -41,12 +41,12 @@ struct SynthGateMatePass : public ScriptPass
 		log("        use the specified module as top module.\n");
 		log("\n");
 		log("    -vlog <file>\n");
-		log("        write the design to the specified verilog file. Writing of an output\n");
-		log("        file is omitted if this parameter is not specified.\n");
+		log("        write the design to the specified verilog file. Writing of an\n");
+		log("        output file is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -json <file>\n");
-		log("        write the design to the specified JSON file. Writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
+		log("        write the design to the specified JSON file. Writing of an output\n");
+		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). An empty\n");
@@ -65,11 +65,15 @@ struct SynthGateMatePass : public ScriptPass
 		log("    -nomult\n");
 		log("        do not use CC_MULT multiplier cells in output netlist.\n");
 		log("\n");
+		log("    -noconstmult\n");
+		log("        do not use CC_MULT multiplier cells to multiply with a constants\n");
+		log("        in output netlist.\n");
+		log("\n");
 		log("    -nomx8, -nomx4\n");
 		log("        do not use CC_MX{8,4} multiplexer cells in output netlist.\n");
 		log("\n");
 		log("    -luttree\n");
-		log("        use new LUT tree mapping approach (EXPERIMENTAL).\n");
+		log("        use new LUT tree mapping approach (for nextpnr output).\n");
 		log("\n");
 		log("    -dff\n");
 		log("        run 'abc' with -dff option\n");
@@ -90,7 +94,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
+	bool noflatten, nobram, noaddf, nomult, noconstmult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
 
 	void clear_flags() override
 	{
@@ -101,6 +105,7 @@ struct SynthGateMatePass : public ScriptPass
 		nobram = false;
 		noaddf = false;
 		nomult = false;
+		noconstmult = false;
 		nomx4 = false;
 		nomx8 = false;
 		luttree = false;
@@ -152,6 +157,10 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			if (args[argidx] == "-nomult") {
 				nomult = true;
+				continue;
+			}
+			if (args[argidx] == "-noconstmult") {
+				noconstmult = true;
 				continue;
 			}
 			if (args[argidx] == "-nomx4") {
@@ -232,7 +241,10 @@ struct SynthGateMatePass : public ScriptPass
 
 		if (check_label("map_mult", "(skip if '-nomult')") && !nomult)
 		{
-			run("techmap -map +/gatemate/mul_map.v");
+			if (help_mode)
+				run("techmap -map +/gatemate/mul_map.v [-D NO_CONST_MULT]", "(-D NO_CONST_MULT if -noconstmult)");
+			else
+				run(stringf("techmap -map +/gatemate/mul_map.v %s", noconstmult ? "-D NO_CONST_MULT" : ""));
 		}
 
 		if (check_label("coarse"))
