@@ -47,6 +47,7 @@ jobs:
           echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
           echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
           echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_HELP_SOURCE := 1" >> Makefile.conf
           make -j$procs ENABLE_LTO=1
 
       - name: Prepare docs
@@ -59,7 +60,6 @@ jobs:
         with:
           name: cmd-ref-${{ github.sha }}
           path: |
-            docs/source/cmd
             docs/source/generated
             docs/source/_images
             docs/source/code_examples

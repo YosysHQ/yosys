@@ -23,6 +23,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/utils.h"
 #include "kernel/satgen.h"
+#include "kernel/log_help.h"
 
 #include <algorithm>
 #include <queue>
@@ -690,6 +691,11 @@ struct RecoverNamesWorker {
 
 struct RecoverNamesPass : public Pass {
     RecoverNamesPass() : Pass("recover_names", "Execute a lossy mapping command and recover original netnames") { }
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/opt");
+		return false;
+	}
     void help() override
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

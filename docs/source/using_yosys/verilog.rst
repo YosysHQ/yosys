@@ -1,8 +1,6 @@
 Notes on Verilog support in Yosys
 =================================
 
-.. TODO:: how much of this is specific to the read_verilog and should be in :doc:`/yosys_internals/flow/verilog_frontend`?
-
 Unsupported Verilog-2005 Features
 ---------------------------------
 
@@ -96,7 +94,7 @@ Verilog Attributes and non-standard features
 - The ``keep_hierarchy`` attribute on cells and modules keeps the `flatten`
   command from flattening the indicated cells and modules.
 
-- The `gate_cost_equivalent` attribute on a module can be used to specify
+- The ``gate_cost_equivalent`` attribute on a module can be used to specify
   the estimated cost of the module as a number of basic gate instances. See
   the help message of command `keep_hierarchy` which interprets this
   attribute.

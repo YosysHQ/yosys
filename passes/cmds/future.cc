@@ -24,6 +24,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
@@ -110,6 +111,11 @@ struct FutureWorker {
 
 struct FuturePass : public Pass {
 	FuturePass() : Pass("future", "resolve future sampled value functions") {}
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("formal");
+		return false;
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

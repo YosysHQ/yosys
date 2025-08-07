@@ -24,6 +24,7 @@ ENABLE_VERIFIC_LIBERTY := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_HELP_SOURCE := 0
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -109,17 +110,15 @@ PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
 PLUGIN_LIBS := -lyosys_exe
 endif
 
+ifeq ($(ENABLE_HELP_SOURCE),1)
+CXXFLAGS += -DYOSYS_ENABLE_HELP_SOURCE
+endif
+
 PKG_CONFIG ?= pkg-config
 SED ?= sed
 BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
-
-ifneq ($(shell :; command -v rsync),)
-RSYNC_CP ?= rsync -rc
-else
-RSYNC_CP ?= cp -ru
-endif
 
 ifeq ($(OS), Darwin)
 PLUGIN_LINKFLAGS += -undefined dynamic_lookup
@@ -160,7 +159,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.55+150
+YOSYS_VER := 0.55+209
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2 | cut -d'+' -f1)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'+' -f2)
@@ -532,7 +531,6 @@ LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VE
 endif
 endif
 
-
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
@@ -634,6 +632,7 @@ $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/io.o kernel/gzip.o
+OBJS += kernel/log_help.o
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o
@@ -1035,19 +1034,8 @@ ifeq ($(ENABLE_PYOSYS),1)
 endif
 endif
 
-# also others, but so long as it doesn't fail this is enough to know we tried
-docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cmd
-	$(Q) mkdir -p temp/docs/source/cmd
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
-	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
-	$(Q) rm -rf temp
-docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cell
-	$(Q) mkdir -p temp/docs/source/cell
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
-	$(Q) $(RSYNC_CP) temp/docs/source/cell docs/source
-	$(Q) rm -rf temp
+docs/source/generated/cmds.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cmds-json $@'
 
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
@@ -1063,6 +1051,15 @@ docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc bac
 
 PHONY: docs/gen/functional_ir
 docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
+
+docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -qQT -h '$*' -l $@
+
+docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
+	$(Q) cp $< $@
+
+PHONY: docs/gen/chformal
+docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
 
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
@@ -1099,7 +1096,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage docs/gen/functional_ir
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal
 
 DOC_TARGET ?= html
 docs: docs/prep
@@ -1123,7 +1120,7 @@ clean:
 	rm -f  tests/tools/cmp_tbdata
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
-	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -rf docs/util/__pycache__
 	rm -f *.whl
 	rm -f libyosys.so
 
