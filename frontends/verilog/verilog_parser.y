@@ -418,6 +418,7 @@ static const AstNode *addAsgnBinopStmt(dict<IdString, AstNode*> *attr, AstNode *
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
 %token TOK_BIND TOK_TIME_SCALE
+%token TOK_IMPORT
 
 %type <ast> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
@@ -484,6 +485,7 @@ design:
 	localparam_decl design |
 	typedef_decl design |
 	package design |
+	import_stmt design |
 	interface design |
 	bind_directive design |
 	%empty;
@@ -729,6 +731,15 @@ package_body:
 
 package_body_stmt:
 	typedef_decl | localparam_decl | param_decl | task_func_decl;
+
+import_stmt:
+	TOK_IMPORT hierarchical_id TOK_PACKAGESEP '*' ';' {
+		// Create an import node to track package imports
+		AstNode *import_node = new AstNode(AST_IMPORT);
+		import_node->str = *$2;
+		ast_stack.back()->children.push_back(import_node);
+		delete $2;
+	};
 
 interface:
 	TOK_INTERFACE {
