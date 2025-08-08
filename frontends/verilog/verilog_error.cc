@@ -43,7 +43,7 @@ static void verr_at(std::string filename, int begin_line, char const *fmt, va_li
 }
 
 [[noreturn]]
-void VERILOG_FRONTEND::err_at_loc(location loc, char const *fmt, ...)
+void VERILOG_FRONTEND::err_at_loc(Location loc, char const *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);

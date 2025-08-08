@@ -10,7 +10,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND
 {
     [[noreturn]]
-    void err_at_loc(location loc, char const *fmt, ...);
+    void err_at_loc(Location loc, char const *fmt, ...);
 };
 
 YOSYS_NAMESPACE_END

@@ -38,7 +38,7 @@
 %define api.value.type variant
 %define api.prefix {frontend_verilog_yy}
 %define api.token.constructor
-%define api.location.type {location}
+%define api.location.type {Location}
 
 %param { YOSYS_NAMESPACE_PREFIX VERILOG_FRONTEND::VerilogLexer* lexer }
 %parse-param { YOSYS_NAMESPACE_PREFIX VERILOG_FRONTEND::ParseState* extra }
@@ -146,14 +146,10 @@
 	YOSYS_NAMESPACE_BEGIN
 	namespace VERILOG_FRONTEND {
 
-		static location location_range(location begin, location end) {
-			return location(begin.begin, end.end);
+		static Location location_range(Location begin, Location end) {
+			return Location(begin.begin, end.end);
 		}
 
-		static ConstParser make_ConstParser_here(parser::location_type flex_loc) {
-			ConstParser p{flex_loc};
-			return p;
-		}
 		static void append_attr(AstNode *ast, dict<IdString, std::unique_ptr<AstNode>> *al)
 		{
 			for (auto &it : *al) {
@@ -370,7 +366,7 @@
 		const AstNode *ParseState::addIncOrDecStmt(dict<IdString, std::unique_ptr<AstNode>> *stmt_attr,
 							std::unique_ptr<AstNode> lhs,
 							dict<IdString, std::unique_ptr<AstNode>> *op_attr, AST::AstNodeType op,
-							location loc)
+							Location loc)
 		{
 			auto one = AstNode::mkconst_int(loc, 1, true);
 			auto rhs = std::make_unique<AstNode>(loc, op, lhs->clone(), std::move(one));
@@ -385,7 +381,7 @@
 		}
 
 		// create a pre/post-increment/decrement expression, and add the corresponding statement
-		std::unique_ptr<AstNode> ParseState::addIncOrDecExpr(std::unique_ptr<AstNode> lhs, dict<IdString, std::unique_ptr<AstNode>> *attr, AST::AstNodeType op, location loc, bool undo, bool sv_mode)
+		std::unique_ptr<AstNode> ParseState::addIncOrDecExpr(std::unique_ptr<AstNode> lhs, dict<IdString, std::unique_ptr<AstNode>> *attr, AST::AstNodeType op, Location loc, bool undo, bool sv_mode)
 		{
 			ensureAsgnExprAllowed(loc, sv_mode);
 			const AstNode *stmt = addIncOrDecStmt(nullptr, std::move(lhs), attr, op, loc);
@@ -402,7 +398,7 @@
 		// add a binary operator assignment statement, e.g., a += b
 		std::unique_ptr<AstNode> ParseState::addAsgnBinopStmt(dict<IdString, std::unique_ptr<AstNode>> *attr, std::unique_ptr<AstNode> eq_lhs, AST::AstNodeType op, std::unique_ptr<AstNode> rhs)
 		{
-			location loc = location_range(eq_lhs->location, rhs->location);
+			Location loc = location_range(eq_lhs->location, rhs->location);
 			if (op == AST_SHIFT_LEFT || op == AST_SHIFT_RIGHT ||
 				op == AST_SHIFT_SLEFT || op == AST_SHIFT_SRIGHT) {
 				rhs = std::make_unique<AstNode>(rhs->location, AST_TO_UNSIGNED, std::move(rhs));
@@ -3219,7 +3215,7 @@ basic_expr:
 	TOK_LPAREN expr TOK_RPAREN integral_number {
 		if ($4->compare(0, 1, "'") != 0)
 			err_at_loc(@4, "Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
-		auto p = make_ConstParser_here(@4);
+		ConstParser p{@4};
 		auto val = p.const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		if (val == nullptr)
 			log_error("Value conversion failed: `%s'\n", $4->c_str());
@@ -3231,7 +3227,7 @@ basic_expr:
 		auto bits = std::make_unique<AstNode>(@$, AST_IDENTIFIER);
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits.get(), @1, @1);
-		auto p = make_ConstParser_here(@2);
+		ConstParser p{@2};
 		auto val = p.const2ast(*$2, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC(val.get(), @2, @2);
 		if (val == nullptr)
@@ -3239,7 +3235,7 @@ basic_expr:
 		$$ = std::make_unique<AstNode>(@$, AST_TO_BITS, std::move(bits), std::move(val));
 	} |
 	integral_number {
-		auto p = make_ConstParser_here(@1);
+		ConstParser p{@1};
 		$$ = p.const2ast(*$1, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC($$.get(), @1, @1);
 		if ($$ == nullptr)

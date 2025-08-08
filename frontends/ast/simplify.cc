@@ -684,7 +684,7 @@ static bool contains_unbased_unsized(const AstNode *node)
 
 // adds a wire to the current module with the given name that matches the
 // dimensions of the given wire reference
-void add_wire_for_ref(location loc, const RTLIL::Wire *ref, const std::string &str)
+void add_wire_for_ref(Location loc, const RTLIL::Wire *ref, const std::string &str)
 {
 	auto left = AstNode::mkconst_int(loc, ref->width - 1 + ref->start_offset, true);
 	auto right = AstNode::mkconst_int(loc, ref->start_offset, true);
