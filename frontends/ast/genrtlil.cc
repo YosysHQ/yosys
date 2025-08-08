@@ -2086,7 +2086,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->set_bool_attribute(ID::module_not_derived);
 
 			for (auto it = children.begin(); it != children.end(); it++) {
-				AstNode *child = it->get();
+				auto* child = it->get();
 				if (child->type == AST_CELLTYPE) {
 					cell->type = child->str;
 					if (flag_icells && cell->type.begins_with("\\$"))
@@ -2095,7 +2095,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 				if (child->type == AST_PARASET) {
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
-					const AstNode *value = child->children[0].get();
+					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
 						log_file_warning(*location.begin.filename, location.begin.line, "Replacing floating point parameter %s.%s = %f with string.\n",
 								log_id(cell), log_id(paraname), value->realvalue);
@@ -2108,7 +2108,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (child->type == AST_ARGUMENT) {
 					RTLIL::SigSpec sig;
 					if (child->children.size() > 0) {
-						AstNode *arg = child->children[0].get();
+						auto* arg = child->children[0].get();
 						int local_width_hint = -1;
 						bool local_sign_hint = false;
 						// don't inadvertently attempt to detect the width of interfaces

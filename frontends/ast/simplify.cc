@@ -698,13 +698,13 @@ static bool contains_unbased_unsized(const AstNode *node)
 // dimensions of the given wire reference
 void add_wire_for_ref(location loc, const RTLIL::Wire *ref, const std::string &str)
 {
-	std::unique_ptr<AstNode> left = AstNode::mkconst_int(loc, ref->width - 1 + ref->start_offset, true);
-	std::unique_ptr<AstNode> right = AstNode::mkconst_int(loc, ref->start_offset, true);
+	auto left = AstNode::mkconst_int(loc, ref->width - 1 + ref->start_offset, true);
+	auto right = AstNode::mkconst_int(loc, ref->start_offset, true);
 	if (ref->upto)
 		std::swap(left, right);
-	std::unique_ptr<AstNode> range = std::make_unique<AstNode>(loc, AST_RANGE, std::move(left), std::move(right));
+	auto range = std::make_unique<AstNode>(loc, AST_RANGE, std::move(left), std::move(right));
 
-	std::unique_ptr<AstNode> wire = std::make_unique<AstNode>(loc, AST_WIRE, std::move(range));
+	auto wire = std::make_unique<AstNode>(loc, AST_WIRE, std::move(range));
 	wire->is_signed = ref->is_signed;
 	wire->is_logic = true;
 	wire->str = str;
@@ -821,8 +821,8 @@ static bool try_determine_range_width(AstNode *range, int &result_width)
 		return true;
 	}
 
-	std::unique_ptr<AstNode> left_at_zero_ast = range->children[0]->clone_at_zero();
-	std::unique_ptr<AstNode> right_at_zero_ast = range->children[1]->clone_at_zero();
+	auto left_at_zero_ast = range->children[0]->clone_at_zero();
+	auto right_at_zero_ast = range->children[1]->clone_at_zero();
 
 	while (left_at_zero_ast->simplify(true, 1, -1, false)) {}
 	while (right_at_zero_ast->simplify(true, 1, -1, false)) {}
@@ -1575,7 +1575,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (children[0]->type == AST_WIRE) {
 			int width = 1;
 			std::unique_ptr<AstNode> node;
-			AstNode* child = children[0].get();
+			auto* child = children[0].get();
 			if (child->children.size() == 0) {
 				// Base type (e.g., int)
 				width = child->range_left - child->range_right +1;
@@ -1591,7 +1591,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (resolved_type_node->type != AST_TYPEDEF)
 					input_error("`%s' does not name a type\n", type_name.c_str());
 				log_assert(resolved_type_node->children.size() == 1);
-				AstNode *template_node = resolved_type_node->children[0].get();
+				auto* template_node = resolved_type_node->children[0].get();
 
 				// Ensure typedef itself is fully simplified
 				while (template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
@@ -2048,7 +2048,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Pretend it's just a wire in order to resolve the type in the code block above.
 			AstNodeType param_type = type;
 			type = AST_WIRE;
-			std::unique_ptr<AstNode> expr = std::move(children.front());
+			auto expr = std::move(children.front());
 			children.erase(children.begin());
 			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) {};
 			type = param_type;
@@ -2130,13 +2130,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				range_right = children[0]->range_right;
 				bool force_upto = false, force_downto = false;
 				if (attributes.count(ID::force_upto)) {
-					AstNode *val = attributes[ID::force_upto].get();
+					auto* val = attributes[ID::force_upto].get();
 					if (val->type != AST_CONSTANT)
 						input_error("Attribute `force_upto' with non-constant value!\n");
 					force_upto = val->asAttrConst().as_bool();
 				}
 				if (attributes.count(ID::force_downto)) {
-					AstNode *val = attributes[ID::force_downto].get();
+					auto* val = attributes[ID::force_downto].get();
 					if (val->type != AST_CONSTANT)
 						input_error("Attribute `force_downto' with non-constant value!\n");
 					force_downto = val->asAttrConst().as_bool();
@@ -3307,7 +3307,7 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 			else
 			{
-				std::unique_ptr<AstNode>& the_range = children[0]->children[1];
+				auto& the_range = children[0]->children[1];
 				std::unique_ptr<AstNode> offset_ast;
 				int width;
 
@@ -5165,7 +5165,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 				std::vector<RTLIL::State> x_bits;
 				for (int i = 0; i < width; i++)
 					x_bits.push_back(RTLIL::State::Sx);
-				std::unique_ptr<AstNode> constant = AstNode::mkconst_bits(location, x_bits, false);
+				auto constant = AstNode::mkconst_bits(location, x_bits, false);
 				constant->cloneInto(*this);
 			}
 		}
@@ -5427,7 +5427,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 	while (!block->children.empty())
 	{
 		// log("%zu left in block %p\n", block->children.size(), block.get());
-		std::unique_ptr<AstNode>& stmt = block->children.front();
+		auto& stmt = block->children.front();
 
 #if 0
 		log("-----------------------------------\n");
