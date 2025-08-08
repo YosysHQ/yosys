@@ -19,8 +19,8 @@ namespace VERILOG_FRONTEND {
 	class VerilogLexer : public frontend_verilog_yyFlexLexer {
 		ParseState* extra;
 		ParseMode* mode;
+		parser::location_type out_loc;
 	public:
-		parser::location_type out_loc; // TODO private?
 		VerilogLexer(ParseState* e, ParseMode* m, std::shared_ptr<string> filename) : frontend_verilog_yyFlexLexer(e->lexin), extra(e), mode(m) {
 			out_loc.begin.filename = filename;
 		}
