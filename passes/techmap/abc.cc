@@ -59,6 +59,11 @@
 #include <memory>
 #include <vector>
 
+#ifdef __linux__
+#  include <fcntl.h>
+#  include <spawn.h>
+#  include <sys/wait.h>
+#endif
 #ifndef _WIN32
 #  include <unistd.h>
 #  include <dirent.h>
@@ -151,6 +156,121 @@ struct AbcSigVal {
 	}
 };
 
+#if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
+struct AbcProcess
+{
+	pid_t pid;
+	int to_child_pipe;
+	int from_child_pipe;
+
+	AbcProcess() : pid(0), to_child_pipe(-1), from_child_pipe(-1) {}
+	AbcProcess(AbcProcess &&other) {
+		pid = other.pid;
+		to_child_pipe = other.to_child_pipe;
+		from_child_pipe = other.from_child_pipe;
+		other.pid = 0;
+		other.to_child_pipe = other.from_child_pipe = -1;
+	}
+	AbcProcess &operator=(AbcProcess &&other) {
+		if (this != &other) {
+			pid = other.pid;
+			to_child_pipe = other.to_child_pipe;
+			from_child_pipe = other.from_child_pipe;
+			other.pid = 0;
+			other.to_child_pipe = other.from_child_pipe = -1;
+		}
+		return *this;
+	}
+	~AbcProcess() {
+		if (pid == 0)
+			return;
+		if (to_child_pipe >= 0)
+			close(to_child_pipe);
+		int status;
+		int ret = waitpid(pid, &status, 0);
+		if (ret != pid) {
+			log_error("waitpid(%d) failed", pid);
+		}
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+			log_error("ABC failed with status %X", status);
+		}
+		if (from_child_pipe >= 0)
+			close(from_child_pipe);
+	}
+};
+
+std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
+	// Open pipes O_CLOEXEC so we don't leak any of the fds into racing
+	// fork()s.
+	int to_child_pipe[2];
+	if (pipe2(to_child_pipe, O_CLOEXEC) != 0) {
+		logs.log_error("pipe failed");
+		return std::nullopt;
+	}
+	int from_child_pipe[2];
+	if (pipe2(from_child_pipe, O_CLOEXEC) != 0) {
+		logs.log_error("pipe failed");
+		return std::nullopt;
+	}
+
+	AbcProcess result;
+	result.to_child_pipe = to_child_pipe[1];
+	result.from_child_pipe = from_child_pipe[0];
+	// Allow the child side of the pipes to be inherited.
+	fcntl(to_child_pipe[0], F_SETFD, 0);
+	fcntl(from_child_pipe[1], F_SETFD, 0);
+
+	posix_spawn_file_actions_t file_actions;
+	if (posix_spawn_file_actions_init(&file_actions) != 0) {
+		logs.log_error("posix_spawn_file_actions_init failed");
+		return std::nullopt;
+	}
+
+	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[1]) != 0) {
+		logs.log_error("posix_spawn_file_actions_addclose failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[0]) != 0) {
+		logs.log_error("posix_spawn_file_actions_addclose failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_adddup2(&file_actions, to_child_pipe[0], STDIN_FILENO) != 0) {
+		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDOUT_FILENO) != 0) {
+		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDERR_FILENO) != 0) {
+		logs.log_error("posix_spawn_file_actions_adddup2 failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[0]) != 0) {
+		logs.log_error("posix_spawn_file_actions_addclose failed");
+		return std::nullopt;
+	}
+	if (posix_spawn_file_actions_addclose(&file_actions, from_child_pipe[1]) != 0) {
+		logs.log_error("posix_spawn_file_actions_addclose failed");
+		return std::nullopt;
+	}
+
+	char arg1[] = "-s";
+	char* argv[] = { strdup(abc_exe), arg1, nullptr };
+	if (0 != posix_spawn(&result.pid, abc_exe, &file_actions, nullptr, argv, environ)) {
+		logs.log_error("posix_spawn %s failed", abc_exe);
+		return std::nullopt;
+	}
+	free(argv[0]);
+	posix_spawn_file_actions_destroy(&file_actions);
+	close(to_child_pipe[0]);
+	close(from_child_pipe[1]);
+	return result;
+}
+#else
+struct AbcProcess {};
+#endif
+
 using AbcSigMap = SigValMap<AbcSigVal>;
 
 struct AbcModuleState {
@@ -188,7 +308,7 @@ struct AbcModuleState {
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
 	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void run_abc();
+	void run_abc(ConcurrentStack<AbcProcess> &process_pool);
 	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
@@ -995,7 +1115,42 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	handle_loops(assign_map, module);
 }
 
-void AbcModuleState::run_abc()
+bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
+	std::string line;
+	char buf[1024];
+	while (true) {
+		int ret = read(fd, buf, sizeof(buf) - 1);
+		if (ret < 0) {
+			logs.log_error("Failed to read from ABC, errno=%d", errno);
+			return false;
+		}
+		if (ret == 0) {
+			logs.log_error("ABC exited prematurely");
+			return false;
+		}
+		char *start = buf;
+		char *end = buf + ret;
+		while (start < end) {
+			char *p = static_cast<char*>(memchr(start, '\n', end - start));
+			if (p == nullptr) {
+				break;
+			}
+			line.append(start, p + 1 - start);
+			// ABC seems to actually print "ABC_DONE \n", but we probably shouldn't
+			// rely on that extra space being output.
+			if (line.substr(0, 8) == "ABC_DONE") {
+				// Ignore any leftover output, there should only be a prompt perhaps
+				return true;
+			}
+			filt.next_line(line);
+			line.clear();
+			start = p + 1;
+		}
+		line.append(start, end - start);
+	}
+}
+
+void AbcModuleState::run_abc(ConcurrentStack<AbcProcess> &process_pool)
 {
 	std::string buffer = stringf("%s/input.blif", tempdir_name.c_str());
 	FILE *f = fopen(buffer.c_str(), "wt");
@@ -1122,14 +1277,12 @@ void AbcModuleState::run_abc()
 			count_gates, GetSize(signal_list), count_input, count_output);
 	if (count_output > 0)
 	{
-		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file.c_str(), tempdir_name.c_str());
-		run_abc_logs.log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir).c_str());
+		std::string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
+		run_abc_logs.log("Running ABC script: %s\n", replace_tempdir(tmp_script_name, tempdir_name, config.show_tempdir).c_str());
 
 		errno = 0;
-#ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(*this, tempdir_name, config.show_tempdir);
-		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
-#else
+#ifdef YOSYS_LINK_ABC
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
@@ -1150,7 +1303,6 @@ void AbcModuleState::run_abc()
 		fclose(temp_stdouterr_w);
 		// These needs to be mutable, supposedly due to getopt
 		char *abc_argv[5];
-		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
 		abc_argv[0] = strdup(config.exe_file.c_str());
 		abc_argv[1] = strdup("-s");
 		abc_argv[2] = strdup("-f");
@@ -1168,13 +1320,40 @@ void AbcModuleState::run_abc()
 		fclose(old_stdout);
 		fclose(old_stderr);
 		std::ifstream temp_stdouterr_r(temp_stdouterr_name);
-		abc_output_filter filt(*this, tempdir_name, config.show_tempdir);
 		for (std::string line; std::getline(temp_stdouterr_r, line); )
 			filt.next_line(line + "\n");
 		temp_stdouterr_r.close();
+#elif defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
+		AbcProcess process;
+		if (std::optional<AbcProcess> process_opt = process_pool.try_pop_back()) {
+			process = std::move(process_opt.value());
+		} else if (std::optional<AbcProcess> process_opt = spawn_abc(config.exe_file.c_str(), run_abc_logs)) {
+			process = std::move(process_opt.value());
+		} else {
+			return;
+		}
+		std::string cmd = stringf(
+				// This makes ABC switch stdout to line buffering, which we need
+				// to see our ABC_DONE message.
+				"set abcout /dev/stdout\n"
+				"empty\n"
+				"source %s\n"
+				"echo \"ABC_DONE\"\n", tmp_script_name);
+		int ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
+		if (ret != static_cast<int>(cmd.size())) {
+			run_abc_logs.log_error("write failed");
+			return;
+		}
+		ret = read_until_abc_done(filt, process.from_child_pipe, run_abc_logs) ? 0 : 1;
+		if (ret == 0) {
+			process_pool.push_back(std::move(process));
+		}
+#else
+		std::string cmd = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file.c_str(), tempdir_name.c_str());
+		int ret = run_command(cmd, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 #endif
 		if (ret != 0) {
-			run_abc_logs.log_error("ABC: execution of command \"%s\" failed: return code %d (errno=%d).\n", buffer.c_str(), ret, errno);
+			run_abc_logs.log_error("ABC: execution of script \"%s\" failed: return code %d (errno=%d).\n", tmp_script_name.c_str(), ret, errno);
 			return;
 		}
 		did_run_abc = true;
@@ -2187,7 +2366,8 @@ struct AbcPass : public Pass {
 
 				AbcModuleState state(config, initvals);
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
-				state.run_abc();
+				ConcurrentStack<AbcProcess> process_pool;
+				state.run_abc(process_pool);
 				state.extract(assign_map, design, mod);
 				continue;
 			}
@@ -2361,10 +2541,11 @@ struct AbcPass : public Pass {
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
 			int work_finished_count = 0;
+			ConcurrentStack<AbcProcess> process_pool;
 			ThreadPool worker_threads(num_worker_threads, [&](int){
 					while (std::optional<std::unique_ptr<AbcModuleState>> work =
 							work_queue.pop_front()) {
-						(*work)->run_abc();
+						(*work)->run_abc(process_pool);
 						work_finished_queue.push_back(std::move(*work));
 					}
 				});
@@ -2390,7 +2571,7 @@ struct AbcPass : public Pass {
 					work_queue.push_back(std::move(state));
 				} else {
 					// Just run everything on the main thread.
-					state->run_abc();
+					state->run_abc(process_pool);
 					work_finished_queue.push_back(std::move(state));
 				}
 			}
