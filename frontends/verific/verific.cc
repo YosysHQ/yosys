@@ -3573,26 +3573,26 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			// RuntimeFlags::SetVar("veri_extract_multiport_rams", 1); // SILIMATE: control this externally
-			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
+			// RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);  // SILIMATE: control this externally
 			RuntimeFlags::SetVar("veri_replace_const_exprs", 1);
 #endif
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
-			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
-			RuntimeFlags::SetVar("vhdl_allow_any_ram_in_loop", 1);
+			// RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1); // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("vhdl_allow_any_ram_in_loop", 1);  // SILIMATE: control this externally
 			RuntimeFlags::SetVar("vhdl_replace_const_exprs", 1);
 
 			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
-			RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
-			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
-			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
+			// RuntimeFlags::SetVar("vhdl_preserve_assignments", 1); // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("vhdl_preserve_comments", 1);    // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);     // SILIMATE: control this externally
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
-			// RuntimeFlags::SetVar("veri_preserve_assignments", 1);
-			// RuntimeFlags::SetVar("veri_preserve_comments", 1);
-			// RuntimeFlags::SetVar("veri_preserve_drivers", 1);
+			// RuntimeFlags::SetVar("veri_preserve_assignments", 1); // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("veri_preserve_comments", 1);    // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("veri_preserve_drivers", 1);     // SILIMATE: control this externally
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
@@ -3600,13 +3600,15 @@ struct VerificPass : public Pass {
 			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
-			// // Downgrade warnings about things that are normal (SILIMATE: NO!!!)
-			// // VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
-			// Message::SetMessageType("VERI-1209", VERIFIC_INFO);
-			// // VERIFIC-WARNING [VERI-1142] foo.sv:55: system task 'display' is ignored for synthesis
-			// Message::SetMessageType("VERI-1142", VERIFIC_INFO);
-			// // VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
-			// Message::SetMessageType("VERI-2418", VERIFIC_INFO);
+			/* SILIMATE: do not downgrade warnings about things that are "normal"
+			// Downgrade warnings about things that are normal
+			// VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
+			Message::SetMessageType("VERI-1209", VERIFIC_INFO);
+			// VERIFIC-WARNING [VERI-1142] foo.sv:55: system task 'display' is ignored for synthesis
+			Message::SetMessageType("VERI-1142", VERIFIC_INFO);
+			// VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
+			Message::SetMessageType("VERI-2418", VERIFIC_INFO);
+			*/
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
