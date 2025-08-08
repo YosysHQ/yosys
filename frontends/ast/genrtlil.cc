@@ -2180,14 +2180,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// use ProcessGenerator for always blocks
 	case AST_ALWAYS: {
-			auto always = this->clone();
-			ProcessGenerator generator(std::move(always));
+			ProcessGenerator generator(this->clone());
 			ignoreThisSignalsInInitial.append(generator.outputSignals);
 		} break;
 
 	case AST_INITIAL: {
 			auto always = this->clone();
-			ProcessGenerator generator(std::move(always), ignoreThisSignalsInInitial);
+			ProcessGenerator generator(this->clone(), ignoreThisSignalsInInitial);
 		} break;
 
 	case AST_TECALL: {
