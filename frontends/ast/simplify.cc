@@ -888,16 +888,6 @@ static void check_auto_nosync(AstNode *node)
 		check_auto_nosync(child.get());
 }
 
-void AstNode::null_check()
-{
-	for (auto& child : children) {
-		// if (!child)
-		// 	VALGRIND_PRINTF_BACKTRACE("null child");
-		log_assert((bool) child);
-		child->null_check();
-	}
-}
-
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -906,7 +896,6 @@ void AstNode::null_check()
 // nodes that link to a different node using names and lexical scoping.
 bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hint)
 {
-	// null_check();
 	static int recursion_counter = 0;
 	static bool deep_recursion_warning = false;
 
@@ -4434,7 +4423,6 @@ apply_newNode:
 		// dumpAst(stderr, "- ");
 		// newNode->dumpAst(stderr, "+ ");
 		log_assert(newNode != nullptr);
-		// newNode->null_check();
 		newNode->location.begin.filename = location.begin.filename;
 		newNode->location = location;
 		newNode->cloneInto(*this);
