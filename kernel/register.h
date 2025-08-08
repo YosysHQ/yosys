@@ -23,25 +23,60 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#ifdef YOSYS_ENABLE_HELP_SOURCE
+	#include <version>
+#	if __cpp_lib_source_location == 201907L
+		#include <source_location>
+		using std::source_location;
+		#define HAS_SOURCE_LOCATION
+#	elif defined(__has_include)
+#		if __has_include(<experimental/source_location>)
+			#include <experimental/source_location>
+			using std::experimental::source_location;
+			#define HAS_SOURCE_LOCATION
+#		endif
+#	endif
+#endif
+
+#ifndef HAS_SOURCE_LOCATION
+struct source_location { // dummy placeholder
+	int line() const { return 0; }
+	int column() const { return 0; }
+	const char* file_name() const { return "unknown"; }
+	const char* function_name() const { return "unknown"; }
+	static const source_location current(...) { return source_location(); }
+};
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 struct Pass
 {
 	std::string pass_name, short_help;
-	Pass(std::string name, std::string short_help = "** document me **");
+	source_location location;
+	Pass(std::string name, std::string short_help = "** document me **",
+		source_location location = source_location::current());
 	// Prefer overriding 'Pass::on_shutdown()' if possible
 	virtual ~Pass();
 
+	// Makes calls to log() to generate help message
 	virtual void help();
+	// Uses PrettyHelp::get_current() to produce a more portable formatted help message
+	virtual bool formatted_help();
 	virtual void clear_flags();
 	virtual void execute(std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	int call_counter;
 	int64_t runtime_ns;
 	bool experimental_flag = false;
+	bool internal_flag = false;
 
 	void experimental() {
 		experimental_flag = true;
+	}
+
+	void internal() {
+		internal_flag = true;
 	}
 
 	struct pre_post_exec_state_t {
@@ -81,7 +116,8 @@ struct ScriptPass : Pass
 	RTLIL::Design *active_design;
 	std::string active_run_from, active_run_to;
 
-	ScriptPass(std::string name, std::string short_help = "** document me **") : Pass(name, short_help) { }
+	ScriptPass(std::string name, std::string short_help = "** document me **", source_location location = source_location::current()) :
+		Pass(name, short_help, location) { }
 
 	virtual void script() = 0;
 
@@ -99,7 +135,8 @@ struct Frontend : Pass
 	static std::string last_here_document;
 
 	std::string frontend_name;
-	Frontend(std::string name, std::string short_help = "** document me **");
+	Frontend(std::string name, std::string short_help = "** document me **",
+		source_location location = source_location::current());
 	void run_register() override;
 	~Frontend() override;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
@@ -115,7 +152,8 @@ struct Frontend : Pass
 struct Backend : Pass
 {
 	std::string backend_name;
-	Backend(std::string name, std::string short_help = "** document me **");
+	Backend(std::string name, std::string short_help = "** document me **",
+		source_location location = source_location::current());
 	void run_register() override;
 	~Backend() override;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;

@@ -33,9 +33,9 @@ reader may find this map file as :file:`techlibs/common/techmap.v` in the Yosys
 source tree.
 
 Additional features have been added to techmap to allow for conditional mapping
-of cells (see :doc:`/cmd/techmap`). This can for example be useful if the target
-architecture supports hardware multipliers for certain bit-widths but not for
-others.
+of cells (see :doc:`/cmd/index_passes_techmap`). This can for example be useful
+if the target architecture supports hardware multipliers for certain bit-widths
+but not for others.
 
 A usual synthesis flow would first use the techmap pass to directly map some RTL
 cells to coarse-grain cells provided by the target architecture (if any) and

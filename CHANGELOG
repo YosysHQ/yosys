@@ -2,8 +2,25 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.55 .. Yosys 0.56-dev
+Yosys 0.56 .. Yosys 0.57-dev
 --------------------------
+
+Yosys 0.55 .. Yosys 0.56
+--------------------------
+ * New commands and options
+    - Added "-unescape" option to "rename" pass.
+    - Added "-assert2cover" option to "chformal" pass.
+    - Added "linecoverage" pass to generate lcov report from selection.
+    - Added "opt_hier" pass to enable hierarchical optimization.
+    - Added "-hieropt" option to "synth" pass.
+    - Added "-expect-return", "-err-grep" and "-suffix" options
+      to "bugpoint" pass.
+    - Added "raise_error" dev pass.
+
+ * Various
+    - Added groups to command reference documentation.
+    - Added bugpoint guide to documentation.
+    - verific: correctly reset Verific flags after import.
 
 Yosys 0.54 .. Yosys 0.55
 --------------------------

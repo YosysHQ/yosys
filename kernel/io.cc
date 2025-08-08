@@ -405,37 +405,9 @@ std::string unescape_format_string(std::string_view fmt)
 
 static std::string string_view_stringf(std::string_view spec, ...)
 {
-	std::string fmt(spec);
-	char format_specifier = fmt[fmt.size() - 1];
-	switch (format_specifier) {
-	case 'd':
-	case 'i':
-	case 'o':
-	case 'u':
-	case 'x':
-	case 'X': {
-		// Strip any length modifier off `fmt`
-		std::string long_fmt;
-		for (size_t i = 0; i + 1 < fmt.size(); ++i) {
-			char ch = fmt[i];
-			if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
-				break;
-			}
-			long_fmt.push_back(ch);
-		}
-		// Add `lld` or whatever
-		long_fmt += "ll";
-		long_fmt.push_back(format_specifier);
-		fmt = long_fmt;
-		break;
-	}
-	default:
-		break;
-	}
-
 	va_list ap;
 	va_start(ap, spec);
-	std::string result = vstringf(fmt.c_str(), ap);
+	std::string result = vstringf(std::string(spec).c_str(), ap);
 	va_end(ap);
 	return result;
 }
@@ -464,7 +436,7 @@ void format_emit_long_long(std::string &result, std::string_view spec, int *dyna
 {
 	if (spec == "%d") {
 		// Format checking will have guaranteed num_dynamic_ints == 0.
-		result += std::to_string(arg);
+		result += std::to_string(static_cast<int>(arg));
 		return;
 	}
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
@@ -475,7 +447,7 @@ void format_emit_unsigned_long_long(std::string &result, std::string_view spec, 
 {
 	if (spec == "%u") {
 		// Format checking will have guaranteed num_dynamic_ints == 0.
-		result += std::to_string(arg);
+		result += std::to_string(static_cast<unsigned int>(arg));
 		return;
 	}
 	if (spec == "%c") {

@@ -6,7 +6,7 @@ import os
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2025 YosysHQ GmbH'
-yosys_ver = "0.55"
+yosys_ver = "0.56"
 
 # select HTML theme
 html_theme = 'furo-ys'
@@ -43,8 +43,12 @@ html_static_path = ['_static', "_images"]
 # default to no highlight
 highlight_language = 'none'
 
-# default single quotes to attempt auto reference, or fallback to code
+# default single quotes to attempt auto reference, or fallback to yoscrypt
 default_role = 'autoref'
+rst_prolog = """
+.. role:: yoscrypt(code)
+   :language: yoscrypt
+"""
 
 extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
@@ -64,7 +68,6 @@ if os.getenv("READTHEDOCS"):
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
-autosectionlabel_maxdepth = 1
 
 # include todos for previews
 extensions.append('sphinx.ext.todo')
@@ -106,12 +109,14 @@ latex_elements = {
 
 # custom cmd-ref parsing/linking
 sys.path += [os.path.dirname(__file__) + "/../"]
-extensions.append('util.cmdref')
+extensions.append('util.custom_directives')
 
 # use autodocs
 extensions.append('sphinx.ext.autodoc')
-extensions.append('util.cellref')
+extensions.append('util.cell_documenter')
 cells_json = Path(__file__).parent / 'generated' / 'cells.json'
+extensions.append('util.cmd_documenter')
+cmds_json = Path(__file__).parent / 'generated' / 'cmds.json'
 
 from sphinx.application import Sphinx
 def setup(app: Sphinx) -> None:

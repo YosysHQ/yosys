@@ -1616,7 +1616,7 @@ struct VerificSvaImporter
 				inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION ||
 				(mode_cover && (
 					inst->Type() == PRIM_SVA_OVERLAPPED_FOLLOWED_BY ||
-					inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION)))
+					inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY)))
 		{
 			Net *antecedent_net = inst->GetInput1();
 			Net *consequent_net = inst->GetInput2();

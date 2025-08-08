@@ -27,6 +27,7 @@ ENABLE_VERIFIC_UPF := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_HELP_SOURCE := 0
 ENABLE_BACKTRACE := 1
 VERIFIC_LINEFILE_INCLUDES_LOOPS := 1
 
@@ -119,6 +120,10 @@ PLUGIN_LINKFLAGS += -L"$(LIBDIR)"
 PLUGIN_LIBS := -lyosys_exe
 endif
 
+ifeq ($(ENABLE_HELP_SOURCE),1)
+CXXFLAGS += -DYOSYS_ENABLE_HELP_SOURCE
+endif
+
 PKG_CONFIG ?= pkg-config
 SED ?= sed
 BISON ?= bison
@@ -126,14 +131,8 @@ STRIP ?= strip
 AWK ?= awk
 
 ifeq ($(OS), Linux)
-LIBS += -ldw                  # SILIMATE: support for backward-cpp
+LIBS += -ldw                                           # SILIMATE: support for backward-cpp
 CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DW # SILIMATE: support for backward-cpp
-endif
-
-ifneq ($(shell :; command -v rsync),)
-RSYNC_CP ?= rsync -rc
-else
-RSYNC_CP ?= cp -ru
 endif
 
 ifeq ($(OS), Darwin)
@@ -176,7 +175,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.55+150
+YOSYS_VER := 0.56+0
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -199,7 +198,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 60f126c.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9c447ad.. | wc -l`/;" Makefile
 
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
@@ -569,7 +568,6 @@ LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VE
 endif
 endif
 
-
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
@@ -671,6 +669,7 @@ $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o kernel/io.o kernel/gzip.o
+OBJS += kernel/log_help.o
 OBJS += kernel/binding.o kernel/tclapi.o
 OBJS += kernel/cellaigs.o kernel/celledges.o kernel/cost.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o kernel/sexpr.o
 OBJS += kernel/drivertools.o kernel/functional.o
@@ -1093,19 +1092,8 @@ ifeq ($(ENABLE_PYOSYS),1)
 endif
 endif
 
-# also others, but so long as it doesn't fail this is enough to know we tried
-docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cmd
-	$(Q) mkdir -p temp/docs/source/cmd
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
-	$(Q) $(RSYNC_CP) temp/docs/source/cmd docs/source
-	$(Q) rm -rf temp
-docs/source/cell/word_add.rst: $(TARGETS) $(EXTRA_TARGETS)
-	$(Q) mkdir -p docs/source/cell
-	$(Q) mkdir -p temp/docs/source/cell
-	$(Q) cd temp && ./../$(PROGRAM_PREFIX)yosys -p 'help -write-rst-cells-manual'
-	$(Q) $(RSYNC_CP) temp/docs/source/cell docs/source
-	$(Q) rm -rf temp
+docs/source/generated/cmds.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cmds-json $@'
 
 docs/source/generated/cells.json: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 	$(Q) ./$(PROGRAM_PREFIX)yosys -p 'help -dump-cells-json $@'
@@ -1121,6 +1109,15 @@ docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc bac
 
 PHONY: docs/gen/functional_ir
 docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
+
+docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
+	$(Q) ./$(PROGRAM_PREFIX)yosys -qQT -h '$*' -l $@
+
+docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
+	$(Q) cp $< $@
+
+PHONY: docs/gen/chformal
+docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
 
 PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
@@ -1157,7 +1154,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/cmd/abc.rst docs/source/generated/cells.json docs/gen docs/usage docs/gen/functional_ir
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal
 
 DOC_TARGET ?= html
 docs: docs/prep
@@ -1181,7 +1178,7 @@ clean:
 	rm -f  tests/tools/cmp_tbdata
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
-	rm -rf docs/source/cmd docs/util/__pycache__
+	rm -rf docs/util/__pycache__
 	rm -f *.whl
 	rm -f libyosys.so
 

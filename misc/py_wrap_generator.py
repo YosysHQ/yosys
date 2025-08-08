@@ -71,7 +71,7 @@ keyword_aliases = {
 
 #These can be used without any explicit conversion
 primitive_types = ["void", "bool", "int", "double", "size_t", "std::string",
-		"string", "State", "char_p"]
+		"string", "State", "char_p", "std::source_location", "source_location"]
 
 from enum import Enum
 
@@ -200,7 +200,7 @@ class WType:
 
 			t.cont = candidate
 			if(t.name not in known_containers):
-				return None	
+				return None
 			return t
 
 		prefix = ""
@@ -447,7 +447,7 @@ class PythonDictTranslator(Translator):
 			if types[0].attr_type != attr_types.star:
 				text += "*"
 			text += key_tmp_name + "->get_cpp_obj()"
-		
+
 		text += ", "
 		if types[1].name not in classnames:
 			text += val_tmp_name
@@ -457,7 +457,7 @@ class PythonDictTranslator(Translator):
 			text += val_tmp_name + "->get_cpp_obj()"
 		text += "));\n" + prefix + "}"
 		return text
-	
+
 	#Generate c++ code to translate to a boost::python::dict
 	@classmethod
 	def translate_cpp(c, varname, types, prefix, ref):
@@ -498,7 +498,7 @@ class DictTranslator(PythonDictTranslator):
 #Sub_type for std::map
 class MapTranslator(PythonDictTranslator):
 	insert_name = "insert"
-	orig_name = "std::map"	
+	orig_name = "std::map"
 
 #Translator for std::pair. Derived from PythonDictTranslator because the
 #gen_type function is the same (because both have two template parameters)
@@ -515,11 +515,11 @@ class TupleTranslator(PythonDictTranslator):
 		if types[0].name.split(" ")[-1] in primitive_types:
 			text += varname + "___tmp_0, "
 		else:
-			text += varname + "___tmp_0.get_cpp_obj(), "
+			text += "*" + varname + "___tmp_0.get_cpp_obj(), "
 		if types[1].name.split(" ")[-1] in primitive_types:
 			text += varname + "___tmp_1);"
 		else:
-			text += varname + "___tmp_1.get_cpp_obj());"
+			text += "*" + varname + "___tmp_1.get_cpp_obj());"
 		return text
 
 	#Generate c++ code to translate to a boost::python::tuple
@@ -684,7 +684,7 @@ class Attribute:
 		if self.wtype.name in known_containers:
 			return known_containers[self.wtype.name].typename
 		return prefix + self.wtype.name
-		
+
 	#Generate Translation code for the attribute
 	def gen_translation(self):
 		if self.wtype.name in known_containers:
@@ -948,7 +948,7 @@ class WClass:
 			text = "\n\t\tclass_<" + self.name + base_info + ">(\"" + self.name + "\""
 			text += body
 		return text
-	
+
 
 	def contains_default_constr(self):
 		for c in self.found_constrs:
@@ -1137,10 +1137,18 @@ class WConstructor:
 		str_def = str_def[0:found].strip()
 		if len(str_def) == 0:
 			return con
-		for arg in split_list(str_def, ","):
+		args = split_list(str_def, ",")
+		for i, arg in enumerate(args):
 			parsed = Attribute.from_string(arg.strip(), containing_file, line_number)
 			if parsed == None:
 				return None
+			# Only allow std::source_location as defaulted last argument, and
+			# don't append so it takes default value
+			if parsed.wtype.name in ["std::source_location", "source_location"]:
+				if parsed.default_value is None or i != len(args) - 1:
+					debug("std::source_location not defaulted last arg of " + class_.name + " is unsupported", 2)
+					return None
+				continue
 			con.args.append(parsed)
 		return con
 
@@ -1379,12 +1387,20 @@ class WFunction:
 		str_def = str_def[:found].strip()
 		if(len(str_def) == 0):
 			return func
-		for arg in split_list(str_def, ","):
+		args = split_list(str_def, ",")
+		for i, arg in enumerate(args):
 			if arg.strip() == "...":
 				continue
 			parsed = Attribute.from_string(arg.strip(), containing_file, line_number)
 			if parsed == None:
 				return None
+			# Only allow std::source_location as defaulted last argument, and
+			# don't append so it takes default value
+			if parsed.wtype.name in ["std::source_location", "source_location"]:
+				if parsed.default_value is None or i != len(args) - 1:
+					debug("std::source_location not defaulted last arg of " + func.name + " is unsupported", 2)
+					return None
+				continue
 			func.args.append(parsed)
 		return func
 
@@ -1773,7 +1789,7 @@ class WMember:
 		if self.wtype.name in classnames:
 			text += ")"
 		text += ";"
-		
+
 		if self.wtype.name in classnames:
 			text += "\n\t\treturn *ret_;"
 		elif self.wtype.name in known_containers:
@@ -1795,12 +1811,12 @@ class WMember:
 		text += "\n\t{"
 		text += ret.gen_translation()
 		text += "\n\t\tthis->get_cpp_obj()->" + self.name + " = " + ret.gen_call() + ";"
-		text += "\n\t}\n"		
+		text += "\n\t}\n"
 
 		return text;
 
 	def gen_boost_py(self):
-		text = "\n\t\t\t.add_property(\"" + self.name + "\", &" + self.member_of.name + "::get_var_py_" + self.name 
+		text = "\n\t\t\t.add_property(\"" + self.name + "\", &" + self.member_of.name + "::get_var_py_" + self.name
 		if not self.is_const:
 			text += ", &" + self.member_of.name + "::set_var_py_" + self.name
 		text += ")"
@@ -1926,7 +1942,7 @@ class WGlobal:
 		if self.wtype.name in classnames:
 			text += ")"
 		text += ";"
-		
+
 		if self.wtype.name in classnames:
 			text += "\n\t\treturn *ret_;"
 		elif self.wtype.name in known_containers:
@@ -1948,12 +1964,12 @@ class WGlobal:
 		text += "\n\t{"
 		text += ret.gen_translation()
 		text += "\n\t\t" + self.namespace + "::" + self.name + " = " + ret.gen_call() + ";"
-		text += "\n\t}\n"		
+		text += "\n\t}\n"
 
 		return text;
 
 	def gen_boost_py(self):
-		text = "\n\t\t\t.add_static_property(\"" + self.name + "\", &" + "YOSYS_PYTHON::get_var_py_" + self.name 
+		text = "\n\t\t\t.add_static_property(\"" + self.name + "\", &" + "YOSYS_PYTHON::get_var_py_" + self.name
 		if not self.is_const:
 			text += ", &YOSYS_PYTHON::set_var_py_" + self.name
 		text += ")"
