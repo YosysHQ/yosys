@@ -755,6 +755,7 @@ OBJS += passes/techmap/demuxmap.o
 OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/attrmap.o
+OBJS += passes/techmap/clockgate.o
 
 include $(YOSYS_SRC)/passes/hierarchy/Makefile.inc
 include $(YOSYS_SRC)/passes/memory/Makefile.inc
