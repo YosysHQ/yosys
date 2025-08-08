@@ -213,7 +213,7 @@ struct EquivSimpleWorker
 			assume_seed.insert(model.sigmap(assume->getPort(ID::A)).as_bit());
 			assume_seed.insert(model.sigmap(assume->getPort(ID::EN)).as_bit());
 
-			for (auto& cone : std::array{cone_a, cone_b}) {
+			for (auto& cone : {cone_a, cone_b}) {
 				Cone assume_cone;
 				ConeFinder{model, dummy_next_seed, assume_cone, cone, &overlap_bits}
 					.find_input_cone(assume_seed);
