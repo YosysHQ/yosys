@@ -154,6 +154,33 @@ private:
 #endif
 };
 
+template <class T>
+class ConcurrentStack
+{
+public:
+	void push_back(T &&t) {
+#ifdef YOSYS_ENABLE_THREADS
+		std::lock_guard<std::mutex> lock(mutex);
+#endif
+		contents.push_back(std::move(t));
+	}
+	std::optional<T> try_pop_back() {
+#ifdef YOSYS_ENABLE_THREADS
+		std::lock_guard<std::mutex> lock(mutex);
+#endif
+		if (contents.empty())
+			return std::nullopt;
+		T result = std::move(contents.back());
+		contents.pop_back();
+		return result;
+	}
+private:
+#ifdef YOSYS_ENABLE_THREADS
+	std::mutex mutex;
+#endif
+	std::vector<T> contents;
+};
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_THREADING_H
