@@ -2524,8 +2524,8 @@ struct AnnotateActivity : public OutputWriter {
 		std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
 		double clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
 		double frequency = 1.0 / clk_period;
-                double density = clktoggleCounts[0] / (real_timescale * (double)max_time);
-                worker->top->module->set_string_attribute("$DENSITY", std::to_string(density));
+    double density = clktoggleCounts[0] / (real_timescale * (double)max_time);
+    worker->top->module->set_string_attribute("$DENSITY", std::to_string(density));
 		worker->top->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
 		worker->top->module->set_string_attribute("$DURATION", std::to_string(max_time));
 		std::stringstream ss;
