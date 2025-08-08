@@ -64,7 +64,7 @@ struct ezSatPtr : public std::unique_ptr<ezSAT> {
 struct SatGen
 {
 	ezSAT *ez;
-	SigMap *sigmap;
+	const SigMap *sigmap;
 	std::string prefix;
 	SigPool initial_state;
 	std::map<std::string, RTLIL::SigSpec> asserts_a, asserts_en;
@@ -75,12 +75,12 @@ struct SatGen
 	bool model_undef;
 	bool def_formal = false;
 
-	SatGen(ezSAT *ez, SigMap *sigmap, std::string prefix = std::string()) :
+	SatGen(ezSAT *ez, const SigMap *sigmap, std::string prefix = std::string()) :
 			ez(ez), sigmap(sigmap), prefix(prefix), ignore_div_by_zero(false), model_undef(false)
 	{
 	}
 
-	void setContext(SigMap *sigmap, std::string prefix = std::string())
+	void setContext(const SigMap *sigmap, std::string prefix = std::string())
 	{
 		this->sigmap = sigmap;
 		this->prefix = prefix;
