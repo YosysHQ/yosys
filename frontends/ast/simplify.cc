@@ -5426,7 +5426,6 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 
 	while (!block->children.empty())
 	{
-		// log("%zu left in block %p\n", block->children.size(), block.get());
 		auto& stmt = block->children.front();
 
 #if 0
@@ -5435,8 +5434,6 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			log("%20s %40s\n", it.first.c_str(), log_signal(it.second.val));
 		stmt->dumpAst(nullptr, "stmt> ");
 #endif
-		// log("A\n");
-		// log("%s\n", type2str(stmt->type).c_str());
 		if (stmt->type == AST_WIRE)
 		{
 			while (stmt->simplify(true, 1, -1, false)) { }
