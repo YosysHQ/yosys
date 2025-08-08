@@ -44,21 +44,12 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 
-std::string ConstParser::fmt_maybe_loc(std::string msg) {
-	std::string s;
-
-	s += stringf("%s:%d:", loc.begin.filename->c_str(), loc.begin.line);
-
-	s += msg;
-	return s;
-}
-
 void ConstParser::log_maybe_loc_error(std::string msg) {
-	log_error("%s", fmt_maybe_loc(msg).c_str());
+	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg.c_str());
 }
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {
-	log_warning("%s", fmt_maybe_loc(msg).c_str());
+	log_file_warning(*loc.begin.filename, loc.begin.line, "%s", msg.c_str());
 }
 
 // divide an arbitrary length decimal number by two and return the rest

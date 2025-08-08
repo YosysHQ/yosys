@@ -43,7 +43,6 @@ namespace VERILOG_FRONTEND
 	struct ConstParser {
 		AST::AstSrcLocType loc;
 	private:
-		std::string fmt_maybe_loc(std::string msg);
 		void log_maybe_loc_error(std::string msg);
 		void log_maybe_loc_warn(std::string msg);
 		// divide an arbitrary length decimal number by two and return the rest
