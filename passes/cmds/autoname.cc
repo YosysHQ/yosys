@@ -127,6 +127,7 @@ struct AutonamePass : public Pass {
 			// }
 			break;
 		}
+		extra_args(args, argidx, design);
 
 		log_header(design, "Executing AUTONAME pass.\n");
 
