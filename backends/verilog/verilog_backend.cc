@@ -2358,16 +2358,12 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
 	f << stringf("%s" "module %s(", indent.c_str(), id(module->name, false).c_str());
 	int cnt = 0;
-	
-	std::vector<Wire *> port_ordered;
-
 	for (auto port : module->ports) {
 		Wire *wire = module->wire(port);
 		if (wire) {
 			if (port != module->ports[0])
 				f << stringf(", ");
 			f << stringf("%s", id(wire->name).c_str());
-			port_ordered.push_back(wire);
 			if (cnt==20) { f << stringf("\n"); cnt = 0; } else cnt++;
 			continue;
 		}
@@ -2378,13 +2374,13 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 
-	// first dump input / output according to port_ordered;
-	for (auto w : port_ordered)
-		dump_wire(f, indent + "  ", w);
-	
+	// first dump input / output according to their order in module->ports
+	for (auto port : module->ports)
+		dump_wire(f, indent + "  ", module->wire(port));
+
 	for (auto w : module->wires()) {
 		// avoid duplication
-		if (std::find(port_ordered.begin(), port_ordered.end(), w) != port_ordered.end())
+		if (w->port_id)
 			continue;
 		dump_wire(f, indent + "  ", w);
 	}
