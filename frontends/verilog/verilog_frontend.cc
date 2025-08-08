@@ -502,7 +502,7 @@ struct VerilogFrontend : public Frontend {
 		}
 
 		auto filename_shared = std::make_shared<std::string>(filename);
-		auto top_loc = location();
+		auto top_loc = Location();
 		top_loc.begin.filename = filename_shared;
 		parse_state.current_ast = new AST::AstNode(top_loc, AST::AST_DESIGN);
 		VerilogLexer lexer(&parse_state, &parse_mode, filename_shared);

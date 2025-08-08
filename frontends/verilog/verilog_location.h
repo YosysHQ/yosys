@@ -11,16 +11,16 @@
  * but using shared_ptr for filename
  */
 
-struct position {
+struct Position {
 	std::shared_ptr<std::string> filename;
 	int line;
 	int column;
 
-	position(std::shared_ptr<std::string> filename, int line = 1, int column = 1)
+	Position(std::shared_ptr<std::string> filename, int line = 1, int column = 1)
 		: filename(filename), line(line), column(column) {}
-	position() = default;
-	position(const position& other) = default;
-	position& operator=(const position& other) = default;
+	Position() = default;
+	Position(const Position& other) = default;
+	Position& operator=(const Position& other) = default;
 
 	void advance() { ++column; }
 	void columns(int count = 1) {
@@ -41,15 +41,15 @@ struct position {
 	}
 };
 
-struct location {
-	position begin;
-	position end;
+struct Location {
+	Position begin;
+	Position end;
 
-	location() = default;
-	location(const position& b, const position& e)
+	Location() = default;
+	Location(const Position& b, const Position& e)
 		: begin(b), end(e) {}
-	location(const location& other) = default;
-	location& operator=(const location& other) = default;
+	Location(const Location& other) = default;
+	Location& operator=(const Location& other) = default;
 
 	void step() { begin = end; }
 
@@ -89,7 +89,7 @@ struct location {
 	}
 };
 
-static inline std::ostream& operator<<(std::ostream& os, const location& loc) {
+static inline std::ostream& operator<<(std::ostream& os, const Location& loc) {
 	return os << loc.to_string();
 }
 

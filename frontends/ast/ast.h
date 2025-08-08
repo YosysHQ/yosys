@@ -164,7 +164,7 @@ namespace AST
 		AST_BIND
 	};
 
-	using AstSrcLocType = location;
+	using AstSrcLocType = Location;
 
 	// convert an node type to a string (e.g. for debug output)
 	std::string type2str(AstNodeType type);

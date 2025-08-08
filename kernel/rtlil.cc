@@ -5725,7 +5725,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			cover("kernel.rtlil.sigspec.parse.const");
-			VERILOG_FRONTEND::ConstParser p{location()};
+			VERILOG_FRONTEND::ConstParser p{Location()};
 			auto ast = p.const2ast(netname);
 			if (ast == nullptr)
 				return false;
