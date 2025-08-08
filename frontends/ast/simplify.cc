@@ -36,24 +36,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <optional>
-// For std::gcd in C++17
-// #include <numeric>
+#include <numeric>
 
 YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 using namespace AST_INTERNAL;
-
-// gcd computed by Euclidian division.
-// To be replaced by C++17 std::gcd
-template<class I> I gcd(I a, I b) {
-	while (b != 0) {
-		I tmp = b;
-		b = a%b;
-		a = tmp;
-	}
-	return std::abs(a);
-}
 
 void AstNode::set_in_lvalue_flag(bool flag, bool no_descend)
 {
@@ -3001,9 +2989,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						//
 						// long long is at least 64 bits in C++11
 						long long shift_mod = 1ll << (max_width - case_sign_hint);
-						// std::gcd requires C++17
-						// bitno_div = std::gcd(stride, shift_mod);
-						bitno_div = gcd((long long)stride, shift_mod);
+						bitno_div = std::gcd((long long)stride, shift_mod);
 					}
 				}
 			}
