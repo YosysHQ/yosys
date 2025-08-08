@@ -191,11 +191,11 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 	if (attributes.count(id) == 0)
 		return false;
 
-	AstNode& attr = *(attributes.at(id));
-	if (attr.type != AST_CONSTANT)
-		attr.input_error("Attribute `%s' with non-constant value!\n", id.c_str());
+	auto& attr = attributes.at(id);
+	if (attr->type != AST_CONSTANT)
+		attr->input_error("Attribute `%s' with non-constant value!\n", id.c_str());
 
-	return attr.integer != 0;
+	return attr->integer != 0;
 }
 
 // create new node (AstNode constructor)
@@ -1094,7 +1094,7 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 	obj->attributes[ID::src] = ast->loc_string();
 }
 
-static bool param_has_no_default(const std::unique_ptr<AstNode> &param) {
+static bool param_has_no_default(const AstNode* param) {
 	const auto &children = param->children;
 	log_assert(param->type == AST_PARAMETER);
 	log_assert(children.size() <= 2);
@@ -1142,7 +1142,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	if (!defer)
 	{
 		for (auto& node : ast->children)
-			if (node->type == AST_PARAMETER && param_has_no_default(node))
+			if (node->type == AST_PARAMETER && param_has_no_default(node.get()))
 				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
 
 		bool blackbox_module = flag_lib;
@@ -1430,7 +1430,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			bool defer_local = defer;
 			if (!defer_local)
 				for (const auto& node : child->children)
-					if (node->type == AST_PARAMETER && param_has_no_default(node))
+					if (node->type == AST_PARAMETER && param_has_no_default(node.get()))
 					{
 						log("Deferring `%s' because it contains parameter(s) without defaults.\n", child->str.c_str());
 						defer_local = true;
@@ -1850,7 +1850,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		}
 		continue;
 	rewrite_parameter:
-		if (param_has_no_default(child))
+		if (param_has_no_default(child.get()))
 			child->children.insert(child->children.begin(), nullptr);
 		if ((it->second.flags & RTLIL::CONST_FLAG_REAL) != 0) {
 			child->children[0] = std::make_unique<AstNode>(loc, AST_REALVALUE);
