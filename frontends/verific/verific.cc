@@ -3585,9 +3585,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
-			// RuntimeFlags::SetVar("vhdl_preserve_assignments", 1); // SILIMATE: control this externally
-			// RuntimeFlags::SetVar("vhdl_preserve_comments", 1);    // SILIMATE: control this externally
-			// RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);     // SILIMATE: control this externally
+			// RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
+			// RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
+			// RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 			// RuntimeFlags::SetVar("veri_preserve_assignments", 1); // SILIMATE: control this externally
