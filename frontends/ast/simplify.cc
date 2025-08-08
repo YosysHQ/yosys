@@ -1089,7 +1089,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 		// Process package imports after clearing the scope but before processing module declarations
 		for (size_t i = 0; i < children.size(); i++) {
-			AstNode *child = children[i];
+			AstNode *child = children[i].get();
 			if (child->type == AST_IMPORT) {
 				// Find the package in the design
 				AstNode *package_node = nullptr;
@@ -1099,7 +1099,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					for (auto &design_child : current_ast->children) {
 						if (design_child->type == AST_PACKAGE) {
 							if (design_child->str == child->str) {
-								package_node = design_child;
+								package_node = design_child.get();
 								break;
 							}
 						}
@@ -1115,7 +1115,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 							package_name = package_name.substr(1);
 						}
 						if (package_name == child->str || design_package->str == child->str) {
-							package_node = design_package;
+							package_node = design_package.get();
 							break;
 						}
 					}
@@ -1123,30 +1123,28 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				if (package_node) {
 					// Import all names from the package into current scope
-					for (auto &pkg_child : package_node->children) {
+					for (auto& pkg_child : package_node->children) {
 						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM ||
 							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION ||
 							pkg_child->type == AST_TASK || pkg_child->type == AST_ENUM) {
-							current_scope[pkg_child->str] = pkg_child;
+							current_scope[pkg_child->str] = pkg_child.get();
 						}
 						if (pkg_child->type == AST_ENUM) {
-							for (auto enode : pkg_child->children) {
+							for (auto& enode : pkg_child->children) {
 								log_assert(enode->type==AST_ENUM_ITEM);
 								if (current_scope.count(enode->str) == 0)
-									current_scope[enode->str] = enode;
+									current_scope[enode->str] = enode.get();
 								else
 									input_error("enum item %s already exists in current scope\n", enode->str.c_str());
 							}
 						}
 					}
 					// Remove the import node since it's been processed
-					delete child;
 					children.erase(children.begin() + i);
 					i--; // Adjust index since we removed an element
 				} else {
 					// If we can't find the package, just remove the import node to avoid errors later
 					log_warning("Package `%s' not found for import, removing import statement\n", child->str.c_str());
-					delete child;
 					children.erase(children.begin() + i);
 					i--; // Adjust index since we removed an element
 				}
