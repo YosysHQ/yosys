@@ -2374,8 +2374,16 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 
-	for (auto w : module->wires())
+	// first dump input / output according to their order in module->ports
+	for (auto port : module->ports)
+		dump_wire(f, indent + "  ", module->wire(port));
+
+	for (auto w : module->wires()) {
+		// avoid duplication
+		if (w->port_id)
+			continue;
 		dump_wire(f, indent + "  ", w);
+	}
 
 	for (auto &mem : Mem::get_all_memories(module))
 		dump_memory(f, indent + "  ", mem);
