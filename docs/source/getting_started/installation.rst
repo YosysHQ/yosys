@@ -88,18 +88,18 @@ Build prerequisites
 ^^^^^^^^^^^^^^^^^^^
 
 A C++ compiler with C++17 support is required as well as some standard tools
-such as GNU Flex, GNU Bison, Make and Python.  Some additional tools: readline,
-libffi, Tcl and zlib; are optional but enabled by default (see
+such as GNU Flex, GNU Bison (>=3.8), Make, and Python (>=3.11). Some additional
+tools: readline, libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
 `show` command to display schematics.
 
-Installing all prerequisites for Ubuntu 20.04:
+Installing all prerequisites for Ubuntu 22.04:
 
 .. code:: console
 
-   sudo apt-get install gperf build-essential bison flex \
-      libreadline-dev gawk tcl-dev libffi-dev git graphviz \
-      xdot pkg-config python3 libboost-system-dev \
+   sudo apt-get install gperf build-essential clang lld bison flex libfl-dev \
+      libreadline-dev gawk tcl-dev libffi-dev git \
+      graphviz xdot pkg-config python3 libboost-system-dev \
       libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
 Installing all prerequisites for macOS 13 (with Homebrew):
@@ -137,8 +137,9 @@ For Cygwin use the following command to install all prerequisites, or select the
    minimum required version of Python is 3.11.  This means that Cygwin is not
    compatible with many of the Python-based frontends.  While this does not
    currently prevent Yosys itself from working, no guarantees are made for
-   continued support.  It is instead recommended to use Windows Subsystem for
-   Linux (WSL) and follow the instructions for Ubuntu.
+   continued support.  You may also need to specify `CXXSTD=gnu++17` to resolve
+   missing `strdup` function when using gcc.  It is instead recommended to use
+   Windows Subsystem for Linux (WSL) and follow the instructions for Ubuntu.
 
 .. 
    For MSYS2 (MINGW64):

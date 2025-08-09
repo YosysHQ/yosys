@@ -42,14 +42,23 @@
 YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
+using namespace VERILOG_FRONTEND;
+
+void ConstParser::log_maybe_loc_error(std::string msg) {
+	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg.c_str());
+}
+
+void ConstParser::log_maybe_loc_warn(std::string msg) {
+	log_file_warning(*loc.begin.filename, loc.begin.line, "%s", msg.c_str());
+}
 
 // divide an arbitrary length decimal number by two and return the rest
-static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
+int ConstParser::my_decimal_div_by_two(std::vector<uint8_t> &digits)
 {
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
 		if (digits[i] >= 10)
-			log_file_error(current_filename, get_line_num(), "Invalid use of [a-fxz?] in decimal constant.\n");
+			log_maybe_loc_error("Invalid use of [a-fxz?] in decimal constant.\n");
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;
@@ -60,7 +69,7 @@ static int my_decimal_div_by_two(std::vector<uint8_t> &digits)
 }
 
 // find the number of significant bits in a binary number (not including the sign bit)
-static int my_ilog2(int x)
+int ConstParser::my_ilog2(int x)
 {
 	int ret = 0;
 	while (x != 0 && x != -1) {
@@ -71,7 +80,7 @@ static int my_ilog2(int x)
 }
 
 // parse a binary, decimal, hexadecimal or octal number with support for special bits ('x', 'z' and '?')
-static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type, bool is_unsized)
+void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type, bool is_unsized)
 {
 	// all digits in string (MSB at index 0)
 	std::vector<uint8_t> digits;
@@ -102,8 +111,8 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
 			if (*it > (base-1) && *it < 0xf0)
-				log_file_error(current_filename, get_line_num(), "Digit larger than %d used in in base-%d constant.\n",
-					       base-1, base);
+				log_maybe_loc_error(stringf("Digit larger than %d used in in base-%d constant.\n",
+							base-1, base));
 			for (int i = 0; i < bits_per_digit; i++) {
 				int bitmask = 1 << i;
 				if (*it == 0xf0)
@@ -126,7 +135,7 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	}
 
 	if (is_unsized && (len > len_in_bits))
-		log_file_error(current_filename, get_line_num(), "Unsized constant must have width of 1 bit, but have %d bits!\n", len);
+		log_maybe_loc_error(stringf("Unsized constant must have width of 1 bit, but have %d bits!\n", len));
 
 	for (len = len - 1; len >= 0; len--)
 		if (data[len] == State::S1)
@@ -140,21 +149,19 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 	}
 
 	if (len_in_bits == 0)
-		log_file_error(current_filename, get_line_num(), "Illegal integer constant size of zero (IEEE 1800-2012, 5.7).\n");
+		log_maybe_loc_error("Illegal integer constant size of zero (IEEE 1800-2012, 5.7).\n");
 
 	if (len > len_in_bits)
-		log_warning("Literal has a width of %d bit, but value requires %d bit. (%s:%d)\n",
-			len_in_bits, len, current_filename.c_str(), get_line_num());
+		log_maybe_loc_warn(stringf("Literal has a width of %d bit, but value requires %d bit.\n",
+			len_in_bits, len));
 }
-
 // convert the Verilog code for a constant to an AST node
-AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn_z)
+std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type, bool warn_z)
 {
 	if (warn_z) {
-		AstNode *ret = const2ast(code, case_type);
+		auto ret = const2ast(code, case_type);
 		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
-			log_warning("Yosys has only limited support for tri-state logic at the moment. (%s:%d)\n",
-				current_filename.c_str(), get_line_num());
+			log_maybe_loc_warn("Yosys has only limited support for tri-state logic at the moment.\n");
 		return ret;
 	}
 
@@ -172,7 +179,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 				ch = ch >> 1;
 			}
 		}
-		AstNode *ast = AstNode::mkconst_bits(data, false);
+		auto ast = AstNode::mkconst_bits(loc, data, false);
 		ast->str = code;
 		return ast;
 	}
@@ -191,7 +198,7 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 		my_strtobin(data, str, -1, 10, case_type, false);
 		if (data.back() == State::S1)
 			data.push_back(State::S0);
-		return AstNode::mkconst_bits(data, true);
+		return AstNode::mkconst_bits(loc, data, true);
 	}
 
 	// unsized constant
@@ -239,10 +246,11 @@ AstNode *VERILOG_FRONTEND::const2ast(std::string code, char case_type, bool warn
 			if (is_signed && data.back() == State::S1)
 				data.push_back(State::S0);
 		}
-		return AstNode::mkconst_bits(data, is_signed, is_unsized);
+		return AstNode::mkconst_bits(loc, data, is_signed, is_unsized);
 	}
 
 	return NULL;
 }
+
 
 YOSYS_NAMESPACE_END
