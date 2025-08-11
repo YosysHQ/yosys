@@ -433,13 +433,13 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		int a_size = GetSize(cell->getPort(ID::A));
 		wire = module->addWire(ID::B);
 		wire->width = a_size;
-		wire->port_output = true;
+		wire->port_input = true;
 		cell->setPort(ID::B, wire);
 		if (cell_type == ID($bwmux))
 		{
 			wire = module->addWire(ID::S);
 			wire->width = a_size;
-			wire->port_output = true;
+			wire->port_input = true;
 			cell->setPort(ID::S, wire);
 		}
 		wire = module->addWire(ID::Y);
@@ -1019,10 +1019,8 @@ struct TestCellPass : public Pass {
 		{
 			cell_types[ID($eqx)] = "ABSY";
 			cell_types[ID($nex)] = "ABSY";
-		}
-		// $bweqx is additionally unsupported by ConstEval
-		if (nosat && techmap_cmd.compare("techmap -assert") != 0 && noeval)
 			cell_types[ID($bweqx)] = "A";
+		}
 		cell_types[ID($ge)]  = "ABSY";
 		cell_types[ID($gt)]  = "ABSY";
 
