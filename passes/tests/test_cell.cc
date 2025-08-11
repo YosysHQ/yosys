@@ -1046,9 +1046,7 @@ struct TestCellPass : public Pass {
 		// $pmux doesn't work in sat, and is not supported with 'techmap -assert'
 		if (nosat && techmap_cmd.compare("aigmap") == 0)
 			cell_types[ID($pmux)] = "*";
-		// $bwmux is not supported by ConstEval
-		if (noeval)
-			cell_types[ID($bwmux)] = "A";
+		cell_types[ID($bwmux)] = "A";
 
 		cell_types[ID($slice)] = "A";
 		cell_types[ID($concat)] = "AB";
