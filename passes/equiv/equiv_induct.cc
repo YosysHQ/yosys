@@ -37,14 +37,15 @@ struct EquivInductWorker
 
 	int max_seq;
 	int success_counter;
+	bool set_assumes;
 
 	dict<int, int> ez_step_is_consistent;
 	pool<Cell*> cell_warn_cache;
 	SigPool undriven_signals;
 
-	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, bool model_undef, int max_seq) : module(module), sigmap(module),
+	EquivInductWorker(Module *module, const pool<Cell*> &unproven_equiv_cells, bool model_undef, int max_seq, bool set_assumes) : module(module), sigmap(module),
 			cells(module->selected_cells()), workset(unproven_equiv_cells),
-			satgen(ez.get(), &sigmap), max_seq(max_seq), success_counter(0)
+			satgen(ez.get(), &sigmap), max_seq(max_seq), success_counter(0), set_assumes(set_assumes)
 	{
 		satgen.model_undef = model_undef;
 	}
@@ -75,6 +76,16 @@ struct EquivInductWorker
 					ez_equal_terms.push_back(cond);
 				}
 			}
+		}
+
+		if (set_assumes) {
+			if (step == 1) {
+				RTLIL::SigSpec assumes_a, assumes_en;
+				satgen.getAssumes(assumes_a, assumes_en, step);
+				for (int i = 0; i < GetSize(assumes_a); i++)
+					log("Import constraint from assume cell: %s when %s.\n", log_signal(assumes_a[i]), log_signal(assumes_en[i]));
+			}
+			ez->assume(satgen.importAssumes(step));
 		}
 
 		if (satgen.model_undef) {
@@ -184,6 +195,9 @@ struct EquivInductPass : public Pass {
 		log("    -seq <N>\n");
 		log("        the max. number of time steps to be considered (default = 4)\n");
 		log("\n");
+		log("    -set-assumes\n");
+		log("        set all assumptions provided via $assume cells\n");
+		log("\n");
 		log("This command is very effective in proving complex sequential circuits, when\n");
 		log("the internal state of the circuit quickly propagates to $equiv cells.\n");
 		log("\n");
@@ -200,7 +214,7 @@ struct EquivInductPass : public Pass {
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int success_counter = 0;
-		bool model_undef = false;
+		bool model_undef = false, set_assumes = false;
 		int max_seq = 4;
 
 		log_header(design, "Executing EQUIV_INDUCT pass.\n");
@@ -215,6 +229,10 @@ struct EquivInductPass : public Pass {
 				max_seq = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-set-assumes") {
+				set_assumes = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -222,6 +240,7 @@ struct EquivInductPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			pool<Cell*> unproven_equiv_cells;
+			vector<Cell*> assume_cells;
 
 			for (auto cell : module->selected_cells())
 				if (cell->type == ID($equiv)) {
@@ -234,7 +253,7 @@ struct EquivInductPass : public Pass {
 				continue;
 			}
 
-			EquivInductWorker worker(module, unproven_equiv_cells, model_undef, max_seq);
+			EquivInductWorker worker(module, unproven_equiv_cells, model_undef, max_seq, set_assumes);
 			worker.run();
 			success_counter += worker.success_counter;
 		}

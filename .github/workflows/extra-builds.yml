@@ -98,7 +98,7 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
-      - uses: cachix/install-nix-action@v26
+      - uses: cachix/install-nix-action@v31
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+          install_url: https://releases.nixos.org/nix/nix-2.30.0/install
       - run: nix build .?submodules=1 -L
