@@ -939,7 +939,7 @@ struct TestCellPass : public Pass {
 		cell_types[ID($sop)] = "*";
 		cell_types[ID($alu)] = "ABSY";
 		cell_types[ID($lcu)] = "*";
-		cell_types[ID($macc)] = "*";
+		// cell_types[ID($macc)] = "*";
 		cell_types[ID($fa)] = "*";
 
 		for (; argidx < GetSize(args); argidx++)
