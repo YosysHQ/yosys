@@ -1038,7 +1038,8 @@ struct TestCellPass : public Pass {
 		cell_types[ID($mux)] = "*";
 		cell_types[ID($bmux)] = "*";
 		cell_types[ID($demux)] = "*";
-		// $pmux doesn't work in sat, and is not supported with 'techmap -assert'
+		// $pmux doesn't work in sat, and is not supported with 'techmap -assert' or
+		// '-simlib'
 		if (nosat && techmap_cmd.compare("aigmap") == 0)
 			cell_types[ID($pmux)] = "*";
 		cell_types[ID($bwmux)] = "A";
