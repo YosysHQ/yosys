@@ -345,12 +345,12 @@ void read_liberty_celldelay(dict<IdString, cell_delay_t> &cell_delay, string lib
 		const LibertyAst *sar = cell->find("single_delay_parameterised");
 		if (sar != nullptr) {
 			for (const auto &s : sar->args) {
-				double value = 0;
-				auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
-				// ec != std::errc() means parse error, or ptr didn't consume entire string
-				if (ec != std::errc() || ptr != s.data() + s.size())
-					break;
-				single_parameter_delay.push_back(value);
+				try {
+					double value = std::stod(s);
+					single_parameter_delay.push_back(value);
+				} catch (const std::exception &e) {
+					log_error("Failed to parse single parameter delay value '%s': %s\n", s.c_str(), e.what());
+				}
 			}
 			if (single_parameter_delay.size() == 0)
 				log_error("single delay parameterisation array does not contain values: %s\n",
@@ -374,10 +374,12 @@ void read_liberty_celldelay(dict<IdString, cell_delay_t> &cell_delay, string lib
 				vector<double> cast_sub_array;
 				for (const auto &s : sub_array) {
 					double value = 0;
-					auto [ptr, ec] = std::from_chars(s.data() + 1, s.data() + s.size(), value);
-					if (ec != std::errc() || ptr != s.data() + s.size())
-						break;
-					cast_sub_array.push_back(value);
+					try {
+						value = std::stod(s);
+						cast_sub_array.push_back(value);
+					} catch (const std::exception &e) {
+						log_error("Failed to parse double parameter delay value '%s': %s\n", s.c_str(), e.what());
+					}
 				}
 				double_parameter_delay.push_back(cast_sub_array);
 				if (cast_sub_array.size() == 0)
