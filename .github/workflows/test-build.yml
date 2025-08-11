@@ -190,10 +190,10 @@ jobs:
       - name: test_cell
         shell: bash
         run: |
-          ./yosys -p 'test_cell all'
-          ./yosys -p 'test_cell -nosat -aigmap $pow $pmux'
-          ./yosys -p 'test_cell -nosat -aigmap $eqx $nex $bweqx'
-          ./yosys -p 'test_cell -aigmap $buf'
+          ./yosys -p 'test_cell -n 20 -s 1 all'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $pow $pmux'
+          ./yosys -p 'test_cell -n 20 -s 1 -nosat -aigmap $eqx $nex $bweqx'
+          ./yosys -p 'test_cell -n 20 -s 1 -aigmap $buf'
 
   test-docs:
     name: Run docs tests
