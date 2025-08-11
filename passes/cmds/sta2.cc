@@ -572,7 +572,6 @@ struct Sta2Pass : public Pass {
 
 		Pass::call(new_design, "hierarchy -check -top " + top_mod->name.str());
 		Pass::call(new_design, "flatten");
-		Pass::call(new_design, "dump -m -o \"out/poststa.dump\"");
 		printf("Running STA on module %s with max delay %f and min delay %f\n", top_mod->name.c_str(), max_delay, min_delay);
 		Sta2Worker sta(new_design, cell_delay);
 		sta.run(new_design->module(top_mod->name), min_delay);
