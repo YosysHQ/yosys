@@ -190,7 +190,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		cell->setPort(ID::CO, wire);
 	}
 
-	if (cell_type == ID($macc))
+	if (cell_type == ID($macc_v2))
 	{
 		Macc macc;
 		int width = 1 + xorshift32(8 * bloat_factor);
@@ -224,6 +224,7 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 			this_term.do_subtract = xorshift32(2) == 1;
 			macc.terms.push_back(this_term);
 		}
+
 		// Macc::to_cell sets the input ports
 		macc.to_cell(cell);
 
@@ -231,12 +232,6 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 		wire->width = width;
 		wire->port_output = true;
 		cell->setPort(ID::Y, wire);
-
-		// override the B input (macc helpers always sets an empty vector)
-		wire = module->addWire(ID::B);
-		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
-		wire->port_input = true;
-		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type == ID($lut))
@@ -1055,8 +1050,7 @@ struct TestCellPass : public Pass {
 		cell_types[ID($sop)] = "*";
 		cell_types[ID($alu)] = "ABSY";
 		cell_types[ID($lcu)] = "*";
-		// create_gold_module() needs updating for $macc_v2
-		// cell_types[ID($macc)] = "*";
+		cell_types[ID($macc_v2)] = "*";
 		cell_types[ID($fa)] = "*";
 
 		cell_types[ID($_BUF_)] = "AYb";
