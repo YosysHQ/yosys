@@ -104,7 +104,7 @@ struct Sta_Path {
 		if (cell_delay.single_parameter_delay.size() > 0) {
 			if (widths.size() != 1) {
 				// we need to have exactly one parameter for single parameter delay.
-				log_error("Cell %s has single parameter delay, but has %d parameters.\n", cell->name.c_str(), widths.size());
+				log_error("Cell %s has single parameter delay, but has %zu parameters.\n", cell->name.c_str(), widths.size());
 			}
 			if (cell_delay.single_parameter_delay.size() > widths.at(0) - 1) {
 				delay += cell_delay.single_parameter_delay.at(widths.at(0) - 1);
@@ -116,13 +116,13 @@ struct Sta_Path {
 		} else if (cell_delay.double_parameter_delay.size() > 0) {
 			if (widths.size() != 2) {
 				// we need to have exactly two parameters for double parameter delay.
-				log_error("Cell %s has double parameter delay, but has %d parameters.\n", cell->name.c_str(), widths.size());
+				log_error("Cell %s has double parameter delay, but has %zu parameters.\n", cell->name.c_str(), widths.size());
 			}
-			int width_a = widths.at(1);
-			int width_b = widths.at(0);
+			unsigned long width_a = widths.at(1);
+			unsigned long width_b = widths.at(0);
 			if (width_a > 0 && width_b > 0) {
-				if (cell_delay.double_parameter_delay.size() > width_a - 1 &&
-				    cell_delay.double_parameter_delay.at(width_a - 1).size() > width_b - 1) {
+				if (cell_delay.double_parameter_delay.size() > width_a - 1u &&
+				    cell_delay.double_parameter_delay.at(width_a - 1).size() > width_b - 1u) {
 					delay += cell_delay.double_parameter_delay.at(width_a - 1).at(width_b - 1);
 					delays.push_back(cell_delay.double_parameter_delay.at(width_a - 1).at(width_b - 1));
 				} else {
@@ -155,7 +155,7 @@ struct Sta2Worker {
 
 	Sta2Worker(RTLIL::Design *design, dict<IdString, cell_delay_t> cell_delay) : design(design), cell_delays(cell_delay) {}
 
-	void run(RTLIL::Module *module, bool hold_violations, bool setup_violations)
+	void run(RTLIL::Module *module, bool hold_violations)
 	{
 		auto modules = design->modules().to_vector();
 		if (module != nullptr) {
@@ -195,12 +195,10 @@ struct Sta2Worker {
 				} else {
 					continue;
 				}
-
 				while (queue.size() > 0) {
 					auto entry = queue.back();
 					queue.pop_back();
 					auto cell = entry.cells.back();
-
 					if (design->module(cell->type) == nullptr) {
 
 					} else if (design->module(cell->type)->get_blackbox_attribute()) {
@@ -234,7 +232,6 @@ struct Sta2Worker {
 
 							continue;
 						}
-						Yosys::RTLIL::Cell *last_consumer = nullptr;
 						for (auto &consumer_bit : consumers) {
 							auto consumer = consumer_bit.cell;
 							if (analysed_cells.count(consumer->name)) {
@@ -245,8 +242,9 @@ struct Sta2Worker {
 							Sta_Path new_entry(entry.delay, entry.wire, entry.cells, entry.delays);
 							new_entry.cells.push_back(consumer);
 							new_entry.add_delay(consumer, cell_delays);
-							double delay = new_entry.delays.back();
-							// if we have already reached this cell skip it if between max or min.
+							double delay = new_entry.delay + 0.0001; // add a small value as tie breaker for equal delays.
+							// printf("consumer %s with delay %f\n", consumer->name.c_str(), delay);
+							//  if we have already reached this cell skip it if between max or min.
 							if (cell_max_analysed.count(consumer->name) &&
 							    cell_max_analysed[consumer->name] > entry.delay) {
 								if (!hold_violations)
@@ -265,6 +263,18 @@ struct Sta2Worker {
 							if (RTLIL::builtin_ff_cell_types().count(consumer->type) ||
 							    (cell_delays.count(consumer->type) && cell_delays.at(consumer->type).is_flipflop)) {
 								// We have a flip-flop. This is the end of this path.
+
+								auto loop = false;
+								for (auto &it : entry.cells) {
+									if (it->name == consumer->name) {
+
+										loop = true;
+										break;
+									}
+								}
+								if (loop)
+									continue;
+
 								// check that we don't have a clk or rst port. In that case we don't want to include
 								// this.
 								if (RTLIL::builtin_ff_cell_types().count(consumer->type)) {
@@ -298,8 +308,7 @@ struct Sta2Worker {
 								auto loop = false;
 								for (auto &it : entry.cells) {
 									if (it->name == consumer->name) {
-										log_warning("warning: potential loop detected: %s %s \n",
-											    cell->name.c_str(), consumer->name.c_str());
+
 										loop = true;
 										break;
 									}
@@ -394,8 +403,8 @@ void read_liberty_celldelay(dict<IdString, cell_delay_t> &cell_delay, string lib
 void generate_timing_report(const pool<Sta_Path> &max_paths, const pool<Sta_Path> &min_paths, double max_delay, double min_delay, bool names,
 			    bool paths)
 {
-	log("Number of paths longer than max delay %f: %d \n", max_delay, max_paths.size());
-	log("Number of paths shorter than min delay %f: %d \n", min_delay, min_paths.size());
+	log("Number of paths longer than max delay %f: %zu \n", max_delay, max_paths.size());
+	log("Number of paths shorter than min delay %f: %zu \n", min_delay, min_paths.size());
 
 	// Create ordered versions of max_delays and min_delays
 	auto ordered_max_paths = vector<Sta_Path>(max_paths.begin(), max_paths.end());
@@ -405,34 +414,50 @@ void generate_timing_report(const pool<Sta_Path> &max_paths, const pool<Sta_Path
 
 	if (names) {
 		for (auto &it : ordered_max_paths) {
-			log("max_path: start: %s, end: %s, delay: %f, cells: %u \n", it.cells.front()->name.c_str(), it.cells.back()->name.c_str(),
-			    it.delay, it.cells.size());
+			if (!it.cells.empty()) {
+				log("max_path: start: %s, end: %s, delay: %f, cells: %zu \n", it.cells.front()->name.c_str(),
+				    it.cells.back()->name.c_str(), it.delay, it.cells.size());
+			} else {
+				log("max_path: empty path, delay: %f, cells: 0 \n", it.delay);
+			}
 		}
 		for (auto &it : ordered_min_paths) {
-			log("min_path: start: %s, end: %s, delay: %f, cells: %u \n", it.cells.front()->name.c_str(), it.cells.back()->name.c_str(),
-			    it.delay, it.cells.size());
+			if (!it.cells.empty()) {
+				log("min_path: start: %s, end: %s, delay: %f, cells: %zu \n", it.cells.front()->name.c_str(),
+				    it.cells.back()->name.c_str(), it.delay, it.cells.size());
+			} else {
+				log("min_path: empty path, delay: %f, cells: 0 \n", it.delay);
+			}
 		}
 	}
 
 	if (paths) {
 		for (auto &it : ordered_max_paths) {
-			log("max_path: start: %s, end: %s, delay: %f, cells: %u , delays_length: %u\n", it.cells.front()->name.c_str(),
-			    it.cells.back()->name.c_str(), it.delay, it.cells.size(), it.delays.size());
-			int i = 0;
-			for (auto &cell : it.cells) {
-				if (i < 0 || i >= it.delays.size()) {
-					log("  cell: %s , delay: %d-> \n", cell->name.c_str(), 0);
-				} else {
-					log("  cell: %s , delay: %f -> \n", cell->name.c_str(), it.delays.at(i));
+			if (!it.cells.empty()) {
+				log("max_path: start: %s, end: %s, delay: %f, cells: %zu , delays_length: %zu\n", it.cells.front()->name.c_str(),
+				    it.cells.back()->name.c_str(), it.delay, it.cells.size(), it.delays.size());
+				unsigned long i = 0;
+				for (auto &cell : it.cells) {
+					if (i >= it.delays.size()) {
+						log("  cell: %s , delay: 0.0 -> \n", cell->name.c_str());
+					} else {
+						log("  cell: %s , delay: %f -> \n", cell->name.c_str(), it.delays.at(i));
+					}
+					i++;
 				}
-				i++;
+			} else {
+				log("max_path: empty path, delay: %f, cells: 0, delays_length: %zu\n", it.delay, it.delays.size());
 			}
 		}
 		for (auto &it : ordered_min_paths) {
-			log("min_path: start: %s, end: %s, delay: %f, cells: %u \n", it.cells.front()->name.c_str(), it.cells.back()->name.c_str(),
-			    it.delay, it.cells.size());
-			for (auto &cell : it.cells) {
-				log("  cell: %s -> \n", cell->name.c_str());
+			if (!it.cells.empty()) {
+				log("min_path: start: %s, end: %s, delay: %f, cells: %zu \n", it.cells.front()->name.c_str(),
+				    it.cells.back()->name.c_str(), it.delay, it.cells.size());
+				for (auto &cell : it.cells) {
+					log("  cell: %s -> \n", cell->name.c_str());
+				}
+			} else {
+				log("min_path: empty path, delay: %f, cells: 0 \n", it.delay);
 			}
 		}
 	}
@@ -441,51 +466,51 @@ struct Sta2Pass : public Pass {
 	Sta2Pass() : Pass("sta2", "perform static timing analysis") {}
 
 	void help() override
-{
-    // |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-    log("\n");
-    log(" sta2 [options] [selection]\n");
-    log("\n");
-    log("This command performs static timing analysis on the design.\n\n");
-    log("config file content: \n\n");
-    log("It needs a config file to read the cell delay information.\n");
-    log("The config file should be in the same format as the liberty file.\n");
-    log("each cell needs to have a delay parameter.\n");
-    log("It cannot parse the timing() section of the liberty file.\n");
-    log("there is the option to use parameterised delays. This allows STA to run early on in the flow.\n");
-    log("the delay can be parameterised by the width of the ports of the cells.\n");
-    log("There is the option to use single parameter delays, which are indexed by max port width of a cell.\n");
-    log("There is the option to use double parameter delays, here the two ports that are used for indexing can be specified.\n");
-    log("\n");
-    log("Extended liberty file fields for STA:\n");
-    log(" ff: true;                           - marks cells that terminate timing paths\n");
-    log(" delay: <value>;      				  - basic delay for non-parameterized cells\n");
-    log(" single_delay_parameterised(...);    - delay values indexed by max port width\n");
-    log(" port_names(\"A\", \"B\");           - specifies ports for multi-dimensional arrays\n");
-    log(" double_delay_parameterised(...);    - 2D delay array (requires port_names)\n");
-    log("   Format: (\"val1,val2,val3,\", \"val4,val5,val6,\", ...) - strings delimit dimensions\n");
-    log("\n");
-	log("\n");
-	log("    -config <file>\n");
-	log("        read cell delay information from config file\n");
-	log("\n");
-	log("    -top <module>\n");
-	log("        use the specified module as the top level module\n");
-	log("\n");
-	log("    -max_delay <delay>\n");
-	log("        report paths longer than the specified maximum delay\n");
-	log("\n");
-	log("    -min_delay <delay>\n");
-	log("        report paths shorter than the specified minimum delay\n");
-	log("\n");
-	log("    -v\n");
-	log("        verbose mode - show path start/end names and basic statistics\n");
-	log("\n");
-	log("    -vv\n");
-	log("        very verbose mode - show detailed path information including\n");
-	log("        individual cell delays\n");
-	log("\n");
-}
+	{
+		// |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log(" sta2 [options] [selection]\n");
+		log("\n");
+		log("This command performs static timing analysis on the design.\n\n");
+		log("config file content: \n\n");
+		log("It needs a config file to read the cell delay information.\n");
+		log("The config file should be in the same format as the liberty file.\n");
+		log("each cell needs to have a delay parameter.\n");
+		log("It cannot parse the timing() section of the liberty file.\n");
+		log("there is the option to use parameterised delays. This allows STA to run early on in the flow.\n");
+		log("the delay can be parameterised by the width of the ports of the cells.\n");
+		log("There is the option to use single parameter delays, which are indexed by max port width of a cell.\n");
+		log("There is the option to use double parameter delays, here the two ports that are used for indexing can be specified.\n");
+		log("\n");
+		log("Extended liberty file fields for STA:\n");
+		log(" ff: true;                           - marks cells that terminate timing paths\n");
+		log(" delay: <value>;      				  - basic delay for non-parameterized cells\n");
+		log(" single_delay_parameterised(...);    - delay values indexed by max port width\n");
+		log(" port_names(\"A\", \"B\");           - specifies ports for multi-dimensional arrays\n");
+		log(" double_delay_parameterised(...);    - 2D delay array (requires port_names)\n");
+		log("   Format: (\"val1,val2,val3,\", \"val4,val5,val6,\", ...) - strings delimit dimensions\n");
+		log("\n");
+		log("\n");
+		log("    -config <file>\n");
+		log("        read cell delay information from config file\n");
+		log("\n");
+		log("    -top <module>\n");
+		log("        use the specified module as the top level module\n");
+		log("\n");
+		log("    -max_delay <delay>\n");
+		log("        report paths longer than the specified maximum delay\n");
+		log("\n");
+		log("    -min_delay <delay>\n");
+		log("        report paths shorter than the specified minimum delay\n");
+		log("\n");
+		log("    -v\n");
+		log("        verbose mode - show path start/end names and basic statistics\n");
+		log("\n");
+		log("    -vv\n");
+		log("        very verbose mode - show detailed path information including\n");
+		log("        individual cell delays\n");
+		log("\n");
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing STA pass (static timing analysis).\n");
@@ -544,12 +569,13 @@ struct Sta2Pass : public Pass {
 				cell->set_bool_attribute(ID::keep_hierarchy, false);
 			}
 		}
+
 		Pass::call(new_design, "hierarchy -check -top " + top_mod->name.str());
 		Pass::call(new_design, "flatten");
 		Pass::call(new_design, "dump -m -o \"out/poststa.dump\"");
-
+		printf("Running STA on module %s with max delay %f and min delay %f\n", top_mod->name.c_str(), max_delay, min_delay);
 		Sta2Worker sta(new_design, cell_delay);
-		sta.run(new_design->module(top_mod->name), min_delay, 1);
+		sta.run(new_design->module(top_mod->name), min_delay);
 
 		// Extract all the paths longer than max_delay and shorter than min_delay
 		auto max_paths = pool<Sta_Path>();
