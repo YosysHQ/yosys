@@ -59,6 +59,7 @@ struct ShowWorker
 	RTLIL::Module *module;
 	uint32_t currentColor;
 	bool genWidthLabels;
+	std::string wireshape;
 	bool genSignedLabels;
 	bool stretchIO;
 	bool enumerateIds;
@@ -428,16 +429,19 @@ struct ShowWorker
 
 		std::map<std::string, std::string> wires_on_demand;
 		for (auto wire : module->selected_wires()) {
-			const char *shape = "diamond";
+		    std::string shape = wireshape;
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
+			const bool is_borderless = (shape == "plaintext") || (shape == "plain") || (shape == "none");
 			if (wire->name.isPublic()) {
 				std::string src_href;
 				if (href && wire->attributes.count(ID::src) > 0)
 					src_href = stringf(", href=\"%s\" ", escape(wire->attributes.at(ID::src).decode_string()));
-				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s%s];\n",
-						id2num(wire->name), shape, findLabel(wire->name.str()),
-						nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(),
+				fprintf(f, "n%d [ shape=%s,%s label=\"%s\", %s%s];\n",
+						id2num(wire->name), shape.c_str(), is_borderless? " margin=0, width=0" : "",  findLabel(wire->name.str()),
+						is_borderless
+						    ? "color=\"none\", fontcolor=\"black\""
+							: nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(), 
 						src_href.c_str());
 				if (wire->port_input)
 					all_sources.insert(stringf("n%d", id2num(wire->name)));
@@ -616,10 +620,10 @@ struct ShowWorker
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
-			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
+			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
-			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
+			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
@@ -712,6 +716,9 @@ struct ShowPass : public Pass {
 		log("        Use the specified attribute to assign colors. A unique color is\n");
 		log("        assigned to each unique value of this attribute.\n");
 		log("\n");
+		log("    -wireshape <graphviz_shape>\n");
+		log("        Use the specified shape for wire nodes. E.g. plaintext.\n");
+		log("\n");
 		log("    -width\n");
 		log("        annotate buses with a label indicating the width of the bus.\n");
 		log("\n");
@@ -770,6 +777,7 @@ struct ShowPass : public Pass {
 		std::string prefix = stringf("%s/.yosys_show", getenv("HOME") ? getenv("HOME") : ".");
 #endif
 		std::string viewer_exe;
+		std::string flag_wireshape = "diamond";
 		std::vector<std::string> libfiles;
 		std::vector<RTLIL::Design*> libs;
 		uint32_t colorSeed = 0;
@@ -832,6 +840,10 @@ struct ShowPass : public Pass {
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {
 				format = args[++argidx];
+				continue;
+			}
+			if (arg == "-wireshape" && argidx+1 < args.size()) {
+				flag_wireshape = args[++argidx];
 				continue;
 			}
 			if (arg == "-width") {
@@ -916,7 +928,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		for (auto lib : libs)
