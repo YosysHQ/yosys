@@ -34,6 +34,9 @@ PRIVATE_NAMESPACE_BEGIN
 struct cell_area_t {
 	double area;
 	bool is_sequential;
+	vector<double> single_parameter_area;
+	vector<vector<double>> double_parameter_area;
+	vector<string> parameter_names;
 };
 
 struct statdata_t {
@@ -206,6 +209,89 @@ struct statdata_t {
 			}
 
 			if (!cell_area.empty()) {
+				// check if cell_area provides a area calculator
+				if (cell_area.count(cell->type)) {
+					cell_area_t cell_data = cell_area.at(cell->type);
+					if (cell_data.single_parameter_area.size() > 0) {
+						// assume that we just take the max of the A,B,Y ports
+
+						int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : 0;
+						int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : 0;
+						int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(ID::Y)) : 0;
+						int width_q = cell->hasPort(ID::Q) ? GetSize(cell->getPort(ID::Q)) : 0;
+						int max_width = max<int>({width_a, width_b, width_y, width_q});
+						if (!cell_area.count(cell_type)) {
+							cell_area[cell_type] = cell_data;
+						}
+						if (cell_data.single_parameter_area.size() > max_width - 1u) {
+							cell_area.at(cell_type).area = cell_data.single_parameter_area.at(max_width - 1);
+							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
+
+						} else {
+							printf("too small single_parameter_area %s %d %f\n", cell_type.c_str(), max_width,
+							       cell_data.single_parameter_area.back());
+							cell_area.at(cell_type).area = cell_data.single_parameter_area.back();
+							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
+						}
+						// printf("single_paramter_extraction %s %d %f\n", cell_type.c_str(), max_width,
+						// cell_area.at(cell_type).area);
+					}
+					vector<double> widths;
+					if (cell_data.parameter_names.size() > 0) {
+						for (auto &it : cell_data.parameter_names) {
+							RTLIL::IdString port_name;
+							// TODO: there has to be a better way to do this
+							if (it == "A") {
+								port_name = ID::A;
+							} else if (it == "B") {
+								port_name = ID::B;
+							} else if (it == "Y") {
+								port_name = ID::Y;
+							} else if (it == "Q") {
+								port_name = ID::Q;
+							} else if (it == "S") {
+								port_name = ID::S;
+							} else {
+								port_name = ID(it);
+							}
+							if (cell->hasPort(port_name)) {
+								int width = GetSize(cell->getPort(port_name));
+								widths.push_back(width);
+							} else {
+								widths.push_back(0);
+							}
+						}
+					}
+
+					if (cell_data.double_parameter_area.size() > 0) {
+						if (!cell_area.count(cell_type)) {
+							cell_area[cell_type] = cell_data;
+						}
+						if (widths.size() == 2) {
+							unsigned int width_a = widths.at(0);
+							unsigned int width_b = widths.at(1);
+							if (width_a > 0 && width_b > 0) {
+								if (cell_data.double_parameter_area.size() > width_a - 1 &&
+								    cell_data.double_parameter_area.at(width_a - 1).size() > width_b - 1) {
+									cell_area.at(cell_type).area =
+									  cell_data.double_parameter_area.at(width_a - 1).at(width_b - 1);
+									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
+								} else {
+									printf("too small double_parameter_area %s %d %d %f\n", cell_type.c_str(),
+									       width_a, width_b, cell_data.double_parameter_area.back().back());
+									cell_area.at(cell_type).area = cell_data.double_parameter_area.back().back();
+									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
+								}
+							} else {
+								cell_area.at(cell_type).area = cell_data.area;
+								cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
+							}
+						} else {
+							printf("double_paramter_extraction %s %zu %f\n", cell_type.c_str(), widths.size(),
+							       cell_area.at(cell_type).area);
+						}
+					}
+				}
 
 				if (cell_area.count(cell_type)) {
 					cell_area_t cell_data = cell_area.at(cell_type);
@@ -726,9 +812,64 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 
 		const LibertyAst *ar = cell->find("area");
 		bool is_flip_flop = cell->find("ff") != nullptr;
+		vector<double> single_parameter_area;
+		vector<vector<double>> double_parameter_area;
+		vector<string> port_names;
+		const LibertyAst *sar = cell->find("single_area_parameterised");
+		if (sar != nullptr) {
+			for (const auto &s : sar->args) {
+				double value = 0;
+				auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+				// ec != std::errc() means parse error, or ptr didn't consume entire string
+				if (ec != std::errc() || ptr != s.data() + s.size())
+					break;
+				single_parameter_area.push_back(value);
+			}
+			if (single_parameter_area.size() == 0)
+				printf("error: %s\n", sar->args[single_parameter_area.size() - 1].c_str());
+			// check if it is a double parameterised area
+		}
+		const LibertyAst *dar = cell->find("double_area_parameterised");
+		if (dar != nullptr) {
+			for (const auto &s : dar->args) {
+
+				// printf("value: %s\n",sar->value.c_str());
+				// printf("args1: %s\n",dar->args[0].c_str());
+
+				vector<string> sub_array;
+				std::string::size_type start = 0;
+				std::string::size_type end = s.find_first_of(",", start);
+				while (end != std::string::npos) {
+					sub_array.push_back(s.substr(start, end - start));
+					start = end + 1;
+					end = s.find_first_of(",", start);
+				}
+				sub_array.push_back(s.substr(start, end));
+
+				vector<double> cast_sub_array;
+				for (const auto &s : sub_array) {
+					double value = 0;
+					auto [ptr, ec] = std::from_chars(s.data() + 1, s.data() + s.size(), value);
+					if (ec != std::errc() || ptr != s.data() + s.size())
+						break;
+					cast_sub_array.push_back(value);
+				}
+				double_parameter_area.push_back(cast_sub_array);
+				if (cast_sub_array.size() == 0)
+					printf("error: %s\n", s.c_str());
+			}
+		}
+		const LibertyAst *par = cell->find("port_names");
+		if (par != nullptr) {
+			for (const auto &s : par->args) {
+				port_names.push_back(s);
+			}
+		}
+
 		if (ar != nullptr && !ar->value.empty()) {
 			string prefix = cell->args[0].substr(0, 1) == "$" ? "" : "\\";
-			cell_area[prefix + cell->args[0]] = {atof(ar->value.c_str()), is_flip_flop};
+			cell_area[prefix + cell->args[0]] = {atof(ar->value.c_str()), is_flip_flop, single_parameter_area, double_parameter_area,
+							     port_names};
 		}
 	}
 }
