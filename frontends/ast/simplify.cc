@@ -3369,13 +3369,14 @@ skip_dynamic_range_lvalue_expansion:;
 				wire->str = stringf("$initstate$%d_wire", myidx);
 				while (wire->simplify(true, 1, -1, false)) { }
 
-				auto cell = std::make_unique<AstNode>(location, AST_CELL, std::make_unique<AstNode>(location, AST_CELLTYPE), std::make_unique<AstNode>(location, AST_ARGUMENT, std::make_unique<AstNode>(location, AST_IDENTIFIER)));
+				auto cell_owned = std::make_unique<AstNode>(location, AST_CELL, std::make_unique<AstNode>(location, AST_CELLTYPE), std::make_unique<AstNode>(location, AST_ARGUMENT, std::make_unique<AstNode>(location, AST_IDENTIFIER)));
+				auto* cell = cell_owned.get();
 				cell->str = stringf("$initstate$%d", myidx);
 				cell->children[0]->str = "$initstate";
 				cell->children[1]->str = "\\Y";
 				cell->children[1]->children[0]->str = wire->str;
 				cell->children[1]->children[0]->id2ast = wire;
-				current_ast_mod->children.push_back(std::move(cell));
+				current_ast_mod->children.push_back(std::move(cell_owned));
 				while (cell->simplify(true, 1, -1, false)) { }
 
 				newNode = std::make_unique<AstNode>(location, AST_IDENTIFIER);
