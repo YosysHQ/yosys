@@ -1,0 +1,33 @@
+read_verilog <<EOT
+module top(...);
+
+input [7:0] ra;
+input [7:0] rb;
+output gt;
+output sgt;
+output lt;
+output slt;
+
+output ge;
+output eq;
+output seq;
+output ne;
+
+assign gt = ra > rb;
+assign sgt = $signed(ra) > $signed(rb);
+assign lt = ra < rb;
+assign slt = $signed(ra) < $signed(rb);
+
+assign ge = ra >= rb;
+assign eq = ra == rb;
+assign seq = $signed(ra) == $signed(rb);
+assign ne = ra != rb;
+
+endmodule
+EOT
+
+proc
+
+equiv_opt -assert alumacc
+alumacc
+select -assert-count 1 t:$alu
