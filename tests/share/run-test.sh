@@ -36,4 +36,9 @@ if [ -n "$failed_share" ]; then
 	false
 fi
 
+for x in *.ys; do
+  echo "Running $x.."
+  ../../yosys -ql ${x%.ys}.log $x
+done
+
 exit 0
