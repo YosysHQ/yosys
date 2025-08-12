@@ -818,12 +818,12 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 		const LibertyAst *sar = cell->find("single_area_parameterised");
 		if (sar != nullptr) {
 			for (const auto &s : sar->args) {
-				double value = 0;
-				auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
-				// ec != std::errc() means parse error, or ptr didn't consume entire string
-				if (ec != std::errc() || ptr != s.data() + s.size())
-					break;
-				single_parameter_area.push_back(value);
+				try {
+					double value = std::stod(s);
+					single_parameter_area.push_back(value);
+				} catch (const std::exception &e) {
+					log_error("Failed to parse single parameter area value '%s': %s\n", s.c_str(), e.what());
+				}
 			}
 			if (single_parameter_area.size() == 0)
 				printf("error: %s\n", sar->args[single_parameter_area.size() - 1].c_str());
@@ -849,10 +849,12 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 				vector<double> cast_sub_array;
 				for (const auto &s : sub_array) {
 					double value = 0;
-					auto [ptr, ec] = std::from_chars(s.data() + 1, s.data() + s.size(), value);
-					if (ec != std::errc() || ptr != s.data() + s.size())
-						break;
-					cast_sub_array.push_back(value);
+					try {
+						value = std::stod(s);
+						cast_sub_array.push_back(value);
+					} catch (const std::exception &e) {
+						log_error("Failed to parse double parameter area value '%s': %s\n", s.c_str(), e.what());
+					}
 				}
 				double_parameter_area.push_back(cast_sub_array);
 				if (cast_sub_array.size() == 0)
