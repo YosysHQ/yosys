@@ -100,7 +100,7 @@ enum class WrTransKind {
 
 struct WrTransDef {
 	WrTransTargetKind target_kind;
-	int target_group;
+	int target_group = 0;
 	WrTransKind kind;
 };
 

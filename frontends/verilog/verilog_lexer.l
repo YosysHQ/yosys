@@ -32,6 +32,13 @@
  *
  */
 
+%option c++
+%option yyclass="VerilogLexer"
+%option noyywrap
+%option nounput
+%option yylineno
+%option prefix="frontend_verilog_yy"
+
 %{
 
 #ifdef __clang__
@@ -41,78 +48,109 @@
 #pragma clang diagnostic ignored "-Wmisleading-indentation"
 #endif
 
-#include "kernel/log.h"
-#include "frontends/verilog/verilog_frontend.h"
+#include "frontends/verilog/verilog_lexer.h"
 #include "frontends/ast/ast.h"
-#include "verilog_parser.tab.hh"
+#include "frontends/verilog/verilog_location.h"
+#include "kernel/log.h"
+#include <vector>
+#include <memory>
 
 USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
-
-#define YYSTYPE FRONTEND_VERILOG_YYSTYPE
-#define YYLTYPE FRONTEND_VERILOG_YYLTYPE
+using parser = frontend_verilog_yy::parser;
 
 YOSYS_NAMESPACE_BEGIN
-namespace VERILOG_FRONTEND {
-	std::vector<std::string> fn_stack;
-	std::vector<int> ln_stack;
-	YYLTYPE real_location;
-	YYLTYPE old_location;
-}
+#undef YY_DECL
+#define YY_DECL parser::symbol_type VerilogLexer::nextToken()
+
+#undef yyterminate
+#define yyterminate() return terminate()
+
 YOSYS_NAMESPACE_END
 
 #define SV_KEYWORD(_tok) \
-	if (sv_mode) return _tok; \
+	if (mode->sv) return _tok; \
 	log("Lexer warning: The SystemVerilog keyword `%s' (at %s:%d) is not "\
-			"recognized unless read_verilog is called with -sv!\n", yytext, \
-			AST::current_filename.c_str(), frontend_verilog_yyget_lineno()); \
-	yylval->string = new std::string(std::string("\\") + yytext); \
-	return TOK_ID;
+			"recognized unless read_verilog is called with -sv!\n", YYText(), \
+			current_filename->c_str(), yylineno); \
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
+	return parser::make_TOK_ID(std::move(val), out_loc);
 
 #define NON_KEYWORD() \
-	yylval->string = new std::string(std::string("\\") + yytext); \
-	return TOK_ID;
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText()); \
+	return parser::make_TOK_ID(std::move(val), out_loc);
 
-#define YY_INPUT(buf,result,max_size) \
-	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
 
 #define YY_USER_ACTION \
-       old_location = real_location; \
-       real_location.first_line = real_location.last_line; \
-       real_location.first_column = real_location.last_column; \
-       for(int i = 0; yytext[i] != '\0'; ++i){ \
-               if(yytext[i] == '\n') { \
-                       real_location.last_line++; \
-                       real_location.last_column = 1; \
-               } \
-               else { \
-                       real_location.last_column++; \
-               } \
-       } \
-    (*yylloc) = real_location;
+	out_loc.step(); \
+	for(int i = 0; YYText()[i] != '\0'; ++i){ \
+		if(YYText()[i] == '\n') { \
+			out_loc.lines(); \
+		} \
+		else { \
+			out_loc.columns(); \
+		} \
+	} \
+	out_loc.begin.filename = current_filename; \
+	out_loc.end.filename = current_filename;
 
 #define YY_BREAK \
-    (*yylloc) = old_location; \
     break;
 
 #undef YY_BUF_SIZE
 #define YY_BUF_SIZE 65536
 
-extern int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
-
-static bool isUserType(std::string &s)
+static bool isUserType(ParseState* extra, std::string &s)
 {
 	// check current scope then outer scopes for a name
-	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
+	for (auto it = extra->user_type_stack.rbegin(); it != extra->user_type_stack.rend(); ++it) {
 		if (it->count(s) > 0) {
-			return true;
+				return true;
 		}
 	}
 	return false;
 }
 
-static bool is_hex_dig(char c, int *val)
+parser::symbol_type char_tok(char c, parser::location_type loc) {
+	switch (c) {
+		case '!': return parser::make_TOK_EXCL(loc);
+		case '#': return parser::make_TOK_HASH(loc);
+		case '%': return parser::make_TOK_PERC(loc);
+		case '&': return parser::make_TOK_AMP(loc);
+		case '(': return parser::make_TOK_LPAREN(loc);
+		case ')': return parser::make_TOK_RPAREN(loc);
+		case '*': return parser::make_TOK_ASTER(loc);
+		case '+': return parser::make_TOK_PLUS(loc);
+		case ',': return parser::make_TOK_COMMA(loc);
+		case '-': return parser::make_TOK_MINUS(loc);
+		case '.': return parser::make_TOK_DOT(loc);
+		case '/': return parser::make_TOK_SLASH(loc);
+		case ':': return parser::make_TOK_COL(loc);
+		case ';': return parser::make_TOK_SEMICOL(loc);
+		case '<': return parser::make_TOK_LT(loc);
+		case '=': return parser::make_TOK_EQ(loc);
+		case '>': return parser::make_TOK_GT(loc);
+		case '?': return parser::make_TOK_QUE(loc);
+		case '@': return parser::make_TOK_AT(loc);
+		case '[': return parser::make_TOK_LBRA(loc);
+		case ']': return parser::make_TOK_RBRA(loc);
+		case '^': return parser::make_TOK_CARET(loc);
+		case '_': return parser::make_TOK_UNDER(loc);
+		case '{': return parser::make_TOK_LCURL(loc);
+		case '|': return parser::make_TOK_PIPE(loc);
+		case '}': return parser::make_TOK_RCURL(loc);
+		case '~': return parser::make_TOK_TILDE(loc);
+		case 'n': return parser::make_TOK_n(loc);
+		case 'p': return parser::make_TOK_p(loc);
+		case 'x': return parser::make_TOK_x(loc);
+		case 'z': return parser::make_TOK_z(loc);
+		case 0: return parser::make_FRONTEND_VERILOG_YYEOF(loc);
+		default:
+			return parser::make_ch_t(c, loc);
+	}
+}
+static bool is_hex_dig(char c, int *val, parser::location_type loc)
 {
 	if ('0' <= c && c <= '9') {
 		*val = c - '0';
@@ -124,7 +162,7 @@ static bool is_hex_dig(char c, int *val)
 		*val = c - 'A' + 0xA;
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "'%c' not a valid digit in hex escape sequence.\n", c);
+		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in hex escape sequence.\n", c);
 		*val = 0; // not semantically valid in hex escape...
 		return true; // ...but still processed as part of hex token
 	}
@@ -132,13 +170,13 @@ static bool is_hex_dig(char c, int *val)
 	return false;
 }
 
-static bool is_oct_dig(char c, int *val)
+static bool is_oct_dig(char c, int *val, parser::location_type loc)
 {
 	if ('0' <= c && c <= '7') {
 		*val = c - '0';
 		return true;
 	} else if (c == 'x' || c == 'X' || c == 'z' || c == 'Z' || c == '?') {
-		log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "'%c' not a valid digit in octal escape sequence.\n", c);
+		log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "'%c' not a valid digit in octal escape sequence.\n", c);
 		*val = 0; // not semantically valid in octal escape...
 		return true; // ...but still processed as part of octal token
 	}
@@ -146,7 +184,7 @@ static bool is_oct_dig(char c, int *val)
 	return false;
 }
 
-static std::string *process_str(char *str, int len, bool triple)
+static parser::symbol_type process_str(char *str, int len, bool triple, parser::location_type loc)
 {
 	char *in, *out; // Overwrite input buffer: flex manual states "Actions
 		// are free to modify 'yytext' except for lengthening it".
@@ -158,7 +196,7 @@ static std::string *process_str(char *str, int len, bool triple)
 			if (in + 1 < str + len && (in[1] ^ *in) == ('\n' ^ '\r'))
 				in++;
 			if (!triple)
-				log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "Multi-line string literals should be triple-quoted or escaped.\n");
+				log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "Multi-line string literals should be triple-quoted or escaped.\n");
 			*out++ = '\n';
 			break;
 		case '\\':
@@ -186,16 +224,16 @@ static std::string *process_str(char *str, int len, bool triple)
 				break;
 			case 'x':
 				int val;
-				if (in + 1 < str + len && is_hex_dig(in[1], &val)) {
+				if (in + 1 < str + len && is_hex_dig(in[1], &val, loc)) {
 					*out = val;
 					in++;
-					if (in + 1 < str + len && is_hex_dig(in[1], &val)) {
+					if (in + 1 < str + len && is_hex_dig(in[1], &val, loc)) {
 						*out = *out * 0x10 + val;
 						in++;
 					}
 					out++;
 				} else
-					log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "ignoring invalid hex escape.\n");
+					log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "ignoring invalid hex escape.\n");
 				break;
 			case '\\':
 				*out++ = '\\';
@@ -213,12 +251,12 @@ static std::string *process_str(char *str, int len, bool triple)
 					int val;
 
 					*out = *in - '0';
-					if (in + 1 < str + len && is_oct_dig(in[1], &val)) {
+					if (in + 1 < str + len && is_oct_dig(in[1], &val, loc)) {
 						*out = *out * 010 + val;
 						in++;
-						if (in + 1 < str + len && is_oct_dig(in[1], &val)) {
+						if (in + 1 < str + len && is_oct_dig(in[1], &val, loc)) {
 							if (*out >= 040)
-								log_file_warning(AST::current_filename.c_str(), frontend_verilog_yyget_lineno(), "octal escape exceeds \\377\n");
+								log_file_warning(loc.begin.filename->c_str(), loc.begin.line, "octal escape exceeds \\377\n");
 							*out = *out * 010 + val;
 							in++;
 						}
@@ -232,17 +270,10 @@ static std::string *process_str(char *str, int len, bool triple)
 			*out++ = *in;
 		}
 
-	return new std::string(str, out - str);
+	return parser::make_TOK_STRING(std::make_unique<std::string>(str, out - str), loc);
 }
 
 %}
-
-%option yylineno
-%option noyywrap
-%option nounput
-%option bison-locations
-%option bison-bridge
-%option prefix="frontend_verilog_yy"
 
 %x COMMENT
 %x SYNOPSYS_TRANSLATE_OFF
@@ -256,47 +287,46 @@ FIXED_POINT_NUMBER_NO_DEC [0-9][0-9_]*[eE][-+]?[0-9_]+
 TIME_SCALE_SUFFIX [munpf]?s
 
 %%
+
 	// Initialise comment_caller to something to avoid a "maybe undefined"
 	// warning from GCC.
 	int comment_caller = INITIAL;
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
-	ln_stack.push_back(frontend_verilog_yyget_lineno());
-	current_filename = yytext+11;
-	if (!current_filename.empty() && current_filename.front() == '"')
-		current_filename = current_filename.substr(1);
-	if (!current_filename.empty() && current_filename.back() == '"')
-		current_filename = current_filename.substr(0, current_filename.size()-1);
-	frontend_verilog_yyset_lineno(0);
-	yylloc->first_line = yylloc->last_line = 0;
-	real_location.first_line = real_location.last_line = 0;
+	ln_stack.push_back(yylineno);
+	std::string filename = YYText()+11;
+	if (!filename.empty() && filename.front() == '"')
+		filename = filename.substr(1);
+	if (!filename.empty() && filename.back() == '"')
+		filename = filename.substr(0, filename.size()-1);
+	current_filename = std::make_shared<std::string>(filename);
+	yylineno = (0);
+	out_loc.begin.line = out_loc.end.line = 0;
 }
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_pop"[^\n]*\n {
 	current_filename = fn_stack.back();
 	fn_stack.pop_back();
-	frontend_verilog_yyset_lineno(ln_stack.back());
-	yylloc->first_line = yylloc->last_line = ln_stack.back();
-	real_location.first_line = real_location.last_line = ln_stack.back();
+	yylineno = (ln_stack.back());
+	out_loc.begin.line = out_loc.end.line = ln_stack.back();
 	ln_stack.pop_back();
 }
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`line"[ \t]+[^ \t\r\n]+[ \t]+\"[^ \r\n]+\"[^\r\n]*\n {
-	char *p = yytext + 5;
+	const char *p = YYText() + 5;
 	while (*p == ' ' || *p == '\t') p++;
-	frontend_verilog_yyset_lineno(atoi(p));
-	yylloc->first_line = yylloc->last_line = atoi(p);
-	real_location.first_line = real_location.last_line = atoi(p);
+	yylineno = (atoi(p));
+	out_loc.begin.line = out_loc.end.line = atoi(p);
 	while (*p && *p != ' ' && *p != '\t') p++;
 	while (*p == ' ' || *p == '\t') p++;
-	char *q = *p ? p + 1 : p;
+	const char *q = *p ? p + 1 : p;
 	while (*q && *q != '"') q++;
-	current_filename = std::string(p).substr(1, q-p-1);
+	current_filename = std::make_shared<std::string>(std::string(p).substr(1, q-p-1));
 }
 
 "`file_notfound "[^\n]* {
-	log_error("Can't open include file `%s'!\n", yytext + 15);
+	log_error("Can't open include file `%s'!\n", YYText() + 15);
 }
 
 "`timescale"[ \t]+[^ \t\r\n/]+[ \t]*"/"[ \t]*[^ \t\r\n]* /* ignore timescale directive */
@@ -305,223 +335,223 @@ TIME_SCALE_SUFFIX [munpf]?s
 "`endcelldefine"[^\n]* /* ignore `endcelldefine */
 
 "`default_nettype"[ \t]+[^ \t\r\n/]+ {
-	char *p = yytext;
+	const char *p = YYText();
 	while (*p != 0 && *p != ' ' && *p != '\t') p++;
 	while (*p == ' ' || *p == '\t') p++;
 	if (!strcmp(p, "none"))
-		VERILOG_FRONTEND::default_nettype_wire = false;
+		extra->default_nettype_wire = false;
 	else if (!strcmp(p, "wire"))
-		VERILOG_FRONTEND::default_nettype_wire = true;
+		extra->default_nettype_wire = true;
 	else
-		frontend_verilog_yyerror("Unsupported default nettype: %s", p);
+		err_at_loc(out_loc, "Unsupported default nettype: %s", p);
 }
 
 "`protect"[^\n]* /* ignore `protect*/
 "`endprotect"[^\n]* /* ignore `endprotect*/
 
 "`"[a-zA-Z_$][a-zA-Z0-9_$]* {
-	frontend_verilog_yyerror("Unimplemented compiler directive or undefined macro %s.", yytext);
+	err_at_loc(out_loc, "Unimplemented compiler directive or undefined macro %s.", YYText());
 }
 
-"module"       { return TOK_MODULE; }
-"endmodule"    { return TOK_ENDMODULE; }
-"function"     { return TOK_FUNCTION; }
-"endfunction"  { return TOK_ENDFUNCTION; }
-"task"         { return TOK_TASK; }
-"endtask"      { return TOK_ENDTASK; }
-"specify"      { return specify_mode ? TOK_SPECIFY : TOK_IGNORED_SPECIFY; }
-"endspecify"   { return TOK_ENDSPECIFY; }
-"specparam"    { return TOK_SPECPARAM; }
-"package"      { SV_KEYWORD(TOK_PACKAGE); }
-"endpackage"   { SV_KEYWORD(TOK_ENDPACKAGE); }
-"import"       { SV_KEYWORD(TOK_IMPORT); }
-"interface"    { SV_KEYWORD(TOK_INTERFACE); }
-"endinterface" { SV_KEYWORD(TOK_ENDINTERFACE); }
-"modport"      { SV_KEYWORD(TOK_MODPORT); }
-"parameter"    { return TOK_PARAMETER; }
-"localparam"   { return TOK_LOCALPARAM; }
-"defparam"     { return TOK_DEFPARAM; }
-"assign"       { return TOK_ASSIGN; }
-"always"       { return TOK_ALWAYS; }
-"initial"      { return TOK_INITIAL; }
-"begin"	       { return TOK_BEGIN; }
-"end"          { return TOK_END; }
-"if"           { return TOK_IF; }
-"else"         { return TOK_ELSE; }
-"for"          { return TOK_FOR; }
-"posedge"      { return TOK_POSEDGE; }
-"negedge"      { return TOK_NEGEDGE; }
-"or"           { return TOK_OR; }
-"case"         { return TOK_CASE; }
-"casex"        { return TOK_CASEX; }
-"casez"        { return TOK_CASEZ; }
-"endcase"      { return TOK_ENDCASE; }
-"default"      { return TOK_DEFAULT; }
-"generate"     { return TOK_GENERATE; }
-"endgenerate"  { return TOK_ENDGENERATE; }
-"while"        { return TOK_WHILE; }
-"repeat"       { return TOK_REPEAT; }
-"automatic"    { return TOK_AUTOMATIC; }
+"module"       { return parser::make_TOK_MODULE(out_loc); }
+"endmodule"    { return parser::make_TOK_ENDMODULE(out_loc); }
+"function"     { return parser::make_TOK_FUNCTION(out_loc); }
+"endfunction"  { return parser::make_TOK_ENDFUNCTION(out_loc); }
+"task"         { return parser::make_TOK_TASK(out_loc); }
+"endtask"      { return parser::make_TOK_ENDTASK(out_loc); }
+"specify"      { return mode->specify ? parser::make_TOK_SPECIFY(out_loc) : parser::make_TOK_IGNORED_SPECIFY(out_loc); }
+"endspecify"   { return parser::make_TOK_ENDSPECIFY(out_loc); }
+"specparam"    { return parser::make_TOK_SPECPARAM(out_loc); }
+"package"      { SV_KEYWORD(parser::make_TOK_PACKAGE(out_loc)); }
+"endpackage"   { SV_KEYWORD(parser::make_TOK_ENDPACKAGE(out_loc)); }
+"import"       { SV_KEYWORD(parser::make_TOK_IMPORT(out_loc)); }
+"interface"    { SV_KEYWORD(parser::make_TOK_INTERFACE(out_loc)); }
+"endinterface" { SV_KEYWORD(parser::make_TOK_ENDINTERFACE(out_loc)); }
+"modport"      { SV_KEYWORD(parser::make_TOK_MODPORT(out_loc)); }
+"parameter"    { return parser::make_TOK_PARAMETER(out_loc); }
+"localparam"   { return parser::make_TOK_LOCALPARAM(out_loc); }
+"defparam"     { return parser::make_TOK_DEFPARAM(out_loc); }
+"assign"       { return parser::make_TOK_ASSIGN(out_loc); }
+"always"       { return parser::make_TOK_ALWAYS(out_loc); }
+"initial"      { return parser::make_TOK_INITIAL(out_loc); }
+"begin"	       { return parser::make_TOK_BEGIN(out_loc); }
+"end"          { return parser::make_TOK_END(out_loc); }
+"if"           { return parser::make_TOK_IF(out_loc); }
+"else"         { return parser::make_TOK_ELSE(out_loc); }
+"for"          { return parser::make_TOK_FOR(out_loc); }
+"posedge"      { return parser::make_TOK_POSEDGE(out_loc); }
+"negedge"      { return parser::make_TOK_NEGEDGE(out_loc); }
+"or"           { return parser::make_TOK_OR(out_loc); }
+"case"         { return parser::make_TOK_CASE(out_loc); }
+"casex"        { return parser::make_TOK_CASEX(out_loc); }
+"casez"        { return parser::make_TOK_CASEZ(out_loc); }
+"endcase"      { return parser::make_TOK_ENDCASE(out_loc); }
+"default"      { return parser::make_TOK_DEFAULT(out_loc); }
+"generate"     { return parser::make_TOK_GENERATE(out_loc); }
+"endgenerate"  { return parser::make_TOK_ENDGENERATE(out_loc); }
+"while"        { return parser::make_TOK_WHILE(out_loc); }
+"repeat"       { return parser::make_TOK_REPEAT(out_loc); }
+"automatic"    { return parser::make_TOK_AUTOMATIC(out_loc); }
 
-"unique"       { SV_KEYWORD(TOK_UNIQUE); }
-"unique0"      { SV_KEYWORD(TOK_UNIQUE0); }
-"priority"     { SV_KEYWORD(TOK_PRIORITY); }
+"unique"       { SV_KEYWORD(parser::make_TOK_UNIQUE(out_loc)); }
+"unique0"      { SV_KEYWORD(parser::make_TOK_UNIQUE0(out_loc)); }
+"priority"     { SV_KEYWORD(parser::make_TOK_PRIORITY(out_loc)); }
 
-"always_comb"  { SV_KEYWORD(TOK_ALWAYS_COMB); }
-"always_ff"    { SV_KEYWORD(TOK_ALWAYS_FF); }
-"always_latch" { SV_KEYWORD(TOK_ALWAYS_LATCH); }
+"always_comb"  { SV_KEYWORD(parser::make_TOK_ALWAYS_COMB(out_loc)); }
+"always_ff"    { SV_KEYWORD(parser::make_TOK_ALWAYS_FF(out_loc)); }
+"always_latch" { SV_KEYWORD(parser::make_TOK_ALWAYS_LATCH(out_loc)); }
 
  /* use special token for labels on assert, assume, cover, and restrict because it's insanley complex
     to fix parsing of cells otherwise. (the current cell parser forces a reduce very early to update some
     global state.. its a mess) */
 [a-zA-Z_$][a-zA-Z0-9_$]*/[ \t\r\n]*:[ \t\r\n]*(assert|assume|cover|restrict)[^a-zA-Z0-9_$\.] {
-	if (!strcmp(yytext, "default"))
-		return TOK_DEFAULT;
-	yylval->string = new std::string(std::string("\\") + yytext);
-	return TOK_SVA_LABEL;
+	if (!strcmp(YYText(), "default"))
+		return parser::make_TOK_DEFAULT(out_loc);
+	string_t val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_SVA_LABEL(std::move(val), out_loc);
 }
 
-"assert"     { if (formal_mode) return TOK_ASSERT; SV_KEYWORD(TOK_ASSERT); }
-"assume"     { if (formal_mode) return TOK_ASSUME; SV_KEYWORD(TOK_ASSUME); }
-"cover"      { if (formal_mode) return TOK_COVER; SV_KEYWORD(TOK_COVER); }
-"restrict"   { if (formal_mode) return TOK_RESTRICT; SV_KEYWORD(TOK_RESTRICT); }
-"property"   { if (formal_mode) return TOK_PROPERTY; SV_KEYWORD(TOK_PROPERTY); }
-"rand"       { if (formal_mode) return TOK_RAND; SV_KEYWORD(TOK_RAND); }
-"const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
-"checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
-"endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
-"bind"       { if (formal_mode) return TOK_BIND; SV_KEYWORD(TOK_BIND); }
-"final"      { SV_KEYWORD(TOK_FINAL); }
-"logic"      { SV_KEYWORD(TOK_LOGIC); }
-"var"        { SV_KEYWORD(TOK_VAR); }
-"bit"        { SV_KEYWORD(TOK_LOGIC); }
-"int"        { SV_KEYWORD(TOK_INT); }
-"byte"       { SV_KEYWORD(TOK_BYTE); }
-"shortint"   { SV_KEYWORD(TOK_SHORTINT); }
-"longint"    { SV_KEYWORD(TOK_LONGINT); }
-"void"       { SV_KEYWORD(TOK_VOID); }
+"assert"     { if (mode->formal) return parser::make_TOK_ASSERT(out_loc); SV_KEYWORD(parser::make_TOK_ASSERT(out_loc)); }
+"assume"     { if (mode->formal) return parser::make_TOK_ASSUME(out_loc); SV_KEYWORD(parser::make_TOK_ASSUME(out_loc)); }
+"cover"      { if (mode->formal) return parser::make_TOK_COVER(out_loc); SV_KEYWORD(parser::make_TOK_COVER(out_loc)); }
+"restrict"   { if (mode->formal) return parser::make_TOK_RESTRICT(out_loc); SV_KEYWORD(parser::make_TOK_RESTRICT(out_loc)); }
+"property"   { if (mode->formal) return parser::make_TOK_PROPERTY(out_loc); SV_KEYWORD(parser::make_TOK_PROPERTY(out_loc)); }
+"rand"       { if (mode->formal) return parser::make_TOK_RAND(out_loc); SV_KEYWORD(parser::make_TOK_RAND(out_loc)); }
+"const"      { if (mode->formal) return parser::make_TOK_CONST(out_loc); SV_KEYWORD(parser::make_TOK_CONST(out_loc)); }
+"checker"    { if (mode->formal) return parser::make_TOK_CHECKER(out_loc); SV_KEYWORD(parser::make_TOK_CHECKER(out_loc)); }
+"endchecker" { if (mode->formal) return parser::make_TOK_ENDCHECKER(out_loc); SV_KEYWORD(parser::make_TOK_ENDCHECKER(out_loc)); }
+"bind"       { if (mode->formal) return parser::make_TOK_BIND(out_loc); SV_KEYWORD(parser::make_TOK_BIND(out_loc)); }
+"final"      { SV_KEYWORD(parser::make_TOK_FINAL(out_loc)); }
+"logic"      { SV_KEYWORD(parser::make_TOK_LOGIC(out_loc)); }
+"var"        { SV_KEYWORD(parser::make_TOK_VAR(out_loc)); }
+"bit"        { SV_KEYWORD(parser::make_TOK_LOGIC(out_loc)); }
+"int"        { SV_KEYWORD(parser::make_TOK_INT(out_loc)); }
+"byte"       { SV_KEYWORD(parser::make_TOK_BYTE(out_loc)); }
+"shortint"   { SV_KEYWORD(parser::make_TOK_SHORTINT(out_loc)); }
+"longint"    { SV_KEYWORD(parser::make_TOK_LONGINT(out_loc)); }
+"void"       { SV_KEYWORD(parser::make_TOK_VOID(out_loc)); }
 
-"eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
-"s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
+"eventually"   { if (mode->formal) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
+"s_eventually" { if (mode->formal) return parser::make_TOK_EVENTUALLY(out_loc); SV_KEYWORD(parser::make_TOK_EVENTUALLY(out_loc)); }
 
-"input"   { return TOK_INPUT; }
-"output"  { return TOK_OUTPUT; }
-"inout"   { return TOK_INOUT; }
-"wire"    { return TOK_WIRE; }
-"tri"     { return TOK_WIRE; }
-"wor"     { return TOK_WOR; }
-"trior"   { return TOK_WOR; }
-"wand"    { return TOK_WAND; }
-"triand"  { return TOK_WAND; }
-"reg"     { return TOK_REG; }
-"integer" { return TOK_INTEGER; }
-"signed"  { return TOK_SIGNED; }
-"unsigned" { SV_KEYWORD(TOK_UNSIGNED); }
-"genvar"  { return TOK_GENVAR; }
-"real"    { return TOK_REAL; }
+"input"   { return parser::make_TOK_INPUT(out_loc); }
+"output"  { return parser::make_TOK_OUTPUT(out_loc); }
+"inout"   { return parser::make_TOK_INOUT(out_loc); }
+"wire"    { return parser::make_TOK_WIRE(out_loc); }
+"tri"     { return parser::make_TOK_WIRE(out_loc); }
+"wor"     { return parser::make_TOK_WOR(out_loc); }
+"trior"   { return parser::make_TOK_WOR(out_loc); }
+"wand"    { return parser::make_TOK_WAND(out_loc); }
+"triand"  { return parser::make_TOK_WAND(out_loc); }
+"reg"     { return parser::make_TOK_REG(out_loc); }
+"integer" { return parser::make_TOK_INTEGER(out_loc); }
+"signed"  { return parser::make_TOK_SIGNED(out_loc); }
+"unsigned" { SV_KEYWORD(parser::make_TOK_UNSIGNED(out_loc)); }
+"genvar"  { return parser::make_TOK_GENVAR(out_loc); }
+"real"    { return parser::make_TOK_REAL(out_loc); }
 
-"enum"    { SV_KEYWORD(TOK_ENUM); }
-"typedef" { SV_KEYWORD(TOK_TYPEDEF); }
-"struct"  { SV_KEYWORD(TOK_STRUCT); }
-"union"   { SV_KEYWORD(TOK_UNION); }
-"packed"  { SV_KEYWORD(TOK_PACKED); }
+"enum"    { SV_KEYWORD(parser::make_TOK_ENUM(out_loc)); }
+"typedef" { SV_KEYWORD(parser::make_TOK_TYPEDEF(out_loc)); }
+"struct"  { SV_KEYWORD(parser::make_TOK_STRUCT(out_loc)); }
+"union"   { SV_KEYWORD(parser::make_TOK_UNION(out_loc)); }
+"packed"  { SV_KEYWORD(parser::make_TOK_PACKED(out_loc)); }
 
 {UNSIGNED_NUMBER} {
-	yylval->string = new std::string(yytext);
-	return TOK_CONSTVAL;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_CONSTVAL(std::move(val), out_loc);
 }
 
 \'[01zxZX] {
-	yylval->string = new std::string(yytext);
-	return TOK_UNBASED_UNSIZED_CONSTVAL;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_UNBASED_UNSIZED_CONSTVAL(std::move(val), out_loc);
 }
 
 \'[sS]?[bodhBODH] {
 	BEGIN(BASED_CONST);
-	yylval->string = new std::string(yytext);
-	return TOK_BASE;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_BASE(std::move(val), out_loc);
 }
 
 <BASED_CONST>[0-9a-fA-FzxZX?][0-9a-fA-FzxZX?_]* {
 	BEGIN(0);
-	yylval->string = new std::string(yytext);
-	return TOK_BASED_CONSTVAL;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_BASED_CONSTVAL(std::move(val), out_loc);
 }
 
 {FIXED_POINT_NUMBER_DEC} {
-	yylval->string = new std::string(yytext);
-	return TOK_REALVAL;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_REALVAL(std::move(val), out_loc);
 }
 
 {FIXED_POINT_NUMBER_NO_DEC} {
-	yylval->string = new std::string(yytext);
-	return TOK_REALVAL;
+	string_t val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_REALVAL(std::move(val), out_loc);
 }
 
-\"([^\\"]|\\.|\\\n)*\"			{ yylval->string = process_str(yytext + 1, yyleng - 2, false); return TOK_STRING; }
+\"([^\\"]|\\.|\\\n)*\"			{ return process_str(yytext + 1, yyleng - 2, false, out_loc); }
 
-\"{3}(\"{0,2}([^\\"]|\\.|\\\n))*\"{3}	{ yylval->string = process_str(yytext + 3, yyleng - 6, true); return TOK_STRING; }
+\"{3}(\"{0,2}([^\\"]|\\.|\\\n))*\"{3}	{ return process_str(yytext + 3, yyleng - 6, true, out_loc); }
 
 and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
-	yylval->string = new std::string(yytext);
-	return TOK_PRIMITIVE;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_PRIMITIVE(std::move(val), out_loc);
 }
 
-supply0 { return TOK_SUPPLY0; }
-supply1 { return TOK_SUPPLY1; }
+supply0 { return parser::make_TOK_SUPPLY0(out_loc); }
+supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 
 "$"(display[bho]?|write[bho]?|strobe|monitor|time|realtime|stop|finish|dumpfile|dumpvars|dumpon|dumpoff|dumpall) {
-	yylval->string = new std::string(yytext);
-	return TOK_ID;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "$"(setup|hold|setuphold|removal|recovery|recrem|skew|timeskew|fullskew|nochange) {
-	if (!specify_mode) REJECT;
-	yylval->string = new std::string(yytext);
-	return TOK_ID;
+	if (!mode->specify) REJECT;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "$"(info|warning|error|fatal) {
-	yylval->string = new std::string(yytext);
-	return TOK_MSG_TASKS;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_MSG_TASKS(std::move(val), out_loc);
 }
 
-"$signed"   { return TOK_TO_SIGNED; }
-"$unsigned" { return TOK_TO_UNSIGNED; }
+"$signed"   { return parser::make_TOK_TO_SIGNED(out_loc); }
+"$unsigned" { return parser::make_TOK_TO_UNSIGNED(out_loc); }
 
 [a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_$][a-zA-Z0-9_$]* {
 	// package qualifier
-	auto s = std::string("\\") + yytext;
-	if (pkg_user_types.count(s) > 0) {
+	auto s = std::string("\\") + YYText();
+	if (extra->pkg_user_types.count(s) > 0) {
 		// package qualified typedefed name
-		yylval->string = new std::string(s);
-		return TOK_PKG_USER_TYPE;
+		auto val = std::make_unique<std::string>(s);
+		return parser::make_TOK_PKG_USER_TYPE(std::move(val), out_loc);
 	}
 	else {
 		// backup before :: just return first part
-		size_t len = strchr(yytext, ':') - yytext;
+		size_t len = strchr(YYText(), ':') - YYText();
 		yyless(len);
-		yylval->string = new std::string(std::string("\\") + yytext);
-		return TOK_ID;
+		auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+		return parser::make_TOK_ID(std::move(val), out_loc);
 	}
 }
 
 [a-zA-Z_$][a-zA-Z0-9_$]* {
-	auto s = std::string("\\") + yytext;
-	if (isUserType(s)) {
+	auto s = std::string("\\") + YYText();
+	if (isUserType(extra, s)) {
 		// previously typedefed name
-		yylval->string = new std::string(s);
-		return TOK_USER_TYPE;
+		auto val = std::make_unique<std::string>(s);
+		return parser::make_TOK_USER_TYPE(std::move(val), out_loc);
 	}
 	else {
-		yylval->string = new std::string(std::string("\\") + yytext);
-		return TOK_ID;
+		auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+		return parser::make_TOK_ID(std::move(val), out_loc);
 	}
 }
 
 [a-zA-Z_$][a-zA-Z0-9_$\.]* {
-	yylval->string = new std::string(std::string("\\") + yytext);
-	return TOK_ID;
+	auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
@@ -557,7 +587,7 @@ supply1 { return TOK_SUPPLY1; }
 		);
 		printed_warning = true;
 	}
-	return TOK_SYNOPSYS_FULL_CASE;
+	return parser::make_TOK_SYNOPSYS_FULL_CASE(out_loc);
 }
 <SYNOPSYS_FLAGS>parallel_case {
 	static bool printed_warning = false;
@@ -571,119 +601,115 @@ supply1 { return TOK_SUPPLY1; }
 		);
 		printed_warning = true;
 	}
-	return TOK_SYNOPSYS_PARALLEL_CASE;
+	return parser::make_TOK_SYNOPSYS_PARALLEL_CASE(out_loc);
 }
 <SYNOPSYS_FLAGS>. /* ignore everything else */
 <SYNOPSYS_FLAGS>"*/" { BEGIN(0); }
 
 import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 	BEGIN(IMPORT_DPI);
-	return TOK_DPI_FUNCTION;
+	return parser::make_TOK_DPI_FUNCTION(out_loc);
 }
 
 <IMPORT_DPI>[a-zA-Z_$][a-zA-Z0-9_$]* {
-	yylval->string = new std::string(std::string("\\") + yytext);
-	return TOK_ID;
+	auto val = std::make_unique<std::string>(std::string("\\") + YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
 <IMPORT_DPI>[ \t\r\n] /* ignore whitespaces */
 
 <IMPORT_DPI>";" {
 	BEGIN(0);
-	return *yytext;
+	return char_tok(*YYText(), out_loc);
 }
 
 <IMPORT_DPI>. {
-	return *yytext;
+	return char_tok(*YYText(), out_loc);
 }
 
 "\\"[^ \t\r\n]+ {
-	yylval->string = new std::string(yytext);
-	return TOK_ID;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_ID(std::move(val), out_loc);
 }
 
-"(*" { return ATTR_BEGIN; }
-"*)" { return ATTR_END; }
+"(*" { return parser::make_ATTR_BEGIN(out_loc); }
+"*)" { return parser::make_ATTR_END(out_loc); }
 
-"{*"  { return DEFATTR_BEGIN; }
-"*}"  { return DEFATTR_END; }
+"{*"  { return parser::make_DEFATTR_BEGIN(out_loc); }
+"*}"  { return parser::make_DEFATTR_END(out_loc); }
 
-"**" { return OP_POW; }
-"||" { return OP_LOR; }
-"&&" { return OP_LAND; }
-"==" { return OP_EQ; }
-"!=" { return OP_NE; }
-"<=" { return OP_LE; }
-">=" { return OP_GE; }
+"**" { return parser::make_OP_POW(out_loc); }
+"||" { return parser::make_OP_LOR(out_loc); }
+"&&" { return parser::make_OP_LAND(out_loc); }
+"==" { return parser::make_OP_EQ(out_loc); }
+"!=" { return parser::make_OP_NE(out_loc); }
+"<=" { return parser::make_OP_LE(out_loc); }
+">=" { return parser::make_OP_GE(out_loc); }
 
-"===" { return OP_EQX; }
-"!==" { return OP_NEX; }
+"===" { return parser::make_OP_EQX(out_loc); }
+"!==" { return parser::make_OP_NEX(out_loc); }
 
-"~&" { return OP_NAND; }
-"~|" { return OP_NOR;  }
-"~^" { return OP_XNOR; }
-"^~" { return OP_XNOR; }
+"~&" { return parser::make_OP_NAND(out_loc); }
+"~|" { return parser::make_OP_NOR(out_loc);  }
+"~^" { return parser::make_OP_XNOR(out_loc); }
+"^~" { return parser::make_OP_XNOR(out_loc); }
 
-"<<"  { return OP_SHL; }
-">>"  { return OP_SHR; }
-"<<<" { return OP_SSHL; }
-">>>" { return OP_SSHR; }
+"<<"  { return parser::make_OP_SHL(out_loc); }
+">>"  { return parser::make_OP_SHR(out_loc); }
+"<<<" { return parser::make_OP_SSHL(out_loc); }
+">>>" { return parser::make_OP_SSHR(out_loc); }
 
-"'" { return OP_CAST; }
+"'" { return parser::make_OP_CAST(out_loc); }
 
-"::"  { return TOK_PACKAGESEP; }
-"++"  { return TOK_INCREMENT; }
-"--"  { return TOK_DECREMENT; }
+"::"  { return parser::make_TOK_PACKAGESEP(out_loc); }
+"++"  { return parser::make_TOK_INCREMENT(out_loc); }
+"--"  { return parser::make_TOK_DECREMENT(out_loc); }
 
-"+:" { return TOK_POS_INDEXED; }
-"-:" { return TOK_NEG_INDEXED; }
+"+:" { return parser::make_TOK_POS_INDEXED(out_loc); }
+"-:" { return parser::make_TOK_NEG_INDEXED(out_loc); }
 
-".*" { return TOK_WILDCARD_CONNECT; }
+".*" { return parser::make_TOK_WILDCARD_CONNECT(out_loc); }
 
-"|=" { SV_KEYWORD(TOK_BIT_OR_ASSIGN); }
-"&=" { SV_KEYWORD(TOK_BIT_AND_ASSIGN); }
-"+=" { SV_KEYWORD(TOK_ADD_ASSIGN); }
-"-=" { SV_KEYWORD(TOK_SUB_ASSIGN); }
-"^=" { SV_KEYWORD(TOK_BIT_XOR_ASSIGN); }
-"/=" { SV_KEYWORD(TOK_DIV_ASSIGN); }
-"%=" { SV_KEYWORD(TOK_MOD_ASSIGN); }
-"*=" { SV_KEYWORD(TOK_MUL_ASSIGN); }
-"<<=" { SV_KEYWORD(TOK_SHL_ASSIGN); }
-">>=" { SV_KEYWORD(TOK_SHR_ASSIGN); }
-"<<<=" { SV_KEYWORD(TOK_SSHL_ASSIGN); }
-">>>=" { SV_KEYWORD(TOK_SSHR_ASSIGN); }
+"|=" { SV_KEYWORD(parser::make_TOK_BIT_OR_ASSIGN(out_loc)); }
+"&=" { SV_KEYWORD(parser::make_TOK_BIT_AND_ASSIGN(out_loc)); }
+"+=" { SV_KEYWORD(parser::make_TOK_ADD_ASSIGN(out_loc)); }
+"-=" { SV_KEYWORD(parser::make_TOK_SUB_ASSIGN(out_loc)); }
+"^=" { SV_KEYWORD(parser::make_TOK_BIT_XOR_ASSIGN(out_loc)); }
+"/=" { SV_KEYWORD(parser::make_TOK_DIV_ASSIGN(out_loc)); }
+"%=" { SV_KEYWORD(parser::make_TOK_MOD_ASSIGN(out_loc)); }
+"*=" { SV_KEYWORD(parser::make_TOK_MUL_ASSIGN(out_loc)); }
+"<<=" { SV_KEYWORD(parser::make_TOK_SHL_ASSIGN(out_loc)); }
+">>=" { SV_KEYWORD(parser::make_TOK_SHR_ASSIGN(out_loc)); }
+"<<<=" { SV_KEYWORD(parser::make_TOK_SSHL_ASSIGN(out_loc)); }
+">>>=" { SV_KEYWORD(parser::make_TOK_SSHR_ASSIGN(out_loc)); }
 
 [-+]?[=*]> {
-	if (!specify_mode) REJECT;
-	yylval->string = new std::string(yytext);
-	return TOK_SPECIFY_OPER;
+	if (!mode->specify) REJECT;
+	auto val = std::make_unique<std::string>(YYText());
+	return parser::make_TOK_SPECIFY_OPER(std::move(val), out_loc);
 }
 
 "&&&" {
-	if (!specify_mode) return TOK_IGNORED_SPECIFY_AND;
-	return TOK_SPECIFY_AND;
+	if (!mode->specify) return parser::make_TOK_IGNORED_SPECIFY_AND(out_loc);
+	return parser::make_TOK_SPECIFY_AND(out_loc);
 }
 
-{UNSIGNED_NUMBER}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
-{FIXED_POINT_NUMBER_DEC}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
-{FIXED_POINT_NUMBER_NO_DEC}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
+{UNSIGNED_NUMBER}{TIME_SCALE_SUFFIX} { return parser::make_TOK_TIME_SCALE(out_loc); }
+{FIXED_POINT_NUMBER_DEC}{TIME_SCALE_SUFFIX} { return parser::make_TOK_TIME_SCALE(out_loc); }
+{FIXED_POINT_NUMBER_NO_DEC}{TIME_SCALE_SUFFIX} { return parser::make_TOK_TIME_SCALE(out_loc); }
 
 <INITIAL,BASED_CONST>"/*" { comment_caller=YY_START; BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
 <COMMENT>\n   /* ignore comment body */
 <COMMENT>"*/" { BEGIN(comment_caller); }
 
+
 <INITIAL,BASED_CONST>[ \t\r\n]		/* ignore whitespaces */
 <INITIAL,BASED_CONST>\\[\r\n]		/* ignore continuation sequence */
 <INITIAL,BASED_CONST>"//"[^\r\n]*	/* ignore one-line comments */
 
-<INITIAL>. { return *yytext; }
-<*>. { BEGIN(0); return *yytext; }
+<INITIAL>. { return char_tok(*YYText(), out_loc); }
+<*>. { BEGIN(0); return char_tok(*YYText(), out_loc); }
 
 %%
-
-// this is a hack to avoid the 'yyinput defined but not used' error msgs
-void *frontend_verilog_avoid_input_warnings() {
-	return (void*)&yyinput;
-}
 

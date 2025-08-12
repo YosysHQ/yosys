@@ -64,9 +64,9 @@ static ffi_fptr resolve_fn (std::string symbol_name)
 	log_error("unable to resolve '%s'.\n", symbol_name.c_str());
 }
 
-AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args)
+std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType loc, const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<std::unique_ptr<AST::AstNode>> &args)
 {
-	AST::AstNode *newNode = nullptr;
+	std::unique_ptr<AST::AstNode> newNode = nullptr;
 	union value { double f64; float f32; int32_t i32; void *ptr; };
 	std::vector<value> value_store(args.size() + 1);
 	std::vector<ffi_type *> types(args.size() + 1);
@@ -125,11 +125,11 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
         ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values.data());
 
 	if (rtype == "real") {
-		newNode = new AstNode(AST_REALVALUE);
+		newNode = std::make_unique<AstNode>(loc, AST_REALVALUE);
 		newNode->realvalue = value_store[args.size()].f64;
 		log("  return realvalue: %g\n", newNode->asReal(true));
 	} else if (rtype == "shortreal") {
-		newNode = new AstNode(AST_REALVALUE);
+		newNode = std::make_unique<AstNode>(loc, AST_REALVALUE);
 		newNode->realvalue = value_store[args.size()].f32;
 		log("  return realvalue: %g\n", newNode->asReal(true));
 	} else if (rtype == "chandle") {
@@ -137,10 +137,10 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 		std::vector<RTLIL::State> bits(64);
 		for (int i = 0; i < 64; i++)
 			bits.at(i) = (rawval & (1ULL << i)) ? RTLIL::State::S1 : RTLIL::State::S0;
-		newNode = AstNode::mkconst_bits(bits, false);
+		newNode = AstNode::mkconst_bits(loc, bits, false);
 		log("  return chandle: %llx\n", (unsigned long long)newNode->asInt(false));
 	} else {
-		newNode = AstNode::mkconst_int(value_store[args.size()].i32, false);
+		newNode = AstNode::mkconst_int(loc, value_store[args.size()].i32, false);
 		log("  return integer: %lld\n", (long long)newNode->asInt(true));
 	}
 
@@ -153,7 +153,7 @@ YOSYS_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
 
-AST::AstNode *AST::dpi_call(const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<AstNode*>&)
+std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType, const std::string&, const std::string &fname, const std::vector<std::string>&, const std::vector<std::unique_ptr<AST::AstNode>>&)
 {
 	log_error("Can't call DPI function `%s': this version of yosys is built without plugin support\n", fname.c_str());
 }
