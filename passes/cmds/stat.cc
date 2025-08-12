@@ -22,9 +22,9 @@
 #include "kernel/celltypes.h"
 #include "kernel/cost.h"
 #include "kernel/gzip.h"
+#include "kernel/log_help.h"
 #include "kernel/yosys.h"
 #include "libs/json11/json11.hpp"
-#include "kernel/log_help.h"
 #include "passes/techmap/libparse.h"
 #include <charconv>
 
@@ -667,8 +667,9 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 }
 
 struct StatPass : public Pass {
-	StatPass() : Pass("stat", "print some statistics") { }
-	bool formatted_help() override {
+	StatPass() : Pass("stat", "print some statistics") {}
+	bool formatted_help() override
+	{
 		auto *help = PrettyHelp::get_current();
 		help->set_group("passes/status");
 		return false;
@@ -765,7 +766,6 @@ struct StatPass : public Pass {
 			log("   \"modules\": {\n");
 		}
 
-		printf("building cell area\n");
 		if (top_mod != nullptr) {
 			hierarchy_builder(design, top_mod, mod_stat, width_mode, cell_area, techname);
 		} else {
@@ -776,7 +776,6 @@ struct StatPass : public Pass {
 			}
 		}
 
-		printf("built hierarchy\n");
 		bool first_module = true;
 		// determine if anything has a area.
 		bool has_area = false;
