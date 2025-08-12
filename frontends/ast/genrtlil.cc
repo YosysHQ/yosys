@@ -771,8 +771,6 @@ struct AST_INTERNAL::ProcessGenerator
 					if (node->type == AST_CONSTANT && node->is_string) {
 						arg.type = VerilogFmtArg::STRING;
 						arg.str = node->bitsAsConst().decode_string();
-						// and in case this will be used as an argument...
-						arg.sig = node->bitsAsConst();
 						arg.signed_ = false;
 					} else if (node->type == AST_IDENTIFIER && node->str == "$time") {
 						arg.type = VerilogFmtArg::TIME;
