@@ -228,19 +228,16 @@ struct statdata_t {
 							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 
 						} else {
-							printf("too small single_parameter_area %s %d %f\n", cell_type.c_str(), max_width,
-							       cell_data.single_parameter_area.back());
+							log_warning("too small single_parameter_area %s width: %d size: %d\n", cell_type.c_str(), max_width,
+							       (int)cell_data.single_parameter_area.size());
 							cell_area.at(cell_type).area = cell_data.single_parameter_area.back();
 							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 						}
-						// printf("single_paramter_extraction %s %d %f\n", cell_type.c_str(), max_width,
-						// cell_area.at(cell_type).area);
 					}
 					vector<double> widths;
 					if (cell_data.parameter_names.size() > 0) {
 						for (auto &it : cell_data.parameter_names) {
 							RTLIL::IdString port_name;
-							// TODO: there has to be a better way to do this
 							if (it == "A") {
 								port_name = ID::A;
 							} else if (it == "B") {
@@ -277,8 +274,9 @@ struct statdata_t {
 									  cell_data.double_parameter_area.at(width_a - 1).at(width_b - 1);
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								} else {
-									printf("too small double_parameter_area %s %d %d %f\n", cell_type.c_str(),
-									       width_a, width_b, cell_data.double_parameter_area.back().back());
+									log_warning("too small double_parameter_area %s, width_a: %d, width_b: %d, size_a: %d, size_b: %d\n", cell_type.c_str(),
+									       (int)width_a, width_b, cell_data.double_parameter_area.size(),
+									       (int)cell_data.double_parameter_area.at(width_a - 1).size());
 									cell_area.at(cell_type).area = cell_data.double_parameter_area.back().back();
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								}
@@ -287,8 +285,8 @@ struct statdata_t {
 								cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 							}
 						} else {
-							printf("double_paramter_extraction %s %zu %f\n", cell_type.c_str(), widths.size(),
-							       cell_area.at(cell_type).area);
+							log_error("double_parameter_area for %s has %d parameters, but only 2 are expected.\n", cell_type.c_str(),
+							       (int)cell_data.double_parameter_area.size());
 						}
 					}
 				}
@@ -826,15 +824,13 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 				}
 			}
 			if (single_parameter_area.size() == 0)
-				printf("error: %s\n", sar->args[single_parameter_area.size() - 1].c_str());
+				log_error("single parameter area has size 0: %s\n", sar->args[single_parameter_area.size() - 1].c_str());
 			// check if it is a double parameterised area
 		}
 		const LibertyAst *dar = cell->find("double_area_parameterised");
 		if (dar != nullptr) {
 			for (const auto &s : dar->args) {
 
-				// printf("value: %s\n",sar->value.c_str());
-				// printf("args1: %s\n",dar->args[0].c_str());
 
 				vector<string> sub_array;
 				std::string::size_type start = 0;
@@ -858,7 +854,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 				}
 				double_parameter_area.push_back(cast_sub_array);
 				if (cast_sub_array.size() == 0)
-					printf("error: %s\n", s.c_str());
+					log_error("double paramter array has size 0: %s\n", s.c_str());
 			}
 		}
 		const LibertyAst *par = cell->find("port_names");
