@@ -11,6 +11,7 @@ namespace VERILOG_FRONTEND
 {
     [[noreturn]]
     void err_at_loc(Location loc, char const *fmt, ...);
+    void warn_at_loc(Location loc, char const *fmt, ...);
 };
 
 YOSYS_NAMESPACE_END

@@ -1304,7 +1304,7 @@ specify_item:
 		specify_rise_fall_ptr_t timing = std::move($9);
 
 		if (specify_edge != 0 && target->dat == nullptr)
-			err_at_loc(@3, "Found specify edge but no data spec.\n");
+			err_at_loc(@3, "Found specify edge but no data spec.");
 
 		auto cell_owned = std::make_unique<AstNode>(@$, AST_CELL);
 		auto cell = cell_owned.get();
@@ -1379,7 +1379,7 @@ specify_item:
 	TOK_ID TOK_LPAREN specify_edge expr specify_condition TOK_COMMA specify_edge expr specify_condition TOK_COMMA specify_triple specify_opt_triple TOK_RPAREN TOK_SEMICOL {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
-			err_at_loc(@1, "Unsupported specify rule type: %s\n", $1->c_str());
+			err_at_loc(@1, "Unsupported specify rule type: %s", $1->c_str());
 
 		auto src_pen = AstNode::mkconst_int(@3, $3 != 0, false, 1);
 		auto src_pol = AstNode::mkconst_int(@3, $3 == 'p', false, 1);
@@ -1518,19 +1518,19 @@ specify_rise_fall:
 		$$ = std::make_unique<struct specify_rise_fall>();
 		$$->rise = std::move(*$2);
 		$$->fall = std::move(*$4);
-		err_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		warn_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.");
 	} |
 	TOK_LPAREN specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_RPAREN {
 		$$ = std::make_unique<struct specify_rise_fall>();
 		$$->rise = std::move(*$2);
 		$$->fall = std::move(*$4);
-		err_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		warn_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.");
 	} |
 	TOK_LPAREN specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_COMMA specify_triple TOK_RPAREN {
 		$$ = std::make_unique<struct specify_rise_fall>();
 		$$->rise = std::move(*$2);
 		$$->fall = std::move(*$4);
-		err_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		warn_at_loc(@$, "Path delay expressions beyond rise/fall not currently supported. Ignoring.");
 	}
 
 specify_triple:
@@ -2585,7 +2585,7 @@ assert:
 				node->str = *$1;
 		}
 		if (!$3)
-			err_at_loc(@$, "SystemVerilog does not allow \"restrict\" without \"property\".\n");
+			warn_at_loc(@3, "SystemVerilog does not allow \"restrict\" without \"property\".");
 	} |
 	opt_sva_label TOK_RESTRICT opt_property TOK_LPAREN TOK_EVENTUALLY expr TOK_RPAREN TOK_SEMICOL {
 		if (mode->norestrict) {
@@ -2596,7 +2596,7 @@ assert:
 				node->str = *$1;
 		}
 		if (!$3)
-			err_at_loc(@$, "SystemVerilog does not allow \"restrict\" without \"property\".\n");
+			warn_at_loc(@3, "SystemVerilog does not allow \"restrict\" without \"property\".");
 	};
 
 assert_property:
