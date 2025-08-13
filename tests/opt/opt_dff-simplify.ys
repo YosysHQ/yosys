@@ -1,0 +1,12 @@
+read_rtlil opt_dff-simplify.il 
+opt_dff
+
+select -assert-count 8 t:$ne r:A_WIDTH=3 %i
+select -assert-count 5 t:$ne r:A_WIDTH=2 %i
+
+select -assert-none t:$ne r:A_WIDTH=13 %i
+select -assert-none t:$ne r:A_WIDTH=14 %i
+select -assert-none t:$ne r:A_WIDTH=15 %i
+select -assert-none t:$ne r:A_WIDTH=10 %i
+select -assert-none t:$ne r:A_WIDTH=12 %i
+select -assert-none t:$ne r:A_WIDTH=11 %i
