@@ -338,7 +338,7 @@ struct statdata_t {
 
 		char buf[16];
 
-		int len = std::snprintf(buf, sizeof(buf), "%.3f", value);
+		int len = snprintf(buf, sizeof(buf), "%.3f", value);
 
 		while (len > 0 && buf[len - 1] == '0')
 			--len;
@@ -351,13 +351,13 @@ struct statdata_t {
 		}
 
 		// use scientific notation, this should always fit in 8 characters
-		std::snprintf(buf, sizeof(buf), "%8.3G", value);
+		snprintf(buf, sizeof(buf), "%8.3G", value);
 
 		return std::string(buf);
 	}
 
 	void print_log_line(const std::string &name, unsigned int count_local, double area_local, unsigned int count_global, double area_global,
-			    int spacer = 0, bool print_area = true, bool print_hierarchical = true)
+			    int spacer = 0, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 		const std::string indent(2 * spacer, ' ');
 
@@ -370,6 +370,8 @@ struct statdata_t {
 			if (print_hierarchical) {
 				log(" %s %s %s %s %s%s\n", count_global_str.c_str(), area_global_str.c_str(), count_local_str.c_str(),
 				    area_local_str.c_str(), indent.c_str(), name.c_str());
+			} else if (print_global_only) {
+				log(" %s %s %s%s\n", count_global_str.c_str(), area_global_str.c_str(), indent.c_str(), name.c_str());
 			} else {
 				if (count_local > 0)
 					log(" %s %s %s%s\n", count_local_str.c_str(), area_local_str.c_str(), indent.c_str(), name.c_str());
@@ -377,6 +379,8 @@ struct statdata_t {
 		} else {
 			if (print_hierarchical) {
 				log(" %s %s %s%s\n", count_global_str.c_str(), count_local_str.c_str(), indent.c_str(), name.c_str());
+			} else if (print_global_only) {
+				log(" %s %s%s\n", count_global_str.c_str(), indent.c_str(), name.c_str());
 			} else {
 				if (count_local > 0)
 					log(" %s %s%s\n", count_local_str.c_str(), indent.c_str(), name.c_str());
@@ -384,7 +388,7 @@ struct statdata_t {
 		}
 	}
 
-	void print_log_header(bool print_area = true, bool print_hierarchical = true)
+	void print_log_header(bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 		if (print_area) {
 			if (print_hierarchical) {
@@ -393,9 +397,13 @@ struct statdata_t {
 				log(" %8s %8s %8s-%8s-%s\n", "|", "|", "+", "--------", "Local count, excluding submodules.");
 				log(" %8s %8s %8s %8s-%s\n", "|", "|", "|", "+", "Local area, excluding submodules.");
 				log(" %8s %8s %8s %8s \n", "|", "|", "|", "|");
+			} else if (print_global_only) {
+				log(" %8s-%8s-%s\n", "+", "--------", "Count including submodules.");
+				log(" %8s %8s-%s\n", "|", "+", "Area including submodules.");
+				log(" %8s %8s \n", "|", "|");
 			} else {
-				log(" %8s-%8s-%s\n", "+", "--------", "Local Count including submodules.");
-				log(" %8s %8s-%s\n", "|", "+", "Local Area including submodules.");
+				log(" %8s-%8s-%s\n", "+", "--------", "Local Count, excluding submodules.");
+				log(" %8s %8s-%s\n", "|", "+", "Local Area, excluding submodules.");
 				log(" %8s %8s \n", "|", "|");
 			}
 		} else {
@@ -403,42 +411,47 @@ struct statdata_t {
 				log(" %8s-%8s-%8s-%s\n", "+", "--------", "--------", "Count including submodules.");
 				log(" %8s %8s-%8s-%s\n", "|", "+", "--------", "Local count, excluding submodules.");
 				log(" %8s %8s \n", "|", "|");
+			} else if (print_global_only) {
+				log(" %8s-%8s-%s\n", "+", "--------", "Count including submodules.");
+				log(" %8s %8s \n", "|", "|");
 			} else {
-				log(" %8s-%8s-%s\n", "+", "--------", "Local Count including submodules.");
+				log(" %8s-%8s-%s\n", "+", "--------", "Local Count, excluding submodules.");
 				log(" %8s \n", "|");
 			}
 		}
 	}
 
-	void log_data(RTLIL::IdString mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true)
+	void log_data(RTLIL::IdString mod_name, bool top_mod, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 
-		print_log_header(print_area, print_hierarchical);
+		print_log_header(print_area, print_hierarchical, print_global_only);
 
-		print_log_line("wires", local_num_wires, 0, num_wires, 0, 0, print_area, print_hierarchical);
-		print_log_line("wire bits", local_num_wire_bits, 0, num_wire_bits, 0, 0, print_area, print_hierarchical);
-		print_log_line("public wires", local_num_pub_wires, 0, num_pub_wires, 0, 0, print_area, print_hierarchical);
-		print_log_line("public wire bits", local_num_pub_wire_bits, 0, num_pub_wire_bits, 0, 0, print_area, print_hierarchical);
-		print_log_line("ports", local_num_ports, 0, num_ports, 0, 0, print_area, print_hierarchical);
-		print_log_line("port bits", local_num_port_bits, 0, num_port_bits, 0, 0, print_area, print_hierarchical);
-		print_log_line("memories", local_num_memories, 0, num_memories, 0, 0, print_area, print_hierarchical);
-		print_log_line("memory bits", local_num_memory_bits, 0, num_memory_bits, 0, 0, print_area, print_hierarchical);
-		print_log_line("processes", local_num_processes, 0, num_processes, 0, 0, print_area, print_hierarchical);
-		print_log_line("cells", local_num_cells, local_area, num_cells, area, 0, print_area, print_hierarchical);
+		print_log_line("wires", local_num_wires, 0, num_wires, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("wire bits", local_num_wire_bits, 0, num_wire_bits, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("public wires", local_num_pub_wires, 0, num_pub_wires, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("public wire bits", local_num_pub_wire_bits, 0, num_pub_wire_bits, 0, 0, print_area, print_hierarchical,
+			       print_global_only);
+		print_log_line("ports", local_num_ports, 0, num_ports, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("port bits", local_num_port_bits, 0, num_port_bits, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("memories", local_num_memories, 0, num_memories, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("memory bits", local_num_memory_bits, 0, num_memory_bits, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("processes", local_num_processes, 0, num_processes, 0, 0, print_area, print_hierarchical, print_global_only);
+		print_log_line("cells", local_num_cells, local_area, num_cells, area, 0, print_area, print_hierarchical, print_global_only);
 		for (auto &it : num_cells_by_type)
 			if (it.second) {
 				auto name = string(log_id(it.first));
 				print_log_line(name, local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 					       local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
-					       area_cells_by_type.at(it.first), 1, print_area, print_hierarchical);
+					       area_cells_by_type.at(it.first), 1, print_area, print_hierarchical, print_global_only);
 			}
 		if (num_submodules > 0) {
-			print_log_line("submodules", num_submodules, 0, num_submodules, submodule_area, 0, print_area, print_hierarchical);
+			print_log_line("submodules", num_submodules, 0, num_submodules, submodule_area, 0, print_area, print_hierarchical,
+				       print_global_only);
 			for (auto &it : num_submodules_by_type)
 				if (it.second)
 					print_log_line(string(log_id(it.first)), it.second, 0, it.second,
 						       submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0, 1,
-						       print_area, print_hierarchical);
+						       print_area, print_hierarchical, print_global_only);
 		}
 		if (!unknown_cell_area.empty()) {
 			log("\n");
@@ -811,7 +824,7 @@ struct StatPass : public Pass {
 				log("\n");
 				log("=== design hierarchy ===\n");
 				log("\n");
-				mod_stat[top_mod->name].print_log_header(has_area, hierarchy_mode);
+				mod_stat[top_mod->name].print_log_header(has_area, hierarchy_mode, true);
 				mod_stat[top_mod->name].print_log_line(log_id(top_mod->name), mod_stat[top_mod->name].local_num_cells,
 								       mod_stat[top_mod->name].local_area, mod_stat[top_mod->name].num_cells,
 								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode);
@@ -823,7 +836,7 @@ struct StatPass : public Pass {
 				data.log_data_json("design", true, true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");
-				data.log_data(top_mod->name, true, has_area, hierarchy_mode);
+				data.log_data(top_mod->name, true, has_area, hierarchy_mode, true);
 			}
 
 			design->scratchpad_set_int("stat.num_wires", data.num_wires);
@@ -845,7 +858,6 @@ struct StatPass : public Pass {
 		}
 
 		log("\n");
-		printf("processed statistics\n");
 	}
 } StatPass;
 
