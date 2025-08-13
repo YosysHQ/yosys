@@ -666,9 +666,10 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 					mod_data.submodule_area += mod_stat.at(cell->type).area;
 					mod_data.num_submodules++;
 					mod_data.unknown_cell_area.erase(cell->type);
-					mod_data.num_cells -= mod_data.num_cells_by_type.erase(cell->type);
-					mod_data.area_cells_by_type.erase(cell->type);
-					mod_data.local_num_cells -= mod_data.local_num_cells_by_type.erase(cell->type);
+					mod_data.num_cells -= (mod_data.num_cells_by_type.count(cell->type) != 0)?  mod_data.num_cells_by_type.at(cell->type): 0;
+					mod_data.num_cells_by_type.erase(cell->type);
+					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)? mod_data.local_num_cells_by_type.at(cell->type): 0;
+					mod_data.local_num_cells_by_type.erase(cell->type);
 					mod_data.local_area_cells_by_type.erase(cell->type);
 				} else {
 					// deal with blackbox cells
@@ -680,9 +681,10 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.unknown_cell_area.erase(cell->type);
-						mod_data.num_cells -= mod_data.num_cells_by_type.erase(cell->type);
-						mod_data.area_cells_by_type.erase(cell->type);
-						mod_data.local_num_cells -= mod_data.local_num_cells_by_type.erase(cell->type);
+						mod_data.num_cells -= (mod_data.num_cells_by_type.count(cell->type) != 0)?  mod_data.num_cells_by_type.at(cell->type): 0;
+						mod_data.num_cells_by_type.erase(cell->type);
+						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)? mod_data.local_num_cells_by_type.at(cell->type): 0;
+						mod_data.local_num_cells_by_type.erase(cell->type);
 						mod_data.local_area_cells_by_type.erase(cell->type);
 					}
 				}
@@ -861,7 +863,7 @@ struct StatPass : public Pass {
 				mod_stat[top_mod->name].print_log_header(has_area, hierarchy_mode, true);
 				mod_stat[top_mod->name].print_log_line(log_id(top_mod->name), mod_stat[top_mod->name].local_num_cells,
 								       mod_stat[top_mod->name].local_area, mod_stat[top_mod->name].num_cells,
-								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode);
+								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}
 
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
