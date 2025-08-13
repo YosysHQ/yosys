@@ -2585,7 +2585,7 @@ assert:
 				node->str = *$1;
 		}
 		if (!$3)
-			warn_at_loc(@$, "SystemVerilog does not allow \"restrict\" without \"property\".");
+			warn_at_loc(@3, "SystemVerilog does not allow \"restrict\" without \"property\".");
 	} |
 	opt_sva_label TOK_RESTRICT opt_property TOK_LPAREN TOK_EVENTUALLY expr TOK_RPAREN TOK_SEMICOL {
 		if (mode->norestrict) {
@@ -2596,7 +2596,7 @@ assert:
 				node->str = *$1;
 		}
 		if (!$3)
-			warn_at_loc(@$, "SystemVerilog does not allow \"restrict\" without \"property\".");
+			warn_at_loc(@3, "SystemVerilog does not allow \"restrict\" without \"property\".");
 	};
 
 assert_property:
