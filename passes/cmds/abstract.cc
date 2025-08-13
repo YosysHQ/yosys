@@ -373,6 +373,12 @@ struct AbstractPass : public Pass {
 		log("        abstractions performed by either mode. This option is not supported in\n");
 		log("        the -init mode.\n");
 		log("\n");
+		log("    -initstates <n>\n");
+		log("        Perform conditional abstraction for the first <n> time steps. See the\n");
+		log("        description of the -state and -value modes for details on how the\n");
+		log("        condition affects the abstractions performed by either mode. This option\n");
+		log("        is not supported in the -init mode.\n");
+		log("\n");
 		log("    -slice <lhs>:<rhs>\n");
 		log("    -slice <index>\n");
 		log("    -rtlilslice <lhs>:<rhs>\n");
@@ -402,8 +408,10 @@ struct AbstractPass : public Pass {
 			Always = -1,
 			ActiveLow = false, // ensuring we can use bool(enable)
 			ActiveHigh = true,
+			Initstates = 2,
 		};
 		Enable enable = Enable::Always;
+		int initstates = 0;
 		std::string enable_name;
 		std::vector<Slice> slices;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -435,6 +443,13 @@ struct AbstractPass : public Pass {
 				enable = Enable::ActiveLow;
 				continue;
 			}
+			if (arg == "-initstates" && argidx + 1 < args.size()) {
+				if (enable != Enable::Always)
+					log_cmd_error("Multiple enable condition are not supported\n");
+				initstates = atoi(args[++argidx].c_str());
+				enable = Enable::Initstates;
+				continue;
+			}
 			if (arg == "-slice" && argidx + 1 < args.size()) {
 				slices.emplace_back(SliceIndices::HdlSlice, args[++argidx]);
 				continue;
@@ -451,22 +466,50 @@ struct AbstractPass : public Pass {
 			if (mode == Mode::Initial)
 				log_cmd_error("Conditional initial value abstraction is not supported\n");
 
-			if (enable_name.empty())
-				log_cmd_error("Unspecified enable wire\n");
+			switch (enable) {
+				case Enable::Always:
+					log_assert(false);
+				case Enable::ActiveLow:
+				case Enable::ActiveHigh: {
+					if (enable_name.empty())
+						log_cmd_error("Unspecified enable wire\n");
+				} break;
+				case Enable::Initstates: {
+					if (initstates <= 0)
+						log_cmd_error("Number of initial time steps must be positive\n");
+				} break;
+			}
 		}
 
 		unsigned int changed = 0;
 		if ((mode == State) || (mode == Value)) {
 			for (auto mod : design->selected_modules()) {
-				EnableLogic enable_logic = { State::S1, true };
-				if (enable != Enable::Always) {
-					Wire *enable_wire = mod->wire("\\" + enable_name);
-					if (!enable_wire)
-						log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
-					if (GetSize(enable_wire) != 1)
-						log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
-								enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());
-					enable_logic = { enable_wire, enable == Enable::ActiveHigh };
+				EnableLogic enable_logic;
+
+				switch (enable) {
+					case Enable::Always: {
+						enable_logic = { State::S1, true };
+					} break;
+					case Enable::ActiveLow:
+					case Enable::ActiveHigh: {
+						Wire *enable_wire = mod->wire("\\" + enable_name);
+						if (!enable_wire)
+							log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
+						if (GetSize(enable_wire) != 1)
+							log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
+									enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());
+						enable_logic = { enable_wire, enable == Enable::ActiveHigh };
+					} break;
+					case Enable::Initstates: {
+						SigBit in_init_states = mod->Initstate(NEW_ID);
+						for (int i = 1; i < initstates; i++) {
+							Wire *in_init_states_q = mod->addWire(NEW_ID);
+							mod->addFf(NEW_ID, in_init_states, in_init_states_q);
+							in_init_states_q->attributes[ID::init] = State::S1;
+							in_init_states = in_init_states_q;
+						}
+						enable_logic = { in_init_states, true };
+					} break;
 				}
 				if (mode == State)
 					changed += abstract_state(mod, enable_logic, slices);
