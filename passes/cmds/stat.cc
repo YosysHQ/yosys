@@ -486,7 +486,7 @@ struct statdata_t {
 			       count_local, area_local);
 	}
 
-	void log_data_json(const char *mod_name, bool first_module, bool hierarchical = false)
+	void log_data_json(const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
 	{
 		if (!first_module)
 			log(",\n");
@@ -543,41 +543,77 @@ struct statdata_t {
 			log("      }");
 
 		} else {
-
-			log("      %s: {\n", json11::Json(mod_name).dump().c_str());
-			log("         \"num_wires\":         %u,\n", num_wires);
-			log("         \"num_wire_bits\":     %u,\n", num_wire_bits);
-			log("         \"num_pub_wires\":     %u,\n", num_pub_wires);
-			log("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
-			log("         \"num_ports\":         %u,\n", num_ports);
-			log("         \"num_port_bits\":     %u,\n", num_port_bits);
-			log("         \"num_memories\":      %u,\n", num_memories);
-			log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
-			log("         \"num_processes\":     %u,\n", num_processes);
-			log("         \"num_cells\":         %u,\n", local_num_cells);
-			log("         \"num_submodules\":       %u,\n", num_submodules);
-			if (area != 0) {
-				log("         \"area\":              %f,\n", area);
-				log("         \"sequential_area\":    %f,\n", sequential_area);
+			if (global_only) {
+				log("      %s: {\n", json11::Json(mod_name).dump().c_str());
+				log("         \"num_wires\":         %u,\n", num_wires);
+				log("         \"num_wire_bits\":     %u,\n", num_wire_bits);
+				log("         \"num_pub_wires\":     %u,\n", num_pub_wires);
+				log("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
+				log("         \"num_ports\":         %u,\n", num_ports);
+				log("         \"num_port_bits\":     %u,\n", num_port_bits);
+				log("         \"num_memories\":      %u,\n", num_memories);
+				log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
+				log("         \"num_processes\":     %u,\n", num_processes);
+				log("         \"num_cells\":         %u,\n", num_cells);
+				log("         \"num_submodules\":       %u,\n", num_submodules);
+				if (area != 0) {
+					log("         \"area\":              %f,\n", area);
+					log("         \"sequential_area\":    %f,\n", sequential_area);
+				}
+				log("         \"num_cells_by_type\": {\n");
+				bool first_line = true;
+				for (auto &it : num_cells_by_type)
+					if (it.second) {
+						if (!first_line)
+							log(",\n");
+						log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+						first_line = false;
+					}
+				for (auto &it : num_submodules_by_type)
+					if (it.second) {
+						if (!first_line)
+							log(",\n");
+						log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+						first_line = false;
+					}
+				log("\n");
+				log("         }");
+			} else {
+				log("      %s: {\n", json11::Json(mod_name).dump().c_str());
+				log("         \"num_wires\":         %u,\n", local_num_wires);
+				log("         \"num_wire_bits\":     %u,\n", local_num_wire_bits);
+				log("         \"num_pub_wires\":     %u,\n", local_num_pub_wires);
+				log("         \"num_pub_wire_bits\": %u,\n", local_num_pub_wire_bits);
+				log("         \"num_ports\":         %u,\n", local_num_ports);
+				log("         \"num_port_bits\":     %u,\n", local_num_port_bits);
+				log("         \"num_memories\":      %u,\n", local_num_memories);
+				log("         \"num_memory_bits\":   %u,\n", local_num_memory_bits);
+				log("         \"num_processes\":     %u,\n", local_num_processes);
+				log("         \"num_cells\":         %u,\n", local_num_cells);
+				log("         \"num_submodules\":       %u,\n", num_submodules);
+				if (area != 0) {
+					log("         \"area\":              %f,\n", area);
+					log("         \"sequential_area\":    %f,\n", sequential_area);
+				}
+				log("         \"num_cells_by_type\": {\n");
+				bool first_line = true;
+				for (auto &it : local_num_cells_by_type)
+					if (it.second) {
+						if (!first_line)
+							log(",\n");
+						log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+						first_line = false;
+					}
+				for (auto &it : num_submodules_by_type)
+					if (it.second) {
+						if (!first_line)
+							log(",\n");
+						log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+						first_line = false;
+					}
+				log("\n");
+				log("         }");
 			}
-			log("         \"num_cells_by_type\": {\n");
-			bool first_line = true;
-			for (auto &it : local_num_cells_by_type)
-				if (it.second) {
-					if (!first_line)
-						log(",\n");
-					log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
-					first_line = false;
-				}
-			for (auto &it : num_submodules_by_type)
-				if (it.second) {
-					if (!first_line)
-						log(",\n");
-					log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
-					first_line = false;
-				}
-			log("\n");
-			log("         }");
 			if (tech == "xilinx") {
 				log(",\n");
 				log("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
@@ -644,12 +680,10 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.unknown_cell_area.erase(cell->type);
-					} else {
-						mod_data.unknown_cell_area.insert(cell->type);
-						mod_data.num_submodules++;
-						mod_data.num_submodules_by_type[cell->type]++;
-						mod_data.submodules_area_by_type[cell->type] = 0;
-						mod_data.seq_area_cells_by_type[cell->type] = 0;
+						mod_data.num_cells -= mod_data.num_cells_by_type.erase(cell->type);
+						mod_data.area_cells_by_type.erase(cell->type);
+						mod_data.local_num_cells -= mod_data.local_num_cells_by_type.erase(cell->type);
+						mod_data.local_area_cells_by_type.erase(cell->type);
 					}
 				}
 			}
@@ -833,7 +867,7 @@ struct StatPass : public Pass {
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
 
 			if (json_mode)
-				data.log_data_json("design", true, true);
+				data.log_data_json("design", true, hierarchy_mode, true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");
 				data.log_data(top_mod->name, true, has_area, hierarchy_mode, true);
