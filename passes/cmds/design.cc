@@ -368,14 +368,8 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto node : design->verilog_packages)
-				delete node;
 			design->verilog_packages.clear();
-
-			for (auto node : design->verilog_globals)
-				delete node;
 			design->verilog_globals.clear();
-
 			design->verilog_defines->clear();
 		}
 

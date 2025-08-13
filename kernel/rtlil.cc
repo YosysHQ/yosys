@@ -962,10 +962,6 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-	for (auto n : verilog_packages)
-		delete n;
-	for (auto n : verilog_globals)
-		delete n;
 #ifdef WITH_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
 #endif
@@ -4346,9 +4342,9 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
-	if (type == ID($buf) || type == ID($mux) || type == ID($pmux) || type == ID($bmux)) {
+	if (type == ID($buf) || type == ID($mux) || type == ID($pmux) || type == ID($bmux) || type == ID($bwmux) || type == ID($bweqx)) {
 		parameters[ID::WIDTH] = GetSize(connections_[ID::Y]);
-		if (type != ID($buf) && type != ID($mux))
+		if (type.in(ID($pmux), ID($bmux)))
 			parameters[ID::S_WIDTH] = GetSize(connections_[ID::S]);
 		check();
 		return;
@@ -4403,7 +4399,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 		parameters[ID::B_WIDTH] = GetSize(connections_[ID::B]);
 	}
 
-	if (connections_.count(ID::Y))
+	if (connections_.count(ID::Y) && type != ID($concat))
 		parameters[ID::Y_WIDTH] = GetSize(connections_[ID::Y]);
 
 	if (connections_.count(ID::Q))
@@ -5781,16 +5777,10 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 	tokens.push_back(text.substr(start));
 }
 
-static int sigspec_parse_get_dummy_line_num()
-{
-	return 0;
-}
-
 bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
 {
 	cover("kernel.rtlil.sigspec.parse");
 
-	AST::current_filename = "input";
 
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');
@@ -5806,12 +5796,11 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			cover("kernel.rtlil.sigspec.parse.const");
-			AST::get_line_num = sigspec_parse_get_dummy_line_num;
-			AST::AstNode *ast = VERILOG_FRONTEND::const2ast(netname);
-			if (ast == NULL)
+			VERILOG_FRONTEND::ConstParser p{Location()};
+			auto ast = p.const2ast(netname);
+			if (ast == nullptr)
 				return false;
 			sig.append(RTLIL::Const(ast->bits));
-			delete ast;
 			continue;
 		}
 

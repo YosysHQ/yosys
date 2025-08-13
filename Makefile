@@ -147,8 +147,8 @@ ifeq ($(ENABLE_PYOSYS),1)
 CXXFLAGS += -I$(BREW_PREFIX)/boost/include
 LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -L$(BREW_PREFIX)/boost-python3/lib
 endif
-CXXFLAGS += -I$(BREW_PREFIX)/readline/include
-LINKFLAGS += -L$(BREW_PREFIX)/readline/lib
+CXXFLAGS += -I$(BREW_PREFIX)/readline/include -I$(BREW_PREFIX)/flex/include
+LINKFLAGS += -L$(BREW_PREFIX)/readline/lib -L$(BREW_PREFIX)/flex/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
 PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk@8/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
@@ -175,7 +175,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.56+30
+YOSYS_VER := 0.56+101
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
