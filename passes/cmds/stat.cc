@@ -275,7 +275,7 @@ struct statdata_t {
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								} else {
 									log_warning("too small double_parameter_area %s, width_a: %d, width_b: %d, size_a: %d, size_b: %d\n", cell_type.c_str(),
-									       (int)width_a, width_b, cell_data.double_parameter_area.size(),
+									       width_a, width_b, (int)cell_data.double_parameter_area.size(),
 									       (int)cell_data.double_parameter_area.at(width_a - 1).size());
 									cell_area.at(cell_type).area = cell_data.double_parameter_area.back().back();
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
@@ -816,6 +816,10 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 		const LibertyAst *sar = cell->find("single_area_parameterised");
 		if (sar != nullptr) {
 			for (const auto &s : sar->args) {
+				if (s.empty()) {
+					//catches trailing commas
+					continue;
+				}
 				try {
 					double value = std::stod(s);
 					single_parameter_area.push_back(value);
@@ -845,11 +849,15 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 				vector<double> cast_sub_array;
 				for (const auto &s : sub_array) {
 					double value = 0;
+					if (s.empty()) {
+						//catches trailing commas
+						continue;
+					}
 					try {
 						value = std::stod(s);
 						cast_sub_array.push_back(value);
 					} catch (const std::exception &e) {
-						log_error("Failed to parse double parameter area value '%s': %s\n", s.c_str(), e.what());
+						log_error("Failed to parse double parameter area value for  '%s': %s\n", s.c_str(), e.what());
 					}
 				}
 				double_parameter_area.push_back(cast_sub_array);
