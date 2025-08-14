@@ -51,7 +51,7 @@ struct ShowWorker
 	std::map<RTLIL::IdString, int> autonames;
 	int single_idx_count;
 
-	struct net_conn { std::set<std::pair<std::string, int>> in, out; std::string color; };
+	struct net_conn { std::set<std::pair<std::string, int>> in, out; std::string color; std::map<std::string, std::string> force_color; };
 	std::map<std::string, net_conn> net_conn_map;
 
 	FILE *f;
@@ -357,7 +357,7 @@ struct ShowWorker
 				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 
 				if (forceColor)
-					net_conn_map[net].color = *forceColor;
+					net_conn_map[net].force_color.emplace(port, *forceColor);
 			}
 			if (node != nullptr)
 				*node = net;
@@ -623,10 +623,16 @@ struct ShowWorker
 				else
 					fprintf(f, "%s [ shape=point ];\n", it.first.c_str());
 			}
+			auto color = [&](std::string const &name) {
+				auto forced = it.second.force_color.find(name);
+				if (forced == it.second.force_color.end())
+					return it.second.color;
+				return forced->second;
+			};
 			for (auto &it2 : it.second.in)
-				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it2.first.c_str(), it.first.c_str(), nextColor(it.second.color).c_str(), widthLabel(it2.second).c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it2.first.c_str(), it.first.c_str(), nextColor(color(it2.first)).c_str(), widthLabel(it2.second).c_str());
 			for (auto &it2 : it.second.out)
-				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.first.c_str(), nextColor(it.second.color).c_str(), widthLabel(it2.second).c_str());
+				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.first.c_str(), nextColor(color(it2.first)).c_str(), widthLabel(it2.second).c_str());
 		}
 
 		fprintf(f, "}\n");
