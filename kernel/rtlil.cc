@@ -4038,6 +4038,34 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 	}
 }
 
+struct RTLIL::Detail {
+	static void bufNormalizeConflict(Module* module, CellPort port, Wire* wire)
+	{
+		auto [cell, portname] = port;
+		log_error("Conflict between %s.%s and %s.%s driving %s in module %s\n",
+				log_id(cell), log_id(portname),
+				log_id(wire->driverCell_), log_id(wire->driverPort_),
+				log_id(wire), log_id(module));
+	}
+
+	static void drive(Wire* wire, CellPort port)
+	{
+		auto [cell, portname] = port;
+		if (wire->driverCell_) {
+			PortDir port_dir = cell->port_dir(portname);
+			if (port_dir != PD_OUTPUT) {
+				return;
+			} else if (wire->driverCell_->port_dir(wire->driverPort_) != PD_OUTPUT) {
+				// port_dir == PD_OUTPUT
+			} else {
+				Detail::bufNormalizeConflict(wire->module, {cell, portname}, wire);
+			}
+		}
+		wire->driverCell_ = cell;
+		wire->driverPort_ = portname;
+	}
+};
+
 void RTLIL::Design::bufNormalize(bool enable)
 {
 	if (!enable)
@@ -4062,30 +4090,19 @@ void RTLIL::Design::bufNormalize(bool enable)
 		for (auto module : modules())
 		{
 			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
+			for (auto [portname, sig] : cell->connections()) {
 
-				PortDir port_dir = cell->port_dir(conn.first);
-				if (port_dir == PD_INPUT || GetSize(conn.second) == 0)
+				PortDir port_dir = cell->port_dir(portname);
+				if (port_dir == PD_INPUT || GetSize(sig) == 0)
 					continue;
-				if (conn.second.is_wire()) {
-					Wire *wire = conn.second.as_wire();
-					if (wire->driverCell_ != nullptr) {
-						if (port_dir != PD_OUTPUT) {
-							continue;
-						} else if (wire->driverCell_->port_dir(wire->driverPort_) != PD_OUTPUT) {
-							// port_dir == PD_OUTPUT
-						} else {
-							log_error("Conflict between %s.%s and %s.%s driving %s in module %s\n",
-									log_id(cell), log_id(conn.first),
-									log_id(wire->driverCell_), log_id(wire->driverPort_),
-									log_id(wire), log_id(module));
-						}
-					}
-					wire->driverCell_ = cell;
-					wire->driverPort_ = conn.first;
+				if (sig.is_wire()) {
+					Detail::drive(sig.as_wire(), {cell, portname});
+					continue;
 				} else {
-					pair<RTLIL::Cell*, RTLIL::IdString> key(cell, conn.first);
-					module->bufNormQueue.insert(key);
+					// SigSpec has chunks
+					// Defer normalization to Module::bufNormalize
+					CellPort port({cell, portname});
+					module->bufNormQueue.insert(port);
 				}
 			}
 		}
@@ -4104,36 +4121,20 @@ void RTLIL::Module::bufNormalize()
 
 	while (GetSize(bufNormQueue) || !connections_.empty())
 	{
-		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
+		pool<CellPort> queue;
 		bufNormQueue.swap(queue);
 
 		SigMap sigmap(this);
 		new_connections({});
 
-		for (auto &key : queue)
+		for (const auto& [cell, portname] : queue)
 		{
-			Cell *cell = key.first;
-			const IdString &portname = key.second;
 			const SigSpec &sig = cell->getPort(portname);
 			if (GetSize(sig) == 0) continue;
 
 			if (sig.is_wire()) {
-				Wire *wire = sig.as_wire();
-				if (wire->driverCell_) {
-					PortDir port_dir = cell->port_dir(portname);
-					if (port_dir != PD_OUTPUT) {
-						continue;
-					} else if (wire->driverCell_->port_dir(wire->driverPort_) != PD_OUTPUT) {
-						// port_dir == PD_OUTPUT
-					} else {
-						log_error("Conflict between %s.%s and %s.%s driving %s in module %s\n",
-								log_id(cell), log_id(portname),
-								log_id(wire->driverCell_), log_id(wire->driverPort_),
-								log_id(wire), log_id(this));
-					}
-				}
-				wire->driverCell_ = cell;
-				wire->driverPort_ = portname;
+				log_error("unreachable");
+				Detail::drive(sig.as_wire(), {cell, portname});
 				continue;
 			}
 
@@ -4244,7 +4245,7 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 
 	while (module->design && module->design->flagBufferedNormalized && (pd = port_dir(portname)) != PD_INPUT)
 	{
-		pair<RTLIL::Cell*, RTLIL::IdString> key(this, portname);
+		CellPort key(this, portname);
 
 		if (conn_it->second.is_wire()) {
 			Wire *w = conn_it->second.as_wire();
@@ -4267,7 +4268,7 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 		Wire *w = signal.as_wire();
 		if (w->driverCell_ != nullptr) {
 			if (pd == PD_OUTPUT) {
-				pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
+				CellPort other_key(w->driverCell_, w->driverPort_);
 				module->bufNormQueue.insert(other_key);
 			} else {
 				break;

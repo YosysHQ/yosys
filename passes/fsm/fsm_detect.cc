@@ -29,8 +29,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 static RTLIL::Module *module;
 static SigMap assign_map;
-typedef std::pair<RTLIL::Cell*, RTLIL::IdString> sig2driver_entry_t;
-static SigSet<sig2driver_entry_t> sig2driver, sig2user;
+typedef std::pair<RTLIL::Cell*, RTLIL::IdString> CellPort;
+static SigSet<CellPort> sig2driver, sig2user;
 static std::set<RTLIL::Cell*> muxtree_cells;
 static SigPool sig_at_port;
 
@@ -51,7 +51,7 @@ ret_false:
 		return false;
 	}
 
-	std::set<sig2driver_entry_t> cellport_list;
+	std::set<CellPort> cellport_list;
 	sig2driver.find(sig, cellport_list);
 	for (auto &cellport : cellport_list)
 	{
@@ -93,7 +93,7 @@ static bool check_state_users(RTLIL::SigSpec sig)
 	if (sig_at_port.check_any(assign_map(sig)))
 		return false;
 
-	std::set<sig2driver_entry_t> cellport_list;
+	std::set<CellPort> cellport_list;
 	sig2user.find(sig, cellport_list);
 	for (auto &cellport : cellport_list) {
 		RTLIL::Cell *cell = cellport.first;
@@ -138,7 +138,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 		return;
 	}
 
-	std::set<sig2driver_entry_t> cellport_list;
+	std::set<CellPort> cellport_list;
 	sig2driver.find(RTLIL::SigSpec(wire), cellport_list);
 
 	for (auto &cellport : cellport_list)
@@ -163,7 +163,7 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 
 		ConstEval ce(wire->module);
 
-		std::set<sig2driver_entry_t> cellport_list;
+		std::set<CellPort> cellport_list;
 		sig2user.find(sig_q, cellport_list);
 
 		auto sig_q_bits = sig_q.to_sigbit_pool();
@@ -322,12 +322,12 @@ struct FsmDetectPass : public Pass {
 					if (ct.cell_output(cell->type, conn_it.first) || !ct.cell_known(cell->type)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2driver.insert(sig, sig2driver_entry_t(cell, conn_it.first));
+						sig2driver.insert(sig, CellPort(cell, conn_it.first));
 					}
 					if (!ct.cell_known(cell->type) || ct.cell_input(cell->type, conn_it.first)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);
-						sig2user.insert(sig, sig2driver_entry_t(cell, conn_it.first));
+						sig2user.insert(sig, CellPort(cell, conn_it.first));
 					}
 				}
 

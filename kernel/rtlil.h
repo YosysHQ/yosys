@@ -90,6 +90,7 @@ namespace RTLIL
 		PD_INOUT = 3
 	};
 
+	struct Detail;
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -1494,6 +1495,8 @@ struct RTLIL::Design
 #endif
 };
 
+using CellPort = std::pair<Cell*, IdString>;
+
 struct RTLIL::Module : public RTLIL::NamedObject
 {
 	Hasher::hash_t hashidx_;
@@ -1547,7 +1550,7 @@ public:
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
-	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	pool<CellPort> bufNormQueue;
 	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -1870,6 +1873,7 @@ protected:
 	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 	RTLIL::Cell *driverCell_ = nullptr;
 	RTLIL::IdString driverPort_;
+	friend struct Detail;
 
 public:
 	// do not simply copy wires
@@ -1883,6 +1887,7 @@ public:
 	bool driverKnown() const { return driverCell_ != nullptr; }
 	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
 	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
+	void drive(Cell* cell);
 
 	int from_hdl_index(int hdl_index) {
 		int zero_index = hdl_index - start_offset;
