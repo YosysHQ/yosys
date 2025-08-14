@@ -91,6 +91,13 @@ namespace RTLIL
 		STATIC_ID_END,
 	};
 
+	enum PortDir : unsigned char  {
+		PD_UNKNOWN = 0,
+		PD_INPUT = 1,
+		PD_OUTPUT = 2,
+		PD_INOUT = 3
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -2123,6 +2130,7 @@ public:
 	bool known() const;
 	bool input(const RTLIL::IdString &portname) const;
 	bool output(const RTLIL::IdString &portname) const;
+	PortDir port_dir(const RTLIL::IdString &portname) const;
 
 	// access cell parameters
 	bool hasParam(const RTLIL::IdString &paramname) const;

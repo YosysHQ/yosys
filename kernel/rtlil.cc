@@ -4376,6 +4376,22 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 	return false;
 }
 
+RTLIL::PortDir RTLIL::Cell::port_dir(const RTLIL::IdString& portname) const
+{
+	if (yosys_celltypes.cell_known(type))
+		return yosys_celltypes.cell_port_dir(type, portname);
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		if (m == nullptr)
+			return PortDir::PD_UNKNOWN;
+		RTLIL::Wire *w = m->wire(portname);
+		if (w == nullptr)
+			return PortDir::PD_UNKNOWN;
+		return PortDir(w->port_input + w->port_output * 2);
+	}
+	return PortDir::PD_UNKNOWN;
+}
+
 bool RTLIL::Cell::hasParam(const RTLIL::IdString& paramname) const
 {
 	return parameters.count(paramname) != 0;
