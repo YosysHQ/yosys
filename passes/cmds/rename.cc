@@ -598,6 +598,8 @@ struct RenamePass : public Pass {
 
 				for (auto &it : new_cell_names)
 					module->rename(it.first, it.second);
+
+				module->fixup_ports();
 			}
 		}
 		else
