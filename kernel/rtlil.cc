@@ -4269,8 +4269,9 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 			if (pd == PD_OUTPUT) {
 				pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
 				module->bufNormQueue.insert(other_key);
+			} else {
+				break;
 			}
-			break;
 		}
 		w->driverCell_ = this;
 		w->driverPort_ = portname;
