@@ -4063,11 +4063,24 @@ void RTLIL::Design::bufNormalize(bool enable)
 		{
 			for (auto cell : module->cells())
 			for (auto &conn : cell->connections()) {
-				if (!cell->output(conn.first) || GetSize(conn.second) == 0)
+
+				PortDir port_dir = cell->port_dir(conn.first);
+				if (port_dir == PD_INPUT || GetSize(conn.second) == 0)
 					continue;
 				if (conn.second.is_wire()) {
 					Wire *wire = conn.second.as_wire();
-					log_assert(wire->driverCell_ == nullptr);
+					if (wire->driverCell_ != nullptr) {
+						if (port_dir != PD_OUTPUT) {
+							continue;
+						} else if (wire->driverCell_->port_dir(wire->driverPort_) != PD_OUTPUT) {
+							// port_dir == PD_OUTPUT
+						} else {
+							log_error("Conflict between %s.%s and %s.%s driving %s in module %s\n",
+									log_id(cell), log_id(conn.first),
+									log_id(wire->driverCell_), log_id(wire->driverPort_),
+									log_id(wire), log_id(module));
+						}
+					}
 					wire->driverCell_ = cell;
 					wire->driverPort_ = conn.first;
 				} else {
@@ -4094,11 +4107,6 @@ void RTLIL::Module::bufNormalize()
 		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
 		bufNormQueue.swap(queue);
 
-		pool<Wire*> outWires;
-		for (auto &conn : connections())
-		for (auto &chunk : conn.first.chunks())
-			if (chunk.wire) outWires.insert(chunk.wire);
-
 		SigMap sigmap(this);
 		new_connections({});
 
@@ -4112,17 +4120,22 @@ void RTLIL::Module::bufNormalize()
 			if (sig.is_wire()) {
 				Wire *wire = sig.as_wire();
 				if (wire->driverCell_) {
-					log_error("Conflict between %s %s in module %s\n",
-										log_id(cell), log_id(wire->driverCell_), log_id(this));
+					PortDir port_dir = cell->port_dir(portname);
+					if (port_dir != PD_OUTPUT) {
+						continue;
+					} else if (wire->driverCell_->port_dir(wire->driverPort_) != PD_OUTPUT) {
+						// port_dir == PD_OUTPUT
+					} else {
+						log_error("Conflict between %s.%s and %s.%s driving %s in module %s\n",
+								log_id(cell), log_id(portname),
+								log_id(wire->driverCell_), log_id(wire->driverPort_),
+								log_id(wire), log_id(this));
+					}
 				}
-				log_assert(wire->driverCell_ == nullptr);
 				wire->driverCell_ = cell;
 				wire->driverPort_ = portname;
 				continue;
 			}
-
-			for (auto &chunk : sig.chunks())
-				if (chunk.wire) outWires.insert(chunk.wire);
 
 			Wire *wire = addWire(NEW_ID, GetSize(sig));
 			sigmap.add(sig, wire);
@@ -4131,13 +4144,75 @@ void RTLIL::Module::bufNormalize()
 			// FIXME: Move init attributes from old 'sig' to new 'wire'
 		}
 
-		for (auto wire : outWires)
+		pool<Wire*> conn_wires;
+		pool<Wire*> inout_conn_wires;
+		pool<Wire*> driven_conn_wires;
+
+		for (auto const &bit : sigmap.database)
+			if (bit.wire != nullptr)
+				conn_wires.insert(bit.wire);
+
+		for (auto wire : conn_wires) {
+			if (wire->driverCell_ == nullptr) {
+				if (!wire->port_input)
+					continue;
+
+				if (wire->port_output) {
+					inout_conn_wires.insert(wire);
+				} else {
+					driven_conn_wires.insert(wire);
+				}
+				continue;
+			}
+
+			if (wire->driverCell_->port_dir(wire->driverPort_) == PD_OUTPUT) {
+				if (wire->port_input && !wire->port_output) {
+					log_error("Conflict between %s.%s and input port %s in module %s\n",
+							log_id(wire->driverCell_), log_id(wire->driverPort_),
+							log_id(wire), log_id(this));
+				}
+				driven_conn_wires.insert(wire);
+			} else {
+				inout_conn_wires.insert(wire);
+			}
+		}
+
+		for (auto wire : inout_conn_wires)
+			for (int i = 0; i < GetSize(wire); ++i)
+				sigmap.database.promote(SigBit(wire, i));
+
+		for (auto wire : driven_conn_wires)
+			for (int i = 0; i < GetSize(wire); ++i)
+				sigmap.database.promote(SigBit(wire, i));
+
+		for (auto wire : conn_wires)
 		{
 			SigSpec outsig = wire, insig = sigmap(wire);
-			for (int i = 0; i < GetSize(wire); i++)
-				if (insig[i] == outsig[i])
-					insig[i] = State::Sx;
-			addBuf(NEW_ID, insig, outsig);
+			if (insig == outsig)
+				continue;
+
+			bool ambiguous_directionality = false;
+
+			for (int i = 0; i < GetSize(wire) && !ambiguous_directionality; i++) {
+				SigBit inbit = insig[i];
+				SigBit outbit = outsig[i];
+
+				if (inbit == outbit)
+					ambiguous_directionality = true;
+				else
+					ambiguous_directionality = !driven_conn_wires.count(inbit.wire);
+			}
+
+			if (ambiguous_directionality) {
+				Cell *connect = addCell(NEW_ID, ID($connect));
+				connect->setParam(ID::WIDTH, GetSize(insig));
+				connect->setPort(ID::A, insig);
+				connect->setPort(ID::Y, outsig);
+			} else {
+				addBuf(NEW_ID, insig, outsig);
+
+			}
+
 		}
 	}
 }
@@ -4161,7 +4236,9 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
-	while (module->design && module->design->flagBufferedNormalized && output(portname))
+	PortDir pd;
+
+	while (module->design && module->design->flagBufferedNormalized && (pd = port_dir(portname)) != PD_INPUT)
 	{
 		pair<RTLIL::Cell*, RTLIL::IdString> key(this, portname);
 
@@ -4185,8 +4262,11 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 
 		Wire *w = signal.as_wire();
 		if (w->driverCell_ != nullptr) {
-			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
-			module->bufNormQueue.insert(other_key);
+			if (pd == PD_OUTPUT) {
+				pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
+				module->bufNormQueue.insert(other_key);
+			}
+			break;
 		}
 		w->driverCell_ = this;
 		w->driverPort_ = portname;
