@@ -5477,6 +5477,21 @@ bool RTLIL::SigSpec::has_const() const
 	return false;
 }
 
+bool RTLIL::SigSpec::has_const(RTLIL::State state) const
+{
+	cover("kernel.rtlil.sigspec.has_const");
+
+	pack();
+	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
+		if (it->width > 0 && it->wire == NULL) {
+			for (size_t i = 0; i < it->data.size(); i++)
+				if (it->data[i] == state)
+					return true;
+		}
+	return false;
+}
+
+
 bool RTLIL::SigSpec::has_marked_bits() const
 {
 	cover("kernel.rtlil.sigspec.has_marked_bits");
