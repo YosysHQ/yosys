@@ -4137,6 +4137,10 @@ void RTLIL::Module::bufNormalize()
 				continue;
 			}
 
+			if (cell->type == ID($connect) && portname == ID::A) {
+				continue;
+			}
+
 			Wire *wire = addWire(NEW_ID, GetSize(sig));
 			sigmap.add(sig, wire);
 			cell->setPort(portname, wire);
