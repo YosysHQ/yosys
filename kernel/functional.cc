@@ -638,15 +638,15 @@ private:
 			}
 		}
 	}
-	void undriven(const char *name) {
+	void undriven(const std::string& name) {
 		log_error("The design contains an undriven signal %s. This is not supported by the functional backend. "
-			"Call setundef with appropriate options to avoid this error.\n", name);
+			"Call setundef with appropriate options to avoid this error.\n", name.c_str());
 	}
 	// we perform this check separately to give better error messages that include the wire or port name
 	void check_undriven(DriveSpec const& spec, std::string const& name) {
 		for(auto const &chunk : spec.chunks())
 			if(chunk.is_none())
-				undriven(name.c_str());
+				undriven(name);
 	}
 public:
 	void process_queue()
@@ -709,11 +709,11 @@ public:
 					factory.update_pending(pending, node);
 				} else if (chunk.is_multiple()) {
 					log_error("Signal %s has multiple drivers. This is not supported by the functional backend. "
-						"If tristate drivers are used, call tristate -formal to avoid this error.\n", log_signal(chunk));
+						"If tristate drivers are used, call tristate -formal to avoid this error.\n", log_signal(chunk).c_str());
 				} else if (chunk.is_none()) {
 					undriven(log_signal(chunk));
 				} else {
-					log_error("unhandled drivespec: %s\n", log_signal(chunk));
+					log_error("unhandled drivespec: %s\n", log_signal(chunk).c_str());
 					log_abort();
 				}
 			} else {
