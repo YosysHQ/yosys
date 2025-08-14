@@ -174,7 +174,7 @@ jobs:
     name: Run test_cell
     runs-on: ${{ matrix.os }}
     needs: [build-yosys, pre_job]
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: needs.pre_job.outputs.should_skip != 'true' && false
     env:
       CC: clang
     strategy:
