@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
+    - name: Install deps
+      run: sudo apt-get install bison flex libfl-dev libreadline-dev tcl-dev libffi-dev
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
