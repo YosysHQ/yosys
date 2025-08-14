@@ -67,7 +67,7 @@ static std::string derive_name_from_src(const std::string &src, int counter)
 		return stringf("\\%s$%d", src_base.c_str(), counter);
 }
 
-static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix)
+static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix, bool move_to_cell)
 {
 	// Find output
 	const SigSpec *output = nullptr;
@@ -93,12 +93,20 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 
 		name += chunk.wire->name.str();
 		if (chunk.wire->width != chunk.width) {
-			name += "[";
-			if (chunk.width != 1)
-				name += std::to_string(chunk.offset + chunk.width) + ":";
-			name += std::to_string(chunk.offset) + "]";
+			int lhs = chunk.wire->to_hdl_index(chunk.offset + chunk.width - 1);
+			int rhs = chunk.wire->to_hdl_index(chunk.offset);
+
+			if (lhs != rhs)
+				name += stringf("[%d:%d]", lhs, rhs);
+			else
+				name += stringf("[%d]", lhs);
 		}
 	}
+
+	RTLIL::Wire *wire;
+
+	if (move_to_cell && (!(wire = cell->module->wire(name)) || !(wire->port_input || wire->port_output)))
+		return name;
 
 	if (suffix.empty()) {
 		suffix = cell->type.str();
@@ -232,12 +240,16 @@ struct RenamePass : public Pass {
 		log("cells with private names.\n");
 		log("\n");
 		log("\n");
-		log("    rename -wire [selection] [-suffix <suffix>]\n");
+		log("    rename -wire [selection] [-move-to-cell] [-suffix <suffix>]\n");
 		log("\n");
 		log("Assign auto-generated names based on the wires they drive to all selected\n");
 		log("cells with private names. Ignores cells driving privatly named wires.\n");
 		log("By default, the cell is named after the wire with the cell type as suffix.\n");
 		log("The -suffix option can be used to set the suffix to the given string instead.\n");
+		log("\n");
+		log("The -move-to-cell option can be used to name the cell after the wire without\n");
+		log("any suffix. If this would lead to conflicts, the suffix is added to the wire\n");
+		log("instead. For cells driving ports, the -move-to-cell option is ignored.\n");
 		log("\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
@@ -286,6 +298,7 @@ struct RenamePass : public Pass {
 		std::string cell_suffix = "";
 		bool flag_src = false;
 		bool flag_wire = false;
+		bool flag_move_to_cell = false;
 		bool flag_enumerate = false;
 		bool flag_witness = false;
 		bool flag_hide = false;
@@ -345,6 +358,10 @@ struct RenamePass : public Pass {
 				got_mode = true;
 				continue;
 			}
+			if (arg == "-move-to-cell" && flag_wire && !flag_move_to_cell) {
+				flag_move_to_cell = true;
+				continue;
+			}
 			if (arg == "-pattern" && argidx+1 < args.size() && args[argidx+1].find('%') != std::string::npos) {
 				int pos = args[++argidx].find('%');
 				pattern_prefix = args[argidx].substr(0, pos);
@@ -396,9 +413,26 @@ struct RenamePass : public Pass {
 				dict<RTLIL::Cell *, IdString> new_cell_names;
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$')
-						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix);
-				for (auto &it : new_cell_names)
-					module->rename(it.first, it.second);
+						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix, flag_move_to_cell);
+				for (auto &[cell, new_name] : new_cell_names) {
+					if (flag_move_to_cell) {
+						RTLIL::Wire *found_wire = module->wire(new_name);
+						if (found_wire) {
+							std::string wire_suffix = cell_suffix;
+							if (wire_suffix.empty()) {
+								for (auto const &[port, _] : cell->connections()) {
+									if (cell->output(port)) {
+										wire_suffix += stringf("%s.%s", cell->type.c_str(), port.c_str() + 1);
+										break;
+									}
+								}
+							}
+							IdString new_wire_name = found_wire->name.str() + wire_suffix;
+							module->rename(found_wire, new_wire_name);
+						}
+					}
+					module->rename(cell, new_name);
+				}
 			}
 		}
 		else
