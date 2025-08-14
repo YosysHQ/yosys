@@ -1475,6 +1475,13 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($connect)) {
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type.in(ID($not), ID($pos), ID($neg))) {
 				param_bool(ID::A_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));

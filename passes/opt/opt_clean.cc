@@ -601,11 +601,23 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())
-		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
+		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf), ID($connect)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);
+			if (a.has_const(State::Sz)) {
+					RTLIL::SigSpec new_a;
+					RTLIL::SigSpec new_y;
+					for (int i = 0; i < GetSize(a); i++) {
+							if (a[i] == State::Sz)
+									continue;
+							new_a.append(a[i]);
+							new_y.append(y[i]);
+					}
+					a = std::move(new_a);
+					y = std::move(new_y);
+			}
 			module->connect(y, a);
 			delcells.push_back(cell);
 		}
