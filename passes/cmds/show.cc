@@ -267,7 +267,7 @@ struct ShowWorker
 		return ret;
 	}
 
-	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = nullptr)
+	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = nullptr, std::string *forceColor = nullptr)
 	{
 		std::string code;
 		std::string net = gen_signode_simple(sig);
@@ -355,6 +355,9 @@ struct ShowWorker
 				else
 					net_conn_map[net].out.insert({port, GetSize(sig)});
 				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
+
+				if (forceColor)
+					net_conn_map[net].color = *forceColor;
 			}
 			if (node != nullptr)
 				*node = net;
@@ -496,8 +499,22 @@ struct ShowWorker
 
 			std::string code;
 			for (auto &conn : cell->connections()) {
+				std::string force_color;
+				if (conn.second.is_wire()) {
+					RTLIL::PortDir pd = ct.cell_port_dir(cell->type, conn.first);
+					if (pd != RTLIL::PD_INPUT) {
+						Wire *wire = conn.second.as_wire();
+						if (wire->driverKnown()) {
+							if (wire->driverCell()->name == cell->name && wire->driverPort() == conn.first) {
+								force_color = "color=green";
+							} else {
+								force_color = "color=red";
+							}
+						}
+					}
+				}
 				code += gen_portbox(stringf("c%d:p%d", id2num(cell->name), id2num(conn.first)),
-						conn.second, ct.cell_output(cell->type, conn.first));
+						conn.second, ct.cell_output(cell->type, conn.first), nullptr, force_color.empty() ? nullptr : &force_color);
 			}
 
 			std::string src_href;
