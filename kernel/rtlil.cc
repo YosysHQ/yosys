@@ -4133,7 +4133,6 @@ void RTLIL::Module::bufNormalize()
 			if (GetSize(sig) == 0) continue;
 
 			if (sig.is_wire()) {
-				log_error("unreachable");
 				Detail::drive(sig.as_wire(), {cell, portname});
 				continue;
 			}
