@@ -412,6 +412,70 @@ static std::string string_view_stringf(std::string_view spec, ...)
 	return result;
 }
 
+static int spec_parameter_size(std::string_view spec)
+{
+	// Every valid spec starts with '%' which means the code below
+	// won't look before the spec start.
+	switch (spec[spec.size() - 1]) {
+	case 'd':
+	case 'i':
+	case 'o':
+	case 'u':
+	case 'x':
+	case 'X':
+		switch (spec[spec.size() - 2]) {
+		case 'h':
+			if (spec[spec.size() - 3] == 'h')
+				return sizeof(char);
+			return sizeof(short);
+		case 'l':
+			if (spec[spec.size() - 3] == 'l')
+				return sizeof(long long);
+			return sizeof(long);
+		case 'L':
+		case 'q':
+			return sizeof(long long);
+		case 'j':
+			return sizeof(intmax_t);
+		case 'z':
+		case 'Z':
+			return sizeof(size_t);
+		case 't':
+			return sizeof(ptrdiff_t);
+		}
+		return sizeof(int);
+	case 'e':
+	case 'E':
+	case 'f':
+	case 'F':
+	case 'g':
+	case 'G':
+	case 'a':
+	case 'A':
+		if (spec[spec.size() - 2] == 'L')
+			return sizeof(long double);
+		if (spec[spec.size() - 2] == 'l' && spec[spec.size() - 3] == 'l')
+			return sizeof(long double);
+		return sizeof(double);
+	case 'c':
+		if (spec[spec.size() - 2] == 'l') {
+			return sizeof(wchar_t);
+		}
+		return sizeof(unsigned char);
+	case 'C':
+		return sizeof(wchar_t);
+	case 's':
+	case 'p':
+	case 'S':
+	case 'n':
+		return sizeof(void *);
+	case 'm':
+		return sizeof(int);
+	default:
+		return -1;
+	}
+}
+
 template <typename Arg>
 static void format_emit_stringf(std::string &result, std::string_view spec, int *dynamic_ints,
 	DynamicIntCount num_dynamic_ints, Arg arg)
@@ -439,7 +503,13 @@ void format_emit_long_long(std::string &result, std::string_view spec, int *dyna
 		result += std::to_string(static_cast<int>(arg));
 		return;
 	}
-	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	if (spec_parameter_size(spec) <= 4) {
+		// On some platforms (Wasm) we must ensure that the arg is properly aligned
+		// after the dynamic `int` parameters.
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, (int)arg);
+	} else {
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	}
 }
 
 void format_emit_unsigned_long_long(std::string &result, std::string_view spec, int *dynamic_ints,
@@ -454,7 +524,13 @@ void format_emit_unsigned_long_long(std::string &result, std::string_view spec, 
 		result += static_cast<char>(arg);
 		return;
 	}
-	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	if (spec_parameter_size(spec) <= 4) {
+                // On some platforms (Wasm) we must ensure that the arg is properly aligned
+                // after the dynamic `int` parameters.
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, (unsigned int)arg);
+	} else {
+		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+	}
 }
 
 void format_emit_double(std::string &result, std::string_view spec, int *dynamic_ints,
