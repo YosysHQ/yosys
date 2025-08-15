@@ -288,7 +288,7 @@ struct CheckPass : public Pass {
 
 			for (auto wire : module->wires()) {
 				if (design->flagBufferedNormalized) {
-					if (!wire->driverKnown())
+					if (!wire->port_input && !wire->driverKnown())
 						log_error("Wire %s has no bufnorm driver cell in buffer normalized mode\n", log_id(wire));
 				} else {
 					if (wire->driverKnown())
