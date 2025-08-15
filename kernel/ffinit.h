@@ -27,10 +27,10 @@ YOSYS_NAMESPACE_BEGIN
 
 struct FfInitVals
 {
-	const SigMap *sigmap;
+	const SigMapView *sigmap;
 	dict<SigBit, std::pair<State,SigBit>> initbits;
 
-	void set(const SigMap *sigmap_, RTLIL::Module *module)
+	void set(const SigMapView *sigmap_, RTLIL::Module *module)
 	{
 		sigmap = sigmap_;
 		initbits.clear();
@@ -126,7 +126,7 @@ struct FfInitVals
 		initbits.clear();
 	}
 
-	FfInitVals (const SigMap *sigmap, RTLIL::Module *module)
+	FfInitVals (const SigMapView *sigmap, RTLIL::Module *module)
 	{
 		set(sigmap, module);
 	}
