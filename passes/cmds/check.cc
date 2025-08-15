@@ -287,6 +287,13 @@ struct CheckPass : public Pass {
 			pool<SigBit> init_bits;
 
 			for (auto wire : module->wires()) {
+				if (design->flagBufferedNormalized) {
+					if (!wire->driverKnown())
+						log_error("Wire %s has no bufnorm driver cell in buffer normalized mode\n", log_id(wire));
+				} else {
+					if (wire->driverKnown())
+						log_error("Wire %s has a bufnorm driver cell outside of buffer normalized mode\n", log_id(wire));
+				}
 				if (wire->port_input) {
 					SigSpec sig = sigmap(wire);
 					for (int i = 0; i < GetSize(sig); i++)
