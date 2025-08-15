@@ -1,0 +1,105 @@
+name: Check clang sanitizers
+
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # ignore PRs due to time needed
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # don't run on documentation changes
+          paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
+
+  run_san:
+    name: Build and run tests
+    runs-on: ${{ matrix.os }}
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    env:
+      CC: clang
+      ASAN_OPTIONS: halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        sanitizer: ['undefined,address']
+      fail-fast: false
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          make -f ../Makefile config-$CC
+          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
+          make -f ../Makefile -j$procs ENABLE_LTO=1
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
+
+      - name: Get iverilog
+        shell: bash
+        run: |
+          git clone https://github.com/steveicarus/iverilog.git
+          cd iverilog
+          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Get vcd2fst
+        shell: bash
+        run: |
+          git clone https://github.com/mmicko/libwave.git
+          mkdir -p ${{ github.workspace }}/.local/
+          cd libwave
+          cmake . -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/.local
+          make -j$procs
+          make install
+
+      - name: Cache iverilog
+        id: cache-iverilog
+        uses: actions/cache@v4
+        with:
+          path: .local/
+          key: ${{ matrix.os }}-${IVERILOG_GIT}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p ${{ github.workspace }}/.local/
+          cd iverilog
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
+          make -j$procs
+          make install
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+
+      - name: Report errors
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          find tests/**/*.err -print -exec cat {} \;
