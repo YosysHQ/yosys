@@ -413,7 +413,7 @@ struct statdata_t {
 				log(" %8s %8s \n", "|", "|");
 			} else if (print_global_only) {
 				log(" %8s-%8s-%s\n", "+", "--------", "Count including submodules.");
-				log(" %8s %8s \n", "|", "|");
+				log(" %8s \n", "|");
 			} else {
 				log(" %8s-%8s-%s\n", "+", "--------", "Local Count, excluding submodules.");
 				log(" %8s \n", "|");
