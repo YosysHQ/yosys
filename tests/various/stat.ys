@@ -71,7 +71,7 @@ module \child
 end
 EOT
 logger -expect log "Chip area for top module '\\top': 112.492800" 1
-logger -expect log "of which used for sequential elements: 94.348800" 2
+logger -expect log "of which used for sequential elements: 94.348800" 1
 logger -expect log "2   18.144 cells" 1 
 logger -expect log "4  112.493 cells" 1
 logger -expect log "2   94.349   sg13g2_dfrbp_1" 1
