@@ -39,3 +39,18 @@ select -assert-count 1 w:d__1
 select -assert-count 1 w:_e
 select -assert-count 1 w:wire_
 select -assert-count 1 w:$add$<<EOF:*$1_Y
+
+# Ports are updated during rename
+design -reset
+read_verilog << EOT
+module top(output \$e );
+submod \a$ (\$e );
+endmodule
+
+module submod(output \a[0] );
+    assign \a[0] = 0;
+endmodule
+EOT
+
+rename -unescape
+check
