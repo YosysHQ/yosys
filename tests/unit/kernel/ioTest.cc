@@ -69,4 +69,14 @@ TEST(KernelStringfTest, dynamicWidthAndPrecision)
         EXPECT_EQ(stringf("%*.*f", 8, 4, 1.0), "  1.0000");
 }
 
+TEST(KernelStringfTest, dynamicPrecisionInt)
+{
+        EXPECT_EQ(stringf("%.*d", 4, 7), "0007");
+}
+
+TEST(KernelStringfTest, dynamicWidthAndPrecisionInt)
+{
+        EXPECT_EQ(stringf("%*.*d", 8, 4, 7), "    0007");
+}
+
 YOSYS_NAMESPACE_END
