@@ -461,8 +461,20 @@ struct statdata_t {
 
 		if (area != 0) {
 			log("\n");
-			log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
-			log("     of which used for sequential elements: %f (%.2f%%)\n", sequential_area, 100.0 * sequential_area / area);
+			if (print_hierarchical || print_global_only) {
+				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
+				log("     of which used for sequential elements: %f (%.2f%%)\n", sequential_area, 100.0 * sequential_area / area);
+			} else {
+				double local_area = 0;
+				for (auto &it : local_area_cells_by_type)
+					local_area += it.second;
+				double local_sequential_area = 0;
+				for (auto &it : local_seq_area_cells_by_type)
+					local_sequential_area += it.second;
+				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), local_area);
+				log("     of which used for sequential elements: %f (%.2f%%)\n", local_sequential_area,
+				    100.0 * local_sequential_area / local_area);
+			}
 		}
 
 		if (tech == "xilinx") {
@@ -666,9 +678,12 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 					mod_data.submodule_area += mod_stat.at(cell->type).area;
 					mod_data.num_submodules++;
 					mod_data.unknown_cell_area.erase(cell->type);
-					mod_data.num_cells -= (mod_data.num_cells_by_type.count(cell->type) != 0)?  mod_data.num_cells_by_type.at(cell->type): 0;
+					mod_data.num_cells -=
+					  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
 					mod_data.num_cells_by_type.erase(cell->type);
-					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)? mod_data.local_num_cells_by_type.at(cell->type): 0;
+					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
+								      ? mod_data.local_num_cells_by_type.at(cell->type)
+								      : 0;
 					mod_data.local_num_cells_by_type.erase(cell->type);
 					mod_data.local_area_cells_by_type.erase(cell->type);
 				} else {
@@ -681,9 +696,12 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 						  double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.area += double(design->module(cell->type)->attributes.at(ID::area).as_int());
 						mod_data.unknown_cell_area.erase(cell->type);
-						mod_data.num_cells -= (mod_data.num_cells_by_type.count(cell->type) != 0)?  mod_data.num_cells_by_type.at(cell->type): 0;
+						mod_data.num_cells -=
+						  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
 						mod_data.num_cells_by_type.erase(cell->type);
-						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)? mod_data.local_num_cells_by_type.at(cell->type): 0;
+						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
+									      ? mod_data.local_num_cells_by_type.at(cell->type)
+									      : 0;
 						mod_data.local_num_cells_by_type.erase(cell->type);
 						mod_data.local_area_cells_by_type.erase(cell->type);
 					}
