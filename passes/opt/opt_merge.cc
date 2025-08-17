@@ -227,7 +227,7 @@ struct OptMergeWorker
 	}
 
 	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
+		design(design), module(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
 		ct.setup_internals();
