@@ -11,6 +11,8 @@ end
 EOT
 logger -expect log "Chip area for module '\\top': 9.072000" 1
 logger -expect-no-warnings
+logger -expect log "        1    9.072 cells" 1
+logger -expect log "        1    9.072   sg13g2_and2_1" 1
 stat -liberty ../../tests/liberty/foundry_data/sg13g2_stdcell_typ_1p20V_25C.lib.filtered.gz
 
 
@@ -70,5 +72,8 @@ end
 EOT
 logger -expect log "Chip area for top module '\\top': 112.492800" 1
 logger -expect log "of which used for sequential elements: 94.348800" 1
+logger -expect log "2   18.144 cells" 1 
+logger -expect log "4  112.493 cells" 1
+logger -expect log "2   94.349   sg13g2_dfrbp_1" 1
 logger -expect-no-warnings
 stat -liberty ../../tests/liberty/foundry_data/sg13g2_stdcell_typ_1p20V_25C.lib.filtered.gz -top \top
