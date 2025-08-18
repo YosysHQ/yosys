@@ -1,0 +1,174 @@
+read_verilog <<EOF
+module top(input [6:0] a, input [4:0] b, input [4:0] c, input [4:0] d, input [4:0] e, input [4:0] f, output reg [7:0] o);
+	assign o = (a * b) + (c * d) + (e * f);
+endmodule
+EOF
+design -save gold
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+select -assert-count 1 top/t:QL_DSPV2_MULT
+select -assert-count 2 top/t:QL_DSPV2_MULTADD
+read_verilog +/quicklogic/qlf_k6n10f/dspv2_sim.v
+prep -flatten -top top
+design -save gate
+
+design -reset
+design -copy-from gate -as gate top
+design -copy-from gold -as gold top
+async2sync
+equiv_make gold gate equiv
+opt -fast equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+design -reset
+read_verilog <<EOF
+module top(input signed [3:0] a, input signed [3:0] b, input signed [3:0] c, input signed [3:0] d, output signed [4:0] o);
+	assign o = (a * b) + (c * d);
+endmodule
+EOF
+design -save gold
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+stat
+select -assert-count 1 top/t:QL_DSPV2_MULT
+select -assert-count 1 top/t:QL_DSPV2_MULTADD
+read_verilog +/quicklogic/qlf_k6n10f/dspv2_sim.v
+prep -flatten -top top
+design -save gate
+
+design -reset
+design -copy-from gate -as gate top
+design -copy-from gold -as gold top
+async2sync
+equiv_make gold gate equiv
+opt -fast equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+design -reset
+read_verilog <<EOF
+module top(input signed [16:0] ar, input signed [16:0] ai, input signed [16:0] br, input signed [16:0] bi, output reg signed [33:0] qr, output reg signed [33:0] qi, input clk);
+	reg signed [33:0] rr, ri, ir, ii;
+	always @(posedge clk) begin
+		rr <= ar * br;
+		ri <= ar * bi;
+		ir <= ai * br;
+		ii <= ai * bi;
+		qr <= rr - ii;
+		qi <= ir + ri;
+	end
+endmodule
+EOF
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+select -assert-count 2 top/t:QL_DSPV2_MULT_REGOUT
+select -assert-count 2 top/t:QL_DSPV2_MULTADD_REGOUT
+
+design -reset
+read_verilog <<EOF
+module top(input signed [16:0] ar, input signed [16:0] ai, input signed [16:0] br, input signed [16:0] bi, output reg signed [33:0] qr, output reg signed [33:0] qi, input clk);
+	reg signed [16:0] ar_, ai_, br_, bi_;
+	always @(posedge clk) begin
+		ar_ <= ar;
+		ai_ <= ai;
+		br_ <= br;
+		bi_ <= bi;
+	end
+
+	reg signed [33:0] rr, ri, ir, ii;
+	always @(posedge clk) begin
+		rr <= ar_ * br_;
+		ri <= ar_ * bi_;
+		ir <= ai_ * br_;
+		ii <= ai_ * bi_;
+		qr <= rr - ii;
+		qi <= ir + ri;
+	end
+endmodule
+EOF
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean -purge
+select -assert-count 2 top/t:QL_DSPV2_MULT_REGIN_REGOUT
+select -assert-count 2 top/t:QL_DSPV2_MULTADD_REGIN_REGOUT
+
+design -reset
+read_verilog <<EOF
+module top(input [6:0] a, input [4:0] b, input [4:0] c, input [4:0] d, output [7:0] e, output [7:0] f);
+	assign e = a * b;
+	assign f = c * d;
+endmodule
+EOF
+design -save gold
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+select -assert-count 1 top/t:QL_DSPV2_MULT
+select -assert-count 1 top/c:*
+read_verilog +/quicklogic/qlf_k6n10f/dspv2_sim.v
+prep -flatten -top top
+design -save gate
+
+design -reset
+design -copy-from gate -as gate top
+design -copy-from gold -as gold top
+async2sync
+equiv_make gold gate equiv
+opt -fast equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+design -reset
+read_verilog <<EOF
+module top(input signed [6:0] a, input signed [4:0] b, input [4:0] c, input [4:0] d, output signed [7:0] e, output [7:0] f);
+	assign e = a * b;
+	assign f = c * d;
+endmodule
+EOF
+design -save gold
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+select -assert-count 1 top/t:QL_DSPV2_MULT
+select -assert-count 1 top/c:*
+read_verilog +/quicklogic/qlf_k6n10f/dspv2_sim.v
+prep -flatten -top top
+design -save gate
+
+design -reset
+design -copy-from gate -as gate top
+design -copy-from gold -as gold top
+async2sync
+equiv_make gold gate equiv
+opt -fast equiv
+equiv_induct equiv
+equiv_status -assert equiv
+
+design -reset
+read_verilog <<EOF
+module top(input [16:0] a, input [16:0] b, output reg [33:0] o, input clk, input [2:0] j);
+	reg [16:0] ar;
+	reg [16:0] br;
+
+	always @(posedge clk) begin
+		ar <= a;
+		br <= b;
+		o <= {ar * br, j};
+	end
+endmodule
+EOF
+
+synth_quicklogic -family qlf_k6n10f -dspv2 -run :coarse
+check -assert
+opt_clean
+select -assert-count 1 top/t:QL_DSPV2_MULT_REGIN_REGOUT
