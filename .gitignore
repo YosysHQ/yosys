@@ -47,6 +47,7 @@
 /kernel/python_wrappers.cc
 /boost
 /ffi
+/bison
 /venv
 /*.whl
 /*.egg-info

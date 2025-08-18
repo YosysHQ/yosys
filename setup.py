@@ -51,16 +51,27 @@ class libyosys_so_ext(Extension):
         ]
 
     def custom_build(self, bext: build_ext):
+        make_flags_split = shlex.split(os.getenv("makeFlags", ""))
+        # abc linking takes a lot of memory, best get it out of the way first
+        bext.spawn(
+            [
+                "make",
+                f"-j{os.cpu_count() or 1}",
+                "yosys-abc",
+                *make_flags_split,
+                *self.args,
+            ]
+        )
+        # build libyosys and share with abc out of the way
         bext.spawn(
             [
                 "make",
                 f"-j{os.cpu_count() or 1}",
                 self.name,
-                "yosys-abc",
                 "share",
+                *make_flags_split,
+                *self.args,
             ]
-            + shlex.split(os.getenv("makeFlags", ""))
-            + self.args
         )
         build_path = os.path.dirname(os.path.dirname(bext.get_ext_fullpath(self.name)))
         pyosys_path = os.path.join(build_path, "pyosys")
@@ -85,6 +96,7 @@ class libyosys_so_ext(Extension):
 
         shutil.copytree("share", share_target)
 
+
 class custom_build_ext(build_ext):
     def build_extension(self, ext) -> None:
         if not hasattr(ext, "custom_build"):
@@ -100,8 +112,8 @@ setup(
     long_description=open(os.path.join(__dir__, "README.md")).read(),
     long_description_content_type="text/markdown",
     install_requires=["wheel", "setuptools"],
+    license="MIT",
     classifiers=[
-        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Intended Audience :: Developers",
         "Operating System :: POSIX :: Linux",
