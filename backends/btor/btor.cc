@@ -129,7 +129,7 @@ struct BtorWorker
 				std::replace(src.begin(), src.end(), ' ', '_');
 				if (srcsymbols.count(src) || module->count_id("\\" + src)) {
 					for (int i = 1;; i++) {
-						string s = stringf("%s-%d", src.c_str(), i);
+						string s = stringf("%s-%d", src, i);
 						if (!srcsymbols.count(s) && !module->count_id("\\" + s)) {
 							src = s;
 							break;
@@ -192,7 +192,7 @@ struct BtorWorker
 	void btorf_push(const string &id)
 	{
 		if (verbose) {
-			f << indent << stringf("  ; begin %s\n", id.c_str());
+			f << indent << stringf("  ; begin %s\n", id);
 			indent += "    ";
 		}
 	}
@@ -201,7 +201,7 @@ struct BtorWorker
 	{
 		if (verbose) {
 			indent = indent.substr(4);
-			f << indent << stringf("  ; end %s\n", id.c_str());
+			f << indent << stringf("  ; end %s\n", id);
 		}
 	}
 
