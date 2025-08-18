@@ -176,7 +176,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        sanitizer: [undefined]
     steps:
       - name: Checkout Yosys
         uses: actions/checkout@v4
@@ -189,7 +188,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
+          name: build-${{ matrix.os }}
 
       - name: Uncompress build
         shell: bash
