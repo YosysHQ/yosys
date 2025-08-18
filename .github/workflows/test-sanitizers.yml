@@ -88,11 +88,9 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          mkdir build
-          cd build
-          make -f ../Makefile config-$CC
+          make config-$CC
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -f ../Makefile -j$procs ENABLE_LTO=1
+          make -j$procs ENABLE_LTO=1
 
       - name: Log yosys-config output
         run: |
