@@ -45,19 +45,6 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Build
-        shell: bash
-        run: |
-          mkdir build
-          cd build
-          make -f ../Makefile config-$CC
-          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -f ../Makefile -j$procs ENABLE_LTO=1
-
-      - name: Log yosys-config output
-        run: |
-          ./yosys-config || true
-
       - name: Get iverilog
         shell: bash
         run: |
@@ -92,6 +79,24 @@ jobs:
           CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
           make -j$procs
           make install
+
+      - name: Check iverilog
+        shell: bash
+        run: |
+          iverilog -V
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          make -f ../Makefile config-$CC
+          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
+          make -f ../Makefile -j$procs ENABLE_LTO=1
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true
 
       - name: Run tests
         shell: bash
