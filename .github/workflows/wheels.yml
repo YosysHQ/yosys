@@ -77,8 +77,7 @@ jobs:
         name: "[macOS] Flex/Bison"
         run: |
           brew install flex bison
-          echo "PATH=$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
-          echo "PATH=$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
       - if: ${{ matrix.os.family == 'windows' }}
         name: "[Windows] Flex/Bison"
         run: |
@@ -108,7 +107,7 @@ jobs:
             LINKFLAGS=-L./boost/pfx/lib
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a'
-            PATH=$PWD/bison/src:$PATH
+            PATH="$PWD/bison/src:$PATH"
           CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
             CXXFLAGS=-I./boost/pfx/include
@@ -116,7 +115,7 @@ jobs:
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
-            PATH=$PWD/bison/src:$PATH
+            PATH="$PWD/bison/src:$PATH"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/arch/ecp5/add_sub.py
       - uses: actions/upload-artifact@v4
