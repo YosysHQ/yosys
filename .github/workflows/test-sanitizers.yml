@@ -46,11 +46,12 @@ jobs:
         uses: ./.github/actions/setup-build-env
 
       - name: Get iverilog
+        id: get-iverilog
         shell: bash
         run: |
           git clone https://github.com/steveicarus/iverilog.git
           cd iverilog
-          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Get vcd2fst
         shell: bash
@@ -67,7 +68,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .local/
-          key: ${{ matrix.os }}-${IVERILOG_GIT}
+          key: ${{ matrix.os }}-${{ steps.get-iverilog.outputs.IVERILOG_GIT }}
 
       - name: Build iverilog
         if: steps.cache-iverilog.outputs.cache-hit != 'true'
