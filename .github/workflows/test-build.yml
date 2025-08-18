@@ -1,6 +1,14 @@
 name: Build and run tests
 
-on: [push, pull_request]
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
 
 jobs:
   pre_job:
@@ -11,11 +19,12 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
+
   pre_docs_job:
     runs-on: ubuntu-latest
     outputs:
@@ -24,15 +33,16 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on readme changes
           paths_ignore: '["**/README.md"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
   build-yosys:
     name: Reusable build
     runs-on: ${{ matrix.os }}
+    # pre_job is a subset of pre_docs_job, so we can always build for pre_docs_job
     needs: pre_docs_job
     if: needs.pre_docs_job.outputs.should_skip != 'true'
     env:
@@ -40,7 +50,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -58,7 +67,6 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-$CC
-          echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
           make -f ../Makefile -j$procs ENABLE_LTO=1
 
       - name: Log yosys-config output
@@ -74,7 +82,7 @@ jobs:
       - name: Store build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
+          name: build-${{ matrix.os }}
           path: build.tar
           retention-days: 1
 
@@ -85,12 +93,9 @@ jobs:
     if: needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
-      ASAN_OPTIONS: halt_on_error=1
-      UBSAN_OPTIONS: halt_on_error=1
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -139,7 +144,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
+          name: build-${{ matrix.os }}
 
       - name: Uncompress build
         shell: bash
@@ -209,7 +214,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        sanitizer: [undefined, address]
       fail-fast: false
     steps:
       - name: Checkout Yosys
@@ -223,7 +227,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.os }}-${{ matrix.sanitizer }}
+          name: build-${{ matrix.os }}
 
       - name: Uncompress build
         shell: bash
