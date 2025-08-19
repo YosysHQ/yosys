@@ -249,7 +249,7 @@ struct SynthPass : public ScriptPass {
 					else
 						run("hierarchy -check");
 				} else
-					run(stringf("hierarchy -check -top %s", top_module.c_str()));
+					run(stringf("hierarchy -check -top %s", top_module));
 			}
 		}
 
@@ -294,7 +294,7 @@ struct SynthPass : public ScriptPass {
 				if (!techmap_maps.empty())
 					techmap_opts += " -map +/techmap.v";
 				for (auto fn : techmap_maps)
-					techmap_opts += stringf(" -map %s", fn.c_str());
+					techmap_opts += stringf(" -map %s", fn);
 				run("techmap" + techmap_opts);
 			}
 			if (help_mode) {
@@ -316,7 +316,7 @@ struct SynthPass : public ScriptPass {
 					run(abc + " -fast -lut k", "(unless -noabc, if -lut)");
 				} else {
 					if (lut)
-						run(stringf("%s -fast -lut %d", abc.c_str(), lut));
+						run(stringf("%s -fast -lut %d", abc, lut));
 					else
 						run(abc + " -fast");
 				}

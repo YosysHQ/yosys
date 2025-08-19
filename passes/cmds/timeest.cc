@@ -320,7 +320,7 @@ struct EstimateSta {
 					std::string cell_src;
 					if (cell->has_attribute(ID::src)) {
 						std::string src_attr = cell->get_src_attribute();
-						cell_src = stringf(" source: %s", src_attr.c_str());
+						cell_src = stringf(" source: %s", src_attr);
 					}
 					log("    cell %s (%s)%s\n", log_id(cell), log_id(cell->type), cell_src.c_str());
 					printed.insert(cell);
@@ -331,7 +331,7 @@ struct EstimateSta {
 				std::string wire_src;
 				if (bit.wire && bit.wire->has_attribute(ID::src)) {
 					std::string src_attr = bit.wire->get_src_attribute();
-					wire_src = stringf(" source: %s", src_attr.c_str());
+					wire_src = stringf(" source: %s", src_attr);
 				}
 				log("    wire %s%s (level %ld)\n", log_signal(bit), wire_src.c_str(), levels[node]);
 			}

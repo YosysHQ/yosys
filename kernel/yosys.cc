@@ -287,7 +287,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func)
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s:%d:%s$%d", file.c_str(), line, func.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%d", file, line, func, autoidx++);
 }
 
 RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
@@ -304,7 +304,7 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s:%d:%s$%s$%d", file.c_str(), line, func.c_str(), suffix.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%s$%d", file, line, func, suffix, autoidx++);
 }
 
 RTLIL::Design *yosys_get_design()
@@ -320,7 +320,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
 	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module).c_str());
+		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module));
 	if (!design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";

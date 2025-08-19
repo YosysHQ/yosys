@@ -332,8 +332,8 @@ struct Abc9Pass : public ScriptPass
 						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
 						for (auto module : active_design->selected_modules()) {
 							active_design->selected_active_module = module->name.str();
-							if (module->cell(stringf("%s_$abc9_flop", module->name.c_str())))
-								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
+							if (module->cell(stringf("%s_$abc9_flop", module->name)))
+								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name));
 						}
 						active_design->selected_active_module.clear();
 					}
@@ -418,10 +418,10 @@ struct Abc9Pass : public ScriptPass
 					tempdir_name = make_temp_dir(tempdir_name);
 
 					if (!lut_mode)
-						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name));
 					if (box_file.empty())
-						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
-					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name.c_str(), dff_mode ? "-dff" : "", tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name));
+					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
@@ -433,15 +433,15 @@ struct Abc9Pass : public ScriptPass
 							num_outputs);
 					if (num_outputs) {
 						std::string abc9_exe_cmd;
-						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
+						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str(), tempdir_name);
 						if (!lut_mode)
-							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
+							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name);
 						if (box_file.empty())
-							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name);
 						else
-							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
+							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
-						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
+						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name, tempdir_name));
 						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
 					}
 					else

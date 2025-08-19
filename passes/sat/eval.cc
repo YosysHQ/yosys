@@ -263,7 +263,7 @@ struct VlogHammerReporter
 						RTLIL::SigSpec sig(wire);
 						if (!ce.eval(sig))
 							log_error("Can't read back value for port %s!\n", log_id(inputs[i]));
-						input_pattern_list += stringf(" %s", sig.as_const().as_string().c_str());
+						input_pattern_list += stringf(" %s", sig.as_const().as_string());
 						log("++PAT++ %d %s %s #\n", idx, log_id(inputs[i]), sig.as_const().as_string().c_str());
 					}
 				}

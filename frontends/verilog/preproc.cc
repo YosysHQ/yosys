@@ -265,7 +265,7 @@ struct arg_map_t
 	// (something like macro_foobar_arg2). This doesn't include the leading backtick.
 	static std::string str_token(const std::string &macro_name, int pos)
 	{
-		return stringf("macro_%s_arg%d", macro_name.c_str(), pos);
+		return stringf("macro_%s_arg%d", macro_name, pos);
 	}
 
 	// Return definitions for the macro arguments (so that substituting in the macro body and

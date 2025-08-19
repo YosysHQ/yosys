@@ -570,7 +570,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
 			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
-		str += stringf(" -mode %s", entry.mode.c_str());
+		str += stringf(" -mode %s", entry.mode);
 		if (!entry.module.empty())
 			str += stringf(" -module %s", log_id(entry.module));
 		if (!entry.cell.empty())
@@ -586,7 +586,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		if (entry.wirebit >= 0)
 			str += stringf(" -wirebit %d", entry.wirebit);
 		for (auto &s : entry.src)
-			str += stringf(" -src %s", s.c_str());
+			str += stringf(" -src %s", s);
 		if (filename.empty())
 			log("%s\n", str.c_str());
 		else

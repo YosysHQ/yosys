@@ -103,7 +103,7 @@ struct SatGen
 			} else {
 				std::string wire_name = RTLIL::unescape_id(bit.wire->name);
 				std::string name = pf +
-					(bit.wire->width == 1 ? wire_name : stringf("%s [%d]", wire_name.c_str(), bit.offset));
+					(bit.wire->width == 1 ? wire_name : stringf("%s [%d]", wire_name, bit.offset));
 				vec.push_back(ez->frozen_literal(name));
 				imported_signals[pf][bit] = vec.back();
 			}
