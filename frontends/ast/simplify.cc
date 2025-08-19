@@ -968,10 +968,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			verbose_activate:
 				if (mem2reg_set.count(mem) == 0) {
-					std::string message = stringf("Replacing memory %s with list of registers.", mem->str.c_str());
+					std::string message = stringf("Replacing memory %s with list of registers.", mem->str);
 					bool first_element = true;
 					for (auto &place : mem2reg_places[it.first]) {
-						message += stringf("%s%s", first_element ? " See " : ", ", place.c_str());
+						message += stringf("%s%s", first_element ? " See " : ", ", place);
 						first_element = false;
 					}
 					log_warning("%s\n", message.c_str());
@@ -997,7 +997,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				for (int i = 0; i < mem_size; i++) {
 					auto reg = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE,
 							mkconst_int(loc, data_range_left, true), mkconst_int(loc, data_range_right, true)));
-					reg->str = stringf("%s[%d]", node->str.c_str(), i);
+					reg->str = stringf("%s[%d]", node->str, i);
 					reg->is_reg = true;
 					reg->is_signed = node->is_signed;
 					for (auto &it : node->attributes)
@@ -2050,7 +2050,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		const char *second_part = children[1]->str.c_str();
 		if (second_part[0] == '\\')
 			second_part++;
-		newNode->str = stringf("%s[%d].%s", str.c_str(), children[0]->integer, second_part);
+		newNode->str = stringf("%s[%d].%s", str, children[0]->integer, second_part);
 		goto apply_newNode;
 	}
 
@@ -2767,7 +2767,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			} else {
 				this->dumpAst(NULL, "    ");
 				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
-				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str.c_str());
+				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str);
 			}
 		}
 
@@ -3119,7 +3119,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, width_hint-1, true), mkconst_int(location, 0, true)));
 			auto wire_tmp = wire_tmp_owned.get();
-			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line, autoidx++);
+			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
 			current_scope[wire_tmp->str] = wire_tmp;
 			current_ast_mod->children.push_back(std::move(wire_tmp_owned));
 			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
@@ -3433,7 +3433,7 @@ skip_dynamic_range_lvalue_expansion:;
 					auto* reg = reg_owned.get();
 					current_ast_mod->children.push_back(std::move(reg_owned));
 
-					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line, myidx, i);
+					reg->str = stringf("$past$%s:%d$%d$%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line, myidx, i);
 					reg->is_reg = true;
 					reg->is_signed = sign_hint;
 
@@ -4754,7 +4754,7 @@ static void mark_memories_assign_lhs_complex(dict<AstNode*, pool<std::string>> &
 	if (that->type == AST_IDENTIFIER && that->id2ast && that->id2ast->type == AST_MEMORY) {
 		AstNode *mem = that->id2ast;
 		if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_CMPLX_LHS))
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*that->location.begin.filename).c_str(), that->location.begin.line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line));
 		mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_CMPLX_LHS;
 	}
 }
@@ -4782,14 +4782,14 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// activate mem2reg if this is assigned in an async proc
 			if (flags & AstNode::MEM2REG_FL_ASYNC) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ASYNC))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ASYNC;
 			}
 
 			// remember if this is assigned blocking (=)
 			if (type == AST_ASSIGN_EQ) {
 				if (!(proc_flags[mem] & AstNode::MEM2REG_FL_EQ1))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line));
 				proc_flags[mem] |= AstNode::MEM2REG_FL_EQ1;
 			}
 
@@ -4806,11 +4806,11 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			// remember where this is
 			if (flags & MEM2REG_FL_INIT) {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_INIT))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_INIT;
 			} else {
 				if (!(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_SET_ELSE))
-					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
+					mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line));
 				mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_SET_ELSE;
 			}
 		}
@@ -4827,7 +4827,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 
 		// flag if used after blocking assignment (in same proc)
 		if ((proc_flags[mem] & AstNode::MEM2REG_FL_EQ1) && !(mem2reg_candidates[mem] & AstNode::MEM2REG_FL_EQ2)) {
-			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line));
+			mem2reg_places[mem].insert(stringf("%s:%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line));
 			mem2reg_candidates[mem] |= AstNode::MEM2REG_FL_EQ2;
 		}
 	}
@@ -5070,7 +5070,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			auto assign_reg = std::make_unique<AstNode>(location, type, std::make_unique<AstNode>(location, AST_IDENTIFIER), std::make_unique<AstNode>(location, AST_IDENTIFIER));
 			if (children[0]->children.size() == 2)
 				assign_reg->children[0]->children.push_back(children[0]->children[1]->clone());
-			assign_reg->children[0]->str = stringf("%s[%d]", children[0]->str.c_str(), i);
+			assign_reg->children[0]->str = stringf("%s[%d]", children[0]->str, i);
 			assign_reg->children[1]->str = id_data;
 			cond_node->children[1]->children.push_back(std::move(assign_reg));
 			case_node->children.push_back(std::move(cond_node));
@@ -5108,7 +5108,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 				(right <= id && id <= left);
 			if (valid_const_access)
 			{
-				str = stringf("%s[%d]", str.c_str(), id);
+				str = stringf("%s[%d]", str, id);
 				delete_children();
 				range_valid = false;
 				id2ast = nullptr;
@@ -5185,7 +5185,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 				auto assign_reg = std::make_unique<AstNode>(location, AST_ASSIGN_EQ, std::make_unique<AstNode>(location, AST_IDENTIFIER), std::make_unique<AstNode>(location, AST_IDENTIFIER));
 				assign_reg->children[0]->str = id_data;
 				assign_reg->children[0]->was_checked = true;
-				assign_reg->children[1]->str = stringf("%s[%d]", str.c_str(), i);
+				assign_reg->children[1]->str = stringf("%s[%d]", str, i);
 				cond_node->children[1]->children.push_back(std::move(assign_reg));
 				case_node->children.push_back(std::move(cond_node));
 			}

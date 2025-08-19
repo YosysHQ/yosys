@@ -129,7 +129,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 	message += vstringf(msg, args);
 
 	if (log_verific_callback) {
-		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
+		string full_message = stringf("%s%s\n", message_prefix, message);
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), 
 			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0, 
@@ -232,7 +232,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
-		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())).c_str(), Verific::LineFile::GetLineNo(obj->Linefile()));
+		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", autoidx++);
 	return s;
 }
@@ -472,7 +472,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			if (nl->IsFromVerilog()) {
 				auto const value = verific_const(type_name, v, nl, false);
 
-				attributes.emplace(stringf("\\enum_value_%s", value.as_string().c_str()), RTLIL::escape_id(k));
+				attributes.emplace(stringf("\\enum_value_%s", value.as_string()), RTLIL::escape_id(k));
 			}
 #ifdef VERIFIC_VHDL_SUPPORT
 			else if (nl->IsFromVhdl()) {
@@ -1926,7 +1926,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorOutput(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memrd));
+						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memrd));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;
@@ -1956,7 +1956,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorInput2(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memwr));
+						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memwr));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;

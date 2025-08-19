@@ -44,7 +44,7 @@ struct FmcombineWorker
 
 	FmcombineWorker(Design *design, IdString orig_type, const opts_t &opts) :
 			opts(opts), design(design), original(design->module(orig_type)),
-			orig_type(orig_type), combined_type(stringf("$fmcombine%s", orig_type.c_str()))
+			orig_type(orig_type), combined_type(stringf("$fmcombine%s", orig_type))
 	{
 	}
 

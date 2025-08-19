@@ -323,7 +323,7 @@
 
 			// create a unique name for the genvar
 			std::string old_str = decl->str;
-			std::string new_str = stringf("$genfordecl$%d$%s", autoidx++, old_str.c_str());
+			std::string new_str = stringf("$genfordecl$%d$%s", autoidx++, old_str);
 
 			// rename and move the genvar declaration to the containing description
 			decl->str = new_str;

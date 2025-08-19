@@ -2201,7 +2201,7 @@ skip_alu_split:
 						{
 							if (cmp_type == ID($lt)) cmp_name = "<";
 							if (cmp_type == ID($le)) cmp_name = "<=";
-							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name.c_str(), log_signal(const_sig));
+							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name, log_signal(const_sig));
 							replacement = "constant 1";
 							replace_sig[0] = State::S1;
 							replace = true;
@@ -2210,7 +2210,7 @@ skip_alu_split:
 						{
 							if (cmp_type == ID($gt)) cmp_name = ">";
 							if (cmp_type == ID($ge)) cmp_name = ">=";
-							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name.c_str(), log_signal(const_sig));
+							condition   = stringf("unsigned X[%d:0]%s%s", var_width - 1, cmp_name, log_signal(const_sig));
 							replacement = "constant 0";
 							replace_sig[0] = State::S0;
 							replace = true;
