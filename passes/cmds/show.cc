@@ -149,7 +149,7 @@ struct ShowWorker
 	{
 		for (auto &s : color_selections)
 			if (s.second.selected_member(module->name, member_name)) {
-				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first.c_str(), s.first.c_str());
+				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first, s.first);
 			}
 
 		RTLIL::Const colorattr_value;
@@ -308,11 +308,11 @@ struct ShowWorker
 
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				std::string portside = stringf("%d:%d", bitpos, bitpos - rep*c.width + 1);
-				std::string remoteside = stringf("%s%d:%d", repinfo.c_str(), cl, cr);
+				std::string remoteside = stringf("%s%d:%d", repinfo, cl, cr);
 
 				if (driver) {
 					log_assert(!net.empty());
-					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside.c_str(), remoteside.c_str()));
+					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside, remoteside));
 					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
@@ -325,7 +325,7 @@ struct ShowWorker
 								c.data.front() == State::Sz ? 'Z' : '?',
 								bitpos, bitpos-rep*c.width+1));
 					} else {
-						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside.c_str(), portside.c_str()));
+						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside, portside));
 						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 					}
@@ -335,14 +335,14 @@ struct ShowWorker
 			}
 
 			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
-					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig).c_str());
+					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig));
 
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), dot_idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port, dot_idx, nextColor(sig), widthLabel(sig.size()));
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port, nextColor(sig), widthLabel(sig.size()));
 			}
 			if (node != nullptr)
 				*node = stringf("x%d", dot_idx);
@@ -490,7 +490,7 @@ struct ShowWorker
 			std::string in_label = join_label_pieces(in_label_pieces);
 			std::string out_label = join_label_pieces(out_label_pieces);
 
-			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label.c_str(),
+			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label,
 											   findLabel(cell->name.str()), escape(cell->type.str()),
 											   out_label.c_str());
 
@@ -904,8 +904,8 @@ struct ShowPass : public Pass {
 		if (libs.size() > 0)
 			log_header(design, "Continuing show pass.\n");
 
-		std::string dot_file = stringf("%s.dot", prefix.c_str());
-		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
+		std::string dot_file = stringf("%s.dot", prefix);
+		std::string out_file = stringf("%s.%s", prefix, format.empty() ? "svg" : format);
 
 		log("Writing dot description to `%s'.\n", dot_file.c_str());
 		FILE *f = fopen(dot_file.c_str(), "w");
@@ -932,7 +932,7 @@ struct ShowPass : public Pass {
 			#else
 				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
 			#endif
-			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
+			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
 			log("Exec: %s\n", cmd.c_str());
 			#if !defined(YOSYS_DISABLE_SPAWN)
@@ -950,9 +950,9 @@ struct ShowPass : public Pass {
 					// system()/cmd.exe does not understand single quotes nor
 					// background tasks on Windows. So we have to pause yosys
 					// until the viewer exits.
-					std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+					std::string cmd = stringf("%s \"%s\"", viewer_exe, out_file);
 				#else
-					std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+					std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 				#endif
 				log("Exec: %s\n", cmd.c_str());
 				if (run_command(cmd) != 0)
@@ -960,9 +960,9 @@ struct ShowPass : public Pass {
 			} else
 			if (format.empty()) {
 				#ifdef __APPLE__
-				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file, dot_file, background);
 				#else
-				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 				#endif
 				log("Exec: %s\n", cmd.c_str());
 				if (run_command(cmd) != 0)

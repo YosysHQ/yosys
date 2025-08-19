@@ -126,7 +126,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib +/coolrunner2/cells_sim.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (flatten && check_label("flatten", "(unless -noflatten)"))
@@ -198,7 +198,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthCoolrunner2Pass;

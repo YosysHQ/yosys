@@ -1031,12 +1031,12 @@ struct VerificSvaImporter
 
 	[[noreturn]] void parser_error(std::string errmsg, linefile_type loc)
 	{
-		parser_error(stringf("%s at %s:%d.\n", errmsg.c_str(), LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
+		parser_error(stringf("%s at %s:%d.\n", errmsg, LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
 	}
 
 	[[noreturn]] void parser_error(std::string errmsg, Instance *inst)
 	{
-		parser_error(stringf("%s at %s (%s)", errmsg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+		parser_error(stringf("%s at %s (%s)", errmsg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
 	[[noreturn]] void parser_error(Instance *inst)

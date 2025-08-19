@@ -114,7 +114,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			if (wire->port_output) {
 				count_ports++;
 				signal_out[idy("sig", mod->name.str(), wire->name.str())] = wire->width;
-				f << stringf("wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
+				f << stringf("wire [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()));
 			} else if (wire->port_input) {
 				count_ports++;
 				bool is_clksignal = wire->get_bool_attribute(ID::gentb_clock);
@@ -134,73 +134,73 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 					if (wire->attributes.count(ID::gentb_constant) != 0)
 						signal_const[idy("sig", mod->name.str(), wire->name.str())] = wire->attributes[ID::gentb_constant].as_string();
 				}
-				f << stringf("reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()).c_str());
+				f << stringf("reg [%d:0] %s;\n", wire->width-1, idy("sig", mod->name.str(), wire->name.str()));
 			}
 		}
-		f << stringf("%s %s(\n", id(mod->name.str()).c_str(), idy("uut", mod->name.str()).c_str());
+		f << stringf("%s %s(\n", id(mod->name.str()), idy("uut", mod->name.str()));
 		for (auto wire : mod->wires()) {
 			if (wire->port_output || wire->port_input)
-				f << stringf("\t.%s(%s)%s\n", id(wire->name.str()).c_str(),
+				f << stringf("\t.%s(%s)%s\n", id(wire->name.str()),
 						idy("sig", mod->name.str(), wire->name.str()).c_str(), --count_ports ? "," : "");
 		}
 		f << stringf(");\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "reset").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "reset"));
 		f << stringf("begin\n");
 		int delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
-			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
+			f << stringf("\t%s <= #%d 0;\n", it->first, ++delay_counter*2);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it)
-			f << stringf("\t%s <= #%d 0;\n", it->first.c_str(), ++delay_counter*2);
+			f << stringf("\t%s <= #%d 0;\n", it->first, ++delay_counter*2);
 		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
-			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
-			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
+			f << stringf("\t#100; %s <= 1;\n", it->first);
+			f << stringf("\t#100; %s <= 0;\n", it->first);
 		}
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); ++it)
-			f << stringf("\t%s <= #%d ~0;\n", it->first.c_str(), ++delay_counter*2);
+			f << stringf("\t%s <= #%d ~0;\n", it->first, ++delay_counter*2);
 		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		for (auto it = signal_clk.begin(); it != signal_clk.end(); ++it) {
-			f << stringf("\t#100; %s <= 1;\n", it->first.c_str());
-			f << stringf("\t#100; %s <= 0;\n", it->first.c_str());
+			f << stringf("\t#100; %s <= 1;\n", it->first);
+			f << stringf("\t#100; %s <= 0;\n", it->first);
 		}
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); ++it) {
 			if (signal_const.count(it->first) == 0)
 				continue;
-			f << stringf("\t%s <= #%d 'b%s;\n", it->first.c_str(), ++delay_counter*2, signal_const[it->first].c_str());
+			f << stringf("\t%s <= #%d 'b%s;\n", it->first, ++delay_counter*2, signal_const[it->first]);
 		}
 		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "update_data").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "update_data"));
 		f << stringf("begin\n");
 		delay_counter = 0;
 		for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
 			if (signal_const.count(it->first) > 0)
 				continue;
 			f << stringf("\txorshift128;\n");
-			f << stringf("\t%s <= #%d { xorshift128_x, xorshift128_y, xorshift128_z, xorshift128_w };\n", it->first.c_str(), ++delay_counter*2);
+			f << stringf("\t%s <= #%d { xorshift128_x, xorshift128_y, xorshift128_z, xorshift128_w };\n", it->first, ++delay_counter*2);
 		}
 		f << stringf("\t#%d;\n", ((2*delay_counter+99)/100)*100);
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "update_clock").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "update_clock"));
 		f << stringf("begin\n");
 		if (signal_clk.size()) {
 			f << stringf("\txorshift128;\n");
 			f << stringf("\t{");
 			int total_clock_bits = 0;
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
-				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
+				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first);
 				total_clock_bits += it->second;
 			}
 			f << stringf(" } = {");
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++)
-				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
+				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first);
 			f << stringf(" } ^ (%d'b1 << (xorshift128_w %% %d));\n", total_clock_bits, total_clock_bits + 1);
 		}
 		f << stringf("end\n");
@@ -210,12 +210,12 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		std::vector<std::string> header1;
 		std::string header2 = "";
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "print_status").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "print_status"));
 		f << stringf("begin\n");
 		f << stringf("\t$fdisplay(file, \"#OUT# %%b %%b %%b %%t %%d\", {");
 		if (signal_in.size())
 			for (auto it = signal_in.begin(); it != signal_in.end(); it++) {
-				f << stringf("%s %s", it == signal_in.begin() ? "" : ",", it->first.c_str());
+				f << stringf("%s %s", it == signal_in.begin() ? "" : ",", it->first);
 				int len = it->second;
 				header2 += ", \"";
 				if (len > 1)
@@ -237,7 +237,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		header2 += ", \" \"";
 		if (signal_clk.size()) {
 			for (auto it = signal_clk.begin(); it != signal_clk.end(); it++) {
-				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first.c_str());
+				f << stringf("%s %s", it == signal_clk.begin() ? "" : ",", it->first);
 				int len = it->second;
 				header2 += ", \"";
 				if (len > 1)
@@ -259,7 +259,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		header2 += ", \" \"";
 		if (signal_out.size()) {
 			for (auto it = signal_out.begin(); it != signal_out.end(); it++) {
-				f << stringf("%s %s", it == signal_out.begin() ? "" : ",", it->first.c_str());
+				f << stringf("%s %s", it == signal_out.begin() ? "" : ",", it->first);
 				int len = it->second;
 				header2 += ", \"";
 				if (len > 1)
@@ -281,25 +281,25 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "print_header").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "print_header"));
 		f << stringf("begin\n");
 		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
 		for (auto &hdr : header1)
-			f << stringf("\t$fdisplay(file, \"#OUT#   %s\");\n", hdr.c_str());
+			f << stringf("\t$fdisplay(file, \"#OUT#   %s\");\n", hdr);
 		f << stringf("\t$fdisplay(file, \"#OUT#\");\n");
-		f << stringf("\t$fdisplay(file, {\"#OUT# \"%s});\n", header2.c_str());
+		f << stringf("\t$fdisplay(file, {\"#OUT# \"%s});\n", header2);
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
 
-		f << stringf("task %s;\n", idy(mod->name.str(), "test").c_str());
+		f << stringf("task %s;\n", idy(mod->name.str(), "test"));
 		f << stringf("begin\n");
-		f << stringf("\t$fdisplay(file, \"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()).c_str());
-		f << stringf("\t%s;\n", idy(mod->name.str(), "reset").c_str());
+		f << stringf("\t$fdisplay(file, \"#OUT#\\n#OUT# ==== %s ====\");\n", idy(mod->name.str()));
+		f << stringf("\t%s;\n", idy(mod->name.str(), "reset"));
 		f << stringf("\tfor (i=0; i<%d; i=i+1) begin\n", num_iter);
-		f << stringf("\t\tif (i %% 20 == 0) %s;\n", idy(mod->name.str(), "print_header").c_str());
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_data").c_str());
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_clock").c_str());
-		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "print_status").c_str());
+		f << stringf("\t\tif (i %% 20 == 0) %s;\n", idy(mod->name.str(), "print_header"));
+		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_data"));
+		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "update_clock"));
+		f << stringf("\t\t#100; %s;\n", idy(mod->name.str(), "print_status"));
 		f << stringf("\tend\n");
 		f << stringf("end\n");
 		f << stringf("endtask\n\n");
@@ -317,7 +317,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 	f << stringf("\tend\n");
 	for (auto module : design->modules())
 		if (!module->get_bool_attribute(ID::gentb_skip))
-			f << stringf("\t%s;\n", idy(module->name.str(), "test").c_str());
+			f << stringf("\t%s;\n", idy(module->name.str(), "test"));
 	f << stringf("\t$fclose(file);\n");
 	f << stringf("\t$finish;\n");
 	f << stringf("end\n\n");

@@ -166,7 +166,7 @@ struct SubmodWorker
 						}
 					}
 				else if (hidden_mode)
-					new_wire_name = stringf("$submod%s", new_wire_name.c_str());
+					new_wire_name = stringf("$submod%s", new_wire_name);
 			}
 
 			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name, wire->width);

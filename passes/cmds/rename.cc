@@ -64,7 +64,7 @@ static std::string derive_name_from_src(const std::string &src, int counter)
 	if (src_base.empty())
 		return stringf("$%d", counter);
 	else
-		return stringf("\\%s$%d", src_base.c_str(), counter);
+		return stringf("\\%s$%d", src_base, counter);
 }
 
 static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix, bool move_to_cell)
@@ -422,7 +422,7 @@ struct RenamePass : public Pass {
 							if (wire_suffix.empty()) {
 								for (auto const &[port, _] : cell->connections()) {
 									if (cell->output(port)) {
-										wire_suffix += stringf("%s.%s", cell->type.c_str(), port.c_str() + 1);
+										wire_suffix += stringf("%s.%s", cell->type, port.c_str() + 1);
 										break;
 									}
 								}
@@ -449,7 +449,7 @@ struct RenamePass : public Pass {
 				for (auto wire : module->selected_wires())
 					if (wire->name[0] == '$') {
 						RTLIL::IdString buf;
-						do buf = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
+						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
 						while (module->wire(buf) != nullptr);
 						new_wire_names[wire] = buf;
 					}
@@ -457,7 +457,7 @@ struct RenamePass : public Pass {
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$') {
 						RTLIL::IdString buf;
-						do buf = stringf("\\%s%d%s", pattern_prefix.c_str(), counter++, pattern_suffix.c_str());
+						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
 						while (module->cell(buf) != nullptr);
 						new_cell_names[cell] = buf;
 					}

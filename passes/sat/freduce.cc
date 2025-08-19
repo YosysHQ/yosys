@@ -595,9 +595,9 @@ struct FreduceWorker
 
 	void dump()
 	{
-		std::string filename = stringf("%s_%s_%05d.il", dump_prefix.c_str(), RTLIL::id2cstr(module->name), reduce_counter);
+		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, RTLIL::id2cstr(module->name), reduce_counter);
 		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename.c_str());
-		Pass::call(design, stringf("dump -outfile %s %s", filename.c_str(), design->selected_active_module.empty() ? module->name.c_str() : ""));
+		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.c_str() : ""));
 	}
 
 	int run()

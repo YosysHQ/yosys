@@ -873,7 +873,7 @@ grow_read_ports:;
 		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
-			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid.c_str(), grid_d, grid_a, dupidx)), bram.name);
+			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid, grid_d, grid_a, dupidx)), bram.name);
 			log("      Creating %s cell at grid position <%d %d %d>: %s\n", log_id(bram.name), grid_d, grid_a, dupidx, log_id(c));
 
 			for (auto &vp : variant_params)
