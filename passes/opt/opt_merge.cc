@@ -44,11 +44,8 @@ struct OptMergeWorker
 	CellTypes ct;
 	int total_count;
 
-	static vector<pair<SigBit, SigSpec>> sorted_pmux_in(const dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	static vector<pair<SigBit, SigSpec>> sorted_pmux_in(const SigSpec& sig_s, const SigSpec& sig_b)
 	{
-		SigSpec sig_s = conn.at(ID::S);
-		SigSpec sig_b = conn.at(ID::B);
-
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
 
@@ -104,11 +101,9 @@ struct OptMergeWorker
 			a.sort_and_unify();
 			h = a.hash_into(h);
 		} else if (cell->type == ID($pmux)) {
-			dict<RTLIL::IdString, RTLIL::SigSpec> conn = cell->connections();
-			assign_map.apply(conn.at(ID::A));
-			assign_map.apply(conn.at(ID::B));
-			assign_map.apply(conn.at(ID::S));
-			for (const auto& [s_bit, b_chunk] : sorted_pmux_in(conn)) {
+			SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			for (const auto& [s_bit, b_chunk] : sorted_pmux_in(sig_s, sig_b)) {
 				h = s_bit.hash_into(h);
 				h = b_chunk.hash_into(h);
 			}
