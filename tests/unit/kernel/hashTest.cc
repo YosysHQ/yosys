@@ -27,8 +27,8 @@ TEST(PoolHashTest, collisions)
 {
 	uint64_t collisions = 0;
 	std::unordered_set<Hasher::hash_t> hashes;
-	for (int i = 0; i < 10000; ++i) {
-		for (int j = i + 1; j < 10000; ++j) {
+	for (int i = 0; i < 1000; ++i) {
+		for (int j = i + 1; j < 1000; ++j) {
 			pool<int> p1;
 			p1.insert(i);
 			p1.insert(j);
@@ -39,7 +39,29 @@ TEST(PoolHashTest, collisions)
 		}
 	}
 	std::cout << "pool<int> collisions: " << collisions << std::endl;
-	EXPECT_LT(collisions, 1000000);
+	EXPECT_LT(collisions, 10'000);
+}
+
+TEST(PoolHashTest, subset_collisions)
+{
+	uint64_t collisions = 0;
+	std::unordered_set<Hasher::hash_t> hashes;
+	for (int i = 0; i < 1000 * 1000; ++i) {
+
+		pool<int> p1;
+		for (int b = 0; i >> b; ++b) {
+			if ((i >> b) & 1) {
+				p1.insert(b);
+			}
+		}
+		auto h = p1.hash_into(Hasher()).yield();
+		if (!hashes.insert(h).second) {
+			++collisions;
+		}
+
+	}
+	std::cout << "pool<int> subset collisions: " << collisions << std::endl;
+	EXPECT_LT(collisions, 100);
 }
 
 YOSYS_NAMESPACE_END
