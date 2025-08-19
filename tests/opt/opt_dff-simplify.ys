@@ -1,3 +1,6 @@
+# 5287 issue
+# Check only for complimentary patterns elimination
+
 read_rtlil opt_dff-simplify.il 
 opt_dff
 
@@ -10,3 +13,31 @@ select -assert-none t:$ne r:A_WIDTH=15 %i
 select -assert-none t:$ne r:A_WIDTH=10 %i
 select -assert-none t:$ne r:A_WIDTH=12 %i
 select -assert-none t:$ne r:A_WIDTH=11 %i
+
+# Check for both complimentary and redundancy elimination
+
+read_verilog << EOT
+module test(input clk, input h, input i, input m, output reg p);
+  wire D;
+  wire a;
+  wire j;
+  wire c;
+  wire mux_test;
+  wire n;
+
+  always @(posedge clk)
+    p <= D;
+  assign j = n ? 1'hx : a;
+  assign a = i ? mux_test : p;
+  assign D = m ? h : j;
+  assign c = n ? 1'hx : p;
+  assign mux_test = m ? 1'hx : c;
+endmodule
+EOT
+
+cd test
+proc
+opt_dff
+
+select -assert-count 1 t:$ne r:A_WIDTH=2 %i
+select -assert-none t:$ne r:A_WIDTH=3 %i
