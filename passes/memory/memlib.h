@@ -109,7 +109,7 @@ struct PortVariant {
 	PortKind kind;
 	int clk_shared;
 	ClkPolKind clk_pol;
-	bool clk_en;
+	bool clk_en = false;
 	bool width_tied;
 	int min_wr_wide_log2;
 	int max_wr_wide_log2;
