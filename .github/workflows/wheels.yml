@@ -4,7 +4,7 @@ name: Build Wheels for PyPI
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 10 * * 0'
+    - cron: "0 10 * * 0"
 
 jobs:
   build_wheels:
@@ -54,9 +54,6 @@ jobs:
           fetch-depth: 0
           submodules: true
           persist-credentials: false
-      - if: ${{ matrix.os.family == 'linux' }}
-        name: "[Linux] Set up QEMU"
-        uses: docker/setup-qemu-action@v3
       - uses: actions/setup-python@v5
       - name: Get Boost Source
         shell: bash
@@ -68,14 +65,19 @@ jobs:
         run: |
           mkdir -p ffi
           curl -L https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz | tar --strip-components=1 -xzC ffi
+      - if: ${{ matrix.os.family == 'linux' }}
+        name: "[Linux] Bison 3.8.2"
+        shell: bash
+        run: |
+          mkdir -p bison
+          curl -L https://ftpmirror.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar --strip-components=1 -xzC bison
       ## Software installed by default in GitHub Action Runner VMs:
       ##  https://github.com/actions/runner-images
       - if: ${{ matrix.os.family == 'macos' }}
         name: "[macOS] Flex/Bison"
         run: |
           brew install flex bison
-          echo "PATH=$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
-          echo "PATH=$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$PATH" >> $GITHUB_ENV
       - if: ${{ matrix.os.family == 'windows' }}
         name: "[Windows] Flex/Bison"
         run: |
@@ -100,16 +102,20 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
           CIBW_ENVIRONMENT: >
+            OPTFLAGS=-O3
             CXXFLAGS=-I./boost/pfx/include
             LINKFLAGS=-L./boost/pfx/lib
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a'
+            PATH="$PWD/bison/src:$PATH"
           CIBW_ENVIRONMENT_MACOS: >
+            OPTFLAGS=-O3
             CXXFLAGS=-I./boost/pfx/include
             LINKFLAGS=-L./boost/pfx/lib
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
             makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
+            PATH="$PWD/bison/src:$PATH"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/arch/ecp5/add_sub.py
       - uses: actions/upload-artifact@v4

@@ -20,11 +20,19 @@ import os
 import yaml
 import platform
 import subprocess
+from pathlib import Path
 
-__dir__ = os.path.dirname(os.path.abspath(__file__))
+__yosys_root__ = Path(__file__).absolute().parents[3]
 
+for source in ["boost", "ffi", "bison"]:
+    if not (__yosys_root__ / source).is_dir():
+        print(
+            "You need to download boost, ffi and bison in a similar manner to wheels.yml first."
+        )
+        exit(-1)
 
-workflow = yaml.safe_load(open(os.path.join(os.path.dirname(__dir__), "wheels.yml")))
+with open(__yosys_root__ / ".github" / "workflows" / "wheels.yml") as f:
+    workflow = yaml.safe_load(f)
 
 env = os.environ.copy()
 
@@ -40,5 +48,5 @@ for key, value in cibw_step["env"].items():
         continue
     env[key] = value
 
-env["CIBW_ARCHS"] = os.getenv("CIBW_ARCHS") or platform.machine()
+env["CIBW_ARCHS"] = os.getenv("CIBW_ARCHS", platform.machine())
 subprocess.check_call(["cibuildwheel"], env=env)
