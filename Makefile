@@ -376,7 +376,7 @@ BOOST_PYTHON_LIB ?= $(shell \
 
 # Inside CentOS 7
 ifeq (${PLATFORM},centos7)
-BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38
+BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38 -lboost_system -lboost_filesystem
 CXXFLAGS += -I/opt/boost/include
 endif
 
@@ -384,7 +384,7 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+LIBS += $(BOOST_PYTHON_LIB)
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
