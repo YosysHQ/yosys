@@ -587,7 +587,7 @@ void format_emit_idstring(std::string &result, std::string_view spec, int *dynam
 {
 	if (spec == "%s") {
 		// Format checking will have guaranteed num_dynamic_ints == 0.
-		result += arg.c_str();
+		result += arg.str_view();
 		return;
 	}
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
