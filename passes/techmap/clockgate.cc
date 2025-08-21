@@ -371,17 +371,18 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				Cell* icg = module->addCell(NEW_ID, matching_icg_desc->name);
+				Cell* cell = *ce_ffs.begin();
+				Cell* icg = module->addCell(NEW_ID2_SUFFIX("icg"), matching_icg_desc->name);
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
-				gclk.new_net = module->addWire(NEW_ID);
+				gclk.new_net = module->addWire(NEW_ID2_SUFFIX("gclk"));
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
 				for (auto port : matching_icg_desc->tie_lo_pins)
 					icg->setPort(port, Const(0, 1));
 				// Fix CE polarity if needed
 				if (!clk.pol_ce) {
-					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_bit);
+					SigBit ce_fixed_pol = module->NotGate(NEW_ID2_SUFFIX("ce_not"), clk.ce_bit);
 					icg->setPort(matching_icg_desc->ce_pin, ce_fixed_pol);
 				}
 			}
