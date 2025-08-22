@@ -1458,7 +1458,7 @@ struct RTLIL::Design
 		// controls if partially selected modules are included
 		RTLIL::SelectPartials partials = SELECT_ALL,
 		// controls if boxed modules are included
-		RTLIL::SelectBoxes boxes = SB_UNBOXED_WARN
+		RTLIL::SelectBoxes boxes = SB_UNBOXED_ONLY
 	) const;
 
 	// returns all selected modules, and may include boxes
