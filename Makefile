@@ -175,7 +175,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.56+105
+YOSYS_VER := 0.56+165
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -376,7 +376,7 @@ BOOST_PYTHON_LIB ?= $(shell \
 
 # Inside CentOS 7
 ifeq (${PLATFORM},centos7)
-BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38 -lboost_system -lboost_filesystem
+BOOST_PYTHON_LIB = -L/opt/boost/lib -lboost_python38
 CXXFLAGS += -I/opt/boost/include
 endif
 
@@ -384,7 +384,7 @@ ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-LIBS += $(BOOST_PYTHON_LIB)
+LIBS += $(BOOST_PYTHON_LIB) -lboost_filesystem
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator

@@ -12,6 +12,7 @@
 #ifndef HASHLIB_H
 #define HASHLIB_H
 
+#include <array>
 #include <stdexcept>
 #include <algorithm>
 #include <set>
@@ -101,7 +102,7 @@ private:
 		uint32_t hash = ((a << 5) + a) ^ b;
 		return hash;
 	}
-	public:
+public:
 	void hash32(uint32_t i) {
 		state = djb2_xor(i, state);
 		state = mkhash_xorshift(fudge ^ state);
@@ -128,6 +129,7 @@ private:
 		*this = hash_ops<T>::hash_into(t, *this);
 	}
 
+	[[deprecated]]
 	void commutative_eat(hash_t t) {
 		state ^= t;
 	}
@@ -356,6 +358,29 @@ template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
 template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
 template<typename K, typename OPS = hash_ops<K>> class pool;
 template<typename K, typename OPS = hash_ops<K>> class mfp;
+
+// Computes the hash value of an unordered set of elements.
+// See https://www.preprints.org/manuscript/201710.0192/v1/download.
+// This is the Sum(4) algorithm from that paper, which has good collision resistance,
+// much better than Sum(1) or Xor(1) (and somewhat better than Xor(4)).
+class commutative_hash {
+public:
+	commutative_hash() {
+		buckets.fill(0);
+	}
+	void eat(Hasher h) {
+		Hasher::hash_t v = h.yield();
+		size_t index = v & (buckets.size() - 1);
+		buckets[index] += v;
+	}
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		for (auto b : buckets)
+			h.eat(b);
+		return h;
+	}
+private:
+	std::array<Hasher::hash_t, 4> buckets;
+};
 
 template<typename K, typename T, typename OPS>
 class dict {
@@ -802,14 +827,14 @@ public:
 	}
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		commutative_hash comm;
 		for (auto &it : entries) {
 			Hasher entry_hash;
 			entry_hash.eat(it.udata.first);
 			entry_hash.eat(it.udata.second);
-			h.commutative_eat(entry_hash.yield());
+			comm.eat(entry_hash);
 		}
-		h.eat(entries.size());
-		return h;
+		return comm.hash_into(h);
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }
@@ -1190,11 +1215,11 @@ public:
 	}
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		commutative_hash comm;
 		for (auto &it : entries) {
-			h.commutative_eat(ops.hash(it.udata).yield());
+			comm.eat(ops.hash(it.udata));
 		}
-		h.eat(entries.size());
-		return h;
+		return comm.hash_into(h);
 	}
 
 	void reserve(size_t n) { entries.reserve(n); }
@@ -1359,7 +1384,8 @@ public:
 		return p;
 	}
 
-	// Merge sets if the given indices belong to different sets
+	// Merge sets if the given indices belong to different sets.
+	// Makes ifind(j) the root of the merged set.
 	void imerge(int i, int j)
 	{
 		i = ifind(i);

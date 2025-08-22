@@ -33,7 +33,7 @@
  *
  */
 
-%require "3.8"
+%require "3.6"
 %language "c++"
 %define api.value.type variant
 %define api.prefix {frontend_verilog_yy}

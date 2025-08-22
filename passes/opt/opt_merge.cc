@@ -44,20 +44,16 @@ struct OptMergeWorker
 	CellTypes ct;
 	int total_count;
 
-	static vector<pair<SigBit, SigSpec>> sorted_pmux_in(const dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
+	static Hasher hash_pmux_in(const SigSpec& sig_s, const SigSpec& sig_b, Hasher h)
 	{
-		SigSpec sig_s = conn.at(ID::S);
-		SigSpec sig_b = conn.at(ID::B);
-
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
 
-		vector<pair<SigBit, SigSpec>> sb_pairs;
+		hashlib::commutative_hash comm;
 		for (int i = 0; i < s_width; i++)
-			sb_pairs.push_back(pair<SigBit, SigSpec>(sig_s[i], sig_b.extract(i*width, width)));
+			comm.eat(hash_ops<std::pair<SigBit, SigSpec>>::hash({sig_s[i], sig_b.extract(i*width, width)}));
 
-		std::sort(sb_pairs.begin(), sb_pairs.end());
-		return sb_pairs;
+		return comm.hash_into(h);
 	}
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
@@ -89,12 +85,10 @@ struct OptMergeWorker
 		// (builtin || stdcell) && (unary || binary) && symmetrical
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			std::array<RTLIL::SigSpec, 2> inputs = {
-				assign_map(cell->getPort(ID::A)),
-				assign_map(cell->getPort(ID::B))
-			};
-			std::sort(inputs.begin(), inputs.end());
-			h = hash_ops<std::array<RTLIL::SigSpec, 2>>::hash_into(inputs, h);
+			hashlib::commutative_hash comm;
+			comm.eat(hash_ops<RTLIL::SigSpec>::hash(assign_map(cell->getPort(ID::A))));
+			comm.eat(hash_ops<RTLIL::SigSpec>::hash(assign_map(cell->getPort(ID::B))));
+			h = comm.hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort();
@@ -104,44 +98,31 @@ struct OptMergeWorker
 			a.sort_and_unify();
 			h = a.hash_into(h);
 		} else if (cell->type == ID($pmux)) {
-			dict<RTLIL::IdString, RTLIL::SigSpec> conn = cell->connections();
-			assign_map.apply(conn.at(ID::A));
-			assign_map.apply(conn.at(ID::B));
-			assign_map.apply(conn.at(ID::S));
-			for (const auto& [s_bit, b_chunk] : sorted_pmux_in(conn)) {
-				h = s_bit.hash_into(h);
-				h = b_chunk.hash_into(h);
-			}
+			SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			h = hash_pmux_in(sig_s, sig_b, h);
 			h = assign_map(cell->getPort(ID::A)).hash_into(h);
 		} else {
-			std::vector<std::pair<IdString, SigSpec>> conns;
-			for (const auto& conn : cell->connections()) {
-				conns.push_back(conn);
+			hashlib::commutative_hash comm;
+			for (const auto& [port, sig] : cell->connections()) {
+				if (cell->output(port))
+					continue;
+				comm.eat(hash_ops<std::pair<IdString, SigSpec>>::hash({port, assign_map(sig)}));
 			}
-			std::sort(conns.begin(), conns.end());
-			for (const auto& [port, sig] : conns) {
-				if (!cell->output(port)) {
-					h = port.hash_into(h);
-					h = assign_map(sig).hash_into(h);
-				}
-			}
-
+			h = comm.hash_into(h);
 			if (RTLIL::builtin_ff_cell_types().count(cell->type))
 				h = initvals(cell->getPort(ID::Q)).hash_into(h);
-
 		}
 		return h;
 	}
 
 	static Hasher hash_cell_parameters(const RTLIL::Cell *cell, Hasher h)
 	{
-		using Paramvec = std::vector<std::pair<IdString, Const>>;
-		Paramvec params;
+		hashlib::commutative_hash comm;
 		for (const auto& param : cell->parameters) {
-			params.push_back(param);
+			comm.eat(hash_ops<std::pair<IdString, Const>>::hash(param));
 		}
-		std::sort(params.begin(), params.end());
-		return hash_ops<Paramvec>::hash_into(params, h);
+		return comm.hash_into(h);
 	}
 
 	Hasher hash_cell_function(const RTLIL::Cell *cell, Hasher h) const
@@ -227,7 +208,7 @@ struct OptMergeWorker
 	}
 
 	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
+		design(design), module(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
 		ct.setup_internals();

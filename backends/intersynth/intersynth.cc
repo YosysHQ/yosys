@@ -172,7 +172,7 @@ struct IntersynthBackend : public Backend {
 					if (sig.size() != 0) {
 						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
 						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", log_id(port.first));
-						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
+						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig));
 					}
 				}
 				for (auto &param : cell->parameters) {
@@ -199,13 +199,13 @@ struct IntersynthBackend : public Backend {
 		if (!flag_notypes) {
 			*f << stringf("### Connection Types\n");
 			for (auto code : conntypes_code)
-				*f << stringf("%s", code.c_str());
+				*f << stringf("%s", code);
 			*f << stringf("\n### Cell Types\n");
 			for (auto code : celltypes_code)
-				*f << stringf("%s", code.c_str());
+				*f << stringf("%s", code);
 		}
 		*f << stringf("\n### Netlists\n");
-		*f << stringf("%s", netlists_code.c_str());
+		*f << stringf("%s", netlists_code);
 
 		for (auto lib : libs)
 			delete lib;

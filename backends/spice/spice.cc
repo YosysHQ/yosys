@@ -51,16 +51,16 @@ static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, 
 		if (s.wire->port_id)
 			use_inames = true;
 		if (s.wire->width > 1)
-			f << stringf(" %s.%d", spice_id2str(s.wire->name, use_inames, inums).c_str(), s.offset);
+			f << stringf(" %s.%d", spice_id2str(s.wire->name, use_inames, inums), s.offset);
 		else
-			f << stringf(" %s", spice_id2str(s.wire->name, use_inames, inums).c_str());
+			f << stringf(" %s", spice_id2str(s.wire->name, use_inames, inums));
 	} else {
 		if (s == RTLIL::State::S0)
-			f << stringf(" %s", neg.c_str());
+			f << stringf(" %s", neg);
 		else if (s == RTLIL::State::S1)
-			f << stringf(" %s", pos.c_str());
+			f << stringf(" %s", pos);
 		else
-			f << stringf(" %s%d", ncpf.c_str(), nc_counter++);
+			f << stringf(" %s%d", ncpf, nc_counter++);
 	}
 }
 
@@ -119,7 +119,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 			}
 		}
 
-		f << stringf(" %s\n", spice_id2str(cell->type).c_str());
+		f << stringf(" %s\n", spice_id2str(cell->type));
 	}
 
 	for (auto &conn : module->connections())
@@ -127,7 +127,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 		f << (buf == "DC" ? stringf("V%d", conn_counter++) : stringf("X%d", cell_counter++));
 		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
 		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
-		f << (buf == "DC" ? " DC 0\n" : stringf(" %s\n", buf.c_str()));
+		f << (buf == "DC" ? " DC 0\n" : stringf(" %s\n", buf));
 	}
 }
 
@@ -242,18 +242,18 @@ struct SpiceBackend : public Backend {
 				ports.at(wire->port_id-1) = wire;
 			}
 
-			*f << stringf(".SUBCKT %s", spice_id2str(module->name).c_str());
+			*f << stringf(".SUBCKT %s", spice_id2str(module->name));
 			for (RTLIL::Wire *wire : ports) {
 				log_assert(wire != NULL);
 				if (wire->width > 1) {
 					for (int i = 0; i < wire->width; i++)
-						*f << stringf(" %s.%d", spice_id2str(wire->name).c_str(), big_endian ? wire->width - 1 - i : i);
+						*f << stringf(" %s.%d", spice_id2str(wire->name), big_endian ? wire->width - 1 - i : i);
 				} else
-					*f << stringf(" %s", spice_id2str(wire->name).c_str());
+					*f << stringf(" %s", spice_id2str(wire->name));
 			}
 			*f << stringf("\n");
 			print_spice_module(*f, module, design, neg, pos, buf, ncpf, big_endian, use_inames);
-			*f << stringf(".ENDS %s\n\n", spice_id2str(module->name).c_str());
+			*f << stringf(".ENDS %s\n\n", spice_id2str(module->name));
 		}
 
 		if (!top_module_name.empty()) {

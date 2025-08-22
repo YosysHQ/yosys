@@ -5,6 +5,7 @@
 #include <string>
 #include <stack>
 #include <string>
+#include <sstream>
 
 /**
  * Provide frontend-wide location tracking like what bison generates

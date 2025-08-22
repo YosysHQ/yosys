@@ -73,6 +73,7 @@ __pycache__
 /boost
 /ffi
 /doxygen
+/bison
 /venv
 /*.whl
 /*.egg-info

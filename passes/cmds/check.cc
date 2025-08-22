@@ -195,16 +195,23 @@ struct CheckPass : public Pass {
 					// in port widths are those for us to check.
 					if (!cell->type.in(
 							ID($add), ID($sub),
-							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
+							ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+							ID($pmux), ID($bmux)))
 						return false;
 
 					int in_widths = 0, out_widths = 0;
 
-					for (auto &conn : cell->connections()) {
-						if (cell->input(conn.first))
-							in_widths += conn.second.size();
-						if (cell->output(conn.first))
-							out_widths += conn.second.size();
+					if (cell->type.in(ID($pmux), ID($bmux))) {
+						// We're skipping inputs A and B, since each of their bits contributes only one edge
+						in_widths = GetSize(cell->getPort(ID::S));
+						out_widths = GetSize(cell->getPort(ID::Y));
+					} else {
+						for (auto &conn : cell->connections()) {
+							if (cell->input(conn.first))
+								in_widths += conn.second.size();
+							if (cell->output(conn.first))
+								out_widths += conn.second.size();
+						}
 					}
 
 					const int threshold = 1024;

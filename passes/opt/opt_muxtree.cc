@@ -23,6 +23,8 @@
 #include "kernel/celltypes.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 
 USING_YOSYS_NAMESPACE
@@ -291,14 +293,14 @@ struct OptMuxtreeWorker
 		// database of known inactive signals
 		// the payload is a reference counter used to manage the
 		// list. when it is non-zero the signal in known to be inactive
-		vector<int> known_inactive;
+		std::unordered_map<int, int> known_inactive;
 
 		// database of known active signals
-		vector<int> known_active;
+		std::unordered_map<int, int> known_active;
 
 		// this is just used to keep track of visited muxes in order to prohibit
 		// endless recursion in mux loops
-		vector<bool> visited_muxes;
+		std::unordered_set<int> visited_muxes;
 	};
 
 	void eval_mux_port(knowledge_t &knowledge, int mux_idx, int port_idx, bool do_replace_known, bool do_enable_ports, int abort_count)
@@ -315,17 +317,18 @@ struct OptMuxtreeWorker
 			if (i == port_idx)
 				continue;
 			if (muxinfo.ports[i].ctrl_sig >= 0)
-				knowledge.known_inactive.at(muxinfo.ports[i].ctrl_sig)++;
+				++knowledge.known_inactive[muxinfo.ports[i].ctrl_sig];
 		}
 
 		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated)
-			knowledge.known_active.at(muxinfo.ports[port_idx].ctrl_sig)++;
+			++knowledge.known_active[muxinfo.ports[port_idx].ctrl_sig];
 
 		vector<int> parent_muxes;
 		for (int m : muxinfo.ports[port_idx].input_muxes) {
-			if (knowledge.visited_muxes[m])
+			auto it = knowledge.visited_muxes.find(m);
+			if (it != knowledge.visited_muxes.end())
 				continue;
-			knowledge.visited_muxes[m] = true;
+			knowledge.visited_muxes.insert(it, m);
 			parent_muxes.push_back(m);
 		}
 		for (int m : parent_muxes) {
@@ -344,16 +347,24 @@ struct OptMuxtreeWorker
 				return;
 		}
 		for (int m : parent_muxes)
-			knowledge.visited_muxes[m] = false;
+			knowledge.visited_muxes.erase(m);
 
-		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated)
-			knowledge.known_active.at(muxinfo.ports[port_idx].ctrl_sig)--;
+		if (port_idx < GetSize(muxinfo.ports)-1 && !muxinfo.ports[port_idx].const_activated) {
+			auto it = knowledge.known_active.find(muxinfo.ports[port_idx].ctrl_sig);
+			if (it != knowledge.known_active.end())
+				if (--it->second == 0)
+					knowledge.known_active.erase(it);
+		}
 
 		for (int i = 0; i < GetSize(muxinfo.ports); i++) {
 			if (i == port_idx)
 				continue;
-			if (muxinfo.ports[i].ctrl_sig >= 0)
-				knowledge.known_inactive.at(muxinfo.ports[i].ctrl_sig)--;
+			if (muxinfo.ports[i].ctrl_sig >= 0) {
+				auto it = knowledge.known_inactive.find(muxinfo.ports[i].ctrl_sig);
+				if (it != knowledge.known_inactive.end())
+					if (--it->second == 0)
+						knowledge.known_inactive.erase(it);
+			}
 		}
 	}
 
@@ -373,11 +384,11 @@ struct OptMuxtreeWorker
 		vector<int> bits = sig2bits(sig, false);
 		for (int i = 0; i < GetSize(bits); i++) {
 			if (bits[i] >= 0) {
-				if (knowledge.known_inactive.at(bits[i])) {
+				if (knowledge.known_inactive.count(bits[i]) > 0) {
 					sig[i] = State::S0;
 					did_something = true;
 				} else
-				if (knowledge.known_active.at(bits[i])) {
+				if (knowledge.known_active.count(bits[i]) > 0) {
 					sig[i] = State::S1;
 					did_something = true;
 				}
@@ -435,7 +446,7 @@ struct OptMuxtreeWorker
 			portinfo_t &portinfo = muxinfo.ports[port_idx];
 			if (portinfo.const_deactivated)
 				continue;
-			if (knowledge.known_active.at(portinfo.ctrl_sig)) {
+			if (knowledge.known_active.count(portinfo.ctrl_sig) > 0) {
 				eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
 				return;
 			}
@@ -449,7 +460,7 @@ struct OptMuxtreeWorker
 			if (portinfo.const_deactivated)
 				continue;
 			if (port_idx < GetSize(muxinfo.ports)-1)
-				if (knowledge.known_inactive.at(portinfo.ctrl_sig))
+				if (knowledge.known_inactive.count(portinfo.ctrl_sig) > 0)
 					continue;
 			eval_mux_port(knowledge, mux_idx, port_idx, do_replace_known, do_enable_ports, abort_count);
 
@@ -462,10 +473,7 @@ struct OptMuxtreeWorker
 	{
 		log_assert(glob_abort_cnt > 0);
 		knowledge_t knowledge;
-		knowledge.known_inactive.resize(GetSize(bit2info));
-		knowledge.known_active.resize(GetSize(bit2info));
-		knowledge.visited_muxes.resize(GetSize(mux2info));
-		knowledge.visited_muxes[mux_idx] = true;
+		knowledge.visited_muxes.insert(mux_idx);
 		eval_mux(knowledge, mux_idx, true, root_enable_muxes.at(mux_idx), 3);
 	}
 };

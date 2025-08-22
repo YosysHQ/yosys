@@ -20,6 +20,7 @@
 #ifndef YOSYS_COMMON_H
 #define YOSYS_COMMON_H
 
+#include <array>
 #include <map>
 #include <set>
 #include <tuple>

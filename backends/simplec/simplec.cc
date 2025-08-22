@@ -218,8 +218,8 @@ struct SimplecWorker
 				s[i] -= 'a' - 'A';
 
 		util_declarations.push_back("");
-		util_declarations.push_back(stringf("#ifndef %s", s.c_str()));
-		util_declarations.push_back(stringf("#define %s", s.c_str()));
+		util_declarations.push_back(stringf("#ifndef %s", s));
+		util_declarations.push_back(stringf("#define %s", s));
 	}
 
 	string util_get_bit(const string &signame, int n, int idx)
@@ -232,33 +232,33 @@ struct SimplecWorker
 		if (generated_utils.count(util_name) == 0)
 		{
 			util_ifdef_guard(util_name);
-			util_declarations.push_back(stringf("static inline bool %s(const %s *sig)", util_name.c_str(), sigtype(n).c_str()));
+			util_declarations.push_back(stringf("static inline bool %s(const %s *sig)", util_name, sigtype(n)));
 			util_declarations.push_back(stringf("{"));
 
 			int word_idx = idx / max_uintsize, word_offset = idx % max_uintsize;
 			string value_name = stringf("value_%d_%d", std::min(n-1, (word_idx+1)*max_uintsize-1), word_idx*max_uintsize);
 
-			util_declarations.push_back(stringf("  return (sig->%s >> %d) & 1;", value_name.c_str(), word_offset));
+			util_declarations.push_back(stringf("  return (sig->%s >> %d) & 1;", value_name, word_offset));
 
 			util_declarations.push_back(stringf("}"));
 			util_declarations.push_back(stringf("#endif"));
 			generated_utils.insert(util_name);
 		}
 
-		return stringf("%s(&%s)", util_name.c_str(), signame.c_str());
+		return stringf("%s(&%s)", util_name, signame);
 	}
 
 	string util_set_bit(const string &signame, int n, int idx, const string &expr)
 	{
 		if (n == 1 && idx == 0)
-			return stringf("  %s.value_0_0 = %s;", signame.c_str(), expr.c_str());
+			return stringf("  %s.value_0_0 = %s;", signame, expr);
 
 		string util_name = stringf("yosys_simplec_set_bit_%d_of_%d", idx, n);
 
 		if (generated_utils.count(util_name) == 0)
 		{
 			util_ifdef_guard(util_name);
-			util_declarations.push_back(stringf("static inline void %s(%s *sig, bool value)", util_name.c_str(), sigtype(n).c_str()));
+			util_declarations.push_back(stringf("static inline void %s(%s *sig, bool value)", util_name, sigtype(n)));
 			util_declarations.push_back(stringf("{"));
 
 			int word_idx = idx / max_uintsize, word_offset = idx % max_uintsize;
@@ -266,9 +266,9 @@ struct SimplecWorker
 
 		#if 0
 			util_declarations.push_back(stringf("  if (value)"));
-			util_declarations.push_back(stringf("    sig->%s |= 1UL << %d;", value_name.c_str(), word_offset));
+			util_declarations.push_back(stringf("    sig->%s |= 1UL << %d;", value_name, word_offset));
 			util_declarations.push_back(stringf("  else"));
-			util_declarations.push_back(stringf("    sig->%s &= ~(1UL << %d);", value_name.c_str(), word_offset));
+			util_declarations.push_back(stringf("    sig->%s &= ~(1UL << %d);", value_name, word_offset));
 		#else
 			util_declarations.push_back(stringf("    sig->%s = (sig->%s & ~((uint%d_t)1 << %d)) | ((uint%d_t)value << %d);",
 					value_name.c_str(), value_name.c_str(), max_uintsize, word_offset, max_uintsize, word_offset));
@@ -279,7 +279,7 @@ struct SimplecWorker
 			generated_utils.insert(util_name);
 		}
 
-		return stringf("  %s(&%s, %s);", util_name.c_str(), signame.c_str(), expr.c_str());
+		return stringf("  %s(&%s, %s);", util_name, signame, expr);
 	}
 
 	void create_module_struct(Module *mod)
@@ -339,38 +339,38 @@ struct SimplecWorker
 		for (int i = 0; i < GetSize(topo.sorted); i++)
 			topoidx[mod->cell(topo.sorted[i])] = i;
 
-		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(mod->name).c_str());
+		string ifdef_name = stringf("yosys_simplec_%s_state_t", cid(mod->name));
 
 		for (int i = 0; i < GetSize(ifdef_name); i++)
 			if ('a' <= ifdef_name[i] && ifdef_name[i] <= 'z')
 				ifdef_name[i] -= 'a' - 'A';
 
 		struct_declarations.push_back("");
-		struct_declarations.push_back(stringf("#ifndef %s", ifdef_name.c_str()));
-		struct_declarations.push_back(stringf("#define %s", ifdef_name.c_str()));
-		struct_declarations.push_back(stringf("struct %s_state_t", cid(mod->name).c_str()));
+		struct_declarations.push_back(stringf("#ifndef %s", ifdef_name));
+		struct_declarations.push_back(stringf("#define %s", ifdef_name));
+		struct_declarations.push_back(stringf("struct %s_state_t", cid(mod->name)));
 		struct_declarations.push_back("{");
 
 		struct_declarations.push_back("  // Input Ports");
 		for (Wire *w : mod->wires())
 			if (w->port_input)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
 
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Output Ports");
 		for (Wire *w : mod->wires())
 			if (!w->port_input && w->port_output)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
 
 		struct_declarations.push_back("");
 		struct_declarations.push_back("  // Internal Wires");
 		for (Wire *w : mod->wires())
 			if (!w->port_input && !w->port_output)
-				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width).c_str(), cid(w->name).c_str(), log_id(w)));
+				struct_declarations.push_back(stringf("  %s %s; // %s", sigtype(w->width), cid(w->name), log_id(w)));
 
 		for (Cell *c : mod->cells())
 			if (design->module(c->type))
-				struct_declarations.push_back(stringf("  struct %s_state_t %s; // %s", cid(c->type).c_str(), cid(c->name).c_str(), log_id(c)));
+				struct_declarations.push_back(stringf("  struct %s_state_t %s; // %s", cid(c->type), cid(c->name), log_id(c)));
 
 		struct_declarations.push_back(stringf("};"));
 		struct_declarations.push_back("#endif");
@@ -407,14 +407,14 @@ struct SimplecWorker
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == ID($_AND_))    expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_NAND_))   expr = stringf("!(%s & %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_OR_))     expr = stringf("%s | %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_NOR_))    expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_XOR_))    expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_XNOR_))   expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_ANDNOT_)) expr = stringf("%s & (!%s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == ID($_ORNOT_))  expr = stringf("%s | (!%s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_AND_))    expr = stringf("%s & %s",    a_expr, b_expr);
+			if (cell->type == ID($_NAND_))   expr = stringf("!(%s & %s)", a_expr, b_expr);
+			if (cell->type == ID($_OR_))     expr = stringf("%s | %s",    a_expr, b_expr);
+			if (cell->type == ID($_NOR_))    expr = stringf("!(%s | %s)", a_expr, b_expr);
+			if (cell->type == ID($_XOR_))    expr = stringf("%s ^ %s",    a_expr, b_expr);
+			if (cell->type == ID($_XNOR_))   expr = stringf("!(%s ^ %s)", a_expr, b_expr);
+			if (cell->type == ID($_ANDNOT_)) expr = stringf("%s & (!%s)", a_expr, b_expr);
+			if (cell->type == ID($_ORNOT_))  expr = stringf("%s | (!%s)", a_expr, b_expr);
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -436,8 +436,8 @@ struct SimplecWorker
 			string c_expr = c.wire ? util_get_bit(work->prefix + cid(c.wire->name), c.wire->width, c.offset) : c.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == ID($_AOI3_)) expr = stringf("!((%s & %s) | %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
-			if (cell->type == ID($_OAI3_)) expr = stringf("!((%s | %s) & %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
+			if (cell->type == ID($_AOI3_)) expr = stringf("!((%s & %s) | %s)", a_expr, b_expr, c_expr);
+			if (cell->type == ID($_OAI3_)) expr = stringf("!((%s | %s) & %s)", a_expr, b_expr, c_expr);
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -461,8 +461,8 @@ struct SimplecWorker
 			string d_expr = d.wire ? util_get_bit(work->prefix + cid(d.wire->name), d.wire->width, d.offset) : d.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == ID($_AOI4_)) expr = stringf("!((%s & %s) | (%s & %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
-			if (cell->type == ID($_OAI4_)) expr = stringf("!((%s | %s) & (%s | %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
+			if (cell->type == ID($_AOI4_)) expr = stringf("!((%s & %s) | (%s & %s))", a_expr, b_expr, c_expr, d_expr);
+			if (cell->type == ID($_OAI4_)) expr = stringf("!((%s | %s) & (%s | %s))", a_expr, b_expr, c_expr, d_expr);
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -484,9 +484,9 @@ struct SimplecWorker
 			string s_expr = s.wire ? util_get_bit(work->prefix + cid(s.wire->name), s.wire->width, s.offset) : s.data ? "1" : "0";
 
 			// casts to bool are a workaround for CBMC bug (https://github.com/diffblue/cbmc/issues/933)
-			string expr = stringf("%s ? %s(bool)%s : %s(bool)%s", s_expr.c_str(),
-					cell->type == ID($_NMUX_) ? "!" : "", b_expr.c_str(),
-					cell->type == ID($_NMUX_) ? "!" : "", a_expr.c_str());
+			string expr = stringf("%s ? %s(bool)%s : %s(bool)%s", s_expr,
+					cell->type == ID($_NMUX_) ? "!" : "", b_expr,
+					cell->type == ID($_NMUX_) ? "!" : "", a_expr);
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -518,7 +518,7 @@ struct SimplecWorker
 							continue;
 						if (verbose)
 							log("    Propagating %s.%s[%d:%d].\n", work->log_prefix.c_str(), log_id(chunk.wire), chunk.offset+chunk.width-1, chunk.offset);
-						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", work->log_prefix.c_str(), log_signal(chunk)));
+						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", work->log_prefix, log_signal(chunk)));
 					}
 
 					for (SigBit bit : dirtysig)
@@ -636,7 +636,7 @@ struct SimplecWorker
 		reactivated_cells.clear();
 
 		funct_declarations.push_back("");
-		funct_declarations.push_back(stringf("static void %s(struct %s_state_t *state)", func_name.c_str(), cid(work->module->name).c_str()));
+		funct_declarations.push_back(stringf("static void %s(struct %s_state_t *state)", func_name, cid(work->module->name)));
 		funct_declarations.push_back("{");
 		for (auto &line : preamble)
 			funct_declarations.push_back(line);
