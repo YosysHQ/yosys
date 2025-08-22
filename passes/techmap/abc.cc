@@ -1370,6 +1370,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
+				cell->fixup_parameters();
 				design->select(module, cell);
 				continue;
 			}
