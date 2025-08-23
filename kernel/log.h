@@ -252,9 +252,11 @@ void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 void log_wire(RTLIL::Wire *wire, std::string indent = "");
 
+[[noreturn]]
+void log_assert_failure(const char *expr, const char *file, int line);
 #ifndef NDEBUG
 static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
-	if (!cond) log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+	if (!cond) log_assert_failure(expr, file, line);
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else

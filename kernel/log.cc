@@ -410,6 +410,11 @@ void log_error(const char *format, ...)
 	logv_error(format, ap);
 }
 
+void log_assert_failure(const char *expr, const char *file, int line)
+{
+	log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+}
+
 void log_cmd_error(const char *format, ...)
 {
 	va_list ap;
