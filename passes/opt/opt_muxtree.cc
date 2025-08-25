@@ -427,14 +427,17 @@ struct OptMuxtreeWorker
 			if (root_enable_muxes.at(m))
 				continue;
 			else if (root_muxes.at(m)) {
+				// This leaf node of the current tree
+				// is the root of an input tree of the current tree
 				if (limits.recursions_left == 0) {
-					// Ran out of subtree depth, re-eval this subtree in the next re-run
+					// Ran out of subtree depth, re-eval this input tree in the next re-run
 					root_mux_rerun.insert(m);
 					root_enable_muxes.at(m) = true;
 					log_debug("      Removing pure flag from root mux %s.\n", log_id(mux2info[m].cell));
 				} else {
 					auto new_limits = limits.subtree();
-					// Since our knowledge includes assumption, we can't generally allow replacing based on it
+					// Since our knowledge includes assumption,
+					// we can't generally allow replacing in an input tree based on it
 					new_limits.do_replace_known = false;
 					eval_mux(knowledge, m, new_limits);
 				}
