@@ -94,8 +94,15 @@ YOSYS_NAMESPACE_BEGIN
 
 struct log_cmd_error_exception { };
 
+enum LogSeverity {
+  INFO,
+  WARNING,
+  ERROR
+};
+
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
+extern std::vector<std::ostream*> log_warning_streams;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -119,7 +126,7 @@ extern int log_make_debug;
 extern int log_force_debug;
 extern int log_debug_suppressed;
 
-void logv(const char *format, va_list ap);
+void logv(LogSeverity severity, const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
@@ -127,6 +134,7 @@ void logv_warning_noprefix(const char *format, va_list ap);
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
+void log(LogSeverity severity, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
