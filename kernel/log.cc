@@ -102,17 +102,16 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-void logv(const char *format, va_list ap)
-{
-	while (format[0] == '\n' && format[1] != 0) {
-		log("\n");
-		format++;
+static void logv_string(std::string_view format, std::string str) {
+	size_t remove_leading = 0;
+	while (format.size() > 1 && format[0] == '\n') {
+		logv_string("\n", "\n");
+		format = format.substr(1);
+		++remove_leading;
 	}
-
-	if (log_make_debug && !ys_debug(1))
-		return;
-
-	std::string str = vstringf(format, ap);
+	if (remove_leading > 0) {
+		str = str.substr(remove_leading);
+	}
 
 	if (str.empty())
 		return;
@@ -145,13 +144,13 @@ void logv(const char *format, va_list ap)
 			time_str += stringf("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
 		}
 
-		if (format[0] && format[strlen(format)-1] == '\n')
+		if (!format.empty() && format[format.size() - 1] == '\n')
 			next_print_log = true;
 
 		// Special case to detect newlines in Python log output, since
 		// the binding always calls `log("%s", payload)` and the newline
 		// is then in the first formatted argument
-		if (!strcmp(format, "%s") && str.back() == '\n')
+		if (format == "%s" && str.back() == '\n')
 			next_print_log = true;
 
 		for (auto f : log_files)
@@ -204,7 +203,14 @@ void logv(const char *format, va_list ap)
 	}
 }
 
-void logv_header(RTLIL::Design *design, const char *format, va_list ap)
+void log_formatted_string(std::string_view format, std::string str)
+{
+	if (log_make_debug && !ys_debug(1))
+		return;
+	logv_string(format, std::move(str));
+}
+
+void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
 	bool pop_errfile = false;
 
@@ -223,7 +229,7 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
 	log("%s. ", header_id.c_str());
-	logv(format, ap);
+	log_formatted_string(format, std::move(str));
 	log_flush();
 
 	if (log_hdump_all)
@@ -243,10 +249,8 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 		log_files.pop_back();
 }
 
-static void logv_warning_with_prefix(const char *prefix,
-                                     const char *format, va_list ap)
+void log_formatted_warning(std::string_view prefix, std::string message)
 {
-	std::string message = vstringf(format, ap);
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
@@ -255,7 +259,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 	if (suppressed)
 	{
-		log("Suppressed %s%s", prefix, message.c_str());
+		log("Suppressed %s%s", prefix, message);
 	}
 	else
 	{
@@ -264,7 +268,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
-				log_error("%s",  message.c_str());
+				log_error("%s", message);
 
 		bool warning_match = false;
 		for (auto &[_, item] : log_expect_warning)
@@ -281,7 +285,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 		if (log_warnings.count(message))
 		{
-			log("%s%s", prefix, message.c_str());
+			log("%s%s", prefix, message);
 			log_flush();
 		}
 		else
@@ -289,7 +293,7 @@ static void logv_warning_with_prefix(const char *prefix,
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("%s%s", prefix, message.c_str());
+			log("%s%s", prefix, message);
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -305,41 +309,19 @@ static void logv_warning_with_prefix(const char *prefix,
 	}
 }
 
-void logv_warning(const char *format, va_list ap)
+void log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
 {
-	logv_warning_with_prefix("Warning: ", format, ap);
+	std::string prefix = stringf("%s:%d: Warning: ", filename, lineno);
+	log_formatted_warning(prefix, std::move(str));
 }
 
-void logv_warning_noprefix(const char *format, va_list ap)
+void log_formatted_file_info(std::string_view filename, int lineno, std::string str)
 {
-	logv_warning_with_prefix("", format, ap);
-}
-
-void log_file_warning(const std::string &filename, int lineno,
-                      const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	std::string prefix = stringf("%s:%d: Warning: ",
-			filename.c_str(), lineno);
-	logv_warning_with_prefix(prefix.c_str(), format, ap);
-	va_end(ap);
-}
-
-void log_file_info(const std::string &filename, int lineno,
-                      const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	std::string fmt = stringf("%s:%d: Info: %s",
-			filename.c_str(), lineno, format);
-	logv(fmt.c_str(), ap);
-	va_end(ap);
+	log("%s:%d: Info: %s", filename, lineno, str);
 }
 
 [[noreturn]]
-static void logv_error_with_prefix(const char *prefix,
-                                   const char *format, va_list ap)
+static void log_error_with_prefix(std::string_view prefix, std::string str)
 {
 #ifdef EMSCRIPTEN
 	auto backup_log_files = log_files;
@@ -356,8 +338,8 @@ static void logv_error_with_prefix(const char *prefix,
 			if (f == stdout)
 				f = stderr;
 
-	log_last_error = vstringf(format, ap);
-	log("%s%s", prefix, log_last_error.c_str());
+	log_last_error = std::move(str);
+	log("%s%s", prefix, log_last_error);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -390,86 +372,45 @@ static void logv_error_with_prefix(const char *prefix,
 #endif
 }
 
-void logv_error(const char *format, va_list ap)
+void log_formatted_file_error(std::string_view filename, int lineno, std::string str)
 {
-	logv_error_with_prefix("ERROR: ", format, ap);
+	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
+	log_error_with_prefix(prefix, str);
 }
 
 void logv_file_error(const string &filename, int lineno,
                      const char *format, va_list ap)
 {
-	std::string prefix = stringf("%s:%d: ERROR: ",
-				     filename.c_str(), lineno);
-	logv_error_with_prefix(prefix.c_str(), format, ap);
+	log_formatted_file_error(filename, lineno, vstringf(format, ap));
 }
 
-void log_file_error(const string &filename, int lineno,
-                    const char *format, ...)
+void log_experimental(const std::string &str)
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_file_error(filename, lineno, format, ap);
-}
-
-void log(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv(format, ap);
-	va_end(ap);
-}
-
-void log_header(RTLIL::Design *design, const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_header(design, format, ap);
-	va_end(ap);
-}
-
-void log_warning(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	logv_warning(format, ap);
-	va_end(ap);
-}
-
-void log_experimental(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	string s = vstringf(format, ap);
-	va_end(ap);
-
-	if (log_experimentals_ignored.count(s) == 0 && log_experimentals.count(s) == 0) {
-		log_warning("Feature '%s' is experimental.\n", s.c_str());
-		log_experimentals.insert(s);
+	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
+		log_warning("Feature '%s' is experimental.\n", str);
+		log_experimentals.insert(str);
 	}
 }
 
-void log_warning_noprefix(const char *format, ...)
+void log_formatted_error(std::string str)
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_warning_noprefix(format, ap);
-	va_end(ap);
+	log_error_with_prefix("ERROR: ", std::move(str));
 }
 
-void log_error(const char *format, ...)
+void log_assert_failure(const char *expr, const char *file, int line)
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_error(format, ap);
+	log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
 }
 
-void log_cmd_error(const char *format, ...)
+void log_abort_internal(const char *file, int line)
 {
-	va_list ap;
-	va_start(ap, format);
+	log_error("Abort in %s:%d.\n", file, line);
+}
 
+void log_formatted_cmd_error(std::string str)
+{
 	if (log_cmd_error_throw) {
-		log_last_error = vstringf(format, ap);
+		log_last_error = str;
 
 		// Make sure the error message gets through any selective silencing
 		// of log output
@@ -479,7 +420,7 @@ void log_cmd_error(const char *format, ...)
 			pop_errfile = true;
 		}
 
-		log("ERROR: %s", log_last_error.c_str());
+		log("ERROR: %s", log_last_error);
 		log_flush();
 
 		if (pop_errfile)
@@ -488,7 +429,7 @@ void log_cmd_error(const char *format, ...)
 		throw log_cmd_error_exception();
 	}
 
-	logv_error(format, ap);
+	log_formatted_error(str);
 }
 
 void log_spacer()
