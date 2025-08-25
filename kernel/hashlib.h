@@ -179,58 +179,58 @@ struct hash_ops {
 };
 
 template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
-	static inline bool cmp(std::pair<P, Q> a, std::pair<P, Q> b) {
+	static inline bool cmp(const std::pair<P, Q> &a, const std::pair<P, Q> &b) {
 		return a == b;
 	}
-	[[nodiscard]] static inline Hasher hash_into(std::pair<P, Q> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const std::pair<P, Q> &a, Hasher h) {
 		h = hash_ops<P>::hash_into(a.first, h);
 		h = hash_ops<Q>::hash_into(a.second, h);
 		return h;
 	}
-	HASH_TOP_LOOP_FST (std::pair<P, Q> a) HASH_TOP_LOOP_SND
+	HASH_TOP_LOOP_FST (const std::pair<P, Q> &a) HASH_TOP_LOOP_SND
 };
 
 template<typename... T> struct hash_ops<std::tuple<T...>> {
-	static inline bool cmp(std::tuple<T...> a, std::tuple<T...> b) {
+	static inline bool cmp(const std::tuple<T...> &a, const std::tuple<T...> &b) {
 		return a == b;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I == sizeof...(T), Hasher>::type hash_into(std::tuple<T...>, Hasher h) {
+	static inline typename std::enable_if<I == sizeof...(T), Hasher>::type hash_into(const std::tuple<T...> &, Hasher h) {
 		return h;
 	}
 	template<size_t I = 0>
-	static inline typename std::enable_if<I != sizeof...(T), Hasher>::type hash_into(std::tuple<T...> a, Hasher h) {
+	static inline typename std::enable_if<I != sizeof...(T), Hasher>::type hash_into(const std::tuple<T...> &a, Hasher h) {
 		typedef hash_ops<typename std::tuple_element<I, std::tuple<T...>>::type> element_ops_t;
 		h = hash_into<I+1>(a, h);
 		h = element_ops_t::hash_into(std::get<I>(a), h);
 		return h;
 	}
-	HASH_TOP_LOOP_FST (std::tuple<T...> a) HASH_TOP_LOOP_SND
+	HASH_TOP_LOOP_FST (const std::tuple<T...> &a) HASH_TOP_LOOP_SND
 };
 
 template<typename T> struct hash_ops<std::vector<T>> {
-	static inline bool cmp(std::vector<T> a, std::vector<T> b) {
+	static inline bool cmp(const std::vector<T> &a, const std::vector<T> &b) {
 		return a == b;
 	}
-	[[nodiscard]] static inline Hasher hash_into(std::vector<T> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const std::vector<T> &a, Hasher h) {
 		h.eat((uint32_t)a.size());
 		for (auto k : a)
 			h.eat(k);
 		return h;
 	}
-	HASH_TOP_LOOP_FST (std::vector<T> a) HASH_TOP_LOOP_SND
+	HASH_TOP_LOOP_FST (const std::vector<T> &a) HASH_TOP_LOOP_SND
 };
 
 template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
-    static inline bool cmp(std::array<T, N> a, std::array<T, N> b) {
+    static inline bool cmp(const std::array<T, N> &a, const std::array<T, N> &b) {
         return a == b;
     }
-    [[nodiscard]] static inline Hasher hash_into(std::array<T, N> a, Hasher h) {
+    [[nodiscard]] static inline Hasher hash_into(const std::array<T, N> &a, Hasher h) {
         for (const auto& k : a)
             h = hash_ops<T>::hash_into(k, h);
         return h;
     }
-	HASH_TOP_LOOP_FST (std::array<T, N> a) HASH_TOP_LOOP_SND
+	HASH_TOP_LOOP_FST (const std::array<T, N> &a) HASH_TOP_LOOP_SND
 };
 
 struct hash_cstr_ops {
@@ -302,10 +302,10 @@ template<> struct hash_ops<std::monostate> {
 };
 
 template<typename... T> struct hash_ops<std::variant<T...>> {
-	static inline bool cmp(std::variant<T...> a, std::variant<T...> b) {
+	static inline bool cmp(const std::variant<T...> &a, const std::variant<T...> &b) {
 		return a == b;
 	}
-	[[nodiscard]] static inline Hasher hash_into(std::variant<T...> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const std::variant<T...> &a, Hasher h) {
 		std::visit([& h](const auto &v) { h.eat(v); }, a);
 		h.eat(a.index());
 		return h;
@@ -313,10 +313,10 @@ template<typename... T> struct hash_ops<std::variant<T...>> {
 };
 
 template<typename T> struct hash_ops<std::optional<T>> {
-	static inline bool cmp(std::optional<T> a, std::optional<T> b) {
+	static inline bool cmp(const std::optional<T> &a, const std::optional<T> &b) {
 		return a == b;
 	}
-	[[nodiscard]] static inline Hasher hash_into(std::optional<T> a, Hasher h) {
+	[[nodiscard]] static inline Hasher hash_into(const std::optional<T> &a, Hasher h) {
 		if(a.has_value())
 			h.eat(*a);
 		else
