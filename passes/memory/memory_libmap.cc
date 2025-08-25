@@ -1686,7 +1686,7 @@ std::vector<SigSpec> generate_mux(Mem &mem, int rpidx, const Swizzle &swz) {
 void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, const PortVariant &pdef, const char *name, int wpidx, int rpidx, const std::vector<int> &hw_addr_swizzle) {
 	for (auto &it: pdef.options)
 		for (auto cell: cells)
-			cell->setParam(stringf("\\PORT_%s_OPTION_%s", name, it.first.c_str()), it.second);
+			cell->setParam(stringf("\\PORT_%s_OPTION_%s", name, it.first), it.second);
 	SigSpec addr = Const(State::Sx, cfg.def->abits);
 	int wide_log2 = 0, wr_wide_log2 = 0, rd_wide_log2 = 0;
 	SigSpec clk = State::S0;
@@ -2067,7 +2067,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 	for (int rp = 0; rp < cfg.repl_port; rp++) {
 		std::vector<Cell *> cells;
 		for (int rd = 0; rd < cfg.repl_d; rd++) {
-			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid.c_str(), rp, rd), cfg.def->id);
+			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid, rp, rd), cfg.def->id);
 			if (cfg.def->width_mode == WidthMode::Global)
 				cell->setParam(ID::WIDTH, cfg.def->dbits[cfg.base_width_log2]);
 			if (cfg.def->widthscale) {
@@ -2077,18 +2077,18 @@ void MemMapping::emit(const MemConfig &cfg) {
 				cell->setParam(ID::BITS_USED, val);
 			}
 			for (auto &it: cfg.def->options)
-				cell->setParam(stringf("\\OPTION_%s", it.first.c_str()), it.second);
+				cell->setParam(stringf("\\OPTION_%s", it.first), it.second);
 			for (int i = 0; i < GetSize(cfg.def->shared_clocks); i++) {
 				auto &cdef = cfg.def->shared_clocks[i];
 				auto &ccfg = cfg.shared_clocks[i];
 				if (cdef.anyedge) {
-					cell->setParam(stringf("\\CLK_%s_POL", cdef.name.c_str()), ccfg.used ? ccfg.polarity : true);
-					cell->setPort(stringf("\\CLK_%s", cdef.name.c_str()), ccfg.used ? ccfg.clk : State::S0);
+					cell->setParam(stringf("\\CLK_%s_POL", cdef.name), ccfg.used ? ccfg.polarity : true);
+					cell->setPort(stringf("\\CLK_%s", cdef.name), ccfg.used ? ccfg.clk : State::S0);
 				} else {
 					SigSpec sig = ccfg.used ? ccfg.clk : State::S0;
 					if (ccfg.used && ccfg.invert)
 						sig = mem.module->Not(NEW_ID, sig);
-					cell->setPort(stringf("\\CLK_%s", cdef.name.c_str()), sig);
+					cell->setPort(stringf("\\CLK_%s", cdef.name), sig);
 				}
 			}
 			if (cfg.def->init == MemoryInitKind::Any || cfg.def->init == MemoryInitKind::NoUndef) {
@@ -2136,11 +2136,11 @@ void MemMapping::emit(const MemConfig &cfg) {
 				}
 				if (pg.optional)
 					for (auto cell: cells)
-						cell->setParam(stringf("\\PORT_%s_USED", pg.names[pi].c_str()), used);
+						cell->setParam(stringf("\\PORT_%s_USED", pg.names[pi]), used);
 				if (pg.optional_rw)
 					for (auto cell: cells) {
-						cell->setParam(stringf("\\PORT_%s_RD_USED", pg.names[pi].c_str()), used_r);
-						cell->setParam(stringf("\\PORT_%s_WR_USED", pg.names[pi].c_str()), used_w);
+						cell->setParam(stringf("\\PORT_%s_RD_USED", pg.names[pi]), used_r);
+						cell->setParam(stringf("\\PORT_%s_WR_USED", pg.names[pi]), used_w);
 					}
 			}
 		}

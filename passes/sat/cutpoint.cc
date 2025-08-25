@@ -129,7 +129,7 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first).c_str()), attr.second);
+							scopeinfo->attributes.emplace(stringf("\\cell_%s", RTLIL::unescape_id(attr.first)), attr.second);
 					}
 				}
 

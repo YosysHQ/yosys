@@ -42,9 +42,9 @@ PRIVATE_NAMESPACE_BEGIN
 void apply_prefix(IdString prefix, IdString &id)
 {
 	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix.c_str(), id.c_str()+1);
+		id = stringf("%s.%s", prefix, id.c_str()+1);
 	else
-		id = stringf("$techmap%s.%s", prefix.c_str(), id.c_str());
+		id = stringf("$techmap%s.%s", prefix, id);
 }
 
 void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
@@ -107,7 +107,7 @@ struct TechmapWorker
 				}
 			}
 
-		return stringf("$paramod$constmap:%s%s", sha1(constmap_info).c_str(), tpl->name.c_str());
+		return stringf("$paramod$constmap:%s%s", sha1(constmap_info), tpl->name);
 	}
 
 	TechmapWires techmap_find_special_wires(RTLIL::Module *module)
@@ -222,7 +222,7 @@ struct TechmapWorker
 			design->select(module, w);
 
 			if (const char *p = strstr(tpl_w->name.c_str(), "_TECHMAP_REPLACE_.")) {
-				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
+				IdString replace_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
 				Wire *replace_w = module->addWire(replace_name, tpl_w);
 				module->connect(replace_w, w);
 			}
@@ -327,7 +327,7 @@ struct TechmapWorker
 			if (techmap_replace_cell)
 				c_name = orig_cell_name;
 			else if (const char *p = strstr(tpl_cell->name.c_str(), "_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
+				c_name = stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_"));
 			else
 				apply_prefix(cell->name, c_name);
 
@@ -512,7 +512,7 @@ struct TechmapWorker
 
 					if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
 					{
-						std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
+						std::string m_name = stringf("$extern:%s:%s", extmapper_name, log_id(cell->type));
 
 						for (auto &c : cell->parameters)
 							m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
@@ -586,7 +586,7 @@ struct TechmapWorker
 					}
 					else
 					{
-						auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name.c_str(), log_id(cell->type));
+						auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name, log_id(cell->type));
 						if (!log_msg_cache.count(msg)) {
 							log_msg_cache.insert(msg);
 							log("%s\n", msg.c_str());

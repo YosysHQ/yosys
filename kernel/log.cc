@@ -791,7 +791,7 @@ dict<std::string, std::pair<std::string, int>> get_coverage_data()
 	dict<std::string, std::pair<std::string, int>> coverage_data;
 
 	for (auto &it : pass_register) {
-		std::string key = stringf("passes.%s", it.first.c_str());
+		std::string key = stringf("passes.%s", it.first);
 		coverage_data[key].first = stringf("%s:%d:%s", __FILE__, __LINE__, __FUNCTION__);
 		coverage_data[key].second += it.second->call_counter;
 	}

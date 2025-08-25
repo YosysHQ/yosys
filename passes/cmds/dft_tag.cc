@@ -372,7 +372,7 @@ struct DftTagWorker {
 	void propagate_tags(Cell *cell)
 	{
 		if (cell->type == ID($set_tag)) {
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 			if (all_tags.insert(tag).second) {
 				auto group_sep = tag.str().find(':');
 				IdString tag_group = group_sep != std::string::npos ? tag.str().substr(0, group_sep) : tag;
@@ -478,7 +478,7 @@ struct DftTagWorker {
 	void process_cell(IdString tag, Cell *cell)
 	{
 		if (cell->type == ID($set_tag)) {
-			IdString cell_tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString cell_tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			auto tag_sig_a = tag_signal(tag, cell->getPort(ID::A));
 			auto &sig_y = cell->getPort(ID::Y);
@@ -752,7 +752,7 @@ struct DftTagWorker {
 
 		for (auto cell : get_tag_cells) {
 			auto &sig_a = cell->getPort(ID::A);
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			tag_signal(tag, sig_a);
 		}
@@ -772,7 +772,7 @@ struct DftTagWorker {
 						continue;
 
 					int index = 0;
-					auto name = module->uniquify(stringf("%s:%s", wire->name.c_str(), tag.c_str() + 1), index);
+					auto name = module->uniquify(stringf("%s:%s", wire->name, tag.c_str() + 1), index);
 					auto hdlname = wire->get_hdlname_attribute();
 
 					if (!hdlname.empty())
@@ -817,7 +817,7 @@ struct DftTagWorker {
 		for (auto cell : get_tag_cells) {
 			auto &sig_a = cell->getPort(ID::A);
 			auto &sig_y = cell->getPort(ID::Y);
-			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string().c_str());
+			IdString tag = stringf("\\%s", cell->getParam(ID::TAG).decode_string());
 
 			auto tag_sig = tag_signal(tag, sig_a);
 			module->connect(sig_y, tag_sig);

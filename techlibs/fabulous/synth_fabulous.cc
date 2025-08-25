@@ -278,7 +278,7 @@ struct SynthPass : public ScriptPass
 				else
 					run("hierarchy -check");
 			} else
-				run(stringf("hierarchy -check -top %s", top_module.c_str()));
+				run(stringf("hierarchy -check -top %s", top_module));
 			run("proc");
 		}
 
@@ -365,7 +365,7 @@ struct SynthPass : public ScriptPass
 			} else if (!extra_map.empty()) {
 				std::string map_str = "techmap";
 				for (auto map : extra_map)
-					map_str += stringf(" -map %s", map.c_str());
+					map_str += stringf(" -map %s", map);
 				run(map_str);
 			}
 			run("clean");
@@ -399,7 +399,7 @@ struct SynthPass : public ScriptPass
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthPass;
