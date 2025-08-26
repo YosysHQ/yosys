@@ -40,12 +40,12 @@ def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file, preprocessing = ""):
             capture_output=True, check=False)
         raise
 
-def test_cxx(cell, parameters, tmp_path, num_steps, rnd):
+def test_cxx(name, cell, parameters, tmp_path, num_steps, rnd):
     rtlil_file = tmp_path / 'rtlil.il'
     vcdharness_cc_file = base_path / 'tests/functional/vcd_harness.cc'
     cc_file = tmp_path / 'my_module_functional_cxx.cc'
     vcdharness_exe_file = tmp_path / 'a.out'
-    vcd_functional_file = tmp_path / 'functional.vcd'
+    vcd_functional_file = tmp_path / f'{name}.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
     cell.write_rtlil_file(rtlil_file, parameters)
@@ -56,12 +56,12 @@ def test_cxx(cell, parameters, tmp_path, num_steps, rnd):
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 @pytest.mark.smt
-def test_smt(cell, parameters, tmp_path, num_steps, rnd):
+def test_smt(name, cell, parameters, tmp_path, num_steps, rnd):
     import smt_vcd
 
     rtlil_file = tmp_path / 'rtlil.il'
     smt_file = tmp_path / 'smtlib.smt'
-    vcd_functional_file = tmp_path / 'functional.vcd'
+    vcd_functional_file = tmp_path / f'{name}.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
     if hasattr(cell, 'smt_max_steps'):
@@ -74,17 +74,19 @@ def test_smt(cell, parameters, tmp_path, num_steps, rnd):
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 @pytest.mark.rkt
-def test_rkt(cell, parameters, tmp_path, num_steps, rnd):
+@pytest.mark.parametrize("use_assoc_list_helpers", [True, False])
+def test_rkt(name, cell, parameters, tmp_path, num_steps, rnd, use_assoc_list_helpers):
     import rkt_vcd
 
     rtlil_file = tmp_path / 'rtlil.il'
     rkt_file = tmp_path / 'smtlib.rkt'
-    vcd_functional_file = tmp_path / 'functional.vcd'
+    vcd_functional_file = tmp_path / f'{name}.vcd'
     vcd_yosys_sim_file = tmp_path / 'yosys.vcd'
 
     cell.write_rtlil_file(rtlil_file, parameters)
-    yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_rosette -provides {quote(rkt_file)}")
-    rkt_vcd.simulate_rosette(rkt_file, vcd_functional_file, num_steps, rnd(cell.name + "-rkt"))
+    use_assoc_helpers_flag = '-assoc-list-helpers' if use_assoc_list_helpers else ''
+    yosys(f"read_rtlil {quote(rtlil_file)} ; clk2fflogic ; write_functional_rosette -provides {use_assoc_helpers_flag} {quote(rkt_file)}")
+    rkt_vcd.simulate_rosette(rkt_file, vcd_functional_file, num_steps, rnd(cell.name + "-rkt"), use_assoc_list_helpers=use_assoc_list_helpers)
     yosys_sim(rtlil_file, vcd_functional_file, vcd_yosys_sim_file, getattr(cell, 'sim_preprocessing', ''))
 
 def test_print_graph(tmp_path):
