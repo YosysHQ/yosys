@@ -95,9 +95,9 @@ YOSYS_NAMESPACE_BEGIN
 struct log_cmd_error_exception { };
 
 enum LogSeverity {
-  INFO,
-  WARNING,
-  ERROR
+  LOG_INFO,
+  LOG_WARNING,
+  LOG_ERROR
 };
 
 extern std::vector<FILE*> log_files;
