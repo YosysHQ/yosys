@@ -175,7 +175,7 @@ struct ExampleDtPass : public Pass
 						node.set_function(ID($$undriven));
 
 					} else {
-						log_error("unhandled drivespec: %s\n", log_signal(chunk));
+						log_error("unhandled drivespec: %s\n", log_signal(chunk).c_str());
 						log_abort();
 					}
 				} else {
@@ -245,7 +245,7 @@ struct ExampleDtPass : public Pass
 				log(")\n");
 				if (ref.has_sparse_attr())
 					log("// wire %s\n", log_id(ref.sparse_attr()));
-				log("// was #%d %s\n", ref.attr(), log_signal(queue[ref.attr()]));
+				log("// was #%d %s\n", ref.attr(), log_signal(queue[ref.attr()]).c_str());
 			}
 
 			for (auto const &key : compute_graph.keys())
