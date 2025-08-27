@@ -25,6 +25,18 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+/**
+ * This file implements BitPatternPool for efficiently storing and querying
+ * sets of fixed-width 2-valued logic constants compressed as "bit patterns".
+ * A bit pattern can have don't cares on one or more bit positions (State::Sa).
+ *
+ * In terms of logic synthesis:
+ * A BitPatternPool is a sum of products (SOP).
+ * BitPatternPool::bits_t is a cube.
+ *
+ * BitPatternPool does not permit adding new patterns, only removing.
+ * Its intended use case is in analysing cases in case/match constructs in HDL.
+ */
 struct BitPatternPool
 {
 	int width;
@@ -67,6 +79,9 @@ struct BitPatternPool
 		}
 	}
 
+	/**
+	 * Constructs a pool of all possible patterns (all don't-care bits)
+	 */
 	BitPatternPool(int width)
 	{
 		this->width = width;
@@ -78,6 +93,10 @@ struct BitPatternPool
 		}
 	}
 
+	/**
+	 * Convert a constant SigSpec to a pattern. Normalize Yosys many-valued
+	 * to three-valued logic.
+	 */
 	bits_t sig2bits(RTLIL::SigSpec sig)
 	{
 		bits_t bits;
@@ -88,6 +107,9 @@ struct BitPatternPool
 		return bits;
 	}
 
+	/**
+	 * Two cubes match if their intersection is non-empty.
+	 */
 	bool match(bits_t a, bits_t b)
 	{
 		log_assert(int(a.bitdata.size()) == width);
@@ -98,6 +120,15 @@ struct BitPatternPool
 		return true;
 	}
 
+	/**
+	 * Does cube sig overlap any cube in the pool?
+	 * For example:
+	 * pool({aaa}).has_any(01a) == true
+	 * pool({01a}).has_any(01a) == true
+	 * pool({011}).has_any(01a) == true
+	 * pool({01a}).has_any(011) == true
+	 * pool({111}).has_any(01a) == false
+	 */
 	bool has_any(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
@@ -107,6 +138,15 @@ struct BitPatternPool
 		return false;
 	}
 
+	/**
+	 * Is cube sig covered by a cube in the pool?
+	 * For example:
+	 * pool({aaa}).has_all(01a) == true
+	 * pool({01a}).has_any(01a) == true
+	 * pool({01a}).has_any(011) == true
+	 * pool({011}).has_all(01a) == false
+	 * pool({111}).has_all(01a) == false
+	 */
 	bool has_all(RTLIL::SigSpec sig)
 	{
 		bits_t bits = sig2bits(sig);
@@ -121,6 +161,12 @@ struct BitPatternPool
 		return false;
 	}
 
+	/**
+	 * Remove cube sig from the pool, splitting the remaining cubes. True if success.
+	 * For example:
+	 * Taking 011 out of pool({01a}) -> pool({010}), returns true.
+	 * Taking 011 out of pool({010}) does nothing, returns false.
+	 */
 	bool take(RTLIL::SigSpec sig)
 	{
 		bool status = false;
@@ -143,6 +189,9 @@ struct BitPatternPool
 		return status;
 	}
 
+	/**
+	 * Remove all patterns. Returns false if already empty.
+	 */
 	bool take_all()
 	{
 		if (database.empty())
