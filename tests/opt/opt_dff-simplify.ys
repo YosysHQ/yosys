@@ -1,8 +1,16 @@
-# 5287 issue
+# 5279 issue
 # Check only for complimentary patterns elimination
 
-read_rtlil opt_dff-simplify.il 
+read_rtlil opt_dff-simplify.il
+
+select -assert-count 0 t:$adffe
+select -assert-count 1 t:$adff
+select -assert-count 0 t:$ne
+
 opt_dff
+
+select -assert-count 1 t:$adffe
+select -assert-count 0 t:$adff
 
 select -assert-count 8 t:$ne r:A_WIDTH=3 %i
 select -assert-count 5 t:$ne r:A_WIDTH=2 %i
@@ -37,7 +45,14 @@ EOT
 
 cd test
 proc
+
+select -assert-count 0 t:$dffe
+select -assert-count 1 t:$dff
+select -assert-count 0 t:$ne
+
 opt_dff
 
+select -assert-count 1 t:$dffe
+select -assert-count 0 t:$dff
 select -assert-count 1 t:$ne r:A_WIDTH=2 %i
 select -assert-none t:$ne r:A_WIDTH=3 %i
