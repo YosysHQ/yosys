@@ -380,7 +380,7 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 
 std::vector<RTLIL::State>& RTLIL::Const::bits_internal()
 {
-	bitvectorize();
+	bitvectorize_internal();
 	return get_bits();
 }
 
@@ -394,7 +394,7 @@ std::vector<RTLIL::State> RTLIL::Const::to_bits() const
 
 bool RTLIL::Const::as_bool() const
 {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	for (size_t i = 0; i < bv.size(); i++)
 		if (bv[i] == State::S1)
@@ -404,7 +404,7 @@ bool RTLIL::Const::as_bool() const
 
 int RTLIL::Const::as_int(bool is_signed) const
 {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	int32_t ret = 0;
 	for (size_t i = 0; i < bv.size() && i < 32; i++)
@@ -496,7 +496,7 @@ std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
 
 std::string RTLIL::Const::as_string(const char* any) const
 {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	std::string ret;
 	ret.reserve(bv.size());
@@ -534,7 +534,7 @@ std::string RTLIL::Const::decode_string() const
 	if (auto str = get_if_str())
 		return *str;
 
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
@@ -583,7 +583,7 @@ bool RTLIL::Const::empty() const {
 	}
 }
 
-void RTLIL::Const::bitvectorize() const {
+void RTLIL::Const::bitvectorize_internal() const {
 	if (tag == backing_tag::bits)
 		return;
 
@@ -609,7 +609,7 @@ void RTLIL::Const::bitvectorize() const {
 }
 
 void RTLIL::Const::append(const RTLIL::Const &other) {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	bv.insert(bv.end(), other.begin(), other.end());
 }
@@ -625,7 +625,7 @@ RTLIL::State RTLIL::Const::const_iterator::operator*() const {
 
 bool RTLIL::Const::is_fully_zero() const
 {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_zero");
 
@@ -638,7 +638,7 @@ bool RTLIL::Const::is_fully_zero() const
 
 bool RTLIL::Const::is_fully_ones() const
 {
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_ones");
 
@@ -653,7 +653,7 @@ bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
 
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
@@ -667,7 +667,7 @@ bool RTLIL::Const::is_fully_undef() const
 {
 	cover("kernel.rtlil.const.is_fully_undef");
 
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
@@ -681,7 +681,7 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 {
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
@@ -695,7 +695,7 @@ bool RTLIL::Const::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.const.is_onehot");
 
-	bitvectorize();
+	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 
 	bool found = false;

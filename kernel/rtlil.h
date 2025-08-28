@@ -838,6 +838,7 @@ private:
 	bitvectype& get_bits() const;
 	std::string& get_str() const;
 	std::vector<RTLIL::State>& bits_internal();
+	void bitvectorize_internal() const;
 
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
@@ -866,8 +867,11 @@ public:
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
-	[[deprecated]]
+	[[deprecated("Don't use direct access to the internal std::vector<State>, that's an implementation detail.")]]
 	std::vector<RTLIL::State>& bits() { return bits_internal(); }
+	[[deprecated("Don't call bitvectorize() directly, it's an implementation detail.")]]
+	void bitvectorize() const { bitvectorize_internal(); }
+
 	bool as_bool() const;
 
 	// Convert the constant value to a C++ int.
@@ -896,7 +900,6 @@ public:
 	std::string decode_string() const;
 	int size() const;
 	bool empty() const;
-	void bitvectorize() const;
 
 	void append(const RTLIL::Const &other);
 	void set(int i, RTLIL::State state) {
