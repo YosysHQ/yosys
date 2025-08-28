@@ -27,7 +27,7 @@ jobs:
 
   test-verific:
     needs: pre-job
-    if: needs.pre-job.outputs.should_skip != 'true'
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
     runs-on: [self-hosted, linux, x64, fast]
     steps:
       - name: Checkout Yosys
