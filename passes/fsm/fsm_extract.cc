@@ -171,7 +171,7 @@ undef_bit_in_next_state:
 			if (tr.ctrl_in.at(it.second) == State::S1 && exclusive_ctrls.count(it.first) != 0)
 				for (auto &dc_bit : exclusive_ctrls.at(it.first))
 					if (ctrl_in_bit_indices.count(dc_bit))
-						tr.ctrl_in.bits().at(ctrl_in_bit_indices.at(dc_bit)) = RTLIL::State::Sa;
+						tr.ctrl_in.set(ctrl_in_bit_indices.at(dc_bit), RTLIL::State::Sa);
 
 		RTLIL::Const log_state_in = RTLIL::Const(RTLIL::State::Sx, fsm_data.state_bits);
 		if (state_in >= 0)
