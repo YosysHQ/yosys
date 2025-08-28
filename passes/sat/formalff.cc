@@ -851,7 +851,7 @@ struct FormalFfPass : public Pass {
 						auto before = ff.val_init;
 						for (int i = 0; i < ff.width; i++)
 							if (ff.val_init[i] == State::Sx && !worker.is_initval_used(ff.sig_q[i]))
-								ff.val_init.bits()[i] = State::S0;
+								ff.val_init.set(i, State::S0);
 
 						if (ff.val_init != before) {
 							log("Setting unused undefined initial value of %s.%s (%s) from %s to %s\n",
