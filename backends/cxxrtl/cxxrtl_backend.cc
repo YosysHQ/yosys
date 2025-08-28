@@ -1668,26 +1668,29 @@ struct CxxrtlWorker {
 						f << signal_temp << " == ";
 						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
-						RTLIL::Const compare_mask, compare_value;
+						RTLIL::Const::Builder compare_mask_builder(compare.size());
+						RTLIL::Const::Builder compare_value_builder(compare.size());
 						for (auto bit : compare.as_const()) {
 							switch (bit) {
 								case RTLIL::S0:
 								case RTLIL::S1:
-									compare_mask.bits().push_back(RTLIL::S1);
-									compare_value.bits().push_back(bit);
+									compare_mask_builder.push_back(RTLIL::S1);
+									compare_value_builder.push_back(bit);
 									break;
 
 								case RTLIL::Sx:
 								case RTLIL::Sz:
 								case RTLIL::Sa:
-									compare_mask.bits().push_back(RTLIL::S0);
-									compare_value.bits().push_back(RTLIL::S0);
+									compare_mask_builder.push_back(RTLIL::S0);
+									compare_value_builder.push_back(RTLIL::S0);
 									break;
 
 								default:
 									log_assert(false);
 							}
 						}
+						RTLIL::Const compare_mask = compare_mask_builder.build();
+						RTLIL::Const compare_value = compare_value_builder.build();
 						f << "and_uu<" << compare.size() << ">(" << signal_temp << ", ";
 						dump_const(compare_mask);
 						f << ") == ";
@@ -3042,7 +3045,7 @@ struct CxxrtlWorker {
 								if (init == RTLIL::Const()) {
 									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
 								}
-								init.bits()[bit.offset] = port.init_value[i];
+								init.set(bit.offset, port.init_value[i]);
 							}
 						}
 					}
