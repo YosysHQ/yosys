@@ -878,7 +878,7 @@ struct Parser {
 						}
 					}
 				}
-				var.clk_en = find_single_cap(pdef.clken, cram.options, portopts, "clken") != nullptr;
+				var.clk_en = find_single_cap(pdef.clken, cram.options, portopts, "clken");
 			}
 			const PortWidthDef *wdef = find_single_cap(pdef.width, cram.options, portopts, "width");
 			if (wdef) {
