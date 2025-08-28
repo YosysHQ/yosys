@@ -486,7 +486,7 @@ int RTLIL::Const::get_min_size(bool is_signed) const
 void RTLIL::Const::compress(bool is_signed)
 {
 	auto idx = get_min_size(is_signed);
-	bits().erase(bits().begin() + idx, bits().end());
+	resize(idx, RTLIL::State::S0);
 }
 
 std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
