@@ -79,7 +79,7 @@ struct SubmodWorker
 				flag_wire(c.wire, create, set_int_used, set_ext_driven, set_ext_used);
 				if (set_int_driven)
 					for (int i = c.offset; i < c.offset+c.width; i++) {
-						wire_flags.at(c.wire).is_int_driven.bits()[i] = State::S1;
+						wire_flags.at(c.wire).is_int_driven.set(i, State::S1);
 						flag_found_something = true;
 					}
 			}
@@ -185,8 +185,8 @@ struct SubmodWorker
 					auto it = sig[i].wire->attributes.find(ID::init);
 					if (it != sig[i].wire->attributes.end()) {
 						auto jt = new_wire->attributes.insert(std::make_pair(ID::init, Const(State::Sx, GetSize(sig)))).first;
-						jt->second.bits()[i] = it->second[sig[i].offset];
-						it->second.bits()[sig[i].offset] = State::Sx;
+						jt->second.set(i, it->second[sig[i].offset]);
+						it->second.set(sig[i].offset, State::Sx);
 					}
 				}
 			}
