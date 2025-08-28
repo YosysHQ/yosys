@@ -328,7 +328,7 @@ struct CellTypes
 
 	static RTLIL::Const eval_not(RTLIL::Const v)
 	{
-		for (auto &bit : v.bits())
+		for (auto bit : v)
 			if (bit == State::S0) bit = State::S1;
 			else if (bit == State::S1) bit = State::S0;
 		return v;
@@ -421,16 +421,14 @@ struct CellTypes
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool *errp = nullptr)
 	{
 		if (cell->type == ID($slice)) {
-			RTLIL::Const ret;
 			int width = cell->parameters.at(ID::Y_WIDTH).as_int();
 			int offset = cell->parameters.at(ID::OFFSET).as_int();
-			ret.bits().insert(ret.bits().end(), arg1.begin()+offset, arg1.begin()+offset+width);
-			return ret;
+			return arg1.extract(offset, width);
 		}
 
 		if (cell->type == ID($concat)) {
 			RTLIL::Const ret = arg1;
-			ret.bits().insert(ret.bits().end(), arg2.begin(), arg2.end());
+			ret.append(arg2);
 			return ret;
 		}
 

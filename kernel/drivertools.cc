@@ -260,7 +260,7 @@ bool DriveChunkMultiple::try_append(DriveBitMultiple const &bit)
 		switch (single.type())
 		{
 			case DriveType::CONSTANT: {
-				single.constant().bits().push_back(constant);
+				single.constant().append(RTLIL::Const(constant));
 			} break;
 			case DriveType::WIRE: {
 				single.wire().width += 1;
@@ -295,8 +295,7 @@ bool DriveChunkMultiple::try_append(DriveChunkMultiple const &chunk)
 		switch (single.type())
 		{
 			case DriveType::CONSTANT: {
-				auto &bits = single.constant().bits();
-				bits.insert(bits.end(), constant.bits().begin(), constant.bits().end());
+				single.constant().append(constant);
 			} break;
 			case DriveType::WIRE: {
 				single.wire().width += width;
@@ -349,7 +348,7 @@ bool DriveChunk::try_append(DriveBit const &bit)
 			none_ += 1;
 			return true;
 		case DriveType::CONSTANT:
-			constant_.bits().push_back(bit.constant());
+			constant_.append(RTLIL::Const(bit.constant()));
 			return true;
 		case DriveType::WIRE:
 			return wire_.try_append(bit.wire());
@@ -375,7 +374,7 @@ bool DriveChunk::try_append(DriveChunk const &chunk)
 			none_ += chunk.none_;
 			return true;
 		case DriveType::CONSTANT:
-			constant_.bits().insert(constant_.bits().end(), chunk.constant_.begin(), chunk.constant_.end());
+			constant_.append(chunk.constant_);
 			return true;
 		case DriveType::WIRE:
 			return wire_.try_append(chunk.wire());

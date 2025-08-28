@@ -287,6 +287,16 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	res.pol_clr = pol_clr;
 	res.pol_set = pol_set;
 	res.attributes = attributes;
+	std::optional<Const::Builder> arst_bits;
+	if (has_arst)
+		arst_bits.emplace(bits.size());
+	std::optional<Const::Builder> srst_bits;
+	if (has_srst)
+		srst_bits.emplace(bits.size());
+	std::optional<Const::Builder> init_bits;
+	if (initvals)
+		init_bits.emplace(bits.size());
+
 	for (int i : bits) {
 		res.sig_q.append(sig_q[i]);
 		if (has_clk || has_gclk)
@@ -298,12 +308,19 @@ FfData FfData::slice(const std::vector<int> &bits) {
 			res.sig_set.append(sig_set[i]);
 		}
 		if (has_arst)
-			res.val_arst.bits().push_back(val_arst[i]);
+			arst_bits->push_back(val_arst[i]);
 		if (has_srst)
-			res.val_srst.bits().push_back(val_srst[i]);
+			srst_bits->push_back(val_srst[i]);
 		if (initvals)
-			res.val_init.bits().push_back(val_init[i]);
+			init_bits->push_back(val_init[i]);
 	}
+
+	if (has_arst)
+		res.val_arst = arst_bits->build();
+	if (has_srst)
+		res.val_srst = srst_bits->build();
+	if (initvals)
+		res.val_init = init_bits->build();
 	res.width = GetSize(res.sig_q);
 	return res;
 }
@@ -688,10 +705,10 @@ void FfData::flip_rst_bits(const pool<int> &bits) {
 
 	for (auto bit: bits) {
 		if (has_arst)
-			val_arst.bits()[bit] = invert(val_arst[bit]);
+			val_arst.set(bit, invert(val_arst[bit]));
 		if (has_srst)
-			val_srst.bits()[bit] = invert(val_srst[bit]);
-		val_init.bits()[bit] = invert(val_init[bit]);
+			val_srst.set(bit, invert(val_srst[bit]));
+		val_init.set(bit, invert(val_init[bit]));
 	}
 }
 
@@ -760,7 +777,7 @@ void FfData::flip_bits(const pool<int> &bits) {
 
 		Const mask = Const(State::S0, width);
 		for (auto bit: bits)
-			mask.bits()[bit] = State::S1;
+			mask.set(bit, State::S1);
 
 		if (has_clk || has_gclk)
 			sig_d = module->Xor(NEW_ID, sig_d, mask);
