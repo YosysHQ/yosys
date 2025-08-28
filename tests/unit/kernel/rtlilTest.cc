@@ -114,6 +114,60 @@ namespace RTLIL {
 		EXPECT_EQ(*it++, State::S0);
 	}
 
+	TEST_F(KernelRtlilTest, ConstIteratorWorks) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S0);
+		++it;
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S1);
+		++it;
+		ASSERT_EQ(it, c.end());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorPreincrement) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*++it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorPostincrement) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*it++, State::S0);
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorWriteWorks) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*it, State::S0);
+		*it = State::S1;
+		EXPECT_EQ(*it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstBuilder) {
+		Const::Builder b;
+		EXPECT_EQ(GetSize(b), 0);
+		b.push_back(S0);
+		EXPECT_EQ(GetSize(b), 1);
+		b.push_back(S1);
+		EXPECT_EQ(GetSize(b), 2);
+		EXPECT_EQ(b.build(), Const(0x2, 2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstSet) {
+		Const c(0x2, 2);
+		c.set(0, S1);
+		EXPECT_EQ(c, Const(0x3, 2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstResize) {
+		Const c(0x2, 2);
+		c.resize(4, S1);
+		EXPECT_EQ(c, Const(0xe, 4));
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
