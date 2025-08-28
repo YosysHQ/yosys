@@ -859,27 +859,27 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, config.show_tempdir).c_str());
 
-	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", tempdir_name.c_str());
+	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", tempdir_name);
 
 	if (!config.liberty_files.empty() || !config.genlib_files.empty()) {
 		std::string dont_use_args;
 		for (std::string dont_use_cell : config.dont_use_cells) {
-			dont_use_args += stringf("-X \"%s\" ", dont_use_cell.c_str());
+			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
 		bool first_lib = true;
 		for (std::string liberty_file : config.liberty_files) {
-			abc_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args.c_str(), first_lib ? "" : "-m", liberty_file.c_str());
+			abc_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
 			first_lib = false;
 		}
 		for (std::string liberty_file : config.genlib_files)
-			abc_script += stringf("read_library \"%s\"; ", liberty_file.c_str());
+			abc_script += stringf("read_library \"%s\"; ", liberty_file);
 		if (!config.constr_file.empty())
-			abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file.c_str());
+			abc_script += stringf("read_constr -v \"%s\"; ", config.constr_file);
 	} else
 	if (!config.lut_costs.empty())
-		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
+		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name);
 	else
-		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
+		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name);
 
 	if (!config.script_file.empty()) {
 		const std::string &script_file = config.script_file;
@@ -892,7 +892,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 				else
 					abc_script += script_file[i];
 		} else
-			abc_script += stringf("source %s", script_file.c_str());
+			abc_script += stringf("source %s", script_file);
 	} else if (!config.lut_costs.empty()) {
 		bool all_luts_cost_same = true;
 		for (int this_cost : config.lut_costs)
@@ -925,15 +925,15 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
 		abc_script = abc_script.substr(0, pos) + config.lutin_shared + abc_script.substr(pos+3);
 	if (config.abc_dress)
-		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name.c_str());
-	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
+		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name);
+	abc_script += stringf("; write_blif %s/output.blif", tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
 		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
 			abc_script[i+1] = '\n';
 
-	std::string buffer = stringf("%s/abc.script", tempdir_name.c_str());
+	std::string buffer = stringf("%s/abc.script", tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -988,7 +988,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 
 	handle_loops(assign_map, module);
 
-	buffer = stringf("%s/input.blif", tempdir_name.c_str());
+	buffer = stringf("%s/input.blif", tempdir_name);
 	f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
 		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -1115,7 +1115,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 
 		auto &cell_cost = cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
 
-		buffer = stringf("%s/stdcells.genlib", tempdir_name.c_str());
+		buffer = stringf("%s/stdcells.genlib", tempdir_name);
 		f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
 			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -1160,7 +1160,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 		fclose(f);
 
 		if (!config.lut_costs.empty()) {
-			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
+			buffer = stringf("%s/lutdefs.txt", tempdir_name);
 			f = fopen(buffer.c_str(), "wt");
 			if (f == nullptr)
 				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
@@ -1169,14 +1169,14 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 			fclose(f);
 		}
 
-		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file.c_str(), tempdir_name.c_str());
+		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file, tempdir_name);
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(*this, tempdir_name, config.show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 #else
-		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
+		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name);
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
 			log_error("ABC: cannot open a temporary file for output redirection");
@@ -1196,7 +1196,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 		fclose(temp_stdouterr_w);
 		// These needs to be mutable, supposedly due to getopt
 		char *abc_argv[5];
-		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
+		string tmp_script_name = stringf("%s/abc.script", tempdir_name);
 		abc_argv[0] = strdup(config.exe_file.c_str());
 		abc_argv[1] = strdup("-s");
 		abc_argv[2] = strdup("-f");
@@ -1235,7 +1235,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 		return;
 	}
 
-	std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "output.blif");
+	std::string buffer = stringf("%s/%s", tempdir_name, "output.blif");
 	std::ifstream ifs;
 	ifs.open(buffer);
 	if (ifs.fail())
@@ -2102,7 +2102,7 @@ struct AbcPass : public Pass {
 					goto ok_alias;
 				}
 				if (g_arg_from_cmd)
-					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g.c_str()));
+					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g));
 				else
 					log_cmd_error("Unsupported gate type: %s", g.c_str());
 			ok_gate:

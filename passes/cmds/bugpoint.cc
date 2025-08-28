@@ -126,14 +126,14 @@ struct BugpointPass : public Pass {
 
 		string bugpoint_file = "bugpoint-case";
 		if (suffix.size())
-			bugpoint_file += stringf(".%.8s", suffix.c_str());
+			bugpoint_file += stringf(".%.8s", suffix);
 
 		std::ofstream f(bugpoint_file + ".il");
 		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
-		string yosys_cmdline = stringf("%s %s -qq -L %s.log %s %s.il", runner.c_str(), yosys_cmd.c_str(), bugpoint_file.c_str(), yosys_arg.c_str(), bugpoint_file.c_str());
-		if (catch_err) yosys_cmdline += stringf(" 2>%s.err", bugpoint_file.c_str());
+		string yosys_cmdline = stringf("%s %s -qq -L %s.log %s %s.il", runner, yosys_cmd, bugpoint_file, yosys_arg, bugpoint_file);
+		if (catch_err) yosys_cmdline += stringf(" 2>%s.err", bugpoint_file);
 		auto status = run_command(yosys_cmdline);
 		// we're not processing lines, which means we're getting raw system() returns
 		if(WIFEXITED(status))
@@ -156,7 +156,7 @@ struct BugpointPass : public Pass {
 
 		string bugpoint_file = "bugpoint-case";
 		if (suffix.size())
-			bugpoint_file += stringf(".%.8s", suffix.c_str());
+			bugpoint_file += stringf(".%.8s", suffix);
 		bugpoint_file += err ? ".err" : ".log";
 
 		std::ifstream f(bugpoint_file);
@@ -469,13 +469,13 @@ struct BugpointPass : public Pass {
 			if (args[argidx] == "-script" && argidx + 1 < args.size()) {
 				if (!yosys_arg.empty())
 					log_cmd_error("A -script or -command option can be only provided once!\n");
-				yosys_arg = stringf("-s %s", args[++argidx].c_str());
+				yosys_arg = stringf("-s %s", args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-command" && argidx + 1 < args.size()) {
 				if (!yosys_arg.empty())
 					log_cmd_error("A -script or -command option can be only provided once!\n");
-				yosys_arg = stringf("-p %s", args[++argidx].c_str());
+				yosys_arg = stringf("-p %s", args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-grep" && argidx + 1 < args.size()) {

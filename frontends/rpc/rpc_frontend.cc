@@ -168,7 +168,7 @@ struct RpcModule : RTLIL::Module {
 		std::string parameter_info;
 		for (auto &param : parameters) {
 			log("Parameter %s = %s\n", param.first.c_str(), log_signal(RTLIL::SigSpec(param.second)));
-			parameter_info += stringf("%s=%s", param.first.c_str(), log_signal(RTLIL::SigSpec(param.second)));
+			parameter_info += stringf("%s=%s", param.first, log_signal(RTLIL::SigSpec(param.second)));
 		}
 
 		std::string derived_name;
