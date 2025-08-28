@@ -327,19 +327,20 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 
 void dump_reg_init(std::ostream &f, SigSpec sig)
 {
-	Const initval;
 	bool gotinit = false;
 
+	Const::Builder initval_bits(sig.size());
 	for (auto bit : active_sigmap(sig)) {
 		if (active_initdata.count(bit)) {
-			initval.bits().push_back(active_initdata.at(bit));
+			initval_bits.push_back(active_initdata.at(bit));
 			gotinit = true;
 		} else {
-			initval.bits().push_back(State::Sx);
+			initval_bits.push_back(State::Sx);
 		}
 	}
 
 	if (gotinit) {
+		Const initval = initval_bits.build();
 		f << " = ";
 		dump_const(f, initval);
 	}
@@ -767,9 +768,10 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
 					os << stringf(" = %s[", mem_id);;
 					if (port.wide_log2) {
-						Const addr_lo;
+						Const::Builder addr_lo_builder(port.wide_log2);
 						for (int i = 0; i < port.wide_log2; i++)
-							addr_lo.bits().push_back(State(sub >> i & 1));
+							addr_lo_builder.push_back(State(sub >> i & 1));
+						Const addr_lo = addr_lo_builder.build();
 						os << "{";
 						os << temp_id;
 						os << ", ";
