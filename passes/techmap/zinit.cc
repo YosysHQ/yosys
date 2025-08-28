@@ -76,7 +76,7 @@ struct ZinitPass : public Pass {
 					if (ff.val_init[i] == State::S1)
 						bits.insert(i);
 					else if (ff.val_init[i] != State::S0 && all_mode)
-						ff.val_init.bits()[i] = State::S0;
+						ff.val_init.set(i, State::S0);
 				}
 				ff.flip_bits(bits);
 				ff.emit();
