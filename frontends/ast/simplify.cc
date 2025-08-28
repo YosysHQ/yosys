@@ -4366,7 +4366,7 @@ replace_fcall_later:;
 					log_assert(a.size() == b.size());
 					for (auto i = 0; i < a.size(); i++)
 						if (a[i] != b[i])
-							a.bits()[i] = RTLIL::State::Sx;
+							a.set(i, RTLIL::State::Sx);
 					newNode = mkconst_bits(location, a.to_bits(), sign_hint);
 				} else if (children[1]->isConst() && children[2]->isConst()) {
 					newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
@@ -5368,8 +5368,11 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 		offset -= variables.at(str).offset;
 		if (variables.at(str).range_swapped)
 			offset = -offset;
-		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits();
-		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
+		const RTLIL::Const &val = variables.at(str).val;
+		std::vector<RTLIL::State> new_bits;
+		new_bits.reserve(width);
+		for (int i = 0; i < width; i++)
+			new_bits.push_back(val[offset+i]);
 		auto newNode = mkconst_bits(location, new_bits, variables.at(str).is_signed);
 		newNode->cloneInto(*this);
 		return true;
@@ -5513,7 +5516,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 					int index = i + offset - v.offset;
 					if (v.range_swapped)
 						index = -index;
-					v.val.bits().at(index) = r.at(i);
+					v.val.set(index, r.at(i));
 				}
 			}
 
