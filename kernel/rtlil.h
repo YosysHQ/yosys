@@ -842,12 +842,23 @@ public:
 	Const(const std::string &str);
 	Const(long long val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
+	Const(std::vector<RTLIL::State> bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::move(bits)) {}
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &other);
 	Const(RTLIL::Const &&other);
 	RTLIL::Const &operator =(const RTLIL::Const &other);
 	~Const();
+
+	struct Builder
+	{
+		Builder() {}
+		Builder(int expected_width) { bits.reserve(expected_width); }
+		void push_back(RTLIL::State b) { bits.push_back(b); }
+		int size() const { return static_cast<int>(bits.size()); }
+		Const build() { return Const(std::move(bits)); }
+	private:
+		std::vector<RTLIL::State> bits;
+	};
 
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
@@ -885,6 +896,12 @@ public:
 	void bitvectorize() const;
 
 	void append(const RTLIL::Const &other);
+	void set(int i, RTLIL::State state) {
+		bits()[i] = state;
+	}
+	void resize(int size, RTLIL::State fill) {
+		bits().resize(size, fill);
+	}
 
 	class const_iterator {
 	private:
@@ -927,11 +944,68 @@ public:
 		}
 	};
 
+	class iterator {
+	private:
+		Const* parent;
+		size_t idx;
+
+	public:
+		class proxy {
+		private:
+			Const* parent;
+			size_t idx;
+		public:
+			proxy(Const* parent, size_t idx) : parent(parent), idx(idx) {}
+			operator State() const { return (*parent)[idx]; }
+			proxy& operator=(State s) { parent->set(idx, s); return *this; }
+			proxy& operator=(const proxy& other) { parent->set(idx, (*other.parent)[other.idx]); return *this; }
+		};
+
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = State;
+		using difference_type = std::ptrdiff_t;
+		using pointer = proxy*;
+		using reference = proxy;
+
+		iterator(Const& c, size_t i) : parent(&c), idx(i) {}
+
+		proxy operator*() const { return proxy(parent, idx); }
+		iterator& operator++() { ++idx; return *this; }
+		iterator& operator--() { --idx; return *this; }
+		iterator operator++(int) { iterator result(*this); ++idx; return result; }
+		iterator operator--(int) { iterator result(*this); --idx; return result; }
+		iterator& operator+=(int i) { idx += i; return *this; }
+
+		iterator operator+(int add) {
+			return iterator(*parent, idx + add);
+		}
+		iterator operator-(int sub) {
+			return iterator(*parent, idx - sub);
+		}
+		int operator-(const iterator& other) {
+			return idx - other.idx;
+		}
+
+		bool operator==(const iterator& other) const {
+			return idx == other.idx;
+		}
+
+		bool operator!=(const iterator& other) const {
+			return !(*this == other);
+		}
+	};
+
 	const_iterator begin() const {
 		return const_iterator(*this, 0);
 	}
 	const_iterator end() const {
 		return const_iterator(*this, size());
+	}
+	iterator begin() {
+		return iterator(*this, 0);
+	}
+	iterator end() {
+		return iterator(*this, size());
 	}
 	State back() const {
 		return *(end() - 1);
@@ -964,12 +1038,11 @@ public:
 	std::optional<int> as_int_compress(bool is_signed) const;
 
 	void extu(int width) {
-		bits().resize(width, RTLIL::State::S0);
+		resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bitvectype& bv = bits();
-		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
+		resize(width, empty() ? RTLIL::State::Sx : back());
 	}
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const {
