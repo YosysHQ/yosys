@@ -82,7 +82,7 @@ struct FoldInvWorker {
         Const result(State::S0, GetSize(lut));
         for (int i = 0; i < GetSize(lut); i++) {
             int j = i ^ (1 << bit);
-            result.bits()[j] = lut[i];
+            result.set(j, lut[i]);
         }
         return result;
     }
@@ -91,7 +91,7 @@ struct FoldInvWorker {
     {
         Const result(State::S0, GetSize(lut));
         for (int i = 0; i < GetSize(lut); i++)
-            result.bits()[i] = (lut[i] == State::S1) ? State::S0 : State::S1;
+            result.set(i, (lut[i] == State::S1) ? State::S0 : State::S1);
         return result;
     }
 
