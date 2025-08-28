@@ -378,7 +378,7 @@ bool RTLIL::Const::operator !=(const RTLIL::Const &other) const
 	return !(*this == other);
 }
 
-std::vector<RTLIL::State>& RTLIL::Const::bits()
+std::vector<RTLIL::State>& RTLIL::Const::bits_internal()
 {
 	bitvectorize();
 	return get_bits();

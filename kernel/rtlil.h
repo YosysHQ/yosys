@@ -837,6 +837,8 @@ private:
 
 	bitvectype& get_bits() const;
 	std::string& get_str() const;
+	std::vector<RTLIL::State>& bits_internal();
+
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
 	Const(const std::string &str);
@@ -864,7 +866,8 @@ public:
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
-	std::vector<RTLIL::State>& bits();
+	[[deprecated]]
+	std::vector<RTLIL::State>& bits() { return bits_internal(); }
 	bool as_bool() const;
 
 	// Convert the constant value to a C++ int.
@@ -897,10 +900,10 @@ public:
 
 	void append(const RTLIL::Const &other);
 	void set(int i, RTLIL::State state) {
-		bits()[i] = state;
+		bits_internal()[i] = state;
 	}
 	void resize(int size, RTLIL::State fill) {
-		bits().resize(size, fill);
+		bits_internal().resize(size, fill);
 	}
 
 	class const_iterator {
