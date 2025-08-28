@@ -620,14 +620,18 @@ struct SatHelper
 		int last_timestep = -2;
 		for (auto &info : modelInfo)
 		{
-			RTLIL::Const value;
 			bool found_undef = false;
 
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
-				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits().back() = RTLIL::State::Sx, found_undef = true;
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
+				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i)) {
+					bit = RTLIL::State::Sx;
+					found_undef = true;
+				}
+				value_builder.push_back(bit);
 			}
+			RTLIL::Const value = value_builder.build();
 
 			if (info.timestep != last_timestep) {
 				const char *hline = "---------------------------------------------------------------------------------------------------"
@@ -732,13 +736,14 @@ struct SatHelper
 		int last_timestep = -2;
 		for (auto &info : modelInfo)
 		{
-			RTLIL::Const value;
-
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits().back() = RTLIL::State::Sx;
+					bit = RTLIL::State::Sx;
+				value_builder.push_back(bit);
 			}
+			RTLIL::Const value = value_builder.build();
 
 			if (info.timestep != last_timestep) {
 				if(last_timestep == 0)
@@ -779,12 +784,14 @@ struct SatHelper
 
 		for (auto &info : modelInfo)
 		{
-			Const value;
+			RTLIL::Const::Builder value_builder(info.width);
 			for (int i = 0; i < info.width; i++) {
-				value.bits().push_back(modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0);
+				RTLIL::State bit = modelValues.at(info.offset+i) ? RTLIL::State::S1 : RTLIL::State::S0;
 				if (enable_undef && modelValues.at(modelExpressions.size()/2 + info.offset + i))
-					value.bits().back() = RTLIL::State::Sx;
+					bit = RTLIL::State::Sx;
+				value_builder.push_back(bit);
 			}
+			Const value = value_builder.build();
 
 			wavedata[info.description].first = info.width;
 			wavedata[info.description].second[info.timestep] = value;
