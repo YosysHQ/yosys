@@ -888,17 +888,17 @@ public:
 
 	class const_iterator {
 	private:
-		const Const& parent;
+		const Const* parent;
 		size_t idx;
 
 	public:
-		using iterator_category = std::input_iterator_tag;
+		using iterator_category = std::bidirectional_iterator_tag;
 		using value_type = State;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const State*;
 		using reference = const State&;
 
-		const_iterator(const Const& c, size_t i) : parent(c), idx(i) {}
+		const_iterator(const Const& c, size_t i) : parent(&c), idx(i) {}
 
 		State operator*() const;
 
@@ -909,10 +909,10 @@ public:
 		const_iterator& operator+=(int i) { idx += i; return *this; }
 
 		const_iterator operator+(int add) {
-			return const_iterator(parent, idx + add);
+			return const_iterator(*parent, idx + add);
 		}
 		const_iterator operator-(int sub) {
-			return const_iterator(parent, idx - sub);
+			return const_iterator(*parent, idx - sub);
 		}
 		int operator-(const const_iterator& other) {
 			return idx - other.idx;

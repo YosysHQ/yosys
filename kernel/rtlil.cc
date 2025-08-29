@@ -615,11 +615,11 @@ void RTLIL::Const::append(const RTLIL::Const &other) {
 }
 
 RTLIL::State RTLIL::Const::const_iterator::operator*() const {
-	if (auto bv = parent.get_if_bits())
+	if (auto bv = parent->get_if_bits())
 		return (*bv)[idx];
 
-	int char_idx = parent.get_str().size() - idx / 8 - 1;
-	bool bit = (parent.get_str()[char_idx] & (1 << (idx % 8)));
+	int char_idx = parent->get_str().size() - idx / 8 - 1;
+	bool bit = (parent->get_str()[char_idx] & (1 << (idx % 8)));
 	return bit ? State::S1 : State::S0;
 }
 
