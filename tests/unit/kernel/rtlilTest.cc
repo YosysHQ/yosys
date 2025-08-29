@@ -131,6 +131,32 @@ namespace RTLIL {
 			EXPECT_EQ(c.as_string(), "00000010");
 			EXPECT_TRUE(c.is_str());
 		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.decode_string(), " ");
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.decode_string(), " ");
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			std::vector<State> v = {S0, S0, S0, S0, S0, S1, S0, S0};
+			Const c(v);
+			EXPECT_EQ(c.decode_string(), " ");
+		}
+
+		{
+			std::vector<State> v = {S0, S0, S0, S0, S0, S1, S0, Sx};
+			Const c(v);
+			EXPECT_EQ(c.decode_string(), " ");
+		}
 	}
 
 	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
