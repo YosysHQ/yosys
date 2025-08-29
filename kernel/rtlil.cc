@@ -579,7 +579,6 @@ std::string RTLIL::Const::decode_string() const
 	if (auto str = get_if_str())
 		return *str;
 
-	bitvectorize_internal();
 	bitvectype& bv = get_bits();
 	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
