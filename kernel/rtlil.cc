@@ -419,7 +419,13 @@ std::vector<RTLIL::State> RTLIL::Const::to_bits() const
 
 bool RTLIL::Const::as_bool() const
 {
-	bitvectorize_internal();
+	if (is_str()) {
+		for (char ch : get_str())
+			if (ch != 0)
+				return true;
+		return false;
+	}
+
 	bitvectype& bv = get_bits();
 	for (size_t i = 0; i < bv.size(); i++)
 		if (bv[i] == State::S1)
@@ -429,15 +435,25 @@ bool RTLIL::Const::as_bool() const
 
 int RTLIL::Const::as_int(bool is_signed) const
 {
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
 	int32_t ret = 0;
-	for (size_t i = 0; i < bv.size() && i < 32; i++)
+	if (const std::string *s = get_if_str()) {
+		int size = GetSize(*s);
+		// Ignore any bytes after the first 4 since bits beyond 32 are truncated.
+		for (int i = std::min(4, size); i > 0; i--)
+			ret |= static_cast<unsigned char>((*s)[size - i]) << ((i - 1) * 8);
+		// If is_signed and the string is shorter than 4 bytes then apply sign extension.
+		if (is_signed && size > 0 && size < 4 && ((*s)[0] & 0x80))
+			ret |= -1 << size*8;
+		return ret;
+	}
+
+	const bitvectype& bv = get_bits();
+	int significant_bits = std::min(GetSize(bv), 32);
+	for (int i = 0; i < significant_bits; i++)
 		if (bv[i] == State::S1)
 			ret |= 1 << i;
-	if (is_signed && bv.back() == State::S1)
-		for (size_t i = bv.size(); i < 32; i++)
-			ret |= 1 << i;
+	if (is_signed && significant_bits > 0 && significant_bits < 32 && bv.back() == State::S1 )
+		ret |= -1 << significant_bits;
 	return ret;
 }
 
@@ -457,7 +473,7 @@ bool RTLIL::Const::convertible_to_int(bool is_signed) const
 	if (size == 32) {
 		if (is_signed)
 			return true;
-		return get_bits().at(31) != State::S1;
+		return back() != State::S1;
 	}
 
 	return false;
@@ -478,7 +494,7 @@ int RTLIL::Const::as_int_saturating(bool is_signed) const
 
 		const auto min_size = get_min_size(is_signed);
 		log_assert(min_size > 0);
-		const auto neg = get_bits().at(min_size - 1);
+		const auto neg = (*this)[min_size - 1];
 		return neg ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
 	}
 	return as_int(is_signed);
