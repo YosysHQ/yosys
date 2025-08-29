@@ -790,12 +790,13 @@ struct ShareWorker
 		}
 
 		p.first = RTLIL::SigSpec();
-		p.second.bits().clear();
 
+		RTLIL::Const::Builder new_bits(p_bits.size());
 		for (auto &it : p_bits) {
 			p.first.append(it.first);
-			p.second.bits().push_back(it.second);
+			new_bits.push_back(it.second);
 		}
+		p.second = new_bits.build();
 
 		return true;
 	}
@@ -818,9 +819,9 @@ struct ShareWorker
 				auto otherval = val;
 
 				if (otherval[i] == State::S0)
-					otherval.bits()[i] = State::S1;
+					otherval.set(i, State::S1);
 				else if (otherval[i] == State::S1)
-					otherval.bits()[i] = State::S0;
+					otherval.set(i, State::S0);
 				else
 					continue;
 
@@ -829,8 +830,11 @@ struct ShareWorker
 					auto newsig = sig;
 					newsig.remove(i);
 
-					auto newval = val;
-					newval.bits().erase(newval.bits().begin() + i);
+					RTLIL::Const::Builder new_bits(val.size() - 1);
+					for (int j = 0; j < val.size(); ++j)
+						if (j != i)
+							new_bits.push_back(val[j]);
+					RTLIL::Const newval = new_bits.build();
 
 					db[newsig].insert(newval);
 					db[sig].erase(otherval);
@@ -926,7 +930,8 @@ struct ShareWorker
 			if (used_in_a)
 				for (auto p : c_patterns) {
 					for (int i = 0; i < GetSize(sig_s); i++)
-						p.first.append(sig_s[i]), p.second.bits().push_back(RTLIL::State::S0);
+						p.first.append(sig_s[i]);
+					p.second.append(RTLIL::Const(RTLIL::State::S0, GetSize(sig_s)));
 					if (sort_check_activation_pattern(p))
 						if (!insert_capped(activation_patterns_cache[cell], p)) {
 							recursion_state.erase(cell);
@@ -936,7 +941,8 @@ struct ShareWorker
 
 			for (int idx : used_in_b_parts)
 				for (auto p : c_patterns) {
-					p.first.append(sig_s[idx]), p.second.bits().push_back(RTLIL::State::S1);
+					p.first.append(sig_s[idx]);
+					p.second.append(RTLIL::Const(RTLIL::State::S1));
 					if (sort_check_activation_pattern(p))
 					if (!insert_capped(activation_patterns_cache[cell], p)) {
 						recursion_state.erase(cell);
@@ -989,12 +995,14 @@ struct ShareWorker
 		{
 			std::vector<RTLIL::SigBit> p_first = p.first;
 			ssc_pair_t new_p;
+			RTLIL::Const::Builder new_p_second_bits;
 
 			for (int i = 0; i < GetSize(p_first); i++)
 				if (filter_bits.count(p_first[i]) == 0) {
 					new_p.first.append(p_first[i]);
-					new_p.second.bits().push_back(p.second.at(i));
+					new_p_second_bits.push_back(p.second.at(i));
 				}
+			new_p.second = new_p_second_bits.build();
 
 			out.insert(new_p);
 		}

@@ -74,10 +74,10 @@ struct FfInitVals
 
 	RTLIL::Const operator()(const RTLIL::SigSpec &sig) const
 	{
-		RTLIL::Const res;
+		RTLIL::Const::Builder res_bits(GetSize(sig));
 		for (auto bit : sig)
-			res.bits().push_back((*this)(bit));
-		return res;
+			res_bits.push_back((*this)(bit));
+		return res_bits.build();
 	}
 
 	void set_init(RTLIL::SigBit bit, RTLIL::State val)
@@ -93,12 +93,12 @@ struct FfInitVals
 		initbits[mbit] = std::make_pair(val,abit);
 		auto it2 = abit.wire->attributes.find(ID::init);
 		if (it2 != abit.wire->attributes.end()) {
-			it2->second.bits()[abit.offset] = val;
+			it2->second.set(abit.offset, val);
 			if (it2->second.is_fully_undef())
 				abit.wire->attributes.erase(it2);
 		} else if (val != State::Sx) {
 			Const cval(State::Sx, GetSize(abit.wire));
-			cval.bits()[abit.offset] = val;
+			cval.set(abit.offset, val);
 			abit.wire->attributes[ID::init] = cval;
 		}
 	}

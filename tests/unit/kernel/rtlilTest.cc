@@ -80,10 +80,10 @@ namespace RTLIL {
 			EXPECT_EQ(i, 16);
 			EXPECT_TRUE(cs1.is_str());
 
-			// It can be mutated with the bits() view
-			// and decays into unpacked
-			for (auto& bit : cs1.bits()) {
-				bit = State::Sx;
+			// It can be mutated via bit iteration and decays into unpacked
+			// when an non-defined bit is set.
+			for (auto b : cs1) {
+				b = State::Sx;
 			}
 			EXPECT_TRUE(cs1.is_bits());
 		}
