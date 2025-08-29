@@ -257,9 +257,34 @@ RTLIL::Const::Const(const std::string &str)
 	tag = backing_tag::string;
 }
 
+RTLIL::Const::Const(long long val) // default width 32
+{
+	flags = RTLIL::CONST_FLAG_NONE;
+	char bytes[] = {
+		(char)(val >> 24), (char)(val >> 16), (char)(val >> 8), (char)val
+	};
+	new ((void*)&str_) std::string(bytes, 4);
+	tag = backing_tag::string;
+}
+
 RTLIL::Const::Const(long long val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
+	if ((width & 7) == 0) {
+		new ((void*)&str_) std::string();
+		tag = backing_tag::string;
+		std::string& str = get_str();
+		int bytes = width >> 3;
+		signed char sign_byte = val < 0 ? -1 : 0;
+		str.resize(bytes, sign_byte);
+		bytes = std::min<int>(bytes, sizeof(val));
+		for (int i = 0; i < bytes; i++) {
+			str[str.size() - 1 - i] = val;
+			val = val >> 8;
+		}
+		return;
+	}
+
 	new ((void*)&bits_) bitvectype();
 	tag = backing_tag::bits;
 	bitvectype& bv = get_bits();
