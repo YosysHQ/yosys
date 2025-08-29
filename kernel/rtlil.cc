@@ -204,12 +204,22 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 
 #define check(condition) log_assert(condition && "malformed Const union")
 
-Const::bitvectype& Const::get_bits() const {
+const Const::bitvectype& Const::get_bits() const {
 	check(is_bits());
 	return *get_if_bits();
 }
 
-std::string& Const::get_str() const {
+const std::string& Const::get_str() const {
+	check(is_str());
+	return *get_if_str();
+}
+
+Const::bitvectype& Const::get_bits() {
+	check(is_bits());
+	return *get_if_bits();
+}
+
+std::string& Const::get_str() {
 	check(is_str());
 	return *get_if_str();
 }
@@ -395,7 +405,7 @@ bool RTLIL::Const::as_bool() const
 		return false;
 	}
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	for (size_t i = 0; i < bv.size(); i++)
 		if (bv[i] == State::S1)
 			return true;
@@ -542,7 +552,7 @@ std::string RTLIL::Const::decode_string() const
 	if (auto str = get_if_str())
 		return *str;
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	const int n = GetSize(bv);
 	const int n_over_8 = n / 8;
 	std::string s;
@@ -590,7 +600,7 @@ bool RTLIL::Const::empty() const {
 	}
 }
 
-void RTLIL::Const::bitvectorize_internal() const {
+void RTLIL::Const::bitvectorize_internal() {
 	if (tag == backing_tag::bits)
 		return;
 
@@ -641,7 +651,7 @@ bool RTLIL::Const::is_fully_zero() const
 		return true;
 	}
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0)
@@ -661,7 +671,7 @@ bool RTLIL::Const::is_fully_ones() const
 		return true;
 	}
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S1)
 			return false;
@@ -676,7 +686,7 @@ bool RTLIL::Const::is_fully_def() const
 	if (is_str())
 		return true;
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
@@ -691,7 +701,7 @@ bool RTLIL::Const::is_fully_undef() const
 	if (auto str = get_if_str())
 		return str->empty();
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
@@ -706,7 +716,7 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 	if (auto str = get_if_str())
 		return str->empty();
 
-	bitvectype& bv = get_bits();
+	const bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
 			return false;
