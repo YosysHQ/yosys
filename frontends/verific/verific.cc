@@ -267,13 +267,13 @@ static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string 
 static const RTLIL::Const extract_vhdl_integer(std::string &val)
 {
 	char *end;
-	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10), 32);
+	return RTLIL::Const((int)std::strtol(val.c_str(), &end, 10));
 }
 
 static const RTLIL::Const extract_vhdl_char(std::string &val)
 {
 	if (val.size()==3 && val[0]=='\"' && val.back()=='\"')
-		return RTLIL::Const((int)val[1], 32);
+		return RTLIL::Const((int)val[1]);
 	log_error("Error parsing VHDL character.\n");
 }
 
@@ -311,7 +311,7 @@ static const  RTLIL::Const extract_vhdl_const(const char *value, bool output_sig
 	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
 			((decimal = std::strtol(value, &end, 10)), !end[0])) {
 		is_signed = output_signed;
-		c = RTLIL::Const((int)decimal, 32);
+		c = RTLIL::Const((int)decimal);
 	} else if (val == "false") {
 		c = RTLIL::Const::from_string("0");
 	} else if (val == "true") {
@@ -344,7 +344,7 @@ static const  RTLIL::Const extract_verilog_const(const char *value, bool allow_s
 	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
 			((decimal = std::strtol(value, &end, 10)), !end[0])) {
 		is_signed = output_signed;
-		c = RTLIL::Const((int)decimal, 32);
+		c = RTLIL::Const((int)decimal);
 	} else if (allow_string) {
 		c = RTLIL::Const(val);
 	} else {

@@ -45,7 +45,7 @@ struct QlBramMergeWorker {
 		{
 			if(cell->type != split_cell_type) continue;
 			if(!cell->hasParam(ID(OPTION_SPLIT))) continue;
-			if(cell->getParam(ID(OPTION_SPLIT)) != RTLIL::Const(1, 32)) continue;
+			if(cell->getParam(ID(OPTION_SPLIT)) != RTLIL::Const(1)) continue;
 			mergeable_groups[get_key(cell)].insert(cell);
 		}
 	}

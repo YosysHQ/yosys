@@ -1112,7 +1112,8 @@ struct RTLIL::SigChunk
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}
-	SigChunk(int val, int width = 32) : SigChunk(RTLIL::Const(val, width)) {}
+	SigChunk(int val) /*default width 32*/ : SigChunk(RTLIL::Const(val)) {}
+	SigChunk(int val, int width) : SigChunk(RTLIL::Const(val, width)) {}
 	SigChunk(RTLIL::State bit, int width = 1) : SigChunk(RTLIL::Const(bit, width)) {}
 	SigChunk(const RTLIL::SigBit &bit);
 
