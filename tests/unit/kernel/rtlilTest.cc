@@ -90,6 +90,30 @@ namespace RTLIL {
 
 	}
 
+	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S0);
+		++it;
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S1);
+		++it;
+		EXPECT_EQ(it, c.end());
+	}
+
+	TEST_F(KernelRtlilTest, ConstConstIteratorPreincrement) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		EXPECT_EQ(*++it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstConstIteratorPostincrement) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		EXPECT_EQ(*it++, State::S0);
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
