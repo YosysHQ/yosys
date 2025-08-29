@@ -822,23 +822,27 @@ private:
 	using bitvectype = std::vector<RTLIL::State>;
 	enum class backing_tag: bool { bits, string };
 	// Do not access the union or tag even in Const methods unless necessary
-	mutable backing_tag tag;
+	backing_tag tag;
 	union {
-		mutable bitvectype bits_;
-		mutable std::string str_;
+		bitvectype bits_;
+		std::string str_;
 	};
 
 	// Use these private utilities instead
 	bool is_bits() const { return tag == backing_tag::bits; }
 	bool is_str() const { return tag == backing_tag::string; }
 
-	bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
-	std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
+	bitvectype* get_if_bits() { return is_bits() ? &bits_ : NULL; }
+	std::string* get_if_str() { return is_str() ? &str_ : NULL; }
+	const bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
+	const std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
 
-	bitvectype& get_bits() const;
-	std::string& get_str() const;
+	bitvectype& get_bits();
+	std::string& get_str();
+	const bitvectype& get_bits() const;
+	const std::string& get_str() const;
 	std::vector<RTLIL::State>& bits_internal();
-	void bitvectorize_internal() const;
+	void bitvectorize_internal();
 
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
@@ -871,7 +875,7 @@ public:
 	[[deprecated("Don't use direct access to the internal std::vector<State>, that's an implementation detail.")]]
 	std::vector<RTLIL::State>& bits() { return bits_internal(); }
 	[[deprecated("Don't call bitvectorize() directly, it's an implementation detail.")]]
-	void bitvectorize() const { bitvectorize_internal(); }
+	void bitvectorize() const { const_cast<Const*>(this)->bitvectorize_internal(); }
 
 	bool as_bool() const;
 
