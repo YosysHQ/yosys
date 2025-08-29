@@ -904,8 +904,8 @@ public:
 
 		const_iterator& operator++() { ++idx; return *this; }
 		const_iterator& operator--() { --idx; return *this; }
-		const_iterator& operator++(int) { ++idx; return *this; }
-		const_iterator& operator--(int) { --idx; return *this; }
+		const_iterator operator++(int) { const_iterator result(*this); ++idx; return result; }
+		const_iterator operator--(int) { const_iterator result(*this); --idx; return result; }
 		const_iterator& operator+=(int i) { idx += i; return *this; }
 
 		const_iterator operator+(int add) {
