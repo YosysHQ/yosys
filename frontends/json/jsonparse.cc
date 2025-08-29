@@ -258,7 +258,7 @@ Const json_parse_attr_param_value(JsonNode *node)
 		}
 	} else
 	if (node->type == 'N') {
-		value = Const(node->data_number, 32);
+		value = Const(node->data_number);
 		if (node->data_number < 0)
 			value.flags |= RTLIL::CONST_FLAG_SIGNED;
 	} else
