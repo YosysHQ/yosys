@@ -465,7 +465,7 @@ constant:
 		free($1);
 	} |
 	TOK_INT {
-		$$ = new RTLIL::Const($1, 32);
+		$$ = new RTLIL::Const($1);
 	} |
 	TOK_STRING {
 		$$ = new RTLIL::Const($1);
