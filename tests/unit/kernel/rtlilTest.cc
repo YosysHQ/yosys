@@ -204,6 +204,24 @@ namespace RTLIL {
 		EXPECT_EQ(c, Const(0xe, 4));
 	}
 
+	TEST_F(KernelRtlilTest, ConstEqualStr) {
+		EXPECT_EQ(Const("abc"), Const("abc"));
+		EXPECT_NE(Const("abc"), Const("def"));
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualBits) {
+		std::vector<State> v1 = {S0, S1};
+		std::vector<State> v2 = {S1, S0};
+		EXPECT_EQ(Const(v1), Const(v1));
+		EXPECT_NE(Const(v1), Const(v2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualStrBits) {
+		std::vector<State> v1 = {S0, S0, S0, S0, S0, S1, S0, S0};
+		EXPECT_EQ(Const(v1), Const(" "));
+		EXPECT_NE(Const(v1), Const("a"));
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
