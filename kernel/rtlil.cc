@@ -542,18 +542,17 @@ std::optional<int> RTLIL::Const::as_int_compress(bool is_signed) const
 
 std::string RTLIL::Const::as_string(const char* any) const
 {
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
+	int sz = size();
 	std::string ret;
-	ret.reserve(bv.size());
-	for (size_t i = bv.size(); i > 0; i--)
-		switch (bv[i-1]) {
-			case S0: ret += "0"; break;
-			case S1: ret += "1"; break;
-			case Sx: ret += "x"; break;
-			case Sz: ret += "z"; break;
+	ret.reserve(sz);
+	for (int i = sz - 1; i >= 0; --i)
+		switch ((*this)[i]) {
+			case S0: ret.push_back('0'); break;
+			case S1: ret.push_back('1'); break;
+			case Sx: ret.push_back('x'); break;
+			case Sz: ret.push_back('z'); break;
 			case Sa: ret += any; break;
-			case Sm: ret += "m"; break;
+			case Sm: ret.push_back('m'); break;
 		}
 	return ret;
 }

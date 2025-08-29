@@ -124,6 +124,13 @@ namespace RTLIL {
 			EXPECT_TRUE(c.as_bool());
 			EXPECT_TRUE(c.is_str());
 		}
+
+		{
+			Const c(0x2, 8);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_string(), "00000010");
+			EXPECT_TRUE(c.is_str());
+		}
 	}
 
 	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
