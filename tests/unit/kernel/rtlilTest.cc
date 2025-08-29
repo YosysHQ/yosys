@@ -157,6 +157,50 @@ namespace RTLIL {
 			Const c(v);
 			EXPECT_EQ(c.decode_string(), " ");
 		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_zero());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_ones());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_TRUE(c.is_fully_def());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_undef());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_undef_x_only());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			int pos;
+			EXPECT_TRUE(c.is_onehot(&pos));
+			EXPECT_EQ(pos, 5);
+			EXPECT_TRUE(c.is_str());
+		}
 	}
 
 	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
@@ -265,6 +309,53 @@ namespace RTLIL {
 		std::vector<State> v1 = {S0, S0, S0, S0, S0, S1, S0, S0};
 		EXPECT_EQ(hash(Const(v1)), hash(Const(" ")));
 		EXPECT_NE(hash(Const(v1)), hash(Const("a")));
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyZero) {
+		EXPECT_TRUE(Const(0, 8).is_fully_zero());
+		EXPECT_FALSE(Const(8, 8).is_fully_zero());
+		EXPECT_TRUE(Const().is_fully_zero());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyOnes) {
+		EXPECT_TRUE(Const(0xf, 4).is_fully_ones());
+		EXPECT_FALSE(Const(3, 4).is_fully_ones());
+		EXPECT_TRUE(Const().is_fully_ones());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyDef) {
+		EXPECT_TRUE(Const(0xf, 4).is_fully_def());
+		std::vector<State> v1 = {S0, Sx};
+		EXPECT_FALSE(Const(v1).is_fully_def());
+		EXPECT_TRUE(Const().is_fully_def());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyUndef) {
+		std::vector<State> v1 = {S0, Sx};
+		EXPECT_FALSE(Const(v1).is_fully_undef());
+		EXPECT_TRUE(Const(Sz, 2).is_fully_undef());
+		EXPECT_TRUE(Const().is_fully_undef());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyUndefXOnly) {
+		std::vector<State> v1 = {Sx, Sz};
+		EXPECT_FALSE(Const(v1).is_fully_undef_x_only());
+		EXPECT_TRUE(Const(Sx, 2).is_fully_undef_x_only());
+		EXPECT_TRUE(Const().is_fully_undef_x_only());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsOnehot) {
+		int pos;
+		EXPECT_TRUE(Const(0x80, 8).is_onehot(&pos));
+		EXPECT_EQ(pos, 7);
+		EXPECT_FALSE(Const(0x82, 8).is_onehot(&pos));
+		EXPECT_FALSE(Const(0, 8).is_onehot(&pos));
+		EXPECT_TRUE(Const(1, 1).is_onehot(&pos));
+		EXPECT_EQ(pos, 0);
+		EXPECT_FALSE(Const(Sx, 1).is_onehot(&pos));
+		std::vector<State> v1 = {Sx, S1};
+		EXPECT_FALSE(Const(v1).is_onehot(&pos));
+		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
 	class WireRtlVsHdlIndexConversionTest :
