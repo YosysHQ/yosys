@@ -723,6 +723,13 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	return found;
 }
 
+Hasher RTLIL::Const::hash_into(Hasher h) const
+{
+	if (is_str())
+		return hashlib::hash_ops<std::string>::hash_into(get_str(), h);
+	return hashlib::hash_ops<std::vector<State>>::hash_into(get_bits(), h);
+}
+
 RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) const {
 	bitvectype ret_bv;
 	ret_bv.reserve(len);
