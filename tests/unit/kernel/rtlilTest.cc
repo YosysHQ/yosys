@@ -88,6 +88,31 @@ namespace RTLIL {
 			EXPECT_TRUE(cs1.is_bits());
 		}
 
+		{
+			Const c(0x12345678);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0x12345678);
+		}
+
+		{
+			Const c(0xab, 8);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0xab);
+		}
+
+		{
+			Const c(0x12345678, 80);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0x12345678);
+			EXPECT_EQ(c[79], S0);
+		}
+
+		{
+			Const c(-1, 80);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), -1);
+			EXPECT_EQ(c[79], S1);
+		}
 	}
 
 	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
