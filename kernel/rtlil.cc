@@ -669,9 +669,16 @@ RTLIL::State RTLIL::Const::const_iterator::operator*() const {
 
 bool RTLIL::Const::is_fully_zero() const
 {
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_zero");
+
+	if (auto str = get_if_str()) {
+		for (char ch : *str)
+			if (ch != 0)
+				return false;
+		return true;
+	}
+
+	bitvectype& bv = get_bits();
 
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0)
@@ -682,10 +689,16 @@ bool RTLIL::Const::is_fully_zero() const
 
 bool RTLIL::Const::is_fully_ones() const
 {
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
 	cover("kernel.rtlil.const.is_fully_ones");
 
+	if (auto str = get_if_str()) {
+		for (char ch : *str)
+			if (ch != (char)0xff)
+				return false;
+		return true;
+	}
+
+	bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S1)
 			return false;
@@ -697,9 +710,10 @@ bool RTLIL::Const::is_fully_def() const
 {
 	cover("kernel.rtlil.const.is_fully_def");
 
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
+	if (is_str())
+		return true;
 
+	bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
@@ -711,9 +725,10 @@ bool RTLIL::Const::is_fully_undef() const
 {
 	cover("kernel.rtlil.const.is_fully_undef");
 
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
+	if (auto str = get_if_str())
+		return str->empty();
 
+	bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx && bit != RTLIL::State::Sz)
 			return false;
@@ -725,9 +740,10 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 {
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
+	if (auto str = get_if_str())
+		return str->empty();
 
+	bitvectype& bv = get_bits();
 	for (const auto &bit : bv)
 		if (bit != RTLIL::State::Sx)
 			return false;
@@ -739,12 +755,10 @@ bool RTLIL::Const::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.const.is_onehot");
 
-	bitvectorize_internal();
-	bitvectype& bv = get_bits();
-
 	bool found = false;
-	for (int i = 0; i < GetSize(*this); i++) {
-		auto &bit = bv[i];
+	int size = GetSize(*this);
+	for (int i = 0; i < size; i++) {
+		State bit = (*this)[i];
 		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
 			return false;
 		if (bit == RTLIL::State::S1) {
