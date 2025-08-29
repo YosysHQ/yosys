@@ -92,12 +92,14 @@ namespace RTLIL {
 			Const c(0x12345678);
 			EXPECT_TRUE(c.is_str());
 			EXPECT_EQ(c.as_int(), 0x12345678);
+			EXPECT_TRUE(c.is_str());
 		}
 
 		{
 			Const c(0xab, 8);
 			EXPECT_TRUE(c.is_str());
 			EXPECT_EQ(c.as_int(), 0xab);
+			EXPECT_TRUE(c.is_str());
 		}
 
 		{
@@ -105,6 +107,7 @@ namespace RTLIL {
 			EXPECT_TRUE(c.is_str());
 			EXPECT_EQ(c.as_int(), 0x12345678);
 			EXPECT_EQ(c[79], S0);
+			EXPECT_TRUE(c.is_str());
 		}
 
 		{
@@ -112,6 +115,14 @@ namespace RTLIL {
 			EXPECT_TRUE(c.is_str());
 			EXPECT_EQ(c.as_int(), -1);
 			EXPECT_EQ(c[79], S1);
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(1 << 24);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_TRUE(c.as_bool());
+			EXPECT_TRUE(c.is_str());
 		}
 	}
 
