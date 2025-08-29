@@ -388,6 +388,11 @@ bool RTLIL::Const::operator<(const RTLIL::Const &other) const
 
 bool RTLIL::Const::operator ==(const RTLIL::Const &other) const
 {
+	if (is_str() && other.is_str())
+		return get_str() == other.get_str();
+	if (is_bits() && other.is_bits())
+		return get_bits() == other.get_bits();
+
 	if (size() != other.size())
 		return false;
 
