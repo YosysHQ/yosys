@@ -222,6 +222,18 @@ namespace RTLIL {
 		EXPECT_NE(Const(v1), Const("a"));
 	}
 
+	static Hasher::hash_t hash(const Const &c) {
+		Hasher h;
+		h = c.hash_into(h);
+		return h.yield();
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualHashStrBits) {
+		std::vector<State> v1 = {S0, S0, S0, S0, S0, S1, S0, S0};
+		EXPECT_EQ(hash(Const(v1)), hash(Const(" ")));
+		EXPECT_NE(hash(Const(v1)), hash(Const("a")));
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
