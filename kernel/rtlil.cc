@@ -760,6 +760,40 @@ bool RTLIL::Const::is_onehot(int *pos) const
 	return found;
 }
 
+Hasher RTLIL::Const::hash_into(Hasher h) const
+{
+	if (auto str = get_if_str())
+		return hashlib::hash_ops<std::string>::hash_into(*str, h);
+
+	// If the bits are all 0/1, hash packed bits using the string hash.
+	// Otherwise hash the leading packed bits with the rest of the bits individually.
+	bitvectype &bv = get_bits();
+	int size = GetSize(bv);
+	std::string packed;
+	int packed_size = (size + 7) >> 3;
+	packed.resize(packed_size, 0);
+	for (int bi = 0; bi < packed_size; ++bi) {
+		char ch = 0;
+		int end = std::min((bi + 1)*8, size);
+		for (int i = bi*8; i < end; ++i) {
+			RTLIL::State b = bv[i];
+			if (b > RTLIL::State::S1) {
+				// Hash the packed bits we've seen so far, plus the remaining bits.
+				h = hashlib::hash_ops<std::string>::hash_into(packed, h);
+				h = hashlib::hash_ops<char>::hash_into(ch, h);
+				for (; i < size; ++i) {
+					h = hashlib::hash_ops<RTLIL::State>::hash_into(bv[i], h);
+				}
+				h.eat(size);
+				return h;
+			}
+			ch |= static_cast<int>(b) << (i & 7);
+		}
+		packed[packed_size - 1 - bi] = ch;
+	}
+	return hashlib::hash_ops<std::string>::hash_into(packed, h);
+}
+
 RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) const {
 	bitvectype ret_bv;
 	ret_bv.reserve(len);

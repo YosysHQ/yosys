@@ -1052,12 +1052,7 @@ public:
 		resize(width, empty() ? RTLIL::State::Sx : back());
 	}
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const {
-		h.eat(size());
-		for (auto b : *this)
-			h.eat(b);
-		return h;
-	}
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct RTLIL::AttrObject
