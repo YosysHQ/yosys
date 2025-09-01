@@ -1875,6 +1875,11 @@ elif covermode:
             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, step-1, step))
             smt_assert_antecedent("(not (|%s_is| s%d))" % (topmod, step))
 
+        if step < skip_steps:
+            print_msg("Skipping step %d.." % (step))
+            step += 1
+            continue
+
         while "1" in cover_mask:
             print_msg("Checking cover reachability in step %d.." % (step))
             smt_push()
