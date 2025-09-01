@@ -14,8 +14,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew update
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install bison flex gawk libffi pkg-config bash autoconf llvm lld || true
+        brew bundle
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
