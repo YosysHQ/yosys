@@ -188,6 +188,12 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 		return h;
 	}
 	HASH_TOP_LOOP_FST (const std::pair<P, Q> &a) HASH_TOP_LOOP_SND
+	[[nodiscard]] static inline Hasher hash(const P &p, const Q &q) {
+		Hasher h;
+		h = hash_ops<P>::hash_into(p, h);
+		h = hash_ops<Q>::hash_into(q, h);
+		return h;
+	}
 };
 
 template<typename... T> struct hash_ops<std::tuple<T...>> {
