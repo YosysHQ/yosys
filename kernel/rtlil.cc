@@ -4447,6 +4447,23 @@ bool RTLIL::SigChunk::operator !=(const RTLIL::SigChunk &other) const
 	return true;
 }
 
+const RTLIL::SigChunk &RTLIL::SigSpecConstIterator::find_chunk()
+{
+	int low = 0;
+	int high = GetSize(sig_p->chunks_);
+	while (high - low >= 2) {
+		int mid = (low + high) / 2;
+		if (sig_p->chunks_[mid].offset_in_sigspec <= bit_index)
+			low = mid;
+		else
+			high = mid;
+	}
+	chunk_index_hint = low;
+	const RTLIL::SigChunk &chunk = sig_p->chunks_[chunk_index_hint];
+	log_assert(chunk.offset_in_sigspec <= bit_index && bit_index < chunk.offset_in_sigspec + chunk.width);
+	return chunk;
+}
+
 RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)
 {
 	cover("kernel.rtlil.sigspec.init.list");
