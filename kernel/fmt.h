@@ -26,6 +26,17 @@ YOSYS_NAMESPACE_BEGIN
 
 // Verilog format argument, such as the arguments in:
 //   $display("foo %d bar %01x", 4'b0, $signed(2'b11))
+//
+// Argument mapping:
+//
+//  (1) quoted string literal                   -> STRING, literal in `str`
+//  (2) type `string` or unpacked `byte` array  -> STRING, value in `sig` (SystemVerilog extension)
+//  (3) `$time` `$realtime`                     -> TIME, `realtime` selects between the two
+//  (4) any other expression                    -> INTEGER, value in `sig`
+//
+// We need to distinguish (1) and (2) because that influences interpretation
+// of escape characters (only interpreted in (1)).
+//
 struct VerilogFmtArg {
 	enum {
 		STRING  = 0,
@@ -40,8 +51,10 @@ struct VerilogFmtArg {
 	// STRING type
 	std::string str;
 
-	// INTEGER type
+	// INTEGER/STRING type
 	RTLIL::SigSpec sig;
+
+	// INTEGER
 	bool signed_ = false;
 
 	// TIME type

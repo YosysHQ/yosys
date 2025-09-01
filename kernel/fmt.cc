@@ -378,7 +378,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 			}
 
 			case VerilogFmtArg::STRING: {
-				if (arg == args.begin() || !sformat_like) {
+				if ((arg == args.begin() || !sformat_like) && !arg->str.empty()) {
 					const auto fmtarg = arg;
 					const std::string &fmt = fmtarg->str;
 					FmtPart part = {};
@@ -407,8 +407,19 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (++arg == args.end()) {
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with fewer arguments than the format specifiers in argument %zu require.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 							}
-							part.sig = arg->sig;
-							part.signed_ = arg->signed_;
+							switch (arg->type) {
+							case VerilogFmtArg::STRING:
+								part.sig = arg->str.empty() ? arg->sig : Const(arg->str);
+								part.signed_ = false;
+								break;
+							case VerilogFmtArg::INTEGER:
+								part.sig = arg->sig;
+								part.signed_ = arg->signed_;
+								break;
+							default:
+								// requires `%t`/`%T` which is enforced later on
+								break;
+							}
 
 							for (; i < fmt.size(); i++) {
 								if (fmt[i] == '-') {
@@ -472,9 +483,10 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 								}
 								break;
 							}
-							if (i == fmt.size()) {
+							if (i == fmt.size())
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
-							}
+							if (arg->type == VerilogFmtArg::TIME && part.type != FmtPart::VLOG_TIME)
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
 
 							if (part.padding == '\0') {
 								if (has_leading_zero && part.justify == FmtPart::RIGHT) {
