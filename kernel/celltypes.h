@@ -303,24 +303,24 @@ struct CellTypes
 		cell_types.clear();
 	}
 
-	bool cell_known(RTLIL::IdString type) const
+	bool cell_known(const RTLIL::IdString &type) const
 	{
 		return cell_types.count(type) != 0;
 	}
 
-	bool cell_output(RTLIL::IdString type, RTLIL::IdString port) const
+	bool cell_output(const RTLIL::IdString &type, const RTLIL::IdString &port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
-	bool cell_input(RTLIL::IdString type, RTLIL::IdString port) const
+	bool cell_input(const RTLIL::IdString &type, const RTLIL::IdString &port) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
 	}
 
-	bool cell_evaluable(RTLIL::IdString type) const
+	bool cell_evaluable(const RTLIL::IdString &type) const
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.is_evaluable;
