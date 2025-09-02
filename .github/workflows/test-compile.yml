@@ -36,8 +36,11 @@ jobs:
           - 'clang-19'
           - 'gcc-13'
         include:
-          # macOS
+          # macOS x86
           - os: macos-13
+            compiler: 'clang'
+          # macOS arm
+          - os: macos-latest
             compiler: 'clang'
       fail-fast: false
     steps:
