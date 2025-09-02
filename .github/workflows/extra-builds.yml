@@ -37,7 +37,7 @@ jobs:
 
   vs-build:
     name: Visual Studio build
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: [vs-prep, pre_job]
     if: needs.pre_job.outputs.should_skip != 'true'
     steps:
