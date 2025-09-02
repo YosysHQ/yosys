@@ -203,7 +203,7 @@ module \zzz
     connect \B \B
     connect \Y $add$everything.v:21$2_Y
   end
-  attribute \src "everything.v:19.3-24.10"
+  attribute \src "everything.v:21.17-21.17|everything.v:19.3-24.10"
   attribute \full_case 1
   cell $eq $procmux$8_CMP0
     parameter \A_SIGNED 0
@@ -215,7 +215,7 @@ module \zzz
     connect \B 4'0001
     connect \Y $procmux$8_CMP
   end
-  attribute \src "everything.v:19.3-24.10"
+  attribute \src "everything.v:21.17-21.17|everything.v:19.3-24.10"
   attribute \full_case 1
   cell $pmux $procmux$7
     parameter \WIDTH 9
@@ -225,7 +225,7 @@ module \zzz
     connect \S { $procmux$9_CMP $procmux$8_CMP }
     connect \Y $procmux$7_Y
   end
-  attribute \src "everything.v:19.3-24.10"
+  attribute \src "everything.v:19.19-19.19|everything.v:19.3-24.10"
   attribute \full_case 1
   cell $logic_not $procmux$9_CMP0
     parameter \A_SIGNED 0
