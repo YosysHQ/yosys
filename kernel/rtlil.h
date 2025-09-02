@@ -430,10 +430,10 @@ namespace hashlib {
 		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString id) {
+		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString &id) {
 			return id.hash_top();
 		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString id, Hasher h) {
+		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString &id, Hasher h) {
 			return id.hash_into(h);
 		}
 	};
