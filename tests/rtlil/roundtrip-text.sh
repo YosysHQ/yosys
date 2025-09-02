@@ -26,7 +26,7 @@ diff temp/roundtrip-text.dump.il temp/roundtrip-text.reload-hash-nogen.il
 
 echo "Without ABC, we don't get any irreproducibility and can pin that"
 echo "Has this test case started failing for you? Consider updating the reference"
-$YS -p "read_verilog -sv everything.v; synth -noabc; write_rtlil temp/roundtrip-text.synth.il"
+$YS -p "read_verilog -sv everything.v; synth -relativeshare -noabc; write_rtlil temp/roundtrip-text.synth.il"
 sed '/^$/d' -i.bak temp/roundtrip-text.synth.il
 tail -n +2 temp/roundtrip-text.synth.il > temp/roundtrip-text.synth-nogen.il
 diff temp/roundtrip-text.synth-nogen.il roundtrip-text.synth.ref.il

@@ -9,276 +9,276 @@ module \foo
   wire width 8 input 2 \b
   attribute \src "everything.v:35.17-35.18"
   wire width 8 input 1 \a
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$150_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$147_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$173_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$170_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$167_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$164_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$151_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$148_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$155_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$149_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$146_Y
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$143_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$150_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$147_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$173_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$170_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$167_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$164_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$151_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$148_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$155_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$149_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$146_Y
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$143_Y
   attribute \unused_bits "7"
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:214.23-214.24"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:214.23-214.24"
   attribute \force_downto 1
   wire width 8 $auto$alumacc.cc:495:replace_alu$21.lcu.G
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:270.23-270.24"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:270.23-270.24"
   attribute \force_downto 1
   wire width 8 $auto$alumacc.cc:495:replace_alu$21.X
   attribute \unused_bits "7"
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:274.23-274.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:274.23-274.25"
   attribute \force_downto 1
   wire width 8 $auto$alumacc.cc:495:replace_alu$21.CO
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$219
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [6]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$173_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$173_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [6]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$218
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [4]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$170_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$170_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [4]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$217
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [2]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$167_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$167_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [2]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$216
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [5]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$164_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$150_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$164_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$150_Y
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$213
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [3]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$155_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$147_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$155_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$147_Y
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$211
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$150_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$149_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$150_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$149_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$210
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$147_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$146_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$or$+/techmap.v:240$147_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$146_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$209
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [1]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$143_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$143_Y
     connect \A $auto$alumacc.cc:495:replace_alu$21.lcu.G [1]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$207
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$173_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$173_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [5]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [6]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$206
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$170_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$170_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [3]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [4]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$205
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$167_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$167_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [1]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [2]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$204
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$164_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:248$164_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [3]
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$151_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$151_Y
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$201
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$151_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$151_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.X [4]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$200
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$148_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$148_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.X [2]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$197
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$155_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$155_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [1]
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$148_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:241$148_Y
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$195
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$149_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$149_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.lcu.G [4]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$194
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$146_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$146_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.lcu.G [2]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$193
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$143_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$21.lcu.$and$+/techmap.v:240$143_Y
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [0]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [1]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$138
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [6]
     connect \B \b [6]
     connect \A \a [6]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$137
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [5]
     connect \B \b [5]
     connect \A \a [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$136
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [4]
     connect \B \b [4]
     connect \A \a [4]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$135
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [3]
     connect \B \b [3]
     connect \A \a [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$134
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [2]
     connect \B \b [2]
     connect \A \a [2]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$133
     connect \Y $auto$alumacc.cc:495:replace_alu$21.lcu.G [1]
     connect \B \b [1]
     connect \A \a [1]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$132
     connect \Y $auto$alumacc.cc:495:replace_alu$21.CO [0]
     connect \B \b [0]
     connect \A \a [0]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$131
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [7]
     connect \B \b [7]
     connect \A \a [7]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$130
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [6]
     connect \B \b [6]
     connect \A \a [6]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$129
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [5]
     connect \B \b [5]
     connect \A \a [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$128
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [4]
     connect \B \b [4]
     connect \A \a [4]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$127
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [3]
     connect \B \b [3]
     connect \A \a [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$126
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [2]
     connect \B \b [2]
     connect \A \a [2]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$125
     connect \Y $auto$alumacc.cc:495:replace_alu$21.X [1]
     connect \B \b [1]
     connect \A \a [1]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$124
     connect \Y \y [0]
     connect \B \b [0]
     connect \A \a [0]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$122
     connect \Y \y [7]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [6]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [7]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$121
     connect \Y \y [6]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [5]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [6]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$120
     connect \Y \y [5]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [4]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [5]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$119
     connect \Y \y [4]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [3]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [4]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$118
     connect \Y \y [3]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [2]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [3]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$117
     connect \Y \y [2]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [1]
     connect \A $auto$alumacc.cc:495:replace_alu$21.X [2]
   end
-  attribute \src "everything.v:39.16-39.22|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:39.16-39.22|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$116
     connect \Y \y [1]
     connect \B $auto$alumacc.cc:495:replace_alu$21.CO [0]
@@ -308,61 +308,61 @@ module \alu
   wire width 8 input 3 \B
   attribute \src "everything.v:3.14-3.15"
   wire width 8 input 2 \A
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:270.26-270.27"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$348_Y
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$342_Y
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$339_Y
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$336_Y
+  attribute \src "+/techmap.v:270.26-270.27"
   attribute \force_downto 1
   wire width 9 $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:274.23-274.25"
+  attribute \src "+/techmap.v:274.23-274.25"
   attribute \force_downto 1
   wire width 9 $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.21-279.23"
+  attribute \src "+/techmap.v:279.21-279.23"
   attribute \force_downto 1
   wire width 9 $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$347_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$341_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$338_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$335_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$361_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$358_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$355_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$352_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$349_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$346_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$343_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$340_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$337_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$334_Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
-  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$331_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$347_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$341_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$338_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$335_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$361_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$358_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$355_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$352_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$348_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$342_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$339_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$336_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$349_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$346_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$343_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$340_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$337_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$334_Y
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
+  wire $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$331_Y
   wire $procmux$9_CMP
   wire $procmux$8_CMP
   wire $auto$simplemap.cc:254:simplemap_eqne$247
@@ -374,23 +374,23 @@ module \alu
   wire width 2 $auto$simplemap.cc:125:simplemap_reduce$249
   wire $auto$rtlil.cc:3196:NotGate$497
   wire $auto$opt_dff.cc:247:make_patterns_logic$505
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:214.23-214.24"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:214.23-214.24"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.lcu.G
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:270.26-270.27"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:270.26-270.27"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.Y
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:270.23-270.24"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:270.23-270.24"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.X
   attribute \unused_bits "8"
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:274.23-274.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:274.23-274.25"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.CO
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.21-279.23"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.21-279.23"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.BB
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:268.22-268.23"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:268.22-268.23"
   attribute \force_downto 1
   wire width 9 $auto$alumacc.cc:495:replace_alu$18.B
   attribute \src "everything.v:17.2-31.5"
@@ -401,496 +401,496 @@ module \alu
   wire $0\SF[0:0]
   attribute \src "everything.v:17.2-31.5"
   wire $0\CF[0:0]
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$481
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [6]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [5]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [6]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$480
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [4]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [3]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [4]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$479
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [2]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [1]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [2]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$478
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [5]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [3]
-    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
+    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$339_Y
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$477
-    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
-    connect \B $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
-    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
+    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$348_Y
+    connect \B $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$339_Y
+    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$342_Y
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$476
-    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
+    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$342_Y
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [6]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [7]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$475
-    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
+    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$339_Y
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [4]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [5]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$474
-    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
+    connect \Y $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$336_Y
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [2]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [3]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$473
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [8]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [3]
-    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
+    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$348_Y
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$471
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [3]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [1]
-    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
+    connect \A $techmap$techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.lcu.$and$+/techmap.v:241$336_Y
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$467
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [1]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [0]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [1]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$427
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [7]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [6]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [7]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$426
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [6]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [5]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [6]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$425
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [5]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [4]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [5]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$424
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [4]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [3]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [4]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$423
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [3]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [2]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [3]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$422
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [2]
     connect \B $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.CO [1]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [2]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$421
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.Y [1]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [0]
     connect \A $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$418
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [6]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$361_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$361_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$417
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [4]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$358_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$358_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$416
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [2]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$355_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$355_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.12-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.12-248.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$415
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [5]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$352_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$338_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$352_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$338_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$414
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [7]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$349_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$347_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$349_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$347_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$413
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$347_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$346_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$341_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$347_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$346_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$341_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$412
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [3]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$343_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$335_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$343_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$335_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$411
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$341_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$340_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$341_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$340_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$410
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$338_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$337_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$338_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$337_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$409
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$335_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$334_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$335_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$334_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.12-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.12-240.41"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$408
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [1]
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$331_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$331_Y
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:231.10-231.28"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:231.10-231.28"
   cell $_OR_ $auto$simplemap.cc:83:simplemap_bitop$407
     connect \Y $auto$alumacc.cc:495:replace_alu$18.CO [0]
     connect \B $auto$alumacc.cc:495:replace_alu$18.X [0]
     connect \A $auto$alumacc.cc:495:replace_alu$18.lcu.G [0]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$405
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$361_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$361_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [5]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$404
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$358_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$358_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [3]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$403
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$355_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$355_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [1]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:248.19-248.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:248.19-248.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$402
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:248$352_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:248$352_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [3]
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$339_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$401
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$348_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$339_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$342_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$400
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$342_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.X [6]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$399
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$339_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$339_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.X [4]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:241.12-241.34"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:241.12-241.34"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$398
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$336_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.X [2]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$397
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$349_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$349_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [3]
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$348_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$348_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$396
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$346_Y
-    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$/home/emil/pulls/yosys/share/techmap.v:240$338_Y
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$342_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$346_Y
+    connect \B $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$or$+/techmap.v:240$338_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$342_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$395
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$343_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$343_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [1]
-    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:241$336_Y
+    connect \A $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:241$336_Y
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$394
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$340_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$340_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.lcu.G [6]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$393
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$337_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$337_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.lcu.G [4]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$392
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$334_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$334_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.lcu.G [2]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.27-286.69|/home/emil/pulls/yosys/share/techmap.v:240.19-240.41"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.27-286.69|+/techmap.v:240.19-240.41"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$391
-    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$/home/emil/pulls/yosys/share/techmap.v:240$331_Y
+    connect \Y $techmap$auto$alumacc.cc:495:replace_alu$18.lcu.$and$+/techmap.v:240$331_Y
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [0]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$326
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [7]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [7]
     connect \A \A [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$325
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [6]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [6]
     connect \A \A [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$324
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [5]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [5]
     connect \A \A [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$323
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [4]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [4]
     connect \A \A [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$322
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [3]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [3]
     connect \A \A [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$321
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [2]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [2]
     connect \A \A [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$320
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [1]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [1]
     connect \A \A [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:286.42-286.49"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:286.42-286.49"
   cell $_AND_ $auto$simplemap.cc:83:simplemap_bitop$319
     connect \Y $auto$alumacc.cc:495:replace_alu$18.lcu.G [0]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [0]
     connect \A \A [0]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$317
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [7]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [7]
     connect \A \A [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$316
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [6]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [6]
     connect \A \A [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$315
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [5]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [5]
     connect \A \A [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$314
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [4]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [4]
     connect \A \A [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$313
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [3]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [3]
     connect \A \A [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$312
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [2]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [2]
     connect \A \A [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$311
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [1]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [1]
     connect \A \A [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:288.13-288.20"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:288.13-288.20"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$310
     connect \Y $auto$alumacc.cc:495:replace_alu$18.X [0]
     connect \B $auto$alumacc.cc:495:replace_alu$18.BB [0]
     connect \A \A [0]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$308
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [8]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [7]
     connect \A $auto$alumacc.cc:495:replace_alu$18.BB [8]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$307
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [7]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [6]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$306
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [6]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [5]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$305
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [5]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [4]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$304
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [4]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [3]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$303
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [3]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [2]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$302
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [2]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [1]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:289.13-289.25"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:289.13-289.25"
   cell $_XOR_ $auto$simplemap.cc:83:simplemap_bitop$301
     connect \Y $auto$alumacc.cc:495:replace_alu$18.Y [1]
     connect \B $auto$alumacc.cc:495:replace_alu$18.CO [0]
     connect \A $auto$alumacc.cc:495:replace_alu$18.X [1]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$464
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [7]
     connect \A \B [7]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$463
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [6]
     connect \A \B [6]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$462
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [5]
     connect \A \B [5]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$461
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [4]
     connect \A \B [4]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$460
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [3]
     connect \A \B [3]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$459
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [2]
     connect \A \B [2]
   end
-  attribute \src "/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$458
     connect \Y $techmap$auto$opt_share.cc:199:merge_operators$24.$auto$alumacc.cc:495:replace_alu$238.BB [1]
     connect \A \B [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$384
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [8]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [8]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$383
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [7]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [7]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$382
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [6]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [6]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$381
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [5]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [5]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$380
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [4]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [4]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$379
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [3]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [3]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$378
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [2]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [2]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$377
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [1]
     connect \A $auto$alumacc.cc:495:replace_alu$18.B [1]
   end
-  attribute \src "everything.v:23.11-23.16|/home/emil/pulls/yosys/share/techmap.v:279.31-279.37"
+  attribute \src "everything.v:23.11-23.16|+/techmap.v:279.31-279.37"
   cell $_NOT_ $auto$simplemap.cc:38:simplemap_not$376
     connect \Y $auto$alumacc.cc:495:replace_alu$18.BB [0]
     connect \A \B [0]
