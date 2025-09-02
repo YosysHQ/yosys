@@ -98,13 +98,17 @@ struct SynthPass : public ScriptPass {
 		log("        mapping library in the `techmap` step. this option can be\n");
 		log("        repeated.\n");
 		log("\n");
+		log("    -relativeshare\n");
+		log("        use paths relative to share directory for source locations\n");
+		log("        where possible (experimental).\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, hieropt;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth, hieropt, relative_share;
 	int lut;
 	std::vector<std::string> techmap_maps;
 
@@ -124,6 +128,7 @@ struct SynthPass : public ScriptPass {
 		flowmap = false;
 		booth = false;
 		hieropt = false;
+		relative_share = false;
 		abc = "abc";
 		techmap_maps.clear();
 	}
@@ -211,6 +216,11 @@ struct SynthPass : public ScriptPass {
 				hieropt = true;
 				continue;
 			}
+			if (args[argidx] == "-relativeshare") {
+				relative_share = true;
+				log_experimental("synth -relativeshare");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -238,6 +248,10 @@ struct SynthPass : public ScriptPass {
 			hieropt_flag = " [-hier]";
 		else
 			hieropt_flag = hieropt ? " -hier" : "";
+
+		std::string techmap_cmd = "techmap";
+		if (relative_share)
+			techmap_cmd += " -relativeshare";
 
 		if (check_label("begin")) {
 			if (help_mode) {
@@ -268,9 +282,9 @@ struct SynthPass : public ScriptPass {
 			run("peepopt");
 			run("opt_clean");
 			if (help_mode)
-				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
+				run(techmap_cmd + " -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
 			else if (lut)
-				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
+				run(stringf("%s -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", techmap_cmd, lut));
 			if (booth || help_mode)
 				run("booth", "    (if -booth)");
 			if (!noalumacc)
@@ -287,22 +301,22 @@ struct SynthPass : public ScriptPass {
 			run("memory_map");
 			run("opt -full");
 			if (help_mode) {
-				run("techmap", "                  (unless -extra-map)");	
-				run("techmap -map +/techmap.v -map <inject>", "  (if -extra-map)");
+				run(techmap_cmd, "                  (unless -extra-map)");	
+				run(techmap_cmd + " -map +/techmap.v -map <inject>", "  (if -extra-map)");
 			} else {
 				std::string techmap_opts;
 				if (!techmap_maps.empty())
 					techmap_opts += " -map +/techmap.v";
 				for (auto fn : techmap_maps)
 					techmap_opts += stringf(" -map %s", fn);
-				run("techmap" + techmap_opts);
+				run(techmap_cmd + techmap_opts);
 			}
 			if (help_mode) {
-				run("techmap -map +/gate2lut.v", "(if -noabc and -lut)");
+				run(techmap_cmd + " -map +/gate2lut.v", "(if -noabc and -lut)");
 				run("clean; opt_lut", "           (if -noabc and -lut)");
 				run("flowmap -maxlut K", "        (if -flowmap and -lut)");
 			} else if (noabc && lut) {
-				run(stringf("techmap -map +/gate2lut.v -D LUT_WIDTH=%d", lut));
+				run(stringf("%s -map +/gate2lut.v -D LUT_WIDTH=%d", techmap_cmd, lut));
 				run("clean; opt_lut");
 			} else if (flowmap) {
 				run(stringf("flowmap -maxlut %d", lut));
