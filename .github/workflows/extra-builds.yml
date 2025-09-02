@@ -51,7 +51,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
       - name: MSBuild
         working-directory: yosys-win32-vcxsrc-latest
-        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.17763.0
+        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.26100.0
 
   wasi-build:
     name: WASI build
