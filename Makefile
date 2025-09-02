@@ -889,6 +889,7 @@ MK_TEST_DIRS += tests/sim
 MK_TEST_DIRS += tests/svtypes
 MK_TEST_DIRS += tests/techmap
 MK_TEST_DIRS += tests/various
+MK_TEST_DIRS += tests/rtlil
 ifeq ($(ENABLE_VERIFIC),1)
 ifneq ($(YOSYS_NOVERIFIC),1)
 MK_TEST_DIRS += tests/verific
