@@ -22,34 +22,37 @@ logger -check-expected
 
 # raise_error with int exits with status
 design -load read
+setattr -mod -unset raise_error def other
+dump
 bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 7
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 top
 
 # raise_error -always still uses 'raise_error' attribute if possible
 design -load read
+setattr -mod -unset raise_error def other
 bugpoint -suffix error -yosys ../../yosys -command "raise_error -always" -expect-return 7
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 top
 
 # raise_error with string prints message and exits with 1
 design -load read
-rename top abc
+setattr -mod -unset raise_error top def
 bugpoint -suffix error -yosys ../../yosys -command raise_error -grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
 
 # raise_error with no value exits with 1
 design -load read
-rename def zzy
+setattr -mod -unset raise_error top
 delete other
 bugpoint -suffix error -yosys ../../yosys -command raise_error -expect-return 1
 select -assert-mod-count 1 =*
-select -assert-mod-count 1 zzy
+select -assert-mod-count 1 def
 
 # raise_error -stderr prints to stderr and exits with 1
 design -load read
-rename top abc
+setattr -mod -unset raise_error top def
 bugpoint -suffix error -yosys ../../yosys -command "raise_error -stderr" -err-grep "help me" -expect-return 1
 select -assert-mod-count 1 =*
 select -assert-mod-count 1 other
