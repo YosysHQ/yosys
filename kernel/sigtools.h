@@ -259,10 +259,14 @@ struct SigMapView
 		return bit;
 	}
 
-	RTLIL::SigSpec operator()(RTLIL::SigSpec sig) const
+	RTLIL::SigSpec operator()(const RTLIL::SigSpec &sig) const
 	{
-		apply(sig);
-		return sig;
+		RTLIL::SigSpec result;
+		for (RTLIL::SigBit bit : sig) {
+			apply(bit);
+			result.append(bit);
+		}
+		return result;
 	}
 
 	RTLIL::SigSpec operator()(RTLIL::Wire *wire) const
