@@ -411,7 +411,7 @@ struct RTLIL::IdString
 	// often one needs to check if a given IdString is part of a list (for example a list
 	// of cell types). the following functions helps with that.
 	template<typename... Args>
-	bool in(Args... args) const {
+	bool in(const Args &... args) const {
 		return (... || in(args));
 	}
 
