@@ -1,8 +1,10 @@
 set -euo pipefail
 YS=../../yosys
 
-$YS -p "read_verilog -sv everything.v; write_rtlil roundtrip-design-push.tmp.il; design -push; design -pop; write_rtlil roundtrip-design-pop.tmp.il"
-diff roundtrip-design-push.tmp.il roundtrip-design-pop.tmp.il
+mkdir -p temp
 
-$YS -p "read_verilog -sv everything.v; write_rtlil roundtrip-design-save.tmp.il; design -save foo; design -load foo; write_rtlil roundtrip-design-load.tmp.il"
-diff roundtrip-design-save.tmp.il roundtrip-design-load.tmp.il
+$YS -p "read_verilog -sv everything.v; write_rtlil temp/roundtrip-design-push.il; design -push; design -pop; write_rtlil temp/roundtrip-design-pop.il"
+diff temp/roundtrip-design-push.il temp/roundtrip-design-pop.il
+
+$YS -p "read_verilog -sv everything.v; write_rtlil temp/roundtrip-design-save.il; design -save foo; design -load foo; write_rtlil temp/roundtrip-design-load.il"
+diff temp/roundtrip-design-save.il temp/roundtrip-design-load.il
