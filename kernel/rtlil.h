@@ -1337,6 +1337,7 @@ public:
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool has_const() const;
+	bool has_const(State state) const;
 	bool has_marked_bits() const;
 	bool is_onehot(int *pos = nullptr) const;
 
@@ -1728,7 +1729,11 @@ public:
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
-	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	pool<RTLIL::Cell *> buf_norm_cell_queue;
+	pool<pair<RTLIL::Cell *, RTLIL::IdString>> buf_norm_cell_port_queue;
+	pool<RTLIL::Wire *> buf_norm_wire_queue;
+	pool<RTLIL::Cell *> pending_deleted_cells;
+	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
 	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
