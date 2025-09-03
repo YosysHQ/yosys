@@ -3216,3 +3216,26 @@ module \$scopeinfo ();
 parameter TYPE = "";
 
 endmodule
+
+// --------------------------------------------------------
+//* group wire
+module \$connect (A, B);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] A;
+inout [WIDTH-1:0] B;
+
+tran connect[WIDTH-1:0] (A, B);
+
+endmodule
+
+// --------------------------------------------------------
+//* group wire
+module \$input_port (Y);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] Y;
+
+endmodule
