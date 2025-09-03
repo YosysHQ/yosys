@@ -5534,6 +5534,15 @@ bool RTLIL::SigSpec::is_chunk() const
 	return GetSize(chunks_) == 1;
 }
 
+bool RTLIL::SigSpec::known_driver() const
+{
+	pack();
+	for (auto &chunk : chunks_)
+		if (chunk.is_wire() && !chunk.wire->known_driver())
+			return false;
+	return true;
+}
+
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
