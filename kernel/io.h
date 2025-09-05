@@ -8,6 +8,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+namespace RTLIL {
+	struct IdString;
+}
+
 inline std::string vstringf(const char *fmt, va_list ap)
 {
 	// For the common case of strings shorter than 128, save a heap
@@ -240,7 +244,8 @@ constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escap
 	case CONVSPEC_CHAR_PTR:
 		if constexpr (!std::is_convertible_v<Arg, const char *> &&
 		        !std::is_convertible_v<Arg, const std::string &> &&
-			!std::is_convertible_v<Arg, const std::string_view &>) {
+			!std::is_convertible_v<Arg, const std::string_view &> &&
+			!std::is_convertible_v<Arg, const RTLIL::IdString &>) {
 			YOSYS_ABORT("Expected type convertible to char *");
 		}
 		*specs = found;
@@ -278,6 +283,10 @@ void format_emit_string(std::string &result, std::string_view spec, int *dynamic
 // Emit the string representation of `arg` that has been converted to a `std::string_view'.
 void format_emit_string_view(std::string &result, std::string_view spec, int *dynamic_ints,
 	DynamicIntCount num_dynamic_ints, std::string_view arg);
+
+// Emit the string representation of `arg` that has been converted to a `RTLIL::IdString'.
+void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const RTLIL::IdString &arg);
 
 // Emit the string representation of `arg` that has been converted to a `double'.
 void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,
@@ -327,6 +336,11 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 		if constexpr (std::is_convertible_v<Arg, const std::string_view &>) {
 			const std::string_view &s = arg;
 			format_emit_string_view(result, spec, dynamic_ints, num_dynamic_ints, s);
+			return;
+		}
+		if constexpr (std::is_convertible_v<Arg, const RTLIL::IdString &>) {
+			const RTLIL::IdString &s = arg;
+			format_emit_idstring(result, spec, dynamic_ints, num_dynamic_ints, s);
 			return;
 		}
 		break;
@@ -433,7 +447,7 @@ template <typename T> struct WrapType { using type = T; };
 template <typename T> using TypeIdentity = typename WrapType<T>::type;
 
 template <typename... Args>
-inline std::string stringf(FmtString<TypeIdentity<Args>...> fmt, Args... args)
+inline std::string stringf(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	return fmt.format(args...);
 }

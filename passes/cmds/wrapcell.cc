@@ -97,9 +97,9 @@ struct Chunk {
 		if (len == cell->getPort(port).size())
 			return port;
 		else if (len == 1)
-			return stringf("%s[%d]", port.c_str(), base);
+			return stringf("%s[%d]", port, base);
 		else
-			return stringf("%s[%d:%d]", port.c_str(), base + len - 1, base);
+			return stringf("%s[%d:%d]", port, base + len - 1, base);
 	}
 
 	SigSpec sample(Cell *cell)
