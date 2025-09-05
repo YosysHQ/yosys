@@ -30,10 +30,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Returns an l-value used in a sync process such that all bits of the l-value
+// are used in every sync action that uses at least one of them - i.e. they
+// are all subject to the same set of updates. If no such l-values remain,
+// returns an empty SigSpec
 RTLIL::SigSpec find_any_lvalue(const RTLIL::Process& proc)
 {
 	RTLIL::SigSpec lvalue;
 
+	// Find any l-value
 	for (const auto* sync : proc.syncs)
 	for (const auto& action : sync->actions)
 		if (action.first.size() > 0) {
@@ -42,6 +47,8 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process& proc)
 			break;
 		}
 
+	// If parts of this l-value appear in other actions, take the intersection
+	// of bits used in both so that the remaining bits are all updated together
 	for (const auto* sync : proc.syncs) {
 		RTLIL::SigSpec this_lvalue;
 		for (const auto& action : sync->actions)
@@ -88,7 +95,7 @@ public:
 
 			// Edge sensitive assignments (clock)
 			if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
-				if (sync_edge != NULL && sync_edge != sync)
+				if (sync_edge != nullptr && sync_edge != sync)
 					log_error("Multiple edge sensitive events found for this signal!\n");
 				sig_out.replace(action.first, action.second, &sig_in);
 				sync_edge = sync;
@@ -97,7 +104,7 @@ public:
 
 			// Always assignments
 			if (sync->type == RTLIL::SyncType::STa) {
-				if (sync_always != NULL && sync_always != sync)
+				if (sync_always != nullptr && sync_always != sync)
 					log_error("Multiple always events found for this signal!\n");
 				sig_out.replace(action.first, action.second, &sig_in);
 				sync_always = sync;
