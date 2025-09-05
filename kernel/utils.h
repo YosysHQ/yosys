@@ -21,6 +21,7 @@
 // do not depend on any other components of yosys (except stuff like log_*).
 
 #include "kernel/yosys.h"
+#include <iterator>
 
 #ifndef UTILS_H
 #define UTILS_H
@@ -274,6 +275,16 @@ inline int ceil_log2(int x)
 			return i;
 	log_abort();
 #endif
+}
+
+template <typename T>
+auto reversed(const T& container) {
+    struct reverse_view {
+        const T& cont;
+        auto begin() const { return cont.rbegin(); }
+        auto end() const { return cont.rend(); }
+    };
+    return reverse_view{container};
 }
 
 YOSYS_NAMESPACE_END
