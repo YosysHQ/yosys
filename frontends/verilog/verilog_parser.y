@@ -3023,7 +3023,8 @@ case_expr_list:
 		SET_AST_NODE_LOC(node, @1, @1);
 	} |
 	TOK_SVA_LABEL {
-		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_IDENTIFIER));
+		AstNode* node = extra->saveChild(std::make_unique<AstNode>(@$, AST_IDENTIFIER));
+		node->str = *$1;
 		SET_AST_NODE_LOC(node, @1, @1);
 	} |
 	expr {
