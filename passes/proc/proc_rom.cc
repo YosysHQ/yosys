@@ -97,7 +97,7 @@ struct RomWorker
 						log_debug("rejecting switch: lhs not uniform\n");
 						return;
 					}
-					val.bits()[it2->second] = it.second[i].data;
+					val.set(it2->second, it.second[i].data);
 				}
 			}
 			for (auto bit: val) {
@@ -114,7 +114,7 @@ struct RomWorker
 				}
 				Const c = addr.as_const();
 				while (GetSize(c) && c.back() == State::S0)
-					c.bits().pop_back();
+					c.resize(c.size() - 1, State::S0);
 				if (GetSize(c) > swsigbits)
 					continue;
 				if (GetSize(c) > 30) {
@@ -155,22 +155,22 @@ struct RomWorker
 		Mem mem(module, NEW_ID, GetSize(lhs), 0, 1 << abits);
 		mem.attributes = sw->attributes;
 
-		Const init_data;
+		Const::Builder builder(mem.size * GetSize(lhs));
 		for (int i = 0; i < mem.size; i++) {
 			auto it = vals.find(i);
 			if (it == vals.end()) {
 				log_assert(got_default);
 				for (auto bit: default_val)
-					init_data.bits().push_back(bit);
+					builder.push_back(bit);
 			} else {
 				for (auto bit: it->second)
-					init_data.bits().push_back(bit);
+					builder.push_back(bit);
 			}
 		}
 
 		MemInit init;
 		init.addr = 0;
-		init.data = init_data;
+		init.data = builder.build();
 		init.en = Const(State::S1, GetSize(lhs));
 		mem.inits.push_back(std::move(init));
 

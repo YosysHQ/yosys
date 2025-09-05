@@ -80,14 +80,282 @@ namespace RTLIL {
 			EXPECT_EQ(i, 16);
 			EXPECT_TRUE(cs1.is_str());
 
-			// It can be mutated with the bits() view
-			// and decays into unpacked
-			for (auto& bit : cs1.bits()) {
-				bit = State::Sx;
+			// It can be mutated via bit iteration and decays into unpacked
+			// when an non-defined bit is set.
+			for (auto b : cs1) {
+				b = State::Sx;
 			}
 			EXPECT_TRUE(cs1.is_bits());
 		}
 
+		{
+			Const c(0x12345678);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0x12345678);
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(0xab, 8);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0xab);
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(0x12345678, 80);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), 0x12345678);
+			EXPECT_EQ(c[79], S0);
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(-1, 80);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_int(), -1);
+			EXPECT_EQ(c[79], S1);
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(1 << 24);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_TRUE(c.as_bool());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(0x2, 8);
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.as_string(), "00000010");
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.decode_string(), " ");
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_EQ(c.decode_string(), " ");
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			std::vector<State> v = {S0, S0, S0, S0, S0, S1, S0, S0};
+			Const c(v);
+			EXPECT_EQ(c.decode_string(), " ");
+		}
+
+		{
+			std::vector<State> v = {S0, S0, S0, S0, S0, S1, S0, Sx};
+			Const c(v);
+			EXPECT_EQ(c.decode_string(), " ");
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_zero());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_ones());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_TRUE(c.is_fully_def());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_undef());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			EXPECT_FALSE(c.is_fully_undef_x_only());
+			EXPECT_TRUE(c.is_str());
+		}
+
+		{
+			Const c(" ");
+			EXPECT_TRUE(c.is_str());
+			int pos;
+			EXPECT_TRUE(c.is_onehot(&pos));
+			EXPECT_EQ(pos, 5);
+			EXPECT_TRUE(c.is_str());
+		}
+	}
+
+	TEST_F(KernelRtlilTest, ConstConstIteratorWorks) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S0);
+		++it;
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S1);
+		++it;
+		EXPECT_EQ(it, c.end());
+	}
+
+	TEST_F(KernelRtlilTest, ConstConstIteratorPreincrement) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		EXPECT_EQ(*++it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstConstIteratorPostincrement) {
+		const Const c(0x2, 2);
+		Const::const_iterator it = c.begin();
+		EXPECT_EQ(*it++, State::S0);
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorWorks) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S0);
+		++it;
+		ASSERT_NE(it, c.end());
+		EXPECT_EQ(*it, State::S1);
+		++it;
+		ASSERT_EQ(it, c.end());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorPreincrement) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*++it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorPostincrement) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*it++, State::S0);
+	}
+
+	TEST_F(KernelRtlilTest, ConstIteratorWriteWorks) {
+		Const c(0x2, 2);
+		Const::iterator it = c.begin();
+		EXPECT_EQ(*it, State::S0);
+		*it = State::S1;
+		EXPECT_EQ(*it, State::S1);
+	}
+
+	TEST_F(KernelRtlilTest, ConstBuilder) {
+		Const::Builder b;
+		EXPECT_EQ(GetSize(b), 0);
+		b.push_back(S0);
+		EXPECT_EQ(GetSize(b), 1);
+		b.push_back(S1);
+		EXPECT_EQ(GetSize(b), 2);
+		EXPECT_EQ(b.build(), Const(0x2, 2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstSet) {
+		Const c(0x2, 2);
+		c.set(0, S1);
+		EXPECT_EQ(c, Const(0x3, 2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstResize) {
+		Const c(0x2, 2);
+		c.resize(4, S1);
+		EXPECT_EQ(c, Const(0xe, 4));
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualStr) {
+		EXPECT_EQ(Const("abc"), Const("abc"));
+		EXPECT_NE(Const("abc"), Const("def"));
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualBits) {
+		std::vector<State> v1 = {S0, S1};
+		std::vector<State> v2 = {S1, S0};
+		EXPECT_EQ(Const(v1), Const(v1));
+		EXPECT_NE(Const(v1), Const(v2));
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualStrBits) {
+		std::vector<State> v1 = {S0, S0, S0, S0, S0, S1, S0, S0};
+		EXPECT_EQ(Const(v1), Const(" "));
+		EXPECT_NE(Const(v1), Const("a"));
+	}
+
+	static Hasher::hash_t hash(const Const &c) {
+		Hasher h;
+		h = c.hash_into(h);
+		return h.yield();
+	}
+
+	TEST_F(KernelRtlilTest, ConstEqualHashStrBits) {
+		std::vector<State> v1 = {S0, S0, S0, S0, S0, S1, S0, S0};
+		EXPECT_EQ(hash(Const(v1)), hash(Const(" ")));
+		EXPECT_NE(hash(Const(v1)), hash(Const("a")));
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyZero) {
+		EXPECT_TRUE(Const(0, 8).is_fully_zero());
+		EXPECT_FALSE(Const(8, 8).is_fully_zero());
+		EXPECT_TRUE(Const().is_fully_zero());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyOnes) {
+		EXPECT_TRUE(Const(0xf, 4).is_fully_ones());
+		EXPECT_FALSE(Const(3, 4).is_fully_ones());
+		EXPECT_TRUE(Const().is_fully_ones());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyDef) {
+		EXPECT_TRUE(Const(0xf, 4).is_fully_def());
+		std::vector<State> v1 = {S0, Sx};
+		EXPECT_FALSE(Const(v1).is_fully_def());
+		EXPECT_TRUE(Const().is_fully_def());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyUndef) {
+		std::vector<State> v1 = {S0, Sx};
+		EXPECT_FALSE(Const(v1).is_fully_undef());
+		EXPECT_TRUE(Const(Sz, 2).is_fully_undef());
+		EXPECT_TRUE(Const().is_fully_undef());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsFullyUndefXOnly) {
+		std::vector<State> v1 = {Sx, Sz};
+		EXPECT_FALSE(Const(v1).is_fully_undef_x_only());
+		EXPECT_TRUE(Const(Sx, 2).is_fully_undef_x_only());
+		EXPECT_TRUE(Const().is_fully_undef_x_only());
+	}
+
+	TEST_F(KernelRtlilTest, ConstIsOnehot) {
+		int pos;
+		EXPECT_TRUE(Const(0x80, 8).is_onehot(&pos));
+		EXPECT_EQ(pos, 7);
+		EXPECT_FALSE(Const(0x82, 8).is_onehot(&pos));
+		EXPECT_FALSE(Const(0, 8).is_onehot(&pos));
+		EXPECT_TRUE(Const(1, 1).is_onehot(&pos));
+		EXPECT_EQ(pos, 0);
+		EXPECT_FALSE(Const(Sx, 1).is_onehot(&pos));
+		std::vector<State> v1 = {Sx, S1};
+		EXPECT_FALSE(Const(v1).is_onehot(&pos));
+		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
 	class WireRtlVsHdlIndexConversionTest :

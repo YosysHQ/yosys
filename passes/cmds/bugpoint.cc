@@ -405,7 +405,11 @@ struct BugpointPass : public Pass {
 								for (auto it2 = sy->mem_write_actions.begin(); it2 != sy->mem_write_actions.end(); ++it2) {
 									auto &mask = it2->priority_mask;
 									if (GetSize(mask) > i) {
-										mask.bits().erase(mask.bits().begin() + i);
+										RTLIL::Const::Builder new_mask_builder(GetSize(mask) - 1);
+										for (int k = 0; k < GetSize(mask); k++)
+											if (k != i)
+												new_mask_builder.push_back(mask[k]);
+										mask = new_mask_builder.build();
 									}
 								}
 								return design_copy;
