@@ -639,6 +639,13 @@ void log_dump_val_worker(RTLIL::State v) {
 	log("%s", log_signal(v));
 }
 
+std::string signal_str(const RTLIL::SigSpec &sig, bool autoint)
+{
+	std::stringstream buf;
+	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
+	return buf.str();
+}
+
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
