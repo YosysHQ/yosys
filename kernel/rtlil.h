@@ -83,6 +83,14 @@ namespace RTLIL
 		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
 	};
 
+	enum class StaticId : short {
+		STATIC_ID_BEGIN = 0,
+#define X(N) N,
+#include "kernel/constids.inc"
+#undef X
+		STATIC_ID_END,
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -105,8 +113,18 @@ namespace RTLIL
 	struct Process;
 	struct Binding;
 	struct IdString;
+	struct StaticIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
+
+	struct StaticIdString {
+		constexpr StaticIdString(StaticId id, const IdString &id_str) : id_str(id_str), id(id) {}
+		constexpr inline operator const IdString &() const { return id_str; }
+		constexpr inline int index() const { return static_cast<short>(id); }
+
+		const IdString &id_str;
+		const StaticId id;
+	};
 };
 
 struct RTLIL::IdString
@@ -127,7 +145,13 @@ struct RTLIL::IdString
 	static std::vector<char*> global_id_storage_;
 	static std::unordered_map<std::string_view, int> global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
-	static std::vector<int> global_refcount_storage_;
+	// For prepopulated IdStrings, the refcount is meaningless since they
+	// are never freed even if the refcount is zero. For code efficiency
+	// we increment the refcount of prepopulated IdStrings like any other string,
+	// but we never decrement the refcount or check whether it's zero.
+	// So, make this unsigned because refcounts of preopulated IdStrings may overflow
+	// and overflow of signed integers is undefined behavior.
+	static std::vector<uint32_t> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
 #endif
 
@@ -144,7 +168,7 @@ struct RTLIL::IdString
 			if (global_id_storage_.at(idx) == nullptr)
 				log("#X# DB-DUMP index %d: FREE\n", idx);
 			else
-				log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
 		}
 	#endif
 	}
@@ -166,24 +190,19 @@ struct RTLIL::IdString
 
 	static inline int get_reference(int idx)
 	{
-		if (idx) {
 	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_[idx]++;
+		global_refcount_storage_[idx]++;
 	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
+			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
 	#endif
-		}
 		return idx;
 	}
 
 	static int get_reference(const char *p)
 	{
 		log_assert(destruct_guard_ok);
-
-		if (!p[0])
-			return 0;
 
 		auto it = global_id_index_.find((char*)p);
 		if (it != global_id_index_.end()) {
@@ -192,10 +211,16 @@ struct RTLIL::IdString
 	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
 	#endif
 			return it->second;
 		}
+
+		if (global_id_index_.empty())
+			prepopulate();
+
+		if (!p[0])
+			return 0;
 
 		log_assert(p[0] == '$' || p[0] == '\\');
 		log_assert(p[1] != 0);
@@ -238,7 +263,7 @@ struct RTLIL::IdString
 
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace)
-			log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
 	#endif
 
 	#ifdef YOSYS_USE_STICKY_IDS
@@ -258,21 +283,20 @@ struct RTLIL::IdString
 	{
 		// put_reference() may be called from destructors after the destructor of
 		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (!destruct_guard_ok || !idx)
+		if (idx < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
 			return;
 
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace) {
-			log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			log("#X# PUT '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
 		}
 	#endif
 
-		int &refcount = global_refcount_storage_[idx];
+		uint32_t &refcount = global_refcount_storage_[idx];
 
 		if (--refcount > 0)
 			return;
 
-		log_assert(refcount == 0);
 		free_reference(idx);
 	}
 	static inline void free_reference(int idx)
@@ -281,6 +305,7 @@ struct RTLIL::IdString
 			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
+		log_assert(idx >= static_cast<short>(StaticId::STATIC_ID_END));
 
 		global_id_index_.erase(global_id_storage_.at(idx));
 		free(global_id_storage_.at(idx));
@@ -300,6 +325,7 @@ struct RTLIL::IdString
 	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
 	inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+	inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
 	inline ~IdString() { put_reference(index_); }
 
 	inline void operator=(const IdString &rhs) {
@@ -331,6 +357,8 @@ struct RTLIL::IdString
 
 	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
 	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+	inline bool operator==(const StaticIdString &rhs) const;
+	inline bool operator!=(const StaticIdString &rhs) const;
 
 	// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -416,12 +444,16 @@ struct RTLIL::IdString
 	}
 
 	bool in(const IdString &rhs) const { return *this == rhs; }
+	bool in(const StaticIdString &rhs) const { return *this == rhs; }
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
 	inline bool in(const pool<IdString> &&rhs) const;
 
 	bool isPublic() const { return begins_with("\\"); }
+
+private:
+	static void prepopulate();
 };
 
 namespace hashlib {
@@ -449,12 +481,76 @@ inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.co
 [[deprecated]]
 inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
 
+inline bool RTLIL::IdString::operator==(const RTLIL::StaticIdString &rhs) const {
+	return index_ == rhs.index();
+}
+inline bool RTLIL::IdString::operator!=(const RTLIL::StaticIdString &rhs) const {
+	return index_ != rhs.index();
+}
+
 namespace RTLIL {
 	namespace ID {
-#define X(_id) extern IdString _id;
+#define X(_id) extern const IdString _id;
 #include "kernel/constids.inc"
 #undef X
-	};
+	}
+}
+
+struct IdTableEntry {
+	const std::string_view name;
+	const RTLIL::StaticIdString static_id;
+};
+
+constexpr IdTableEntry IdTable[] = {
+#define X(_id) {#_id, RTLIL::StaticIdString(RTLIL::StaticId::_id, RTLIL::ID::_id)},
+#include "kernel/constids.inc"
+#undef X
+};
+
+constexpr int lookup_well_known_id(std::string_view name)
+{
+	int low = 0;
+	int high = sizeof(IdTable) / sizeof(IdTable[0]);
+	while (high - low >= 2) {
+		int mid = (low + high) / 2;
+		if (name < IdTable[mid].name)
+			high = mid;
+		else
+			low = mid;
+	}
+	if (IdTable[low].name == name)
+		return low;
+	return -1;
+}
+
+// Create a statically allocated IdString object, using for example ID::A or ID($add).
+//
+// Recipe for Converting old code that is using conversion of strings like ID::A and
+// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
+// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
+//
+//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
+//
+typedef const RTLIL::IdString &IDMacroHelperFunc();
+
+template <int IdTableIndex> struct IDMacroHelper {
+	static constexpr RTLIL::StaticIdString eval(IDMacroHelperFunc) {
+		return IdTable[IdTableIndex].static_id;
+	}
+};
+template <> struct IDMacroHelper<-1> {
+	static constexpr const RTLIL::IdString &eval(IDMacroHelperFunc func) {
+		return func();
+	}
+};
+
+#define ID(_id) IDMacroHelper<lookup_well_known_id(#_id)>::eval([]() -> const RTLIL::IdString & { \
+		const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
+		static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); \
+		return id; \
+        })
+
+namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
 	const pool<IdString> &builtin_ff_cell_types();
