@@ -30,36 +30,105 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Returns an l-value used in a sync process such that all bits of the l-value
-// are used in every sync action that uses at least one of them - i.e. they
-// are all subject to the same set of updates. If no such l-values remain,
-// returns an empty SigSpec
-RTLIL::SigSpec find_any_lvalue(const RTLIL::Process& proc)
-{
-	RTLIL::SigSpec lvalue;
+std::vector<std::vector<RTLIL::SigBit>> compute_disjoint_lvalues(const RTLIL::Process& proc) {
+	// We want to partition the bits that appear in the lvalues of sync actions
+	// in this process such that two bits are in the same partition (equivalence
+	// class) iff they appear in the same set of actions. To do this we maintain
+	// a vector of e-classes for bits we have seen thus far, and iteratively
+	// process the sync rules, splitting e-classes if only some of their bits
+	// appear in the rule. e-class vectors are kept in sorted order to make
+	// merging linear.
+	std::vector<std::vector<RTLIL::SigBit>> eclasses;
 
-	// Find any l-value
+	// For each bit we store the index of its e-class so that we can quickly
+	// see which e-classes might be split by a bit appearing in a rule
+	dict<RTLIL::SigBit, size_t> eclass_idx;
+
+	// Creates a new e-class, (re)assigning the e-class index of each bit
+	// to the new e-class' index
+	const auto to_new_eclass = [&](const std::vector<RTLIL::SigBit>&& sig) {
+		if (sig.empty())
+			return;
+
+		const auto new_idx = eclasses.size();
+		for (const auto& bit : sig)
+			eclass_idx.emplace(bit, new_idx);
+
+		eclasses.emplace_back(std::move(sig));
+	};
+
 	for (const auto* sync : proc.syncs)
-	for (const auto& action : sync->actions)
-		if (action.first.size() > 0) {
-			lvalue = action.first;
-			lvalue.sort_and_unify();
-			break;
+	for (const auto& action : sync->actions) {
+		if (action.first.empty())
+			continue;
+
+		auto lvalue = action.first.to_sigbit_vector();
+		std::sort(lvalue.begin(), lvalue.end());
+		lvalue.erase(std::unique(lvalue.begin(), lvalue.end()), lvalue.end());
+
+		// We wish to split the existing e-class and lvalue such that the
+		// e-class now contains elements in both the original e-class and lvalue,
+		// lvalue contains elements that were only in lvalue and the residual
+		// contains elements that were only in the e-class
+		for (size_t i = 0; i < lvalue.size(); i++) {
+			const auto& bit = lvalue[i];
+			const auto eclass_it = eclass_idx.find(bit);
+
+			if (eclass_it == eclass_idx.end())
+				continue;
+
+			auto& eclass = eclasses.at(eclass_it->second);
+
+			std::vector<RTLIL::SigBit> residual;
+
+			size_t ec_read = 0, ec_write = 0;
+			size_t lv_read = i, lv_write = i;
+			while (ec_read < eclass.size() && lv_read < lvalue.size()) {
+				const auto& ec_bit = eclass[ec_read];
+				const auto& lv_bit = lvalue[lv_read];
+
+				// If bit appears in both, it should stay in e-class but not lvalue
+				if (ec_bit == lv_bit) {
+					if (ec_write != ec_read)
+						eclass[ec_write] = ec_bit;
+					ec_write++;
+					ec_read++;
+					lv_read++;
+				}
+				// If e-class bit is less than lvalue bit, it appears only in e-class
+				else if (ec_bit < lv_bit) {
+					residual.emplace_back(ec_bit);
+					ec_read++;
+				}
+				// If lvalue bit is less than e-class bit, it appears only in lvalue
+				else {
+					if (lv_write != lv_read)
+						lvalue[lv_write] = lv_bit;
+					lv_write++;
+					lv_read++;
+				}
+			}
+
+			// Any remaining e-class elems are not in lvalue so go in residual
+			for (; ec_read < eclass.size(); ec_read++)
+				residual.emplace_back(eclass[ec_read]);
+			eclass.resize(ec_write);
+
+			// Any remaining lvalue elems are not in e-class so stay in lvalue
+			// (moved down). We only need to bother doing this if there were
+			// gaps and thus lv_write != lv_read
+			if (lv_write != lv_read)
+				for (; lv_read < eclass.size(); lv_read++)
+					lvalue[lv_write++] = lvalue[lv_read];
+			lvalue.resize(lv_write);
+
+			to_new_eclass(std::move(residual));
 		}
 
-	// If parts of this l-value appear in other actions, take the intersection
-	// of bits used in both so that the remaining bits are all updated together
-	for (const auto* sync : proc.syncs) {
-		RTLIL::SigSpec this_lvalue;
-		for (const auto& action : sync->actions)
-			this_lvalue.append(action.first);
-		this_lvalue.sort_and_unify();
-		RTLIL::SigSpec common_sig = this_lvalue.extract(lvalue);
-		if (common_sig.size() > 0)
-			lvalue = common_sig;
+		to_new_eclass(std::move(lvalue));
 	}
 
-	return lvalue;
+	return eclasses;
 }
 
 std::string new_dff_name() {
@@ -489,26 +558,44 @@ private:
 };
 
 void proc_dff(RTLIL::Module& mod, RTLIL::Process& proc, ConstEval &ce) {
-	while (1) {
-		// Find a new signal assigned by this process
-		const auto sig = find_any_lvalue(proc);
-		if (sig.empty())
-			break;
+	for (auto lvalue : compute_disjoint_lvalues(proc)) {
+		while (!lvalue.empty()) {
+			Dff dff{mod, lvalue, proc};
+			dff.optimize(ce);
 
-		log("Creating register for signal `%s.%s' using process `%s.%s'.\n",
-			mod.name, log_signal(sig), mod.name, proc.name);
+			const auto& output = dff.output();
+			log("Creating register for signal `%s.%s' using process `%s.%s'.\n",
+				mod.name, log_signal(output), mod.name, proc.name);
 
-		Dff dff{mod, sig, proc};
-		dff.optimize(ce);
-		dff.generate();
+			dff.generate();
 
-		// Now that we are done with the signal remove it from the process
-		// We must do this after optimizing the dff as to emit an optimal dff
-		// type we might not actually use all bits of sig in this iteration
-		for (auto* sync : proc.syncs)
-		for (auto& action : sync->actions)
-			action.first.remove2(dff.output(), &action.second);
+			size_t low = 0, high = 0, output_idx = 0;
+			while (high < lvalue.size() && output_idx < static_cast<size_t>(output.size())) {
+				const auto& lv = lvalue[high];
+				const auto& out = output[output_idx];
+				if (lv == out) {
+					high++;
+					output_idx++;
+				}
+				else if (lv < out) {
+					lvalue[low++] = lvalue[high];
+				} else {
+					log_abort();
+				}
+			}
+
+			if (high != low) {
+				for (; high < lvalue.size(); high++)
+					lvalue[low++] = lvalue[high];
+
+				lvalue.resize(low);
+			}
+
+		}
 	}
+
+	for (auto* sync : proc.syncs)
+		sync->actions.clear();
 }
 
 struct ProcDffPass : public Pass {
