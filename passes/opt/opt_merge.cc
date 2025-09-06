@@ -107,7 +107,7 @@ struct OptMergeWorker
 			for (const auto& [port, sig] : cell->connections()) {
 				if (cell->output(port))
 					continue;
-				comm.eat(hash_ops<std::pair<IdString, SigSpec>>::hash({port, assign_map(sig)}));
+				comm.eat(hash_ops<std::pair<IdString, SigSpec>>::hash(port, assign_map(sig)));
 			}
 			h = comm.hash_into(h);
 			if (RTLIL::builtin_ff_cell_types().count(cell->type))
