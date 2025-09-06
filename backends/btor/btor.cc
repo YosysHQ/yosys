@@ -509,7 +509,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($not), ID($neg), ID($_NOT_), ID($pos)))
+		if (cell->type.in(ID($not), ID($neg), ID($_NOT_), ID($pos), ID($buf), ID($_BUF_)))
 		{
 			string btor_op;
 			if (cell->type.in(ID($not), ID($_NOT_))) btor_op = "not";
@@ -521,9 +521,9 @@ struct BtorWorker
 			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
 			SigSpec sig = sigmap(cell->getPort(ID::Y));
 
-			// the $pos cell just passes through, all other cells need an actual operation applied
+			// the $pos/$buf cells just pass through, all other cells need an actual operation applied
 			int nid = nid_a;
-			if (cell->type != ID($pos))
+			if (!cell->type.in(ID($pos), ID($buf), ID($_BUF_)))
 			{
 				log_assert(!btor_op.empty());
 				int sid = get_bv_sid(width);

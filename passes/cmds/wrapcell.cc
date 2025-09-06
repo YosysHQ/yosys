@@ -47,7 +47,7 @@ struct ContextData {
 	std::string unused_outputs;
 };
 
-std::optional<std::string> format(std::string fmt, const dict<IdString, Const> &parameters,
+std::optional<std::string> format_with_params(std::string fmt, const dict<IdString, Const> &parameters,
 								  const ContextData &context)
 {
 	std::stringstream result;
@@ -230,7 +230,7 @@ struct WrapcellPass : Pass {
 						context.unused_outputs += "_" + RTLIL::unescape_id(chunk.format(cell));
 				}
 
-				std::optional<std::string> unescaped_name = format(name_fmt, cell->parameters, context);
+				std::optional<std::string> unescaped_name = format_with_params(name_fmt, cell->parameters, context);
 				if (!unescaped_name)
 					log_error("Formatting error when processing cell '%s' in module '%s'\n",
 							  log_id(cell), log_id(module));
@@ -270,7 +270,7 @@ struct WrapcellPass : Pass {
 					if (rule.value_fmt.empty()) {
 						subm->set_bool_attribute(rule.name);
 					} else {
-						std::optional<std::string> value = format(rule.value_fmt, cell->parameters, context);
+						std::optional<std::string> value = format_with_params(rule.value_fmt, cell->parameters, context);
 
 						if (!value)
 							log_error("Formatting error when processing cell '%s' in module '%s'\n",

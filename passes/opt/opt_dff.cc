@@ -199,7 +199,7 @@ struct OptDffWorker
 
 					const auto complimentary_var = find_comp(left, right);
 
-					if (complimentary_var) {
+					if (complimentary_var && new_patterns.count(right)) {
 						new_patterns.erase(right);
 						right.erase(complimentary_var.value());
 						new_patterns.insert(right);

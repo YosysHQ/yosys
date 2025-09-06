@@ -64,7 +64,7 @@ struct OptMuxtreeWorker
 	RTLIL::Module *module;
 	SigMap assign_map;
 	int removed_count;
-	int glob_evals_left = 100000;
+	int glob_evals_left = 10000000;
 
 	struct bitinfo_t {
 		// Is bit directly used by non-mux cells or ports?

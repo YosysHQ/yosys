@@ -36,9 +36,12 @@ jobs:
           - 'clang-19'
           - 'gcc-13'
         include:
-          # macOS
+          # macOS x86
           - os: macos-13
-            compiler: 'clang'
+            compiler: 'clang-19'
+          # macOS arm
+          - os: macos-latest
+            compiler: 'clang-19'
       fail-fast: false
     steps:
       - name: Checkout Yosys

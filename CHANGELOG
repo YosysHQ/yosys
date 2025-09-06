@@ -2,8 +2,23 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.56 .. Yosys 0.57-dev
+Yosys 0.57 .. Yosys 0.58-dev
 --------------------------
+
+Yosys 0.56 .. Yosys 0.57
+--------------------------
+ * New commands and options
+    - Added "-initstates" option to "abstract" pass.
+    - Added "-set-assumes" option to "equiv_induct"
+      and "equiv_simple" passes.
+    - Added "-always" option to "raise_error" pass.
+    - Added "-hierarchy" option to "stat" pass.
+    - Added "-noflatten" option to "synth_quicklogic" pass.
+
+ * Various
+    - smtbmc: Support skipping steps in cover mode.
+    - write_btor: support $buf.
+    - read_verilog: support package import.
 
 Yosys 0.55 .. Yosys 0.56
 --------------------------
