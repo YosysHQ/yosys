@@ -211,10 +211,6 @@ void yosys_setup()
 	init_share_dirname();
 	init_abc_executable_name();
 
-#define X(_id) RTLIL::ID::_id = "\\" # _id;
-#include "kernel/constids.inc"
-#undef X
-
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
 	yosys_celltypes.setup();
