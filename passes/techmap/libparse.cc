@@ -676,12 +676,15 @@ void LibertyParser::error(const std::string &str) const
 
 #else
 
+YS_ATTRIBUTE(weak)
 void LibertyParser::error() const
 {
 	fprintf(stderr, "Syntax error in liberty file on line %d.\n", line);
 	exit(1);
 }
 
+
+YS_ATTRIBUTE(weak)
 void LibertyParser::error(const std::string &str) const
 {
 	std::stringstream ss;
