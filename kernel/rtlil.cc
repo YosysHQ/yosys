@@ -29,6 +29,7 @@
 #include <string.h>
 #include <algorithm>
 #include <optional>
+#include <string_view>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -37,7 +38,7 @@ RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
-std::vector<int> RTLIL::IdString::global_refcount_storage_;
+std::vector<uint32_t> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 #endif
 #ifdef YOSYS_USE_STICKY_IDS
@@ -45,9 +46,31 @@ int RTLIL::IdString::last_created_idx_[8];
 int RTLIL::IdString::last_created_idx_ptr_;
 #endif
 
-#define X(_id) IdString RTLIL::ID::_id;
+#define X(N) const RTLIL::IdString RTLIL::ID::N(RTLIL::StaticId::N);
 #include "kernel/constids.inc"
 #undef X
+
+static void populate(std::string_view name)
+{
+	if (name[1] == '$') {
+		// Skip prepended '\'
+		name = name.substr(1);
+	}
+	RTLIL::IdString::global_id_index_.insert({name, GetSize(RTLIL::IdString::global_id_storage_)});
+	RTLIL::IdString::global_id_storage_.push_back(const_cast<char*>(name.data()));
+}
+
+void RTLIL::IdString::prepopulate()
+{
+	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
+	global_id_storage_.reserve(size);
+	RTLIL::IdString::global_id_storage_.push_back(const_cast<char*>(""));
+	global_id_index_.reserve(size);
+	global_refcount_storage_.resize(size, 1);
+#define X(N) populate("\\" #N);
+#include "kernel/constids.inc"
+#undef X
+}
 
 dict<std::string, std::string> RTLIL::constpad;
 
