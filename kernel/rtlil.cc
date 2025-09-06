@@ -5836,7 +5836,10 @@ bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, R
 		}
 	}
 
-	return parse(sig, module, str);
+	if (!parse(sig, module, str))
+		return false;
+	sig.extend_u0(lhs.width_);
+	return true;
 }
 
 RTLIL::CaseRule::~CaseRule()
