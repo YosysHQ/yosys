@@ -121,6 +121,7 @@ namespace RTLIL
 		constexpr StaticIdString(StaticId id, const IdString &id_str) : id_str(id_str), id(id) {}
 		constexpr inline operator const IdString &() const { return id_str; }
 		constexpr inline int index() const { return static_cast<short>(id); }
+		constexpr inline const IdString &id_string() const { return id_str; }
 
 		const IdString &id_str;
 		const StaticId id;
@@ -342,6 +343,8 @@ struct RTLIL::IdString
 		IdString id(rhs);
 		*this = id;
 	}
+
+	constexpr inline const IdString &id_string() const { return *this; }
 
 	inline const char *c_str() const {
 		return global_id_storage_.at(index_);
