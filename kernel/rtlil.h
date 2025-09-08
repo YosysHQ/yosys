@@ -411,7 +411,7 @@ struct RTLIL::IdString
 	// often one needs to check if a given IdString is part of a list (for example a list
 	// of cell types). the following functions helps with that.
 	template<typename... Args>
-	bool in(Args... args) const {
+	bool in(const Args &... args) const {
 		return (... || in(args));
 	}
 
@@ -430,10 +430,10 @@ namespace hashlib {
 		static inline bool cmp(const RTLIL::IdString &a, const RTLIL::IdString &b) {
 			return a == b;
 		}
-		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString id) {
+		[[nodiscard]] static inline Hasher hash(const RTLIL::IdString &id) {
 			return id.hash_top();
 		}
-		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString id, Hasher h) {
+		[[nodiscard]] static inline Hasher hash_into(const RTLIL::IdString &id, Hasher h) {
 			return id.hash_into(h);
 		}
 	};
