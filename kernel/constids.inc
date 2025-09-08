@@ -1,4 +1,10 @@
 // These must be in perfect ASCII order!!!
+
+// Workaround for macos's math.h defining an OVERFLOW macro
+#ifdef OVERFLOW
+#undef OVERFLOW
+#endif
+
 X($_ALDFFE_NNN_)
 X($_ALDFFE_NNP_)
 X($_ALDFFE_NPN_)
