@@ -77,7 +77,7 @@ struct ExampleDtPass : public Pass
 			auto enqueue = [&](DriveSpec const &spec) {
 				int index = queue(spec);
 				if (index == GetSize(graph_nodes))
-					graph_nodes.emplace_back(compute_graph.add(ID($pending), index).index());
+					graph_nodes.emplace_back(compute_graph.add(ID($pending).id_string(), index).index());
 				//if (index >= GetSize(graph_nodes))
 				return compute_graph[graph_nodes[index]];
 			};
