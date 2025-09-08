@@ -196,6 +196,8 @@ void yosys_setup()
 	already_setup = true;
 	already_shutdown = false;
 
+	IdString::ensure_prepopulated();
+
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported

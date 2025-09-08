@@ -217,8 +217,7 @@ struct RTLIL::IdString
 			return it->second;
 		}
 
-		if (global_id_index_.empty())
-			prepopulate();
+		ensure_prepopulated();
 
 		if (!p[0])
 			return 0;
@@ -457,6 +456,12 @@ struct RTLIL::IdString
 
 private:
 	static void prepopulate();
+
+public:
+	static void ensure_prepopulated() {
+		if (global_id_index_.empty())
+			prepopulate();
+	}
 };
 
 namespace hashlib {
