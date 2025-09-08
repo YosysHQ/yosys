@@ -5,6 +5,15 @@
 #undef OVERFLOW
 #endif
 
+// Workaround for windows defining IN and OUT macros in minwindef.h which ends
+// up getting included for visual studio builds
+#ifdef IN
+#undef IN
+#endif
+#ifdef OUT
+#undef OUT
+#endif
+
 X($_ALDFFE_NNN_)
 X($_ALDFFE_NNP_)
 X($_ALDFFE_NPN_)
