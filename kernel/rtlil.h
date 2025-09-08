@@ -544,10 +544,14 @@ template <> struct IDMacroHelper<-1> {
 	}
 };
 
-#define ID(_id) IDMacroHelper<lookup_well_known_id(#_id)>::eval([]() -> const RTLIL::IdString & { \
-		const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
-		static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); \
-		return id; \
+#define ID(_id) \
+		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
+				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
+		>::eval([]() \
+		-> const YOSYS_NAMESPACE_PREFIX RTLIL::IdString & { \
+			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
+			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); \
+			return id; \
         })
 
 namespace RTLIL {
