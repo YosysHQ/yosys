@@ -72,6 +72,19 @@ void RTLIL::IdString::prepopulate()
 #undef X
 }
 
+static constexpr bool check_well_known_id_order()
+{
+	int size = sizeof(IdTable) / sizeof(IdTable[0]);
+	for (int i = 1; i < size; ++i)
+		if (IdTable[i - 1].name >= IdTable[i].name)
+			return false;
+	return true;
+}
+
+// Ensure the statically allocated IdStrings in kernel/constids.inc are unique
+// and in sorted ascii order, as required by the ID macro.
+static_assert(check_well_known_id_order());
+
 dict<std::string, std::string> RTLIL::constpad;
 
 const pool<IdString> &RTLIL::builtin_ff_cell_types() {
