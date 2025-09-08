@@ -59,9 +59,9 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setParam(ID::LUT, st.lut->getParam(ID(LUT_INIT)));
 
 	for (const auto &a : st.carry->attributes)
-		cell->attributes[stringf("\\SB_CARRY.%s", a.first.c_str())] = a.second;
+		cell->attributes[stringf("\\SB_CARRY.%s", a.first)] = a.second;
 	for (const auto &a : st.lut->attributes)
-		cell->attributes[stringf("\\SB_LUT4.%s", a.first.c_str())] = a.second;
+		cell->attributes[stringf("\\SB_LUT4.%s", a.first)] = a.second;
 	cell->attributes[ID(SB_LUT4.name)] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;

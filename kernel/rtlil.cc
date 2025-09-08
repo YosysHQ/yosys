@@ -2773,7 +2773,7 @@ RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name, int &index)
 	}
 
 	while (1) {
-		RTLIL::IdString new_name = stringf("%s_%d", name.c_str(), index);
+		RTLIL::IdString new_name = stringf("%s_%d", name, index);
 		if (count_id(new_name) == 0)
 			return new_name;
 		index++;

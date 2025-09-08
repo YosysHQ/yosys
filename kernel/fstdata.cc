@@ -33,8 +33,8 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 	std::string filename_trim = file_base_name(filename);
 	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
 		filename_trim.erase(filename_trim.size()-4);
-		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir().c_str(), filename_trim.c_str());
-		std::string cmd = stringf("vcd2fst %s %s", filename.c_str(), tmp_file.c_str());
+		tmp_file = stringf("%s/converted_%s.fst", get_base_tmpdir(), filename_trim);
+		std::string cmd = stringf("vcd2fst %s %s", filename, tmp_file);
 		log("Exec: %s\n", cmd.c_str());
 		if (run_command(cmd) != 0)
 			log_cmd_error("Shell command failed!\n");

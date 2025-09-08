@@ -201,7 +201,7 @@ struct BoothPassWorker {
 		log_assert(sig_a.size() == sig_y.size());
 
 		for (int i = 0; i < sig_a.size(); i++)
-			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i],
+			mod->addFa(stringf("%s[%d]", name, i), sig_a[i], sig_b[i],
 				   sig_c[i], sig_x[i], sig_y[i], src);
 	}
 

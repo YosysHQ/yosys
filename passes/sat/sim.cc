@@ -2095,12 +2095,12 @@ struct SimWorker : SimShared
 		std::stringstream f;
 
 		if (wire->width==1)
-			f << stringf("%s", RTLIL::unescape_id(wire->name).c_str());
+			f << stringf("%s", RTLIL::unescape_id(wire->name));
 		else
 			if (wire->upto)
-				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name));
 			else
-				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name));
 		return f.str();
 	}
 
@@ -2108,7 +2108,7 @@ struct SimWorker : SimShared
 	{
 		std::stringstream f;
 		for(auto item=signals.begin();item!=signals.end();item++)
-			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str());
+			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name));
 		return f.str();
 	}
 
@@ -2207,7 +2207,7 @@ struct SimWorker : SimShared
 
 		std::stringstream f;
 		f << stringf("`timescale 1%s/1%s\n", fst->getTimescaleString(),fst->getTimescaleString());
-		f << stringf("module %s();\n",tb_filename.c_str());
+		f << stringf("module %s();\n",tb_filename);
 		int clk_len = 0;
 		int inputs_len = 0;
 		int outputs_len = 0;
@@ -2225,13 +2225,13 @@ struct SimWorker : SimShared
 		}
 		int data_len = clk_len + inputs_len + outputs_len + 32;
 		f << "\n";
-		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name).c_str());
+		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name));
 		for(auto item=clocks.begin();item!=clocks.end();item++)
-			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str(), RTLIL::unescape_id(item->first->name).c_str());
+			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name), RTLIL::unescape_id(item->first->name));
 		for(auto &item : inputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
 		for(auto &item : outputs)
-			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name), RTLIL::unescape_id(item.first->name));
 		f << ");\n";
 		f << "\n";
 		f << "\tinteger i;\n";
@@ -2242,21 +2242,21 @@ struct SimWorker : SimShared
 		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 		fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, end_cycle, [&](uint64_t time) {
 			for(auto &item : clocks)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
 			for(auto &item : inputs)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
 			for(auto &item : outputs)
-				data_file << stringf("%s",fst->valueOf(item.second).c_str());
-			data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
+				data_file << stringf("%s",fst->valueOf(item.second));
+			data_file << stringf("%s\n",Const(time-prev_time).as_string());
 
 			if (time==startCount) {
 				// initial state
 				for(auto var : fst->getVars()) {
 					if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
 						if (var.scope == scope) {
-							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name, var.width, fst->valueOf(var.id));
 						} else if (var.scope.find(scope+".")==0) {
-							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1), var.name, var.width, fst->valueOf(var.id));
 						}
 					}
 				}
@@ -2267,22 +2267,22 @@ struct SimWorker : SimShared
 
 		f << stringf("\treg [0:%d] data [0:%d];\n", data_len-1, cycle-1);
 		f << "\tinitial begin;\n";
-		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename.c_str());
-		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename.c_str());
+		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename);
+		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename);
 		f << initstate.str();
-		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename.c_str());
+		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename);
 
 		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
-		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
 
 		f << stringf("\t\tfor (i = 1; i < %d; i++) begin\n",cycle);
 
 		f << stringf("\t\t\t#(data[i][%d:%d]);\n", data_len-32, data_len-1);	
-		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
-		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks), 0, clk_len-1);		
+		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs), clk_len, clk_len+inputs_len-1);
 		
-		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs).c_str(), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
+		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
 		f << "\t\t\t\t$error(\"Signal difference detected\\n\");\n";
 		f << "\t\t\tend\n";
 		
@@ -2337,7 +2337,7 @@ struct VCDWriter : public OutputWriter
 		}
 
 		if (!worker->timescale.empty())
-			vcdfile << stringf("$timescale %s $end\n", worker->timescale.c_str());
+			vcdfile << stringf("$timescale %s $end\n", worker->timescale);
 
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
@@ -2349,7 +2349,7 @@ struct VCDWriter : public OutputWriter
 				// this is consistent with the range gtkwave makes up if it doesn't find a
 				// range
 				std::string full_name = form_vcd_name(name, size, w);
-				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name.c_str());
+				vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", full_name);
 			}
 		);
 

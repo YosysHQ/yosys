@@ -922,7 +922,7 @@ std::unique_ptr<AstNode> AstNode::mktemp_logic(AstSrcLocType loc, const std::str
 {
 	auto wire_owned = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, mkconst_int(loc, range_left, true), mkconst_int(loc, range_right, true)));
 	auto* wire = wire_owned.get();
-	wire->str = stringf("%s%s:%d$%d", name.c_str(), RTLIL::encode_filename(*location.begin.filename).c_str(), location.begin.line, autoidx++);
+	wire->str = stringf("%s%s:%d$%d", name, RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
 	if (nosync)
 		wire->set_attribute(ID::nosync, AstNode::mkconst_int(loc, 1, false));
 	wire->is_signed = is_signed;
@@ -1773,7 +1773,7 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 std::string AST::derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters) {
 	std::string para_info;
 	for (const auto &elem : parameters)
-		para_info += stringf("%s=%s", elem.first.c_str(), serialize_param_value(elem.second).c_str());
+		para_info += stringf("%s=%s", elem.first, serialize_param_value(elem.second));
 
 	if (para_info.size() > 60)
 		return "$paramod$" + sha1(para_info) + stripped_name;

@@ -188,12 +188,12 @@ struct SynthIntelPass : public ScriptPass {
 	{
 		if (check_label("begin")) {
 			if (check_label("family"))
-				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
+				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt));
 
 			// Misc and common cells
 			run("read_verilog -sv -lib +/intel/common/m9k_bb.v");
 			run("read_verilog -sv -lib +/intel/common/altpll_bb.v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("coarse")) {
@@ -225,7 +225,7 @@ struct SynthIntelPass : public ScriptPass {
 					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__MUL9X9");
 					run("chtype -set $mul t:$__soft_mul");
 				run("alumacc");
-				run(stringf("techmap -map +/intel/%s/dsp_map.v", family_opt.c_str()));
+				run(stringf("techmap -map +/intel/%s/dsp_map.v", family_opt));
 			} else {
 				run("alumacc");
 			}
@@ -274,7 +274,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("map_cells")) {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
-			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
+			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt));
 			run("clean -purge");
 		}
 
@@ -294,7 +294,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("vpr")) {
 			if (!blif_file.empty() || help_mode) {
 				run(stringf("opt_clean -purge"));
-				run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
+				run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file));
 			}
 		}
 	}

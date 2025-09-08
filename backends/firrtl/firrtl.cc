@@ -565,12 +565,12 @@ struct FirrtlWorker
 			{
 				if (wire->port_input && wire->port_output)
 					log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
-				port_decls.push_back(stringf("%s%s %s: UInt<%d> %s\n", indent.c_str(), wire->port_input ? "input" : "output",
+				port_decls.push_back(stringf("%s%s %s: UInt<%d> %s\n", indent, wire->port_input ? "input" : "output",
 						wireName, wire->width, wireFileinfo.c_str()));
 			}
 			else
 			{
-				wire_decls.push_back(stringf("%swire %s: UInt<%d> %s\n", indent.c_str(), wireName, wire->width, wireFileinfo.c_str()));
+				wire_decls.push_back(stringf("%swire %s: UInt<%d> %s\n", indent, wireName, wire->width, wireFileinfo));
 			}
 		}
 
@@ -885,7 +885,7 @@ struct FirrtlWorker
 				string a_expr = make_expr(cell->getPort(ID::A));
 				string b_expr = make_expr(cell->getPort(ID::B));
 				string s_expr = make_expr(cell->getPort(ID::S));
-				wire_decls.push_back(stringf("%swire %s: UInt<%d> %s\n", indent.c_str(), y_id.c_str(), width, cellFileinfo.c_str()));
+				wire_decls.push_back(stringf("%swire %s: UInt<%d> %s\n", indent, y_id, width, cellFileinfo));
 
 				string expr = stringf("mux(%s, %s, %s)", s_expr, b_expr, a_expr);
 
@@ -926,7 +926,7 @@ struct FirrtlWorker
 				string a_expr = make_expr(cell->getPort(ID::A));
 				// Get the initial bit selector
 				string b_expr = make_expr(cell->getPort(ID::B));
-				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent.c_str(), y_id.c_str(), y_width));
+				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, y_width));
 
 				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					// Use validif to constrain the selection (test the sign bit)
@@ -936,7 +936,7 @@ struct FirrtlWorker
 				}
 				string expr = stringf("dshr(%s, %s)", a_expr, b_expr);
 
-				cell_exprs.push_back(stringf("%s%s <= %s\n", indent.c_str(), y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("%s%s <= %s\n", indent, y_id, expr));
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
@@ -948,21 +948,21 @@ struct FirrtlWorker
 				string b_expr = make_expr(cell->getPort(ID::B));
 				auto b_string = b_expr.c_str();
 				string expr;
-				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent.c_str(), y_id.c_str(), y_width));
+				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, y_width));
 
 				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					// We generate a left or right shift based on the sign of b.
-					std::string dshl = stringf("bits(dshl(%s, %s), 0, %d)", a_expr.c_str(), gen_dshl(b_expr, b_width).c_str(), y_width);
-					std::string dshr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
+					std::string dshl = stringf("bits(dshl(%s, %s), 0, %d)", a_expr, gen_dshl(b_expr, b_width), y_width);
+					std::string dshr = stringf("dshr(%s, %s)", a_expr, b_string);
 					expr = stringf("mux(%s < 0, %s, %s)",
 									 b_string,
 									 dshl.c_str(),
 									 dshr.c_str()
 									 );
 				} else {
-					expr = stringf("dshr(%s, %s)", a_expr.c_str(), b_string);
+					expr = stringf("dshr(%s, %s)", a_expr, b_string);
 				}
-				cell_exprs.push_back(stringf("%s%s <= %s\n", indent.c_str(), y_id.c_str(), expr.c_str()));
+				cell_exprs.push_back(stringf("%s%s <= %s\n", indent, y_id, expr));
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
@@ -975,8 +975,8 @@ struct FirrtlWorker
 				if (a_width < y_width) {
 					a_expr = stringf("pad(%s, %d)", a_expr, y_width);
 				}
-				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent.c_str(), y_id.c_str(), y_width));
-				cell_exprs.push_back(stringf("%s%s <= %s\n", indent.c_str(), y_id.c_str(), a_expr.c_str()));
+				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, y_width));
+				cell_exprs.push_back(stringf("%s%s <= %s\n", indent, y_id, a_expr));
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
@@ -999,7 +999,7 @@ struct FirrtlWorker
 			for (int i = 0; i < GetSize(mem.rd_ports); i++)
 			{
 				auto &port = mem.rd_ports[i];
-				string port_name(stringf("%s.r%d", mem_id.c_str(), i));
+				string port_name(stringf("%s.r%d", mem_id, i));
 
 				if (port.clk_enable)
 					log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
@@ -1010,17 +1010,17 @@ struct FirrtlWorker
 				string ena_expr = make_expr(State::S1);
 				string clk_expr = make_expr(State::S0);
 
-				rpe << stringf("%s%s.addr <= %s\n", indent.c_str(), port_name.c_str(), addr_expr.c_str());
-				rpe << stringf("%s%s.en <= %s\n", indent.c_str(), port_name.c_str(), ena_expr.c_str());
-				rpe << stringf("%s%s.clk <= asClock(%s)\n", indent.c_str(), port_name.c_str(), clk_expr.c_str());
+				rpe << stringf("%s%s.addr <= %s\n", indent, port_name, addr_expr);
+				rpe << stringf("%s%s.en <= %s\n", indent, port_name, ena_expr);
+				rpe << stringf("%s%s.clk <= asClock(%s)\n", indent, port_name, clk_expr);
 				cell_exprs.push_back(rpe.str());
-				register_reverse_wire_map(stringf("%s.data", port_name.c_str()), port.data);
+				register_reverse_wire_map(stringf("%s.data", port_name), port.data);
 			}
 
 			for (int i = 0; i < GetSize(mem.wr_ports); i++)
 			{
 				auto &port = mem.wr_ports[i];
-				string port_name(stringf("%s.w%d", mem_id.c_str(), i));
+				string port_name(stringf("%s.w%d", mem_id, i));
 
 				if (!port.clk_enable)
 					log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
@@ -1037,18 +1037,18 @@ struct FirrtlWorker
 				string ena_expr = make_expr(port.en[0]);
 				string clk_expr = make_expr(port.clk);
 				string mask_expr = make_expr(State::S1);
-				wpe << stringf("%s%s.data <= %s\n", indent.c_str(), port_name.c_str(), data_expr.c_str());
-				wpe << stringf("%s%s.addr <= %s\n", indent.c_str(), port_name.c_str(), addr_expr.c_str());
-				wpe << stringf("%s%s.en <= %s\n", indent.c_str(), port_name.c_str(), ena_expr.c_str());
-				wpe << stringf("%s%s.clk <= asClock(%s)\n", indent.c_str(), port_name.c_str(), clk_expr.c_str());
-				wpe << stringf("%s%s.mask <= %s\n", indent.c_str(), port_name.c_str(), mask_expr.c_str());
+				wpe << stringf("%s%s.data <= %s\n", indent, port_name, data_expr);
+				wpe << stringf("%s%s.addr <= %s\n", indent, port_name, addr_expr);
+				wpe << stringf("%s%s.en <= %s\n", indent, port_name, ena_expr);
+				wpe << stringf("%s%s.clk <= asClock(%s)\n", indent, port_name, clk_expr);
+				wpe << stringf("%s%s.mask <= %s\n", indent, port_name, mask_expr);
 
 				cell_exprs.push_back(wpe.str());
 			}
 
 			std::ostringstream me;
 
-			me << stringf("    mem %s:\n", mem_id.c_str());
+			me << stringf("    mem %s:\n", mem_id);
 			me << stringf("      data-type => UInt<%d>\n", mem.width);
 			me << stringf("      depth => %d\n", mem.size);
 			for (int i = 0; i < GetSize(mem.rd_ports); i++)
@@ -1068,8 +1068,8 @@ struct FirrtlWorker
 			int y_width =  GetSize(conn.first);
 			string expr = make_expr(conn.second);
 
-			wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent.c_str(), y_id.c_str(), y_width));
-			cell_exprs.push_back(stringf("%s%s <= %s\n", indent.c_str(), y_id.c_str(), expr.c_str()));
+			wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, y_width));
+			cell_exprs.push_back(stringf("%s%s <= %s\n", indent, y_id, expr));
 			register_reverse_wire_map(y_id, conn.first);
 		}
 
@@ -1112,7 +1112,7 @@ struct FirrtlWorker
 						chunk_width++;
 					}
 
-					new_expr = stringf("bits(%s, %d, %d)", start_map.first.c_str(),
+					new_expr = stringf("bits(%s, %d, %d)", start_map.first,
 							start_map.second + chunk_width - 1, start_map.second);
 					is_valid = true;
 				}
@@ -1135,13 +1135,13 @@ struct FirrtlWorker
 
 			if (is_valid) {
 				if (make_unconn_id) {
-					wire_decls.push_back(stringf("%swire %s: UInt<1> %s\n", indent.c_str(), unconn_id.c_str(), wireFileinfo.c_str()));
+					wire_decls.push_back(stringf("%swire %s: UInt<1> %s\n", indent, unconn_id, wireFileinfo));
 					// `invalid` is a firrtl construction for simulation so we will not
 					// tag it with a @[fileinfo] tag as it doesn't directly correspond to
 					// a specific line of verilog code.
-					wire_decls.push_back(stringf("%s%s is invalid\n", indent.c_str(), unconn_id.c_str()));
+					wire_decls.push_back(stringf("%s%s is invalid\n", indent, unconn_id));
 				}
-				wire_exprs.push_back(stringf("%s%s <= %s %s\n", indent.c_str(), make_id(wire->name), expr.c_str(), wireFileinfo.c_str()));
+				wire_exprs.push_back(stringf("%s%s <= %s %s\n", indent, make_id(wire->name), expr, wireFileinfo));
 			} else {
 				if (make_unconn_id) {
 					unconn_id.clear();
@@ -1149,7 +1149,7 @@ struct FirrtlWorker
 				// `invalid` is a firrtl construction for simulation so we will not
 				// tag it with a @[fileinfo] tag as it doesn't directly correspond to
 				// a specific line of verilog code.
-				wire_decls.push_back(stringf("%s%s is invalid\n", indent.c_str(), make_id(wire->name)));
+				wire_decls.push_back(stringf("%s%s is invalid\n", indent, make_id(wire->name)));
 			}
 		}
 
@@ -1249,7 +1249,7 @@ struct FirrtlBackend : public Backend {
 			log_cmd_error("There is no top module in this design!\n");
 
 		std::string circuitFileinfo = getFileinfo(top);
-		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo.c_str());
+		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo);
 
 		emit_elaborated_extmodules(design, *f);
 

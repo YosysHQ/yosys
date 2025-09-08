@@ -177,7 +177,7 @@ struct PrepPass : public ScriptPass
 					else
 						run("hierarchy -check");
 				} else
-					run(stringf("hierarchy -check -top %s", top_module.c_str()));
+					run(stringf("hierarchy -check -top %s", top_module));
 			}
 		}
 

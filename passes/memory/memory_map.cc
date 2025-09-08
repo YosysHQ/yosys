@@ -244,7 +244,7 @@ struct MemoryMapWorker
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
-				std::string w_out_name = stringf("%s[%d]", mem.memid.c_str(), addr);
+				std::string w_out_name = stringf("%s[%d]", mem.memid, addr);
 				if (module->wires_.count(w_out_name) > 0)
 					w_out_name = genid(mem.memid, "", addr, "$q");
 

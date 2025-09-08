@@ -411,7 +411,7 @@ class SubCircuit::SolverWorker
 
 		std::string toString() const
 		{
-			return my_stringf("%s[%d]:%s[%d]", fromPort.c_str(), fromBit, toPort.c_str(), toBit);
+			return my_stringf("%s[%d]:%s[%d]", fromPort, fromBit, toPort, toBit);
 		}
 	};
 
@@ -444,7 +444,7 @@ class SubCircuit::SolverWorker
 			std::string str;
 			bool firstPort = true;
 			for (const auto &it : portSizes) {
-				str += my_stringf("%s%s[%d]", firstPort ? "" : ",", it.first.c_str(), it.second);
+				str += my_stringf("%s%s[%d]", firstPort ? "" : ",", it.first, it.second);
 				firstPort = false;
 			}
 			return typeId + "(" + str + ")";
