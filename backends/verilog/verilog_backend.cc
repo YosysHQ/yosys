@@ -429,6 +429,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 #else
 	// do not use Verilog-2k "output reg" syntax in Verilog export
 	std::string range = "";
+	std::string sign = "";
 	if (wire->width != 1) {
 		if (wire->upto)
 			range = stringf(" [%d:%d]", wire->start_offset, wire->width - 1 + wire->start_offset);
@@ -438,6 +439,8 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 		if (wire->attributes.count(ID::single_bit_vector))
 			range = stringf(" [%d:%d]", wire->start_offset, wire->start_offset);
 	}
+	if (wire->is_signed)
+		sign = " signed ";
 	if (wire->port_input && !wire->port_output)
 		f << stringf("%s" "input%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (!wire->port_input && wire->port_output)
@@ -445,14 +448,14 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 	if (wire->port_input && wire->port_output)
 		f << stringf("%s" "inout%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 	if (reg_wires.count(wire->name)) {
-		f << stringf("%s" "reg%s %s", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		f << stringf("%s" "reg%s%s %s", indent.c_str(), sign.c_str(), range.c_str(), id(wire->name).c_str());
 		if (wire->attributes.count(ID::init)) {
 			f << stringf(" = ");
 			dump_const(f, wire->attributes.at(ID::init));
 		}
 		f << stringf(";\n");
 	} else
-		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
+		f << stringf("%s" "wire%s%s %s;\n", indent.c_str(), sign.c_str(), range.c_str(), id(wire->name).c_str());
 #endif
 }
 
