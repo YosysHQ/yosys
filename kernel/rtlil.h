@@ -552,6 +552,7 @@ template <> struct IDMacroHelper<-1> {
 	}
 };
 
+#undef ID
 #define ID(_id) \
 		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
 				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
