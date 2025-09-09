@@ -14,6 +14,24 @@ compiler versions.  For up to date information, including OS versions, refer to
 .. _Yosys Git repo: https://github.com/YosysHQ/yosys
 .. _the git actions page: https://github.com/YosysHQ/yosys/actions
 
+Functional backend testing
+--------------------------
+
+Testing of the functional backend is controlled by the
+``ENABLE_FUNCTIONAL_TESTS`` make variable.  Setting it to a value of ``1``,
+either when calling ``make test`` or in your ``Makefile.conf`` file, will enable
+these additional tests.
+
+.. note::
+
+   The functional backend tests requires additional prerequisites to be
+   installed:
+
+   - racket and z3, available via ``apt-get`` or similar.
+   - pytest and pytest-xdist, available via ``pip``; pytest-xdist-gnumake is
+     also recommended.
+   - rosette, available via ``raco`` (after installing racket).
+
 .. todo:: are unit tests currently working
 
 ..
