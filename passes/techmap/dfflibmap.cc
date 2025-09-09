@@ -135,7 +135,7 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 	if (ff == nullptr || ff->args.size() != 2)
 		return false;
 	auto ff_output = ff->args.at(0);
-	
+
 	// This test is redundant with the one in enable_pin, but we're in a
 	// position that gives better diagnostics here.
 	if (!pin_names.count(ff_output)) {
@@ -166,23 +166,23 @@ static bool parse_next_state(const LibertyAst *cell, const LibertyAst *attr, std
 		// the ff output Q is in a known bit location, so we now just have to compare the LUT mask to known values to find the enable pin and polarity.
 		if (lut == 0xD8) {
 			data_name = pins[1];
-			enable_name = pins[0];	
+			enable_name = pins[0];
 			return true;
 		}
 		if (lut == 0xB8) {
 			data_name = pins[0];
-			enable_name = pins[1];	
+			enable_name = pins[1];
 			return true;
 		}
 		enable_not_inverted = false;
 		if (lut == 0xE4) {
 			data_name = pins[1];
-			enable_name = pins[0];	
+			enable_name = pins[0];
 			return true;
 		}
 		if (lut == 0xE2) {
 			data_name = pins[0];
-			enable_name = pins[1];	
+			enable_name = pins[1];
 			return true;
 		}
 		// this does not match an enable flop.
@@ -553,11 +553,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			new_cell->setPort("\\" + port.first, sig);
 		}
 
-		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type, new_cell->type)]++;
+		stats[stringf("%s cells to %s cells", cell_type, new_cell->type)]++;
 	}
 
 	for (auto &stat: stats)
-		log(stat.first.c_str(), stat.second);
+		log("  mapped %d %s.\n", stat.second, stat.first);
 }
 
 struct DfflibmapPass : public Pass {
