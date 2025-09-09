@@ -1,4 +1,5 @@
-log -header "Should be turned into a tree"
+# Test 1
+log -header "Simple AND chain"
 log -push
 design -reset
 read_verilog <<EOF
@@ -16,30 +17,33 @@ check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
 
-# Checks if inputs to and gates has been rewired
-select -set driven_by_a i:a %co %co
-select -set and_a_cell t:$and @driven_by_a %i
+# Get selections
+select i:a %co2 t:$and %i -set a_cells
+select i:b %co2 t:$and %i -set b_cells
+select i:c %co2 t:$and %i -set c_cells
+select i:d %co2 t:$and %i -set d_cells
+select o:x %ci2 t:$and %i -set x_cell
+select @a_cells @b_cells %i -set a_and_b_cells
+select @c_cells @d_cells %i -set c_and_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 1
+select @d_cells -assert-count 1
+select @x_cell -assert-count 1
 
-select -set driven_by_b i:b %co %co
-select -set and_b_cell t:$and @driven_by_b %i
-
-select -assert-none @and_a_cell @and_b_cell %d
-
-select -set driven_by_c i:c %co %co
-select -set and_c_cell t:$and @driven_by_c %i
-
-select -set driven_by_d i:d %co %co
-select -set and_d_cell t:$and @driven_by_d %i
-
-select -assert-none @and_c_cell @and_d_cell %d
+# Check that x is (a & b) & (c & d)
+select @a_and_b_cells %co3 @x_cell %i -assert-count 1
+select @c_and_d_cells %co3 @x_cell %i -assert-count 1
 
 design -reset
 log -pop
 
-log -header "Should not be turned into a tree"
+
+
+# Test 2
+log -header "AND chain with intermediate outputs"
 log -push
 design -reset
 read_verilog <<EOF
@@ -61,20 +65,50 @@ check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
 
-# Checks if y is still wired up to the correct gate
-select -set y_driver o:y %ci %ci
-select -set and_y_cell t:$and @y_driver %i
-select @and_y_cell -assert-count 1
-select -set inputs @and_y_cell %ci
-select -assert-count 1 @inputs i:c %i
+# Merge should remove two redundant nodes for (a & b)
+select -assert-count 6 t:$and
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$and
+
+# Get selections
+select i:a %co2 t:$and %i -set a_cells
+select i:b %co2 t:$and %i -set b_cells
+select i:c %co2 t:$and %i -set c_cells
+select i:d %co2 t:$and %i -set d_cells
+select o:x %ci2 t:$and %i -set x_cell
+select o:y %ci2 t:$and %i -set y_cell
+select o:z %ci2 t:$and %i -set z_cell
+select @c_cells @d_cells %i -set c_and_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cell -assert-count 1
+select @y_cell -assert-count 1
+select @z_cell -assert-count 1
+select @c_and_d_cells -assert-count 1
+
+# Check that x is a & b
+select @a_cells @b_cells %i @x_cell %i -assert-count 1
+
+# Check that y is (a & b) & c
+select @c_cells @y_cell %i -assert-count 1
+select @x_cell %co3 @y_cell %i -assert-count 1
+
+# Check that z is (a & b) & (c & d)
+select @x_cell %co3 @z_cell %i
+select @c_and_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
 log -pop
 
-log -header "With a cell"
+
+
+# Test 3
+log -header "AND chain with intermediate outputs and one inverter"
 log -push
 design -reset
 read_verilog <<EOF
@@ -98,21 +132,52 @@ check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
-select -assert-count 3 t:$and
 
-# Checks if temp is still wired up to the correct gate
-select -set temp_driver w:temp %ci %ci
-select -set and_cell t:$and @temp_driver %i
-select @and_cell -assert-count 1
-select -set inputs @and_cell %ci
-select -assert-count 1 @inputs i:c %i
+# Merge should remove two redundant nodes for (a & b)
+select -assert-count 6 t:$and
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$and
+
+# Get selections
+select i:a %co2 t:$and %i -set a_cells
+select i:b %co2 t:$and %i -set b_cells
+select i:c %co2 t:$and %i -set c_cells
+select i:d %co2 t:$and %i -set d_cells
+select o:x %ci2 t:$and %i -set x_cell
+select o:y %ci2 t:$not %i -set y_cell
+select o:z %ci2 t:$and %i -set z_cell
+select @y_cell %ci3 t:$and %i -set y_pre_cell
+select @c_cells @d_cells %i -set c_and_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cell -assert-count 1
+select @y_cell -assert-count 1
+select @z_cell -assert-count 1
+select @y_pre_cell -assert-count 1
+select @c_and_d_cells -assert-count 1
+
+# Check that x is a & b
+select @a_cells @b_cells %i @x_cell %i -assert-count 1
+
+# Check that y_pre (y before inversion) is (a & b) & c
+select @c_cells @y_pre_cell %i -assert-count 1
+select @x_cell %co3 @y_pre_cell %i -assert-count 1
+
+# Check that z is (a & b) & (c & d)
+select @x_cell %co3 @z_cell %i
+select @c_and_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
 log -pop
 
-log -header "Word out port"
+
+
+# Test 4
+log -header "AND chain with intermediate outputs to a word out port"
 log -push
 design -reset
 read_verilog <<EOF
@@ -132,20 +197,47 @@ check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
-select -assert-count 3 t:$and
 
-# Checks if x[1] is still wired up to the correct gate
-select -set target_drivers o:x %ci %ci
-select -set target_cells t:$and @target_drivers %i
-select -set inputs @target_cells %ci
-select -assert-count 1 @inputs i:c %i
+# Merge should remove two redundant nodes for (a & b)
+select -assert-count 6 t:$and
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$and
+
+# Get selections
+select i:a %co2 t:$and %i -set a_cells
+select i:b %co2 t:$and %i -set b_cells
+select i:c %co2 t:$and %i -set c_cells
+select i:d %co2 t:$and %i -set d_cells
+select o:x %ci2 t:$and %i -set x_cells
+select @a_cells @b_cells %i -set a_and_b_cells
+select @c_cells @d_cells %i -set c_and_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cells -assert-count 3
+select @a_and_b_cells -assert-count 1
+select @c_and_d_cells -assert-count 1
+
+# Check that x[0] is a & b
+select @a_and_b_cells @x_cells %i -assert-count 1
+
+# Check that x[1] is (a & b) & c
+select @c_cells @x_cells %i -assert-count 1
+
+# Check that x[2] is (a & b) & (c & d)
+select @a_and_b_cells %co3 @x_cells %i -assert-count 3
+select @c_and_d_cells %co3 @x_cells %i -assert-count 1
 
 design -reset
 log -pop
 
-log -header "Fanout going to multiple outputs"
+
+
+# Test 5
+log -header "AND chain with intermediate outputs to a word out port and one other fanout"
 log -push
 design -reset
 read_verilog <<EOF
@@ -168,111 +260,1097 @@ check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
-select -assert-count 3 t:$and
+
+# Merge should remove two redundant nodes for (a & b)
+select -assert-count 6 t:$and
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$and
+
+# Get selections
+select i:a %co2 t:$and %i -set a_cells
+select i:b %co2 t:$and %i -set b_cells
+select i:c %co2 t:$and %i -set c_cells
+select i:d %co2 t:$and %i -set d_cells
+select o:x %ci2 t:$and %i -set x_cells
+select o:y %ci2 t:$and %i -set y_cell
+select @a_cells @b_cells %i -set a_and_b_cells
+select @c_cells @d_cells %i -set c_and_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cells -assert-count 3
+select @y_cell -assert-count 1
+select @a_and_b_cells -assert-count 1
+select @c_and_d_cells -assert-count 1
+
+# Check that x[0] is a & b
+select @a_and_b_cells @x_cells %i -assert-count 1
+
+# Check that x[1] is (a & b) & c
+select @c_cells @x_cells %i -assert-count 1
+
+# Check that x[2] is (a & b) & (c & d)
+select @a_and_b_cells %co3 @x_cells %i -assert-count 3
+select @c_and_d_cells %co3 @x_cells %i -assert-count 1
+
+# Check that y is part of x
+select @x_cells @y_cell %i -assert-count 1
 
 design -reset
 log -pop
 
-log -header "Fanout going to multiple outputs"
-log -push
-design -reset
-read_verilog <<EOF
-module top (
-  input wire a,
-  input wire b,
-  input wire c,
-  input wire d,
-  output wire [2:0] x,
-  output wire y
-);
-  assign x[0] = a & b;
-  assign x[1] = x[0] & c;
-  assign x[2] = x[1] & d;
 
-  assign y = x[1];
-endmodule
-EOF
-check -assert
 
-# Check equivalence after opt_balance_tree
-equiv_opt -assert opt_balance_tree
-
-design -load postopt
-select -assert-count 3 t:$and
-
-# Checks if y is still wired up to the correct gate
-select -set y_wires o:y %ci
-select -set y_driver @y_wires %ci %ci
-select -set and_y_cell t:$and @y_driver %i
-select -set inputs @and_y_cell %ci
-select -assert-count 1 @inputs i:c %i
-
-design -reset
-log -pop
-
-log -header "Interesting tree situation"
+# Test 6
+log -header "Pre-existing partial tree"
 log -push
 design -reset
 read_verilog <<EOF
 module top (
   input wire a, b, c, d,
   input wire e, f, g, h,
+  input wire k, l, m, n,
   output wire x,
 );
   wire i, j;
 
   assign i = a & b & c & d;
-  assign j = e & f & g & h & i;
+  assign j = e & f & g & h;
 
-  assign x = i & j;
+  assign x = i & j & k & l & m & n;
 endmodule
 EOF
 check -assert
 
 # Check equivalence after opt_balance_tree
 equiv_opt -assert opt_balance_tree
-
 design -load postopt
 
-# Checks if inputs to and gates has been rewired
+# Assert that there are 11 AND gates
+select t:$and -assert-count 11
 
-# a and b
-select -set driven_by_a i:a %co %co
-select -set and_a_cell t:$and @driven_by_a %i
+# Assert that logic depth is 4
+# Check that 4 fanin-traversals results in all AND gates selected
+select o:x %ci2 %ci2 %ci2 %ci2 t:$and %i -assert-count 11
 
-select -set driven_by_b i:b %co %co
-select -set and_b_cell t:$and @driven_by_b %i
+design -reset
+log -pop
 
-select -assert-none @and_a_cell @and_b_cell %d
 
-# c and d
-select -set driven_by_c i:c %co %co
-select -set and_c_cell t:$and @driven_by_c %i
 
-select -set driven_by_d i:d %co %co
-select -set and_d_cell t:$and @driven_by_d %i
+# Test 7
+log -header "Pre-existing partial tree with intermediate outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  input wire e, f, g, h,
+  input wire k, l, m, n,
+  output wire i, j,
+  output wire x,
+);
 
-select -assert-none @and_c_cell @and_d_cell %d
+  assign i = a & b & c & d;
+  assign j = e & f & g & h;
 
-# e and f
-select -set driven_by_e i:e %co %co
-select -set and_e_cell t:$and @driven_by_e %i
+  assign x = i & j & k & l & m & n;
+endmodule
+EOF
+check -assert
 
-select -set driven_by_f i:f %co %co
-select -set and_f_cell t:$and @driven_by_f %i
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
 
-select -assert-none @and_e_cell @and_f_cell %d
+# Merge removes some redundancy
+equiv_opt -assert opt_merge
+design -load postopt
 
-# g and h
-select -set driven_by_g i:g %co %co
-select -set and_g_cell t:$and @driven_by_g %i
+# Assert that logic depth is 2 for i and j
+# Check that 2 fanin-traversals results in all AND gates selected
+select o:i %ci2 %ci2 t:$and %i -assert-count 3
+select o:j %ci2 %ci2 t:$and %i -assert-count 3
 
-select -set driven_by_h i:h %co %co
-select -set and_h_cell t:$and @driven_by_h %i
+# Assert that logic depth is 4 for x
+# Check that 4 fanin-traversals results in 11 AND gates selected
+select o:x %ci2 %ci2 %ci2 %ci2 t:$and %i -assert-count 11
 
-select -assert-none @and_g_cell @and_h_cell %d
+design -reset
+log -pop
+
+
+
+# Test 8
+log -header "Simple 1-bit ADD chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  input wire e,
+  input wire f,
+  input wire g,
+  input wire h,
+  output wire [3:0] x,
+);
+  assign x = a + b + c + d + e + f + g + h;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Get selections
+select i:a %co2 t:$add %i -set a_cell
+select i:b %co2 t:$add %i -set b_cell
+select i:c %co2 t:$add %i -set c_cell
+select i:d %co2 t:$add %i -set d_cell
+select i:e %co2 t:$add %i -set e_cell
+select i:f %co2 t:$add %i -set f_cell
+select i:g %co2 t:$add %i -set g_cell
+select i:h %co2 t:$add %i -set h_cell
+select o:x %ci2 t:$add %i -set x_cell
+select @a_cell @b_cell %i -set a_plus_b_cell
+select @c_cell @d_cell %i -set c_plus_d_cell
+select @e_cell @f_cell %i -set e_plus_f_cell
+select @g_cell @h_cell %i -set g_plus_h_cell
+select @a_cell -assert-count 1
+select @b_cell -assert-count 1
+select @c_cell -assert-count 1
+select @d_cell -assert-count 1
+select @e_cell -assert-count 1
+select @f_cell -assert-count 1
+select @g_cell -assert-count 1
+select @h_cell -assert-count 1
+select @x_cell -assert-count 1
+select @a_plus_b_cell -assert-count 1
+select @c_plus_d_cell -assert-count 1
+select @e_plus_f_cell -assert-count 1
+select @g_plus_h_cell -assert-count 1
+
+# Check intermediate cells
+select @a_plus_b_cell %co3 -set a_plus_b_fanout
+select @c_plus_d_cell %co3 -set c_plus_d_fanout
+select @e_plus_f_cell %co3 -set e_plus_f_fanout
+select @g_plus_h_cell %co3 -set g_plus_h_fanout
+select @a_plus_b_fanout @c_plus_d_fanout %i -set a_plus_b_plus_c_plus_d_cell
+select @e_plus_f_fanout @g_plus_h_fanout %i -set e_plus_f_plus_g_plus_h_cell
+select @a_plus_b_plus_c_plus_d_cell t:$add %i -assert-count 1
+select @e_plus_f_plus_g_plus_h_cell t:$add %i -assert-count 1
+
+# Check that x is ((a + b) + (c + d)) + ((e + f) + (g + h))
+select @a_plus_b_plus_c_plus_d_cell %co3 @x_cell %i -assert-count 1
+select @e_plus_f_plus_g_plus_h_cell %co3 @x_cell %i -assert-count 1
+
+design -reset
+log -pop
+
+
+
+# Test 9
+log -header "Add chain with intermediate outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [1:0] x,
+  output wire [1:0] y,
+  output wire [1:0] z
+);
+  assign x = a + b;
+  assign y = x + c;
+  assign z = y + d;
+endmodule
+EOF
+check -assert
+
+# Proc for flops
+proc
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Merge should remove two redundant nodes for (a + b)
+select -assert-count 6 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$add
+
+# Get selections
+select i:a %co2 t:$add %i -set a_cells
+select i:b %co2 t:$add %i -set b_cells
+select i:c %co2 t:$add %i -set c_cells
+select i:d %co2 t:$add %i -set d_cells
+select o:x %ci2 t:$add %i -set x_cell
+select o:y %ci2 t:$add %i -set y_cell
+select o:z %ci2 t:$add %i -set z_cell
+select @c_cells @d_cells %i -set c_plus_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cell -assert-count 1
+select @y_cell -assert-count 1
+select @z_cell -assert-count 1
+select @c_plus_d_cells -assert-count 1
+
+# Check that x is a + b
+select @a_cells @b_cells %i @x_cell %i -assert-count 1
+
+# Check that y is (a + b) + c
+select @c_cells @y_cell %i -assert-count 1
+select @x_cell %co3 @y_cell %i -assert-count 1
+
+# Check that z is (a + b) + (c + d)
+select @x_cell %co3 @z_cell %i
+select @c_plus_d_cells %co3 @z_cell %i -assert-count 1
+
+design -reset
+log -pop
+
+
+
+# Test 10
+log -header "Add chain with intermediate outputs and one inverter"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [1:0] x,
+  output wire [1:0] y,
+  output wire [1:0] z
+);
+  wire [1:0] temp;
+  assign y = ~temp;
+  assign x = a + b;
+  assign temp = x + c;
+  assign z = temp + d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Merge should remove two redundant nodes for (a + b)
+select -assert-count 6 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$add
+
+# Get selections
+select i:a %co2 t:$add %i -set a_cells
+select i:b %co2 t:$add %i -set b_cells
+select i:c %co2 t:$add %i -set c_cells
+select i:d %co2 t:$add %i -set d_cells
+select o:x %ci2 t:$add %i -set x_cell
+select o:y %ci2 t:$not %i -set y_cell
+select o:z %ci2 t:$add %i -set z_cell
+select @y_cell %ci3 t:$add %i -set y_pre_cell
+select @c_cells @d_cells %i -set c_plus_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cell -assert-count 1
+select @y_cell -assert-count 1
+select @z_cell -assert-count 1
+select @y_pre_cell -assert-count 1
+select @c_plus_d_cells -assert-count 1
+
+# Check that x is a + b
+select @a_cells @b_cells %i @x_cell %i -assert-count 1
+
+# Check that y_pre (y before inversion) is (a + b) + c
+select @c_cells @y_pre_cell %i -assert-count 1
+select @x_cell %co3 @y_pre_cell %i -assert-count 1
+
+# Check that z is (a + b) + (c + d)
+select @x_cell %co3 @z_cell %i
+select @c_plus_d_cells %co3 @z_cell %i -assert-count 1
+
+design -reset
+log -pop
+
+
+
+# Test 11
+log -header "Add chain with intermediate outputs to a word out port"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [5:0] x
+);
+  assign x[1:0] = a + b;
+  assign x[3:2] = x[1:0] + c;
+  assign x[5:4] = x[3:2] + d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Merge should remove two redundant nodes for (a + b)
+select -assert-count 6 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$add
+
+# Get selections
+select i:a %co2 t:$add %i -set a_cells
+select i:b %co2 t:$add %i -set b_cells
+select i:c %co2 t:$add %i -set c_cells
+select i:d %co2 t:$add %i -set d_cells
+select o:x %ci2 t:$add %i -set x_cells
+select @a_cells @b_cells %i -set a_plus_b_cells
+select @c_cells @d_cells %i -set c_plus_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cells -assert-count 3
+select @a_plus_b_cells -assert-count 1
+select @c_plus_d_cells -assert-count 1
+
+# Check that x[1:0] is a + b
+select @a_plus_b_cells @x_cells %i -assert-count 1
+
+# Check that x[3:2] is (a + b) + c
+select @c_cells @x_cells %i -assert-count 1
+
+# Check that x[5:4] is (a + b) + (c + d)
+select @a_plus_b_cells %co3 @x_cells %i -assert-count 3
+select @c_plus_d_cells %co3 @x_cells %i -assert-count 1
+
+design -reset
+log -pop
+
+
+
+# Test 12
+log -header "Add chain with intermediate outputs to a word out port and one other fanout"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  input wire d,
+  output wire [5:0] x,
+  output wire y
+);
+  assign x[1:0] = a + b;
+  assign x[3:2] = x[1:0] + c;
+  assign x[5:4] = x[3:2] + d;
+
+  assign y = x[3];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Merge should remove two redundant nodes for (a + b)
+select -assert-count 6 t:$add
+equiv_opt -assert opt_merge
+design -load postopt
+select -assert-count 4 t:$add
+
+# Get selections
+select i:a %co2 t:$add %i -set a_cells
+select i:b %co2 t:$add %i -set b_cells
+select i:c %co2 t:$add %i -set c_cells
+select i:d %co2 t:$add %i -set d_cells
+select o:x %ci2 t:$add %i -set x_cells
+select @a_cells @b_cells %i -set a_plus_b_cells
+select @c_cells @d_cells %i -set c_plus_d_cells
+select @a_cells -assert-count 1
+select @b_cells -assert-count 1
+select @c_cells -assert-count 2
+select @d_cells -assert-count 1
+select @x_cells -assert-count 3
+select @a_plus_b_cells -assert-count 1
+select @c_plus_d_cells -assert-count 1
+
+# Check that x[1:0] is a + b
+select @a_plus_b_cells @x_cells %i -assert-count 1
+
+# Check that x[3:2] is (a + b) + c
+select @c_cells @x_cells %i -assert-count 1
+
+# Check that x[5:4] is (a + b) + (c + d)
+select @a_plus_b_cells %co3 @x_cells %i -assert-count 3
+select @c_plus_d_cells %co3 @x_cells %i -assert-count 1
+
+design -reset
+log -pop
+
+
+
+# Test 13
+log -header "Pre-existing partial tree"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  input wire e, f, g, h,
+  input wire k, l, m, n,
+  output wire [3:0] x,
+);
+  wire [2:0] i, j;
+
+  assign i = a + b + c + d;
+  assign j = e + f + g + h;
+
+  assign x = i + j + k + l + m + n;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Assert that there are 11 adders
+select t:$add -assert-count 11
+
+# Assert that logic depth is 4
+# Check that 4 fanin-traversals results in all adders selected
+select o:x %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 11
+
+design -reset
+log -pop
+
+
+
+# Test 14
+log -header "Pre-existing partial tree with intermediate outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a, b, c, d,
+  input wire e, f, g, h,
+  input wire k, l, m, n,
+  output wire [2:0] i, j,
+  output wire [3:0] x,
+);
+
+  assign i = a + b + c + d;
+  assign j = e + f + g + h;
+
+  assign x = i + j + k + l + m + n;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+# Merge removes some redundancy
+equiv_opt -assert opt_merge
+design -load postopt
+
+# Assert that logic depth is 2 for i and j
+# Check that 2 fanin-traversals results in all adders selected
+select o:i %ci2 %ci2 t:$add %i -assert-count 3
+select o:j %ci2 %ci2 t:$add %i -assert-count 3
+
+# Assert that logic depth is 4 for x
+# Check that 4 fanin-traversals results in 11 adders selected
+select o:x %ci2 %ci2 %ci2 %ci2 t:$add %i -assert-count 11
+
+design -reset
+log -pop
+
+
+
+# Test 15
+log -header "Mixed signed/unsigned adders with different bit widths"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  input wire signed [4:0] b,
+  input wire [2:0] c,
+  input wire signed [3:0] d,
+  input wire [1:0] e,
+  input wire signed [2:0] f,
+  output wire signed [7:0] x,
+);
+  assign x = a + b + c + d + e + f;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 16
+log -header "Adder chain with fanout to other logic (multiplexer)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a, b, c, d,
+  input wire sel,
+  output wire [4:0] sum,
+  output wire [2:0] mux_out
+);
+  wire [3:0] partial_sum;
+  assign partial_sum = a + b;
+  assign sum = partial_sum + c + d;
+  assign mux_out = sel ? partial_sum[2:0] : c;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 17
+log -header "Adder chain with fanin from other logic (shift operation)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a, b, c,
+  input wire [1:0] shift_amt,
+  output wire [5:0] result
+);
+  wire [4:0] shifted_a;
+  assign shifted_a = a << shift_amt;
+  assign result = shifted_a + b + c;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 18
+log -header "Bit-split fanout - different bits go to different outputs"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a, b, c, d,
+  output wire [3:0] sum,
+  output wire low_bit,
+  output wire [1:0] mid_bits,
+  output wire high_bit
+);
+  assign sum = a + b + c + d;
+  assign low_bit = sum[0];
+  assign mid_bits = sum[2:1];
+  assign high_bit = sum[3];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 19
+log -header "Bit-split fanin - different bits come from different sources"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] data_in,
+  input wire [1:0] a, b, c,
+  output wire [4:0] result
+);
+  wire [1:0] low_bits;
+  wire [2:0] mid_bits;
+  wire [1:0] high_bits;
+  
+  assign low_bits = data_in[1:0];
+  assign mid_bits = data_in[4:2];
+  assign high_bits = data_in[7:6];
+  
+  assign result = {1'b0, low_bits} + {1'b0, mid_bits} + {3'b0, high_bits} + {2'b0, a} + {2'b0, b} + {2'b0, c};
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 20
+log -header "Converge/reconverge network - diamond pattern"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a, b, c, d,
+  output wire [4:0] out1,
+  output wire [4:0] out2
+);
+  wire [3:0] sum1, sum2;
+  
+  assign sum1 = a + b;
+  assign sum2 = c + d;
+  assign out1 = sum1 + sum2;
+  assign out2 = sum1 + c;  // Reconvergence: sum1 used again
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 21
+log -header "Same input added multiple times in different paths"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] a, b, c,
+  output wire [5:0] result
+);
+  wire [4:0] sum1, sum2;
+  
+  assign sum1 = a + b + a;  // 'a' appears twice
+  assign sum2 = a + c;      // 'a' appears again
+  assign result = sum1 + sum2;  // Final sum includes 'a' three times total
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 22
+log -header "Complex scenario combining multiple test patterns"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  input wire signed [4:0] b,
+  input wire [2:0] c, d, e,
+  input wire sel,
+  output wire signed [7:0] main_result,
+  output wire [3:0] side_result,
+  output wire overflow
+);
+  wire [4:0] partial1, partial2;
+  wire [5:0] intermediate;
+  
+  assign partial1 = a + c;
+  assign partial2 = d + e + c;  // 'c' used twice
+  assign intermediate = partial1 + partial2;
+  assign main_result = intermediate + b;
+  assign side_result = sel ? partial1[3:0] : partial2[3:0];
+  assign overflow = intermediate[5];
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 23
+log -header "Wide adders with varying input widths"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] wide_a,
+  input wire [7:0] med_b,
+  input wire [3:0] small_c,
+  input wire [1:0] tiny_d,
+  input wire single_e,
+  output wire [16:0] wide_result
+);
+  assign wide_result = wide_a + med_b + small_c + tiny_d + single_e;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 24
+log -header "Mixed arithmetic operations (add/sub) in tree structure"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [4:0] a, b, c, d, e, f,
+  output wire [6:0] result
+);
+  wire [6:0] sum_part, diff_part;
+  
+  assign sum_part = a + b + c;
+  assign diff_part = d - e + f;  // Mix of add and subtract
+  assign result = sum_part + diff_part;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 25
+log -header "Unsigned inputs with signed intermediate and output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a, b, c, d,  // All unsigned
+  output wire signed [6:0] result  // Signed output
+);
+  wire signed [4:0] intermediate1, intermediate2;
+  
+  assign intermediate1 = $signed(a) + $signed(b);  // Convert to signed
+  assign intermediate2 = $signed(c) + $signed(d);  // Convert to signed
+  assign result = intermediate1 + intermediate2;   // Signed addition
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 26
+log -header "Mixed signed/unsigned with negative values possible"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [4:0] a, b,    // Signed inputs (can be negative)
+  input wire [3:0] c, d,           // Unsigned inputs
+  output wire signed [7:0] result  // Signed output
+);
+  wire signed [5:0] sum_signed, sum_unsigned;
+  
+  assign sum_signed = a + b;                    // Signed + Signed
+  assign sum_unsigned = $signed({1'b0, c}) + $signed({1'b0, d});  // Force unsigned to signed safely
+  assign result = sum_signed + sum_unsigned;   // Mixed result
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 27
+log -header "Sign extension in adder tree with different input widths"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [2:0] narrow_a,     // 3-bit signed
+  input wire signed [4:0] wide_b,       // 5-bit signed  
+  input wire [3:0] unsigned_c,          // 4-bit unsigned
+  input wire signed [3:0] signed_d,     // 4-bit signed
+  output wire signed [8:0] result       // Wide signed output
+);
+  // Let Verilog handle sign extension automatically in the adder tree
+  assign result = narrow_a + wide_b + $signed({1'b0, unsigned_c}) + signed_d;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 28
+log -header "Unsigned overflow vs signed extension in tree balancing"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [2:0] u_a, u_b, u_c,           // Small unsigned inputs
+  input wire signed [2:0] s_a, s_b, s_c,    // Small signed inputs (same width)
+  output wire [5:0] unsigned_result,        // Unsigned result
+  output wire signed [5:0] signed_result    // Signed result
+);
+  // Test how signedness affects tree balancing for same-width inputs
+  assign unsigned_result = u_a + u_b + u_c;  // All unsigned arithmetic
+  assign signed_result = s_a + s_b + s_c;    // All signed arithmetic
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 29
+log -header "Signedness with bit selection and concatenation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [7:0] data_a, data_b,
+  input wire [3:0] unsigned_offset,
+  output wire signed [9:0] result
+);
+  wire signed [8:0] sum_full;
+  wire signed [6:0] sum_high, sum_low;
+  
+  assign sum_full = data_a + data_b;
+  assign sum_high = data_a[7:2] + data_b[7:2];           // High bits (signed)
+  assign sum_low = $signed({1'b0, data_a[5:0]}) + $signed({1'b0, data_b[5:0]});  // Low bits as unsigned->signed
+  
+  // Combine with unsigned offset
+  assign result = sum_full + $signed({6'b0, unsigned_offset});
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
+
+design -reset
+log -pop
+
+
+
+# Test 30
+log -header "Complex signedness with conditional sign extension"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [4:0] base_val,
+  input wire [3:0] pos_offset1, pos_offset2,
+  input wire signed [3:0] signed_offset,
+  input wire extend_sign,
+  output wire signed [8:0] result
+);
+  wire signed [5:0] extended_base;
+  wire signed [6:0] offset_sum;
+  
+  // Conditional sign extension based on input
+  assign extended_base = extend_sign ? 
+    {{1{base_val[4]}}, base_val} :     // Sign extend
+    {1'b0, base_val};                  // Zero extend
+  
+  // Mix of signed and unsigned offsets
+  assign offset_sum = $signed({2'b0, pos_offset1}) + 
+                     $signed({2'b0, pos_offset2}) + 
+                     {{2{signed_offset[3]}}, signed_offset};
+  
+  assign result = extended_base + offset_sum;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after opt_balance_tree
+equiv_opt -assert opt_balance_tree
+design -load postopt
+
+# Width reduction
+equiv_opt -assert wreduce
+design -load postopt
 
 design -reset
 log -pop

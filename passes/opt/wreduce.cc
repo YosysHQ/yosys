@@ -469,28 +469,74 @@ struct WreduceWorker
 					keep_bits.insert(bit);
 		}
 
-		for (auto c : module->selected_cells())
-			work_queue_cells.insert(c);
-
-		while (!work_queue_cells.empty())
-		{
-			work_queue_bits.clear();
-			for (auto c : work_queue_cells)
-				run_cell(c);
-
-			work_queue_cells.clear();
-			for (auto bit : work_queue_bits)
-			for (auto port : mi.query_ports(bit))
-				if (module->selected(port.cell))
-					work_queue_cells.insert(port.cell);
-		}
-
 		pool<SigSpec> complete_wires;
 		for (auto w : module->wires())
 			complete_wires.insert(mi.sigmap(w));
 
+		// Build bit_drivers_db for cells
+		dict<SigBit, tuple<IdString,IdString>> bit_drivers_db;
+		for (auto cell : module->cells()) {
+			for (auto conn : cell->connections()) {
+				if (!cell->output(conn.first)) continue;
+				for (int i = 0; i < GetSize(conn.second); i++) {
+					SigBit bit(mi.sigmap(conn.second[i]));
+					bit_drivers_db[bit] = tuple<IdString,IdString>(cell->name, conn.first);
+				}
+			}		}
+
+		// Build wire mapping for dependency tracking
+		dict<SigBit, Wire*> bit_to_wire_map;
+		for (auto w : module->wires()) {
+			for (auto bit : mi.sigmap(w))
+				bit_to_wire_map[bit] = w;
+		}
+
+		// Create unified topological sort for both cells and wires
+		TopoSort<IdString, RTLIL::sort_by_id_str> unified_toposort;
+		
+		// Add all cells and processable wires as nodes
+		for (auto cell : module->selected_cells())
+			unified_toposort.node(cell->name);
 		for (auto w : module->selected_wires())
-		{
+			unified_toposort.node(w->name);
+		
+		// Build edges between cells and wires based on signal flow
+		// In topological sort: edge(A, B) means A should be processed before B
+		for (auto cell : module->selected_cells()) {
+			for (auto &conn : cell->connections()) {
+				bool is_output = cell->output(conn.first);
+				for (auto bit : mi.sigmap(conn.second)) {
+					Wire *wire = bit_to_wire_map.count(bit) ? bit_to_wire_map[bit] : nullptr;
+					if (!wire || !unified_toposort.has_node(wire->name)) continue;
+					
+					if (is_output) {
+						// Cell drives wire: process cell before wire
+						// Cell reduction may affect wire, so cell -> wire
+						unified_toposort.edge(cell->name, wire->name);
+					} else {
+						// Wire drives cell: process wire before cell
+						// Wire reduction may affect cell, so wire -> cell
+						unified_toposort.edge(wire->name, cell->name);
+					}
+				}
+			}
+		}
+		unified_toposort.analyze_loops = false;
+		unified_toposort.sort();
+
+		// Process cells and wires together in unified topological order
+		for (auto name : unified_toposort.sorted) {
+			Cell *c = module->cell(name);
+			Wire *w = module->wire(name);
+			
+			if (c && module->selected(c)) {
+				run_cell(c);
+				continue;
+			}
+
+			if (!(w && module->selected(w)))
+				continue;
+
 			int unused_top_bits = 0;
 
 			if (w->port_id > 0 || count_nontrivial_wire_attrs(w) > 0)
@@ -514,6 +560,7 @@ struct WreduceWorker
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
+			mi.reload_module(); // TODO: SILIMATE: CAN WE SPEED THIS UP?
 		}
 	}
 };
