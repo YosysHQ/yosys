@@ -307,7 +307,7 @@ bool is_absolute_path(std::string filename)
 void remove_directory(std::string dirname)
 {
 #ifdef _WIN32
-	run_command(stringf("rmdir /s /q \"%s\"", dirname.c_str()));
+	run_command(stringf("rmdir /s /q \"%s\"", dirname));
 #else
 	struct stat stbuf;
 	struct dirent **namelist;
@@ -315,7 +315,7 @@ void remove_directory(std::string dirname)
 	log_assert(n >= 0);
 	for (int i = 0; i < n; i++) {
 		if (strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
-			std::string buffer = stringf("%s/%s", dirname.c_str(), namelist[i]->d_name);
+			std::string buffer = stringf("%s/%s", dirname, namelist[i]->d_name);
 			if (!stat(buffer.c_str(), &stbuf) && S_ISREG(stbuf.st_mode)) {
 				remove(buffer.c_str());
 			} else
@@ -573,6 +573,17 @@ void format_emit_string_view(std::string &result, std::string_view spec, int *dy
 	// Delegate nontrivial formats to the C library. We need to construct
 	// a temporary string to ensure null termination.
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, std::string(arg).c_str());
+}
+
+void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
+	DynamicIntCount num_dynamic_ints, const IdString &arg)
+{
+	if (spec == "%s") {
+		// Format checking will have guaranteed num_dynamic_ints == 0.
+		result += arg.c_str();
+		return;
+	}
+	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
 }
 
 void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,

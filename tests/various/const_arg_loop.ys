@@ -4,4 +4,4 @@ proc
 opt -full
 select -module top
 async2sync
-sat -verify -seq 1 -tempinduct -prove-asserts -show-all
+sat -verify -tempinduct -prove-asserts -show-all

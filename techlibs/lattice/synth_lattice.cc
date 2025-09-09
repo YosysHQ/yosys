@@ -333,7 +333,7 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib -specify +/lattice/cells_sim" + postfix + ".v +/lattice/cells_bb" + postfix + ".v");
-			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
+			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
 		if (check_label("coarse"))
@@ -449,9 +449,9 @@ struct SynthLatticePass : public ScriptPass
 					abc9_opts += " -maxlut 4";
 				std::string k = "synth_lattice.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
 				else
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
 				if (nowidelut)
 					abc9_opts += " -maxlut 4";
 				if (dff)
@@ -489,13 +489,13 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("edif"))
 		{
 			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
+				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file));
 		}
 
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode)
-				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthLatticePass;

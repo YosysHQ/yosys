@@ -292,7 +292,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	SigSet<std::pair<RTLIL::IdString, int>> sig2port;
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name.c_str(), autoidx++), needle->name);
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), needle->name);
 
 	// create cell ports
 	for (auto wire : needle->wires()) {

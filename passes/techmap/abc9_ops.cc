@@ -856,7 +856,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 						}
 					}
 					else if (w->port_output)
-						conn = holes_module->addWire(stringf("%s.%s", cell->type.c_str(), log_id(port_name)), GetSize(w));
+						conn = holes_module->addWire(stringf("%s.%s", cell->type, log_id(port_name)), GetSize(w));
 				}
 			}
 			else // box_module is a blackbox
@@ -868,7 +868,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			log_assert(w);
 			if (!w->port_output)
 				continue;
-			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name.c_str(), log_id(port_name)), GetSize(w));
+			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, log_id(port_name)), GetSize(w));
 			holes_wire->port_output = true;
 			holes_wire->port_id = port_id++;
 			holes_module->ports.push_back(holes_wire->name);
@@ -1143,7 +1143,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	map_autoidx = autoidx++;
 
-	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name.c_str()));
+	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
 
@@ -1271,16 +1271,16 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 					// (TODO: Optimise by not cloning unless will increase depth)
 					RTLIL::IdString driver_name;
 					if (GetSize(a_bit.wire) == 1)
-						driver_name = stringf("$lut%s", a_bit.wire->name.c_str());
+						driver_name = stringf("$lut%s", a_bit.wire->name);
 					else
-						driver_name = stringf("$lut%s[%d]", a_bit.wire->name.c_str(), a_bit.offset);
+						driver_name = stringf("$lut%s[%d]", a_bit.wire->name, a_bit.offset);
 					driver_lut = mapped_mod->cell(driver_name);
 				}
 
 				if (!driver_lut) {
 					// If a driver couldn't be found (could be from PI or box CI)
 					// then implement using a LUT
-					RTLIL::Cell *cell = module->addLut(remap_name(stringf("$lut%s", mapped_cell->name.c_str())),
+					RTLIL::Cell *cell = module->addLut(remap_name(stringf("$lut%s", mapped_cell->name)),
 							RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
 							RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
 							RTLIL::Const::from_string("01"));

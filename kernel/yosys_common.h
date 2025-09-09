@@ -206,13 +206,13 @@ namespace RTLIL {
 	struct Module;
 	struct Design;
 	struct Monitor;
-    struct Selection;
+	struct Selection;
 	struct SigChunk;
 	enum State : unsigned char;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
-    namespace ID {}
+	namespace ID {}
 }
 
 namespace AST {

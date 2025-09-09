@@ -199,6 +199,8 @@ void yosys_setup()
 	already_shutdown = false;
 	new backward::SignalHandling;
 
+	IdString::ensure_prepopulated();
+
 #ifdef WITH_PYTHON
 	// With Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported
@@ -213,10 +215,6 @@ void yosys_setup()
 
 	init_share_dirname();
 	init_abc_executable_name();
-
-#define X(_id) RTLIL::ID::_id = "\\" # _id;
-#include "kernel/constids.inc"
-#undef X
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
@@ -290,7 +288,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func)
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s:%d:%s$%d", file.c_str(), line, func.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%d", file, line, func, autoidx++);
 }
 
 RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
@@ -307,7 +305,7 @@ RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std:
 	if (pos != std::string::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s:%d:%s$%s$%d", file.c_str(), line, func.c_str(), suffix.c_str(), autoidx++);
+	return stringf("$auto$%s:%d:%s$%s$%d", file, line, func, suffix, autoidx++);
 }
 
 RTLIL::Design *yosys_get_design()
@@ -323,7 +321,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
 	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module).c_str());
+		str += stringf(" [%s]", RTLIL::unescape_id(design->selected_active_module));
 	if (!design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";
