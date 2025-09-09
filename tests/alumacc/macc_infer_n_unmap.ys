@@ -11,7 +11,7 @@ prep
 design -save gold
 alumacc
 opt_clean
-select -assert-count 1 t:$macc_v2
+select -assert-count 2 t:$macc_v2
 maccmap -unmap
 design -copy-from gold -as gold gate
 equiv_make gold gate equiv
