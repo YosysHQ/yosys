@@ -377,6 +377,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "begin"	       { return parser::make_TOK_BEGIN(out_loc); }
 "end"          { return parser::make_TOK_END(out_loc); }
 "if"           { return parser::make_TOK_IF(out_loc); }
+"ifnone"       { return parser::make_TOK_IFNONE(out_loc); }
 "else"         { return parser::make_TOK_ELSE(out_loc); }
 "for"          { return parser::make_TOK_FOR(out_loc); }
 "posedge"      { return parser::make_TOK_POSEDGE(out_loc); }
