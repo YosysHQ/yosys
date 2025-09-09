@@ -855,7 +855,9 @@ struct Parser {
 			PortVariant var;
 			var.options = portopts;
 			var.kind = pdef.kind;
-			if (pdef.kind != PortKind::Ar) {
+			if (pdef.kind == PortKind::Ar) {
+				var.clk_en = false;
+			} else {
 				const ClockDef *cdef = find_single_cap(pdef.clock, cram.options, portopts, "clock");
 				if (!cdef)
 					log_error("%s:%d: missing clock capability.\n", filename.c_str(), orig_line);
