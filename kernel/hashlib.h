@@ -515,12 +515,11 @@ class dict {
 		return do_lookup_internal(key, hash);
 	}
 
-	int do_insert(const K &key, Hasher::hash_t &hash)
+	int do_insert(const K &key, const Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(std::pair<K, T>(key, T()), -1);
 			do_rehash();
-			hash = do_hash(key);
 		} else {
 			entries.emplace_back(std::pair<K, T>(key, T()), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
@@ -528,12 +527,11 @@ class dict {
 		return entries.size() - 1;
 	}
 
-	int do_insert(const std::pair<K, T> &value, Hasher::hash_t &hash)
+	int do_insert(const std::pair<K, T> &value, const Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
 			entries.emplace_back(value, -1);
 			do_rehash();
-			hash = do_hash(value.first);
 		} else {
 			entries.emplace_back(value, hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
@@ -541,13 +539,11 @@ class dict {
 		return entries.size() - 1;
 	}
 
-	int do_insert(std::pair<K, T> &&rvalue, Hasher::hash_t &hash)
+	int do_insert(std::pair<K, T> &&rvalue, const Hasher::hash_t &hash)
 	{
 		if (hashtable.empty()) {
-			auto key = rvalue.first;
 			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), -1);
 			do_rehash();
-			hash = do_hash(key);
 		} else {
 			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
