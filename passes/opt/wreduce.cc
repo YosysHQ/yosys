@@ -482,14 +482,14 @@ struct WreduceWorker
 					SigBit bit(mi.sigmap(conn.second[i]));
 					bit_drivers_db[bit] = tuple<IdString,IdString>(cell->name, conn.first);
 				}
-			}		}
+			}
+		}
 
 		// Build wire mapping for dependency tracking
 		dict<SigBit, Wire*> bit_to_wire_map;
-		for (auto w : module->wires()) {
+		for (auto w : module->wires())
 			for (auto bit : mi.sigmap(w))
 				bit_to_wire_map[bit] = w;
-		}
 
 		// Create unified topological sort for both cells and wires
 		TopoSort<IdString, RTLIL::sort_by_id_str> unified_toposort;

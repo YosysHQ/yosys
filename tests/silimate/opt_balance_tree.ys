@@ -99,7 +99,7 @@ select @c_cells @y_cell %i -assert-count 1
 select @x_cell %co3 @y_cell %i -assert-count 1
 
 # Check that z is (a & b) & (c & d)
-select @x_cell %co3 @z_cell %i
+select @x_cell %co3 @z_cell %i -assert-count 1
 select @c_and_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
@@ -168,7 +168,7 @@ select @c_cells @y_pre_cell %i -assert-count 1
 select @x_cell %co3 @y_pre_cell %i -assert-count 1
 
 # Check that z is (a & b) & (c & d)
-select @x_cell %co3 @z_cell %i
+select @x_cell %co3 @z_cell %i -assert-count 1
 select @c_and_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
@@ -524,7 +524,7 @@ select @c_cells @y_cell %i -assert-count 1
 select @x_cell %co3 @y_cell %i -assert-count 1
 
 # Check that z is (a + b) + (c + d)
-select @x_cell %co3 @z_cell %i
+select @x_cell %co3 @z_cell %i -assert-count 1
 select @c_plus_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
@@ -597,7 +597,7 @@ select @c_cells @y_pre_cell %i -assert-count 1
 select @x_cell %co3 @y_pre_cell %i -assert-count 1
 
 # Check that z is (a + b) + (c + d)
-select @x_cell %co3 @z_cell %i
+select @x_cell %co3 @z_cell %i -assert-count 1
 select @c_plus_d_cells %co3 @z_cell %i -assert-count 1
 
 design -reset
