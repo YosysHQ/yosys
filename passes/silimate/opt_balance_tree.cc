@@ -81,7 +81,7 @@ struct OptBalanceTreeWorker {
 		}
 		
 		// Recursive case: split sources into two groups and create subtrees
-		int mid = ceil(sources.size() / 2.0);
+		int mid = (sources.size() + 1) / 2;
 		vector<SigSpec> left_sources(sources.begin(), sources.begin() + mid);
 		vector<SigSpec> right_sources(sources.begin() + mid, sources.end());
 		
