@@ -39,7 +39,7 @@
 YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
-std::vector<std::ostream*> log_streams;
+std::vector<std::ostream*> log_streams, log_warning_streams;
 std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -102,7 +102,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-void logv(const char *format, va_list ap)
+void logv(LogSeverity severity, const char *format, va_list ap)
 {
 	while (format[0] == '\n' && format[1] != 0) {
 		log("\n");
@@ -159,6 +159,10 @@ void logv(const char *format, va_list ap)
 
 		for (auto f : log_streams)
 			*f << time_str;
+
+    if (severity >= LogSeverity::LOG_WARNING)
+      for (auto f : log_warning_streams)
+        *f << time_str;
 	}
 
 	for (auto f : log_files)
@@ -166,6 +170,12 @@ void logv(const char *format, va_list ap)
 
 	for (auto f : log_streams)
 		*f << str;
+
+  if (severity >= LogSeverity::LOG_WARNING)
+    for (auto f : log_warning_streams) {
+      *f << str;
+      f->flush();
+    }
 
 	RTLIL::Design *design = yosys_get_design();
 	if (design != nullptr)
@@ -223,7 +233,7 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
 	log("%s. ", header_id.c_str());
-	logv(format, ap);
+	logv(LogSeverity::LOG_INFO, format, ap);
 	log_flush();
 
 	if (log_hdump_all)
@@ -289,7 +299,7 @@ static void logv_warning_with_prefix(const char *prefix,
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("%s%s", prefix, message.c_str());
+			log(LogSeverity::LOG_WARNING, "%s%s", prefix, message.c_str());
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -333,7 +343,7 @@ void log_file_info(const std::string &filename, int lineno,
 	va_start(ap, format);
 	std::string fmt = stringf("%s:%d: Info: %s",
 			filename.c_str(), lineno, format);
-	logv(fmt.c_str(), ap);
+	logv(LogSeverity::LOG_INFO, fmt.c_str(), ap);
 	va_end(ap);
 }
 
@@ -357,7 +367,7 @@ static void logv_error_with_prefix(const char *prefix,
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	log("%s%s", prefix, log_last_error.c_str());
+	log(LogSeverity::LOG_ERROR, "%s%s", prefix, log_last_error.c_str());
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -415,8 +425,16 @@ void log(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	logv(format, ap);
+	logv(LogSeverity::LOG_INFO, format, ap);
 	va_end(ap);
+}
+
+void log(LogSeverity severity, const char *format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  logv(severity, format, ap);
+  va_end(ap);
 }
 
 void log_header(RTLIL::Design *design, const char *format, ...)
@@ -479,7 +497,7 @@ void log_cmd_error(const char *format, ...)
 			pop_errfile = true;
 		}
 
-		log("ERROR: %s", log_last_error.c_str());
+		log(LogSeverity::LOG_ERROR, "ERROR: %s", log_last_error.c_str());
 		log_flush();
 
 		if (pop_errfile)
