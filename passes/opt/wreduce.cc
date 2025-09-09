@@ -524,8 +524,11 @@ struct WreduceWorker
 		unified_toposort.analyze_loops = false;
 		unified_toposort.sort();
 
-		// Process cells and wires together in unified topological order
-		for (auto name : unified_toposort.sorted) {
+		// Process cells and wires together in unified topological order (both forwards and backwards)
+		std::vector<IdString> sorted_cells_and_wires_both_ways;
+		sorted_cells_and_wires_both_ways.insert(sorted_cells_and_wires_both_ways.end(), unified_toposort.sorted.begin(), unified_toposort.sorted.end());
+		sorted_cells_and_wires_both_ways.insert(sorted_cells_and_wires_both_ways.end(), unified_toposort.sorted.rbegin(), unified_toposort.sorted.rend());
+		for (auto name : sorted_cells_and_wires_both_ways) {
 			Cell *c = module->cell(name);
 			Wire *w = module->wire(name);
 			
