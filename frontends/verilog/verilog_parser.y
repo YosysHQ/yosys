@@ -69,9 +69,10 @@
 		struct ParseState {
 			int port_counter;
 			dict<std::string, int> port_stubs;
-			dict<IdString, std::unique_ptr<AstNode>> *attr_list, default_attr_list;
-			std::stack<dict<IdString, std::unique_ptr<AstNode>> *> attr_list_stack;
-			dict<IdString, std::unique_ptr<AstNode>> *albuf;
+			std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> attr_list;
+			dict<IdString, std::unique_ptr<AstNode>> default_attr_list;
+			std::stack<std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>>> attr_list_stack;
+			std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> albuf;
 			std::vector<UserTypeMap> user_type_stack;
 			dict<std::string, AstNode*> pkg_user_types;
 			std::vector<AstNode*> ast_stack;
@@ -97,13 +98,16 @@
 			bool isInLocalScope(const std::string *name);
 			void rewriteGenForDeclInit(AstNode *loop);
 			void ensureAsgnExprAllowed(const parser::location_type loc, bool sv_mode);
-			const AstNode *addIncOrDecStmt(dict<IdString, std::unique_ptr<AstNode>> *stmt_attr,
+			const AstNode *addIncOrDecStmt(std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> stmt_attr,
 									std::unique_ptr<AstNode> lhs,
-									dict<IdString, std::unique_ptr<AstNode>> *op_attr, AST::AstNodeType op,
+									std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> op_attr, AST::AstNodeType op,
 									parser::location_type loc);
-			std::unique_ptr<AstNode> addIncOrDecExpr(std::unique_ptr<AstNode> lhs, dict<IdString, std::unique_ptr<AstNode>> *attr, AST::AstNodeType op, parser::location_type loc, bool undo, bool sv_mode);
+			std::unique_ptr<AstNode> addIncOrDecExpr(std::unique_ptr<AstNode> lhs,
+								 std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> attr,
+								 AST::AstNodeType op, parser::location_type loc, bool undo, bool sv_mode);
 			// add a binary operator assignment statement, e.g., a += b
-			std::unique_ptr<AstNode> addAsgnBinopStmt(dict<IdString, std::unique_ptr<AstNode>> *attr, std::unique_ptr<AstNode> eq_lhs, AST::AstNodeType op, std::unique_ptr<AstNode> rhs);
+			std::unique_ptr<AstNode> addAsgnBinopStmt(std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> attr,
+								  std::unique_ptr<AstNode> eq_lhs, AST::AstNodeType op, std::unique_ptr<AstNode> rhs);
 		};
 		struct ParseMode {
 			bool noassert = false;
@@ -150,24 +154,18 @@
 			return Location(begin.begin, end.end);
 		}
 
-		static void append_attr(AstNode *ast, dict<IdString, std::unique_ptr<AstNode>> *al)
+		static void append_attr(AstNode *ast, std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> al)
 		{
 			for (auto &it : *al) {
 				ast->attributes[it.first] = std::move(it.second);
 			}
-			delete al;
 		}
 
-		static void append_attr_clone(AstNode *ast, dict<IdString, std::unique_ptr<AstNode>> *al)
+		static void append_attr_clone(AstNode *ast, std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> &al)
 		{
 			for (auto &it : *al) {
 				ast->attributes[it.first] = it.second->clone();
 			}
-		}
-
-		static void free_attr(dict<IdString, std::unique_ptr<AstNode>> *al)
-		{
-			delete al;
 		}
 
 		static std::unique_ptr<AstNode> makeRange(parser::location_type loc, int msb = 31, int lsb = 0, bool isSigned = true)
@@ -363,28 +361,31 @@
 		}
 
 		// add a pre/post-increment/decrement statement
-		const AstNode *ParseState::addIncOrDecStmt(dict<IdString, std::unique_ptr<AstNode>> *stmt_attr,
+		const AstNode *ParseState::addIncOrDecStmt(std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> stmt_attr,
 							std::unique_ptr<AstNode> lhs,
-							dict<IdString, std::unique_ptr<AstNode>> *op_attr, AST::AstNodeType op,
+							std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> op_attr, AST::AstNodeType op,
 							Location loc)
 		{
 			auto one = AstNode::mkconst_int(loc, 1, true);
 			auto rhs = std::make_unique<AstNode>(loc, op, lhs->clone(), std::move(one));
-			if (op_attr != nullptr)
-				append_attr(rhs.get(), op_attr);
+			if (op_attr)
+				append_attr(rhs.get(), std::move(op_attr));
 			auto stmt_owned = std::make_unique<AstNode>(loc, AST_ASSIGN_EQ, std::move(lhs), std::move(rhs));
 			auto* stmt = stmt_owned.get();
 			ast_stack.back()->children.push_back(std::move(stmt_owned));
-			if (stmt_attr != nullptr)
-				append_attr(stmt, stmt_attr);
+			if (stmt_attr)
+				append_attr(stmt, std::move(stmt_attr));
 			return stmt;
 		}
 
 		// create a pre/post-increment/decrement expression, and add the corresponding statement
-		std::unique_ptr<AstNode> ParseState::addIncOrDecExpr(std::unique_ptr<AstNode> lhs, dict<IdString, std::unique_ptr<AstNode>> *attr, AST::AstNodeType op, Location loc, bool undo, bool sv_mode)
+		std::unique_ptr<AstNode> ParseState::addIncOrDecExpr(std::unique_ptr<AstNode> lhs,
+								     std::unique_ptr<dict<IdString,
+								     std::unique_ptr<AstNode>>> attr,
+								     AST::AstNodeType op, Location loc, bool undo, bool sv_mode)
 		{
 			ensureAsgnExprAllowed(loc, sv_mode);
-			const AstNode *stmt = addIncOrDecStmt(nullptr, std::move(lhs), attr, op, loc);
+			const AstNode *stmt = addIncOrDecStmt(nullptr, std::move(lhs), std::move(attr), op, loc);
 			log_assert(stmt->type == AST_ASSIGN_EQ);
 			auto expr = stmt->children[0]->clone();
 			if (undo) {
@@ -396,7 +397,8 @@
 		}
 
 		// add a binary operator assignment statement, e.g., a += b
-		std::unique_ptr<AstNode> ParseState::addAsgnBinopStmt(dict<IdString, std::unique_ptr<AstNode>> *attr, std::unique_ptr<AstNode> eq_lhs, AST::AstNodeType op, std::unique_ptr<AstNode> rhs)
+		std::unique_ptr<AstNode> ParseState::addAsgnBinopStmt(std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> attr,
+								      std::unique_ptr<AstNode> eq_lhs, AST::AstNodeType op, std::unique_ptr<AstNode> rhs)
 		{
 			Location loc = location_range(eq_lhs->location, rhs->location);
 			if (op == AST_SHIFT_LEFT || op == AST_SHIFT_RIGHT ||
@@ -409,8 +411,8 @@
 			auto stmt_owned = std::make_unique<AstNode>(loc, AST_ASSIGN_EQ, std::move(eq_lhs), std::move(eq_rhs_owned));
 			auto* stmt = stmt_owned.get();
 			ast_stack.back()->children.push_back(std::move(stmt_owned));
-			if (attr != nullptr)
-				append_attr(stmt, attr);
+			if (attr)
+				append_attr(stmt, std::move(attr));
 			return ret_lhs;
 		}
 	};
@@ -460,7 +462,7 @@
 
 	using string_t = std::unique_ptr<std::string>;
 	using ast_t = std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>;
-	using al_t = YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>>*;
+	using al_t = std::unique_ptr<YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>>>;
 	using specify_target_ptr_t = std::unique_ptr<struct specify_target>;
 	using specify_triple_ptr_t = std::unique_ptr<struct specify_triple>;
 	using specify_rise_fall_ptr_t = std::unique_ptr<struct specify_rise_fall>;
@@ -613,15 +615,15 @@ design:
 
 attr:
 	{
-		if (extra->attr_list != nullptr)
-			extra->attr_list_stack.push(extra->attr_list);
-		extra->attr_list = new dict<IdString, std::unique_ptr<AstNode>>;
+		if (extra->attr_list)
+			extra->attr_list_stack.push(std::move(extra->attr_list));
+		extra->attr_list = std::make_unique<dict<IdString, std::unique_ptr<AstNode>>>();
 		for (auto &it : extra->default_attr_list)
 			(*extra->attr_list)[it.first] = it.second->clone();
 	} attr_opt {
-		$$ = extra->attr_list;
+		$$ = std::move(extra->attr_list);
 		if (!extra->attr_list_stack.empty()) {
-			extra->attr_list = extra->attr_list_stack.top();
+			extra->attr_list = std::move(extra->attr_list_stack.top());
 			extra->attr_list_stack.pop();
 		} else
 			extra->attr_list = nullptr;
@@ -636,14 +638,14 @@ attr_opt:
 defattr:
 	DEFATTR_BEGIN {
 		if (extra->attr_list != nullptr)
-			extra->attr_list_stack.push(extra->attr_list);
-		extra->attr_list = new dict<IdString, std::unique_ptr<AstNode>>;
+			extra->attr_list_stack.push(std::move(extra->attr_list));
+		extra->attr_list = std::make_unique<dict<IdString, std::unique_ptr<AstNode>>>();
 		extra->default_attr_list.clear();
 	} opt_attr_list {
 		extra->attr_list->swap(extra->default_attr_list);
-		delete extra->attr_list;
+		extra->attr_list.reset();
 		if (!extra->attr_list_stack.empty()) {
-			extra->attr_list = extra->attr_list_stack.top();
+			extra->attr_list = std::move(extra->attr_list_stack.top());
 			extra->attr_list_stack.pop();
 		} else
 			extra->attr_list = nullptr;
@@ -699,7 +701,7 @@ module:
 		extra->port_stubs.clear();
 		extra->port_counter = 0;
 		mod->str = *$4;
-		append_attr(mod, $1);
+		append_attr(mod, std::move($1));
 	} module_para_opt module_args_opt TOK_SEMICOL module_body TOK_ENDMODULE opt_label {
 		if (extra->port_stubs.size() != 0)
 			err_at_loc(@7, "Missing details for module port `%s'.",
@@ -723,12 +725,12 @@ single_module_para:
 	attr TOK_PARAMETER {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_PARAMETER);
 		extra->astbuf1->children.push_back(AstNode::mkconst_int(@2, 0, true));
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 	} param_type single_param_decl |
 	attr TOK_LOCALPARAM {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_LOCALPARAM);
 		extra->astbuf1->children.push_back(AstNode::mkconst_int(@2, 0, true));
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 	} param_type single_param_decl |
 	single_param_decl;
 
@@ -798,7 +800,7 @@ module_arg:
 			err_at_loc(@4, "Module port `%s' is neither input nor output.", $4->c_str());
 		if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
 			err_at_loc(@4, "Input port `%s' is declared as register.", $4->c_str());
-		append_attr(node.get(), $1);
+		append_attr(node.get(), std::move($1));
 		extra->ast_stack.back()->children.push_back(std::move(node));
 	} module_arg_opt_assignment |
 	TOK_DOT TOK_DOT TOK_DOT {
@@ -812,7 +814,7 @@ package:
 		AstNode* mod = extra->pushChild(std::make_unique<AstNode>(@$, AST_PACKAGE));
 		extra->current_ast_mod = mod;
 		mod->str = *$4;
-		append_attr(mod, $1);
+		append_attr(mod, std::move($1));
 	} TOK_SEMICOL package_body TOK_ENDPACKAGE opt_label {
 		extra->ast_stack.pop_back();
 		checkLabelsMatch(@9, "Package name", $4.get(), $9.get());
@@ -1114,28 +1116,28 @@ task_func_decl:
 	attr TOK_DPI_FUNCTION TOK_ID TOK_ID {
 		extra->current_function_or_task = extra->saveChild(std::make_unique<AstNode>(@$, AST_DPI_FUNCTION, AstNode::mkconst_str(@3, *$3), AstNode::mkconst_str(@4, *$4)));
 		extra->current_function_or_task->str = *$4;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 	} opt_dpi_function_args TOK_SEMICOL {
 		extra->current_function_or_task = nullptr;
 	} |
 	attr TOK_DPI_FUNCTION TOK_ID TOK_EQ TOK_ID TOK_ID {
 		extra->current_function_or_task = extra->saveChild(std::make_unique<AstNode>(@$, AST_DPI_FUNCTION, AstNode::mkconst_str(@5, *$5), AstNode::mkconst_str(@3, *$3)));
 		extra->current_function_or_task->str = *$6;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 	} opt_dpi_function_args TOK_SEMICOL {
 		extra->current_function_or_task = nullptr;
 	} |
 	attr TOK_DPI_FUNCTION TOK_ID TOK_COL TOK_ID TOK_EQ TOK_ID TOK_ID {
 		extra->current_function_or_task = extra->saveChild(std::make_unique<AstNode>(@$, AST_DPI_FUNCTION, AstNode::mkconst_str(@7, *$7), AstNode::mkconst_str(location_range(@3, @5), *$3 + ":" + RTLIL::unescape_id(*$5))));
 		extra->current_function_or_task->str = *$8;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 	} opt_dpi_function_args TOK_SEMICOL {
 		extra->current_function_or_task = nullptr;
 	} |
 	attr TOK_TASK opt_automatic TOK_ID {
 		extra->current_function_or_task = extra->pushChild(std::make_unique<AstNode>(@$, AST_TASK));
 		extra->current_function_or_task->str = *$4;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 		extra->current_function_or_task_port_id = 1;
 	} task_func_args_opt TOK_SEMICOL task_func_body TOK_ENDTASK {
 		extra->current_function_or_task = nullptr;
@@ -1149,7 +1151,7 @@ task_func_decl:
 		// function like a task.
 		extra->current_function_or_task = extra->pushChild(std::make_unique<AstNode>(@$, AST_TASK));
 		extra->current_function_or_task->str = *$5;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 		extra->current_function_or_task_port_id = 1;
 	} task_func_args_opt TOK_SEMICOL task_func_body TOK_ENDFUNCTION {
 		extra->current_function_or_task = nullptr;
@@ -1158,7 +1160,7 @@ task_func_decl:
 	attr TOK_FUNCTION opt_automatic func_return_type TOK_ID {
 		extra->current_function_or_task = extra->pushChild(std::make_unique<AstNode>(@$, AST_FUNCTION));
 		extra->current_function_or_task->str = *$5;
-		append_attr(extra->current_function_or_task, $1);
+		append_attr(extra->current_function_or_task, std::move($1));
 		auto outreg = std::make_unique<AstNode>(@$, AST_WIRE);
 		outreg->str = *$5;
 		outreg->is_signed = false;
@@ -1240,7 +1242,7 @@ task_func_args_opt:
 		(void)extra->astbuf1.reset();
 		if (extra->astbuf2 != nullptr)
 			(void)extra->astbuf2.reset();
-		free_attr(extra->albuf);
+		extra->albuf.reset();
 	} TOK_RPAREN;
 
 task_func_args:
@@ -1256,9 +1258,9 @@ task_func_port:
 			(void)extra->astbuf1.reset();
 			if (extra->astbuf2 != nullptr)
 				(void)extra->astbuf2.reset();
-			free_attr(extra->albuf);
+			extra->albuf.reset();
 		}
-		extra->albuf = $1;
+		extra->albuf = std::move($1);
 		extra->astbuf1 = std::move($2);
 		extra->astbuf2 = checkRange(extra->astbuf1.get(), std::move($3));
 		if (!extra->astbuf1->is_input && !extra->astbuf1->is_output) {
@@ -1272,7 +1274,7 @@ task_func_port:
 		if (!extra->astbuf1) {
 			if (!mode->sv)
 				err_at_loc(@$, "task/function argument direction missing");
-			extra->albuf = new dict<IdString, std::unique_ptr<AstNode>>;
+			extra->albuf = std::make_unique<dict<IdString, std::unique_ptr<AstNode>>>();
 			extra->astbuf1 = std::make_unique<AstNode>(@$, AST_WIRE);
 			extra->current_wire_rand = false;
 			extra->current_wire_const = false;
@@ -1601,23 +1603,23 @@ state_dependent_path_declaration:
 module_path_expression:
 	module_path_primary
 	// Flatten out unary_operator to avoid shift/reduce conflict
-	| TOK_EXCL attr module_path_primary { free_attr($2); }
-	| TOK_TILDE attr module_path_primary { free_attr($2); }
-	| TOK_AMP attr module_path_primary { free_attr($2); }
-	| OP_NAND attr module_path_primary { free_attr($2); }
-	| TOK_PIPE attr module_path_primary { free_attr($2); }
-	| OP_NOR attr module_path_primary { free_attr($2); }
-	| TOK_CARET attr module_path_primary { free_attr($2); }
-	| OP_XNOR attr module_path_primary { free_attr($2); }
+	| TOK_EXCL attr module_path_primary
+	| TOK_TILDE attr module_path_primary
+	| TOK_AMP attr module_path_primary
+	| OP_NAND attr module_path_primary
+	| TOK_PIPE attr module_path_primary
+	| OP_NOR attr module_path_primary
+	| TOK_CARET attr module_path_primary
+	| OP_XNOR attr module_path_primary
 	// Flatten out binary_operator to avoid shift/reduce conflict
-	| module_path_expression OP_EQ attr module_path_expression { free_attr($3); }
-	| module_path_expression OP_NE attr module_path_expression { free_attr($3); }
-	| module_path_expression OP_LAND attr module_path_expression { free_attr($3); }
-	| module_path_expression OP_LOR attr module_path_expression { free_attr($3); }
-	| module_path_expression TOK_AMP attr module_path_expression { free_attr($3); }
-	| module_path_expression TOK_PIPE attr module_path_expression { free_attr($3); }
-	| module_path_expression TOK_CARET attr module_path_expression { free_attr($3); }
-	| module_path_expression OP_XNOR attr module_path_expression { free_attr($3); }
+	| module_path_expression OP_EQ attr module_path_expression
+	| module_path_expression OP_NE attr module_path_expression
+	| module_path_expression OP_LAND attr module_path_expression
+	| module_path_expression OP_LOR attr module_path_expression
+	| module_path_expression TOK_AMP attr module_path_expression
+	| module_path_expression TOK_PIPE attr module_path_expression
+	| module_path_expression TOK_CARET attr module_path_expression
+	| module_path_expression OP_XNOR attr module_path_expression
 	// | module_path_conditional_expression
 	;
 
@@ -1760,7 +1762,7 @@ param_decl:
 	attr TOK_PARAMETER {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_PARAMETER);
 		extra->astbuf1->children.push_back(AstNode::mkconst_int(@$, 0, true));
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 	} param_type param_decl_list TOK_SEMICOL {
 		(void)extra->astbuf1.reset();
 	};
@@ -1769,7 +1771,7 @@ localparam_decl:
 	attr TOK_LOCALPARAM {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_LOCALPARAM);
 		extra->astbuf1->children.push_back(AstNode::mkconst_int(@$, 0, true));
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 	} param_type param_decl_list TOK_SEMICOL {
 		(void)extra->astbuf1.reset();
 	};
@@ -1925,7 +1927,7 @@ enum_decl: enum_type enum_var_list TOK_SEMICOL		{  }
 
 struct_decl:
 	attr struct_type {
-		append_attr(extra->astbuf2.get(), $1);
+		append_attr(extra->astbuf2.get(), std::move($1));
 	} struct_var_list TOK_SEMICOL {
 		(void)extra->astbuf2.reset();
 	}
@@ -2031,26 +2033,26 @@ struct_var:
 
 wire_decl:
 	attr wire_type range_or_multirange {
-		extra->albuf = $1;
+		extra->albuf = std::move($1);
 		extra->astbuf1 = std::move($2);
 		extra->astbuf2 = checkRange(extra->astbuf1.get(), std::move($3));
 	} delay wire_name_list {
 		(void)extra->astbuf1.reset();
 		if (extra->astbuf2 != nullptr)
 			(void)extra->astbuf2.reset();
-		free_attr(extra->albuf);
+		extra->albuf.reset();
 	} TOK_SEMICOL |
 	attr TOK_SUPPLY0 TOK_ID {
 		extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_WIRE));
 		extra->ast_stack.back()->children.back()->str = *$3;
-		append_attr(extra->ast_stack.back()->children.back().get(), $1);
+		append_attr(extra->ast_stack.back()->children.back().get(), std::move($1));
 		extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_ASSIGN, std::make_unique<AstNode>(@$, AST_IDENTIFIER), AstNode::mkconst_int(@$, 0, false, 1)));
 		extra->ast_stack.back()->children.back()->children[0]->str = *$3;
 	} opt_supply_wires TOK_SEMICOL |
 	attr TOK_SUPPLY1 TOK_ID {
 		extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_WIRE));
 		extra->ast_stack.back()->children.back()->str = *$3;
-		append_attr(extra->ast_stack.back()->children.back().get(), $1);
+		append_attr(extra->ast_stack.back()->children.back().get(), std::move($1));
 		extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_ASSIGN, std::make_unique<AstNode>(@$, AST_IDENTIFIER), AstNode::mkconst_int(@$, 1, false, 1)));
 		extra->ast_stack.back()->children.back()->children[0]->str = *$3;
 	} opt_supply_wires TOK_SEMICOL;
@@ -2243,7 +2245,7 @@ enum_struct_type:
 cell_stmt:
 	attr TOK_ID {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_CELL);
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 		extra->astbuf1->children.push_back(std::make_unique<AstNode>(@$, AST_CELLTYPE));
 		extra->astbuf1->children[0]->str = *$2;
 	} cell_parameter_list_opt cell_list TOK_SEMICOL {
@@ -2252,7 +2254,7 @@ cell_stmt:
 	attr tok_prim_wrapper delay {
 		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_PRIMITIVE);
 		extra->astbuf1->str = *$2;
-		append_attr(extra->astbuf1.get(), $1);
+		append_attr(extra->astbuf1.get(), std::move($1));
 	} prim_list TOK_SEMICOL {
 		(void)extra->astbuf1.reset();
 	};
@@ -2378,26 +2380,22 @@ cell_port:
 	attr {
 		auto node = std::make_unique<AstNode>(@$, AST_ARGUMENT);
 		extra->cell_hack->children.push_back(std::move(node));
-		free_attr($1);
 	} |
 	attr expr {
 		auto node = std::make_unique<AstNode>(@$, AST_ARGUMENT);
 		node->children.push_back(std::move($2));
 		extra->cell_hack->children.push_back(std::move(node));
-		free_attr($1);
 	} |
 	attr TOK_DOT TOK_ID TOK_LPAREN expr TOK_RPAREN {
 		auto node = std::make_unique<AstNode>(@$, AST_ARGUMENT);
 		node->str = *$3;
 		node->children.push_back(std::move($5));
 		extra->cell_hack->children.push_back(std::move(node));
-		free_attr($1);
 	} |
 	attr TOK_DOT TOK_ID TOK_LPAREN TOK_RPAREN {
 		auto node = std::make_unique<AstNode>(@$, AST_ARGUMENT);
 		node->str = *$3;
 		extra->cell_hack->children.push_back(std::move(node));
-		free_attr($1);
 	} |
 	attr TOK_DOT TOK_ID {
 		auto node = std::make_unique<AstNode>(@$, AST_ARGUMENT);
@@ -2405,13 +2403,11 @@ cell_port:
 		node->children.push_back(std::make_unique<AstNode>(@$, AST_IDENTIFIER));
 		node->children.back()->str = *$3;
 		extra->cell_hack->children.push_back(std::move(node));
-		free_attr($1);
 	} |
 	attr TOK_WILDCARD_CONNECT {
 		if (!mode->sv)
 			err_at_loc(@2, "Wildcard port connections are only supported in SystemVerilog mode.");
 		extra->cell_hack->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(@2, 1, false);
-		free_attr($1);
 	};
 
 always_comb_or_latch:
@@ -2433,7 +2429,7 @@ always_or_always_ff:
 always_stmt:
 	attr always_or_always_ff {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_ALWAYS));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		if ($2)
 			node->attributes[ID::always_ff] = AstNode::mkconst_int(@2, 1, false);
 	} always_cond {
@@ -2449,7 +2445,7 @@ always_stmt:
 	} |
 	attr always_comb_or_latch {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_ALWAYS));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		if ($2)
 			node->attributes[ID::always_latch] = AstNode::mkconst_int(@2, 1, false);
 		else
@@ -2461,7 +2457,7 @@ always_stmt:
 	} |
 	attr TOK_INITIAL {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_INITIAL));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		(void)extra->pushChild(std::make_unique<AstNode>(@$, AST_BLOCK));
 	} behavioral_stmt {
 		extra->ast_stack.pop_back();
@@ -2702,21 +2698,21 @@ simple_behavioral_stmt:
 	attr lvalue TOK_EQ delay expr {
 		AstNode* node = extra->saveChild(std::make_unique<AstNode>(@$, AST_ASSIGN_EQ, std::move($2), std::move($5)));
 		SET_AST_NODE_LOC(node, @2, @5);
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 	} |
 	attr lvalue attr inc_or_dec_op {
-		extra->addIncOrDecStmt($1, std::move($2), $3, $4, location_range(@1, @4));
+		extra->addIncOrDecStmt(std::move($1), std::move($2), std::move($3), $4, location_range(@1, @4));
 	} |
 	attr inc_or_dec_op attr lvalue {
-		extra->addIncOrDecStmt($1, std::move($4), $3, $2, location_range(@1, @4));
+		extra->addIncOrDecStmt(std::move($1), std::move($4), std::move($3), $2, location_range(@1, @4));
 	} |
 	attr lvalue OP_LE delay expr {
 		AstNode* node = extra->saveChild(std::make_unique<AstNode>(@$, AST_ASSIGN_LE, std::move($2), std::move($5)));
 		SET_AST_NODE_LOC(node, @2, @5);
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 	} |
 	attr lvalue asgn_binop delay expr {
-		(void)extra->addAsgnBinopStmt($1, std::move($2), $3, std::move($5));
+		(void)extra->addAsgnBinopStmt(std::move($1), std::move($2), $3, std::move($5));
 	};
 
 asgn_binop:
@@ -2790,13 +2786,11 @@ behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt TOK_SEMICOL |
-	attr TOK_SEMICOL {
-		free_attr($1);
-	} |
+	attr TOK_SEMICOL |
 	attr hierarchical_id {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_TCALL));
 		node->str = *$2;
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 	} opt_arg_list TOK_SEMICOL{
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @5);
 		extra->ast_stack.pop_back();
@@ -2804,7 +2798,7 @@ behavioral_stmt:
 	attr TOK_MSG_TASKS {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_TCALL));
 		node->str = *$2;
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 	} opt_arg_list TOK_SEMICOL{
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @5);
 		extra->ast_stack.pop_back();
@@ -2813,7 +2807,7 @@ behavioral_stmt:
 		extra->enterTypeScope();
 	} opt_label {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_BLOCK));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		if ($4 != nullptr)
 			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
@@ -2834,7 +2828,7 @@ behavioral_stmt:
 	} |
 	attr TOK_FOR TOK_LPAREN {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_FOR));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 	} for_initialization TOK_SEMICOL expr {
 		extra->ast_stack.back()->children.push_back(std::move($7));
 	} TOK_SEMICOL simple_behavioral_stmt TOK_RPAREN {
@@ -2848,7 +2842,7 @@ behavioral_stmt:
 	} |
 	attr TOK_WHILE TOK_LPAREN expr TOK_RPAREN {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_WHILE));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		auto block_owned = std::make_unique<AstNode>(@$, AST_BLOCK);
 		auto* block = block_owned.get();
 		extra->ast_stack.back()->children.push_back(std::move($4));
@@ -2861,7 +2855,7 @@ behavioral_stmt:
 	} |
 	attr TOK_REPEAT TOK_LPAREN expr TOK_RPAREN {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_REPEAT));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		auto block_owned = std::make_unique<AstNode>(@$, AST_BLOCK);
 		auto* block = block_owned.get();
 		extra->ast_stack.back()->children.push_back(std::move($4));
@@ -2896,11 +2890,9 @@ behavioral_stmt:
 			// not parallel "else if": begin new construction
 			node_owned = std::make_unique<AstNode>(@$, AST_CASE);
 			node = node_owned.get();
-			append_attr(node, $1);
+			append_attr(node, std::move($1));
 			node->children.push_back(node->get_bool_attribute(ID::parallel_case) ? AstNode::mkconst_int(@$, 1, false, 1) : expr->clone());
 			extra->ast_stack.back()->children.push_back(std::move(node_owned));
-		} else {
-			free_attr($1);
 		}
 		auto block_owned = std::make_unique<AstNode>(@$, AST_BLOCK);
 		auto* block = block_owned.get();
@@ -2921,7 +2913,7 @@ behavioral_stmt:
 	} |
 	case_attr case_type TOK_LPAREN expr TOK_RPAREN {
 		AstNode* node = extra->pushChild(std::make_unique<AstNode>(@$, AST_CASE, std::move($4)));
-		append_attr(node, $1);
+		append_attr(node, std::move($1));
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @4, @4);
 	} opt_synopsys_attr case_body TOK_ENDCASE {
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @9);
@@ -2931,21 +2923,21 @@ behavioral_stmt:
 
 if_attr:
 	attr {
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_UNIQUE0 {
 		AstNode *context = extra->ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
 			err_at_loc(@2, "unique0 keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_PRIORITY {
 		AstNode *context = extra->ast_stack.back();
 		if (context && context->type == AST_BLOCK && context->get_bool_attribute(ID::promoted_if))
 			err_at_loc(@2, "priority keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::full_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_UNIQUE {
 		AstNode *context = extra->ast_stack.back();
@@ -2953,25 +2945,25 @@ if_attr:
 			err_at_loc(@2, "unique keyword cannot be used for 'else if' branch.");
 		(*$1)[ID::full_case] = AstNode::mkconst_int(@$, 1, false);
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	};
 
 case_attr:
 	attr {
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_UNIQUE0 {
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_PRIORITY {
 		(*$1)[ID::full_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	} |
 	attr TOK_UNIQUE {
 		(*$1)[ID::full_case] = AstNode::mkconst_int(@$, 1, false);
 		(*$1)[ID::parallel_case] = AstNode::mkconst_int(@$, 1, false);
-		$$ = $1;
+		$$ = std::move($1);
 	};
 
 case_type:
@@ -3139,9 +3131,7 @@ module_gen_body:
 
 gen_stmt_or_module_body_stmt:
 	gen_stmt | module_body_stmt |
-	attr TOK_SEMICOL {
-		free_attr($1);
-	};
+	attr TOK_SEMICOL;
 
 genvar_identifier:
 	TOK_ID {
@@ -3240,10 +3230,10 @@ expr:
 		$$->children.push_back(std::move($4));
 		$$->children.push_back(std::move($6));
 		SET_AST_NODE_LOC($$.get(), @1, @$);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	inc_or_dec_op attr rvalue {
-		$$ = extra->addIncOrDecExpr(std::move($3), $2, $1, location_range(@1, @3), false, mode->sv);
+		$$ = extra->addIncOrDecExpr(std::move($3), std::move($2), $1, location_range(@1, @3), false, mode->sv);
 	} |
 	// TODO: Attributes are allowed in the middle here, but they create some
 	// non-trivial conflicts that don't seem worth solving for now.
@@ -3305,18 +3295,18 @@ basic_expr:
 		node->str = *$1;
 		extra->ast_stack.push_back(node);
 		SET_AST_NODE_LOC(node, @1, @1);
-		append_attr(node, $2);
+		append_attr(node, std::move($2));
 	} TOK_LPAREN arg_list optional_comma TOK_RPAREN {
 		$$.reset(extra->ast_stack.back());
 		extra->ast_stack.pop_back();
 	} |
 	TOK_TO_SIGNED attr TOK_LPAREN expr TOK_RPAREN {
 		$$ = std::make_unique<AstNode>(@$, AST_TO_SIGNED, std::move($4));
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	TOK_TO_UNSIGNED attr TOK_LPAREN expr TOK_RPAREN {
 		$$ = std::make_unique<AstNode>(@$, AST_TO_UNSIGNED, std::move($4));
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	TOK_LPAREN expr TOK_RPAREN {
 		$$ = std::move($2);
@@ -3333,47 +3323,47 @@ basic_expr:
 	TOK_TILDE attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_NOT, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	basic_expr TOK_AMP attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_AND, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_NAND attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_NOT, std::make_unique<AstNode>(@$, AST_BIT_AND, std::move($1), std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_PIPE attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_OR, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_NOR attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_NOT, std::make_unique<AstNode>(@$, AST_BIT_OR, std::move($1), std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_CARET attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_XOR, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_XNOR attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_BIT_XNOR, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	TOK_AMP attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_REDUCE_AND, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	OP_NAND attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_REDUCE_AND, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 		$$ = std::make_unique<AstNode>(@$, AST_LOGIC_NOT, std::move($$));
 	} |
 	TOK_PIPE attr basic_expr %prec UNARY_OPS {
@@ -3384,134 +3374,134 @@ basic_expr:
 	OP_NOR attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_REDUCE_OR, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 		$$ = std::make_unique<AstNode>(@$, AST_LOGIC_NOT, std::move($$));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
 	} |
 	TOK_CARET attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_REDUCE_XOR, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	OP_XNOR attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_REDUCE_XNOR, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	basic_expr OP_SHL attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_SHIFT_LEFT, std::move($1), std::make_unique<AstNode>(@$, AST_TO_UNSIGNED, std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_SHR attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_SHIFT_RIGHT, std::move($1), std::make_unique<AstNode>(@$, AST_TO_UNSIGNED, std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_SSHL attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_SHIFT_SLEFT, std::move($1), std::make_unique<AstNode>(@$, AST_TO_UNSIGNED, std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_SSHR attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_SHIFT_SRIGHT, std::move($1), std::make_unique<AstNode>(@$, AST_TO_UNSIGNED, std::move($4)));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_LT attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_LT, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_LE attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_LE, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_EQ attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_EQ, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_NE attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_NE, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_EQX attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_EQX, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_NEX attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_NEX, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_GE attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_GE, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_GT attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_GT, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_PLUS attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_ADD, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_MINUS attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_SUB, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_ASTER attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_MUL, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_SLASH attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_DIV, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr TOK_PERC attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_MOD, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_POW attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_POW, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	TOK_PLUS attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_POS, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	TOK_MINUS attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_NEG, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	basic_expr OP_LAND attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_LOGIC_AND, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	basic_expr OP_LOR attr basic_expr {
 		$$ = std::make_unique<AstNode>(@$, AST_LOGIC_OR, std::move($1), std::move($4));
 		SET_AST_NODE_LOC($$.get(), @1, @4);
-		append_attr($$.get(), $3);
+		append_attr($$.get(), std::move($3));
 	} |
 	TOK_EXCL attr basic_expr %prec UNARY_OPS {
 		$$ = std::make_unique<AstNode>(@$, AST_LOGIC_NOT, std::move($3));
 		SET_AST_NODE_LOC($$.get(), @1, @3);
-		append_attr($$.get(), $2);
+		append_attr($$.get(), std::move($2));
 	} |
 	TOK_SIGNED OP_CAST TOK_LPAREN expr TOK_RPAREN {
 		if (!mode->sv)
