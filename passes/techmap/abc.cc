@@ -104,8 +104,10 @@ struct gate_t
 	gate_type_t type;
 	int in1, in2, in3, in4;
 	bool is_port;
-	RTLIL::SigBit bit;
+	bool bit_is_wire;
+	bool bit_is_1;
 	RTLIL::State init;
+	std::string bit_str;
 };
 
 bool map_mux4;
@@ -156,6 +158,7 @@ struct AbcModuleState {
 
 	int map_autoidx = 0;
 	std::vector<gate_t> signal_list;
+	std::vector<RTLIL::SigBit> signal_bits;
 	dict<RTLIL::SigBit, int> signal_map;
 	FfInitVals &initvals;
 	bool had_init = false;
@@ -204,10 +207,13 @@ int AbcModuleState::map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, g
 		gate.in3 = -1;
 		gate.in4 = -1;
 		gate.is_port = bit.wire != nullptr && val.is_port;
-		gate.bit = bit;
+		gate.bit_is_wire = bit.wire != nullptr;
+		gate.bit_is_1 = bit == State::S1;
 		gate.init = initvals(bit);
-		signal_list.push_back(gate);
+		gate.bit_str = std::string(log_signal(bit));
 		signal_map[bit] = gate.id;
+		signal_list.push_back(std::move(gate));
+		signal_bits.push_back(bit);
 	}
 
 	gate_t &gate = signal_list[signal_map[bit]];
@@ -463,17 +469,17 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 
 			if (sid < GetSize(signal_list))
 			{
-				auto sig = signal_list.at(sid);
-				if (sig.bit.wire != nullptr)
+				const auto &bit = signal_bits.at(sid);
+				if (bit.wire != nullptr)
 				{
-					std::string s = stringf("$abc$%d$%s", map_autoidx, sig.bit.wire->name.c_str()+1);
-					if (sig.bit.wire->width != 1)
-						s += stringf("[%d]", sig.bit.offset);
+					std::string s = stringf("$abc$%d$%s", map_autoidx, bit.wire->name.c_str()+1);
+					if (bit.wire->width != 1)
+						s += stringf("[%d]", bit.offset);
 					if (isnew)
 						s += "_new";
 					s += postfix;
 					if (orig_wire != nullptr)
-						*orig_wire = sig.bit.wire;
+						*orig_wire = bit.wire;
 					return s;
 				}
 			}
@@ -501,7 +507,7 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, signal_list[n].bit_str.c_str(),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
@@ -562,7 +568,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 		int id = *workpool.begin();
 		workpool.erase(id);
 
-		// log("Removing non-loop node %d from graph: %s\n", id, log_signal(signal_list[id].bit));
+		// log("Removing non-loop node %d from graph: %s\n", id, signal_list[id].bit_str);
 
 		for (int id2 : edges[id]) {
 			log_assert(in_edges_count[id2] > 0);
@@ -582,8 +588,8 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 
 			for (auto &edge_it : edges) {
 				int id2 = edge_it.first;
-				RTLIL::Wire *w1 = signal_list[id1].bit.wire;
-				RTLIL::Wire *w2 = signal_list[id2].bit.wire;
+				RTLIL::Wire *w1 = signal_bits[id1].wire;
+				RTLIL::Wire *w2 = signal_bits[id2].wire;
 				if (w1 == nullptr)
 					id1 = id2;
 				else if (w2 == nullptr)
@@ -605,7 +611,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 				continue;
 			}
 
-			log_assert(signal_list[id1].bit.wire != nullptr);
+			log_assert(signal_bits[id1].wire != nullptr);
 
 			std::stringstream sstr;
 			sstr << "$abcloop$" << (autoidx++);
@@ -615,10 +621,10 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			for (int id2 : edges[id1]) {
 				if (first_line)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+							signal_list[id1].bit_str, signal_list[id2].bit_str);
 				else
 					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+							signal_list[id1].bit_str, signal_list[id2].bit_str);
 				first_line = false;
 			}
 
@@ -641,7 +647,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			}
 			edges[id1].swap(edges[id3]);
 
-			connect(assign_map, module, RTLIL::SigSig(signal_list[id3].bit, signal_list[id1].bit));
+			connect(assign_map, module, RTLIL::SigSig(signal_bits[id3], signal_bits[id1]));
 			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 		}
 	}
@@ -1006,7 +1012,7 @@ void AbcModuleState::run_abc()
 		if (!si.is_port || si.type != G(NONE))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
-		pi_map[count_input++] = log_signal(si.bit);
+		pi_map[count_input++] = si.bit_str;
 	}
 	if (count_input == 0)
 		fprintf(f, " dummy_input\n");
@@ -1018,17 +1024,17 @@ void AbcModuleState::run_abc()
 		if (!si.is_port || si.type == G(NONE))
 			continue;
 		fprintf(f, " ys__n%d", si.id);
-		po_map[count_output++] = log_signal(si.bit);
+		po_map[count_output++] = si.bit_str;
 	}
 	fprintf(f, "\n");
 
 	for (auto &si : signal_list)
-		fprintf(f, "# ys__n%-5d %s\n", si.id, log_signal(si.bit));
+		fprintf(f, "# ys__n%-5d %s\n", si.id, si.bit_str.c_str());
 
 	for (auto &si : signal_list) {
-		if (si.bit.wire == nullptr) {
+		if (!si.bit_is_wire) {
 			fprintf(f, ".names ys__n%d\n", si.id);
-			if (si.bit == RTLIL::State::S1)
+			if (si.bit_is_1)
 				fprintf(f, "1\n");
 		}
 	}
@@ -1503,12 +1509,12 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			snprintf(buffer, 100, "\\ys__n%d", si.id);
 			RTLIL::SigSig conn;
 			if (si.type != G(NONE)) {
-				conn.first = si.bit;
+				conn.first = signal_bits[si.id];
 				conn.second = module->wire(remap_name(buffer));
 				out_wires++;
 			} else {
 				conn.first = module->wire(remap_name(buffer));
-				conn.second = si.bit;
+				conn.second = signal_bits[si.id];
 				in_wires++;
 			}
 			connect(assign_map, module, conn);
