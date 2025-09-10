@@ -256,7 +256,7 @@ struct OptBalanceTreeWorker {
 					if (inner_cells)
 					{
 						// Create a tree
-						log("  Creating tree for %d sources and %d inner cells...\n", GetSize(sources), inner_cells);
+						log_debug("  Creating tree for %s with %d sources and %d inner cells...\n", log_id(head_cell), GetSize(sources), inner_cells);
 						
 						// Build a vector of all source signals
 						vector<SigSpec> source_signals;
@@ -279,8 +279,6 @@ struct OptBalanceTreeWorker {
 						// Connect the tree output to the head cell's output
 						SigSpec head_output = sigmap(head_cell->getPort(ID::Y));
 						int connect_width = std::min(head_output.size(), tree_output.size());
-						log("  Connecting %s to %s\n", log_signal(head_output), log_signal(tree_output));
-						log_flush();
 						module->connect(head_output.extract(0, connect_width), tree_output.extract(0, connect_width));
 						if (head_output.size() > tree_output.size()) {
 							SigBit sext_bit = head_cell->getParam(ID::A_SIGNED).as_bool() ? head_output[connect_width - 1] : State::S0;
