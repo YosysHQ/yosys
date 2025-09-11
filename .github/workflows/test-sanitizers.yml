@@ -70,6 +70,12 @@ jobs:
           path: .local/
           key: ${{ matrix.os }}-${{ steps.get-iverilog.outputs.IVERILOG_GIT }}
 
+      - name: iverilog macOS deps
+        if: steps.cache-iverilog.outputs.cache-hit != 'true' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew install autoconf
+
       - name: Build iverilog
         if: steps.cache-iverilog.outputs.cache-hit != 'true'
         shell: bash
