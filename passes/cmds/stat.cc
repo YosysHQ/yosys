@@ -529,7 +529,7 @@ struct StatPass : public Pass {
 
 		if (json_mode) {
 			log("\n");
-			log(top_mod == nullptr ? "   }\n" : "   },\n");
+			log("%s", top_mod == nullptr ? "   }\n" : "   },\n");
 		}
 
 		if (top_mod != nullptr)
