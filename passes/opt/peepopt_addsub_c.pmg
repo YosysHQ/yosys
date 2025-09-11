@@ -32,7 +32,7 @@ match addsub2
 	// Check that b_const and c_const is constant
 	filter b_const.is_fully_const()
 	filter port(addsub2, \B).is_fully_const()
-	index <SigSpec> remove_bottom_padding(port(addsub2, \A)) === addsub1_y
+	index <SigSpec> port(addsub2, \A) === addsub1_y
 endmatch
 
 code
@@ -44,9 +44,6 @@ code
 	SigSpec c_const = port(addsub2, \B);
 	SigSpec addsub2_y = port(addsub2, \Y);
 
-	// Get offset of addsub1 result chunk in addsub2
-	int offset = GetSize(addsub2_a) - GetSize(addsub1_y);
-
 	// Get properties and values of b_const and c_const
 	// b_const may be coming from the A port
 	// But it is an RTLIL invariant that A_SIGNED equals B_SIGNED
@@ -54,45 +51,19 @@ code
 	bool c_const_signed = addsub2->getParam(ID::B_SIGNED).as_bool();
 	int b_const_int = b_const.as_int(b_const_signed);
 	int c_const_int = c_const.as_int(c_const_signed);
-	int b_const_int_shifted = b_const_int << offset;
 
-	// Helper lambdas for two's complement math	
-	auto sign2sComplement = [](auto value, int numBits) {
-  		if (value & (1 << (numBits - 1))) {
-   			return -1; 
-  		} else {
-   		    return 1; 
-  		}
-	};
-	auto twosComplement = [](auto value, int numBits) {
-  		if (value & (1 << (numBits - 1))) {
-   			return (~value) + 1; // invert bits before adding 1
-  		} else {
-   		    return value; 
-  		}
-	};
-
-	// Two's complement conversion
-	if (b_const_signed)
-		b_const_int = sign2sComplement(b_const_int, GetSize(b_const)) * twosComplement(b_const_int, GetSize(b_const));
-	if (c_const_signed)
-		c_const_int = sign2sComplement(c_const_int, GetSize(c_const)) * twosComplement(c_const_int, GetSize(c_const));
 	// Calculate the constant and compress the width to fit the value
 	Const const_value;
-	Const b_const_actual;
-	b_const_actual = b_const_int_shifted;
-	b_const_actual.compress(b_const_signed);
-
 	if (addsub1->type == $add)
 		if (addsub2->type == $add)
-			const_value = b_const_int_shifted + c_const_int;
+			const_value = b_const_int + c_const_int;
 		else
-			const_value = b_const_int_shifted - c_const_int;
+			const_value = b_const_int - c_const_int;
 	else
 		if (addsub2->type == $add)
-			const_value = b_const_int_shifted - c_const_int;
+			const_value = b_const_int - c_const_int;
 		else
-			const_value = b_const_int_shifted + c_const_int;
+			const_value = b_const_int + c_const_int;
 	const_value.compress(b_const_signed | c_const_signed);
 
 	// Integer values should be lesser than 32 bits
@@ -102,15 +73,7 @@ code
 		reject;
 	if (GetSize(b_const) > 32)
 		reject;
-	if (GetSize(c_const) + offset > 32)
-		reject;
-
-	// // Check for potential overflow
-	// if (std::max(GetSize(b_const_actual), GetSize(a)) + 1 > GetSize(addsub1_y))
-	// 	reject;
-
-	// Check that there are only zeros before offset
-	if (offset < 0 || !addsub2_a.extract(0, offset).is_fully_zero())
+	if (GetSize(c_const) > 32)
 		reject;
 
 	// Reuse/create new cell to drive the rewritten equation
