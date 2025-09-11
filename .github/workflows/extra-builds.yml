@@ -1,6 +1,14 @@
 name: Test extra build flows
 
-on: [push, pull_request]
+on:
+  # always test main
+  push:
+    branches:
+      - main
+  # test PRs
+  pull_request:
+  # allow triggering tests, ignores skip check
+  workflow_dispatch:
 
 jobs:
   pre_job:
@@ -11,11 +19,11 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
         with:
+          # don't run on documentation changes
           paths_ignore: '["**/README.md", "docs/**", "guidelines/**"]'
           # cancel previous builds if a new commit is pushed
-          cancel_others: 'true'
-          # only run on push *or* pull_request, not both
-          concurrent_skipping: 'same_content_newer'
+          # but never cancel main
+          cancel_others: ${{ github.ref != 'refs/heads/main' }}
 
   vs-prep:
     name: Prepare Visual Studio build
