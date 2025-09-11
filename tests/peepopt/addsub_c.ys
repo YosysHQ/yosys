@@ -388,7 +388,7 @@ log -pop
 
 
 
-log -header "No transform when addsub1 has a second fanout case 1"
+log -header "Transform even when addsub1 has a second fanout case 1"
 log -push
 read_verilog <<EOT
 module top(
@@ -409,7 +409,7 @@ select -assert-count 0 t:$sub
 design -reset
 log -pop
 
-log -header "No transform when addsub1 has a second fanout case 2"
+log -header "Transform even when addsub1 has a second fanout case 2"
 log -push
 read_verilog <<EOT
 module top(
@@ -425,12 +425,12 @@ endmodule
 EOT
 equiv_opt -assert peepopt
 design -load postopt
-select -assert-count 1 t:$add
-select -assert-count 1 t:$sub
+select -assert-count 2 t:$add
+select -assert-count 0 t:$sub
 design -reset
 log -pop
 
-log -header "No transform when addsub1 has a second fanout case 3"
+log -header "Transform even when addsub1 has a second fanout case 3"
 log -push
 read_verilog <<EOT
 module top(
@@ -446,12 +446,12 @@ endmodule
 EOT
 equiv_opt -assert peepopt
 design -load postopt
-select -assert-count 1 t:$add
-select -assert-count 1 t:$sub
+select -assert-count 0 t:$add
+select -assert-count 2 t:$sub
 design -reset
 log -pop
 
-log -header "No transform when addsub1 has a second fanout case 4"
+log -header "Transform even when addsub1 has a second fanout case 4"
 log -push
 read_verilog <<EOT
 module top(
@@ -947,7 +947,6 @@ EOF
 check -assert
 equiv_opt -assert peepopt
 design -load postopt
-write_verilog test.v
 select t:$add -assert-count 0
 select t:$sub -assert-count 1
 design -reset

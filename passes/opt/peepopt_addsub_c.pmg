@@ -18,10 +18,6 @@ code a b_const addsub1_y
 	b_const = port(addsub1, \B);
 	addsub1_y = port(addsub1, \Y);
 
-	// Fanout of each add/sub Y bit should be 1 (no bit-split)
-	if (nusers(addsub1_y) != 2)
-		reject;
-
 	// A and B can be interchanged for adder
 	if (addsub1->type == $add) {
 		branch;
@@ -40,6 +36,9 @@ match addsub2
 endmatch
 
 code
+  // New addsub1 cell (will be reused unless there is external fanout)
+	auto cell = addsub1;
+
 	// Get addsub2 signals
 	SigSpec addsub2_a = port(addsub2, \A);
 	SigSpec c_const = port(addsub2, \B);
@@ -114,16 +113,21 @@ code
 	if (offset < 0 || !addsub2_a.extract(0, offset).is_fully_zero())
 		reject;
 
-	// Rewire to only keep addsub1
-	addsub1->setPort(\A, a);
-	addsub1->setPort(\B, const_value);
-	addsub1->setPort(\Y, addsub2_y);
+	// Reuse/create new cell to drive the rewritten equation
+	if (nusers(addsub1_y) != 2) {
+		cell = module->addCell(NEW_ID2_SUFFIX("asconst"), addsub1->type);
+		cell->attributes = addsub1->attributes;
+		cell->parameters = addsub1->parameters;
+	}
+	cell->setPort(\A, a);
+	cell->setPort(\B, const_value);
+	cell->setPort(\Y, addsub2_y);
 
 	// Remove addsub2
 	autoremove(addsub2);
 
 	// Log, fixup, accept
 	log("addsub_const pattern in %s: addsub1=%s, addsub2=%s\n", log_id(module), log_id(addsub1), log_id(addsub2));
-	addsub1->fixup_parameters();
+	cell->fixup_parameters();
 	accept;
 endcode
