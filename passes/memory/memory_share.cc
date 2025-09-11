@@ -371,9 +371,9 @@ struct MemoryShareWorker
 				ports += std::to_string(idx);
 			}
 			if (!some_port.clk_enable) {
-				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking unclocked group, width %d: ports %s.\n", mem.width << some_port.wide_log2, ports);
 			} else {
-				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports.c_str());
+				log("  Checking group clocked with %sedge %s, width %d: ports %s.\n", some_port.clk_polarity ? "pos" : "neg", log_signal(some_port.clk), mem.width << some_port.wide_log2, ports);
 			}
 
 			// Okay, time to actually run the SAT solver.

@@ -553,7 +553,7 @@ struct JnyPass : public Pass {
             ff->open(filename.c_str(), std::ofstream::trunc);
             if (ff->fail()) {
                 delete ff;
-                log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+                log_error("Can't open file `%s' for writing: %s\n", filename, strerror(errno));
             }
             f = ff;
             invk << filename;
@@ -568,7 +568,7 @@ struct JnyPass : public Pass {
         if (!empty) {
             delete f;
         } else {
-            log("%s", buf.str().c_str());
+            log("%s", buf.str());
         }
     }
 

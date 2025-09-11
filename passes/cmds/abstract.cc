@@ -67,7 +67,7 @@ struct Slice {
 	int wire_offset(RTLIL::Wire *wire, int index) const {
 		int rtl_offset = indices == RtlilSlice ? index : wire->from_hdl_index(index);
 		if (rtl_offset < 0 || rtl_offset >= wire->width) {
-			log_error("Slice %s is out of bounds for wire %s in module %s", to_string().c_str(), log_id(wire), log_id(wire->module));
+			log_error("Slice %s is out of bounds for wire %s in module %s", to_string(), log_id(wire), log_id(wire->module));
 		}
 		return rtl_offset;
 	}

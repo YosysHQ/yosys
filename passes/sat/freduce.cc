@@ -247,7 +247,7 @@ struct PerformReduction
 			string loop_signals;
 			for (auto loop_bit : recursion_guard)
 				loop_signals += string(" ") + log_signal(loop_bit);
-			log_error("Found logic loop:%s\n", loop_signals.c_str());
+			log_error("Found logic loop:%s\n", loop_signals);
 		}
 
 		recursion_guard.insert(out);
@@ -596,7 +596,7 @@ struct FreduceWorker
 	void dump()
 	{
 		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, RTLIL::id2cstr(module->name), reduce_counter);
-		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename.c_str());
+		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename);
 		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.c_str() : ""));
 	}
 

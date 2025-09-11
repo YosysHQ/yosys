@@ -156,7 +156,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 
 static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 {
-	log("Mapping FSM `%s' from module `%s'.\n", fsm_cell->name.c_str(), module->name.c_str());
+	log("Mapping FSM `%s' from module `%s'.\n", fsm_cell->name, module->name);
 
 	FsmData fsm_data;
 	fsm_data.copy_from_cell(fsm_cell);

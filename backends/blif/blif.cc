@@ -674,7 +674,7 @@ struct BlifBackend : public Backend {
 		}
 
 		if (!top_module_name.empty())
-			log_error("Can't find top module `%s'!\n", top_module_name.c_str());
+			log_error("Can't find top module `%s'!\n", top_module_name);
 
 		for (auto module : mod_list)
 			BlifDumper::dump(*f, module, design, config);

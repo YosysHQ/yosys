@@ -143,7 +143,7 @@ struct FunctionalTestGeneric : public Pass
 */
 
 		for (auto module : design->selected_modules()) {
-            log("Dumping module `%s'.\n", module->name.c_str());
+            log("Dumping module `%s'.\n", module->name);
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
 				std::cout << RTLIL::unescape_id(node.name()) << " = " << node.to_string([](auto n) { return RTLIL::unescape_id(n.name()); }) << "\n";

@@ -100,15 +100,15 @@ struct InternalStatsPass : public Pass {
 
 		if (json_mode) {
 			log("{\n");
-			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump().c_str());
+			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump());
 			std::stringstream invocation;
 			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
-			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump().c_str());
+			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump());
 			if (auto mem = current_mem_bytes()) {
-				log("   \"memory_now\": %s,\n", std::to_string(*mem).c_str());
+				log("   \"memory_now\": %s,\n", std::to_string(*mem));
 			}
 			auto ast_bytes = AST::astnode_count() * (unsigned long long) sizeof(AST::AstNode);
-			log("   \"memory_ast\": %s,\n", std::to_string(ast_bytes).c_str());
+			log("   \"memory_ast\": %s,\n", std::to_string(ast_bytes));
 		}
 
 		// stats go here

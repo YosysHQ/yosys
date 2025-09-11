@@ -192,7 +192,7 @@ struct MemoryMapWorker
 			}
 		}
 
-		log("Mapping memory %s in module %s:\n", mem.memid.c_str(), module->name.c_str());
+		log("Mapping memory %s in module %s:\n", mem.memid, module->name);
 
 		int abits = ceil_log2(mem.size);
 		std::vector<RTLIL::SigSpec> data_reg_in(1 << abits);

@@ -345,7 +345,7 @@ struct SplicePass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			if (module->processes.size()) {
-				log("Skipping module %s as it contains processes.\n", module->name.c_str());
+				log("Skipping module %s as it contains processes.\n", module->name);
 				continue;
 			}
 

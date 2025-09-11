@@ -101,7 +101,7 @@ struct SccWorker
 			design(design), module(module), sigmap(module)
 	{
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name.c_str());
+			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name);
 			return;
 		}
 

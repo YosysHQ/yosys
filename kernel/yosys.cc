@@ -710,7 +710,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	  } else if (filename == "-") {
 	    command = "script";
 	  } else {
-	    log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename.c_str());
+	    log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename);
 	  }
 	}
 
@@ -731,7 +731,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			from_to_active = run_from.empty();
 		}
 
-		log("\n-- Executing script file `%s' --\n", filename.c_str());
+		log("\n-- Executing script file `%s' --\n", filename);
 
 		FILE *f = stdin;
 
@@ -741,7 +741,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		}
 
 		if (f == NULL)
-			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
+			log_error("Can't open script file `%s' for reading: %s\n", filename, strerror(errno));
 
 		FILE *backup_script_file = Frontend::current_script_file;
 		Frontend::current_script_file = f;
@@ -790,9 +790,9 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	}
 
 	if (filename == "-") {
-		log("\n-- Parsing stdin using frontend `%s' --\n", command.c_str());
+		log("\n-- Parsing stdin using frontend `%s' --\n", command);
 	} else {
-		log("\n-- Parsing `%s' using frontend `%s' --\n", filename.c_str(), command.c_str());
+		log("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
 	}
 
 	if (command[0] == ' ') {
@@ -811,7 +811,7 @@ void run_pass(std::string command, RTLIL::Design *design)
 	if (design == nullptr)
 		design = yosys_design;
 
-	log("\n-- Running command `%s' --\n", command.c_str());
+	log("\n-- Running command `%s' --\n", command);
 
 	Pass::call(design, command);
 }
@@ -843,16 +843,16 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		else if (filename.empty())
 			return;
 		else
-			log_error("Can't guess backend for output file `%s' (missing -b option)!\n", filename.c_str());
+			log_error("Can't guess backend for output file `%s' (missing -b option)!\n", filename);
 	}
 
 	if (filename.empty())
 		filename = "-";
 
 	if (filename == "-") {
-		log("\n-- Writing to stdout using backend `%s' --\n", command.c_str());
+		log("\n-- Writing to stdout using backend `%s' --\n", command);
 	} else {
-		log("\n-- Writing to `%s' using backend `%s' --\n", filename.c_str(), command.c_str());
+		log("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
 	}
 
 	Backend::backend_call(design, NULL, filename, command);

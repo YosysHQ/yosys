@@ -577,7 +577,7 @@ struct RenamePass : public Pass {
 					new_wire_names[wire] = module->uniquify("\\" + renamed_unescaped(name));
 					auto new_name = new_wire_names[wire].str().substr(1);
 					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
-						log_error("Failed to rename wire %s -> %s\n", name.c_str(), new_name.c_str());
+						log_error("Failed to rename wire %s -> %s\n", name, new_name);
 				}
 
 				for (auto cell : module->selected_cells()) {
@@ -590,7 +590,7 @@ struct RenamePass : public Pass {
 					new_cell_names[cell] = module->uniquify("\\" + renamed_unescaped(name));
 					auto new_name = new_cell_names[cell].str().substr(1);
 					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
-						log_error("Failed to rename cell %s -> %s\n", name.c_str(), new_name.c_str());
+						log_error("Failed to rename cell %s -> %s\n", name, new_name);
 				}
 
 				for (auto &it : new_wire_names)
@@ -629,7 +629,7 @@ struct RenamePass : public Pass {
 
 				if (module_to_rename != nullptr) {
 					to_name = RTLIL::escape_id(to_name);
-					log("Renaming module %s to %s.\n", module_to_rename->name.c_str(), to_name.c_str());
+					log("Renaming module %s to %s.\n", module_to_rename->name, to_name);
 					design->rename(module_to_rename, to_name);
 				} else
 					log_cmd_error("Object `%s' not found!\n", from_name.c_str());

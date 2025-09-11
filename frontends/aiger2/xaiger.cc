@@ -91,7 +91,7 @@ struct Xaiger2Frontend : public Frontend {
 		std::ifstream map_file;
 		map_file.open(map_filename);
 		if (!map_file)
-			log_error("Failed to open map file '%s'\n", map_filename.c_str());
+			log_error("Failed to open map file '%s'\n", map_filename);
 
 		unsigned int M, I, L, O, A;
 		std::string header;
@@ -388,7 +388,7 @@ struct Xaiger2Frontend : public Frontend {
 			if (f->eof())
 				break;
 			log_assert(!f->fail());
-			log("input file: %s\n", scratch.c_str());
+			log("input file: %s\n", scratch);
 		}
 
 		log_debug("co_counter=%d\n", co_counter);

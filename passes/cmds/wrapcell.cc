@@ -59,7 +59,7 @@ std::optional<std::string> format_with_params(std::string fmt, const dict<IdStri
 			auto beg = it;
 			while (it != fmt.end() && *it != '}') it++;
 			if (it == fmt.end()) {
-				log("Unclosed curly brackets in format string '%s'\n", fmt.c_str());
+				log("Unclosed curly brackets in format string '%s'\n", fmt);
 				return {};
 			}
 
@@ -70,7 +70,7 @@ std::optional<std::string> format_with_params(std::string fmt, const dict<IdStri
 			} else {
 				auto id = RTLIL::escape_id(std::string(beg, it));
 				if (!parameters.count(id)) {
-					log("Parameter %s referenced in format string '%s' not found\n", log_id(id), fmt.c_str());
+					log("Parameter %s referenced in format string '%s' not found\n", log_id(id), fmt);
 					return {};
 				}
 

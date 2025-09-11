@@ -42,7 +42,7 @@ std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string 
 	if (it == cached.end())
 		return nullptr;
 	if (verbose)
-		log("Using cached data for liberty file `%s'\n", fname.c_str());
+		log("Using cached data for liberty file `%s'\n", fname);
 	return it->second;
 }
 
@@ -53,7 +53,7 @@ void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr
 	if (!should_cache)
 		return;
 	if (verbose)
-		log("Caching data for liberty file `%s'\n", fname.c_str());
+		log("Caching data for liberty file `%s'\n", fname);
 	cached.emplace(fname, ast);
 }
 
@@ -671,7 +671,7 @@ void LibertyParser::error(const std::string &str) const
 	std::stringstream ss;
 	ss << "Syntax error in liberty file on line " << line << ".\n";
 	ss << "  " << str << "\n";
-	log_error("%s", ss.str().c_str());
+	log_error("%s", ss.str());
 }
 
 #else

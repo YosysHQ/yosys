@@ -258,7 +258,7 @@ struct SpiceBackend : public Backend {
 
 		if (!top_module_name.empty()) {
 			if (top_module == NULL)
-				log_error("Can't find top module `%s'!\n", top_module_name.c_str());
+				log_error("Can't find top module `%s'!\n", top_module_name);
 			print_spice_module(*f, top_module, design, neg, pos, buf, ncpf, big_endian, use_inames);
 			*f << stringf("\n");
 		}

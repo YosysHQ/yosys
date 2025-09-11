@@ -369,7 +369,7 @@ struct rules_t
 		attr_icase = false;
 
 		if (infile.fail())
-			log_error("Can't open rules file `%s'.\n", filename.c_str());
+			log_error("Can't open rules file `%s'.\n", filename);
 
 		while (next_line())
 		{
@@ -1020,7 +1020,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 
 	log("  Properties:");
 	for (auto &it : match_properties)
-		log(" %s=%d", it.first.c_str(), it.second);
+		log(" %s=%d", it.first, it.second);
 	log("\n");
 
 	pool<pair<IdString, int>> failed_brams;

@@ -597,7 +597,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool rminit)
 {
 	if (verbose)
-		log("Finding unused cells or wires in module %s..\n", module->name.c_str());
+		log("Finding unused cells or wires in module %s..\n", module->name);
 
 	std::vector<RTLIL::Cell*> delcells;
 	for (auto cell : module->cells())

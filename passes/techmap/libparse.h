@@ -204,7 +204,7 @@ namespace Yosys
 			}
 			ast = shared_ast.get();
 			if (!ast) {
-				log_error("No entries found in liberty file `%s'.\n", fname.c_str());
+				log_error("No entries found in liberty file `%s'.\n", fname);
 			}
 		}
 #endif

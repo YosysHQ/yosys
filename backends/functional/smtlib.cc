@@ -285,7 +285,7 @@ struct FunctionalSmtBackend : public Backend {
 		extra_args(f, filename, args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
-			log("Processing module `%s`.\n", module->name.c_str());
+			log("Processing module `%s`.\n", module->name);
 			SmtModule smt(module);
 			smt.write(*f);
 		}

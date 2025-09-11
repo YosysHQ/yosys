@@ -111,7 +111,7 @@ struct ExtractinvPass : public Pass {
 						RTLIL::Cell *icell = module->addCell(NEW_ID, RTLIL::escape_id(inv_celltype));
 						icell->setPort(RTLIL::escape_id(inv_portname), SigSpec(iwire, i));
 						icell->setPort(RTLIL::escape_id(inv_portname2), sig[i]);
-						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype.c_str(), log_id(module), log_id(cell->type), log_id(port.first), i);
+						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, log_id(module), log_id(cell->type), log_id(port.first), i);
 						sig[i] = SigBit(iwire, i);
 					}
 				cell->setPort(port.first, sig);

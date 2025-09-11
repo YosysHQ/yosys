@@ -3261,7 +3261,7 @@ basic_expr:
 		ConstParser p{@4};
 		auto val = p.const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		if (val == nullptr)
-			log_error("Value conversion failed: `%s'\n", $4->c_str());
+			log_error("Value conversion failed: `%s'\n", *$4);
 		$$ = std::make_unique<AstNode>(@$, AST_TO_BITS, std::move($2), std::move(val));
 	} |
 	hierarchical_id integral_number {
@@ -3274,7 +3274,7 @@ basic_expr:
 		auto val = p.const2ast(*$2, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC(val.get(), @2, @2);
 		if (val == nullptr)
-			log_error("Value conversion failed: `%s'\n", $2->c_str());
+			log_error("Value conversion failed: `%s'\n", *$2);
 		$$ = std::make_unique<AstNode>(@$, AST_TO_BITS, std::move(bits), std::move(val));
 	} |
 	integral_number {
@@ -3282,7 +3282,7 @@ basic_expr:
 		$$ = p.const2ast(*$1, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		SET_AST_NODE_LOC($$.get(), @1, @1);
 		if ($$ == nullptr)
-			log_error("Value conversion failed: `%s'\n", $1->c_str());
+			log_error("Value conversion failed: `%s'\n", *$1);
 	} |
 	TOK_REALVAL {
 		$$ = std::make_unique<AstNode>(@$, AST_REALVALUE);

@@ -106,7 +106,7 @@ struct Abc9Pass : public ScriptPass
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -119,12 +119,12 @@ struct Abc9Pass : public ScriptPass
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)));
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)));
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");

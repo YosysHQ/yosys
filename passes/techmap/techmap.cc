@@ -247,7 +247,7 @@ struct TechmapWorker
 				portname = positional_ports.at(portname);
 			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {
 				if (portname.begins_with("$"))
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname, cell->name, tpl->name);
 				continue;
 			}
 
@@ -562,7 +562,7 @@ struct TechmapWorker
 
 							if (extmapper_name == "wrap") {
 								std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
-								log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
+								log("Running \"%s\" on wrapper %s.\n", cmd_string, log_id(extmapper_module));
 								mkdebug.on();
 								Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
 								log_continue = true;
@@ -580,7 +580,7 @@ struct TechmapWorker
 						auto msg = stringf("Using extmapper %s for cells of type %s.", log_id(extmapper_module), log_id(cell->type));
 						if (!log_msg_cache.count(msg)) {
 							log_msg_cache.insert(msg);
-							log("%s\n", msg.c_str());
+							log("%s\n", msg);
 						}
 						log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
 					}
@@ -589,7 +589,7 @@ struct TechmapWorker
 						auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name, log_id(cell->type));
 						if (!log_msg_cache.count(msg)) {
 							log_msg_cache.insert(msg);
-							log("%s\n", msg.c_str());
+							log("%s\n", msg);
 						}
 						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
 
@@ -951,7 +951,7 @@ struct TechmapWorker
 					auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
 					if (!log_msg_cache.count(msg)) {
 						log_msg_cache.insert(msg);
-						log("%s\n", msg.c_str());
+						log("%s\n", msg);
 					}
 					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);

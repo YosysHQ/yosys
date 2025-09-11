@@ -85,7 +85,7 @@ struct CoveragePass : public Pass {
 		if (!ofile.empty()) {
 			fout.open(ofile, std::ios::out | std::ios::trunc);
 			if (!fout.is_open())
-				log_error("Could not open file \"%s\" with write access.\n", ofile.c_str());
+				log_error("Could not open file \"%s\" with write access.\n", ofile);
 		}
 
 		std::map<std::string, std::set<int>> uncovered_lines;
@@ -128,7 +128,7 @@ struct CoveragePass : public Pass {
 		for (const auto& file_entry : all_lines) {
 			int lines_found = file_entry.second.size();
 			int lines_hit = file_entry.second.size() - (uncovered_lines.count(file_entry.first) ? uncovered_lines[file_entry.first].size() : 0);
-			log("File %s: %d/%d lines covered\n", file_entry.first.c_str(), lines_hit, lines_found);
+			log("File %s: %d/%d lines covered\n", file_entry.first, lines_hit, lines_found);
 
 			if(!ofile.empty()) {
 				fout << "SF:" << file_entry.first << "\n";

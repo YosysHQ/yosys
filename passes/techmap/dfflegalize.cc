@@ -1111,7 +1111,7 @@ struct DffLegalizePass : public Pass {
 					pol_r = celltype[13];
 				} else {
 unrecognized:
-					log_error("unrecognized cell type %s.\n", celltype.c_str());
+					log_error("unrecognized cell type %s.\n", celltype);
 				}
 				int mask = 0;
 				int match = 0;
@@ -1140,12 +1140,12 @@ unrecognized:
 					initmask = 0x555;
 				} else if (inittype == "r") {
 					if (srval == 0)
-						log_error("init type r not valid for cell type %s.\n", celltype.c_str());
+						log_error("init type r not valid for cell type %s.\n", celltype);
 					initmask = 0x537;
 				} else if (inittype == "01") {
 					initmask = 0x777;
 				} else {
-					log_error("unrecognized init type %s for cell type %s.\n", inittype.c_str(), celltype.c_str());
+					log_error("unrecognized init type %s for cell type %s.\n", inittype, celltype);
 				}
 				if (srval == '0') {
 					initmask &= 0x0ff;

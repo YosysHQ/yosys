@@ -909,7 +909,7 @@ void AigerReader::post_process()
 					module->rename(cell, escaped_s);
 			}
 			else
-				log_error("Symbol type '%s' not recognised.\n", type.c_str());
+				log_error("Symbol type '%s' not recognised.\n", type);
 		}
 	}
 

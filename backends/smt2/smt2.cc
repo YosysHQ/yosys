@@ -130,7 +130,7 @@ struct Smt2Worker
 		for (auto &mem : memories)
 		{
 			if (is_smtlib2_module)
-				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid.c_str());
+				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid);
 
 			mem.narrow();
 			mem_dict[mem.memid] = &mem;
@@ -620,11 +620,11 @@ struct Smt2Worker
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
 				if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::maximize)){
 					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is maximized\n", cell->getPort(QY).as_wire()->name.str().c_str());
+					log("Wire %s is maximized\n", cell->getPort(QY).as_wire()->name.str());
 				}
 				else if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::minimize)){
 					decls.push_back(stringf("; yosys-smt2-minimize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is minimized\n", cell->getPort(QY).as_wire()->name.str().c_str());
+					log("Wire %s is minimized\n", cell->getPort(QY).as_wire()->name.str());
 				}
 
 				bool init_only = cell->type.in(ID($anyconst), ID($anyinit), ID($allconst));
@@ -1776,7 +1776,7 @@ struct Smt2Backend : public Backend {
 			if (args[argidx] == "-tpl" && argidx+1 < args.size()) {
 				template_f.open(args[++argidx]);
 				if (template_f.fail())
-					log_error("Can't open template file `%s'.\n", args[argidx].c_str());
+					log_error("Can't open template file `%s'.\n", args[argidx]);
 				continue;
 			}
 			if (args[argidx] == "-bv" || args[argidx] == "-mem") {

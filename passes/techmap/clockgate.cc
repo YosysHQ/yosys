@@ -81,7 +81,7 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 		} else if (icg_kind == "latch_negedge" || starts_with("latch_negedge_")) {
 			clk_pol = false;
 		} else {
-			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name.c_str(), icg_kind.c_str());
+			log("Ignoring ICG primitive %s of kind '%s'\n", cell_name, icg_kind);
 			continue;
 		}
 
@@ -176,11 +176,11 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 	std::optional<ClockGateCell> pos;
 	std::optional<ClockGateCell> neg;
 	if (best_pos) {
-		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name.c_str());
+		log("Selected rising edge ICG %s from Liberty file\n", best_pos->name);
 		pos.emplace(*best_pos);
 	}
 	if (best_neg) {
-		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name.c_str());
+		log("Selected falling edge ICG %s from Liberty file\n", best_neg->name);
 		neg.emplace(*best_neg);
 	}
 	return std::make_pair(pos, neg);

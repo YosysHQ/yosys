@@ -31,7 +31,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 	for (auto &sync : proc->syncs)
 		if (sync->type == RTLIL::SyncType::STi)
 		{
-			log("Found init rule in `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
+			log("Found init rule in `%s.%s'.\n", mod->name, proc->name);
 
 			for (auto &action : sync->actions)
 			{

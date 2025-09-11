@@ -153,7 +153,7 @@ void reset_auto_counter(RTLIL::Module *module)
 
 	if (verbose)
 		for (auto it = auto_name_map.begin(); it != auto_name_map.end(); ++it)
-			log("  renaming `%s' to `%s_%0*d_'.\n", it->first.c_str(), auto_prefix.c_str(), auto_name_digits, auto_name_offset + it->second);
+			log("  renaming `%s' to `%s_%0*d_'.\n", it->first, auto_prefix, auto_name_digits, auto_name_offset + it->second);
 }
 
 std::string next_auto_id()
@@ -494,7 +494,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 			std::ofstream extmem_f(extmem_filename, std::ofstream::trunc);
 			if (extmem_f.fail())
-				log_error("Can't open file `%s' for writing: %s\n", extmem_filename.c_str(), strerror(errno));
+				log_error("Can't open file `%s' for writing: %s\n", extmem_filename, strerror(errno));
 			else
 			{
 				Const data = mem.get_init_data();
@@ -2632,7 +2632,7 @@ struct VerilogBackend : public Backend {
 					log_cmd_error("Can't handle partially selected module %s!\n", log_id(module->name));
 				continue;
 			}
-			log("Dumping module `%s'.\n", module->name.c_str());
+			log("Dumping module `%s'.\n", module->name);
 			module->sort();
 			dump_module(*f, "", module);
 		}

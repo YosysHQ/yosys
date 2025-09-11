@@ -64,7 +64,7 @@ struct RmportsPassPass : public Pass {
 
 	void CleanupModule(Module *module, dict<IdString, pool<IdString>> &removed_ports)
 	{
-		log("Removing now-unused cell ports in module %s\n", module->name.c_str());
+		log("Removing now-unused cell ports in module %s\n", module->name);
 
 		auto cells = module->cells();
 		for(auto cell : cells)
@@ -88,7 +88,7 @@ struct RmportsPassPass : public Pass {
 
 	void ScanModule(Module* module, dict<IdString, pool<IdString>> &removed_ports)
 	{
-		log("Finding unconnected ports in module %s\n", module->name.c_str());
+		log("Finding unconnected ports in module %s\n", module->name);
 
 		pool<IdString> used_ports;
 
@@ -113,7 +113,7 @@ struct RmportsPassPass : public Pass {
 				if( (w1 == NULL) || (w2 == NULL) )
 					continue;
 
-				//log("  conn %s, %s\n", w1->name.c_str(), w2->name.c_str());
+				//log("  conn %s, %s\n", w1->name, w2->name);
 
 				if( (w1->port_input || w1->port_output) && (used_ports.find(w1->name) == used_ports.end()) )
 					used_ports.insert(w1->name);
@@ -136,7 +136,7 @@ struct RmportsPassPass : public Pass {
 					if(sig == NULL)
 						continue;
 
-					// log("  sig %s\n", sig->name.c_str());
+					// log("  sig %s\n", sig->name);
 					if( (sig->port_input || sig->port_output) && (used_ports.find(sig->name) == used_ports.end()) )
 						used_ports.insert(sig->name);
 				}
@@ -155,7 +155,7 @@ struct RmportsPassPass : public Pass {
 		// Print the ports out as we go through them
 		for(auto port : unused_ports)
 		{
-			log("  removing unused port %s\n", port.c_str());
+			log("  removing unused port %s\n", port);
 			removed_ports[module->name].insert(port);
 
 			// Remove from ports list
