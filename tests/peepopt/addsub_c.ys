@@ -393,8 +393,8 @@ log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
-	output signed [7:0] y
-	output signed [7:0] z,
+	output signed [7:0] y,
+	output signed [7:0] z
 );
 	wire signed [7:0] add;
 	assign add = a + 4'sd6;
@@ -414,8 +414,8 @@ log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
-	output signed [7:0] y
-	output signed [7:0] z,
+	output signed [7:0] y,
+	output signed [7:0] z
 );
 	wire signed [7:0] add;
 	assign add = a + 4'sd6;
@@ -435,8 +435,8 @@ log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
-	output signed [7:0] y
-	output signed [7:0] z,
+	output signed [7:0] y,
+	output signed [7:0] z
 );
 	wire signed [7:0] sub;
 	assign sub = a - 4'sd6;
@@ -456,8 +456,8 @@ log -push
 read_verilog <<EOT
 module top(
 	input signed [3:0] a,
-	output signed [7:0] y
-	output signed [7:0] z,
+	output signed [7:0] y,
+	output signed [7:0] z
 );
 	wire signed [7:0] sub;
 	assign sub = a - 4'sd6;
