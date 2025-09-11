@@ -133,7 +133,7 @@ select -assert-count 1 t:$sub
 design -reset
 log -pop
 
-log -header "Signed pattern transformed: (a +- b) +- c case 3"
+log -header "Signed pattern transformed: (a +- b) +- c case 4"
 log -push
 read_verilog <<EOT
 module top(
@@ -753,7 +753,7 @@ check -assert
 equiv_opt -assert peepopt
 design -load postopt
 # The optimization actually works on multiple levels
-select t:$add -assert-count 1  // Optimizes to single add (a + 18)
+select t:$add -assert-count 1  # Optimizes to single add (a + 18)
 select t:$sub -assert-count 0
 design -reset
 log -pop
