@@ -1,7 +1,7 @@
 pattern addsub_c
 //
 // Authored by Akash Levy of Silimate, Inc. under ISC license.
-// Transforms add->add/sub_c into add_c canceling the constants out:
+// Transforms add->add/sub_c into add_c folding the constants:
 // y = (a +- b_const) +- c_const   ===>   a +- eval(b_const +- c_const)
 //
 
@@ -76,7 +76,7 @@ code
 	if (GetSize(c_const) > 32)
 		reject;
 
-	// Reuse/create new cell to drive the rewritten equation
+	// Reuse/create new cell to drive the folded expression
 	if (nusers(addsub1_y) != 2) {
 		cell = module->addCell(NEW_ID2_SUFFIX("asconst"), addsub1->type);
 		cell->attributes = addsub1->attributes;
