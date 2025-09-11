@@ -1,0 +1,129 @@
+pattern addsub_c
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+// Transforms add->add/sub_c into add_c canceling the constants out:
+// y = (a +- b_const) +- c_const   ===>   a +- eval(b_const +- c_const)
+//
+
+state <SigSpec> a b_const addsub1_y
+
+match addsub1
+	// Select add/sub
+	select addsub1->type.in($add, $sub)
+endmatch
+
+code a b_const addsub1_y
+	// Get adder signals
+	a = port(addsub1, \A);
+	b_const = port(addsub1, \B);
+	addsub1_y = port(addsub1, \Y);
+
+	// Fanout of each add/sub Y bit should be 1 (no bit-split)
+	if (nusers(addsub1_y) != 2)
+		reject;
+
+	// A and B can be interchanged for adder
+	if (addsub1->type == $add) {
+		branch;
+		std::swap(a, b_const);
+	}
+endcode
+
+match addsub2
+	// Select add/sub of form (a +- b_const) +- c_const
+	select addsub2->type.in($add, $sub)
+
+	// Check that b_const and c_const is constant
+	filter b_const.is_fully_const()
+	filter port(addsub2, \B).is_fully_const()
+	index <SigSpec> remove_bottom_padding(port(addsub2, \A)) === addsub1_y
+endmatch
+
+code
+	// Get addsub2 signals
+	SigSpec addsub2_a = port(addsub2, \A);
+	SigSpec c_const = port(addsub2, \B);
+	SigSpec addsub2_y = port(addsub2, \Y);
+
+	// Get offset of addsub1 result chunk in addsub2
+	int offset = GetSize(addsub2_a) - GetSize(addsub1_y);
+
+	// Get properties and values of b_const and c_const
+	// b_const may be coming from the A port
+	// But it is an RTLIL invariant that A_SIGNED equals B_SIGNED
+	bool b_const_signed = addsub1->getParam(ID::B_SIGNED).as_bool();
+	bool c_const_signed = addsub2->getParam(ID::B_SIGNED).as_bool();
+	int b_const_int = b_const.as_int(b_const_signed);
+	int c_const_int = c_const.as_int(c_const_signed);
+	int b_const_int_shifted = b_const_int << offset;
+
+	// Helper lambdas for two's complement math	
+	auto sign2sComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return -1; 
+  		} else {
+   		    return 1; 
+  		}
+	};
+	auto twosComplement = [](auto value, int numBits) {
+  		if (value & (1 << (numBits - 1))) {
+   			return (~value) + 1; // invert bits before adding 1
+  		} else {
+   		    return value; 
+  		}
+	};
+
+	// Two's complement conversion
+	if (b_const_signed)
+		b_const_int = sign2sComplement(b_const_int, GetSize(b_const)) * twosComplement(b_const_int, GetSize(b_const));
+	if (c_const_signed)
+		c_const_int = sign2sComplement(c_const_int, GetSize(c_const)) * twosComplement(c_const_int, GetSize(c_const));
+	// Calculate the constant and compress the width to fit the value
+	Const const_value;
+	Const b_const_actual;
+	b_const_actual = b_const_int_shifted;
+	b_const_actual.compress(b_const_signed);
+
+	if (addsub1->type == $add)
+		if (addsub2->type == $add)
+			const_value = b_const_int_shifted + c_const_int;
+		else
+			const_value = b_const_int_shifted - c_const_int;
+	else
+		if (addsub2->type == $add)
+			const_value = b_const_int_shifted - c_const_int;
+		else
+			const_value = b_const_int_shifted + c_const_int;
+	const_value.compress(b_const_signed | c_const_signed);
+
+	// Integer values should be lesser than 32 bits
+	// This is because we are using C++ types, and int is 32 bits
+	// FIXME: use long long or BigInteger to make pass work with >32 bits
+	if (GetSize(addsub1->getParam(ID::B_WIDTH)) > 32)
+		reject;
+	if (GetSize(b_const) > 32)
+		reject;
+	if (GetSize(c_const) + offset > 32)
+		reject;
+
+	// // Check for potential overflow
+	// if (std::max(GetSize(b_const_actual), GetSize(a)) + 1 > GetSize(addsub1_y))
+	// 	reject;
+
+	// Check that there are only zeros before offset
+	if (offset < 0 || !addsub2_a.extract(0, offset).is_fully_zero())
+		reject;
+
+	// Rewire to only keep addsub1
+	addsub1->setPort(\A, a);
+	addsub1->setPort(\B, const_value);
+	addsub1->setPort(\Y, addsub2_y);
+
+	// Remove addsub2
+	autoremove(addsub2);
+
+	// Log, fixup, accept
+	log("addsub_const pattern in %s: addsub1=%s, addsub2=%s\n", log_id(module), log_id(addsub1), log_id(addsub2));
+	addsub1->fixup_parameters();
+	accept;
+endcode
