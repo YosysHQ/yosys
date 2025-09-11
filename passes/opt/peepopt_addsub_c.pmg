@@ -1,0 +1,101 @@
+pattern addsub_c
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+// Transforms add->add/sub_c into add_c folding the constants:
+// y = (a +- b_const) +- c_const   ===>   a +- eval(b_const +- c_const)
+//
+
+state <SigSpec> a b_const addsub1_y
+
+match addsub1
+	// Select add/sub
+	select addsub1->type.in($add, $sub)
+endmatch
+
+code a b_const addsub1_y
+	// Get adder signals
+	a = port(addsub1, \A);
+	b_const = port(addsub1, \B);
+	addsub1_y = port(addsub1, \Y);
+
+	// A and B can be interchanged for adder
+	if (addsub1->type == $add) {
+		branch;
+		std::swap(a, b_const);
+	}
+endcode
+
+match addsub2
+	// Select add/sub of form (a +- b_const) +- c_const
+	select addsub2->type.in($add, $sub)
+
+	// Check that b_const and c_const is constant
+	filter b_const.is_fully_const()
+	filter port(addsub2, \B).is_fully_const()
+	index <SigSpec> port(addsub2, \A) === addsub1_y
+endmatch
+
+code
+	// New addsub1 cell (will be reused unless there is external fanout)
+	auto cell = addsub1;
+
+	// Get addsub2 signals
+	SigSpec c_const = port(addsub2, \B);
+	SigSpec addsub2_y = port(addsub2, \Y);
+
+	// Get properties and values of b_const and c_const
+	// b_const may be coming from the A port
+	// But it is an RTLIL invariant that A_SIGNED equals B_SIGNED
+	bool b_const_signed = addsub1->getParam(ID::B_SIGNED).as_bool();
+	bool c_const_signed = addsub2->getParam(ID::B_SIGNED).as_bool();
+	int b_const_int = b_const.as_int(b_const_signed);
+	int c_const_int = c_const.as_int(c_const_signed);
+
+	// Calculate the constant and compress the width to fit the value
+	Const const_value;
+	if (addsub1->type == $add)
+		if (addsub2->type == $add)
+			const_value = b_const_int + c_const_int;
+		else
+			const_value = b_const_int - c_const_int;
+	else
+		if (addsub2->type == $add)
+			const_value = b_const_int - c_const_int;
+		else
+			const_value = b_const_int + c_const_int;
+	const_value.compress(b_const_signed | c_const_signed);
+
+	// Integer values should be lesser than 32 bits
+	// This is because we are using C++ types, and int is 32 bits
+	// FIXME: use long long or BigInteger to make pass work with >32 bits
+	if (addsub1->getParam(ID::A_WIDTH).as_int() > 32)
+		reject;
+	if (addsub1->getParam(ID::B_WIDTH).as_int() > 32)
+		reject;
+	if (addsub2->getParam(ID::A_WIDTH).as_int() > 32)
+		reject;
+	if (addsub2->getParam(ID::B_WIDTH).as_int() > 32)
+		reject;
+	if (GetSize(b_const) > 32)
+		reject;
+	if (GetSize(c_const) > 32)
+		reject;
+
+	// Reuse/create new cell to drive the folded expression
+	if (nusers(addsub1_y) != 2) {
+		cell = module->addCell(NEW_ID2_SUFFIX("asconst"), addsub1->type);
+		cell->attributes = addsub1->attributes;
+		cell->parameters = addsub1->parameters;
+	}
+	cell->setPort(\A, a);
+	cell->setPort(\B, const_value);
+	cell->setPort(\Y, addsub2_y);
+
+	// Remove addsub2
+	autoremove(addsub2);
+
+	// Log, fixup, accept
+	log("addsub_const pattern in %s: addsub1=%s, addsub2=%s\n", log_id(module), log_id(addsub1), log_id(addsub2));
+	cell->fixup_parameters();
+	accept;
+endcode

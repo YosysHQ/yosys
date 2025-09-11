@@ -51,6 +51,8 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("This pass employs the following rules by default:\n");
 		log("\n");
+		log("   * addsub_c - Replace (A+-B)+-C with A+(B+-C) when B and C are constants.\n");
+		log("\n");
 		log("   * muldiv - Replace (A*B)/B with A\n");
 		log("\n");
 		log("   * muldiv_c - Replace (A*B)/C with A*(B/C) when C is a const divisible by B.\n");
@@ -127,6 +129,7 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftmul_left();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
+					pm.run_addsub_c();
 					pm.run_sub_neg();
 					if (muxorder)
 						pm.run_muxorder();

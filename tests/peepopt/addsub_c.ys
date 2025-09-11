@@ -1,0 +1,953 @@
+log -header "Test simple positive case 1"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [31:0] a,
+  output wire  [31:0] y
+);
+  assign y = a + 1023 + 127;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Test simple positive case 2"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [31:0] a,
+  output wire  [31:0] y
+);
+  assign y = a + 1023 - 127;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Test simple positive case 3"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [31:0] a,
+  output wire  [31:0] y
+);
+  assign y = a - 1023 + 127;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 0
+select t:$sub -assert-count 1
+design -reset
+log -pop
+
+log -header "Test simple positive case 4"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [31:0] a,
+  output wire  [31:0] y
+);
+  assign y = a - 1023 - 127;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 0
+select t:$sub -assert-count 1
+design -reset
+log -pop
+
+
+
+log -header "Signed pattern transformed: (a +- b) +- c case 1"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Signed pattern transformed: (a +- b) +- c case 2"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Signed pattern transformed: (a +- b) +- c case 3"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+log -header "Signed pattern transformed: (a +- b) +- c case 4"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Symmetry case 1"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = 4'sd6 + a;
+	assign y = add + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Symmetry case 2"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = 4'sd6 + a;
+	assign y = add - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Symmetry case 3: no transformation since constant is first"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = 4'sd6 - a;
+	assign y = sub + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+log -header "Symmetry case 4: no transformation since constant is first"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = 4'sd6 - a;
+	assign y = sub - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 2 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Transformed on b == c case 1"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add + 8'sd6;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Transformed on b == c case 2"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add - 8'sd6;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Transformed on b == c case 3"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub + 8'sd6;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+log -header "Transformed on b == c case 4"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub - 8'sd6;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "b negative, c positive case 1"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + (-4'sd6);
+	assign y = add + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "b negative, c positive case 2"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] add;
+	assign add = a + (-4'sd6);
+	assign y = add - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "b negative, c positive case 3"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - (-4'sd6);
+	assign y = sub + 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+log -header "b negative, c positive case 4"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y
+);
+	wire signed [7:0] sub;
+	assign sub = a - (-4'sd6);
+	assign y = sub - 8'sd3;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Transform even when addsub1 has a second fanout case 1"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+	output signed [7:0] z
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add + 8'sd3;
+	assign z = add;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Transform even when addsub1 has a second fanout case 2"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+	output signed [7:0] z
+);
+	wire signed [7:0] add;
+	assign add = a + 4'sd6;
+	assign y = add - 8'sd3;
+	assign z = add;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 2 t:$add
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+log -header "Transform even when addsub1 has a second fanout case 3"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+	output signed [7:0] z
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub + 8'sd3;
+	assign z = sub;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 2 t:$sub
+design -reset
+log -pop
+
+log -header "Transform even when addsub1 has a second fanout case 4"
+log -push
+read_verilog <<EOT
+module top(
+	input signed [3:0] a,
+	output signed [7:0] y,
+	output signed [7:0] z
+);
+	wire signed [7:0] sub;
+	assign sub = a - 4'sd6;
+	assign y = sub - 8'sd3;
+	assign z = sub;
+endmodule
+EOT
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$add
+select -assert-count 2 t:$sub
+design -reset
+log -pop
+
+
+
+# =============================================================================
+# OVERFLOW TESTS
+# =============================================================================
+
+log -header "Overflow test: unsigned 4-bit max value + constant"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [3:0] a,
+  output wire  [7:0] y
+);
+  assign y = a + 4'd15 + 4'd1;  // 15 + 1 = 16 (overflows 4-bit but not 7-bit)
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Overflow test: signed 4-bit max value + constant"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input signed [3:0] a,
+  output signed [7:0] y
+);
+  assign y = a + 4'sd7 + 4'sd1;  // 7 + 1 = 8 (overflows 4-bit signed but not 7-bit)
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Overflow test: negative signed constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input signed [3:0] a,
+  output signed [7:0] y
+);
+  assign y = a + (-4'sd8) + (-4'sd1);  // -8 + (-1) = -9 (underflows 4-bit signed but not 7-bit)
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Large constant test: 32-bit constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [31:0] a,
+  output wire  [31:0] y
+);
+  assign y = a + 32'h7FFFFFFF + 32'h1;  // Large positive constants
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+# =============================================================================
+# SIGNEDNESS MIXING TESTS
+# =============================================================================
+
+log -header "Mixed signedness: unsigned input with signed constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output signed [15:0] y
+);
+  wire signed [15:0] temp;
+  assign temp = a + 8'sd10;
+  assign y = temp + 16'sd5;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Mixed signedness: signed input with unsigned constants"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input signed [7:0] a,
+  output wire [15:0] y
+);
+  wire [15:0] temp;
+  assign temp = a + 8'd10;
+  assign y = temp + 16'd5;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+# =============================================================================
+# DRIVING OTHER OPERATIONS TESTS
+# =============================================================================
+
+log -header "Result drives multiplication"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  input wire  [7:0] b,
+  output wire  [15:0] y
+);
+  wire [7:0] temp;
+  assign temp = a + 8'd10 + 8'd5;
+  assign y = temp * b;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+select t:$mul -assert-count 1
+design -reset
+log -pop
+
+log -header "Result drives comparison"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  y
+);
+  wire [7:0] temp;
+  assign temp = a + 8'd10 + 8'd5;
+  assign y = temp > 8'd100;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+select t:$gt -assert-count 1
+design -reset
+log -pop
+
+log -header "Result drives logical operations"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  input wire  [7:0] b,
+  output wire  [7:0] y
+);
+  wire [7:0] temp;
+  assign temp = a + 8'd10 + 8'd5;
+  assign y = temp & b;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+select t:$and -assert-count 1
+design -reset
+log -pop
+
+log -header "Result drives shift operation"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  wire [7:0] temp;
+  assign temp = a + 8'd10 + 8'd5;
+  assign y = temp << 2;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+select t:$shl -assert-count 1
+design -reset
+log -pop
+
+# =============================================================================
+# WEIRD STRUCTURES AND EDGE CASES
+# =============================================================================
+
+log -header "Zero constant optimization"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  assign y = a + 8'd10 + 8'd0;  // Should optimize to just a + 10
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Constants that cancel out"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  assign y = a + 8'd10 - 8'd10;  // Should optimize to just a
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+# After optimization, this should either be no operations or just a wire connection
+design -reset
+log -pop
+
+log -header "Triple chained operations (optimizes fully)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  wire [7:0] temp1, temp2;
+  assign temp1 = a + 8'd5;
+  assign temp2 = temp1 + 8'd10;
+  assign y = temp2 + 8'd3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+# The optimization actually works on multiple levels
+select t:$add -assert-count 1  # Optimizes to single add (a + 18)
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Different bit widths in chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [4:0] a,
+  output wire  [15:0] y
+);
+  wire [10:0] temp;
+  assign temp = a + 5'd10;
+  assign y = temp + 11'd500;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Negative result from subtraction chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input signed [7:0] a,
+  output signed [7:0] y
+);
+  assign y = a - 8'sd100 - 8'sd50;  // Should result in a - 150
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 0
+select t:$sub -assert-count 1
+design -reset
+log -pop
+
+log -header "Mixed add/sub with large intermediate result"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [15:0] y
+);
+  wire [15:0] temp;
+  assign temp = a + 8'd255;
+  assign y = temp - 16'd100;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Single bit operations"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  a,
+  output wire  [7:0] y
+);
+  wire [7:0] temp;
+  assign temp = a + 1'd1;
+  assign y = temp + 8'd5;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Constants with different representations (hex, decimal, binary)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  assign y = a + 8'hFF + 8'b00000001;  // 255 + 1 = 256 (overflows to 0 in 8-bit)
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+# =============================================================================
+# CORNER CASES FOR PATTERN MATCHING
+# =============================================================================
+
+log -header "Constants in A position (commutative add)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [7:0] a,
+  output wire  [7:0] y
+);
+  wire [7:0] temp;
+  assign temp = 8'd10 + a;  // Constant first
+  assign y = temp + 8'd5;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Very small bit widths"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire  [1:0] a,
+  output wire  [3:0] y
+);
+  wire [3:0] temp;
+  assign temp = a + 2'd1;
+  assign y = temp + 4'd2;
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Test with parameters/generics"
+log -push
+design -reset
+read_verilog <<EOF
+module top #(parameter WIDTH = 8) (
+  input wire  [WIDTH-1:0] a,
+  output wire  [WIDTH+2:0] y
+);
+  wire [WIDTH+2:0] temp;
+  assign temp = a + 5;
+  assign y = temp + 3;
+endmodule
+EOF
+check -assert
+wreduce
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 1
+select t:$sub -assert-count 0
+design -reset
+log -pop
+
+log -header "Final test case"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+	input logic [7:0] var_exp_a,
+	input logic var_zero_a,
+	input logic var_inf_a,
+	output logic var_zero_ac,
+	output logic var_inf_ac,
+	output logic signed [11:0] var_exp_ac
+);
+  assign var_exp_ac = $signed({1'b0, var_exp_a}) - 1023 + 127;
+	assign var_zero_ac = var_zero_a | (var_exp_ac <= 0);
+	assign var_inf_ac = var_inf_a | (var_exp_ac >= 255);
+endmodule
+EOF
+check -assert
+equiv_opt -assert peepopt
+design -load postopt
+select t:$add -assert-count 0
+select t:$sub -assert-count 1
+design -reset
+log -pop

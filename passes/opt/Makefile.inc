@@ -33,6 +33,7 @@ PEEPOPT_PATTERN += passes/opt/peepopt_shiftmul_left.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_shiftadd.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muldiv.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muldiv_c.pmg
+PEEPOPT_PATTERN += passes/opt/peepopt_addsub_c.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_muxorder.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_formal_clockgateff.pmg
 PEEPOPT_PATTERN += passes/opt/peepopt_sub_neg.pmg
