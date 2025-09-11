@@ -36,11 +36,10 @@ match addsub2
 endmatch
 
 code
-  // New addsub1 cell (will be reused unless there is external fanout)
+	// New addsub1 cell (will be reused unless there is external fanout)
 	auto cell = addsub1;
 
 	// Get addsub2 signals
-	SigSpec addsub2_a = port(addsub2, \A);
 	SigSpec c_const = port(addsub2, \B);
 	SigSpec addsub2_y = port(addsub2, \Y);
 
@@ -69,7 +68,13 @@ code
 	// Integer values should be lesser than 32 bits
 	// This is because we are using C++ types, and int is 32 bits
 	// FIXME: use long long or BigInteger to make pass work with >32 bits
-	if (GetSize(addsub1->getParam(ID::B_WIDTH)) > 32)
+	if (addsub1->getParam(ID::A_WIDTH).as_int() > 32)
+		reject;
+	if (addsub1->getParam(ID::B_WIDTH).as_int() > 32)
+		reject;
+	if (addsub2->getParam(ID::A_WIDTH).as_int() > 32)
+		reject;
+	if (addsub2->getParam(ID::B_WIDTH).as_int() > 32)
 		reject;
 	if (GetSize(b_const) > 32)
 		reject;
