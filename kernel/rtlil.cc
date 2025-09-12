@@ -264,10 +264,10 @@ std::string& Const::get_str() {
 	return *get_if_str();
 }
 
-RTLIL::Const::Const(const std::string &str)
+RTLIL::Const::Const(std::string str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
-	new ((void*)&str_) std::string(str);
+	new ((void*)&str_) std::string(std::move(str));
 	tag = backing_tag::string;
 }
 

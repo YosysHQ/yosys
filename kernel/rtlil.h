@@ -859,7 +859,7 @@ private:
 
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
-	Const(const std::string &str);
+	Const(std::string str);
 	Const(long long val); // default width is 32
 	Const(long long val, int width);
 	Const(RTLIL::State bit, int width = 1);
