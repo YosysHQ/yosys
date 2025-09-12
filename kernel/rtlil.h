@@ -339,6 +339,12 @@ struct RTLIL::IdString
 		index_ = get_reference(rhs.index_);
 	}
 
+	inline void operator=(IdString &&rhs) {
+		put_reference(index_);
+		index_ = rhs.index_;
+		rhs.index_ = 0;
+	}
+
 	inline void operator=(const char *rhs) {
 		IdString id(rhs);
 		*this = id;
