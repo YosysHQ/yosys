@@ -250,7 +250,7 @@ static int range_width(AstNode *node, AstNode *rnode)
 {
 	log_assert(rnode->type==AST_RANGE);
 	if (!rnode->range_valid) {
-		node->input_error("Non-constant range in declaration of %s\n", node->str.c_str());
+		node->input_error("Non-constant range in declaration of %s\n", node->str);
 	}
 	// note: range swapping has already been checked for
 	return rnode->range_left - rnode->range_right + 1;
@@ -265,7 +265,7 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 
 [[noreturn]] static void struct_array_packing_error(AstNode *node)
 {
-	node->input_error("Unpacked array in packed struct/union member %s\n", node->str.c_str());
+	node->input_error("Unpacked array in packed struct/union member %s\n", node->str);
 }
 
 static int size_packed_struct(AstNode *snode, int base_offset)
@@ -358,7 +358,7 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 			}
 			else {
 				if (packed_width != width)
-					node->input_error("member %s of a packed union has %d bits, expecting %d\n", node->str.c_str(), width, packed_width);
+					node->input_error("member %s of a packed union has %d bits, expecting %d\n", node->str, width, packed_width);
 			}
 		}
 		else {
@@ -481,7 +481,7 @@ std::unique_ptr<AstNode> AstNode::make_index_range(AstNode *decl_node, bool unpa
 		dim--;  // Step back to the final index / slice
 	}
 	else {
-		input_error("Unsupported range operation for %s\n", str.c_str());
+		input_error("Unsupported range operation for %s\n", str);
 	}
 
 	std::unique_ptr<AstNode> index_range = std::make_unique<AstNode>(rnode->location, AST_RANGE);
@@ -1135,7 +1135,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 								if (current_scope.count(enode->str) == 0)
 									current_scope[enode->str] = enode.get();
 								else
-									input_error("enum item %s already exists in current scope\n", enode->str.c_str());
+									input_error("enum item %s already exists in current scope\n", enode->str);
 							}
 						}
 					}
@@ -1209,7 +1209,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					continue;
 				wires_are_incompatible:
 					if (stage > 1)
-						input_error("Incompatible re-declaration of wire %s.\n", node->str.c_str());
+						input_error("Incompatible re-declaration of wire %s.\n", node->str);
 					continue;
 				}
 				this_wire_scope[node->str] = node;
@@ -1228,7 +1228,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (current_scope.count(enode->str) == 0)
 						current_scope[enode->str] = enode.get();
 					else
-						input_error("enum item %s already exists\n", enode->str.c_str());
+						input_error("enum item %s already exists\n", enode->str);
 				}
 			}
 		}
@@ -1268,7 +1268,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (current_scope.count(enode->str) == 0)
 						current_scope[enode->str] = enode.get();
 					else
-						input_error("enum item %s already exists in package\n", enode->str.c_str());
+						input_error("enum item %s already exists in package\n", enode->str);
 				}
 			}
 		}
@@ -1561,10 +1561,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				const std::string &type_name = child->children[0]->str;
 				if (!current_scope.count(type_name))
-					input_error("Unknown identifier `%s' used as type name\n", type_name.c_str());
+					input_error("Unknown identifier `%s' used as type name\n", type_name);
 				AstNode *resolved_type_node = current_scope.at(type_name);
 				if (resolved_type_node->type != AST_TYPEDEF)
-					input_error("`%s' does not name a type\n", type_name.c_str());
+					input_error("`%s' does not name a type\n", type_name);
 				log_assert(resolved_type_node->children.size() == 1);
 				auto* template_node = resolved_type_node->children[0].get();
 
@@ -1909,7 +1909,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 
 		if (pos == std::string::npos)
-			input_error("Can't find object for defparam `%s`!\n", RTLIL::unescape_id(paramname).c_str());
+			input_error("Can't find object for defparam `%s`!\n", RTLIL::unescape_id(paramname));
 
 		paramname = "\\" + paramname.substr(pos+1);
 
@@ -1943,11 +1943,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			log_assert(children[0]->type == AST_WIRETYPE);
 			auto type_name = children[0]->str;
 			if (!current_scope.count(type_name)) {
-				input_error("Unknown identifier `%s' used as type name\n", type_name.c_str());
+				input_error("Unknown identifier `%s' used as type name\n", type_name);
 			}
 			AstNode *resolved_type_node = current_scope.at(type_name);
 			if (resolved_type_node->type != AST_TYPEDEF)
-				input_error("`%s' does not name a type\n", type_name.c_str());
+				input_error("`%s' does not name a type\n", type_name);
 			log_assert(resolved_type_node->children.size() == 1);
 			auto& template_node = resolved_type_node->children[0];
 
@@ -1985,7 +1985,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			// Cannot add packed dimensions if unpacked dimensions are already specified.
 			if (add_packed_dimensions && newNode->type == AST_MEMORY)
-				input_error("Cannot extend unpacked type `%s' with packed dimensions\n", type_name.c_str());
+				input_error("Cannot extend unpacked type `%s' with packed dimensions\n", type_name);
 
 			// Add packed dimensions.
 			if (add_packed_dimensions) {
@@ -2030,7 +2030,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			children.insert(children.begin(), std::move(expr));
 
 			if (children[1]->type == AST_MEMORY)
-				input_error("unpacked array type `%s' cannot be used for a parameter\n", children[1]->str.c_str());
+				input_error("unpacked array type `%s' cannot be used for a parameter\n", children[1]->str);
 			fixup_hierarchy_flags();
 			did_something = true;
 		}
@@ -2331,7 +2331,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 		if (current_scope.count(str) == 0) {
 			if (current_ast_mod == nullptr) {
-				input_error("Identifier `%s' is implicitly declared outside of a module.\n", str.c_str());
+				input_error("Identifier `%s' is implicitly declared outside of a module.\n", str);
 			} else if (flag_autowire || str == "\\$global_clock") {
 				auto auto_wire = std::make_unique<AstNode>(location, AST_AUTOWIRE);
 				auto_wire->str = str;
@@ -2339,7 +2339,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				current_ast_mod->children.push_back(std::move(auto_wire));
 				did_something = true;
 			} else {
-				input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
+				input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str);
 			}
 		}
 		if (id2ast != current_scope[str]) {
@@ -2562,7 +2562,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 
 			if (buf->type != AST_CONSTANT)
-				input_error("Right hand side of 3rd expression of %s for-loop is not constant (%s)!\n", loop_type_str, type2str(buf->type).c_str());
+				input_error("Right hand side of 3rd expression of %s for-loop is not constant (%s)!\n", loop_type_str, type2str(buf->type));
 
 			varbuf->children[0] = std::move(buf);
 		}
@@ -2778,7 +2778,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	if (type == AST_PRIMITIVE)
 	{
 		if (children.size() < 2)
-			input_error("Insufficient number of arguments for primitive `%s'!\n", str.c_str());
+			input_error("Insufficient number of arguments for primitive `%s'!\n", str);
 
 		std::vector<std::unique_ptr<AstNode>> children_list;
 		for (auto& child : children) {
@@ -2792,7 +2792,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (str == "bufif0" || str == "bufif1" || str == "notif0" || str == "notif1")
 		{
 			if (children_list.size() != 3)
-				input_error("Invalid number of arguments for primitive `%s'!\n", str.c_str());
+				input_error("Invalid number of arguments for primitive `%s'!\n", str);
 
 			std::vector<RTLIL::State> z_const(1, RTLIL::State::Sz);
 
@@ -2894,7 +2894,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		auto& range = children[0]->children[0];
 
 		if (!try_determine_range_width(range.get(), result_width))
-			input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+			input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str);
 
 		if (range->children.size() >= 2)
 			shift_expr = range->children[1]->clone();
@@ -3285,7 +3285,7 @@ skip_dynamic_range_lvalue_expansion:;
 				int width;
 
 				if (!try_determine_range_width(the_range.get(), width))
-					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str);
 
 				if (the_range->children.size() >= 2)
 					offset_ast = the_range->children[1]->clone();
@@ -3405,7 +3405,7 @@ skip_dynamic_range_lvalue_expansion:;
 					auto buf = children[1]->clone();
 					while (buf->simplify(true, stage, -1, false)) { }
 					if (buf->type != AST_CONSTANT)
-						input_error("Failed to evaluate system function `%s' with non-constant value.\n", str.c_str());
+						input_error("Failed to evaluate system function `%s' with non-constant value.\n", str);
 
 					num_steps = buf->asInt(true);
 				}
@@ -3516,7 +3516,7 @@ skip_dynamic_range_lvalue_expansion:;
 				auto buf = children[0]->clone();
 				while (buf->simplify(true, stage, width_hint, sign_hint)) { }
 				if (buf->type != AST_CONSTANT)
-					input_error("Failed to evaluate system function `%s' with non-constant value.\n", str.c_str());
+					input_error("Failed to evaluate system function `%s' with non-constant value.\n", str);
 
 				RTLIL::Const arg_value = buf->bitsAsConst();
 				if (arg_value.as_bool())
@@ -3563,7 +3563,7 @@ skip_dynamic_range_lvalue_expansion:;
 					if (id_ast == nullptr && current_scope.count(buf->str))
 						id_ast = current_scope.at(buf->str);
 					if (!id_ast)
-						input_error("Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
+						input_error("Failed to resolve identifier %s for width detection!\n", buf->str);
 
 					if (id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) {
 						// Check for item in packed struct / union
@@ -3578,7 +3578,7 @@ skip_dynamic_range_lvalue_expansion:;
 						// TODO: IEEE Std 1800-2017 20.7: "If the first argument to an array query function would cause $dimensions to return 0
 						// or if the second argument is out of range, then 'x shall be returned."
 						if (dim < 1 || dim > dims)
-							input_error("Dimension %d out of range in `%s', as it only has %d dimensions!\n", dim, id_ast->str.c_str(), dims);
+							input_error("Dimension %d out of range in `%s', as it only has %d dimensions!\n", dim, id_ast->str, dims);
 
 						expr_dimensions = dims - dim + 1;
 						expr_unpacked_dimensions = std::max(id_ast->unpacked_dimensions - dim + 1, 0);
@@ -3712,9 +3712,9 @@ skip_dynamic_range_lvalue_expansion:;
 					auto& node = children[i];
 					while (node->simplify(true, stage, -1, false)) { }
 					if (node->type != AST_CONSTANT)
-						input_error("Failed to evaluate system function `%s' with non-constant control bit argument.\n", str.c_str());
+						input_error("Failed to evaluate system function `%s' with non-constant control bit argument.\n", str);
 					if (node->bits.size() != 1)
-						input_error("Failed to evaluate system function `%s' with control bit width != 1.\n", str.c_str());
+						input_error("Failed to evaluate system function `%s' with control bit width != 1.\n", str);
 					control_bits.push_back(node->bits[0]);
 				}
 
@@ -3817,7 +3817,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (current_scope.count(str) == 0)
 				str = try_pop_module_prefix();
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
-				input_error("Can't resolve function name `%s'.\n", str.c_str());
+				input_error("Can't resolve function name `%s'.\n", str);
 		}
 
 		if (type == AST_TCALL)
@@ -3825,9 +3825,9 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "$finish" || str == "$stop")
 			{
 				if (!current_always || current_always->type != AST_INITIAL)
-					input_error("System task `%s' outside initial block is unsupported.\n", str.c_str());
+					input_error("System task `%s' outside initial block is unsupported.\n", str);
 
-				input_error("System task `%s' executed.\n", str.c_str());
+				input_error("System task `%s' executed.\n", str);
 			}
 
 			if (str == "\\$readmemh" || str == "\\$readmemb")
@@ -3839,12 +3839,12 @@ skip_dynamic_range_lvalue_expansion:;
 				auto node_filename = children[0]->clone();
 				while (node_filename->simplify(true, stage, width_hint, sign_hint)) { }
 				if (node_filename->type != AST_CONSTANT)
-					input_error("Failed to evaluate system function `%s' with non-constant 1st argument.\n", str.c_str());
+					input_error("Failed to evaluate system function `%s' with non-constant 1st argument.\n", str);
 
 				auto node_memory = children[1]->clone();
 				while (node_memory->simplify(true, stage, width_hint, sign_hint)) { }
 				if (node_memory->type != AST_IDENTIFIER || node_memory->id2ast == nullptr || node_memory->id2ast->type != AST_MEMORY)
-					input_error("Failed to evaluate system function `%s' with non-memory 2nd argument.\n", str.c_str());
+					input_error("Failed to evaluate system function `%s' with non-memory 2nd argument.\n", str);
 
 				int start_addr = -1, finish_addr = -1;
 
@@ -3852,7 +3852,7 @@ skip_dynamic_range_lvalue_expansion:;
 					auto node_addr = children[2]->clone();
 					while (node_addr->simplify(true, stage, width_hint, sign_hint)) { }
 					if (node_addr->type != AST_CONSTANT)
-						input_error("Failed to evaluate system function `%s' with non-constant 3rd argument.\n", str.c_str());
+						input_error("Failed to evaluate system function `%s' with non-constant 3rd argument.\n", str);
 					start_addr = int(node_addr->asInt(false));
 				}
 
@@ -3860,7 +3860,7 @@ skip_dynamic_range_lvalue_expansion:;
 					auto node_addr = children[3]->clone();
 					while (node_addr->simplify(true, stage, width_hint, sign_hint)) { }
 					if (node_addr->type != AST_CONSTANT)
-						input_error("Failed to evaluate system function `%s' with non-constant 4th argument.\n", str.c_str());
+						input_error("Failed to evaluate system function `%s' with non-constant 4th argument.\n", str);
 					finish_addr = int(node_addr->asInt(false));
 				}
 
@@ -3888,7 +3888,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (current_scope.count(str) == 0)
 				str = try_pop_module_prefix();
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
-				input_error("Can't resolve task name `%s'.\n", str.c_str());
+				input_error("Can't resolve task name `%s'.\n", str);
 		}
 
 
@@ -3928,7 +3928,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (in_param)
 				input_error("Non-constant function call in constant expression.\n");
 			if (require_const_eval)
-				input_error("Function %s can only be called with constant arguments.\n", str.c_str());
+				input_error("Function %s can only be called with constant arguments.\n", str);
 		}
 
 		size_t arg_count = 0;
@@ -4050,7 +4050,7 @@ skip_dynamic_range_lvalue_expansion:;
 									goto tcall_incompatible_wires;
 						} else {
 					tcall_incompatible_wires:
-							input_error("Incompatible re-declaration of wire %s.\n", child->str.c_str());
+							input_error("Incompatible re-declaration of wire %s.\n", child->str);
 						}
 					}
 				}
@@ -4476,7 +4476,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 		yosys_input_files.insert(mem_filename);
 	}
 	if (f.fail() || GetSize(mem_filename) == 0)
-		input_error("Can not open file `%s` for %s.\n", mem_filename.c_str(), str.c_str());
+		input_error("Can not open file `%s` for %s.\n", mem_filename, str);
 
 	log_assert(GetSize(memory->children) == 2 && memory->children[1]->type == AST_RANGE && memory->children[1]->range_valid);
 	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
@@ -4522,7 +4522,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 				char *endptr;
 				cursor = strtol(nptr, &endptr, 16);
 				if (!*nptr || *endptr)
-					input_error("Can not parse address `%s` for %s.\n", nptr, str.c_str());
+					input_error("Can not parse address `%s` for %s.\n", nptr, str);
 				continue;
 			}
 
@@ -5421,7 +5421,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			// if this variable has already been declared as an input, check the
 			// sizes match if it already had an explicit size
 			if (variable.arg && variable.explicitly_sized && variable.val.size() != width) {
-				input_error("Incompatible re-declaration of constant function wire %s.\n", stmt->str.c_str());
+				input_error("Incompatible re-declaration of constant function wire %s.\n", stmt->str);
 			}
 			variable.val = RTLIL::Const(RTLIL::State::Sx, width);
 			variable.offset = stmt->range_swapped ? stmt->range_left : stmt->range_right;
@@ -5503,7 +5503,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 				if (!range->range_valid) {
 					if (!must_succeed)
 						goto finished;
-					range->input_error("Non-constant range\n%s: ... called from here.\n", fcall->loc_string().c_str());
+					range->input_error("Non-constant range\n%s: ... called from here.\n", fcall->loc_string());
 				}
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
