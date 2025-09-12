@@ -230,11 +230,6 @@ struct RTLIL::IdString
 
 	#ifndef YOSYS_NO_IDS_REFCNT
 		if (global_free_idx_list_.empty()) {
-			if (global_id_storage_.empty()) {
-				global_refcount_storage_.push_back(0);
-				global_id_storage_.push_back((char*)"");
-				global_id_index_[global_id_storage_.back()] = 0;
-			}
 			log_assert(global_id_storage_.size() < 0x40000000);
 			global_free_idx_list_.push_back(global_id_storage_.size());
 			global_id_storage_.push_back(nullptr);
@@ -247,10 +242,6 @@ struct RTLIL::IdString
 		global_id_index_[global_id_storage_.at(idx)] = idx;
 		global_refcount_storage_.at(idx)++;
 	#else
-		if (global_id_storage_.empty()) {
-			global_id_storage_.push_back((char*)"");
-			global_id_index_[global_id_storage_.back()] = 0;
-		}
 		int idx = global_id_storage_.size();
 		global_id_storage_.push_back(strdup(p));
 		global_id_index_[global_id_storage_.back()] = idx;
