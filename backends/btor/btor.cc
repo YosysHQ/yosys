@@ -102,20 +102,16 @@ struct BtorWorker
 
 	PrettyJson ywmap_json;
 
-	void btorf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 2, 3))
+	template <typename... Args>
+	void btorf(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	{
-		va_list ap;
-		va_start(ap, fmt);
-		f << indent << vstringf(fmt, ap);
-		va_end(ap);
+		f << indent << fmt.format(args...);
 	}
 
-	void infof(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 2, 3))
+	template <typename... Args>
+	void infof(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	{
-		va_list ap;
-		va_start(ap, fmt);
-		info_lines.push_back(vstringf(fmt, ap));
-		va_end(ap);
+		info_lines.push_back(fmt.format(args...));
 	}
 
 	template<typename T>
