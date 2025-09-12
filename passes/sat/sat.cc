@@ -652,9 +652,9 @@ struct SatHelper
 				log("  ");
 
 			if (info.width <= 32 && !found_undef)
-				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description.c_str(), value.as_int(), value.as_int(), maxModelWidth+3, value.as_string().c_str());
+				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description, value.as_int(), value.as_int(), maxModelWidth+3, value.as_string());
 			else
-				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description.c_str(), "--", "--", maxModelWidth+3, value.as_string().c_str());
+				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description, "--", "--", maxModelWidth+3, value.as_string());
 		}
 
 		if (last_timestep == -2)
@@ -668,7 +668,7 @@ struct SatHelper
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
 
-		log("Dumping SAT model to VCD file %s\n", vcd_file_name.c_str());
+		log("Dumping SAT model to VCD file %s\n", vcd_file_name);
 
 		time_t timestamp;
 		struct tm* now;
@@ -772,7 +772,7 @@ struct SatHelper
 		if (!f)
 			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
 
-		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name.c_str());
+		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name);
 
 		int mintime = 1, maxtime = 0, maxwidth = 0;;
 		dict<string, pair<int, dict<int, Const>>> wavedata;
@@ -1530,7 +1530,7 @@ struct SatPass : public Pass {
 							if (!f)
 								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
 
-							log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+							log("Dumping CNF to file `%s'.\n", cnf_file_name);
 							cnf_file_name.clear();
 
 							inductstep.ez->printDIMACS(f, false);
@@ -1634,7 +1634,7 @@ struct SatPass : public Pass {
 				if (!f)
 					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
 
-				log("Dumping CNF to file `%s'.\n", cnf_file_name.c_str());
+				log("Dumping CNF to file `%s'.\n", cnf_file_name);
 				cnf_file_name.clear();
 
 				sathelper.ez->printDIMACS(f, false);

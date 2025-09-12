@@ -347,7 +347,7 @@ void emit_elaborated_extmodules(RTLIL::Design *design, std::ostream &f)
 				auto modInstance = design->module(cell->type);
 				// Ensure that we actually have a module instance
 				if (modInstance == nullptr) {
-					log_error("Unknown cell type %s\n", cell->type.c_str());
+					log_error("Unknown cell type %s\n", cell->type);
 					return;
 				}
 
@@ -505,14 +505,14 @@ struct FirrtlWorker
 						sinkExpr = firstName;
 						break;
 					default:
-						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal(it->second), dir);
+						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type, log_signal(it->second), dir);
 						break;
 				}
 				// Check for subfield assignment.
 				std::string bitsString = "bits(";
 				if (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) {
 					if (sinkSig == nullptr)
-						log_error("Unknown subfield %s.%s\n", cell_type.c_str(), sinkExpr.c_str());
+						log_error("Unknown subfield %s.%s\n", cell_type, sinkExpr);
 					// Don't generate the assignment here.
 					// Add the source and sink to the "reverse_wire_map" and we'll output the assignment
 					//  as part of the coalesced subfield assignments for this wire.

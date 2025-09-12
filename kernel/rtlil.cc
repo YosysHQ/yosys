@@ -1056,7 +1056,7 @@ void RTLIL::Design::add(RTLIL::Binding *binding)
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 {
 	if (modules_.count(name) != 0)
-		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name.c_str());
+		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name);
 	log_assert(refcount_modules_ == 0);
 
 	RTLIL::Module *module = new RTLIL::Module;

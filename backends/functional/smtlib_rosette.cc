@@ -307,7 +307,7 @@ struct FunctionalSmtrBackend : public Backend {
 		}
 
 		for (auto module : design->selected_modules()) {
-			log("Processing module `%s`.\n", module->name.c_str());
+			log("Processing module `%s`.\n", module->name);
 			SmtrModule smtr(module);
 			smtr.write(*f);
 		}

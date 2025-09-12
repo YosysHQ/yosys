@@ -228,7 +228,7 @@ struct OptMergeWorker
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
 
-		log("Finding identical cells in module `%s'.\n", module->name.c_str());
+		log("Finding identical cells in module `%s'.\n", module->name);
 		assign_map.set(module);
 
 		initvals.set(&assign_map, module);

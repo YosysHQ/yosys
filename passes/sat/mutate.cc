@@ -539,7 +539,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		std::ofstream sout;
 		sout.open(srcsfile, std::ios::out | std::ios::trunc);
 		if (!sout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", srcsfile.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", srcsfile);
 		sources.sort();
 		for (auto &s : sources)
 			sout << s << std::endl;
@@ -550,7 +550,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	if (!filename.empty()) {
 		fout.open(filename, std::ios::out | std::ios::trunc);
 		if (!fout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", filename.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", filename);
 	}
 
 	int ctrl_value = opts.ctrl_value;
@@ -561,7 +561,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 			str += stringf(" -ctrl %s %d %d", log_id(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += " -mode none";
 		if (filename.empty())
-			log("%s\n", str.c_str());
+			log("%s\n", str);
 		else
 			fout << str << std::endl;
 	}
@@ -588,7 +588,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		for (auto &s : entry.src)
 			str += stringf(" -src %s", s);
 		if (filename.empty())
-			log("%s\n", str.c_str());
+			log("%s\n", str);
 		else
 			fout << str << std::endl;
 	}

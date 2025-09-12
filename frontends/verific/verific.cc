@@ -143,7 +143,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
 			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
 		else
-			log("%s%s\n", message_prefix.c_str(), message.c_str());
+			log("%s%s\n", message_prefix, message);
 	}
 	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
 		verific_error_msg = message;
@@ -250,7 +250,7 @@ static const RTLIL::Const extract_vhdl_bit(std::string &val, std::string &typ)
 {
 	if (val.size()==3 && val[0]=='\'' && val.back()=='\'')
 		return  RTLIL::Const::from_string(val.substr(1,val.size()-2));
-	log_error("Error parsing VHDL %s.\n", typ.c_str());
+	log_error("Error parsing VHDL %s.\n", typ);
 }
 
 static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string &typ)
@@ -261,7 +261,7 @@ static const RTLIL::Const extract_vhdl_bit_vector(std::string &val, std::string 
 			c.flags |= RTLIL::CONST_FLAG_SIGNED;
 		return c;
 	}
-	log_error("Error parsing VHDL %s.\n", typ.c_str());
+	log_error("Error parsing VHDL %s.\n", typ);
 }
 
 static const RTLIL::Const extract_vhdl_integer(std::string &val)
@@ -2655,7 +2655,7 @@ struct VerificExtNets
 			cursor = ((Instance*)cursor->GetReferences()->GetLast())->Owner();
 		}
 
-		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A).c_str(), get_full_netlist_name(B).c_str());
+		log_error("No common ancestor found between %s and %s.\n", get_full_netlist_name(A), get_full_netlist_name(B));
 	}
 
 	void run(Netlist *nl)
@@ -2679,17 +2679,17 @@ struct VerificExtNets
 				continue;
 
 			if (verific_verbose)
-				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl).c_str(), inst->Name(), port->Name());
+				log("Fixing external net reference on port %s.%s.%s:\n", get_full_netlist_name(nl), inst->Name(), port->Name());
 
 			Netlist *ext_nl = net->Owner();
 
 			if (verific_verbose)
-				log(" external net owner: %s\n", get_full_netlist_name(ext_nl).c_str());
+				log(" external net owner: %s\n", get_full_netlist_name(ext_nl));
 
 			Netlist *ca_nl = find_common_ancestor(nl, ext_nl);
 
 			if (verific_verbose)
-				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl).c_str());
+				log(" common ancestor: %s\n", get_full_netlist_name(ca_nl));
 
 			Net *ca_net = route_up(net, !port->IsOutput(), ca_nl);
 			Net *new_net = ca_net;
@@ -3038,7 +3038,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	}
 
 	if (!verific_error_msg.empty())
-		log_error("%s\n", verific_error_msg.c_str());
+		log_error("%s\n", verific_error_msg);
 
 	for (auto nl : nl_todo)
 		nl.second->ChangePortBusStructures(1 /* hierarchical */);
@@ -3060,7 +3060,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 	verific_cleanup();
 	if (!verific_error_msg.empty())
-		log_error("%s\n", verific_error_msg.c_str());
+		log_error("%s\n", verific_error_msg);
 	return top;
 }
 
@@ -3349,7 +3349,7 @@ struct VerificPass : public Pass {
 				char block[4096];
 				while (1) {
 					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
-						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
+						log_error("Unexpected end of file in here document '%s'!\n", filename);
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
@@ -4232,7 +4232,7 @@ struct VerificPass : public Pass {
 				}
 				lines.sort();
 				for (auto &line : lines)
-					log("verific -cfg %s\n", line.c_str());
+					log("verific -cfg %s\n", line);
 				goto check_error;
 			}
 
@@ -4291,7 +4291,7 @@ struct VerificPass : public Pass {
 		}
 
 		if (!verific_error_msg.empty())
-			log_error("%s\n", verific_error_msg.c_str());
+			log_error("%s\n", verific_error_msg);
 
 	}
 #else /* YOSYS_ENABLE_VERIFIC */

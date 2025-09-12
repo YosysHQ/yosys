@@ -167,7 +167,7 @@ struct RpcModule : RTLIL::Module {
 
 		std::string parameter_info;
 		for (auto &param : parameters) {
-			log("Parameter %s = %s\n", param.first.c_str(), log_signal(RTLIL::SigSpec(param.second)));
+			log("Parameter %s = %s\n", param.first, log_signal(RTLIL::SigSpec(param.second)));
 			parameter_info += stringf("%s=%s", param.first, log_signal(RTLIL::SigSpec(param.second)));
 		}
 
@@ -180,7 +180,7 @@ struct RpcModule : RTLIL::Module {
 			derived_name = "$paramod" + stripped_name + parameter_info;
 
 		if (design->has(derived_name)) {
-			log("Found cached RTLIL representation for module `%s'.\n", derived_name.c_str());
+			log("Found cached RTLIL representation for module `%s'.\n", derived_name);
 		} else {
 			std::string command, input;
 			std::tie(command, input) = server->derive_module(stripped_name.substr(1), parameters);
@@ -437,7 +437,7 @@ struct RpcFrontend : public Pass {
 
 			command_path_len_w = SearchPathW(/*lpPath=*/NULL, /*lpFileName=*/command_w.c_str(), /*lpExtension=*/L".exe", /*nBufferLength=*/0, /*lpBuffer=*/NULL, /*lpFilePart=*/NULL);
 			if (command_path_len_w == 0) {
-				log_error("SearchPathW failed: %s\n", get_last_error_str().c_str());
+				log_error("SearchPathW failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			command_path_w.resize(command_path_len_w - 1);
@@ -448,19 +448,19 @@ struct RpcFrontend : public Pass {
 			pipe_attr.bInheritHandle = TRUE;
 			pipe_attr.lpSecurityDescriptor = NULL;
 			if (!CreatePipe(&send_r, &send_w, &pipe_attr, /*nSize=*/0)) {
-				log_error("CreatePipe failed: %s\n", get_last_error_str().c_str());
+				log_error("CreatePipe failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!SetHandleInformation(send_w, HANDLE_FLAG_INHERIT, 0)) {
-				log_error("SetHandleInformation failed: %s\n", get_last_error_str().c_str());
+				log_error("SetHandleInformation failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!CreatePipe(&recv_r, &recv_w, &pipe_attr, /*nSize=*/0)) {
-				log_error("CreatePipe failed: %s\n", get_last_error_str().c_str());
+				log_error("CreatePipe failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			if (!SetHandleInformation(recv_r, HANDLE_FLAG_INHERIT, 0)) {
-				log_error("SetHandleInformation failed: %s\n", get_last_error_str().c_str());
+				log_error("SetHandleInformation failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 
@@ -470,7 +470,7 @@ struct RpcFrontend : public Pass {
 			startup_info.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 			startup_info.dwFlags |= STARTF_USESTDHANDLES;
 			if (!CreateProcessW(/*lpApplicationName=*/command_path_w.c_str(), /*lpCommandLine=*/&command_line_w[0], /*lpProcessAttributes=*/NULL, /*lpThreadAttributes=*/NULL, /*bInheritHandles=*/TRUE, /*dwCreationFlags=*/0, /*lpEnvironment=*/NULL, /*lpCurrentDirectory=*/NULL, &startup_info, &proc_info)) {
-				log_error("CreateProcessW failed: %s\n", get_last_error_str().c_str());
+				log_error("CreateProcessW failed: %s\n", get_last_error_str());
 				goto cleanup_exec;
 			}
 			CloseHandle(proc_info.hProcess);
@@ -550,7 +550,7 @@ cleanup_exec:
 
 			h = CreateFileW(path_w.c_str(), GENERIC_READ|GENERIC_WRITE, /*dwShareMode=*/0, /*lpSecurityAttributes=*/NULL, /*dwCreationDisposition=*/OPEN_EXISTING, /*dwFlagsAndAttributes=*/0, /*hTemplateFile=*/NULL);
 			if (h == INVALID_HANDLE_VALUE) {
-				log_error("CreateFileW failed: %s\n", get_last_error_str().c_str());
+				log_error("CreateFileW failed: %s\n", get_last_error_str());
 				goto cleanup_path;
 			}
 
@@ -586,7 +586,7 @@ cleanup_path:
 			log_cmd_error("Failed to connect to RPC frontend.\n");
 
 		for (auto &module_name : server->get_module_names()) {
-			log("Linking module `%s'.\n", module_name.c_str());
+			log("Linking module `%s'.\n", module_name);
 			RpcModule *module = new RpcModule;
 			module->name = "$abstract\\" + module_name;
 			module->server = server;

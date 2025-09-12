@@ -293,7 +293,7 @@ struct FsmOpt
 
 	FsmOpt(RTLIL::Cell *cell, RTLIL::Module *module)
 	{
-		log("Optimizing FSM `%s' from module `%s'.\n", cell->name.c_str(), module->name.c_str());
+		log("Optimizing FSM `%s' from module `%s'.\n", cell->name, module->name);
 
 		fsm_data.copy_from_cell(cell);
 		this->cell = cell;

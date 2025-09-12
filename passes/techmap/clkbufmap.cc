@@ -257,14 +257,14 @@ struct ClkbufmapPass : public Pass {
 						RTLIL::Cell *cell = nullptr;
 						bool is_input = wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top);
 						if (!buf_celltype.empty() && (!is_input || buffer_inputs)) {
-							log("Inserting %s on %s.%s[%d].\n", buf_celltype.c_str(), log_id(module), log_id(wire), i);
+							log("Inserting %s on %s.%s[%d].\n", buf_celltype, log_id(module), log_id(wire), i);
 							cell = module->addCell(NEW_ID, RTLIL::escape_id(buf_celltype));
 							iwire = module->addWire(NEW_ID);
 							cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
 							cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
 						}
 						if (is_input) {
-							log("Inserting %s on %s.%s[%d].\n", inpad_celltype.c_str(), log_id(module), log_id(wire), i);
+							log("Inserting %s on %s.%s[%d].\n", inpad_celltype, log_id(module), log_id(wire), i);
 							RTLIL::Cell *cell2 = module->addCell(NEW_ID, RTLIL::escape_id(inpad_celltype));
 							if (iwire) {
 								cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);

@@ -788,7 +788,7 @@ struct XAigerBackend : public Backend {
 			std::ofstream mapf;
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())
-				log_error("Can't open file `%s' for writing: %s\n", map_filename.c_str(), strerror(errno));
+				log_error("Can't open file `%s' for writing: %s\n", map_filename, strerror(errno));
 			writer.write_map(mapf);
 		}
 	}

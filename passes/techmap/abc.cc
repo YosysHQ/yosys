@@ -751,7 +751,7 @@ struct abc_output_filter
 			return;
 		}
 		if (ch == '\n') {
-			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir).c_str());
+			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir));
 			got_cr = false, linebuf.clear();
 			return;
 		}
@@ -936,7 +936,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	std::string buffer = stringf("%s/abc.script", tempdir_name);
 	FILE *f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
-		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
@@ -991,7 +991,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	buffer = stringf("%s/input.blif", tempdir_name);
 	f = fopen(buffer.c_str(), "wt");
 	if (f == nullptr)
-		log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+		log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 
 	fprintf(f, ".model netlist\n");
 
@@ -1118,7 +1118,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 		buffer = stringf("%s/stdcells.genlib", tempdir_name);
 		f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));
@@ -1163,14 +1163,14 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 			buffer = stringf("%s/lutdefs.txt", tempdir_name);
 			f = fopen(buffer.c_str(), "wt");
 			if (f == nullptr)
-				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+				log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 			for (int i = 0; i < GetSize(config.lut_costs); i++)
 				fprintf(f, "%d %d.00 1.00\n", i+1, config.lut_costs.at(i));
 			fclose(f);
 		}
 
 		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", config.exe_file, tempdir_name);
-		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir).c_str());
+		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, config.show_tempdir));
 
 #ifndef YOSYS_LINK_ABC
 		abc_output_filter filt(*this, tempdir_name, config.show_tempdir);
@@ -1220,7 +1220,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 		temp_stdouterr_r.close();
 #endif
 		if (ret != 0) {
-			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer, ret);
 			return;
 		}
 		did_run_abc = true;
@@ -1239,7 +1239,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	std::ifstream ifs;
 	ifs.open(buffer);
 	if (ifs.fail())
-		log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
+		log_error("Can't open ABC output file `%s'.\n", buffer);
 
 	bool builtin_lib = config.liberty_files.empty() && config.genlib_files.empty();
 	RTLIL::Design *mapped_design = new RTLIL::Design;
@@ -1490,7 +1490,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 	cell_stats.sort();
 	for (auto &it : cell_stats)
-		log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
+		log("ABC RESULTS:   %15s cells: %8d\n", it.first, it.second);
 	int in_wires = 0, out_wires = 0;
 	for (auto &si : signal_list)
 		if (si.is_port) {
@@ -1582,7 +1582,7 @@ struct AbcPass : public Pass {
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -1597,41 +1597,41 @@ struct AbcPass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -liberty/-genlib without -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LIB).c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LIB));
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR).c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}").c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack {S}"));
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
 		log("\n");
 		log("        for -sop:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_SOP).c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_SOP));
 		log("\n");
 		log("        otherwise:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL).c_str());
+		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL));
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
 		log("\n");
 		log("        for -liberty/-genlib without -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LIB).c_str());
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LIB));
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR).c_str());
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_CTR));
 		log("\n");
 		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_LUT));
 		log("\n");
 		log("        for -sop:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_SOP).c_str());
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_SOP));
 		log("\n");
 		log("        otherwise:\n");
-		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_DFL).c_str());
+		log("%s\n", fold_abc_cmd(ABC_FAST_COMMAND_DFL));
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");

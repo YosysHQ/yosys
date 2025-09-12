@@ -204,7 +204,7 @@ void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 			bool polarity = sync->type == RTLIL::SyncType::STp;
 			if (check_signal(mod, root_sig, sync->signal, polarity)) {
 				if (edge_syncs.size() > 1) {
-					log("Found async reset %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
+					log("Found async reset %s in `%s.%s'.\n", log_signal(sync->signal), mod->name, proc->name);
 					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
 					arst_syncs.push_back(sync);
 					edge_syncs.erase(it);
@@ -223,7 +223,7 @@ void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 					sync->mem_write_actions.clear();
 					eliminate_const(mod, &proc->root_case, root_sig, polarity);
 				} else {
-					log("Found VHDL-style edge-trigger %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
+					log("Found VHDL-style edge-trigger %s in `%s.%s'.\n", log_signal(sync->signal), mod->name, proc->name);
 					eliminate_const(mod, &proc->root_case, root_sig, !polarity);
 				}
 				did_something = true;

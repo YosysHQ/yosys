@@ -632,20 +632,20 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 		if (rule.cell_types.size() > 0) {
 			log("    cell types:");
 			for (auto &it : rule.cell_types)
-				log(" %s", it.c_str());
+				log(" %s", it);
 			log("\n");
 		}
 		if (rule.port_names.size() > 0) {
 			log("    port names:");
 			for (auto &it : rule.port_names)
-				log(" %s", it.c_str());
+				log(" %s", it);
 			log("\n");
 		}
 	}
 	if (limits.size() > 0) {
 		log("  limits:");
 		for (auto &it : limits)
-			log(" %s", it.c_str());
+			log(" %s", it);
 		log("\n");
 	}
 #endif
@@ -1443,7 +1443,7 @@ struct SelectPass : public Pass {
 			std::ifstream f(read_file);
 			yosys_input_files.insert(read_file);
 			if (f.fail())
-				log_error("Can't open '%s' for reading: %s\n", read_file.c_str(), strerror(errno));
+				log_error("Can't open '%s' for reading: %s\n", read_file, strerror(errno));
 
 			auto sel = RTLIL::Selection::EmptySelection(design);
 			string line;
@@ -1518,7 +1518,7 @@ struct SelectPass : public Pass {
 				f = fopen(write_file.c_str(), "w");
 				yosys_output_files.insert(write_file);
 				if (f == nullptr)
-					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
+					log_error("Can't open '%s' for writing: %s\n", write_file, strerror(errno));
 			}
 			if (work_stack.size() > 0)
 				design->push_selection(work_stack.back());
@@ -1573,7 +1573,7 @@ struct SelectPass : public Pass {
 				RTLIL::Selection *sel = &work_stack.back();
 				sel->optimize(design);
 				std::string desc = describe_selection_for_assert(design, sel, true);
-				log_error("Assertion failed: selection is not empty:%s\n%s", sel_str.c_str(), desc.c_str());
+				log_error("Assertion failed: selection is not empty:%s\n%s", sel_str, desc);
 			}
 			return;
 		}
@@ -1588,7 +1588,7 @@ struct SelectPass : public Pass {
 				RTLIL::Selection *sel = &work_stack.back();
 				sel->optimize(design);
 				std::string desc = describe_selection_for_assert(design, sel, true);
-				log_error("Assertion failed: selection is empty:%s\n%s", sel_str.c_str(), desc.c_str());
+				log_error("Assertion failed: selection is empty:%s\n%s", sel_str, desc);
 			}
 			return;
 		}
@@ -1645,7 +1645,7 @@ struct SelectPass : public Pass {
 		if (!unset_name.empty())
 		{
 			if (!design->selection_vars.erase(unset_name))
-				log_error("Selection '%s' does not exist!\n", unset_name.c_str());
+				log_error("Selection '%s' does not exist!\n", unset_name);
 			return;
 		}
 

@@ -787,7 +787,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			for (auto cell_name : it) {
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
-				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
+				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute());
 			}
 		}
 	}
@@ -1444,7 +1444,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	}
 
 	for (auto &it : cell_stats)
-		log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
+		log("ABC RESULTS:   %15s cells: %8d\n", it.first, it.second);
 	int in_wires = 0, out_wires = 0;
 
 	// Stitch in mapped_mod's inputs/outputs into module

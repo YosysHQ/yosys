@@ -180,10 +180,10 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 	if (template_node->attributes.count(ID::enum_type)) {
 		//get reference to enum node:
 		std::string enum_type = template_node->attributes[ID::enum_type]->str.c_str();
-		//			log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
+		//			log("enum_type=%s (count=%lu)\n", enum_type, current_scope.count(enum_type));
 		//			log("current scope:\n");
 		//			for (auto &it : current_scope)
-		//				log("  %s\n", it.first.c_str());
+		//				log("  %s\n", it.first);
 		log_assert(current_scope.count(enum_type) == 1);
 		AstNode *enum_node = current_scope.at(enum_type);
 		log_assert(enum_node->type == AST_ENUM);
@@ -911,7 +911,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 #if 0
 	log("-------------\n");
-	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.begin.filename->c_str(), location.begin.line, type2str(type).c_str(), this);
+	log("AST simplify[%d] depth %d at %s:%d on %s %p:\n", stage, recursion_counter, location.begin.filename, location.begin.line, type2str(type), this);
 	log("const_fold=%d, stage=%d, width_hint=%d, sign_hint=%d\n",
 			int(const_fold), int(stage), int(width_hint), int(sign_hint));
 	// dumpAst(nullptr, "> ");
@@ -963,7 +963,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if ((memflags & AstNode::MEM2REG_FL_CONST_LHS) && !(memflags & AstNode::MEM2REG_FL_VAR_LHS))
 					goto verbose_activate;
 
-				// log("Note: Not replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
+				// log("Note: Not replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str, long(memflags));
 				continue;
 
 			verbose_activate:
@@ -978,7 +978,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 
 			silent_activate:
-				// log("Note: Replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str.c_str(), long(memflags));
+				// log("Note: Replacing memory %s with list of registers (flags=0x%08lx).\n", mem->str, long(memflags));
 				mem2reg_set.insert(mem);
 			}
 
@@ -1063,7 +1063,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base, /*first_arg_at=*/0, /*may_fail=*/true);
 				if (str.substr(0, 8) == "$display")
 					fmt.append_literal("\n");
-				log("%s", fmt.render().c_str());
+				log("%s", fmt.render());
 			}
 
 			return false;
@@ -1499,7 +1499,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		break;
 
 	case AST_ENUM:
-		//log("\nENUM %s: %d child %d\n", str.c_str(), basic_prep, children[0]->basic_prep);
+		//log("\nENUM %s: %d child %d\n", str, basic_prep, children[0]->basic_prep);
 		if (!basic_prep) {
 			for (auto& item_node : children) {
 				while (!item_node->basic_prep && item_node->simplify(false, stage, -1, false))
@@ -1590,7 +1590,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 
 				default:
-					log_error("Don't know how to translate static cast of type %s\n", type2str(template_node->type).c_str());
+					log_error("Don't know how to translate static cast of type %s\n", type2str(template_node->type));
 				}
 			}
 
@@ -2297,7 +2297,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
 			str = try_pop_module_prefix();
 			for (auto& node : current_scope_ast->children) {
-				//log("looking at mod scope child %s\n", type2str(node->type).c_str());
+				//log("looking at mod scope child %s\n", type2str(node->type));
 				switch (node->type) {
 				case AST_PARAMETER:
 				case AST_LOCALPARAM:
@@ -2308,9 +2308,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				case AST_FUNCTION:
 				case AST_TASK:
 				case AST_DPI_FUNCTION:
-					//log("found child %s, %s\n", type2str(node->type).c_str(), node->str.c_str());
+					//log("found child %s, %s\n", type2str(node->type), node->str);
 					if (str == node->str) {
-						//log("add %s, type %s to scope\n", str.c_str(), type2str(node->type).c_str());
+						//log("add %s, type %s to scope\n", str, type2str(node->type));
 						current_scope[node->str] = node.get();
 					}
 					break;
@@ -2319,7 +2319,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					for (auto& enum_node : node->children) {
 						log_assert(enum_node->type==AST_ENUM_ITEM);
 						if (str == enum_node->str) {
-							//log("\nadding enum item %s to scope\n", str.c_str());
+							//log("\nadding enum item %s to scope\n", str);
 							current_scope[str] = enum_node.get();
 						}
 					}
@@ -5404,7 +5404,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 #if 0
 		log("-----------------------------------\n");
 		for (auto &it : variables)
-			log("%20s %40s\n", it.first.c_str(), log_signal(it.second.val));
+			log("%20s %40s\n", it.first, log_signal(it.second.val));
 		stmt->dumpAst(nullptr, "stmt> ");
 #endif
 		if (stmt->type == AST_WIRE)

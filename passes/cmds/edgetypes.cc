@@ -105,7 +105,7 @@ struct EdgetypePass : public Pass {
 
 		edge_cache.sort();
 		for (auto &str : edge_cache)
-			log("%s\n", str.c_str());
+			log("%s\n", str);
 	}
 } EdgetypePass;
 

@@ -246,7 +246,7 @@ struct BtorWorker
 			string cell_list;
 			for (auto c : cell_recursion_guard)
 				cell_list += stringf("\n    %s", log_id(c));
-			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list.c_str());
+			log_error("Found topological loop while processing cell %s. Active cells:%s\n", log_id(cell), cell_list);
 		}
 
 		cell_recursion_guard.insert(cell);
@@ -1489,7 +1489,7 @@ struct BtorWorker
 			std::ofstream f;
 			f.open(info_filename.c_str(), std::ofstream::trunc);
 			if (f.fail())
-				log_error("Can't open file `%s' for writing: %s\n", info_filename.c_str(), strerror(errno));
+				log_error("Can't open file `%s' for writing: %s\n", info_filename, strerror(errno));
 			for (auto &it : info_lines)
 				f << it;
 			f.close();

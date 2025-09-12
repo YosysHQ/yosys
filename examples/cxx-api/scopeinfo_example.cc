@@ -77,9 +77,9 @@ struct ScopeinfoExamplePass : public Pass {
 						continue;
 					}
 
-					log("%s %s\n", wire_scope.first.path_str().c_str(), log_id(wire_scope.second));
+					log("%s %s\n", wire_scope.first.path_str(), log_id(wire_scope.second));
 					for (auto src : index.sources(wire))
-						log(" - %s\n", src.c_str());
+						log(" - %s\n", src);
 				}
 			}
 		}

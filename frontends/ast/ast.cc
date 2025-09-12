@@ -1108,9 +1108,9 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
-		log("Storing AST representation for module `%s'.\n", ast->str.c_str());
+		log("Storing AST representation for module `%s'.\n", ast->str);
 	else if (!quiet) {
-		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
+		log("Generating RTLIL representation for module `%s'.\n", ast->str);
 	}
 
 	AstModule *module = new AstModule;
@@ -1411,7 +1411,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			for (auto& n : design->verilog_packages) {
 				for (auto &o : n->children) {
 					auto cloned_node = o->clone();
-					// log("cloned node %s\n", type2str(cloned_node->type).c_str());
+					// log("cloned node %s\n", type2str(cloned_node->type));
 					if (cloned_node->type == AST_ENUM) {
 						for (auto &e : cloned_node->children) {
 							log_assert(e->type == AST_ENUM_ITEM);
@@ -1432,7 +1432,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 				for (const auto& node : child->children)
 					if (node->type == AST_PARAMETER && param_has_no_default(node.get()))
 					{
-						log("Deferring `%s' because it contains parameter(s) without defaults.\n", child->str.c_str());
+						log("Deferring `%s' because it contains parameter(s) without defaults.\n", child->str);
 						defer_local = true;
 						break;
 					}
@@ -1507,7 +1507,7 @@ std::pair<std::string,std::string> AST::split_modport_from_type(std::string name
 			interface_modport = seglist[1];
 		}
 		else { // Erroneous port type
-			log_error("More than two '.' in signal port type (%s)\n", name_type.c_str());
+			log_error("More than two '.' in signal port type (%s)\n", name_type);
 		}
 	}
 	return std::pair<std::string,std::string>(interface_type, interface_modport);
@@ -1720,7 +1720,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
-				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname.c_str());
+				log_error("No port with matching name found (%s) in %s. Stopping\n", log_id(intf.first), modname);
 			}
 		}
 
@@ -1731,7 +1731,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 	} else {
 		modname = new_modname;
-		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
 	return modname;
@@ -1750,7 +1750,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		process_module(design, new_ast.get(), false, NULL, quiet);
 		design->module(modname)->check();
 	} else if (!quiet) {
-		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
+		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
 	return modname;
@@ -1799,14 +1799,14 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		auto it = parameters.find(child->str);
 		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
+				log("Parameter %s = %s\n", child->str, log_signal(it->second));
 			named_parameters.emplace_back(child->str, it->second);
 			continue;
 		}
 		it = parameters.find(stringf("$%d", para_counter));
 		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
+				log("Parameter %d (%s) = %s\n", para_counter, child->str, log_signal(it->second));
 			named_parameters.emplace_back(child->str, it->second);
 			continue;
 		}
@@ -1839,13 +1839,13 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		auto it = parameters.find(child->str);
 		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
+				log("Parameter %s = %s\n", child->str, log_signal(it->second));
 			goto rewrite_parameter;
 		}
 		it = parameters.find(stringf("$%d", para_counter));
 		if (it != parameters.end()) {
 			if (!quiet)
-				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
+				log("Parameter %d (%s) = %s\n", para_counter, child->str, log_signal(it->second));
 			goto rewrite_parameter;
 		}
 		continue;

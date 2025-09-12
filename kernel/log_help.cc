@@ -85,7 +85,7 @@ void log_pass_str(const std::string &pass_str, std::string indent_str, bool lead
 	if (leading_newline)
 		log("\n");
 	for (std::string line; std::getline(iss, line);) {
-		log("%s", indent_str.c_str());
+		log("%s", indent_str);
 		auto curr_len = indent_str.length();
 		std::istringstream lss(line);
 		for (std::string word; std::getline(lss, word, ' ');) {
@@ -93,10 +93,10 @@ void log_pass_str(const std::string &pass_str, std::string indent_str, bool lead
 				word = word.substr(1, word.length()-2);
 			if (curr_len + word.length() >= MAX_LINE_LEN-1) {
 				curr_len = 0;
-				log("\n%s", indent_str.c_str());
+				log("\n%s", indent_str);
 			}
 			if (word.length()) {
-				log("%s ", word.c_str());
+				log("%s ", word);
 				curr_len += word.length() + 1;
 			}
 		}

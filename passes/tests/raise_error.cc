@@ -85,7 +85,7 @@ struct RaiseErrorPass : public Pass {
 			if (use_stderr) {
 				std::cerr << err_msg << std::endl;
 			} else {
-				log_error("%s\n", err_msg.c_str());
+				log_error("%s\n", err_msg);
 			}
 		}
 

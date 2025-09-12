@@ -122,7 +122,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	for (auto &it : hole_assignments) {
 		RTLIL::SigSpec lhs(it.first);
 		RTLIL::SigSpec rhs(it.second);
-		log("Specializing %s from file with %s = %d.\n", module->name.c_str(), log_signal(it.first), it.second == RTLIL::State::S1? 1 : 0);
+		log("Specializing %s from file with %s = %d.\n", module->name, log_signal(it.first), it.second == RTLIL::State::S1? 1 : 0);
 		module->connect(lhs, rhs);
 	}
 }
@@ -151,7 +151,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 			RTLIL::SigSpec lhs(hole_sigbit.wire, hole_sigbit.offset, 1);
 			RTLIL::State hole_bit_val = hole_value[bit_idx] == '1'? RTLIL::State::S1 : RTLIL::State::S0;
 			if (!quiet)
-				log("Specializing %s with %s = %d.\n", module->name.c_str(), log_signal(hole_sigbit), hole_bit_val == RTLIL::State::S0? 0 : 1)
+				log("Specializing %s with %s = %d.\n", module->name, log_signal(hole_sigbit), hole_bit_val == RTLIL::State::S0? 0 : 1)
 ;
 			module->connect(lhs, hole_bit_val);
 		}
@@ -168,7 +168,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 		allconst->setPort(ID::Y, input);
 		allconst->set_src_attribute(input->get_src_attribute());
 		input->port_input = false;
-		log("Replaced input %s with $allconst cell.\n", n.c_str());
+		log("Replaced input %s with $allconst cell.\n", n);
 	}
 	module->fixup_ports();
 }
@@ -184,7 +184,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 	else {
 		log("Adding $assume cell for output(s): ");
 		for (auto w : wires_to_assume)
-			log("\"%s\" ", w->name.c_str());
+			log("\"%s\" ", w->name);
 		log("\n");
 	}
 
@@ -236,10 +236,10 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
 		else
 			if (opt.show_smtbmc && !quiet)
-				log("smtbmc output: %s", line.c_str());
+				log("smtbmc output: %s", line);
 	};
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
-	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd.c_str());
+	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd);
 	int64_t begin = PerformanceTimer::query();
 	run_command(smtbmc_cmd, process_line);
 	int64_t end = PerformanceTimer::query();
@@ -303,7 +303,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 		log_assert(wire_to_optimize_name != "");
 		log_assert(module->wire(wire_to_optimize_name) != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name.c_str());
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name);
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -316,7 +316,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
 				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
-				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name.c_str(), (maximize? ">=" : "<="), cur_thresh);
+				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);
 			}
 
 			ret = call_qbf_solver(module, opt, tempdir_name, false, iter_num);
@@ -337,7 +337,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				log_assert(value.is_fully_const());
 				success = value.as_const().as_int();
 				best_soln = ret;
-				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name.c_str(), success);
+				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name, success);
 				Pass::call(design, "design -pop");
 				module = design->module(module_name);
 
@@ -355,7 +355,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 					break;
 				}
 				else
-					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name.c_str(), (maximize? ">=" : "<="), failure);
+					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), failure);
 			}
 
 			iter_num++;
@@ -367,7 +367,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
-			log("Wire %s is %s at %d.\n", wire_to_optimize_name.c_str(), (maximize? "maximized" : "minimized"), success);
+			log("Wire %s is %s at %d.\n", wire_to_optimize_name, (maximize? "maximized" : "minimized"), success);
 			ret = best_soln;
 		}
 	}

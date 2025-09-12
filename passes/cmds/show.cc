@@ -188,7 +188,7 @@ struct ShowWorker
 			if (enumerateIds) {
 				if (autonames.count(id) == 0) {
 					autonames[id] = autonames.size() + 1;
-					log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id.c_str());
+					log("Generated short name for internal identifier: _%d_ -> %s\n", autonames[id], id);
 				}
 				id = stringf("_%d_", autonames[id]);
 			} else if (abbreviateIds) {
@@ -895,7 +895,7 @@ struct ShowPass : public Pass {
 			f.open(filename.c_str());
 			yosys_input_files.insert(filename);
 			if (f.fail())
-				log_error("Can't open lib file `%s'.\n", filename.c_str());
+				log_error("Can't open lib file `%s'.\n", filename);
 			RTLIL::Design *lib = new RTLIL::Design;
 			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 			libs.push_back(lib);
@@ -907,7 +907,7 @@ struct ShowPass : public Pass {
 		std::string dot_file = stringf("%s.dot", prefix);
 		std::string out_file = stringf("%s.%s", prefix, format.empty() ? "svg" : format);
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		log("Writing dot description to `%s'.\n", dot_file);
 		FILE *f = fopen(dot_file.c_str(), "w");
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
@@ -934,7 +934,7 @@ struct ShowPass : public Pass {
 			#endif
 			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			#if !defined(YOSYS_DISABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
@@ -954,7 +954,7 @@ struct ShowPass : public Pass {
 				#else
 					std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 				#endif
-				log("Exec: %s\n", cmd.c_str());
+				log("Exec: %s\n", cmd);
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			} else
@@ -964,7 +964,7 @@ struct ShowPass : public Pass {
 				#else
 				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 				#endif
-				log("Exec: %s\n", cmd.c_str());
+				log("Exec: %s\n", cmd);
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
 			}

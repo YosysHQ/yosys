@@ -404,7 +404,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 		for (auto &bit : lhs) {
 			State val = db.initvals(bit);
 			if (db.initvals(bit) != State::Sx) {
-				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(val), db.module->name.c_str(), log_signal(bit), db.module->name.c_str(), proc->name.c_str());
+				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(val), db.module->name, log_signal(bit), db.module->name, proc->name);
 			}
 			db.initvals.remove_init(bit);
 		}

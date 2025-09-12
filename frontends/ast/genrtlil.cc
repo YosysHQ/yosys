@@ -382,7 +382,7 @@ struct AST_INTERNAL::ProcessGenerator
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
 				always->input_error("Found non-synthesizable event list!\n");
-			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string().c_str());
+			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string());
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
 		}

@@ -172,7 +172,7 @@ struct ExecPass : public Pass {
 				std::string line = linebuf.substr(0, pos);
 				linebuf.erase(0, pos + 1);
 				if (!flag_quiet)
-					log("%s\n", line.c_str());
+					log("%s\n", line);
 
 				if (flag_expect_stdout)
 					for(auto &x : expect_stdout)

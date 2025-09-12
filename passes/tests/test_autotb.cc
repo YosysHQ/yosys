@@ -109,7 +109,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 			continue;
 
 		int count_ports = 0;
-		log("Generating test bench for module `%s'.\n", mod->name.c_str());
+		log("Generating test bench for module `%s'.\n", mod->name);
 		for (auto wire : mod->wires()) {
 			if (wire->port_output) {
 				count_ports++;

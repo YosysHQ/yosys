@@ -294,7 +294,7 @@ struct MicrochipDffOptPass : public Pass {
 					ports += " + S";
 				if (worthy_post_ce)
 					ports += " + CE";
-				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports.c_str(), log_id(cell), log_id(sig_Q.wire),
+				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports, log_id(cell), log_id(sig_Q.wire),
 				    GetSize(lut_d.second), GetSize(final_lut.second));
 
 				// Okay, we're doing it.  Unmap ports.

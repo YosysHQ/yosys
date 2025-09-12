@@ -228,7 +228,7 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log("%s. ", header_id.c_str());
+	log("%s. ", header_id);
 	log_formatted_string(format, std::move(str));
 	log_flush();
 
@@ -237,7 +237,7 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
-			log("Dumping current design to '%s'.\n", filename.c_str());
+			log("Dumping current design to '%s'.\n", filename);
 			if (yosys_xtrace)
 				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
@@ -635,21 +635,21 @@ void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
 	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false);
-	log("%s", buf.str().c_str());
+	log("%s", buf.str());
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
 	RTLIL_BACKEND::dump_cell(buf, indent, cell);
-	log("%s", buf.str().c_str());
+	log("%s", buf.str());
 }
 
 void log_wire(RTLIL::Wire *wire, std::string indent)
 {
 	std::stringstream buf;
 	RTLIL_BACKEND::dump_wire(buf, indent, wire);
-	log("%s", buf.str().c_str());
+	log("%s", buf.str());
 }
 
 void log_check_expected()
@@ -668,7 +668,7 @@ void log_check_expected()
 	auto check = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == 0) {
 			log_warn_regexes.clear();
-			log_error("Expected %s pattern '%s' not found !\n", kind.c_str(), pattern.c_str());
+			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 		if (item.current_count != item.expected_count) {
 			log_warn_regexes.clear();
@@ -689,7 +689,7 @@ void log_check_expected()
 	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == item.expected_count) {
 			log_warn_regexes.clear();
-			log("Expected %s pattern '%s' found !!!\n", kind.c_str(), pattern.c_str());
+			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
 			#ifdef EMSCRIPTEN
 				throw 0;
@@ -700,7 +700,7 @@ void log_check_expected()
 			#endif
 		} else {
 			log_warn_regexes.clear();
-			log_error("Expected %s pattern '%s' not found !\n", kind.c_str(), pattern.c_str());
+			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 	};
 	for (auto &[pattern, item] : expect_error)

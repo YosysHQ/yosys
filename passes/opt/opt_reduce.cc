@@ -93,7 +93,7 @@ struct OptReduceWorker
 			new_sig_a = (cell->type == ID($reduce_or)) ? State::S0 : State::S1;
 
 		if (new_sig_a != sig_a || sig_a.size() != cell->getPort(ID::A).size()) {
-			log("    New input vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_a));
+			log("    New input vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_a));
 			did_something = true;
 			total_count++;
 		}
@@ -155,7 +155,7 @@ struct OptReduceWorker
 		}
 
 		if (new_sig_s.size() != sig_s.size() || (new_sig_s.size() == 1 && cell->type == ID($pmux))) {
-			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
+			log("    New ctrl vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_s));
 			did_something = true;
 			total_count++;
 			cell->setPort(ID::B, new_sig_b);
@@ -242,7 +242,7 @@ struct OptReduceWorker
 		}
 
 		if (new_sig_s.size() != sig_s.size()) {
-			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
+			log("    New ctrl vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_s));
 			did_something = true;
 			total_count++;
 			cell->setPort(ID::A, new_sig_a);
@@ -308,7 +308,7 @@ struct OptReduceWorker
 		if (new_sig_s.size() == sig_s.size() && sig_s.size() > 0)
 			return;
 
-		log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
+		log("    New ctrl vector for %s cell %s: %s\n", cell->type, cell->name, log_signal(new_sig_s));
 		did_something = true;
 		total_count++;
 
@@ -388,7 +388,7 @@ struct OptReduceWorker
 
 		if (GetSize(swizzle) != width)
 		{
-			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
+			log("    Consolidated identical input bits for %s cell %s:\n", cell->type, cell->name);
 			if (cell->type != ID($bmux)) {
 				log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
 						log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
@@ -479,7 +479,7 @@ struct OptReduceWorker
 
 		if (GetSize(swizzle) != width)
 		{
-			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
+			log("    Consolidated identical input bits for %s cell %s:\n", cell->type, cell->name);
 			log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
 					log_signal(cell->getPort(ID::Y)));
 
@@ -515,7 +515,7 @@ struct OptReduceWorker
 	OptReduceWorker(RTLIL::Design *design, RTLIL::Module *module, bool do_fine) :
 			design(design), module(module), assign_map(module)
 	{
-		log("  Optimizing cells in module %s.\n", module->name.c_str());
+		log("  Optimizing cells in module %s.\n", module->name);
 
 		total_count = 0;
 		did_something = true;

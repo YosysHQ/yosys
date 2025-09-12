@@ -722,7 +722,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		}
 
 		if (verbose)
-			log("EVAL:  %s\n", out_val.as_string().c_str());
+			log("EVAL:  %s\n", out_val.as_string());
 
 		if (!nosat)
 		{

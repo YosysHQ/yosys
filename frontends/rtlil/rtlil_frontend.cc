@@ -90,7 +90,7 @@ struct RTLILFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log("Input filename: %s\n", filename.c_str());
+		log("Input filename: %s\n", filename);
 
 		RTLIL_FRONTEND::lexin = f;
 		RTLIL_FRONTEND::current_design = design;

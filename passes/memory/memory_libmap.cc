@@ -548,20 +548,20 @@ void MemMapping::determine_style() {
 				// Nothing.
 			} else if (val_s == "logic" || val_s == "registers") {
 				kind = RamKind::Logic;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "distributed") {
 				kind = RamKind::Distributed;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "block" || val_s == "block_ram" || val_s == "ebr") {
 				kind = RamKind::Block;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "huge" || val_s == "ultra") {
 				kind = RamKind::Huge;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid));
 			} else {
 				kind = RamKind::NotLogic;
 				style = val_s;
-				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid), val_s.c_str());
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s, log_id(mem.module->name), log_id(mem.memid), val_s);
 			}
 			return;
 		}
