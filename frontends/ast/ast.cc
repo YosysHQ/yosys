@@ -193,7 +193,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 	auto& attr = attributes.at(id);
 	if (attr->type != AST_CONSTANT)
-		attr->input_error("Attribute `%s' with non-constant value!\n", id.c_str());
+		attr->input_error("Attribute `%s' with non-constant value!\n", id);
 
 	return attr->integer != 0;
 }
@@ -1143,7 +1143,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	{
 		for (auto& node : ast->children)
 			if (node->type == AST_PARAMETER && param_has_no_default(node.get()))
-				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
+				node->input_error("Parameter `%s' has no default value and has not been overridden!\n", node->str);
 
 		bool blackbox_module = flag_lib;
 
@@ -1256,7 +1256,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		for (auto &attr : ast->attributes) {
 			log_assert((bool)attr.second.get());
 			if (attr.second->type != AST_CONSTANT)
-				ast->input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
+				ast->input_error("Attribute `%s' with non-constant value!\n", attr.first);
 			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
@@ -1922,11 +1922,9 @@ void AstModule::loadconfig() const
 	flag_autowire = autowire;
 }
 
-void AstNode::input_error(const char *format, ...) const
+void AstNode::formatted_input_error(std::string str) const
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_file_error(*location.begin.filename, location.begin.line, format, ap);
+	log_formatted_file_error(*location.begin.filename, location.begin.line, std::move(str));
 }
 
 YOSYS_NAMESPACE_END

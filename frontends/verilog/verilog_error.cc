@@ -32,37 +32,14 @@ USING_YOSYS_NAMESPACE
  */
 
 [[noreturn]]
-static void verr_at(std::string filename, int begin_line, char const *fmt, va_list ap)
+void VERILOG_FRONTEND::formatted_err_at_loc(Location loc, std::string str)
 {
-    char buffer[1024];
-    char *p = buffer;
-    p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
-    p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-    YOSYS_NAMESPACE_PREFIX log_file_error(filename, begin_line, "%s", buffer);
-    exit(1);
+    YOSYS_NAMESPACE_PREFIX log_file_error(loc.begin.filename ? *(loc.begin.filename) : "UNKNOWN", loc.begin.line,
+            "%s\n", std::move(str));
 }
 
-static void vwarn_at(std::string filename, int begin_line, char const *fmt, va_list ap)
+void VERILOG_FRONTEND::formatted_warn_at_loc(Location loc, std::string str)
 {
-    char buffer[1024];
-    char *p = buffer;
-    p += vsnprintf(p, buffer + sizeof(buffer) - p, fmt, ap);
-    p += snprintf(p, buffer + sizeof(buffer) - p, "\n");
-    YOSYS_NAMESPACE_PREFIX log_file_warning(filename, begin_line, "%s", buffer);
+    YOSYS_NAMESPACE_PREFIX log_file_warning(loc.begin.filename ? *(loc.begin.filename) : "UNKNOWN", loc.begin.line,
+            "%s\n", std::move(str));
 }
-
-[[noreturn]]
-void VERILOG_FRONTEND::err_at_loc(Location loc, char const *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    verr_at(loc.begin.filename ? *(loc.begin.filename) : "UNKNOWN", loc.begin.line, fmt, args);
-}
-void VERILOG_FRONTEND::warn_at_loc(Location loc, char const *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    vwarn_at(loc.begin.filename ? *(loc.begin.filename) : "UNKNOWN", loc.begin.line, fmt, args);
-    va_end(args);
-}
-

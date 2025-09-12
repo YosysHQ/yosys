@@ -10,8 +10,20 @@ YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND
 {
     [[noreturn]]
-    void err_at_loc(Location loc, char const *fmt, ...);
-    void warn_at_loc(Location loc, char const *fmt, ...);
+    void formatted_err_at_loc(Location loc, std::string str);
+    template <typename... Args>
+    [[noreturn]]
+    void err_at_loc(Location loc, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+    {
+        formatted_err_at_loc(std::move(loc), fmt.format(args...));
+    }
+
+    void formatted_warn_at_loc(Location loc, std::string str);
+    template <typename... Args>
+    void warn_at_loc(Location loc, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+    {
+        formatted_warn_at_loc(std::move(loc), fmt.format(args...));
+    }
 };
 
 YOSYS_NAMESPACE_END

@@ -420,7 +420,7 @@
 
 	void frontend_verilog_yy::parser::error(const frontend_verilog_yy::parser::location_type& loc, const std::string& msg)
 	{
-		err_at_loc(loc, "%s", msg.c_str());
+		err_at_loc(loc, "%s", msg);
 	}
 }
 
@@ -772,7 +772,7 @@ module_arg:
 			extra->ast_stack.back()->children.push_back(std::move(node));
 		} else {
 			if (extra->port_stubs.count(*$1) != 0)
-				err_at_loc(@1, "Duplicate module port `%s'.", $1->c_str());
+				err_at_loc(@1, "Duplicate module port `%s'.", *$1);
 			extra->port_stubs[*$1] = ++extra->port_counter;
 		}
 	} module_arg_opt_assignment |
@@ -782,7 +782,7 @@ module_arg:
 		extra->astbuf1->children[0]->str = *$1;
 	} TOK_ID {  /* SV interfaces */
 		if (!mode->sv)
-			err_at_loc(@3, "Interface found in port list (%s). This is not supported unless read_verilog is called with -sv!", $3->c_str());
+			err_at_loc(@3, "Interface found in port list (%s). This is not supported unless read_verilog is called with -sv!", *$3);
 		extra->astbuf2 = extra->astbuf1->clone(); // really only needed if multiple instances of same type.
 		extra->astbuf2->str = *$3;
 		extra->astbuf2->port_id = ++extra->port_counter;
@@ -797,9 +797,9 @@ module_arg:
 		if (range != nullptr)
 			node->children.push_back(std::move(range));
 		if (!node->is_input && !node->is_output)
-			err_at_loc(@4, "Module port `%s' is neither input nor output.", $4->c_str());
+			err_at_loc(@4, "Module port `%s' is neither input nor output.", *$4);
 		if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
-			err_at_loc(@4, "Input port `%s' is declared as register.", $4->c_str());
+			err_at_loc(@4, "Input port `%s' is declared as register.", *$4);
 		append_attr(node.get(), std::move($1));
 		extra->ast_stack.back()->children.push_back(std::move(node));
 	} module_arg_opt_assignment |
@@ -1381,7 +1381,7 @@ specify_item:
 	TOK_ID TOK_LPAREN specify_edge expr specify_condition TOK_COMMA specify_edge expr specify_condition TOK_COMMA specify_triple specify_opt_triple TOK_RPAREN TOK_SEMICOL {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
-			err_at_loc(@1, "Unsupported specify rule type: %s", $1->c_str());
+			err_at_loc(@1, "Unsupported specify rule type: %s", *$1);
 
 		auto src_pen = AstNode::mkconst_int(@3, $3 != 0, false, 1);
 		auto src_pol = AstNode::mkconst_int(@3, $3 == 'p', false, 1);
@@ -2156,21 +2156,21 @@ wire_name:
 				node->port_id = extra->current_function_or_task_port_id++;
 		} else if (extra->ast_stack.back()->type == AST_GENBLOCK) {
 			if (node->is_input || node->is_output)
-				err_at_loc(@1, "Cannot declare module port `%s' within a generate block.", $1->c_str());
+				err_at_loc(@1, "Cannot declare module port `%s' within a generate block.", *$1);
 		} else {
 			if (extra->do_not_require_port_stubs && (node->is_input || node->is_output) && extra->port_stubs.count(*$1) == 0) {
 				extra->port_stubs[*$1] = ++extra->port_counter;
 			}
 			if (extra->port_stubs.count(*$1) != 0) {
 				if (!node->is_input && !node->is_output)
-					err_at_loc(@1, "Module port `%s' is neither input nor output.", $1->c_str());
+					err_at_loc(@1, "Module port `%s' is neither input nor output.", *$1);
 				if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
-					err_at_loc(@1, "Input port `%s' is declared as register.", $1->c_str());
+					err_at_loc(@1, "Input port `%s' is declared as register.", *$1);
 				node->port_id = extra->port_stubs[*$1];
 				extra->port_stubs.erase(*$1);
 			} else {
 				if (node->is_input || node->is_output)
-					err_at_loc(@1, "Module port `%s' is not declared in module header.", $1->c_str());
+					err_at_loc(@1, "Module port `%s' is not declared in module header.", *$1);
 			}
 		}
 		//FIXME: for some reason, TOK_ID has a location which always points to one column *after* the real last column...
@@ -3247,7 +3247,7 @@ basic_expr:
 	} |
 	TOK_LPAREN expr TOK_RPAREN integral_number {
 		if ($4->compare(0, 1, "'") != 0)
-			err_at_loc(@4, "Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
+			err_at_loc(@4, "Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", *$4);
 		ConstParser p{@4};
 		auto val = p.const2ast(*$4, extra->case_type_stack.size() == 0 ? 0 : extra->case_type_stack.back(), !mode->lib);
 		if (val == nullptr)
@@ -3256,7 +3256,7 @@ basic_expr:
 	} |
 	hierarchical_id integral_number {
 		if ($2->compare(0, 1, "'") != 0)
-			err_at_loc(@2, "Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
+			err_at_loc(@2, "Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", *$2);
 		auto bits = std::make_unique<AstNode>(@$, AST_IDENTIFIER);
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits.get(), @1, @1);
