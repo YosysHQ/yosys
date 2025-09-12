@@ -210,9 +210,14 @@ struct RTLIL::IdString
 
 	static int get_reference(const char *p)
 	{
+		return get_reference(std::string_view(p));
+	}
+
+	static int get_reference(std::string_view p)
+	{
 		log_assert(destruct_guard_ok);
 
-		auto it = global_id_index_.find((char*)p);
+		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
 	#ifndef YOSYS_NO_IDS_REFCNT
 			global_refcount_storage_.at(it->second)++;
@@ -226,14 +231,13 @@ struct RTLIL::IdString
 
 		ensure_prepopulated();
 
-		if (!p[0])
+		if (p.empty())
 			return 0;
 
 		log_assert(p[0] == '$' || p[0] == '\\');
-		log_assert(p[1] != 0);
-		for (const char *c = p; *c; c++)
-			if ((unsigned)*c <= (unsigned)' ')
-				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
+		for (char ch : p)
+			if ((unsigned)ch <= (unsigned)' ')
+				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
 
 	#ifndef YOSYS_NO_IDS_REFCNT
 		if (global_free_idx_list_.empty()) {
@@ -245,8 +249,11 @@ struct RTLIL::IdString
 
 		int idx = global_free_idx_list_.back();
 		global_free_idx_list_.pop_back();
-		global_id_storage_.at(idx) = strdup(p);
-		global_id_index_[global_id_storage_.at(idx)] = idx;
+		char* buf = static_cast<char*>(malloc(p.size() + 1));
+		memcpy(buf, p.data(), p.size());
+		buf[p.size()] = 0;
+		global_id_storage_.at(idx) = buf;
+		global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
 		global_refcount_storage_.at(idx)++;
 	#else
 		int idx = global_id_storage_.size();
@@ -255,7 +262,7 @@ struct RTLIL::IdString
 	#endif
 
 		if (yosys_xtrace) {
-			log("#X# New IdString '%s' with index %d.\n", p, idx);
+			log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
@@ -322,7 +329,8 @@ struct RTLIL::IdString
 	inline IdString(const char *str) : index_(get_reference(str)) { }
 	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-	inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
+	inline IdString(const std::string &str) : index_(get_reference(std::string_view(str))) { }
+	inline IdString(std::string_view str) : index_(get_reference(str)) { }
 	inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
 	inline ~IdString() { put_reference(index_); }
 
