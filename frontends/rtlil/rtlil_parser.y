@@ -455,16 +455,17 @@ constant:
 		}
 		while ((int)bits.size() > width)
 			bits.pop_back();
-		$$ = new RTLIL::Const;
-		for (auto it = bits.begin(); it != bits.end(); it++)
-			$$->bits().push_back(*it);
+		RTLIL::Const::Builder builder(bits.size());
+		for (RTLIL::State bit : bits)
+			builder.push_back(bit);
+		$$ = new RTLIL::Const(builder.build());
 		if (is_signed) {
 			$$->flags |= RTLIL::CONST_FLAG_SIGNED;
 		}
 		free($1);
 	} |
 	TOK_INT {
-		$$ = new RTLIL::Const($1, 32);
+		$$ = new RTLIL::Const($1);
 	} |
 	TOK_STRING {
 		$$ = new RTLIL::Const($1);

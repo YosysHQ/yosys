@@ -158,11 +158,11 @@ struct CleanZeroWidthPass : public Pass {
 							continue;
 						if (GetSize(memwr.address) == 0)
 							memwr.address = State::S0;
-						Const priority_mask;
+						RTLIL::Const::Builder new_mask_bits(swizzle.size());
 						for (auto x : swizzle) {
-							priority_mask.bits().push_back(memwr.priority_mask[x]);
+							new_mask_bits.push_back(memwr.priority_mask[x]);
 						}
-						memwr.priority_mask = priority_mask;
+						memwr.priority_mask = new_mask_bits.build();
 						swizzle.push_back(i);
 						new_memwr_actions.push_back(memwr);
 					}

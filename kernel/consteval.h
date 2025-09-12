@@ -115,7 +115,7 @@ struct ConstEval
 
 				for (int i = 0; i < GetSize(coval); i++) {
 					carry = (sig_g[i] == State::S1) || (sig_p[i] == RTLIL::S1 && carry);
-					coval.bits()[i] = carry ? State::S1 : State::S0;
+					coval.set(i, carry ? State::S1 : State::S0);
 				}
 
 				set(sig_co, coval);
@@ -249,7 +249,7 @@ struct ConstEval
 
 			for (int i = 0; i < GetSize(val_y); i++)
 				if (val_y[i] == RTLIL::Sx)
-					val_x.bits()[i] = RTLIL::Sx;
+					val_x.set(i, RTLIL::Sx);
 
 			set(sig_y, val_y);
 			set(sig_x, val_x);

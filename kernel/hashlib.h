@@ -168,8 +168,17 @@ struct hash_ops {
 		} else if constexpr (std::is_pointer_v<T>) {
 			return hash_ops<uintptr_t>::hash_into((uintptr_t) a, h);
 		} else if constexpr (std::is_same_v<T, std::string>) {
-			for (auto c : a)
-				h.hash32(c);
+			int size = a.size();
+			int i = 0;
+			while (i + 8 < size) {
+				uint64_t v;
+				memcpy(&v, a.data() + i, 8);
+				h.hash64(v);
+				i += 8;
+			}
+			uint64_t v = 0;
+			memcpy(&v, a.data() + i, size - i);
+			h.hash64(v);
 			return h;
 		} else {
 			return a.hash_into(h);

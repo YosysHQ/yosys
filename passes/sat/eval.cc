@@ -256,7 +256,7 @@ struct VlogHammerReporter
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
-						recorded_set_vals.bits().push_back(bits.back());
+						recorded_set_vars.append(RTLIL::Const(bits.back()));
 						bits.pop_back();
 					}
 					if (module == modules.front()) {
@@ -346,7 +346,7 @@ struct VlogHammerReporter
 				log_error("Pattern %s is to short!\n", pattern);
 			patterns.push_back(sig.as_const());
 			if (invert_pattern) {
-				for (auto &bit : patterns.back().bits())
+				for (auto bit : patterns.back())
 					if (bit == RTLIL::State::S0)
 						bit = RTLIL::State::S1;
 					else if (bit == RTLIL::State::S1)

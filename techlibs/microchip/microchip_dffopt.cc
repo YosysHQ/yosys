@@ -93,7 +93,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 			int lut_idx = i >> idx_data & ((1 << GetSize(data.second)) - 1);
 			new_bit = data.first[lut_idx] == State::S1;
 		}
-		result.first.bits()[i] = new_bit ? State::S1 : State::S0;
+		result.first.set(i, new_bit ? State::S1 : State::S0);
 	}
 	return true;
 }
