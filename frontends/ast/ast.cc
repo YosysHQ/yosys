@@ -1922,11 +1922,9 @@ void AstModule::loadconfig() const
 	flag_autowire = autowire;
 }
 
-void AstNode::input_error(const char *format, ...) const
+void AstNode::formatted_input_error(std::string str) const
 {
-	va_list ap;
-	va_start(ap, format);
-	logv_file_error(*location.begin.filename, location.begin.line, format, ap);
+	log_formatted_file_error(*location.begin.filename, location.begin.line, std::move(str));
 }
 
 YOSYS_NAMESPACE_END
