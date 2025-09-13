@@ -334,7 +334,7 @@ struct MemoryDffWorker
 	void handle_rd_port(Mem &mem, QuickConeSat &qcsat, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port `%s'[%d] in module `%s': ", mem.memid.c_str(), idx, module->name.c_str());
+		log("Checking read port `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
 
 		std::vector<MuxData> muxdata;
 		SigSpec data = walk_muxes(port.data, muxdata);
@@ -554,7 +554,7 @@ struct MemoryDffWorker
 	void handle_rd_port_addr(Mem &mem, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid.c_str(), idx, module->name.c_str());
+		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
 
 		FfData ff;
 		pool<std::pair<Cell *, int>> bits;

@@ -88,7 +88,7 @@ struct SubmodWorker
 
 	void handle_submodule(SubModule &submod)
 	{
-		log("Creating submodule %s (%s) of module %s.\n", submod.name.c_str(), submod.full_name.c_str(), module->name.c_str());
+		log("Creating submodule %s (%s) of module %s.\n", submod.name, submod.full_name, module->name);
 		log_flush();
 
 		wire_flags.clear();
@@ -194,13 +194,13 @@ struct SubmodWorker
 			}
 
 			if (new_wire->port_input && new_wire->port_output)
-				log_debug("  signal %s: inout %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: inout %s\n", wire->name, new_wire->name);
 			else if (new_wire->port_input)
-				log_debug("  signal %s: input %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: input %s\n", wire->name, new_wire->name);
 			else if (new_wire->port_output)
-				log_debug("  signal %s: output %s\n", wire->name.c_str(), new_wire->name.c_str());
+				log_debug("  signal %s: output %s\n", wire->name, new_wire->name);
 			else
-				log_debug("  signal %s: internal\n", wire->name.c_str());
+				log_debug("  signal %s: internal\n", wire->name);
 
 			flags.new_wire = new_wire;
 		}
@@ -216,7 +216,7 @@ struct SubmodWorker
 						log_assert(wire_flags.count(bit.wire) > 0);
 						bit.wire = wire_flags.at(bit.wire).new_wire;
 					}
-			log_debug("  cell %s (%s)\n", new_cell->name.c_str(), new_cell->type.c_str());
+			log_debug("  cell %s (%s)\n", new_cell->name, new_cell->type);
 			if (!copy_mode)
 				module->remove(cell);
 		}
@@ -252,12 +252,12 @@ struct SubmodWorker
 			return;
 
 		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name.c_str());
+			log("Skipping module %s as it contains processes (run 'proc' pass first).\n", module->name);
 			return;
 		}
 
 		if (module->memories.size() > 0) {
-			log("Skipping module %s as it contains memories (run 'memory' pass first).\n", module->name.c_str());
+			log("Skipping module %s as it contains memories (run 'memory' pass first).\n", module->name);
 			return;
 		}
 

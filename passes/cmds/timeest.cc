@@ -322,7 +322,7 @@ struct EstimateSta {
 						std::string src_attr = cell->get_src_attribute();
 						cell_src = stringf(" source: %s", src_attr);
 					}
-					log("    cell %s (%s)%s\n", log_id(cell), log_id(cell->type), cell_src.c_str());
+					log("    cell %s (%s)%s\n", log_id(cell), log_id(cell->type), cell_src);
 					printed.insert(cell);
 				}
 			} else {
@@ -333,7 +333,7 @@ struct EstimateSta {
 					std::string src_attr = bit.wire->get_src_attribute();
 					wire_src = stringf(" source: %s", src_attr);
 				}
-				log("    wire %s%s (level %ld)\n", log_signal(bit), wire_src.c_str(), levels[node]);
+				log("    wire %s%s (level %ld)\n", log_signal(bit), wire_src, levels[node]);
 			}
 		}
 

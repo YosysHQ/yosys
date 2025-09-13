@@ -100,13 +100,13 @@ struct IntersynthBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		log("Output filename: %s\n", filename.c_str());
+		log("Output filename: %s\n", filename);
 
 		for (auto filename : libfiles) {
 			std::ifstream f;
 			f.open(filename.c_str());
 			if (f.fail())
-				log_error("Can't open lib file `%s'.\n", filename.c_str());
+				log_error("Can't open lib file `%s'.\n", filename);
 			RTLIL::Design *lib = new RTLIL::Design;
 			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 			libs.push_back(lib);

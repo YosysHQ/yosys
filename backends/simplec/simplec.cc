@@ -504,7 +504,7 @@ struct SimplecWorker
 		while (work->dirty)
 		{
 			if (verbose && (!work->dirty_bits.empty() || !work->dirty_cells.empty()))
-				log("  In %s:\n", work->log_prefix.c_str());
+				log("  In %s:\n", work->log_prefix);
 
 			while (!work->dirty_bits.empty() || !work->dirty_cells.empty())
 			{
@@ -517,7 +517,7 @@ struct SimplecWorker
 						if (chunk.wire == nullptr)
 							continue;
 						if (verbose)
-							log("    Propagating %s.%s[%d:%d].\n", work->log_prefix.c_str(), log_id(chunk.wire), chunk.offset+chunk.width-1, chunk.offset);
+							log("    Propagating %s.%s[%d:%d].\n", work->log_prefix, log_id(chunk.wire), chunk.offset+chunk.width-1, chunk.offset);
 						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", work->log_prefix, log_signal(chunk)));
 					}
 
@@ -539,7 +539,7 @@ struct SimplecWorker
 								work->parent->set_dirty(parent_bit);
 
 								if (verbose)
-									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix.c_str(), log_id(bit.wire), bit.offset,
+									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, log_id(bit.wire), bit.offset,
 											work->parent->log_prefix.c_str(), log_id(parent_bit.wire), parent_bit.offset);
 							}
 
@@ -556,11 +556,11 @@ struct SimplecWorker
 								child->set_dirty(child_bit);
 
 								if (verbose)
-									log("      Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", work->log_prefix.c_str(), log_id(bit.wire), bit.offset,
+									log("      Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", work->log_prefix, log_id(bit.wire), bit.offset,
 											work->log_prefix.c_str(), log_id(std::get<0>(port)), log_id(child_bit.wire), child_bit.offset);
 							} else {
 								if (verbose)
-									log("      Marking cell %s.%s (via %s.%s[%d]).\n", work->log_prefix.c_str(), log_id(std::get<0>(port)),
+									log("      Marking cell %s.%s (via %s.%s[%d]).\n", work->log_prefix, log_id(std::get<0>(port)),
 											work->log_prefix.c_str(), log_id(bit.wire), bit.offset);
 								work->set_dirty(std::get<0>(port));
 							}
@@ -579,7 +579,7 @@ struct SimplecWorker
 					string hiername = work->log_prefix + "." + log_id(cell);
 
 					if (verbose)
-						log("    Evaluating %s (%s, best of %d).\n", hiername.c_str(), log_id(cell->type), GetSize(work->dirty_cells));
+						log("    Evaluating %s (%s, best of %d).\n", hiername, log_id(cell->type), GetSize(work->dirty_cells));
 
 					if (activated_cells.count(hiername))
 						reactivated_cells.insert(hiername);
@@ -630,7 +630,7 @@ struct SimplecWorker
 
 	void make_func(HierDirtyFlags *work, const string &func_name, const vector<string> &preamble)
 	{
-		log("Generating function %s():\n", func_name.c_str());
+		log("Generating function %s():\n", func_name);
 
 		activated_cells.clear();
 		reactivated_cells.clear();

@@ -585,7 +585,7 @@ int main(int argc, char **argv)
 
 			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
 			if (scriptfp == nullptr) {
-				log_error("Failed to open file '%s' for reading.\n", scriptfile.c_str());
+				log_error("Failed to open file '%s' for reading.\n", scriptfile);
 			}
 			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
 				log_flush();
@@ -664,7 +664,7 @@ int main(int argc, char **argv)
 			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
 
 #ifdef _WIN32
-		log("End of script. Logfile hash: %s\n", hash.c_str());
+		log("End of script. Logfile hash: %s\n", hash);
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
@@ -690,7 +690,7 @@ int main(int argc, char **argv)
 		meminfo = stringf(", MEM: %.2f MB peak",
 				ru_buffer.ru_maxrss / (1024.0 * 1024.0));
 #endif
-		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
+		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash,
 				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
 #endif
@@ -768,9 +768,9 @@ int main(int argc, char **argv)
 		f = fopen(filename.c_str(), "a+");
 
 		if (f == NULL)
-			log_error("Can't create coverage file `%s'.\n", filename.c_str());
+			log_error("Can't create coverage file `%s'.\n", filename);
 
-		log("<writing coverage file \"%s\">\n", filename.c_str());
+		log("<writing coverage file \"%s\">\n", filename);
 
 		for (auto &it : get_coverage_data())
 			fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());

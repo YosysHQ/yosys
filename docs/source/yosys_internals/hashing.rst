@@ -45,9 +45,9 @@ creates a bijective map from ``K`` to the integers. For example:
    log("%d\n", si("world"));      // will print 43
    log("%d\n", si.at("world"));   // will print 43
    log("%d\n", si.at("dummy"));   // will throw exception
-   log("%s\n", si[42].c_str()));  // will print hello
-   log("%s\n", si[43].c_str()));  // will print world
-   log("%s\n", si[44].c_str()));  // will throw exception
+   log("%s\n", si[42]));  // will print hello
+   log("%s\n", si[43]));  // will print world
+   log("%s\n", si[44]));  // will throw exception
 
 It is not possible to remove elements from an idict.
 

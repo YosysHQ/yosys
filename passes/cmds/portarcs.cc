@@ -278,7 +278,7 @@ struct PortarcsPass : Pass {
 				log("\n");
 
 				for (auto bit : outputs) {
-					log("  %10s  ", bit_str(bit).c_str());
+					log("  %10s  ", bit_str(bit));
 					int *p = annotations.at(canonical_bit(bit));
 					for (auto i = 0; i < inputs.size(); i++)
 						log("\033[48;5;%dm ", 232 + ((std::max(p[i], 0) * 24) - 1) / max_delay);

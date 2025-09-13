@@ -117,9 +117,9 @@
 		if (list) {
 			log("Caching is %s by default.\n", LibertyAstCache::instance.cache_by_default ? "enabled" : "disabled");
 			for (auto const &entry : LibertyAstCache::instance.cache_path)
-				log("Caching is %s for `%s'.\n", entry.second ? "enabled" : "disabled", entry.first.c_str());
+				log("Caching is %s for `%s'.\n", entry.second ? "enabled" : "disabled", entry.first);
 			for (auto const &entry : LibertyAstCache::instance.cached)
-				log("Data for `%s' is currently cached.\n", entry.first.c_str());
+				log("Data for `%s' is currently cached.\n", entry.first);
 		} else if (enable || disable) {
 			if (all) {
 				LibertyAstCache::instance.cache_by_default = enable;

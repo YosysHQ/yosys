@@ -519,7 +519,7 @@ struct EdifBackend : public Backend {
 						continue;
 					} else {
 						for (auto &ref : it.second)
-							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first.c_str());
+							log_error("Don't know how to handle %s on %s.\n", log_signal(sig), ref.first);
 						log_abort();
 					}
 				}

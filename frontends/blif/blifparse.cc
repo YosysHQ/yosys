@@ -618,7 +618,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 error:
 	log_error("Syntax error in line %d!\n", line_count);
 error_with_reason:
-	log_error("Syntax error in line %d: %s\n", line_count, err_reason.c_str());
+	log_error("Syntax error in line %d: %s\n", line_count, err_reason);
 }
 
 struct BlifFrontend : public Frontend {

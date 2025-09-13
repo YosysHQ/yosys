@@ -140,7 +140,7 @@ struct abc9_output_filter
 			return;
 		}
 		if (ch == '\n') {
-			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir).c_str());
+			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir));
 			got_cr = false, linebuf.clear();
 			return;
 		}
@@ -271,14 +271,14 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		buffer = stringf("%s/lutdefs.txt", tempdir_name);
 		f = fopen(buffer.c_str(), "wt");
 		if (f == NULL)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 		for (int i = 0; i < GetSize(lut_costs); i++)
 			fprintf(f, "%d %d.00 1.00\n", i+1, lut_costs.at(i));
 		fclose(f);
 	}
 
 	buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file, tempdir_name);
-	log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
+	log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir));
 
 #ifndef YOSYS_LINK_ABC
 	abc9_output_filter filt(tempdir_name, show_tempdir);
@@ -331,7 +331,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		if (check_file_exists(stringf("%s/output.aig", tempdir_name)))
 			log_warning("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 		else
-			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer, ret);
 	}
 }
 
@@ -352,7 +352,7 @@ struct Abc9ExePass : public Pass {
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -365,12 +365,12 @@ struct Abc9ExePass : public Pass {
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)));
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)));
 		log("\n");
 		log("    -constr <file>\n");
 		log("        pass this file with timing constraints to ABC.\n");

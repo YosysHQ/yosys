@@ -71,7 +71,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 	{
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != ID($mux) && cell->type != ID($pmux)) || cellport.second != ID::Y) {
-			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type.c_str(), cell->name.c_str());
+			log("  unexpected cell type %s (%s) found in state selection tree.\n", cell->type, cell->name);
 			return false;
 		}
 
@@ -255,7 +255,7 @@ undef_bit_in_next_state:
 
 static void extract_fsm(RTLIL::Wire *wire)
 {
-	log("Extracting FSM `%s' from module `%s'.\n", wire->name.c_str(), module->name.c_str());
+	log("Extracting FSM `%s' from module `%s'.\n", wire->name, module->name);
 
 	// get input and output signals for state ff
 
@@ -274,7 +274,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::Cell *cell = module->cells_.at(cellport.first);
 		if ((cell->type != ID($dff) && cell->type != ID($adff)) || cellport.second != ID::Q)
 			continue;
-		log("  found %s cell for state register: %s\n", cell->type.c_str(), cell->name.c_str());
+		log("  found %s cell for state register: %s\n", cell->type, cell->name);
 		RTLIL::SigSpec sig_q = assign_map(cell->getPort(ID::Q));
 		RTLIL::SigSpec sig_d = assign_map(cell->getPort(ID::D));
 		clk = cell->getPort(ID::CLK);

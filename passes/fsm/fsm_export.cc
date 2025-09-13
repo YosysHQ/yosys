@@ -76,7 +76,7 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 	kiss_file.open(kiss_name, std::ios::out | std::ios::trunc);
 
 	if (!kiss_file.is_open()) {
-		log_error("Could not open file \"%s\" with write access.\n", kiss_name.c_str());
+		log_error("Could not open file \"%s\" with write access.\n", kiss_name);
 	}
 
 	fsm_data.copy_from_cell(cell);

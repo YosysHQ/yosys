@@ -36,9 +36,9 @@ static std::map<RTLIL::IdString, cell_mapping> cell_mappings;
 static void logmap(IdString dff)
 {
 	if (cell_mappings.count(dff) == 0) {
-		log("    unmapped dff cell: %s\n", dff.c_str());
+		log("    unmapped dff cell: %s\n", dff);
 	} else {
-		log("    %s %s (", cell_mappings[dff].cell_name.c_str(), dff.substr(1).c_str());
+		log("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
 		bool first = true;
 		for (auto &port : cell_mappings[dff].ports) {
 			char arg[3] = { port.second, 0, 0 };
@@ -46,7 +46,7 @@ static void logmap(IdString dff)
 				arg[1] = arg[0] - ('a' - 'A'), arg[0] = '~';
 			else
 				arg[1] = arg[0], arg[0] = ' ';
-			log("%s.%s(%s)", first ? "" : ", ", port.first.c_str(), arg);
+			log("%s.%s(%s)", first ? "" : ", ", port.first, arg);
 			first = false;
 		}
 		log(");\n");
@@ -488,7 +488,7 @@ static void find_cell_sr(std::vector<const LibertyAst *> cells, IdString cell_ty
 
 static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 {
-	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
+	log("Mapping DFF cells in module `%s':\n", module->name);
 
 	dict<SigBit, pool<Cell*>> notmap;
 	SigMap sigmap(module);
@@ -690,7 +690,7 @@ struct DfflibmapPass : public Pass {
 				dfflegalize_cmd += stringf(" -cell %s 01", it.first);
 			dfflegalize_cmd += " t:$_DFF* t:$_SDFF*";
 			if (info_mode) {
-				log("dfflegalize command line: %s\n", dfflegalize_cmd.c_str());
+				log("dfflegalize command line: %s\n", dfflegalize_cmd);
 			} else {
 				Pass::call(design, dfflegalize_cmd);
 			}

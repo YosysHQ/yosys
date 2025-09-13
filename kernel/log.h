@@ -256,8 +256,6 @@ void log_check_expected();
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(const RTLIL::IdString &id);
-const char *log_str(const char *str);
-const char *log_str(std::string const &str);
 
 template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
 	if (nullstr && obj == nullptr)
@@ -428,7 +426,7 @@ static inline void log_dump_val_worker(bool v) { log("%s", v ? "true" : "false")
 static inline void log_dump_val_worker(double v) { log("%f", v); }
 static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
-static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
+static inline void log_dump_val_worker(std::string v) { log("%s", v); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);

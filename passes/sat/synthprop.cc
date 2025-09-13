@@ -170,7 +170,7 @@ void SynthPropWorker::run()
 		std::ofstream fout;
 		fout.open(map_file, std::ios::out | std::ios::trunc);
 		if (!fout.is_open())
-			log_error("Could not open file \"%s\" with write access.\n", map_file.c_str());
+			log_error("Could not open file \"%s\" with write access.\n", map_file);
 
 		for (auto name : tracing_data[module].names) {
 			fout << name << std::endl;

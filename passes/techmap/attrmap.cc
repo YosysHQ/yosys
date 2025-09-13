@@ -130,14 +130,14 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 				goto delete_this_attr;
 
 		if (new_attr != attr)
-			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname.c_str(),
+			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname,
 					log_id(attr.first), log_const(attr.second), log_id(new_attr.first), log_const(new_attr.second));
 
 		new_attributes[new_attr.first] = new_attr.second;
 
 		if (0)
 	delete_this_attr:
-			log("Removed attribute on %s: %s=%s\n", objname.c_str(), log_id(attr.first), log_const(attr.second));
+			log("Removed attribute on %s: %s=%s\n", objname, log_id(attr.first), log_const(attr.second));
 	}
 
 	attributes.swap(new_attributes);

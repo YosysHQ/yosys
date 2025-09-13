@@ -51,7 +51,7 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
     if (node->type == AST::AST_DPI_FUNCTION)
-        err_at_loc(node->location, "Found DPI function %s.\n", node->str.c_str());
+        err_at_loc(node->location, "Found DPI function %s.\n", node->str);
     for (auto& child : node->children)
         error_on_dpi_function(child.get());
 }
@@ -497,7 +497,7 @@ struct VerilogFrontend : public Frontend {
 		if (!flag_nopp) {
 			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs, parse_state, parse_mode);
 			if (flag_ppdump)
-				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
+				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc);
 			parse_state.lexin = new std::istringstream(code_after_preproc);
 		}
 

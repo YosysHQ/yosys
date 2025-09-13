@@ -412,7 +412,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 
 void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 {
-	log("Creating decoders for process `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
+	log("Creating decoders for process `%s.%s'.\n", mod->name, proc->name);
 
 	SigSnippets sigsnip;
 	sigsnip.insert(&proc->root_case);

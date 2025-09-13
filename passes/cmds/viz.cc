@@ -988,7 +988,7 @@ struct VizPass : public Pass {
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		log("Writing dot description to `%s'.\n", dot_file);
 		FILE *f = nullptr;
 		auto open_dot_file = [&]() {
 			if (f != nullptr) return;
@@ -1028,7 +1028,7 @@ struct VizPass : public Pass {
 			#endif
 			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
 			#undef DOT_CMD
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			#if !defined(YOSYS_DISABLE_SPAWN)
 				if (run_command(cmd) != 0)
 					log_cmd_error("Shell command failed!\n");
@@ -1047,7 +1047,7 @@ struct VizPass : public Pass {
 			#else
 				std::string cmd = stringf("%s '%s' %s", viewer_exe, out_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
@@ -1057,7 +1057,7 @@ struct VizPass : public Pass {
 			#else
 			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file, dot_file, dot_file, dot_file, background);
 			#endif
-			log("Exec: %s\n", cmd.c_str());
+			log("Exec: %s\n", cmd);
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}

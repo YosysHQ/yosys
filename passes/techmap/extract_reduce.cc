@@ -193,7 +193,7 @@ struct ExtractReducePass : public Pass
 				if (no_mux && gt == GateType::Mux)
 					continue;
 
-				log_debug("Working on cell %s...\n", cell->name.c_str());
+				log_debug("Working on cell %s...\n", cell->name);
 
 				// If looking for a single chain, follow linearly to the sink
 				pool<Cell*> sinks;
@@ -280,7 +280,7 @@ struct ExtractReducePass : public Pass
 				//We have our list, go act on it
 				for(auto head_cell : sinks)
 				{
-					log_debug("  Head cell is %s\n", head_cell->name.c_str());
+					log_debug("  Head cell is %s\n", head_cell->name);
 
 					//Avoid duplication if we already were covered
 					if(consumed_cells.count(head_cell))

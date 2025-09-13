@@ -258,7 +258,7 @@ struct statdata_t
 		if (!unknown_cell_area.empty()) {
 			log("\n");
 			for (auto cell_type : unknown_cell_area)
-				log("   Area for cell type %s is unknown!\n", cell_type.c_str());
+				log("   Area for cell type %s is unknown!\n", cell_type);
 		}
 
 		if (area != 0) {
@@ -499,10 +499,10 @@ struct StatPass : public Pass {
 
 		if (json_mode) {
 			log("{\n");
-			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump().c_str());
+			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump());
 			std::stringstream invocation;
 			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
-			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump().c_str());
+			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump());
 			log("   \"modules\": {\n");
 		}
 

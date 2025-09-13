@@ -146,7 +146,7 @@ struct CoverPass : public Pass {
 			for (auto f : out_files)
 				fprintf(f, "%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
 			if (do_log)
-				log("%-60s %10d %s\n", it.second.first.c_str(), it.second.second, it.first.c_str());
+				log("%-60s %10d %s\n", it.second.first, it.second.second, it.first);
 		}
 #else
 		for (auto f : out_files)

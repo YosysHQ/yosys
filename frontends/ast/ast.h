@@ -378,7 +378,12 @@ namespace AST
 		AstNode *get_struct_member() const;
 
 		// helper to print errors from simplify/genrtlil code
-		[[noreturn]] void input_error(const char *format, ...) const YS_ATTRIBUTE(format(printf, 2, 3));
+		[[noreturn]] void formatted_input_error(std::string str) const;
+		template <typename... Args>
+		[[noreturn]] void input_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args) const
+		{
+			formatted_input_error(fmt.format(args...));
+		}
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

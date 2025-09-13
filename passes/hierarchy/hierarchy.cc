@@ -59,7 +59,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		std::set<RTLIL::IdString> portnames;
 		std::set<RTLIL::IdString> parameters;
 		std::map<RTLIL::IdString, int> portwidths;
-		log("Generate module for cell type %s:\n", celltype.c_str());
+		log("Generate module for cell type %s:\n", celltype);
 
 		for (auto mod : design->modules())
 		for (auto cell : mod->cells())
@@ -605,9 +605,9 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::
 		return;
 
 	if (indent == 0)
-		log("Top module:  %s\n", mod->name.c_str());
+		log("Top module:  %s\n", mod->name);
 	else if (!mod->get_blackbox_attribute())
-		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
+		log("Used module: %*s%s\n", indent, "", mod->name);
 	used.insert(mod);
 
 	for (auto cell : mod->cells()) {
@@ -647,7 +647,7 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 	for (auto mod : del_modules) {
 		if (!purge_lib && mod->get_blackbox_attribute())
 			continue;
-		log("Removing unused module `%s'.\n", mod->name.c_str());
+		log("Removing unused module `%s'.\n", mod->name);
 		design->remove(mod);
 		del_counter++;
 	}
@@ -873,11 +873,11 @@ struct HierarchyPass : public Pass {
 					log("Port declaration: %s", decl.input ? decl.output ? "inout" : "input" : "output");
 					if (decl.index >= 1)
 						log(" [at position %d]", decl.index);
-					log(" %s\n", decl.portname.c_str());
+					log(" %s\n", decl.portname);
 					generate_ports.push_back(decl);
 					continue;
 				is_celltype:
-					log("Celltype: %s\n", args[argidx].c_str());
+					log("Celltype: %s\n", args[argidx]);
 					generate_cells.push_back(RTLIL::unescape_id(args[argidx]));
 				}
 				continue;

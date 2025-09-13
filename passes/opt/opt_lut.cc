@@ -99,7 +99,7 @@ struct OptLutWorker
 		}
 		for (int i = 0; i < GetSize(dlogic); i++)
 		{
-			log("  with %-12s (#%d) %4d\n", dlogic[i].cell_type.c_str(), i, dlogic_counts[i]);
+			log("  with %-12s (#%d) %4d\n", dlogic[i].cell_type, i, dlogic_counts[i]);
 		}
 	}
 
