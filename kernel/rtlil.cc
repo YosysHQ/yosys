@@ -5838,7 +5838,8 @@ bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, R
 
 	if (!parse(sig, module, str))
 		return false;
-	sig.extend_u0(lhs.width_);
+	if (sig.width_ > lhs.width_)
+		sig.remove(lhs.width_, sig.width_ - lhs.width_);
 	return true;
 }
 

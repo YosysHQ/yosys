@@ -1,5 +1,5 @@
 read_verilog -sv -formal <<EOF
-module counter(input clk, input [2:0] rst, output logic is_full);
+module counter(input clk, input [2:0] rst, input [0:3] rst_val, output logic is_full);
     logic [1:0] ctr;
 
     always @(posedge clk)
@@ -14,4 +14,4 @@ EOF
 
 hierarchy -check -top counter
 prep -top counter
-fminit -seq rst 0,1,2'b11,2'sb11
+fminit -seq rst 0,1,2'b11,2'sb11,rst_val
