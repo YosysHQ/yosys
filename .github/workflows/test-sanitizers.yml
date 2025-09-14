@@ -41,6 +41,7 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
