@@ -96,9 +96,9 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          make config-$CC
+          make config-$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -j$procs ENABLE_LTO=1
+          make -j$procs ENABLE_LTO=1 SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
 
       - name: Log yosys-config output
         run: |
