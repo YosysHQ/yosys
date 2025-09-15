@@ -632,12 +632,17 @@ class Attribute:
 				arg.wtype.attr_type = attr_types.amp
 				arg.varname = arg.varname[1:]
 
-		# special exception: format strings
+		# handle string views
 		if arg.wtype.name in ["std::string_view", "string_view"]:
-			if arg.varname == "format":
+			if arg.varname == "format" and owner_fn_name.startswith("log_"):
+				# coerce format strings to "%s" (not bridgable)
 				arg.coerce_arg = '"%s"'
 			elif arg.varname == "prefix" and "warning" in owner_fn_name:
+				# coerce warning prefix to "warning:"
 				arg.coerce_arg = '"Warning: "'
+			else:
+				# boost::python can't bridge string views, so just copy them
+				arg.wtype.name = "string"
 
 		return arg
 
