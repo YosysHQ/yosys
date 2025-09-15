@@ -107,7 +107,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
 
       - name: Report errors
         if: ${{ failure() }}
