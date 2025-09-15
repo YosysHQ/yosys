@@ -16,3 +16,5 @@ brew "autoconf"
 
 brew "dwarfutils"
 brew "libelf"
+
+brew "ccache"
