@@ -3289,15 +3289,19 @@ basic_expr:
 		$$ = AstNode::mkconst_str(@1, *$1);
 		SET_AST_NODE_LOC($$.get(), @1, @1);
 	} |
-	hierarchical_id attr {
-		// super sketchy! Orphaned pointer in non-owning extra->ast_stack
-		AstNode *node = new AstNode(@1, AST_FCALL);
-		node->str = *$1;
-		extra->ast_stack.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @1);
-		append_attr(node, std::move($2));
+	hierarchical_id attr <ast_t>{
+		// Here we use "Typed Midrule Actions".
+		// https://www.gnu.org/software/bison/manual/html_node/Typed-Midrule-Actions.html
+		auto fcall = std::make_unique<AstNode>(@1, AST_FCALL);
+		AstNode *fcall_node = fcall.get();
+		fcall_node->str = *$1;
+		extra->ast_stack.push_back(fcall_node);
+		SET_AST_NODE_LOC(fcall_node, @1, @1);
+		append_attr(fcall_node, std::move($2));
+		$$ = std::move(fcall);
 	} TOK_LPAREN arg_list optional_comma TOK_RPAREN {
-		$$.reset(extra->ast_stack.back());
+		log_assert($3 != nullptr);
+		$$ = std::move($3);
 		extra->ast_stack.pop_back();
 	} |
 	TOK_TO_SIGNED attr TOK_LPAREN expr TOK_RPAREN {
