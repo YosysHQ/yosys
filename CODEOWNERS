@@ -30,8 +30,8 @@ docs/source/using_yosys/synthesis/abc.rst @KrystalDelusion @Ravenslofty
 # These still override previous lines, so be careful not to
 # accidentally disable any of the above rules.
 
-frontends/verilog/             @zachjs
-frontends/ast/                 @zachjs
+frontends/verilog/             @widlarizer
+frontends/ast/                 @widlarizer
 
 techlibs/intel_alm/            @Ravenslofty
 techlibs/gowin/                @pepijndevos
