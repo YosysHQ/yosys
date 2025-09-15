@@ -93,6 +93,9 @@ jobs:
         run: |
           iverilog -V
 
+      - name: Build Verific
+        run: cd verific/tclmain && make -j$procs
+
       - name: Build
         shell: bash
         run: |
