@@ -153,6 +153,11 @@ inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... ar
 {
 	log_formatted_warning("Warning: ", fmt.format(args...));
 }
+
+inline void log_formatted_warning_noprefix(std::string str)
+{
+	log_formatted_warning("", str);
+}
 template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
