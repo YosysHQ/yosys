@@ -2756,19 +2756,24 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		newNode = std::make_unique<AstNode>(location, AST_GENBLOCK);
 		int num = max(children.at(0)->range_left, children.at(0)->range_right) - min(children.at(0)->range_left, children.at(0)->range_right) + 1;
 
+		if (this->children.at(1)->type == AST_PRIMITIVE) {
+			// Move the range to the AST_PRIMITIVE node and replace this with the AST_PRIMITIVE node handled below
+			newNode = std::move(this->children.at(1));
+			newNode->range_left = this->children.at(0)->range_left;
+			newNode->range_right = this->children.at(0)->range_right;
+			newNode->range_valid = true;
+			goto apply_newNode;
+		}
+
 		for (int i = 0; i < num; i++) {
 			int idx = children.at(0)->range_left > children.at(0)->range_right ? children.at(0)->range_right + i : children.at(0)->range_right - i;
 			auto new_cell_owned = children.at(1)->clone();
 			auto* new_cell = new_cell_owned.get();
 			newNode->children.push_back(std::move(new_cell_owned));
 			new_cell->str += stringf("[%d]", idx);
-			if (new_cell->type == AST_PRIMITIVE) {
-				input_error("Cell arrays of primitives are currently not supported.\n");
-			} else {
-				this->dumpAst(NULL, "    ");
-				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
-				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str);
-			}
+
+			log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
+			new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str);
 		}
 
 		goto apply_newNode;
@@ -2788,6 +2793,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			child->children.clear();
 		}
 		children.clear();
+
+		// TODO handle bit-widths of primitives and support cell arrays for more primitives
+
+		if (range_valid && str != "tran")
+			input_error("Cell arrays of primitives are currently not supported.\n");
 
 		if (str == "bufif0" || str == "bufif1" || str == "notif0" || str == "notif1")
 		{
@@ -2817,7 +2827,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			fixup_hierarchy_flags();
 			did_something = true;
 		}
-		else if (str == "buf" || str == "not")
+		else if (str == "buf" || str == "not" || str == "tran")
 		{
 			auto& input = children_list.back();
 			if (str == "not")
