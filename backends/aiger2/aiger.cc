@@ -566,7 +566,7 @@ struct Index {
 		}
 
 		Lit ret;
-		if (!bit.wire->port_input) {
+		if (!bit.wire->port_input || bit.wire->port_output) {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
@@ -618,7 +618,7 @@ struct Index {
 
 		if (!cursor) {
 			log_assert(bit.wire->module == top);
-			log_assert(bit.wire->port_input);
+			log_assert(bit.wire->port_input && !bit.wire->port_output);
 			return lits[top_minfo->windices[bit.wire] + bit.offset];
 		} else {
 			log_assert(bit.wire->module == cursor->leaf_module(*this));
@@ -723,7 +723,7 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 		for (auto id : top->ports) {
 		Wire *w = top->wire(id);
 		log_assert(w);
-		if (w->port_input)
+		if (w->port_input && !w->port_output)
 		for (int i = 0; i < w->width; i++) {
 			pi_literal(SigBit(w, i)) = lit_counter;
 			inputs.push_back(SigBit(w, i));
@@ -828,7 +828,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 	{
 		log_assert(cursor.is_top()); // TOOD: fix analyzer to work with hierarchy
 
-		if (bit.wire->port_input)
+		if (bit.wire->port_input && !bit.wire->port_output)
 			return false;
 
 		Cell *driver = bit.wire->driverCell();
@@ -838,7 +838,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		int max = 1;
 		for (auto wire : mod->wires())
-		if (wire->port_input)
+		if (wire->port_input && !wire->port_output)
 		for (int i = 0; i < wire->width; i++) {
 			int ilevel = visit(cursor, driver->getPort(wire->name)[i]);
 			max = std::max(max, ilevel + 1);
@@ -858,7 +858,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		for (auto id : top->ports) {
 			Wire *w = top->wire(id);
 			log_assert(w);
-			if (w->port_input)
+			if (w->port_input && !w->port_output)
 			for (int i = 0; i < w->width; i++)
 				pi_literal(SigBit(w, i)) = 0;
 		}
@@ -868,7 +868,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
-			if (box->output(conn.first))
+			if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
 			for (auto bit : conn.second)
 				pi_literal(bit, &cursor) = 0;
 		}
@@ -883,7 +883,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 			for (auto &conn : box->connections_)
-			if (box->input(conn.first))
+			if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
 			for (auto bit : conn.second)
 				(void) eval_po(bit);
 		}
@@ -950,12 +950,7 @@ struct XAigerWriter : AigerWriter {
 	void append_opaque_box_ports(Cell *box, HierCursor &cursor, bool inputs)
 	{
 		for (auto &conn : box->connections_) {
-			bool is_input = box->input(conn.first);
-			bool is_output = box->output(conn.first);
-
-			if (!(is_input || is_output) || (is_input && is_output))
-				log_error("Ambiguous port direction on %s/%s\n",
-						  log_id(box->type), log_id(conn.first));
+			bool is_input = box->port_dir(conn.first) == RTLIL::PD_INPUT;
 
 			if (is_input && inputs) {
 				int bitp = 0;
@@ -980,10 +975,10 @@ struct XAigerWriter : AigerWriter {
 
 					bitp++;
 				}
-			} else if (is_output && !inputs) { 
+			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
-					if (!bit.wire || bit.wire->port_input)
-						log_error("Bad connection");
+					if (!bit.wire || (bit.wire->port_input && !bit.wire->port_output))
+						log_error("Bad connection %s/%s ~ %s\n", log_id(box), log_id(conn.first), log_signal(conn.second));
 
 
 					ensure_pi(bit, cursor);
@@ -1119,7 +1114,7 @@ struct XAigerWriter : AigerWriter {
 						holes_pi_idx++;
 					}
 					holes_wb->setPort(port_id, in_conn);
-				} else if (port->port_output && !port->port_input) {
+				} else if (port->port_output) {
 					// primary
 					for (int i = 0; i < port->width; i++) {
 						SigBit bit;
@@ -1172,7 +1167,7 @@ struct XAigerWriter : AigerWriter {
 				log_assert(port);
 				if (port->port_input && !port->port_output) {
 					box_co_num += port->width;
-				} else if (port->port_output && !port->port_input) {
+				} else if (port->port_output) {
 					box_ci_num += port->width;
 				} else {
 					log_abort();
@@ -1195,7 +1190,7 @@ struct XAigerWriter : AigerWriter {
 		reset_counters();
 
 		for (auto w : top->wires())
-		if (w->port_input)
+		if (w->port_input && !w->port_output)
 		for (int i = 0; i < w->width; i++)
 			ensure_pi(SigBit(w, i));
 
