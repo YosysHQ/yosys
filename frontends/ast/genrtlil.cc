@@ -2195,7 +2195,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int sz = children.size();
 			if (str == "$info") {
 				if (sz > 0)
-					log_file_info(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str.c_str());
+					log_file_info(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
 					log_file_info(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$warning") {
