@@ -435,7 +435,7 @@ void log_formatted_cmd_error(std::string str)
 			pop_errfile = true;
 		}
 
-		log_formatted_string("ERROR: %s", log_last_error, LogSeverity::LOG_ERROR);
+		log_formatted_string("%s", stringf("ERROR: %s", log_last_error), LogSeverity::LOG_ERROR);
 		log_flush();
 
 		if (pop_errfile)
