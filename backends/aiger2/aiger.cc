@@ -91,7 +91,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3)))
+			if (cell->type.in(KNOWN_OPS) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
 				continue;
 
 			Module *submodule = m->design->module(cell->type);
