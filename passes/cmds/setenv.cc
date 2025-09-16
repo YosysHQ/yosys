@@ -52,7 +52,7 @@ struct SetenvPass : public Pass {
 		_putenv_s(name.c_str(), value.c_str());
 #else
 		if (setenv(name.c_str(), value.c_str(), 1))
-			log_cmd_error("Invalid name \"%s\".\n", name.c_str());
+			log_cmd_error("Invalid name \"%s\".\n", name);
 #endif
 		
 	}

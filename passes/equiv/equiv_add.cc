@@ -64,7 +64,7 @@ struct EquivAddPass : public Pass {
 					log_warning("Can't find gold cell '%s'.\n", args[2].c_str());
 					return;
 				}
-				log_cmd_error("Can't find gold cell '%s'.\n", args[2].c_str());
+				log_cmd_error("Can't find gold cell '%s'.\n", args[2]);
 			}
 
 			if (gate_cell == nullptr) {
@@ -72,7 +72,7 @@ struct EquivAddPass : public Pass {
 					log_warning("Can't find gate cell '%s'.\n", args[3].c_str());
 					return;
 				}
-				log_cmd_error("Can't find gate cell '%s'.\n", args[3].c_str());
+				log_cmd_error("Can't find gate cell '%s'.\n", args[3]);
 			}
 
 			for (auto conn : gold_cell->connections())
@@ -129,7 +129,7 @@ struct EquivAddPass : public Pass {
 					log_warning("Error in gate signal: %s\n", args[2].c_str());
 					return;
 				}
-				log_cmd_error("Error in gate signal: %s\n", args[2].c_str());
+				log_cmd_error("Error in gate signal: %s\n", args[2]);
 			}
 
 			if (!SigSpec::parse_rhs(gate_signal, gold_signal, module, args[1])) {
@@ -137,7 +137,7 @@ struct EquivAddPass : public Pass {
 					log_warning("Error in gold signal: %s\n", args[1].c_str());
 					return;
 				}
-				log_cmd_error("Error in gold signal: %s\n", args[1].c_str());
+				log_cmd_error("Error in gold signal: %s\n", args[1]);
 			}
 
 			log_assert(GetSize(gold_signal) == GetSize(gate_signal));

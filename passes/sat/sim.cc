@@ -2887,7 +2887,7 @@ struct SimPass : public Pass {
 			} else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".yw") == 0) {
 				worker.run_cosim_yw_witness(top_mod, append);
 			} else {
-				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
+				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename);
 			}
 		}
 

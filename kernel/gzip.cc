@@ -103,11 +103,11 @@ gzip_istream::ibuf::~ibuf() {
 // Never returns nullptr or failed state istream*
 std::istream* uncompressed(const std::string filename, std::ios_base::openmode mode) {
 	if (!check_file_exists(filename))
-		log_cmd_error("File `%s' not found or is a directory\n", filename.c_str());
+		log_cmd_error("File `%s' not found or is a directory\n", filename);
 	std::ifstream* f = new std::ifstream();
 	f->open(filename, mode);
 	if (f->fail())
-		log_cmd_error("Can't open input file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
+		log_cmd_error("Can't open input file `%s' for reading: %s\n", filename, strerror(errno));
 	// Check for gzip magic
 	unsigned char magic[3];
 	int n = 0;
@@ -131,7 +131,7 @@ std::istream* uncompressed(const std::string filename, std::ios_base::openmode m
 		log_assert(ok && "Failed to open gzipped file.\n");
 		return s;
 #else
-		log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename.c_str());
+		log_cmd_error("File `%s' is a gzip file, but Yosys is compiled without zlib.\n", filename);
 #endif // YOSYS_ENABLE_ZLIB
 	} else {
 		f->clear();

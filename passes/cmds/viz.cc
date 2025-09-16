@@ -994,7 +994,7 @@ struct VizPass : public Pass {
 			if (f != nullptr) return;
 			f = fopen(dot_file.c_str(), "w");
 			if (f == nullptr)
-				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
 		};
 		for (auto module : modlist) {
 			VizWorker worker(module, config);

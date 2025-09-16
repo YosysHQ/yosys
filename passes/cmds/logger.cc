@@ -112,7 +112,7 @@ struct LoggerPass : public Pass {
 					log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -124,7 +124,7 @@ struct LoggerPass : public Pass {
 					log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -136,7 +136,7 @@ struct LoggerPass : public Pass {
 					log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern));
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}
@@ -188,7 +188,7 @@ struct LoggerPass : public Pass {
 					else log_abort();
 				}
 				catch (const std::regex_error& e) {
-					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());
+					log_cmd_error("Error in regex expression '%s' !\n", pattern);
 				}
 				continue;
 			}

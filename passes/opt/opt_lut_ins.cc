@@ -59,7 +59,7 @@ struct OptLutInsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (techname != "" && techname != "xilinx" && techname != "lattice" && techname != "ecp5" && techname != "gowin")
-			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
+			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		for (auto module : design->selected_modules())
 		{

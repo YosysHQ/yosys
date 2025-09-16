@@ -1446,7 +1446,7 @@ struct XAiger2Backend : Backend {
 		if (!map_filename.empty()) {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
-				log_cmd_error("Failed to open '%s' for writing\n", map_filename.c_str());
+				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
 		}
 
 		design->bufNormalize(true);

@@ -795,7 +795,7 @@ struct AST_INTERNAL::ProcessGenerator
 					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
-				log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
+				log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Found unsupported invocation of system task `%s'!\n", ast->str);
 			}
 			break;
 
@@ -846,7 +846,7 @@ struct AST_INTERNAL::ProcessGenerator
 				set_src_attr(cell, ast);
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first);
 					cell->attributes[attr.first] = attr.second->asAttrConst();
 				}
 				cell->setParam(ID::FLAVOR, flavor);

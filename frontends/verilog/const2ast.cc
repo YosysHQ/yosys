@@ -45,7 +45,7 @@ using namespace AST;
 using namespace VERILOG_FRONTEND;
 
 void ConstParser::log_maybe_loc_error(std::string msg) {
-	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg.c_str());
+	log_file_error(*loc.begin.filename, loc.begin.line, "%s", msg);
 }
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {

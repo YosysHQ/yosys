@@ -176,7 +176,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (family != "pp3" && family != "qlf_k6n10f")
-			log_cmd_error("Invalid family specified: '%s'\n", family.c_str());
+			log_cmd_error("Invalid family specified: '%s'\n", family);
 
 		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");

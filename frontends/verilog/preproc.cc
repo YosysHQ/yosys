@@ -741,7 +741,7 @@ read_define(const std::string &filename,
 		defines_map.add(name, value, (state == 2) ? &args : nullptr);
 		global_defines_cache.add(name, value, (state == 2) ? &args : nullptr);
 	} else {
-		log_file_error(filename, 0, "Invalid name for macro definition: >>%s<<.\n", name.c_str());
+		log_file_error(filename, 0, "Invalid name for macro definition: >>%s<<.\n", name);
 	}
 }
 

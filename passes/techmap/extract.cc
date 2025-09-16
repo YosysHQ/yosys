@@ -605,7 +605,7 @@ struct ExtractPass : public Pass {
 					f.open(filename.c_str());
 					if (f.fail()) {
 						delete map;
-						log_cmd_error("Can't open map file `%s'.\n", filename.c_str());
+						log_cmd_error("Can't open map file `%s'.\n", filename);
 					}
 					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 					f.close();

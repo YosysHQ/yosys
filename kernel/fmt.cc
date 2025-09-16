@@ -401,11 +401,11 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 								part = {};
 							}
 							if (++i == fmt.size()) {
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name, fmtarg - args.begin() + 1);
 							}
 
 							if (++arg == args.end()) {
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with fewer arguments than the format specifiers in argument %zu require.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with fewer arguments than the format specifiers in argument %zu require.\n", task_name, fmtarg - args.begin() + 1);
 							}
 							part.sig = arg->sig;
 							part.signed_ = arg->signed_;
@@ -420,7 +420,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 								} else break;
 							}
 							if (i == fmt.size()) {
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name, fmtarg - args.begin() + 1);
 							}
 
 							bool has_leading_zero = false, has_width = false;
@@ -465,15 +465,15 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 										if (!has_width && !has_leading_zero)
 											part.width = 20;
 									} else {
-										log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is not $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
+										log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is not $time or $realtime.\n", task_name, fmt[i], fmtarg - args.begin() + 1);
 									}
 								} else {
-									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with unrecognized format character `%c' in argument %zu.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
+									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with unrecognized format character `%c' in argument %zu.\n", task_name, fmt[i], fmtarg - args.begin() + 1);
 								}
 								break;
 							}
 							if (i == fmt.size()) {
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name, fmtarg - args.begin() + 1);
 							}
 
 							if (part.padding == '\0') {
@@ -486,7 +486,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							}
 
 							if (part.type == FmtPart::INTEGER && part.base != 10 && part.sign != FmtPart::MINUS)
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name, fmtarg - args.begin() + 1);
 
 							if (part.base != 10)
 								part.signed_ = false;

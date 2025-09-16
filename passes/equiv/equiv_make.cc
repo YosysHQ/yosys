@@ -47,7 +47,7 @@ struct EquivMakeWorker
 		{
 			std::ifstream f(fn);
 			if (f.fail())
-				log_cmd_error("Can't open blacklist file '%s'!\n", fn.c_str());
+				log_cmd_error("Can't open blacklist file '%s'!\n", fn);
 
 			string line, token;
 			while (std::getline(f, line)) {
@@ -67,7 +67,7 @@ struct EquivMakeWorker
 		{
 			std::ifstream f(fn);
 			if (f.fail())
-				log_cmd_error("Can't open encfile '%s'!\n", fn.c_str());
+				log_cmd_error("Can't open encfile '%s'!\n", fn);
 
 			dict<Const, Const> *ed = nullptr;
 			string line, token;
@@ -81,7 +81,7 @@ struct EquivMakeWorker
 					IdString modname = RTLIL::escape_id(next_token(line));
 					IdString signame = RTLIL::escape_id(next_token(line));
 					if (encdata.count(signame))
-						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", signame.c_str(), fn.c_str());
+						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", signame, fn);
 					encdata[signame] = dict<Const, Const>();
 					ed = &encdata[signame];
 					continue;
@@ -94,7 +94,7 @@ struct EquivMakeWorker
 					continue;
 				}
 
-				log_cmd_error("Syntax error in encfile '%s'!\n", fn.c_str());
+				log_cmd_error("Syntax error in encfile '%s'!\n", fn);
 			}
 		}
 	}
@@ -492,13 +492,13 @@ struct EquivMakePass : public Pass {
 		worker.equiv_mod = design->module(RTLIL::escape_id(args[argidx+2]));
 
 		if (worker.gold_mod == nullptr)
-			log_cmd_error("Can't find gold module %s.\n", args[argidx].c_str());
+			log_cmd_error("Can't find gold module %s.\n", args[argidx]);
 
 		if (worker.gate_mod == nullptr)
-			log_cmd_error("Can't find gate module %s.\n", args[argidx+1].c_str());
+			log_cmd_error("Can't find gate module %s.\n", args[argidx+1]);
 
 		if (worker.equiv_mod != nullptr)
-			log_cmd_error("Equiv module %s already exists.\n", args[argidx+2].c_str());
+			log_cmd_error("Equiv module %s already exists.\n", args[argidx+2]);
 
 		if (worker.gold_mod->has_memories() || worker.gold_mod->has_processes())
 			log_cmd_error("Gold module contains memories or processes. Run 'memory' or 'proc' respectively.\n");

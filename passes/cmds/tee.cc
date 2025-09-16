@@ -83,7 +83,7 @@ struct TeePass : public Pass {
 				if (f == NULL) {
 					for (auto cf : files_to_close)
 						fclose(cf);
-					log_cmd_error("Can't create file %s.\n", args[argidx].c_str());
+					log_cmd_error("Can't create file %s.\n", args[argidx]);
 				}
 				log_files.push_back(f);
 				files_to_close.push_back(f);

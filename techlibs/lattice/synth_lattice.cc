@@ -306,7 +306,7 @@ struct SynthLatticePass : public ScriptPass
 				family == "lifmd" ||
 				family == "lifmdf") {*/
 		} else
-			log_cmd_error("Invalid Lattice -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid Lattice -family setting: '%s'.\n", family);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");

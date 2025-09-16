@@ -949,7 +949,7 @@ struct StatPass : public Pass {
 			}
 			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
 				if (design->module(RTLIL::escape_id(args[argidx + 1])) == nullptr)
-					log_cmd_error("Can't find module %s.\n", args[argidx + 1].c_str());
+					log_cmd_error("Can't find module %s.\n", args[argidx + 1]);
 				top_mod = design->module(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
@@ -969,7 +969,7 @@ struct StatPass : public Pass {
 			log_header(design, "Printing statistics.\n");
 
 		if (techname != "" && techname != "xilinx" && techname != "cmos" && !json_mode)
-			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
+			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
 		if (json_mode) {
 			log("{\n");

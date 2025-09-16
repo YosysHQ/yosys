@@ -218,7 +218,7 @@ struct SynthNanoXplorePass : public ScriptPass
 		} else if (family == "large") {
 			postfix = "_l";
 		} else 
-			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid NanoXplore -family setting: '%s'.\n", family);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");

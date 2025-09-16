@@ -174,7 +174,7 @@ struct SynthIntelPass : public ScriptPass {
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
 		    family_opt != "cyclone10lp")
-			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt.c_str());
+			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt);
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
 		log_push();

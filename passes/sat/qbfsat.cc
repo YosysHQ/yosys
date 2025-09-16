@@ -87,7 +87,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
 			bit_assn = false;
 			if (!std::regex_search(buf, m, hole_assn_regex))
-				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf.c_str());
+				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf);
 		}
 
 		std::string hole_loc = bit_assn? bit_m[1].str() : m[1].str();
@@ -108,7 +108,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 			pool<std::string> hole_loc_pool(locs.begin(), locs.end());
 			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
 			if (hole_cell_it == anyconst_loc_to_cell.end())
-				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
+				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf);
 
 			RTLIL::Cell *hole_cell = hole_cell_it->second;
 			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
@@ -420,7 +420,7 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 				else if (args[opt.argidx+1] == "cvc5")
 					opt.solver = opt.Solver::CVC5;
 				else
-					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1].c_str());
+					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1]);
 				opt.argidx++;
 			}
 			continue;
@@ -457,7 +457,7 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 					opt.oflag = opt.OptimizationLevel::O2;
 				break;
 				default:
-					log_cmd_error("unknown argument %s\n", args[opt.argidx].c_str());
+					log_cmd_error("unknown argument %s\n", args[opt.argidx]);
 			}
 			continue;
 		}

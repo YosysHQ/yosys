@@ -265,7 +265,7 @@ struct SynthIce40Pass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
-			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt.c_str());
+			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt);
 
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");

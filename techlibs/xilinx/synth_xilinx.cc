@@ -310,7 +310,7 @@ struct SynthXilinxPass : public ScriptPass
 			lut_size = 4;
 			widelut_size = 6;
 		} else
-			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid Xilinx -family setting: '%s'.\n", family);
 
 		if (widemux != 0 && lut_size != 6)
 			log_cmd_error("-widemux is not currently supported for LUT4-based architectures.\n");

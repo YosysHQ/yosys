@@ -408,7 +408,7 @@ struct SubmodPass : public Pass {
 			RTLIL::Module *module = nullptr;
 			for (auto mod : design->selected_modules()) {
 				if (module != nullptr)
-					log_cmd_error("More than one module selected: %s %s\n", module->name.c_str(), mod->name.c_str());
+					log_cmd_error("More than one module selected: %s %s\n", module->name, mod->name);
 				module = mod;
 			}
 			if (module == nullptr)

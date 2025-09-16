@@ -164,7 +164,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			log_file_info(*location.begin.filename, location.begin.line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 			return Fmt();
 		} else {
-			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
 		}
 		args.push_back(arg);
 	}
