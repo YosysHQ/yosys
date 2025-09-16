@@ -755,7 +755,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
 							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				else
-					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
+					log("                               %*s  %s -> %s\n", int(log_signal(RTLIL::SigSpec(wire)).size()), "",
 							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				first_line = false;
 			}

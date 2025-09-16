@@ -68,8 +68,6 @@ int log_debug_suppressed = 0;
 
 vector<int> header_count;
 vector<char*> log_id_cache;
-vector<shared_str> string_buf;
-int string_buf_index = -1;
 
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
@@ -447,8 +445,6 @@ void log_pop()
 {
 	header_count.pop_back();
 	log_id_cache_clear();
-	string_buf.clear();
-	string_buf_index = -1;
 	log_flush();
 }
 
@@ -554,8 +550,6 @@ void log_reset_stack()
 	while (header_count.size() > 1)
 		header_count.pop_back();
 	log_id_cache_clear();
-	string_buf.clear();
-	string_buf_index = -1;
 	log_flush();
 }
 
@@ -580,38 +574,19 @@ void log_dump_val_worker(RTLIL::State v) {
 	log("%s", log_signal(v));
 }
 
-const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
+std::string log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
 	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
-
-	if (string_buf.size() < 100) {
-		string_buf.push_back(buf.str());
-		return string_buf.back().c_str();
-	} else {
-		if (++string_buf_index == 100)
-			string_buf_index = 0;
-		string_buf[string_buf_index] = buf.str();
-		return string_buf[string_buf_index].c_str();
-	}
+	return buf.str();
 }
 
-const char *log_const(const RTLIL::Const &value, bool autoint)
+std::string log_const(const RTLIL::Const &value, bool autoint)
 {
 	if ((value.flags & RTLIL::CONST_FLAG_STRING) == 0)
 		return log_signal(value, autoint);
 
-	std::string str = "\"" + value.decode_string() + "\"";
-
-	if (string_buf.size() < 100) {
-		string_buf.push_back(str);
-		return string_buf.back().c_str();
-	} else {
-		if (++string_buf_index == 100)
-			string_buf_index = 0;
-		string_buf[string_buf_index] = str;
-		return string_buf[string_buf_index].c_str();
-	}
+	return "\"" + value.decode_string() + "\"";
 }
 
 const char *log_id(const RTLIL::IdString &str)
