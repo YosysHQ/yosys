@@ -191,7 +191,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		s.next();
 		lhs = parse(s);
 		if (s.peek() != ')') {
-			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr().c_str());
+			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr());
 			return lhs;
 		}
 		s.next();
@@ -200,7 +200,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		lhs.kind = Kind::NOT;
 		lhs.children.push_back(parse(s, 7));
 	} else {
-		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr().c_str());
+		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr());
 		return lhs;
 	}
 

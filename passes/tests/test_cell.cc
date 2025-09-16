@@ -1192,7 +1192,7 @@ struct TestCellPass : public Pass {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", cell_type, num_cells, num_cells_estimate);
 							}
 						}
 					}

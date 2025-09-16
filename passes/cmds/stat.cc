@@ -228,7 +228,7 @@ struct statdata_t {
 							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 
 						} else {
-							log_warning("too small single_parameter_area %s width: %d size: %d\n", cell_type.c_str(), max_width,
+							log_warning("too small single_parameter_area %s width: %d size: %d\n", cell_type, max_width,
 							       (int)cell_data.single_parameter_area.size());
 							cell_area.at(cell_type).area = cell_data.single_parameter_area.back();
 							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
@@ -274,7 +274,7 @@ struct statdata_t {
 									  cell_data.double_parameter_area.at(width_a - 1).at(width_b - 1);
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								} else {
-									log_warning("too small double_parameter_area %s, width_a: %d, width_b: %d, size_a: %d, size_b: %d\n", cell_type.c_str(),
+									log_warning("too small double_parameter_area %s, width_a: %d, width_b: %d, size_a: %d, size_b: %d\n", cell_type,
 									       width_a, width_b, (int)cell_data.double_parameter_area.size(),
 									       (int)cell_data.double_parameter_area.at(width_a - 1).size());
 									cell_area.at(cell_type).area = cell_data.double_parameter_area.back().back();

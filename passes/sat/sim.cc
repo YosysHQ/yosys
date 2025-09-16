@@ -256,7 +256,7 @@ struct SimInstance
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0 && wire->name.isPublic())
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)));
 				fst_handles[wire] = id;
 			}
 
@@ -927,7 +927,7 @@ struct SimInstance
 					if (shared->serious_asserts)
 						log_error("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
 					else
-						log_warning("Assertion %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+						log_warning("Assertion %s.%s (%s) failed.\n", hiername(), log_id(cell), label);
 				}
 			}
 		}
@@ -1244,7 +1244,7 @@ struct SimInstance
 			Const fst_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(item.first);
 			if (sim_val.size()!=fst_val.size()) {
-				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope.c_str(), log_id(item.first));
+				log_warning("Signal '%s.%s' size is different in gold and gate.\n", scope, log_id(item.first));
 				continue;
 			}
 			if (shared->sim_mode == SimulationMode::sim) {
@@ -1252,7 +1252,7 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
@@ -1260,14 +1260,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s.%s' in file %s in simulation %s\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope.c_str(), log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					log_warning("Signal '%s.%s' in file %s in simulation '%s'\n", scope, log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 					retVal = true;
 				}
 			}
@@ -1607,7 +1607,7 @@ struct SimWorker : SimShared
 				escaped_s = RTLIL::escape_id(cell_name(symbol));
 				Cell *c = topmod->cell(escaped_s);
 				if (!c)
-					log_warning("Wire/cell %s not present in module %s\n",symbol.c_str(),log_id(topmod));
+					log_warning("Wire/cell %s not present in module %s\n",symbol,log_id(topmod));
 
 				if (c->is_mem_cell()) {
 					std::string memid = c->parameters.at(ID::MEMID).decode_string();
@@ -1873,7 +1873,7 @@ struct SimWorker : SimShared
 						log("witness hierarchy: found wire %s\n", path.str());
 					bool inserted = hierarchy.paths.emplace(path, {instance, item.wire, {}, INT_MIN}).second;
 					if (!inserted)
-						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str());
 				}
 			} else if (item.mem) {
 				auto it = mem_paths.find(path);
@@ -1890,7 +1890,7 @@ struct SimWorker : SimShared
 							continue;
 						bool inserted = hierarchy.paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
 						if (!inserted)
-							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str());
 					}
 				}
 			}
@@ -1899,7 +1899,7 @@ struct SimWorker : SimShared
 
 		for (auto &path : paths)
 			if (!hierarchy.paths.count(path))
-				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str().c_str());
+				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str());
 
 		dict<IdPath, dict<int, bool>> clock_inputs;
 
@@ -1922,7 +1922,7 @@ struct SimWorker : SimShared
 
 					for (int t = 0; t < GetSize(yw.steps); t++) {
 						if (yw.get_bits(t, clock_bits_offset, 1) != expected)
-							log_warning("Yosys witness trace has an unexpected value for the clock input `%s` in step %d.\n", signal.path.str().c_str(), t);
+							log_warning("Yosys witness trace has an unexpected value for the clock input `%s` in step %d.\n", signal.path.str(), t);
 					}
 				}
 			}
@@ -2000,7 +2000,7 @@ struct SimWorker : SimShared
 		YwHierarchy hierarchy = prepare_yw_hierarchy(yw);
 
 		if (yw.steps.empty()) {
-			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename.c_str());
+			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename);
 		} else {
 			top->set_initstate_outputs(initstate ? State::S1 : State::S0);
 			set_yw_state(yw, hierarchy, 0);

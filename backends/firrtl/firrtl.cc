@@ -465,7 +465,7 @@ struct FirrtlWorker
 		// If there is no instance for this, just return.
 		if (instModule == NULL)
 		{
-			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
+			log_warning("No instance for %s.%s\n", cell_type, cell_name);
 			return;
 		}
 
@@ -490,7 +490,7 @@ struct FirrtlWorker
 				const SigSpec *sinkSig = nullptr;
 				switch (dir) {
 					case FD_INOUT:
-						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type, log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_OUT:
 						sourceExpr = firstName;
@@ -498,7 +498,7 @@ struct FirrtlWorker
 						sinkSig = &secondSig;
 						break;
 					case FD_NODIRECTION:
-						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type, log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_IN:
 						sourceExpr = secondExpr;

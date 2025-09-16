@@ -972,7 +972,7 @@ struct HelpPass : public Pass {
 		}
 		for (auto &it : cell_help_messages.cell_help) {
 			if (cells.count(it.first) == 0) {
-				log_warning("Found cell model '%s' without matching cell type.\n", it.first.c_str());
+				log_warning("Found cell model '%s' without matching cell type.\n", it.first);
 			}
 		}
 

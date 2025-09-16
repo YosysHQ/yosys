@@ -937,7 +937,7 @@ struct HierarchyPass : public Pass {
 				const std::string &value = args[++argidx];
 				auto r = parameters.emplace(key, value);
 				if (!r.second) {
-					log_warning("-chparam %s already specified: overwriting.\n", key.c_str());
+					log_warning("-chparam %s already specified: overwriting.\n", key);
 					r.first->second = value;
 				}
 				continue;

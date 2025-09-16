@@ -513,7 +513,7 @@ struct EdifBackend : public Backend {
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
 					if (sig == RTLIL::State::Sx) {
 						for (auto &ref : it.second)
-							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first.c_str());
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first);
 						sig = RTLIL::State::S0;
 					} else if (sig == RTLIL::State::Sz) {
 						continue;

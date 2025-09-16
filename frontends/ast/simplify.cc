@@ -974,7 +974,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						message += stringf("%s%s", first_element ? " See " : ", ", place);
 						first_element = false;
 					}
-					log_warning("%s\n", message.c_str());
+					log_warning("%s\n", message);
 				}
 
 			silent_activate:
@@ -1144,7 +1144,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					i--; // Adjust index since we removed an element
 				} else {
 					// If we can't find the package, just remove the import node to avoid errors later
-					log_warning("Package `%s' not found for import, removing import statement\n", child->str.c_str());
+					log_warning("Package `%s' not found for import, removing import statement\n", child->str);
 					children.erase(children.begin() + i);
 					i--; // Adjust index since we removed an element
 				}
@@ -1438,7 +1438,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && children[0]->id2ast->is_logic)
 				children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
-				log_warning("wire '%s' is assigned in a block at %s.\n", children[0]->str.c_str(), loc_string().c_str());
+				log_warning("wire '%s' is assigned in a block at %s.\n", children[0]->str, loc_string());
 			if (type == AST_ASSIGN && children[0]->id2ast->is_reg) {
 				bool is_rand_reg = false;
 				if (children[1]->type == AST_FCALL) {
@@ -1452,7 +1452,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						is_rand_reg = true;
 				}
 				if (!is_rand_reg)
-					log_warning("reg '%s' is assigned in a continuous assignment at %s.\n", children[0]->str.c_str(), loc_string().c_str());
+					log_warning("reg '%s' is assigned in a continuous assignment at %s.\n", children[0]->str, loc_string());
 			}
 			children[0]->was_checked = true;
 		}

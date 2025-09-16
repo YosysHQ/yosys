@@ -658,7 +658,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 	}
 
 	if (rem_objects == 0)
-		log_warning("reached configured limit at `%s'.\n", arg.c_str());
+		log_warning("reached configured limit at `%s'.\n", arg);
 }
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
@@ -1002,14 +1002,14 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		if (it.second == false && !disable_empty_warning) {
 			std::string selection_str = select_blackboxes ? "=" : "";
 			selection_str += it.first;
-			log_warning("Selection \"%s\" did not match any module.\n", selection_str.c_str());
+			log_warning("Selection \"%s\" did not match any module.\n", selection_str);
 		}
 	}
 	for (auto &it : arg_memb_found) {
 		if (it.second == false && !disable_empty_warning) {
 			std::string selection_str = select_blackboxes ? "=" : "";
 			selection_str += it.first;
-			log_warning("Selection \"%s\" did not match any object.\n", selection_str.c_str());
+			log_warning("Selection \"%s\" did not match any object.\n", selection_str);
 		}
 	}
 }
@@ -1451,7 +1451,7 @@ struct SelectPass : public Pass {
 			while (std::getline(f, line)) {
 				size_t slash_pos = line.find('/');
 				if (slash_pos == string::npos) {
-					log_warning("Ignoring line without slash in 'select -read': %s\n", line.c_str());
+					log_warning("Ignoring line without slash in 'select -read': %s\n", line);
 					continue;
 				}
 				IdString mod_name = RTLIL::escape_id(line.substr(0, slash_pos));

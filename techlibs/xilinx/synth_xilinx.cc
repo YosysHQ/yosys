@@ -316,7 +316,7 @@ struct SynthXilinxPass : public ScriptPass
 			log_cmd_error("-widemux is not currently supported for LUT4-based architectures.\n");
 
 		if (lut_size != 6) {
-			log_warning("Shift register inference not yet supported for family %s.\n", family.c_str());
+			log_warning("Shift register inference not yet supported for family %s.\n", family);
 			nosrl = true;
 		}
 

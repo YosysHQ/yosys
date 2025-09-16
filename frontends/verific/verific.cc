@@ -141,7 +141,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 #endif
 	} else {
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
+			log_warning_noprefix("%s%s\n", message_prefix, message);
 		else
 			log("%s%s\n", message_prefix, message);
 	}
@@ -4098,7 +4098,7 @@ struct VerificPass : public Pass {
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
 											   1 /* force_overwrite */);
 					if (!new_insertion)
-						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key);
 					continue;
 				}
 				if (args[argidx] == "-V") {

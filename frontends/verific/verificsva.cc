@@ -1025,7 +1025,7 @@ struct VerificSvaImporter
 	{
 		if (!importer->mode_keep)
 			log_error("%s", errmsg);
-		log_warning("%s", errmsg.c_str());
+		log_warning("%s", errmsg);
 		throw ParserErrorException();
 	}
 

@@ -233,7 +233,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 		ret.stdout_lines.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
 		auto warning_pos = line.find(smtbmc_warning);
 		if (warning_pos != std::string::npos)
-			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
+			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1));
 		else
 			if (opt.show_smtbmc && !quiet)
 				log("smtbmc output: %s", line);

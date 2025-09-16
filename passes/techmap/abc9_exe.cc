@@ -329,7 +329,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 #endif
 	if (ret != 0) {
 		if (check_file_exists(stringf("%s/output.aig", tempdir_name)))
-			log_warning("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+			log_warning("ABC: execution of command \"%s\" failed: return code %d.\n", buffer, ret);
 		else
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer, ret);
 	}
