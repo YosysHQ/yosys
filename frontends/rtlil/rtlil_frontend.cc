@@ -31,6 +31,10 @@
 YOSYS_NAMESPACE_BEGIN
 
 struct RTLILFrontendWorker {
+	// Forbid constants of more than 1 Gb.
+	// This will help us not explode on malicious RTLIL.
+	static constexpr int MAX_CONST_WIDTH = 1024 * 1024 * 1024;
+
 	std::istream *f = nullptr;
 	RTLIL::Design *design;
 	bool flag_nooverwrite = false;
@@ -267,7 +271,7 @@ struct RTLILFrontendWorker {
 		// Can't test value<0 here because we need to stop parsing after '-0'
 		if (negative_value || line[0] != '\'') {
 			if (width < INT_MIN || width > INT_MAX)
-				error("Integer %lld out of range in `%s'.", width, error_token());
+				error("Integer %lld out of range before `%s'.", width, error_token());
 			consume_whitespace_and_comments();
 			return RTLIL::Const(width);
 		}
@@ -278,6 +282,8 @@ struct RTLILFrontendWorker {
 			++idx;
 
 		std::vector<RTLIL::State> bits;
+		if (width > MAX_CONST_WIDTH)
+			error("Constant width %lld out of range before `%s`.", width, error_token());
 		bits.reserve(width);
 		while (true) {
 			RTLIL::State bit;
