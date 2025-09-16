@@ -82,6 +82,7 @@ YOSYS_NAMESPACE_BEGIN
 int autoidx = 1;
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
+bool yosys_private_id_locs = true;
 const char* yosys_maybe_version() {
 	if (yosys_write_versions)
 		return yosys_version_str;
@@ -273,6 +274,16 @@ void yosys_shutdown()
 
 RTLIL::IdString new_id(std::string file, int line, std::string func)
 {
+	return newer_id(file, line, func);
+}
+
+RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
+{
+	return newer_id_suffix(file, line, func, suffix);
+}
+
+RTLIL::IdString newer_id(std::string file, int line, std::string func)
+{
 #ifdef _WIN32
 	size_t pos = file.find_last_of("/\\");
 #else
@@ -288,7 +299,7 @@ RTLIL::IdString new_id(std::string file, int line, std::string func)
 	return stringf("$auto$%s:%d:%s$%d", file, line, func, autoidx++);
 }
 
-RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
+RTLIL::IdString newer_id_suffix(std::string file, int line, std::string func, std::string suffix)
 {
 #ifdef _WIN32
 	size_t pos = file.find_last_of("/\\");

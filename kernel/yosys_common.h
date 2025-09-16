@@ -268,14 +268,29 @@ inline int GetSize(RTLIL::Wire *wire);
 extern int autoidx;
 extern int yosys_xtrace;
 extern bool yosys_write_versions;
+extern bool yosys_private_id_locs;
 
+RTLIL::IdString newer_id(std::string file, int line, std::string func);
+RTLIL::IdString newer_id_suffix(std::string file, int line, std::string func, std::string suffix);
+[[deprecated("Use NEWER_ID instead of NEW_ID")]]
 RTLIL::IdString new_id(std::string file, int line, std::string func);
+[[deprecated("Use NEWER_ID_SUFFIX instead of NEW_ID_SUFFIX")]]
 RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix);
 
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
+
+#define NEWER_ID \
+	(YOSYS_NAMESPACE_PREFIX yosys_private_id_locs ? \
+	YOSYS_NAMESPACE_PREFIX newer_id(__FILE__, __LINE__, __FUNCTION__) : \
+	YOSYS_NAMESPACE_PREFIX newer_id("?", 0, "?"))
+
+#define NEWER_ID_SUFFIX(suffix) \
+	(YOSYS_NAMESPACE_PREFIX yosys_private_id_locs ? \
+	YOSYS_NAMESPACE_PREFIX newer_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix) : \
+	YOSYS_NAMESPACE_PREFIX newer_id_suffix("?", 0, "?", suffix))
 
 namespace ID = RTLIL::ID;
 
