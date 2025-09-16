@@ -1032,7 +1032,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
+		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str);
 		delete_children();
 		str = std::string();
 	}
@@ -1042,7 +1042,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		 str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
 		if (!current_always) {
-			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
+			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str);
 			delete_children();
 			str = std::string();
 		} else {

@@ -1539,7 +1539,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (dynamic_cast<RTLIL::Binding*>(current_module)) {
 					/* nothing to do here */
 				} else if (flag_autowire)
-					log_file_warning(*location.begin.filename, location.begin.line, "Identifier `%s' is implicitly declared.\n", str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "Identifier `%s' is implicitly declared.\n", str);
 				else
 					input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str);
 			}
@@ -2200,7 +2200,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_info(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$warning") {
 				if (sz > 0)
-					log_file_warning(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
 					log_file_warning(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$error") {
