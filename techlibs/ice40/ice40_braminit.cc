@@ -46,7 +46,7 @@ static void run_ice40_braminit(Module *module)
 			continue;
 
 		/* Open file */
-		log("Processing %s : %s\n", RTLIL::id2cstr(cell->name), init_file);
+		log("Processing %s : %s\n", log_id(cell->name), init_file);
 
 		std::ifstream f;
 		f.open(init_file.c_str());

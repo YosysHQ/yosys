@@ -231,7 +231,7 @@ Use ``log_error()`` to report a non-recoverable error:
 
     if (design->modules.count(module->name) != 0)
         log_error("A module with the name %s already exists!\n",
-                   RTLIL::id2cstr(module->name));
+                   log_id(module->name));
 
 Use ``log_cmd_error()`` to report a recoverable error:
 

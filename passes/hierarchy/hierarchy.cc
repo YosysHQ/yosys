@@ -87,7 +87,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 			if (decl.index > 0) {
 				portwidths[decl.portname] = max(portwidths[decl.portname], 1);
 				portwidths[decl.portname] = max(portwidths[decl.portname], portwidths[stringf("$%d", decl.index)]);
-				log("  port %d: %s [%d:0] %s\n", decl.index, decl.input ? decl.output ? "inout" : "input" : "output", portwidths[decl.portname]-1, RTLIL::id2cstr(decl.portname));
+				log("  port %d: %s [%d:0] %s\n", decl.index, decl.input ? decl.output ? "inout" : "input" : "output", portwidths[decl.portname]-1, log_id(decl.portname));
 				if (indices.count(decl.index) > ports.size())
 					log_error("Port index (%d) exceeds number of found ports (%d).\n", decl.index, int(ports.size()));
 				if (indices.count(decl.index) == 0)
@@ -108,10 +108,10 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 					indices.erase(d.index);
 					ports[d.index-1] = d;
 					portwidths[d.portname] = max(portwidths[d.portname], 1);
-					log("  port %d: %s [%d:0] %s\n", d.index, d.input ? d.output ? "inout" : "input" : "output", portwidths[d.portname]-1, RTLIL::id2cstr(d.portname));
+					log("  port %d: %s [%d:0] %s\n", d.index, d.input ? d.output ? "inout" : "input" : "output", portwidths[d.portname]-1, log_id(d.portname));
 					goto found_matching_decl;
 				}
-			log_error("Can't match port %s.\n", RTLIL::id2cstr(portname));
+			log_error("Can't match port %s.\n", log_id(portname));
 		found_matching_decl:;
 			portnames.erase(portname);
 		}
@@ -133,9 +133,9 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		mod->fixup_ports();
 
 		for (auto &para : parameters)
-			log("  ignoring parameter %s.\n", RTLIL::id2cstr(para));
+			log("  ignoring parameter %s.\n", log_id(para));
 
-		log("  module %s created.\n", RTLIL::id2cstr(mod->name));
+		log("  module %s created.\n", log_id(mod->name));
 	}
 }
 
@@ -570,7 +570,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		int idx = it.second.first, num = it.second.second;
 
 		if (design->module(cell->type) == nullptr)
-			log_error("Array cell `%s.%s' of unknown type `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+			log_error("Array cell `%s.%s' of unknown type `%s'.\n", log_id(module->name), log_id(cell->name), log_id(cell->type));
 
 		RTLIL::Module *mod = design->module(cell->type);
 
@@ -586,12 +586,12 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					}
 			}
 			if (mod->wire(portname) == nullptr)
-				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
+				log_error("Array cell `%s.%s' connects to unknown port `%s'.\n", log_id(module->name), log_id(cell->name), log_id(conn.first));
 			int port_size = mod->wire(portname)->width;
 			if (conn_size == port_size || conn_size == 0)
 				continue;
 			if (conn_size != port_size*num)
-				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(conn.first));
+				log_error("Array cell `%s.%s' has invalid port vs. signal size for port `%s'.\n", log_id(module->name), log_id(cell->name), log_id(conn.first));
 			conn.second = conn.second.extract(port_size*idx, port_size);
 		}
 	}
@@ -1173,7 +1173,7 @@ struct HierarchyPass : public Pass {
 					if (read_id_num(p.first, &id)) {
 						if (id <= 0 || id > GetSize(cell_mod->avail_parameters)) {
 							log("  Failed to map positional parameter %d of cell %s.%s (%s).\n",
-									id, RTLIL::id2cstr(mod->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+									id, log_id(mod->name), log_id(cell->name), log_id(cell->type));
 						} else {
 							params_rename.insert(std::make_pair(p.first, cell_mod->avail_parameters[id - 1]));
 						}
@@ -1195,7 +1195,7 @@ struct HierarchyPass : public Pass {
 				RTLIL::Module *module = work.first;
 				RTLIL::Cell *cell = work.second;
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
-						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+						log_id(module->name), log_id(cell->name), log_id(cell->type));
 				dict<RTLIL::IdString, RTLIL::SigSpec> new_connections;
 				for (auto &conn : cell->connections()) {
 					int id;
@@ -1203,7 +1203,7 @@ struct HierarchyPass : public Pass {
 						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
-									id, RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+									id, log_id(module->name), log_id(cell->name), log_id(cell->type));
 							new_connections[conn.first] = conn.second;
 						} else
 							new_connections[pos_map.at(key)] = conn.second;
@@ -1237,7 +1237,7 @@ struct HierarchyPass : public Pass {
 
 				if (m == nullptr)
 					log_error("Cell %s.%s (%s) has implicit port connections but the module it instantiates is unknown.\n",
-							RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+							log_id(module->name), log_id(cell->name), log_id(cell->type));
 
 				// Need accurate port widths for error checking; so must derive blackboxes with dynamic port widths
 				if (m->get_blackbox_attribute() && !cell->parameters.empty() && m->get_bool_attribute(ID::dynports)) {
@@ -1266,11 +1266,11 @@ struct HierarchyPass : public Pass {
 
 					if (parent_wire == nullptr)
 						log_error("No matching wire for implicit port connection `%s' of cell %s.%s (%s).\n",
-								RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+								log_id(wire->name), log_id(module->name), log_id(cell->name), log_id(cell->type));
 					if (parent_wire->width != wire->width)
 						log_error("Width mismatch between wire (%d bits) and port (%d bits) for implicit port connection `%s' of cell %s.%s (%s).\n",
 								parent_wire->width, wire->width,
-								RTLIL::id2cstr(wire->name), RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+								log_id(wire->name), log_id(module->name), log_id(cell->name), log_id(cell->type));
 					cell->setPort(wire->name, parent_wire);
 				}
 				cell->attributes.erase(ID::wildcard_port_conns);

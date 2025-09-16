@@ -3433,7 +3433,7 @@ struct CxxrtlWorker {
 
 			if (!design->selected_whole_module(module))
 				if (design->selected_module(module))
-					log_cmd_error("Can't handle partially selected module `%s'!\n", id2cstr(module->name));
+					log_cmd_error("Can't handle partially selected module `%s'!\n", log_id(module->name));
 			if (!design->selected_module(module))
 				continue;
 

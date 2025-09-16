@@ -1478,10 +1478,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	design->add(module);
 
 	if (is_blackbox(nl)) {
-		log("Importing blackbox module %s.\n", RTLIL::id2cstr(module->name));
+		log("Importing blackbox module %s.\n", log_id(module->name));
 		module->set_bool_attribute(ID::blackbox);
 	} else {
-		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
+		log("Importing module %s.\n", log_id(module->name));
 	}
 	import_attributes(module->attributes, nl, nl);
 	if (module->name.isPublic())

@@ -580,6 +580,7 @@ namespace RTLIL {
 		return unescape_id(str.str());
 	}
 
+	[[deprecated("Use log_id() instead")]]
 	static inline const char *id2cstr(const RTLIL::IdString &str) {
 		return log_id(str);
 	}

@@ -389,7 +389,7 @@ struct IopadmapPass : public Pass {
 
 				if (wire->port_input && !wire->port_output) {
 					if (inpad_celltype.empty()) {
-						log("Don't map input port %s.%s: Missing option -inpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map input port %s.%s: Missing option -inpad.\n", log_id(module->name), log_id(wire->name));
 						continue;
 					}
 					celltype = inpad_celltype;
@@ -398,7 +398,7 @@ struct IopadmapPass : public Pass {
 				} else
 				if (!wire->port_input && wire->port_output) {
 					if (outpad_celltype.empty()) {
-						log("Don't map output port %s.%s: Missing option -outpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map output port %s.%s: Missing option -outpad.\n", log_id(module->name), log_id(wire->name));
 						continue;
 					}
 					celltype = outpad_celltype;
@@ -407,7 +407,7 @@ struct IopadmapPass : public Pass {
 				} else
 				if (wire->port_input && wire->port_output) {
 					if (inoutpad_celltype.empty()) {
-						log("Don't map inout port %s.%s: Missing option -inoutpad.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+						log("Don't map inout port %s.%s: Missing option -inoutpad.\n", log_id(module->name), log_id(wire->name));
 						continue;
 					}
 					celltype = inoutpad_celltype;
@@ -417,11 +417,11 @@ struct IopadmapPass : public Pass {
 					log_abort();
 
 				if (!flag_bits && wire->width != 1 && widthparam.empty()) {
-					log("Don't map multi-bit port %s.%s: Missing option -widthparam or -bits.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name));
+					log("Don't map multi-bit port %s.%s: Missing option -widthparam or -bits.\n", log_id(module->name), log_id(wire->name));
 					continue;
 				}
 
-				log("Mapping port %s.%s using %s.\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(wire->name), celltype);
+				log("Mapping port %s.%s using %s.\n", log_id(module->name), log_id(wire->name), celltype);
 
 				if (flag_bits)
 				{
@@ -442,7 +442,7 @@ struct IopadmapPass : public Pass {
 						if (!widthparam.empty())
 							cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(1);
 						if (!nameparam.empty())
-							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", RTLIL::id2cstr(wire->name), i));
+							cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(stringf("%s[%d]", log_id(wire->name), i));
 						cell->attributes[ID::keep] = RTLIL::Const(1);
 					}
 				}
@@ -465,7 +465,7 @@ struct IopadmapPass : public Pass {
 					if (!widthparam.empty())
 						cell->parameters[RTLIL::escape_id(widthparam)] = RTLIL::Const(wire->width);
 					if (!nameparam.empty())
-						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(RTLIL::id2cstr(wire->name));
+						cell->parameters[RTLIL::escape_id(nameparam)] = RTLIL::Const(log_id(wire->name));
 					cell->attributes[ID::keep] = RTLIL::Const(1);
 				}
 

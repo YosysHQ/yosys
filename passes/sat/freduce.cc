@@ -139,7 +139,7 @@ struct FindReducedInputs
 			if (ez_cells.count(drv.first) == 0) {
 				satgen.setContext(&sigmap, "A");
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
+					log_error("Can't create SAT model for cell %s (%s)!\n", log_id(drv.first->name), log_id(drv.first->type));
 				satgen.setContext(&sigmap, "B");
 				if (!satgen.importCell(drv.first))
 					log_abort();
@@ -256,7 +256,7 @@ struct PerformReduction
 			std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> &drv = drivers.at(out);
 			if (celldone.count(drv.first) == 0) {
 				if (!satgen.importCell(drv.first))
-					log_error("Can't create SAT model for cell %s (%s)!\n", RTLIL::id2cstr(drv.first->name), RTLIL::id2cstr(drv.first->type));
+					log_error("Can't create SAT model for cell %s (%s)!\n", log_id(drv.first->name), log_id(drv.first->type));
 				celldone.insert(drv.first);
 			}
 			int max_child_depth = 0;
@@ -595,14 +595,14 @@ struct FreduceWorker
 
 	void dump()
 	{
-		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, RTLIL::id2cstr(module->name), reduce_counter);
+		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, log_id(module->name), reduce_counter);
 		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename);
 		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.c_str() : ""));
 	}
 
 	int run()
 	{
-		log("Running functional reduction on module %s:\n", RTLIL::id2cstr(module->name));
+		log("Running functional reduction on module %s:\n", log_id(module->name));
 
 		CellTypes ct;
 		ct.setup_internals();
@@ -749,7 +749,7 @@ struct FreduceWorker
 			}
 		}
 
-		log("  Rewired a total of %d signal bits in module %s.\n", rewired_sigbits, RTLIL::id2cstr(module->name));
+		log("  Rewired a total of %d signal bits in module %s.\n", rewired_sigbits, log_id(module->name));
 		return rewired_sigbits;
 	}
 };

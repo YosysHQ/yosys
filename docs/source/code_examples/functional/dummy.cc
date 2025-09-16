@@ -24,19 +24,19 @@ struct FunctionalDummyBackend : public Backend {
 
 			// write node functions
 			for (auto node : ir)
-				*f << "  assign " << id2cstr(node.name())
+				*f << "  assign " << log_id(node.name())
 				   << " = " << node.to_string() << "\n";
 			*f << "\n";
 
 			// write outputs and next state
 			for (auto output : ir.outputs())
-				*f << " " << id2cstr(output->kind)
-				   << " " << id2cstr(output->name)
-				   << " = " << id2cstr(output->value().name()) << "\n";
+				*f << " " << log_id(output->kind)
+				   << " " << log_id(output->name)
+				   << " = " << log_id(output->value().name()) << "\n";
 			for (auto state : ir.states())
-				*f << " " << id2cstr(state->kind)
-				   << " " << id2cstr(state->name)
-				   << " = " << id2cstr(state->next_value().name()) << "\n";
+				*f << " " << log_id(state->kind)
+				   << " " << log_id(state->name)
+				   << " = " << log_id(state->next_value().name()) << "\n";
 		}
 	}
 } FunctionalDummyBackend;

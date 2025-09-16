@@ -61,7 +61,7 @@ ret_false:
 
 		if (recursion_monitor.count(cellport.first)) {
 			log_warning("logic loop in mux tree at signal %s in module %s.\n",
-					log_signal(sig), RTLIL::id2cstr(module->name));
+					log_signal(sig), log_id(module->name));
 			goto ret_false;
 		}
 

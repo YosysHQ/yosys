@@ -27,7 +27,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 	// count output lines for this module (needed only for summary output at the end)
 	int line_count = 0;
 
-	log("Looking for stub wires in module %s:\n", RTLIL::id2cstr(module->name));
+	log("Looking for stub wires in module %s:\n", log_id(module->name));
 
 	// For all ports on all cells
 	for (auto &cell_iter : module->cells_)
@@ -74,11 +74,11 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 		// report stub bits and/or stub wires, don't report single bits
 		// if called with report_bits set to false.
 		if (GetSize(stub_bits) == GetSize(sig)) {
-			log("  found stub wire: %s\n", RTLIL::id2cstr(wire->name));
+			log("  found stub wire: %s\n", log_id(wire->name));
 		} else {
 			if (!report_bits)
 				continue;
-			log("  found wire with stub bits: %s [", RTLIL::id2cstr(wire->name));
+			log("  found wire with stub bits: %s [", log_id(wire->name));
 			for (int bit : stub_bits)
 				log("%s%d", bit == *stub_bits.begin() ? "" : ", ", bit);
 			log("]\n");
