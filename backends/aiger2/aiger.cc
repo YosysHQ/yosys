@@ -903,6 +903,16 @@ struct XAigerWriter : AigerWriter {
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
+
+    // * The aiger output port sequence is COs (inputs to modeled boxes),
+    //   inputs to opaque boxes, then module outputs. COs going first is
+    //   required by abc.
+    // * proper_pos_counter counts ports which follow after COs
+    // * The mapping file `pseudopo` and `po` statements use indexing relative
+    //   to the first port following COs.
+    // * If a module output is directly driven by an opaque box, the emission
+    //   of the po statement in the mapping file is skipped. This is done to
+    //   aid re-integration of the mapped result.
 	int proper_pos_counter = 0;
 
 	pool<SigBit> driven_by_opaque_box;
@@ -937,7 +947,7 @@ struct XAigerWriter : AigerWriter {
 		lit_counter += 2;
 	}
 
-	void append_box_ports(Cell *box, HierCursor &cursor, bool inputs)
+	void append_opaque_box_ports(Cell *box, HierCursor &cursor, bool inputs)
 	{
 		for (auto &conn : box->connections_) {
 			bool is_input = box->input(conn.first);
@@ -955,13 +965,14 @@ struct XAigerWriter : AigerWriter {
 						continue;
 					}
 
+					// Inputs to opaque boxes are proper POs as far as abc is concerned
 					if (map_file.is_open()) {
 						log_assert(cursor.is_top());
-						map_file << "pseudopo " << proper_pos_counter++ << " " << bitp
+						map_file << "pseudopo " << proper_pos_counter << " " << bitp
 							<< " " << box->name.c_str()
 							<< " " << conn.first.c_str() << "\n";
 					}
-
+					proper_pos_counter++;
 					pos.push_back(std::make_pair(bit, cursor));
 
 					if (mapping_prep)
@@ -1038,7 +1049,7 @@ struct XAigerWriter : AigerWriter {
 		});
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, false);
+			append_opaque_box_ports(box, cursor, false);
 
 		holes_module = design->addModule(NEW_ID);
 		std::vector<RTLIL::Wire *> holes_pis;
@@ -1086,6 +1097,8 @@ struct XAigerWriter : AigerWriter {
 							bit = RTLIL::Sx;
 						}
 
+						// Nonopaque box inputs come first and are not part of
+						// the PO numbering used by the mapping file.
 						pos.push_back(std::make_pair(bit, cursor));
 					}
 					boxes_co_num += port->width;
@@ -1138,7 +1151,7 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		for (auto [cursor, box, def] : opaque_boxes)
-			append_box_ports(box, cursor, true);
+			append_opaque_box_ports(box, cursor, true);
 
 		write_be32(h_buffer, 1);
 		write_be32(h_buffer, pis.size());
@@ -1195,10 +1208,14 @@ struct XAigerWriter : AigerWriter {
 		for (auto w : top->wires())
 		if (w->port_output)
 		for (int i = 0; i < w->width; i++) {
+			// When a module output is directly driven by an opaque box, we
+			// don't emit it to the mapping file to aid re-integration, but we
+			// do emit a proper PO.
 			if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
-				map_file << "po " << proper_pos_counter++ << " " << i
+				map_file << "po " << proper_pos_counter << " " << i
 							<< " " << w->name.c_str() << "\n";
 			}
+			proper_pos_counter++;
 			pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
 		}
 
