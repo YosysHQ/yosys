@@ -732,16 +732,17 @@ struct AST_INTERNAL::ProcessGenerator
 				current_case->actions.push_back(SigSig(en, true));
 
 				RTLIL::SigSpec triggers;
-				RTLIL::Const polarity;
+				RTLIL::Const::Builder polarity_builder;
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S1);
+						polarity_builder.push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S0);
+						polarity_builder.push_back(RTLIL::S0);
 					}
 				}
+				RTLIL::Const polarity = polarity_builder.build();
 
 				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
 				set_src_attr(cell, ast);
@@ -829,16 +830,17 @@ struct AST_INTERNAL::ProcessGenerator
 				current_case->actions.push_back(SigSig(en, true));
 
 				RTLIL::SigSpec triggers;
-				RTLIL::Const polarity;
+				RTLIL::Const::Builder polarity_builder;
 				for (auto sync : proc->syncs) {
 					if (sync->type == RTLIL::STp) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S1);
+						polarity_builder.push_back(RTLIL::S1);
 					} else if (sync->type == RTLIL::STn) {
 						triggers.append(sync->signal);
-						polarity.bits().push_back(RTLIL::S0);
+						polarity_builder.push_back(RTLIL::S0);
 					}
 				}
+				RTLIL::Const polarity = polarity_builder.build();
 
 				RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 				set_src_attr(cell, ast);
@@ -893,7 +895,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
 					int new_bit = port_map[std::make_pair(memid, i)];
-					priority_mask.bits()[new_bit] = orig_priority_mask[i];
+					priority_mask.set(new_bit, orig_priority_mask[i]);
 				}
 				action.priority_mask = priority_mask;
 				sync->mem_write_actions.push_back(action);

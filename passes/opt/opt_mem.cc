@@ -175,36 +175,36 @@ struct OptMemPass : public Pass {
 					}
 					for (auto &port: mem.rd_ports) {
 						SigSpec new_data;
-						Const new_init;
-						Const new_arst;
-						Const new_srst;
+						Const::Builder new_init_bits;
+						Const::Builder new_arst_bits;
+						Const::Builder new_srst_bits;
 						for (int sub = 0; sub < (1 << port.wide_log2); sub++) {
 							for (auto i: swizzle) {
 								int bidx = sub * mem.width + i;
 								new_data.append(port.data[bidx]);
-								new_init.bits().push_back(port.init_value[bidx]);
-								new_arst.bits().push_back(port.arst_value[bidx]);
-								new_srst.bits().push_back(port.srst_value[bidx]);
+								new_init_bits.push_back(port.init_value[bidx]);
+								new_arst_bits.push_back(port.arst_value[bidx]);
+								new_srst_bits.push_back(port.srst_value[bidx]);
 							}
 						}
 						port.data = new_data;
-						port.init_value = new_init;
-						port.arst_value = new_arst;
-						port.srst_value = new_srst;
+						port.init_value = new_init_bits.build();
+						port.arst_value = new_arst_bits.build();
+						port.srst_value = new_srst_bits.build();
 					}
 					for (auto &init: mem.inits) {
-						Const new_data;
-						Const new_en;
+						Const::Builder new_data_bits;
 						for (int s = 0; s < GetSize(init.data); s += mem.width) {
 							for (auto i: swizzle) {
-								new_data.bits().push_back(init.data[s + i]);
+								new_data_bits.push_back(init.data[s + i]);
 							}
 						}
+						init.data = new_data_bits.build();
+						Const::Builder new_en_bits;
 						for (auto i: swizzle) {
-							new_en.bits().push_back(init.en[i]);
+							new_en_bits.push_back(init.en[i]);
 						}
-						init.data = new_data;
-						init.en = new_en;
+						init.en = new_en_bits.build();
 					}
 					mem.width = GetSize(swizzle);
 					changed = true;

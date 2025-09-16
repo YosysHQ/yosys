@@ -822,38 +822,61 @@ private:
 	using bitvectype = std::vector<RTLIL::State>;
 	enum class backing_tag: bool { bits, string };
 	// Do not access the union or tag even in Const methods unless necessary
-	mutable backing_tag tag;
+	backing_tag tag;
 	union {
-		mutable bitvectype bits_;
-		mutable std::string str_;
+		bitvectype bits_;
+		std::string str_;
 	};
 
 	// Use these private utilities instead
 	bool is_bits() const { return tag == backing_tag::bits; }
 	bool is_str() const { return tag == backing_tag::string; }
 
-	bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
-	std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
+	bitvectype* get_if_bits() { return is_bits() ? &bits_ : NULL; }
+	std::string* get_if_str() { return is_str() ? &str_ : NULL; }
+	const bitvectype* get_if_bits() const { return is_bits() ? &bits_ : NULL; }
+	const std::string* get_if_str() const { return is_str() ? &str_ : NULL; }
 
-	bitvectype& get_bits() const;
-	std::string& get_str() const;
+	bitvectype& get_bits();
+	std::string& get_str();
+	const bitvectype& get_bits() const;
+	const std::string& get_str() const;
+	std::vector<RTLIL::State>& bits_internal();
+	void bitvectorize_internal();
+
 public:
 	Const() : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::vector<RTLIL::State>()) {}
 	Const(const std::string &str);
-	Const(long long val, int width = 32);
+	Const(long long val); // default width is 32
+	Const(long long val, int width);
 	Const(RTLIL::State bit, int width = 1);
-	Const(const std::vector<RTLIL::State> &bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(bits) {}
+	Const(std::vector<RTLIL::State> bits) : flags(RTLIL::CONST_FLAG_NONE), tag(backing_tag::bits), bits_(std::move(bits)) {}
 	Const(const std::vector<bool> &bits);
 	Const(const RTLIL::Const &other);
 	Const(RTLIL::Const &&other);
 	RTLIL::Const &operator =(const RTLIL::Const &other);
 	~Const();
 
+	struct Builder
+	{
+		Builder() {}
+		Builder(int expected_width) { bits.reserve(expected_width); }
+		void push_back(RTLIL::State b) { bits.push_back(b); }
+		int size() const { return static_cast<int>(bits.size()); }
+		Const build() { return Const(std::move(bits)); }
+	private:
+		std::vector<RTLIL::State> bits;
+	};
+
 	bool operator <(const RTLIL::Const &other) const;
 	bool operator ==(const RTLIL::Const &other) const;
 	bool operator !=(const RTLIL::Const &other) const;
 
-	std::vector<RTLIL::State>& bits();
+	[[deprecated("Don't use direct access to the internal std::vector<State>, that's an implementation detail.")]]
+	std::vector<RTLIL::State>& bits() { return bits_internal(); }
+	[[deprecated("Don't call bitvectorize() directly, it's an implementation detail.")]]
+	void bitvectorize() const { const_cast<Const*>(this)->bitvectorize_internal(); }
+
 	bool as_bool() const;
 
 	// Convert the constant value to a C++ int.
@@ -882,37 +905,42 @@ public:
 	std::string decode_string() const;
 	int size() const;
 	bool empty() const;
-	void bitvectorize() const;
 
 	void append(const RTLIL::Const &other);
+	void set(int i, RTLIL::State state) {
+		bits_internal()[i] = state;
+	}
+	void resize(int size, RTLIL::State fill) {
+		bits_internal().resize(size, fill);
+	}
 
 	class const_iterator {
 	private:
-		const Const& parent;
+		const Const* parent;
 		size_t idx;
 
 	public:
-		using iterator_category = std::input_iterator_tag;
+		using iterator_category = std::bidirectional_iterator_tag;
 		using value_type = State;
 		using difference_type = std::ptrdiff_t;
 		using pointer = const State*;
 		using reference = const State&;
 
-		const_iterator(const Const& c, size_t i) : parent(c), idx(i) {}
+		const_iterator(const Const& c, size_t i) : parent(&c), idx(i) {}
 
 		State operator*() const;
 
 		const_iterator& operator++() { ++idx; return *this; }
 		const_iterator& operator--() { --idx; return *this; }
-		const_iterator& operator++(int) { ++idx; return *this; }
-		const_iterator& operator--(int) { --idx; return *this; }
+		const_iterator operator++(int) { const_iterator result(*this); ++idx; return result; }
+		const_iterator operator--(int) { const_iterator result(*this); --idx; return result; }
 		const_iterator& operator+=(int i) { idx += i; return *this; }
 
 		const_iterator operator+(int add) {
-			return const_iterator(parent, idx + add);
+			return const_iterator(*parent, idx + add);
 		}
 		const_iterator operator-(int sub) {
-			return const_iterator(parent, idx - sub);
+			return const_iterator(*parent, idx - sub);
 		}
 		int operator-(const const_iterator& other) {
 			return idx - other.idx;
@@ -927,11 +955,68 @@ public:
 		}
 	};
 
+	class iterator {
+	private:
+		Const* parent;
+		size_t idx;
+
+	public:
+		class proxy {
+		private:
+			Const* parent;
+			size_t idx;
+		public:
+			proxy(Const* parent, size_t idx) : parent(parent), idx(idx) {}
+			operator State() const { return (*parent)[idx]; }
+			proxy& operator=(State s) { parent->set(idx, s); return *this; }
+			proxy& operator=(const proxy& other) { parent->set(idx, (*other.parent)[other.idx]); return *this; }
+		};
+
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = State;
+		using difference_type = std::ptrdiff_t;
+		using pointer = proxy*;
+		using reference = proxy;
+
+		iterator(Const& c, size_t i) : parent(&c), idx(i) {}
+
+		proxy operator*() const { return proxy(parent, idx); }
+		iterator& operator++() { ++idx; return *this; }
+		iterator& operator--() { --idx; return *this; }
+		iterator operator++(int) { iterator result(*this); ++idx; return result; }
+		iterator operator--(int) { iterator result(*this); --idx; return result; }
+		iterator& operator+=(int i) { idx += i; return *this; }
+
+		iterator operator+(int add) {
+			return iterator(*parent, idx + add);
+		}
+		iterator operator-(int sub) {
+			return iterator(*parent, idx - sub);
+		}
+		int operator-(const iterator& other) {
+			return idx - other.idx;
+		}
+
+		bool operator==(const iterator& other) const {
+			return idx == other.idx;
+		}
+
+		bool operator!=(const iterator& other) const {
+			return !(*this == other);
+		}
+	};
+
 	const_iterator begin() const {
 		return const_iterator(*this, 0);
 	}
 	const_iterator end() const {
 		return const_iterator(*this, size());
+	}
+	iterator begin() {
+		return iterator(*this, 0);
+	}
+	iterator end() {
+		return iterator(*this, size());
 	}
 	State back() const {
 		return *(end() - 1);
@@ -964,20 +1049,14 @@ public:
 	std::optional<int> as_int_compress(bool is_signed) const;
 
 	void extu(int width) {
-		bits().resize(width, RTLIL::State::S0);
+		resize(width, RTLIL::State::S0);
 	}
 
 	void exts(int width) {
-		bitvectype& bv = bits();
-		bv.resize(width, bv.empty() ? RTLIL::State::Sx : bv.back());
+		resize(width, empty() ? RTLIL::State::Sx : back());
 	}
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const {
-		h.eat(size());
-		for (auto b : *this)
-			h.eat(b);
-		return h;
-	}
+	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
 struct RTLIL::AttrObject
@@ -1032,7 +1111,8 @@ struct RTLIL::SigChunk
 	SigChunk(RTLIL::Wire *wire) : wire(wire), width(GetSize(wire)), offset(0) {}
 	SigChunk(RTLIL::Wire *wire, int offset, int width = 1) : wire(wire), width(width), offset(offset) {}
 	SigChunk(const std::string &str) : SigChunk(RTLIL::Const(str)) {}
-	SigChunk(int val, int width = 32) : SigChunk(RTLIL::Const(val, width)) {}
+	SigChunk(int val) /*default width 32*/ : SigChunk(RTLIL::Const(val)) {}
+	SigChunk(int val, int width) : SigChunk(RTLIL::Const(val, width)) {}
 	SigChunk(RTLIL::State bit, int width = 1) : SigChunk(RTLIL::Const(bit, width)) {}
 	SigChunk(const RTLIL::SigBit &bit);
 

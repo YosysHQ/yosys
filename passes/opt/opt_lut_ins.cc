@@ -213,7 +213,7 @@ struct OptLutInsPass : public Pass {
 						}
 						lidx |= val << j;
 					}
-					new_lut.bits()[i] = lut[lidx];
+					new_lut.set(i, lut[lidx]);
 				}
 				// For lattice, and gowin do not replace with a const driver — the nextpnr
 				// packer requires a complete set of LUTs for wide LUT muxes.

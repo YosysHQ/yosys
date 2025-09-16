@@ -705,12 +705,13 @@ struct BtorWorker
 				}
 			}
 
-			Const initval;
+			Const::Builder initval_bits(GetSize(sig_q));
 			for (int i = 0; i < GetSize(sig_q); i++)
 				if (initbits.count(sig_q[i]))
-					initval.bits().push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
+					initval_bits.push_back(initbits.at(sig_q[i]) ? State::S1 : State::S0);
 				else
-					initval.bits().push_back(State::Sx);
+					initval_bits.push_back(State::Sx);
+			Const initval = initval_bits.build();
 
 			int nid_init_val = -1;
 
@@ -1039,10 +1040,11 @@ struct BtorWorker
 				{
 					if (bit.wire == nullptr)
 					{
-						Const c(bit.data);
-
-						while (i+GetSize(c) < GetSize(sig) && sig[i+GetSize(c)].wire == nullptr)
-							c.bits().push_back(sig[i+GetSize(c)].data);
+						Const::Builder c_bits;
+						c_bits.push_back(bit.data);
+						while (i + GetSize(c_bits) < GetSize(sig) && sig[i + GetSize(c_bits)].wire == nullptr)
+							c_bits.push_back(sig[i + GetSize(c_bits)].data);
+						Const c = c_bits.build();
 
 						if (consts.count(c) == 0) {
 							int sid = get_bv_sid(GetSize(c));

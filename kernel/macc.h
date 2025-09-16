@@ -262,7 +262,7 @@ struct Macc
 
 	bool eval(RTLIL::Const &result) const
 	{
-		for (auto &bit : result.bits())
+		for (auto bit : result)
 			bit = State::S0;
 
 		for (auto &port : terms)
