@@ -114,7 +114,7 @@ public:
 		return;
 	}
 	[[nodiscard]]
-	hash_t yield() {
+	hash_t yield() const {
 		return (hash_t)state;
 	}
 
@@ -373,7 +373,11 @@ public:
 	commutative_hash() {
 		buckets.fill(0);
 	}
-	void eat(Hasher h) {
+	template <typename T>
+	void eat(const T &obj) {
+		eat(hash_ops<T>::hash(obj));
+	}
+	void eat(const Hasher &h) {
 		Hasher::hash_t v = h.yield();
 		size_t index = v & (buckets.size() - 1);
 		buckets[index] += v;
