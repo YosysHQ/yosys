@@ -121,9 +121,9 @@ struct FmcombineWorker
 						if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 							SigSpec gold_q = gold->getPort(ID::Q);
 							SigSpec gate_q = gate->getPort(ID::Q);
-							SigSpec en = module->Initstate(NEW_ID);
-							SigSpec eq = module->Eq(NEW_ID, gold_q, gate_q);
-							module->addAssume(NEW_ID, eq, en);
+							SigSpec en = module->Initstate(NEWER_ID);
+							SigSpec eq = module->Eq(NEWER_ID, gold_q, gate_q);
+							module->addAssume(NEWER_ID, eq, en);
 						}
 					}
 				}
@@ -163,7 +163,7 @@ struct FmcombineWorker
 
 				SigSpec A = import_sig(conn.second, "_gold");
 				SigSpec B = import_sig(conn.second, "_gate");
-				SigBit EQ = module->Eq(NEW_ID, A, B);
+				SigBit EQ = module->Eq(NEWER_ID, A, B);
 
 				for (auto bit : sigmap({A, B}))
 					data_bit_to_eq_net[bit] = EQ;
@@ -205,7 +205,7 @@ struct FmcombineWorker
 
 				if (GetSize(antecedent) > 1) {
 					if (reduce_db.count(antecedent) == 0)
-						reduce_db[antecedent] = module->ReduceAnd(NEW_ID, antecedent);
+						reduce_db[antecedent] = module->ReduceAnd(NEWER_ID, antecedent);
 					antecedent = reduce_db.at(antecedent);
 				}
 
@@ -214,22 +214,22 @@ struct FmcombineWorker
 
 				if (GetSize(consequent) > 1) {
 					if (reduce_db.count(consequent) == 0)
-						reduce_db[consequent] = module->ReduceAnd(NEW_ID, consequent);
+						reduce_db[consequent] = module->ReduceAnd(NEWER_ID, consequent);
 					consequent = reduce_db.at(consequent);
 				}
 
 				if (opts.fwd)
-					module->addAssume(NEW_ID, consequent, antecedent);
+					module->addAssume(NEWER_ID, consequent, antecedent);
 
 				if (opts.bwd)
 				{
 					if (invert_db.count(antecedent) == 0)
-						invert_db[antecedent] = module->Not(NEW_ID, antecedent);
+						invert_db[antecedent] = module->Not(NEWER_ID, antecedent);
 
 					if (invert_db.count(consequent) == 0)
-						invert_db[consequent] = module->Not(NEW_ID, consequent);
+						invert_db[consequent] = module->Not(NEWER_ID, consequent);
 
-					module->addAssume(NEW_ID, invert_db.at(antecedent), invert_db.at(consequent));
+					module->addAssume(NEWER_ID, invert_db.at(antecedent), invert_db.at(consequent));
 				}
 			}
 		}

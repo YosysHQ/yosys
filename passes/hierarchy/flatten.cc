@@ -273,7 +273,7 @@ struct FlattenWorker
 		if (create_scopeinfo && cell_name.isPublic())
 		{
 			// The $scopeinfo's name will be changed below after removing the flattened cell
-			scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
+			scopeinfo = module->addCell(NEWER_ID, ID($scopeinfo));
 			scopeinfo->setParam(ID::TYPE, RTLIL::Const("module"));
 
 			for (auto const &attr : cell->attributes)

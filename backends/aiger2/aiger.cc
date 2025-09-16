@@ -1040,7 +1040,7 @@ struct XAigerWriter : AigerWriter {
 		for (auto [cursor, box, def] : opaque_boxes)
 			append_box_ports(box, cursor, false);
 
-		holes_module = design->addModule(NEW_ID);
+		holes_module = design->addModule(NEWER_ID);
 		std::vector<RTLIL::Wire *> holes_pis;
 		int boxes_ci_num = 0, boxes_co_num = 0;
 
@@ -1058,7 +1058,7 @@ struct XAigerWriter : AigerWriter {
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
 			// use `def->name` not `box->type` as we want the derived type
-			Cell *holes_wb = holes_module->addCell(NEW_ID, def->name);
+			Cell *holes_wb = holes_module->addCell(NEWER_ID, def->name);
 			int holes_pi_idx = 0;
 
 			if (map_file.is_open()) {
@@ -1097,7 +1097,7 @@ struct XAigerWriter : AigerWriter {
 					SigSpec in_conn;
 					for (int i = 0; i < port->width; i++) {
 						while (holes_pi_idx >= (int) holes_pis.size()) {
-							Wire *w = holes_module->addWire(NEW_ID, 1);
+							Wire *w = holes_module->addWire(NEWER_ID, 1);
 							w->port_input = true;
 							holes_module->ports.push_back(w->name);
 							holes_pis.push_back(w);
@@ -1126,7 +1126,7 @@ struct XAigerWriter : AigerWriter {
 					boxes_ci_num += port->width;
 
 					// holes
-					Wire *w = holes_module->addWire(NEW_ID, port->width);
+					Wire *w = holes_module->addWire(NEWER_ID, port->width);
 					w->port_output = true;
 					holes_module->ports.push_back(w->name);
 					holes_wb->setPort(port_id, w);

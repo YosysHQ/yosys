@@ -162,7 +162,7 @@ struct FoldInvWorker {
                 continue;
             // Create a duplicate of the LUT with an inverted output
             // (if the uninverted version becomes unused it will be swept away)
-            Cell *dup_lut = module->addCell(NEW_ID, orig_lut->type);
+            Cell *dup_lut = module->addCell(NEWER_ID, orig_lut->type);
             inv->unsetPort(ID::Y);
             dup_lut->setPort(ID::O, inv_y);
             for (auto conn : orig_lut->connections()) {

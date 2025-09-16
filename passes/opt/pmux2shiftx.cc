@@ -680,9 +680,9 @@ struct Pmux2ShiftxPass : public Pass {
 					// creat cmp signal
 					SigSpec cmp = perm_sig;
 					if (perm_xormask.as_bool())
-						cmp = module->Xor(NEW_ID, cmp, perm_xormask, false, src);
+						cmp = module->Xor(NEWER_ID, cmp, perm_xormask, false, src);
 					if (offset.as_bool())
-						cmp = module->Sub(NEW_ID, cmp, offset, false, src);
+						cmp = module->Sub(NEWER_ID, cmp, offset, false, src);
 
 					// create enable signal
 					SigBit en = State::S1;
@@ -690,8 +690,8 @@ struct Pmux2ShiftxPass : public Pass {
 						Const enable_mask(State::S0, max_choice+1);
 						for (auto &it : perm_choices)
 							enable_mask.set(it.first.as_int(), State::S1);
-						en = module->addWire(NEW_ID);
-						module->addShift(NEW_ID, enable_mask, cmp, en, false, src);
+						en = module->addWire(NEWER_ID);
+						module->addShift(NEWER_ID, enable_mask, cmp, en, false, src);
 					}
 
 					// create data signal
@@ -710,8 +710,8 @@ struct Pmux2ShiftxPass : public Pass {
 
 					// create shiftx cell
 					SigSpec shifted_cmp = {cmp, SigSpec(State::S0, width_bits)};
-					SigSpec outsig = module->addWire(NEW_ID, width);
-					Cell *c = module->addShiftx(NEW_ID, data, shifted_cmp, outsig, false, src);
+					SigSpec outsig = module->addWire(NEWER_ID, width);
+					Cell *c = module->addShiftx(NEWER_ID, data, shifted_cmp, outsig, false, src);
 					updated_S.append(en);
 					updated_B.append(outsig);
 					log("    created $shiftx cell %s.\n", log_id(c));

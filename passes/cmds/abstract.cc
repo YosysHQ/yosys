@@ -82,7 +82,7 @@ struct Slice {
 };
 
 void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_output, EnableLogic enable) {
-	auto anyseq = mod->Anyseq(NEW_ID, mux_input.size());
+	auto anyseq = mod->Anyseq(NEWER_ID, mux_input.size());
 	if (enable.bit == (enable.pol ? State::S1 : State::S0)) {
 		mod->connect(mux_output, anyseq);
 	}
@@ -94,7 +94,7 @@ void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_o
 		mux_a = anyseq;
 		mux_b = mux_input;
 	}
-	(void)mod->addMux(NEW_ID,
+	(void)mod->addMux(NEWER_ID,
 		mux_a,
 		mux_b,
 		enable.bit,
@@ -102,7 +102,7 @@ void emit_mux_anyseq(Module* mod, const SigSpec& mux_input, const SigSpec& mux_o
 }
 
 bool abstract_state_port(FfData& ff, SigSpec& port_sig, std::set<int> offsets, EnableLogic enable) {
-	Wire* abstracted = ff.module->addWire(NEW_ID, offsets.size());
+	Wire* abstracted = ff.module->addWire(NEWER_ID, offsets.size());
 	SigSpec mux_input;
 	int abstracted_idx = 0;
 	for (int d_idx = 0; d_idx < ff.width; d_idx++) {
@@ -213,7 +213,7 @@ unsigned int abstract_state(Module* mod, EnableLogic enable, const std::vector<S
 }
 
 bool abstract_value_cell_port(Module* mod, Cell* cell, std::set<int> offsets, IdString port_name, EnableLogic enable) {
-	Wire* to_abstract = mod->addWire(NEW_ID, offsets.size());
+	Wire* to_abstract = mod->addWire(NEWER_ID, offsets.size());
 	SigSpec mux_input;
 	SigSpec mux_output;
 	const SigSpec& old_port = cell->getPort(port_name);
@@ -235,7 +235,7 @@ bool abstract_value_cell_port(Module* mod, Cell* cell, std::set<int> offsets, Id
 }
 
 bool abstract_value_mod_port(Module* mod, Wire* wire, std::set<int> offsets, EnableLogic enable) {
-	Wire* to_abstract = mod->addWire(NEW_ID, wire);
+	Wire* to_abstract = mod->addWire(NEWER_ID, wire);
 	to_abstract->port_input = true;
 	to_abstract->port_id = wire->port_id;
 	wire->port_input = false;
@@ -501,10 +501,10 @@ struct AbstractPass : public Pass {
 						enable_logic = { enable_wire, enable == Enable::ActiveHigh };
 					} break;
 					case Enable::Initstates: {
-						SigBit in_init_states = mod->Initstate(NEW_ID);
+						SigBit in_init_states = mod->Initstate(NEWER_ID);
 						for (int i = 1; i < initstates; i++) {
-							Wire *in_init_states_q = mod->addWire(NEW_ID);
-							mod->addFf(NEW_ID, in_init_states, in_init_states_q);
+							Wire *in_init_states_q = mod->addWire(NEWER_ID);
+							mod->addFf(NEWER_ID, in_init_states, in_init_states_q);
 							in_init_states_q->attributes[ID::init] = State::S1;
 							in_init_states = in_init_states_q;
 						}

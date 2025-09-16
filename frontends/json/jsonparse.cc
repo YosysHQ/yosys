@@ -549,7 +549,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 					if (bitval_node->type == 'N') {
 						int bitidx = bitval_node->data_number;
 						if (signal_bits.count(bitidx) == 0)
-							signal_bits[bitidx] = module->addWire(NEW_ID);
+							signal_bits[bitidx] = module->addWire(NEWER_ID);
 						sig.append(signal_bits.at(bitidx));
 					} else
 						log_error("JSON cells node '%s' connection '%s' has invalid bit value on bit %d.\n",

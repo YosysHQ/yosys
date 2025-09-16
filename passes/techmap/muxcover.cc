@@ -185,7 +185,7 @@ struct MuxcoverWorker
 		tuple<SigBit, SigBit, SigBit> key(A, B, sel);
 		if (decode_mux_cache.count(key) == 0) {
 			auto &entry = decode_mux_cache[key];
-			std::get<0>(entry) = module->addWire(NEW_ID);
+			std::get<0>(entry) = module->addWire(NEWER_ID);
 			std::get<2>(entry) = false;
 			decode_mux_reverse_cache[std::get<0>(entry)] = key;
 		}
@@ -215,11 +215,11 @@ struct MuxcoverWorker
 		implement_decode_mux(std::get<1>(key));
 
 		if (std::get<0>(key) == State::Sx) {
-			module->addBufGate(NEW_ID, std::get<1>(key), ctrl_bit);
+			module->addBufGate(NEWER_ID, std::get<1>(key), ctrl_bit);
 		} else if (std::get<1>(key) == State::Sx) {
-			module->addBufGate(NEW_ID, std::get<0>(key), ctrl_bit);
+			module->addBufGate(NEWER_ID, std::get<0>(key), ctrl_bit);
 		} else {
-			module->addMuxGate(NEW_ID, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
+			module->addMuxGate(NEWER_ID, std::get<0>(key), std::get<1>(key), std::get<2>(key), ctrl_bit);
 			decode_mux_counter++;
 		}
 		std::get<2>(entry) = true;
@@ -513,7 +513,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 2) {
 			count_muxes_by_type[0]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
+			Cell *cell = module->addCell(NEWER_ID, ID($_MUX_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
 			cell->setPort(ID::S, mux.selects[0]);
@@ -523,7 +523,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 4) {
 			count_muxes_by_type[1]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
+			Cell *cell = module->addCell(NEWER_ID, ID($_MUX4_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
 			cell->setPort(ID::C, mux.inputs[2]);
@@ -536,7 +536,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 8) {
 			count_muxes_by_type[2]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
+			Cell *cell = module->addCell(NEWER_ID, ID($_MUX8_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
 			cell->setPort(ID::C, mux.inputs[2]);
@@ -554,7 +554,7 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 16) {
 			count_muxes_by_type[3]++;
-			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
+			Cell *cell = module->addCell(NEWER_ID, ID($_MUX16_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
 			cell->setPort(ID::C, mux.inputs[2]);

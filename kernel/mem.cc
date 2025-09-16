@@ -122,7 +122,7 @@ void Mem::emit() {
 		}
 		if (!cell) {
 			if (memid.empty())
-				memid = NEW_ID;
+				memid = NEWER_ID;
 			cell = module->addCell(memid, ID($mem_v2));
 		}
 		cell->type = ID($mem_v2);
@@ -291,7 +291,7 @@ void Mem::emit() {
 		}
 		if (!mem) {
 			if (memid.empty())
-				memid = NEW_ID;
+				memid = NEWER_ID;
 			mem = new RTLIL::Memory;
 			mem->name = memid;
 			module->memories[memid] = mem;
@@ -302,7 +302,7 @@ void Mem::emit() {
 		mem->attributes = attributes;
 		for (auto &port : rd_ports) {
 			if (!port.cell)
-				port.cell = module->addCell(NEW_ID, ID($memrd_v2));
+				port.cell = module->addCell(NEWER_ID, ID($memrd_v2));
 			port.cell->type = ID($memrd_v2);
 			port.cell->attributes = port.attributes;
 			port.cell->parameters[ID::MEMID] = memid.str();
@@ -327,7 +327,7 @@ void Mem::emit() {
 		int idx = 0;
 		for (auto &port : wr_ports) {
 			if (!port.cell)
-				port.cell = module->addCell(NEW_ID, ID($memwr_v2));
+				port.cell = module->addCell(NEWER_ID, ID($memwr_v2));
 			port.cell->type = ID($memwr_v2);
 			port.cell->attributes = port.attributes;
 			if (port.cell->parameters.count(ID::PRIORITY))
@@ -348,7 +348,7 @@ void Mem::emit() {
 		for (auto &init : inits) {
 			bool v2 = !init.en.is_fully_ones();
 			if (!init.cell)
-				init.cell = module->addCell(NEW_ID, v2 ? ID($meminit_v2) : ID($meminit));
+				init.cell = module->addCell(NEWER_ID, v2 ? ID($meminit_v2) : ID($meminit));
 			else
 				init.cell->type = v2 ? ID($meminit_v2) : ID($meminit);
 			init.cell->attributes = init.attributes;
@@ -1127,7 +1127,7 @@ void Mem::emulate_priority(int idx1, int idx2, FfInitVals *initvals)
 			addr1 = port1.sub_addr(sub);
 		else
 			addr2 = port2.sub_addr(sub);
-		SigSpec addr_eq = module->Eq(NEW_ID, addr1, addr2);
+		SigSpec addr_eq = module->Eq(NEWER_ID, addr1, addr2);
 		int ewidth = width << min_wide_log2;
 		int sub1 = wide1 ? sub : 0;
 		int sub2 = wide1 ? 0 : sub;
@@ -1139,9 +1139,9 @@ void Mem::emulate_priority(int idx1, int idx2, FfInitVals *initvals)
 			if (cache.count(key)) {
 				en1 = cache[key];
 			} else {
-				SigBit active2 = module->And(NEW_ID, addr_eq, en2);
-				SigBit nactive2 = module->Not(NEW_ID, active2);
-				en1 = cache[key] = module->And(NEW_ID, en1, nactive2);
+				SigBit active2 = module->And(NEWER_ID, addr_eq, en2);
+				SigBit nactive2 = module->Not(NEWER_ID, active2);
+				en1 = cache[key] = module->And(NEWER_ID, en1, nactive2);
 			}
 		}
 	}
@@ -1165,8 +1165,8 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 	// The write data FF doesn't need full reset/init behavior, as it'll be masked by
 	// the mux whenever this would be relevant.  It does, however, need to have the same
 	// clock enable signal as the read port.
-	SigSpec wdata_q = module->addWire(NEW_ID, GetSize(wport.data));
-	module->addDffe(NEW_ID, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
+	SigSpec wdata_q = module->addWire(NEWER_ID, GetSize(wport.data));
+	module->addDffe(NEWER_ID, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
 	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
 		SigSpec raddr = rport.addr;
 		SigSpec waddr = wport.addr;
@@ -1177,26 +1177,26 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				raddr = rport.sub_addr(sub);
 		SigSpec addr_eq;
 		if (raddr != waddr)
-			addr_eq = module->Eq(NEW_ID, raddr, waddr);
+			addr_eq = module->Eq(NEWER_ID, raddr, waddr);
 		int pos = 0;
 		int ewidth = width << min_wide_log2;
 		int wsub = wide_write ? sub : 0;
 		int rsub = wide_write ? 0 : sub;
-		SigSpec rdata_a = module->addWire(NEW_ID, ewidth);
+		SigSpec rdata_a = module->addWire(NEWER_ID, ewidth);
 		while (pos < ewidth) {
 			int epos = pos;
 			while (epos < ewidth && wport.en[epos + wsub * width] == wport.en[pos + wsub * width])
 				epos++;
 			SigSpec cond;
 			if (raddr != waddr)
-				cond = module->And(NEW_ID, wport.en[pos + wsub * width], addr_eq);
+				cond = module->And(NEWER_ID, wport.en[pos + wsub * width], addr_eq);
 			else
 				cond = wport.en[pos + wsub * width];
-			SigSpec cond_q = module->addWire(NEW_ID);
+			SigSpec cond_q = module->addWire(NEWER_ID);
 			// The FF for storing the bypass enable signal must be carefully
 			// constructed to preserve the overall init/reset/enable behavior
 			// of the whole port.
-			FfData ff(module, initvals, NEW_ID);
+			FfData ff(module, initvals, NEWER_ID);
 			ff.width = 1;
 			ff.sig_q = cond_q;
 			ff.sig_d = cond;
@@ -1230,7 +1230,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 			SigSpec cur = rdata_a.extract(pos, epos-pos);
 			SigSpec other = wdata_q.extract(pos + wsub * width, epos-pos);
 			SigSpec dest = rport.data.extract(pos + rsub * width, epos-pos);
-			module->addMux(NEW_ID, cur, other, cond_q, dest);
+			module->addMux(NEWER_ID, cur, other, cond_q, dest);
 			pos = epos;
 		}
 		rport.data.replace(rsub * width, rdata_a);
@@ -1376,8 +1376,8 @@ void Mem::widen_wr_port(int idx, int wide_log2) {
 			} else {
 				// May or may not write to this subword.
 				new_data.append(port.data);
-				SigSpec addr_eq = module->Eq(NEW_ID, addr_lo, cur_addr_lo);
-				SigSpec en = module->Mux(NEW_ID, Const(State::S0, GetSize(port.data)), port.en, addr_eq);
+				SigSpec addr_eq = module->Eq(NEWER_ID, addr_lo, cur_addr_lo);
+				SigSpec en = module->Mux(NEWER_ID, Const(State::S0, GetSize(port.data)), port.en, addr_eq);
 				new_en.append(en);
 			}
 		}
@@ -1392,11 +1392,11 @@ void Mem::emulate_rden(int idx, FfInitVals *initvals) {
 	auto &port = rd_ports[idx];
 	log_assert(port.clk_enable);
 	emulate_rd_ce_over_srst(idx);
-	Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
-	Wire *prev_data = module->addWire(NEW_ID, GetSize(port.data));
-	Wire *sel = module->addWire(NEW_ID);
-	FfData ff_sel(module, initvals, NEW_ID);
-	FfData ff_data(module, initvals, NEW_ID);
+	Wire *new_data = module->addWire(NEWER_ID, GetSize(port.data));
+	Wire *prev_data = module->addWire(NEWER_ID, GetSize(port.data));
+	Wire *sel = module->addWire(NEWER_ID);
+	FfData ff_sel(module, initvals, NEWER_ID);
+	FfData ff_data(module, initvals, NEWER_ID);
 	ff_sel.width = 1;
 	ff_sel.has_clk = true;
 	ff_sel.sig_clk = port.clk;
@@ -1444,7 +1444,7 @@ void Mem::emulate_rden(int idx, FfInitVals *initvals) {
 	}
 	ff_sel.emit();
 	ff_data.emit();
-	module->addMux(NEW_ID, prev_data, new_data, sel, port.data);
+	module->addMux(NEWER_ID, prev_data, new_data, sel, port.data);
 	port.data = new_data;
 	port.en = State::S1;
 }
@@ -1452,9 +1452,9 @@ void Mem::emulate_rden(int idx, FfInitVals *initvals) {
 void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, FfInitVals *initvals) {
 	auto &port = rd_ports[idx];
 	if (emu_init && !port.init_value.is_fully_undef()) {
-		Wire *sel = module->addWire(NEW_ID);
-		FfData ff_sel(module, initvals, NEW_ID);
-		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		Wire *sel = module->addWire(NEWER_ID);
+		FfData ff_sel(module, initvals, NEWER_ID);
+		Wire *new_data = module->addWire(NEWER_ID, GetSize(port.data));
 		ff_sel.width = 1;
 		ff_sel.has_clk = true;
 		ff_sel.sig_clk = port.clk;
@@ -1493,14 +1493,14 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			}
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.init_value, new_data, sel, port.data);
+		module->addMux(NEWER_ID, port.init_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.init_value = Const(State::Sx, GetSize(port.data));
 	}
 	if (emu_arst && port.arst != State::S0) {
-		Wire *sel = module->addWire(NEW_ID);
-		FfData ff_sel(module, initvals, NEW_ID);
-		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		Wire *sel = module->addWire(NEWER_ID);
+		FfData ff_sel(module, initvals, NEWER_ID);
+		Wire *new_data = module->addWire(NEWER_ID, GetSize(port.data));
 		ff_sel.width = 1;
 		ff_sel.has_clk = true;
 		ff_sel.sig_clk = port.clk;
@@ -1533,14 +1533,14 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			}
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.arst_value, new_data, sel, port.data);
+		module->addMux(NEWER_ID, port.arst_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.arst = State::S0;
 	}
 	if (emu_srst && port.srst != State::S0) {
-		Wire *sel = module->addWire(NEW_ID);
-		FfData ff_sel(module, initvals, NEW_ID);
-		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		Wire *sel = module->addWire(NEWER_ID);
+		FfData ff_sel(module, initvals, NEWER_ID);
+		Wire *new_data = module->addWire(NEWER_ID, GetSize(port.data));
 		ff_sel.width = 1;
 		ff_sel.has_clk = true;
 		ff_sel.sig_clk = port.clk;
@@ -1568,7 +1568,7 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 			ff_sel.val_arst = State::S1;
 		}
 		ff_sel.emit();
-		module->addMux(NEW_ID, port.srst_value, new_data, sel, port.data);
+		module->addMux(NEWER_ID, port.srst_value, new_data, sel, port.data);
 		port.data = new_data;
 		port.srst = State::S0;
 	}
@@ -1582,7 +1582,7 @@ void Mem::emulate_rd_ce_over_srst(int idx) {
 		return;
 	}
 	port.ce_over_srst = false;
-	port.srst = module->And(NEW_ID, port.en, port.srst);
+	port.srst = module->And(NEWER_ID, port.en, port.srst);
 }
 
 void Mem::emulate_rd_srst_over_ce(int idx) {
@@ -1593,7 +1593,7 @@ void Mem::emulate_rd_srst_over_ce(int idx) {
 		return;
 	}
 	port.ce_over_srst = true;
-	port.en = module->Or(NEW_ID, port.en, port.srst);
+	port.en = module->Or(NEWER_ID, port.en, port.srst);
 }
 
 bool Mem::emulate_read_first_ok() {
@@ -1639,13 +1639,13 @@ void Mem::emulate_read_first(FfInitVals *initvals) {
 			rd_ports[i].transparency_mask[j] = true;
 		}
 	for (auto &port: wr_ports) {
-		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
-		Wire *new_addr = module->addWire(NEW_ID, GetSize(port.addr));
+		Wire *new_data = module->addWire(NEWER_ID, GetSize(port.data));
+		Wire *new_addr = module->addWire(NEWER_ID, GetSize(port.addr));
 		auto compressed = port.compress_en();
-		Wire *new_en = module->addWire(NEW_ID, GetSize(compressed.first));
-		FfData ff_data(module, initvals, NEW_ID);
-		FfData ff_addr(module, initvals, NEW_ID);
-		FfData ff_en(module, initvals, NEW_ID);
+		Wire *new_en = module->addWire(NEWER_ID, GetSize(compressed.first));
+		FfData ff_data(module, initvals, NEWER_ID);
+		FfData ff_addr(module, initvals, NEWER_ID);
+		FfData ff_en(module, initvals, NEWER_ID);
 		ff_data.width = GetSize(port.data);
 		ff_data.has_clk = true;
 		ff_data.sig_clk = port.clk;

@@ -344,7 +344,7 @@ void prep_bypass(RTLIL::Design *design)
 				// For these new input ports driven by the replaced
 				//   cell, then create a new simple-path specify entry:
 				//     (input => output) = 0
-				auto specify = bypass_module->addCell(NEW_ID, ID($specify2));
+				auto specify = bypass_module->addCell(NEWER_ID, ID($specify2));
 				specify->setPort(ID::EN, State::S1);
 				specify->setPort(ID::SRC, src);
 				specify->setPort(ID::DST, dst);
@@ -405,7 +405,7 @@ void prep_bypass(RTLIL::Design *design)
 					}
 					sig = std::move(new_sig);
 				};
-				auto specify = bypass_module->addCell(NEW_ID, cell);
+				auto specify = bypass_module->addCell(NEWER_ID, cell);
 				specify->rewrite_sigspecs(rw);
 			}
 			bypass_module->fixup_ports();
@@ -415,7 +415,7 @@ void prep_bypass(RTLIL::Design *design)
 			//   original cell, but with additional inputs taken from the
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
-			auto bypass_cell = map_module->addCell(NEW_ID, cell->type.str() + "_$abc9_byp");
+			auto bypass_cell = map_module->addCell(NEWER_ID, cell->type.str() + "_$abc9_byp");
 			for (const auto &conn : cell->connections()) {
 				auto port = map_module->wire(conn.first);
 				if (cell->input(conn.first)) {
@@ -503,8 +503,8 @@ void prep_dff_submod(RTLIL::Design *design)
 		// Add an always-enabled CE mux that drives $_DFF_[NP]_.D so that:
 		//   (a) flop box will have an output
 		//   (b) $_DFF_[NP]_.Q will be present as an input
-		SigBit D = module->addWire(NEW_ID);
-		module->addMuxGate(NEW_ID, dff_cell->getPort(ID::D), Q, State::S0, D);
+		SigBit D = module->addWire(NEWER_ID);
+		module->addMuxGate(NEWER_ID, dff_cell->getPort(ID::D), Q, State::S0, D);
 		dff_cell->setPort(ID::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
@@ -592,7 +592,7 @@ void break_scc(RTLIL::Module *module)
 		for (auto &c : cell->connections_) {
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
-				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
+				Wire *w = module->addWire(NEWER_ID, GetSize(c.second));
 				I.append(w);
 				O.append(c.second);
 				c.second = w;
@@ -602,7 +602,7 @@ void break_scc(RTLIL::Module *module)
 
 	if (!I.empty())
 	{
-		auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
+		auto cell = module->addCell(NEWER_ID, ID($__ABC9_SCC_BREAKER));
 		log_assert(GetSize(I) == GetSize(O));
 		cell->setParam(ID::WIDTH, GetSize(I));
 		cell->setPort(ID::I, std::move(I));
@@ -680,7 +680,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto rhs = cell->getPort(i.first.name);
 			if (offset >= rhs.size())
 				continue;
-			auto O = module->addWire(NEW_ID);
+			auto O = module->addWire(NEWER_ID);
 
 #ifndef NDEBUG
 			if (ys_debug(1)) {
@@ -694,7 +694,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				r.first->second = delay_module->derive(design, {{ID::DELAY, d}});
 				log_assert(r.first->second.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
 			}
-			auto box = module->addCell(NEW_ID, r.first->second);
+			auto box = module->addCell(NEWER_ID, r.first->second);
 			box->setPort(ID::I, rhs[offset]);
 			box->setPort(ID::O, O);
 			rhs[offset] = O;
@@ -831,7 +831,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->get_bool_attribute(ID::whitebox)) {
-				holes_cell = holes_module->addCell(NEW_ID, cell->type);
+				holes_cell = holes_module->addCell(NEWER_ID, cell->type);
 
 				if (box_module->has_processes())
 					Pass::call_on_module(design, box_module, "proc -noopt");
@@ -1256,7 +1256,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 				bit_drivers[y_bit].insert(mapped_cell->name);
 
 			if (!a_bit.wire) {
-				mapped_cell->setPort(ID::Y, module->addWire(NEW_ID));
+				mapped_cell->setPort(ID::Y, module->addWire(NEWER_ID));
 				RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
 				log_assert(wire);
 				module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
@@ -1549,7 +1549,7 @@ clone_lut:
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}
-		auto cell = module->addLut(NEW_ID,
+		auto cell = module->addLut(NEWER_ID,
 				driver_lut->getPort(ID::A),
 				y_bit,
 				driver_mask);

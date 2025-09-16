@@ -364,9 +364,9 @@ static RTLIL::Cell* create_gold_module(RTLIL::Design *design, RTLIL::IdString ce
 	}
 
 	if (muxdiv && cell_type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
-		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(ID::B));
-		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort(ID::Y)));
-		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(ID::Y));
+		auto b_not_zero = module->ReduceBool(NEWER_ID, cell->getPort(ID::B));
+		auto div_out = module->addWire(NEWER_ID, GetSize(cell->getPort(ID::Y)));
+		module->addMux(NEWER_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(ID::Y));
 		cell->setPort(ID::Y, div_out);
 	}
 

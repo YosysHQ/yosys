@@ -529,25 +529,25 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			} else
 			if (port.second == 'q') {
 				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				sig = module->addWire(NEW_ID, GetSize(old_sig));
+				sig = module->addWire(NEWER_ID, GetSize(old_sig));
 				if (has_q && has_qn) {
 					for (auto &it : notmap[sigmap(old_sig)]) {
 						module->connect(it->getPort(ID::Y), sig);
-						it->setPort(ID::Y, module->addWire(NEW_ID, GetSize(old_sig)));
+						it->setPort(ID::Y, module->addWire(NEWER_ID, GetSize(old_sig)));
 					}
 				} else {
-					module->addNotGate(NEW_ID, sig, old_sig);
+					module->addNotGate(NEWER_ID, sig, old_sig);
 				}
 			} else
 			if ('a' <= port.second && port.second <= 'z') {
 				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
-				sig = module->NotGate(NEW_ID, sig);
+				sig = module->NotGate(NEWER_ID, sig);
 			} else
 			if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
 			} else
 			if (port.second == 0) {
-				sig = module->addWire(NEW_ID);
+				sig = module->addWire(NEWER_ID);
 			} else
 				log_abort();
 			new_cell->setPort("\\" + port.first, sig);

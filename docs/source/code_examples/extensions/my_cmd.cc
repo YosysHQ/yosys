@@ -38,9 +38,9 @@ struct Test1Pass : public Pass {
         y->port_output = true;
         y->port_id = 2;
 
-        RTLIL::Wire *a_inv = module->addWire(NEW_ID, 4);
-        module->addNeg(NEW_ID, a, a_inv, true);
-        module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 3), y);
+        RTLIL::Wire *a_inv = module->addWire(NEWER_ID, 4);
+        module->addNeg(NEWER_ID, a, a_inv, true);
+        module->addMux(NEWER_ID, a, a_inv, RTLIL::SigSpec(a, 3), y);
 
 	module->fixup_ports();
     }

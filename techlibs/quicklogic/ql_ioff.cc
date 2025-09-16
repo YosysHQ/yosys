@@ -91,7 +91,7 @@ struct QlIoffPass : public Pass {
 			if (std::any_of(ioff_cells.begin(), ioff_cells.end(), [](Cell * c) { return c != nullptr; }))
 			{
 				// create replacement output wire
-				RTLIL::Wire* new_port_output = module->addWire(NEW_ID, old_port_output->width);
+				RTLIL::Wire* new_port_output = module->addWire(NEWER_ID, old_port_output->width);
 				new_port_output->start_offset = old_port_output->start_offset;
 				module->swap_names(old_port_output, new_port_output);
 				std::swap(old_port_output->port_id, new_port_output->port_id);
@@ -108,7 +108,7 @@ struct QlIoffPass : public Pass {
 					if (ioff_cells[i]) {
 						log("Promoting %s to output IOFF.\n", log_signal(sig_n[i]));
 
-						RTLIL::Cell *new_cell = module->addCell(NEW_ID, ID(dff));
+						RTLIL::Cell *new_cell = module->addCell(NEWER_ID, ID(dff));
 						new_cell->setPort(ID::C, ioff_cells[i]->getPort(ID::C));
 						new_cell->setPort(ID::D, ioff_cells[i]->getPort(ID::D));
 						new_cell->setPort(ID::Q, sig_n[i]);

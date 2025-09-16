@@ -639,8 +639,8 @@ void counter_worker(
 		//If the reset is active low, infer an inverter ($__COUNT_ cells always have active high reset)
 		if(extract.rst_inverted)
 		{
-			auto realreset = cell->module->addWire(NEW_ID);
-			cell->module->addNot(NEW_ID, extract.rst, RTLIL::SigSpec(realreset));
+			auto realreset = cell->module->addWire(NEWER_ID);
+			cell->module->addNot(NEWER_ID, extract.rst, RTLIL::SigSpec(realreset));
 			cell->setPort(ID(RST), realreset);
 		}
 		else
@@ -665,8 +665,8 @@ void counter_worker(
 		cell->setParam(ID(HAS_CE), RTLIL::Const(1));
 		if(extract.ce_inverted)
 		{
-			auto realce = cell->module->addWire(NEW_ID);
-			cell->module->addNot(NEW_ID, extract.ce, RTLIL::SigSpec(realce));
+			auto realce = cell->module->addWire(NEWER_ID);
+			cell->module->addNot(NEWER_ID, extract.ce, RTLIL::SigSpec(realce));
 			cell->setPort(ID(CE), realce);
 		}
 		else

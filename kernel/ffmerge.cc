@@ -29,7 +29,7 @@ bool FfMergeHelper::is_output_unused(RTLIL::SigSpec sig) {
 }
 
 bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData(module, initvals, NEW_ID);
+	ff = FfData(module, initvals, NEWER_ID);
 	sigmap->apply(sig);
 
 	bool found = false;
@@ -157,7 +157,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 }
 
 bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData(module, initvals, NEW_ID);
+	ff = FfData(module, initvals, NEWER_ID);
 	sigmap->apply(sig);
 
 	bool found = false;

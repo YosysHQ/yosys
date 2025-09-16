@@ -30,7 +30,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 {
 	CellTypes ct(design);
 
-	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
+	RTLIL::Wire *dummy_wire = module->addWire(NEWER_ID, sig.size());
 
 	for (auto cell : module->cells())
 	for (auto &port : cell->connections_)

@@ -205,7 +205,7 @@ struct TechmapWorker
 			RTLIL::Wire *w = module->wire(w_name);
 			if (w != nullptr) {
 				temp_renamed_wires[w] = w->name;
-				module->rename(w, NEW_ID);
+				module->rename(w, NEWER_ID);
 				w = nullptr;
 			}
 			if (w == nullptr) {
@@ -792,7 +792,7 @@ struct TechmapWorker
 										continue;
 
 									IdString port_name = wire->name;
-									tpl->rename(wire, NEW_ID);
+									tpl->rename(wire, NEWER_ID);
 
 									RTLIL::Wire *new_wire = tpl->addWire(port_name, wire);
 									wire->port_input = false;

@@ -98,8 +98,8 @@ single signal bit can have multiple valid names. The SigMap object can be used
 to map SigSpecs or SigBits to unique SigSpecs and SigBits that consistently
 only use one wire from such a group of connected wires. For example:
 
-	SigBit a = module->addWire(NEW_ID);
-	SigBit b = module->addWire(NEW_ID);
+	SigBit a = module->addWire(NEWER_ID);
+	SigBit b = module->addWire(NEWER_ID);
 	module->connect(a, b);
 
 	log("%d\n", a == b); // will print 0

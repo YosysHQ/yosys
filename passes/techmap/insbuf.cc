@@ -94,7 +94,7 @@ struct InsbufPass : public Pass {
 						sigmap.add(outbit);
 					}
 
-					Cell *cell = module->addCell(NEW_ID, celltype);
+					Cell *cell = module->addCell(NEWER_ID, celltype);
 					cell->setPort(in_portname, rhs);
 					cell->setPort(out_portname, lhs);
 

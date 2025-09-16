@@ -105,10 +105,10 @@ struct ExtractinvPass : public Pass {
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
 					continue;
-				Wire *iwire = module->addWire(NEW_ID, sig.size());
+				Wire *iwire = module->addWire(NEWER_ID, sig.size());
 				for (int i = 0; i < sig.size(); i++)
 					if (invmask[i] == State::S1) {
-						RTLIL::Cell *icell = module->addCell(NEW_ID, RTLIL::escape_id(inv_celltype));
+						RTLIL::Cell *icell = module->addCell(NEWER_ID, RTLIL::escape_id(inv_celltype));
 						icell->setPort(RTLIL::escape_id(inv_portname), SigSpec(iwire, i));
 						icell->setPort(RTLIL::escape_id(inv_portname2), sig[i]);
 						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, log_id(module), log_id(cell->type), log_id(port.first), i);

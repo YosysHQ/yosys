@@ -128,13 +128,13 @@ struct OptReduceWorker
 
 			if (this_s.size() > 1)
 			{
-				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_ID, ID($reduce_or));
+				RTLIL::Cell *reduce_or_cell = module->addCell(NEWER_ID, ID($reduce_or));
 				reduce_or_cell->setPort(ID::A, this_s);
 				reduce_or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				reduce_or_cell->parameters[ID::A_WIDTH] = RTLIL::Const(this_s.size());
 				reduce_or_cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
 
-				RTLIL::Wire *reduce_or_wire = module->addWire(NEW_ID);
+				RTLIL::Wire *reduce_or_wire = module->addWire(NEWER_ID);
 				this_s = RTLIL::SigSpec(reduce_or_wire);
 				reduce_or_cell->setPort(ID::Y, this_s);
 			}

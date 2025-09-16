@@ -129,7 +129,7 @@ code
 		if (bit == SigBit(State::Sm))
 			padbits++;
 
-		SigSpec padwire = module->addWire(NEW_ID, padbits);
+		SigSpec padwire = module->addWire(NEWER_ID, padbits);
 
 		for (int i = new_y.size() - 1; i >= 0; i--)
 		if (new_y[i] == SigBit(State::Sm)) {
@@ -148,8 +148,8 @@ code
 		shift->setPort(\B, new_b);
 		shift->setParam(\B_WIDTH, GetSize(new_b));
 	} else {
-		SigSpec b_neg = module->addWire(NEW_ID, GetSize(new_b) + 1);
-		module->addNeg(NEW_ID, new_b, b_neg);
+		SigSpec b_neg = module->addWire(NEWER_ID, GetSize(new_b) + 1);
+		module->addNeg(NEWER_ID, new_b, b_neg);
 		shift->setPort(\B, b_neg);
 		shift->setParam(\B_WIDTH, GetSize(b_neg));
 	}

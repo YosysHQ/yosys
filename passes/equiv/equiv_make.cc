@@ -136,8 +136,8 @@ struct EquivMakeWorker
 
 	void add_eq_assertion(const SigSpec &gold_sig, const SigSpec &gate_sig)
 	{
-		auto eq_wire = equiv_mod->Eqx(NEW_ID, gold_sig, gate_sig);
-		equiv_mod->addAssert(NEW_ID_SUFFIX("assert"), eq_wire, State::S1);
+		auto eq_wire = equiv_mod->Eqx(NEWER_ID, gold_sig, gate_sig);
+		equiv_mod->addAssert(NEWER_ID_SUFFIX("assert"), eq_wire, State::S1);
 	}
 
 	void find_same_wires()
@@ -205,11 +205,11 @@ struct EquivMakeWorker
 					for (auto &bit : enc_result)
 						if (bit != State::S1) bit = State::S0;
 
-					SigSpec dec_eq = equiv_mod->addWire(NEW_ID);
-					SigSpec enc_eq = equiv_mod->addWire(NEW_ID);
+					SigSpec dec_eq = equiv_mod->addWire(NEWER_ID);
+					SigSpec enc_eq = equiv_mod->addWire(NEWER_ID);
 
-					equiv_mod->addEq(NEW_ID, reduced_dec_sig, reduced_dec_pat, dec_eq);
-					cells_list.push_back(equiv_mod->addEq(NEW_ID, reduced_enc_sig, reduced_enc_pat, enc_eq));
+					equiv_mod->addEq(NEWER_ID, reduced_dec_sig, reduced_dec_pat, dec_eq);
+					cells_list.push_back(equiv_mod->addEq(NEWER_ID, reduced_enc_sig, reduced_enc_pat, enc_eq));
 
 					dec_s.append(dec_eq);
 					enc_s.append(enc_eq);
@@ -217,8 +217,8 @@ struct EquivMakeWorker
 					enc_b.append(enc_result);
 				}
 
-				equiv_mod->addPmux(NEW_ID, dec_a, dec_b, dec_s, dec_wire);
-				equiv_mod->addPmux(NEW_ID, enc_a, enc_b, enc_s, enc_wire);
+				equiv_mod->addPmux(NEWER_ID, dec_a, dec_b, dec_s, dec_wire);
+				equiv_mod->addPmux(NEWER_ID, enc_a, enc_b, enc_s, enc_wire);
 
 				rd_signal_map.add(assign_map(gate_wire), enc_wire);
 				gate_wire = dec_wire;
@@ -254,7 +254,7 @@ struct EquivMakeWorker
 				else
 				{
 					for (int i = 0; i < wire->width; i++)
-						equiv_mod->addEquiv(NEW_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
+						equiv_mod->addEquiv(NEWER_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
 				}
 
 				rd_signal_map.add(assign_map(gold_wire), wire);
@@ -291,7 +291,7 @@ struct EquivMakeWorker
 							log("  Skipping signal bit %s [%d]: undriven on gate side.\n", id2cstr(gate_wire->name), i);
 							continue;
 						}
-						equiv_mod->addEquiv(NEW_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
+						equiv_mod->addEquiv(NEWER_ID, SigSpec(gold_wire, i), SigSpec(gate_wire, i), SigSpec(wire, i));
 						rdmap_gold.append(SigBit(gold_wire, i));
 						rdmap_gate.append(SigBit(gate_wire, i));
 						rdmap_equiv.append(SigBit(wire, i));
@@ -365,8 +365,8 @@ struct EquivMakeWorker
 				{
 					for (int i = 0; i < GetSize(gold_sig); i++)
 						if (gold_sig[i] != gate_sig[i]) {
-							Wire *w = equiv_mod->addWire(NEW_ID);
-							equiv_mod->addEquiv(NEW_ID, gold_sig[i], gate_sig[i], w);
+							Wire *w = equiv_mod->addWire(NEWER_ID);
+							equiv_mod->addEquiv(NEWER_ID, gold_sig[i], gate_sig[i], w);
 							gold_sig[i] = w;
 						}
 				}

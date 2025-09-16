@@ -420,7 +420,7 @@ struct PropagateWorker
 				replaced_clk_inputs.emplace_back(ReplacedPort {port, i, it->second});
 
 				if (it->second) {
-					bit = module->Not(NEW_ID, bit);
+					bit = module->Not(NEWER_ID, bit);
 				}
 			}
 		}
@@ -445,7 +445,7 @@ struct PropagateWorker
 		if (add_attribute) {
 			Wire *clk_wire = bit.wire;
 			if (bit.offset != 0 || GetSize(bit.wire) != 1) {
-				clk_wire = module->addWire(NEW_ID);
+				clk_wire = module->addWire(NEWER_ID);
 				module->connect(RTLIL::SigBit(clk_wire), bit);
 			}
 			clk_wire->attributes[ID::replaced_by_gclk] = polarity ? State::S1 : State::S0;
@@ -802,9 +802,9 @@ struct FormalFfPass : public Pass {
 										log_debug("patching rd port\n");
 										changed = true;
 										rd_port.clk = gate_clock;
-										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEWER_ID, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(rd_port.en));
-										rd_port.en = module->And(NEW_ID, rd_port.en, en_mask);
+										rd_port.en = module->And(NEWER_ID, rd_port.en, en_mask);
 									}
 								}
 								for (auto &wr_port : mem.wr_ports) {
@@ -812,9 +812,9 @@ struct FormalFfPass : public Pass {
 										log_debug("patching wr port\n");
 										changed = true;
 										wr_port.clk = gate_clock;
-										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEW_ID, sig_gate));
+										SigBit en_bit = pol_clk ? sig_gate : SigBit(module->Not(NEWER_ID, sig_gate));
 										SigSpec en_mask = SigSpec(en_bit, GetSize(wr_port.en));
-										wr_port.en = module->And(NEW_ID, wr_port.en, en_mask);
+										wr_port.en = module->And(NEWER_ID, wr_port.en, en_mask);
 									}
 								}
 								if (changed)
@@ -900,7 +900,7 @@ struct FormalFfPass : public Pass {
 					auto clk_wire = ff.sig_clk.is_wire() ? ff.sig_clk.as_wire() : nullptr;
 
 					if (clk_wire == nullptr) {
-						clk_wire = module->addWire(NEW_ID);
+						clk_wire = module->addWire(NEWER_ID);
 						module->connect(RTLIL::SigBit(clk_wire), ff.sig_clk);
 					}
 
@@ -982,9 +982,9 @@ struct FormalFfPass : public Pass {
 					SigBit clk = pair.first;
 
 					if (pair.second)
-						clk = module->Not(NEW_ID, clk);
+						clk = module->Not(NEWER_ID, clk);
 
-					module->addAssume(NEW_ID, clk, State::S1);
+					module->addAssume(NEWER_ID, clk, State::S1);
 
 				}
 			}

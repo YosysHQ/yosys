@@ -37,7 +37,7 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 	log("  replacing SB_LUT + SB_CARRY with $__ICE40_CARRY_WRAPPER cell.\n");
 
-	Cell *cell = pm.module->addCell(NEW_ID, ID($__ICE40_CARRY_WRAPPER));
+	Cell *cell = pm.module->addCell(NEWER_ID, ID($__ICE40_CARRY_WRAPPER));
 	pm.module->swap_names(cell, st.carry);
 
 	cell->setPort(ID::A, st.carry->getPort(ID(I0)));
@@ -116,13 +116,13 @@ struct Ice40WrapCarryPass : public Pass {
 					if (cell->type != ID($__ICE40_CARRY_WRAPPER))
 						continue;
 
-					auto carry = module->addCell(NEW_ID, ID(SB_CARRY));
+					auto carry = module->addCell(NEWER_ID, ID(SB_CARRY));
 					carry->setPort(ID(I0), cell->getPort(ID::A));
 					carry->setPort(ID(I1), cell->getPort(ID::B));
 					carry->setPort(ID::CI, cell->getPort(ID::CI));
 					carry->setPort(ID::CO, cell->getPort(ID::CO));
 					module->swap_names(carry, cell);
-					auto lut_name = cell->attributes.at(ID(SB_LUT4.name), Const(NEW_ID.str())).decode_string();
+					auto lut_name = cell->attributes.at(ID(SB_LUT4.name), Const(NEWER_ID.str())).decode_string();
 					auto lut = module->addCell(lut_name, ID($lut));
 					lut->setParam(ID::WIDTH, 4);
 					lut->setParam(ID::LUT, cell->getParam(ID::LUT));

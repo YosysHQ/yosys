@@ -68,22 +68,22 @@ struct BmuxmapPass : public Pass {
 			{
 				int num_cases = 1 << s_width;
 				SigSpec new_a = SigSpec(State::Sx, width);
-				SigSpec new_s = module->addWire(NEW_ID, num_cases);
-				SigSpec new_data = module->addWire(NEW_ID, width);
+				SigSpec new_s = module->addWire(NEWER_ID, num_cases);
+				SigSpec new_data = module->addWire(NEWER_ID, width);
 				for (int val = 0; val < num_cases; val++)
 				{
-					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
+					module->addEq(NEWER_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
 				}
-				RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
+				RTLIL::Cell *pmux = module->addPmux(NEWER_ID, new_a, data, new_s, new_data);
 				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 				data = new_data;
 			}
 			else
 			{
 				for (int idx = 0; idx < GetSize(sel); idx++) {
-					SigSpec new_data = module->addWire(NEW_ID, GetSize(data)/2);
+					SigSpec new_data = module->addWire(NEWER_ID, GetSize(data)/2);
 					for (int i = 0; i < GetSize(new_data); i += width) {
-						RTLIL::Cell *mux = module->addMux(NEW_ID,
+						RTLIL::Cell *mux = module->addMux(NEWER_ID,
 							data.extract(i*2, width),
 							data.extract(i*2+width, width),
 							sel[idx],

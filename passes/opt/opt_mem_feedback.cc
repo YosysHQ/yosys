@@ -120,7 +120,7 @@ struct OptMemFeedbackWorker
 				sig1.append(it.first);
 				sig2.append(it.second ? RTLIL::State::S1 : RTLIL::State::S0);
 			}
-			terms.append(module->Ne(NEW_ID, sig1, sig2));
+			terms.append(module->Ne(NEWER_ID, sig1, sig2));
 		}
 
 		if (olden != State::S1)
@@ -130,7 +130,7 @@ struct OptMemFeedbackWorker
 			terms = State::S1;
 
 		if (GetSize(terms) > 1)
-			terms = module->ReduceAnd(NEW_ID, terms);
+			terms = module->ReduceAnd(NEWER_ID, terms);
 
 		return conditions_logic_cache[key] = terms;
 	}

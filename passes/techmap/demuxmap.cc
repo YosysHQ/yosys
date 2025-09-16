@@ -57,13 +57,13 @@ struct DemuxmapPass : public Pass {
 
 			for (int i = 0; i < 1 << GetSize(sel); i++) {
 				if (width == 1 && data == State::S1) {
-					RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), out[i]);
+					RTLIL::Cell *eq_cell = module->addEq(NEWER_ID, sel, Const(i, GetSize(sel)), out[i]);
 					eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 				} else {
-					Wire *eq = module->addWire(NEW_ID);
-					RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), eq);
+					Wire *eq = module->addWire(NEWER_ID);
+					RTLIL::Cell *eq_cell = module->addEq(NEWER_ID, sel, Const(i, GetSize(sel)), eq);
 					eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-					RTLIL::Cell *mux = module->addMux(NEW_ID,
+					RTLIL::Cell *mux = module->addMux(NEWER_ID,
 							Const(State::S0, width),
 							data,
 							eq,

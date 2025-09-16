@@ -75,7 +75,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		auto D = cell->getPort(ID::D);
 		auto C = cell->getPort(ID::C);
 
-		auto newcell = cell->module->addCell(NEW_ID, ID(GP_SHREG));
+		auto newcell = cell->module->addCell(NEWER_ID, ID(GP_SHREG));
 		newcell->setPort(ID(nRST), State::S1);
 		newcell->setPort(ID::CLK, C);
 		newcell->setPort(ID(IN), D);
@@ -142,7 +142,7 @@ struct ShregmapWorker
 						// so that it can be identified as another chain
 						// (omitting this common flop)
 						// Link: https://github.com/YosysHQ/yosys/pull/1085
-						Wire *wire = module->addWire(NEW_ID);
+						Wire *wire = module->addWire(NEWER_ID);
 						module->connect(wire, d_bit);
 						sigmap.add(wire, d_bit);
 						sigbit_chain_next.insert(std::make_pair(wire, cell));

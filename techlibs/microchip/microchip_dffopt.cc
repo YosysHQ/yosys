@@ -309,22 +309,22 @@ struct MicrochipDffOptPass : public Pass {
 				Cell *lut_cell = nullptr;
 				switch (GetSize(final_lut.second)) {
 				case 1:
-					lut_cell = module->addCell(NEW_ID, ID(CFG1));
+					lut_cell = module->addCell(NEWER_ID, ID(CFG1));
 					break;
 				case 2:
-					lut_cell = module->addCell(NEW_ID, ID(CFG2));
+					lut_cell = module->addCell(NEWER_ID, ID(CFG2));
 					break;
 				case 3:
-					lut_cell = module->addCell(NEW_ID, ID(CFG3));
+					lut_cell = module->addCell(NEWER_ID, ID(CFG3));
 					break;
 				case 4:
-					lut_cell = module->addCell(NEW_ID, ID(CFG4));
+					lut_cell = module->addCell(NEWER_ID, ID(CFG4));
 					break;
 				default:
 					log_assert(!"unknown lut size");
 				}
 				lut_cell->attributes = cell_d->attributes;
-				Wire *lut_out = module->addWire(NEW_ID);
+				Wire *lut_out = module->addWire(NEWER_ID);
 				lut_cell->setParam(ID::INIT, final_lut.first);
 				cell->setPort(ID::D, lut_out);
 				lut_cell->setPort(ID::Y, lut_out);

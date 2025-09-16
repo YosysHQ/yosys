@@ -219,9 +219,9 @@ struct EquivMiterWorker
 		for (auto c : equiv_cells)
 		{
 			SigSpec cmp = mode_undef ?
-					miter_module->LogicOr(NEW_ID, miter_module->Eqx(NEW_ID, c->getPort(ID::A), State::Sx),
-							miter_module->Eqx(NEW_ID, c->getPort(ID::A), c->getPort(ID::B))) :
-					miter_module->Eq(NEW_ID, c->getPort(ID::A), c->getPort(ID::B));
+					miter_module->LogicOr(NEWER_ID, miter_module->Eqx(NEWER_ID, c->getPort(ID::A), State::Sx),
+							miter_module->Eqx(NEWER_ID, c->getPort(ID::A), c->getPort(ID::B))) :
+					miter_module->Eq(NEWER_ID, c->getPort(ID::A), c->getPort(ID::B));
 
 			if (mode_cmp) {
 				string cmp_name = stringf("\\cmp%s", log_signal(c->getPort(ID::Y)));
@@ -236,15 +236,15 @@ struct EquivMiterWorker
 			}
 
 			if (mode_assert)
-				miter_module->addAssert(NEW_ID, cmp, State::S1);
+				miter_module->addAssert(NEWER_ID, cmp, State::S1);
 
-			trigger_signals.append(miter_module->Not(NEW_ID, cmp));
+			trigger_signals.append(miter_module->Not(NEWER_ID, cmp));
 		}
 
 		if (mode_trigger) {
 			auto w = miter_module->addWire(ID(trigger));
 			w->port_output = true;
-			miter_module->addReduceOr(NEW_ID, trigger_signals, w);
+			miter_module->addReduceOr(NEWER_ID, trigger_signals, w);
 		}
 
 		miter_module->fixup_ports();

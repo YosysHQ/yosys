@@ -472,7 +472,7 @@ struct ExposePass : public Pass {
 					if (!w->port_input) {
 						w->port_input = true;
 						log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name));
-						wire_map[w] = NEW_ID;
+						wire_map[w] = NEWER_ID;
 					}
 				}
 				else
@@ -542,7 +542,7 @@ struct ExposePass : public Pass {
 
 				dff_map_info_t &info = dq.second;
 
-				RTLIL::Wire *wire_dummy_q = add_new_wire(module, NEW_ID, 0);
+				RTLIL::Wire *wire_dummy_q = add_new_wire(module, NEWER_ID, 0);
 
 				for (auto &cell_name : info.cells) {
 					RTLIL::Cell *cell = module->cell(cell_name);
@@ -578,7 +578,7 @@ struct ExposePass : public Pass {
 				if (info.clk_polarity) {
 					module->connect(RTLIL::SigSig(wire_c, info.sig_clk));
 				} else {
-					RTLIL::Cell *c = module->addCell(NEW_ID, ID($not));
+					RTLIL::Cell *c = module->addCell(NEWER_ID, ID($not));
 					c->parameters[ID::A_SIGNED] = 0;
 					c->parameters[ID::A_WIDTH] = 1;
 					c->parameters[ID::Y_WIDTH] = 1;
@@ -594,7 +594,7 @@ struct ExposePass : public Pass {
 					if (info.arst_polarity) {
 						module->connect(RTLIL::SigSig(wire_r, info.sig_arst));
 					} else {
-						RTLIL::Cell *c = module->addCell(NEW_ID, ID($not));
+						RTLIL::Cell *c = module->addCell(NEWER_ID, ID($not));
 						c->parameters[ID::A_SIGNED] = 0;
 						c->parameters[ID::A_WIDTH] = 1;
 						c->parameters[ID::Y_WIDTH] = 1;

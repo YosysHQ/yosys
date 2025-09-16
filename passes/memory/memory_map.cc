@@ -89,12 +89,12 @@ struct MemoryMapWorker
 
 		if (decoder_cache.count(key) == 0) {
 			if (GetSize(addr_sig) < 2) {
-				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
+				decoder_cache[key] = module->Eq(NEWER_ID, addr_sig, addr_val);
 			} else {
 				int split_at = GetSize(addr_sig) / 2;
 				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
 				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
-				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
+				decoder_cache[key] = module->And(NEWER_ID, left_eq, right_eq);
 			}
 		}
 

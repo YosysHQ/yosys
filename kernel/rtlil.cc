@@ -3090,7 +3090,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _y_size);    \
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
@@ -3115,7 +3115,7 @@ DEF_METHOD(LogicNot,   1, ID($logic_not))
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, bool is_signed, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);    \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _y_size);    \
 		add ## _func(name, sig_a, sig_y, is_signed, src);   \
 		return sig_y;                                       \
 	}
@@ -3137,7 +3137,7 @@ DEF_METHOD(Buf, sig_a.size(), ID($buf))
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _y_size);         \
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 		return sig_y;                                            \
 	}
@@ -3180,7 +3180,7 @@ DEF_METHOD(LogicOr,  1, ID($logic_or))
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _y_size);         \
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 		return sig_y;                                            \
 	}
@@ -3205,7 +3205,7 @@ DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
 		return cell;                                        \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, bool is_signed, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _y_size);         \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _y_size);         \
 		add ## _func(name, sig_a, sig_b, sig_y, is_signed, src); \
 		return sig_y;                                            \
 	}
@@ -3225,7 +3225,7 @@ DEF_METHOD(Shiftx,      sig_a.size(), ID($shiftx))
 		return cell;                                              \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_s, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.size());     \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, sig_a.size());     \
 		add ## _func(name, sig_a, sig_b, sig_s, sig_y, src);      \
 		return sig_y;                                             \
 	}
@@ -3246,7 +3246,7 @@ DEF_METHOD(Pmux,     ID($pmux),       1)
 		return cell;                                              \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, _demux ? sig_a.size() << sig_s.size() : sig_a.size() >> sig_s.size()); \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, _demux ? sig_a.size() << sig_s.size() : sig_a.size() >> sig_s.size()); \
 		add ## _func(name, sig_a, sig_s, sig_y, src);             \
 		return sig_y;                                             \
 	}
@@ -3265,7 +3265,7 @@ DEF_METHOD(Demux,    ID($demux),      1)
 		return cell;                                              \
 	} \
 	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const std::string &src) { \
-		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.size());     \
+		RTLIL::SigSpec sig_y = addWire(NEWER_ID, sig_a.size());     \
 		add ## _func(name, sig_a, sig_s, sig_y, src);             \
 		return sig_y;                                             \
 	}
@@ -3281,7 +3281,7 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return cell;                                      \
 	} \
 	RTLIL::SigBit RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const std::string &src) { \
-		RTLIL::SigBit sig2 = addWire(NEW_ID);             \
+		RTLIL::SigBit sig2 = addWire(NEWER_ID);             \
 		add ## _func(name, sig1, sig2, src);              \
 		return sig2;                                      \
 	}
@@ -3295,7 +3295,7 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return cell;                                      \
 	} \
 	RTLIL::SigBit RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const std::string &src) { \
-		RTLIL::SigBit sig3 = addWire(NEW_ID);             \
+		RTLIL::SigBit sig3 = addWire(NEWER_ID);             \
 		add ## _func(name, sig1, sig2, sig3, src);        \
 		return sig3;                                      \
 	}
@@ -3310,7 +3310,7 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return cell;                                      \
 	} \
 	RTLIL::SigBit RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const std::string &src) { \
-		RTLIL::SigBit sig4 = addWire(NEW_ID);             \
+		RTLIL::SigBit sig4 = addWire(NEWER_ID);             \
 		add ## _func(name, sig1, sig2, sig3, sig4, src);  \
 		return sig4;                                      \
 	}
@@ -3326,7 +3326,7 @@ DEF_METHOD(Bweqx,    ID($bweqx))
 		return cell;                                      \
 	} \
 	RTLIL::SigBit RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigBit &sig1, const RTLIL::SigBit &sig2, const RTLIL::SigBit &sig3, const RTLIL::SigBit &sig4, const std::string &src) { \
-		RTLIL::SigBit sig5 = addWire(NEW_ID);                  \
+		RTLIL::SigBit sig5 = addWire(NEWER_ID);                  \
 		add ## _func(name, sig1, sig2, sig3, sig4, sig5, src); \
 		return sig5;                                           \
 	}
@@ -3935,7 +3935,7 @@ RTLIL::Cell* RTLIL::Module::addAnyinit(RTLIL::IdString name, const RTLIL::SigSpe
 
 RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	RTLIL::SigSpec sig = addWire(NEWER_ID, width);
 	Cell *cell = addCell(name, ID($anyconst));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
@@ -3945,7 +3945,7 @@ RTLIL::SigSpec RTLIL::Module::Anyconst(RTLIL::IdString name, int width, const st
 
 RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	RTLIL::SigSpec sig = addWire(NEWER_ID, width);
 	Cell *cell = addCell(name, ID($anyseq));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
@@ -3955,7 +3955,7 @@ RTLIL::SigSpec RTLIL::Module::Anyseq(RTLIL::IdString name, int width, const std:
 
 RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	RTLIL::SigSpec sig = addWire(NEWER_ID, width);
 	Cell *cell = addCell(name, ID($allconst));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
@@ -3965,7 +3965,7 @@ RTLIL::SigSpec RTLIL::Module::Allconst(RTLIL::IdString name, int width, const st
 
 RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, width);
+	RTLIL::SigSpec sig = addWire(NEWER_ID, width);
 	Cell *cell = addCell(name, ID($allseq));
 	cell->setParam(ID::WIDTH, width);
 	cell->setPort(ID::Y, sig);
@@ -3975,7 +3975,7 @@ RTLIL::SigSpec RTLIL::Module::Allseq(RTLIL::IdString name, int width, const std:
 
 RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID);
+	RTLIL::SigSpec sig = addWire(NEWER_ID);
 	Cell *cell = addCell(name, ID($initstate));
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
@@ -3984,7 +3984,7 @@ RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string 
 
 RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
+	RTLIL::SigSpec sig = addWire(NEWER_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($set_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
@@ -4011,7 +4011,7 @@ RTLIL::Cell* RTLIL::Module::addSetTag(RTLIL::IdString name, const std::string &t
 
 RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
+	RTLIL::SigSpec sig = addWire(NEWER_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($get_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
@@ -4035,7 +4035,7 @@ RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::str
 
 RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
+	RTLIL::SigSpec sig = addWire(NEWER_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($original_tag));
 	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
@@ -4047,7 +4047,7 @@ RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::strin
 
 RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	RTLIL::SigSpec sig = addWire(NEWER_ID, sig_e.size());
 	Cell *cell = addCell(name, ID($future_ff));
 	cell->parameters[ID::WIDTH] = sig_e.size();
 	cell->setPort(ID::A, sig_e);
@@ -4255,7 +4255,7 @@ void RTLIL::Module::bufNormalize()
 			for (auto &chunk : sig.chunks())
 				if (chunk.wire) outWires.insert(chunk.wire);
 
-			Wire *wire = addWire(NEW_ID, GetSize(sig));
+			Wire *wire = addWire(NEWER_ID, GetSize(sig));
 			sigmap.add(sig, wire);
 			cell->setPort(portname, wire);
 
@@ -4268,7 +4268,7 @@ void RTLIL::Module::bufNormalize()
 			for (int i = 0; i < GetSize(wire); i++)
 				if (insig[i] == outsig[i])
 					insig[i] = State::Sx;
-			addBuf(NEW_ID, insig, outsig);
+			addBuf(NEWER_ID, insig, outsig);
 		}
 	}
 }

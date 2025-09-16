@@ -78,9 +78,9 @@ struct SupercoverPass : public Pass {
 					if (handled_bits.count(bit))
 						continue;
 
-					SigSpec inv = module->Not(NEW_ID, bit);
-					module->addCover(NEW_ID, bit, State::S1, src);
-					module->addCover(NEW_ID, inv, State::S1, src);
+					SigSpec inv = module->Not(NEWER_ID, bit);
+					module->addCover(NEWER_ID, bit, State::S1, src);
+					module->addCover(NEWER_ID, inv, State::S1, src);
 
 					handled_bits.insert(bit);
 					if (!counted_wire) {

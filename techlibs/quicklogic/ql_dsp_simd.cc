@@ -148,7 +148,7 @@ struct QlDspSimdPass : public Pass {
 					Cell *dsp_b = group[i + 1];
 
 					// Create the new cell
-					Cell *simd = module->addCell(NEW_ID, m_SimdDspType);
+					Cell *simd = module->addCell(NEWER_ID, m_SimdDspType);
 
 					log(" SIMD: %s (%s) + %s (%s) => %s (%s)\n", log_id(dsp_a), log_id(dsp_a->type),
 						log_id(dsp_b), log_id(dsp_b->type), log_id(simd), log_id(simd->type));
@@ -182,7 +182,7 @@ struct QlDspSimdPass : public Pass {
 								if (!isOutput)
 									sigspec.append(RTLIL::SigSpec(RTLIL::Sx, padding));
 								else
-									sigspec.append(module->addWire(NEW_ID, padding));
+									sigspec.append(module->addWire(NEWER_ID, padding));
 							}
 							return sigspec;
 						};

@@ -41,7 +41,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 		log_error("Could not find wire with name \"%s\".\n", name);
 	}
 	else {
-		RTLIL::Cell *formal_cell = module->addCell(NEW_ID, "$" + celltype);
+		RTLIL::Cell *formal_cell = module->addCell(NEWER_ID, "$" + celltype);
 		formal_cell->setPort(ID::A, wire);
 		if(enable_name == "") {
 			formal_cell->setPort(ID::EN, State::S1);

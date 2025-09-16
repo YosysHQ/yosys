@@ -78,7 +78,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	while (modcnt < maxmodcnt)
 	{
 		int submodcnt = 0, itercnt = 0, cellcnt = 0;
-		Module *mod = design->addModule(NEW_ID);
+		Module *mod = design->addModule(NEWER_ID);
 
 		while (modcnt < maxmodcnt && submodcnt < maxsubcnt && itercnt++ < 1000)
 		{
@@ -130,7 +130,7 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 	for (auto mod : mods) {
 		Cell *c = m->addCell(mod->name, mod->name);
 		for (auto port : mod->ports) {
-			Wire *w = m->addWire(NEW_ID, GetSize(mod->wire(port)));
+			Wire *w = m->addWire(NEWER_ID, GetSize(mod->wire(port)));
 			c->setPort(port, w);
 		}
 	}

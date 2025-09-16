@@ -14,19 +14,19 @@ match first
 	select first->type.in($_AND_, $_OR_, $_XOR_)
 	filter !non_first_cells.count(first)
 generate
-	SigSpec A = module->addWire(NEW_ID);
-	SigSpec B = module->addWire(NEW_ID);
-	SigSpec Y = module->addWire(NEW_ID);
+	SigSpec A = module->addWire(NEWER_ID);
+	SigSpec B = module->addWire(NEWER_ID);
+	SigSpec Y = module->addWire(NEWER_ID);
 	switch (rng(3))
 	{
 	case 0:
-		module->addAndGate(NEW_ID, A, B, Y);
+		module->addAndGate(NEWER_ID, A, B, Y);
 		break;
 	case 1:
-		module->addOrGate(NEW_ID, A, B, Y);
+		module->addOrGate(NEWER_ID, A, B, Y);
 		break;
 	case 2:
-		module->addXorGate(NEW_ID, A, B, Y);
+		module->addXorGate(NEWER_ID, A, B, Y);
 		break;
 	}
 endmatch
@@ -82,10 +82,10 @@ match next
 	index <IdString> next->type === chain.back().first->type
 	index <SigSpec> port(next, \Y) === port(chain.back().first, chain.back().second)
 generate 10
-	SigSpec A = module->addWire(NEW_ID);
-	SigSpec B = module->addWire(NEW_ID);
+	SigSpec A = module->addWire(NEWER_ID);
+	SigSpec B = module->addWire(NEWER_ID);
 	SigSpec Y = port(chain.back().first, chain.back().second);
-	Cell *c = module->addAndGate(NEW_ID, A, B, Y);
+	Cell *c = module->addAndGate(NEWER_ID, A, B, Y);
 	c->type = chain.back().first->type;
 endmatch
 
@@ -121,10 +121,10 @@ match eq
 	set eq_inB port(eq, \B)
 	set eq_ne_signed param(eq, \A_SIGNED).as_bool()
 generate 100 10
-	SigSpec A = module->addWire(NEW_ID, rng(7)+1);
-	SigSpec B = module->addWire(NEW_ID, rng(7)+1);
-	SigSpec Y = module->addWire(NEW_ID);
-	module->addEq(NEW_ID, A, B, Y, rng(2));
+	SigSpec A = module->addWire(NEWER_ID, rng(7)+1);
+	SigSpec B = module->addWire(NEWER_ID, rng(7)+1);
+	SigSpec Y = module->addWire(NEWER_ID);
+	module->addEq(NEWER_ID, A, B, Y, rng(2));
 endmatch
 
 match pmux
@@ -137,16 +137,16 @@ generate 100 10
 	int numsel = rng(4) + 1;
 	int idx = rng(numsel);
 
-	SigSpec A = module->addWire(NEW_ID, width);
-	SigSpec Y = module->addWire(NEW_ID, width);
+	SigSpec A = module->addWire(NEWER_ID, width);
+	SigSpec Y = module->addWire(NEWER_ID, width);
 
 	SigSpec B, S;
 	for (int i = 0; i < numsel; i++) {
-		B.append(module->addWire(NEW_ID, width));
-		S.append(i == idx ? port(eq, \Y) : module->addWire(NEW_ID));
+		B.append(module->addWire(NEWER_ID, width));
+		S.append(i == idx ? port(eq, \Y) : module->addWire(NEWER_ID));
 	}
 
-	module->addPmux(NEW_ID, A, B, S, Y);
+	module->addPmux(NEWER_ID, A, B, S, Y);
 endmatch
 
 match ne
@@ -169,11 +169,11 @@ generate 100 10
 		if (GetSize(Y))
 			Y = Y[rng(GetSize(Y))];
 		else
-			Y = module->addWire(NEW_ID);
+			Y = module->addWire(NEWER_ID);
 	} else {
-		Y = module->addWire(NEW_ID);
+		Y = module->addWire(NEWER_ID);
 	}
-	module->addNe(NEW_ID, A, B, Y, rng(2));
+	module->addNe(NEWER_ID, A, B, Y, rng(2));
 endmatch
 
 match pmux2

@@ -337,12 +337,12 @@ struct ChformalPass : public Pass {
 						SigSpec orig_a = cell->getPort(ID::A);
 						SigSpec orig_en = cell->getPort(ID::EN);
 
-						Wire *new_a = module->addWire(NEW_ID);
-						Wire *new_en = module->addWire(NEW_ID);
+						Wire *new_a = module->addWire(NEWER_ID);
+						Wire *new_en = module->addWire(NEWER_ID);
 						new_en->attributes[ID::init] = State::S0;
 
-						module->addFf(NEW_ID, orig_a, new_a);
-						module->addFf(NEW_ID, orig_en, new_en);
+						module->addFf(NEWER_ID, orig_a, new_a);
+						module->addFf(NEWER_ID, orig_en, new_en);
 
 						cell->setPort(ID::A, new_a);
 						cell->setPort(ID::EN, new_en);
@@ -355,14 +355,14 @@ struct ChformalPass : public Pass {
 				SigSpec en = State::S1;
 
 				for (int i = 0; i < mode_arg; i++) {
-					Wire *w = module->addWire(NEW_ID);
+					Wire *w = module->addWire(NEWER_ID);
 					w->attributes[ID::init] = State::S0;
-					module->addFf(NEW_ID, en, w);
+					module->addFf(NEWER_ID, en, w);
 					en = w;
 				}
 
 				for (auto cell : constr_cells)
-					cell->setPort(ID::EN, module->LogicAnd(NEW_ID, en, cell->getPort(ID::EN)));
+					cell->setPort(ID::EN, module->LogicAnd(NEWER_ID, en, cell->getPort(ID::EN)));
 			}
 			else
 			if (mode =='p')
@@ -370,7 +370,7 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 				{
 					if (cell->type == ID($check)) {
-						Cell *cover = module->addCell(NEW_ID_SUFFIX("coverenable"), ID($check));
+						Cell *cover = module->addCell(NEWER_ID_SUFFIX("coverenable"), ID($check));
 						cover->attributes = cell->attributes;
 						cover->parameters = cell->parameters;
 						cover->setParam(ID(FLAVOR), Const("cover"));
@@ -381,7 +381,7 @@ struct ChformalPass : public Pass {
 						cover->setPort(ID::A, cell->getPort(ID::EN));
 						cover->setPort(ID::EN, State::S1);
 					} else {
-						module->addCover(NEW_ID_SUFFIX("coverenable"),
+						module->addCover(NEWER_ID_SUFFIX("coverenable"),
 							cell->getPort(ID::EN), State::S1, cell->get_src_attribute());
 					}
 				}
@@ -414,7 +414,7 @@ struct ChformalPass : public Pass {
 						log_error("Cannot lower edge triggered $check cell %s, run async2sync or clk2fflogic first.\n", log_id(cell));
 
 
-					Cell *plain_cell = module->addCell(NEW_ID, formal_flavor(cell));
+					Cell *plain_cell = module->addCell(NEWER_ID, formal_flavor(cell));
 
 					plain_cell->attributes = cell->attributes;
 
@@ -425,9 +425,9 @@ struct ChformalPass : public Pass {
 					plain_cell->setPort(ID::EN, sig_en);
 
 					if (plain_cell->type.in(ID($assert), ID($assume)))
-						sig_a = module->Not(NEW_ID, sig_a);
+						sig_a = module->Not(NEWER_ID, sig_a);
 
-					SigBit combined_en = module->And(NEW_ID, sig_a, sig_en);
+					SigBit combined_en = module->And(NEWER_ID, sig_a, sig_en);
 
 					module->swap_names(cell, plain_cell);
 
