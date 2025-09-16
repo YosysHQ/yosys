@@ -150,7 +150,7 @@ struct ExecPass : public Pass {
 			}
 		}
 
-		log_header(design, "Executing command \"%s\".\n", cmd.c_str());
+		log_header(design, "Executing command \"%s\".\n", cmd);
 		log_push();
 
 		fflush(stdout);

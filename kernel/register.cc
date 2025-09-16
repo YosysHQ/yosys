@@ -199,7 +199,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
 			cmd_buf.resize(cmd_buf.size()-1);
-		log_header(design, "Shell command: %s\n", cmd_buf.c_str());
+		log_header(design, "Shell command: %s\n", cmd_buf);
 		int retCode = run_command(cmd_buf);
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);

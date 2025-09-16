@@ -163,7 +163,7 @@ struct RpcModule : RTLIL::Module {
 			stripped_name = stripped_name.substr(9);
 		log_assert(stripped_name[0] == '\\');
 
-		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name.c_str(), stripped_name.c_str());
+		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name, stripped_name);
 
 		std::string parameter_info;
 		for (auto &param : parameters) {

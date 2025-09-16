@@ -1822,7 +1822,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		return modname;
 
 	if (!quiet)
-		log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name.c_str());
+		log_header(design, "Executing AST frontend in derive mode using pre-parsed AST for module `%s'.\n", stripped_name);
 	loadconfig();
 
 	pool<IdString> rewritten;
