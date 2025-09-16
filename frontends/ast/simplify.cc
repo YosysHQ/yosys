@@ -1915,7 +1915,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 		if (current_scope.at(modname)->type != AST_CELL)
 			input_error("Defparam argument `%s . %s` does not match a cell!\n",
-					RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str());
+					RTLIL::unescape_id(modname), RTLIL::unescape_id(paramname));
 
 		auto paraset = std::make_unique<AstNode>(location, AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : nullptr);
 		paraset->str = paramname;
@@ -3394,11 +3394,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 				if (GetSize(children) != 1 && GetSize(children) != 2)
 					input_error("System function %s got %d arguments, expected 1 or 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				if (!current_always_clocked)
 					input_error("System function %s is only allowed in clocked blocks.\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 
 				if (GetSize(children) == 2)
 				{
@@ -3469,11 +3469,11 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				if (!current_always_clocked)
 					input_error("System function %s is only allowed in clocked blocks.\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 
 				auto present = children.at(0)->clone();
 				auto past = clone();
@@ -3511,7 +3511,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (children.size() != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto buf = children[0]->clone();
 				while (buf->simplify(true, stage, width_hint, sign_hint)) { }
@@ -3538,11 +3538,11 @@ skip_dynamic_range_lvalue_expansion:;
 				if (str == "\\$dimensions" || str == "\\$unpacked_dimensions" || str == "\\$bits") {
 					if (children.size() != 1)
 						input_error("System function %s got %d arguments, expected 1.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				} else {
 					if (children.size() != 1 && children.size() != 2)
 						input_error("System function %s got %d arguments, expected 1 or 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 					if (children.size() == 2) {
 						auto buf = children[1]->clone();
 						// Evaluate constant expression
@@ -3634,18 +3634,18 @@ skip_dynamic_range_lvalue_expansion:;
 				if (func_with_two_arguments) {
 					if (children.size() != 2)
 						input_error("System function %s got %d arguments, expected 2.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				} else {
 					if (children.size() != 1)
 						input_error("System function %s got %d arguments, expected 1.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				}
 
 				if (children.size() >= 1) {
 					while (children[0]->simplify(true, stage, width_hint, sign_hint)) { }
 					if (!children[0]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[0]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -3656,7 +3656,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (children[1]->simplify(true, stage, width_hint, sign_hint)) { }
 					if (!children[1]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[1]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -3703,7 +3703,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$countbits") {
 				if (children.size() < 2)
 					input_error("System function %s got %d arguments, expected at least 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				std::vector<RTLIL::State> control_bits;
 
@@ -3760,7 +3760,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$countones" || str == "\\$isunknown" || str == "\\$onehot" || str == "\\$onehot0") {
 				if (children.size() != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto countbits = clone();
 				countbits->str = "\\$countbits";
@@ -3834,7 +3834,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) < 2 || GetSize(children) > 4)
 					input_error("System function %s got %d arguments, expected 2-4.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto node_filename = children[0]->clone();
 				while (node_filename->simplify(true, stage, width_hint, sign_hint)) { }

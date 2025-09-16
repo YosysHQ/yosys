@@ -1012,7 +1012,7 @@ struct XAigerWriter : AigerWriter {
 
 			for (auto box : minfo.found_blackboxes) {
 				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
-						  RTLIL::unescape_id(box->name).c_str(),
+						  RTLIL::unescape_id(box->name),
 						  log_id(box->type));
 
 				Module *box_module = design->module(box->type), *box_derived;
