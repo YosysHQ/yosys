@@ -171,8 +171,8 @@ struct OptMergeWorker
 			}
 		}
 
-		if (cell1->type == ID($and) || cell1->type == ID($or) || cell1->type == ID($xor) || cell1->type == ID($xnor) || cell1->type == ID($add) || cell1->type == ID($mul) ||
-				cell1->type == ID($logic_and) || cell1->type == ID($logic_or) || cell1->type == ID($_AND_) || cell1->type == ID($_OR_) || cell1->type == ID($_XOR_)) {
+		if (cell1->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
+				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			if (conn1.at(ID::A) < conn1.at(ID::B)) {
 				std::swap(conn1[ID::A], conn1[ID::B]);
 			}
@@ -180,11 +180,11 @@ struct OptMergeWorker
 				std::swap(conn2[ID::A], conn2[ID::B]);
 			}
 		} else
-		if (cell1->type == ID($reduce_xor) || cell1->type == ID($reduce_xnor)) {
+		if (cell1->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			conn1[ID::A].sort();
 			conn2[ID::A].sort();
 		} else
-		if (cell1->type == ID($reduce_and) || cell1->type == ID($reduce_or) || cell1->type == ID($reduce_bool)) {
+		if (cell1->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
 			conn1[ID::A].sort_and_unify();
 			conn2[ID::A].sort_and_unify();
 		} else
