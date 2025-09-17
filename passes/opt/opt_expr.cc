@@ -30,6 +30,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
+int sort_fails = 0;
 
 void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 {
@@ -393,7 +394,7 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 	return -1;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv, int effort)
 {
 	SigMap assign_map(module);
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
@@ -512,10 +513,14 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
 	}
 
-	if (!cells.sort()) {
+	if (sort_fails < effort && !cells.sort()) {
 		// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
 		// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
 		log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
+		sort_fails++;
+		if (sort_fails >= effort)
+			log("Effort of %d exceeded, no longer attempting toposort on module %s.\n",
+				 effort, log_id(module));
 	}
 
 	for (auto cell : cells.sorted)
@@ -2308,6 +2313,10 @@ struct OptExprPass : public Pass {
 		log("        all result bits to be set to x. this behavior changes when 'a+0' is\n");
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
+		log("    -effort N\n");
+		log("        allow toposort to fail in N iterations on each module before giving up\n");
+		log("         on sorting for that module. Default value is 5\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -2317,6 +2326,7 @@ struct OptExprPass : public Pass {
 		bool noclkinv = false;
 		bool do_fine = false;
 		bool keepdc = false;
+		int effort = 5;
 
 		log_header(design, "Executing OPT_EXPR pass (perform const folding).\n");
 		log_push();
@@ -2354,6 +2364,10 @@ struct OptExprPass : public Pass {
 				keepdc = true;
 				continue;
 			}
+			if (args[argidx] == "-effort" && argidx + 1 < args.size()) {
+				effort = atoi(args[++argidx].c_str());
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2370,15 +2384,16 @@ struct OptExprPass : public Pass {
 					design->scratchpad_set_bool("opt.did_something", true);
 			}
 
+			sort_fails = 0;
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv, effort);
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
 				if (!keepdc)
-					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv, effort);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);
