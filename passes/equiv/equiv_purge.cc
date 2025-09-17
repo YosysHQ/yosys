@@ -67,7 +67,7 @@ struct EquivPurgeWorker
 					log("  Module input: %s\n", log_signal(wire));
 					wire->port_input = true;
 				}
-				return module->addWire(NEW_ID, GetSize(sig));
+				return module->addWire(NEWER_ID, GetSize(sig));
 			}
 		}
 
@@ -81,7 +81,7 @@ struct EquivPurgeWorker
 			wire->port_input = true;
 			module->connect(sig, wire);
 			log("  Module input: %s (%s)\n", log_signal(wire), log_signal(sig));
-			return module->addWire(NEW_ID, GetSize(sig));
+			return module->addWire(NEWER_ID, GetSize(sig));
 		}
 	}
 

@@ -80,7 +80,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
         log("  %s (%s)\n", log_id(cell), log_id(cell->type));
 
     // Add the DSP cell
-    RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
+    RTLIL::Cell *cell = pm.module->addCell(NEWER_ID, type);
 
     // Set attributes
     cell->set_bool_attribute(ID(is_inferred), true);
@@ -102,7 +102,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
     // Connect output data port, pad if needed
     if ((size_t) GetSize(sig_z) < tgt_z_width) {
-        auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
+        auto *wire = pm.module->addWire(NEWER_ID, tgt_z_width - GetSize(sig_z));
         sig_z.append(wire);
     }
     cell->setPort(ID(z_o), sig_z);
@@ -115,7 +115,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
     if (st.ff->hasPort(ID(ARST))) {
         if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
-            rst = pm.module->Not(NEW_ID, st.ff->getPort(ID(ARST)));
+            rst = pm.module->Not(NEWER_ID, st.ff->getPort(ID(ARST)));
         } else {
             rst = st.ff->getPort(ID(ARST));
         }
@@ -125,7 +125,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 
     if (st.ff->hasPort(ID(EN))) {
         if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
-            ena = pm.module->Not(NEW_ID, st.ff->getPort(ID(EN)));
+            ena = pm.module->Not(NEWER_ID, st.ff->getPort(ID(EN)));
         } else {
             ena = st.ff->getPort(ID(EN));
         }
@@ -143,7 +143,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
         // Depending on the mux port ordering insert inverter if needed
         log_assert(st.mux_ab.in(ID(A), ID(B)));
         if (st.mux_ab == ID(A))
-            sig_s = pm.module->Not(NEW_ID, sig_s);
+            sig_s = pm.module->Not(NEWER_ID, sig_s);
 
         // Assemble the full control signal for the feedback_i port
         RTLIL::SigSpec sig_f;

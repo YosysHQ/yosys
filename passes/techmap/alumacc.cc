@@ -52,7 +52,7 @@ struct AlumaccWorker
 				if (is_signed) {
 					get_of();
 					get_sf();
-					cached_lt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+					cached_lt = alu_cell->module->Xor(NEWER_ID, cached_of, cached_sf);
 				}
 				else
 					cached_lt = get_cf();
@@ -64,21 +64,21 @@ struct AlumaccWorker
 			if (GetSize(cached_gt) == 0) {
 				get_lt();
 				get_eq();
-				SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-				cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+				SigSpec Or = alu_cell->module->Or(NEWER_ID, cached_lt, cached_eq);
+				cached_gt = alu_cell->module->Not(NEWER_ID, Or, false, alu_cell->get_src_attribute());
 			}
 			return cached_gt;
 		}
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
+				cached_eq = alu_cell->module->ReduceAnd(NEWER_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
+				cached_ne = alu_cell->module->Not(NEWER_ID, get_eq(), false, alu_cell->get_src_attribute());
 			return cached_ne;
 		}
 
@@ -86,7 +86,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
+				cached_cf = alu_cell->module->Not(NEWER_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
 			}
 			return cached_cf;
 		}
@@ -95,7 +95,7 @@ struct AlumaccWorker
 			if (GetSize(cached_of) == 0) {
 				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
-				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
+				cached_of = alu_cell->module->Xor(NEWER_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
 			return cached_of;
 		}
@@ -362,7 +362,7 @@ struct AlumaccWorker
 		for (auto &it : sig_macc)
 		{
 			auto n = it.second;
-			auto cell = module->addCell(NEW_ID, ID($macc));
+			auto cell = module->addCell(NEWER_ID, ID($macc));
 
 			macc_counter++;
 
@@ -428,7 +428,7 @@ struct AlumaccWorker
 				n->a = A;
 				n->b = B;
 				n->c = State::S1;
-				n->y = module->addWire(NEW_ID, max(GetSize(A), GetSize(B)));
+				n->y = module->addWire(NEWER_ID, max(GetSize(A), GetSize(B)));
 				n->is_signed = is_signed;
 				n->invert_b = true;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
@@ -482,7 +482,7 @@ struct AlumaccWorker
 		{
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
-				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
+				n->alu_cell = module->addPos(NEWER_ID, n->a, n->y, n->is_signed);
 
 				log("  creating $pos cell for ");
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -492,7 +492,7 @@ struct AlumaccWorker
 				goto delete_node;
 			}
 
-			n->alu_cell = module->addCell(NEW_ID, ID($alu));
+			n->alu_cell = module->addCell(NEWER_ID, ID($alu));
 			alu_counter++;
 
 			log("  creating $alu cell for ");
@@ -508,8 +508,8 @@ struct AlumaccWorker
 			n->alu_cell->setPort(ID::CI, GetSize(n->c) ? n->c : State::S0);
 			n->alu_cell->setPort(ID::BI, n->invert_b ? State::S1 : State::S0);
 			n->alu_cell->setPort(ID::Y, n->y);
-			n->alu_cell->setPort(ID::X, module->addWire(NEW_ID, GetSize(n->y)));
-			n->alu_cell->setPort(ID::CO, module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort(ID::X, module->addWire(NEWER_ID, GetSize(n->y)));
+			n->alu_cell->setPort(ID::CO, module->addWire(NEWER_ID, GetSize(n->y)));
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
 
 			for (auto &it : n->cmp)
@@ -527,7 +527,7 @@ struct AlumaccWorker
 				if (cmp_ne) sig.append(n->get_ne());
 
 				if (GetSize(sig) > 1)
-					sig = module->ReduceOr(NEW_ID, sig);
+					sig = module->ReduceOr(NEWER_ID, sig);
 
 				sig.extend_u0(GetSize(cmp_y));
 				module->connect(cmp_y, sig);

@@ -166,7 +166,7 @@ struct SvaFsm
 		if (disable_sig == State::S0)
 			disable_sig = sig;
 		else
-			disable_sig = module->Or(NEW_ID, disable_sig, sig);
+			disable_sig = module->Or(NEWER_ID, disable_sig, sig);
 	}
 
 	void popDisable()
@@ -187,7 +187,7 @@ struct SvaFsm
 		if (throughout_sig == State::S1)
 			throughout_sig = sig;
 		else
-			throughout_sig = module->And(NEW_ID, throughout_sig, sig);
+			throughout_sig = module->And(NEWER_ID, throughout_sig, sig);
 	}
 
 	void popThroughout()
@@ -232,7 +232,7 @@ struct SvaFsm
 
 		if (throughout_sig != State::S1) {
 			if (ctrl != State::S1)
-				ctrl = module->And(NEW_ID, throughout_sig, ctrl);
+				ctrl = module->And(NEWER_ID, throughout_sig, ctrl);
 			else
 				ctrl = throughout_sig;
 		}
@@ -254,7 +254,7 @@ struct SvaFsm
 
 		if (throughout_sig != State::S1) {
 			if (ctrl != State::S1)
-				ctrl = module->And(NEW_ID, throughout_sig, ctrl);
+				ctrl = module->And(NEWER_ID, throughout_sig, ctrl);
 			else
 				ctrl = throughout_sig;
 		}
@@ -287,19 +287,19 @@ struct SvaFsm
 			SigBit not_disable = State::S1;
 
 			if (disable_sig != State::S0)
-				not_disable = module->Not(NEW_ID, disable_sig);
+				not_disable = module->Not(NEWER_ID, disable_sig);
 
 			for (int i = 0; i < GetSize(nodes); i++)
 			{
-				Wire *w = module->addWire(NEW_ID);
+				Wire *w = module->addWire(NEWER_ID);
 				state_wire[i] = w;
 				state_sig[i] = w;
 
 				if (i == startNode)
-					state_sig[i] = module->Or(NEW_ID, state_sig[i], trigger_sig);
+					state_sig[i] = module->Or(NEWER_ID, state_sig[i], trigger_sig);
 
 				if (disable_sig != State::S0)
-					state_sig[i] = module->And(NEW_ID, state_sig[i], not_disable);
+					state_sig[i] = module->And(NEWER_ID, state_sig[i], not_disable);
 			}
 		}
 
@@ -327,9 +327,9 @@ struct SvaFsm
 					SigBit ctrl = state_sig[node];
 
 					if (it.second != State::S1)
-						ctrl = module->And(NEW_ID, ctrl, it.second);
+						ctrl = module->And(NEWER_ID, ctrl, it.second);
 
-					state_sig[target] = module->Or(NEW_ID, state_sig[target], ctrl);
+					state_sig[target] = module->Or(NEWER_ID, state_sig[target], ctrl);
 				}
 			}
 		}
@@ -342,7 +342,7 @@ struct SvaFsm
 
 			for (int i = 0; i < GetSize(nodes); i++) {
 				for (auto &it : nodes[i].edges)
-					activate_sig[it.first].append(module->And(NEW_ID, state_sig[i], it.second));
+					activate_sig[it.first].append(module->And(NEWER_ID, state_sig[i], it.second));
 			}
 
 			for (int i = 0; i < GetSize(nodes); i++) {
@@ -351,7 +351,7 @@ struct SvaFsm
 				else if (GetSize(activate_sig[i]) == 1)
 					next_state_sig[i] = activate_sig[i];
 				else
-					next_state_sig[i] = module->ReduceOr(NEW_ID, activate_sig[i]);
+					next_state_sig[i] = module->ReduceOr(NEWER_ID, activate_sig[i]);
 			}
 		}
 
@@ -360,7 +360,7 @@ struct SvaFsm
 		for (int i = 0; i < GetSize(nodes); i++)
 		{
 			if (next_state_sig[i] != State::S0) {
-				clocking.addDff(NEW_ID, next_state_sig[i], state_wire[i], State::S0);
+				clocking.addDff(NEWER_ID, next_state_sig[i], state_wire[i], State::S0);
 			} else {
 				module->connect(state_wire[i], State::S0);
 			}
@@ -626,9 +626,9 @@ struct SvaFsm
 			if (sig_b == State::S1)
 				cond_eq_cache[key] = sig_a;
 			else if (sig_b == State::S0)
-				cond_eq_cache[key] = module->Not(NEW_ID, sig_a);
+				cond_eq_cache[key] = module->Not(NEWER_ID, sig_a);
 			else
-				cond_eq_cache[key] = module->Eq(NEW_ID, sig_a, sig_b);
+				cond_eq_cache[key] = module->Eq(NEWER_ID, sig_a, sig_b);
 
 			if (verific_verbose >= 2) {
 				log("    Cond: %s := %s == %s\n", log_signal(cond_eq_cache[key]),
@@ -665,11 +665,11 @@ struct SvaFsm
 		for (auto &it : dnodes)
 		{
 			SvaDFsmNode &dnode = it.second;
-			dnode.ffoutwire = module->addWire(NEW_ID);
+			dnode.ffoutwire = module->addWire(NEWER_ID);
 			dnode.statesig = dnode.ffoutwire;
 
 			if (it.first == vector<int>{startNode})
-				dnode.statesig = module->Or(NEW_ID, dnode.statesig, trigger_sig);
+				dnode.statesig = module->Or(NEWER_ID, dnode.statesig, trigger_sig);
 		}
 
 		for (auto &it : dnodes)
@@ -708,10 +708,10 @@ struct SvaFsm
 				module->connect(dnode.ffoutwire, State::S0);
 			} else
 			if (GetSize(dnode.nextstate) == 1) {
-				clocking.addDff(NEW_ID, dnode.nextstate, dnode.ffoutwire, State::S0);
+				clocking.addDff(NEWER_ID, dnode.nextstate, dnode.ffoutwire, State::S0);
 			} else {
-				SigSpec nextstate = module->ReduceOr(NEW_ID, dnode.nextstate);
-				clocking.addDff(NEW_ID, nextstate, dnode.ffoutwire, State::S0);
+				SigSpec nextstate = module->ReduceOr(NEWER_ID, dnode.nextstate);
+				clocking.addDff(NEWER_ID, nextstate, dnode.ffoutwire, State::S0);
 			}
 		}
 
@@ -722,7 +722,7 @@ struct SvaFsm
 			else if (GetSize(accept_sig) == 1)
 				final_accept_sig = accept_sig;
 			else
-				final_accept_sig = module->ReduceOr(NEW_ID, accept_sig);
+				final_accept_sig = module->ReduceOr(NEWER_ID, accept_sig);
 			*accept_p = final_accept_sig;
 		}
 
@@ -733,7 +733,7 @@ struct SvaFsm
 			else if (GetSize(reject_sig) == 1)
 				final_reject_sig = reject_sig;
 			else
-				final_reject_sig = module->ReduceOr(NEW_ID, reject_sig);
+				final_reject_sig = module->ReduceOr(NEWER_ID, reject_sig);
 			*reject_p = final_reject_sig;
 		}
 	}
@@ -1135,14 +1135,14 @@ struct VerificSvaImporter
 			return parse_expression(inst->GetInput());
 
 		if (inst->Type() == PRIM_SVA_NOT)
-			return module->Not(NEW_ID, parse_expression(inst->GetInput()));
+			return module->Not(NEWER_ID, parse_expression(inst->GetInput()));
 
 		if (inst->Type() == PRIM_SVA_SEQ_OR || inst->Type() == PRIM_SVA_OR)
-			return module->Or(NEW_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
+			return module->Or(NEWER_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
 
 		if (inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_AND || inst->Type() == PRIM_SVA_INTERSECT ||
 				inst->Type() == PRIM_SVA_WITHIN || inst->Type() == PRIM_SVA_THROUGHOUT || inst->Type() == PRIM_SVA_SEQ_CONCAT)
-			return module->And(NEW_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
+			return module->And(NEWER_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
 
 		log_abort();
 	}
@@ -1364,7 +1364,7 @@ struct VerificSvaImporter
 			int node = fsm.createNode(start_node);
 
 			SigBit cond = parse_expression(body_net);
-			SigBit not_cond = module->Not(NEW_ID, cond);
+			SigBit not_cond = module->Not(NEWER_ID, cond);
 
 			for (int i = 0; i < sva_low; i++)
 			{
@@ -1526,7 +1526,7 @@ struct VerificSvaImporter
 		if (clocking.cond_net != nullptr) {
 			trig = importer->net_map_at(clocking.cond_net);
 			if (!clocking.cond_pol)
-				trig = module->Not(NEW_ID, trig);
+				trig = module->Not(NEWER_ID, trig);
 		} else {
 			trig = State::S1;
 		}
@@ -1594,21 +1594,21 @@ struct VerificSvaImporter
 		if (clocking.cond_net != nullptr) {
 			trig = importer->net_map_at(clocking.cond_net);
 			if (!clocking.cond_pol)
-				trig = module->Not(NEW_ID, trig);
+				trig = module->Not(NEWER_ID, trig);
 		}
 
 		if (inst == nullptr)
 		{
 			if (trig != State::S1) {
 				if (accept_p != nullptr)
-					*accept_p = module->And(NEW_ID, trig, importer->net_map_at(net));
+					*accept_p = module->And(NEWER_ID, trig, importer->net_map_at(net));
 				if (reject_p != nullptr)
-					*reject_p = module->And(NEW_ID, trig, module->Not(NEW_ID, importer->net_map_at(net)));
+					*reject_p = module->And(NEWER_ID, trig, module->Not(NEWER_ID, importer->net_map_at(net)));
 			} else {
 				if (accept_p != nullptr)
 					*accept_p = importer->net_map_at(net);
 				if (reject_p != nullptr)
-					*reject_p = module->Not(NEW_ID, importer->net_map_at(net));
+					*reject_p = module->Not(NEWER_ID, importer->net_map_at(net));
 			}
 		}
 		else
@@ -1652,7 +1652,7 @@ struct VerificSvaImporter
 				}
 
 				SigBit until_sig = until_net ? parse_expression(until_net) : RTLIL::S0;
-				SigBit not_until_sig = module->Not(NEW_ID, until_sig);
+				SigBit not_until_sig = module->Not(NEWER_ID, until_sig);
 				antecedent_fsm.createEdge(node, node, not_until_sig);
 
 				antecedent_fsm.createLink(node, antecedent_fsm.acceptNode, until_with ? State::S1 : not_until_sig);
@@ -1732,7 +1732,7 @@ struct VerificSvaImporter
 				}
 			}
 
-			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
+			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEWER_ID);
 
 			// parse SVA sequence into trigger signal
 
@@ -1745,7 +1745,7 @@ struct VerificSvaImporter
 					parser_error(stringf("Failed to parse SVA clocking"), root);
 
 				if (mode_assert || mode_assume) {
-					reject_bit = module->Not(NEW_ID, parse_expression(root->GetInput()));
+					reject_bit = module->Not(NEWER_ID, parse_expression(root->GetInput()));
 				} else {
 					accept_bit = parse_expression(root->GetInput());
 				}
@@ -1768,16 +1768,16 @@ struct VerificSvaImporter
 						sig_a_q = sig_a;
 						sig_en_q = sig_en;
 					} else {
-						sig_a_q = module->addWire(NEW_ID);
-						sig_en_q = module->addWire(NEW_ID);
-						clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
-						clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
+						sig_a_q = module->addWire(NEWER_ID);
+						sig_en_q = module->addWire(NEWER_ID);
+						clocking.addDff(NEWER_ID, sig_a, sig_a_q, State::S0);
+						clocking.addDff(NEWER_ID, sig_en, sig_en_q, State::S0);
 					}
 
 					// accept in disable case
 
 					if (clocking.disable_sig != State::S0)
-						sig_a_q = module->Or(NEW_ID, sig_a_q, clocking.disable_sig);
+						sig_a_q = module->Or(NEWER_ID, sig_a_q, clocking.disable_sig);
 
 					// generate fair/live cell
 
@@ -1806,8 +1806,8 @@ struct VerificSvaImporter
 			}
 			else
 			{
-				SigBit sig_a = module->Not(NEW_ID, reject_bit);
-				SigBit sig_en = module->Or(NEW_ID, accept_bit, reject_bit);
+				SigBit sig_a = module->Not(NEWER_ID, reject_bit);
+				SigBit sig_en = module->Or(NEWER_ID, accept_bit, reject_bit);
 
 				// add final FF stage
 
@@ -1817,10 +1817,10 @@ struct VerificSvaImporter
 					sig_a_q = sig_a;
 					sig_en_q = sig_en;
 				} else {
-					sig_a_q = module->addWire(NEW_ID);
-					sig_en_q = module->addWire(NEW_ID);
-					clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
-					clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
+					sig_a_q = module->addWire(NEWER_ID);
+					sig_en_q = module->addWire(NEWER_ID);
+					clocking.addDff(NEWER_ID, sig_a, sig_a_q, State::S0);
+					clocking.addDff(NEWER_ID, sig_en, sig_en_q, State::S0);
 				}
 
 				// generate assert/assume/cover cell

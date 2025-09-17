@@ -99,8 +99,8 @@ void demorgan_worker(
 		//We are NOT inverted! Add an inverter
 		if(!srcinv)
 		{
-			auto inverted_b = m->addWire(NEW_ID);
-			m->addNot(NEW_ID, RTLIL::SigSpec(b), RTLIL::SigSpec(inverted_b));
+			auto inverted_b = m->addWire(NEWER_ID);
+			m->addNot(NEWER_ID, RTLIL::SigSpec(b), RTLIL::SigSpec(inverted_b));
 			insig[i] = inverted_b;
 		}
 
@@ -166,8 +166,8 @@ void demorgan_worker(
 
 	//Add an inverter to the output
 	auto inverted_output = cell->getPort(ID::Y);
-	auto uninverted_output = m->addWire(NEW_ID);
-	m->addNot(NEW_ID, RTLIL::SigSpec(uninverted_output), inverted_output);
+	auto uninverted_output = m->addWire(NEWER_ID);
+	m->addNot(NEWER_ID, RTLIL::SigSpec(uninverted_output), inverted_output);
 	cell->setPort(ID::Y, uninverted_output);
 }
 

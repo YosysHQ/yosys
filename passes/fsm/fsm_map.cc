@@ -71,10 +71,10 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 
 		if (eq_sig_a.size() > 0)
 		{
-			RTLIL::Wire *eq_wire = module->addWire(NEW_ID);
+			RTLIL::Wire *eq_wire = module->addWire(NEWER_ID);
 			and_sig.append(RTLIL::SigSpec(eq_wire));
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, ID($eq));
+			RTLIL::Cell *eq_cell = module->addCell(NEWER_ID, ID($eq));
 			eq_cell->setPort(ID::A, eq_sig_a);
 			eq_cell->setPort(ID::B, eq_sig_b);
 			eq_cell->setPort(ID::Y, RTLIL::SigSpec(eq_wire));
@@ -99,10 +99,10 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 			}
 			else
 			{
-				RTLIL::Wire *or_wire = module->addWire(NEW_ID);
+				RTLIL::Wire *or_wire = module->addWire(NEWER_ID);
 				and_sig.append(RTLIL::SigSpec(or_wire));
 
-				RTLIL::Cell *or_cell = module->addCell(NEW_ID, ID($reduce_or));
+				RTLIL::Cell *or_cell = module->addCell(NEWER_ID, ID($reduce_or));
 				or_cell->setPort(ID::A, or_sig);
 				or_cell->setPort(ID::Y, RTLIL::SigSpec(or_wire));
 				or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
@@ -115,10 +115,10 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 		{
 		case 2:
 			{
-				RTLIL::Wire *and_wire = module->addWire(NEW_ID);
+				RTLIL::Wire *and_wire = module->addWire(NEWER_ID);
 				cases_vector.append(RTLIL::SigSpec(and_wire));
 
-				RTLIL::Cell *and_cell = module->addCell(NEW_ID, ID($and));
+				RTLIL::Cell *and_cell = module->addCell(NEWER_ID, ID($and));
 				and_cell->setPort(ID::A, and_sig.extract(0, 1));
 				and_cell->setPort(ID::B, and_sig.extract(1, 1));
 				and_cell->setPort(ID::Y, RTLIL::SigSpec(and_wire));
@@ -141,7 +141,7 @@ static void implement_pattern_cache(RTLIL::Module *module, std::map<RTLIL::Const
 	}
 
 	if (cases_vector.size() > 1) {
-		RTLIL::Cell *or_cell = module->addCell(NEW_ID, ID($reduce_or));
+		RTLIL::Cell *or_cell = module->addCell(NEWER_ID, ID($reduce_or));
 		or_cell->setPort(ID::A, cases_vector);
 		or_cell->setPort(ID::Y, output);
 		or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(false);
@@ -167,9 +167,9 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	// create state register
 
 	RTLIL::Wire *state_wire = module->addWire(module->uniquify(fsm_cell->parameters[ID::NAME].decode_string()), fsm_data.state_bits);
-	RTLIL::Wire *next_state_wire = module->addWire(NEW_ID, fsm_data.state_bits);
+	RTLIL::Wire *next_state_wire = module->addWire(NEWER_ID, fsm_data.state_bits);
 
-	RTLIL::Cell *state_dff = module->addCell(NEW_ID, "");
+	RTLIL::Cell *state_dff = module->addCell(NEWER_ID, "");
 	if (fsm_cell->getPort(ID::ARST).is_fully_const()) {
 		state_dff->type = ID($dff);
 	} else {
@@ -191,7 +191,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 
 	bool encoding_is_onehot = true;
 
-	RTLIL::Wire *state_onehot = module->addWire(NEW_ID, fsm_data.state_table.size());
+	RTLIL::Wire *state_onehot = module->addWire(NEWER_ID, fsm_data.state_table.size());
 
 	for (size_t i = 0; i < fsm_data.state_table.size(); i++)
 	{
@@ -212,7 +212,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 		{
 			encoding_is_onehot = false;
 
-			RTLIL::Cell *eq_cell = module->addCell(NEW_ID, ID($eq));
+			RTLIL::Cell *eq_cell = module->addCell(NEWER_ID, ID($eq));
 			eq_cell->setPort(ID::A, sig_a);
 			eq_cell->setPort(ID::B, sig_b);
 			eq_cell->setPort(ID::Y, RTLIL::SigSpec(state_onehot, i));
@@ -235,7 +235,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 	}
 	else
 	{
-		RTLIL::Wire *next_state_onehot = module->addWire(NEW_ID, fsm_data.state_table.size());
+		RTLIL::Wire *next_state_onehot = module->addWire(NEWER_ID, fsm_data.state_table.size());
 
 		for (size_t i = 0; i < fsm_data.state_table.size(); i++)
 		{
@@ -285,7 +285,7 @@ static void map_fsm(RTLIL::Cell *fsm_cell, RTLIL::Module *module)
 				}
 			}
 
-			RTLIL::Cell *mux_cell = module->addCell(NEW_ID, ID($pmux));
+			RTLIL::Cell *mux_cell = module->addCell(NEWER_ID, ID($pmux));
 			mux_cell->setPort(ID::A, sig_a);
 			mux_cell->setPort(ID::B, sig_b);
 			mux_cell->setPort(ID::S, sig_s);

@@ -112,7 +112,7 @@ finally
 
 			// Chain length exceeds the maximum cascade length, must split it up
 			if (i % MAX_DSP_CASCADE > 0) {
-				Wire *cascade = module->addWire(NEW_ID, 48);
+				Wire *cascade = module->addWire(NEWER_ID, 48);
 
 				// zero port C and move wire to cascade
 				dsp_pcin->setPort(ID(C), Const(0, 48));

@@ -196,7 +196,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (auto &operand : muxed_operands) {
 		operand.sig.extend_u0(max_width, operand.is_signed);
 		if (operand.sign != muxed_operands[0].sign)
-			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
+			operand = ExtSigSpec(module->Neg(NEWER_ID, operand.sig, operand.is_signed));
 	}
 
 	for (const auto& p : ports) {
@@ -219,7 +219,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	RTLIL::SigSpec shared_pmux_s;
 
 	// Make a new wire to avoid false equivalence with whatever the former shared output was connected to.
-	Wire *new_out = module->addWire(NEW_ID, conn_op_offset + conn_width);
+	Wire *new_out = module->addWire(NEWER_ID, conn_op_offset + conn_width);
 	SigSpec new_sig_out = SigSpec(new_out, conn_op_offset, conn_width);
 
 	for (int i = 0; i < GetSize(ports); i++) {
@@ -241,14 +241,14 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	SigSpec mux_to_oper;
 	if (GetSize(shared_pmux_s) == 1) {
-		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Mux(NEWER_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
 	} else {
-		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Pmux(NEWER_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
 	}
 
 	if (shared_op->type.in(ID($alu))) {
-		shared_op->setPort(ID::X, module->addWire(NEW_ID, GetSize(new_out)));
-		shared_op->setPort(ID::CO, module->addWire(NEW_ID, GetSize(new_out)));
+		shared_op->setPort(ID::X, module->addWire(NEWER_ID, GetSize(new_out)));
+		shared_op->setPort(ID::CO, module->addWire(NEWER_ID, GetSize(new_out)));
 	}
 
 	bool is_fine = shared_op->type.in(FINE_BITWISE_OPS);

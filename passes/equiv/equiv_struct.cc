@@ -85,10 +85,10 @@ struct EquivStructWorker
 
 		for (int i = 0; i < GetSize(inputs_a); i++) {
 			SigBit bit_a = inputs_a[i], bit_b = inputs_b[i];
-			SigBit bit_y = module->addWire(NEW_ID);
+			SigBit bit_y = module->addWire(NEWER_ID);
 			log("        New $equiv for input %s: A: %s, B: %s, Y: %s\n",
 					input_names[i].c_str(), log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
-			module->addEquiv(NEW_ID, bit_a, bit_b, bit_y);
+			module->addEquiv(NEWER_ID, bit_a, bit_b, bit_y);
 			merged_map.add(bit_a, bit_y);
 			merged_map.add(bit_b, bit_y);
 		}

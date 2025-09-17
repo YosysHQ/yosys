@@ -95,27 +95,27 @@ struct Async2syncPass : public Pass {
 
 					if (trg_width == 0) {
 						if (initstate == State::S0)
-							initstate = module->Initstate(NEW_ID);
+							initstate = module->Initstate(NEWER_ID);
 
 						SigBit sig_en = cell->getPort(ID::EN);
-						cell->setPort(ID::EN, module->And(NEW_ID, sig_en, initstate));
+						cell->setPort(ID::EN, module->And(NEWER_ID, sig_en, initstate));
 					} else {
 						SigBit sig_en = cell->getPort(ID::EN);
 						SigSpec sig_args = cell->getPort(ID::ARGS);
 						bool trg_polarity = cell->getParam(ID(TRG_POLARITY)).as_bool();
 						SigBit sig_trg = cell->getPort(ID::TRG);
-						Wire *sig_en_q = module->addWire(NEW_ID);
-						Wire *sig_args_q = module->addWire(NEW_ID, GetSize(sig_args));
+						Wire *sig_en_q = module->addWire(NEWER_ID);
+						Wire *sig_args_q = module->addWire(NEWER_ID, GetSize(sig_args));
 						sig_en_q->attributes.emplace(ID::init, State::S0);
-						module->addDff(NEW_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute());
-						module->addDff(NEW_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute());
+						module->addDff(NEWER_ID, sig_trg, sig_en, sig_en_q, trg_polarity, cell->get_src_attribute());
+						module->addDff(NEWER_ID, sig_trg, sig_args, sig_args_q, trg_polarity, cell->get_src_attribute());
 						cell->setPort(ID::EN, sig_en_q);
 						cell->setPort(ID::ARGS, sig_args_q);
 						if (cell->type == ID($check)) {
 							SigBit sig_a = cell->getPort(ID::A);
-							Wire *sig_a_q = module->addWire(NEW_ID);
+							Wire *sig_a_q = module->addWire(NEWER_ID);
 							sig_a_q->attributes.emplace(ID::init, State::S1);
-							module->addDff(NEW_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute());
+							module->addDff(NEWER_ID, sig_trg, sig_a, sig_a_q, trg_polarity, cell->get_src_attribute());
 							cell->setPort(ID::A, sig_a_q);
 						}
 					}
@@ -152,38 +152,38 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEWER_ID, ff.width);
+						Wire *new_q = module->addWire(NEWER_ID, ff.width);
 
 						SigSpec sig_set = ff.sig_set;
 						SigSpec sig_clr = ff.sig_clr;
 
 						if (!ff.pol_set) {
 							if (!ff.is_fine)
-								sig_set = module->Not(NEW_ID, sig_set);
+								sig_set = module->Not(NEWER_ID, sig_set);
 							else
-								sig_set = module->NotGate(NEW_ID, sig_set);
+								sig_set = module->NotGate(NEWER_ID, sig_set);
 						}
 
 						if (ff.pol_clr) {
 							if (!ff.is_fine)
-								sig_clr = module->Not(NEW_ID, sig_clr);
+								sig_clr = module->Not(NEWER_ID, sig_clr);
 							else
-								sig_clr = module->NotGate(NEW_ID, sig_clr);
+								sig_clr = module->NotGate(NEWER_ID, sig_clr);
 						}
 
 						if (!ff.is_fine) {
-							SigSpec tmp = module->Or(NEW_ID, ff.sig_d, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, new_d);
+							SigSpec tmp = module->Or(NEWER_ID, ff.sig_d, sig_set);
+							module->addAnd(NEWER_ID, tmp, sig_clr, new_d);
 
-							tmp = module->Or(NEW_ID, new_q, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+							tmp = module->Or(NEWER_ID, new_q, sig_set);
+							module->addAnd(NEWER_ID, tmp, sig_clr, ff.sig_q);
 						} else {
-							SigSpec tmp = module->OrGate(NEW_ID, ff.sig_d, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, new_d);
+							SigSpec tmp = module->OrGate(NEWER_ID, ff.sig_d, sig_set);
+							module->addAndGate(NEWER_ID, tmp, sig_clr, new_d);
 
-							tmp = module->OrGate(NEW_ID, new_q, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+							tmp = module->OrGate(NEWER_ID, new_q, sig_set);
+							module->addAndGate(NEWER_ID, tmp, sig_clr, ff.sig_q);
 						}
 
 						ff.sig_d = new_d;
@@ -198,24 +198,24 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_d = module->addWire(NEW_ID, ff.width);
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_d = module->addWire(NEWER_ID, ff.width);
+						Wire *new_q = module->addWire(NEWER_ID, ff.width);
 
 						if (ff.pol_aload) {
 							if (!ff.is_fine) {
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
-								module->addMux(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMux(NEWER_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
+								module->addMux(NEWER_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
 							} else {
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
-								module->addMuxGate(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMuxGate(NEWER_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
 							}
 						} else {
 							if (!ff.is_fine) {
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
-								module->addMux(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+								module->addMux(NEWER_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
+								module->addMux(NEWER_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
 							} else {
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
-								module->addMuxGate(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+								module->addMuxGate(NEWER_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
 							}
 						}
 
@@ -231,18 +231,18 @@ struct Async2syncPass : public Pass {
 
 						initvals.remove_init(ff.sig_q);
 
-						Wire *new_q = module->addWire(NEW_ID, ff.width);
+						Wire *new_q = module->addWire(NEWER_ID, ff.width);
 
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.val_arst, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, new_q, ff.val_arst, ff.sig_arst, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, new_q, ff.val_arst[0], ff.sig_arst, ff.sig_q);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.val_arst, new_q, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, ff.val_arst, new_q, ff.sig_arst, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], new_q, ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.val_arst[0], new_q, ff.sig_arst, ff.sig_q);
 						}
 
 						ff.sig_q = new_q;
@@ -265,21 +265,21 @@ struct Async2syncPass : public Pass {
 
 					initvals.remove_init(ff.sig_q);
 
-					Wire *new_q = module->addWire(NEW_ID, ff.width);
+					Wire *new_q = module->addWire(NEWER_ID, ff.width);
 					Wire *new_d;
 
 					if (ff.has_aload) {
-						new_d = module->addWire(NEW_ID, ff.width);
+						new_d = module->addWire(NEWER_ID, ff.width);
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMux(NEWER_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								module->addMuxGate(NEWER_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								module->addMux(NEWER_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
 							else
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								module->addMuxGate(NEWER_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
 						}
 					} else {
 						new_d = new_q;
@@ -291,36 +291,36 @@ struct Async2syncPass : public Pass {
 
 						if (!ff.pol_set) {
 							if (!ff.is_fine)
-								sig_set = module->Not(NEW_ID, sig_set);
+								sig_set = module->Not(NEWER_ID, sig_set);
 							else
-								sig_set = module->NotGate(NEW_ID, sig_set);
+								sig_set = module->NotGate(NEWER_ID, sig_set);
 						}
 
 						if (ff.pol_clr) {
 							if (!ff.is_fine)
-								sig_clr = module->Not(NEW_ID, sig_clr);
+								sig_clr = module->Not(NEWER_ID, sig_clr);
 							else
-								sig_clr = module->NotGate(NEW_ID, sig_clr);
+								sig_clr = module->NotGate(NEWER_ID, sig_clr);
 						}
 
 						if (!ff.is_fine) {
-							SigSpec tmp = module->Or(NEW_ID, new_d, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+							SigSpec tmp = module->Or(NEWER_ID, new_d, sig_set);
+							module->addAnd(NEWER_ID, tmp, sig_clr, ff.sig_q);
 						} else {
-							SigSpec tmp = module->OrGate(NEW_ID, new_d, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+							SigSpec tmp = module->OrGate(NEWER_ID, new_d, sig_set);
+							module->addAndGate(NEWER_ID, tmp, sig_clr, ff.sig_q);
 						}
 					} else if (ff.has_arst) {
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_d, ff.val_arst, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, new_d, ff.val_arst, ff.sig_arst, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.val_arst, new_d, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, ff.val_arst, new_d, ff.sig_arst, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q);
 						}
 					} else {
 						module->connect(ff.sig_q, new_d);

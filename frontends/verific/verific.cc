@@ -759,8 +759,8 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		if (inst->GetAsyncCond()->IsGnd()) {
 			module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		} else {
-			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
-			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			RTLIL::SigSpec sig_set = module->And(NEWER_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(NEWER_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEWER_ID, net_map_at(inst->GetAsyncVal())));
 			module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		}
 		return true;
@@ -896,8 +896,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		if (inst->GetAsyncCond()->IsGnd()) {
 			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		} else {
-			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
-			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			RTLIL::SigSpec sig_set = module->And(NEWER_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(NEWER_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEWER_ID, net_map_at(inst->GetAsyncVal())));
 			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		}
 		import_attributes(cell->attributes, inst);
@@ -1000,9 +1000,9 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == OPER_REDUCE_NAND) {
-		Wire *tmp = module->addWire(NEW_ID);
+		Wire *tmp = module->addWire(NEWER_ID);
 		cell = module->addReduceAnd(inst_name, IN, tmp, SIGNED);
-		module->addNot(NEW_ID, tmp, net_map_at(inst->GetOutput()));
+		module->addNot(NEWER_ID, tmp, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -1219,8 +1219,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
 				for (width = 1; offset+width < GetSize(sig_acond); width++)
 					if (sig_acond[offset] != sig_acond[offset+width]) break;
-				RTLIL::SigSpec sig_set = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
-				RTLIL::SigSpec sig_clr = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), module->Not(NEW_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
+				RTLIL::SigSpec sig_set = module->Mux(NEWER_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
+				RTLIL::SigSpec sig_clr = module->Mux(NEWER_ID, RTLIL::SigSpec(0, width), module->Not(NEWER_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
 				cell = module->addDlatchsr(module->uniquify(inst_name), net_map_at(inst->GetControl()), sig_set, sig_clr,
 						sig_d.extract(offset, width), sig_q.extract(offset, width));
 				import_attributes(cell->attributes, inst);
@@ -1374,8 +1374,8 @@ void VerificImporter::merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBi
 			if (chunk.wire == nullptr || GetSize(sig_d) == 1)
 				continue;
 
-			SigSpec sig_q = module->addWire(NEW_ID, GetSize(sig_d));
-			RTLIL::Cell *new_ff = module->addDff(NEW_ID, clock, sig_d, sig_q, clock_pol);
+			SigSpec sig_q = module->addWire(NEWER_ID, GetSize(sig_d));
+			RTLIL::Cell *new_ff = module->addDff(NEWER_ID, clock, sig_d, sig_q, clock_pol);
 
 			if (verific_verbose)
 				log("  merging single-bit past_ffs into new %d-bit ff %s.\n", GetSize(sig_d), log_id(new_ff));
@@ -2470,7 +2470,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 		if (s.is_wire()) {
 			s.as_wire()->attributes[ID::init] = init_value;
 		} else {
-			Wire *w = module->addWire(NEW_ID, GetSize(s));
+			Wire *w = module->addWire(NEWER_ID, GetSize(s));
 			w->attributes[ID::init] = init_value;
 			module->connect(s, w);
 			s = w;
@@ -2478,14 +2478,14 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 	};
 
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEWER_ID, sig_q, sig_d, enable_sig);
 
 	if (disable_sig != State::S0) {
 		log_assert(GetSize(sig_q) == GetSize(init_value));
 
 		if (gclk) {
-			Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
-			Wire *post_q_w = module->addWire(NEW_ID, GetSize(sig_q));
+			Wire *pre_d = module->addWire(NEWER_ID, GetSize(sig_d));
+			Wire *post_q_w = module->addWire(NEWER_ID, GetSize(sig_q));
 
 			Const initval(State::Sx, GetSize(sig_q));
 			int offset = 0;
@@ -2501,8 +2501,8 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 			if (!initval.is_fully_undef())
 				post_q_w->attributes[ID::init] = initval;
 
-			module->addMux(NEW_ID, sig_d, init_value, disable_sig, pre_d);
-			module->addMux(NEW_ID, post_q_w, init_value, disable_sig, sig_q);
+			module->addMux(NEWER_ID, sig_d, init_value, disable_sig, pre_d);
+			module->addMux(NEWER_ID, post_q_w, init_value, disable_sig, sig_q);
 
 			SigSpec post_q(post_q_w);
 			set_init_attribute(post_q);
@@ -2529,7 +2529,7 @@ Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec s
 
 	// FIXME: Adffe
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEWER_ID, sig_q, sig_d, enable_sig);
 
 	return module->addAdff(name, clock_sig, sig_arst, sig_d, sig_q, arst_value, posedge);
 }
@@ -2541,7 +2541,7 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 
 	// FIXME: Dffsre
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEWER_ID, sig_q, sig_d, enable_sig);
 
 	return module->addDffsr(name, clock_sig, sig_set, sig_clr, sig_d, sig_q, posedge);
 }
@@ -2552,11 +2552,11 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 
 	// FIXME: Aldffe
 	if (enable_sig != State::S1)
-		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+		sig_d = module->Mux(NEWER_ID, sig_q, sig_d, enable_sig);
 
 	if (gclk) {
-		Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
-		Wire *post_q = module->addWire(NEW_ID, GetSize(sig_q));
+		Wire *pre_d = module->addWire(NEWER_ID, GetSize(sig_d));
+		Wire *post_q = module->addWire(NEWER_ID, GetSize(sig_q));
 
 		Const initval(State::Sx, GetSize(sig_q));
 		int offset = 0;
@@ -2572,8 +2572,8 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 		if (!initval.is_fully_undef())
 			post_q->attributes[ID::init] = initval;
 
-		module->addMux(NEW_ID, sig_d, sig_adata, sig_aload, pre_d);
-		module->addMux(NEW_ID, post_q, sig_adata, sig_aload, sig_q);
+		module->addMux(NEWER_ID, sig_d, sig_adata, sig_aload, pre_d);
+		module->addMux(NEWER_ID, post_q, sig_adata, sig_aload, sig_q);
 
 		return module->addFf(name, pre_d, post_q);
 	}

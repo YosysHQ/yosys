@@ -384,7 +384,7 @@ struct BufnormPass : public Pass {
 							it->second.sort(compare_wires_f);
 							w = *(it->second.begin());
 						} else {
-							w = module->addWire(NEW_ID, GetSize(conn.second));
+							w = module->addWire(NEWER_ID, GetSize(conn.second));
 							for (int i = 0; i < GetSize(w); i++)
 								sigmap.add(SigBit(w, i), keysig[i]);
 						}
@@ -434,7 +434,7 @@ struct BufnormPass : public Pass {
 					return;
 				}
 
-				Cell *cell = module->addCell(NEW_ID, type);
+				Cell *cell = module->addCell(NEWER_ID, type);
 				added_buffers.insert(cell);
 
 				cell->setPort(ID::A, src);

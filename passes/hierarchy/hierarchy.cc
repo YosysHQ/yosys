@@ -1370,7 +1370,7 @@ struct HierarchyPass : public Pass {
 							continue;
 						}
 
-						Wire *t = module->addWire(NEW_ID, GetSize(c));
+						Wire *t = module->addWire(NEWER_ID, GetSize(c));
 						new_sig.append(t);
 						update_port = true;
 
@@ -1400,18 +1400,18 @@ struct HierarchyPass : public Pass {
 
 				if (GetSize(w) == 1) {
 					if (wand)
-						module->addReduceAnd(NEW_ID, sigs, w);
+						module->addReduceAnd(NEWER_ID, sigs, w);
 					else
-						module->addReduceOr(NEW_ID, sigs, w);
+						module->addReduceOr(NEWER_ID, sigs, w);
 					continue;
 				}
 
 				SigSpec s = sigs.extract(0, GetSize(w));
 				for (int i = GetSize(w); i < GetSize(sigs); i += GetSize(w)) {
 					if (wand)
-						s = module->And(NEW_ID, s, sigs.extract(i, GetSize(w)));
+						s = module->And(NEWER_ID, s, sigs.extract(i, GetSize(w)));
 					else
-						s = module->Or(NEW_ID, s, sigs.extract(i, GetSize(w)));
+						s = module->Or(NEWER_ID, s, sigs.extract(i, GetSize(w)));
 				}
 				module->connect(w, s);
 			}
@@ -1473,7 +1473,7 @@ struct HierarchyPass : public Pass {
 							if (w->port_input && !w->port_output)
 								sig.extend_u0(GetSize(w), sig.is_wire() && sig.as_wire()->is_signed);
 							else
-								sig.append(module->addWire(NEW_ID, n));
+								sig.append(module->addWire(NEWER_ID, n));
 						}
 
 						if (!conn.second.is_fully_const() || !w->port_input || w->port_output)

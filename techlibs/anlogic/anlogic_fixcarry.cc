@@ -79,9 +79,9 @@ static void fix_carry_chain(Module *module)
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", log_id(cell->type), log_id(cell));
-		Cell *c = module->addCell(NEW_ID, ID(AL_MAP_ADDER));
-		SigBit new_bit = module->addWire(NEW_ID);
-		SigBit dummy_bit = module->addWire(NEW_ID);
+		Cell *c = module->addCell(NEWER_ID, ID(AL_MAP_ADDER));
+		SigBit new_bit = module->addWire(NEWER_ID);
+		SigBit dummy_bit = module->addWire(NEWER_ID);
 		SigSpec bits;
 		bits.append(dummy_bit);
 		bits.append(new_bit);

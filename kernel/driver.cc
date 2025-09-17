@@ -292,6 +292,7 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
 		("g,debug", "globally enable debug log messages")
 		("perffile", "write a JSON performance log to <perffile>", cxxopts::value<std::string>(), "<perffile>")
+		("no-private-id-locs", "turn off putting source file locations into object IDs")
 	;
 
 	options.parse_positional({"infile"});
@@ -436,6 +437,7 @@ int main(int argc, char **argv)
 			log_experimentals_ignored.insert(ignores.begin(), ignores.end());
 		}
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
+		if (result.count("no-private-id-locs")) yosys_private_id_locs = false;
 		if (result.count("infile")) {
 			frontend_files = result["infile"].as<std::vector<std::string>>();
 		}

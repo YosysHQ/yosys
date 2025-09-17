@@ -232,10 +232,10 @@ struct SubmodWorker
 							auto &b = old_sig[i];
 							// Prevents "ERROR: Mismatch in directionality ..." when flattening
 							if (!b.wire)
-								b = module->addWire(NEW_ID);
+								b = module->addWire(NEWER_ID);
 							// Prevents "Warning: multiple conflicting drivers ..."
 							else if (!it.second.is_int_driven[i])
-								b = module->addWire(NEW_ID);
+								b = module->addWire(NEWER_ID);
 						}
 					new_cell->setPort(new_wire->name, old_sig);
 				}

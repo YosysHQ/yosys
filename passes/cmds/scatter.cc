@@ -51,7 +51,7 @@ struct ScatterPass : public Pass {
 			for (auto cell : module->cells()) {
 				dict<RTLIL::IdString, RTLIL::SigSig> new_connections;
 				for (auto conn : cell->connections())
-					new_connections.emplace(conn.first, RTLIL::SigSig(conn.second, module->addWire(NEW_ID, GetSize(conn.second))));
+					new_connections.emplace(conn.first, RTLIL::SigSig(conn.second, module->addWire(NEWER_ID, GetSize(conn.second))));
 				for (auto &it : new_connections) {
 					if (ct.cell_output(cell->type, it.first))
 						module->connect(RTLIL::SigSig(it.second.first, it.second.second));

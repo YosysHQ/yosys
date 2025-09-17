@@ -363,19 +363,19 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto no_latch_clock;
 
 				if (!strcmp(edge, "re"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDff(NEWER_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "fe"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDff(NEWER_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else if (!strcmp(edge, "ah"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDlatch(NEWER_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "al"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDlatch(NEWER_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
 					if (dff_name.empty()) {
-						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
+						cell = module->addFf(NEWER_ID, blif_wire(d), blif_wire(q));
 					} else {
-						cell = module->addCell(NEW_ID, dff_name);
+						cell = module->addCell(NEWER_ID, dff_name);
 						cell->setPort(ID::D, blif_wire(d));
 						cell->setPort(ID::Q, blif_wire(q));
 					}
@@ -394,7 +394,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto error;
 
 				IdString celltype = RTLIL::escape_id(p);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
+				RTLIL::Cell *cell = module->addCell(NEWER_ID, celltype);
 				RTLIL::Module *cell_mod = design->module(celltype);
 
 				dict<RTLIL::IdString, dict<int, SigBit>> cell_wideports_cache;
@@ -441,7 +441,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 						if (it.second.count(idx))
 							sig.append(it.second.at(idx));
 						else
-							sig.append(module->addWire(NEW_ID));
+							sig.append(module->addWire(NEWER_ID));
 					}
 
 					cell->setPort(it.first, sig);
@@ -517,7 +517,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 				if (sop_mode)
 				{
-					sopcell = module->addCell(NEW_ID, ID($sop));
+					sopcell = module->addCell(NEWER_ID, ID($sop));
 					sopcell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
 					sopcell->parameters[ID::DEPTH] = 0;
 					sopcell->parameters[ID::TABLE] = RTLIL::Const();
@@ -533,7 +533,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				}
 				else
 				{
-					RTLIL::Cell *cell = module->addCell(NEW_ID, ID($lut));
+					RTLIL::Cell *cell = module->addCell(NEWER_ID, ID($lut));
 					cell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
 					cell->parameters[ID::LUT] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
 					cell->setPort(ID::A, input_sig);
@@ -586,8 +586,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				sopmode = (*output == '1');
 				if (!sopmode) {
 					SigSpec outnet = sopcell->getPort(ID::Y);
-					SigSpec tempnet = module->addWire(NEW_ID);
-					module->addNotGate(NEW_ID, tempnet, outnet);
+					SigSpec tempnet = module->addWire(NEWER_ID);
+					module->addNotGate(NEWER_ID, tempnet, outnet);
 					sopcell->setPort(ID::Y, tempnet);
 				}
 			} else

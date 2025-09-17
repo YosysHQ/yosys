@@ -32,8 +32,8 @@ static RTLIL::SigChunk value;
 void constmap_worker(RTLIL::SigSpec &sig)
 {
 	if (sig.is_fully_const()){
-		value = module->addWire(NEW_ID, sig.size());
-		RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
+		value = module->addWire(NEWER_ID, sig.size());
+		RTLIL::Cell *cell = module->addCell(NEWER_ID, celltype);
 		cell->setParam(cell_paramname, sig.as_const());
 		cell->setPort(cell_portname, value);
 		sig = value;

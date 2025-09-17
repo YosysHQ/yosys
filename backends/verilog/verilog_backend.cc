@@ -2372,7 +2372,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	}
 	f << stringf(");\n");
 	if (!systemverilog && !module->processes.empty()) {
-		initial_id = NEW_ID;
+		initial_id = NEWER_ID;
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 

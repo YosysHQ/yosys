@@ -283,7 +283,7 @@ struct MuxpackWorker
 				else {
 					log_assert(cursor_cell->type == ID($mux));
 					b_sig.append(cursor_cell->getPort(ID::A));
-					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
+					s_sig.append(module->LogicNot(NEWER_ID, cursor_cell->getPort(ID::S)));
 				}
 				remove_cells.insert(cursor_cell);
 			}

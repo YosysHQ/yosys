@@ -282,7 +282,7 @@ struct ExtractFaWorker
 	{
 		Cell *cell = driver.at(bit);
 		if (sigmap(cell->getPort(ID::Y)) == SigSpec(bit)) {
-			cell->setPort(ID::Y, module->addWire(NEW_ID));
+			cell->setPort(ID::Y, module->addWire(NEWER_ID));
 			module->connect(bit, new_driver);
 		}
 	}
@@ -394,17 +394,17 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_ID, ID($fa));
+					Cell *cell = module->addCell(NEWER_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
-					cell->setPort(ID::A, f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort(ID::B, f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort(ID::C, f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+					cell->setPort(ID::A, f3i.inv_a ? module->NotGate(NEWER_ID, A) : A);
+					cell->setPort(ID::B, f3i.inv_b ? module->NotGate(NEWER_ID, B) : B);
+					cell->setPort(ID::C, f3i.inv_c ? module->NotGate(NEWER_ID, C) : C);
 
-					X = module->addWire(NEW_ID);
-					Y = module->addWire(NEW_ID);
+					X = module->addWire(NEWER_ID);
+					Y = module->addWire(NEWER_ID);
 
 					cell->setPort(ID::X, X);
 					cell->setPort(ID::Y, Y);
@@ -414,18 +414,18 @@ struct ExtractFaWorker
 
 				bool invert_y = f3i.inv_a ^ f3i.inv_b ^ f3i.inv_c;
 				if (func3.at(key).count(xor3_func)) {
-					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy ^ invert_y ? module->NotGate(NEWER_ID, Y) : Y;
 					for (auto bit : func3.at(key).at(xor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
-					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy ^ invert_y ? Y : module->NotGate(NEWER_ID, Y);
 					for (auto bit : func3.at(key).at(xnor3_func))
 						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEWER_ID, X) : X;
 
 				for (auto bit : func3.at(key).at(func))
 					assign_new_driver(bit, XX);
@@ -501,35 +501,35 @@ struct ExtractFaWorker
 				}
 				else
 				{
-					Cell *cell = module->addCell(NEW_ID, ID($fa));
+					Cell *cell = module->addCell(NEWER_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
-					cell->setPort(ID::A, f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
-					cell->setPort(ID::B, f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
+					cell->setPort(ID::A, f2i.inv_a ? module->NotGate(NEWER_ID, A) : A);
+					cell->setPort(ID::B, f2i.inv_b ? module->NotGate(NEWER_ID, B) : B);
 					cell->setPort(ID::C, State::S0);
 
-					X = module->addWire(NEW_ID);
-					Y = module->addWire(NEW_ID);
+					X = module->addWire(NEWER_ID);
+					Y = module->addWire(NEWER_ID);
 
 					cell->setPort(ID::X, X);
 					cell->setPort(ID::Y, Y);
 				}
 
 				if (func2.at(key).count(xor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEWER_ID, Y) : Y;
 					for (auto bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEWER_ID, Y);
 					for (auto bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
 
-				SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEW_ID, X) : X;
+				SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEWER_ID, X) : X;
 
 				for (auto bit : func2.at(key).at(func))
 					assign_new_driver(bit, XX);

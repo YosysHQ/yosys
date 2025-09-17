@@ -312,8 +312,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 			if (cur_thresh != 0) {
 				//Add thresholding logic (but not on the initial run when we don't have a sense of where to start):
-				RTLIL::SigSpec comparator = maximize? module->Ge(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
-				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
+				RTLIL::SigSpec comparator = maximize? module->Ge(NEWER_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
+				                                    : module->Le(NEWER_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
 				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
 				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);

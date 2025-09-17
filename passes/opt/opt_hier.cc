@@ -137,7 +137,7 @@ struct ModuleIndex {
 					rhs.replace(constant_outputs);
 					log_assert(rhs.is_fully_const());
 					parent.module->connect(value.extract(chunk.offset, chunk.width), rhs);
-					SigSpec dummy = parent.module->addWire(NEW_ID_SUFFIX("const_output"), chunk.width);
+					SigSpec dummy = parent.module->addWire(NEWER_ID_SUFFIX("const_output"), chunk.width);
 					for (int i = 0; i < chunk.width; i++)
 						value[chunk.offset + i] = dummy[i];
 				}
@@ -182,7 +182,7 @@ struct ModuleIndex {
 		severed_port_bits.sort_and_unify();
 		for (auto chunk : severed_port_bits.chunks()) {
 			SigSpec &value = instantiation->connections_.at(chunk.wire->name);
-			SigSpec dummy = parent.module->addWire(NEW_ID_SUFFIX("tie_together"), chunk.width);
+			SigSpec dummy = parent.module->addWire(NEWER_ID_SUFFIX("tie_together"), chunk.width);
 			for (int i = 0; i < chunk.width; i++)
 				value[chunk.offset + i] = dummy[i];
 		}

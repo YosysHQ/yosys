@@ -841,7 +841,7 @@ grow_read_ports:;
 
 	// Swizzle read ports.
 	for (auto &port : mem.rd_ports) {
-		SigSpec new_data = module->addWire(NEW_ID, mem.width);
+		SigSpec new_data = module->addWire(NEWER_ID, mem.width);
 		Const new_init_value = Const(State::Sx, mem.width);
 		Const new_arst_value = Const(State::Sx, mem.width);
 		Const new_srst_value = Const(State::Sx, mem.width);
@@ -920,7 +920,7 @@ grow_read_ports:;
 				if (GetSize(sig_addr) > bram.abits) {
 					SigSpec extra_addr = sig_addr.extract(bram.abits, GetSize(sig_addr) - bram.abits);
 					SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
-					addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
+					addr_ok = module->Eq(NEWER_ID, extra_addr, extra_addr_sel);
 				}
 
 				sig_addr.extend_u0(bram.abits);
@@ -946,7 +946,7 @@ grow_read_ports:;
 							sig_en.append(port.en[stride * i + grid_d * bram.dbits]);
 
 						if (!addr_ok.empty())
-							sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+							sig_en = module->Mux(NEWER_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
 
 						c->setPort(stringf("\\%sEN", pf), sig_en);
 
@@ -961,13 +961,13 @@ grow_read_ports:;
 					auto &port = mem.rd_ports[pi.mapped_port];
 					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
 
-					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
+					SigSpec bram_dout = module->addWire(NEWER_ID, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
 
 					SigSpec addr_ok_q = addr_ok;
 					if (port.clk_enable && !addr_ok.empty()) {
-						addr_ok_q = module->addWire(NEW_ID);
-						module->addDffe(NEW_ID, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
+						addr_ok_q = module->addWire(NEWER_ID);
+						module->addDffe(NEWER_ID, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
 					}
 
 					dout_cache[sig_data].first.append(addr_ok_q);
@@ -976,7 +976,7 @@ grow_read_ports:;
 					if (pi.enable) {
 						SigSpec sig_en = port.en;
 						if (!addr_ok.empty())
-							sig_en = module->And(NEW_ID, sig_en, addr_ok);
+							sig_en = module->And(NEWER_ID, sig_en, addr_ok);
 						c->setPort(stringf("\\%sEN", pf), sig_en);
 					}
 				}
@@ -994,7 +994,7 @@ grow_read_ports:;
 		else
 		{
 			log_assert(GetSize(it.first)*GetSize(it.second.first) == GetSize(it.second.second));
-			module->addPmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), it.second.second, it.second.first, it.first);
+			module->addPmux(NEWER_ID, SigSpec(State::Sx, GetSize(it.first)), it.second.second, it.second.first, it.first);
 		}
 	}
 

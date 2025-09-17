@@ -246,20 +246,20 @@ struct proc_dlatch_db_t
 			if (rule.match == State::S1)
 				and_bits.append(rule.signal);
 			else if (rule.match == State::S0)
-				and_bits.append(module->Not(NEW_ID, rule.signal, false, src));
+				and_bits.append(module->Not(NEWER_ID, rule.signal, false, src));
 			else
-				and_bits.append(module->Eq(NEW_ID, rule.signal, rule.match, false, src));
+				and_bits.append(module->Eq(NEWER_ID, rule.signal, rule.match, false, src));
 		}
 
 		if (!rule.children.empty()) {
 			SigSpec or_bits;
 			for (int k : rule.children)
 				or_bits.append(make_hold(k, src));
-			and_bits.append(module->ReduceOr(NEW_ID, or_bits, false, src));
+			and_bits.append(module->ReduceOr(NEWER_ID, or_bits, false, src));
 		}
 
 		if (GetSize(and_bits) == 2)
-			and_bits = module->And(NEW_ID, and_bits[0], and_bits[1], false, src);
+			and_bits = module->And(NEWER_ID, and_bits[0], and_bits[1], false, src);
 		log_assert(GetSize(and_bits) == 1);
 
 		rules_sig[n] = and_bits[0];
@@ -429,7 +429,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			SigSpec lhs = latches_bits.first.extract(offset, width);
 			SigSpec rhs = latches_bits.second.extract(offset, width);
 
-			Cell *cell = db.module->addDlatch(NEW_ID, db.module->Not(NEW_ID, db.make_hold(n, src)), rhs, lhs);
+			Cell *cell = db.module->addDlatch(NEWER_ID, db.module->Not(NEWER_ID, db.make_hold(n, src)), rhs, lhs);
 			cell->set_src_attribute(src);
 			db.generated_dlatches.insert(cell);
 

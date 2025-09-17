@@ -107,16 +107,16 @@ void SynthPropWorker::run()
 		int num = 0;
 		RTLIL::Wire *port_wire = data.first->wire(port_name);
 		if (!reset_name.empty() && data.first == module) {
-			port_wire = data.first->addWire(NEW_ID, data.second.names.size());
+			port_wire = data.first->addWire(NEWER_ID, data.second.names.size());
 			output = port_wire;
 		}
 		pool<Wire*> connected;
 		for (auto cell : data.second.assertion_cells) {
 			if (cell->type == ID($assert)) {
-				RTLIL::Wire *neg_wire = data.first->addWire(NEW_ID);
-				RTLIL::Wire *result_wire = data.first->addWire(NEW_ID);
-				data.first->addNot(NEW_ID, cell->getPort(ID::A), neg_wire);
-				data.first->addAnd(NEW_ID, cell->getPort(ID::EN), neg_wire, result_wire);
+				RTLIL::Wire *neg_wire = data.first->addWire(NEWER_ID);
+				RTLIL::Wire *result_wire = data.first->addWire(NEWER_ID);
+				data.first->addNot(NEWER_ID, cell->getPort(ID::A), neg_wire);
+				data.first->addAnd(NEWER_ID, cell->getPort(ID::EN), neg_wire, result_wire);
 				if (!or_outputs) {
 					data.first->connect(SigBit(port_wire,num), result_wire);
 				} else {
@@ -132,7 +132,7 @@ void SynthPropWorker::run()
 					if (!or_outputs) {
 						cell->setPort(port_name, SigChunk(port_wire, num, tracing_data[submod].names.size()));
 					} else {
-						RTLIL::Wire *result_wire = data.first->addWire(NEW_ID);
+						RTLIL::Wire *result_wire = data.first->addWire(NEWER_ID);
 						cell->setPort(port_name, result_wire);
 						connected.emplace(result_wire);
 					}
@@ -146,8 +146,8 @@ void SynthPropWorker::run()
 				if (!prev_wire) {
 					prev_wire = wire;
 				} else {
-					RTLIL::Wire *result = data.first->addWire(NEW_ID);
-					data.first->addOr(NEW_ID, prev_wire, wire, result);
+					RTLIL::Wire *result = data.first->addWire(NEWER_ID);
+					data.first->addOr(NEWER_ID, prev_wire, wire, result);
 					prev_wire = result;
 				}
 			}
@@ -163,7 +163,7 @@ void SynthPropWorker::run()
 		SigSpec reset = module->wire(reset_name);
 		reset.extend_u0(width, true);
 
-		module->addDlatchsr(NEW_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
+		module->addDlatchsr(NEWER_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
 	}
 
 	if (!map_file.empty()) {

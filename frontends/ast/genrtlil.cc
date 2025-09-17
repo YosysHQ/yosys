@@ -822,7 +822,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
 				if (GetSize(check) != 1)
-					check = current_module->ReduceBool(NEW_ID, check);
+					check = current_module->ReduceBool(NEWER_ID, check);
 
 				Wire *en = current_module->addWire(cellname.str() + "_EN", 1);
 				set_src_attr(en, ast);
@@ -1626,11 +1626,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL(fake_ast_width, fake_ast_sign);
 
 					if (source_offset != 0) {
-						shift_val = current_module->Sub(NEW_ID, shift_val, source_offset, fake_ast_sign);
+						shift_val = current_module->Sub(NEWER_ID, shift_val, source_offset, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (id2ast->range_swapped) {
-						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast_sign);
+						shift_val = current_module->Sub(NEWER_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (GetSize(shift_val) >= 32)
@@ -2028,7 +2028,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
 			if (GetSize(check) != 1)
-				check = current_module->ReduceBool(NEW_ID, check);
+				check = current_module->ReduceBool(NEWER_ID, check);
 
 			RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 			set_src_attr(cell, this);
@@ -2130,7 +2130,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						} else if (arg->is_signed) {
 							// non-trivial signed nodes are indirected through
 							// signed wires to enable sign extension
-							RTLIL::IdString wire_name = NEW_ID;
+							RTLIL::IdString wire_name = NEWER_ID;
 							RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
 							wire->is_signed = true;
 							current_module->connect(wire, sig);

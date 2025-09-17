@@ -60,7 +60,7 @@ struct MemoryBmux2RomPass : public Pass {
 					continue;
 
 				// Ok, let's do it.
-				Mem mem(module, NEW_ID, width, 0, 1 << abits);
+				Mem mem(module, NEWER_ID, width, 0, 1 << abits);
 				mem.attributes = cell->attributes;
 
 				MemInit init;

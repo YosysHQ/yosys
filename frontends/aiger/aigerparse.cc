@@ -559,9 +559,9 @@ void AigerReader::parse_aiger_ascii()
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
-			module->addDffGate(NEW_ID, clk_wire, d_wire, q_wire);
+			module->addDffGate(NEWER_ID, clk_wire, d_wire, q_wire);
 		else
-			module->addFfGate(NEW_ID, d_wire, q_wire);
+			module->addFfGate(NEWER_ID, d_wire, q_wire);
 
 		// Reset logic is optional in AIGER 1.9
 		if (f.peek() == ' ') {
@@ -683,9 +683,9 @@ void AigerReader::parse_aiger_binary()
 		RTLIL::Wire *d_wire = createWireIfNotExists(module, l2);
 
 		if (clk_wire)
-			module->addDff(NEW_ID, clk_wire, d_wire, q_wire);
+			module->addDff(NEWER_ID, clk_wire, d_wire, q_wire);
 		else
-			module->addFf(NEW_ID, d_wire, q_wire);
+			module->addFf(NEWER_ID, d_wire, q_wire);
 
 		// Reset logic is optional in AIGER 1.9
 		if (f.peek() == ' ') {
@@ -795,7 +795,7 @@ void AigerReader::post_process()
 		log_assert(q->port_input);
 		q->port_input = false;
 
-		Cell* ff = module->addFfGate(NEW_ID, d, q);
+		Cell* ff = module->addFfGate(NEWER_ID, d, q);
 		ff->attributes[ID::abc9_mergeability] = mergeability[i];
 		q->attributes[ID::init] = initial_state[i];
 	}

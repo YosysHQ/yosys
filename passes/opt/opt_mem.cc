@@ -125,7 +125,7 @@ struct OptMemPass : public Pass {
 								module->connect(port.data[bidx], bit);
 							} else {
 								// The FF will most likely be redundant, but it's up to opt_dff to deal with this.
-								FfData ff(module, &initvals, NEW_ID);
+								FfData ff(module, &initvals, NEWER_ID);
 								ff.width = 1;
 								ff.has_clk = true;
 								ff.sig_clk = port.clk;

@@ -323,28 +323,28 @@ unmap:
 				Cell *lut_cell = 0;
 				switch (GetSize(final_lut.second)) {
 					case 1:
-						lut_cell = module->addCell(NEW_ID, ID(LUT1));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT1));
 						break;
 					case 2:
-						lut_cell = module->addCell(NEW_ID, ID(LUT2));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT2));
 						break;
 					case 3:
-						lut_cell = module->addCell(NEW_ID, ID(LUT3));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT3));
 						break;
 					case 4:
-						lut_cell = module->addCell(NEW_ID, ID(LUT4));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT4));
 						break;
 					case 5:
-						lut_cell = module->addCell(NEW_ID, ID(LUT5));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT5));
 						break;
 					case 6:
-						lut_cell = module->addCell(NEW_ID, ID(LUT6));
+						lut_cell = module->addCell(NEWER_ID, ID(LUT6));
 						break;
 					default:
 						log_assert(!"unknown lut size");
 				}
 				lut_cell->attributes = cell_d->attributes;
-				Wire *lut_out = module->addWire(NEW_ID);
+				Wire *lut_out = module->addWire(NEWER_ID);
 				lut_cell->setParam(ID::INIT, final_lut.first);
 				cell->setPort(ID::D, lut_out);
 				lut_cell->setPort(ID::O, lut_out);

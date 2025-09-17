@@ -93,7 +93,7 @@ struct TribufWorker {
 				}
 
 				if (is_all_z(cell->getPort(ID::B))) {
-					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
+					cell->setPort(en_port, module->Not(NEWER_ID, cell->getPort(ID::S)));
 					cell->unsetPort(ID::B);
 					cell->unsetPort(ID::S);
 					cell->type = tri_type;
@@ -138,12 +138,12 @@ struct TribufWorker {
 
 						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(ID::EN) : cell->getPort(ID::E);
 
-						auto other_s = module->ReduceOr(NEW_ID, others_s);
+						auto other_s = module->ReduceOr(NEWER_ID, others_s);
 
-						auto conflict = module->And(NEW_ID, cell_s, other_s);
+						auto conflict = module->And(NEWER_ID, cell_s, other_s);
 
 						std::string name = stringf("$tribuf_conflict$%s", log_id(cell->name));
-						auto assert_cell = module->addAssert(name, module->Not(NEW_ID, conflict), SigSpec(true));
+						auto assert_cell = module->addAssert(name, module->Not(NEWER_ID, conflict), SigSpec(true));
 
 						assert_cell->set_src_attribute(cell->get_src_attribute());
 						assert_cell->set_bool_attribute(ID::keep);
@@ -162,12 +162,12 @@ struct TribufWorker {
 					module->remove(cell);
 				}
 
-				SigSpec muxout = GetSize(pmux_s) > 1 ? module->Pmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), pmux_b, pmux_s) : pmux_b;
+				SigSpec muxout = GetSize(pmux_s) > 1 ? module->Pmux(NEWER_ID, SigSpec(State::Sx, GetSize(it.first)), pmux_b, pmux_s) : pmux_b;
 
 				if (no_tribuf)
 					module->connect(it.first, muxout);
 				else {
-					module->addTribuf(NEW_ID, muxout, module->ReduceOr(NEW_ID, pmux_s), it.first);
+					module->addTribuf(NEWER_ID, muxout, module->ReduceOr(NEWER_ID, pmux_s), it.first);
 					module->design->scratchpad_set_bool("tribuf.added_something", true);
 				}
 			}

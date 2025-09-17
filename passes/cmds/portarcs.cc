@@ -291,7 +291,7 @@ struct PortarcsPass : Pass {
 					int *p = annotations.at(canonical_bit(bit));
 					for (auto i = 0; i < inputs.size(); i++) {
 						if (p[i] >= 0) {
-							Cell *spec = m->addCell(NEW_ID, ID($specify2));
+							Cell *spec = m->addCell(NEWER_ID, ID($specify2));
 							spec->setParam(ID::SRC_WIDTH, 1);
 							spec->setParam(ID::DST_WIDTH, 1);
 							spec->setParam(ID::T_FALL_MAX, p[i]);

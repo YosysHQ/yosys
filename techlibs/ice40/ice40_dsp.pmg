@@ -66,7 +66,7 @@ code sigA sigB sigH
 			wire_width++;
 		else {
 			if (wire_width) { // add empty wires for bit offset if needed
-				sigH.append(module->addWire(NEW_ID, wire_width));
+				sigH.append(module->addWire(NEWER_ID, wire_width));
 				wire_width = 0;
 			}
 			sigH.append(O[j]);

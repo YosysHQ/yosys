@@ -59,7 +59,7 @@ void run_fixed(xilinx_srl_pm &pm)
 
 	auto first_cell = ud.longest_chain.back();
 	auto last_cell = ud.longest_chain.front();
-	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
+	Cell *c = pm.module->addCell(NEWER_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
@@ -134,7 +134,7 @@ void run_variable(xilinx_srl_pm &pm)
 	auto first_cell = ud.chain.back().first;
 	auto first_slice = ud.chain.back().second;
 
-	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
+	Cell *c = pm.module->addCell(NEWER_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {

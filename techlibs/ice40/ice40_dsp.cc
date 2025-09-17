@@ -66,7 +66,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	if (cell->type == ID($mul)) {
 		log("  replacing %s with SB_MAC16 cell.\n", log_id(st.mul->type));
 
-		cell = pm.module->addCell(NEW_ID, ID(SB_MAC16));
+		cell = pm.module->addCell(NEWER_ID, ID(SB_MAC16));
 		pm.module->swap_names(cell, st.mul);
 	}
 	else log_assert(cell->type == ID(SB_MAC16));
@@ -98,15 +98,15 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	SigSpec AHOLD, BHOLD, CDHOLD;
 	if (st.ffA && st.ffA->hasPort(ID::EN))
-		AHOLD = st.ffA->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEW_ID, st.ffA->getPort(ID::EN)) : st.ffA->getPort(ID::EN);
+		AHOLD = st.ffA->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEWER_ID, st.ffA->getPort(ID::EN)) : st.ffA->getPort(ID::EN);
 	else
 		AHOLD = State::S0;
 	if (st.ffB && st.ffB->hasPort(ID::EN))
-		BHOLD = st.ffB->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEW_ID, st.ffB->getPort(ID::EN)) : st.ffB->getPort(ID::EN);
+		BHOLD = st.ffB->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEWER_ID, st.ffB->getPort(ID::EN)) : st.ffB->getPort(ID::EN);
 	else
 		BHOLD = State::S0;
 	if (st.ffCD && st.ffCD->hasPort(ID::EN))
-		CDHOLD = st.ffCD->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEW_ID, st.ffCD->getPort(ID::EN)) : st.ffCD->getPort(ID::EN);
+		CDHOLD = st.ffCD->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEWER_ID, st.ffCD->getPort(ID::EN)) : st.ffCD->getPort(ID::EN);
 	else
 		CDHOLD = State::S0;
 	cell->setPort(ID(AHOLD), AHOLD);
@@ -116,11 +116,11 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	SigSpec IRSTTOP, IRSTBOT;
 	if (st.ffA && st.ffA->hasPort(ID::ARST))
-		IRSTTOP = st.ffA->getParam(ID::ARST_POLARITY).as_bool() ? st.ffA->getPort(ID::ARST) : pm.module->Not(NEW_ID, st.ffA->getPort(ID::ARST));
+		IRSTTOP = st.ffA->getParam(ID::ARST_POLARITY).as_bool() ? st.ffA->getPort(ID::ARST) : pm.module->Not(NEWER_ID, st.ffA->getPort(ID::ARST));
 	else
 		IRSTTOP = State::S0;
 	if (st.ffB && st.ffB->hasPort(ID::ARST))
-		IRSTBOT = st.ffB->getParam(ID::ARST_POLARITY).as_bool() ? st.ffB->getPort(ID::ARST) : pm.module->Not(NEW_ID, st.ffB->getPort(ID::ARST));
+		IRSTBOT = st.ffB->getParam(ID::ARST_POLARITY).as_bool() ? st.ffB->getPort(ID::ARST) : pm.module->Not(NEWER_ID, st.ffB->getPort(ID::ARST));
 	else
 		IRSTBOT = State::S0;
 	cell->setPort(ID(IRSTTOP), IRSTTOP);
@@ -164,12 +164,12 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	// SB_MAC16 Cascade Interface
 
 	cell->setPort(ID(SIGNEXTIN), State::Sx);
-	cell->setPort(ID(SIGNEXTOUT), pm.module->addWire(NEW_ID));
+	cell->setPort(ID(SIGNEXTOUT), pm.module->addWire(NEWER_ID));
 
 	cell->setPort(ID::CI, State::Sx);
 
 	cell->setPort(ID(ACCUMCI), State::Sx);
-	cell->setPort(ID(ACCUMCO), pm.module->addWire(NEW_ID));
+	cell->setPort(ID(ACCUMCO), pm.module->addWire(NEWER_ID));
 
 	// SB_MAC16 Output Interface
 
@@ -185,10 +185,10 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		O.remove(O_width-1);
 	}
 	else
-		cell->setPort(ID::CO, pm.module->addWire(NEW_ID));
+		cell->setPort(ID::CO, pm.module->addWire(NEWER_ID));
 	log_assert(GetSize(O) <= 32);
 	if (GetSize(O) < 32)
-		O.append(pm.module->addWire(NEW_ID, 32-GetSize(O)));
+		O.append(pm.module->addWire(NEWER_ID, 32-GetSize(O)));
 
 	cell->setPort(ID::O, O);
 
@@ -208,7 +208,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	SigSpec OHOLD;
 	if (st.ffO && st.ffO->hasPort(ID::EN))
-		OHOLD = st.ffO->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEW_ID, st.ffO->getPort(ID::EN)) : st.ffO->getPort(ID::EN);
+		OHOLD = st.ffO->getParam(ID::EN_POLARITY).as_bool() ? pm.module->Not(NEWER_ID, st.ffO->getPort(ID::EN)) : st.ffO->getPort(ID::EN);
 	else
 		OHOLD = State::S0;
 	cell->setPort(ID(OHOLDTOP), OHOLD);
@@ -216,7 +216,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 	SigSpec ORST;
 	if (st.ffO && st.ffO->hasPort(ID::ARST))
-		ORST = st.ffO->getParam(ID::ARST_POLARITY).as_bool() ? st.ffO->getPort(ID::ARST) : pm.module->Not(NEW_ID, st.ffO->getPort(ID::ARST));
+		ORST = st.ffO->getParam(ID::ARST_POLARITY).as_bool() ? st.ffO->getPort(ID::ARST) : pm.module->Not(NEWER_ID, st.ffO->getPort(ID::ARST));
 	else
 		ORST = State::S0;
 	cell->setPort(ID(ORSTTOP), ORST);
@@ -227,9 +227,9 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		if (st.muxAB == ID::A)
 			acc_reset = st.mux->getPort(ID::S);
 		else
-			acc_reset = pm.module->Not(NEW_ID, st.mux->getPort(ID::S));
+			acc_reset = pm.module->Not(NEWER_ID, st.mux->getPort(ID::S));
 	} else if (st.ffO && st.ffO->hasPort(ID::SRST)) {
-		acc_reset = st.ffO->getParam(ID::SRST_POLARITY).as_bool() ? st.ffO->getPort(ID::SRST) : pm.module->Not(NEW_ID, st.ffO->getPort(ID::SRST));
+		acc_reset = st.ffO->getParam(ID::SRST_POLARITY).as_bool() ? st.ffO->getPort(ID::SRST) : pm.module->Not(NEWER_ID, st.ffO->getPort(ID::SRST));
 	}
 	cell->setPort(ID(OLOADTOP), acc_reset);
 	cell->setPort(ID(OLOADBOT), acc_reset);
@@ -259,7 +259,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		else
 			cell->setParam(ID(TOPOUTPUT_SELECT), Const(1, 2));
 
-		st.ffO->connections_.at(ID::Q).replace(O, pm.module->addWire(NEW_ID, GetSize(O)));
+		st.ffO->connections_.at(ID::Q).replace(O, pm.module->addWire(NEWER_ID, GetSize(O)));
 		cell->setParam(ID(BOTOUTPUT_SELECT), Const(1, 2));
 	}
 	else {

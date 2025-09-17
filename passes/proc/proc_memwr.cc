@@ -42,7 +42,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 					priority_mask.set(prev_port_ids[i], State::S1);
 			prev_port_ids.push_back(port_id);
 
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
+			RTLIL::Cell *cell = mod->addCell(NEWER_ID, ID($memwr_v2));
 			cell->attributes = memwr.attributes;
 			cell->setParam(ID::MEMID, Const(memwr.memid.str()));
 			cell->setParam(ID::ABITS, GetSize(memwr.address));
@@ -55,10 +55,10 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 			for (auto sr2 : proc->syncs) {
 				if (sr2->type == RTLIL::SyncType::ST0) {
 					log_assert(sr2->mem_write_actions.empty());
-					enable = mod->Mux(NEW_ID, Const(State::S0, GetSize(enable)), enable, sr2->signal);
+					enable = mod->Mux(NEWER_ID, Const(State::S0, GetSize(enable)), enable, sr2->signal);
 				} else if (sr2->type == RTLIL::SyncType::ST1) {
 					log_assert(sr2->mem_write_actions.empty());
-					enable = mod->Mux(NEW_ID, enable, Const(State::S0, GetSize(enable)), sr2->signal);
+					enable = mod->Mux(NEWER_ID, enable, Const(State::S0, GetSize(enable)), sr2->signal);
 				}
 			}
 			cell->setPort(ID::EN, enable);

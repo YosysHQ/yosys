@@ -1625,8 +1625,8 @@ std::vector<SigSpec> generate_demux(Mem &mem, int wpidx, const Swizzle &swz) {
 			lo = new_lo;
 			hi = new_hi;
 		}
-		SigSpec in_range = mem.module->And(NEW_ID, mem.module->Ge(NEW_ID, addr, lo), mem.module->Lt(NEW_ID, addr, hi));
-		sig_a = mem.module->Mux(NEW_ID, Const(State::S0, GetSize(sig_a)), sig_a, in_range);
+		SigSpec in_range = mem.module->And(NEWER_ID, mem.module->Ge(NEWER_ID, addr, lo), mem.module->Lt(NEWER_ID, addr, hi));
+		sig_a = mem.module->Mux(NEWER_ID, Const(State::S0, GetSize(sig_a)), sig_a, in_range);
 	}
 	addr.extend_u0(swz.addr_shift + hi_bits, false);
 	SigSpec sig_s;
@@ -1638,7 +1638,7 @@ std::vector<SigSpec> generate_demux(Mem &mem, int wpidx, const Swizzle &swz) {
 	if (GetSize(sig_s) == 0)
 		sig_y = sig_a;
 	else
-		sig_y = mem.module->Demux(NEW_ID, sig_a, sig_s);
+		sig_y = mem.module->Demux(NEWER_ID, sig_a, sig_s);
 	for (int i = 0; i < ((swz.addr_end - swz.addr_start) >> swz.addr_shift); i++) {
 		for (int j = 0; j < (1 << GetSize(swz.addr_mux_bits)); j++) {
 			int hi = ((swz.addr_start >> swz.addr_shift) + i) & ((1 << hi_bits) - 1);
@@ -1664,14 +1664,14 @@ std::vector<SigSpec> generate_mux(Mem &mem, int rpidx, const Swizzle &swz) {
 		return {port.data};
 	}
 	if (port.clk_enable) {
-		SigSpec new_sig_s = mem.module->addWire(NEW_ID, GetSize(sig_s));
-		mem.module->addDffe(NEW_ID, port.clk, port.en, sig_s, new_sig_s, port.clk_polarity);
+		SigSpec new_sig_s = mem.module->addWire(NEWER_ID, GetSize(sig_s));
+		mem.module->addDffe(NEWER_ID, port.clk, port.en, sig_s, new_sig_s, port.clk_polarity);
 		sig_s = new_sig_s;
 	}
 	SigSpec sig_a = Const(State::Sx, GetSize(port.data) << hi_bits << GetSize(swz.addr_mux_bits));
 	for (int i = 0; i < ((swz.addr_end - swz.addr_start) >> swz.addr_shift); i++) {
 		for (int j = 0; j < (1 << GetSize(swz.addr_mux_bits)); j++) {
-			SigSpec sig = mem.module->addWire(NEW_ID, GetSize(port.data));
+			SigSpec sig = mem.module->addWire(NEWER_ID, GetSize(port.data));
 			int hi = ((swz.addr_start >> swz.addr_shift) + i) & ((1 << hi_bits) - 1);
 			int pos = (hi << GetSize(swz.addr_mux_bits) | j) * GetSize(port.data);
 			for (int k = 0; k < GetSize(port.data); k++)
@@ -1679,7 +1679,7 @@ std::vector<SigSpec> generate_mux(Mem &mem, int rpidx, const Swizzle &swz) {
 			res.push_back(sig);
 		}
 	}
-	mem.module->addBmux(NEW_ID, sig_a, sig_s, port.data);
+	mem.module->addBmux(NEWER_ID, sig_a, sig_s, port.data);
 	return res;
 }
 
@@ -1709,7 +1709,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 			if (pdef.clk_en) {
 				if (rpcfg.rd_en_to_clk_en) {
 					if (pdef.rdwr == RdWrKind::NoChange) {
-						clk_en = mem.module->Or(NEW_ID, rport.en, mem.module->ReduceOr(NEW_ID, wport.en));
+						clk_en = mem.module->Or(NEWER_ID, rport.en, mem.module->ReduceOr(NEWER_ID, wport.en));
 					} else {
 						clk_en = rport.en;
 					}
@@ -1743,11 +1743,11 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 		switch (pdef.clk_pol) {
 			case ClkPolKind::Posedge:
 				if (!clk_pol)
-					clk = mem.module->Not(NEW_ID, clk);
+					clk = mem.module->Not(NEWER_ID, clk);
 				break;
 			case ClkPolKind::Negedge:
 				if (clk_pol)
-					clk = mem.module->Not(NEW_ID, clk);
+					clk = mem.module->Not(NEWER_ID, clk);
 				break;
 			case ClkPolKind::Anyedge:
 				for (auto cell: cells)
@@ -1852,7 +1852,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 				cell->setPort(stringf("\\PORT_%s_WR_DATA", name), hw_wdata);
 				if (pdef.wrbe_separate) {
 					// TODO make some use of it
-					SigSpec en = mem.module->ReduceOr(NEW_ID, hw_wren);
+					SigSpec en = mem.module->ReduceOr(NEWER_ID, hw_wren);
 					cell->setPort(stringf("\\PORT_%s_WR_EN", name), en);
 					cell->setPort(stringf("\\PORT_%s_WR_BE", name), hw_wren);
 					if (cfg.def->width_mode != WidthMode::Single)
@@ -1947,7 +1947,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 						cell->setParam(stringf("\\PORT_%s_RD_SRST_VALUE", name), hw_val);
 					}
 				}
-				SigSpec hw_rdata = mem.module->addWire(NEW_ID, width);
+				SigSpec hw_rdata = mem.module->addWire(NEWER_ID, width);
 				cell->setPort(stringf("\\PORT_%s_RD_DATA", name), hw_rdata);
 				SigSpec lhs;
 				SigSpec rhs;
@@ -1982,7 +1982,7 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 					else if (pdef.rdsrstval == ResetValKind::NoUndef)
 						cell->setParam(stringf("\\PORT_%s_RD_SRST_VALUE", name), Const(State::S0, width));
 				}
-				SigSpec hw_rdata = mem.module->addWire(NEW_ID, width);
+				SigSpec hw_rdata = mem.module->addWire(NEWER_ID, width);
 				cell->setPort(stringf("\\PORT_%s_RD_DATA", name), hw_rdata);
 			}
 		}
@@ -2087,7 +2087,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 				} else {
 					SigSpec sig = ccfg.used ? ccfg.clk : State::S0;
 					if (ccfg.used && ccfg.invert)
-						sig = mem.module->Not(NEW_ID, sig);
+						sig = mem.module->Not(NEWER_ID, sig);
 					cell->setPort(stringf("\\CLK_%s", cdef.name), sig);
 				}
 			}

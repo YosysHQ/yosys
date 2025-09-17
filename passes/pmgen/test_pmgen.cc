@@ -58,11 +58,11 @@ void reduce_chain(test_pmgen_pm &pm)
 	Cell *c;
 
 	if (last_cell->type == ID($_AND_))
-		c = pm.module->addReduceAnd(NEW_ID, A, Y);
+		c = pm.module->addReduceAnd(NEWER_ID, A, Y);
 	else if (last_cell->type == ID($_OR_))
-		c = pm.module->addReduceOr(NEW_ID, A, Y);
+		c = pm.module->addReduceOr(NEWER_ID, A, Y);
 	else if (last_cell->type == ID($_XOR_))
-		c = pm.module->addReduceXor(NEW_ID, A, Y);
+		c = pm.module->addReduceXor(NEWER_ID, A, Y);
 	else
 		log_abort();
 
@@ -87,11 +87,11 @@ void reduce_tree(test_pmgen_pm &pm)
 	Cell *c;
 
 	if (st.first->type == ID($_AND_))
-		c = pm.module->addReduceAnd(NEW_ID, A, Y);
+		c = pm.module->addReduceAnd(NEWER_ID, A, Y);
 	else if (st.first->type == ID($_OR_))
-		c = pm.module->addReduceOr(NEW_ID, A, Y);
+		c = pm.module->addReduceOr(NEWER_ID, A, Y);
 	else if (st.first->type == ID($_XOR_))
-		c = pm.module->addReduceXor(NEW_ID, A, Y);
+		c = pm.module->addReduceXor(NEWER_ID, A, Y);
 	else
 		log_abort();
 
@@ -112,7 +112,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 			log_signal(Y), log_id(st.eq), log_id(st.ne), log_id(st.pmux));
 
 	pm.autoremove(st.pmux);
-	Cell *c = pm.module->addMux(NEW_ID, NE, EQ, st.eq->getPort(ID::Y), Y);
+	Cell *c = pm.module->addMux(NEWER_ID, NE, EQ, st.eq->getPort(ID::Y), Y);
 	log("    -> %s (%s)\n", log_id(c), log_id(c->type));
 }
 

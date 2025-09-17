@@ -494,11 +494,11 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (wire->name.isPublic() && wire->port_id == 0)
-						new_wire_names[wire] = NEW_ID;
+						new_wire_names[wire] = NEWER_ID;
 
 				for (auto cell : module->selected_cells())
 					if (cell->name.isPublic())
-						new_cell_names[cell] = NEW_ID;
+						new_cell_names[cell] = NEWER_ID;
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);

@@ -66,31 +66,31 @@ struct Clk2fflogicPass : public Pass {
 	SampledSig sample_control(Module *module, SigSpec sig, bool polarity, bool is_fine) {
 		if (!polarity) {
 			if (is_fine)
-				sig = module->NotGate(NEW_ID, sig);
+				sig = module->NotGate(NEWER_ID, sig);
 			else
-				sig = module->Not(NEW_ID, sig);
+				sig = module->Not(NEWER_ID, sig);
 		}
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEWER_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(State::S0, GetSize(sig));
 		if (is_fine)
-			module->addFfGate(NEW_ID, sig, sampled_sig);
+			module->addFfGate(NEWER_ID, sig, sampled_sig);
 		else
-			module->addFf(NEW_ID, sig, sampled_sig);
+			module->addFf(NEWER_ID, sig, sampled_sig);
 		return {sampled_sig, sig};
 	}
 	// Active-high trigger signal for an edge-triggered control signal. Initial values is low/non-edge.
 	SigSpec sample_control_edge(Module *module, SigSpec sig, bool polarity, bool is_fine) {
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEWER_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S1 : State::S0, GetSize(sig));
 		if (is_fine)
-			module->addFfGate(NEW_ID, sig, sampled_sig);
+			module->addFfGate(NEWER_ID, sig, sampled_sig);
 		else
-			module->addFf(NEW_ID, sig, sampled_sig);
-		return module->Eqx(NEW_ID, {sampled_sig, sig}, polarity ? SigSpec {State::S0, State::S1} : SigSpec {State::S1, State::S0});
+			module->addFf(NEWER_ID, sig, sampled_sig);
+		return module->Eqx(NEWER_ID, {sampled_sig, sig}, polarity ? SigSpec {State::S0, State::S1} : SigSpec {State::S1, State::S0});
 	}
 	// Sampled and current value of a data signal.
 	SampledSig sample_data(Module *module, SigSpec sig, RTLIL::Const init, bool is_fine, bool set_attribute = false) {
@@ -98,14 +98,14 @@ struct Clk2fflogicPass : public Pass {
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
 
 
-		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
+		Wire *sampled_sig = module->addWire(NEWER_ID_SUFFIX(stringf("%s#sampled", sig_str)), GetSize(sig));
 		sampled_sig->attributes[ID::init] = init;
 
 		Cell *cell;
 		if (is_fine)
-			cell = module->addFfGate(NEW_ID, sig, sampled_sig);
+			cell = module->addFfGate(NEWER_ID, sig, sampled_sig);
 		else
-			cell = module->addFf(NEW_ID, sig, sampled_sig);
+			cell = module->addFf(NEWER_ID, sig, sampled_sig);
 
 		if (set_attribute) {
 			for (auto &chunk : sig.chunks())
@@ -118,15 +118,15 @@ struct Clk2fflogicPass : public Pass {
 	}
 	SigSpec mux(Module *module, SigSpec a, SigSpec b, SigSpec s, bool is_fine) {
 		if (is_fine)
-			return module->MuxGate(NEW_ID, a, b, s);
+			return module->MuxGate(NEWER_ID, a, b, s);
 		else
-			return module->Mux(NEW_ID, a, b, s);
+			return module->Mux(NEWER_ID, a, b, s);
 	}
 	SigSpec bitwise_sr(Module *module, SigSpec a, SigSpec s, SigSpec r, bool is_fine) {
 		if (is_fine)
-			return module->AndGate(NEW_ID, module->OrGate(NEW_ID, a, s), module->NotGate(NEW_ID, r));
+			return module->AndGate(NEWER_ID, module->OrGate(NEWER_ID, a, s), module->NotGate(NEWER_ID, r));
 		else
-			return module->And(NEW_ID, module->Or(NEW_ID, a, s), module->Not(NEW_ID, r));
+			return module->And(NEWER_ID, module->Or(NEWER_ID, a, s), module->Not(NEWER_ID, r));
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -183,9 +183,9 @@ struct Clk2fflogicPass : public Pass {
 							i, log_id(module), log_id(mem.memid), log_signal(port.clk),
 							log_signal(port.addr), log_signal(port.data));
 
-					Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#past_clk#%s", log_id(mem.memid), i, log_signal(port.clk))));
+					Wire *past_clk = module->addWire(NEWER_ID_SUFFIX(stringf("%s#%d#past_clk#%s", log_id(mem.memid), i, log_signal(port.clk))));
 					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
-					module->addFf(NEW_ID, port.clk, past_clk);
+					module->addFf(NEWER_ID, port.clk, past_clk);
 
 					SigSpec clock_edge_pattern;
 
@@ -197,19 +197,19 @@ struct Clk2fflogicPass : public Pass {
 						clock_edge_pattern.append(State::S0);
 					}
 
-					SigSpec clock_edge = module->Eqx(NEW_ID, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
+					SigSpec clock_edge = module->Eqx(NEWER_ID, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-					SigSpec en_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#en_q", log_id(mem.memid), i)), GetSize(port.en));
-					module->addFf(NEW_ID, port.en, en_q);
+					SigSpec en_q = module->addWire(NEWER_ID_SUFFIX(stringf("%s#%d#en_q", log_id(mem.memid), i)), GetSize(port.en));
+					module->addFf(NEWER_ID, port.en, en_q);
 
-					SigSpec addr_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#addr_q", log_id(mem.memid), i)), GetSize(port.addr));
-					module->addFf(NEW_ID, port.addr, addr_q);
+					SigSpec addr_q = module->addWire(NEWER_ID_SUFFIX(stringf("%s#%d#addr_q", log_id(mem.memid), i)), GetSize(port.addr));
+					module->addFf(NEWER_ID, port.addr, addr_q);
 
-					SigSpec data_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#data_q", log_id(mem.memid), i)), GetSize(port.data));
-					module->addFf(NEW_ID, port.data, data_q);
+					SigSpec data_q = module->addWire(NEWER_ID_SUFFIX(stringf("%s#%d#data_q", log_id(mem.memid), i)), GetSize(port.data));
+					module->addFf(NEWER_ID, port.data, data_q);
 
 					port.clk = State::S0;
-					port.en = module->Mux(NEW_ID, Const(0, GetSize(en_q)), en_q, clock_edge);
+					port.en = module->Mux(NEWER_ID, Const(0, GetSize(en_q)), en_q, clock_edge);
 					port.addr = addr_q;
 					port.data = data_q;
 
@@ -237,10 +237,10 @@ struct Clk2fflogicPass : public Pass {
 
 					if (trg_width == 0) {
 						if (initstate == State::S0)
-							initstate = module->Initstate(NEW_ID);
+							initstate = module->Initstate(NEWER_ID);
 
 						SigBit sig_en = cell->getPort(ID::EN);
-						cell->setPort(ID::EN, module->And(NEW_ID, sig_en, initstate));
+						cell->setPort(ID::EN, module->And(NEWER_ID, sig_en, initstate));
 					} else {
 						SigBit sig_en = cell->getPort(ID::EN);
 						SigSpec sig_args = cell->getPort(ID::ARGS);
@@ -254,9 +254,9 @@ struct Clk2fflogicPass : public Pass {
 						SigSpec sig_args_sampled = sample_data(module, sig_args, Const(State::S0, GetSize(sig_args)), false, false).sampled;
 						SigBit sig_en_sampled = sample_data(module, sig_en, State::S0, false, false).sampled;
 
-						SigBit sig_trg_combined = module->ReduceOr(NEW_ID, sig_trg_sampled);
+						SigBit sig_trg_combined = module->ReduceOr(NEWER_ID, sig_trg_sampled);
 
-						cell->setPort(ID::EN, module->And(NEW_ID, sig_en_sampled, sig_trg_combined));
+						cell->setPort(ID::EN, module->And(NEWER_ID, sig_en_sampled, sig_trg_combined));
 						cell->setPort(ID::ARGS, sig_args_sampled);
 						if (cell->type == ID($check)) {
 							SigBit sig_a = cell->getPort(ID::A);

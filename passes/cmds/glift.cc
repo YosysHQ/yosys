@@ -144,7 +144,7 @@ private:
 			//In this case, a nonzero hole metamux select value means less logic.
 			//Thus we should invert the ReduceOr over the metamux_select signal.
 			RTLIL::SigSpec pmux_select = module->ReduceOr(metamux_select.as_wire()->name.str() + "_nonzero", metamux_select);
-			return module->Pmux(NEW_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->get_src_attribute());
+			return module->Pmux(NEWER_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->get_src_attribute());
 		} else {
 			auto select_width = metamux_select.as_wire()->width;
 

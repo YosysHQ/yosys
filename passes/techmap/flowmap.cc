@@ -1411,7 +1411,7 @@ struct FlowmapWorker
 			if ((int)input_nodes.size() < minlut)
 				lut_a.append(RTLIL::Const(State::Sx, minlut - input_nodes.size()));
 
-			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);
+			RTLIL::Cell *lut = module->addLut(NEWER_ID, lut_a, lut_y, lut_table);
 			mapped_nodes.insert(node);
 			for (auto gate_node : lut_gates[node])
 			{
@@ -1432,7 +1432,7 @@ struct FlowmapWorker
 		{
 			auto origin = node_origins[node];
 			RTLIL::SigSpec driver = origin.cell->getPort(origin.port);
-			driver[origin.offset] = module->addWire(NEW_ID);
+			driver[origin.offset] = module->addWire(NEWER_ID);
 			origin.cell->setPort(origin.port, driver);
 		}
 	}

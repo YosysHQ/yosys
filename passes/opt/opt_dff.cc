@@ -244,8 +244,8 @@ struct OptDffWorker
 				s2.append(it.second);
 			}
 
-			RTLIL::SigSpec y = module->addWire(NEW_ID);
-			RTLIL::Cell *c = module->addNe(NEW_ID, s1, s2, y);
+			RTLIL::SigSpec y = module->addWire(NEWER_ID);
+			RTLIL::Cell *c = module->addNe(NEWER_ID, s1, s2, y);
 
 			if (make_gates) {
 				simplemap(module, c);
@@ -258,9 +258,9 @@ struct OptDffWorker
 			if (item.second)
 				or_input.append(item.first);
 			else if (make_gates)
-				or_input.append(module->NotGate(NEW_ID, item.first));
+				or_input.append(module->NotGate(NEWER_ID, item.first));
 			else
-				or_input.append(module->Not(NEW_ID, item.first));
+				or_input.append(module->Not(NEWER_ID, item.first));
 		}
 
 		if (GetSize(or_input) == 0)
@@ -269,8 +269,8 @@ struct OptDffWorker
 		if (GetSize(or_input) == 1)
 			return ctrl_t(or_input, true);
 
-		RTLIL::SigSpec y = module->addWire(NEW_ID);
-		RTLIL::Cell *c = module->addReduceAnd(NEW_ID, or_input, y);
+		RTLIL::SigSpec y = module->addWire(NEWER_ID);
+		RTLIL::Cell *c = module->addReduceAnd(NEWER_ID, or_input, y);
 
 		if (make_gates) {
 			simplemap(module, c);
@@ -298,13 +298,13 @@ struct OptDffWorker
 			if (item.second == final_pol)
 				or_input.append(item.first);
 			else if (make_gates)
-				or_input.append(module->NotGate(NEW_ID, item.first));
+				or_input.append(module->NotGate(NEWER_ID, item.first));
 			else
-				or_input.append(module->Not(NEW_ID, item.first));
+				or_input.append(module->Not(NEWER_ID, item.first));
 		}
 
-		RTLIL::SigSpec y = module->addWire(NEW_ID);
-		RTLIL::Cell *c = final_pol ? module->addReduceOr(NEW_ID, or_input, y) : module->addReduceAnd(NEW_ID, or_input, y);
+		RTLIL::SigSpec y = module->addWire(NEWER_ID);
+		RTLIL::Cell *c = final_pol ? module->addReduceOr(NEWER_ID, or_input, y) : module->addReduceAnd(NEWER_ID, or_input, y);
 
 		if (make_gates) {
 			simplemap(module, c);
@@ -348,9 +348,9 @@ struct OptDffWorker
 						if (!ff.pol_clr) {
 							module->connect(ff.sig_q[i], ff.sig_clr[i]);
 						} else if (ff.is_fine) {
-							module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+							module->addNotGate(NEWER_ID, ff.sig_clr[i], ff.sig_q[i]);
 						} else {
-							module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+							module->addNot(NEWER_ID, ff.sig_clr[i], ff.sig_q[i]);
 						}
 						log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 								i, log_id(cell), log_id(cell->type), log_id(module));
@@ -451,34 +451,34 @@ struct OptDffWorker
 						SigSpec tmp;
 						if (ff.is_fine) {
 							if (ff.pol_set)
-								tmp = module->MuxGate(NEW_ID, ff.sig_ad, State::S1, ff.sig_set);
+								tmp = module->MuxGate(NEWER_ID, ff.sig_ad, State::S1, ff.sig_set);
 							else
-								tmp = module->MuxGate(NEW_ID, State::S1, ff.sig_ad, ff.sig_set);
+								tmp = module->MuxGate(NEWER_ID, State::S1, ff.sig_ad, ff.sig_set);
 							if (ff.pol_clr)
-								module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
+								module->addMuxGate(NEWER_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
+								module->addMuxGate(NEWER_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
 						} else {
 							if (ff.pol_set)
-								tmp = module->Or(NEW_ID, ff.sig_ad, ff.sig_set);
+								tmp = module->Or(NEWER_ID, ff.sig_ad, ff.sig_set);
 							else
-								tmp = module->Or(NEW_ID, ff.sig_ad, module->Not(NEW_ID, ff.sig_set));
+								tmp = module->Or(NEWER_ID, ff.sig_ad, module->Not(NEWER_ID, ff.sig_set));
 							if (ff.pol_clr)
-								module->addAnd(NEW_ID, tmp, module->Not(NEW_ID, ff.sig_clr), ff.sig_q);
+								module->addAnd(NEWER_ID, tmp, module->Not(NEWER_ID, ff.sig_clr), ff.sig_q);
 							else
-								module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q);
+								module->addAnd(NEWER_ID, tmp, ff.sig_clr, ff.sig_q);
 						}
 					} else if (ff.has_arst) {
 						if (ff.is_fine) {
 							if (ff.pol_arst)
-								module->addMuxGate(NEW_ID, ff.sig_ad, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.sig_ad, ff.val_arst[0], ff.sig_arst, ff.sig_q);
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], ff.sig_ad, ff.sig_arst, ff.sig_q);
+								module->addMuxGate(NEWER_ID, ff.val_arst[0], ff.sig_ad, ff.sig_arst, ff.sig_q);
 						} else {
 							if (ff.pol_arst)
-								module->addMux(NEW_ID, ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q);
 							else
-								module->addMux(NEW_ID, ff.val_arst, ff.sig_ad, ff.sig_arst, ff.sig_q);
+								module->addMux(NEWER_ID, ff.val_arst, ff.sig_ad, ff.sig_arst, ff.sig_q);
 						}
 					} else {
 						module->connect(ff.sig_q, ff.sig_ad);
@@ -594,20 +594,20 @@ struct OptDffWorker
 					if (ff.has_ce && ff.ce_over_srst) {
 						if (!ff.pol_ce) {
 							if (ff.is_fine)
-								ff.sig_ce = module->NotGate(NEW_ID, ff.sig_ce);
+								ff.sig_ce = module->NotGate(NEWER_ID, ff.sig_ce);
 							else
-								ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
+								ff.sig_ce = module->Not(NEWER_ID, ff.sig_ce);
 						}
 						if (!ff.pol_srst) {
 							if (ff.is_fine)
-								ff.sig_srst = module->NotGate(NEW_ID, ff.sig_srst);
+								ff.sig_srst = module->NotGate(NEWER_ID, ff.sig_srst);
 							else
-								ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
+								ff.sig_srst = module->Not(NEWER_ID, ff.sig_srst);
 						}
 						if (ff.is_fine)
-							ff.sig_ce = module->AndGate(NEW_ID, ff.sig_ce, ff.sig_srst);
+							ff.sig_ce = module->AndGate(NEWER_ID, ff.sig_ce, ff.sig_srst);
 						else
-							ff.sig_ce = module->And(NEW_ID, ff.sig_ce, ff.sig_srst);
+							ff.sig_ce = module->And(NEWER_ID, ff.sig_ce, ff.sig_srst);
 						ff.pol_ce = true;
 					} else {
 						ff.pol_ce = ff.pol_srst;
