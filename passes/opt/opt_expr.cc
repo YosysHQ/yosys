@@ -491,39 +491,51 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		handle_clkpol_celltype_swap(cell, "$_DLATCHSR_??N_", "$_DLATCHSR_??P_", ID::R, assign_map, invert_map);
 	}
 
-	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-	dict<RTLIL::SigBit, Cell*> outbit_to_cell;
+	std::vector<Cell*> module_cells = module->cells();
+	auto iterator = [&](auto&& replace_cell) {
+		if (sort_fails >= effort) {
+			// log("Running on unsorted")
+			for (auto cell : module_cells)
+				if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type))
+					replace_cell(cell);
+		} else {
+			TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+			dict<RTLIL::SigBit, Cell*> outbit_to_cell;
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
-		for (auto &conn : cell->connections())
-		if (yosys_celltypes.cell_output(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second))
-			outbit_to_cell[bit] = cell;
-		cells.node(cell);
-	}
+			for (auto cell : module->cells())
+			if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
+				for (auto &conn : cell->connections())
+				if (yosys_celltypes.cell_output(cell->type, conn.first))
+				for (auto bit : assign_map(conn.second))
+					outbit_to_cell[bit] = cell;
+				cells.node(cell);
+			}
 
-	for (auto cell : module->cells())
-	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
-		const int r_index = cells.node(cell);
-		for (auto &conn : cell->connections())
-		if (yosys_celltypes.cell_input(cell->type, conn.first))
-		for (auto bit : assign_map(conn.second))
-		if (outbit_to_cell.count(bit))
-			cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
-	}
+			for (auto cell : module->cells())
+			if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
+				const int r_index = cells.node(cell);
+				for (auto &conn : cell->connections())
+				if (yosys_celltypes.cell_input(cell->type, conn.first))
+				for (auto bit : assign_map(conn.second))
+				if (outbit_to_cell.count(bit))
+					cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
+			}
 
-	if (sort_fails < effort && !cells.sort()) {
-		// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
-		// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
-		log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
-		sort_fails++;
-		if (sort_fails >= effort)
-			log("Effort of %d exceeded, no longer attempting toposort on module %s.\n",
-				 effort, log_id(module));
-	}
-
-	for (auto cell : cells.sorted)
+			if (sort_fails < effort && !cells.sort()) {
+				// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
+				// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
+				log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
+				sort_fails++;
+				if (sort_fails >= effort)
+					log("Effort of %d exceeded, no longer attempting toposort on module %s.\n",
+						effort, log_id(module));
+			}
+			for (auto cell : cells.sorted) {
+				replace_cell(cell);
+			}
+		}
+	};
+	iterator([&](auto& cell)
 	{
 #define ACTION_DO(_p_, _s_) do { cover("opt.opt_expr.action_" S__LINE__); replace_cell(assign_map, module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO(ID::Y, RTLIL::SigSpec(RTLIL::State::S ## _v_))
@@ -2258,7 +2270,7 @@ skip_alu_split:
 #undef ACTION_DO_Y
 #undef FOLD_1ARG_CELL
 #undef FOLD_2ARG_CELL
-	}
+	});
 }
 
 void replace_const_connections(RTLIL::Module *module) {
@@ -2327,7 +2339,6 @@ struct OptExprPass : public Pass {
 		bool do_fine = false;
 		bool keepdc = false;
 		int effort = 5;
-
 		log_header(design, "Executing OPT_EXPR pass (perform const folding).\n");
 		log_push();
 
