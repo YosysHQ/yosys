@@ -110,7 +110,7 @@ struct OptMergeWorker
 				comm.eat(hash_ops<std::pair<IdString, SigSpec>>::hash(port, assign_map(sig)));
 			}
 			h = comm.hash_into(h);
-			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (cell->is_builtin_ff())
 				h = initvals(cell->getPort(ID::Q)).hash_into(h);
 		}
 		return h;
@@ -153,7 +153,7 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
+				if (it.first == ID::Q && cell1->is_builtin_ff()) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					conn1[it.first] = initvals(it.second);
@@ -201,7 +201,7 @@ struct OptMergeWorker
 
 	bool has_dont_care_initval(const RTLIL::Cell *cell)
 	{
-		if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (!cell->is_builtin_ff())
 			return false;
 
 		return !initvals(cell->getPort(ID::Q)).is_fully_def();

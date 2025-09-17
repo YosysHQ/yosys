@@ -118,7 +118,7 @@ struct FmcombineWorker
 					Cell *gold = import_prim_cell(cell, "_gold");
 					Cell *gate = import_prim_cell(cell, "_gate");
 					if (opts.initeq) {
-						if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+						if (cell->is_builtin_ff()) {
 							SigSpec gold_q = gold->getPort(ID::Q);
 							SigSpec gate_q = gate->getPort(ID::Q);
 							SigSpec en = module->Initstate(NEW_ID);

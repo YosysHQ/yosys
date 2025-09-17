@@ -209,7 +209,7 @@ struct OptFfInvWorker
 		std::vector<Cell *> ffs;
 
 		for (Cell *cell : module->selected_cells())
-			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (cell->is_builtin_ff())
 				ffs.push_back(cell);
 
 		for (Cell *cell : ffs) {

@@ -335,7 +335,7 @@ void FfMergeHelper::set(FfInitVals *initvals_, RTLIL::Module *module_)
 	}
 
 	for (auto cell : module->cells()) {
-		if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+		if (cell->is_builtin_ff()) {
 			if (cell->hasPort(ID::D)) {
 				SigSpec d = (*sigmap)(cell->getPort(ID::D));
 				for (int i = 0; i < GetSize(d); i++)

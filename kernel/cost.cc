@@ -145,7 +145,7 @@ unsigned int CellCosts::get(RTLIL::Cell *cell)
 	if (design_ && design_->module(cell->type) && cell->parameters.empty()) {
 		log_debug("%s is a module, recurse\n", cell->name.c_str());
 		return get(design_->module(cell->type));
-	} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	} else if (cell->is_builtin_ff()) {
 		log_assert(cell->hasPort(ID::Q) && "Weird flip flop");
 		log_debug("%s is ff\n", cell->name.c_str());
 		return cell->getParam(ID::WIDTH).as_int();

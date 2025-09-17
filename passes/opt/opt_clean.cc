@@ -206,7 +206,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 		if (verbose)
 			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
-		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (cell->is_builtin_ff())
 			ffinit.remove_init(cell->getPort(ID::Q));
 		module->remove(cell);
 		count_rm_cells++;

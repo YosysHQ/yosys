@@ -275,7 +275,7 @@ struct Clk2fflogicPass : public Pass {
 					continue;
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

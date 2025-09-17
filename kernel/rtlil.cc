@@ -87,7 +87,7 @@ static_assert(check_well_known_id_order());
 
 dict<std::string, std::string> RTLIL::constpad;
 
-const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+static const pool<IdString> &builtin_ff_cell_types_internal() {
 	static const pool<IdString> res = {
 		ID($sr),
 		ID($ff),
@@ -236,6 +236,10 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($_FF_),
 	};
 	return res;
+}
+
+const pool<IdString> &RTLIL::builtin_ff_cell_types() {
+	return builtin_ff_cell_types_internal();
 }
 
 #define check(condition) log_assert(condition && "malformed Const union")
@@ -4495,6 +4499,10 @@ bool RTLIL::Cell::has_memid() const
 bool RTLIL::Cell::is_mem_cell() const
 {
 	return type.in(ID($mem), ID($mem_v2)) || has_memid();
+}
+
+bool RTLIL::Cell::is_builtin_ff() const {
+	return builtin_ff_cell_types_internal().count(type) > 0;
 }
 
 RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)

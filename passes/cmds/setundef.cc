@@ -364,7 +364,7 @@ struct SetundefPass : public Pass {
 
 				for (auto cell : module->cells())
 				{
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))
