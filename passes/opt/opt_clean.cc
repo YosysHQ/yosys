@@ -233,7 +233,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto it : driver_driver_logs) {
 		if (used_raw_bits.count(it.first))
 			for (auto msg : it.second)
-				log_warning("%s\n", msg.c_str());
+				log_warning("%s\n", msg);
 	}
 }
 

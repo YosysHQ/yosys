@@ -106,9 +106,9 @@ struct SatHelper
 			RTLIL::SigSpec lhs, rhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
@@ -127,9 +127,9 @@ struct SatHelper
 			RTLIL::SigSpec lhs, rhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 			show_signal_pool.add(sigmap(lhs));
 			show_signal_pool.add(sigmap(rhs));
 
@@ -148,7 +148,7 @@ struct SatHelper
 			RTLIL::SigSpec lhs;
 
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", s);
 			show_signal_pool.add(sigmap(lhs));
 
 			log("Import unset-constraint for this timestep: %s\n", log_signal(lhs));
@@ -167,28 +167,28 @@ struct SatHelper
 		for (auto &s : sets_def) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].insert(sig);
 		}
 
 		for (auto &s : sets_any_undef) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[1].insert(sig);
 		}
 
 		for (auto &s : sets_all_undef) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[2].insert(sig);
 		}
 
 		for (auto &s : sets_def_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].insert(sig);
 			sets_def_undef[1].erase(sig);
 			sets_def_undef[2].erase(sig);
@@ -197,7 +197,7 @@ struct SatHelper
 		for (auto &s : sets_any_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].insert(sig);
 			sets_def_undef[2].erase(sig);
@@ -206,7 +206,7 @@ struct SatHelper
 		for (auto &s : sets_all_undef_at[timestep]) {
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-				log_cmd_error("Failed to parse set-def expression `%s'.\n", s.c_str());
+				log_cmd_error("Failed to parse set-def expression `%s'.\n", s);
 			sets_def_undef[0].erase(sig);
 			sets_def_undef[1].erase(sig);
 			sets_def_undef[2].insert(sig);
@@ -295,9 +295,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs set expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs set expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -362,9 +362,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs proof expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs proof expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -390,9 +390,9 @@ struct SatHelper
 				RTLIL::SigSpec lhs, rhs;
 
 				if (!RTLIL::SigSpec::parse_sel(lhs, design, module, s.first))
-					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first.c_str());
+					log_cmd_error("Failed to parse lhs proof-x expression `%s'.\n", s.first);
 				if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, s.second))
-					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second.c_str());
+					log_cmd_error("Failed to parse rhs proof-x expression `%s'.\n", s.second);
 				show_signal_pool.add(sigmap(lhs));
 				show_signal_pool.add(sigmap(rhs));
 
@@ -540,7 +540,7 @@ struct SatHelper
 			for (auto &s : shows) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, s))
-					log_cmd_error("Failed to parse show expression `%s'.\n", s.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", s);
 				log("Import show expression: %s\n", log_signal(sig));
 				modelSig.append(sig);
 			}
@@ -670,7 +670,7 @@ struct SatHelper
 		rewrite_filename(vcd_file_name);
 		FILE *f = fopen(vcd_file_name.c_str(), "w");
 		if (!f)
-			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name.c_str(), strerror(errno));
+			log_cmd_error("Can't open output file `%s' for writing: %s\n", vcd_file_name, strerror(errno));
 
 		log("Dumping SAT model to VCD file %s\n", vcd_file_name);
 
@@ -775,7 +775,7 @@ struct SatHelper
 		rewrite_filename(json_file_name);
 		FILE *f = fopen(json_file_name.c_str(), "w");
 		if (!f)
-			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name.c_str(), strerror(errno));
+			log_cmd_error("Can't open output file `%s' for writing: %s\n", json_file_name, strerror(errno));
 
 		log("Dumping SAT model to WaveJSON file '%s'.\n", json_file_name);
 
@@ -1535,7 +1535,7 @@ struct SatPass : public Pass {
 							rewrite_filename(cnf_file_name);
 							FILE *f = fopen(cnf_file_name.c_str(), "w");
 							if (!f)
-								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+								log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name, strerror(errno));
 
 							log("Dumping CNF to file `%s'.\n", cnf_file_name);
 							cnf_file_name.clear();
@@ -1639,7 +1639,7 @@ struct SatPass : public Pass {
 				rewrite_filename(cnf_file_name);
 				FILE *f = fopen(cnf_file_name.c_str(), "w");
 				if (!f)
-					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name.c_str(), strerror(errno));
+					log_cmd_error("Can't open output file `%s' for writing: %s\n", cnf_file_name, strerror(errno));
 
 				log("Dumping CNF to file `%s'.\n", cnf_file_name);
 				cnf_file_name.clear();

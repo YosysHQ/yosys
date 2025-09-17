@@ -958,7 +958,7 @@ struct TestCellPass : public Pass {
 			if (args[argidx] == "-vlog" && argidx+1 < GetSize(args)) {
 				vlog_file.open(args[++argidx], std::ios_base::trunc);
 				if (!vlog_file.is_open())
-					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
+					log_cmd_error("Failed to open output file `%s'.\n", args[argidx]);
 				continue;
 			}
 			if (args[argidx] == "-bloat" && argidx+1 < GetSize(args)) {
@@ -1079,7 +1079,7 @@ struct TestCellPass : public Pass {
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
-				log_cmd_error("Unexpected option: %s\n", args[argidx].c_str());
+				log_cmd_error("Unexpected option: %s\n", args[argidx]);
 
 			if (args[argidx] == "all") {
 				for (auto &it : cell_types)
@@ -1192,7 +1192,7 @@ struct TestCellPass : public Pass {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", cell_type, num_cells, num_cells_estimate);
 							}
 						}
 					}

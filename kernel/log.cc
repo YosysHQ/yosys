@@ -187,7 +187,7 @@ static void logv_string(std::string_view format, std::string str) {
 			if (!linebuffer.empty() && linebuffer.back() == '\n') {
 				for (auto &re : log_warn_regexes)
 					if (std::regex_search(linebuffer, re))
-						log_warning("Found log message matching -W regex:\n%s", str.c_str());
+						log_warning("Found log message matching -W regex:\n%s", str);
 
 				for (auto &[_, item] : log_expect_log)
 					if (std::regex_search(linebuffer, item.pattern))
@@ -704,7 +704,7 @@ dict<std::string, std::pair<std::string, int>> get_coverage_data()
 
 	for (auto &it : extra_coverage_data) {
 		if (coverage_data.count(it.first))
-			log_warning("found duplicate coverage id \"%s\".\n", it.first.c_str());
+			log_warning("found duplicate coverage id \"%s\".\n", it.first);
 		coverage_data[it.first].first = it.second.first;
 		coverage_data[it.first].second += it.second.second;
 	}

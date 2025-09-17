@@ -323,7 +323,7 @@ struct CheckPass : public Pass {
 					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
 						message += stringf("    %s\n", str);
-					log_warning("%s", message.c_str());
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -332,7 +332,7 @@ struct CheckPass : public Pass {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str);
-					log_warning("%s", message.c_str());
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -418,7 +418,7 @@ struct CheckPass : public Pass {
 
 					prev = bit;
 				}
-				log_warning("%s", message.c_str());
+				log_warning("%s", message);
 				counter++;
 			}
 

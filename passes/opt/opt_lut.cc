@@ -555,7 +555,7 @@ struct OptLutPass : public Pass {
 			{
 				std::string tech = args[++argidx];
 				if (tech != "ice40")
-					log_cmd_error("Unsupported -tech argument: %s\n", tech.c_str());
+					log_cmd_error("Unsupported -tech argument: %s\n", tech);
 
 				dlogic = {{
 					ID(SB_CARRY),

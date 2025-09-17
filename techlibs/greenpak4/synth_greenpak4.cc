@@ -123,7 +123,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (part != "SLG46140V" && part != "SLG46620V" && part != "SLG46621V")
-			log_cmd_error("Invalid part name: '%s'\n", part.c_str());
+			log_cmd_error("Invalid part name: '%s'\n", part);
 
 		log_header(design, "Executing SYNTH_GREENPAK4 pass.\n");
 		log_push();

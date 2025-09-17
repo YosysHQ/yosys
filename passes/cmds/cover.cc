@@ -118,7 +118,7 @@ struct CoverPass : public Pass {
 				if (f == NULL) {
 					for (auto f : out_files)
 						fclose(f);
-					log_cmd_error("Can't create file %s%s.\n", args[argidx-1] == "-d" ? "in directory " : "", args[argidx].c_str());
+					log_cmd_error("Can't create file %s%s.\n", args[argidx-1] == "-d" ? "in directory " : "", args[argidx]);
 				}
 				out_files.push_back(f);
 				continue;

@@ -989,7 +989,7 @@ struct MutatePass : public Pass {
 			return;
 		}
 
-		log_cmd_error("Invalid mode: %s\n", opts.mode.c_str());
+		log_cmd_error("Invalid mode: %s\n", opts.mode);
 	}
 } MutatePass;
 

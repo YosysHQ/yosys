@@ -141,7 +141,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 #endif
 	} else {
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
+			log_warning_noprefix("%s%s\n", message_prefix, message);
 		else
 			log("%s%s\n", message_prefix, message);
 	}
@@ -1469,7 +1469,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	if (design->has(module_name)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
-			log_cmd_error("Re-definition of module `%s'.\n", netlist_name.c_str());
+			log_cmd_error("Re-definition of module `%s'.\n", netlist_name);
 		return;
 	}
 
@@ -3824,7 +3824,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_87))
-					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3849,7 +3849,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_93))
-					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3874,7 +3874,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2K))
-					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3899,7 +3899,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2019))
-					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2019 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3924,7 +3924,7 @@ struct VerificPass : public Pass {
 				add_units_to_map(map, work, flag_lib);
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2008))
-					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename);
 				set_units_to_blackbox(map, work, flag_lib);
 			}
 			verific_import_pending = true;
@@ -3938,7 +3938,7 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args)) {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!edif.Read(filename.c_str()))
-					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename);
 			}
 			goto check_error;
 		}
@@ -3961,7 +3961,7 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args)) {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!synlib_file::Read(filename.c_str(), is_work_set ? work.c_str() : nullptr))
-					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename.c_str());
+					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename);
 				SynlibLibrary *lib = synlib_file::GetLastLibraryAnalyzed();
 				if (lib && flag_lib) {
 					MapIter mi ;
@@ -4098,7 +4098,7 @@ struct VerificPass : public Pass {
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
 											   1 /* force_overwrite */);
 					if (!new_insertion)
-						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
+						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key);
 					continue;
 				}
 				if (args[argidx] == "-V") {

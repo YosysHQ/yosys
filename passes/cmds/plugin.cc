@@ -70,7 +70,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 				if(module_p == NULL)
 				{
 					PyErr_Print();
-					log_cmd_error("Can't load python module `%s'\n", full_path.filename().c_str());
+					log_cmd_error("Can't load python module `%s'\n", full_path.filename());
 					return;
 				}
 				loaded_python_plugins[orig_filename] = module_p;
@@ -100,7 +100,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			}
 
 			if (hdl == NULL)
-				log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
+				log_cmd_error("Can't load module `%s': %s\n", filename, dlerror());
 
 			loaded_plugins[orig_filename] = hdl;
 			Pass::init_register();

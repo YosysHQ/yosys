@@ -249,7 +249,7 @@ struct SynthNexusPass : public ScriptPass
 	{
 
 		if (family != "lifcl" && family != "lfd2nx")
-			log_cmd_error("Invalid Nexus -family setting: '%s'.\n", family.c_str());
+			log_cmd_error("Invalid Nexus -family setting: '%s'.\n", family);
 
 		if (check_label("begin"))
 		{

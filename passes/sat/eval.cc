@@ -94,11 +94,11 @@ struct BruteForceEquivChecker
 				continue;
 
 			if (mod2->wire(w->name) == nullptr)
-				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", w->name.c_str());
+				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", w->name);
 
 			RTLIL::Wire *w2 = mod2->wire(w->name);
 			if (w->width != w2->width || w->port_input != w2->port_input || w->port_output != w2->port_output)
-				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", w->name.c_str());
+				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", w->name);
 
 			if (w->port_input) {
 				mod1_inputs.append(w);
@@ -454,11 +454,11 @@ struct EvalPass : public Pass {
 		for (auto &it : sets) {
 			RTLIL::SigSpec lhs, rhs;
 			if (!RTLIL::SigSpec::parse_sel(lhs, design, module, it.first))
-				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first.c_str());
+				log_cmd_error("Failed to parse lhs set expression `%s'.\n", it.first);
 			if (!RTLIL::SigSpec::parse_rhs(lhs, rhs, module, it.second))
-				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second.c_str());
+				log_cmd_error("Failed to parse rhs set expression `%s'.\n", it.second);
 			if (!rhs.is_fully_const())
-				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second.c_str());
+				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second);
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
 						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
@@ -476,7 +476,7 @@ struct EvalPass : public Pass {
 			for (auto &it : shows) {
 				RTLIL::SigSpec signal, value, undef;
 				if (!RTLIL::SigSpec::parse_sel(signal, design, module, it))
-					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", it);
 				value = signal;
 				if (set_undef) {
 					while (!ce.eval(value, undef)) {
@@ -502,14 +502,14 @@ struct EvalPass : public Pass {
 			for (auto &it : shows) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
-					log_cmd_error("Failed to parse show expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse show expression `%s'.\n", it);
 				signal.append(sig);
 			}
 
 			for (auto &it : tables) {
 				RTLIL::SigSpec sig;
 				if (!RTLIL::SigSpec::parse_sel(sig, design, module, it))
-					log_cmd_error("Failed to parse table expression `%s'.\n", it.c_str());
+					log_cmd_error("Failed to parse table expression `%s'.\n", it);
 				tabsigs.append(sig);
 			}
 

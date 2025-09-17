@@ -137,7 +137,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		if (err.empty()) {
 			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
 		} else
-			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
+			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err);
 	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
 	}

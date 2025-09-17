@@ -988,7 +988,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	}
 
 	if (dff_mode && clk_sig.empty())
-		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
+		log_cmd_error("Clock domain %s not found.\n", clk_str);
 
 	const AbcConfig &config = run_abc.config;
 	if (config.cleanup)
@@ -2322,7 +2322,7 @@ struct AbcPass : public Pass {
 				if (g_arg_from_cmd)
 					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g));
 				else
-					log_cmd_error("Unsupported gate type: %s", g.c_str());
+					log_cmd_error("Unsupported gate type: %s", g);
 			ok_gate:
 				gate_list.push_back(g);
 			ok_alias:

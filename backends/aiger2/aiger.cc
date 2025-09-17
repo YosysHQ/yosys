@@ -1012,7 +1012,7 @@ struct XAigerWriter : AigerWriter {
 
 			for (auto box : minfo.found_blackboxes) {
 				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
-						  RTLIL::unescape_id(box->name).c_str(),
+						  RTLIL::unescape_id(box->name),
 						  log_id(box->type));
 
 				Module *box_module = design->module(box->type), *box_derived;
@@ -1446,7 +1446,7 @@ struct XAiger2Backend : Backend {
 		if (!map_filename.empty()) {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
-				log_cmd_error("Failed to open '%s' for writing\n", map_filename.c_str());
+				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
 		}
 
 		design->bufNormalize(true);

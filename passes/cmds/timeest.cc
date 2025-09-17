@@ -403,7 +403,7 @@ struct TimeestPass : Pass {
 
 		for (auto m : d->selected_modules()) {
 			if (!m->wire(RTLIL::escape_id(clk))) {
-				log_warning("No domain '%s' in module %s\n", clk.c_str(), log_id(m));
+				log_warning("No domain '%s' in module %s\n", clk, log_id(m));
 				continue;
 			}
 

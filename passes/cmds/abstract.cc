@@ -53,7 +53,7 @@ struct Slice {
 	}
 
 	static void syntax_error(const std::string &slice) {
-		log_cmd_error("Invalid slice '%s', expected '<first>:<last>' or '<single>'", slice.c_str());
+		log_cmd_error("Invalid slice '%s', expected '<first>:<last>' or '<single>'", slice);
 	}
 
 	std::string to_string() const {
@@ -494,7 +494,7 @@ struct AbstractPass : public Pass {
 					case Enable::ActiveHigh: {
 						Wire *enable_wire = mod->wire("\\" + enable_name);
 						if (!enable_wire)
-							log_cmd_error("Enable wire %s not found in module %s\n", enable_name.c_str(), mod->name.c_str());
+							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, mod->name);
 						if (GetSize(enable_wire) != 1)
 							log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
 									enable_name.c_str(), GetSize(enable_wire), mod->name.c_str());

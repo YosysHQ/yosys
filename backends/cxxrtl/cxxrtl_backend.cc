@@ -1533,7 +1533,7 @@ struct CxxrtlWorker {
 			}
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
-			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
+			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type);
 		// User cells
 		} else if (for_debug) {
 			// Outlines are called on demand when computing the value of a debug item. Nothing to do here.
@@ -3803,7 +3803,7 @@ struct CxxrtlBackend : public Backend {
 			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
 				worker.print_output = args[++argidx];
 				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
-					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output);
 					worker.print_output = "std::cout";
 				}
 				continue;

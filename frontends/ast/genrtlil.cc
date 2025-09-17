@@ -795,7 +795,7 @@ struct AST_INTERNAL::ProcessGenerator
 					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
-				log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
+				log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Found unsupported invocation of system task `%s'!\n", ast->str);
 			}
 			break;
 
@@ -846,7 +846,7 @@ struct AST_INTERNAL::ProcessGenerator
 				set_src_attr(cell, ast);
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+						log_file_error(*ast->location.begin.filename, ast->location.begin.line, "Attribute `%s' with non-constant value!\n", attr.first);
 					cell->attributes[attr.first] = attr.second->asAttrConst();
 				}
 				cell->setParam(ID::FLAVOR, flavor);
@@ -1241,7 +1241,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				while (children[0]->simplify(true, 1, -1, false) == true) { }
 				if (children[0]->type != AST_CONSTANT)
 					input_error("System function %s called with non-const argument!\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 				width_hint = max(width_hint, int(children[0]->asInt(true)));
 			}
 			break;
@@ -1291,7 +1291,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				while (right->simplify(true, 1, -1, false)) { }
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					input_error("Function %s has non-constant width!",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 				result_width = abs(int(left->asInt(true) - right->asInt(true)));
 			}
 			width_hint = max(width_hint, result_width);
@@ -1539,7 +1539,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (dynamic_cast<RTLIL::Binding*>(current_module)) {
 					/* nothing to do here */
 				} else if (flag_autowire)
-					log_file_warning(*location.begin.filename, location.begin.line, "Identifier `%s' is implicitly declared.\n", str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "Identifier `%s' is implicitly declared.\n", str);
 				else
 					input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str);
 			}
@@ -2195,12 +2195,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int sz = children.size();
 			if (str == "$info") {
 				if (sz > 0)
-					log_file_info(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str.c_str());
+					log_file_info(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
 					log_file_info(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$warning") {
 				if (sz > 0)
-					log_file_warning(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str.c_str());
+					log_file_warning(*location.begin.filename, location.begin.line, "%s.\n", children[0]->str);
 				else
 					log_file_warning(*location.begin.filename, location.begin.line, "\n");
 			} else if (str == "$error") {
@@ -2237,12 +2237,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 				if (GetSize(children) > 1)
 					input_error("System function %s got %d arguments, expected 1 or 0.\n",
-							RTLIL::unescape_id(str).c_str(), GetSize(children));
+							RTLIL::unescape_id(str), GetSize(children));
 
 				if (GetSize(children) == 1) {
 					if (children[0]->type != AST_CONSTANT)
 						input_error("System function %s called with non-const argument!\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					width = children[0]->asInt(true);
 				}
 

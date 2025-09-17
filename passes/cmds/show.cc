@@ -926,7 +926,7 @@ struct ShowPass : public Pass {
 		if (f == nullptr) {
 			for (auto lib : libs)
 				delete lib;
-			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
 		}
 		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
 		fclose(f);

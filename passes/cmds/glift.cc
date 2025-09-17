@@ -184,7 +184,7 @@ private:
 
 		for(auto &cell : module->cells().to_vector()) {
 			if (!cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)) && module->design->module(cell->type) == nullptr) {
-				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
+				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type);
 			}
 			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
