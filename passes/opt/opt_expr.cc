@@ -519,7 +519,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					cells.edge(cells.node(outbit_to_cell.at(bit)), r_index);
 			}
 
-			if (sort_fails < effort && !cells.sort()) {
+			if (!cells.sort()) {
 				// There might be a combinational loop, or there might be constants on the output of cells. 'check' may find out more.
 				// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
 				log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
