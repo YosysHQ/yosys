@@ -56,7 +56,7 @@ struct EquivInductWorker
 
 		for (auto cell : cells) {
 			if (!satgen.importCell(cell, step) && !cell_warn_cache.count(cell)) {
-				if (RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (cell->is_builtin_ff())
 					log_warning("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
 				else
 					log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));

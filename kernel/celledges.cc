@@ -447,7 +447,7 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
-	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	if (cell->is_builtin_ff()) {
 		ff_op(this, cell);
 		return true;
 	}

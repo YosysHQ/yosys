@@ -73,7 +73,7 @@ struct CleanZeroWidthPass : public Pass {
 							cell->unsetPort(it.first);
 						}
 					}
-				} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				} else if (cell->is_builtin_ff()) {
 					// Coarse FF cells: remove if WIDTH == 0 (no outputs).
 					// This will also trigger on fine cells, so use the Q port
 					// width instead of actual WIDTH parameter.

@@ -308,7 +308,7 @@ struct SimInstance
 					}
 			}
 
-			if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+			if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
 				ff.past_d = Const(State::Sx, ff_data.width);
@@ -1017,7 +1017,7 @@ struct SimInstance
 		dict<Wire*,bool> registers;
 		for (auto cell : module->cells())
 		{
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (cell->is_builtin_ff()) {
 				FfData ff_data(nullptr, cell);
 				SigSpec q = sigmap(ff_data.sig_q);
 				if (q.is_wire() && signal_database.count(q.as_wire()) != 0) {

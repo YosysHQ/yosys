@@ -93,7 +93,7 @@ struct EquivSimpleWorker
 			for (auto &conn : cell->connections())
 				if (yosys_celltypes.cell_input(cell->type, conn.first))
 					for (auto bit : model.sigmap(conn.second)) {
-						if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+						if (cell->is_builtin_ff()) {
 							if (!conn.first.in(ID::CLK, ID::C))
 								next_seed.insert(bit);
 						} else
@@ -231,7 +231,7 @@ struct EquivSimpleWorker
 
 	static void report_missing_model(Cell* cell)
 	{
-		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+		if (cell->is_builtin_ff())
 			log_cmd_error("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
 		else
 			log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));

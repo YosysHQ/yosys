@@ -373,7 +373,7 @@ void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 
 bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
-	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	if (cell->is_builtin_ff()) {
 		FfData ff(&initvals, cell);
 		gate_type_t type = G(FF);
 		if (!ff.has_clk)
@@ -2427,7 +2427,7 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

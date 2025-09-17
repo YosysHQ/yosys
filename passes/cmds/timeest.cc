@@ -88,7 +88,7 @@ struct EstimateSta {
 
 		for (auto cell : m->cells()) {
 			SigSpec launch, sample;
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (cell->is_builtin_ff()) {
 				// collect launch and sample points for FF cell
 				FfData ff(nullptr, cell);
 				if (!ff.has_clk) {

@@ -224,7 +224,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 				else if (derived_module->get_bool_attribute(ID::abc9_box)) {
 					for (auto derived_cell : derived_module->cells())
-						if (derived_cell->is_mem_cell() || RTLIL::builtin_ff_cell_types().count(derived_cell->type)) {
+						if (derived_cell->is_mem_cell() || derived_cell->is_builtin_ff()) {
 							derived_module->set_bool_attribute(ID::abc9_box, false);
 							derived_module->set_bool_attribute(ID::abc9_bypass);
 							break;

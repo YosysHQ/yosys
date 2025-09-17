@@ -1196,7 +1196,7 @@ unrecognized:
 				srst_used.clear();
 
 				for (auto cell : module->cells()) {
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					FfData ff(&initvals, cell);
@@ -1208,7 +1208,7 @@ unrecognized:
 			}
 			for (auto cell : module->selected_cells())
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 				FfData ff(&initvals, cell);
 				legalize_ff(ff);

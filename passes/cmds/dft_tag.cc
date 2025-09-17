@@ -430,7 +430,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if (ff.has_clk || ff.has_gclk)
@@ -686,7 +686,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 			// TODO handle some more variants
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {

@@ -89,7 +89,7 @@ struct OptDffWorker
 				}
 			}
 
-			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (module->design->selected(module, cell) && cell->is_builtin_ff())
 				dff_cells.push_back(cell);
 		}
 
@@ -802,7 +802,7 @@ struct OptDffWorker
 
 		bool did_something = false;
 		for (auto cell : module->selected_cells()) {
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+			if (!cell->is_builtin_ff())
 				continue;
 			FfData ff(&initvals, cell);
 
