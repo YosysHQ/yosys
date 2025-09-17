@@ -600,15 +600,40 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		log("Finding unused cells or wires in module %s..\n", module->name);
 
 	std::vector<RTLIL::Cell*> delcells;
-	for (auto cell : module->cells())
+	for (auto cell : module->cells()) {
 		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec y = cell->getPort(ID::Y);
 			a.extend_u0(GetSize(y), is_signed);
-			module->connect(y, a);
+
+			if (a.has_const(State::Sz)) {
+				SigSpec new_a;
+				SigSpec new_y;
+				for (int i = 0; i < GetSize(a); ++i) {
+					SigBit b = a[i];
+					if (b == State::Sz)
+						continue;
+					new_a.append(b);
+					new_y.append(y[i]);
+				}
+				a = std::move(new_a);
+				y = std::move(new_y);
+			}
+			if (!y.empty())
+				module->connect(y, a);
+			delcells.push_back(cell);
+		} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec b = cell->getPort(ID::B);
+			if (a.has_const() && !b.has_const())
+				std::swap(a, b);
+			module->connect(a, b);
+			delcells.push_back(cell);
+		} else if (cell->type.in(ID($input_port)) && !cell->has_keep_attr()) {
 			delcells.push_back(cell);
 		}
+	}
 	for (auto cell : delcells) {
 		if (verbose)
 			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),

@@ -91,6 +91,13 @@ namespace RTLIL
 		STATIC_ID_END,
 	};
 
+	enum PortDir : unsigned char  {
+		PD_UNKNOWN = 0,
+		PD_INPUT = 1,
+		PD_OUTPUT = 2,
+		PD_INOUT = 3
+	};
+
 	struct Const;
 	struct AttrObject;
 	struct NamedObject;
@@ -1322,12 +1329,15 @@ public:
 	bool is_chunk() const;
 	inline bool is_bit() const { return width_ == 1; }
 
+	bool known_driver() const;
+
 	bool is_fully_const() const;
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool has_const() const;
+	bool has_const(State state) const;
 	bool has_marked_bits() const;
 	bool is_onehot(int *pos = nullptr) const;
 
@@ -1719,7 +1729,11 @@ public:
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
 
-	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	pool<RTLIL::Cell *> buf_norm_cell_queue;
+	pool<pair<RTLIL::Cell *, RTLIL::IdString>> buf_norm_cell_port_queue;
+	pool<RTLIL::Wire *> buf_norm_wire_queue;
+	pool<RTLIL::Cell *> pending_deleted_cells;
+	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
 	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -2052,6 +2066,8 @@ public:
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
 
+	bool known_driver() const { return driverCell_ != nullptr; }
+
 	RTLIL::Cell *driverCell() const    { log_assert(driverCell_); return driverCell_; };
 	RTLIL::IdString driverPort() const { log_assert(driverCell_); return driverPort_; };
 
@@ -2123,6 +2139,7 @@ public:
 	bool known() const;
 	bool input(const RTLIL::IdString &portname) const;
 	bool output(const RTLIL::IdString &portname) const;
+	PortDir port_dir(const RTLIL::IdString &portname) const;
 
 	// access cell parameters
 	bool hasParam(const RTLIL::IdString &paramname) const;

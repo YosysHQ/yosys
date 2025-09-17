@@ -647,3 +647,28 @@ module _90_lut;
 endmodule
 `endif
 
+
+// --------------------------------------------------------
+// Bufnorm helpers
+// --------------------------------------------------------
+
+(* techmap_celltype = "$connect" *)
+module \$connect (A, B);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] A;
+inout [WIDTH-1:0] B;
+
+assign A = B; // RTLIL assignments are not inherently directed
+
+endmodule
+
+(* techmap_celltype = "$input_port" *)
+module \$input_port (Y);
+
+parameter WIDTH = 0;
+
+inout [WIDTH-1:0] Y; // This cell is just a maker, so we leave Y undriven
+
+endmodule

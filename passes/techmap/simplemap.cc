@@ -47,7 +47,22 @@ void simplemap_buf(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 	RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
-	module->connect(RTLIL::SigSig(sig_y, sig_a));
+	if (sig_a.has_const(State::Sz)) {
+		SigSpec new_a;
+		SigSpec new_y;
+		for (int i = 0; i < GetSize(sig_a); ++i) {
+			SigBit b = sig_a[i];
+			if (b == State::Sz)
+				continue;
+			new_a.append(b);
+			new_y.append(sig_y[i]);
+		}
+		sig_a = std::move(new_a);
+		sig_y = std::move(new_y);
+	}
+
+	if (!sig_y.empty())
+		module->connect(RTLIL::SigSig(sig_y, sig_a));
 }
 
 void simplemap_pos(RTLIL::Module *module, RTLIL::Cell *cell)

@@ -2451,6 +2451,19 @@ namespace {
 				check_expected();
 				return;
 			}
+			if (cell->type.in(ID($input_port))) {
+				param(ID::WIDTH);
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+			if (cell->type.in(ID($connect))) {
+				param(ID::WIDTH);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::B, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 			/*
 			 * Checklist for adding internal cell types
 			 * ========================================
@@ -2831,7 +2844,13 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(cells_.count(cell->name) != 0);
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
-	delete cell;
+	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
+		cell->type.clear();
+		cell->name.clear();
+		pending_deleted_cells.insert(cell);
+	} else {
+		delete cell;
+	}
 }
 
 void RTLIL::Module::remove(RTLIL::Process *process)
@@ -3005,6 +3024,14 @@ void RTLIL::Module::fixup_ports()
 			w.second->port_id = 0;
 
 	std::sort(all_ports.begin(), all_ports.end(), fixup_ports_compare);
+
+	if (design && design->flagBufferedNormalized) {
+		for (auto &w : wires_)
+			if (w.second->driverCell_ && w.second->driverCell_->type == ID($input_port))
+				buf_norm_wire_queue.insert(w.second);
+
+		buf_norm_wire_queue.insert(all_ports.begin(), all_ports.end());
+	}
 
 	ports.clear();
 	for (size_t i = 0; i < all_ports.size(); i++) {
@@ -4150,188 +4177,7 @@ bool RTLIL::Cell::hasPort(const RTLIL::IdString& portname) const
 	return connections_.count(portname) != 0;
 }
 
-void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
-{
-	RTLIL::SigSpec signal;
-	auto conn_it = connections_.find(portname);
-
-	if (conn_it != connections_.end())
-	{
-		for (auto mon : module->monitors)
-			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-		if (module->design)
-			for (auto mon : module->design->monitors)
-				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", log_id(this->module), log_id(this), log_id(portname));
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-		connections_.erase(conn_it);
-	}
-}
-
-void RTLIL::Design::bufNormalize(bool enable)
-{
-	if (!enable)
-	{
-		if (!flagBufferedNormalized)
-			return;
-
-		for (auto module : modules()) {
-			module->bufNormQueue.clear();
-			for (auto wire : module->wires()) {
-				wire->driverCell_ = nullptr;
-				wire->driverPort_ = IdString();
-			}
-		}
-
-		flagBufferedNormalized = false;
-		return;
-	}
-
-	if (!flagBufferedNormalized)
-	{
-		for (auto module : modules())
-		{
-			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
-				if (!cell->output(conn.first) || GetSize(conn.second) == 0)
-					continue;
-				if (conn.second.is_wire()) {
-					Wire *wire = conn.second.as_wire();
-					log_assert(wire->driverCell_ == nullptr);
-					wire->driverCell_ = cell;
-					wire->driverPort_ = conn.first;
-				} else {
-					pair<RTLIL::Cell*, RTLIL::IdString> key(cell, conn.first);
-					module->bufNormQueue.insert(key);
-				}
-			}
-		}
-
-		flagBufferedNormalized = true;
-	}
-
-	for (auto module : modules())
-		module->bufNormalize();
-}
-
-void RTLIL::Module::bufNormalize()
-{
-	if (!design->flagBufferedNormalized)
-		return;
-
-	while (GetSize(bufNormQueue) || !connections_.empty())
-	{
-		pool<pair<RTLIL::Cell*, RTLIL::IdString>> queue;
-		bufNormQueue.swap(queue);
-
-		pool<Wire*> outWires;
-		for (auto &conn : connections())
-		for (auto &chunk : conn.first.chunks())
-			if (chunk.wire) outWires.insert(chunk.wire);
-
-		SigMap sigmap(this);
-		new_connections({});
-
-		for (auto &key : queue)
-		{
-			Cell *cell = key.first;
-			const IdString &portname = key.second;
-			const SigSpec &sig = cell->getPort(portname);
-			if (GetSize(sig) == 0) continue;
-
-			if (sig.is_wire()) {
-				Wire *wire = sig.as_wire();
-				if (wire->driverCell_) {
-					log_error("Conflict between %s %s in module %s\n",
-										log_id(cell), log_id(wire->driverCell_), log_id(this));
-				}
-				log_assert(wire->driverCell_ == nullptr);
-				wire->driverCell_ = cell;
-				wire->driverPort_ = portname;
-				continue;
-			}
-
-			for (auto &chunk : sig.chunks())
-				if (chunk.wire) outWires.insert(chunk.wire);
-
-			Wire *wire = addWire(NEW_ID, GetSize(sig));
-			sigmap.add(sig, wire);
-			cell->setPort(portname, wire);
-
-			// FIXME: Move init attributes from old 'sig' to new 'wire'
-		}
-
-		for (auto wire : outWires)
-		{
-			SigSpec outsig = wire, insig = sigmap(wire);
-			for (int i = 0; i < GetSize(wire); i++)
-				if (insig[i] == outsig[i])
-					insig[i] = State::Sx;
-			addBuf(NEW_ID, insig, outsig);
-		}
-	}
-}
-
-void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal)
-{
-	auto r = connections_.insert(portname);
-	auto conn_it = r.first;
-	if (!r.second && conn_it->second == signal)
-		return;
-
-	for (auto mon : module->monitors)
-		mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (module->design)
-		for (auto mon : module->design->monitors)
-			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
-
-	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", log_id(this->module), log_id(this), log_id(portname), log_signal(signal), GetSize(signal));
-		log_backtrace("-X- ", yosys_xtrace-1);
-	}
-
-	while (module->design && module->design->flagBufferedNormalized && output(portname))
-	{
-		pair<RTLIL::Cell*, RTLIL::IdString> key(this, portname);
-
-		if (conn_it->second.is_wire()) {
-			Wire *w = conn_it->second.as_wire();
-			if (w->driverCell_ == this && w->driverPort_ == portname) {
-				w->driverCell_ = nullptr;
-				w->driverPort_ = IdString();
-			}
-		}
-
-		if (GetSize(signal) == 0) {
-			module->bufNormQueue.erase(key);
-			break;
-		}
-
-		if (!signal.is_wire()) {
-			module->bufNormQueue.insert(key);
-			break;
-		}
-
-		Wire *w = signal.as_wire();
-		if (w->driverCell_ != nullptr) {
-			pair<RTLIL::Cell*, RTLIL::IdString> other_key(w->driverCell_, w->driverPort_);
-			module->bufNormQueue.insert(other_key);
-		}
-		w->driverCell_ = this;
-		w->driverPort_ = portname;
-
-		module->bufNormQueue.erase(key);
-		break;
-	}
-
-	conn_it->second = std::move(signal);
-}
+// bufnorm
 
 const RTLIL::SigSpec &RTLIL::Cell::getPort(const RTLIL::IdString& portname) const
 {
@@ -4374,6 +4220,22 @@ bool RTLIL::Cell::output(const RTLIL::IdString& portname) const
 		return w && w->port_output;
 	}
 	return false;
+}
+
+RTLIL::PortDir RTLIL::Cell::port_dir(const RTLIL::IdString& portname) const
+{
+	if (yosys_celltypes.cell_known(type))
+		return yosys_celltypes.cell_port_dir(type, portname);
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		if (m == nullptr)
+			return PortDir::PD_UNKNOWN;
+		RTLIL::Wire *w = m->wire(portname);
+		if (w == nullptr)
+			return PortDir::PD_UNKNOWN;
+		return PortDir(w->port_input + w->port_output * 2);
+	}
+	return PortDir::PD_UNKNOWN;
 }
 
 bool RTLIL::Cell::hasParam(const RTLIL::IdString& paramname) const
@@ -5518,6 +5380,15 @@ bool RTLIL::SigSpec::is_chunk() const
 	return GetSize(chunks_) == 1;
 }
 
+bool RTLIL::SigSpec::known_driver() const
+{
+	pack();
+	for (auto &chunk : chunks_)
+		if (chunk.is_wire() && !chunk.wire->known_driver())
+			return false;
+	return true;
+}
+
 bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
@@ -5599,6 +5470,18 @@ bool RTLIL::SigSpec::has_const() const
 			return true;
 	return false;
 }
+
+bool RTLIL::SigSpec::has_const(State state) const
+{
+	cover("kernel.rtlil.sigspec.has_const");
+
+	pack();
+	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
+		if (it->width > 0 && it->wire == NULL && std::find(it->data.begin(), it->data.end(), state) != it->data.end())
+			return true;
+	return false;
+}
+
 
 bool RTLIL::SigSpec::has_marked_bits() const
 {

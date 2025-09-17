@@ -111,6 +111,8 @@ struct CellTypes
 		setup_type(ID($original_tag), {ID::A}, {ID::Y});
 		setup_type(ID($future_ff), {ID::A}, {ID::Y});
 		setup_type(ID($scopeinfo), {}, {});
+		setup_type(ID($input_port), {}, {ID::Y});
+		setup_type(ID($connect), {ID::A, ID::B}, {});
 	}
 
 	void setup_internals_eval()
@@ -318,6 +320,16 @@ struct CellTypes
 	{
 		auto it = cell_types.find(type);
 		return it != cell_types.end() && it->second.inputs.count(port) != 0;
+	}
+
+	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, RTLIL::IdString port) const
+	{
+		auto it = cell_types.find(type);
+		if (it == cell_types.end())
+			return RTLIL::PD_UNKNOWN;
+		bool is_input = it->second.inputs.count(port);
+		bool is_output = it->second.outputs.count(port);
+		return RTLIL::PortDir(is_input + is_output * 2);
 	}
 
 	bool cell_evaluable(const RTLIL::IdString &type) const

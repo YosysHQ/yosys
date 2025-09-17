@@ -1099,6 +1099,33 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 
 	if (cell->type.in(ID($_BUF_), ID($buf))) {
+		if (cell->type == ID($buf) && cell->getPort(ID::A).has_const(State::Sz)) {
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec y = cell->getPort(ID::Y);
+			a.extend_u0(GetSize(y));
+
+			if (a.has_const(State::Sz)) {
+				SigSpec new_a;
+				SigSpec new_y;
+				for (int i = 0; i < GetSize(a); ++i) {
+					SigBit b = a[i];
+					if (b == State::Sz)
+						continue;
+					new_a.append(b);
+					new_y.append(y[i]);
+				}
+				a = std::move(new_a);
+				y = std::move(new_y);
+			}
+			if (!y.empty()) {
+				f << stringf("%s" "assign ", indent);
+				dump_sigspec(f, y);
+				f << stringf(" = ");
+				dump_sigspec(f, a);
+				f << stringf(";\n");
+			}
+			return true;
+		}
 		f << stringf("%s" "assign ", indent);
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
@@ -1495,6 +1522,29 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		dump_attributes(f, "", cell->attributes, " ");
 		dump_sigspec(f, cell->getPort(ID::A));
 		f << stringf(";\n");
+		return true;
+	}
+
+	if (cell->type == ID($input_port))
+		return true;
+
+	if (cell->type == ID($connect))
+	{
+		int width = cell->getParam(ID::WIDTH).as_int() ;
+		if (width == 1) {
+			f << stringf("%s" "tran(", indent);
+			dump_sigspec(f, cell->getPort(ID::A));
+			f << stringf(", ");
+			dump_sigspec(f, cell->getPort(ID::B));
+			f << stringf(");\n");
+		} else {
+			auto tran_id = next_auto_id();
+			f << stringf("%s" "tran %s[%d:0](", indent, tran_id, width - 1);
+			dump_sigspec(f, cell->getPort(ID::A));
+			f << stringf(", ");
+			dump_sigspec(f, cell->getPort(ID::B));
+			f << stringf(");\n");
+		}
 		return true;
 	}
 
