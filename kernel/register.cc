@@ -956,13 +956,7 @@ struct HelpPass : public Pass {
 			auto name = it.first.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
-				if (groups.count(cell_help.group) != 0) {
-					auto group_cells = &groups.at(cell_help.group);
-					group_cells->push_back(name);
-				} else {
-					auto group_cells = new vector<string>(1, name);
-					groups.emplace(cell_help.group, *group_cells);
-				}
+				groups[cell_help.group].emplace_back(name);
 				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
 				cells.emplace(name, cell_pair);
 			} else {
