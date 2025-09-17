@@ -126,7 +126,6 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
 			cell->type.c_str(), cell->name.c_str(), info.c_str(),
 			module->name.c_str(), log_signal(Y), log_signal(out_val));
-	// log_cell(cell);
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
 	module->remove(cell);
@@ -494,7 +493,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	std::vector<Cell*> module_cells = module->cells();
 	auto iterator = [&](auto&& replace_cell) {
 		if (sort_fails >= effort) {
-			// log("Running on unsorted")
 			for (auto cell : module_cells)
 				if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type))
 					replace_cell(cell);
