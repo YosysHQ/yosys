@@ -4399,7 +4399,7 @@ RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 RTLIL::SigBit RTLIL::SigChunk::operator[](int offset) const
 {
 	log_assert(offset >= 0);
-	log_assert(offset <= width);
+	log_assert(offset < width);
 	RTLIL::SigBit ret;
 	if (wire) {
 		ret.wire = wire;
