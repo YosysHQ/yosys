@@ -293,6 +293,7 @@ struct RunAbcState {
 struct AbcModuleState {
 	RunAbcState run_abc;
 
+	int state_index;
 	int map_autoidx = 0;
 	std::vector<RTLIL::SigBit> signal_bits;
 	dict<RTLIL::SigBit, int> signal_map;
@@ -307,8 +308,8 @@ struct AbcModuleState {
 
 	int undef_bits_lost = 0;
 
-	AbcModuleState(const AbcConfig &config, FfInitVals &initvals)
-		: run_abc(config), initvals(initvals) {}
+	AbcModuleState(const AbcConfig &config, FfInitVals &initvals, int state_index)
+		: run_abc(config), state_index(state_index), initvals(initvals) {}
 	AbcModuleState(AbcModuleState&&) = delete;
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
@@ -2382,7 +2383,7 @@ struct AbcPass : public Pass {
 				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
 				assign_cell_connection_ports(mod, {&cells}, assign_map);
 
-				AbcModuleState state(config, initvals);
+				AbcModuleState state(config, initvals, 0);
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				ConcurrentStack<AbcProcess> process_pool;
 				state.run_abc.run(process_pool);
@@ -2558,7 +2559,6 @@ struct AbcPass : public Pass {
 			int num_worker_threads = ThreadPool::pool_size(1, max_threads);
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
-			int work_finished_count = 0;
 			ConcurrentStack<AbcProcess> process_pool;
 			ThreadPool worker_threads(num_worker_threads, [&](int){
 					while (std::optional<std::unique_ptr<AbcModuleState>> work =
@@ -2568,15 +2568,25 @@ struct AbcPass : public Pass {
 						work_finished_queue.push_back(std::move(*work));
 					}
 				});
+			int state_index = 0;
+			int next_state_index_to_process = 0;
+			std::vector<std::unique_ptr<AbcModuleState>> work_finished_by_index;
+			work_finished_by_index.resize(assigned_cells.size());
+			int work_finished_count = 0;
 			for (auto &it : assigned_cells) {
-				// Process ABC results that have already finished before queueing another ABC.
-				// This should keep our memory usage down.
+				// Make sure we process the results in the order we expect. When we can
+				// process results before the next ABC run, do so, to keep memory usage low(er).
 				while (std::optional<std::unique_ptr<AbcModuleState>> work =
 						work_finished_queue.try_pop_front()) {
-					(*work)->extract(assign_map, design, mod);
+					work_finished_by_index[(*work)->state_index] = std::move(*work);
 					++work_finished_count;
 				}
-				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals);
+				while (work_finished_by_index[next_state_index_to_process] != nullptr) {
+					work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+					work_finished_by_index[next_state_index_to_process] = nullptr;
+					++next_state_index_to_process;
+				}
+				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals, state_index++);
 				state->clk_polarity = std::get<0>(it.first);
 				state->clk_sig = assign_map(std::get<1>(it.first));
 				state->en_polarity = std::get<2>(it.first);
@@ -2595,11 +2605,16 @@ struct AbcPass : public Pass {
 				}
 			}
 			work_queue.close();
-			while (work_finished_count < static_cast<int>(assigned_cells.size())) {
+			while (work_finished_count < GetSize(assigned_cells)) {
 				std::optional<std::unique_ptr<AbcModuleState>> work =
 					work_finished_queue.pop_front();
-				(*work)->extract(assign_map, design, mod);
+				work_finished_by_index[(*work)->state_index] = std::move(*work);
 				++work_finished_count;
+			}
+			while (next_state_index_to_process < GetSize(work_finished_by_index)) {
+				work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+				work_finished_by_index[next_state_index_to_process] = nullptr;
+				++next_state_index_to_process;
 			}
 		}
 
