@@ -7,7 +7,7 @@ if [ $# != 1 ]; then
     exit 1
 fi
 
-echo -n "Test: $1 ->"
+echo "Test: $1 ->"
 ../../yosys $1.ys >$1.log_stdout 2>$1.log_stderr || {
     echo "ERROR!"
     exit 1

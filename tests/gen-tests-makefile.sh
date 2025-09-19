@@ -9,8 +9,7 @@ generate_target() {
 	echo "all: $target_name"
 	echo ".PHONY: $target_name"
 	echo "$target_name:"
-	printf "\t@%s\n" "$test_command"
-	printf "\t@echo 'Passed %s'\n" "$target_name"
+	printf "\t@/usr/bin/env time -f \"PASS $target_name %%e seconds\" $test_command >/dev/null 2>/dev/null\n"
 }
 
 # $ generate_ys_test ys_file [yosys_args]

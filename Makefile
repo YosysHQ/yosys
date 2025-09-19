@@ -954,7 +954,7 @@ makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
 	+cd $(dir $*) && bash run-test.sh
 # this one spawns submake on each
 makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
-	$(MAKE) -C $* -f run-test.mk
+	stdbuf -oL -eL $(MAKE) -C $* -f run-test.mk
 	+@echo "...passed tests in $*"
 
 test: makefile-tests abcopt-tests seed-tests

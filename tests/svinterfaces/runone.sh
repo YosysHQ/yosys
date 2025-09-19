@@ -9,7 +9,7 @@ STDERRFILE=${TESTNAME}.log_stderr
 echo "" > $STDOUTFILE
 echo "" > $STDERRFILE
 
-echo -n "Test: ${TESTNAME} -> "
+echo "Test: ${TESTNAME} -> "
 
 set -e
 
