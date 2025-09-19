@@ -10,12 +10,12 @@ for arch in ../../techlibs/*; do
 		arch_name=$(basename -- $arch)
 		if [ "${defines[$arch_name]}" ]; then
 			for def in ${defines[$arch_name]}; do
-				echo -n "Test $path -D$def ->"
+				echo "Test $path -D$def ->"
 				iverilog -t null -I$arch -D$def -DNO_ICE40_DEFAULT_ASSIGNMENTS $path
 				echo " ok"
 			done
 		else
-			echo -n "Test $path ->"
+			echo "Test $path ->"
 			iverilog -t null -I$arch -g2005-sv $path
 			echo " ok"
 		fi
@@ -23,7 +23,7 @@ for arch in ../../techlibs/*; do
 done
 
 for path in "../../techlibs/common/simcells.v"  "../../techlibs/common/simlib.v"; do
-	echo -n "Test $path ->"
+	echo "Test $path ->"
 	iverilog -t null $path
 	echo " ok"
 done
