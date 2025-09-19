@@ -936,26 +936,24 @@ SH_ABC_TEST_DIRS += tests/alumacc
 seed-tests: $(SH_TEST_DIRS:%=seed-tests/%)
 .PHONY: seed-tests/%
 seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(SEEDOPT)
-	+@echo "...passed tests in $*"
+	+cd $* && /usr/bin/env time -f "PASS $* in %e seconds" sh -c 'bash run-test.sh $(SEEDOPT) 2>/dev/null >/dev/null'
 
 # abcopt-tests/ is a dummy string, not a directory
 .PHONY: abcopt-tests
 abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-tests/%)
 abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)
-	+@echo "...passed tests in $*"
+	+cd $* && /usr/bin/env time -f "PASS $* in %e seconds" sh -c 'bash run-test.sh $(ABCOPT) $(SEEDOPT) 2>/dev/null >/dev/null'
 
 # makefile-tests/ is a dummy string, not a directory
 .PHONY: makefile-tests
 makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
 # this target actually emits .mk files
+.NOTINTERMEDIATE: %.mk
 %.mk:
 	+cd $(dir $*) && bash run-test.sh
 # this one spawns submake on each
 makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
 	stdbuf -oL -eL $(MAKE) -C $* -f run-test.mk
-	+@echo "...passed tests in $*"
 
 test: makefile-tests abcopt-tests seed-tests
 	@echo ""
