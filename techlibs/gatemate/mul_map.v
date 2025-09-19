@@ -26,6 +26,9 @@ module \$__MULMXN (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = {A_WIDTH{1'b0}};
+	parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = {B_WIDTH{1'b0}};
+
 	(* force_downto *)
 	input [A_WIDTH-1:0] A;
 	(* force_downto *)
@@ -37,6 +40,11 @@ module \$__MULMXN (A, B, Y);
 	localparam B_ADJWIDTH = B_WIDTH + (B_SIGNED ? 0 : 1);
 
 	generate
+`ifdef NO_CONST_MULT
+		if (|_TECHMAP_CONSTMSK_A_ != 0 || |_TECHMAP_CONSTMSK_B_ != 0) begin
+			wire _TECHMAP_FAIL_ = 1'b1;
+		end
+`endif
 		if (A_SIGNED) begin: blkA
 			wire signed [A_ADJWIDTH-1:0] Aext = $signed(A);
 		end
