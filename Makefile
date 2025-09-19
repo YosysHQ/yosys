@@ -936,13 +936,33 @@ SH_ABC_TEST_DIRS += tests/alumacc
 seed-tests: $(SH_TEST_DIRS:%=seed-tests/%)
 .PHONY: seed-tests/%
 seed-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && /usr/bin/env time -f "PASS $* in %e seconds" sh -c 'bash run-test.sh $(SEEDOPT) 2>/dev/null >/dev/null'
+	@echo "cd $* && bash run-test.sh $(SEEDOPT)"
+	@cd $* && \
+	TIME_OUTPUT=$$(/usr/bin/env time -f "%e seconds" sh -c 'bash run-test.sh $(SEEDOPT) 2>/dev/null >/dev/null; exit $$?' 2>&1); \
+	EXIT_CODE=$$?; \
+	CLEAN_TIME=$$(echo "$$TIME_OUTPUT" | tail -n1); \
+	if [ $$EXIT_CODE -eq 0 ]; then \
+		MSG=". PASS $* $$CLEAN_TIME"; \
+	else \
+		MSG="X FAIL $* $$CLEAN_TIME"; \
+	fi; \
+	echo $$MSG
 
 # abcopt-tests/ is a dummy string, not a directory
 .PHONY: abcopt-tests
 abcopt-tests: $(SH_ABC_TEST_DIRS:%=abcopt-tests/%)
 abcopt-tests/%: %/run-test.sh $(TARGETS) $(EXTRA_TARGETS)
-	+cd $* && /usr/bin/env time -f "PASS $* in %e seconds" sh -c 'bash run-test.sh $(ABCOPT) $(SEEDOPT) 2>/dev/null >/dev/null'
+	@echo "cd $* && bash run-test.sh $(ABCOPT) $(SEEDOPT)"
+	@cd $* && \
+	TIME_OUTPUT=$$(/usr/bin/env time -f "%e seconds" sh -c 'bash run-test.sh $(ABCOPT) $(SEEDOPT) 2>/dev/null >/dev/null; exit $$?' 2>&1); \
+	EXIT_CODE=$$?; \
+	CLEAN_TIME=$$(echo "$$TIME_OUTPUT" | tail -n1); \
+	if [ $$EXIT_CODE -eq 0 ]; then \
+		MSG=". PASS $* $$CLEAN_TIME"; \
+	else \
+		MSG="X FAIL $* $$CLEAN_TIME"; \
+	fi; \
+	echo $$MSG
 
 # makefile-tests/ is a dummy string, not a directory
 .PHONY: makefile-tests
@@ -953,7 +973,8 @@ makefile-tests: $(MK_TEST_DIRS:%=makefile-tests/%)
 	+cd $(dir $*) && bash run-test.sh
 # this one spawns submake on each
 makefile-tests/%: %/run-test.mk $(TARGETS) $(EXTRA_TARGETS)
-	stdbuf -oL -eL $(MAKE) -C $* -f run-test.mk
+	@echo $(MAKE) -C $* -f run-test.mk
+	@stdbuf -oL -eL $(MAKE) -C $* -f run-test.mk
 
 test: makefile-tests abcopt-tests seed-tests
 	@echo ""

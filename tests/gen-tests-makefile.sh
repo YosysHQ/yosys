@@ -9,7 +9,7 @@ generate_target() {
 	echo "all: $target_name"
 	echo ".PHONY: $target_name"
 	echo "$target_name:"
-	printf "\t@/usr/bin/env time -f \"PASS $target_name %%e seconds\" sh -c %q\n" "{ $test_command ;} >/dev/null 2>/dev/null"
+    printf "\t@set -o pipefail; time_output=\$\$(/usr/bin/env time -f \"%%e\" sh -c %q 2>&1 >/dev/null | tail -1); if [ \$\$? -eq 0 ]; then echo \". PASS $target_name \$\$time_output seconds\"; else echo \"X FAIL $target_name \$\$time_output seconds\"; exit 1; fi\n" "$test_command"
 }
 
 # $ generate_ys_test ys_file [yosys_args]
