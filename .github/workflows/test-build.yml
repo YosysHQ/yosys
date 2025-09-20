@@ -253,7 +253,7 @@ jobs:
     name: Try build docs
     runs-on: [self-hosted, linux, x64, fast]
     needs: [pre_docs_job]
-    if: needs.pre_docs_job.outputs.should_skip != 'true'
+    if: ${{ needs.pre_docs_job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
     strategy:
       matrix:
         docs-target: [html, latexpdf]
