@@ -1032,6 +1032,10 @@ struct TechmapPass : public Pass {
 		log("    -dont_map <celltype>\n");
 		log("        leave the given cell type unmapped by ignoring any mapping rules for it\n");
 		log("\n");
+		log("    -relativeshare\n");
+		log("        use paths relative to share directory for source locations\n");
+		log("        where possible (experimental).\n");
+		log("\n");
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
 		log("the module name will be used to match the cell.  Multiple space-separated cell\n");
@@ -1183,6 +1187,11 @@ struct TechmapPass : public Pass {
 			}
 			if (args[argidx] == "-I" && argidx+1 < args.size()) {
 				verilog_frontend += " -I " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-relativeshare") {
+				verilog_frontend += " -relativeshare";
+				log_experimental("techmap -relativeshare");
 				continue;
 			}
 			if (args[argidx] == "-assert") {

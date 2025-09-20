@@ -5888,6 +5888,7 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	RTLIL::CaseRule *new_caserule = new RTLIL::CaseRule;
 	new_caserule->compare = compare;
 	new_caserule->actions = actions;
+	new_caserule->attributes = attributes;
 	for (auto &it : switches)
 		new_caserule->switches.push_back(it->clone());
 	return new_caserule;
