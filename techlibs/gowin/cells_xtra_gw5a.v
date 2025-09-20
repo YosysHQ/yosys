@@ -1143,6 +1143,13 @@ input CE;
 output CLKOUT;
 endmodule
 
+module DCS (...);
+input CLKIN0, CLKIN1, CLKIN2, CLKIN3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+parameter DCS_MODE = "RISING";  
+endmodule
+
 module DDRDLL (...);
 input CLKIN;
 input STOP;
@@ -1714,18 +1721,94 @@ input LOAD;
 endmodule
 
 module ADCLRC (...);
+  parameter DYN_BKEN = "FALSE";
+  parameter BUF_SERDES_Q1_EN = 3'b000;    
+  parameter BUF_BK2_EN       = 6'b000000; 
+  parameter BUF_BK3_EN       = 6'b000000; 
+  parameter BUF_BK4_EN       = 6'b000000; 
+  parameter BUF_BK5_EN       = 6'b000000; 
+  parameter BUF_BK10_EN      = 5'b00000;  
+  parameter BUF_BK11_EN      = 5'b00000;  
+  parameter CLK_SEL          = 1'b0;      
+  parameter PIOCLK_SEL       = 1'b0;      
+  parameter VSEN_CTL         = 3'b000;    
+  parameter VSEN_CTL_SEL     = 1'b0;      
+  parameter ADC_MODE      = 1'b0;      
+  parameter DIV_CTL       = 2'd0;      
+  parameter SAMPLE_CNT_SEL   = 3'd4;      
+  parameter RATE_CHANGE_CTRL = 3'd4;      
 endmodule
 
 module ADCULC (...);
+  parameter DYN_BKEN = "FALSE";
+  parameter BUF_VCC_EN       = 1'b0;      
+  parameter BUF_VCCM_EN      = 1'b0;      
+  parameter BUF_MIPI_M0_EN   = 3'b000;    
+  parameter BUF_MIPI_M1_EN   = 3'b000;    
+  parameter BUF_SERDES_Q0_EN = 3'b000;    
+  parameter BUF_BK6_EN       = 6'b000000; 
+  parameter BUF_BK7_EN       = 6'b000000; 
+  parameter CLK_SEL          = 1'b0;      
+  parameter PIOCLK_SEL       = 1'b0;      
+  parameter VSEN_CTL         = 3'b000;    
+  parameter VSEN_CTL_SEL     = 1'b0;      
+  parameter ADC_MODE      = 1'b0;      
+  parameter DIV_CTL          = 2'd0;      
+  parameter SAMPLE_CNT_SEL   = 3'd4;      
+  parameter RATE_CHANGE_CTRL = 3'd4;      
 endmodule
 
 module ADC (...);
+  parameter CLK_SEL         = 1'b0;      
+  parameter DIV_CTL         = 2'd0;      
+  parameter BUF_EN          = 12'b000000000000; 
+  parameter BUF_BK0_VREF_EN = 1'b0;  
+  parameter BUF_BK1_VREF_EN = 1'b0;  
+  parameter BUF_BK2_VREF_EN = 1'b0;  
+  parameter BUF_BK3_VREF_EN = 1'b0;  
+  parameter BUF_BK4_VREF_EN = 1'b0;  
+  parameter BUF_BK5_VREF_EN = 1'b0;  
+  parameter BUF_BK6_VREF_EN = 1'b0;  
+  parameter BUF_BK7_VREF_EN = 1'b0;  
+  parameter CSR_ADC_MODE      = 1'b1;       
+  parameter CSR_VSEN_CTRL        = 3'd0;       
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       
+  parameter CSR_FSCAL            = 10'd730;    
+  parameter CSR_OFFSET           = -12'd1180;  
 endmodule
 
 module ADC_SAR (...);
+  parameter BUF_EN = 29'b0;    
+  parameter CLK_SEL        = 1'b1;     
+  parameter DIV_CTL        = 2'd2;     
+  parameter ADC_EN_SEL     = 1'b0;     
+  parameter PHASE_SEL      = 1'b0;     
+  parameter CSR_ADC_MODE         = 1'b1;          
+  parameter CSR_VSEN_CTRL        = 3'd0;       
+  parameter CSR_SAMPLE_CNT_SEL   = 3'd4;       
+  parameter CSR_RATE_CHANGE_CTRL = 3'd4;       
+  parameter CSR_FSCAL            = 10'd730;    
+  parameter CSR_OFFSET           = -12'd1180;  
+  parameter ADC_CLK_DIV        = 2'b00;     
+  parameter ADC_CLKDIV_EN      = 1'b0;     
+  parameter CLK_SRC_SEL        = 1'b1;     
+  parameter VREF_BUF_EN        = 1'b1;     
+  parameter COUNT_LEN          = 5'b10100; 
+  parameter DAC_SAMPLE_END     = 5'b10010; 
+  parameter DAC_SAMPLE_START   = 5'b01101; 
+  parameter SH_SAMPLE_END      = 5'b01011; 
+  parameter SH_SAMPLE_START    = 5'b00001; 
+  parameter AUTO_CHOP_EN       = 1'b0;     
+  parameter CHOP_CLK_DIV       = 4'b0;     
 endmodule
 
 module LICD (...);
+    parameter   STAGE_NUM = 2'b00;        
+    parameter   ENCDEC_NUM = 2'b00;       
+    parameter   CODE_WIDTH = 2'b00;       
+    parameter   INTERLEAVE_EN = 3'b000;   
+    parameter   INTERLEAVE_MODE = 3'b000;  
 endmodule
 
 module MIPI_DPHY (...);
@@ -2456,6 +2539,7 @@ parameter EQ_ZLD_LN2 = 4'b1000;
 endmodule
 
 module GTR12_QUAD (...);
+    parameter POSITION = "Q0";
 endmodule
 
 module GTR12_UPAR (...);
