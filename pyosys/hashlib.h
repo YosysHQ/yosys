@@ -48,6 +48,7 @@
 #include "kernel/hashlib.h"
 
 namespace pybind11 {
+namespace hashlib {
 
 template<typename T>
 struct is_pointer { static const bool value = false; };
@@ -59,6 +60,11 @@ bool is_mapping(object obj) {
 	return isinstance(obj, mapping);
 }
 
+// shim
+template <typename C, typename V>
+void bind_vector(module &m, const char *name_cstr) {
+	pybind11::bind_vector<C>(m, name_cstr);
+}
 
 // also used for std::set because the semantics are close enough
 template <typename C, typename T>
@@ -105,6 +111,13 @@ void bind_pool(module &m, const char *name_cstr) {
 			return std::string("<") + name_cstr + " size=" + std::to_string(s.size()) + ">";
 		});
 }
+
+// shim
+template <typename C, typename T>
+void bind_set(module &m, const char *name_cstr) {
+	bind_pool<C, T>(m, name_cstr);
+}
+
 
 template <typename C, typename K, typename V>
 void update_dict(C *target, iterable &iterable_or_mapping) {
@@ -272,4 +285,5 @@ void bind_idict(module &m, const char *name_cstr) {
 		});
 	}
 }
+}; // namespace hashlib
 }; // namespace pybind11
