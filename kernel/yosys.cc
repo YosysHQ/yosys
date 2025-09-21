@@ -64,13 +64,8 @@
 #endif
 
 #ifdef WITH_PYTHON
-#if PY_MAJOR_VERSION >= 3
-#   define INIT_MODULE PyInit_libyosys
-    extern "C" PyObject* INIT_MODULE();
-#else
-#   define INIT_MODULE initlibyosys
-	extern "C" void INIT_MODULE();
-#endif
+extern "C" PyObject* PyInit_libyosys();
+extern "C" PyObject* PyInit_pyosys();
 #include <signal.h>
 #endif
 
@@ -189,6 +184,17 @@ int run_command(const std::string &command, std::function<void(const std::string
 bool already_setup = false;
 bool already_shutdown = false;
 
+#ifdef WITH_PYTHON
+// Include pyosys as a module so 'from pyosys import libyosys' also works
+// in interpreter mode.
+//
+// This should not affect using wheels as the dylib has to actually be called
+// pyosys.so for this module to be interacted with at all.
+PYBIND11_MODULE(pyosys, m) {
+	m.add_object("libyosys", m.import("libyosys"));
+}
+#endif
+
 void yosys_setup()
 {
 	if(already_setup)
@@ -199,11 +205,12 @@ void yosys_setup()
 	IdString::ensure_prepopulated();
 
 #ifdef WITH_PYTHON
-	// With Python 3.12, calling PyImport_AppendInittab on an already
+	// Starting Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported
 	// from a Python interpreter)
 	if (!Py_IsInitialized()) {
-		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		PyImport_AppendInittab((char*)"libyosys", PyInit_libyosys);
+		PyImport_AppendInittab((char*)"pyosys", PyInit_pyosys);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
 		signal(SIGINT, SIG_DFL);

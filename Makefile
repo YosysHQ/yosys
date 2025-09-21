@@ -133,10 +133,6 @@ LINKFLAGS += -rdynamic
 ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
-ifeq ($(ENABLE_PYOSYS),1)
-CXXFLAGS += -I$(BREW_PREFIX)/boost/include
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -L$(BREW_PREFIX)/boost-python3/lib
-endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include -I$(BREW_PREFIX)/flex/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib -L$(BREW_PREFIX)/flex/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -353,26 +349,14 @@ ifeq ($(ENABLE_PYOSYS),1)
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
+PYBIND11_INCLUDE ?= $(shell $(PYTHON_EXECUTABLE) -m pybind11 --includes)
+CXXFLAGS += -I$(PYBIND11_INCLUDE) -DWITH_PYTHON
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 
-# Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(EXE_LIBS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
-BOOST_PYTHON_LIB ?= $(shell \
-	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
-	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
-	$(call CHECK_BOOST_PYTHON,boost_python$(subst .,,$(PYTHON_VERSION))) || \
-	$(call CHECK_BOOST_PYTHON,boost_python$(PYTHON_MAJOR_VERSION)) \
-)
-
-ifeq ($(BOOST_PYTHON_LIB),)
-$(error BOOST_PYTHON_LIB could not be detected. Please define manually)
-endif
-
-LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-PY_WRAPPER_FILE = kernel/python_wrappers
+PY_WRAPPER_FILE = pyosys/wrappers
 OBJS += $(PY_WRAPPER_FILE).o
-PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_GEN_SCRIPT = pyosys/generator.py
+PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -779,9 +763,9 @@ endif
 	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(CXX) $(CXXFLAGS) -x c++ -o $@ -E -P -
 
 ifeq ($(ENABLE_PYOSYS),1)
-$(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+$(PY_WRAPPER_FILE).cc: $(PY_GEN_SCRIPT) pyosys/wrappers_tpl.cc $(PY_WRAP_INCLUDES) pyosys/hashlib.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) $(PY_WRAPPER_FILE).cc
 endif
 
 %.o: %.cpp

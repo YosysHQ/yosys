@@ -55,6 +55,9 @@
 
 #ifdef WITH_PYTHON
 #include <Python.h>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
 #endif
 
 #ifndef _YOSYS_

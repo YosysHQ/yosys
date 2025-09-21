@@ -38,7 +38,8 @@ techlibs/gowin/                @pepijndevos
 techlibs/gatemate/             @pu-cc
 
 # pyosys
-misc/*.py                      @btut
+pyosys/*                       @donn
+setup.py                       @donn
 
 backends/firrtl                @ucbjrl @azidar
 
