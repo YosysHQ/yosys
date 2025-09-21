@@ -91,9 +91,9 @@ struct RpcServer {
 		std::string error;
 		Json json_response = Json::parse(response, error);
 		if (json_response.is_null())
-			log_cmd_error("parsing JSON failed: %s\n", error.c_str());
+			log_cmd_error("parsing JSON failed: %s\n", error);
 		if (json_response["error"].is_string())
-			log_cmd_error("RPC frontend returned an error: %s\n", json_response["error"].string_value().c_str());
+			log_cmd_error("RPC frontend returned an error: %s\n", json_response["error"].string_value());
 		return json_response;
 	}
 
@@ -111,7 +111,7 @@ struct RpcServer {
 			}
 		} else is_valid = false;
 		if (!is_valid)
-			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump().c_str());
+			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump());
 		return modules;
 	}
 
@@ -149,7 +149,7 @@ struct RpcServer {
 			source = response["source"].string_value();
 		else is_valid = false;
 		if (!is_valid)
-			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump().c_str());
+			log_cmd_error("RPC frontend returned malformed response: %s\n", response.dump());
 		return std::make_pair(frontend, source);
 	}
 };
@@ -163,7 +163,7 @@ struct RpcModule : RTLIL::Module {
 			stripped_name = stripped_name.substr(9);
 		log_assert(stripped_name[0] == '\\');
 
-		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name.c_str(), stripped_name.c_str());
+		log_header(design, "Executing RPC frontend `%s' for module `%s'.\n", server->name, stripped_name);
 
 		std::string parameter_info;
 		for (auto &param : parameters) {
@@ -202,7 +202,7 @@ struct RpcModule : RTLIL::Module {
 				}
 			}
 			if (!found_derived_top)
-				log_cmd_error("RPC frontend did not return requested module `%s`!\n", stripped_name.c_str());
+				log_cmd_error("RPC frontend did not return requested module `%s`!\n", stripped_name);
 
 			for (auto module : derived_design->modules())
 				for (auto cell : module->cells())
@@ -256,7 +256,7 @@ struct HandleRpcServer : RpcServer {
 		do {
 			DWORD data_written;
 			if (!WriteFile(hsend, &data[offset], data.length() - offset, &data_written, /*lpOverlapped=*/NULL))
-				log_cmd_error("WriteFile failed: %s\n", get_last_error_str().c_str());
+				log_cmd_error("WriteFile failed: %s\n", get_last_error_str());
 			offset += data_written;
 		} while(offset < (ssize_t)data.length());
 	}
@@ -268,7 +268,7 @@ struct HandleRpcServer : RpcServer {
 			data.resize(data.length() + 1024);
 			DWORD data_read;
 			if (!ReadFile(hrecv, &data[offset], data.length() - offset, &data_read, /*lpOverlapped=*/NULL))
-				log_cmd_error("ReadFile failed: %s\n", get_last_error_str().c_str());
+				log_cmd_error("ReadFile failed: %s\n", get_last_error_str());
 			offset += data_read;
 			data.resize(offset);
 			size_t term_pos = data.find('\n', offset);

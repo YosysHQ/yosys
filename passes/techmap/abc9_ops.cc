@@ -224,7 +224,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 				else if (derived_module->get_bool_attribute(ID::abc9_box)) {
 					for (auto derived_cell : derived_module->cells())
-						if (derived_cell->is_mem_cell() || RTLIL::builtin_ff_cell_types().count(derived_cell->type)) {
+						if (derived_cell->is_mem_cell() || derived_cell->is_builtin_ff()) {
 							derived_module->set_bool_attribute(ID::abc9_box, false);
 							derived_module->set_bool_attribute(ID::abc9_bypass);
 							break;
@@ -1216,7 +1216,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			auto Qi = initmap(Q);
 			auto it = Qi.wire->attributes.find(ID::init);
 			if (it != Qi.wire->attributes.end())
-				it->second.bits()[Qi.offset] = State::Sx;
+				it->second.set(Qi.offset, State::Sx);
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
@@ -1526,8 +1526,11 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			log_assert(index < GetSize(A));
 			int i = 0;
 			while (i < GetSize(mask)) {
-				for (int j = 0; j < (1 << index); j++)
-					std::swap(mask.bits()[i+j], mask.bits()[i+j+(1 << index)]);
+				for (int j = 0; j < (1 << index); j++) {
+					State bit = mask[i+j];
+					mask.set(i+j, mask[i+j+(1 << index)]);
+					mask.set(i+j+(1 << index), bit);
+				}
 				i += 1 << (index+1);
 			}
 			A[index] = y_bit;
@@ -1542,7 +1545,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		// and get cleaned away
 clone_lut:
 		driver_mask = driver_lut->getParam(ID::LUT);
-		for (auto &b : driver_mask.bits()) {
+		for (auto b : driver_mask) {
 			if (b == RTLIL::State::S0) b = RTLIL::State::S1;
 			else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
 		}
@@ -1562,6 +1565,70 @@ clone_lut:
 
 	design->remove(mapped_mod);
 }
+
+
+static void replace_zbufs(Design *design)
+{
+	design->bufNormalize(true);
+	std::vector<Cell *> zbufs;
+
+	for (auto mod : design->modules()) {
+		zbufs.clear();
+		for (auto cell : mod->cells()) {
+			if (cell->type != ID($buf))
+				continue;
+			auto &sig = cell->getPort(ID::A);
+			for (int i = 0; i < GetSize(sig); ++i) {
+				if (sig[i] == State::Sz) {
+					zbufs.push_back(cell);
+					break;
+				}
+			}
+		}
+
+		for (auto cell : zbufs) {
+			auto sig = cell->getPort(ID::A);
+			for (int i = 0; i < GetSize(sig); ++i) {
+				if (sig[i] == State::Sz) {
+					Wire *w = mod->addWire(NEW_ID);
+					Cell *ud = mod->addCell(NEW_ID, ID($tribuf));
+					ud->set_bool_attribute(ID(aiger2_zbuf));
+					ud->setParam(ID::WIDTH, 1);
+					ud->setPort(ID::Y, w);
+					ud->setPort(ID::EN, State::S0);
+					ud->setPort(ID::A, State::S0);
+					sig[i] = w;
+				}
+			}
+			log("XXX %s -> %s\n", log_signal(cell->getPort(ID::A)), log_signal(sig));
+			cell->setPort(ID::A, sig);
+		}
+
+		mod->bufNormalize();
+	}
+}
+
+
+
+static void restore_zbufs(Design *design)
+{
+	std::vector<Cell *> to_remove;
+
+	for (auto mod : design->modules()) {
+		to_remove.clear();
+		for (auto cell : mod->cells())
+			if (cell->type == ID($tribuf) && cell->has_attribute(ID(aiger2_zbuf)))
+				to_remove.push_back(cell);
+
+		for (auto cell : to_remove) {
+			SigSpec sig_y = cell->getPort(ID::Y);
+			mod->addBuf(NEW_ID, Const(State::Sz, GetSize(sig_y)), sig_y);
+			mod->remove(cell);
+		}
+		mod->bufNormalize();
+	}
+}
+
 
 struct Abc9OpsPass : public Pass {
 	Abc9OpsPass() : Pass("abc9_ops", "helper functions for ABC9") { }
@@ -1665,6 +1732,8 @@ struct Abc9OpsPass : public Pass {
 		bool prep_lut_mode = false;
 		bool prep_box_mode = false;
 		bool reintegrate_mode = false;
+		bool replace_zbufs_mode = false;
+		bool restore_zbufs_mode = false;
 		bool dff_mode = false;
 		std::string write_lut_dst;
 		int maxlut = 0;
@@ -1751,16 +1820,30 @@ struct Abc9OpsPass : public Pass {
 				dff_mode = true;
 				continue;
 			}
+			if (arg == "-replace_zbufs") {
+				replace_zbufs_mode = true;
+				valid = true;
+				continue;
+			}
+			if (arg == "-restore_zbufs") {
+				restore_zbufs_mode = true;
+				valid = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!valid)
-			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
+			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate, -{replace,restore}_zbufs must be specified.\n");
 
 		if (dff_mode && !check_mode && !prep_hier_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_{hier,delay,xaiger} or -reintegrate.\n");
 
+		if (replace_zbufs_mode)
+			replace_zbufs(design);
+		if (restore_zbufs_mode)
+			restore_zbufs(design);
 		if (check_mode)
 			check(design, dff_mode);
 		if (prep_hier_mode)

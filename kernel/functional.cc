@@ -605,7 +605,7 @@ private:
 			}
 			Node node = handle_memory(mem);
 			factory.update_pending(cell_outputs.at({cell, ID(RD_DATA)}), node);
-		} else if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+		} else if (cell->is_builtin_ff()) {
 			FfData ff(&ff_initvals, cell);
 			if (!ff.has_gclk)
 				log_error("The design contains a %s flip-flop at %s. This is not supported by the functional backend. "

@@ -106,7 +106,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 
 		if (encoding == "one-hot") {
 			new_code = RTLIL::Const(RTLIL::State::Sa, fsm_data.state_bits);
-			new_code.bits()[state_idx] = RTLIL::State::S1;
+			new_code.set(state_idx, RTLIL::State::S1);
 		} else
 		if (encoding == "binary") {
 			new_code = RTLIL::Const(state_idx, fsm_data.state_bits);

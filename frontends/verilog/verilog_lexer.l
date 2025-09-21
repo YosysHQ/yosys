@@ -493,7 +493,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 
 \"{3}(\"{0,2}([^\\"]|\\.|\\\n))*\"{3}	{ return process_str(yytext + 3, yyleng - 6, true, out_loc); }
 
-and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1 {
+and|nand|or|nor|xor|xnor|not|buf|bufif0|bufif1|notif0|notif1|tran {
 	auto val = std::make_unique<std::string>(YYText());
 	return parser::make_TOK_PRIMITIVE(std::move(val), out_loc);
 }

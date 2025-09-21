@@ -25,7 +25,7 @@ _skip = { # These are already described, no need to extract them from the vendor
           'OSCO', 'OSCW', 'OSCZ', 'OSER10', 'OSER16', 'OSER10', 'OSER4',
           'OSER8', 'OVIDEO', 'PLLVR', 'RAM16S1', 'RAM16S2', 'RAM16S4',
           'RAM16SDP1', 'RAM16SDP2', 'RAM16SDP4', 'rPLL', 'SDP',
-          'SDPX9', 'SP', 'SPX9', 'TBUF', 'TLVDS_OBUF', 'VCC', 'DCS', 'EMCU',
+          'SDPX9', 'SP', 'SPX9', 'TBUF', 'TLVDS_OBUF', 'VCC', 'EMCU',
           # These are not planned for implementation
           'MUX2_MUX8', 'MUX2_MUX16', 'MUX2_MUX32', 'MUX4', 'MUX8', 'MUX16',
           'MUX32', 'DL', 'DLE', 'DLC', 'DLCE', 'DLP', 'DLPE', 'DLN', 'DLNE',
@@ -50,7 +50,7 @@ def xtract_cells_decl(dir, fout):
                     fout.write('\n')
                 if l.rstrip()[-1] != ';':
                     state = State.IN_MODULE_MULTILINE
-            elif l.startswith('parameter') and state == State.IN_MODULE:
+            elif l.lstrip().startswith('parameter') and state == State.IN_MODULE:
                 fout.write(l)
                 if l.rstrip()[-1] == ',':
                     state = State.IN_PARAMETER

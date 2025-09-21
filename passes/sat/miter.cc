@@ -76,11 +76,11 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	RTLIL::IdString miter_name = RTLIL::escape_id(args[argidx++]);
 
 	if (design->module(gold_name) == nullptr)
-		log_cmd_error("Can't find gold module %s!\n", gold_name.c_str());
+		log_cmd_error("Can't find gold module %s!\n", gold_name);
 	if (design->module(gate_name) == nullptr)
-		log_cmd_error("Can't find gate module %s!\n", gate_name.c_str());
+		log_cmd_error("Can't find gate module %s!\n", gate_name);
 	if (design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", miter_name.c_str());
+		log_cmd_error("There is already a module %s!\n", miter_name);
 
 	RTLIL::Module *gold_module = design->module(gold_name);
 	RTLIL::Module *gate_module = design->module(gate_name);
@@ -105,7 +105,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 			goto match_gold_port_error;
 		continue;
 	match_gold_port_error:
-		log_cmd_error("No matching port in gate module was found for %s!\n", gold_wire->name.c_str());
+		log_cmd_error("No matching port in gate module was found for %s!\n", gold_wire->name);
 	}
 
 	for (auto gate_wire : gate_module->wires()) {
@@ -125,7 +125,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 			goto match_gate_port_error;
 		continue;
 	match_gate_port_error:
-		log_cmd_error("No matching port in gold module was found for %s!\n", gate_wire->name.c_str());
+		log_cmd_error("No matching port in gold module was found for %s!\n", gate_wire->name);
 	}
 
 	log("Creating miter cell \"%s\" with gold cell \"%s\" and gate cell \"%s\".\n", RTLIL::id2cstr(miter_name), RTLIL::id2cstr(gold_name), RTLIL::id2cstr(gate_name));
@@ -322,9 +322,9 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	IdString miter_name = argidx < args.size() ? RTLIL::escape_id(args[argidx++]) : "";
 
 	if (design->module(module_name) == nullptr)
-		log_cmd_error("Can't find module %s!\n", module_name.c_str());
+		log_cmd_error("Can't find module %s!\n", module_name);
 	if (!miter_name.empty() && design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", miter_name.c_str());
+		log_cmd_error("There is already a module %s!\n", miter_name);
 
 	Module *module = design->module(module_name);
 

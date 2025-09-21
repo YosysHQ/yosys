@@ -641,15 +641,16 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 			if (!gold_wire->port_input)
 				continue;
 
-			RTLIL::Const in_value;
+			RTLIL::Const::Builder in_value_builder(GetSize(gold_wire));
 			for (int i = 0; i < GetSize(gold_wire); i++)
-				in_value.bits().push_back(xorshift32(2) ? State::S1 : State::S0);
+				in_value_builder.push_back(xorshift32(2) ? State::S1 : State::S0);
+			RTLIL::Const in_value = in_value_builder.build();
 
 			if (xorshift32(4) == 0) {
 				int inv_chance = 1 + xorshift32(8);
 				for (int i = 0; i < GetSize(gold_wire); i++)
 					if (xorshift32(inv_chance) == 0)
-						in_value.bits()[i] = RTLIL::Sx;
+						in_value.set(i, RTLIL::Sx);
 			}
 
 			if (verbose)
@@ -957,7 +958,7 @@ struct TestCellPass : public Pass {
 			if (args[argidx] == "-vlog" && argidx+1 < GetSize(args)) {
 				vlog_file.open(args[++argidx], std::ios_base::trunc);
 				if (!vlog_file.is_open())
-					log_cmd_error("Failed to open output file `%s'.\n", args[argidx].c_str());
+					log_cmd_error("Failed to open output file `%s'.\n", args[argidx]);
 				continue;
 			}
 			if (args[argidx] == "-bloat" && argidx+1 < GetSize(args)) {
@@ -1078,7 +1079,7 @@ struct TestCellPass : public Pass {
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx].rfind("-", 0) == 0)
-				log_cmd_error("Unexpected option: %s\n", args[argidx].c_str());
+				log_cmd_error("Unexpected option: %s\n", args[argidx]);
 
 			if (args[argidx] == "all") {
 				for (auto &it : cell_types)
@@ -1191,7 +1192,7 @@ struct TestCellPass : public Pass {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", cell_type, num_cells, num_cells_estimate);
 							}
 						}
 					}

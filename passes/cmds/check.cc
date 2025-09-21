@@ -285,7 +285,7 @@ struct CheckPass : public Pass {
 				}
 
 				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)) \
-						|| RTLIL::builtin_ff_cell_types().count(cell->type)) {
+						|| cell->is_builtin_ff()) {
 					if (!edges_db.add_edges_from_cell(cell))
 						coarsened_cells.insert(cell);
 				}
@@ -323,7 +323,7 @@ struct CheckPass : public Pass {
 					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
 						message += stringf("    %s\n", str);
-					log_warning("%s", message.c_str());
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -332,7 +332,7 @@ struct CheckPass : public Pass {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
 					for (auto str : it.second)
 						message += stringf("    %s\n", str);
-					log_warning("%s", message.c_str());
+					log_warning("%s", message);
 					counter++;
 				}
 
@@ -418,7 +418,7 @@ struct CheckPass : public Pass {
 
 					prev = bit;
 				}
-				log_warning("%s", message.c_str());
+				log_warning("%s", message);
 				counter++;
 			}
 
@@ -426,7 +426,7 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
+					if (cell->is_builtin_ff() == 0)
 						continue;
 
 					for (auto bit : sigmap(cell->getPort(ID::Q)))

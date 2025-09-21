@@ -937,7 +937,7 @@ struct HierarchyPass : public Pass {
 				const std::string &value = args[++argidx];
 				auto r = parameters.emplace(key, value);
 				if (!r.second) {
-					log_warning("-chparam %s already specified: overwriting.\n", key.c_str());
+					log_warning("-chparam %s already specified: overwriting.\n", key);
 					r.first->second = value;
 				}
 				continue;
@@ -957,7 +957,7 @@ struct HierarchyPass : public Pass {
 				for (auto &para : parameters) {
 					SigSpec sig_value;
 					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-						log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+						log_cmd_error("Can't decode value '%s'!\n", para.second);
 					top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 				}
 			}
@@ -991,7 +991,7 @@ struct HierarchyPass : public Pass {
 			}
 #endif
 			if (top_mod == NULL)
-				log_cmd_error("Module `%s' not found!\n", load_top_mod.c_str());
+				log_cmd_error("Module `%s' not found!\n", load_top_mod);
 		} else {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending)
@@ -1045,7 +1045,7 @@ struct HierarchyPass : public Pass {
 			for (auto &para : parameters) {
 				SigSpec sig_value;
 				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+					log_cmd_error("Can't decode value '%s'!\n", para.second);
 				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
 			}
 

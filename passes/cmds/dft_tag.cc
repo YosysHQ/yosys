@@ -430,7 +430,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if (ff.has_clk || ff.has_gclk)
@@ -686,7 +686,7 @@ struct DftTagWorker {
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 			// TODO handle some more variants
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
@@ -884,8 +884,10 @@ struct DftTagWorker {
 	{
 		if (sig_a.is_fully_const()) {
 			auto const_val = sig_a.as_const();
-			for (State& bit : const_val.bits())
-				bit = bit == State::S0 ? State::S1 : bit == State::S1 ? State::S0 : bit;
+			for (auto bit : const_val) {
+				State b = bit;
+				bit = b == State::S0 ? State::S1 : b == State::S1 ? State::S0 : b;
+			}
 			return const_val;
 		}
 		return module->Not(name, sig_a);

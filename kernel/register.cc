@@ -199,7 +199,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
 			cmd_buf.resize(cmd_buf.size()-1);
-		log_header(design, "Shell command: %s\n", cmd_buf.c_str());
+		log_header(design, "Shell command: %s\n", cmd_buf);
 		int retCode = run_command(cmd_buf);
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
@@ -262,7 +262,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	}
 
 	if (pass_register.count(args[0]) == 0)
-		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
+		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0]);
 
 	if (pass_register[args[0]]->experimental_flag)
 		log_experimental(args[0]);
@@ -521,7 +521,7 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 	if (args.size() == 0)
 		return;
 	if (frontend_register.count(args[0]) == 0)
-		log_cmd_error("No such frontend: %s\n", args[0].c_str());
+		log_cmd_error("No such frontend: %s\n", args[0]);
 
 	if (f != NULL) {
 		auto state = frontend_register[args[0]]->pre_execute();
@@ -596,7 +596,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 			gzip_ostream *gf = new gzip_ostream;
 			if (!gf->open(filename)) {
 				delete gf;
-				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename, strerror(errno));
 			}
 			yosys_output_files.insert(filename);
 			f = gf;
@@ -609,7 +609,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 			yosys_output_files.insert(filename);
 			if (ff->fail()) {
 				delete ff;
-				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename, strerror(errno));
 			}
 			f = ff;
 		}
@@ -641,7 +641,7 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	if (args.size() == 0)
 		return;
 	if (backend_register.count(args[0]) == 0)
-		log_cmd_error("No such backend: %s\n", args[0].c_str());
+		log_cmd_error("No such backend: %s\n", args[0]);
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 
@@ -956,13 +956,7 @@ struct HelpPass : public Pass {
 			auto name = it.first.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
-				if (groups.count(cell_help.group) != 0) {
-					auto group_cells = &groups.at(cell_help.group);
-					group_cells->push_back(name);
-				} else {
-					auto group_cells = new vector<string>(1, name);
-					groups.emplace(cell_help.group, *group_cells);
-				}
+				groups[cell_help.group].emplace_back(name);
 				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
 				cells.emplace(name, cell_pair);
 			} else {
@@ -972,7 +966,7 @@ struct HelpPass : public Pass {
 		}
 		for (auto &it : cell_help_messages.cell_help) {
 			if (cells.count(it.first) == 0) {
-				log_warning("Found cell model '%s' without matching cell type.\n", it.first.c_str());
+				log_warning("Found cell model '%s' without matching cell type.\n", it.first);
 			}
 		}
 

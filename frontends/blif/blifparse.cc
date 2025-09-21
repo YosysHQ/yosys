@@ -149,7 +149,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 		if (buffer[0] == '.')
 		{
 			if (lutptr) {
-				for (auto &bit : lutptr->bits())
+				for (auto bit : *lutptr)
 					if (bit == RTLIL::State::Sx)
 						bit = lut_default_state;
 				lutptr = NULL;
@@ -321,9 +321,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					const_v = Const(str);
 				} else {
 					int n = strlen(v);
-					const_v.bits().resize(n);
+					Const::Builder const_v_builder(n);
 					for (int i = 0; i < n; i++)
-						const_v.bits()[i] = v[n-i-1] != '0' ? State::S1 : State::S0;
+						const_v_builder.push_back(v[n-i-1] != '0' ? State::S1 : State::S0);
+					const_v = const_v_builder.build();
 				}
 				if (!strcmp(cmd, ".attr")) {
 					if (obj_attributes == nullptr) {
@@ -563,21 +564,23 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 			log_assert(sopcell->parameters[ID::WIDTH].as_int() == input_len);
 			sopcell->parameters[ID::DEPTH] = sopcell->parameters[ID::DEPTH].as_int() + 1;
 
+			Const::Builder table_bits_builder(input_len * 2);
 			for (int i = 0; i < input_len; i++)
 				switch (input[i]) {
 					case '0':
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S1);
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S0);
+						table_bits_builder.push_back(State::S1);
+						table_bits_builder.push_back(State::S0);
 						break;
 					case '1':
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S0);
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S1);
+						table_bits_builder.push_back(State::S0);
+						table_bits_builder.push_back(State::S1);
 						break;
 					default:
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S0);
-						sopcell->parameters[ID::TABLE].bits().push_back(State::S0);
+						table_bits_builder.push_back(State::S0);
+						table_bits_builder.push_back(State::S0);
 						break;
 				}
+			sopcell->parameters[ID::TABLE].append(table_bits_builder.build());
 
 			if (sopmode == -1) {
 				sopmode = (*output == '1');
@@ -605,7 +608,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 							goto try_next_value;
 					}
 				}
-				lutptr->bits().at(i) = !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1;
+				lutptr->set(i, !strcmp(output, "0") ? RTLIL::State::S0 : RTLIL::State::S1);
 			try_next_value:;
 			}
 

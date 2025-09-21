@@ -127,7 +127,7 @@ struct ExecPass : public Pass {
 						x.re = YS_REGEX_COMPILE(args[argidx]);
 						expect_stdout.push_back(x);
 					} catch (const std::regex_error& e) {
-						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx]);
 					}
 				} else if (args[argidx] == "-not-expect-stdout") {
 					flag_expect_stdout = true;
@@ -142,15 +142,15 @@ struct ExecPass : public Pass {
 						x.polarity = false;
 						expect_stdout.push_back(x);
 					} catch (const std::regex_error& e) {
-						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
+						log_cmd_error("Error in regex expression '%s' !\n", args[argidx]);
 					}
 
 				} else
-					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.\n", args[argidx].c_str());
+					log_cmd_error("Unknown option \"%s\" or \"--\" doesn\'t precede command.\n", args[argidx]);
 			}
 		}
 
-		log_header(design, "Executing command \"%s\".\n", cmd.c_str());
+		log_header(design, "Executing command \"%s\".\n", cmd);
 		log_push();
 
 		fflush(stdout);
@@ -201,7 +201,7 @@ struct ExecPass : public Pass {
 		if (flag_expect_stdout)
 			for (auto &x : expect_stdout)
 				if (x.polarity ^ x.matched)
-					log_cmd_error("Command stdout did%s have a line matching given regex \"%s\".\n", (x.polarity? " not" : ""), x.str.c_str());
+					log_cmd_error("Command stdout did%s have a line matching given regex \"%s\".\n", (x.polarity? " not" : ""), x.str);
 
 		log_pop();
 	}

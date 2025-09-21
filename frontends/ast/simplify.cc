@@ -161,10 +161,10 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
 		} else if (may_fail) {
-			log_file_info(*location.begin.filename, location.begin.line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_info(*location.begin.filename, location.begin.line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
 			return Fmt();
 		} else {
-			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
 		}
 		args.push_back(arg);
 	}
@@ -974,7 +974,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						message += stringf("%s%s", first_element ? " See " : ", ", place);
 						first_element = false;
 					}
-					log_warning("%s\n", message.c_str());
+					log_warning("%s\n", message);
 				}
 
 			silent_activate:
@@ -1032,7 +1032,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str.c_str());
+		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str);
 		delete_children();
 		str = std::string();
 	}
@@ -1042,7 +1042,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		 str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
 		if (!current_always) {
-			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
+			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str);
 			delete_children();
 			str = std::string();
 		} else {
@@ -1144,7 +1144,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					i--; // Adjust index since we removed an element
 				} else {
 					// If we can't find the package, just remove the import node to avoid errors later
-					log_warning("Package `%s' not found for import, removing import statement\n", child->str.c_str());
+					log_warning("Package `%s' not found for import, removing import statement\n", child->str);
 					children.erase(children.begin() + i);
 					i--; // Adjust index since we removed an element
 				}
@@ -1438,7 +1438,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && children[0]->id2ast->is_logic)
 				children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
-				log_warning("wire '%s' is assigned in a block at %s.\n", children[0]->str.c_str(), loc_string().c_str());
+				log_warning("wire '%s' is assigned in a block at %s.\n", children[0]->str, loc_string());
 			if (type == AST_ASSIGN && children[0]->id2ast->is_reg) {
 				bool is_rand_reg = false;
 				if (children[1]->type == AST_FCALL) {
@@ -1452,7 +1452,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 						is_rand_reg = true;
 				}
 				if (!is_rand_reg)
-					log_warning("reg '%s' is assigned in a continuous assignment at %s.\n", children[0]->str.c_str(), loc_string().c_str());
+					log_warning("reg '%s' is assigned in a continuous assignment at %s.\n", children[0]->str, loc_string());
 			}
 			children[0]->was_checked = true;
 		}
@@ -1915,7 +1915,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 		if (current_scope.at(modname)->type != AST_CELL)
 			input_error("Defparam argument `%s . %s` does not match a cell!\n",
-					RTLIL::unescape_id(modname).c_str(), RTLIL::unescape_id(paramname).c_str());
+					RTLIL::unescape_id(modname), RTLIL::unescape_id(paramname));
 
 		auto paraset = std::make_unique<AstNode>(location, AST_PARASET, children[1]->clone(), GetSize(children) > 2 ? children[2]->clone() : nullptr);
 		paraset->str = paramname;
@@ -2756,19 +2756,24 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		newNode = std::make_unique<AstNode>(location, AST_GENBLOCK);
 		int num = max(children.at(0)->range_left, children.at(0)->range_right) - min(children.at(0)->range_left, children.at(0)->range_right) + 1;
 
+		if (this->children.at(1)->type == AST_PRIMITIVE) {
+			// Move the range to the AST_PRIMITIVE node and replace this with the AST_PRIMITIVE node handled below
+			newNode = std::move(this->children.at(1));
+			newNode->range_left = this->children.at(0)->range_left;
+			newNode->range_right = this->children.at(0)->range_right;
+			newNode->range_valid = true;
+			goto apply_newNode;
+		}
+
 		for (int i = 0; i < num; i++) {
 			int idx = children.at(0)->range_left > children.at(0)->range_right ? children.at(0)->range_right + i : children.at(0)->range_right - i;
 			auto new_cell_owned = children.at(1)->clone();
 			auto* new_cell = new_cell_owned.get();
 			newNode->children.push_back(std::move(new_cell_owned));
 			new_cell->str += stringf("[%d]", idx);
-			if (new_cell->type == AST_PRIMITIVE) {
-				input_error("Cell arrays of primitives are currently not supported.\n");
-			} else {
-				this->dumpAst(NULL, "    ");
-				log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
-				new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str);
-			}
+
+			log_assert(new_cell->children.at(0)->type == AST_CELLTYPE);
+			new_cell->children.at(0)->str = stringf("$array:%d:%d:%s", i, num, new_cell->children.at(0)->str);
 		}
 
 		goto apply_newNode;
@@ -2788,6 +2793,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			child->children.clear();
 		}
 		children.clear();
+
+		// TODO handle bit-widths of primitives and support cell arrays for more primitives
+
+		if (range_valid && str != "tran")
+			input_error("Cell arrays of primitives are currently not supported.\n");
 
 		if (str == "bufif0" || str == "bufif1" || str == "notif0" || str == "notif1")
 		{
@@ -2817,7 +2827,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			fixup_hierarchy_flags();
 			did_something = true;
 		}
-		else if (str == "buf" || str == "not")
+		else if (str == "buf" || str == "not" || str == "tran")
 		{
 			auto& input = children_list.back();
 			if (str == "not")
@@ -3394,11 +3404,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 				if (GetSize(children) != 1 && GetSize(children) != 2)
 					input_error("System function %s got %d arguments, expected 1 or 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				if (!current_always_clocked)
 					input_error("System function %s is only allowed in clocked blocks.\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 
 				if (GetSize(children) == 2)
 				{
@@ -3469,11 +3479,11 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				if (!current_always_clocked)
 					input_error("System function %s is only allowed in clocked blocks.\n",
-							RTLIL::unescape_id(str).c_str());
+							RTLIL::unescape_id(str));
 
 				auto present = children.at(0)->clone();
 				auto past = clone();
@@ -3511,7 +3521,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (children.size() != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto buf = children[0]->clone();
 				while (buf->simplify(true, stage, width_hint, sign_hint)) { }
@@ -3538,11 +3548,11 @@ skip_dynamic_range_lvalue_expansion:;
 				if (str == "\\$dimensions" || str == "\\$unpacked_dimensions" || str == "\\$bits") {
 					if (children.size() != 1)
 						input_error("System function %s got %d arguments, expected 1.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				} else {
 					if (children.size() != 1 && children.size() != 2)
 						input_error("System function %s got %d arguments, expected 1 or 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 					if (children.size() == 2) {
 						auto buf = children[1]->clone();
 						// Evaluate constant expression
@@ -3634,18 +3644,18 @@ skip_dynamic_range_lvalue_expansion:;
 				if (func_with_two_arguments) {
 					if (children.size() != 2)
 						input_error("System function %s got %d arguments, expected 2.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				} else {
 					if (children.size() != 1)
 						input_error("System function %s got %d arguments, expected 1.\n",
-								RTLIL::unescape_id(str).c_str(), int(children.size()));
+								RTLIL::unescape_id(str), int(children.size()));
 				}
 
 				if (children.size() >= 1) {
 					while (children[0]->simplify(true, stage, width_hint, sign_hint)) { }
 					if (!children[0]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[0]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -3656,7 +3666,7 @@ skip_dynamic_range_lvalue_expansion:;
 					while (children[1]->simplify(true, stage, width_hint, sign_hint)) { }
 					if (!children[1]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
-								RTLIL::unescape_id(str).c_str());
+								RTLIL::unescape_id(str));
 					int child_width_hint = width_hint;
 					bool child_sign_hint = sign_hint;
 					children[1]->detectSignWidth(child_width_hint, child_sign_hint);
@@ -3703,7 +3713,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$countbits") {
 				if (children.size() < 2)
 					input_error("System function %s got %d arguments, expected at least 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				std::vector<RTLIL::State> control_bits;
 
@@ -3760,7 +3770,7 @@ skip_dynamic_range_lvalue_expansion:;
 			if (str == "\\$countones" || str == "\\$isunknown" || str == "\\$onehot" || str == "\\$onehot0") {
 				if (children.size() != 1)
 					input_error("System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto countbits = clone();
 				countbits->str = "\\$countbits";
@@ -3834,7 +3844,7 @@ skip_dynamic_range_lvalue_expansion:;
 			{
 				if (GetSize(children) < 2 || GetSize(children) > 4)
 					input_error("System function %s got %d arguments, expected 2-4.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
+							RTLIL::unescape_id(str), int(children.size()));
 
 				auto node_filename = children[0]->clone();
 				while (node_filename->simplify(true, stage, width_hint, sign_hint)) { }
@@ -4366,7 +4376,7 @@ replace_fcall_later:;
 					log_assert(a.size() == b.size());
 					for (auto i = 0; i < a.size(); i++)
 						if (a[i] != b[i])
-							a.bits()[i] = RTLIL::State::Sx;
+							a.set(i, RTLIL::State::Sx);
 					newNode = mkconst_bits(location, a.to_bits(), sign_hint);
 				} else if (children[1]->isConst() && children[2]->isConst()) {
 					newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
@@ -5368,8 +5378,11 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 		offset -= variables.at(str).offset;
 		if (variables.at(str).range_swapped)
 			offset = -offset;
-		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits();
-		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
+		const RTLIL::Const &val = variables.at(str).val;
+		std::vector<RTLIL::State> new_bits;
+		new_bits.reserve(width);
+		for (int i = 0; i < width; i++)
+			new_bits.push_back(val[offset+i]);
 		auto newNode = mkconst_bits(location, new_bits, variables.at(str).is_signed);
 		newNode->cloneInto(*this);
 		return true;
@@ -5513,7 +5526,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 					int index = i + offset - v.offset;
 					if (v.range_swapped)
 						index = -index;
-					v.val.bits().at(index) = r.at(i);
+					v.val.set(index, r.at(i));
 				}
 			}
 

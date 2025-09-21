@@ -88,7 +88,7 @@ struct EstimateSta {
 
 		for (auto cell : m->cells()) {
 			SigSpec launch, sample;
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (cell->is_builtin_ff()) {
 				// collect launch and sample points for FF cell
 				FfData ff(nullptr, cell);
 				if (!ff.has_clk) {
@@ -403,7 +403,7 @@ struct TimeestPass : Pass {
 
 		for (auto m : d->selected_modules()) {
 			if (!m->wire(RTLIL::escape_id(clk))) {
-				log_warning("No domain '%s' in module %s\n", clk.c_str(), log_id(m));
+				log_warning("No domain '%s' in module %s\n", clk, log_id(m));
 				continue;
 			}
 

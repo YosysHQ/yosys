@@ -302,7 +302,7 @@ struct XpropWorker
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if (cell->type != ID($anyinit))
@@ -828,9 +828,9 @@ struct XpropWorker
 			auto init_q_is_1 = init_q;
 			auto init_q_is_x = init_q;
 
-			for (auto &bit : init_q_is_1.bits())
+			for (auto bit : init_q_is_1)
 				bit = bit == State::S1 ? State::S1 : State::S0;
-			for (auto &bit : init_q_is_x.bits())
+			for (auto bit : init_q_is_x)
 				bit = bit == State::Sx ? State::S1 : State::S0;
 
 			initvals.remove_init(sig_q);
@@ -853,7 +853,7 @@ struct XpropWorker
 			return;
 		}
 
-		if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
+		if (cell->is_builtin_ff() || cell->type == ID($anyinit)) {
 			FfData ff(&initvals, cell);
 
 			if ((ff.has_clk || ff.has_gclk) && !ff.has_ce && !ff.has_aload && !ff.has_srst && !ff.has_arst && !ff.has_sr) {
@@ -865,14 +865,14 @@ struct XpropWorker
 					auto init_q_is_x = init_q;
 
 					if (ff.is_anyinit) {
-						for (auto &bit : init_q_is_1.bits())
+						for (auto bit : init_q_is_1)
 							bit = State::Sx;
-						for (auto &bit : init_q_is_x.bits())
+						for (auto bit : init_q_is_x)
 							bit = State::S0;
 					} else {
-						for (auto &bit : init_q_is_1.bits())
+						for (auto bit : init_q_is_1)
 							bit = bit == State::S1 ? State::S1 : State::S0;
-						for (auto &bit : init_q_is_x.bits())
+						for (auto bit : init_q_is_x)
 							bit = bit == State::Sx ? State::S1 : State::S0;
 					}
 

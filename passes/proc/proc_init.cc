@@ -52,17 +52,15 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 
 						Const value = valuesig.as_const();
 						Const &wireinit = lhs_c.wire->attributes[ID::init];
-
-						while (GetSize(wireinit) < lhs_c.wire->width)
-							wireinit.bits().push_back(State::Sx);
-
+						if (GetSize(wireinit) < lhs_c.wire->width)
+							wireinit.resize(lhs_c.wire->width, State::Sx);
 						for (int i = 0; i < lhs_c.width; i++) {
-							auto &initbit = wireinit.bits()[i + lhs_c.offset];
+							int index = i + lhs_c.offset;
+							State initbit = wireinit[index];
 							if (initbit != State::Sx && initbit != value[i])
 								log_cmd_error("Conflicting initialization values for %s.\n", log_signal(lhs_c));
-							initbit = value[i];
+							wireinit.set(index, value[i]);
 						}
-
 						log("  Set init value: %s = %s\n", log_signal(lhs_c.wire), log_signal(wireinit));
 					}
 					offset += lhs_c.width;

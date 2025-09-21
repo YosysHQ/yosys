@@ -327,19 +327,20 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 
 void dump_reg_init(std::ostream &f, SigSpec sig)
 {
-	Const initval;
 	bool gotinit = false;
 
+	Const::Builder initval_bits(sig.size());
 	for (auto bit : active_sigmap(sig)) {
 		if (active_initdata.count(bit)) {
-			initval.bits().push_back(active_initdata.at(bit));
+			initval_bits.push_back(active_initdata.at(bit));
 			gotinit = true;
 		} else {
-			initval.bits().push_back(State::Sx);
+			initval_bits.push_back(State::Sx);
 		}
 	}
 
 	if (gotinit) {
+		Const initval = initval_bits.build();
 		f << " = ";
 		dump_const(f, initval);
 	}
@@ -784,9 +785,10 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
 					os << stringf(" = %s[", mem_id);;
 					if (port.wide_log2) {
-						Const addr_lo;
+						Const::Builder addr_lo_builder(port.wide_log2);
 						for (int i = 0; i < port.wide_log2; i++)
-							addr_lo.bits().push_back(State(sub >> i & 1));
+							addr_lo_builder.push_back(State(sub >> i & 1));
+						Const addr_lo = addr_lo_builder.build();
 						os << "{";
 						os << temp_id;
 						os << ", ";
@@ -985,7 +987,7 @@ void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, b
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && RTLIL::builtin_ff_cell_types().count(cell->type) && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_)))
+	if (!norename && cell->name[0] == '$' && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_)))
 	{
 		RTLIL::SigSpec sig = cell->getPort(ID::Q);
 		if (GetSize(sig) != 1 || sig.is_fully_const())
@@ -1114,6 +1116,33 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 
 	if (cell->type.in(ID($_BUF_), ID($buf))) {
+		if (cell->type == ID($buf) && cell->getPort(ID::A).has_const(State::Sz)) {
+			RTLIL::SigSpec a = cell->getPort(ID::A);
+			RTLIL::SigSpec y = cell->getPort(ID::Y);
+			a.extend_u0(GetSize(y));
+
+			if (a.has_const(State::Sz)) {
+				SigSpec new_a;
+				SigSpec new_y;
+				for (int i = 0; i < GetSize(a); ++i) {
+					SigBit b = a[i];
+					if (b == State::Sz)
+						continue;
+					new_a.append(b);
+					new_y.append(y[i]);
+				}
+				a = std::move(new_a);
+				y = std::move(new_y);
+			}
+			if (!y.empty()) {
+				f << stringf("%s" "assign ", indent);
+				dump_sigspec(f, y);
+				f << stringf(" = ");
+				dump_sigspec(f, a);
+				f << stringf(";\n");
+			}
+			return true;
+		}
 		f << stringf("%s" "assign ", indent);
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
@@ -1513,7 +1542,30 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (RTLIL::builtin_ff_cell_types().count(cell->type))
+	if (cell->type == ID($input_port))
+		return true;
+
+	if (cell->type == ID($connect))
+	{
+		int width = cell->getParam(ID::WIDTH).as_int() ;
+		if (width == 1) {
+			f << stringf("%s" "tran(", indent);
+			dump_sigspec(f, cell->getPort(ID::A));
+			f << stringf(", ");
+			dump_sigspec(f, cell->getPort(ID::B));
+			f << stringf(");\n");
+		} else {
+			auto tran_id = next_auto_id();
+			f << stringf("%s" "tran %s[%d:0](", indent, tran_id, width - 1);
+			dump_sigspec(f, cell->getPort(ID::A));
+			f << stringf(", ");
+			dump_sigspec(f, cell->getPort(ID::B));
+			f << stringf(");\n");
+		}
+		return true;
+	}
+
+	if (cell->is_builtin_ff())
 	{
 		FfData ff(nullptr, cell);
 
@@ -1991,7 +2043,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
-	if (siminit && RTLIL::builtin_ff_cell_types().count(cell->type) && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
+	if (siminit && cell->is_builtin_ff() && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
 		std::stringstream ss;
 		dump_reg_init(ss, cell->getPort(ID::Q));
 		if (!ss.str().empty()) {
@@ -2349,7 +2401,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 				continue;
 			}
 
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type) || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
+			if (!cell->is_builtin_ff() || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
 				continue;
 
 			RTLIL::SigSpec sig = cell->getPort(ID::Q);

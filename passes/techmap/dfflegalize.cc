@@ -869,17 +869,17 @@ struct DffLegalizePass : public Pass {
 			if (ff.has_arst) {
 				if (ff.val_arst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_arst.bits()[i] = State::S0;
+						ff.val_arst.set(i, State::S0);
 					if (!(supported & (mask << 4)))
-						ff.val_arst.bits()[i] = State::S1;
+						ff.val_arst.set(i, State::S1);
 				}
 			}
 			if (ff.has_srst) {
 				if (ff.val_srst[i] == State::Sx) {
 					if (!(supported & (mask << 8)))
-						ff.val_srst.bits()[i] = State::S0;
+						ff.val_srst.set(i, State::S0);
 					if (!(supported & (mask << 4)))
-						ff.val_srst.bits()[i] = State::S1;
+						ff.val_srst.set(i, State::S1);
 				}
 			}
 		}
@@ -1196,7 +1196,7 @@ unrecognized:
 				srst_used.clear();
 
 				for (auto cell : module->cells()) {
-					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					if (!cell->is_builtin_ff())
 						continue;
 
 					FfData ff(&initvals, cell);
@@ -1208,7 +1208,7 @@ unrecognized:
 			}
 			for (auto cell : module->selected_cells())
 			{
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 				FfData ff(&initvals, cell);
 				legalize_ff(ff);

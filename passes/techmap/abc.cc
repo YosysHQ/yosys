@@ -375,7 +375,7 @@ void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 
 bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
-	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	if (cell->is_builtin_ff()) {
 		FfData ff(&initvals, cell);
 		gate_type_t type = G(FF);
 		if (!ff.has_clk)
@@ -751,7 +751,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
 							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				else
-					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
+					log("                               %*s  %s -> %s\n", int(log_signal(RTLIL::SigSpec(wire)).size()), "",
 							run_abc.signal_list[id1].bit_str, run_abc.signal_list[id2].bit_str);
 				first_line = false;
 			}
@@ -984,7 +984,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	}
 
 	if (dff_mode && clk_sig.empty())
-		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
+		log_cmd_error("Clock domain %s not found.\n", clk_str);
 
 	const AbcConfig &config = run_abc.config;
 	if (config.cleanup)
@@ -2398,7 +2398,7 @@ struct AbcPass : public Pass {
 				if (g_arg_from_cmd)
 					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g));
 				else
-					log_cmd_error("Unsupported gate type: %s", g.c_str());
+					log_cmd_error("Unsupported gate type: %s", g);
 			ok_gate:
 				gate_list.push_back(g);
 			ok_alias:
@@ -2503,7 +2503,7 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

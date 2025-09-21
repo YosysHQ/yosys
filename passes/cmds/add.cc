@@ -77,7 +77,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			wire = nullptr;
 
 		if (wire == nullptr)
-			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name.c_str());
+			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name);
 
 		log("Module %s already has such an object.\n", module->name);
 	}

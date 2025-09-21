@@ -174,7 +174,7 @@ struct SynthIntelPass : public ScriptPass {
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
 		    family_opt != "cyclone10lp")
-			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt.c_str());
+			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt);
 
 		log_header(design, "Executing SYNTH_INTEL pass.\n");
 		log_push();
@@ -242,7 +242,7 @@ struct SynthIntelPass : public ScriptPass {
 				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
-				log_warning("BRAM mapping is not currently supported for %s.\n", family_opt.c_str());
+				log_warning("BRAM mapping is not currently supported for %s.\n", family_opt);
 			}
 		}
 

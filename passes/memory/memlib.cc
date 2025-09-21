@@ -1097,7 +1097,7 @@ Library MemLibrary::parse_library(const std::vector<std::string> &filenames, con
 		Parser(file, res, defines, defines_unused);
 	}
 	for (auto def: defines_unused) {
-		log_warning("define %s not used in the library.\n", def.c_str());
+		log_warning("define %s not used in the library.\n", def);
 	}
 	return res;
 }

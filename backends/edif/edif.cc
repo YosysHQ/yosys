@@ -30,9 +30,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true).c_str()
-#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br).c_str()
-#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false).c_str()
+#define EDIF_DEF(_id) edif_names(RTLIL::unescape_id(_id), true)
+#define EDIF_DEFR(_id, _ren, _bl, _br) edif_names(RTLIL::unescape_id(_id), true, _ren, _bl, _br)
+#define EDIF_REF(_id) edif_names(RTLIL::unescape_id(_id), false)
 
 struct EdifNames
 {
@@ -513,7 +513,7 @@ struct EdifBackend : public Backend {
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
 					if (sig == RTLIL::State::Sx) {
 						for (auto &ref : it.second)
-							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first.c_str());
+							log_warning("Exporting x-bit on %s as zero bit.\n", ref.first);
 						sig = RTLIL::State::S0;
 					} else if (sig == RTLIL::State::Sz) {
 						continue;

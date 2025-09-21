@@ -107,7 +107,7 @@ struct LogPass : public Pass {
 		if (to_stderr) fprintf(stderr, "%s%s", text.c_str(), line_end);
 		if (to_log) {
 			if (!header) log("%s%s", text, line_end);
-			else log_header(design, "%s%s", text.c_str(), line_end);
+			else log_header(design, "%s%s", text, line_end);
 		}
 	}
 } LogPass;

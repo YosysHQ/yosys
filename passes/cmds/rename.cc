@@ -31,7 +31,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	to_name = RTLIL::escape_id(to_name);
 
 	if (module->count_id(to_name))
-		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name.c_str(), module->name.c_str());
+		log_cmd_error("There is already an object `%s' in module `%s'.\n", to_name, module->name);
 
 	RTLIL::Wire *wire_to_rename = module->wire(from_name);
 	RTLIL::Cell *cell_to_rename = module->cell(from_name);
@@ -55,7 +55,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 		return;
 	}
 
-	log_cmd_error("Object `%s' not found!\n", from_name.c_str());
+	log_cmd_error("Object `%s' not found!\n", from_name);
 }
 
 static std::string derive_name_from_src(const std::string &src, int counter)
@@ -632,7 +632,7 @@ struct RenamePass : public Pass {
 					log("Renaming module %s to %s.\n", module_to_rename->name, to_name);
 					design->rename(module_to_rename, to_name);
 				} else
-					log_cmd_error("Object `%s' not found!\n", from_name.c_str());
+					log_cmd_error("Object `%s' not found!\n", from_name);
 			}
 		}
 	}

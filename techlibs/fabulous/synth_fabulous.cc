@@ -236,7 +236,7 @@ struct SynthPass : public ScriptPass
 			if (args[argidx] == "-carry") {
 				carry_mode = args[++argidx];
 				if (carry_mode != "none" && carry_mode != "ha")
-					log_cmd_error("Unsupported carry style: %s\n", carry_mode.c_str());
+					log_cmd_error("Unsupported carry style: %s\n", carry_mode);
 				continue;
 			}
 			if (args[argidx] == "-noflatten") {

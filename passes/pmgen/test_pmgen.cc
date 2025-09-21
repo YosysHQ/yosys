@@ -238,7 +238,7 @@ struct TestPmgenPass : public Pass {
 		if (pattern == "xilinx_srl.variable")
 			return GENERATE_PATTERN(xilinx_srl_pm, variable);
 
-		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
+		log_cmd_error("Unknown pattern: %s\n", pattern);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

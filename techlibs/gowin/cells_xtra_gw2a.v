@@ -1082,6 +1082,11 @@ input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
 output DQSR90, DQSW0, DQSW270; 
 output [2:0] RPOINT, WPOINT;
 output RVALID,RBURST, RFLAG, WFLAG;
+    parameter FIFO_MODE_SEL = 1'b0; 
+    parameter RD_PNTR = 3'b000; 
+    parameter DQS_MODE = "X1"; 
+    parameter HWL = "false";     
+    parameter GSREN = "false"; 
 endmodule
 
 module DLLDLY (...);
@@ -1093,6 +1098,13 @@ output FLAG;
 parameter DLL_INSEL = 1'b1; 
 parameter DLY_SIGN = 1'b0; 
 parameter DLY_ADJ = 0; 
+endmodule
+
+module DCS (...);
+input CLK0, CLK1, CLK2, CLK3, SELFORCE;
+input [3:0] CLKSEL;
+output CLKOUT;
+  parameter DCS_MODE = "RISING";  
 endmodule
 
 module DQCE (...);

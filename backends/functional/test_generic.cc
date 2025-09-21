@@ -105,7 +105,7 @@ struct MemContentsTest {
 				RTLIL::Const values;
 				for(addr_t addr = low; addr <= high; addr++) {
 					RTLIL::Const word(data_dist(rnd), data_width);
-					values.bits().insert(values.bits().end(), word.begin(), word.end());
+					values.append(word);
 				}
 				insert_concatenated(low, values);
 			}

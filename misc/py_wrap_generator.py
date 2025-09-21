@@ -71,7 +71,7 @@ keyword_aliases = {
 
 #These can be used without any explicit conversion
 primitive_types = ["void", "bool", "int", "double", "size_t", "std::string",
-		"string", "State", "char_p", "std::source_location", "source_location"]
+		"string", "string_view", "std::string_view", "State", "char_p", "std::source_location", "source_location"]
 
 from enum import Enum
 
@@ -557,6 +557,7 @@ class Attribute:
 	default_value = None
 	pos = None
 	pos_counter = 0
+	coerce_arg = None
 
 	def __init__(self, wtype, varname, is_const = False, default_value = None):
 		self.wtype = wtype
@@ -566,7 +567,7 @@ class Attribute:
 		self.container = None
 
 	@staticmethod
-	def from_string(str_def, containing_file, line_number):
+	def from_string(str_def, containing_file, line_number, *, owner_fn_name=""):
 		if len(str_def) < 3:
 			return None
 		orig = str_def
@@ -630,6 +631,19 @@ class Attribute:
 			else:
 				arg.wtype.attr_type = attr_types.amp
 				arg.varname = arg.varname[1:]
+
+		# handle string views
+		if arg.wtype.name in ["std::string_view", "string_view"]:
+			if arg.varname == "format" and owner_fn_name.startswith("log_"):
+				# coerce format strings to "%s" (not bridgable)
+				arg.coerce_arg = '"%s"'
+			elif arg.varname == "prefix" and "warning" in owner_fn_name:
+				# coerce warning prefix to "warning:"
+				arg.coerce_arg = '"Warning: "'
+			else:
+				# boost::python can't bridge string views, so just copy them
+				arg.wtype.name = "string"
+
 		return arg
 
 	#Generates the varname. If the attribute has no name in the header file,
@@ -1391,7 +1405,7 @@ class WFunction:
 		for i, arg in enumerate(args):
 			if arg.strip() == "...":
 				continue
-			parsed = Attribute.from_string(arg.strip(), containing_file, line_number)
+			parsed = Attribute.from_string(arg.strip(), containing_file, line_number, owner_fn_name=func.name)
 			if parsed == None:
 				return None
 			# Only allow std::source_location as defaulted last argument, and
@@ -1431,6 +1445,8 @@ class WFunction:
 			text += "static "
 		text += self.ret_type.gen_text() + " " + self.alias + "("
 		for arg in self.args:
+			if arg.coerce_arg:
+				continue
 			text += arg.gen_listitem()
 			text += ", "
 		if len(self.args) > 0:
@@ -1497,6 +1513,8 @@ class WFunction:
 			text += self.member_of.name + "::"
 		text += self.alias + "("
 		for arg in self.args:
+			if arg.coerce_arg:
+				continue
 			text += arg.gen_listitem()
 			text += ", "
 		if len(self.args) > 0:
@@ -1516,13 +1534,14 @@ class WFunction:
 			if self.ret_type.name in classnames:
 				text += self.ret_type.name + "::get_py_obj("
 		if self.member_of == None:
-			text += "::" + self.namespace + "::" + self.alias + "("
+			text += "::" + self.namespace + "::" + self.name + "("
 		elif self.is_static:
 			text += self.member_of.namespace + "::" + self.member_of.name + "::" + self.name + "("
 		else:
 			text += "this->get_cpp_obj()->" + self.name + "("
 		for arg in self.args:
-			text += arg.gen_call() + ", "
+			text += arg.coerce_arg or arg.gen_call()
+			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
 		if self.ret_type.name in classnames:
@@ -1639,6 +1658,8 @@ class WFunction:
 			else:
 				text += "(" + self.member_of.name + "::*)("
 			for a in self.args:
+				if a.coerce_arg:
+					continue
 				text += a.gen_listitem_hash() + ", "
 			if len(self.args) > 0:
 				text = text[0:-2] + f"){self.gen_post_qualifiers(True)}>"
@@ -2122,6 +2143,16 @@ def parse_header(source):
 				if class_ == None:
 					debug("\tFound unowned function \"" + candidate.name + "\" in namespace " + concat_namespace(namespaces),2)
 					unowned_functions.append(candidate)
+
+					# generate log aliases
+					if candidate.name.startswith("log_formatted"):
+						alias = candidate.name.replace("log_formatted", "log")
+						if alias == "log_string":
+							alias = "log"
+						copied_candidate = copy.copy(candidate)
+						copied_candidate.alias = alias
+						unowned_functions.append(copied_candidate)
+
 				else:
 					debug("\t\tFound function \"" + candidate.name + "\" of class \"" + class_[0].name + "\" in namespace " + concat_namespace(namespaces),2)
 					class_[0].found_funs.append(candidate)
@@ -2358,6 +2389,8 @@ def gen_wrappers(filename, debug_level_ = 0):
 #include <boost/iostreams/concepts.hpp>	// boost::iostreams::sink
 #include <boost/iostreams/stream.hpp>
 USING_YOSYS_NAMESPACE
+
+using std::string_view;
 
 namespace YOSYS_PYTHON {
 
