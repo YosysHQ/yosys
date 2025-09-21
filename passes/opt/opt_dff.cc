@@ -704,7 +704,7 @@ struct OptDffWorker
 							new_val_srst_builder.push_back(val_srst[j]);
 						}
 						new_ff.val_srst = new_val_srst_builder.build();
-						ctrl_t srst = combine_resets(it.first, ff.is_fine);
+						ctrl_t srst = combine_resets(it.first, ff.is_fine, module, cell);
 
 						new_ff.has_srst = true;
 						new_ff.sig_srst = srst.first;
