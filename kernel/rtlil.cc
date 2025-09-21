@@ -273,7 +273,7 @@ RTLIL::Const::Const(const std::string &str)
 	tag = backing_tag::string;
 }
 
-RTLIL::Const::Const(long long val) // default width 32
+RTLIL::Const::Const(long long int val) // default width 32
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	char bytes[] = {
@@ -283,7 +283,7 @@ RTLIL::Const::Const(long long val) // default width 32
 	tag = backing_tag::string;
 }
 
-RTLIL::Const::Const(long long val, int width)
+RTLIL::Const::Const(long long int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
 	if ((width & 7) == 0) {
