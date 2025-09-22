@@ -85,7 +85,7 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			continue;
 		}
 
-		log_debug("maybe valid icg: %s\n", cell_name.c_str());
+		log_debug("maybe valid icg: %s\n", cell_name);
 		ClockGateCell icg_interface;
 		icg_interface.name = RTLIL::escape_id(cell_name);
 
@@ -162,9 +162,9 @@ static std::pair<std::optional<ClockGateCell>, std::optional<ClockGateCell>>
 			winning = cost < goal;
 
 			if (winning)
-				log_debug("%s beats %s\n", icg_interface.name.c_str(), icg_to_beat->name.c_str());
+				log_debug("%s beats %s\n", icg_interface.name, icg_to_beat->name);
 		} else {
-			log_debug("%s is the first of its polarity\n", icg_interface.name.c_str());
+			log_debug("%s is the first of its polarity\n", icg_interface.name);
 			winning = true;
 		}
 		if (winning) {
@@ -395,7 +395,7 @@ struct ClockgatePass : public Pass {
 				if (!it->second.new_net)
 					continue;
 
-				log_debug("Fix up FF %s\n", cell->name.c_str());
+				log_debug("Fix up FF %s\n", cell->name);
 				// Now we start messing with the design
 				ff.has_ce = false;
 				// Construct the clock gate

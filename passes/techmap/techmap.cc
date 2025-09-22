@@ -582,7 +582,7 @@ struct TechmapWorker
 							log_msg_cache.insert(msg);
 							log("%s\n", msg);
 						}
-						log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
+						log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
 					}
 					else
 					{
@@ -591,7 +591,7 @@ struct TechmapWorker
 							log_msg_cache.insert(msg);
 							log("%s\n", msg);
 						}
-						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
+						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), extmapper_name);
 
 						if (extmapper_name == "simplemap") {
 							if (simplemap_mappers.count(cell->type) == 0)
@@ -943,7 +943,7 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(m_name));
 					cell->type = m_name;
 					cell->parameters.clear();
 				}
@@ -954,7 +954,7 @@ struct TechmapWorker
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}
@@ -1285,7 +1285,7 @@ struct TechmapPass : public Pass {
 			std::string maps = "";
 			for (auto &map : i.second)
 				maps += stringf(" %s", log_id(map));
-			log_debug("    %s:%s\n", log_id(i.first), maps.c_str());
+			log_debug("    %s:%s\n", log_id(i.first), maps);
 		}
 		log_debug("\n");
 

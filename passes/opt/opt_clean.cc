@@ -204,7 +204,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 
 	for (auto cell : unused) {
 		if (verbose)
-			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
+			log_debug("  removing unused `%s' cell `%s'.\n", cell->type, cell->name);
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		if (cell->is_builtin_ff())
 			ffinit.remove_init(cell->getPort(ID::Q));
@@ -215,7 +215,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto it : mem_unused)
 	{
 		if (verbose)
-			log_debug("  removing unused memory `%s'.\n", it.c_str());
+			log_debug("  removing unused memory `%s'.\n", it);
 		delete module->memories.at(it);
 		module->memories.erase(it);
 	}
@@ -496,7 +496,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	int del_temp_wires_count = 0;
 	for (auto wire : del_wires_queue) {
 		if (ys_debug() || (check_public_name(wire->name) && verbose))
-			log_debug("  removing unused non-port wire %s.\n", wire->name.c_str());
+			log_debug("  removing unused non-port wire %s.\n", wire->name);
 		else
 			del_temp_wires_count++;
 	}
@@ -636,7 +636,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	}
 	for (auto cell : delcells) {
 		if (verbose)
-			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name.c_str(),
+			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
 					log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
 		module->remove(cell);
 	}

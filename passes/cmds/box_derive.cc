@@ -96,7 +96,7 @@ struct BoxDerivePass : Pass {
 				IdString derived_type = base->derive(d, cell->parameters);
 				Module *derived = d->module(derived_type);
 				log_assert(derived && "Failed to derive module\n");
-				log_debug("derived %s\n", derived_type.c_str());
+				log_debug("derived %s\n", derived_type);
 
 				if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
 					IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));

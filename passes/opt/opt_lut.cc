@@ -162,7 +162,7 @@ struct OptLutWorker
 					{
 						if (lut_width <= dlogic_conn.first)
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
 							log_debug("    LUT input A[%d] not present.\n", dlogic_conn.first);
 							legal = false;
 							break;
@@ -173,8 +173,8 @@ struct OptLutWorker
 
 						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)[0]))
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
-							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
+							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type, dlogic_conn.second, log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
 							legal = false;
 							break;
 						}
@@ -182,7 +182,7 @@ struct OptLutWorker
 
 					if (legal)
 					{
-						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
+						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type, log_id(module), log_id(lut_dlogic.second));
 						lut_legal_dlogics.insert(lut_dlogic);
 						for (auto &dlogic_conn : dlogic_map)
 							lut_dlogic_inputs.insert(dlogic_conn.first);
@@ -496,9 +496,9 @@ struct OptLutWorker
 						lutM_new_table.set(eval, (RTLIL::State) evaluate_lut(lutB, eval_inputs));
 					}
 
-					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string().c_str());
-					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID::LUT).as_string().c_str());
-					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
+					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string());
+					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID::LUT).as_string());
+					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string());
 
 					lutM->setParam(ID::LUT, lutM_new_table);
 					lutM->setPort(ID::A, lutM_new_inputs);

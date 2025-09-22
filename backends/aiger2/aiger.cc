@@ -1017,7 +1017,7 @@ struct XAigerWriter : AigerWriter {
 			auto &minfo = cursor.leaf_minfo(*this);
 
 			for (auto box : minfo.found_blackboxes) {
-				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
+				log_debug(" - %s.%s (type %s): ", cursor.path(),
 						  RTLIL::unescape_id(box->name),
 						  log_id(box->type));
 
