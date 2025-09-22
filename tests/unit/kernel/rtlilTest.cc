@@ -385,7 +385,7 @@ namespace RTLIL {
 
 	TEST_P(WireRtlVsHdlIndexConversionTest, WireRtlVsHdlIndexConversion) {
 		std::unique_ptr<Module> mod = std::make_unique<Module>();
-		Wire *wire = mod->addWire(ID(test), 10);
+		Wire *wire = mod->addWire(NEW_ID, 10);
 
 		auto [upto, start_offset, width] = GetParam();
 

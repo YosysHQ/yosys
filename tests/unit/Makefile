@@ -1,6 +1,6 @@
 GTESTFLAG := -lgtest -lgtest_main
 RPATH := -Wl,-rpath
-EXTRAFLAGS := -lyosys -pthreads
+EXTRAFLAGS := -lyosys -pthread
 
 OBJTEST := objtest
 BINTEST := bintest
