@@ -244,10 +244,6 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 		logs.log_error("posix_spawn_file_actions_adddup2 failed");
 		return std::nullopt;
 	}
-	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDERR_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
-		return std::nullopt;
-	}
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[0]) != 0) {
 		logs.log_error("posix_spawn_file_actions_addclose failed");
 		return std::nullopt;
