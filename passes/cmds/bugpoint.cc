@@ -122,8 +122,6 @@ struct BugpointPass : public Pass {
 
 	int run_yosys(RTLIL::Design *design, string runner, string yosys_cmd, string yosys_arg, string suffix, bool catch_err)
 	{
-		design->sort();
-
 		string bugpoint_file = "bugpoint-case";
 		if (suffix.size())
 			bugpoint_file += stringf(".%.8s", suffix);

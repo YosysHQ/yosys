@@ -69,7 +69,7 @@ struct SynthPass : public ScriptPass
 		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
-		log("    -extra-map <techamp.v>\n");
+		log("    -extra-map <techmap.v>\n");
 		log("        use the specified Verilog file for extra techmap rules (can be specified multiple\n");
 		log("        times).\n");
 		log("\n");
