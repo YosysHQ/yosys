@@ -41,9 +41,10 @@
 //
 #include <optional> // optional maps cleanest to methods that accept None in Python
 
-#include <pybind11/pybind11.h> // base
 #include <pybind11/stl.h> // std::optional
+#include <pybind11/pybind11.h> // base
 #include <pybind11/operators.h> // easier operator binding
+#include <pybind11/stl_bind.h> // vector
 
 #include "kernel/hashlib.h"
 
@@ -269,7 +270,7 @@ void bind_set(module &m, const char *name_cstr) {
 		.def("__iter__", [](const C &s){
 			return make_iterator(s.begin(), s.end());
 		}, keep_alive<0,1>())
-		.def("__repr__", [name_cstr](const py::iterable &s){
+		.def("__repr__", [name_cstr](const iterable &s){
 			// repr(set(s)) where s is iterable would be more terse/robust
 			// but are there concerns with copying?
 			str representation = str(name_cstr) + str("({");

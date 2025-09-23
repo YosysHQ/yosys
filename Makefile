@@ -346,14 +346,18 @@ endif
 
 PY_WRAPPER_FILE = pyosys/wrappers
 
+# running make clean on just those and then recompiling saves a lot of
+# time when running cibuildwheel
+PYTHON_OBJECTS = pyosys/wrappers.o kernel/drivers.o kernel/yosys.o passes/cmds/plugin.o
+
 ifeq ($(ENABLE_PYOSYS),1)
 # python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
 PYBIND11_INCLUDE ?= $(shell $(PYTHON_EXECUTABLE) -m pybind11 --includes)
-CXXFLAGS += -I$(PYBIND11_INCLUDE) -DWITH_PYTHON
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+CXXFLAGS += -I$(PYBIND11_INCLUDE) -DYOSYS_ENABLE_PYTHON
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DYOSYS_ENABLE_PYTHON
 
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT = pyosys/generator.py
@@ -1108,12 +1112,10 @@ DOC_TARGET ?= html
 docs: docs/prep
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
-clean:
+clean: clean-py
 	rm -rf share
-	rm -rf kernel/*.pyh
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES)
 	rm -f kernel/version_*.o kernel/version_*.cc
-	rm -f $(PY_WRAPPER_FILE).o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -1127,8 +1129,14 @@ clean:
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
 	rm -rf docs/util/__pycache__
+	rm -f libyosys.so
+
+clean-py:
+	rm -f $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
+	rm -f $(PYTHON_OBJECTS)
 	rm -f *.whl
 	rm -f libyosys.so
+	rm -rf kernel/*.pyh
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
