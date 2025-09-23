@@ -42,7 +42,7 @@ struct QlIoffPass : public Pass {
 
 		for (auto cell : module->selected_cells()) {
 			if (cell->type.in(ID(dffsre), ID(sdffsre))) {
-				log_debug("Checking cell %s.\n", cell->name.c_str());
+				log_debug("Checking cell %s.\n", cell->name);
 				bool e_const = cell->getPort(ID::E).is_fully_ones();
 				bool r_const = cell->getPort(ID::R).is_fully_ones();
 				bool s_const = cell->getPort(ID::S).is_fully_ones();
@@ -55,7 +55,7 @@ struct QlIoffPass : public Pass {
 				SigSpec d = cell->getPort(ID::D);
 				log_assert(GetSize(d) == 1);
 				if (modwalker.has_inputs(d)) {
-					log_debug("Cell %s is potentially eligible for promotion to input IOFF.\n", cell->name.c_str());
+					log_debug("Cell %s is potentially eligible for promotion to input IOFF.\n", cell->name);
 					// check that d_sig has no other consumers
 					pool<ModWalker::PortBit> portbits;
 					modwalker.get_consumers(portbits, d);
@@ -70,7 +70,7 @@ struct QlIoffPass : public Pass {
 				SigSpec q = cell->getPort(ID::Q);
 				log_assert(GetSize(q) == 1);
 				if (modwalker.has_outputs(q) && !modwalker.has_consumers(q)) {
-					log_debug("Cell %s is potentially eligible for promotion to output IOFF.\n", cell->name.c_str());
+					log_debug("Cell %s is potentially eligible for promotion to output IOFF.\n", cell->name);
 					for (SigBit bit : output_bit_aliases[modwalker.sigmap(q)]) {
 						log_assert(bit.is_wire());
 						output_ffs[bit.wire][bit.offset] = cell;

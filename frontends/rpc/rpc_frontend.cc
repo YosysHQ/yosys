@@ -83,11 +83,11 @@ struct RpcServer {
 		std::string request;
 		json_request.dump(request);
 		request += '\n';
-		log_debug("RPC frontend request: %s", request.c_str());
+		log_debug("RPC frontend request: %s", request);
 		write(request);
 
 		std::string response = read();
-		log_debug("RPC frontend response: %s", response.c_str());
+		log_debug("RPC frontend response: %s", response);
 		std::string error;
 		Json json_response = Json::parse(response, error);
 		if (json_response.is_null())

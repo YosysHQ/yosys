@@ -156,9 +156,9 @@ dict<SigBit, std::vector<SelReason>> gather_selected_reps(Module* mod, const std
 void explain_selections(const std::vector<SelReason>& reasons) {
 	for (std::variant<Wire*, Cell*> reason : reasons) {
 		if (Cell** cell_reason = std::get_if<Cell*>(&reason))
-			log_debug("\tcell %s\n", (*cell_reason)->name.c_str());
+			log_debug("\tcell %s\n", (*cell_reason)->name);
 		else if (Wire** wire_reason = std::get_if<Wire*>(&reason))
-			log_debug("\twire %s\n", (*wire_reason)->name.c_str());
+			log_debug("\twire %s\n", (*wire_reason)->name);
 		else
 			log_assert(false && "insane reason variant\n");
 	}

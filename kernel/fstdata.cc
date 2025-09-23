@@ -162,7 +162,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 16);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name);
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}
@@ -176,7 +176,7 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 10);
 					if (*endptr) {
-						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name);
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
 					}
