@@ -78,3 +78,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           make -C sby run_ci
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          make -j$procs unit-test ENABLE_LTO=1 ENABLE_LIBYOSYS=1

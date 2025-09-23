@@ -20,6 +20,9 @@ namespace RTLIL {
 		KernelRtlilTest() {
 			if (log_files.empty()) log_files.emplace_back(stdout);
 		}
+		virtual void SetUp() override {
+			IdString::ensure_prepopulated();
+		}
 	};
 
 	TEST_F(KernelRtlilTest, ConstAssignCompare)
