@@ -2,6 +2,7 @@ name: Build Wheels for PyPI
 
 # run every Sunday at 10 AM
 on:
+  push: # TODO: REMOVE THIS, DO NOT MERGE TO UPSTREAM THIS IS JUST SO I DON'T HAVE TO MANUALLY RUN THE WORKFLOW WITH EVERY PUSH
   workflow_dispatch:
   schedule:
     - cron: "0 10 * * 0"
@@ -107,7 +108,7 @@ jobs:
             makeFlags='CONFIG=clang'
             PATH="$PWD/bison/src:$PATH"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
-          CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py python3
+          CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-wheels-${{ matrix.os.runner }}
