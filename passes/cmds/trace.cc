@@ -150,7 +150,7 @@ struct DebugOnPass : public Pass {
 		log("Turn debug log messages on\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

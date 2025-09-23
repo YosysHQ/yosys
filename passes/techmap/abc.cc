@@ -235,7 +235,7 @@ void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 
 bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
 {
-	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+	if (cell->is_builtin_ff()) {
 		FfData ff(&initvals, cell);
 		gate_type_t type = G(FF);
 		if (!ff.has_clk)
@@ -495,7 +495,7 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit).c_str(),
 				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
@@ -611,7 +611,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
 							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				else
-					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
+					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)).c_str())), "",
 							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				first_line = false;
 			}
@@ -1014,7 +1014,7 @@ void AbcModuleState::abc_module(RTLIL::Design *design, RTLIL::Module *module, Ab
 	fprintf(f, "\n");
 
 	for (auto &si : signal_list)
-		fprintf(f, "# ys__n%-5d %s\n", si.id, log_signal(si.bit));
+		fprintf(f, "# ys__n%-5d %s\n", si.id, log_signal(si.bit).c_str());
 
 	for (auto &si : signal_list) {
 		if (si.bit.wire == nullptr) {
@@ -2282,7 +2282,7 @@ struct AbcPass : public Pass {
 					}
 				}
 
-				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				if (!cell->is_builtin_ff())
 					continue;
 
 				FfData ff(&initvals, cell);

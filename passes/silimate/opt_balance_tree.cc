@@ -233,7 +233,7 @@ struct OptBalanceTreeWorker {
 						Cell* x = bfs_queue.front();
 						bfs_queue.pop_front();
 
-						for (auto port: {ID::A, ID::B}) {
+						for (IdString port: {ID::A, ID::B}) {
 							auto sig = sigmap(x->getPort(port));
 							Cell* drv = sig_to_driver[sig];
 							bool drv_ok = drv && is_right_type(drv, cell_type);
