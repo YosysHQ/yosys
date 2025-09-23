@@ -47,7 +47,7 @@ LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
 # Needed for environments that can't run executables (i.e. emscripten, wasm)
-DISABLE_SPAWN := 0
+DISABLE_SPAWN := 1
 # Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
 ENABLE_THREADS := 1
 ifeq ($(ENABLE_THREADS),1)
