@@ -97,7 +97,6 @@ jobs:
         run: |
           make config-$CC
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          echo 'ENABLE_LTO = 1' >> Makefile.conf
           echo 'ENABLE_LIBYOSYS = 1' >> Makefile.conf
           make -j$procs
 
