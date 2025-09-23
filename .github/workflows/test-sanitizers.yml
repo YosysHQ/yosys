@@ -98,7 +98,6 @@ jobs:
           make config-$CC
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
           echo 'ENABLE_LTO = 1' >> Makefile.conf
-          echo 'ENABLE_LIBYOSYS = 1' >> Makefile.conf
           make -j$procs
 
       - name: Log yosys-config output
@@ -119,4 +118,4 @@ jobs:
       - name: Run unit tests
         shell: bash
         run: |
-          make -j$procs unit-test
+          make -j$procs unit-test ENABLE_LIBYOSYS=1
