@@ -331,10 +331,12 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
 
-	if (log_error_stderr)
+	if (log_error_stderr) {
+		log_flush(); // Make sure we flush stdout before replacing it with stderr
 		for (auto &f : log_files)
 			if (f == stdout)
 				f = stderr;
+	}
 
 	log_last_error = std::move(str);
 	log("%s%s", prefix, log_last_error);
