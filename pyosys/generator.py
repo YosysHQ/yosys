@@ -349,7 +349,7 @@ class PyosysWrapperGenerator(object):
         cxx_std = os.getenv("CXX_STD", "c++17")
         return ParserOptions(
             preprocessor=make_gcc_preprocessor(
-                defines=["_YOSYS_", "WITH_PYTHON"],
+                defines=["_YOSYS_", "YOSYS_ENABLE_PYTHON"],
                 gcc_args=[preprocessor_bin, "-fsyntax-only", f"-std={cxx_std}"],
                 include_paths=[str(__yosys_root__), py_include, pybind11.get_include()],
             ),

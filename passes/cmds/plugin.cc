@@ -24,10 +24,16 @@
 #  include <dlfcn.h>
 #endif
 
+#ifdef YOSYS_ENABLE_PYTHON
+#  include <Python.h>
+#  include <pybind11/pybind11.h>
+namespace py = pybind11;
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 std::map<std::string, void*> loaded_plugins;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 std::map<std::string, void*> loaded_python_plugins;
 #endif
 std::map<std::string, std::string> loaded_plugin_aliases;
@@ -43,7 +49,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 		filename = "./" + filename;
 
 
-	#ifdef WITH_PYTHON
+	#ifdef YOSYS_ENABLE_PYTHON
 	const bool is_loaded = loaded_plugins.count(orig_filename) && loaded_python_plugins.count(orig_filename);
 	#else
 	const bool is_loaded = loaded_plugins.count(orig_filename);
@@ -52,7 +58,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 	if (!is_loaded) {
 		// Check if we're loading a python script
 		if (filename.rfind(".py") != std::string::npos) {
-			#ifdef WITH_PYTHON
+			#ifdef YOSYS_ENABLE_PYTHON
 				py::object Path = py::module_::import("pathlib").attr("Path");
 				py::object full_path = Path(py::cast(filename));
 				py::object plugin_python_path = full_path.attr("parent");
@@ -171,7 +177,7 @@ struct PluginPass : public Pass {
 		if (list_mode)
 		{
 			log("\n");
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 			if (loaded_plugins.empty() and loaded_python_plugins.empty())
 #else
 			if (loaded_plugins.empty())
@@ -183,7 +189,7 @@ struct PluginPass : public Pass {
 			for (auto &it : loaded_plugins)
 				log("  %s\n", it.first);
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 			for (auto &it : loaded_python_plugins)
 				log("  %s\n", it.first);
 #endif

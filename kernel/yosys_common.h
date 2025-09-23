@@ -53,13 +53,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#ifdef WITH_PYTHON
-#include <Python.h>
-#include <pybind11/pybind11.h>
-
-namespace py = pybind11;
-#endif
-
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
          When building Yosys with a custom make system, make sure you set all the \
