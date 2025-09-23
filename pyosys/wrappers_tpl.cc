@@ -34,12 +34,6 @@ using namespace RTLIL;
 #include "wrappers.inc.cc"
 
 namespace YOSYS_PYTHON {
-
-	[[noreturn]] static void log_python_exception_as_error() {
-		PyErr_Print();
-		log_error("Python interpreter encountered an exception.\\n");
-	}
-
 	struct YosysStatics{};
 
 	// Trampolines for Classes with Python-Overridable Virtual Methods

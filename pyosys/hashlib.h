@@ -37,7 +37,7 @@
 // things like mutating containers that are class properties.
 //
 // All methods should be vaguely in the same order as the python reference
-// https://docs.python.org/3/library/stdtypes.html
+// https://docs.python.org/3.13/library/stdtypes.html
 //
 #include <optional> // optional maps cleanest to methods that accept None in Python
 
@@ -60,26 +60,188 @@ bool is_mapping(object obj) {
 	return isinstance(obj, mapping);
 }
 
+// Set Operations
+bool is_subset(const iterable &lhs, const iterable &rhs, bool strict = false) {
+	for (auto &element: lhs) {
+		if (!rhs.contains(element)) {
+			return false;
+		}
+	}
+	if (strict) {
+		return len(rhs) > len(lhs);
+	}
+	return true;
+}
+
+template <typename C, typename T>
+void unionize(C &lhs, const iterable &rhs) {
+	for (auto &element: rhs) {
+		lhs.insert(cast<T>(element));
+	}
+}
+
+template <typename C, typename T>
+void difference(C &lhs, const iterable &rhs) {
+	for (auto &element: rhs) {
+		auto element_cxx = cast<T>(element);
+		if (lhs.count(element_cxx)) {
+			lhs.erase(element_cxx);
+		}
+	}
+}
+
+template <typename C, typename T>
+void intersect(C &lhs, const iterable &rhs) {
+	// Doing it in-place is a lot slower
+	// TODO?: Leave modifying lhs to caller (saves a copy) but complicates
+	//        chaining intersections.
+	C storage(lhs);
+
+	for (auto &element_cxx: lhs) {
+		if (!rhs.contains(cast(element_cxx))) {
+			storage.erase(element_cxx);
+		}
+	}
+	lhs = std::move(storage);
+}
+
+template <typename C, typename T>
+void symmetric_difference(C &lhs, const iterable &rhs) {
+	C storage(lhs);
+
+	for (auto &element: rhs) {
+		auto element_cxx = cast<T>(element);
+		if (lhs.count(element_cxx)) {
+			storage.erase(element_cxx);
+		} else {
+			storage.insert(element_cxx);
+		}
+	}
+	for (auto &element_cxx: lhs) {
+		if (rhs.contains(cast(element_cxx))) {
+			storage.erase(element_cxx);
+		}
+	}
+	lhs = std::move(storage);
+}
+
 // shim
 template <typename C, typename V>
 void bind_vector(module &m, const char *name_cstr) {
 	pybind11::bind_vector<C>(m, name_cstr);
 }
 
-// also used for std::set because the semantics are close enough
+// also used for hashlib pool because the semantics are close enough
 template <typename C, typename T>
-void bind_pool(module &m, const char *name_cstr) {
-	std::string {name_cstr};
-
+void bind_set(module &m, const char *name_cstr) {
 	class_<C>(m, name_cstr)
 		.def(init<>())
+		.def(init<const C &>()) // copy constructor
+		.def(init([](const iterable &other){ // copy instructor from arbitrary iterables
+			auto s = new C();
+			unionize<C, T>(*s, other);
+			return s;
+		}))
 		.def("__len__", [](const C &s){ return (size_t)s.size(); })
 		.def("__contains__", [](const C &s, const T &v){ return s.count(v); })
 		.def("__delitem__", [](C &s, const T &v) {
 			auto n = s.erase(v);
 			if (n == 0) throw key_error(str(cast(v)));
 		})
-		// TODO: disjoint, subset, union, intersection, difference, symdif
+		.def("disjoint", [](const C &s, const iterable &other) {
+			for (const auto &element: other) {
+				if (s.count(cast<T>(element))) {
+					return false;
+				}
+			}
+			return true;
+		})
+		.def("issubset", [](const iterable &s, const iterable &other) {
+			return is_subset(s, other);
+		})
+		.def("__eq__", [](const iterable &s, const iterable &other) {
+			return is_subset(s, other) && len(s) == len(other);
+		})
+		.def("__le__", [](const iterable &s, const iterable &other) {
+			return is_subset(s, other);
+		})
+		.def("__lt__", [](const iterable &s, const iterable &other) {
+			return is_subset(s, other, true);
+		})
+		.def("issuperset", [](const iterable &s, const iterable &other) {
+			return is_subset(other, s);
+		})
+		.def("__ge__",  [](const iterable &s, const iterable &other) {
+			return is_subset(other, s);
+		})
+		.def("__gt__",  [](const iterable &s, const iterable &other) {
+			return is_subset(other, s, true);
+		})
+		.def("union",  [](const C &s, const args &others) {
+			auto result = new C(s);
+			for (const auto &arg: others) {
+				auto arg_iterable = reinterpret_borrow<iterable>(arg);
+				unionize<C, T>(*result, arg_iterable);
+			}
+			return result;
+		})
+		.def("__or__",  [](const C &s, const iterable &other) {
+			auto result = new C(s);
+			unionize<C, T>(*result, other);
+			return result;
+		})
+		.def("__ior__",  [](C &s, const iterable &other) {
+			unionize<C, T>(s, other);
+			return s;
+		})
+		.def("intersection",  [](const C &s, const args &others) {
+			auto result = new C(s);
+			for (const auto &arg: others) {
+				auto arg_iterable = reinterpret_borrow<iterable>(arg);
+				intersect<C, T>(*result, arg_iterable);
+			}
+			return result;
+		})
+		.def("__and__",  [](const C &s, const iterable &other) {
+			auto result = new C(s);
+			intersect<C, T>(*result, other);
+			return result;
+		})
+		.def("__iand__",  [](C &s, const iterable &other) {
+			intersect<C, T>(s, other);
+			return s;
+		})
+		.def("difference",  [](const C &s, const args &others) {
+			auto result = new C(s);
+			for (const auto &arg: others) {
+				auto arg_iterable = reinterpret_borrow<iterable>(arg);
+				difference<C, T>(*result, arg_iterable);
+			}
+			return result;
+		})
+		.def("__sub__",  [](const C &s, const iterable &other) {
+			auto result = new C(s);
+			difference<C, T>(*result, other);
+			return result;
+		})
+		.def("__isub__",  [](C &s, const iterable &other) {
+			difference<C, T>(s, other);
+			return s;
+		})
+		.def("symmetric_difference",  [](const C &s, const iterable &other) {
+			auto result = new C(s);
+			symmetric_difference<C, T>(*result, other);
+			return result;
+		})
+		.def("__xor__",  [](const C &s, const iterable &other) {
+			auto result = new C(s);
+			symmetric_difference<C, T>(*result, other);
+			return result;
+		})
+		.def("__ixor__",  [](C &s, const iterable &other) {
+			symmetric_difference<C, T>(s, other);
+			return s;
+		})
 		.def("copy", [](const C &s) {
 			return new C(s);
 		})
@@ -107,20 +269,29 @@ void bind_pool(module &m, const char *name_cstr) {
 		.def("__iter__", [](const C &s){
 			return make_iterator(s.begin(), s.end());
 		}, keep_alive<0,1>())
-		.def("__repr__", [name_cstr](const C &s){
-			return std::string("<") + name_cstr + " size=" + std::to_string(s.size()) + ">";
+		.def("__repr__", [name_cstr](const py::iterable &s){
+			// repr(set(s)) where s is iterable would be more terse/robust
+			// but are there concerns with copying?
+			str representation = str(name_cstr) + str("({");
+			str comma(", ");
+			for (const auto &element: s) {
+				representation += repr(element);
+				representation += comma; // python supports trailing commas
+			}
+			representation += str("})");
+			return representation;
 		});
 }
 
 // shim
 template <typename C, typename T>
-void bind_set(module &m, const char *name_cstr) {
-	bind_pool<C, T>(m, name_cstr);
+void bind_pool(module &m, const char *name_cstr) {
+	bind_set<C, T>(m, name_cstr);
 }
 
 
 template <typename C, typename K, typename V>
-void update_dict(C *target, iterable &iterable_or_mapping) {
+void update_dict(C *target, const iterable &iterable_or_mapping) {
 	if (is_mapping(iterable_or_mapping)) {
 		for (const auto &key: iterable_or_mapping) {
 			(*target)[cast<K>(key)] = cast<V>(iterable_or_mapping[key]);
@@ -137,10 +308,14 @@ void update_dict(C *target, iterable &iterable_or_mapping) {
 
 template <typename C, typename K, typename V>
 void bind_dict(module &m, const char *name_cstr) {
-	std::string {name_cstr};
-
-	class_<C>(m, name_cstr)
+	auto cls = class_<C>(m, name_cstr)
 		.def(init<>())
+		.def(init<const C &>()) // copy constructor
+		.def(init([](const iterable &other){ // copy instructor from arbitrary iterables and mappings
+			auto s = new C();
+			update_dict<C, K, V>(s, other);
+			return s;
+		}))
 		.def("__len__", [](const C &s){ return (size_t)s.size(); })
 		.def("__getitem__", [](const C &s, const K &k) { return s.at(k); })
 		.def("__setitem__", [](C &s, const K &k, const V &v) { s[k] = v; })
@@ -210,9 +385,29 @@ void bind_dict(module &m, const char *name_cstr) {
 			return s;
 		})
 		.def("__bool__", [](const C &s) { return s.size() != 0; })
-		.def("__repr__", [name_cstr](const C &s){
-			return std::string("<") + name_cstr + " size=" + std::to_string(s.size()) + ">";
+		.def("__repr__", [name_cstr](const C &s) {
+			// repr(dict(s)) where s is iterable would be more terse/robust
+			// but are there concerns with copying?
+			str representation = str(name_cstr) + str("({");
+			str colon(": ");
+			str comma(", ");
+			for (const auto &item: s) {
+				representation += repr(cast(item.first));
+				representation += colon;
+				representation += repr(cast(item.second));
+				representation += comma; // python supports trailing commas
+			}
+			representation += str("})");
+			return representation;
 		});
+
+	// Inherit from collections.abc.Mapping so update operators (and a bunch
+	// of other things) work.
+	auto collections_abc = module_::import("collections.abc");
+	auto mapping = getattr(collections_abc, "Mapping");
+	auto current_bases = list(getattr(cls, "__bases__"));
+	current_bases.append(mapping);
+	setattr(cls, "__bases__", tuple(current_bases));
 }
 
 // idict is a special bijection and doesn't map cleanly to dict
@@ -221,10 +416,9 @@ void bind_dict(module &m, const char *name_cstr) {
 // the hashable as key and the integer as value
 template <typename C, typename K>
 void bind_idict(module &m, const char *name_cstr) {
-	std::string {name_cstr};
-
 	auto cls = class_<C>(m, name_cstr)
 		.def(init<>())
+		.def(init<const C &>()) // copy constructor
 		.def("__len__", [](const C &s){ return (size_t)s.size(); })
 		.def("__getitem__", [](const C &s, int v) { return s[v]; })
 		.def("__call__", [](C &s, const K &k) { return s(k); })
@@ -276,7 +470,16 @@ void bind_idict(module &m, const char *name_cstr) {
 		})
 		.def("__bool__", [](const C &s) { return s.size() != 0; })
 		.def("__repr__", [name_cstr](const C &s){
-			return std::string("<") + name_cstr + " size=" + std::to_string(s.size()) + ">";
+			// repr(dict(s)) where s is iterable would be more terse/robust
+			// but are there concerns with copying?
+			str representation = str(name_cstr) + str("() | {");
+			str comma(", ");
+			for (const auto &item: s) {
+				representation += repr(cast(item));
+				representation += comma; // python supports trailing commas
+			}
+			representation += str("}");
+			return representation;
 		});
 
 	for (const char *mutator: {"__setitem__", "__delitem__", "pop", "popitem", "setdefault"}) {

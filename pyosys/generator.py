@@ -18,7 +18,19 @@
 #  Written by Mohamed Gaber <me@donn.website>
 #
 #  Inspired by py_wrap_generator.py by Benedikt Tutzer
+"""
+This generates:
+- Wrapper calls for opaque container types
+- Full wrappers for select classes and all enums, global functions and global
+  variables
 
+Jump to "MARK: Inclusion and Exclusion" to control the above.
+
+Please run ruff on this file in particular to make sure it parses with Python
+<= 3.12. There is so much f-string use here that the outer quote thing
+is a common problem. ``ruff check pyosys/generator.py`` suffices.
+"""
+import os
 import io
 import shutil
 from pathlib import Path
@@ -58,15 +70,24 @@ class PyosysClass:
     :param name: The base name of the class (without extra qualifiers)
     :param ref_only: Whether this class can be copied to Python, or only
         referenced.
-    :param string_expr: A C++ expression that will be used for the __str__ method in Python
-    :param hash_expr: A C++ expression that will be fed to ``run_hash`` to declare a __hash__ method for Python
+    :param string_expr:
+        A C++ expression that will be used for the ``__str__`` method in Python.
+
+        The object will be available as a const reference with the identifier
+        `s`.
+    :param hash_expr:
+        A C++ expression that will be fed to ``run_hash`` to declare a
+        ``__hash__`` method for Python.
+
+        The object will be vailable as a const reference with the identifier
+        `s`.
     :param denylist: If specified, one or more methods can be excluded from
         wrapping.
     """
     name: str
     ref_only: bool = False
 
-    # in the format s.(method or property)
+    # in the format s.(method or property) (or just s)
     string_expr: Optional[str] = None
     hash_expr: Optional[str] = None
 
@@ -89,9 +110,7 @@ class PyosysHeader:
             for cls in classes:
                 self.classes_by_name[cls.name] = cls
 
-"""
-Add headers and classes here!
-"""
+# MARK: Inclusion and Exclusion
 global_denylist = frozenset(
     {
         # deprecated
@@ -327,10 +346,11 @@ class PyosysWrapperGenerator(object):
     def make_preprocessor_options(self):
         py_include = get_paths()["include"]
         preprocessor_bin = shutil.which("clang++") or "g++"
+        cxx_std = os.getenv("CXX_STD", "c++17")
         return ParserOptions(
             preprocessor=make_gcc_preprocessor(
                 defines=["_YOSYS_", "WITH_PYTHON"],
-                gcc_args=[preprocessor_bin, "-fsyntax-only"],
+                gcc_args=[preprocessor_bin, "-fsyntax-only", f"-std={cxx_std}"],
                 include_paths=[str(__yosys_root__), py_include, pybind11.get_include()],
             ),
         )
@@ -476,7 +496,7 @@ class PyosysWrapperGenerator(object):
         if function.static:
             definition_fn = "def_static"
 
-        print(f"\t\t\t.{definition_fn}({", ".join(self.get_definition_args(function, class_basename, python_name_override))})", file=self.f)
+        print(f"\t\t\t.{definition_fn}({', '.join(self.get_definition_args(function, class_basename, python_name_override))})", file=self.f)
 
     def process_function(self, function: Function):
         if (
@@ -496,7 +516,7 @@ class PyosysWrapperGenerator(object):
 
         self.register_containers(function)
 
-        print(f"\t\t\tm.def({", ".join(self.get_definition_args(function, None))});", file=self.f)
+        print(f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});", file=self.f)
 
     def process_field(self, field: Field, class_basename: str):
         if field.access != "public":
@@ -511,7 +531,8 @@ class PyosysWrapperGenerator(object):
 
         unique_ptrs = self.find_containers(("unique_ptr",), field.type)
         if len(unique_ptrs):
-            # TODO: figure out how to bridge unique pointers
+            # TODO: figure out how to bridge unique pointers maybe does anyone
+            # care
             return
 
         self.register_containers(field)
@@ -559,10 +580,10 @@ class PyosysWrapperGenerator(object):
             self.process_method(method, basename)
 
         visited_anonymous_unions = set()
-        for field in cls.fields:
-            if field.name in metadata.denylist:
+        for field_ in cls.fields:
+            if field_.name in metadata.denylist:
                 continue
-            self.process_field(field, basename)
+            self.process_field(field_, basename)
 
             # Handle anonymous unions
             for subclass in cls.classes:
@@ -663,7 +684,6 @@ class PyosysWrapperGenerator(object):
 
 
 keyword_aliases = {
-    "in": "in_",
     "False": "False_",
     "None": "None_",
     "True": "True_",
