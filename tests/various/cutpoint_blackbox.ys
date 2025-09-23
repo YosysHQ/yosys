@@ -70,3 +70,44 @@ design -load gold
 select -read cutpoint.gate.sel
 # nothing in gold but not gate
 select -assert-none % %n
+
+# replacing the blackbox with a verific-style unknown module should work too
+# (note this specific example loses the values of SOME_PARAM which would
+#  normally be retained by verific)
+design -load hier
+delete =bb
+read_rtlil << EOT
+attribute \blackbox 1
+module \bb
+    parameter \SOME_PARAM 0
+    wire inout 3 \o
+    wire inout 2 \b
+    wire inout 1 \a
+end
+EOT
+cutpoint -blackbox
+check -assert
+
+# also concatenated signals, and signals between two inout ports
+design -load hier
+delete top =bb
+read_verilog << EOT
+module top(input [1:0] a, b, output [1:0] o);
+    wire [1:0] c, d, e;
+    bb #(.SOME_PARAM(1)) bb1 (.a ({a[0], e[1]}), .b (b), .o (c));
+    bb #(.SOME_PARAM(2)) bb2 (.a ({c[1], a[0]}), .b (c), .o (d));
+    wb wb1 (.a (a), .b (b), .o (e));
+    some_mod some_inst (.a (c), .b (d), .c (e), .o (o));
+endmodule
+EOT
+read_rtlil << EOT
+attribute \blackbox 1
+module \bb
+    parameter \SOME_PARAM 0
+    wire inout 3 width 2 \o
+    wire inout 2 width 2 \b
+    wire inout 1 width 2 \a
+end
+EOT
+cutpoint -blackbox
+check -assert
