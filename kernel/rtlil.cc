@@ -46,7 +46,7 @@ int RTLIL::IdString::last_created_idx_[8];
 int RTLIL::IdString::last_created_idx_ptr_;
 #endif
 
-#define X(N) const RTLIL::IdString RTLIL::ID::N(RTLIL::StaticId::N);
+#define X(_id) const RTLIL::IdString RTLIL::IDInternal::_id(RTLIL::StaticId::_id);
 #include "kernel/constids.inc"
 #undef X
 
