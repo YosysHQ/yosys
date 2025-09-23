@@ -2829,6 +2829,13 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 	delete_wire_worker.wires_p = &wires;
 	rewrite_sigspecs2(delete_wire_worker);
 
+	if (design->flagBufferedNormalized) {
+		for (auto wire : wires) {
+			buf_norm_wire_queue.erase(wire);
+			buf_norm_connect_index.erase(wire);
+		}
+	}
+
 	for (auto &it : wires) {
 		log_assert(wires_.count(it->name) != 0);
 		wires_.erase(it->name);
