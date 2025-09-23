@@ -20,6 +20,9 @@ namespace RTLIL {
 		KernelRtlilTest() {
 			if (log_files.empty()) log_files.emplace_back(stdout);
 		}
+		virtual void SetUp() override {
+			IdString::ensure_prepopulated();
+		}
 	};
 
 	TEST_F(KernelRtlilTest, ConstAssignCompare)
@@ -385,7 +388,7 @@ namespace RTLIL {
 
 	TEST_P(WireRtlVsHdlIndexConversionTest, WireRtlVsHdlIndexConversion) {
 		std::unique_ptr<Module> mod = std::make_unique<Module>();
-		Wire *wire = mod->addWire(NEW_ID, 10);
+		Wire *wire = mod->addWire(ID(test), 10);
 
 		auto [upto, start_offset, width] = GetParam();
 
