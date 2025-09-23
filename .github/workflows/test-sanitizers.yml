@@ -97,7 +97,9 @@ jobs:
         run: |
           make config-$CC
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -j$procs ENABLE_LTO=1
+          echo 'ENABLE_LTO = 1' >> Makefile.conf
+          echo 'ENABLE_LIBYOSYS = 1' >> Makefile.conf
+          make -j$procs
 
       - name: Log yosys-config output
         run: |
@@ -106,7 +108,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
+          make -j$procs test TARGETS= EXTRA_TARGETS=
 
       - name: Report errors
         if: ${{ failure() }}
@@ -117,4 +119,4 @@ jobs:
       - name: Run unit tests
         shell: bash
         run: |
-          make -j$procs unit-test CONFIG=$CC ENABLE_LIBYOSYS=1
+          make -j$procs unit-test
