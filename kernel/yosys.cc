@@ -185,13 +185,12 @@ bool already_setup = false;
 bool already_shutdown = false;
 
 #ifdef WITH_PYTHON
-// Include pyosys as a module so 'from pyosys import libyosys' also works
-// in interpreter mode.
+// Include pyosys as a package for some compatibility with wheels.
 //
 // This should not affect using wheels as the dylib has to actually be called
-// pyosys.so for this module to be interacted with at all.
+// pyosys.so for this function to be interacted with at all.
 PYBIND11_MODULE(pyosys, m) {
-	m.add_object("libyosys", m.import("libyosys"));
+	m.add_object("__path__", py::list());
 }
 #endif
 
@@ -209,7 +208,8 @@ void yosys_setup()
 	// initialized platform fails (such as when libyosys is imported
 	// from a Python interpreter)
 	if (!Py_IsInitialized()) {
-		PyImport_AppendInittab((char*)"libyosys", PyInit_libyosys);
+		PyImport_AppendInittab((char*)"pyosys.libyosys", PyInit_libyosys);
+		// compatibility with wheels
 		PyImport_AppendInittab((char*)"pyosys", PyInit_pyosys);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
