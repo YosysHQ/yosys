@@ -344,6 +344,8 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
 endif
 
+PY_WRAPPER_FILE = pyosys/wrappers
+
 ifeq ($(ENABLE_PYOSYS),1)
 # python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
@@ -353,7 +355,6 @@ PYBIND11_INCLUDE ?= $(shell $(PYTHON_EXECUTABLE) -m pybind11 --includes)
 CXXFLAGS += -I$(PYBIND11_INCLUDE) -DWITH_PYTHON
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 
-PY_WRAPPER_FILE = pyosys/wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT = pyosys/generator.py
 PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
@@ -1110,9 +1111,9 @@ docs: docs/prep
 clean:
 	rm -rf share
 	rm -rf kernel/*.pyh
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
-	rm -f kernel/python_wrappers.o
+	rm -f $(PY_WRAPPER_FILE).o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
