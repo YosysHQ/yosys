@@ -407,6 +407,11 @@ void log_abort_internal(const char *file, int line)
 	log_error("Abort in %s:%d.\n", file, line);
 }
 
+void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message)
+{
+	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
+}
+
 void log_formatted_cmd_error(std::string str)
 {
 	if (log_cmd_error_throw) {
