@@ -24,7 +24,7 @@ def compile_cpp(in_path, out_path, args):
     run(['g++', '-g', '-std=c++17'] + args + [str(in_path), '-o', str(out_path)])
 
 def yosys_synth(verilog_file, rtlil_file):
-    yosys(f"read_verilog {quote(verilog_file)} ; prep ; write_rtlil {quote(rtlil_file)}")
+    yosys(f"read_verilog {quote(verilog_file)} ; prep ; setundef -undriven -undef ; write_rtlil {quote(rtlil_file)}")
 
 # simulate an rtlil file with yosys, comparing with a given vcd file, and writing out the yosys simulation results into a second vcd file
 def yosys_sim(rtlil_file, vcd_reference_file, vcd_out_file, preprocessing = ""):
@@ -91,4 +91,4 @@ def test_print_graph(tmp_path):
     tb_file = base_path / 'tests/functional/picorv32_tb.v'
     cpu_file = base_path / 'tests/functional/picorv32.v'
     # currently we only check that we can print the graph without getting an error, not that it prints anything sensibl
-    yosys(f"read_verilog {quote(tb_file)} {quote(cpu_file)}; prep -top gold; flatten; clk2fflogic; test_generic")
+    yosys(f"read_verilog {quote(tb_file)} {quote(cpu_file)}; prep -top gold; setundef -undriven -undef ; flatten; clk2fflogic; test_generic")

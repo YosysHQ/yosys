@@ -119,6 +119,7 @@ extern int log_make_debug;
 extern int log_force_debug;
 extern int log_debug_suppressed;
 
+[[deprecated]]
 [[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
