@@ -67,7 +67,7 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-$CC
-          make -f ../Makefile -j$procs ENABLE_LTO=1
+          make -f ../Makefile -j$procs
 
       - name: Log yosys-config output
         run: |
