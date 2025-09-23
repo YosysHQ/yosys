@@ -67,7 +67,7 @@ The ``formatted_help()`` method
 Dumping command help to json
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- `help -dump-cells-json cmds.json`
+- `help -dump-cmds-json cmds.json`
 
   + generates a ``ContentListing`` for each command registered in Yosys
   + tries to parse unformatted ``Pass::help()`` output if
