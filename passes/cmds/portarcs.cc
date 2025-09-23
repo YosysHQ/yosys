@@ -124,7 +124,8 @@ struct PortarcsPass : Pass {
 				TopoSort<SigBit> sort;
 
 				for (auto cell : m->cells())
-				if (cell->type != ID($buf)) {
+				// Ignore all bufnorm helper cells
+				if (!cell->type.in(ID($buf), ID($input_port), ID($connect))) {
 					auto tdata = tinfo.find(cell->type);
 					if (tdata == tinfo.end())
 						log_cmd_error("Missing timing data for module '%s'.\n", log_id(cell->type));
