@@ -124,6 +124,7 @@ jobs:
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
+    if: github.repository == 'YosysHQ/Yosys'
     runs-on: ubuntu-latest
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
