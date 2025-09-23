@@ -495,8 +495,13 @@ inline bool RTLIL::IdString::operator!=(const RTLIL::StaticIdString &rhs) const 
 }
 
 namespace RTLIL {
-	namespace ID {
+	namespace IDInternal {
 #define X(_id) extern const IdString _id;
+#include "kernel/constids.inc"
+#undef X
+	}
+	namespace ID {
+#define X(_id) constexpr StaticIdString _id(StaticId::_id, IDInternal::_id);
 #include "kernel/constids.inc"
 #undef X
 	}
@@ -508,7 +513,7 @@ struct IdTableEntry {
 };
 
 constexpr IdTableEntry IdTable[] = {
-#define X(_id) {#_id, RTLIL::StaticIdString(RTLIL::StaticId::_id, RTLIL::ID::_id)},
+#define X(_id) {#_id, ID::_id},
 #include "kernel/constids.inc"
 #undef X
 };
