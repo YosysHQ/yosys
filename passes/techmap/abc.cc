@@ -2636,7 +2636,8 @@ struct AbcPass : public Pass {
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
 			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
 			ConcurrentStack<AbcProcess> process_pool;
-			ThreadPool worker_threads(num_worker_threads, [&](int){
+			if (num_worker_threads > 0) {
+				ThreadPool worker_threads(num_worker_threads, [&](int){
 					while (std::optional<std::unique_ptr<AbcModuleState>> work =
 							work_queue.pop_front()) {
 						// Only the `run_abc` component is safe to touch here!
@@ -2644,6 +2645,7 @@ struct AbcPass : public Pass {
 						work_finished_queue.push_back(std::move(*work));
 					}
 				});
+			}
 			int state_index = 0;
 			int next_state_index_to_process = 0;
 			std::vector<std::unique_ptr<AbcModuleState>> work_finished_by_index;
