@@ -1600,7 +1600,6 @@ static void replace_zbufs(Design *design)
 					sig[i] = w;
 				}
 			}
-			log("XXX %s -> %s\n", log_signal(cell->getPort(ID::A)), log_signal(sig));
 			cell->setPort(ID::A, sig);
 		}
 
