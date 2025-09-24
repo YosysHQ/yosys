@@ -60,8 +60,8 @@ merge; please do not use these labels if you are not a maintainer.
 
 # Asking questions
 
-If you have a question about how to use Yosys, please ask on our [discussions
-page](https://github.com/YosysHQ/yosys/discussions) or in our [Discourse forum](https://yosyshq.discourse.group/).
+If you have a question about how to use Yosys, please ask on our [Discourse forum](https://yosyshq.discourse.group/) or in our [discussions
+page](https://github.com/YosysHQ/yosys/discussions).
 The Discourse is also a great place to ask questions about developing or
 contributing to Yosys.
 
