@@ -96,9 +96,7 @@
 				quiet = true;
 				continue;
 			}
-			std::string fname = args[argidx];
-			rewrite_filename(fname);
-			paths.push_back(fname);
+			append_globbed(paths, args[argidx]);
 			break;
 		}
 		int modes = enable + disable + purge + list + verbose + quiet;
