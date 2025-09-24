@@ -41,7 +41,7 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
 		std::string sep_string = sep;
 		for (size_t i = pos_begin+1; i < text.size(); i++) {
-			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
+			if (text[i-1] != '\\' && text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
@@ -594,7 +594,10 @@ void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynam
 }
 
 bool needs_quote(const std::string &s) {
-	return (s.find(' ') != std::string::npos) || (s.find('\\') != std::string::npos);
+	for (auto c : {' ', '\\', '#', ';', '"'}) {
+		if (s.find(c) != std::string::npos) return true;
+	}
+	return false;
 }
 
 std::string quote(const std::string &s) {
