@@ -18,7 +18,6 @@
  */
 
 #include "simplemap.h"
-#include "backends/rtlil/rtlil_backend.h"
 #include "kernel/sigtools.h"
 #include "kernel/ff.h"
 #include <stdlib.h>
@@ -156,14 +155,11 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 			}
 
 			RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-			log("huh\n");
-			RTLIL_BACKEND::dump_cell(std::cout, "", cell);
 			transfer_src(gate, cell);
 			gate->setPort(ID::A, sig_a[i]);
 			gate->setPort(ID::B, sig_a[i+1]);
 			gate->setPort(ID::Y, sig_t[i/2]);
 			last_output_cell = gate;
-			RTLIL_BACKEND::dump_cell(std::cout, "", gate);
 		}
 
 		sig_a = sig_t;
