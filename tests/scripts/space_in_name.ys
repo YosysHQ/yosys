@@ -1,19 +1,104 @@
-echo on
+logger -expect-no-warnings
 
-# pass
-test_args "quoted spaces"
-test_args escaped\ spaces
+# quoted strings are a single argument to passes
+logger -expect log "quoted space" 1
+logger -expect log "quoted" 2
+logger -expect log "space" 2
+logger -expect log '\\"escaped' 1
+logger -expect log 'quotes\\"' 1
+
+test_args unquoted space
+test_args "quoted space"
 test_args \"escaped quotes\"
-test_args "inner \"escaped quotes\""
+
+logger -check-expected
+
+# empty strings can be arguments
+logger -expect log "a   b  c" 2
+
+log a " " b "" c
+log a ' ' b '' c
+
+logger -check-expected
+
+# quotes can be arguments
+logger -expect log '^"' 2
+logger -expect log "^'" 1
+test_args "'" '"' "\""
+logger -check-expected
+
+# whitespace (or a lack thereof) shouldn't break things
+logger -expect log 'a. .b' 2
+log a" "b
+log a' 'b
+
+logger -expect log '.a.b c' 2
+log "a"b c
+log 'a'b c
+
+logger -check-expected
+
+# numeric literals don't need quotes (unless they include a space)
+logger -expect log "1'd2" 1
+logger -expect log "3'b 011" 1
+
+test_args 1'd2
+test_args "3'b 011"
+
+logger -check-expected
+
+# sidenote that apparently logger regexp ends with '\n$', but \n in the pattern is rejected
+logger -expect log "^('|\").$" 2
+log "
+log '
+
+logger -check-expected
+
+# bonus test
 test_args -opt "some value here" -b "some other \"escaped value\""
 
-# frontend/backend
+# special characters can appear in strings
+logger -expect log "#no comment" 2
+logger -expect log ";" 1
+logger -warn "a comment"
+
+log "this is #no comment"
+log this is #a comment
+log "semicolon; "; log "#no comment"
+
+logger -check-expected
+
+# special characters are quoted in echo
+logger -expect log "'#'" 1
+logger -expect log "';'" 1
+logger -expect log "' '" 1
+logger -expect log "\"'\"" 1
+logger -expect log "'\"'" 1
+logger -expect log '.\\.' 1
+
+echo on
+log '#'
+log ';'
+log ' '
+log "'"
+log '"'
+log '\'
+echo off
+
+logger -check-expected
+
+# should this be a backslash or an escaped space?
+log escaped\ space?
+
+# frontend/backend args also work as expected
+logger -expect log "arg: inner \"escaped quotes\"" 3
+logger -expect log 'filename: file name\..{1,3}' 3
+logger -expect log "filename: <stdout>" 1
+logger -expect log "arg: no_quotes" 2
+
 read_test_args -arg "inner \"escaped quotes\"" "file name.v" "file name.ys"
 write_test_args -arg "inner \"escaped quotes\"" "file name.out"
 read_test_args -arg no_quotes plugin.cc
 write_test_args -arg no_quotes
 
-# hash in string?
-test_args "this is \\ #not a comment"
-test_args this is #a comment
-test_args "#no comment"
+logger -check-expected

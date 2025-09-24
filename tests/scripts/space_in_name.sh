@@ -14,8 +14,8 @@ $yosys file\ name.v -o file\ name.out -b verilog
 $yosys -p 'read_verilog "file name.v"'
 $yosys -p 'write_verilog "file name.out"'
 
-# this one isn't a normal frontend so doesn't
-# $yosys -p 'script "file name.ys"'
+# this one works if passes get their arguments unquoted
+$yosys -p 'script "file name.ys"'
 
 # these get split by space and treated as two separate filenames
 # $yosys -p script\ "file name.ys"
