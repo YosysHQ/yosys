@@ -425,7 +425,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("map_ffs")) {
-			run("dfflegalize -cell $_DFFE_?P?P_ 01 -cell $_SDFFE_?P?P_ 01");
+			run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
 					run("zinit -all w:* t:$_SDFFE_*", "('-dff' only)");

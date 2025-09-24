@@ -14,14 +14,6 @@ ram distributed $__ANALOGDEVICES_LUTRAM_SP_ {
 		abits 6;
 		widths 4 global;
 	}
-	option "ABITS" 7 {
-		abits 7;
-		widths 2 global;
-	}
-	option "ABITS" 8 {
-		abits 8;
-		widths 1 global;
-	}
 	init no_undef;
 	prune_rom;
 	port arsw "RW" {
