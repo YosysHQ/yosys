@@ -1,0 +1,14 @@
+echo on
+
+# pass
+test_args "quoted spaces"
+test_args escaped\ spaces
+test_args \"escaped quotes\"
+test_args "inner \"escaped quotes\""
+test_args -opt "some value here" -b "some other \"escaped value\""
+
+# frontend/backend
+read_test_args -arg "inner \"escaped quotes\"" "file name.v" "file name.ys"
+write_test_args -arg "inner \"escaped quotes\"" "file name.out"
+read_test_args -arg no_quotes plugin.cc
+write_test_args -arg no_quotes
