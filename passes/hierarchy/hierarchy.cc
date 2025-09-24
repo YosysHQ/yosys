@@ -1149,6 +1149,25 @@ struct HierarchyPass : public Pass {
 				}
 		}
 
+		if (flag_simcheck || flag_smtcheck) {
+			for (auto mod : design->modules()) {
+				for (auto cell : mod->cells()) {
+					if (!cell->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+						continue;
+					if (!cell->has_attribute(ID(unsupported_sva)))
+						continue;
+
+					auto src = cell->get_src_attribute();
+
+					if (!src.empty())
+						src += ": ";
+
+					log_error("%sProperty `%s' in module `%s' uses unsupported SVA constructs. See frontend warnings for details, run `delete */a:unsupported_sva' to ignore.\n",
+						src, log_id(cell->name), log_id(mod->name));
+				}
+			}
+		}
+
 		if (!keep_positionals)
 		{
 			std::set<RTLIL::Module*> pos_mods;

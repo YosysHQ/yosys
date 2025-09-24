@@ -1023,7 +1023,7 @@ struct VerificSvaImporter
 
 	[[noreturn]] void parser_error(std::string errmsg)
 	{
-		if (!importer->mode_keep)
+		if (!importer->mode_keep && !importer->mode_sva_continue)
 			log_error("%s", errmsg);
 		log_warning("%s", errmsg);
 		throw ParserErrorException();
@@ -1710,30 +1710,30 @@ struct VerificSvaImporter
 
 	void import()
 	{
-		try
-		{
-			module = importer->module;
-			netlist = root->Owner();
+		module = importer->module;
+		netlist = root->Owner();
 
-			if (verific_verbose)
-				log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
-						LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
+		if (verific_verbose)
+			log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
+					LineFile::GetFileName(root->Linefile()), LineFile::GetLineNo(root->Linefile()));
 
-			bool is_user_declared = root->IsUserDeclared();
+		bool is_user_declared = root->IsUserDeclared();
 
-			// FIXME
-			if (!is_user_declared) {
-				const char *name = root->Name();
-				for (int i = 0; name[i]; i++) {
-					if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
-						is_user_declared = true;
-						break;
-					}
+		// FIXME
+		if (!is_user_declared) {
+			const char *name = root->Name();
+			for (int i = 0; name[i]; i++) {
+				if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
+					is_user_declared = true;
+					break;
 				}
 			}
+		}
 
-			RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
+		RTLIL::IdString root_name = module->uniquify(importer->mode_names || is_user_declared ? RTLIL::escape_id(root->Name()) : NEW_ID);
 
+		try
+		{
 			// parse SVA sequence into trigger signal
 
 			clocking = VerificClocking(importer, root->GetInput(), true);
@@ -1836,6 +1836,21 @@ struct VerificSvaImporter
 		}
 		catch (ParserErrorException)
 		{
+			if (importer->mode_sva_continue) {
+
+				RTLIL::Cell *c = nullptr;
+
+				if (mode_assert) c = module->addAssert(root_name, State::Sx, State::Sx);
+				if (mode_assume) c = module->addAssume(root_name, State::Sx, State::Sx);
+				if (mode_cover) c = module->addCover(root_name, State::Sx, State::Sx);
+
+				if (c) {
+					importer->import_attributes(c->attributes, root);
+					c->set_bool_attribute(ID(unsupported_sva));
+				}
+
+				importer->num_sva_continue++;
+			}
 		}
 	}
 };
