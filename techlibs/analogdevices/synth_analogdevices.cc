@@ -495,8 +495,10 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("edif")) {
-			if (!edif_file.empty() || help_mode)
-				run(stringf("write_edif -pvector bra %s", edif_file.c_str()));
+			if (!edif_file.empty() || help_mode) {
+				run("delete t:$scopeinfo");
+				run(stringf("write_edif %s", edif_file.c_str()));
+			}
 		}
 	}
 } SynthAnalogDevicesPass;
