@@ -82,6 +82,7 @@ struct EdifNames
 					used_names.count(gen_name) == 0)
 				break;
 		}
+		log("renamed '%s' to '%s'\n", id, gen_name);
 		generated_names.insert(gen_name);
 		name_map[id] = gen_name;
 		return gen_name;
