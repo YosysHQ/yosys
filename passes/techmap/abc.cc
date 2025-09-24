@@ -244,10 +244,6 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 		logs.log_error("posix_spawn_file_actions_adddup2 failed");
 		return std::nullopt;
 	}
-	if (posix_spawn_file_actions_adddup2(&file_actions, from_child_pipe[1], STDERR_FILENO) != 0) {
-		logs.log_error("posix_spawn_file_actions_adddup2 failed");
-		return std::nullopt;
-	}
 	if (posix_spawn_file_actions_addclose(&file_actions, to_child_pipe[0]) != 0) {
 		logs.log_error("posix_spawn_file_actions_addclose failed");
 		return std::nullopt;
@@ -1070,6 +1066,9 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		abc_script += stringf("; dress \"%s/input.blif\"", run_abc.tempdir_name);
 	abc_script += stringf("; write_blif %s/output.blif", run_abc.tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
+#if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
+	abc_script += "; echo \"YOSYS_ABC_DONE\"\n";
+#endif
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
 		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
@@ -1152,9 +1151,7 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 				break;
 			}
 			line.append(start, p + 1 - start);
-			// ABC seems to actually print "ABC_DONE \n", but we probably shouldn't
-			// rely on that extra space being output.
-			if (line.substr(0, 8) == "ABC_DONE") {
+			if (line.substr(0, 14) == "YOSYS_ABC_DONE") {
 				// Ignore any leftover output, there should only be a prompt perhaps
 				return true;
 			}
@@ -1349,12 +1346,8 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 			return;
 		}
 		std::string cmd = stringf(
-				// This makes ABC switch stdout to line buffering, which we need
-				// to see our ABC_DONE message.
-				"set abcout /dev/stdout\n"
 				"empty\n"
-				"source %s\n"
-				"echo \"ABC_DONE\"\n", tmp_script_name);
+				"source %s\n", tmp_script_name);
 		int ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
 		if (ret != static_cast<int>(cmd.size())) {
 			logs.log_error("write failed");
