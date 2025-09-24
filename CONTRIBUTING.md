@@ -60,14 +60,11 @@ merge; please do not use these labels if you are not a maintainer.
 
 # Asking questions
 
-If you have a question about how to use Yosys, please ask on our [discussions
-page](https://github.com/YosysHQ/yosys/discussions) or in our [community
-slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
-The slack is also a great place to ask questions about developing or
+If you have a question about how to use Yosys, please ask on our [Discourse forum](https://yosyshq.discourse.group/) or in our [discussions
+page](https://github.com/YosysHQ/yosys/discussions).
+The Discourse is also a great place to ask questions about developing or
 contributing to Yosys.
 
-We have open dev 'jour fixe' (JF) meetings where developers from YosysHQ and the
+We have open [dev 'jour fixe' (JF) meetings](https://docs.google.com/document/d/1SapA6QAsJcsgwsdKJDgnGR2mr97pJjV4eeXg_TVJhRU/edit?usp=sharing) where developers from YosysHQ and the
 community come together to discuss open issues and PRs.  This is also a good
-place to talk to us about how to implement larger PRs.  Please join the
-community slack if you would like to join the next meeting, the link is
-available in the description of the #devel-discuss channel.
+place to talk to us about how to implement larger PRs.
