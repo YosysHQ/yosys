@@ -12,3 +12,8 @@ read_test_args -arg "inner \"escaped quotes\"" "file name.v" "file name.ys"
 write_test_args -arg "inner \"escaped quotes\"" "file name.out"
 read_test_args -arg no_quotes plugin.cc
 write_test_args -arg no_quotes
+
+# hash in string?
+test_args "this is \\ #not a comment"
+test_args this is #a comment
+test_args "#no comment"
