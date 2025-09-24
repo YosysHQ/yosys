@@ -453,7 +453,7 @@ endmodule
 // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
 
 (* abc9_flop, lib_whitebox *)
-module FDRE (
+module FFRE (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -494,7 +494,7 @@ module FDRE (
 endmodule
 
 (* abc9_flop, lib_whitebox *)
-module FDRE_1 (
+module FFRE_N (
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -518,7 +518,7 @@ module FDRE_1 (
 endmodule
 
 (* abc9_flop, lib_whitebox *)
-module FDSE (
+module FFSE (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -559,7 +559,7 @@ module FDSE (
 endmodule
 
 (* abc9_flop, lib_whitebox *)
-module FDSE_1 (
+module FFSE_N (
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -583,7 +583,7 @@ module FDSE_1 (
   endspecify
 endmodule
 
-module FDRSE (
+module FFRSE (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -618,7 +618,7 @@ module FDRSE (
       Q <= d;
 endmodule
 
-module FDRSE_1 (
+module FFRSE_N (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -654,7 +654,7 @@ module FDRSE_1 (
 endmodule
 
 (* abc9_box, lib_whitebox *)
-module FDCE (
+module FFCE (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -703,7 +703,7 @@ module FDCE (
 endmodule
 
 (* abc9_box, lib_whitebox *)
-module FDCE_1 (
+module FFCE_N (
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -734,7 +734,7 @@ module FDCE_1 (
 endmodule
 
 (* abc9_box, lib_whitebox *)
-module FDPE (
+module FFPE (
   output reg Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -782,7 +782,7 @@ module FDPE (
 endmodule
 
 (* abc9_box, lib_whitebox *)
-module FDPE_1 (
+module FFPE_N (
   output reg Q,
   (* clkbuf_sink *)
   input C,
@@ -812,7 +812,7 @@ module FDPE_1 (
   endspecify
 endmodule
 
-module FDCPE (
+module FFCPE (
   output wire Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -857,7 +857,7 @@ module FDCPE (
   assign Q = qs ? qp : qc;
 endmodule
 
-module FDCPE_1 (
+module FFCPE_N (
   output wire Q,
   (* clkbuf_sink *)
   (* invertible_pin = "IS_C_INVERTED" *)
@@ -900,81 +900,6 @@ module FDCPE_1 (
       qs <= 1;
   end
   assign Q = qs ? qp : qc;
-endmodule
-
-module LDCE (
-  output reg Q,
-  (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR,
-  input D,
-  (* invertible_pin = "IS_G_INVERTED" *)
-  input G,
-  input GE
-);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  parameter [0:0] IS_G_INVERTED = 1'b0;
-  parameter MSGON = "TRUE";
-  parameter XON = "TRUE";
-  initial Q = INIT;
-  wire clr = CLR ^ IS_CLR_INVERTED;
-  wire g = G ^ IS_G_INVERTED;
-  always @*
-    if (clr) Q <= 1'b0;
-    else if (GE && g) Q <= D;
-endmodule
-
-module LDPE (
-  output reg Q,
-  input D,
-  (* invertible_pin = "IS_G_INVERTED" *)
-  input G,
-  input GE,
-  (* invertible_pin = "IS_PRE_INVERTED" *)
-  input PRE
-);
-  parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_G_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  parameter MSGON = "TRUE";
-  parameter XON = "TRUE";
-  initial Q = INIT;
-  wire g = G ^ IS_G_INVERTED;
-  wire pre = PRE ^ IS_PRE_INVERTED;
-  always @*
-    if (pre) Q <= 1'b1;
-    else if (GE && g) Q <= D;
-endmodule
-
-module LDCPE (
-  output reg Q,
-  (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
-  (* invertible_pin = "IS_G_INVERTED" *)
-  input G,
-  (* invertible_pin = "IS_GE_INVERTED" *)
-  input GE,
-  (* invertible_pin = "IS_PRE_INVERTED" *)
-  input PRE
-);
-  parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_G_INVERTED = 1'b0;
-  parameter [0:0] IS_GE_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  initial Q = INIT;
-  wire d = D ^ IS_D_INVERTED;
-  wire g = G ^ IS_G_INVERTED;
-  wire ge = GE ^ IS_GE_INVERTED;
-  wire clr = CLR ^ IS_CLR_INVERTED;
-  wire pre = PRE ^ IS_PRE_INVERTED;
-  always @*
-    if (clr) Q <= 1'b0;
-    else if (pre) Q <= 1'b1;
-    else if (ge && g) Q <= d;
 endmodule
 
 module AND2B1L (
