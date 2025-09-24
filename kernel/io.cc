@@ -2,6 +2,7 @@
 #include "kernel/log.h"
 #include <iostream>
 #include <string>
+#include <iomanip>
 
 #if !defined(WIN32)
 #include <dirent.h>
@@ -590,6 +591,23 @@ void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynam
 	DynamicIntCount num_dynamic_ints, const void *arg)
 {
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+}
+
+bool needs_quote(const std::string &s) {
+	return (s.find(' ') != std::string::npos) || (s.find('\\') != std::string::npos);
+}
+
+std::string quote(const std::string &s) {
+	std::ostringstream ss;
+	ss << std::quoted(s);
+	return ss.str();
+}
+
+std::string unquote(const std::string &s) {
+	std::string result;
+	std::istringstream ss(s);
+	ss >> std::quoted(result);
+	return result;
 }
 
 YOSYS_NAMESPACE_END

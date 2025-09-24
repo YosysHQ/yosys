@@ -470,6 +470,10 @@ void remove_directory(std::string dirname);
 bool create_directory(const std::string& dirname);
 std::string escape_filename_spaces(const std::string& filename);
 
+bool needs_quote(const std::string &s);
+std::string quote(const std::string &s);
+std::string unquote(const std::string &s);
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_IO_H
