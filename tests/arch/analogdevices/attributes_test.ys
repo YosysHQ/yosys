@@ -1,0 +1,37 @@
+# Check that blockram memory without parameters is not modified
+read_verilog ../common/memory_attributes/attributes_test.v
+hierarchy -top block_ram
+synth_analogdevices -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAMB18E1
+ 
+# Check that distributed memory without parameters is not modified
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+hierarchy -top distributed_ram
+synth_analogdevices -top distributed_ram -noiopad
+cd distributed_ram # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAM32M
+ 
+# Set ram_style distributed to blockram memory; will be implemented as distributed
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+setattr -set ram_style "distributed" block_ram/m:*
+synth_analogdevices -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 64 t:RAM64X1S
+ 
+# Set synthesis, logic_block to blockram memory; will be implemented as distributed
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+setattr -set logic_block 1 block_ram/m:*
+synth_analogdevices -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 0 t:RAMB18E1
+ 
+# Set ram_style block to a distributed memory; will be implemented as blockram
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+synth_analogdevices -top distributed_ram_manual -noiopad
+cd distributed_ram_manual # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAMB18E1
