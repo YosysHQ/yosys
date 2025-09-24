@@ -194,7 +194,7 @@ select -assert-count 1 t:\\pdk_icg
 #------------------------------------------------------------------------------
 
 design -load before
-clockgate -liberty clockgate.lib
+clockgate -liberty c*ckgate.lib
 
 # rising edge ICGs
 select -module dffe_00 -assert-count 0 t:\\pos_small
