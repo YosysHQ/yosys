@@ -25,6 +25,7 @@
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 #include <set>
 #include <unordered_map>
 #include <array>
@@ -173,14 +174,10 @@ struct OptMergeWorker
 		if (cell1->type == ID($and) || cell1->type == ID($or) || cell1->type == ID($xor) || cell1->type == ID($xnor) || cell1->type == ID($add) || cell1->type == ID($mul) ||
 				cell1->type == ID($logic_and) || cell1->type == ID($logic_or) || cell1->type == ID($_AND_) || cell1->type == ID($_OR_) || cell1->type == ID($_XOR_)) {
 			if (conn1.at(ID::A) < conn1.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn1[ID::A];
-				conn1[ID::A] = conn1[ID::B];
-				conn1[ID::B] = tmp;
+				std::swap(conn1[ID::A], conn1[ID::B]);
 			}
 			if (conn2.at(ID::A) < conn2.at(ID::B)) {
-				RTLIL::SigSpec tmp = conn2[ID::A];
-				conn2[ID::A] = conn2[ID::B];
-				conn2[ID::B] = tmp;
+				std::swap(conn2[ID::A], conn2[ID::B]);
 			}
 		} else
 		if (cell1->type == ID($reduce_xor) || cell1->type == ID($reduce_xnor)) {
