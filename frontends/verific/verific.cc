@@ -1643,13 +1643,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					ascii_initdata++;
 				}
 				for (int word_idx = 0; word_idx < memory->size; word_idx++) {
-					Const initval = Const(State::Sx, memory->width);
+					std::vector<State> initval(memory->width, State::Sx);
 					bool initval_valid = false;
 					for (int bit_idx = memory->width-1; bit_idx >= 0; bit_idx--) {
 						if (*ascii_initdata == 0)
 							break;
 						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval.bits()[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+							initval[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
 							initval_valid = true;
 						}
 						ascii_initdata++;
@@ -1661,7 +1661,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 							cell->setPort(ID::ADDR, word_idx);
 						else
 							cell->setPort(ID::ADDR, memory->size - word_idx - 1);
-						cell->setPort(ID::DATA, initval);
+						cell->setPort(ID::DATA, Const(initval));
 						cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
 						cell->parameters[ID::ABITS] = 32;
 						cell->parameters[ID::WIDTH] = memory->width;
@@ -1760,7 +1760,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (netbus->Size() == 1)
 				wire->set_bool_attribute(ID::single_bit_vector);
 
-			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
+			std::vector<State> initval(GetSize(wire), State::Sx);
 			bool initval_valid = false;
 
 			for (int i = netbus->LeftIndex();; i += netbus->IsUp() ? +1 : -1)
@@ -1773,9 +1773,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 					if (init_nets.count(net)) {
 						if (init_nets.at(net) == '0')
-							initval.bits().at(bitidx) = State::S0;
+							initval.at(bitidx) = State::S0;
 						if (init_nets.at(net) == '1')
-							initval.bits().at(bitidx) = State::S1;
+							initval.at(bitidx) = State::S1;
 						initval_valid = true;
 						init_nets.erase(net);
 					}
@@ -1841,20 +1841,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	for (auto it : init_nets)
 	{
-		Const initval;
+		std::vector<State> initval;
 		SigBit bit = net_map_at(it.first);
 		log_assert(bit.wire);
 
 		if (bit.wire->attributes.count(ID::init))
-			initval = bit.wire->attributes.at(ID::init);
+			initval = bit.wire->attributes.at(ID::init).to_bits();
 
 		while (GetSize(initval) < GetSize(bit.wire))
-			initval.bits().push_back(State::Sx);
+			initval.push_back(State::Sx);
 
 		if (it.second == '0')
-			initval.bits().at(bit.offset) = State::S0;
+			initval.at(bit.offset) = State::S0;
 		if (it.second == '1')
-			initval.bits().at(bit.offset) = State::S1;
+			initval.at(bit.offset) = State::S1;
 
 		bit.wire->attributes[ID::init] = initval;
 	}
@@ -2041,7 +2041,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			Const qx_init = Const(State::S1, width);
-			qx_init.bits().resize(2 * width, State::S0);
+			qx_init.resize(2 * width, State::S0);
 
 			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, qx_init);
 			module->addXnor(new_verific_id(inst), sig_dx, sig_qx, sig_ox);
@@ -2306,7 +2306,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					continue;
 
 				if (non_ff_bits.count(SigBit(wire, i)))
-					initval.bits()[i] = State::Sx;
+					initval.set(i, State::Sx);
 			}
 
 			if (wire->port_input) {
@@ -2493,7 +2493,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 				if (c.wire && c.wire->attributes.count(ID::init)) {
 					Const val = c.wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(c); i++)
-						initval.bits()[offset+i] = val[c.offset+i];
+						initval.set(offset+i, val[c.offset+i]);
 				}
 				offset += GetSize(c);
 			}
@@ -2564,7 +2564,7 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 			if (c.wire && c.wire->attributes.count(ID::init)) {
 				Const val = c.wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(c); i++)
-					initval.bits()[offset+i] = val[c.offset+i];
+					initval.set(offset+i, val[c.offset+i]);
 			}
 			offset += GetSize(c);
 		}
