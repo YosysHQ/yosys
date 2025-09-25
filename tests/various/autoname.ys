@@ -175,6 +175,8 @@ module \top
   end
 end
 EOT
+design -save order_test
+
 # wires are named for being cell outputs
 logger -expect log "Rename wire .d in top to or_Y" 1
 logger -expect log "Rename cell .name2 in top to or_Y_.or_B" 1
@@ -186,11 +188,18 @@ logger -check-expected
 logger -expect log "Rename cell .name in top to a_.__unknown_A" 1
 # another output wire
 logger -expect log "Rename wire .e in top to or_Y_.or_B_Y" 1
+logger -expect log "Renamed 4 objects" 1
+debug autoname
+logger -check-expected
+
+# don't rename prematurely (some objects should be named after $name2)
+design -load order_test
+
+# $c gets shortest name, since the cell driving it doesn't have known port
+# directions (otherwise a_$__unknown_A_Y)
+logger -expect log "Rename wire .c in top to or_Y_.or_B_A" 1
 # $name3 named for lowest fanout wire (otherwise a_$__unknown_A_Y_$and_A)
 logger -expect log "Rename cell .name3 in top to or_Y_.or_B_Y_.and_B" 1
-# $c gets shortest name, since the cell driving it doesn't have known port
-# directions
-logger -expect log "Rename wire .c in top to or_Y_.or_B_A" 1
-logger -expect log "Renamed 4 objects" 1
+logger -expect log "Renamed 6 objects" 1
 debug autoname
 logger -check-expected
