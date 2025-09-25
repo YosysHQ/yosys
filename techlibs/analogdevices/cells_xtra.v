@@ -6167,28 +6167,6 @@ module IDDR_2CLK (...);
     input S;
 endmodule
 
-module ODDR (...);
-    parameter DDR_CLK_EDGE = "OPPOSITE_EDGE";
-    parameter INIT = 1'b0;
-    parameter [0:0] IS_C_INVERTED = 1'b0;
-    parameter [0:0] IS_D1_INVERTED = 1'b0;
-    parameter [0:0] IS_D2_INVERTED = 1'b0;
-    parameter SRTYPE = "SYNC";
-    parameter MSGON = "TRUE";
-    parameter XON = "TRUE";
-    output Q;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_C_INVERTED" *)
-    input C;
-    input CE;
-    (* invertible_pin = "IS_D1_INVERTED" *)
-    input D1;
-    (* invertible_pin = "IS_D2_INVERTED" *)
-    input D2;
-    input R;
-    input S;
-endmodule
-
 (* keep *)
 module IDELAYCTRL (...);
     parameter SIM_DEVICE = "7SERIES";
@@ -6596,77 +6574,6 @@ module ISERDESE2 (...);
     input RST;
     input SHIFTIN1;
     input SHIFTIN2;
-endmodule
-
-module OSERDESE2 (...);
-    parameter DATA_RATE_OQ = "DDR";
-    parameter DATA_RATE_TQ = "DDR";
-    parameter integer DATA_WIDTH = 4;
-    parameter [0:0] INIT_OQ = 1'b0;
-    parameter [0:0] INIT_TQ = 1'b0;
-    parameter [0:0] IS_CLKDIV_INVERTED = 1'b0;
-    parameter [0:0] IS_CLK_INVERTED = 1'b0;
-    parameter [0:0] IS_D1_INVERTED = 1'b0;
-    parameter [0:0] IS_D2_INVERTED = 1'b0;
-    parameter [0:0] IS_D3_INVERTED = 1'b0;
-    parameter [0:0] IS_D4_INVERTED = 1'b0;
-    parameter [0:0] IS_D5_INVERTED = 1'b0;
-    parameter [0:0] IS_D6_INVERTED = 1'b0;
-    parameter [0:0] IS_D7_INVERTED = 1'b0;
-    parameter [0:0] IS_D8_INVERTED = 1'b0;
-    parameter [0:0] IS_T1_INVERTED = 1'b0;
-    parameter [0:0] IS_T2_INVERTED = 1'b0;
-    parameter [0:0] IS_T3_INVERTED = 1'b0;
-    parameter [0:0] IS_T4_INVERTED = 1'b0;
-    parameter SERDES_MODE = "MASTER";
-    parameter [0:0] SRVAL_OQ = 1'b0;
-    parameter [0:0] SRVAL_TQ = 1'b0;
-    parameter TBYTE_CTL = "FALSE";
-    parameter TBYTE_SRC = "FALSE";
-    parameter integer TRISTATE_WIDTH = 4;
-    output OFB;
-    output OQ;
-    output SHIFTOUT1;
-    output SHIFTOUT2;
-    output TBYTEOUT;
-    output TFB;
-    output TQ;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLK_INVERTED" *)
-    input CLK;
-    (* clkbuf_sink *)
-    (* invertible_pin = "IS_CLKDIV_INVERTED" *)
-    input CLKDIV;
-    (* invertible_pin = "IS_D1_INVERTED" *)
-    input D1;
-    (* invertible_pin = "IS_D2_INVERTED" *)
-    input D2;
-    (* invertible_pin = "IS_D3_INVERTED" *)
-    input D3;
-    (* invertible_pin = "IS_D4_INVERTED" *)
-    input D4;
-    (* invertible_pin = "IS_D5_INVERTED" *)
-    input D5;
-    (* invertible_pin = "IS_D6_INVERTED" *)
-    input D6;
-    (* invertible_pin = "IS_D7_INVERTED" *)
-    input D7;
-    (* invertible_pin = "IS_D8_INVERTED" *)
-    input D8;
-    input OCE;
-    input RST;
-    input SHIFTIN1;
-    input SHIFTIN2;
-    (* invertible_pin = "IS_T1_INVERTED" *)
-    input T1;
-    (* invertible_pin = "IS_T2_INVERTED" *)
-    input T2;
-    (* invertible_pin = "IS_T3_INVERTED" *)
-    input T3;
-    (* invertible_pin = "IS_T4_INVERTED" *)
-    input T4;
-    input TBYTEIN;
-    input TCE;
 endmodule
 
 (* keep *)
@@ -7904,17 +7811,6 @@ module IOBUFDSE3 (...);
     input [3:0] OSC;
     input [1:0] OSC_EN;
     input T;
-endmodule
-
-module OBUFDS (...);
-    parameter CAPACITANCE = "DONT_CARE";
-    parameter IOSTANDARD = "DEFAULT";
-    parameter SLEW = "SLOW";
-    (* iopad_external_pin *)
-    output O;
-    (* iopad_external_pin *)
-    output OB;
-    input I;
 endmodule
 
 module OBUFDS_DPHY (...);
