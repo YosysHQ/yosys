@@ -81,6 +81,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 		}
 	}
 
+	int count = 0;
 	// compare against double best score for following comparisons so we don't
 	// pre-empt a future iteration
 	best_name.score *= 2;
@@ -91,6 +92,7 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 		IdString n = module->uniquify(IdString(it.second.name));
 		log_debug("Rename cell %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
+		count++;
 	}
 
 	for (auto &it : proposed_wire_names) {
@@ -99,9 +101,10 @@ int autoname_worker(Module *module, const dict<Wire*, unsigned int>& wire_score)
 		IdString n = module->uniquify(IdString(it.second.name));
 		log_debug("Rename wire %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
+		count++;
 	}
 
-	return proposed_cell_names.size() + proposed_wire_names.size();
+	return count;
 }
 
 struct AutonamePass : public Pass {

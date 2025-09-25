@@ -18,6 +18,7 @@ module \top
 end
 EOT
 logger -expect log "Rename cell .name in top to y_.and_Y" 1
+logger -expect log "Renamed 1 objects" 1
 debug autoname
 logger -check-expected
 
@@ -42,6 +43,7 @@ module \top
 end
 EOT
 logger -expect log "Rename cell .name in top to ab_.or_A" 1
+logger -expect log "Renamed 1 objects" 1
 debug autoname
 logger -check-expected
 
@@ -78,6 +80,7 @@ end
 EOT
 logger -expect log "Rename cell .name in top to bcd_.and_B" 1
 logger -expect log "Rename cell .name2 in top to c_has_a_long_name_.or_B" 1
+logger -expect log "Renamed 2 objects" 1
 debug autoname
 logger -check-expected
 
@@ -113,6 +116,7 @@ end
 EOT
 logger -expect log "Rename cell .name in top to y_.and_Y" 1
 logger -expect log "Rename cell .name2 in top to y_.and_Y_1" 1
+logger -expect log "Renamed 2 objects" 1
 debug autoname
 logger -check-expected
 
@@ -174,6 +178,7 @@ EOT
 # wires are named for being cell outputs
 logger -expect log "Rename wire .d in top to or_Y" 1
 logger -expect log "Rename cell .name2 in top to or_Y_.or_B" 1
+logger -expect log "Renamed 2 objects" 1
 debug autoname t:$or
 logger -check-expected
 
@@ -186,5 +191,6 @@ logger -expect log "Rename cell .name3 in top to or_Y_.or_B_Y_.and_B" 1
 # $c gets shortest name, since the cell driving it doesn't have known port
 # directions
 logger -expect log "Rename wire .c in top to or_Y_.or_B_A" 1
+logger -expect log "Renamed 4 objects" 1
 debug autoname
 logger -check-expected
