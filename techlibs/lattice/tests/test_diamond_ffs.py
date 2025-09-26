@@ -77,6 +77,6 @@ end
 	print("    endtask", file=f)
 	print("endmodule", file=f)
 
-diamond_models = "/usr/local/diamond/3.10_x64/cae_library/simulation/verilog/ecp5u"
-subprocess.call(["iverilog", "-s", "testbench", "-o", "work_ff/testbench", "-Dmixed_hdl", "-DNO_INCLUDES", "-y", diamond_models, "work_ff/cells_ff_gate.v", "../cells_sim.v", "work_ff/testbench.v"])
+diamond_models = "/usr/local/diamond/3.12/cae_library/simulation/verilog/ecp5u"
+subprocess.call(["iverilog", "-s", "testbench", "-o", "work_ff/testbench", "-Dmixed_hdl", "-DNO_INCLUDES", "-I..", "-y", diamond_models, "work_ff/cells_ff_gate.v", "../cells_sim_ecp5.v", "work_ff/testbench.v"])
 subprocess.call(["vvp", "work_ff/testbench"])

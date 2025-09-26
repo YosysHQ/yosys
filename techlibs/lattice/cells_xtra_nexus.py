@@ -280,7 +280,7 @@ if __name__ == '__main__':
     for device, cells in devices:
         xtract_cells_decl(device, cells, dirs, out)
 
-    with open('cells_xtra.v', 'w') as f:
-        f.write('// Created by cells_xtra.py from Lattice models\n')
+    with open('cells_bb_nexus.v', 'w') as f:
+        f.write('// Created by cells_xtra_nexus.py from Lattice models\n')
         f.write('\n')
         f.write(out.getvalue())
