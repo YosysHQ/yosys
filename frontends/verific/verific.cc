@@ -1649,7 +1649,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						if (*ascii_initdata == 0)
 							break;
 						if (*ascii_initdata == '0' || *ascii_initdata == '1') {
-							initval.bits()[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
+							initval.to_bits()[bit_idx] = (*ascii_initdata == '0') ? State::S0 : State::S1;
 							initval_valid = true;
 						}
 						ascii_initdata++;
@@ -1773,9 +1773,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 					if (init_nets.count(net)) {
 						if (init_nets.at(net) == '0')
-							initval.bits().at(bitidx) = State::S0;
+							initval.to_bits().at(bitidx) = State::S0;
 						if (init_nets.at(net) == '1')
-							initval.bits().at(bitidx) = State::S1;
+							initval.to_bits().at(bitidx) = State::S1;
 						initval_valid = true;
 						init_nets.erase(net);
 					}
@@ -1849,12 +1849,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			initval = bit.wire->attributes.at(ID::init);
 
 		while (GetSize(initval) < GetSize(bit.wire))
-			initval.bits().push_back(State::Sx);
+			initval.to_bits().push_back(State::Sx);
 
 		if (it.second == '0')
-			initval.bits().at(bit.offset) = State::S0;
+			initval.to_bits().at(bit.offset) = State::S0;
 		if (it.second == '1')
-			initval.bits().at(bit.offset) = State::S1;
+			initval.to_bits().at(bit.offset) = State::S1;
 
 		bit.wire->attributes[ID::init] = initval;
 	}
@@ -2041,7 +2041,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			}
 
 			Const qx_init = Const(State::S1, width);
-			qx_init.bits().resize(2 * width, State::S0);
+			qx_init.to_bits().resize(2 * width, State::S0);
 
 			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, qx_init);
 			module->addXnor(new_verific_id(inst), sig_dx, sig_qx, sig_ox);
@@ -2306,7 +2306,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					continue;
 
 				if (non_ff_bits.count(SigBit(wire, i)))
-					initval.bits()[i] = State::Sx;
+					initval.to_bits()[i] = State::Sx;
 			}
 
 			if (wire->port_input) {
@@ -2493,7 +2493,7 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 				if (c.wire && c.wire->attributes.count(ID::init)) {
 					Const val = c.wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(c); i++)
-						initval.bits()[offset+i] = val[c.offset+i];
+						initval.to_bits()[offset+i] = val[c.offset+i];
 				}
 				offset += GetSize(c);
 			}
@@ -2564,7 +2564,7 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 			if (c.wire && c.wire->attributes.count(ID::init)) {
 				Const val = c.wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(c); i++)
-					initval.bits()[offset+i] = val[c.offset+i];
+					initval.to_bits()[offset+i] = val[c.offset+i];
 			}
 			offset += GetSize(c);
 		}
