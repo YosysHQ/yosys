@@ -3219,6 +3219,8 @@ endmodule
 
 // --------------------------------------------------------
 //* group wire
+`ifndef SIMLIB_NOCONNECT
+
 module \$connect (A, B);
 
 parameter WIDTH = 0;
@@ -3230,6 +3232,7 @@ tran connect[WIDTH-1:0] (A, B);
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 //* group wire
 module \$input_port (Y);
