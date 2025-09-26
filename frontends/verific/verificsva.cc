@@ -124,6 +124,7 @@ struct SvaFsm
 {
 	Module *module;
 	VerificClocking clocking;
+	std::function<void (std::string)> parser_error;
 
 	SigBit trigger_sig = State::S1, disable_sig;
 	SigBit throughout_sig = State::S1;
@@ -148,6 +149,7 @@ struct SvaFsm
 		module = clking.module;
 		clocking = clking;
 		trigger_sig = trig;
+		parser_error = [](std::string msg){ log_error("%s", msg); };
 
 		startNode = createNode();
 		acceptNode = createNode();
@@ -475,8 +477,8 @@ struct SvaFsm
 				dump();
 				log("      ctrl signal: %s\n", log_signal(dnode.ctrl));
 			}
-			log_error("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
-					GetSize(dnode.ctrl), verific_sva_fsm_limit);
+			parser_error(stringf("SVA DFSM state ctrl signal has %d (>%d) bits. Stopping to prevent exponential design size explosion.\n",
+					GetSize(dnode.ctrl), verific_sva_fsm_limit));
 		}
 
 		for (unsigned long long i = 0; i < (1ull << GetSize(dnode.ctrl)); i++)
@@ -1260,6 +1262,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_FIRST_MATCH)
 		{
 			SvaFsm match_fsm(clocking);
+			match_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			match_fsm.createLink(parse_sequence(match_fsm, match_fsm.createStartNode(), inst->GetInput()), match_fsm.acceptNode);
 
 			int node = fsm.createNode();
@@ -1426,12 +1429,15 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_SEQ_AND || inst->Type() == PRIM_SVA_AND)
 		{
 			SvaFsm fsm1(clocking);
+			fsm1.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm1.createLink(parse_sequence(fsm1, fsm1.createStartNode(), inst->GetInput1()), fsm1.acceptNode);
 
 			SvaFsm fsm2(clocking);
+			fsm2.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm2.createLink(parse_sequence(fsm2, fsm2.createStartNode(), inst->GetInput2()), fsm2.acceptNode);
 
 			SvaFsm combined_fsm(clocking);
+			combined_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			fsm1.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
 			fsm2.getDFsm(combined_fsm, combined_fsm.createStartNode(), -1, combined_fsm.acceptNode);
 
@@ -1456,6 +1462,7 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_INTERSECT || inst->Type() == PRIM_SVA_WITHIN)
 		{
 			SvaFsm intersect_fsm(clocking);
+			intersect_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 
 			if (inst->Type() == PRIM_SVA_INTERSECT)
 			{
@@ -1562,6 +1569,7 @@ struct VerificSvaImporter
 			int node;
 
 			SvaFsm antecedent_fsm(clocking, trig);
+			antecedent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION) {
 				int next_node = antecedent_fsm.createNode();
@@ -1623,6 +1631,7 @@ struct VerificSvaImporter
 			int node;
 
 			SvaFsm antecedent_fsm(clocking, trig);
+			antecedent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(antecedent_fsm, antecedent_fsm.createStartNode(), antecedent_net);
 			if (inst->Type() == PRIM_SVA_NON_OVERLAPPED_IMPLICATION || inst->Type() == PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY) {
 				int next_node = antecedent_fsm.createNode();
@@ -1677,6 +1686,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm consequent_fsm(clocking, antecedent_match);
+			consequent_fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			node = parse_sequence(consequent_fsm, consequent_fsm.createStartNode(), consequent_net);
 			consequent_fsm.createLink(node, consequent_fsm.acceptNode);
 
@@ -1696,6 +1706,7 @@ struct VerificSvaImporter
 			}
 
 			SvaFsm fsm(clocking, trig);
+			fsm.parser_error = [&](std::string msg) { this->parser_error(msg); };
 			int node = parse_sequence(fsm, fsm.createStartNode(), net);
 			fsm.createLink(node, fsm.acceptNode);
 
@@ -1712,6 +1723,10 @@ struct VerificSvaImporter
 	{
 		module = importer->module;
 		netlist = root->Owner();
+
+		int initial_cell_count = GetSize(module->cells_);
+		int initial_wire_count = GetSize(module->wires_);
+		int initial_connection_count = GetSize(module->connections_);
 
 		if (verific_verbose)
 			log("  importing SVA property at root cell %s (%s) at %s:%d.\n", root->Name(), root->View()->Owner()->Name(),
@@ -1837,6 +1852,21 @@ struct VerificSvaImporter
 		catch (ParserErrorException)
 		{
 			if (importer->mode_sva_continue) {
+
+				std::vector<Cell *> remove_cells;
+				pool<Wire *> remove_wires;
+
+				for (int i = 0, end = GetSize(module->cells_) - initial_cell_count; i != end; ++i)
+					remove_cells.push_back(module->cells_.element(i)->second);
+
+				for (int i = 0, end = GetSize(module->wires_) - initial_wire_count; i != end; ++i)
+					remove_wires.emplace(module->wires_.element(i)->second);
+
+				for (auto cell : remove_cells)
+					module->remove(cell);
+				module->remove(remove_wires);
+
+				module->connections_.resize(initial_connection_count);
 
 				RTLIL::Cell *c = nullptr;
 

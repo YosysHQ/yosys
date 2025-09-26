@@ -1,0 +1,31 @@
+verific -sv <<EOF
+module top(input clk, input a, input b);
+
+    prop_supported1: assert property (@(posedge clk) a ##1 b |=> b);
+
+    prop_exploding: assert property (@(posedge clk)
+        ((a [*7] ##1 b)  [*11]) and
+        ((a [*11] ##1 b) [*7]) and
+        ((a [*13] ##1 b) [*5]) and
+        ((a [*5] ##1 b) [*13])
+    );
+
+    prop_supported2: assert property (@(posedge clk) a [*5] ##1 b |=> b);
+
+endmodule
+EOF
+
+logger -expect warning "Stopping to prevent exponential design size explosion." 1
+verific -import -sva-continue-on-err top
+logger -check-expected
+
+select -assert-count 3 top/t:$assert
+select -assert-count 1 top/a:unsupported_sva top/prop_exploding %% top/t:$assert %i
+
+select -assert-count 0 top/a:unsupported_sva top/prop_supported1 %i
+select -assert-count 0 top/a:unsupported_sva top/prop_supported2 %i
+select -assert-count 2 top/prop_supported*
+
+logger -expect error "uses unsupported SVA constructs." 1
+hierarchy -smtcheck -top top
+logger -check-expected
