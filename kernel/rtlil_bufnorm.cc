@@ -43,6 +43,7 @@ void RTLIL::Design::bufNormalize(bool enable)
 				wire->driverCell_ = nullptr;
 				wire->driverPort_ = IdString();
 			}
+			module->buf_norm_connect_index.clear();
 		}
 
 		flagBufferedNormalized = false;
@@ -126,15 +127,19 @@ void RTLIL::Module::bufNormalize()
 		idict<Wire *> wire_queue_entries; // Ordered queue of wires to process
 		int wire_queue_pos = 0; // Index up to which we processed the wires
 
-		// Wires with their unique driving cell port. If we know a wire is
-		// driven by multiple (potential) drivers, this is indicated by a
-		// nullptr as cell.
+		// Wires with their unique driving cell port. We pick the first driver
+		// we encounter, with the exception that we ensure that a module input
+		// port can only get $input_port drivers and that $input_port drivers
+		// cannot drive any other modules. If we reject an $input_port driver
+		// because it's not driving an input port or because there already is
+		// another $input_port driver for the same port, we also delete that
+		// $input_port cell.
 		dict<Wire *, std::pair<Cell *, IdString>> direct_driven_wires;
 
-		// Set of non-unique or driving cell ports for each processed wire.
-		dict<Wire *, pool<std::pair<Cell *, IdString>>> direct_driven_wires_conflicts;
-
-		// Set of cell ports that need a fresh intermediate wire.
+		// Set of cell ports that need a fresh intermediate wire. These are all
+		// cell ports that drive non-full-wire sigspecs, cell ports driving
+		// module input ports, and cell ports driving wires that are already
+		// driven.
 		pool<std::pair<Cell *, IdString>> pending_ports;
 
 		// This helper will be called for every output/inout cell port that is
@@ -149,27 +154,14 @@ void RTLIL::Module::bufNormalize()
 
 
 			SigSpec const &sig = cell->getPort(port);
-			if (cell->type == ID($input_port)) {
-				// If an `$input_port` cell isn't fully connected to a full
-				// input port wire, we remove it since the wires are still the
-				// canonical source of module ports and the `$input_port` cells
-				// are just helpers to simplfiy the bufnorm invariant.
-				log_assert(port == ID::Y);
-				if (!sig.is_wire()) {
-					buf_norm_cell_queue.insert(cell);
-					remove(cell);
-					return;
-				}
 
-				Wire *w = sig.as_wire();
-				if (!w->port_input || w->port_output) {
-					buf_norm_cell_queue.insert(cell);
-					remove(cell);
-					return;
-				}
-				w->driverCell_ = cell;
-				w->driverPort_ = ID::Y;
-			} else if (cell->type == ID($buf) && cell->attributes.empty() && !cell->name.isPublic()) {
+			// Make sure all wires of the cell port are enqueued, ensuring we
+			// detect other connected drivers (output and inout).
+			for (auto chunk : sig.chunks())
+				if (chunk.is_wire())
+					wire_queue_entries(chunk.wire);
+
+			if (cell->type == ID($buf) && cell->attributes.empty() && !cell->name.isPublic()) {
 				// For a plain `$buf` cell, we enqueue all wires on its input
 				// side, bypass it using module level connections (skipping 'z
 				// bits) and then remove the cell. Eventually the module level
@@ -206,47 +198,40 @@ void RTLIL::Module::bufNormalize()
 
 				if (!sig_y.empty())
 					connect(sig_y, sig_a);
+				remove(cell);
+				log_assert(GetSize(buf_norm_wire_queue) <= 1);
+				buf_norm_wire_queue.clear();
+				return;
+			} else if (cell->type == ID($input_port)) {
+				log_assert(port == ID::Y);
+				if (sig.is_wire()) {
+					Wire *w = sig.as_wire();
+					if (w->port_input && !w->port_output) {
+						// An $input_port cell can only drive a full wire module input port
+						auto [found, inserted] = direct_driven_wires.emplace(w, {cell, port});
+						if (!inserted || (found->second.first == cell && found->second.second == port))
+							return;
+					}
+				}
+
+				// If an `$input_port` cell isn't driving a full
+				// input port wire, we remove it since the wires are still the
+				// canonical source of module ports
+
 				buf_norm_cell_queue.insert(cell);
 				remove(cell);
+				log_assert(GetSize(buf_norm_wire_queue) <= 1);
+				buf_norm_wire_queue.clear();
 				return;
 			}
 
-			// Make sure all wires of the cell port are enqueued, ensuring we
-			// detect other connected drivers (output and inout).
-			for (auto const &chunk : sig.chunks())
-				if (chunk.wire)
-					wire_queue_entries(chunk.wire);
-
 			if (sig.is_wire()) {
-				// If the full cell port is connected to a full wire, we might be
-				// able to keep that connection if this is a unique output port driving that wire
 				Wire *w = sig.as_wire();
-
-				// We try to store the current port as unique driver, if this
-				// succeeds we're done with the port.
-				auto [found, inserted] = direct_driven_wires.emplace(w, {cell, port});
-				if (inserted || (found->second.first == cell && found->second.second == port))
-					return;
-
-				// When this failed, we store this port as a conflict. If we
-				// had already stored a candidate for a unique driver, we also
-				// move it to the conflicts, leaving a nullptr marker.
-
-				auto &conflicts = direct_driven_wires_conflicts[w];
-				if (Cell *other_cell = found->second.first) {
-					if (other_cell->type == ID($input_port)) {
-						// Multiple input port cells
-						log_assert(cell->type != ID($input_port));
-					} else {
-						pending_ports.insert(found->second);
-						conflicts.emplace(found->second);
-						found->second = {nullptr, {}};
-					}
-				}
-				if (cell->type == ID($input_port)) {
-					found->second = {cell, port};
-				} else {
-					conflicts.emplace(cell, port);
+				if (!w->port_input || w->port_output) {
+					// If the full cell port is connected to a full non-input-port wire, pick it as driver
+					auto [found, inserted] = direct_driven_wires.emplace(w, {cell, port});
+					if (inserted || (found->second.first == cell && found->second.second == port))
+						return;
 				}
 			}
 
@@ -256,15 +241,21 @@ void RTLIL::Module::bufNormalize()
 			pending_ports.emplace(cell, port);
 		};
 
+		// We enqueue all enqueued wires for `$buf`/`$connect` processing (clearing the module level queue).
+		for (auto wire : buf_norm_wire_queue)
+			wire_queue_entries(wire);
+		buf_norm_wire_queue.clear();
+
+		// Only after clearing the `buf_norm_wire_queue` are we allowed to call
+		// enqueue_cell_port, since we're using assertions to check against
+		// unintended wires being enqueued into `buf_norm_wire_queue` that
+		// would prevent us from restoring the bufnorm invariants in a single
+		// pass.
+
 		// We process all explicitly enqueued cell ports (clearing the module level queue).
 		for (auto const &[cell, port_name] : buf_norm_cell_port_queue)
 			enqueue_cell_port(cell, port_name);
 		buf_norm_cell_port_queue.clear();
-
-		// And enqueue all wires for `$buf`/`$connect` processing (clearing the module level queue).
-		for (auto wire : buf_norm_wire_queue)
-			wire_queue_entries(wire);
-		buf_norm_wire_queue.clear();
 
 		// We also enqueue all wires that saw newly added module level connections.
 		for (auto &[a, b] : connections_)
@@ -302,8 +293,11 @@ void RTLIL::Module::bufNormalize()
 							if (chunk.wire)
 								wire_queue_entries(chunk.wire);
 					connect(sig_a, sig_b);
+
 					buf_norm_cell_queue.insert(connect_cell);
 					remove(connect_cell);
+					log_assert(GetSize(buf_norm_wire_queue) <= 2);
+					buf_norm_wire_queue.clear();
 				}
 			}
 		}
@@ -315,6 +309,9 @@ void RTLIL::Module::bufNormalize()
 		// As a first step for re-normalization we add all require intermediate
 		// wires for cell output and inout ports.
 		for (auto &[cell, port] : pending_ports) {
+			log_assert(cell->type != ID($input_port));
+			log_assert(!cell->type.empty());
+			log_assert(!pending_deleted_cells.count(cell));
 			SigSpec const &sig = cell->getPort(port);
 			Wire *w = addWire(NEW_ID, GetSize(sig));
 
@@ -323,16 +320,9 @@ void RTLIL::Module::bufNormalize()
 			// correspond to what you would get if the intermediate wires had
 			// been in place from the beginning.
 			connect(sig, w);
-			auto port_dir = cell->port_dir(port);
-			if (port_dir == RTLIL::PD_INOUT || port_dir == RTLIL::PD_UNKNOWN) {
-				direct_driven_wires.emplace(w, {nullptr, {}});
-				direct_driven_wires_conflicts[w].emplace(cell, port);
-			} else {
-				direct_driven_wires.emplace(w, {cell, port});
-			}
-
-			cell->setPort(port, w);
-			wire_queue_entries(w);
+			direct_driven_wires.emplace(w, {cell, port});
+			cell->setPort(port, w); // Hits the fast path that doesn't enqueue w
+			wire_queue_entries(w); // Needed so we pick up the sig <-> w connection
 		}
 
 		// At this point we're done with creating wires and know which ones are
@@ -346,7 +336,7 @@ void RTLIL::Module::bufNormalize()
 			wire->driverPort_.clear();
 		}
 
-		// For the unique output cell ports fully connected to a full wire, we
+		// For the unique driving cell ports fully connected to a full wire, we
 		// can update the bufnorm data right away. For all other wires we will
 		// have to create new `$buf` cells.
 		for (auto const &[wire, cellport] : direct_driven_wires) {
@@ -373,54 +363,55 @@ void RTLIL::Module::bufNormalize()
 		SigMap sigmap(this);
 		new_connections({});
 
-		pool<SigBit> conflicted;
-		pool<SigBit> driven;
-
-		// We iterate over all direct driven wires and try to make that wire's
-		// sigbits the representative sigbit for the net. We do a second pass
-		// to detect conflicts to then remove the conflicts from `driven`.
-		for (bool check : {false, true}) {
+		// We pick SigMap representatives by prioritizing input ports over
+		// driven wires over other/unknown wires.
+		for (bool input_ports : {false, true}) {
 			for (auto const &[wire, cellport] : direct_driven_wires) {
-				if (cellport.first == nullptr)
-					continue;
-				auto const &[cell, port] = cellport;
-
-				SigSpec z_mask;
-				if (cell->type == ID($buf))
-					z_mask = cell->getPort(ID::A);
-
-				for (int i = 0; i != GetSize(wire); ++i) {
-					SigBit driver = SigBit(wire, i);
-					if (!z_mask.empty() && z_mask[i] == State::Sz)
-						continue;
-					if (check) {
-						SigBit repr = sigmap(driver);
-						if (repr != driver)
-							conflicted.insert(repr);
-						else
-							driven.insert(repr);
-					} else {
+				if ((wire->port_input && !wire->port_output) == input_ports) {
+					for (int i = 0; i != GetSize(wire); ++i) {
+						SigBit driver = SigBit(wire, i);
 						sigmap.database.promote(driver);
 					}
 				}
 			}
 		}
 
-		// Ensure that module level inout ports are directly driven or
-		// connected using `$connect` cells and never `$buf`fered.
-		for (auto wire : wire_queue_entries) {
-			if (!wire->port_input || !wire->port_output)
-				continue;
+		// All three pool<SigBit> below are in terms of sigmapped bits
+		// Bits that are known to have a unique driver that is an unconditional driver or one or more inout drivers
+		pool<SigBit> driven;
+		// Bits that have multiple unconditional drivers, this forces the use of `$connect`
+		pool<SigBit> conflicted;
+		// Bits that are driven by an inout driver
+		pool<SigBit> weakly_driven;
+
+		for (auto const &[wire, cellport] : direct_driven_wires) {
+			auto const &[cell, port] = cellport;
 			for (int i = 0; i != GetSize(wire); ++i) {
-				SigBit driver = SigBit(wire, i);
-				SigBit repr = sigmap(driver);
-				if (driver != repr)
-					driven.erase(repr);
+				SigBit driver = sigmap(SigBit(wire, i));
+				if (cell->type == ID($tribuf) || cell->port_dir(port) == RTLIL::PD_INOUT) {
+					// We add inout drivers to `driven` in a separate loop below
+					weakly_driven.insert(driver);
+				} else {
+					// We remove driver conflicts from `driven` in a separate loop below
+					bool inserted = driven.insert(driver).second;
+					if (!inserted)
+						conflicted.insert(driver);
+				}
 			}
 		}
 
-		for (auto &bit : conflicted)
-			driven.erase(bit);
+		// If a wire has one or more inout drivers and an unconditional driver, that's still a conflict
+		for (auto driver : weakly_driven)
+			if (!driven.insert(driver).second)
+				conflicted.insert(driver);
+
+		// This only leaves the drivers matching `driven`'s definition above
+		for (auto driver : conflicted)
+			driven.erase(driver);
+
+		// Having picked representatives and checked whether they are unique
+		// drivers, we can turn the connecitivty of our sigmap back into $buf
+		// and $connect cells.
 
 		// Module level bitwise connections not representable by `$buf` cells
 		pool<pair<SigBit, SigBit>> undirected_connections;
@@ -561,6 +552,8 @@ void RTLIL::Cell::unsetPort(const RTLIL::IdString& portname)
 					w->driverCell_ = nullptr;
 					w->driverPort_ = IdString();
 					module->buf_norm_wire_queue.insert(w);
+				} else if (w->driverCell_) {
+					log_assert(w->driverCell_->getPort(w->driverPort_) == w);
 				}
 			}
 
@@ -630,7 +623,8 @@ void RTLIL::Cell::setPort(const RTLIL::IdString& portname, RTLIL::SigSpec signal
 		// bufNormalize call
 		if ((dir == RTLIL::PD_OUTPUT || dir == RTLIL::PD_INOUT) && signal.is_wire()) {
 			Wire *w = signal.as_wire();
-			if (w->driverCell_ == nullptr) {
+			if (w->driverCell_ == nullptr && (
+						(w->port_input && !w->port_output) == (type == ID($input_port)))) {
 				w->driverCell_ = this;
 				w->driverPort_ = portname;
 

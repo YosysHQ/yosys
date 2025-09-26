@@ -635,9 +635,17 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		}
 	}
 	for (auto cell : delcells) {
-		if (verbose)
-			log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
-					log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
+		if (verbose) {
+			if (cell->type == ID($connect))
+				log_debug("  removing connect cell `%s': %s <-> %s\n", cell->name,
+						log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
+			else if (cell->type == ID($input_port))
+				log_debug("  removing input port marker cell `%s': %s\n", cell->name,
+						log_signal(cell->getPort(ID::Y)));
+			else
+				log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
+						log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
+		}
 		module->remove(cell);
 	}
 	if (!delcells.empty())
