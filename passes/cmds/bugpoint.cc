@@ -149,9 +149,6 @@ struct BugpointPass : public Pass {
 		if (grep.empty())
 			return true;
 
-		if (grep.size() > 2 && grep.front() == '"' && grep.back() == '"')
-			grep = grep.substr(1, grep.size() - 2);
-
 		string bugpoint_file = "bugpoint-case";
 		if (suffix.size())
 			bugpoint_file += stringf(".%.8s", suffix);
