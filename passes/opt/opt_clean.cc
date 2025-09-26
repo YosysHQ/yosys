@@ -29,8 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using RTLIL::id2cstr;
-
 struct keep_cache_t
 {
 	Design *design;

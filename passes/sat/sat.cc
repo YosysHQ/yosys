@@ -227,16 +227,16 @@ struct SatHelper
 		int import_cell_counter = 0;
 		for (auto cell : module->cells())
 			if (design->selected(module, cell)) {
-				// log("Import cell: %s\n", RTLIL::id2cstr(cell->name));
+				// log("Import cell: %s\n", log_id(cell->name));
 				if (satgen.importCell(cell, timestep)) {
 					for (auto &p : cell->connections())
 						if (ct.cell_output(cell->type, p.first))
 							show_drivers.insert(sigmap(p.second), cell);
 					import_cell_counter++;
 				} else if (ignore_unknown_cells)
-					log_warning("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+					log_warning("Failed to import cell %s (type %s) to SAT database.\n", log_id(cell->name), log_id(cell->type));
 				else
-					log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+					log_error("Failed to import cell %s (type %s) to SAT database.\n", log_id(cell->name), log_id(cell->type));
 		}
 		log("Imported %d cells to SAT database.\n", import_cell_counter);
 
