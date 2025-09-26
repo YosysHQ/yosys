@@ -107,6 +107,7 @@ struct WreduceWorker
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->connect(sig_y, sig_removed);
 			module->remove(cell);
+			mi.notify_blackout(module);
 			return;
 		}
 
@@ -136,8 +137,12 @@ struct WreduceWorker
 		cell->setPort(ID::B, new_sig_b);
 		cell->setPort(ID::Y, new_sig_y);
 		cell->fixup_parameters();
+		mi.notify_connect(cell, ID::A, sig_a, new_sig_a);
+		mi.notify_connect(cell, ID::B, sig_b, new_sig_b);
+		mi.notify_connect(cell, ID::Y, sig_y, new_sig_y);
 
 		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
+		mi.notify_connect(module, SigSig(sig_y.extract(n_kept, n_removed), sig_removed));
 	}
 
 	void run_cell_dff(Cell *cell)
@@ -146,6 +151,8 @@ struct WreduceWorker
 
 		SigSpec sig_d = mi.sigmap(cell->getPort(ID::D));
 		SigSpec sig_q = mi.sigmap(cell->getPort(ID::Q));
+		SigSpec sig_d_orig = mi.sigmap(cell->getPort(ID::D));
+		SigSpec sig_q_orig = mi.sigmap(cell->getPort(ID::Q));
 		bool has_reset = false;
 		Const initval = initvals(sig_q), rst_value;
 
@@ -170,6 +177,7 @@ struct WreduceWorker
 			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || (!config->keepdc && initval[i] == State::Sx)) &&
 					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || (!config->keepdc && rst_value[i] == State::Sx))) {
 				module->connect(sig_q[i], State::S0);
+				mi.notify_connect(module, SigSig(sig_q[i], State::S0));
 				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
@@ -179,6 +187,7 @@ struct WreduceWorker
 			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] && (!config->keepdc || initval[i] != State::Sx) &&
 					(!has_reset || i >= GetSize(rst_value) || (rst_value[i] == rst_value[i-1] && (!config->keepdc || rst_value[i] != State::Sx)))) {
 				module->connect(sig_q[i], sig_q[i-1]);
+				mi.notify_connect(module, SigSig(sig_q[i], sig_q[i-1]));
 				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
@@ -206,6 +215,7 @@ struct WreduceWorker
 		if (GetSize(sig_q) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
+			mi.notify_blackout(module);
 			return;
 		}
 
@@ -230,11 +240,14 @@ struct WreduceWorker
 		cell->setPort(ID::D, sig_d);
 		cell->setPort(ID::Q, sig_q);
 		cell->fixup_parameters();
+		mi.notify_connect(cell, ID::D, sig_d_orig, sig_d);
+		mi.notify_connect(cell, ID::Q, sig_q_orig, sig_q);
 	}
 
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
 	{
 		port_signed = cell->getParam(stringf("\\%c_SIGNED", port)).as_bool();
+		SigSpec sig_orig = mi.sigmap(cell->getPort(stringf("\\%c", port)));
 		SigSpec sig = mi.sigmap(cell->getPort(stringf("\\%c", port)));
 
 		if (port == 'B' && cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr)))
@@ -260,6 +273,7 @@ struct WreduceWorker
 			log_debug("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(stringf("\\%c", port), sig);
+			mi.notify_connect(cell, stringf("\\%c", port), sig_orig, sig);
 			did_something = true;
 		}
 	}
@@ -291,6 +305,7 @@ struct WreduceWorker
 			return run_cell_dff(cell);
 
 		SigSpec sig = mi.sigmap(cell->getPort(ID::Y));
+		SigSpec sig_orig = mi.sigmap(cell->getPort(ID::Y));
 
 		if (sig.has_const())
 			return;
@@ -427,12 +442,14 @@ struct WreduceWorker
 
 				SigBit padbit = is_signed ? sig[GetSize(sig)-1] : State::S0;
 				module->connect(extra_bits, SigSpec(padbit, GetSize(extra_bits)));
+				mi.notify_connect(module, SigSig(extra_bits, SigSpec(padbit, GetSize(extra_bits))));
 			}
 		}
 
 		if (GetSize(sig) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
+			mi.notify_blackout(module);
 			return;
 		}
 
@@ -440,6 +457,7 @@ struct WreduceWorker
 			log_debug("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(ID::Y, sig);
+			mi.notify_connect(cell, ID::Y, sig_orig, sig);
 			did_something = true;
 		}
 
@@ -563,7 +581,7 @@ struct WreduceWorker
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
-			mi.reload_module(); // TODO: SILIMATE: CAN WE SPEED THIS UP?
+			mi.notify_blackout(module);
 		}
 	}
 };

@@ -70,7 +70,8 @@
     "valarray": "cpp",
     "variant": "cpp",
     "algorithm": "cpp",
-    "*.inc": "cpp"
+    "*.inc": "cpp",
+    "tuple": "cpp"
   },
   "cmake.sourceDirectory": "/Users/akashlevy/Documents/preqorsor/third_party/yosys/abc"
 }
