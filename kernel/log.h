@@ -94,8 +94,15 @@ YOSYS_NAMESPACE_BEGIN
 
 struct log_cmd_error_exception { };
 
+enum LogSeverity {
+	LOG_INFO,
+	LOG_WARNING,
+	LOG_ERROR
+};
+
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
+extern std::vector<std::ostream*> log_warning_streams;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -132,12 +139,10 @@ static inline bool ys_debug(int = 0) { return false; }
 #endif
 #  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
-void log_formatted_string(std::string_view format, std::string str);
+void log_formatted_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO);
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	if (log_make_debug && !ys_debug(1))
-		return;
 	log_formatted_string(fmt.format_string(), fmt.format(args...));
 }
 
