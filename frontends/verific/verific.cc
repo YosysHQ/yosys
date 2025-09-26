@@ -200,8 +200,8 @@ YosysStreamCallBackHandler verific_read_cb;
 
 // ==================================================================
 
-VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
-		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva),
+VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_sva_continue, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
+		mode_gates(mode_gates), mode_keep(mode_keep), mode_nosva(mode_nosva), mode_sva_continue(mode_sva_continue),
 		mode_names(mode_names), mode_verific(mode_verific), mode_autocover(mode_autocover),
 		mode_fullinit(mode_fullinit)
 {
@@ -2316,6 +2316,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				wire->attributes.erase(ID::init);
 		}
 	}
+
+	if (num_sva_continue) {
+		log_warning("Encountered %d items containing unsupported SVA!\n", num_sva_continue);
+		log_warning("Unsupported SVA imported as 'x and marked using the `unsupported_sva' attribute due to -sva-continue-on-err.\n");
+	}
+	num_sva_continue = 0;
 }
 
 // ==================================================================
@@ -3051,7 +3057,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		auto it = nl_todo.begin();
 		Netlist *nl = it->second;
 		if (nl_done.count(it->first) == 0) {
-			VerificImporter importer(false, false, false, false, false, false, false);
+			VerificImporter importer(false, false, false, false, false, false, false, false);
 			nl_done[it->first] = it->second;
 			importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
 		}
@@ -3287,6 +3293,11 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("  -nosva\n");
 		log("    Ignore SVA properties, do not infer checker logic.\n");
+		log("\n");
+		log("  -sva-continue-on-err\n");
+		log("    Turns unsupported SVA from an error into a warning. Properties are imported\n");
+		log("    with their trigger condition replaced with 'x and with an `unsupported_sva'\n");
+		log("    attribute to produce a later error in SBY if they remain in the design.\n");
 		log("\n");
 		log("  -L <int>\n");
 		log("    Maximum number of ctrl bits for SVA checker FSMs (default=16).\n");
@@ -4033,7 +4044,8 @@ struct VerificPass : public Pass {
 		{
 			std::map<std::string,Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
-			bool mode_nosva = false, mode_names = false, mode_verific = false;
+			bool mode_nosva = false, mode_sva_continue = false;
+			bool mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false, mode_cells = false;
 			bool split_complex_ports = true;
@@ -4069,6 +4081,10 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 				if (args[argidx] == "-nosva") {
 					mode_nosva = true;
+					continue;
+				}
+				if (args[argidx] == "-sva-continue-on-err") {
+					mode_sva_continue = true;
 					continue;
 				}
 				if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
@@ -4201,7 +4217,7 @@ struct VerificPass : public Pass {
 				auto it = nl_todo.begin();
 				Netlist *nl = it->second;
 				if (nl_done.count(it->first) == 0) {
-					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
+					VerificImporter importer(mode_gates, mode_keep, mode_nosva, mode_sva_continue,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
 					nl_done[it->first] = it->second;
 					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
