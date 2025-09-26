@@ -1162,7 +1162,7 @@ struct HierarchyPass : public Pass {
 					if (!src.empty())
 						src += ": ";
 
-					log_error("%sProperty `%s' in module `%s' uses unsupported SVA constructs. See frontend warnings for details, run `delete */a:unsupported_sva' to ignore.\n",
+					log_error("%sProperty `%s' in module `%s' uses unsupported SVA constructs. See frontend warnings for details, run `chformal -remove a:unsupported_sva' to ignore.\n",
 						src, log_id(cell->name), log_id(mod->name));
 				}
 			}
