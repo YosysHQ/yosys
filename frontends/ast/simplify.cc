@@ -30,6 +30,7 @@
 #include "libs/sha1/sha1.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "ast.h"
+#include "kernel/io.h"
 
 #include <sstream>
 #include <stdarg.h>
@@ -4474,12 +4475,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	std::ifstream f;
 	f.open(mem_filename.c_str());
 	if (f.fail()) {
-#ifdef _WIN32
-		char slash = '\\';
-#else
-		char slash = '/';
-#endif
-		std::string path = location.begin.filename->substr(0, location.begin.filename->find_last_of(slash)+1);
+		std::string path = parent_from_file_path(*location.begin.filename);
 		f.open(path + mem_filename.c_str());
 		yosys_input_files.insert(path + mem_filename);
 	} else {
