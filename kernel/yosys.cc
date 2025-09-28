@@ -198,6 +198,15 @@ bool already_shutdown = false;
 PYBIND11_MODULE(pyosys, m) {
 	m.add_object("__path__", py::list());
 }
+
+// Catch uses of 'import libyosys' which can import libyosys.so, causing a ton
+// of symbol collisions and overall weird behavior.
+//
+// This should not affect using wheels as the dylib has to actually be called
+// libyosys_dummy.so for this function to be interacted with at all.
+PYBIND11_MODULE(libyosys_dummy, _) {
+	throw py::import_error("Change your import from 'import libyosys' to 'from pyosys import libyosys'.");
+}
 #endif
 
 void yosys_setup()
@@ -217,6 +226,8 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"pyosys.libyosys", PyInit_libyosys);
 		// compatibility with wheels
 		PyImport_AppendInittab((char*)"pyosys", PyInit_pyosys);
+		// prevent catastrophes
+		PyImport_AppendInittab((char*)"libyosys", PyInit_libyosys_dummy);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
 		signal(SIGINT, SIG_DFL);

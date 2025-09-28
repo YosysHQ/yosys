@@ -95,8 +95,8 @@ void difference(C &lhs, const iterable &rhs) {
 template <typename C, typename T>
 void intersect(C &lhs, const iterable &rhs) {
 	// Doing it in-place is a lot slower
-	// TODO?: Leave modifying lhs to caller (saves a copy) but complicates
-	//        chaining intersections.
+	// TODO?: Leave modifying lhs to caller (saves a copy in some cases)
+	//        but complicates chaining intersections.
 	C storage(lhs);
 
 	for (auto &element_cxx: lhs) {
@@ -449,6 +449,13 @@ void bind_idict(module &m, const char *name_cstr) {
 	auto cls = class_<C>(m, name_cstr)
 		.def(init<>())
 		.def(init<const C &>()) // copy constructor
+		.def(init([](const iterable &other){ // copy instructor from arbitrary iterables
+			auto s = new C();
+			for (auto &e: other) {
+				(*s)(cast<K>(e));
+			}
+			return s;
+		}))
 		.def("__len__", [](const C &s){ return (size_t)s.size(); })
 		.def("__getitem__", [](const C &s, int v) { return s[v]; })
 		.def("__call__", [](C &s, const K &k) { return s(k); })
@@ -480,20 +487,20 @@ void bind_idict(module &m, const char *name_cstr) {
 		.def("items", [](args _){
 			throw type_error("idicts do not support pairwise iteration");
 		})
-		.def("update", [](C &s, iterable iterable) {
-			for (auto &e: iterable) {
+		.def("update", [](C &s, iterable other) {
+			for (auto &e: other) {
 				s(cast<K>(e));
 			}
 		})
-		.def("__or__", [](const C &s, iterable iterable) {
+		.def("__or__", [](const C &s, iterable other) {
 			auto result = new C(s);
-			for (auto &e: iterable) {
+			for (auto &e: other) {
 				(*result)(cast<K>(e));
 			}
 			return result;
 		})
-		.def("__ior__", [](C &s, iterable iterable) {
-			for (auto &e: iterable) {
+		.def("__ior__", [](C &s, iterable other) {
+			for (auto &e: other) {
 				s(cast<K>(e));
 			}
 			return s;

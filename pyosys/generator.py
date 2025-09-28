@@ -33,13 +33,13 @@ is a common problem. ``ruff check pyosys/generator.py`` suffices.
 import os
 import io
 import shutil
+import argparse
 from pathlib import Path
 from sysconfig import get_paths
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, Iterable, Tuple, Union, Optional, List
 
 import pybind11
-import argparse
 from cxxheaderparser.simple import parse_file, ClassScope, NamespaceScope, EnumDecl
 from cxxheaderparser.options import ParserOptions
 from cxxheaderparser.preprocessor import make_gcc_preprocessor
@@ -84,6 +84,7 @@ class PyosysClass:
     :param denylist: If specified, one or more methods can be excluded from
         wrapping.
     """
+
     name: str
     ref_only: bool = False
 
@@ -101,6 +102,7 @@ class PyosysHeader:
     :param classes: A list of ``PyosysClass`` classes to be wrapped
     :param enums: A list of enums to be wrapped
     """
+
     name: str
     classes: List[PyosysClass] = field(default_factory=lambda: [])
 
@@ -110,11 +112,13 @@ class PyosysHeader:
             for cls in classes:
                 self.classes_by_name[cls.name] = cls
 
+
 # MARK: Inclusion and Exclusion
 global_denylist = frozenset(
     {
         # deprecated
         "builtin_ff_cell_types",
+        "logv_file_error",
         # no implementation
         "set_verific_logging",
         # can't bridge to python cleanly
@@ -167,7 +171,11 @@ pyosys_headers = [
                     }
                 ),
             ),
-            PyosysClass("Const", string_expr="s.as_string()", denylist=frozenset({"bits", "bitvectorize"})),
+            PyosysClass(
+                "Const",
+                string_expr="s.as_string()",
+                denylist=frozenset({"bits", "bitvectorize"}),
+            ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
             PyosysClass("NamedObject", denylist=frozenset({"get_blackbox_attribute"})),
             PyosysClass("Selection"),
@@ -207,14 +215,13 @@ pyosys_headers = [
                 ref_only=True,
                 string_expr="s.name.c_str()",
                 hash_expr="s",
-                denylist=frozenset({"Pow"}), # has no implementation
+                denylist=frozenset({"Pow"}),  # has no implementation
             ),
             PyosysClass(
                 "Design",
-                ref_only=True,
                 string_expr="s.hashidx_",
                 hash_expr="s",
-                denylist=frozenset({"selected_whole_modules"}), # deprecated
+                denylist=frozenset({"selected_whole_modules"}),  # deprecated
             ),
         ],
     ),
@@ -227,6 +234,7 @@ class PyosysType:
     Bit of a hacky object all-around: this is more or less used to encapsulate
     container types so they can be later made opaque using pybind.
     """
+
     base: str
     specialization: Tuple["PyosysType", ...]
     const: bool = False
@@ -340,6 +348,10 @@ class PyosysWrapperGenerator(object):
                 f'\tpy::hashlib::bind_{container.base}<{", ".join(tpl_args)}>(m, "{container.generate_identifier()}");',
                 file=self.f_inc,
             )
+            print(
+                f"\tpy::implicitly_convertible<py::iterable, {identifier}>();",
+                file=self.f_inc,
+            )
         print(f"}}", file=self.f_inc)
 
     # helpers
@@ -414,14 +426,21 @@ class PyosysWrapperGenerator(object):
             self.found_containers.update(self.find_containers(supported, target.type))
 
     # processors
-    def get_overload_cast(self, function: Function, class_basename: Optional[str]) -> str:
+    def get_overload_cast(
+        self, function: Function, class_basename: Optional[str]
+    ) -> str:
         is_method = isinstance(function, Method)
         function_return_type = function.return_type.format()
-        if class_basename == "Const" and function_return_type in {"iterator", "const_iterator"}:
+        if class_basename == "Const" and function_return_type in {
+            "iterator",
+            "const_iterator",
+        }:
             # HACK: qualify Const's iterators
             function_return_type = f"{class_basename}::{function_return_type}"
 
-        pointer_kind = f"{class_basename}::*" if (is_method and not function.static) else "*"
+        pointer_kind = (
+            f"{class_basename}::*" if (is_method and not function.static) else "*"
+        )
 
         retval = f"static_cast <"
         retval += function_return_type
@@ -437,10 +456,17 @@ class PyosysWrapperGenerator(object):
         retval += ")"
         return retval
 
-    def get_definition_args(self, function: Function, class_basename: Optional[str], python_name_override: Optional[str] = None) -> List[str]:
+    def get_definition_args(
+        self,
+        function: Function,
+        class_basename: Optional[str],
+        python_name_override: Optional[str] = None,
+    ) -> List[str]:
         function_basename = function.name.segments[-1].format()
 
-        python_function_basename = python_name_override or keyword_aliases.get(function_basename, function_basename)
+        python_function_basename = python_name_override or keyword_aliases.get(
+            function_basename, function_basename
+        )
 
         def_args = [f'"{python_function_basename}"']
         def_args.append(self.get_overload_cast(function, class_basename))
@@ -453,7 +479,7 @@ class PyosysWrapperGenerator(object):
 
         return def_args
 
-    def process_method(self, function: Method, class_basename: str):
+    def process_method(self, metadata: PyosysClass, function: Method):
         if (
             function.deleted
             or function.template
@@ -473,10 +499,13 @@ class PyosysWrapperGenerator(object):
             return
 
         if function.constructor:
-            print(
-                f"\t\t\t.def(py::init<{self.get_parameter_types(function)}>())",
-                file=self.f,
-            )
+            if (
+                not metadata.ref_only
+            ):  # ref-only classes should not be constructed from python
+                print(
+                    f"\t\t\t.def(py::init<{self.get_parameter_types(function)}>())",
+                    file=self.f,
+                )
             return
 
         python_name_override = None
@@ -496,15 +525,13 @@ class PyosysWrapperGenerator(object):
         if function.static:
             definition_fn = "def_static"
 
-        print(f"\t\t\t.{definition_fn}({', '.join(self.get_definition_args(function, class_basename, python_name_override))})", file=self.f)
+        print(
+            f"\t\t\t.{definition_fn}({', '.join(self.get_definition_args(function, metadata.name, python_name_override))})",
+            file=self.f,
+        )
 
     def process_function(self, function: Function):
-        if (
-            function.deleted
-            or function.template
-            or function.vararg
-            or function.static
-        ):
+        if function.deleted or function.template or function.vararg or function.static:
             return
 
         if function.operator is not None:
@@ -516,9 +543,12 @@ class PyosysWrapperGenerator(object):
 
         self.register_containers(function)
 
-        print(f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});", file=self.f)
+        print(
+            f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});",
+            file=self.f,
+        )
 
-    def process_field(self, field: Field, class_basename: str):
+    def process_field(self, metadata: PyosysClass, field: Field):
         if field.access != "public":
             return
 
@@ -544,7 +574,7 @@ class PyosysWrapperGenerator(object):
         field_python_basename = keyword_aliases.get(field.name, field.name)
 
         print(
-            f'\t\t\t.{definition_fn}("{field_python_basename}", &{class_basename}::{field.name})',
+            f'\t\t\t.{definition_fn}("{field_python_basename}", &{metadata.name}::{field.name})',
             file=self.f,
         )
 
@@ -558,9 +588,13 @@ class PyosysWrapperGenerator(object):
 
         self.register_containers(variable)
 
-        definition_fn = f"def_{'readonly' if variable.type.const else 'readwrite'}_static"
+        definition_fn = (
+            f"def_{'readonly' if variable.type.const else 'readwrite'}_static"
+        )
 
-        variable_python_basename = keyword_aliases.get(variable_basename, variable_basename)
+        variable_python_basename = keyword_aliases.get(
+            variable_basename, variable_basename
+        )
         variable_name = variable.name.format()
 
         print(
@@ -569,21 +603,18 @@ class PyosysWrapperGenerator(object):
         )
 
     def process_class_members(
-        self,
-        metadata: PyosysClass,
-        cls: ClassScope,
-        basename: str
+        self, metadata: PyosysClass, cls: ClassScope, basename: str
     ):
         for method in cls.methods:
             if method.name.segments[-1].name in metadata.denylist:
                 continue
-            self.process_method(method, basename)
+            self.process_method(metadata, method)
 
         visited_anonymous_unions = set()
         for field_ in cls.fields:
             if field_.name in metadata.denylist:
                 continue
-            self.process_field(field_, basename)
+            self.process_field(metadata, field_)
 
             # Handle anonymous unions
             for subclass in cls.classes:
@@ -594,7 +625,7 @@ class PyosysWrapperGenerator(object):
                         continue
                     visited_anonymous_unions.add(au.id)
                     for subfield in subclass.fields:
-                        self.process_field(subfield, basename)
+                        self.process_field(metadata, subfield)
 
     def process_class(
         self,
@@ -627,10 +658,16 @@ class PyosysWrapperGenerator(object):
                 self.process_class_members(metadata, base_scope, basename)
 
         if expr := metadata.string_expr:
-            print(f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})', file=self.f)
+            print(
+                f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})',
+                file=self.f,
+            )
 
         if expr := metadata.hash_expr:
-            print(f'\t\t.def("__hash__", [](const {basename} &s) {{ return run_hash({expr}); }})', file=self.f)
+            print(
+                f'\t\t.def("__hash__", [](const {basename} &s) {{ return run_hash({expr}); }})',
+                file=self.f,
+            )
 
         print(f"\t\t;}}", file=self.f)
 
@@ -653,9 +690,11 @@ class PyosysWrapperGenerator(object):
         enum_class = enum.typename.classkey == "enum class"
         for value in enum.values:
             enum_class_qualifier = f"{basename}::" * enum_class
-            print(f'\t\t\t.value("{value.name}", {enum_class_qualifier}{value.name})', file=self.f)
+            print(
+                f'\t\t\t.value("{value.name}", {enum_class_qualifier}{value.name})',
+                file=self.f,
+            )
         print(f"\t\t\t.finalize();}}", file=self.f)
-
 
     def process_namespace(
         self,
@@ -668,7 +707,10 @@ class PyosysWrapperGenerator(object):
         if len(namespace_components) and (len(ns.functions) + len(ns.variables)):
             # TODO: Not essential but maybe move namespace usage into
             # process_function for consistency?
-            print(f"\t\t{{ using namespace {'::'.join(namespace_components)};", file=self.f)
+            print(
+                f"\t\t{{ using namespace {'::'.join(namespace_components)};",
+                file=self.f,
+            )
             for function in ns.functions:
                 self.process_function(function)
             for variable in ns.variables:

@@ -2,7 +2,6 @@ name: Build Wheels for PyPI
 
 # run every Sunday at 10 AM
 on:
-  push: # TODO: REMOVE THIS, DO NOT MERGE TO UPSTREAM THIS IS JUST SO I DON'T HAVE TO MANUALLY RUN THE WORKFLOW WITH EVERY PUSH
   workflow_dispatch:
   schedule:
     - cron: "0 10 * * 0"
