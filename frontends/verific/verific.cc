@@ -55,10 +55,6 @@ USING_YOSYS_NAMESPACE
 #include "VeriWrite.h"
 #include "VeriLibrary.h"
 #include "VeriExpression.h"
-#ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-#include "VeriStatement.h"
-#include "VeriConstVal.h"
-#endif
 #endif
 
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -107,10 +103,6 @@ USING_YOSYS_NAMESPACE
 using namespace Verific;
 #endif
 
-#endif
-
-#ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-#include "decorate_loops.h"
 #endif
 
 #ifdef YOSYS_ENABLE_VERIFIC
@@ -436,11 +428,6 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 	if (obj->Linefile()) {
 		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
-#ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-		if (linefile_type loopid = obj->Linefile()->GetInLoop()) {
-			attributes[RTLIL::escape_id("in_for_loop")] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(loopid), loopid->GetLeftLine(), loopid->GetLeftCol(), loopid->GetRightLine(), loopid->GetRightCol());
-		}
-#endif
 	}
 #else
 	if (obj->Linefile())
@@ -2962,7 +2949,7 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 				continue;
 			}
 #else
-			(void) top; // silience warnings
+			(void) top; // silence warnings
 #endif
 			log_error("Can't find module/unit '%s'.\n", name);
 		}
@@ -2998,7 +2985,6 @@ std::set<std::string> import_tops(const char* work, std::map<std::string,Netlist
 			}
 		}
 #endif
-
 #ifdef VERIFIC_HIER_TREE_SUPPORT
 		if (show_message)
 			log("Running hier_tree::Elaborate().\n");
@@ -3098,17 +3084,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-#ifdef VERIFIC_LINEFILE_INCLUDES_LOOPS
-		VeriLibrary* veri_lib = veri_file::GetLibrary("work", 1);
-		// Decorate AST with loop scope id
-		VeriModule *module;
-		MapIter mi;
-		DecorateLoopsVisitor loop_visitor;
-		FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, module) { 
-			module->Accept(loop_visitor); 
-		}
-#endif
-
 	std::set<std::string> top_mod_names;
 	if (top.empty()) {
 		import_all("work", &nl_todo, &verific_params, false, "");
@@ -3188,7 +3163,7 @@ bool check_noverific_env()
 #endif
 
 struct VerificPass : public Pass {
-	VerificPass() : Pass("verific", "load Verilog and VHDL designs using VERIFIC") { }
+	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	void on_register() override	{ VerificExtensions::Reset(); }
@@ -3600,7 +3575,6 @@ struct VerificPass : public Pass {
 			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
 			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
 
-			/* SILIMATE: do not downgrade warnings about things that are "normal"
 			// Downgrade warnings about things that are normal
 			// VERIFIC-WARNING [VERI-1209] foo.sv:98: expression size 7 truncated to fit in target size 6
 			Message::SetMessageType("VERI-1209", VERIFIC_INFO);
@@ -3608,7 +3582,6 @@ struct VerificPass : public Pass {
 			Message::SetMessageType("VERI-1142", VERIFIC_INFO);
 			// VERIFIC-WARNING [VERI-2418] foo.svh:503: parameter 'all_cfgs_gp' declared inside package 'bp_common_pkg' shall be treated as localparam
 			Message::SetMessageType("VERI-2418", VERIFIC_INFO);
-			*/
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;

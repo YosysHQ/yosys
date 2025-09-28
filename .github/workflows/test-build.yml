@@ -70,8 +70,8 @@ jobs:
         run: |
           mkdir build
           cd build
-          make -f ../Makefile config-$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
-          make -f ../Makefile -j$procs ENABLE_LTO=1 SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
+          make -f ../Makefile config-$CC SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
+          make -f ../Makefile -j$procs ENABLE_LTO=1 SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 VERIFIC_DIR=../verific
 
       - name: Log yosys-config output
         run: |
@@ -174,7 +174,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
 
       - name: Report errors
         if: ${{ failure() }}
@@ -261,13 +261,13 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -C docs test -j${{ env.procs }} SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
+          make -C docs test -j${{ env.procs }} SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0
 
   test-docs-build:
     name: Try build docs
     runs-on: [self-hosted, linux, x64, fast]
     needs: [pre_docs_job]
-    if: false
+    if: ${{ needs.pre_docs_job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
     strategy:
       matrix:
         docs-target: [html, latexpdf]

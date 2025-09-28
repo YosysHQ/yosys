@@ -1,4 +1,5 @@
 design -reset
+verific -cfg veri_extract_multiport_rams 1
 read -vlog2k <<EOF
 module top(input clk, input a, input b, output [9:0] x);
 	wire [9:0] ripple;
@@ -14,6 +15,7 @@ prep
 check -assert
 
 design -reset
+verific -cfg veri_extract_multiport_rams 1
 read -vlog2k <<EOF
 module top(clk, y, sideread_addr, sideread_data);
 	input wire clk;

@@ -96,9 +96,9 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          make config-$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
+          make config-$CC SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
           echo 'SANITIZER = ${{ matrix.sanitizer }}' >> Makefile.conf
-          make -j$procs ENABLE_LTO=1 SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
+          make -j$procs ENABLE_LTO=1 SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
 
       - name: Log yosys-config output
         run: |
@@ -107,7 +107,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC SMALL=0 ENABLE_ABC=1 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC SMALL=0 ENABLE_PLUGINS=1 ENABLE_PYOSYS=0 ENABLE_CCACHE=0 ENABLE_EDITLINE=0 ENABLE_VERIFIC=0
 
       - name: Report errors
         if: ${{ failure() }}

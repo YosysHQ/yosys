@@ -1,7 +1,7 @@
 ## user config
 /Makefile.conf
 
-## brew
+## homebrew
 /Brewfile.lock.json
 
 ## build artifacts

@@ -6,7 +6,6 @@ OBJS += passes/silimate/annotate_unqcoef.o
 OBJS += passes/silimate/breakreduce.o
 OBJS += passes/silimate/breaksop.o
 OBJS += passes/silimate/bus_rebuild.o
-OBJS += passes/silimate/longloop_select.o
 OBJS += passes/silimate/lut2bmux.o
 OBJS += passes/silimate/obs_clean.o
 OBJS += passes/silimate/opt_balance_tree.o

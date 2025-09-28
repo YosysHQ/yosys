@@ -34,7 +34,7 @@ jobs:
       run: cd verific/tclmain && make -j6
 
     - name: Build
-      run: make yosys -j6 ENABLE_CCACHE=0
+      run: make yosys -j6
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
