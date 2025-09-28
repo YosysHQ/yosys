@@ -181,8 +181,10 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		for (std::string dont_use_cell : dont_use_cells) {
 			dont_use_args += stringf("-X \"%s\" ", dont_use_cell);
 		}
+		bool first_lib = true;
 		for (std::string liberty_file : liberty_files) {
-			abc9_script += stringf("read_lib %s -w \"%s\" ; ", dont_use_args, liberty_file);
+			abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);
+			first_lib = false;
 		}
 		if (!constr_file.empty())
 			abc9_script += stringf("read_constr -v \"%s\"; ", constr_file);

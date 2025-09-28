@@ -27,6 +27,14 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
+static void transfer_attr (Cell* to, const Cell* from, const IdString& attr) {
+	if (from->has_attribute(attr))
+		to->attributes[attr] = from->attributes.at(attr);
+}
+static void transfer_src (Cell* to, const Cell* from) {
+	transfer_attr(to, from, ID::src);
+}
+
 void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
@@ -261,21 +269,21 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 	bool is_ne = cell->type.in(ID($ne), ID($nex));
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_ID2_SUFFIX("xor"), max(GetSize(sig_a), GetSize(sig_b))); // SILIMATE: Improve the naming
-	RTLIL::Cell *xor_cell = module->addXor(NEW_ID2, sig_a, sig_b, xor_out, is_signed, cell->get_src_attribute()); // SILIMATE: Improve the naming
+	RTLIL::Cell *xor_cell = module->addXor(NEW_ID2, sig_a, sig_b, xor_out, is_signed); // SILIMATE: Improve the naming
 	xor_cell->attributes = cell->attributes;
 	simplemap_bitop(module, xor_cell);
 	module->remove(xor_cell);
 
 	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_ID2_SUFFIX("reduce_out")); // SILIMATE: Improve the naming
-	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), xor_out, reduce_out, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), xor_out, reduce_out, false); // SILIMATE: Improve the naming
 	reduce_cell->attributes = cell->attributes;
 	simplemap_reduce(module, reduce_cell);
 	module->remove(reduce_cell);
 
 	if (!is_ne) {
-		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID2_SUFFIX("not"), reduce_out, sig_y, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
+		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID2_SUFFIX("not"), reduce_out, sig_y, false); // SILIMATE: Improve the naming
 		not_cell->attributes = cell->attributes;
-                simplemap_lognot(module, not_cell);
+		simplemap_lognot(module, not_cell);
 		module->remove(not_cell);
 	}
 }

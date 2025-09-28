@@ -32,8 +32,8 @@ proc
 equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
-select -assert-count 1 t:LUT1
-select -assert-count 10 t:LUT3
+select -assert-count 3 t:LUT1
+select -assert-count 2 t:LUT3
 select -assert-count 1 t:LUT4
 select -assert-count 5 t:MUX2_LUT5
 select -assert-count 2 t:MUX2_LUT6

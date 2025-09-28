@@ -1185,7 +1185,7 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type.c_str(), num_cells, num_cells_estimate);
+								log_debug("Correct upper bound for %s: %d <= %d\n", cell_type, num_cells, num_cells_estimate);
 							} else {
 								failed++;
 								if (worst_abs < num_cells - num_cells_estimate) {

@@ -142,7 +142,12 @@
 #define YOSYS_CONSTEVAL constexpr
 #endif
 
-#define YOSYS_ABORT(s) abort()
+#define YOSYS_ABORT(s) YOSYS_NAMESPACE_PREFIX log_yosys_abort_message(__FILE__, __LINE__, __FUNCTION__, s)
+
+// This has to precede including "kernel/io.h"
+YOSYS_NAMESPACE_BEGIN
+[[noreturn]] void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message);
+YOSYS_NAMESPACE_END
 
 #include "kernel/io.h"
 

@@ -1252,7 +1252,8 @@ private:
 public:
 	SigSpec() : width_(0), hash_(0) {}
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-
+	SigSpec(const SigSpec &value) = default;
+	SigSpec(SigSpec &&value) = default;
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -1268,6 +1269,9 @@ public:
 	SigSpec(pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
+
+	SigSpec &operator=(const SigSpec &rhs) = default;
+	SigSpec &operator=(SigSpec &&rhs) = default;
 
 	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }

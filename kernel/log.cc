@@ -331,10 +331,12 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	if (log_errfile != NULL)
 		log_files.push_back(log_errfile);
 
-	if (log_error_stderr)
+	if (log_error_stderr) {
+		log_flush(); // Make sure we flush stdout before replacing it with stderr
 		for (auto &f : log_files)
 			if (f == stdout)
 				f = stderr;
+	}
 
 	log_last_error = std::move(str);
 	log("%s%s", prefix, log_last_error);
@@ -403,6 +405,11 @@ void log_assert_failure(const char *expr, const char *file, int line)
 void log_abort_internal(const char *file, int line)
 {
 	log_error("Abort in %s:%d.\n", file, line);
+}
+
+void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message)
+{
+	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
 }
 
 void log_formatted_cmd_error(std::string str)

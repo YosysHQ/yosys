@@ -392,7 +392,7 @@ void MemMapping::dump_configs(int stage) {
 void MemMapping::dump_config(MemConfig &cfg) {
 	log_debug("- %s:\n", log_id(cfg.def->id));
 	for (auto &it: cfg.def->options)
-		log_debug("  - option %s %s\n", it.first.c_str(), log_const(it.second));
+		log_debug("  - option %s %s\n", it.first, log_const(it.second));
 	log_debug("  - emulation score: %d\n", cfg.score_emu);
 	log_debug("  - replicates (for ports): %d\n", cfg.repl_port);
 	log_debug("  - replicates (for data): %d\n", cfg.repl_d);
@@ -403,7 +403,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	for (int x: cfg.def->dbits)
 		os << " " << x;
 	std::string dbits_s = os.str();
-	log_debug("  - abits %d dbits%s\n", cfg.def->abits, dbits_s.c_str());
+	log_debug("  - abits %d dbits%s\n", cfg.def->abits, dbits_s);
 	if (cfg.def->byte != 0)
 		log_debug("  - byte width %d\n", cfg.def->byte);
 	log_debug("  - chosen base width %d\n", cfg.def->dbits[cfg.base_width_log2]);
@@ -414,25 +414,25 @@ void MemMapping::dump_config(MemConfig &cfg) {
 		else
 			os << " " << x;
 	std::string swizzle_s = os.str();
-	log_debug("  - swizzle%s\n", swizzle_s.c_str());
+	log_debug("  - swizzle%s\n", swizzle_s);
 	os.str("");
 	for (int i = 0; (1 << i) <= cfg.hard_wide_mask; i++)
 		if (cfg.hard_wide_mask & 1 << i)
 			os << " " << i;
 	std::string wide_s = os.str();
 	if (cfg.hard_wide_mask)
-		log_debug("  - hard wide bits%s\n", wide_s.c_str());
+		log_debug("  - hard wide bits%s\n", wide_s);
 	if (cfg.emu_read_first)
 		log_debug("  - emulate read-first behavior\n");
 	for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 		auto &pcfg = cfg.wr_ports[i];
 		if (pcfg.rd_port == -1)
-			log_debug("  - write port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str());
+			log_debug("  - write port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0]);
 		else
-			log_debug("  - write port %d: port group %s (shared with read port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str(), pcfg.rd_port);
+			log_debug("  - write port %d: port group %s (shared with read port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0], pcfg.rd_port);
 
 		for (auto &it: pcfg.def->options)
-			log_debug("    - option %s %s\n", it.first.c_str(), log_const(it.second));
+			log_debug("    - option %s %s\n", it.first, log_const(it.second));
 		if (cfg.def->width_mode == WidthMode::PerPort) {
 			std::stringstream os;
 			for (int i = pcfg.def->min_wr_wide_log2; i <= pcfg.def->max_wr_wide_log2; i++)
@@ -441,7 +441,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 			const char *note = "";
 			if (pcfg.rd_port != -1)
 				note = pcfg.def->width_tied ? " (tied)" : " (independent)";
-			log_debug("    - widths%s%s\n", widths_s.c_str(), note);
+			log_debug("    - widths%s%s\n", widths_s, note);
 		}
 		for (auto i: pcfg.emu_prio)
 			log_debug("    - emulate priority over write port %d\n", i);
@@ -449,11 +449,11 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	for (int i = 0; i < GetSize(mem.rd_ports); i++) {
 		auto &pcfg = cfg.rd_ports[i];
 		if (pcfg.wr_port == -1)
-			log_debug("  - read port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str());
+			log_debug("  - read port %d: port group %s\n", i, cfg.def->port_groups[pcfg.port_group].names[0]);
 		else
-			log_debug("  - read port %d: port group %s (shared with write port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0].c_str(), pcfg.wr_port);
+			log_debug("  - read port %d: port group %s (shared with write port %d)\n", i, cfg.def->port_groups[pcfg.port_group].names[0], pcfg.wr_port);
 		for (auto &it: pcfg.def->options)
-			log_debug("    - option %s %s\n", it.first.c_str(), log_const(it.second));
+			log_debug("    - option %s %s\n", it.first, log_const(it.second));
 		if (cfg.def->width_mode == WidthMode::PerPort) {
 			std::stringstream os;
 			for (int i = pcfg.def->min_rd_wide_log2; i <= pcfg.def->max_rd_wide_log2; i++)
@@ -462,7 +462,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 			const char *note = "";
 			if (pcfg.wr_port != -1)
 				note = pcfg.def->width_tied ? " (tied)" : " (independent)";
-			log_debug("    - widths%s%s\n", widths_s.c_str(), note);
+			log_debug("    - widths%s%s\n", widths_s, note);
 		}
 		if (pcfg.emu_sync)
 			log_debug("    - emulate data register\n");
@@ -2242,7 +2242,7 @@ struct MemoryLibMapPass : public Pass {
 				if (!map.logic_ok) {
 					if (map.cfgs.empty()) {
 						log_debug("Rejected candidates for mapping memory %s.%s:\n", log_id(module->name), log_id(mem.memid));
-						log_debug("%s", map.rejected_cfg_debug_msgs.c_str());
+						log_debug("%s", map.rejected_cfg_debug_msgs);
 						log_error("no valid mapping found for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
 					}
 					idx = 0;

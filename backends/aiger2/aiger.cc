@@ -106,7 +106,7 @@ struct Index {
 					info.found_blackboxes.insert(cell);	
 				} else {
 					if (!submodule || submodule->get_blackbox_attribute())
-						log_error("Unsupported cell type: %s (%s in %s)\n",
+						log_warning("Unsupported cell type: %s (%s in %s)\n",
 								  log_id(cell->type), log_id(cell), log_id(m));
 				}
 			}
@@ -1017,7 +1017,7 @@ struct XAigerWriter : AigerWriter {
 			auto &minfo = cursor.leaf_minfo(*this);
 
 			for (auto box : minfo.found_blackboxes) {
-				log_debug(" - %s.%s (type %s): ", cursor.path().c_str(),
+				log_debug(" - %s.%s (type %s): ", cursor.path(),
 						  RTLIL::unescape_id(box->name),
 						  log_id(box->type));
 

@@ -476,7 +476,7 @@ void AigerReader::parse_xaiger()
 		else if (c == 'n') {
 			parse_xaiger_literal(f);
 			f >> s;
-			log_debug("n: '%s'\n", s.c_str());
+			log_debug("n: '%s'\n", s);
 		}
 		else if (c == 'h') {
 			f.ignore(sizeof(uint32_t));
