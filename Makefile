@@ -265,7 +265,7 @@ LTOFLAGS := $(CLANG_LTO)
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
-CXXFLAGS += -g -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
+CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LINKFLAGS += -g -fsanitize=$(SANITIZER)
 ifneq ($(findstring address,$(SANITIZER)),)
 ENABLE_COVER := 0
@@ -399,8 +399,8 @@ endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_BACKTRACE),1)
 ifeq ($(OS), Darwin)
-LIBS += -ldwarf -lelf            # SILIMATE: support for backward-cpp
-CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DWARF # SILIMATE: support for backward-cpp
+LIBS += -ldwarf -lelf
+CXXFLAGS += -I/usr/include/libdwarf/ -DBACKWARD_HAS_DWARF
 endif
 endif
 
@@ -928,20 +928,20 @@ endif
 
 # Tests that generate .mk with tests/gen-tests-makefile.sh
 MK_TEST_DIRS =
-# MK_TEST_DIRS += tests/arch/anlogic
-# MK_TEST_DIRS += tests/arch/ecp5
-# MK_TEST_DIRS += tests/arch/efinix
-# MK_TEST_DIRS += tests/arch/gatemate
-# MK_TEST_DIRS += tests/arch/gowin
-# MK_TEST_DIRS += tests/arch/ice40
-# MK_TEST_DIRS += tests/arch/intel_alm
-# MK_TEST_DIRS += tests/arch/machxo2
-# MK_TEST_DIRS += tests/arch/microchip
-# MK_TEST_DIRS += tests/arch/nanoxplore
-# MK_TEST_DIRS += tests/arch/nexus
-# MK_TEST_DIRS += tests/arch/quicklogic/pp3
-# MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
-# MK_TEST_DIRS += tests/arch/xilinx
+MK_TEST_DIRS += tests/arch/anlogic
+MK_TEST_DIRS += tests/arch/ecp5
+MK_TEST_DIRS += tests/arch/efinix
+MK_TEST_DIRS += tests/arch/gatemate
+MK_TEST_DIRS += tests/arch/gowin
+MK_TEST_DIRS += tests/arch/ice40
+MK_TEST_DIRS += tests/arch/intel_alm
+MK_TEST_DIRS += tests/arch/machxo2
+MK_TEST_DIRS += tests/arch/microchip
+MK_TEST_DIRS += tests/arch/nanoxplore
+MK_TEST_DIRS += tests/arch/nexus
+MK_TEST_DIRS += tests/arch/quicklogic/pp3
+MK_TEST_DIRS += tests/arch/quicklogic/qlf_k6n10f
+MK_TEST_DIRS += tests/arch/xilinx
 MK_TEST_DIRS += tests/bugpoint
 MK_TEST_DIRS += tests/opt
 MK_TEST_DIRS += tests/sat
@@ -963,23 +963,23 @@ SH_TEST_DIRS += tests/simple
 SH_TEST_DIRS += tests/simple_abc9
 SH_TEST_DIRS += tests/hana
 SH_TEST_DIRS += tests/asicworld
-# SH_TEST_DIRS += tests/realmath
+SH_TEST_DIRS += tests/realmath
 SH_TEST_DIRS += tests/share
 SH_TEST_DIRS += tests/opt_share
-# SH_TEST_DIRS += tests/fsm
+SH_TEST_DIRS += tests/fsm
 SH_TEST_DIRS += tests/memlib
-# SH_TEST_DIRS += tests/bram
+SH_TEST_DIRS += tests/bram
 SH_TEST_DIRS += tests/svinterfaces
 SH_TEST_DIRS += tests/xprop
 SH_TEST_DIRS += tests/select
 SH_TEST_DIRS += tests/peepopt
 SH_TEST_DIRS += tests/proc
 SH_TEST_DIRS += tests/blif
-# SH_TEST_DIRS += tests/arch
-# SH_TEST_DIRS += tests/rpc
+SH_TEST_DIRS += tests/arch
+SH_TEST_DIRS += tests/rpc
 SH_TEST_DIRS += tests/memfile
 SH_TEST_DIRS += tests/fmt
-# SH_TEST_DIRS += tests/cxxrtl
+SH_TEST_DIRS += tests/cxxrtl
 SH_TEST_DIRS += tests/liberty
 SH_TEST_DIRS += tests/silimate
 ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)

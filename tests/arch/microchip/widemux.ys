@@ -25,8 +25,8 @@ module widemux(
 endmodule
 EOT
 synth_microchip -top widemux -family polarfire -noiopad
-select -assert-count 1 t:MX4
-select -assert-none t:MX4 %% t:* %D
+select -assert-count 3 t:CFG3
+select -assert-none t:CFG3 %% t:* %D
 
 # RTL style is different here forming a different structure
 read_verilog ../common/mux.v

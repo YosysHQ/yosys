@@ -11,7 +11,6 @@ brew "bash"
 brew "boost-python3"
 brew "llvm@20"
 brew "lld"
-
 brew "googletest"
 
 brew "autoconf"

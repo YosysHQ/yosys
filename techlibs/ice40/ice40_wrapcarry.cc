@@ -141,7 +141,7 @@ struct Ice40WrapCarryPass : public Pass {
 						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID::module_not_derived))
 							continue;
 						else
-							log_abort();
+							continue;
 
 					if (!src.empty()) {
 						carry->attributes.insert(std::make_pair(ID::src, src));

@@ -1,6 +1,9 @@
 ## user config
 /Makefile.conf
 
+## brew
+/Brewfile.lock.json
+
 ## build artifacts
 # compiler intermediate files
 *.o
@@ -9,28 +12,13 @@
 *.gch
 *.gcda
 *.gcno
+*.so.dSYM/
+
+## test artifacts
+**/run-test.mk
 *.err
 *.log
 *.tmp
-*.whl
-*~
-__pycache__
-/.cache
-/.cproject
-/.project
-/.settings
-/qtcreator.files
-/qtcreator.includes
-/qtcreator.config
-/qtcreator.creator
-/qtcreator.creator.user
-/compile_commands.json
-/coverage.info
-/coverage_html
-/Makefile.conf
-/Brewfile.lock.json
-/viz.js
-*.so.dSYM/
 
 # compiler output files
 /kernel/version_*.cc
@@ -59,10 +47,6 @@ __pycache__
 /tests/unit/bintest/
 /tests/unit/objtest/
 /tests/ystests
-/tests/arch/quicklogic/pp3/run-test.mk
-/tests/arch/quicklogic/qlf_k6n10f/run-test.mk
-/tests/verilog/roundtrip_proc_1.v
-/tests/verilog/roundtrip_proc_2.v
 /build
 /result
 /dist
@@ -72,7 +56,6 @@ __pycache__
 /kernel/python_wrappers.cc
 /boost
 /ffi
-/doxygen
 /bison
 /venv
 /*.whl

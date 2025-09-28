@@ -1,4 +1,4 @@
-4name: Build environment setup
+name: Build environment setup
 description: Configure build env for Yosys builds
 runs:
   using: composite

@@ -1,4 +1,4 @@
-logger -nowarn "Yosys has only limited support for tri-state logic at the moment\. .*"
+logger -nowarn "Yosys has only limited support for tri-state logic at the moment\."
 logger -nowarn "Ignoring boxed module .*\."
 
 read_verilog <<EOT
@@ -102,7 +102,7 @@ proc
 read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
-select -assert-count 1 t:FDRE %co w:r %i
+select -assert-count 1 t:FDRE %co2 w:r %i
 
 
 design -reset
