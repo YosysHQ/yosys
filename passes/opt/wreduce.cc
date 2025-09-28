@@ -78,6 +78,8 @@ struct WreduceWorker
 		for (int i = GetSize(sig_y)-1; i >= 0; i--)
 		{
 			auto info = mi.query(sig_y[i]);
+			if (info == nullptr)
+				return;
 			if (!info->is_output && GetSize(info->ports) <= 1 && !keep_bits.count(mi.sigmap(sig_y[i]))) {
 				bits_removed.push_back(State::Sx);
 				continue;
@@ -408,6 +410,8 @@ struct WreduceWorker
 					break;
 
 				auto info = mi.query(bit);
+				if (info == nullptr)
+					return;
 				if (info->is_output || GetSize(info->ports) > 1)
 					break;
 
@@ -566,6 +570,10 @@ struct WreduceWorker
 			for (int i = GetSize(w)-1; i >= 0; i--) {
 				SigBit bit(w, i);
 				auto info = mi.query(bit);
+				if (info == nullptr) {
+					unused_top_bits = 0;
+					break;
+				}
 				if (info && (info->is_input || info->is_output || GetSize(info->ports) > 0))
 					break;
 				unused_top_bits++;
