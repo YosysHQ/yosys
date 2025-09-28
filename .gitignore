@@ -1,6 +1,9 @@
 ## user config
 /Makefile.conf
 
+## homebrew
+/Brewfile.lock.json
+
 ## build artifacts
 # compiler intermediate files
 *.o
@@ -10,6 +13,12 @@
 *.gcda
 *.gcno
 *.so.dSYM/
+
+## test artifacts
+**/run-test.mk
+*.err
+*.log
+*.tmp
 
 # compiler output files
 /kernel/version_*.cc
