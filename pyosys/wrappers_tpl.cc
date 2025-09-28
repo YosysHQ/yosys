@@ -36,7 +36,7 @@ using namespace RTLIL;
 #include "wrappers.inc.cc"
 
 namespace YOSYS_PYTHON {
-	struct YosysStatics{};
+	struct Globals {};
 
 	// Trampolines for Classes with Python-Overridable Virtual Methods
 	// https://pybind11.readthedocs.io/en/stable/advanced/classes.html#overriding-virtual-functions-in-python
@@ -192,7 +192,7 @@ namespace YOSYS_PYTHON {
 		m.def("log_file_error", [](std::string_view file, int line, std::string s) { log_formatted_file_error(file, line, s); });
 
 		// Namespace to host global objects
-		auto global_variables = py::class_<YosysStatics>(m, "Yosys");
+		auto global_variables = py::class_<Globals>(m, "Globals");
 
 		// Trampoline Classes
 		py::class_<Pass, YOSYS_PYTHON::PassTrampoline, std::unique_ptr<Pass, py::nodelete>>(m, "Pass")

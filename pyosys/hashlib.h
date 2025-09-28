@@ -51,10 +51,11 @@
 namespace pybind11 {
 namespace hashlib {
 
-template<typename T>
-struct is_pointer { static const bool value = false; };
-template<typename T>
-struct is_pointer<T*> { static const bool value = true; };
+// "traits"
+template <typename T> struct is_pointer: std::false_type {};
+template <typename T> struct is_pointer<T*>: std::true_type {};
+template <typename T> struct is_optional: std::false_type {};
+template <typename T> struct is_optional< std::optional<T> >: std::true_type {};
 
 bool is_mapping(object obj) {
 	object mapping = module_::import("collections.abc").attr("Mapping");
@@ -270,6 +271,12 @@ void bind_set(module &m, const char *name_cstr) {
 		.def("__iter__", [](const C &s){
 			return make_iterator(s.begin(), s.end());
 		}, keep_alive<0,1>())
+		.def("__eq__", [](const C &s, const C &other) { return s == other; })
+		.def("__eq__", [](const C &s, const iterable &other) {
+			C other_cast;
+			unionize<C, T>(other_cast, other);
+			return s == other_cast;
+		})
 		.def("__repr__", [name_cstr](const iterable &s){
 			// repr(set(s)) where s is iterable would be more terse/robust
 			// but are there concerns with copying?
@@ -292,17 +299,17 @@ void bind_pool(module &m, const char *name_cstr) {
 
 
 template <typename C, typename K, typename V>
-void update_dict(C *target, const iterable &iterable_or_mapping) {
+void update_dict(C &target, const iterable &iterable_or_mapping) {
 	if (is_mapping(iterable_or_mapping)) {
 		for (const auto &key: iterable_or_mapping) {
-			(*target)[cast<K>(key)] = cast<V>(iterable_or_mapping[key]);
+			target[cast<K>(key)] = cast<V>(iterable_or_mapping[key]);
 		}
 	} else {
 		for (const auto &pair: iterable_or_mapping) {
 			if (len(pair) != 2) {
 				throw value_error(str("iterable element %s has more than two elements").format(str(pair)));
 			}
-			(*target)[cast<K>(pair[cast(0)])] = cast<V>(pair[cast(1)]);
+			target[cast<K>(pair[cast(0)])] = cast<V>(pair[cast(1)]);
 		}
 	}
 }
@@ -314,7 +321,7 @@ void bind_dict(module &m, const char *name_cstr) {
 		.def(init<const C &>()) // copy constructor
 		.def(init([](const iterable &other){ // copy instructor from arbitrary iterables and mappings
 			auto s = new C();
-			update_dict<C, K, V>(s, other);
+			update_dict<C, K, V>(*s, other);
 			return s;
 		}))
 		.def("__len__", [](const C &s){ return (size_t)s.size(); })
@@ -352,7 +359,15 @@ void bind_dict(module &m, const char *name_cstr) {
 				return s.at(k);
 			}
 		}, arg("key"), arg("default") = std::nullopt)
-		.def("popitem", [name_cstr](args _) { throw std::runtime_error(std::string(name_cstr) + " is not an ordered dictionary"); })
+		.def("popitem", [](C &s) {
+			auto it = s.begin();
+			if (it == s.end()) {
+				throw key_error("dict is empty");
+			}
+			auto copy = *it;
+			s.erase(it);
+			return copy;
+		})
 		.def("setdefault", [name_cstr](C &s, const K& k, std::optional<const V> &default_) {
 			auto it = s.find(k);
 			if (it != s.end()) {
@@ -367,22 +382,25 @@ void bind_dict(module &m, const char *name_cstr) {
 				s[k] = nullptr;
 				return (V)nullptr;
 			}
-			// TODO: std::optional? do we care?
+			if constexpr (is_optional<V>::value) {
+				s[k] = std::nullopt;
+				return std::nullopt;
+			}
 			throw type_error(std::string("the value type of ") + name_cstr + " is not nullable");
 		}, arg("key"), arg("default") = std::nullopt)
 		.def("update", [](C &s, iterable iterable_or_mapping) {
-			update_dict<C, K, V>(&s, iterable_or_mapping);
+			update_dict<C, K, V>(s, iterable_or_mapping);
 		}, arg("iterable_or_mapping"))
 		.def("values", [](const C &s){
 			return make_value_iterator(s.begin(), s.end());
 		}, keep_alive<0,1>())
 		.def("__or__", [](const C &s, iterable iterable_or_mapping) {
 			auto result = new C(s);
-			update_dict<C, K, V>(result, iterable_or_mapping);
+			update_dict<C, K, V>(*result, iterable_or_mapping);
 			return result;
 		})
 		.def("__ior__", [](C &s, iterable iterable_or_mapping) {
-			update_dict<C, K, V>(&s, iterable_or_mapping);
+			update_dict<C, K, V>(s, iterable_or_mapping);
 			return s;
 		})
 		.def("__bool__", [](const C &s) { return s.size() != 0; })
@@ -401,6 +419,17 @@ void bind_dict(module &m, const char *name_cstr) {
 			representation += str("})");
 			return representation;
 		});
+
+	// K is always comparable
+	// Python implements `is` as a fallback to check if it's the same object
+	if constexpr (detail::is_comparable<V>::value) {
+		cls.def("__eq__", [](const C &s, const C &other) { return s == other; });
+		cls.def("__eq__", [](const C &s, const iterable &other) {
+			C other_cast;
+			update_dict<C, K, V>(other_cast, other);
+			return s == other_cast;
+		});
+	}
 
 	// Inherit from collections.abc.Mapping so update operators (and a bunch
 	// of other things) work.

@@ -33,10 +33,10 @@ for cls in [StringSet, StringPool]:
 	C |= {"A", "B", "C"}
 	D |= {"C", "D", "E"}
 	c_symdiff_d = (C ^ D)
-	assert (c_symdiff_d) == {"A", "B", "D", "E"}
+	assert c_symdiff_d == {"A", "B", "D", "E"} # compare against iterable
 
 	repr_test = eval(repr(c_symdiff_d))
-	c_symdiff_d == repr_test
+	assert c_symdiff_d == repr_test # compare against self
 
 
 print("Done.")

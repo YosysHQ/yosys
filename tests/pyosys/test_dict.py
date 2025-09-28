@@ -26,4 +26,19 @@ the_great_or = constructor_test_1 | constructor_test_2 | constructor_test_3
 
 assert set(the_great_or) ==  {"first", "key", "tomato", "im running"}
 repr_test = eval(repr(the_great_or))
-assert repr_test == the_great_or
+
+assert repr_test == the_great_or # compare dicts
+assert repr_test == {'tomato': 'tomato', 'first': 'second', 'key': 'value', 'im running': 'out of string ideas', } # compare dict with mapping
+
+before = len(repr_test)
+print(repr_test.popitem())
+assert before - 1 == len(repr_test)
+
+# test noncomparable
+## if ys.CellType ever gets an == operator just disable this section
+uncomparable_value = ys.Globals.yosys_celltypes.cell_types[ys.IdString("$not")]
+
+x = ys.IdstringToCelltypeDict({ ys.IdString("\\a"): uncomparable_value})
+y = ys.IdstringToCelltypeDict({ ys.IdString("\\a"): uncomparable_value})
+
+assert x != y # not comparable
