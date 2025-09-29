@@ -144,12 +144,12 @@ struct ModuleIndex {
 			}
 
 			if (nunused > 0) {
-				log("Disconnected %d input bits of instance '%s' of '%s' in '%s'\n",
+				log("Disconnected %d input bits of instance '%s' (type '%s') in '%s'\n",
 					nunused, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
 				changed = true;
 			}
 			if (nconstants > 0) {
-				log("Substituting constant for %d output bits of instance '%s' of '%s' in '%s'\n",
+				log("Substituting constant for %d output bits of instance '%s' (type '%s') in '%s'\n",
 					nconstants, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
 				changed = true;
 			}
