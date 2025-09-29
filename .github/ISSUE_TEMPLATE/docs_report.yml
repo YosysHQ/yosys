@@ -6,8 +6,7 @@ body:
     attributes:
       value: >
 
-        If you have a general question, please ask it in the [Discussions](https://github.com/YosysHQ/yosys/discussions) area
-        or join our [IRC Channel](https://web.libera.chat/#yosys) or [Community Slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
+        If you have a general question, please ask it on the [Discourse forum](https://yosyshq.discourse.group/).
 
 
         If you have found a bug in Yosys, or in building the documentation,
