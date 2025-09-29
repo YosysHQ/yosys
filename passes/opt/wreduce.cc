@@ -109,7 +109,7 @@ struct WreduceWorker
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->connect(sig_y, sig_removed);
 			module->remove(cell);
-			mi.notify_blackout(module);
+			mi.reload_module();
 			return;
 		}
 
@@ -217,7 +217,7 @@ struct WreduceWorker
 		if (GetSize(sig_q) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
-			mi.notify_blackout(module);
+			mi.reload_module();
 			return;
 		}
 
@@ -275,6 +275,7 @@ struct WreduceWorker
 			log_debug("Removed top %d bits (of %d) from port %c of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(stringf("\\%c", port), sig);
+			cell->fixup_parameters();
 			mi.notify_connect(cell, stringf("\\%c", port), sig_orig, sig);
 			did_something = true;
 		}
@@ -453,7 +454,7 @@ struct WreduceWorker
 		if (GetSize(sig) == 0) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 			module->remove(cell);
-			mi.notify_blackout(module);
+			mi.reload_module();
 			return;
 		}
 
@@ -461,6 +462,7 @@ struct WreduceWorker
 			log_debug("Removed top %d bits (of %d) from port Y of cell %s.%s (%s).\n",
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(ID::Y, sig);
+			cell->fixup_parameters();
 			mi.notify_connect(cell, ID::Y, sig_orig, sig);
 			did_something = true;
 		}
@@ -589,7 +591,6 @@ struct WreduceWorker
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
-			mi.notify_blackout(module);
 		}
 	}
 };
