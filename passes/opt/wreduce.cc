@@ -139,13 +139,10 @@ struct WreduceWorker
 		cell->setPort(ID::B, new_sig_b);
 		cell->setPort(ID::Y, new_sig_y);
 		cell->fixup_parameters();
-		mi.notify_connect(cell, ID::A, sig_a, new_sig_a);
-		mi.notify_connect(cell, ID::B, sig_b, new_sig_b);
-		mi.notify_connect(cell, ID::Y, sig_y, new_sig_y);
-		mi.sigmap.set(module);
 
 		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
-		mi.notify_connect(module, SigSig(sig_y.extract(n_kept, n_removed), sig_removed));
+
+		mi.reload_module();
 	}
 
 	void run_cell_dff(Cell *cell)
@@ -243,9 +240,8 @@ struct WreduceWorker
 		cell->setPort(ID::D, sig_d);
 		cell->setPort(ID::Q, sig_q);
 		cell->fixup_parameters();
-		mi.notify_connect(cell, ID::D, sig_d_orig, sig_d);
-		mi.notify_connect(cell, ID::Q, sig_q_orig, sig_q);
-		mi.sigmap.set(module);
+
+		mi.reload_module();
 	}
 
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
@@ -278,8 +274,7 @@ struct WreduceWorker
 					bits_removed, GetSize(sig) + bits_removed, port, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(stringf("\\%c", port), sig);
 			cell->fixup_parameters();
-			mi.notify_connect(cell, stringf("\\%c", port), sig_orig, sig);
-			mi.sigmap.set(module);
+			mi.reload_module();
 			did_something = true;
 		}
 	}
@@ -466,8 +461,7 @@ struct WreduceWorker
 					bits_removed, GetSize(sig) + bits_removed, log_id(module), log_id(cell), log_id(cell->type));
 			cell->setPort(ID::Y, sig);
 			cell->fixup_parameters();
-			mi.notify_connect(cell, ID::Y, sig_orig, sig);
-			mi.sigmap.set(module);
+			mi.reload_module();
 			did_something = true;
 		}
 
