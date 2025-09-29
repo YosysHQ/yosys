@@ -105,6 +105,13 @@ struct Index {
 				if (allow_blackboxes) {
 					info.found_blackboxes.insert(cell);	
 				} else {
+					// Even if we don't allow blackboxes these might still be
+					// present outside of any traversed input cones, so we
+					// can't bail at this point. If they are hit by a traversal
+					// (which can only really happen with $tribuf not
+					// $connect), we can still detect this as an error later.
+					if (cell->type == ID($connect) || (cell->type == ID($tribuf) && cell->has_attribute(ID(aiger2_zbuf))))
+						continue;
 					if (!submodule || submodule->get_blackbox_attribute())
 						log_error("Unsupported cell type: %s (%s in %s)\n",
 								  log_id(cell->type), log_id(cell), log_id(m));
@@ -483,7 +490,8 @@ struct Index {
 		{
 			Design *design = index.design;
 			auto &minfo = leaf_minfo(index);
-			log_assert(minfo.suboffsets.count(cell));
+			if (!minfo.suboffsets.count(cell))
+				log_error("Reached unsupport cell %s (%s in %s)\n", log_id(cell->type), log_id(cell), log_id(cell->module));
 			Module *def = design->module(cell->type);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
