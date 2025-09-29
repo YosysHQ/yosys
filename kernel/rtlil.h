@@ -1244,8 +1244,8 @@ private:
 public:
 	SigSpec() : width_(0), hash_(0) {}
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	SigSpec(const SigSpec &) = default;
-	SigSpec(SigSpec &&) = default;
+	SigSpec(const SigSpec &value) = default;
+	SigSpec(SigSpec &&value) = default;
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
 	SigSpec(const RTLIL::SigChunk &chunk);
