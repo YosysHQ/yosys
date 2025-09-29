@@ -311,6 +311,9 @@ struct OptBalanceTreePass : public Pass {
 		log("    -arith\n");
 		log("        only convert arithmetic cells.\n");
 		log("\n");
+		log("    -logic\n");
+		log("        only convert logic cells.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_BALANCE_TREE pass (cell cascades to trees).\n");
@@ -321,6 +324,10 @@ struct OptBalanceTreePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-arith") {
 				cell_types = {ID($add), ID($mul)};
+				continue;
+			}
+			if (args[argidx] == "-logic") {
+				cell_types = {ID($and), ID($or), ID($xor)};
 				continue;
 			}
 			break;

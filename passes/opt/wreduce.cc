@@ -505,34 +505,28 @@ struct WreduceWorker
 		for (auto w : module->selected_wires())
 			work_queue_wires.insert(w);
 
+		// Initialize keep bits
+		for (auto w : module->wires()) {
+			if (w->get_bool_attribute(ID::keep))
+				for (auto bit : mi.sigmap(w))
+					keep_bits.insert(bit);
+		}
+
 		while (!work_queue_cells.empty() && !work_queue_wires.empty())
 		{
-			// Initialize keep bits
-			for (auto w : module->wires()) {
-				if (w->get_bool_attribute(ID::keep))
-					for (auto bit : mi.sigmap(w))
-						keep_bits.insert(bit);
-			}
-
 			// Initialize complete wires
 			pool<SigSpec> complete_wires;
 			for (auto w : module->wires())
 				complete_wires.insert(mi.sigmap(w));
-
-			// Run wires
-			for (auto w : work_queue_wires)
-				run_wire(w, complete_wires);
 
 			// Run cells
 			work_queue_bits.clear();
 			for (auto c : work_queue_cells)
 				run_cell(c);
 
-			// Get next batch of wires to process
-			work_queue_wires.clear();
-			for (auto bit : work_queue_bits)
-				if (bit.wire != NULL && module->selected(bit.wire))
-					work_queue_wires.insert(bit.wire);
+			// Run wires
+			for (auto w : work_queue_wires)
+				run_wire(w, complete_wires);
 
 			// Get next batch of cells to process
 			work_queue_cells.clear();
@@ -541,9 +535,14 @@ struct WreduceWorker
 				if (module->selected(port.cell))
 					work_queue_cells.insert(port.cell);
 
+			// Get next batch of wires to process
+			work_queue_wires.clear();
+			for (auto bit : work_queue_bits)
+				if (bit.wire != NULL && module->selected(bit.wire))
+					work_queue_wires.insert(bit.wire);
+
 			// Reload module
-			if (!work_queue_cells.empty() && !work_queue_wires.empty())
-				mi.reload_module();
+			mi.reload_module();
 		}
 	}
 };
