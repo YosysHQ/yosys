@@ -72,6 +72,5 @@
     "algorithm": "cpp",
     "*.inc": "cpp",
     "tuple": "cpp"
-  },
-  "cmake.sourceDirectory": "/Users/akashlevy/Documents/preqorsor/third_party/yosys/abc"
+  }
 }

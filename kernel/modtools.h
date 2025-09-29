@@ -78,7 +78,6 @@ struct ModIndex : public RTLIL::Monitor
 	SigMap sigmap;
 	RTLIL::Module *module;
 	std::map<RTLIL::SigBit, SigBitInfo> database;
-	int reload_counter;
 	int auto_reload_counter;
 	bool auto_reload_module;
 
@@ -107,10 +106,6 @@ struct ModIndex : public RTLIL::Monitor
 
 	void reload_module(bool reset_sigmap = true)
 	{
-		reload_counter++;
-		if (reload_counter % 10 == 0)
-			log_warning("ModIndex::reload_module() called %d times.\n", reload_counter);
-
 		if (reset_sigmap) {
 			sigmap.clear();
 			sigmap.set(module);
@@ -236,7 +231,6 @@ struct ModIndex : public RTLIL::Monitor
 
 	ModIndex(RTLIL::Module *_m) : sigmap(_m), module(_m)
 	{
-		reload_counter = 0;
 		auto_reload_counter = 0;
 		auto_reload_module = true;
 		module->monitors.insert(this);

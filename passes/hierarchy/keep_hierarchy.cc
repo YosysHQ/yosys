@@ -42,9 +42,7 @@ struct ThresholdHierarchyKeeping {
 			return 0;
 
 		if (module->get_blackbox_attribute())
-			// SILIMATE: Blackboxes have no bearing on cross module optimizations
-			// log_error("Missing cost information on instanced blackbox %s\n", log_id(module));
-			return 1;
+			log_error("Missing cost information on instanced blackbox %s\n", log_id(module));
 
 		if (done.count(module))
 			return done.at(module);
