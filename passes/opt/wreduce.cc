@@ -142,6 +142,7 @@ struct WreduceWorker
 		mi.notify_connect(cell, ID::A, sig_a, new_sig_a);
 		mi.notify_connect(cell, ID::B, sig_b, new_sig_b);
 		mi.notify_connect(cell, ID::Y, sig_y, new_sig_y);
+		mi.sigmap.set(module);
 
 		module->connect(sig_y.extract(n_kept, n_removed), sig_removed);
 		mi.notify_connect(module, SigSig(sig_y.extract(n_kept, n_removed), sig_removed));
@@ -244,6 +245,7 @@ struct WreduceWorker
 		cell->fixup_parameters();
 		mi.notify_connect(cell, ID::D, sig_d_orig, sig_d);
 		mi.notify_connect(cell, ID::Q, sig_q_orig, sig_q);
+		mi.sigmap.set(module);
 	}
 
 	void run_reduce_inport(Cell *cell, char port, int max_port_size, bool &port_signed, bool &did_something)
@@ -277,6 +279,7 @@ struct WreduceWorker
 			cell->setPort(stringf("\\%c", port), sig);
 			cell->fixup_parameters();
 			mi.notify_connect(cell, stringf("\\%c", port), sig_orig, sig);
+			mi.sigmap.set(module);
 			did_something = true;
 		}
 	}
@@ -464,6 +467,7 @@ struct WreduceWorker
 			cell->setPort(ID::Y, sig);
 			cell->fixup_parameters();
 			mi.notify_connect(cell, ID::Y, sig_orig, sig);
+			mi.sigmap.set(module);
 			did_something = true;
 		}
 
@@ -591,9 +595,6 @@ struct WreduceWorker
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
-			for (auto bit : mi.sigmap(SigSpec(w).extract(GetSize(nw), unused_top_bits)))
-				mi.database.erase(bit);
-			mi.sigmap.set(module);
 			mi.notify_connect(module, SigSig(nw, SigSpec(w).extract(0, GetSize(nw))));
 		}
 	}
