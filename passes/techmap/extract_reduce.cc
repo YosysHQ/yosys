@@ -29,11 +29,10 @@ struct ExtractReducePass : public Pass
 	enum GateType {
 		And,
 		Or,
-		Xor,
-		Mux
+		Xor
 	};
 
-	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_*/$pmux cells") { }
+	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
 
 	void help() override
 	{
@@ -50,46 +49,18 @@ struct ExtractReducePass : public Pass
 		log("to map the design to only $_AND_ cells, run extract_reduce, map the remaining\n");
 		log("parts of the design to AND/OR/XOR cells, and run extract_reduce a second time.\n");
 		log("\n");
-		log("Silimate has modified this pass to support word-level cells ($and, $or, \n");
-		log("and $xor) as well as the single-bit cells ($_AND_, $_OR_, and $_XOR_).\n");
-		log("Mux cells ($mux, $_MUX_) can also be reduced to $pmux cells with the mods.\n");
-		log("\n");
 		log("    -allow-off-chain\n");
 		log("        Allows matching of cells that have loads outside the chain. These cells\n");
 		log("        will be replicated and folded into the $reduce_* cell, but the original\n");
 		log("        cell will remain, driving its original loads.\n");
 		log("\n");
-		log("    -mux-only\n");
-		log("        Only reduce $mux cells to $pmux cells, ignore other cell types.\n");
-		log("\n");
-		log("    -no-mux\n");
-		log("        Do not reduce $mux cells to $pmux cells, only reduce other cell types.\n");
-		log("\n");
-		log("    -assume-excl\n");
-		log("        Assume that $mux select signals are exclusive. Will result in logical\n");
-		log("        inequivalence if this assumption is incorrect.\n");
-		log("\n");
-	}
-
-	inline bool IsSingleBit(Cell* cell)
-	{
-		return (cell->hasParam(ID::WIDTH) && cell->getParam(ID::WIDTH).as_int() == 1) ||
-					 (cell->hasParam(ID::A_WIDTH) &&
-						cell->getParam(ID::A_WIDTH).as_int() == 1 &&
-		        cell->getParam(ID::B_WIDTH).as_int() == 1 &&
-					  cell->getParam(ID::Y_WIDTH).as_int() == 1);
 	}
 
 	inline bool IsRightType(Cell* cell, GateType gt)
 	{
 		return (cell->type == ID($_AND_) && gt == GateType::And) ||
 				(cell->type == ID($_OR_) && gt == GateType::Or) ||
-				(cell->type == ID($_XOR_) && gt == GateType::Xor) ||
-				(cell->type == ID($_MUX_) && gt == GateType::Mux) ||
-				(cell->type == ID($and) && IsSingleBit(cell) && gt == GateType::And) ||
-				(cell->type == ID($or) && IsSingleBit(cell) && gt == GateType::Or) ||
-				(cell->type == ID($xor) && IsSingleBit(cell) && gt == GateType::Xor) ||
-				(cell->type == ID($mux) && IsSingleBit(cell) && gt == GateType::Mux);
+				(cell->type == ID($_XOR_) && gt == GateType::Xor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -98,27 +69,12 @@ struct ExtractReducePass : public Pass
 		log_push();
 
 		size_t argidx;
-		bool allow_off_chain = false, mux_only = false, no_mux = false, assume_excl = false;
+		bool allow_off_chain = false;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-allow-off-chain")
 			{
 				allow_off_chain = true;
-				continue;
-			}
-			if (args[argidx] == "-mux-only")
-			{
-				mux_only = true;
-				continue;
-			}
-			if (args[argidx] == "-no-mux")
-			{
-				no_mux = true;
-				continue;
-			}
-			if (args[argidx] == "-assume-excl")
-			{
-				assume_excl = true;
 				continue;
 			}
 			break;
@@ -174,26 +130,10 @@ struct ExtractReducePass : public Pass
 					gt = GateType::Or;
 				else if (cell->type == ID($_XOR_))
 					gt = GateType::Xor;
-				else if (cell->type == ID($_MUX_))
-					gt = GateType::Mux;
-				else if (cell->type == ID($and) && IsSingleBit(cell))
-					gt = GateType::And;
-				else if (cell->type == ID($or) && IsSingleBit(cell))
-					gt = GateType::Or;
-				else if (cell->type == ID($xor) && IsSingleBit(cell))
-					gt = GateType::Xor;
-				else if (cell->type == ID($mux) && IsSingleBit(cell))
-					gt = GateType::Mux;
 				else
 					continue;
 
-				if (mux_only && gt != GateType::Mux)
-					continue;
-
-				if (no_mux && gt == GateType::Mux)
-					continue;
-
-				log_debug("Working on cell %s...\n", cell->name);
+				log("Working on cell %s...\n", cell->name);
 
 				// If looking for a single chain, follow linearly to the sink
 				pool<Cell*> sinks;
@@ -280,60 +220,33 @@ struct ExtractReducePass : public Pass
 				//We have our list, go act on it
 				for(auto head_cell : sinks)
 				{
-					log_debug("  Head cell is %s\n", head_cell->name);
+					log("  Head cell is %s\n", head_cell->name);
 
 					//Avoid duplication if we already were covered
 					if(consumed_cells.count(head_cell))
 						continue;
 
 					dict<SigBit, int> sources;
-					dict<SigBit, int> sels;
 					int inner_cells = 0;
-					std::deque<std::pair<Cell*, SigBit>> bfs_queue = {{head_cell, State::S1}};
-					std::set<Cell*> seen_set = {};
+					std::deque<Cell*> bfs_queue = {head_cell};
 					while (bfs_queue.size())
 					{
-						auto bfs_item = bfs_queue.front();
+						Cell* x = bfs_queue.front();
 						bfs_queue.pop_front();
 
-						Cell* x = bfs_item.first;
-						SigBit excl = bfs_item.second;
-
-						for (IdString port: {ID::B, ID::A}) {
+						for (auto port: {ID::A, ID::B}) {
 							auto bit = sigmap(x->getPort(port)[0]);
 
 							bool sink_single = sig_to_sink[bit].size() == 1 && !port_sigs.count(bit);
 
 							Cell* drv = sig_to_driver[bit];
-							bool drv_ok = drv && IsRightType(drv, gt) && !consumed_cells.count(drv) && !seen_set.count(drv);
-							seen_set.insert(drv);
-
-							SigBit s_port;
-							SigBit sel_sig;
-							if (gt == GateType::Mux) {
-								s_port = sigmap(x->getPort(ID::S)[0]);
-								if (port == ID::A)
-									sel_sig = module->Not(NEW_ID2_SUFFIX("not"), s_port, false, x->get_src_attribute());
-								else
-									sel_sig = module->Buf(NEW_ID2_SUFFIX("buf"), s_port, false, x->get_src_attribute());
-							}
+							bool drv_ok = drv && drv->type == head_cell->type;
 
 							if (drv_ok && (allow_off_chain || sink_single)) {
 								inner_cells++;
-								if (gt == GateType::Mux && !assume_excl) { // if not assuming exclusivity, add to excl signal
-									SigBit sel_sig_inv = (port == ID::A) ? module->Not(NEW_ID2_SUFFIX("not"), s_port, false, x->get_src_attribute())[0] : s_port;
-									bfs_queue.push_back({drv, module->And(NEW_ID2_SUFFIX("excl_and"), sel_sig_inv, excl, false, x->get_src_attribute())});
-								} else { // otherwise, just use the drv signal and don't worry about exclusivity
-									bfs_queue.push_back({drv, excl});
-								}
+								bfs_queue.push_back(drv);
 							} else {
-								sources[module->Buf(NEW_ID2_SUFFIX("buf"), bit, false, x->get_src_attribute())]++;
-								if (gt == GateType::Mux) {
-									if (assume_excl) // if assuming exclusivity, just use select signal
-										sels[sel_sig]++;
-									else // enforce exclusivity by ANDing with excl signal
-										sels[module->And(NEW_ID2_SUFFIX("selex_and"), sel_sig, excl)]++;
-								}
+								sources[bit]++;
 							}
 						}
 					}
@@ -341,35 +254,27 @@ struct ExtractReducePass : public Pass
 					if (inner_cells)
 					{
 						// Worth it to create reduce cell
-						log_debug("Creating reduce_* cell for %s (%s) in %s\n", head_cell->name.c_str(), head_cell->type.c_str(), module->name.c_str());
+						log("  Creating $reduce_* cell!\n");
 
 						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
 
-						SigSpec input, sel;
+						SigSpec input;
 						for (auto it : sources) {
 							bool cond;
-							if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor))
+							if (head_cell->type == ID($_XOR_))
 								cond = it.second & 1;
 							else
 								cond = it.second != 0;
-							if (cond || head_cell->hasPort(ID::S))
+							if (cond)
 								input.append(it.first);
 						}
-						if (head_cell->hasPort(ID::S)) {
-							for (auto it : sels)
-								sel.append(it.first);
-							input.reverse();
-							sel.reverse();
-						}
 
-						if (head_cell->type == ID($_AND_) || head_cell->type == ID($and)) {
-							module->addReduceAnd(NEW_ID2_SUFFIX("reduce_and"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_OR_) || head_cell->type == ID($or)) {
-							module->addReduceOr(NEW_ID2_SUFFIX("reduce_or"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_XOR_) || head_cell->type == ID($xor)) {
-							module->addReduceXor(NEW_ID2_SUFFIX("reduce_xor"), input, output, false, cell->get_src_attribute()); // SILIMATE: Improve the naming
-						} else if (head_cell->type == ID($_MUX_) || head_cell->type == ID($mux)) {
-							module->addPmux(NEW_ID2_SUFFIX("pmux"), State::Sx, input, sel, output, cell->get_src_attribute()); // SILIMATE: Improve the naming
+						if (head_cell->type == ID($_AND_)) {
+							module->addReduceAnd(NEW_ID, input, output);
+						} else if (head_cell->type == ID($_OR_)) {
+							module->addReduceOr(NEW_ID, input, output);
+						} else if (head_cell->type == ID($_XOR_)) {
+							module->addReduceXor(NEW_ID, input, output);
 						} else {
 							log_assert(false);
 						}

@@ -36,14 +36,10 @@ struct BmuxmapPass : public Pass {
 		log("    -pmux\n");
 		log("        transform to $pmux instead of $mux cells.\n");
 		log("\n");
-		log("    -fewunq\n");
-		log("        only transform $bmux cells that have few unique A bits.\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool pmux_mode = false;
-		bool fewunq_mode = false;
 
 		log_header(design, "Executing BMUXMAP pass.\n");
 
@@ -51,10 +47,6 @@ struct BmuxmapPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-pmux") {
 				pmux_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-fewunq") {
-				fewunq_mode = true;
 				continue;
 			}
 			break;
@@ -66,17 +58,6 @@ struct BmuxmapPass : public Pass {
 		{
 			if (cell->type != ID($bmux))
 				continue;
-			
-			if (fewunq_mode) {
-				SigSpec data = cell->getPort(ID::A);
-				SigMap sigmap(module);
-				pool<SigBit> unqbits;
-				for (auto bit : data)
-					if (bit.wire != nullptr)
-						unqbits.insert(sigmap(bit));
-				if (GetSize(unqbits) > GetSize(data)/2)
-					continue;
-			}
 
 			SigSpec sel = cell->getPort(ID::S);
 			SigSpec data = cell->getPort(ID::A);
@@ -89,16 +70,14 @@ struct BmuxmapPass : public Pass {
 				SigSpec new_a = SigSpec(State::Sx, width);
 				SigSpec new_s = module->addWire(NEW_ID2_SUFFIX("sel"), num_cases); // SILIMATE: Improve the naming
 				SigSpec new_data = module->addWire(NEW_ID2_SUFFIX("data"), width); // SILIMATE: Improve the naming
-				for (int val = 0; val < num_cases; val++) {
-					RTLIL::Cell *eq = module->addEq(NEW_ID2_SUFFIX("eq"), sel, SigSpec(val, GetSize(sel)), new_s[val]); // SILIMATE: Improve the naming
-					for (auto attr : cell->attributes) // SILIMATE: Copy all attributes from original cell to new cell
-						eq->attributes[attr.first] = attr.second;
+				for (int val = 0; val < num_cases; val++)
+				{
+					module->addEq(NEW_ID2_SUFFIX("eq"), sel, SigSpec(val, GetSize(sel)), new_s[val], false, cell->get_src_attribute()); // SILIMATE: Improve the naming
 				}
-				IdString cell_name = cell->name; // SILIMATE: Save the original cell name
-				module->rename(cell_name, NEW_ID); // SILIMATE: Rename the original cell, which will be deleted
-				RTLIL::Cell *pmux = module->addPmux(cell_name, new_a, data, new_s, new_data); // SILIMATE: Improve the naming
-				pmux->attributes = cell->attributes; // SILIMATE: Copy all attributes from original cell to new cell
+				RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
+				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 				data = new_data;
+				module->swap_names(cell, pmux);  // SILIMATE: Improve the naming
 			}
 			else
 			{
@@ -110,7 +89,7 @@ struct BmuxmapPass : public Pass {
 							data.extract(i*2+width, width),
 							sel[idx],
 							new_data.extract(i, width));
-						mux->attributes = cell->attributes; // SILIMATE: Copy all attributes from original cell to new cell
+						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 					}
 					data = new_data;
 				}
