@@ -591,6 +591,10 @@ struct WreduceWorker
 			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
+			for (auto bit : mi.sigmap(SigSpec(w).extract(GetSize(nw), unused_top_bits)))
+				mi.database.erase(bit);
+			mi.sigmap.set(module);
+			mi.notify_connect(module, SigSig(nw, SigSpec(w).extract(0, GetSize(nw))));
 		}
 	}
 };

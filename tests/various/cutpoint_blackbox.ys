@@ -62,9 +62,9 @@ rename -enumerate -pattern B_% t:$anyseq
 rename -enumerate -pattern C_% w:*Anyseq*
 design -save gate
 select -write cutpoint.gate.sel
-select -read cutpoint.gold.sel
+select -read cutpoint.gate.sel
 # nothing in gate but not gold
-#select -assert-none % %n
+select -assert-none % %n
 
 design -load gold
 select -read cutpoint.gold.sel
