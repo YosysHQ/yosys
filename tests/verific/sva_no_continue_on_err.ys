@@ -1,0 +1,9 @@
+
+verific -sv <<EOF
+module top(input clk, input a, input b);
+    prop_unsupported: assert property (@(posedge clk) a ##1 @(posedge b) ##1 a);
+endmodule;
+EOF
+
+logger -expect error "Mixed clocking is currently not supported" 1
+verific -import top
