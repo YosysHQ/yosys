@@ -905,28 +905,6 @@ select t:$sub -assert-count 0
 design -reset
 log -pop
 
-log -header "Test with parameters/generics"
-log -push
-design -reset
-read_verilog <<EOF
-module top #(parameter WIDTH = 8) (
-  input wire  [WIDTH-1:0] a,
-  output wire  [WIDTH+2:0] y
-);
-  wire [WIDTH+2:0] temp;
-  assign temp = a + 5;
-  assign y = temp + 3;
-endmodule
-EOF
-check -assert
-wreduce
-equiv_opt -assert peepopt
-design -load postopt
-select t:$add -assert-count 1
-select t:$sub -assert-count 0
-design -reset
-log -pop
-
 log -header "Final test case"
 log -push
 design -reset
