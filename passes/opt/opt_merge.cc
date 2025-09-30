@@ -246,10 +246,15 @@ struct OptMergeWorker
 					// mem can have an excessively large parameter holding the init data
 					continue;
 				}
+				if (cell->type == ID($scopeinfo))
+					continue;
 				if (mode_keepdc && has_dont_care_initval(cell))
 					continue;
-				if (ct.cell_known(cell->type) || (mode_share_all && cell->known()))
-					cells.push_back(cell);
+				if (!cell->known())
+					continue;
+				if (!mode_share_all && !ct.cell_known(cell->type))
+					continue;
+				cells.push_back(cell);
 			}
 
 			did_something = false;
@@ -278,12 +283,6 @@ struct OptMergeWorker
 
 			for (auto cell : cells)
 			{
-				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
-					continue;
-
-				if (cell->type == ID($scopeinfo))
-					continue;
-
 				auto [cell_in_map, inserted] = known_cells.insert(cell);
 				if (!inserted) {
 					// We've failed to insert since we already have an equivalent cell

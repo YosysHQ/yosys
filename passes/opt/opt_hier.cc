@@ -144,12 +144,12 @@ struct ModuleIndex {
 			}
 
 			if (nunused > 0) {
-				log("Disconnected %d input bits of instance '%s' of '%s' in '%s'\n",
+				log("Disconnected %d input bits of instance '%s' (type '%s') in '%s'\n",
 					nunused, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
 				changed = true;
 			}
 			if (nconstants > 0) {
-				log("Substituting constant for %d output bits of instance '%s' of '%s' in '%s'\n",
+				log("Substituting constant for %d output bits of instance '%s' (type '%s') in '%s'\n",
 					nconstants, log_id(instantiation), log_id(instantiation->type), log_id(parent.module));
 				changed = true;
 			}
@@ -310,7 +310,7 @@ struct UsageData {
 		refine_tie_togethers(inputs);
 	}
 
-	bool apply_changes() {
+	bool apply_changes(ModuleIndex &index) {
 		bool did_something = false;
 
 		if (module->get_blackbox_attribute()) {
@@ -374,8 +374,16 @@ struct UsageData {
 		// Propagate tied-together inputs
 		dict<SigBit, SigBit> ties;
 		for (auto group : tie_together_inputs) {
-			for (int i = 1; i < group.size(); i++)
-				ties[group[i]] = group[0];
+			// Only consider used inputs for a tie-together group.
+			// ModuleIndex::apply_changes might have disconnected
+			// unused inputs.
+			SigSpec filtered_group;
+			for (auto bit : group) {
+				if (index.used.check(bit))
+					filtered_group.append(bit);
+			}
+			for (int i = 1; i < filtered_group.size(); i++)
+				ties[filtered_group[i]] = filtered_group[0];
 		}
 		SigPool applied_ties;
 		auto ties_rewrite = [&](SigSpec &signal) {
@@ -449,12 +457,13 @@ struct OptHierPass : Pass {
 
 		bool did_something = false;
 		for (auto module : d->selected_modules(RTLIL::SELECT_WHOLE_ONLY, RTLIL::SB_UNBOXED_CMDERR)) {
+			ModuleIndex &parent_index = indices.at(module->name);
+
 			if (usage_datas.count(module->name)) {
 				log_debug("Applying usage data changes to %s\n", log_id(module));
-				did_something |= usage_datas.at(module->name).apply_changes();
+				did_something |= usage_datas.at(module->name).apply_changes(parent_index);
 			}
 
-			ModuleIndex &parent_index = indices.at(module->name);
 			for (auto cell : module->cells()) {
 				if (indices.count(cell->type)) {
 					log_debug("Applying changes to instance %s of %s in %s\n", log_id(cell), log_id(cell->type), log_id(module));
