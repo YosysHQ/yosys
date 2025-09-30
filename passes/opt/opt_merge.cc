@@ -34,6 +34,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+template <typename T, typename U>
+inline Hasher hash_pair(const T &t, const U &u) { return hash_ops<std::pair<T, U>>::hash(t, u); }
+
 struct OptMergeWorker
 {
 	RTLIL::Design *design;
@@ -52,7 +55,7 @@ struct OptMergeWorker
 
 		hashlib::commutative_hash comm;
 		for (int i = 0; i < s_width; i++)
-			comm.eat(hash_ops<std::pair<SigBit, SigSpec>>::hash({sig_s[i], sig_b.extract(i*width, width)}));
+			comm.eat(hash_pair(sig_s[i], sig_b.extract(i*width, width)));
 
 		return comm.hash_into(h);
 	}
@@ -87,8 +90,8 @@ struct OptMergeWorker
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
 			hashlib::commutative_hash comm;
-			comm.eat(hash_ops<RTLIL::SigSpec>::hash(assign_map(cell->getPort(ID::A))));
-			comm.eat(hash_ops<RTLIL::SigSpec>::hash(assign_map(cell->getPort(ID::B))));
+			comm.eat(assign_map(cell->getPort(ID::A)));
+			comm.eat(assign_map(cell->getPort(ID::B)));
 			h = comm.hash_into(h);
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
@@ -108,7 +111,7 @@ struct OptMergeWorker
 			for (const auto& [port, sig] : cell->connections()) {
 				if (cell->output(port))
 					continue;
-				comm.eat(hash_ops<std::pair<IdString, SigSpec>>::hash(port, assign_map(sig)));
+				comm.eat(hash_pair(port, assign_map(sig)));
 			}
 			h = comm.hash_into(h);
 			if (cell->is_builtin_ff())
@@ -121,7 +124,7 @@ struct OptMergeWorker
 	{
 		hashlib::commutative_hash comm;
 		for (const auto& param : cell->parameters) {
-			comm.eat(hash_ops<std::pair<IdString, Const>>::hash(param));
+			comm.eat(param);
 		}
 		return comm.hash_into(h);
 	}
