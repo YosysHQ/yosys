@@ -3,6 +3,20 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+static int init_max_threads()
+{
+	const char *v = getenv("YOSYS_MAX_THREADS");
+	if (v == nullptr)
+		return INT32_MAX;
+	return atoi(v);
+}
+
+static int get_max_threads()
+{
+	static int max_threads = init_max_threads();
+	return max_threads;
+}
+
 void DeferredLogs::flush()
 {
 	for (auto &m : logs)
@@ -15,7 +29,8 @@ void DeferredLogs::flush()
 int ThreadPool::pool_size(int reserved_cores, int max_threads)
 {
 #ifdef YOSYS_ENABLE_THREADS
-	int num_threads = std::min<int>(std::thread::hardware_concurrency() - reserved_cores, max_threads);
+	int available_threads = std::min<int>(std::thread::hardware_concurrency(), get_max_threads());
+	int num_threads = std::min(available_threads - reserved_cores, max_threads);
         return std::max(0, num_threads);
 #else
         return 0;
