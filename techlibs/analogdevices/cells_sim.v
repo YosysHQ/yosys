@@ -273,7 +273,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   endspecify
 endmodule
 
-module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
+module LUT6_D(output O6, output O5, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
   wire [31: 0] s5 = I5 ? INIT[63:32] : INIT[31: 0];
   wire [15: 0] s4 = I4 ?   s5[31:16] :   s5[15: 0];
@@ -581,76 +581,6 @@ module FFSE_N (
     if (S)        (negedge C => (Q : 1'b1)) = 303;
     if (!S && CE) (negedge C => (Q : D)) = 303;
   endspecify
-endmodule
-
-module FFRSE (
-  output reg Q,
-  (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
-  input C,
-  (* invertible_pin = "IS_CE_INVERTED" *)
-  input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
-  (* invertible_pin = "IS_R_INVERTED" *)
-  input R,
-  (* invertible_pin = "IS_S_INVERTED" *)
-  input S
-);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_CE_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_R_INVERTED = 1'b0;
-  parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
-  wire c = C ^ IS_C_INVERTED;
-  wire ce = CE ^ IS_CE_INVERTED;
-  wire d = D ^ IS_D_INVERTED;
-  wire r = R ^ IS_R_INVERTED;
-  wire s = S ^ IS_S_INVERTED;
-  always @(posedge c)
-    if (r)
-      Q <= 0;
-    else if (s)
-      Q <= 1;
-    else if (ce)
-      Q <= d;
-endmodule
-
-module FFRSE_N (
-  output reg Q,
-  (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
-  input C,
-  (* invertible_pin = "IS_CE_INVERTED" *)
-  input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
-  (* invertible_pin = "IS_R_INVERTED" *)
-  input R,
-  (* invertible_pin = "IS_S_INVERTED" *)
-  input S
-);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_CE_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_R_INVERTED = 1'b0;
-  parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
-  wire c = C ^ IS_C_INVERTED;
-  wire ce = CE ^ IS_CE_INVERTED;
-  wire d = D ^ IS_D_INVERTED;
-  wire r = R ^ IS_R_INVERTED;
-  wire s = S ^ IS_S_INVERTED;
-  always @(negedge c)
-    if (r)
-      Q <= 0;
-    else if (s)
-      Q <= 1;
-    else if (ce)
-      Q <= d;
 endmodule
 
 (* abc9_box, lib_whitebox *)
