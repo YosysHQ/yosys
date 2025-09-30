@@ -6,4 +6,4 @@ _Explain how this is achieved._
 
 _Make sure your change comes with tests. If not possible, share how a reviewer might evaluate it._
 
-_These template prompts can be deleted when you're done responding to them_
+_These template prompts can be deleted when you're done responding to them._
