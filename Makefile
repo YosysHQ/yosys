@@ -530,8 +530,12 @@ ifeq ($(ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
 CXXFLAGS += -DYOSYSHQ_VERIFIC_EXTENSIONS
 else
+# YosysHQ flavor of Verific always needs extensions linked
+# if disabled it will just not be invoked but parts
+# are required for it to initialize properly
 ifneq ($(wildcard $(VERIFIC_DIR)/extensions),)
 VERIFIC_COMPONENTS += extensions
+OBJS += kernel/log_compat.o
 endif
 endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
