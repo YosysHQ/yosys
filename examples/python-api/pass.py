@@ -29,7 +29,7 @@ class CellStatsPass(ys.Pass):
         plt.xticks(range(len(cell_stats)), list(cell_stats.keys()))
         plt.show()
 
-    def py_clear_flags(self):
+    def clear_flags(self):
         ys.log("Clear Flags - CellStatsPass\n")
 
 p = CellStatsPass() # register
