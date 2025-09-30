@@ -55,6 +55,7 @@ struct WreduceWorker
 	ModIndex mi;
 
 	std::set<Cell*, IdString::compare_ptr_by_name<Cell>> work_queue_cells;
+	std::set<Wire*, IdString::compare_ptr_by_name<Wire>> work_queue_wires;
 	std::set<SigBit> work_queue_bits;
 	pool<SigBit> keep_bits;
 	FfInitVals initvals;
@@ -78,6 +79,8 @@ struct WreduceWorker
 		for (int i = GetSize(sig_y)-1; i >= 0; i--)
 		{
 			auto info = mi.query(sig_y[i]);
+			if (info == nullptr)
+				return;
 			if (!info->is_output && GetSize(info->ports) <= 1 && !keep_bits.count(mi.sigmap(sig_y[i]))) {
 				bits_removed.push_back(State::Sx);
 				continue;
@@ -393,6 +396,8 @@ struct WreduceWorker
 					break;
 
 				auto info = mi.query(bit);
+				if (info == nullptr)
+					return;
 				if (info->is_output || GetSize(info->ports) > 1)
 					break;
 
@@ -457,63 +462,88 @@ struct WreduceWorker
 		return count;
 	}
 
+	void run_wire(Wire *w, pool<SigSpec> complete_wires)
+	{
+		int unused_top_bits = 0;
+
+		if (w->port_id > 0 || count_nontrivial_wire_attrs(w) > 0)
+			return;
+
+		for (int i = GetSize(w)-1; i >= 0; i--) {
+			SigBit bit(w, i);
+			auto info = mi.query(bit);
+			if (info == nullptr)
+				return;
+			if (info && (info->is_input || info->is_output || GetSize(info->ports) > 0))
+				break;
+			unused_top_bits++;
+		}
+
+		if (unused_top_bits == 0 || unused_top_bits == GetSize(w))
+			return;
+
+		if (complete_wires[mi.sigmap(w).extract(0, GetSize(w) - unused_top_bits)])
+			return;
+
+		log_debug("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
+		Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
+		module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
+		module->swap_names(w, nw);
+	}
+
 	void run()
 	{
-		// create a copy as mi.sigmap will be updated as we process the module
+		// Create a copy as mi.sigmap will be updated as we process the module
 		SigMap init_attr_sigmap = mi.sigmap;
 		initvals.set(&init_attr_sigmap, module);
 
-		for (auto w : module->wires()) {
-			if (w->get_bool_attribute(ID::keep))
-				for (auto bit : mi.sigmap(w))
-					keep_bits.insert(bit);
-		}
-
+		// Initialize cell work queue
 		for (auto c : module->selected_cells())
 			work_queue_cells.insert(c);
 
-		while (!work_queue_cells.empty())
+		// Initialize wire work queue
+		for (auto w : module->selected_wires())
+			work_queue_wires.insert(w);
+
+		while (!work_queue_cells.empty() && !work_queue_wires.empty())
 		{
+			// Initialize keep bits
+			for (auto w : module->wires()) {
+				if (w->get_bool_attribute(ID::keep))
+					for (auto bit : mi.sigmap(w))
+						keep_bits.insert(bit);
+			}
+
+			// Initialize complete wires
+			pool<SigSpec> complete_wires;
+			for (auto w : module->wires())
+				complete_wires.insert(mi.sigmap(w));
+
+			// Run wires
+			for (auto w : work_queue_wires)
+				run_wire(w, complete_wires);
+
+			// Run cells
 			work_queue_bits.clear();
 			for (auto c : work_queue_cells)
 				run_cell(c);
 
+			// Get next batch of wires to process
+			work_queue_wires.clear();
+			for (auto bit : work_queue_bits)
+				if (bit.wire != NULL && module->selected(bit.wire))
+					work_queue_wires.insert(bit.wire);
+
+			// Get next batch of cells to process
 			work_queue_cells.clear();
 			for (auto bit : work_queue_bits)
 			for (auto port : mi.query_ports(bit))
 				if (module->selected(port.cell))
 					work_queue_cells.insert(port.cell);
-		}
 
-		pool<SigSpec> complete_wires;
-		for (auto w : module->wires())
-			complete_wires.insert(mi.sigmap(w));
-
-		for (auto w : module->selected_wires())
-		{
-			int unused_top_bits = 0;
-
-			if (w->port_id > 0 || count_nontrivial_wire_attrs(w) > 0)
-				continue;
-
-			for (int i = GetSize(w)-1; i >= 0; i--) {
-				SigBit bit(w, i);
-				auto info = mi.query(bit);
-				if (info && (info->is_input || info->is_output || GetSize(info->ports) > 0))
-					break;
-				unused_top_bits++;
-			}
-
-			if (unused_top_bits == 0 || unused_top_bits == GetSize(w))
-				continue;
-
-			if (complete_wires[mi.sigmap(w).extract(0, GetSize(w) - unused_top_bits)])
-				continue;
-
-			log_debug("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), log_id(module), log_id(w));
-			Wire *nw = module->addWire(module->uniquify(IdString(w->name.str() + "_wreduce")), GetSize(w) - unused_top_bits);
-			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
-			module->swap_names(w, nw);
+			// Reload module
+			if (!work_queue_cells.empty() && !work_queue_wires.empty())
+				mi.reload_module();
 		}
 	}
 };
