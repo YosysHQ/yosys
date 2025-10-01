@@ -31,6 +31,14 @@
  *
  */
 
+// If using Verilator, define SIMLIB_VERILATOR_COMPAT
+`ifdef SIMLIB_VERILATOR_COMPAT
+ /* verilator lint_save */
+ /* verilator lint_off DEFOVERRIDE */
+ `define SIMLIB_NOCONNECT
+ /* verilator lint_restore */
+`endif
+
 // --------------------------------------------------------
 //* ver 2
 //* title Bit-wise inverter
