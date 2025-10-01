@@ -50,10 +50,18 @@ generate
 
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
 		if (i == 0) begin
-			CRY4 carry4
+			wire INITCO;
+
+			CRY4INIT init
 			(
 			.CYINIT(CI),
-			.CI    (1'd0),
+			.CO    (INITCO)
+			);
+
+			CRY4 carry4
+			(
+			.CYINIT(1'd0),
+			.CI    (INITCO),
 			.DI    (GG[i*4 +: 4]),
 			.S     (S [i*4 +: 4]),
 			.CO    (C [i*4 +: 4]),
@@ -130,10 +138,18 @@ module _80_analogdevices_alu (A, B, CI, BI, X, Y, CO);
 	genvar i;
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
 		if (i == 0) begin
-			CRY4 carry4
+			wire INITCO;
+
+			CRY4INIT init
 			(
 			.CYINIT(CI),
-			.CI    (1'd0),
+			.CO    (INITCO)
+			);
+
+			CRY4 carry4
+			(
+			.CYINIT(1'd0),
+			.CI    (INITCO),
 			.DI    (DI[i*4 +: 4]),
 			.S     (S [i*4 +: 4]),
 			.O     (O [i*4 +: 4]),

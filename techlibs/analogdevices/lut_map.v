@@ -72,7 +72,7 @@ module \$lut (A, Y);
       wire f0, f1;
       \$lut #(.LUT(LUT[127:  0]), .WIDTH(7)) lut0 (.A(A[6:0]), .Y(f0));
       \$lut #(.LUT(LUT[255:128]), .WIDTH(7)) lut1 (.A(A[6:0]), .Y(f1));
-      LUTMUX8 mux8(.I0(f0), .I1(f1), .S(A[7]), .O(Y));
+      LUTMUX8 mux8 (.I0(f0), .I1(f1), .S(A[7]), .O(Y));
     end else begin
       wire _TECHMAP_FAIL_ = 1;
     end
