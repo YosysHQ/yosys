@@ -464,7 +464,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 					abc_opts += " -dff";
 				if (retime)
 					abc_opts += " -D 1";
-				run("abc" + abc_opts);
+				run("abc -dress" + abc_opts);
 			}
 			run("clean");
 
