@@ -17,10 +17,6 @@
  *
  */
 
-// See Analog Devices UG953 and UG474 for a description of the cell types below.
-// http://www.analogdevices.com/support/documentation/user_guides/ug474_7Series_CLB.pdf
-// http://www.analogdevices.com/support/documentation/sw_manuals/analogdevices2014_4/ug953-vivado-7series-libraries.pdf
-
 module VDD(output P);
   assign P = 1;
 endmodule
@@ -41,7 +37,7 @@ module INBUF(
   parameter IOSTANDARD = "DEFAULT";
   assign O = I;
   specify
-    (I => O) = 0;
+    (I => O) = 22;
   endspecify
 endmodule
 
@@ -66,7 +62,7 @@ module OUTBUF(
   parameter SLEW = "SLOW";
   assign O = I;
   specify
-    (I => O) = 0;
+    (I => O) = 22;
   endspecify
 endmodule
 
@@ -182,7 +178,7 @@ module INV(
 );
   assign O = !I;
   specify
-    (I => O) = 127;
+    (I => O) = 22;
   endspecify
 endmodule
 
@@ -191,7 +187,7 @@ module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
   specify
-    (I0 => O) = 127;
+    (I0 => O) = 22;
   endspecify
 endmodule
 
@@ -201,8 +197,8 @@ module LUT2(output O, input I0, I1);
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
   specify
-    (I0 => O) = 238;
-    (I1 => O) = 127;
+    (I0 => O) = 22;
+    (I1 => O) = 22;
   endspecify
 endmodule
 
@@ -213,13 +209,13 @@ module LUT3(output O, input I0, I1, I2);
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
   specify
-    (I0 => O) = 407;
-    (I1 => O) = 238;
-    (I2 => O) = 127;
+    (I0 => O) = 22;
+    (I1 => O) = 22;
+    (I2 => O) = 22;
   endspecify
 endmodule
 
-(* abc9_lut=3 *)
+(* abc9_lut=4 *)
 module LUT4(output O, input I0, I1, I2, I3);
   parameter [15:0] INIT = 0;
   wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
@@ -227,14 +223,14 @@ module LUT4(output O, input I0, I1, I2, I3);
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
   specify
-    (I0 => O) = 472;
-    (I1 => O) = 407;
-    (I2 => O) = 238;
-    (I3 => O) = 127;
+    (I0 => O) = 22;
+    (I1 => O) = 22;
+    (I2 => O) = 22;
+    (I3 => O) = 22;
   endspecify
 endmodule
 
-(* abc9_lut=3 *)
+(* abc9_lut=5 *)
 module LUT5(output O, input I0, I1, I2, I3, I4);
   parameter [31:0] INIT = 0;
   wire [15: 0] s4 = I4 ? INIT[31:16] : INIT[15: 0];
@@ -243,18 +239,15 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
   specify
-    (I0 => O) = 631;
-    (I1 => O) = 472;
-    (I2 => O) = 407;
-    (I3 => O) = 238;
-    (I4 => O) = 127;
+    (I0 => O) = 22;
+    (I1 => O) = 22;
+    (I2 => O) = 22;
+    (I3 => O) = 22;
+    (I4 => O) = 22;
   endspecify
 endmodule
 
-// This is a placeholder for ABC9 to extract the area/delay
-//   cost of 3-input LUTs and is not intended to be instantiated
-
-(* abc9_lut=5 *)
+(* abc9_lut=6 *)
 module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
   wire [31: 0] s5 = I5 ? INIT[63:32] : INIT[31: 0];
@@ -264,12 +257,12 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
   specify
-    (I0 => O) = 642;
-    (I1 => O) = 631;
-    (I2 => O) = 472;
-    (I3 => O) = 407;
-    (I4 => O) = 238;
-    (I5 => O) = 127;
+    (I0 => O) = 22;
+    (I1 => O) = 22;
+    (I2 => O) = 22;
+    (I3 => O) = 22;
+    (I4 => O) = 22;
+    (I5 => O) = 22;
   endspecify
 endmodule
 
@@ -291,37 +284,35 @@ endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
-(* abc9_lut=10 *)
+(* abc9_lut=12 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
   specify
-                                                 // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
-    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-    (I6 => O) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
+    (I0 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I1 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I2 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I3 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I4 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I5 => O) = 22 + 63 /* LUTMUX7.I1 */;
+    (I6 => O) = 0  + 51 /* LUTMUX7.S */;
   endspecify
 `endif
 endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
-(* abc9_lut=20 *)
+(* abc9_lut=24 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
   specify
-                                                                             // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L716
-    (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I1 => O) = 631 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I2 => O) = 472 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I3 => O) = 407 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I4 => O) = 238 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I6 => O) = 0 + 296 /* to select F7BMUX */  + 104 /* to cross F8MUX */ + 192 /* BMUX */;
-    (I7 => O) = 0 + 0 + 273 /* to select F8MUX */ + 192 /* BMUX */;
+    (I0 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I1 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I2 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I3 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I4 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I5 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
+    (I6 => O) = 0  + 51 /* LUTMUX7.S */  + 48 /* LUTMUX8.I0 */;
+    (I7 => O) = 0  +  0                  + 58 /* LUTMUX8.S */;
   endspecify
 `endif
 endmodule
@@ -330,10 +321,9 @@ endmodule
 module LUTMUX7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L451-L453
-    (I0 => O) = 217;
-    (I1 => O) = 223;
-    (S => O) = 296;
+    (I0 => O) = 62;
+    (I1 => O) = 63;
+    (S => O) = 51;
   endspecify
 endmodule
 
@@ -341,10 +331,9 @@ endmodule
 module LUTMUX8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
   specify
-    // Max delays from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L462-L464
-    (I0 => O) = 104;
-    (I1 => O) = 94;
-    (S => O) = 273;
+    (I0 => O) = 48;
+    (I1 => O) = 46;
+    (S => O) = 58;
   endspecify
 endmodule
 
@@ -365,79 +354,65 @@ module CRY4(
   assign CO[3] = S[3] ? CO[2] : DI[3];
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L11-L46
-    (CYINIT => O[0]) = 482;
-    (S[0]   => O[0]) = 223;
-    (CI     => O[0]) = 222;
-    (CYINIT => O[1]) = 598;
-    (DI[0]  => O[1]) = 407;
-    (S[0]   => O[1]) = 400;
-    (S[1]   => O[1]) = 205;
-    (CI     => O[1]) = 334;
-    (CYINIT => O[2]) = 584;
-    (DI[0]  => O[2]) = 556;
-    (DI[1]  => O[2]) = 537;
-    (S[0]   => O[2]) = 523;
-    (S[1]   => O[2]) = 558;
-    (S[2]   => O[2]) = 226;
-    (CI     => O[2]) = 239;
-    (CYINIT => O[3]) = 642;
-    (DI[0]  => O[3]) = 615;
-    (DI[1]  => O[3]) = 596;
-    (DI[2]  => O[3]) = 438;
-    (S[0]   => O[3]) = 582;
-    (S[1]   => O[3]) = 618;
-    (S[2]   => O[3]) = 330;
-    (S[3]   => O[3]) = 227;
-    (CI     => O[3]) = 313;
-    (CYINIT => CO[0]) = 536;
-    (DI[0]  => CO[0]) = 379;
-    (S[0]   => CO[0]) = 340;
-    (CI     => CO[0]) = 271;
-    (CYINIT => CO[1]) = 494;
-    (DI[0]  => CO[1]) = 465;
-    (DI[1]  => CO[1]) = 445;
-    (S[0]   => CO[1]) = 433;
-    (S[1]   => CO[1]) = 469;
-    (CI     => CO[1]) = 157;
-    (CYINIT => CO[2]) = 592;
-    (DI[0]  => CO[2]) = 540;
-    (DI[1]  => CO[2]) = 520;
-    (DI[2]  => CO[2]) = 356;
-    (S[0]   => CO[2]) = 512;
-    (S[1]   => CO[2]) = 548;
-    (S[2]   => CO[2]) = 292;
-    (CI     => CO[2]) = 228;
-    (CYINIT => CO[3]) = 580;
-    (DI[0]  => CO[3]) = 526;
-    (DI[1]  => CO[3]) = 507;
-    (DI[2]  => CO[3]) = 398;
-    (DI[3]  => CO[3]) = 385;
-    (S[0]   => CO[3]) = 508;
-    (S[1]   => CO[3]) = 528;
-    (S[2]   => CO[3]) = 378;
-    (S[3]   => CO[3]) = 380;
-    (CI     => CO[3]) = 114;
+    (S[0]   => O[0]) = 39;
+    (CI     => O[0]) = 43;
+    (DI[0]  => O[1]) = 81;
+    (S[0]   => O[1]) = 61;
+    (S[1]   => O[1]) = 42;
+    (CI     => O[1]) = 50;
+    (DI[0]  => O[2]) = 98;
+    (DI[1]  => O[2]) = 95;
+    (S[0]   => O[2]) = 70;
+    (S[1]   => O[2]) = 75;
+    (S[2]   => O[2]) = 48;
+    (CI     => O[2]) = 64;
+    (DI[0]  => O[3]) = 101;
+    (DI[1]  => O[3]) = 120;
+    (DI[2]  => O[3]) = 65;
+    (S[0]   => O[3]) = 69;
+    (S[1]   => O[3]) = 91;
+    (S[2]   => O[3]) = 42;
+    (S[3]   => O[3]) = 39;
+    (CI     => O[3]) = 84;
+    (DI[0]  => CO[0]) = 59;
+    (S[0]   => CO[0]) = 43;
+    (CI     => CO[0]) = 50;
+    (DI[0]  => CO[1]) = 87;
+    (DI[1]  => CO[1]) = 64;
+    (S[0]   => CO[1]) = 63;
+    (S[1]   => CO[1]) = 51;
+    (CI     => CO[1]) = 55;
+    (DI[0]  => CO[2]) = 103;
+    (DI[1]  => CO[2]) = 113;
+    (DI[2]  => CO[2]) = 58;
+    (S[0]   => CO[2]) = 68;
+    (S[1]   => CO[2]) = 79;
+    (S[2]   => CO[2]) = 37;
+    (CI     => CO[2]) = 77;
+    (DI[0]  => CO[3]) = 93;
+    (DI[1]  => CO[3]) = 95;
+    (DI[2]  => CO[3]) = 84;
+    (DI[3]  => CO[3]) = 72;
+    (S[0]   => CO[3]) = 91;
+    (S[1]   => CO[3]) = 97;
+    (S[2]   => CO[3]) = 82;
+    (S[3]   => CO[3]) = 81;
+    (CI     => CO[3]) = 20;
   endspecify
 endmodule
 
-module CARRY8(
-  output [7:0] CO,
-  output [7:0] O,
-  input        CI,
-  input        CI_TOP,
-  input  [7:0] DI, S
+(* abc9_box, lib_whitebox *)
+module CRY4INIT(
+  (* abc9_carry *)
+  output       CO,
+  (* abc9_carry *)
+  input        CYINIT
 );
-  parameter CARRY_TYPE = "SINGLE_CY8";
-  wire CI4 = (CARRY_TYPE == "DUAL_CY4" ? CI_TOP : CO[3]);
-  assign O = S ^ {CO[6:4], CI4, CO[2:0], CI};
-  assign CO[0] = S[0] ? CI : DI[0];
-  assign CO[1] = S[1] ? CO[0] : DI[1];
-  assign CO[2] = S[2] ? CO[1] : DI[2];
-  assign CO[3] = S[3] ? CO[2] : DI[3];
-  assign CO[4] = S[4] ? CI4 : DI[4];
-  assign CO[5] = S[5] ? CO[4] : DI[5];
-  assign CO[6] = S[6] ? CO[5] : DI[6];
-  assign CO[7] = S[7] ? CO[6] : DI[7];
+  specify
+    (CYINIT => CO) = 72;
+  endspecify
+
+  assign CO = CYINIT;
 endmodule
 
 module ORCY (output O, input CI, I);
@@ -448,48 +423,26 @@ module MULT_AND (output LO, input I0, I1);
   assign LO = I0 & I1;
 endmodule
 
-// Flip-flops and latches.
-
-// Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L238-L250
+// Flip-flops.
 
 (* abc9_flop, lib_whitebox *)
 module FFRE (
   output reg Q,
   (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
   input D,
-  (* invertible_pin = "IS_R_INVERTED" *)
   input R
 );
   parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_R_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate
-  case (|IS_C_INVERTED)
-    1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase
-  endgenerate
+  always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , posedge C &&& CE && !IS_C_INVERTED , /*-46*/ 0); // Negative times not currently supported
-    $setup(D , negedge C &&& CE &&  IS_C_INVERTED , /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
-    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(R , posedge C &&& !IS_C_INVERTED, 404);
-    $setup(R , negedge C &&&  IS_C_INVERTED, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (!IS_C_INVERTED && R != IS_R_INVERTED)        (posedge C => (Q : 1'b0)) = 303;
-    if ( IS_C_INVERTED && R != IS_R_INVERTED)        (negedge C => (Q : 1'b0)) = 303;
-    if (!IS_C_INVERTED && R == IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && R == IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    $setup(D , posedge C, 31);
+    $setup(CE, posedge C, 122);
+    $setup(R , posedge C, 128);
+    if (R)        (posedge C => (Q : 1'b0)) = 280;
+    if (!R && CE) (posedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
@@ -506,59 +459,34 @@ module FFRE_N (
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE, negedge C, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(R , negedge C, 404);    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (R)        (negedge C => (Q : 1'b0)) = 303;
-    if (!R && CE) (negedge C => (Q : D)) = 303;
+    $setup(D , negedge C, 31);
+    $setup(CE, negedge C, 122);
+    $setup(R , negedge C, 128);
+    if (R)        (negedge C => (Q : 1'b0)) = 280;
+    if (!R && CE) (negedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
-(* abc9_flop, lib_whitebox *)
 module FFSE (
   output reg Q,
   (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
   input D,
-  (* invertible_pin = "IS_S_INVERTED" *)
   input S
 );
   parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_S_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate
-  case (|IS_C_INVERTED)
-    1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase
-  endgenerate
+  always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE, posedge C &&& !IS_C_INVERTED, 109);
-    $setup(CE, negedge C &&&  IS_C_INVERTED, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(S , posedge C &&& !IS_C_INVERTED, 404);
-    $setup(S , negedge C &&&  IS_C_INVERTED, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (!IS_C_INVERTED && S != IS_S_INVERTED)       (posedge C => (Q : 1'b1)) = 303;
-    if ( IS_C_INVERTED && S != IS_S_INVERTED)       (negedge C => (Q : 1'b1)) = 303;
-    if (!IS_C_INVERTED && S == IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && S == IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    $setup(D , posedge C, 31);
+    $setup(CE, posedge C, 122);
+    $setup(S , posedge C, 128);
+    if (S)        (negedge C => (Q : 1'b1)) = 280;
+    if (!S && CE) (posedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
-(* abc9_flop, lib_whitebox *)
 module FFSE_N (
   output reg Q,
   (* clkbuf_sink *)
@@ -571,68 +499,32 @@ module FFSE_N (
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE, negedge C, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(S , negedge C, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (S)        (negedge C => (Q : 1'b1)) = 303;
-    if (!S && CE) (negedge C => (Q : D)) = 303;
+    $setup(D , negedge C, 31);
+    $setup(CE, negedge C, 122);
+    $setup(S , negedge C, 128);
+    if (S)        (negedge C => (Q : 1'b1)) = 280;
+    if (!S && CE) (negedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module FFCE (
   output reg Q,
   (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_CLR_INVERTED" *)
   input CLR,
-  (* invertible_pin = "IS_D_INVERTED" *)
   input D
 );
   parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate
-  case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
-    2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b01: always @(posedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b10: always @(negedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase
-  endgenerate
+  always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
-    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(CLR, posedge C &&& !IS_C_INVERTED, 404);
-    $setup(CLR, negedge C &&&  IS_C_INVERTED, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-`ifndef YOSYS
-    if (!IS_CLR_INVERTED) (posedge CLR => (Q : 1'b0)) = 764;
-    if ( IS_CLR_INVERTED) (negedge CLR => (Q : 1'b0)) = 764;
-`else
-    if (IS_CLR_INVERTED != CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
-                                                  // but for facilitating a bypass box, let's pretend it's
-                                                  // a simple path
-`endif
-    if (!IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    $setup(D , posedge C, 31);
+    $setup(CE , posedge C, 122);
+    if (!CLR && CE) (posedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module FFCE_N (
   output reg Q,
   (* clkbuf_sink *)
@@ -645,211 +537,46 @@ module FFCE_N (
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE , negedge C, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(CLR, negedge C, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-`ifndef YOSYS
-    (posedge CLR => (Q : 1'b0)) = 764;
-`else
-    if (CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
-                               // but for facilitating a bypass box, let's pretend it's
-                               // a simple path
-`endif
-    if (!CLR && CE) (negedge C => (Q : D)) = 303;
+    $setup(D , negedge C, 31);
+    $setup(CE , negedge C, 122);
+    if (!CLR && CE) (negedge C => (Q : D)) = 280;
   endspecify
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module FFPE (
   output reg Q,
   (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
   input C,
   input CE,
-  (* invertible_pin = "IS_D_INVERTED" *)
-  input D,
-  (* invertible_pin = "IS_PRE_INVERTED" *)
-  input PRE
+  input PRE,
+  input D
 );
   parameter [0:0] INIT = 1'b1;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_D_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
   initial Q <= INIT;
-  generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
-    2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b10: always @(negedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-    2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
-  endcase
-  endgenerate
+  always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    $setup(D , negedge C &&&  IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE , posedge C &&& !IS_C_INVERTED, 109);
-    $setup(CE , negedge C &&&  IS_C_INVERTED, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(PRE, posedge C &&& !IS_C_INVERTED, 404);
-    $setup(PRE, negedge C &&&  IS_C_INVERTED, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-`ifndef YOSYS
-    if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764;
-    if ( IS_PRE_INVERTED) (negedge PRE => (Q : 1'b1)) = 764;
-`else
-    if (IS_PRE_INVERTED != PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
-                                                  // but for facilitating a bypass box, let's pretend it's
-                                                  // a simple path
-`endif
-    if (!IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    $setup(D , posedge C, 31);
+    $setup(CE , posedge C, 122);
+    if (!PRE && CE) (posedge C => (Q : D)) = 291;
   endspecify
 endmodule
 
-(* abc9_box, lib_whitebox *)
 module FFPE_N (
   output reg Q,
   (* clkbuf_sink *)
   input C,
   input CE,
-  input D,
-  input PRE
+  input PRE,
+  input D
 );
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
-    $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
-    $setup(CE , negedge C, 109);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
-    $setup(PRE, negedge C, 404);
-    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-`ifndef YOSYS
-    (posedge PRE => (Q : 1'b1)) = 764;
-`else
-    if (PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
-                               // but for facilitating a bypass box, let's pretend it's
-                               // a simple path
-`endif
-    if (!PRE && CE) (negedge C => (Q : D)) = 303;
+    $setup(D , negedge C, 31);
+    $setup(CE , negedge C, 122);
+    if (!PRE && CE) (negedge C => (Q : D)) = 291;
   endspecify
-endmodule
-
-module FFCPE (
-  output wire Q,
-  (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
-  input C,
-  input CE,
-  (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR,
-  input D,
-  (* invertible_pin = "IS_PRE_INVERTED" *)
-  input PRE
-);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  wire c = C ^ IS_C_INVERTED;
-  wire clr = CLR ^ IS_CLR_INVERTED;
-  wire pre = PRE ^ IS_PRE_INVERTED;
-  // Hacky model to avoid simulation-synthesis mismatches.
-  reg qc, qp, qs;
-  initial qc = INIT;
-  initial qp = INIT;
-  initial qs = 0;
-  always @(posedge c, posedge clr) begin
-    if (clr)
-      qc <= 0;
-    else if (CE)
-      qc <= D;
-  end
-  always @(posedge c, posedge pre) begin
-    if (pre)
-      qp <= 1;
-    else if (CE)
-      qp <= D;
-  end
-  always @* begin
-    if (clr)
-      qs <= 0;
-    else if (pre)
-      qs <= 1;
-  end
-  assign Q = qs ? qp : qc;
-endmodule
-
-module FFCPE_N (
-  output wire Q,
-  (* clkbuf_sink *)
-  (* invertible_pin = "IS_C_INVERTED" *)
-  input C,
-  input CE,
-  (* invertible_pin = "IS_CLR_INVERTED" *)
-  input CLR,
-  input D,
-  (* invertible_pin = "IS_PRE_INVERTED" *)
-  input PRE
-);
-  parameter [0:0] INIT = 1'b0;
-  parameter [0:0] IS_C_INVERTED = 1'b0;
-  parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  wire c = C ^ IS_C_INVERTED;
-  wire clr = CLR ^ IS_CLR_INVERTED;
-  wire pre = PRE ^ IS_PRE_INVERTED;
-  // Hacky model to avoid simulation-synthesis mismatches.
-  reg qc, qp, qs;
-  initial qc = INIT;
-  initial qp = INIT;
-  initial qs = 0;
-  always @(negedge c, posedge clr) begin
-    if (clr)
-      qc <= 0;
-    else if (CE)
-      qc <= D;
-  end
-  always @(negedge c, posedge pre) begin
-    if (pre)
-      qp <= 1;
-    else if (CE)
-      qp <= D;
-  end
-  always @* begin
-    if (clr)
-      qs <= 0;
-    else if (pre)
-      qs <= 1;
-  end
-  assign Q = qs ? qp : qc;
-endmodule
-
-module AND2B1L (
-  output O,
-  input DI,
-  (* invertible_pin = "IS_SRI_INVERTED" *)
-  input SRI
-);
-  parameter [0:0] IS_SRI_INVERTED = 1'b0;
-  assign O = DI & ~(SRI ^ IS_SRI_INVERTED);
-endmodule
-
-module OR2L (
-  output O,
-  input DI,
-  (* invertible_pin = "IS_SRI_INVERTED" *)
-  input SRI
-);
-  parameter [0:0] IS_SRI_INVERTED = 1'b0;
-  assign O = DI | (SRI ^ IS_SRI_INVERTED);
 endmodule
 
 // LUTRAM.
