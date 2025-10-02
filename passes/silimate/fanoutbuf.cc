@@ -64,14 +64,16 @@ struct FanoutbufPass : public Pass {
 			for (auto port : module->ports) {
 				auto wire = module->wire(port);
 				if (wire->port_input) {
-					auto new_in = module->addWire(module->uniquify(wire->name.str() + "_new"), wire);
+					auto new_in_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
+					auto new_in = module->addWire(new_in_name, wire);
 					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_in"), new_in, wire);
 					iobufs.push_back(iobuf);
 					module->swap_names(wire, new_in);
 					wire->port_input = false;
 				}
 				if (wire->port_output) {
-					auto new_out = module->addWire(module->uniquify(wire->name.str() + "_new"), wire);
+					auto new_out_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
+					auto new_out = module->addWire(new_out_name, wire);
 					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_out"), wire, new_out);
 					iobufs.push_back(iobuf);
 					module->swap_names(wire, new_out);
@@ -111,7 +113,6 @@ struct FanoutbufPass : public Pass {
 					for (auto bit : sigmap(conn.second)) {
 						// Collect targets
 						auto targets = bit_users_db[bit];
-						log("Cell, targets: %s, %d\n", log_id(cell), GetSize(targets));
 						bit_users_db[bit].clear();
 
 						// If there are less than limit targets, no need to split
@@ -124,13 +125,14 @@ struct FanoutbufPass : public Pass {
 						for (int i = 0; i < nbufs; i++) {
 							// New buffer name should be unique and short
 							IdString buf_name;
-							if (cell->type == ID::$_BUF_)
+							if (cell->type == ID::$buf)
 								buf_name = NEW_ID2;
 							else
 								buf_name = NEW_ID2_SUFFIX("fbuf");
 							// Create buffer, connect input to bit and output to new wire
 							Wire *bufout = module->addWire(buf_name.str() + "_out");
 							Cell *buf = module->addBuf(buf_name, bit, bufout, false, cell->get_src_attribute());
+							buf->set_bool_attribute("\\keep", true);
 							sigmap.add(bufout);
 							work_queue_cells.insert(buf);
 							bufouts[i] = bufout;
@@ -179,18 +181,13 @@ struct FanoutbufPass : public Pass {
 					}
 				}
 			}
-
-			// Remove $pos cells
-			for (auto cell : iobufs) {
-				if (cell->type == ID::$pos) {
-					module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
-					module->remove(cell);
-				}
-			}
 			
 			// Log number of buffers inserted
 			log("Inserted %d buffers in module '%s'.\n", bufcount, log_id(module));
 		}
+
+		// Clean wires
+		Yosys::run_pass("clean", design);
 	}
 } FanoutbufPass;
 

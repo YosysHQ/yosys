@@ -24,6 +24,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -54,6 +55,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-none t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -110,6 +112,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 5 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -142,6 +145,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 4 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -172,6 +176,7 @@ check -assert
 equiv_opt -assert fanoutbuf -limit 3
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -209,6 +214,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -246,6 +252,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -278,6 +285,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -327,6 +335,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 2 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -370,6 +379,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-count 1 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
@@ -394,9 +404,7 @@ check -assert
 equiv_opt -assert fanoutbuf
 design -load postopt
 select -assert-min 8 t:$buf
+select -assert-none t:$pos
 
 design -reset
 log -pop
-
-
-
