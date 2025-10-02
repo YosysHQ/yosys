@@ -31,6 +31,14 @@
  *
  */
 
+// If using Verilator, define SIMLIB_VERILATOR_COMPAT
+`ifdef SIMLIB_VERILATOR_COMPAT
+ /* verilator lint_save */
+ /* verilator lint_off DEFOVERRIDE */
+ `define SIMLIB_NOCONNECT
+ /* verilator lint_restore */
+`endif
+
 // --------------------------------------------------------
 //* ver 2
 //* title Bit-wise inverter
@@ -3219,6 +3227,8 @@ endmodule
 
 // --------------------------------------------------------
 //* group wire
+`ifndef SIMLIB_NOCONNECT
+
 module \$connect (A, B);
 
 parameter WIDTH = 0;
@@ -3230,6 +3240,7 @@ tran connect[WIDTH-1:0] (A, B);
 
 endmodule
 
+`endif
 // --------------------------------------------------------
 //* group wire
 module \$input_port (Y);

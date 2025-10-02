@@ -411,7 +411,7 @@ struct RTLIL::IdString
 	}
 
 	bool empty() const {
-		return c_str()[0] == 0;
+		return index_ == 0;
 	}
 
 	void clear() {
