@@ -26,7 +26,7 @@ proc unknown {args} {
     set ret "YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
     incr sdc_call_index
     lappend sdc_calls $args
-    puts "unknown $args, returning YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
+    # puts "unknown $args, returning YOSYS_SDC_MAGIC_NODE_$sdc_call_index"
     return $ret
 }
 proc list {args} {
