@@ -1,0 +1,47 @@
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
+hierarchy -top top
+proc
+# equivalence checking is somewhat slow (and missing simulation models)
+synth_gowin -family gw1n
+
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT9X9
+# XXX: Whats's `top/x_IBUF_I_O_MULT9X9_A_A_GND_G` ??
+# select -assert-none t:IBUF t:OBUF t:MULT9X9 %% t:* %D
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 16 -set Y_WIDTH 16 -set A_WIDTH 32
+hierarchy -top top
+proc
+synth_gowin -family gw1n
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT18X18
+# XXX: top/x_IBUF_I_O_MULT18X18_A_A_GND_G ???
+# select -assert-none t:IBUF t:OBUF t:MULT18X18 %% t:* %D
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 32 -set Y_WIDTH 32 -set A_WIDTH 64
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_gowin
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT36X36
+# XXX: top/x_IBUF_I_O_MULT36X36_A_A_GND_G
+# select -assert-none t:IBUF t:OBUF t:MULT36X36 %% t:* %D
+
+# TODO: We end up with two 18x18 multipliers
+# design -reset
+# read_verilog ../common/mul.v
+# chparam -set X_WIDTH 32 -set Y_WIDTH 16 -set A_WIDTH 48
+# hierarchy -top top
+# proc
+# # equivalence checking is too slow here
+# synth_gowin
+# cd top # Constrain all select calls below inside the top module
+# select -assert-count 2 t:MULT18X18
+# select -assert-none t:IBUF t:OBUF t:MULT36X36 %% t:* %D
