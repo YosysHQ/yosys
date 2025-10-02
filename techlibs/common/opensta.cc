@@ -101,6 +101,8 @@ struct OpenstaPass : public Pass
 		f_script.close();
 		std::string command = opensta_exe + " -exit " + script_filename;
 		auto process_line = [](const std::string &line) {
+			if (line.find("Creating black box") != std::string::npos)
+				return;
 			if (line.find("does not match net size") != std::string::npos)
 				return;
 			log("OpenSTA: %s", line.c_str());
