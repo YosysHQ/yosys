@@ -1,0 +1,402 @@
+# Test 1
+log -header "Simple input to output buffer > limit 4"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire w1,
+	output wire w2,
+	output wire w3,
+	output wire w4,
+	output wire w5
+);
+  assign w1 = a;
+	assign w2 = a;
+	assign w3 = a;
+	assign w4 = a;
+	assign w5 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 2
+log -header "Simple input to output buffer = limit 4, should do nothing"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire w1,
+	output wire w2,
+	output wire w3,
+	output wire w4
+);
+  assign w1 = a;
+	assign w2 = a;
+	assign w3 = a;
+	assign w4 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-none t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 3
+log -header "Simple input to output buffer = limit 4*4 + 1 = 17, should do two layers"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire w1,
+	output wire w2,
+	output wire w3,
+	output wire w4,
+	output wire w5,
+	output wire w6,
+	output wire w7,
+	output wire w8,
+	output wire w9,
+	output wire w10,
+	output wire w11,
+	output wire w12,
+	output wire w13,
+	output wire w14,
+	output wire w15,
+	output wire w16,
+	output wire w17
+);
+  assign w1 = a;
+	assign w2 = a;
+	assign w3 = a;
+	assign w4 = a;
+	assign w5 = a;
+	assign w6 = a;
+	assign w7 = a;
+	assign w8 = a;
+	assign w9 = a;
+	assign w10 = a;
+	assign w11 = a;
+	assign w12 = a;
+	assign w13 = a;
+	assign w14 = a;
+	assign w15 = a;
+	assign w16 = a;
+	assign w17 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 5 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 4
+log -header "Multi-bit signal fanout buffering"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] a,
+  output wire [3:0] w1,
+  output wire [3:0] w2,
+  output wire [3:0] w3,
+  output wire [3:0] w4,
+  output wire [3:0] w5
+);
+  assign w1 = a;
+  assign w2 = a;
+  assign w3 = a;
+  assign w4 = a;
+  assign w5 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should have 4 buffers (one per bit)
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 4 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 5
+log -header "Custom fanout limit (limit 3)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4
+);
+  assign w1 = a;
+  assign w2 = a;
+  assign w3 = a;
+  assign w4 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf with limit 3 - should insert 1 buffer
+equiv_opt -assert fanoutbuf -limit 3
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 6
+log -header "Mixed fanout counts on different signals"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4,
+  output wire w5,
+  output wire x1,
+  output wire x2
+);
+  assign w1 = a;  // a has fanout 5 (> limit 4)
+  assign w2 = a;
+  assign w3 = a;
+  assign w4 = a;
+  assign w5 = a;
+  assign x1 = b;  // b has fanout 2 (< limit 4)
+  assign x2 = b;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert 1 buffer for signal a only
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 7
+log -header "Logic gates with high fanout"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4,
+  output wire w5,
+  output wire w6
+);
+  wire and_out;
+  assign and_out = a & b;
+  assign w1 = and_out;
+  assign w2 = and_out;
+  assign w3 = and_out;
+  assign w4 = and_out;
+  assign w5 = and_out;
+  assign w6 = and_out;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert buffers for and_out
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 8
+log -header "Edge case: exactly limit+1 fanout"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4,
+  output wire w5
+);
+  assign w1 = a;
+  assign w2 = a;
+  assign w3 = a;
+  assign w4 = a;
+  assign w5 = a;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert exactly 1 buffer
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 9
+log -header "Complex expressions with intermediate signals"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  input wire b,
+  input wire c,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4,
+  output wire w5,
+  output wire x1,
+  output wire x2,
+  output wire x3,
+  output wire x4,
+  output wire x5
+);
+  wire intermediate1, intermediate2;
+  assign intermediate1 = a & b;
+  assign intermediate2 = intermediate1 | c;
+  
+  assign w1 = intermediate1;
+  assign w2 = intermediate1;
+  assign w3 = intermediate1;
+  assign w4 = intermediate1;
+  assign w5 = intermediate1;
+  
+  assign x1 = intermediate2;
+  assign x2 = intermediate2;
+  assign x3 = intermediate2;
+  assign x4 = intermediate2;
+  assign x5 = intermediate2;
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert buffers for both intermediates
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 2 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 10
+log -header "Hierarchical design with fanout buffering"
+log -push
+design -reset
+read_verilog <<EOF
+module sub (
+  input wire in,
+  output wire out1,
+  output wire out2,
+  output wire out3,
+  output wire out4,
+  output wire out5
+);
+  assign out1 = in;
+  assign out2 = in;
+  assign out3 = in;
+  assign out4 = in;
+  assign out5 = in;
+endmodule
+
+module top (
+  input wire a,
+  output wire w1,
+  output wire w2,
+  output wire w3,
+  output wire w4,
+  output wire w5
+);
+  sub u1 (.in(a), .out1(w1), .out2(w2), .out3(w3), .out4(w4), .out5(w5));
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert buffers in sub module
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-count 1 t:$buf
+
+design -reset
+log -pop
+
+
+
+# Test 11
+log -header "Very high fanout requiring multiple buffer layers"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire a,
+  output wire [31:0] w
+);
+  assign w = {32{a}};  // 32-bit fanout from single input
+endmodule
+EOF
+check -assert
+
+# Check equivalence after fanoutbuf - should insert multiple layers of buffers
+equiv_opt -assert fanoutbuf
+design -load postopt
+select -assert-min 8 t:$buf
+
+design -reset
+log -pop
+
+
+
