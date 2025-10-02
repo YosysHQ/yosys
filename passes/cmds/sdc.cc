@@ -97,6 +97,7 @@ struct SdcObjects {
 		Graph,
 	} value_mode;
 	using CellPin = std::pair<Cell*, IdString>;
+	Design* design;
 	std::vector<std::pair<std::string, Wire*>> design_ports;
 	std::vector<std::pair<std::string, Cell*>> design_cells;
 	std::vector<std::pair<std::string, CellPin>> design_pins;
@@ -158,7 +159,7 @@ struct SdcObjects {
 			}
 		}
 	}
-	SdcObjects(Design* design) {
+	SdcObjects(Design* design) : design(design) {
 		Module* top = design->top_module();
 		if (!top)
 			log_error("Top module couldn't be determined. Check 'top' attribute usage");
@@ -249,6 +250,47 @@ struct SdcObjects {
 			bits.dump();
 		}
 		log("\n");
+	}
+
+	class KeepHierarchyWorker {
+		std::unordered_set<Module*> tracked_modules = {};
+		Design* design = nullptr;
+		bool mark(Module* mod) {
+			for (auto* cell : mod->cells()) {
+				if (auto* submod = design->module(cell->type))
+					if (mark(submod))
+						return true;
+			}
+
+			if (tracked_modules.count(mod))
+				return true;
+
+			return false;
+		}
+	public:
+		KeepHierarchyWorker(SdcObjects* objects, Design* d) : design(d) {
+			for (auto [ref, _] : objects->constrained_ports) {
+				tracked_modules.insert(ref.second->module);
+			}
+			for (auto& [_, cell] : objects->constrained_cells) {
+				tracked_modules.insert(cell->module);
+			}
+			for (auto& [ref, _] : objects->constrained_pins) {
+				tracked_modules.insert(ref.second.first->module);
+			}
+			for (auto& [ref, _] : objects->constrained_nets) {
+				tracked_modules.insert(ref.second->module);
+			}
+			log_debug("keep_hierarchy tracked modules:\n");
+			for (auto* mod : tracked_modules)
+				log_debug("%s", mod->name);
+		}
+		bool mark() {
+			return mark(design->top_module());
+		}
+	};
+	void keep_hierarchy() {
+		(void)KeepHierarchyWorker(this, design).mark();
 	}
 };
 
@@ -448,10 +490,11 @@ void dump_sdc_graph(const std::vector<SdcGraphNode>& graph, const std::vector<bo
 	}
 }
 
-void inspect_globals(Tcl_Interp* interp) {
+void inspect_globals(Tcl_Interp* interp, bool dump_mode) {
 	std::vector<std::vector<std::string>> sdc_calls = gather_nested_calls(interp);
 	std::vector<SdcGraphNode> graph = build_graph(sdc_calls);
-	dump_sdc_graph(graph, node_ownership(graph));
+	if (dump_mode)
+		dump_sdc_graph(graph, node_ownership(graph));
 }
 
 // patterns -> (pattern-object-bit)s
@@ -743,9 +786,21 @@ struct SdcPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing SDC pass.\n");
 		size_t argidx;
+		bool graph_mode = false;
+		bool dump_mode = false;
+		bool keep_hierarchy_mode = false;
 		std::vector<std::string> opensta_stubs_paths;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-stubs" && argidx+1 < args.size()) {
+			if (args[argidx] == "-graph") {
+				graph_mode = true;
+				continue;
+			} else if (args[argidx] == "-dump") {
+				dump_mode = true;
+				continue;
+			} else if (args[argidx] == "-keep_hierarchy") {
+				keep_hierarchy_mode = true;
+				continue;
+			} else if (args[argidx] == "-stubs" && argidx+1 < args.size()) {
 				opensta_stubs_paths.push_back(args[++argidx]);
 				continue;
 			}
@@ -767,8 +822,11 @@ struct SdcPass : public Pass {
 				log_cmd_error("SDC interpreter returned an error in OpenSTA stub file %s: %s\n", path.c_str(), Tcl_GetStringResult(interp));
 		if (Tcl_EvalFile(interp, sdc_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
-		sdc.objects->dump();
-		inspect_globals(interp);
+		if (dump_mode)
+			sdc.objects->dump();
+		if (keep_hierarchy_mode)
+			sdc.objects->keep_hierarchy();
+		inspect_globals(interp, graph_mode);
 		Tcl_Release(interp);
 	}
 } SdcPass;
