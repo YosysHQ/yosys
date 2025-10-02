@@ -35,6 +35,7 @@ struct SdcexpandPass : public ScriptPass
 	bool cleanup;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		log_header(design, "Executing SDC_EXPAND pass.\n");
 		string run_from, run_to;
 		cleanup = true;
 
