@@ -258,12 +258,16 @@ struct SdcObjects {
 		bool mark(Module* mod) {
 			for (auto* cell : mod->cells()) {
 				if (auto* submod = design->module(cell->type))
-					if (mark(submod))
+					if (mark(submod)) {
+						mod->set_bool_attribute(ID::keep_hierarchy);
 						return true;
+					}
 			}
 
-			if (tracked_modules.count(mod))
+			if (tracked_modules.count(mod)) {
+				mod->set_bool_attribute(ID::keep_hierarchy);
 				return true;
+			}
 
 			return false;
 		}
@@ -283,7 +287,7 @@ struct SdcObjects {
 			}
 			log_debug("keep_hierarchy tracked modules:\n");
 			for (auto* mod : tracked_modules)
-				log_debug("%s", mod->name);
+				log_debug("\t%s\n", mod->name);
 		}
 		bool mark() {
 			return mark(design->top_module());
@@ -669,6 +673,38 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 	return TCL_OK;
 }
 
+static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
+{
+	auto* objects = (SdcObjects*)data;
+	GetterOpts opts("get_nets", {"hierarchical", "hier", "regexp", "nocase", "hsc", "of_objects"});
+	opts.parse(objc, objv);
+	if (objects->collect_mode == SdcObjects::CollectMode::SimpleGetter)
+		opts.check_simple();
+
+	MatchConfig config(opts.regexp_flag, opts.nocase_flag, false);
+	std::vector<std::tuple<std::string, Wire*, BitSelection>> resolved;
+	const auto& ports = objects->design_nets;
+	resolved = find_matching<Wire*, decltype(ports)>(ports, config, opts.patterns, "net");
+
+	Tcl_Obj *result = nullptr;
+	for (auto [name, wire, matching_bits] : resolved) {
+		if (objects->value_mode == SdcObjects::ValueMode::Normal)
+			log_error("TODO normal\n");
+			// objects->build_normal_result(interp, resolved.size(), wire->width, name, result, matching_bits);
+
+		if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
+			merge_or_init(std::make_pair(name, wire), objects->constrained_nets, matching_bits);
+	}
+
+	if (objects->value_mode == SdcObjects::ValueMode::Graph) {
+		return graph_node(TclCall{interp, objc, objv});
+		// return objects->graph_node(interp, objc, objv, std::move(resolved), objects->resolved_port_pattern_sets);
+	}
+	if (result)
+		Tcl_SetObjResult(interp, result);
+	return TCL_OK;
+}
+
 std::optional<std::tuple<std::string, std::string>> split_at(std::string s)
 {
 	size_t pos = s.find('@');
@@ -773,6 +809,7 @@ public:
 		objects->collect_mode = SdcObjects::CollectMode::SimpleGetter;
 		objects->value_mode = SdcObjects::ValueMode::Graph;
 		Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, (ClientData) objects.get(), NULL);
+		Tcl_CreateObjCommand(interp, "get_nets", sdc_get_nets_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_ports", sdc_get_ports_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "ys_track_typed_key", ys_track_typed_key_cmd, (ClientData) objects.get(), NULL);
 		return interp;
