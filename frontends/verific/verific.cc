@@ -166,6 +166,25 @@ string get_full_netlist_name(Netlist *nl)
 	return nl->CellBaseName();
 }
 
+std::string format_src_location(DesignObj *obj)
+{
+	if (obj == nullptr || obj->Linefile() == nullptr)
+		return std::string();
+#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS
+		return stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
+#else
+		return stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+#endif
+}
+
+std::string announce_src_location(DesignObj *obj)
+{
+	std::string loc = format_src_location(obj);
+	if (loc.empty())
+		return std::string();
+	return loc + ": ";
+}
+
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 class YosysStreamCallBackHandler : public VerificStreamCallBackHandler
 {
@@ -416,13 +435,8 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	MapIter mi;
 	Att *attr;
 
-#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS 
 	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
-#else
-	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
-#endif
+		attributes[ID::src] = format_src_location(obj);
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
@@ -508,7 +522,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 					}
 				}
 				if (p == nullptr)
-					log_error("Expected TypeRange value '%s' to be of form \"<binary>\" or <binary>.\n", v);
+					log_error("%sExpected TypeRange value '%s' to be of form \"<binary>\" or <binary>.\n", announce_src_location(obj), v);
 			}
 #endif
 		}
@@ -988,7 +1002,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else if (net_cin == net_a_msb)
 			cell = module->addSshr(inst_name, IN1, IN2, OUT, true);
 		else
-			log_error("Can't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", inst->Name());
+			log_error("%sCan't import Verific OPER_SHIFT_RIGHT instance %s: carry_in is neither 0 nor msb of left input\n", announce_src_location(inst), inst->Name());
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -1039,7 +1053,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else if (net_cin->IsPwr())
 			cell = module->addLe(inst_name, IN1, IN2, net_map_at(inst->GetOutput()), SIGNED);
 		else
-			log_error("Can't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", inst->Name());
+			log_error("%sCan't import Verific OPER_LESSTHAN instance %s: carry_in is neither 0 nor 1\n", announce_src_location(inst), inst->Name());
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -1625,7 +1639,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					bits_in_word = min<int>(bits_in_word, pr->GetInst()->Input2Size());
 					continue;
 				}
-				log_error("Verific RamNet %s is connected to unsupported instance type %s (%s).\n",
+				log_error("%sVerific RamNet %s is connected to unsupported instance type %s (%s).\n", announce_src_location(pr->GetInst()),
 						net->Name(), pr->GetInst()->View()->Owner()->Name(), pr->GetInst()->Name());
 			}
 
@@ -1915,7 +1929,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetInput()->Name()), nullptr);
 			if (!memory)
-				log_error("Memory net '%s' missing, possibly no driver, use verific -flatten.\n", inst->GetInput()->Name());
+				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 
 			int numchunks = int(inst->OutputSize()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
@@ -1946,7 +1960,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		{
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()), nullptr);
 			if (!memory)
-				log_error("Memory net '%s' missing, possibly no driver, use verific -flatten.\n", inst->GetInput()->Name());
+				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 			int numchunks = int(inst->Input2Size()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
 
@@ -2167,10 +2181,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (inst->IsPrimitive())
 		{
 			if (!mode_keep)
-				log_error("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+				log_error("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
 
 			if (!verific_sva_prims.count(inst->Type()))
-				log_warning("Unsupported Verific primitive %s of type %s\n", inst->Name(), inst->View()->Owner()->Name());
+				log_warning("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
 		}
 
 	import_verific_cells:
