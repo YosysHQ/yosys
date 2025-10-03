@@ -100,9 +100,22 @@ enum LogSeverity {
 	LOG_ERROR
 };
 
+struct LogMessage {
+	LogMessage(LogSeverity severity, std::string_view message) :
+		severity(severity), timestamp(std::time(nullptr)), message(message) {}
+	LogSeverity severity;
+	std::time_t timestamp;
+	std::string message;
+};
+
+class LogSink {
+ public:
+	virtual void log(const LogMessage& message) = 0;
+};
+
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
-extern std::vector<std::ostream*> log_warning_streams;
+extern std::vector<LogSink*> log_sinks;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;

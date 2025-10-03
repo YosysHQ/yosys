@@ -4,10 +4,10 @@ UNAME_S := $(shell uname -s)
 GTEST_PREFIX := $(shell brew --prefix googletest 2>/dev/null)
 ifeq ($(GTEST_PREFIX),)
   GTEST_CXXFLAGS :=
-  GTEST_LDFLAGS := -lgtest -lgtest_main
+  GTEST_LDFLAGS := -lgtest -lgtest_main -lgmock
 else
   GTEST_CXXFLAGS := -I$(GTEST_PREFIX)/include
-  GTEST_LDFLAGS := -L$(GTEST_PREFIX)/lib -lgtest -lgtest_main
+  GTEST_LDFLAGS := -L$(GTEST_PREFIX)/lib -lgtest -lgtest_main -lgmock
 endif
 
 ifeq ($(UNAME_S),Darwin)

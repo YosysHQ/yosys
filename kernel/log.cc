@@ -39,7 +39,8 @@
 YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
-std::vector<std::ostream*> log_streams, log_warning_streams;
+std::vector<std::ostream*> log_streams;
+std::vector<LogSink*> log_sinks;
 std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -156,10 +157,6 @@ static void logv_string(std::string_view format, std::string str, LogSeverity se
 
 		for (auto f : log_streams)
 			*f << time_str;
-
-		if (severity >= LogSeverity::LOG_WARNING)
-			for (auto f : log_warning_streams)
-				*f << time_str;
 	}
 
 	for (auto f : log_files)
@@ -168,11 +165,9 @@ static void logv_string(std::string_view format, std::string str, LogSeverity se
 	for (auto f : log_streams)
 		*f << str;
 
-	if (severity >= LogSeverity::LOG_WARNING)
-		for (auto f : log_warning_streams) {
-			*f << str;
-			f->flush();
-		}
+	LogMessage log_msg(severity, str);
+	for (LogSink* sink : log_sinks)
+		sink->log(log_msg);
 
 	RTLIL::Design *design = yosys_get_design();
 	if (design != nullptr)
