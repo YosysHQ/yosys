@@ -13,6 +13,7 @@
 #define HASHLIB_H
 
 #include <array>
+#include <atomic>
 #include <stdexcept>
 #include <algorithm>
 #include <optional>
@@ -1355,8 +1356,18 @@ public:
 template<typename K, typename OPS>
 class mfp
 {
-	mutable idict<K, 0, OPS> database;
-	mutable std::vector<int> parents;
+	idict<K, 0, OPS> database;
+	class AtomicParent {
+	public:
+		explicit AtomicParent(int p) : parent(p) {}
+		AtomicParent(const AtomicParent &other) : parent(other.get()) {}
+		AtomicParent &operator=(const AtomicParent &other) { set(other.get()); return *this; }
+		int get() const { return parent.load(std::memory_order_relaxed); }
+		void set(int p) { parent.store(p, std::memory_order_relaxed); }
+	private:
+		std::atomic<int> parent;
+	};
+	std::vector<AtomicParent> parents;
 
 public:
 	typedef typename idict<K, 0>::const_iterator const_iterator;
@@ -1367,12 +1378,14 @@ public:
 
 	// Finds a given element's index. If it isn't in the data structure,
 	// it is added as its own set
-	int operator()(const K &key) const
+	int operator()(const K &key)
 	{
 		int i = database(key);
 		// If the lookup caused the database to grow,
 		// also add a corresponding entry in parents initialized to -1 (no parent)
-		parents.resize(database.size(), -1);
+		if (parents.size() < database.size()) {
+			parents.emplace_back(-1);
+		}
 		return i;
 	}
 
@@ -1382,21 +1395,38 @@ public:
 		return database[index];
 	}
 
+	// Why this method is correct for concurent ifind() calls:
+	// Consider the mfp state after the last non-const method call before
+	// a particular call to ifind(i). In this state, i's parent chain leads
+	// to some root R. Let S be the set of integers s such that ifind(s) = R
+	// in this state. Let 'orig_parents' be the value of 'parents' in this state.
+	//
+	// Now consider the concurrent calls to ifind(s), s ∈ S, before the next non-const method
+	// call. Consider the atomic writes performed by various ifind() calls, in any causally
+	// consistent order. The first atomic write can only set parents[k] to R, because the
+	// atomic read of parents[p] in the first while loop can only observe the value
+	// 'orig_parents[p]'. Subsequent writes can also only set parents[k] to R, because the
+	// parents[p] reads either observe 'orig_parents[p]' or R (and observing R ends the first
+	// while loop immediately). Thus all parents[p] reads observe either 'orig_parents[p]'
+	// or R, so ifind() always returns R.
 	int ifind(int i) const
 	{
 		int p = i, k = i;
 
-		while (parents[p] != -1)
-			p = parents[p];
-
+		while (true) {
+			int pp = parents[p].get();
+			if (pp < 0)
+				break;
+			p = pp;
+		}
 		// p is now the representative of i
 		// Now we traverse from i up to the representative again
 		// and make p the parent of all the nodes along the way.
 		// This is a side effect and doesn't affect the return value.
 		// It speeds up future find operations
 		while (k != p) {
-			int next_k = parents[k];
-			parents[k] = p;
+			int next_k = parents[k].get();
+			const_cast<AtomicParent*>(&parents[k])->set(p);
 			k = next_k;
 		}
 
@@ -1411,7 +1441,7 @@ public:
 		j = ifind(j);
 
 		if (i != j)
-			parents[i] = j;
+			parents[i].set(j);
 	}
 
 	void ipromote(int i)
@@ -1419,15 +1449,15 @@ public:
 		int k = i;
 
 		while (k != -1) {
-			int next_k = parents[k];
-			parents[k] = i;
+			int next_k = parents[k].get();
+			parents[k].set(i);
 			k = next_k;
 		}
 
-		parents[i] = -1;
+		parents[i].set(-1);
 	}
 
-	int lookup(const K &a) const
+	int lookup(const K &a)
 	{
 		return ifind((*this)(a));
 	}
