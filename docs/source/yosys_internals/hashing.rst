@@ -36,7 +36,7 @@ The main characteristics are:
    all compilers, standard libraries and architectures.
 
 In addition to ``dict<K, T>`` and ``pool<T>`` there is also an ``idict<K>`` that
-creates a bijective map from ``K`` to the integers. For example:
+creates a bijective map from ``K`` to incrementing integers. For example:
 
 ::
 

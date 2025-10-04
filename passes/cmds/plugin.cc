@@ -24,16 +24,16 @@
 #  include <dlfcn.h>
 #endif
 
-#ifdef WITH_PYTHON
-#  include <boost/algorithm/string/predicate.hpp>
+#ifdef YOSYS_ENABLE_PYTHON
 #  include <Python.h>
-#  include <boost/filesystem.hpp>
+#  include <pybind11/pybind11.h>
+namespace py = pybind11;
 #endif
 
 YOSYS_NAMESPACE_BEGIN
 
 std::map<std::string, void*> loaded_plugins;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 std::map<std::string, void*> loaded_python_plugins;
 #endif
 std::map<std::string, std::string> loaded_plugin_aliases;
@@ -49,7 +49,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 		filename = "./" + filename;
 
 
-	#ifdef WITH_PYTHON
+	#ifdef YOSYS_ENABLE_PYTHON
 	const bool is_loaded = loaded_plugins.count(orig_filename) && loaded_python_plugins.count(orig_filename);
 	#else
 	const bool is_loaded = loaded_plugins.count(orig_filename);
@@ -57,23 +57,23 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 	if (!is_loaded) {
 		// Check if we're loading a python script
-		if(filename.find(".py") != std::string::npos)
-		{
-			#ifdef WITH_PYTHON
-				boost::filesystem::path full_path(filename);
-				std::string path(full_path.parent_path().c_str());
-				filename = full_path.filename().c_str();
-				filename = filename.substr(0,filename.size()-3);
-				PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str());
-				PyErr_Print();
-				PyObject *module_p = PyImport_ImportModule(filename.c_str());
-				if(module_p == NULL)
-				{
-					PyErr_Print();
-					log_cmd_error("Can't load python module `%s'\n", full_path.filename());
+		if (filename.rfind(".py") != std::string::npos) {
+			#ifdef YOSYS_ENABLE_PYTHON
+				py::object Path = py::module_::import("pathlib").attr("Path");
+				py::object full_path = Path(py::cast(filename));
+				py::object plugin_python_path = full_path.attr("parent");
+				auto basename = py::cast<std::string>(full_path.attr("stem"));
+
+				py::object sys = py::module_::import("sys");
+				sys.attr("path").attr("insert")(0, py::str(plugin_python_path));
+
+				try {
+					auto module_container = py::module_::import(basename.c_str());
+					loaded_python_plugins[orig_filename] = module_container.ptr();
+				} catch (py::error_already_set &e) {
+					log_cmd_error("Can't load python module `%s': %s\n", basename, e.what());
 					return;
 				}
-				loaded_python_plugins[orig_filename] = module_p;
 				Pass::init_register();
 			#else
 				log_error(
@@ -177,7 +177,7 @@ struct PluginPass : public Pass {
 		if (list_mode)
 		{
 			log("\n");
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 			if (loaded_plugins.empty() and loaded_python_plugins.empty())
 #else
 			if (loaded_plugins.empty())
@@ -189,7 +189,7 @@ struct PluginPass : public Pass {
 			for (auto &it : loaded_plugins)
 				log("  %s\n", it.first);
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 			for (auto &it : loaded_python_plugins)
 				log("  %s\n", it.first);
 #endif

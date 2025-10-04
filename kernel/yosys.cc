@@ -37,6 +37,12 @@
 #  include <dlfcn.h>
 #endif
 
+#ifdef YOSYS_ENABLE_PYTHON
+#  include <Python.h>
+#  include <pybind11/pybind11.h>
+namespace py = pybind11;
+#endif
+
 #if defined(_WIN32)
 #  include <windows.h>
 #  include <io.h>
@@ -63,14 +69,9 @@
 #  include <sys/sysctl.h>
 #endif
 
-#ifdef WITH_PYTHON
-#if PY_MAJOR_VERSION >= 3
-#   define INIT_MODULE PyInit_libyosys
-    extern "C" PyObject* INIT_MODULE();
-#else
-#   define INIT_MODULE initlibyosys
-	extern "C" void INIT_MODULE();
-#endif
+#ifdef YOSYS_ENABLE_PYTHON
+extern "C" PyObject* PyInit_libyosys();
+extern "C" PyObject* PyInit_pyosys();
 #include <signal.h>
 #endif
 
@@ -189,6 +190,25 @@ int run_command(const std::string &command, std::function<void(const std::string
 bool already_setup = false;
 bool already_shutdown = false;
 
+#ifdef YOSYS_ENABLE_PYTHON
+// Include pyosys as a package for some compatibility with wheels.
+//
+// This should not affect using wheels as the dylib has to actually be called
+// pyosys.so for this function to be interacted with at all.
+PYBIND11_MODULE(pyosys, m) {
+	m.add_object("__path__", py::list());
+}
+
+// Catch uses of 'import libyosys' which can import libyosys.so, causing a ton
+// of symbol collisions and overall weird behavior.
+//
+// This should not affect using wheels as the dylib has to actually be called
+// libyosys_dummy.so for this function to be interacted with at all.
+PYBIND11_MODULE(libyosys_dummy, _) {
+	throw py::import_error("Change your import from 'import libyosys' to 'from pyosys import libyosys'.");
+}
+#endif
+
 void yosys_setup()
 {
 	if(already_setup)
@@ -198,12 +218,16 @@ void yosys_setup()
 
 	IdString::ensure_prepopulated();
 
-#ifdef WITH_PYTHON
-	// With Python 3.12, calling PyImport_AppendInittab on an already
+#ifdef YOSYS_ENABLE_PYTHON
+	// Starting Python 3.12, calling PyImport_AppendInittab on an already
 	// initialized platform fails (such as when libyosys is imported
 	// from a Python interpreter)
 	if (!Py_IsInitialized()) {
-		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
+		PyImport_AppendInittab((char*)"pyosys.libyosys", PyInit_libyosys);
+		// compatibility with wheels
+		PyImport_AppendInittab((char*)"pyosys", PyInit_pyosys);
+		// prevent catastrophes
+		PyImport_AppendInittab((char*)"libyosys", PyInit_libyosys_dummy);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
 		signal(SIGINT, SIG_DFL);
@@ -260,13 +284,13 @@ void yosys_shutdown()
 		dlclose(it.second);
 
 	loaded_plugins.clear();
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	loaded_python_plugins.clear();
 #endif
 	loaded_plugin_aliases.clear();
 #endif
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	Py_Finalize();
 #endif
 }
@@ -542,7 +566,7 @@ void init_share_dirname()
 #else
 void init_share_dirname()
 {
-#  ifdef WITH_PYTHON
+#  ifdef YOSYS_ENABLE_PYTHON
 	PyObject *sys_obj = PyImport_ImportModule("sys");
 
 	if (PyObject_HasAttrString(sys_obj, "_pyosys_share_dirname")) {
@@ -602,7 +626,7 @@ void init_abc_executable_name()
 		yosys_abc_executable = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
 #  endif
 
-#  ifdef WITH_PYTHON
+#  ifdef YOSYS_ENABLE_PYTHON
 	PyObject *sys_obj = PyImport_ImportModule("sys");
 
 	if (PyObject_HasAttrString(sys_obj, "_pyosys_abc")) {

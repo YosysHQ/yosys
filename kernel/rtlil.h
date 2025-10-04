@@ -1680,7 +1680,7 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
 };
@@ -2040,7 +2040,7 @@ public:
 	RTLIL::SigSpec OriginalTag     (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src = "");
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
 #endif
 };
@@ -2093,7 +2093,7 @@ public:
 		return zero_index + start_offset;
 	}
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
 };
@@ -2110,7 +2110,7 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	Memory();
 
 	int width, start_offset, size;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
 #endif
@@ -2168,7 +2168,7 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
 #endif
 
