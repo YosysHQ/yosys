@@ -78,11 +78,6 @@ void RTLIL::Design::bufNormalize(bool enable)
 		module->bufNormalize();
 }
 
-struct bit_drive_data_t {
-	int drivers = 0;
-	int inout = 0;
-	int users = 0;
-};
 
 typedef ModWalker::PortBit PortBit;
 
