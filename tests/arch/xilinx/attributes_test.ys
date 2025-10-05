@@ -16,7 +16,7 @@ select -assert-count 1 t:RAM32M
 # Set ram_style distributed to blockram memory; will be implemented as distributed
 design -reset
 read_verilog ../common/memory_attributes/attributes_test.v
-setattr -set ram_style "distributed" block_ram/m:*
+setattr -setstr ram_style distributed block_ram/m:*
 synth_xilinx -top block_ram -noiopad
 cd block_ram # Constrain all select calls below inside the top module
 select -assert-count 16 t:RAM256X1S
