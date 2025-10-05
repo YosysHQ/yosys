@@ -468,13 +468,13 @@ struct BugpointPass : public Pass {
 			if (args[argidx] == "-script" && argidx + 1 < args.size()) {
 				if (!yosys_arg.empty())
 					log_cmd_error("A -script or -command option can be only provided once!\n");
-				yosys_arg = stringf("-s %s", args[++argidx]);
+				yosys_arg = stringf("-s %s", quote(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-command" && argidx + 1 < args.size()) {
 				if (!yosys_arg.empty())
 					log_cmd_error("A -script or -command option can be only provided once!\n");
-				yosys_arg = stringf("-p %s", args[++argidx]);
+				yosys_arg = stringf("-p %s", quote(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-grep" && argidx + 1 < args.size()) {
@@ -547,18 +547,10 @@ struct BugpointPass : public Pass {
 			}
 			if (args[argidx] == "-runner" && argidx + 1 < args.size()) {
 				runner = args[++argidx];
-				if (runner.size() && runner.at(0) == '"') {
-					log_assert(runner.back() == '"');
-					runner = runner.substr(1, runner.size() - 2);
-				}
 				continue;
 			}
 			if (args[argidx] == "-suffix" && argidx + 1 < args.size()) {
 				suffix = args[++argidx];
-				if (suffix.size() && suffix.at(0) == '"') {
-					log_assert(suffix.back() == '"');
-					suffix = suffix.substr(1, suffix.size() - 2);
-				}
 				continue;
 			}
 			break;
