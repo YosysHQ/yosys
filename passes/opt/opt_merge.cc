@@ -284,6 +284,8 @@ struct OptMergeWorker
 				CellPtrHash,
 				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
 
+			log("scanning %d cells\n", GetSize(cells));
+			int iter_count = 0;
 			for (auto cell : cells)
 			{
 				auto [cell_in_map, inserted] = known_cells.insert(cell);
@@ -316,8 +318,10 @@ struct OptMergeWorker
 					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
 					module->remove(cell);
 					total_count++;
+					iter_count++;
 				}
 			}
+			log("removed %d cells\n", iter_count);
 		}
 
 		log_suppressed();
@@ -325,7 +329,7 @@ struct OptMergeWorker
 };
 
 struct OptMergePass : public Pass {
-	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
+	OptMergePass() : Pass("opt_merge_old", "consolidate identical cells") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

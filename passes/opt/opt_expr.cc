@@ -393,12 +393,15 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 	return -1;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv, int timestamp=INT_MIN)
 {
-	SigMap assign_map(module);
+	SigMap assign_map; //(module);
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
-	for (auto cell : module->cells()) {
+
+	auto dirty_cells = module->dirty_cells(timestamp);
+
+	for (auto cell : dirty_cells) {
 		if (design->selected(module, cell) && cell->type[0] == '$') {
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
 					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
@@ -413,7 +416,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	ct_memcells.setup_stdcells_mem();
 
 	if (!noclkinv)
-	for (auto cell : module->cells())
+	for (auto cell : dirty_cells)
 	if (design->selected(module, cell)) {
 		if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 			handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
@@ -491,9 +494,10 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	}
 
 	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+
 	dict<RTLIL::SigBit, Cell*> outbit_to_cell;
 
-	for (auto cell : module->cells())
+	for (auto cell : dirty_cells)
 	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
 		for (auto &conn : cell->connections())
 		if (yosys_celltypes.cell_output(cell->type, conn.first))
@@ -502,7 +506,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		cells.node(cell);
 	}
 
-	for (auto cell : module->cells())
+	for (auto cell : dirty_cells)
 	if (design->selected(module, cell) && yosys_celltypes.cell_evaluable(cell->type)) {
 		const int r_index = cells.node(cell);
 		for (auto &conn : cell->connections())
@@ -517,6 +521,8 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		// ...unless this is a coarse-grained cell loop, but not a bit loop, in which case it won't, and all is good.
 		log("Couldn't topologically sort cells, optimizing module %s may take a longer time.\n", log_id(module));
 	}
+
+	log("iterating over %d cells\n", GetSize(cells.sorted));
 
 	for (auto cell : cells.sorted)
 	{
@@ -1171,10 +1177,10 @@ skip_fine_alu:
 			if (input.match("01 ")) ACTION_DO(ID::Y, input.extract(0, 1));
 			if (input.match("10 ")) {
 				cover("opt.opt_expr.mux_to_inv");
-				cell->type = ID($_NOT_);
 				cell->setPort(ID::A, input.extract(0, 1));
 				cell->unsetPort(ID::B);
 				cell->unsetPort(ID::S);
+				cell->type = ID($_NOT_);
 				goto next_cell;
 			}
 			if (input.match("11 ")) ACTION_DO_Y(1);
@@ -1275,10 +1281,10 @@ skip_fine_alu:
 				} else {
 					cover_list("opt.opt_expr.eqneq.isnot", "$eq", "$ne", cell->type.str());
 					log_debug("Replacing %s cell `%s' in module `%s' with inverter.\n", log_id(cell->type), log_id(cell), log_id(module));
-					cell->type = ID($not);
 					cell->parameters.erase(ID::B_WIDTH);
 					cell->parameters.erase(ID::B_SIGNED);
 					cell->unsetPort(ID::B);
+					cell->type = ID($not);
 					did_something = true;
 				}
 				goto next_cell;
@@ -1291,7 +1297,7 @@ skip_fine_alu:
 			cover_list("opt.opt_expr.eqneq.cmpzero", "$eq", "$ne", cell->type.str());
 			log_debug("Replacing %s cell `%s' in module `%s' with %s.\n", log_id(cell->type), log_id(cell),
 					log_id(module), cell->type == ID($eq) ? "$logic_not" : "$reduce_bool");
-			cell->type = cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool);
+
 			if (assign_map(cell->getPort(ID::A)).is_fully_zero()) {
 				cell->setPort(ID::A, cell->getPort(ID::B));
 				cell->setParam(ID::A_SIGNED, cell->getParam(ID::B_SIGNED));
@@ -1300,6 +1306,7 @@ skip_fine_alu:
 			cell->unsetPort(ID::B);
 			cell->unsetParam(ID::B_SIGNED);
 			cell->unsetParam(ID::B_WIDTH);
+			cell->type = cell->type == ID($eq) ? ID($logic_not) : ID($reduce_bool);
 			did_something = true;
 			goto next_cell;
 		}
@@ -1449,10 +1456,10 @@ skip_fine_alu:
 					cell->setParam(ID::A_SIGNED, cell->getParam(ID::B_SIGNED));
 				}
 
-				cell->type = arith_inverse ? ID($neg) : ID($pos);
 				cell->unsetPort(ID::B);
 				cell->parameters.erase(ID::B_WIDTH);
 				cell->parameters.erase(ID::B_SIGNED);
+				cell->type = arith_inverse ? ID($neg) : ID($pos);
 				cell->check();
 
 				did_something = true;
@@ -2358,9 +2365,16 @@ struct OptExprPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(true);
+
+
+
 		CellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
+
+			int replace_const_cells_timestamp = INT_MIN;
+			int replace_const_cells_consume_x_timestamp = INT_MIN;
 			log("Optimizing module %s.\n", log_id(module));
 
 			if (undriven) {
@@ -2373,12 +2387,17 @@ struct OptExprPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+					module->next_timestamp();
+					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv, replace_const_cells_timestamp);
+					replace_const_cells_timestamp = module->timestamp();
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
-				if (!keepdc)
-					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
+				if (!keepdc) {
+					module->next_timestamp();
+					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv, replace_const_cells_consume_x_timestamp);
+					replace_const_cells_consume_x_timestamp = module->timestamp();
+				}
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);

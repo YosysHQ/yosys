@@ -507,8 +507,8 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	if (verbose && del_temp_wires_count)
 		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
 
-	if (!del_wires_queue.empty())
-		module->design->scratchpad_set_bool("opt.did_something", true);
+	// if (!del_wires_queue.empty())
+	// 	module->design->scratchpad_set_bool("opt.did_something", true);
 
 	return !del_wires_queue.empty();
 }
@@ -600,6 +600,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		log("Finding unused cells or wires in module %s..\n", module->name);
 
 	std::vector<RTLIL::Cell*> delcells;
+	bool did_something_here = false;
 	for (auto cell : module->cells()) {
 		if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
 			bool is_signed = cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
@@ -623,6 +624,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 			if (!y.empty())
 				module->connect(y, a);
 			delcells.push_back(cell);
+			did_something_here = true;
 		} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec b = cell->getPort(ID::B);
@@ -648,7 +650,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 		}
 		module->remove(cell);
 	}
-	if (!delcells.empty())
+	if (did_something_here)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	rmunused_module_cells(module, verbose);
@@ -693,6 +695,8 @@ struct OptCleanPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		design->sigNormalize(false);
 
 		keep_cache.reset(design, purge_mode);
 
@@ -755,6 +759,8 @@ struct CleanPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		design->sigNormalize(false);
 
 		keep_cache.reset(design);
 
