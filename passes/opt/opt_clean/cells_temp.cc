@@ -50,21 +50,25 @@ bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, 
 }
 
 bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose) {
+	// Removing $connect and $input_port doesn't count as "doing something"
+	// since they get rebuilt in signorm
+	// and don't enable further opt
 	bool did_something = false;
 	for (RTLIL::Cell *cell : cells) {
 		if (verbose) {
-			if (cell->type == ID($connect))
+			if (cell->type == ID($connect)) {
 				log_debug("  removing connect cell `%s': %s <-> %s\n", cell->name,
 						log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
-			else if (cell->type == ID($input_port))
+			} else if (cell->type == ID($input_port)) {
 				log_debug("  removing input port marker cell `%s': %s\n", cell->name,
 						log_signal(cell->getPort(ID::Y)));
-			else
+			} else {
+				did_something = true;
 				log_debug("  removing buffer cell `%s': %s = %s\n", cell->name,
 						log_signal(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::A)));
+			}
 		}
 		mod->remove(cell);
-		did_something = true;
 	}
 	return did_something;
 }

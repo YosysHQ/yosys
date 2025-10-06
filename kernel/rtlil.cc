@@ -1528,6 +1528,7 @@ RTLIL::Module::Module()
 
 RTLIL::Module::~Module()
 {
+	clear_sig_norm_index();
 	for (auto &pr : wires_)
 		delete pr.second;
 	for (auto &pr : memories)
@@ -2948,23 +2949,6 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 	}
 }
 
-void RTLIL::Module::remove(RTLIL::Cell *cell)
-{
-	while (!cell->connections_.empty())
-		cell->unsetPort(cell->connections_.begin()->first);
-
-	log_assert(cells_.count(cell->name) != 0);
-	log_assert(refcount_cells_ == 0);
-	cells_.erase(cell->name);
-	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
-		cell->type.clear();
-		cell->name.clear();
-		pending_deleted_cells.insert(cell);
-	} else {
-		delete cell;
-	}
-}
-
 void RTLIL::Module::remove(RTLIL::Memory *memory)
 {
 	log_assert(memories.count(memory->name) != 0);
@@ -3108,29 +3092,6 @@ void RTLIL::Module::connect(const RTLIL::SigSpec &lhs, const RTLIL::SigSpec &rhs
 	connect(RTLIL::SigSig(lhs, rhs));
 }
 
-void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
-{
-	for (auto mon : monitors)
-		mon->notify_connect(this, new_conn);
-
-	if (design)
-		for (auto mon : design->monitors)
-			mon->notify_connect(this, new_conn);
-
-	if (yosys_xtrace) {
-		log("#X# New connections vector in %s:\n", log_id(this));
-		for (auto &conn: new_conn)
-			log("#X#    %s = %s (%d bits)\n", log_signal(conn.first), log_signal(conn.second), GetSize(conn.first));
-		log_backtrace("-X- ", yosys_xtrace-1);
-	}
-
-	connections_ = new_conn;
-}
-
-const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const
-{
-	return connections_;
-}
 
 void RTLIL::Module::fixup_ports()
 {
