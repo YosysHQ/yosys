@@ -182,7 +182,7 @@ module INV(
   endspecify
 endmodule
 
-(* abc9_lut=1 *)
+(* abc9_lut=10 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
@@ -191,7 +191,7 @@ module LUT1(output O, input I0);
   endspecify
 endmodule
 
-(* abc9_lut=2 *)
+(* abc9_lut=40 *)
 module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
@@ -202,7 +202,7 @@ module LUT2(output O, input I0, I1);
   endspecify
 endmodule
 
-(* abc9_lut=3 *)
+(* abc9_lut=10 *)
 module LUT3(output O, input I0, I1, I2);
   parameter [7:0] INIT = 0;
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
@@ -215,7 +215,7 @@ module LUT3(output O, input I0, I1, I2);
   endspecify
 endmodule
 
-(* abc9_lut=4 *)
+(* abc9_lut=0 *)
 module LUT4(output O, input I0, I1, I2, I3);
   parameter [15:0] INIT = 0;
   wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
@@ -230,7 +230,7 @@ module LUT4(output O, input I0, I1, I2, I3);
   endspecify
 endmodule
 
-(* abc9_lut=5 *)
+(* abc9_lut=10 *)
 module LUT5(output O, input I0, I1, I2, I3, I4);
   parameter [31:0] INIT = 0;
   wire [15: 0] s4 = I4 ? INIT[31:16] : INIT[15: 0];
@@ -247,7 +247,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   endspecify
 endmodule
 
-(* abc9_lut=6 *)
+(* abc9_lut=10 *)
 module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   parameter [63:0] INIT = 0;
   wire [31: 0] s5 = I5 ? INIT[63:32] : INIT[31: 0];
@@ -284,7 +284,7 @@ endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
-(* abc9_lut=12 *)
+(* abc9_lut=40 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
   specify
@@ -301,7 +301,7 @@ endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
-(* abc9_lut=24 *)
+(* abc9_lut=30 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
   specify
