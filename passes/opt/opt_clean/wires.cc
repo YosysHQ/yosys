@@ -576,8 +576,8 @@ bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::
 	if (clean_ctx.flags.verbose && deleted_and_unreported)
 		log_debug("  removed %d unused temporary wires.\n", deleted_and_unreported);
 
-	if (deleted_total)
-		module->design->scratchpad_set_bool("opt.did_something", true);
+	// if (deleted_total)
+	// 	module->design->scratchpad_set_bool("opt.did_something", true);
 
 	return deleted_total != 0;
 }

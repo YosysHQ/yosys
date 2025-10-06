@@ -2,6 +2,7 @@ add_subdirectory(opt_clean)
 
 yosys_pass(opt_merge
 	opt_merge.cc
+	opt_merge_inc.cc
 )
 yosys_pass(opt_mem_widen
 	opt_mem_widen.cc

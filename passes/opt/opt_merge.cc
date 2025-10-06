@@ -497,7 +497,7 @@ struct OptMergeWorker
 };
 
 struct OptMergePass : public Pass {
-	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
+	OptMergePass() : Pass("opt_merge_old", "consolidate identical cells") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

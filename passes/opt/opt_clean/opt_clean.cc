@@ -84,6 +84,8 @@ struct OptCleanPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(false);
+
 		{
 			std::vector<RTLIL::Module*> selected_modules;
 			for (auto module : design->selected_whole_modules_warn())
@@ -140,6 +142,8 @@ struct CleanPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		design->sigNormalize(false);
 
 		{
 			std::vector<RTLIL::Module*> selected_modules;
