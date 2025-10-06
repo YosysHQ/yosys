@@ -321,7 +321,7 @@ struct Abc9Pass : public ScriptPass
 										// then select all its fanins
 										// then select all fanouts of all that
 										// lastly remove $_DFF_[NP]_ cells
-					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d", "       (only if -dff)");
+					run("setattr -setstr submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d", "       (only if -dff)");
 					run("submod", "                                                                    (only if -dff)");
 					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop", "(only if -dff)");
 					if (help_mode) {
