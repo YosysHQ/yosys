@@ -94,8 +94,11 @@ struct BufnormPass : public Pass {
 		log("    -update\n");
 		log("        Enter 'buffered-normalized mode' and (re-)normalize.\n");
 		log("\n");
+		log("    -signorm\n");
+		log("        Enter 'signal-normalized mode' and (re-)normalize.\n");
+		log("\n");
 		log("    -reset\n");
-		log("        Leave 'buffered-normalized mode' without changing the netlist.\n");
+		log("        Leave '{buffered,signal}-normalized mode' without changing the netlist.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -116,6 +119,7 @@ struct BufnormPass : public Pass {
 		bool conn_mode = false;
 
 		bool update_mode = false;
+		bool signorm_mode = false;
 		bool reset_mode = false;
 		bool got_non_update_reset_opt = false;
 
@@ -198,6 +202,10 @@ struct BufnormPass : public Pass {
 				update_mode = true;
 				continue;
 			}
+			if (arg == "-signorm") {
+				signorm_mode = true;
+				continue;
+			}
 			if (arg == "-reset") {
 				reset_mode = true;
 				continue;
@@ -221,6 +229,9 @@ struct BufnormPass : public Pass {
 		if (update_mode && got_non_update_reset_opt)
 			log_cmd_error("Option -update can't be mixed with other options.\n");
 
+		if (signorm_mode && got_non_update_reset_opt)
+			log_cmd_error("Option -signorm can't be mixed with other options.\n");
+
 		if (reset_mode && got_non_update_reset_opt)
 			log_cmd_error("Option -reset can't be mixed with other options.\n");
 
@@ -229,8 +240,14 @@ struct BufnormPass : public Pass {
 			return;
 		}
 
+		if (signorm_mode) {
+			design->sigNormalize();
+			return;
+		}
+
 		if (reset_mode) {
 			design->bufNormalize(false);
+			design->sigNormalize(false);
 			return;
 		}
 
