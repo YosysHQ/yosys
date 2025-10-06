@@ -1,4 +1,4 @@
-logger -expect error "Identifier `\\y' is implicitly declared and `default_nettype is set to none" 1
+logger -expect error 'Identifier `\\y. is implicitly declared and `default_nettype is set to none' 1
 read_verilog <<EOT
 `default_nettype none
 module top1;

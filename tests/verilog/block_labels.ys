@@ -15,7 +15,7 @@ module foo2;
 endmodule
 EOT
 
-logger -expect error "Begin label \(a\) and end label \(b\) don't match\." 1
+logger -expect error 'Begin label \(a\) and end label \(b\) don.t match\.' 1
 read_verilog <<EOT
 module foo3;
 

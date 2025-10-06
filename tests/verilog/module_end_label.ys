@@ -7,7 +7,7 @@ EOF
 
 design -reset
 
-logger -expect error "Module name \(correct_name\) and end label \(incorrect_name\) don't match\." 1
+logger -expect error 'Module name \(correct_name\) and end label \(incorrect_name\) don.t match\.' 1
 read_verilog -sv <<EOF
 module correct_name;
 localparam X = 1;

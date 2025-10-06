@@ -4,12 +4,13 @@ logger -expect-no-warnings
 logger -expect log "quoted space" 1
 logger -expect log "quoted" 2
 logger -expect log "space" 2
-logger -expect log '\\"escaped' 1
-logger -expect log 'quotes\\"' 1
+logger -expect log '"escaped' 2
+logger -expect log 'quotes"' 2
 
 test_args unquoted space
 test_args "quoted space"
-test_args \"escaped quotes\"
+test_args "\"escaped quotes\""
+test_args '"escaped quotes"'
 
 logger -check-expected
 
