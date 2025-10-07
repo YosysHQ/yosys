@@ -13,7 +13,6 @@ stub ys_track_untyped_key
 stub ys_err_key
 stub ys_err_flag
 
-# TODO move to separate file and tie to graph value mode
 proc unknown {args} {
     global sdc_call_index
     global sdc_calls
