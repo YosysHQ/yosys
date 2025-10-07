@@ -90,12 +90,6 @@ struct SdcObjects {
 		// constraint-side tracking
 		FullConstraint,
 	} collect_mode;
-	enum ValueMode {
-		// return something sensible and error on unknown
-		Normal,
-		// return a new graph node assuming unknown is overridden
-		Graph,
-	} value_mode;
 	using CellPin = std::pair<Cell*, IdString>;
 	Design* design;
 	std::vector<std::pair<std::string, Wire*>> design_ports;
@@ -522,16 +516,11 @@ find_matching(U objects, const MatchConfig& config, const std::vector<std::strin
 	}
 	return resolved;
 }
-struct GetterOpts {
-	bool hierarchical_flag = false;
-	bool regexp_flag = false;
-	bool nocase_flag = false;
-	std::string separator = "/";
-	Tcl_Obj* of_objects = nullptr;
-	std::vector<std::string> patterns = {};
-	std::initializer_list<const char*> legals;
+
+struct TclOpts {
 	const char* name;
-	GetterOpts(const char* name, std::initializer_list<const char*> legals) : legals(legals), name(name) {}
+	std::initializer_list<const char*> legals;
+	TclOpts(const char* name, std::initializer_list<const char*> legals) : name(name), legals(legals)  {}
 	bool parse_opt(Tcl_Obj* obj, const char* opt_name) {
 		char* arg = Tcl_GetString(obj);
 		std::string expected = std::string("-") + opt_name;
@@ -543,6 +532,16 @@ struct GetterOpts {
 		}
 		return false;
 	}
+};
+
+struct GetterOpts : TclOpts {
+	bool hierarchical_flag = false;
+	bool regexp_flag = false;
+	bool nocase_flag = false;
+	std::string separator = "/";
+	Tcl_Obj* of_objects = nullptr;
+	std::vector<std::string> patterns = {};
+	GetterOpts(const char* name, std::initializer_list<const char*> legals) : TclOpts(name, legals) {}
 	template<typename T>
 	bool parse_flag(Tcl_Obj* obj, const char* flag_name, T& flag_var) {
 		bool ret = parse_opt(obj, flag_name);
@@ -617,28 +616,7 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	const auto& pins = objects->design_pins;
 	resolved = find_matching<SdcObjects::CellPin, decltype(pins)>(pins, config, opts.patterns, "pin");
 
-	Tcl_Obj *result = nullptr;
-	if (objects->value_mode == SdcObjects::ValueMode::Normal) {
-		log_error("TODO normal\n");
-		auto width = [](SdcObjects::CellPin& pin) -> size_t {
-			return (size_t)pin.first->getPort(pin.second).size();
-		};
-		objects->build_normal_result<SdcObjects::CellPin, decltype(objects->resolved_pin_pattern_sets)>(interp, std::move(resolved), objects->resolved_pin_pattern_sets, width, result);
-	} else if (objects->value_mode == SdcObjects::ValueMode::Graph)
-		return graph_node(TclCall{interp, objc, objv});
-
-	if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
-		objects->merge_as_constrained(std::move(resolved));
-		// merge_or_init(std::make_pair(name, pin), objects->constrained_pins, matching_bits);
-		// TODO
-	// }
-
-	
-		// return objects->graph_node(interp, objc, objv, std::move(resolved), objects->resolved_pin_pattern_sets);
-
-	if (result)
-		Tcl_SetObjResult(interp, result);
-	return TCL_OK;
+	return graph_node(TclCall{interp, objc, objv});
 }
 
 static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
@@ -654,23 +632,12 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 	const auto& ports = objects->design_ports;
 	resolved = find_matching<Wire*, decltype(ports)>(ports, config, opts.patterns, "port");
 
-	Tcl_Obj *result = nullptr;
 	for (auto [name, wire, matching_bits] : resolved) {
-		if (objects->value_mode == SdcObjects::ValueMode::Normal)
-			log_error("TODO normal\n");
-			// objects->build_normal_result(interp, resolved.size(), wire->width, name, result, matching_bits);
-
 		if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
 			merge_or_init(std::make_pair(name, wire), objects->constrained_ports, matching_bits);
 	}
 
-	if (objects->value_mode == SdcObjects::ValueMode::Graph) {
-		return graph_node(TclCall{interp, objc, objv});
-		// return objects->graph_node(interp, objc, objv, std::move(resolved), objects->resolved_port_pattern_sets);
-	}
-	if (result)
-		Tcl_SetObjResult(interp, result);
-	return TCL_OK;
+	return graph_node(TclCall{interp, objc, objv});
 }
 
 static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
@@ -686,23 +653,12 @@ static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	const auto& ports = objects->design_nets;
 	resolved = find_matching<Wire*, decltype(ports)>(ports, config, opts.patterns, "net");
 
-	Tcl_Obj *result = nullptr;
 	for (auto [name, wire, matching_bits] : resolved) {
-		if (objects->value_mode == SdcObjects::ValueMode::Normal)
-			log_error("TODO normal\n");
-			// objects->build_normal_result(interp, resolved.size(), wire->width, name, result, matching_bits);
-
 		if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
 			merge_or_init(std::make_pair(name, wire), objects->constrained_nets, matching_bits);
 	}
 
-	if (objects->value_mode == SdcObjects::ValueMode::Graph) {
-		return graph_node(TclCall{interp, objc, objv});
-		// return objects->graph_node(interp, objc, objv, std::move(resolved), objects->resolved_port_pattern_sets);
-	}
-	if (result)
-		Tcl_SetObjResult(interp, result);
-	return TCL_OK;
+	return graph_node(TclCall{interp, objc, objv});
 }
 
 std::optional<std::tuple<std::string, std::string>> split_at(std::string s)
@@ -807,7 +763,6 @@ public:
 
 		objects = std::make_unique<SdcObjects>(design);
 		objects->collect_mode = SdcObjects::CollectMode::SimpleGetter;
-		objects->value_mode = SdcObjects::ValueMode::Graph;
 		Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_nets", sdc_get_nets_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_ports", sdc_get_ports_cmd, (ClientData) objects.get(), NULL);
@@ -823,16 +778,16 @@ struct SdcPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing SDC pass.\n");
 		size_t argidx;
-		bool graph_mode = false;
 		bool dump_mode = false;
+		bool dump_graph_mode = false;
 		bool keep_hierarchy_mode = false;
 		std::vector<std::string> opensta_stubs_paths;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-graph") {
-				graph_mode = true;
-				continue;
-			} else if (args[argidx] == "-dump") {
+			if (args[argidx] == "-dump") {
 				dump_mode = true;
+				continue;
+			} else if (args[argidx] == "-dump-graph") {
+				dump_graph_mode = true;
 				continue;
 			} else if (args[argidx] == "-keep_hierarchy") {
 				keep_hierarchy_mode = true;
@@ -863,7 +818,7 @@ struct SdcPass : public Pass {
 			sdc.objects->dump();
 		if (keep_hierarchy_mode)
 			sdc.objects->keep_hierarchy();
-		inspect_globals(interp, graph_mode);
+		inspect_globals(interp, dump_graph_mode);
 		Tcl_Release(interp);
 	}
 } SdcPass;
