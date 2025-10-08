@@ -585,14 +585,6 @@ struct GetterOpts : TclOpts {
 	}
 };
 
-// void build_normal_result(Tcl_Interp* interp, size_t list_len, size_t width, const std::string& name, Tcl_Obj*& result, const BitSelection& matching_bits) {
-// 	if (!result)
-// 		result = Tcl_NewListObj(list_len, nullptr);
-// 	for (size_t i = 0; i < width; i++)
-// 		if (matching_bits.is_set(i))
-// 			Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(name.c_str(), name.size()));
-// }
-
 template <typename T>
 void merge_or_init(const T& key, dict<T, BitSelection>& dst, const BitSelection& src) {
 	if (dst.count(key) == 0) {
@@ -661,84 +653,6 @@ static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	return graph_node(TclCall{interp, objc, objv});
 }
 
-std::optional<std::tuple<std::string, std::string>> split_at(std::string s)
-{
-	size_t pos = s.find('@');
-	if (pos == std::string::npos)
-		return std::nullopt;
-	return std::make_tuple(s.substr(0, pos), s.substr(pos + 1));
-}
-
-// Whether string or list of strings, apply op to each string
-void apply_args(Tcl_Interp *interp, std::function<void(const char*)> op, Tcl_Obj* obj)
-{
-	int length;
-	Tcl_Obj **value_list;
-	if (Tcl_ListObjGetElements(interp, obj, &length, &value_list) == TCL_OK) {
-		for (int i = 0; i < length; i++) {
-			op(Tcl_GetString(value_list[i]));
-		}
-	} else {
-		op(Tcl_GetString(obj));
-	}
-}
-
-static int ys_track_typed_key_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
-{
-	log("ys_track_typed_key_cmd\n");
-	auto* objects = (SdcObjects*)data;
-	if (objc != 5)
-		log_error("ys_track_typed_key: Unexpected number of arguments: %d (expected 5)\n", objc);
-
-	if (objects->collect_mode != SdcObjects::CollectMode::FullConstraint)
-		return TCL_OK;
-
-	std::string key_name		 = Tcl_GetString(objv[1]);
-	Tcl_Obj* key_value		   = objv[2];
-	std::string key_expect_type  = Tcl_GetString(objv[3]);
-	std::string proc_name		= Tcl_GetString(objv[4]);
-
-	auto track_typed = [key_expect_type, objects, proc_name, key_name](const char* str) -> void {
-		auto split = split_at(str);
-		if (!split)
-			log_error("%s: key %s should be a typed SDC object, but is something weird: %s\n",
-				proc_name.c_str(), key_name.c_str(), str);
-
-		if (key_expect_type == "pin") {
-			log("PIN! %s\n", str);
-			bool found = false;
-			for (auto [name, pin] : objects->design_pins) {
-				log_error("TODO temporarily disabled due to working on a different flow\n");
-				// if (name + "/" + pin.name.str() == str) {
-				// 	found = true;
-				// 	objects->constrained_pins.insert(std::make_pair(name, pin));
-				// 	break; // resolved, expected unique
-				// }
-			}
-			if (!found)
-				log_error("%s: pin %s not found\n", proc_name.c_str(), str);
-		} else if (key_expect_type == "port") {
-			bool found = false;
-			log_error("TODO temporarily disabled due to working on a different flow\n");
-			// for (auto [name, ] : objects->design_ports) {
-			// 	if (name == str) {
-			// 		found = true;
-			// 		objects->constrained_ports.insert(name);
-			// 		break; // resolved, expected unique
-			// 	}
-			// }
-			if (!found)
-				log_error("%s: port %s not found\n", proc_name.c_str(), str);
-		} else {
-			// TODO
-			log_warning("%s: unsupported type %s\n", proc_name.c_str(), key_expect_type.c_str());
-		}
-	};
-	apply_args(interp, track_typed, key_value);
-	return TCL_OK;
-}
-
-
 class SDCInterpreter
 {
 private:
@@ -766,7 +680,6 @@ public:
 		Tcl_CreateObjCommand(interp, "get_pins", sdc_get_pins_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_nets", sdc_get_nets_cmd, (ClientData) objects.get(), NULL);
 		Tcl_CreateObjCommand(interp, "get_ports", sdc_get_ports_cmd, (ClientData) objects.get(), NULL);
-		Tcl_CreateObjCommand(interp, "ys_track_typed_key", ys_track_typed_key_cmd, (ClientData) objects.get(), NULL);
 		return interp;
 	}
 };
