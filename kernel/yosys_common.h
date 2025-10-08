@@ -21,6 +21,7 @@
 #define YOSYS_COMMON_H
 
 #include <array>
+#include <atomic>
 #include <map>
 #include <set>
 #include <tuple>
