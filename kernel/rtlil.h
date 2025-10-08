@@ -728,7 +728,6 @@ template <> struct IDMacroHelper<-1> {
 namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
-	[[deprecated("Call cell->is_builtin_ff() instead")]]
 	const pool<IdString> &builtin_ff_cell_types();
 
 	static inline std::string escape_id(const std::string &str) {
