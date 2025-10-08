@@ -51,7 +51,7 @@ struct BoxDerivePass : Pass {
 		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
 		log("        modules start with '$paramod$')\n");
 		log("\n");
-		log("    -apply\n");
+		log("    -apply_derived_type\n");
 		log("        use the derived modules\n");
 		log("\n");
 	}
@@ -68,7 +68,7 @@ struct BoxDerivePass : Pass {
 				naming_attr = RTLIL::escape_id(args[++argidx]);
 			else if (args[argidx] == "-base" && argidx + 1 < args.size())
 				base_name = RTLIL::escape_id(args[++argidx]);
-			else if (args[argidx] == "-apply")
+			else if (args[argidx] == "-apply_derived_type")
 				apply_mode = true;
 			else
 				break;
