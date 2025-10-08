@@ -604,6 +604,8 @@ module RAMS64X1 (
   endspecify
 endmodule
 
+// Dual port.
+
 (* abc9_box, lib_whitebox *)
 module RAMD32X1 (
   output DPO, SPO,
