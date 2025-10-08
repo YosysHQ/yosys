@@ -264,10 +264,10 @@ std::string& Const::get_str() {
 	return *get_if_str();
 }
 
-RTLIL::Const::Const(const std::string &str)
+RTLIL::Const::Const(std::string str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
-	new ((void*)&str_) std::string(str);
+	new ((void*)&str_) std::string(std::move(str));
 	tag = backing_tag::string;
 }
 
@@ -3050,7 +3050,7 @@ void RTLIL::Module::fixup_ports()
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
 	RTLIL::Wire *wire = new RTLIL::Wire;
-	wire->name = name;
+	wire->name = std::move(name);
 	wire->width = width;
 	add(wire);
 	return wire;
@@ -3058,7 +3058,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *other)
 {
-	RTLIL::Wire *wire = addWire(name);
+	RTLIL::Wire *wire = addWire(std::move(name));
 	wire->width = other->width;
 	wire->start_offset = other->start_offset;
 	wire->port_id = other->port_id;
@@ -3073,7 +3073,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 {
 	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->name = name;
+	cell->name = std::move(name);
 	cell->type = type;
 	add(cell);
 	return cell;
@@ -3081,7 +3081,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
-	RTLIL::Cell *cell = addCell(name, other->type);
+	RTLIL::Cell *cell = addCell(std::move(name), other->type);
 	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
@@ -3091,7 +3091,7 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->name = name;
+	mem->name = std::move(name);
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
 	mem->size = other->size;
@@ -3103,7 +3103,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 {
 	RTLIL::Process *proc = new RTLIL::Process;
-	proc->name = name;
+	proc->name = std::move(name);
 	add(proc);
 	return proc;
 }
@@ -3111,7 +3111,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	RTLIL::Process *proc = other->clone();
-	proc->name = name;
+	proc->name = std::move(name);
 	add(proc);
 	return proc;
 }
