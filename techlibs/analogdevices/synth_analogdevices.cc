@@ -343,10 +343,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				params += " -lib +/analogdevices/lutrams.txt";
 				lutrams_map = "+/analogdevices/lutrams_map.v";
 				params += " -lib +/analogdevices/brams.txt";
-				params += " -D HAS_SIZE_36";
-				params += " -D HAS_CASCADE";
-				params += " -D HAS_CONFLICT_BUG";
-				params += " -D HAS_MIXWIDTH_SDP";
 				brams_map = "+/analogdevices/brams_map.v";
 				if (nolutram)
 					params += " -no-auto-distributed";
