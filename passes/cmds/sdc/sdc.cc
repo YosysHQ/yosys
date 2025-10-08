@@ -1,3 +1,5 @@
+#ifdef YOSYS_ENABLE_TCL
+
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
@@ -757,3 +759,4 @@ struct SdcPass : public Pass {
 } SdcPass;
 
 YOSYS_NAMESPACE_END
+#endif
