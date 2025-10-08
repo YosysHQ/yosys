@@ -28,7 +28,7 @@ case(OPTION_ABITS)
 		.WCLK(PORT_RW_CLK),
 		.WE(PORT_RW_WR_EN)
 	);
-6: begin
+6:
 	RAMS64X1
 	#(
 		.INIT(INIT)
@@ -46,9 +46,8 @@ case(OPTION_ABITS)
 		.WCLK(PORT_RW_CLK),
 		.WE(PORT_RW_WR_EN)
 	);
-end
 default:
-	$error("invalid OPTION_ABITS/WIDTH combination");
+	$error("invalid OPTION_ABITS");
 endcase
 endgenerate
 
@@ -78,8 +77,8 @@ case (OPTION_ABITS)
 	)
 	_TECHMAP_REPLACE_
 	(
-		.SPO(PORT_RW_RD_DATA),
 		.DPO(PORT_R_RD_DATA),
+		.SPO(PORT_RW_RD_DATA),
 		.A0(PORT_RW_ADDR[0]),
 		.A1(PORT_RW_ADDR[1]),
 		.A2(PORT_RW_ADDR[2]),
@@ -101,8 +100,8 @@ case (OPTION_ABITS)
 	)
 	_TECHMAP_REPLACE_
 	(
-		.SPO(PORT_RW_RD_DATA),
 		.DPO(PORT_R_RD_DATA),
+		.SPO(PORT_RW_RD_DATA),
 		.A0(PORT_RW_ADDR[0]),
 		.A1(PORT_RW_ADDR[1]),
 		.A2(PORT_RW_ADDR[2]),

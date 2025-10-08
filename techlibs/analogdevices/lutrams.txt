@@ -1,37 +1,39 @@
 # Single-port RAMs.
 
 ram distributed $__ANALOGDEVICES_LUTRAM_SP_ {
-	cost 1;
 	option "ABITS" 5 {
+		cost 1;
 		abits 5;
 	}
 	option "ABITS" 6 {
+		cost 2;
 		abits 6;
 	}
 	width 1;
 	init no_undef;
 	prune_rom;
 	port arsw "RW" {
-		clock posedge;
+		clock anyedge;
 	}
 }
 
 # Dual-port RAMs.
 
 ram distributed $__ANALOGDEVICES_LUTRAM_DP_ {
-	cost 1;
 	option "ABITS" 5 {
+		cost 2;
 		abits 5;
 	}
 	option "ABITS" 6 {
+		cost 4;
 		abits 6;
 	}
 	width 1;
 	init no_undef;
 	prune_rom;
-	port ar "R" {
-	}
 	port arsw "RW" {
 		clock posedge;
+	}
+	port ar "R" {
 	}
 }
