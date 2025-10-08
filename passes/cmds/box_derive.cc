@@ -51,7 +51,7 @@ struct BoxDerivePass : Pass {
 		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
 		log("        modules start with '$paramod$')\n");
 		log("\n");
-		log("    -apply\n");
+		log("    -apply_derived_type\n");
 		log("        use the derived modules\n");
 		log("\n");
 	}
