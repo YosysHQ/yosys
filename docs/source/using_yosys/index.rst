@@ -17,3 +17,4 @@ ways Yosys can interact with designs for a deeper investigation.
    more_scripting/index
    bugpoint
    verilog
+   pyosys

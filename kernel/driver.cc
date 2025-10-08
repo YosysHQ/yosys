@@ -37,6 +37,12 @@
 #  include <tcl.h>
 #endif
 
+#ifdef YOSYS_ENABLE_PYTHON
+#  include <Python.h>
+#  include <pybind11/pybind11.h>
+namespace py = pybind11;
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -91,9 +97,10 @@ int main(int argc, char **argv)
 	log_error_stderr = true;
 	yosys_banner();
 	yosys_setup();
-#ifdef WITH_PYTHON
-	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
-	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#ifdef YOSYS_ENABLE_PYTHON
+	py::object sys = py::module_::import("sys");
+	sys.attr("path").attr("append")(proc_self_dirname());
+	sys.attr("path").attr("append")(proc_share_dirname());
 #endif
 
 	if (argc == 2)
@@ -226,10 +233,10 @@ int main(int argc, char **argv)
 			cxxopts::value<std::string>(),"<tcl_scriptfile>")
 		("C,tcl-interactive", "enters TCL interactive shell mode")
 #endif // YOSYS_ENABLE_TCL
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 		("y,py-scriptfile", "execute the Python <script>",
 			cxxopts::value<std::string>(), "<script>")
-#endif // WITH_PYTHON
+#endif // YOSYS_ENABLE_PYTHON
 		("p,commands", "execute <commands> (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')",
 			cxxopts::value<std::vector<std::string>>(), "<commands>")
 		("r,top", "elaborate the specified HDL <top> module",
@@ -515,9 +522,10 @@ int main(int argc, char **argv)
 #endif
 
 	yosys_setup();
-#ifdef WITH_PYTHON
-	PyRun_SimpleString(("sys.path.append(\""+proc_self_dirname()+"\")").c_str());
-	PyRun_SimpleString(("sys.path.append(\""+proc_share_dirname()+"plugins\")").c_str());
+#ifdef YOSYS_ENABLE_PYTHON
+	py::object sys = py::module_::import("sys");
+	sys.attr("path").attr("append")(proc_self_dirname());
+	sys.attr("path").attr("append")(proc_share_dirname());
 #endif
 	log_error_atexit = yosys_atexit;
 
@@ -566,22 +574,19 @@ int main(int argc, char **argv)
 			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
 		} else if (scriptfile_python) {
-#ifdef WITH_PYTHON
-			PyObject *sys = PyImport_ImportModule("sys");
+#ifdef YOSYS_ENABLE_PYTHON
+			py::list new_argv;
 			int py_argc = special_args.size() + 1;
-			PyObject *new_argv = PyList_New(py_argc);
-			PyList_SetItem(new_argv, 0, PyUnicode_FromString(scriptfile.c_str()));
+			new_argv.append(scriptfile);
 			for (int i = 1; i < py_argc; ++i)
-				PyList_SetItem(new_argv, i, PyUnicode_FromString(special_args[i - 1].c_str()));
+				new_argv.append(special_args[i - 1]);
 
-			PyObject *old_argv = PyObject_GetAttrString(sys, "argv");
-			PyObject_SetAttrString(sys, "argv", new_argv);
-			Py_DECREF(old_argv);
+			py::setattr(sys, "argv", new_argv);
 
-			PyObject *py_path = PyUnicode_FromString(scriptfile.c_str());
-			PyObject_SetAttrString(sys, "_yosys_script_path", py_path);
-			Py_DECREF(py_path);
-			PyRun_SimpleString("import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(sys._yosys_script_path)))");
+			py::object Path = py::module_::import("pathlib").attr("Path");
+			py::object scriptfile_python_path = Path(scriptfile).attr("parent");
+
+			sys.attr("path").attr("insert")(0, py::str(scriptfile_python_path));
 
 			FILE *scriptfp = fopen(scriptfile.c_str(), "r");
 			if (scriptfp == nullptr) {

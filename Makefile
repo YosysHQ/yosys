@@ -102,7 +102,7 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXSTD ?= c++17
+export CXXSTD ?= c++17
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LIBS := $(LIBS) -lstdc++ -lm
 PLUGIN_LINKFLAGS :=
@@ -133,10 +133,6 @@ LINKFLAGS += -rdynamic
 ifneq ($(shell :; command -v brew),)
 BREW_PREFIX := $(shell brew --prefix)/opt
 $(info $$BREW_PREFIX is [${BREW_PREFIX}])
-ifeq ($(ENABLE_PYOSYS),1)
-CXXFLAGS += -I$(BREW_PREFIX)/boost/include
-LINKFLAGS += -L$(BREW_PREFIX)/boost/lib -L$(BREW_PREFIX)/boost-python3/lib
-endif
 CXXFLAGS += -I$(BREW_PREFIX)/readline/include -I$(BREW_PREFIX)/flex/include
 LINKFLAGS += -L$(BREW_PREFIX)/readline/lib -L$(BREW_PREFIX)/flex/lib
 PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -348,31 +344,24 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 TARGETS += libyosys.so
 endif
 
+PY_WRAPPER_FILE = pyosys/wrappers
+
+# running make clean on just those and then recompiling saves a lot of
+# time when running cibuildwheel
+PYTHON_OBJECTS = pyosys/wrappers.o kernel/drivers.o kernel/yosys.o passes/cmds/plugin.o
+
 ifeq ($(ENABLE_PYOSYS),1)
 # python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
+PYBIND11_INCLUDE ?= $(shell $(PYTHON_EXECUTABLE) -m pybind11 --includes)
+CXXFLAGS += -I$(PYBIND11_INCLUDE) -DYOSYS_ENABLE_PYTHON
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DYOSYS_ENABLE_PYTHON
 
-# Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(LINKFLAGS) $(EXE_LIBS) $(LIBS) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
-BOOST_PYTHON_LIB ?= $(shell \
-	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
-	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
-	$(call CHECK_BOOST_PYTHON,boost_python$(subst .,,$(PYTHON_VERSION))) || \
-	$(call CHECK_BOOST_PYTHON,boost_python$(PYTHON_MAJOR_VERSION)) \
-)
-
-ifeq ($(BOOST_PYTHON_LIB),)
-$(error BOOST_PYTHON_LIB could not be detected. Please define manually)
-endif
-
-LIBS += $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
-PY_GEN_SCRIPT= py_wrap_generator
-PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
+PY_GEN_SCRIPT = pyosys/generator.py
+PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -786,9 +775,9 @@ endif
 	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(CXX) $(CXXFLAGS) -x c++ -o $@ -E -P -
 
 ifeq ($(ENABLE_PYOSYS),1)
-$(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
+$(PY_WRAPPER_FILE).cc: $(PY_GEN_SCRIPT) pyosys/wrappers_tpl.cc $(PY_WRAP_INCLUDES) pyosys/hashlib.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(PYTHON_EXECUTABLE) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).gen_wrappers(\"$(PY_WRAPPER_FILE).cc\")"
+	$(P) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) $(PY_WRAPPER_FILE).cc
 endif
 
 %.o: %.cpp
@@ -1035,12 +1024,12 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	if [ -n "$(STRIP)" ]; then $(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so; fi
 ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) cp pyosys/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
 	$(INSTALL_SUDO) cp -r share $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 ifeq ($(ENABLE_ABC),1)
 	$(INSTALL_SUDO) cp yosys-abc $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/yosys-abc
 endif
-	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
 ifeq ($(ENABLE_PLUGINS),1)
@@ -1130,12 +1119,10 @@ DOC_TARGET ?= html
 docs: docs/prep
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
-clean:
+clean: clean-py
 	rm -rf share
-	rm -rf kernel/*.pyh
-	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
+	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES)
 	rm -f kernel/version_*.o kernel/version_*.cc
-	rm -f kernel/python_wrappers.o
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
@@ -1149,8 +1136,14 @@ clean:
 	rm -f $(addsuffix /run-test.mk,$(MK_TEST_DIRS))
 	-$(MAKE) -C docs clean
 	rm -rf docs/util/__pycache__
+	rm -f libyosys.so
+
+clean-py:
+	rm -f $(PY_WRAPPER_FILE).inc.cc $(PY_WRAPPER_FILE).cc
+	rm -f $(PYTHON_OBJECTS)
 	rm -f *.whl
 	rm -f libyosys.so
+	rm -rf kernel/*.pyh
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean

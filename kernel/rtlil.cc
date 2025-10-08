@@ -1083,7 +1083,7 @@ RTLIL::Design::Design()
 	refcount_modules_ = 0;
 	push_full_selection();
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
 #endif
 }
@@ -1094,12 +1094,12 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Design*> all_designs;
 std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
@@ -1430,7 +1430,7 @@ RTLIL::Module::Module()
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
 #endif
 }
@@ -1447,12 +1447,12 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto binding : bindings_)
 		delete binding;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Module*> all_modules;
 std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
 {
@@ -4109,19 +4109,19 @@ RTLIL::Wire::Wire()
 	upto = false;
 	is_signed = false;
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
 #endif
 }
 
 RTLIL::Wire::~Wire()
 {
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Wire::get_all_wires()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Wire*> all_wires;
 std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 {
@@ -4138,7 +4138,7 @@ RTLIL::Memory::Memory()
 	width = 1;
 	start_offset = 0;
 	size = 0;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
 #endif
 }
@@ -4159,19 +4159,19 @@ RTLIL::Cell::Cell() : module(nullptr)
 	// log("#memtrace# %p\n", this);
 	memhasher();
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
 #endif
 }
 
 RTLIL::Cell::~Cell()
 {
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Cell::get_all_cells()->erase(hashidx_);
 #endif
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Cell*> all_cells;
 std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
 {
@@ -5957,7 +5957,7 @@ RTLIL::Process *RTLIL::Process::clone() const
 	return new_proc;
 }
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 RTLIL::Memory::~Memory()
 {
 	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
