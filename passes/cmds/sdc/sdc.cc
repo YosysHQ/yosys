@@ -773,15 +773,33 @@ public:
 
 // Also see TclPass
 struct SdcPass : public Pass {
-	// TODO help
-	SdcPass() : Pass("sdc", "sniff at some SDC") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    sdc [options] file\n");
+		log("\n");
+		log("Read the SDC file for the current design.\n");
+		log("\n");
+		log("    -dump\n");
+		log("        Dump the referenced design objects.\n");
+		log("\n");
+		log("    -dump-graph\n");
+		log("        Dump the uninterpreted call graph.\n");
+		log("\n");
+		log("    -keep_hierarchy\n");
+		log("        Add keep_hierarchy attributes while retaining SDC validity.\n");
+		log("\n");
+	}
+	SdcPass() : Pass("sdc", "Read an SDC file") { }
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing SDC pass.\n");
+		log_experimental("sdc");
 		size_t argidx;
 		bool dump_mode = false;
 		bool dump_graph_mode = false;
 		bool keep_hierarchy_mode = false;
-		std::vector<std::string> opensta_stubs_paths;
+		std::vector<std::string> stubs_paths;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-dump") {
 				dump_mode = true;
@@ -793,7 +811,7 @@ struct SdcPass : public Pass {
 				keep_hierarchy_mode = true;
 				continue;
 			} else if (args[argidx] == "-stubs" && argidx+1 < args.size()) {
-				opensta_stubs_paths.push_back(args[++argidx]);
+				stubs_paths.push_back(args[++argidx]);
 				continue;
 			}
 			break;
@@ -801,7 +819,9 @@ struct SdcPass : public Pass {
 		if (argidx >= args.size())
 			log_cmd_error("Missing SDC file.\n");
 
-		std::string sdc_path = args[argidx];
+		std::string sdc_path = args[argidx++];
+		if (argidx < args.size())
+			log_cmd_error("Unexpected extra positional argument %s after SDC file %s.\n", args[argidx], sdc_path);
 		SDCInterpreter& sdc = SDCInterpreter::get();
 		Tcl_Interp *interp = sdc.fresh_interp(design);
 		Tcl_Preserve(interp);
@@ -809,7 +829,7 @@ struct SdcPass : public Pass {
 		rewrite_filename(stub_path);
 		if (Tcl_EvalFile(interp, stub_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error in stub preamble file: %s\n", Tcl_GetStringResult(interp));
-		for (auto path : opensta_stubs_paths)
+		for (auto path : stubs_paths)
 			if (Tcl_EvalFile(interp, path.c_str()) != TCL_OK)
 				log_cmd_error("SDC interpreter returned an error in OpenSTA stub file %s: %s\n", path.c_str(), Tcl_GetStringResult(interp));
 		if (Tcl_EvalFile(interp, sdc_path.c_str()) != TCL_OK)
