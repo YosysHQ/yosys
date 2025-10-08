@@ -32,12 +32,12 @@ struct SdcexpandPass : public ScriptPass
 	}
 
 	string opensta_exe, sdc_filename, sdc_expanded_filename;
-	bool cleanup;
+	bool cleanup = true;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing SDC_EXPAND pass.\n");
 		string run_from, run_to;
-		cleanup = true;
+		opensta_exe = "sta";
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -58,7 +58,6 @@ struct SdcexpandPass : public ScriptPass
 				cleanup = false;
 				continue;
 			}
-			// repetitive boring bit
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
 				size_t pos = args[argidx+1].find(':');
 				if (pos == std::string::npos) {
@@ -72,6 +71,12 @@ struct SdcexpandPass : public ScriptPass
 			}
 			break;
 		}
+
+		if (sdc_filename.empty())
+			log_cmd_error("Missing -sdc-in argument\n");
+		if (sdc_expanded_filename.empty())
+			log_cmd_error("Missing -sdc-out argument\n");
+
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
@@ -88,17 +93,14 @@ struct SdcexpandPass : public ScriptPass
 	void script() override
 	{
 		std::string tempdir_name;
-		std::string liberty_path;
-		std::string verilog_path;
 
 		run("design -save pre_expand");
 		run("proc");
 		run("memory");
 		// run("dfflegalize -cell $dff");
 
-		std::string write_verilog_cmd = "write_verilog -norename -noexpr -attr2comment -defparam ";
 		if (help_mode) {
-			run(write_verilog_cmd + "<tmp_dir>/elaborated.v");
+			tempdir_name = "<tmp_dir>";
 		} else {
 			if (cleanup)
 				tempdir_name = get_base_tmpdir() + "/";
@@ -106,21 +108,18 @@ struct SdcexpandPass : public ScriptPass
 				tempdir_name = "_tmp_";
 			tempdir_name += proc_program_prefix() + "yosys-sdc_expand-XXXXXX";
 			tempdir_name = make_temp_dir(tempdir_name);
-			verilog_path = tempdir_name + "/elaborated.v";
-			run(write_verilog_cmd + verilog_path);
 		}
+		std::string verilog_path = tempdir_name + "/elaborated.v";
 
+		std::string write_verilog_cmd = "write_verilog -norename -noexpr -attr2comment -defparam ";
+		run(write_verilog_cmd + verilog_path);
 		run("read_verilog -setattr whitebox -defer -DSIMLIB_NOCHECKS +/simlib.v");
 		run("proc");
 		run("hierarchy -auto-top");
 		run("chtype -publish_icells");
 
-		if (help_mode) {
-			run("icell_liberty <tmp_dir>/yosys.lib");
-		} else {
-			liberty_path = tempdir_name + "/yosys.lib";
-			run(stringf("icell_liberty %s", liberty_path.c_str()));
-		}
+		std::string liberty_path = tempdir_name + "/yosys.lib";
+		run("icell_liberty " + liberty_path);
 
 		std::string opensta_pass_call = "opensta -exe ";
 		opensta_pass_call += help_mode ? "<exe>" : opensta_exe;
@@ -134,7 +133,7 @@ struct SdcexpandPass : public ScriptPass
 		opensta_pass_call += help_mode ? "<tmp_dir>/yosys.lib" : liberty_path;
 		if (!cleanup)
 			opensta_pass_call += " -nocleanup";
-		run(opensta_pass_call.c_str());
+		run(opensta_pass_call);
 
 		if (!help_mode) {
 			if (cleanup) {
