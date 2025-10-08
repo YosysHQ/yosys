@@ -4467,6 +4467,7 @@ RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 
 	if (GetSize(value) != 0) {
 		chunks_.emplace_back(value);
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4481,6 +4482,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Const &&value)
 
 	if (GetSize(value) != 0) {
 		chunks_.emplace_back(std::move(value));
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4495,6 +4497,7 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 
 	if (chunk.width != 0) {
 		chunks_.emplace_back(chunk);
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4509,6 +4512,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::SigChunk &&chunk)
 
 	if (chunk.width != 0) {
 		chunks_.emplace_back(std::move(chunk));
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4523,6 +4527,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 
 	if (wire->width != 0) {
 		chunks_.emplace_back(wire);
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4537,6 +4542,7 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 
 	if (width != 0) {
 		chunks_.emplace_back(wire, offset, width);
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4551,6 +4557,7 @@ RTLIL::SigSpec::SigSpec(const std::string &str)
 
 	if (str.size() != 0) {
 		chunks_.emplace_back(str);
+		chunks_.back().offset_in_sigspec = 0;
 		width_ = chunks_.back().width;
 	} else {
 		width_ = 0;
@@ -4563,8 +4570,10 @@ RTLIL::SigSpec::SigSpec(int val, int width)
 {
 	cover("kernel.rtlil.sigspec.init.int");
 
-	if (width != 0)
+	if (width != 0) {
 		chunks_.emplace_back(val, width);
+		chunks_.back().offset_in_sigspec = 0;
+	}
 	width_ = width;
 	hash_ = 0;
 	check();
@@ -4574,8 +4583,10 @@ RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
 	cover("kernel.rtlil.sigspec.init.state");
 
-	if (width != 0)
+	if (width != 0) {
 		chunks_.emplace_back(bit, width);
+		chunks_.back().offset_in_sigspec = 0;
+	}
 	width_ = width;
 	hash_ = 0;
 	check();
@@ -4586,11 +4597,15 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigBit &bit, int width)
 	cover("kernel.rtlil.sigspec.init.bit");
 
 	if (width != 0) {
-		if (bit.wire == NULL)
+		if (bit.wire == NULL) {
 			chunks_.emplace_back(bit.data, width);
-		else
-			for (int i = 0; i < width; i++)
+			chunks_.back().offset_in_sigspec = 0;
+		} else {
+			for (int i = 0; i < width; i++) {
 				chunks_.push_back(bit);
+				chunks_.back().offset_in_sigspec = i;
+			}
+		}
 	}
 	width_ = width;
 	hash_ = 0;
@@ -4667,7 +4682,8 @@ void RTLIL::SigSpec::pack() const
 	RTLIL::SigChunk *last = NULL;
 	int last_end_offset = 0;
 
-	for (auto &bit : old_bits) {
+	for (int i = 0; i < GetSize(old_bits); ++i) {
+		const RTLIL::SigBit &bit = old_bits[i];
 		if (last && bit.wire == last->wire) {
 			if (bit.wire == NULL) {
 				last->data.push_back(bit.data);
@@ -4680,6 +4696,7 @@ void RTLIL::SigSpec::pack() const
 			}
 		}
 		that->chunks_.push_back(bit);
+		that->chunks_.back().offset_in_sigspec = i;
 		last = &that->chunks_.back();
 		last_end_offset = bit.offset + 1;
 	}
@@ -5074,6 +5091,7 @@ void RTLIL::SigSpec::remove_const()
 					new_chunks.back().width += chunk.width;
 				} else {
 					new_chunks.push_back(chunk);
+					new_chunks.back().offset_in_sigspec = width_;
 				}
 				width_ += chunk.width;
 			}
@@ -5127,10 +5145,13 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 		extracted.width_ = length;
 
 		auto it = chunks_.begin();
+		int offset_in_extracted = 0;
 		for (; offset; offset -= it->width, it++) {
 			if (offset < it->width) {
 				int chunk_length = min(it->width - offset, length);
 				extracted.chunks_.emplace_back(it->extract(offset, chunk_length));
+				extracted.chunks_.back().offset_in_sigspec = 0;
+				offset_in_extracted = chunk_length;
 				length -= chunk_length;
 				it++;
 				break;
@@ -5139,8 +5160,11 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 		for (; length; length -= it->width, it++) {
 			if (length >= it->width) {
 				extracted.chunks_.emplace_back(*it);
+				extracted.chunks_.back().offset_in_sigspec = offset_in_extracted;
+				offset_in_extracted += it->width;
 			} else {
 				extracted.chunks_.emplace_back(it->extract(0, length));
+				extracted.chunks_.back().offset_in_sigspec = offset_in_extracted;
 				break;
 			}
 		}
@@ -5168,7 +5192,8 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 		signal.pack();
 	}
 
-	if (packed())
+	if (packed()) {
+		int offset_in_sigspec = width_;
 		for (auto &other_c : signal.chunks_)
 		{
 			auto &my_last_c = chunks_.back();
@@ -5177,13 +5202,15 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 				auto &other_data = other_c.data;
 				this_data.insert(this_data.end(), other_data.begin(), other_data.end());
 				my_last_c.width += other_c.width;
-			} else
-			if (my_last_c.wire == other_c.wire && my_last_c.offset + my_last_c.width == other_c.offset) {
+			} else if (my_last_c.wire == other_c.wire && my_last_c.offset + my_last_c.width == other_c.offset) {
 				my_last_c.width += other_c.width;
-			} else
+			} else {
 				chunks_.push_back(other_c);
+				chunks_.back().offset_in_sigspec = offset_in_sigspec;
+			}
+			offset_in_sigspec += other_c.width;
 		}
-	else
+	} else
 		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
 
 	width_ += signal.width_;
@@ -5196,20 +5223,25 @@ void RTLIL::SigSpec::append(const RTLIL::SigBit &bit)
 	{
 		cover("kernel.rtlil.sigspec.append_bit.packed");
 
-		if (chunks_.size() == 0)
+		if (chunks_.size() == 0) {
 			chunks_.push_back(bit);
-		else
+			chunks_.back().offset_in_sigspec = 0;
+		} else
 			if (bit.wire == NULL)
 				if (chunks_.back().wire == NULL) {
 					chunks_.back().data.push_back(bit.data);
 					chunks_.back().width++;
-				} else
+				} else {
 					chunks_.push_back(bit);
+					chunks_.back().offset_in_sigspec = width_;
+				}
 			else
 				if (chunks_.back().wire == bit.wire && chunks_.back().offset + chunks_.back().width == bit.offset)
 					chunks_.back().width++;
-				else
+				else {
 					chunks_.push_back(bit);
+					chunks_.back().offset_in_sigspec = width_;
+				}
 	}
 	else
 	{
@@ -5265,6 +5297,7 @@ void RTLIL::SigSpec::check(Module *mod) const
 		for (size_t i = 0; i < chunks_.size(); i++) {
 			const RTLIL::SigChunk &chunk = chunks_[i];
 			log_assert(chunk.width != 0);
+			log_assert(chunk.offset_in_sigspec == w);
 			if (chunk.wire == NULL) {
 				if (i > 0)
 					log_assert(chunks_[i-1].wire != NULL);

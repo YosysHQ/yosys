@@ -1131,6 +1131,7 @@ struct RTLIL::SigChunk
 	RTLIL::Wire *wire;
 	std::vector<RTLIL::State> data; // only used if wire == NULL, LSB at index 0
 	int width, offset;
+	int offset_in_sigspec = -1;
 
 	SigChunk() : wire(nullptr), width(0), offset(0) {}
 	SigChunk(const RTLIL::Const &value) : wire(nullptr), data(value.to_bits()), width(GetSize(data)), offset(0) {}
