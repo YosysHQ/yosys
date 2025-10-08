@@ -1,0 +1,14 @@
+read_verilog alu_sub.v
+proc
+hierarchy -auto-top
+
+select -assert-mod-count 1 adder
+select -assert-mod-count 1 wrapper
+select -assert-mod-count 1 alu
+
+sdc -keep_hierarchy alu_sub.sdc
+flatten
+
+select -assert-mod-count 0 adder
+select -assert-mod-count 1 wrapper
+select -assert-mod-count 1 alu
