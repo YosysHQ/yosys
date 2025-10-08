@@ -805,7 +805,7 @@ struct SdcPass : public Pass {
 		SDCInterpreter& sdc = SDCInterpreter::get();
 		Tcl_Interp *interp = sdc.fresh_interp(design);
 		Tcl_Preserve(interp);
-		std::string stub_path = "+/sdc/stubs.sdc";
+		std::string stub_path = "+/sdc/graph-stubs.sdc";
 		rewrite_filename(stub_path);
 		if (Tcl_EvalFile(interp, stub_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error in stub preamble file: %s\n", Tcl_GetStringResult(interp));
