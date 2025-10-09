@@ -122,6 +122,7 @@ namespace RTLIL
 	struct Binding;
 	struct IdString;
 	struct StaticIdString;
+	struct OwningIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
@@ -460,6 +461,16 @@ public:
 	}
 };
 
+struct RTLIL::OwningIdString : public RTLIL::IdString {
+	inline OwningIdString() { }
+	inline OwningIdString(const char *str) : IdString(str) { }
+	inline OwningIdString(const IdString &str) : IdString(str) { }
+	inline OwningIdString(IdString &&str) : IdString(str) { }
+	inline OwningIdString(const std::string &str) : IdString(str) { }
+	inline OwningIdString(std::string_view str) : IdString(str) { }
+	inline OwningIdString(StaticId id) : IdString(id) { }
+};
+
 namespace hashlib {
 	template <>
 	struct hash_ops<RTLIL::IdString> {
@@ -494,7 +505,7 @@ inline bool RTLIL::IdString::operator!=(const RTLIL::StaticIdString &rhs) const 
 
 namespace RTLIL {
 	namespace IDInternal {
-#define X(_id) extern const IdString _id;
+#define X(_id) extern const OwningIdString _id;
 #include "kernel/constids.inc"
 #undef X
 	}
