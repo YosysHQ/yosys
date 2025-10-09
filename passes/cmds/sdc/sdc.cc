@@ -344,9 +344,32 @@ static std::pair<bool, BitSelection> matches(std::string name, const std::string
 	}
 }
 
-static int graph_node(TclCall call) {
-	// TODO is that it?
-	return redirect_unknown(call);
+static int getter_graph_node(TclCall call) {
+	// Insert -getter-validated as first argument for passing to unknown
+	// to distinguish resolved and unknown getters.
+	// For example, if call is ["get_foo", "-bar"]
+	// then newCall is ["get_foo", "-getter-validated", "-bar"]
+    Tcl_Obj* validity_tag = Tcl_NewStringObj("-getter-validated", -1);
+    Tcl_IncrRefCount(validity_tag);
+	std::vector<Tcl_Obj*> newObjv(call.objc + 1);
+    log_assert(call.objc > 0);
+	newObjv[0] = call.objv[0];
+    newObjv[1] = validity_tag;
+    for (int i = 1; i < call.objc; ++i) {
+        newObjv[i + 1] = call.objv[i];
+    }
+	// Send the vector to the Tcl land
+    Tcl_Obj** allocatedObjv = new Tcl_Obj*[call.objc + 1];
+    for (int i = 0; i < call.objc + 1; ++i) {
+        allocatedObjv[i] = newObjv[i];
+    }
+	TclCall newCall {
+		.interp = call.interp,
+		.objc = call.objc + 1,
+		.objv = allocatedObjv
+	};
+	// Finally, redirect to unknown handler
+	return redirect_unknown(newCall);
 }
 
 static int redirect_unknown(TclCall call) {
@@ -610,7 +633,7 @@ static int sdc_get_pins_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 	const auto& pins = objects->design_pins;
 	resolved = find_matching<SdcObjects::CellPin, decltype(pins)>(pins, config, opts.patterns, "pin");
 
-	return graph_node(TclCall{interp, objc, objv});
+	return getter_graph_node(TclCall{interp, objc, objv});
 }
 
 static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
@@ -631,7 +654,7 @@ static int sdc_get_ports_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_
 			merge_or_init(std::make_pair(name, wire), objects->constrained_ports, matching_bits);
 	}
 
-	return graph_node(TclCall{interp, objc, objv});
+	return getter_graph_node(TclCall{interp, objc, objv});
 }
 
 static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj* const objv[])
@@ -652,7 +675,7 @@ static int sdc_get_nets_cmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_O
 			merge_or_init(std::make_pair(name, wire), objects->constrained_nets, matching_bits);
 	}
 
-	return graph_node(TclCall{interp, objc, objv});
+	return getter_graph_node(TclCall{interp, objc, objv});
 }
 
 class SDCInterpreter
