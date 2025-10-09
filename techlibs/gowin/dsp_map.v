@@ -48,7 +48,7 @@ module \$__MUL18X18 (input [17:0] A, input [17:0] B, output [35:0] Y);
 	);
 endmodule
 
-module \$__MUL36X36 (input [35:0] A, input [35:0] B, output [72:0] Y);
+module \$__MUL36X36 (input [35:0] A, input [35:0] B, output [71:0] Y);
 	parameter A_WIDTH = 36;
 	parameter B_WIDTH = 36;
 	parameter Y_WIDTH = 72;
