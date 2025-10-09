@@ -1236,6 +1236,16 @@ struct RTLIL::SigSpecConstIterator
 	inline bool operator==(const RTLIL::SigSpecConstIterator &other) const { return bit_index == other.bit_index; }
 	inline RTLIL::SigSpecConstIterator &operator++();
 	inline RTLIL::SigSpecConstIterator &operator--();
+	inline RTLIL::SigSpecConstIterator operator++(int) {
+		RTLIL::SigSpecConstIterator result(*this);
+		++(*this);
+		return result;
+	}
+	inline RTLIL::SigSpecConstIterator operator--(int) {
+		RTLIL::SigSpecConstIterator result(*this);
+		--(*this);
+		return result;
+	}
 
 private:
 	// Must be called when sig_p is packed and `bit_index` is in range. Finds the chunk containing `bit_index`

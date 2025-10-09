@@ -72,8 +72,9 @@ struct SigPool
 	void expand(const RTLIL::SigSpec &from, const RTLIL::SigSpec &to)
 	{
 		log_assert(GetSize(from) == GetSize(to));
-		for (int i = 0; i < GetSize(from); i++) {
-			bitDef_t bit_from(from[i]), bit_to(to[i]);
+		RTLIL::SigSpecConstIterator to_it = to.begin();
+		for (auto &bit : from) {
+			bitDef_t bit_from(bit), bit_to(*to_it++);
 			if (bit_from.first != NULL && bit_to.first != NULL && bits.count(bit_from) > 0)
 				bits.insert(bit_to);
 		}
@@ -321,10 +322,11 @@ struct SigMap final : public SigMapView
 	{
 		log_assert(GetSize(from) == GetSize(to));
 
-		for (int i = 0; i < GetSize(from); i++)
+		RTLIL::SigSpecConstIterator to_it = to.begin();
+		for (auto &bit : from)
 		{
-			int bfi = database.lookup(from[i]);
-			int bti = database.lookup(to[i]);
+			int bfi = database.lookup(bit);
+			int bti = database.lookup(*to_it++);
 
 			const RTLIL::SigBit &bf = database[bfi];
 			const RTLIL::SigBit &bt = database[bti];
@@ -415,10 +417,11 @@ struct SigValMap final : public SigMapView
 	{
 		log_assert(GetSize(from) == GetSize(to));
 
-		for (int i = 0; i < GetSize(from); i++)
+		RTLIL::SigSpecConstIterator to_it = to.begin();
+		for (auto &bit : from)
 		{
-			int bfi = database.lookup(from[i]);
-			int bti = database.lookup(to[i]);
+			int bfi = database.lookup(bit);
+			int bti = database.lookup(*to_it++);
 			if (bfi == bti) {
 				continue;
 			}
