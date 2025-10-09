@@ -144,7 +144,6 @@ struct RTLIL::IdString
 
 	#undef YOSYS_XTRACE_GET_PUT
 	#undef YOSYS_SORT_ID_FREE_LIST
-	#undef YOSYS_USE_STICKY_IDS
 	#undef YOSYS_NO_IDS_REFCNT
 
 	// the global id string cache
@@ -168,11 +167,6 @@ struct RTLIL::IdString
 	static std::vector<int> global_free_idx_list_;
 #endif
 
-#ifdef YOSYS_USE_STICKY_IDS
-	static int last_created_idx_ptr_;
-	static int last_created_idx_[8];
-#endif
-
 	static inline void xtrace_db_dump()
 	{
 	#ifdef YOSYS_XTRACE_GET_PUT
@@ -188,14 +182,6 @@ struct RTLIL::IdString
 
 	static inline void checkpoint()
 	{
-	#ifdef YOSYS_USE_STICKY_IDS
-		last_created_idx_ptr_ = 0;
-		for (int i = 0; i < 8; i++) {
-			if (last_created_idx_[i])
-				put_reference(last_created_idx_[i]);
-			last_created_idx_[i] = 0;
-		}
-	#endif
 	#ifdef YOSYS_SORT_ID_FREE_LIST
 		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
 	#endif
@@ -270,15 +256,6 @@ struct RTLIL::IdString
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace)
 			log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, global_refcount_storage_.at(idx));
-	#endif
-
-	#ifdef YOSYS_USE_STICKY_IDS
-		// Avoid Create->Delete->Create pattern
-		if (last_created_idx_[last_created_idx_ptr_])
-			put_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_[last_created_idx_ptr_] = idx;
-		get_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
 	#endif
 
 		return idx;

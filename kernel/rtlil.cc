@@ -41,10 +41,6 @@ std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
 std::vector<uint32_t> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 #endif
-#ifdef YOSYS_USE_STICKY_IDS
-int RTLIL::IdString::last_created_idx_[8];
-int RTLIL::IdString::last_created_idx_ptr_;
-#endif
 
 #define X(_id) const RTLIL::IdString RTLIL::IDInternal::_id(RTLIL::StaticId::_id);
 #include "kernel/constids.inc"
