@@ -1228,13 +1228,14 @@ struct RTLIL::SigSpecConstIterator
 	// Index of chunk containing bit_index, or GetSize(chunks_) if bit_index == width_.
 	// or 0 if *sig_p is not packed. This is a hint and may be incorrect in unusual
 	// circumstances, e.g. when the SigSpec changes from unpacked to packed
-	// during iteration.
+	// during iteration. It will always be >= 0.
 	int chunk_index_hint;
 
 	inline const RTLIL::SigBit &operator*();
 	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return !(*this == other); }
 	inline bool operator==(const RTLIL::SigSpecConstIterator &other) const { return bit_index == other.bit_index; }
-	inline void operator++();
+	inline RTLIL::SigSpecConstIterator &operator++();
+	inline RTLIL::SigSpecConstIterator &operator--();
 
 private:
 	// Must be called when sig_p is packed and `bit_index` is in range. Finds the chunk containing `bit_index`
@@ -1351,8 +1352,8 @@ public:
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
 
-	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
-	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };
+	RTLIL::SigBit lsb() const { log_assert(width_); return *begin(); };
+	RTLIL::SigBit msb() const { log_assert(width_); return *--end(); };
 
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
@@ -2352,15 +2353,29 @@ inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() {
 	return bit;
 }
 
-inline void RTLIL::SigSpecConstIterator::operator++() {
+inline RTLIL::SigSpecConstIterator &RTLIL::SigSpecConstIterator::operator++() {
 	++bit_index;
 	if (!sig_p->packed())
-		return;
+		return *this;
 	if (chunk_index_hint < GetSize(sig_p->chunks_)) {
 		const SigChunk &chunk = sig_p->chunks_[chunk_index_hint];
 		if (chunk.offset_in_sigspec + chunk.width == bit_index)
 			++chunk_index_hint;
 	}
+	return *this;
+}
+
+inline RTLIL::SigSpecConstIterator &RTLIL::SigSpecConstIterator::operator--() {
+	--bit_index;
+	if (!sig_p->packed())
+		return *this;
+	if (chunk_index_hint < GetSize(sig_p->chunks_)) {
+		if (sig_p->chunks_[chunk_index_hint].offset_in_sigspec == bit_index)
+			--chunk_index_hint;
+	} else if (GetSize(sig_p->chunks_) > 0) {
+		chunk_index_hint = GetSize(sig_p->chunks_) - 1;
+	}
+	return *this;
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
