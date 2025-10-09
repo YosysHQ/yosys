@@ -2972,11 +2972,14 @@ void RTLIL::Module::connect(const RTLIL::SigSig &conn)
 	// ignore all attempts to assign constants to other constants
 	if (conn.first.has_const()) {
 		RTLIL::SigSig new_conn;
-		for (int i = 0; i < GetSize(conn.first); i++)
-			if (conn.first[i].wire) {
-				new_conn.first.append(conn.first[i]);
-				new_conn.second.append(conn.second[i]);
+		RTLIL::SigSpecConstIterator second_it = conn.second.begin();
+		for (auto &first_bit : conn.first) {
+			if (first_bit.wire) {
+				new_conn.first.append(first_bit);
+				new_conn.second.append(*second_it);
 			}
+			++second_it;
+		}
 		if (GetSize(new_conn.first))
 			connect(new_conn);
 		return;
