@@ -83,19 +83,23 @@ struct ModIndex : public RTLIL::Monitor
 
 	void port_add(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < GetSize(sig); i++) {
-			RTLIL::SigBit bit = sigmap(sig[i]);
+		int i = 0;
+		for (auto &sig_bit : sig) {
+			RTLIL::SigBit bit = sigmap(sig_bit);
 			if (bit.wire)
 				database[bit].ports.insert(PortInfo(cell, port, i));
+			++i;
 		}
 	}
 
 	void port_del(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig)
 	{
-		for (int i = 0; i < GetSize(sig); i++) {
-			RTLIL::SigBit bit = sigmap(sig[i]);
+		int i = 0;
+		for (auto &sig_bit : sig) {
+			RTLIL::SigBit bit = sigmap(sig_bit);
 			if (bit.wire)
 				database[bit].ports.erase(PortInfo(cell, port, i));
+			++i;
 		}
 	}
 
@@ -179,10 +183,11 @@ struct ModIndex : public RTLIL::Monitor
 		if (auto_reload_module)
 			return;
 
-		for (int i = 0; i < GetSize(sigsig.first); i++)
+		RTLIL::SigSpecConstIterator second_it = sigsig.second.begin();
+		for (auto &first_bit : sigsig.first)
 		{
-			RTLIL::SigBit lhs = sigmap(sigsig.first[i]);
-			RTLIL::SigBit rhs = sigmap(sigsig.second[i]);
+			RTLIL::SigBit lhs = sigmap(first_bit);
+			RTLIL::SigBit rhs = sigmap(*second_it++);
 			bool has_lhs = database.count(lhs) != 0;
 			bool has_rhs = database.count(rhs) != 0;
 

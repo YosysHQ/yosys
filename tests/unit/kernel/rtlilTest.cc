@@ -361,6 +361,38 @@ namespace RTLIL {
 		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
+	TEST_F(KernelRtlilTest, SigSpecConstIteratorRepresentationChange) {
+		std::unique_ptr<Module> mod = std::make_unique<Module>();
+		std::vector<Wire*> wires;
+		SigSpec spec;
+		for (int i = 0; i < 10; i++) {
+			wires.push_back(mod->addWire(IdString(stringf("\\test%d", i)), 10));
+			spec.append(wires.back());
+		}
+
+		const SigSpec &const_spec = spec;
+		SigSpecConstIterator it = const_spec.begin();
+		for (int i = 0; i < 55; ++i)
+			++it;
+		EXPECT_EQ(*it, SigBit(wires[5], 5));
+
+		// Force unpacking of the spec.
+		EXPECT_EQ(spec[55], SigBit(wires[5], 5));
+		// Make sure the iterator is still OK
+		EXPECT_EQ(*it, SigBit(wires[5], 5));
+
+		// Advance iterator while unpacked
+		for (int i = 0; i < 20; ++i)
+			++it;
+		EXPECT_EQ(*it, SigBit(wires[7], 5));
+
+		// Force packing of the spec.
+		SigSpec other = spec;
+		EXPECT_FALSE(spec < other);
+		// Make sure iterator is still OK
+		EXPECT_EQ(*it, SigBit(wires[7], 5));
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
