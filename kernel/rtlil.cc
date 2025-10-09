@@ -1084,9 +1084,7 @@ RTLIL::Design::Design()
 	refcount_modules_ = 0;
 	push_full_selection();
 
-#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Design::~Design()
@@ -1095,18 +1093,14 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
-#endif
 }
 
-#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Design*> all_designs;
 std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
 	return &all_designs;
 }
-#endif
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
 {
