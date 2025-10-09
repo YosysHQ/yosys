@@ -416,7 +416,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			// Needs to be done before logic optimization, so that inverters (inserted
 			// here because of negative-polarity output enable) are handled.
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OUTBUF I:O -inpad INBUF O:I -toutpad OBUFT ~T:I:O -tinoutpad IOBUF ~T:O:I:IO A:top", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad OUTBUF I:O -inpad INBUF O:I A:top", "(skip if '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/analogdevices/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
