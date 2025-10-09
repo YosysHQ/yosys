@@ -103,11 +103,12 @@ struct FfInitVals
 		}
 	}
 
-	void set_init(const RTLIL::SigSpec &sig, RTLIL::Const val)
+	void set_init(const RTLIL::SigSpec &sig, const RTLIL::Const &val)
 	{
 		log_assert(GetSize(sig) == GetSize(val));
-		for (int i = 0; i < GetSize(sig); i++)
-			set_init(sig[i], val[i]);
+		RTLIL::Const::const_iterator val_it = val.begin();
+		for (auto &bit : sig)
+			set_init(bit, *val_it++);
 	}
 
 	void remove_init(RTLIL::SigBit bit)
