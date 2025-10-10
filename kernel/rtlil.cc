@@ -82,6 +82,128 @@ static constexpr bool check_well_known_id_order()
 // and in sorted ascii order, as required by the ID macro.
 static_assert(check_well_known_id_order());
 
+struct IdStringCollector {
+	IdStringCollector(int size) : live(size, false) {}
+
+	void trace(IdString id) { live[id.index_] = true; }
+	template <typename T> void trace(const T* v) {
+		trace(*v);
+	}
+	template <typename V> void trace(const std::vector<V> &v) {
+		for (const auto &element : v)
+			trace(element);
+	}
+	template <typename K> void trace(const pool<K> &p) {
+		for (const auto &element : p)
+			trace(element);
+	}
+	template <typename K, typename V> void trace(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+			trace(value);
+		}
+	}
+	template <typename K, typename V> void trace_keys(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+		}
+	}
+	template <typename K, typename V> void trace_values(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(value);
+		}
+	}
+	template <typename K> void trace(const idict<K> &d) {
+		for (const auto &element : d)
+			trace(element);
+	}
+
+	void trace(const RTLIL::Design &design) {
+		trace_values(design.modules_);
+		trace(design.selection_vars);
+	}
+	void trace(const RTLIL::Selection &selection_var) {
+		trace(selection_var.selected_modules);
+		trace(selection_var.selected_members);
+	}
+	void trace_named(const RTLIL::NamedObject named) {
+		trace_keys(named.attributes);
+		trace(named.name);
+	}
+	void trace(const RTLIL::Module &module) {
+		trace_named(module);
+		trace_values(module.wires_);
+		trace_values(module.cells_);
+		trace(module.avail_parameters);
+		trace_keys(module.parameter_default_values);
+		trace_values(module.memories);
+		trace_values(module.processes);
+	}
+	void trace(const RTLIL::Wire &wire) {
+		trace_named(wire);
+		if (wire.known_driver())
+			trace(wire.driverPort());
+	}
+	void trace(const RTLIL::Cell &cell) {
+		trace_named(cell);
+		trace(cell.type);
+		trace_keys(cell.connections_);
+		trace_keys(cell.parameters);
+	}
+	void trace(const RTLIL::Memory &mem) {
+		trace_named(mem);
+	}
+	void trace(const RTLIL::Process &proc) {
+		trace_named(proc);
+		trace(proc.root_case);
+		trace(proc.syncs);
+	}
+	void trace(const RTLIL::CaseRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.switches);
+	}
+	void trace(const RTLIL::SwitchRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.cases);
+	}
+	void trace(const RTLIL::SyncRule &rule) {
+		trace(rule.mem_write_actions);
+	}
+	void trace(const RTLIL::MemWriteAction &action) {
+		trace_keys(action.attributes);
+		trace(action.memid);
+	}
+
+	std::vector<bool> live;
+};
+
+void RTLIL::OwningIdString::collect_garbage()
+{
+#ifndef YOSYS_NO_IDS_REFCNT
+	int size = GetSize(global_refcount_storage_);
+	IdStringCollector collector(size);
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+		collector.trace(*design);
+	}
+	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
+		if (collector.live[i] || global_refcount_storage_[i] > 0)
+			continue;
+		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
+		if (storage.buf == nullptr)
+			continue;
+		if (yosys_xtrace) {
+			log("#X# Removed IdString '%s' with index %d.\n", storage.buf, i);
+			log_backtrace("-X- ", yosys_xtrace-1);
+		}
+
+		global_id_index_.erase(std::string_view(storage.buf, storage.size));
+		free(storage.buf);
+		storage = {nullptr, 0};
+		global_free_idx_list_.push_back(i);
+	}
+#endif
+}
+
 dict<std::string, std::string> RTLIL::constpad;
 
 static const pool<IdString> &builtin_ff_cell_types_internal() {

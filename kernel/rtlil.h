@@ -126,12 +126,12 @@ namespace RTLIL
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
 	struct StaticIdString {
-		constexpr StaticIdString(StaticId id, const IdString &id_str) : id_str(id_str), id(id) {}
-		constexpr inline operator const IdString &() const { return id_str; }
+		constexpr StaticIdString(StaticId id, const OwningIdString &id_str) : id_str(id_str), id(id) {}
+		constexpr inline operator const OwningIdString &() const { return id_str; }
 		constexpr inline int index() const { return static_cast<short>(id); }
-		constexpr inline const IdString &id_string() const { return id_str; }
+		constexpr inline const OwningIdString &id_string() const { return id_str; }
 
-		const IdString &id_str;
+		const OwningIdString &id_str;
 		const StaticId id;
 	};
 };
@@ -188,32 +188,12 @@ struct RTLIL::IdString
 	#endif
 	}
 
-	static inline int get_reference(int idx)
-	{
-	#ifndef YOSYS_NO_IDS_REFCNT
-		global_refcount_storage_[idx]++;
-	#endif
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
-			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, global_refcount_storage_.at(idx));
-	#endif
-		return idx;
-	}
-
-	static int get_reference(const char *p)
-	{
-		return get_reference(std::string_view(p));
-	}
-
-	static int get_reference(std::string_view p)
+	static int insert(std::string_view p)
 	{
 		log_assert(destruct_guard_ok);
 
 		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
-	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_.at(it->second)++;
-	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
 				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second).buf, it->second, global_refcount_storage_.at(it->second));
@@ -238,7 +218,6 @@ struct RTLIL::IdString
 
 		int idx = global_free_idx_list_.back();
 		global_free_idx_list_.pop_back();
-		global_refcount_storage_.at(idx)++;
 	#else
 		int idx = global_id_storage_.size();
 		global_id_storage_.push_back({nullptr, 0});
@@ -262,67 +241,19 @@ struct RTLIL::IdString
 		return idx;
 	}
 
-#ifndef YOSYS_NO_IDS_REFCNT
-	static inline void put_reference(int idx)
-	{
-		// put_reference() may be called from destructors after the destructor of
-		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (idx < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
-			return;
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace) {
-			log("#X# PUT '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, global_refcount_storage_.at(idx));
-		}
-	#endif
-
-		uint32_t &refcount = global_refcount_storage_[idx];
-
-		if (--refcount > 0)
-			return;
-
-		free_reference(idx);
-	}
-	static inline void free_reference(int idx)
-	{
-		if (yosys_xtrace) {
-			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx).buf, idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-		log_assert(idx >= static_cast<short>(StaticId::STATIC_ID_END));
-
-		global_id_index_.erase(global_id_storage_.at(idx).buf);
-		free(global_id_storage_.at(idx).buf);
-		global_id_storage_.at(idx) = {nullptr, 0};
-		global_free_idx_list_.push_back(idx);
-	}
-#else
-	static inline void put_reference(int) { }
-#endif
-
 	// the actual IdString object is just is a single int
 
 	int index_;
 
 	inline IdString() : index_(0) { }
-	inline IdString(const char *str) : index_(get_reference(str)) { }
-	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
+	inline IdString(const IdString &str) : index_(str.index_) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-	inline IdString(const std::string &str) : index_(get_reference(std::string_view(str))) { }
-	inline IdString(std::string_view str) : index_(get_reference(str)) { }
+	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
+	inline IdString(std::string_view str) : index_(insert(str)) { }
 	inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
-	inline ~IdString() { put_reference(index_); }
 
-	inline void operator=(const IdString &rhs) {
-		put_reference(index_);
-		index_ = get_reference(rhs.index_);
-	}
-
-	inline void operator=(IdString &&rhs) {
-		put_reference(index_);
-		index_ = rhs.index_;
-		rhs.index_ = 0;
-	}
+	IdString &operator=(const IdString &rhs) = default;
 
 	inline void operator=(const char *rhs) {
 		IdString id(rhs);
@@ -462,12 +393,78 @@ public:
 
 struct RTLIL::OwningIdString : public RTLIL::IdString {
 	inline OwningIdString() { }
-	inline OwningIdString(const char *str) : IdString(str) { }
-	inline OwningIdString(const IdString &str) : IdString(str) { }
-	inline OwningIdString(IdString &&str) : IdString(str) { }
-	inline OwningIdString(const std::string &str) : IdString(str) { }
-	inline OwningIdString(std::string_view str) : IdString(str) { }
-	inline OwningIdString(StaticId id) : IdString(id) { }
+	inline OwningIdString(const StaticIdString &str) : IdString(str) { }
+	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const char *str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const IdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(IdString &&str) : IdString(str) {	get_reference(); }
+	inline OwningIdString(const std::string &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(std::string_view str) : IdString(str) { get_reference(); }
+	inline OwningIdString(StaticId id) : IdString(id) {}
+	inline ~OwningIdString() {
+		put_reference();
+	}
+
+	inline OwningIdString &operator=(const OwningIdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(const IdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(OwningIdString &&rhs) {
+		std::swap(index_, rhs.index_);
+		return *this;
+	}
+
+	// Collect all non-owning references.
+	static void collect_garbage();
+
+	// Used by the ID() macro to create an IdString with no destructor whose string will
+	// never be released. If ID() creates a closure-static `OwningIdString` then
+	// initialization of the static registers its destructor to run at exit, which is
+	// wasteful.
+	static IdString immortal(const char* str) {
+		IdString result(str);
+		get_reference(result.index_);
+		return result;
+	}
+private:
+	void get_reference()
+	{
+		get_reference(index_);
+	}
+	static void get_reference(int idx)
+	{
+	#ifndef YOSYS_NO_IDS_REFCNT
+		global_refcount_storage_[idx]++;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
+			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+	#endif
+	}
+
+	void put_reference()
+	{
+	#ifndef YOSYS_NO_IDS_REFCNT
+		// put_reference() may be called from destructors after the destructor of
+		// global_refcount_storage_ has been run. in this case we simply do nothing.
+		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
+			return;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace) {
+			log("#X# PUT '%s' (index %d, refcount %u)\n", global_id_storage_.at(index_), index_, global_refcount_storage_.at(index_));
+		}
+	#endif
+		--global_refcount_storage_[index_];
+	#endif
+	}
 };
 
 namespace hashlib {
@@ -569,7 +566,8 @@ template <> struct IDMacroHelper<-1> {
 		>::eval([]() \
 		-> const YOSYS_NAMESPACE_PREFIX RTLIL::IdString & { \
 			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
-			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); \
+			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
+				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
 			return id; \
         })
 
