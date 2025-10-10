@@ -361,6 +361,12 @@ namespace RTLIL {
 		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
+	TEST_F(KernelRtlilTest, OwningIdString) {
+		OwningIdString own("\\figblortle");
+		OwningIdString::collect_garbage();
+		EXPECT_EQ(own.str(), "\\figblortle");
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>

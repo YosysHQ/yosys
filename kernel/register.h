@@ -50,6 +50,30 @@ struct source_location { // dummy placeholder
 
 YOSYS_NAMESPACE_BEGIN
 
+// Track whether garbage collection is enabled. Garbage collection must be disabled
+// while any RTLIL objects (e.g. non-owning non-immortal IdStrings) exist outside Designs.
+// Garbage collection is disabled whenever any GarbageCollectionGuard(false) is on the
+// stack. These objects must be stack-allocated on the main thread.
+class GarbageCollectionGuard
+{
+	bool was_enabled;
+	static bool is_enabled_;
+public:
+	GarbageCollectionGuard(bool allow) : was_enabled(is_enabled_) {
+		is_enabled_ &= allow;
+	}
+	~GarbageCollectionGuard() {
+		is_enabled_ = was_enabled;
+	}
+	static bool is_enabled() { return is_enabled_; }
+};
+
+// Call from anywhere to request GC at the next safe point.
+void request_garbage_collection();
+
+// GC if GarbageCollectionGuard::is_enabled() and GC was requested.
+void try_collect_garbage();
+
 struct Pass
 {
 	std::string pass_name, short_help;
@@ -108,6 +132,10 @@ struct Pass
 	virtual void on_register();
 	virtual void on_shutdown();
 	virtual bool replace_existing_pass() const { return false; }
+
+	// This should return false if the pass holds onto RTLIL objects outside a Design while it
+	// calls nested passes. For safety, we default to assuming the worst.
+	virtual bool allow_garbage_collection_during_pass() const { return false; }
 };
 
 struct ScriptPass : Pass
@@ -126,6 +154,8 @@ struct ScriptPass : Pass
 	void run_nocheck(std::string command, std::string info = std::string());
 	void run_script(RTLIL::Design *design, std::string run_from = std::string(), std::string run_to = std::string());
 	void help_script();
+
+	bool allow_garbage_collection_during_pass() const override { return true; }
 };
 
 struct Frontend : Pass

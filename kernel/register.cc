@@ -42,6 +42,23 @@ std::map<std::string, Backend*> backend_register;
 
 std::vector<std::string> Frontend::next_args;
 
+bool GarbageCollectionGuard::is_enabled_ = true;
+
+static bool garbage_collection_requested = false;
+
+void request_garbage_collection()
+{
+	garbage_collection_requested = true;
+}
+
+void try_collect_garbage()
+{
+	if (!GarbageCollectionGuard::is_enabled() || !garbage_collection_requested)
+		return;
+	garbage_collection_requested = false;
+	RTLIL::OwningIdString::collect_garbage();
+}
+
 Pass::Pass(std::string name, std::string short_help, source_location location) : 
 	pass_name(name), short_help(short_help), location(location)
 {
@@ -263,14 +280,19 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0]);
+	Pass *pass = pass_register[args[0]];
 
-	if (pass_register[args[0]]->experimental_flag)
+	// Collect garbage before the next pass if requested. No need to collect garbage after the last pass.
+	try_collect_garbage();
+	GarbageCollectionGuard gc_guard(pass->allow_garbage_collection_during_pass());
+
+	if (pass->experimental_flag)
 		log_experimental(args[0]);
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
-	auto state = pass_register[args[0]]->pre_execute();
-	pass_register[args[0]]->execute(args, design);
-	pass_register[args[0]]->post_execute(state);
+	auto state = pass->pre_execute();
+	pass->execute(args, design);
+	pass->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->pop_selection();
 }

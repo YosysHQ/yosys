@@ -722,6 +722,8 @@ struct OptCleanPass : public Pass {
 		ct_reg.clear();
 		ct_all.clear();
 		log_pop();
+
+		request_garbage_collection();
 	}
 } OptCleanPass;
 
@@ -784,6 +786,8 @@ struct CleanPass : public Pass {
 		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
+
+		request_garbage_collection();
 	}
 } CleanPass;
 
