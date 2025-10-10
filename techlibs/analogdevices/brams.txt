@@ -1,20 +1,38 @@
+# family:        T16FFC            T40LP
+# BRAM:          RBRAM2            RBRAM
+# Supported:     SDP_8192x05       SDP_4096x05
+#                SDP_4096x10       SDP_2048x10
+#                SDP_2048x40       SDP_1024x40
+# Ignored:       SDP_4096x09       SDP_2048x09
+# Unimplemented: SP_2048x20        SP_1024x20
+#                TDP_4096x09
+#                TDP_8192x05
+#                TDP_2048x40
+#                SP2_2048x09       SP2_1024x09
+#                SP2_4096x05       SP2_2048x05
+
+
 # Simple Dual Port
-# Supported:
-# SDP_4096x05
-# SDP_2048x10
-# SDP_1024x40
-# Ignored:
-# SDP_2048x09
 
 ram block $__ANALOGDEVICES_BLOCKRAM_SDP_ {
 	option "ENABLE_WIDTH" "BIT" {
-		abits 12;
+		ifdef IS_T40LP {
+			abits 12;
+		}
+		ifdef IS_T16FFC {
+			abits 13;
+		}
 		widths 5 10 global;
 		byte 1;
 		cost 1;
 	}
 	option "ENABLE_WIDTH" "BYTE" {
-		abits 10;
+		ifdef IS_T40LP {
+			abits 10;
+		}
+		ifdef IS_T16FFC {
+			abits 11;
+		}
 		width 40;
 		byte 8;
 		cost 4;
@@ -32,8 +50,7 @@ ram block $__ANALOGDEVICES_BLOCKRAM_SDP_ {
 }
 
 # Single Port
-# SP_1024x20
+
+# True Dual Port
 
 # Dual Single Port
-# SP2_1024x09
-# SP2_2048x05
