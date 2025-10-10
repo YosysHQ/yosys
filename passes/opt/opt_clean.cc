@@ -784,6 +784,9 @@ struct CleanPass : public Pass {
 		keep_cache.reset();
 		ct_reg.clear();
 		ct_all.clear();
+
+		if (Pass::depth() == 1)
+			RTLIL::OwningIdString::collect_garbage();
 	}
 } CleanPass;
 
