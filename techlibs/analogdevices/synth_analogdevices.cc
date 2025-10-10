@@ -48,6 +48,13 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    -tech <tech>\n");
+		log("        run synthesis for the specified ADI technology process\n");
+		log("        currently only affects the type of BRAM used.\n");
+		log("        supported values:\n");
+		log("        - t40lp (RBRAM)\n");
+		log("        - t16ffc (RBRAM2, default)\n");
+		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -107,7 +114,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, json_file;
+	std::string top_opt, edif_file, json_file, tech;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -118,6 +125,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	{
 		top_opt = "-auto-top";
 		edif_file.clear();
+		tech = "t16ffc";
 		flatten = true;
 		retime = false;
 		noiopad = false;
@@ -145,6 +153,10 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-tech" && argidx+1 < args.size()) {
+				tech = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -230,6 +242,9 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if (!(tech == "t16ffc" || tech == "t40lp"))
+			log_cmd_error("Invalid ADI -tech setting: '%s'.\n", tech);
 
 		if (widemux != 0 && widemux < 2)
 			log_cmd_error("-widemux value must be 0 or >= 2.\n");
@@ -334,8 +349,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (check_label("map_memory")) {
 			std::string params = "";
-			std::string lutrams_map = "+/analogdevices/lutrams_<family>_map.v";
-			std::string brams_map = "+/analogdevices/brams_<family>_map.v";
+			std::string lutrams_map = "+/analogdevices/lutrams_map.v";
+			std::string brams_map = "+/analogdevices/brams_map.v";
 			if (help_mode) {
 				params = " [...]";
 			} else {
@@ -344,6 +359,13 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				lutrams_map = "+/analogdevices/lutrams_map.v";
 				params += " -lib +/analogdevices/brams.txt";
 				brams_map = "+/analogdevices/brams_map.v";
+				if (tech == "t16ffc") {
+					params += " -D IS_T16FFC";
+					brams_map += " -D IS_T16FFC";
+				} else if (tech == "t40lp") {
+					params += " -D IS_T40LP";
+					brams_map += " -D IS_T40LP";
+				}
 				if (nolutram)
 					params += " -no-auto-distributed";
 				if (nobram)
