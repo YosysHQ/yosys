@@ -1497,7 +1497,47 @@ module RBRAM #(
     parameter CLKB_INV = 0,
     parameter DATA_WIDTH = 40,
     parameter ADDR_WIDTH = 12,
-    parameter WE_WIDTH = 10,
+    parameter WE_WIDTH = 20,
+    parameter PERR_WIDTH = 4,
+) (
+    output [DATA_WIDTH-1:0] QA,
+    input [DATA_WIDTH-1:0] DA,
+    input CEA,
+    input [WE_WIDTH-1:0] WEA,
+    input [ADDR_WIDTH-1:0] AA,
+    (* clkbuf_sink *)
+    (* invertible_pin = "CLKA_INV" *)
+    input CLKA,
+    output [DATA_WIDTH-1:0] QB,
+    input [DATA_WIDTH-1:0] DB,
+    input CEB,
+    input [WE_WIDTH-1:0] WEB,
+    input [ADDR_WIDTH-1:0] AB,
+    (* clkbuf_sink *)
+    (* invertible_pin = "CLKB_INV" *)
+    input CLKB,
+    output reg [PERR_WIDTH-1:0] PERRA,
+    output reg [PERR_WIDTH-1:0] PERRB,
+    output SBEA,
+    output SBEB,
+    output MBEA,
+    output MBEB,
+    input SLP,
+    input PD,
+);
+
+endmodule
+
+module RBRAM2 #(
+    parameter TARGET_NODE = "T16FFC_Gen2.4",
+    parameter BRAM_MODE = "SDP_2048x40",
+    parameter QA_REG = 0,
+    parameter QB_REG = 0,
+    parameter CLKA_INV = 0,
+    parameter CLKB_INV = 0,
+    parameter DATA_WIDTH = 40,
+    parameter ADDR_WIDTH = 13,
+    parameter WE_WIDTH = 20,
     parameter PERR_WIDTH = 4,
 ) (
     output [DATA_WIDTH-1:0] QA,
