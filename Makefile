@@ -886,6 +886,7 @@ MK_TEST_DIRS += tests/arch/xilinx
 MK_TEST_DIRS += tests/bugpoint
 MK_TEST_DIRS += tests/opt
 MK_TEST_DIRS += tests/sat
+MK_TEST_DIRS += tests/scripts
 MK_TEST_DIRS += tests/sim
 MK_TEST_DIRS += tests/svtypes
 MK_TEST_DIRS += tests/techmap

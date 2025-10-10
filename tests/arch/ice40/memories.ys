@@ -37,14 +37,14 @@ select -assert-min 1 t:SB_DFFE
 design -reset; read_verilog -defer ../common/blockram.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
-setattr -set syn_ramstyle "block_ram" m:memory
+setattr -setstr syn_ramstyle block_ram m:memory
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_verilog -defer ../common/blockram.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
-setattr -set syn_ramstyle "Block_RAM" m:memory
+setattr -setstr syn_ramstyle Block_RAM m:memory
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K # any case works
 
@@ -58,7 +58,7 @@ select -assert-count 1 t:SB_RAM40_4K
 design -reset; read_verilog -defer ../common/blockram.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
-setattr -set syn_ramstyle "registers" m:memory
+setattr -setstr syn_ramstyle registers m:memory
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 0 t:SB_RAM40_4K # requested FFRAM explicitly
 select -assert-min 1 t:SB_DFFE
@@ -110,7 +110,7 @@ select -assert-min 1 t:SB_LUT4
 design -reset; read_verilog -defer ../common/blockrom.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
-setattr -set syn_romstyle "ebr" m:memory
+setattr -setstr syn_romstyle ebr m:memory
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
@@ -124,7 +124,7 @@ select -assert-count 1 t:SB_RAM40_4K
 design -reset; read_verilog -defer ../common/blockrom.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
-setattr -set syn_romstyle "logic" m:memory
+setattr -setstr syn_romstyle logic m:memory
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 0 t:SB_RAM40_4K # requested LUTROM explicitly
 select -assert-min 1 t:SB_LUT4

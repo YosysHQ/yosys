@@ -82,9 +82,9 @@ module \child
 
 end
 EOT
-logger -expect log "Chip area for top module '\\top': 66.000000" 1
+logger -expect log 'Chip area for top module .\\top.: 66.000000' 1
 logger -expect log "3     30.5        3     30.5 cells" 1
-logger -expect log "2       51        -        -   \$reduce_xor" 2
+logger -expect log "2       51        -        -   \\$reduce_xor" 2
 logger -expect log "8       66        2        5 cells" 2
 logger -expect-no-warnings
 stat -liberty ./stat_area_by_width.lib -top \top -hierarchy
