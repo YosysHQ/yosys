@@ -100,6 +100,9 @@ struct Pass
 	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::string command);
 	static void call_on_module(RTLIL::Design *design, RTLIL::Module *module, std::vector<std::string> args);
 
+	// Returns 1 if this pass is running at the top level.
+	static int depth();
+
 	Pass *next_queued_pass;
 	virtual void run_register();
 	static void init_register();

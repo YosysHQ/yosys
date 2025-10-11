@@ -249,6 +249,12 @@ void Pass::call(RTLIL::Design *design, std::string command)
 	call(design, args);
 }
 
+static int pass_depth;
+
+int Pass::depth() {
+	return pass_depth;
+}
+
 void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 {
 	if (args.size() == 0 || args[0][0] == '#' || args[0][0] == ':')
@@ -267,12 +273,14 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	if (pass_register[args[0]]->experimental_flag)
 		log_experimental(args[0]);
 
+	++pass_depth;
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	auto state = pass_register[args[0]]->pre_execute();
 	pass_register[args[0]]->execute(args, design);
 	pass_register[args[0]]->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->pop_selection();
+	--pass_depth;
 }
 
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
