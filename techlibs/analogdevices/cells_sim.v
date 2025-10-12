@@ -55,68 +55,6 @@ module OUTBUF(
   endspecify
 endmodule
 
-module BUFG(
-    (* clkbuf_driver *)
-    output O,
-    input I);
-  assign O = I;
-  specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/CLK_BUFG_TOP_R.sdf#L11
-    (I => O) = 96;
-  endspecify
-endmodule
-
-module BUFGCTRL(
-    (* clkbuf_driver *)
-    output O,
-    input I0, input I1,
-    (* invertible_pin = "IS_S0_INVERTED" *)
-    input S0,
-    (* invertible_pin = "IS_S1_INVERTED" *)
-    input S1,
-    (* invertible_pin = "IS_CE0_INVERTED" *)
-    input CE0,
-    (* invertible_pin = "IS_CE1_INVERTED" *)
-    input CE1,
-    (* invertible_pin = "IS_IGNORE0_INVERTED" *)
-    input IGNORE0,
-    (* invertible_pin = "IS_IGNORE1_INVERTED" *)
-    input IGNORE1);
-
-parameter [0:0] INIT_OUT = 1'b0;
-parameter PRESELECT_I0 = "FALSE";
-parameter PRESELECT_I1 = "FALSE";
-parameter [0:0] IS_CE0_INVERTED = 1'b0;
-parameter [0:0] IS_CE1_INVERTED = 1'b0;
-parameter [0:0] IS_S0_INVERTED = 1'b0;
-parameter [0:0] IS_S1_INVERTED = 1'b0;
-parameter [0:0] IS_IGNORE0_INVERTED = 1'b0;
-parameter [0:0] IS_IGNORE1_INVERTED = 1'b0;
-
-wire I0_internal = ((CE0 ^ IS_CE0_INVERTED) ? I0 : INIT_OUT);
-wire I1_internal = ((CE1 ^ IS_CE1_INVERTED) ? I1 : INIT_OUT);
-wire S0_true = (S0 ^ IS_S0_INVERTED);
-wire S1_true = (S1 ^ IS_S1_INVERTED);
-
-assign O = S0_true ? I0_internal : (S1_true ? I1_internal : INIT_OUT);
-
-endmodule
-
-module BUFHCE(
-    (* clkbuf_driver *)
-    output O,
-    input I,
-    (* invertible_pin = "IS_CE_INVERTED" *)
-    input CE);
-
-parameter [0:0] INIT_OUT = 1'b0;
-parameter CE_TYPE = "SYNC";
-parameter [0:0] IS_CE_INVERTED = 1'b0;
-
-assign O = ((CE ^ IS_CE_INVERTED) ? I : INIT_OUT);
-
-endmodule
-
 module INV(
     (* clkbuf_inv = "I" *)
     output O,
@@ -384,14 +322,6 @@ module CRY4INIT(
 `endif
 
   assign CO = CYINIT;
-endmodule
-
-module ORCY (output O, input CI, I);
-  assign O = CI | I;
-endmodule
-
-module MULT_AND (output LO, input I0, I1);
-  assign LO = I0 & I1;
 endmodule
 
 // Flip-flops.
