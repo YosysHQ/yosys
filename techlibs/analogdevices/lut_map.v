@@ -32,12 +32,8 @@ module \$lut (A, Y);
 
   generate
     if (WIDTH == 1) begin
-      if (LUT == 2'b01) begin
-        INV _TECHMAP_REPLACE_ (.O(Y), .I(A[0]));
-      end else begin
-        LUT1 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
-          .I0(A[0]));
-      end
+      LUT1 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
+        .I0(A[0]));
     end else
     if (WIDTH == 2) begin
       LUT2 #(.INIT(LUT)) _TECHMAP_REPLACE_ (.O(Y),
