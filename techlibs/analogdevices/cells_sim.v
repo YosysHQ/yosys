@@ -41,17 +41,6 @@ module INBUF(
   endspecify
 endmodule
 
-module IBUFG(
-    output O,
-    (* iopad_external_pin *)
-    input I);
-  parameter CAPACITANCE = "DONT_CARE";
-  parameter IBUF_DELAY_VALUE = "0";
-  parameter IBUF_LOW_PWR = "TRUE";
-  parameter IOSTANDARD = "DEFAULT";
-  assign O = I;
-endmodule
-
 module OUTBUF(
     (* iopad_external_pin *)
     output O,
@@ -134,18 +123,22 @@ module INV(
     input I
 );
   assign O = !I;
+`ifdef t16ffc
   specify
     (I => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=1 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=2 *)
@@ -153,10 +146,12 @@ module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=3 *)
@@ -165,11 +160,13 @@ module LUT3(output O, input I0, I1, I2);
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
     (I2 => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=4 *)
@@ -179,12 +176,14 @@ module LUT4(output O, input I0, I1, I2, I3);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
     (I2 => O) = 22;
     (I3 => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=5 *)
@@ -195,6 +194,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -202,6 +202,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
     (I3 => O) = 22;
     (I4 => O) = 22;
   endspecify
+`endif
 endmodule
 
 (* abc9_lut=6 *)
@@ -213,6 +214,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef t16ffc
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -221,6 +223,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
     (I4 => O) = 22;
     (I5 => O) = 22;
   endspecify
+`endif
 endmodule
 
 module LUT6_D(output O6, output O5, input I0, I1, I2, I3, I4, I5);
@@ -244,6 +247,7 @@ endmodule
 (* abc9_lut=12 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
+`ifdef t16ffc
   specify
     (I0 => O) = 22 + 63 /* LUTMUX7.I1 */;
     (I1 => O) = 22 + 63 /* LUTMUX7.I1 */;
@@ -254,6 +258,7 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
     (I6 => O) = 0  + 51 /* LUTMUX7.S */;
   endspecify
 `endif
+`endif
 endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
@@ -261,6 +266,7 @@ endmodule
 (* abc9_lut=24 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
+`ifdef t16ffc
   specify
     (I0 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
     (I1 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
@@ -272,26 +278,31 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
     (I7 => O) = 0  +  0                  + 58 /* LUTMUX8.S */;
   endspecify
 `endif
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
 module LUTMUX7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+`ifdef t16ffc
   specify
     (I0 => O) = 62;
     (I1 => O) = 63;
     (S => O) = 51;
   endspecify
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
 module LUTMUX8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+`ifdef t16ffc
   specify
     (I0 => O) = 48;
     (I1 => O) = 46;
     (S => O) = 58;
   endspecify
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -309,8 +320,8 @@ module CRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
+`ifdef t16ffc
   specify
-    // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L11-L46
     (S[0]   => O[0]) = 39;
     (CI     => O[0]) = 43;
     (DI[0]  => O[1]) = 81;
@@ -356,6 +367,7 @@ module CRY4(
     (S[3]   => CO[3]) = 81;
     (CI     => CO[3]) = 20;
   endspecify
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -365,9 +377,11 @@ module CRY4INIT(
   (* abc9_carry *)
   input        CYINIT
 );
+`ifdef t16ffc
   specify
     (CYINIT => CO) = 72;
   endspecify
+`endif
 
   assign CO = CYINIT;
 endmodule
@@ -394,6 +408,7 @@ module FFRE (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
@@ -401,6 +416,7 @@ module FFRE (
     if (R)        (posedge C => (Q : 1'b0)) = 280;
     if (!R && CE) (posedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -415,6 +431,7 @@ module FFRE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
@@ -422,6 +439,7 @@ module FFRE_N (
     if (R)        (negedge C => (Q : 1'b0)) = 280;
     if (!R && CE) (negedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 module FFSE (
@@ -435,6 +453,7 @@ module FFSE (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
@@ -442,6 +461,7 @@ module FFSE (
     if (S)        (negedge C => (Q : 1'b1)) = 280;
     if (!S && CE) (posedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 module FFSE_N (
@@ -455,6 +475,7 @@ module FFSE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
@@ -462,6 +483,7 @@ module FFSE_N (
     if (S)        (negedge C => (Q : 1'b1)) = 280;
     if (!S && CE) (negedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 module FFCE (
@@ -475,11 +497,13 @@ module FFCE (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , posedge C, 31);
     $setup(CE , posedge C, 122);
     if (!CLR && CE) (posedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 module FFCE_N (
@@ -493,11 +517,13 @@ module FFCE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , negedge C, 31);
     $setup(CE , negedge C, 122);
     if (!CLR && CE) (negedge C => (Q : D)) = 280;
   endspecify
+`endif
 endmodule
 
 module FFPE (
@@ -511,11 +537,13 @@ module FFPE (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , posedge C, 31);
     $setup(CE , posedge C, 122);
     if (!PRE && CE) (posedge C => (Q : D)) = 291;
   endspecify
+`endif
 endmodule
 
 module FFPE_N (
@@ -529,11 +557,13 @@ module FFPE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef t16ffc
   specify
     $setup(D , negedge C, 31);
     $setup(CE , negedge C, 122);
     if (!PRE && CE) (negedge C => (Q : D)) = 291;
   endspecify
+`endif
 endmodule
 
 // LUTRAM.
@@ -554,6 +584,7 @@ module RAMS32X1 (
   reg [31:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef t16ffc
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -569,6 +600,7 @@ module RAMS32X1 (
     (A4 => O) = 63;
     (posedge WCLK => (O : D)) = 813;
   endspecify
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -585,6 +617,7 @@ module RAMS64X1 (
   reg [63:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef t16ffc
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -602,6 +635,7 @@ module RAMS64X1 (
     (A5 => O) = 64;
     (posedge WCLK => (O : D)) = 762;
   endspecify
+`endif
 endmodule
 
 // Dual port.
@@ -623,6 +657,7 @@ module RAMD32X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef t16ffc
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -651,6 +686,7 @@ module RAMD32X1 (
     (posedge WCLK => (SPO : D)) = 813;
     (posedge WCLK => (DPO : D)) = 813;
   endspecify
+`endif
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -670,6 +706,7 @@ module RAMD64X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef t16ffc
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -701,6 +738,7 @@ module RAMD64X1 (
     (posedge WCLK => (SPO : D)) = 762;
     (posedge WCLK => (DPO : D)) = 737;
   endspecify
+`endif
 endmodule
 
 // Shift registers.
@@ -718,6 +756,7 @@ module SRG16E (
   reg [15:0] r = INIT;
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) if (CE) r <= { r[14:0], D };
+`ifdef t16ffc
   specify
     $setup(D , posedge CLK, 173);
     if (CE) (posedge CLK => (Q : D)) = 1472;
@@ -727,6 +766,7 @@ module SRG16E (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+`endif
 endmodule
 
 // DSP
