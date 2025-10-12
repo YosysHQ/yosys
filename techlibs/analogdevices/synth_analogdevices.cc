@@ -266,12 +266,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	void script() override
 	{
 		if (check_label("begin")) {
-			std::string read_args;
-			read_args += " -lib -specify +/analogdevices/cells_sim.v";
-			run("read_verilog" + read_args);
-
+			run(stringf("read_verilog -lib -specify -D %s +/analogdevices/cells_sim.v", tech));
 			run("read_verilog -lib +/analogdevices/cells_xtra.v");
-
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
