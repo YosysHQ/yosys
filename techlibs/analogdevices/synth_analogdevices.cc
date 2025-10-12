@@ -496,8 +496,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("finalize")) {
-			if (help_mode || !noclkbuf)
-				run("clkbufmap -buf BUFG O:I", "(skip if '-noclkbuf')");
 			run("clean");
 		}
 
