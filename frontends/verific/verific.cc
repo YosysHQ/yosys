@@ -3129,8 +3129,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		if (verific_opt) {
 			log("  Optimizing netlist for %s.\n", it->first.c_str());
 
-			log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
-			nl->InferClockEnableMux();
+			// log("    Inferring clock enable muxes for %s.\n", it->first.c_str());
+			// nl->InferClockEnableMux();
 
 			log("    Running post-elaboration for %s.\n", it->first.c_str());
 			nl->PostElaborationProcess();
@@ -3612,10 +3612,6 @@ struct VerificPass : public Pass {
 
 		verific_verbose = 0;
 		verific_sva_fsm_limit = 16;
-
-		// SILIMATE: added flags
-		verific_opt = false;
-		verific_no_split_complex_ports = false;
 
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
