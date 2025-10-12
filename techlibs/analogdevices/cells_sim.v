@@ -36,9 +36,11 @@ module INBUF(
   parameter IFD_DELAY_VALUE = "AUTO";
   parameter IOSTANDARD = "DEFAULT";
   assign O = I;
+`ifdef IS_T16FFC
   specify
     (I => O) = 22;
   endspecify
+`endif
 endmodule
 
 module OUTBUF(
@@ -50,18 +52,7 @@ module OUTBUF(
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
-  specify
-    (I => O) = 22;
-  endspecify
-endmodule
-
-module INV(
-    (* clkbuf_inv = "I" *)
-    output O,
-    input I
-);
-  assign O = !I;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I => O) = 22;
   endspecify
@@ -72,7 +63,7 @@ endmodule
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
   endspecify
@@ -84,7 +75,7 @@ module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -98,7 +89,7 @@ module LUT3(output O, input I0, I1, I2);
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -114,7 +105,7 @@ module LUT4(output O, input I0, I1, I2, I3);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -132,7 +123,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -152,7 +143,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22;
     (I1 => O) = 22;
@@ -185,7 +176,7 @@ endmodule
 (* abc9_lut=12 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22 + 63 /* LUTMUX7.I1 */;
     (I1 => O) = 22 + 63 /* LUTMUX7.I1 */;
@@ -204,7 +195,7 @@ endmodule
 (* abc9_lut=24 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
     (I1 => O) = 22 + 63 /* LUTMUX7.I1 */ + 48 /* LUTMUX8.I0 */;
@@ -222,7 +213,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module LUTMUX7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 62;
     (I1 => O) = 63;
@@ -234,7 +225,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module LUTMUX8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (I0 => O) = 48;
     (I1 => O) = 46;
@@ -258,7 +249,7 @@ module CRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (S[0]   => O[0]) = 39;
     (CI     => O[0]) = 43;
@@ -315,7 +306,7 @@ module CRY4INIT(
   (* abc9_carry *)
   input        CYINIT
 );
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     (CYINIT => CO) = 72;
   endspecify
@@ -338,7 +329,7 @@ module FFRE (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
@@ -361,7 +352,7 @@ module FFRE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
@@ -383,7 +374,7 @@ module FFSE (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
@@ -405,7 +396,7 @@ module FFSE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
@@ -427,7 +418,7 @@ module FFCE (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE , posedge C, 122);
@@ -447,7 +438,7 @@ module FFCE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q <= INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE , negedge C, 122);
@@ -467,7 +458,7 @@ module FFPE (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE , posedge C, 122);
@@ -487,7 +478,7 @@ module FFPE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q <= INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE , negedge C, 122);
@@ -514,7 +505,7 @@ module RAMS32X1 (
   reg [31:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -547,7 +538,7 @@ module RAMS64X1 (
   reg [63:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -587,7 +578,7 @@ module RAMD32X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -636,7 +627,7 @@ module RAMD64X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 0);
     $setup(A1, posedge WCLK, 0);
@@ -686,7 +677,7 @@ module SRG16E (
   reg [15:0] r = INIT;
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) if (CE) r <= { r[14:0], D };
-`ifdef t16ffc
+`ifdef IS_T16FFC
   specify
     $setup(D , posedge CLK, 173);
     if (CE) (posedge CLK => (Q : D)) = 1472;

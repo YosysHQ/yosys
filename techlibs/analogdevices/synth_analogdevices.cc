@@ -114,7 +114,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, json_file, tech;
+	std::string top_opt, edif_file, json_file, tech, tech_param;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -126,6 +126,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		top_opt = "-auto-top";
 		edif_file.clear();
 		tech = "t16ffc";
+		tech_param = " -D IS_T16FFC";
 		flatten = true;
 		retime = false;
 		noiopad = false;
@@ -157,6 +158,10 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			}
 			if (args[argidx] == "-tech" && argidx+1 < args.size()) {
 				tech = args[++argidx];
+				if (tech == "t16ffc")
+					tech_param = " -D IS_T16FFC";
+				else if (tech == "t40lp")
+					tech_param = " -D IS_T40LP";
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -266,7 +271,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	void script() override
 	{
 		if (check_label("begin")) {
-			run(stringf("read_verilog -lib -specify -D %s +/analogdevices/cells_sim.v", tech));
+			run(stringf("read_verilog -lib -specify %s +/analogdevices/cells_sim.v", tech_param));
 			run("read_verilog -lib +/analogdevices/cells_xtra.v");
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
@@ -355,13 +360,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				lutrams_map = "+/analogdevices/lutrams_map.v";
 				params += " -lib +/analogdevices/brams.txt";
 				brams_map = "+/analogdevices/brams_map.v";
-				if (tech == "t16ffc") {
-					params += " -D IS_T16FFC";
-					brams_map += " -D IS_T16FFC";
-				} else if (tech == "t40lp") {
-					params += " -D IS_T40LP";
-					brams_map += " -D IS_T40LP";
-				}
+				params += tech_param;
+				brams_map += tech_param;
 				if (nolutram)
 					params += " -no-auto-distributed";
 				if (nobram)
