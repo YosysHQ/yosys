@@ -1995,7 +1995,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (import_netlist_instance_cells(inst, inst_name))
 				continue;
 			if (inst->IsOperator() && !verific_sva_prims.count(inst->Type()))
-				log_warning("Unsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", inst->View()->Owner()->Name());
+				log_warning("%sUnsupported Verific operator: %s (fallback to gate level implementation provided by verific)\n", announce_src_location(inst), inst->View()->Owner()->Name());
 		} else {
 			if (import_netlist_instance_gates(inst, inst_name))
 				continue;
