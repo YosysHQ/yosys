@@ -1862,7 +1862,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (bit.wire->attributes.count(ID::init))
 			initval = bit.wire->attributes.at(ID::init);
 
-		initval.resize(GetSize(bit.wire), State::Sx);
+		if (GetSize(initval) < GetSize(bit.wire))
+			initval.resize(GetSize(bit.wire), State::Sx);
 
 		if (it.second == '0')
 			initval.set(bit.offset, State::S0);
