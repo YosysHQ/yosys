@@ -38,7 +38,7 @@ RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<RTLIL::IdString::Storage> RTLIL::IdString::global_id_storage_;
 std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
-std::vector<uint32_t> RTLIL::IdString::global_refcount_storage_;
+std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 #endif
 
@@ -61,7 +61,6 @@ void RTLIL::IdString::prepopulate()
 	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
 	global_id_storage_.reserve(size);
 	global_id_index_.reserve(size);
-	global_refcount_storage_.resize(size, 1);
 	RTLIL::IdString::global_id_index_.insert({"", 0});
 	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(""), 0});
 #define X(N) populate("\\" #N);
@@ -180,17 +179,20 @@ struct IdStringCollector {
 void RTLIL::OwningIdString::collect_garbage()
 {
 #ifndef YOSYS_NO_IDS_REFCNT
-	int size = GetSize(global_refcount_storage_);
+	int size = GetSize(global_id_storage_);
 	IdStringCollector collector(size);
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
 		collector.trace(*design);
 	}
 	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
-		if (collector.live[i] || global_refcount_storage_[i] > 0)
+		if (collector.live[i])
 			continue;
 		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
 		if (storage.buf == nullptr)
 			continue;
+		if (global_refcount_storage_.find(i) != global_refcount_storage_.end())
+			continue;
+
 		if (yosys_xtrace) {
 			log("#X# Removed IdString '%s' with index %d.\n", storage.buf, i);
 			log_backtrace("-X- ", yosys_xtrace-1);
