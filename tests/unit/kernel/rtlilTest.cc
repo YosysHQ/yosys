@@ -367,6 +367,12 @@ namespace RTLIL {
 		EXPECT_EQ(own.str(), "\\figblortle");
 	}
 
+	TEST_F(KernelRtlilTest, LookupAutoidxId) {
+		IdString id = NEW_ID;
+		IdString id2 = IdString(id.str());
+		EXPECT_EQ(id, id2);
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>

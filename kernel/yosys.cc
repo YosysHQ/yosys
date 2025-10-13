@@ -295,7 +295,7 @@ void yosys_shutdown()
 #endif
 }
 
-RTLIL::IdString new_id(std::string_view file, int line, std::string_view func)
+const std::string *create_id_prefix(std::string_view file, int line, std::string_view func)
 {
 #ifdef _WIN32
 	size_t pos = file.find_last_of("/\\");
@@ -309,7 +309,7 @@ RTLIL::IdString new_id(std::string_view file, int line, std::string_view func)
 	if (pos != std::string_view::npos)
 		func = func.substr(pos+1);
 
-	return stringf("$auto$%s:%d:%s$%d", file, line, func, autoidx++);
+	return new std::string(stringf("$auto$%s:%d:%s$", file, line, func));
 }
 
 RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix)
