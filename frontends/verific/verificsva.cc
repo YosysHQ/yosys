@@ -577,7 +577,7 @@ struct SvaFsm
 
 				if (delta_pos >= 0 && i_within_j && j_within_i) {
 					did_something = true;
-					values[i].bits()[delta_pos] = State::Sa;
+					values[i].set(delta_pos, State::Sa);
 					values[j] = values.back();
 					values.pop_back();
 					goto next_pair;
