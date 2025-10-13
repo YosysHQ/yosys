@@ -271,11 +271,14 @@ extern int autoidx;
 extern int yosys_xtrace;
 extern bool yosys_write_versions;
 
-RTLIL::IdString new_id(std::string_view file, int line, std::string_view func);
+const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
 RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix);
 
 #define NEW_ID \
-	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
+	YOSYS_NAMESPACE_PREFIX RTLIL::IdString::new_autoidx_with_prefix([](std::string_view func) -> const std::string * { \
+		static const std::string *prefix = create_id_prefix(__FILE__, __LINE__, func); \
+		return prefix; \
+	}(__FUNCTION__))
 #define NEW_ID_SUFFIX(suffix) \
 	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
 

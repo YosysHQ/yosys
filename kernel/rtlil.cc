@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <charconv>
 #include <optional>
 #include <string_view>
 
@@ -37,6 +38,8 @@ bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<RTLIL::IdString::Storage> RTLIL::IdString::global_id_storage_;
 std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
+std::unordered_map<int, const std::string*> RTLIL::IdString::global_autoidx_id_prefix_storage_;
+std::unordered_map<int, char*> RTLIL::IdString::global_autoidx_id_storage_;
 #ifndef YOSYS_NO_IDS_REFCNT
 std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
@@ -64,6 +67,74 @@ void RTLIL::IdString::prepopulate()
 #undef X
 }
 
+static std::optional<int> parse_autoidx(std::string_view v)
+{
+	// autoidx values can never be <= 0, so there can never be a leading 0 digit.
+	if (v.empty() || v[0] == '0')
+		return std::nullopt;
+	for (char ch : v) {
+		if (ch < '0' || ch > '9')
+			return std::nullopt;
+	}
+	int p_autoidx;
+	if (std::from_chars(v.data(), v.data() + v.size(), p_autoidx).ec != std::errc())
+		return std::nullopt;
+	return p_autoidx;
+}
+
+int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it)
+{
+	ensure_prepopulated();
+
+	log_assert(p[0] == '$' || p[0] == '\\');
+	for (char ch : p)
+		if ((unsigned)ch <= (unsigned)' ')
+			log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
+
+	if (p.substr(0, 6) == "$auto$") {
+		size_t autoidx_pos = p.find_last_of('$') + 1;
+		std::optional<int> p_autoidx = parse_autoidx(p.substr(autoidx_pos));
+		if (p_autoidx.has_value()) {
+			auto prefix_it = global_autoidx_id_prefix_storage_.find(-*p_autoidx);
+			if (prefix_it != global_autoidx_id_prefix_storage_.end() && p.substr(0, autoidx_pos) == *prefix_it->second)
+				return -*p_autoidx;
+			// Ensure NEW_ID/NEW_ID_SUFFIX will not create collisions with the ID
+			// we're about to create.
+			autoidx = std::max(autoidx, *p_autoidx + 1);
+		}
+	}
+
+#ifndef YOSYS_NO_IDS_REFCNT
+	if (global_free_idx_list_.empty()) {
+		log_assert(global_id_storage_.size() < 0x40000000);
+		global_free_idx_list_.push_back(global_id_storage_.size());
+		global_id_storage_.push_back({nullptr, 0});
+	}
+
+	int idx = global_free_idx_list_.back();
+	global_free_idx_list_.pop_back();
+#else
+	int idx = global_id_storage_.size();
+	global_id_index_[global_id_storage_.back()] = idx;
+#endif
+	char* buf = static_cast<char*>(malloc(p.size() + 1));
+	memcpy(buf, p.data(), p.size());
+	buf[p.size()] = 0;
+	global_id_storage_.at(idx) = {buf, GetSize(p)};
+	global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
+
+	if (yosys_xtrace) {
+		log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx).buf, idx);
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+#ifdef YOSYS_XTRACE_GET_PUT
+	if (yosys_xtrace)
+		log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, refcount(idx));
+#endif
+	return idx;
+}
+
 static constexpr bool check_well_known_id_order()
 {
 	int size = sizeof(IdTable) / sizeof(IdTable[0]);
@@ -78,9 +149,9 @@ static constexpr bool check_well_known_id_order()
 static_assert(check_well_known_id_order());
 
 struct IdStringCollector {
-	IdStringCollector(int size) : live(size, false) {}
-
-	void trace(IdString id) { live[id.index_] = true; }
+	void trace(IdString id) {
+		live.insert(id.index_);
+	}
 	template <typename T> void trace(const T* v) {
 		trace(*v);
 	}
@@ -169,22 +240,22 @@ struct IdStringCollector {
 		trace(action.memid);
 	}
 
-	std::vector<bool> live;
+	std::unordered_set<int> live;
 };
 
 void RTLIL::OwningIdString::collect_garbage()
 {
 #ifndef YOSYS_NO_IDS_REFCNT
-	int size = GetSize(global_id_storage_);
-	IdStringCollector collector(size);
+	IdStringCollector collector;
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
 		collector.trace(*design);
 	}
+	int size = GetSize(global_id_storage_);
 	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
-		if (collector.live[i])
-			continue;
 		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
 		if (storage.buf == nullptr)
+			continue;
+		if (collector.live.find(i) != collector.live.end())
 			continue;
 		if (global_refcount_storage_.find(i) != global_refcount_storage_.end())
 			continue;
@@ -198,6 +269,23 @@ void RTLIL::OwningIdString::collect_garbage()
 		free(storage.buf);
 		storage = {nullptr, 0};
 		global_free_idx_list_.push_back(i);
+	}
+
+	for (auto it = global_autoidx_id_prefix_storage_.begin(); it != global_autoidx_id_prefix_storage_.end();) {
+		if (collector.live.find(it->first) != collector.live.end()) {
+			++it;
+			continue;
+		}
+		if (global_refcount_storage_.find(it->first) != global_refcount_storage_.end()) {
+			++it;
+			continue;
+		}
+		auto str_it = global_autoidx_id_storage_.find(it->first);
+		if (str_it != global_autoidx_id_storage_.end()) {
+			delete[] str_it->second;
+			global_autoidx_id_storage_.erase(str_it);
+		}
+		it = global_autoidx_id_prefix_storage_.erase(it);
 	}
 #endif
 }

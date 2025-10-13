@@ -23,7 +23,6 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#include <charconv>
 #include <string_view>
 #include <unordered_map>
 
@@ -146,8 +145,16 @@ struct RTLIL::IdString
 		~destruct_guard_t() { destruct_guard_ok = false; }
 	} destruct_guard;
 
+	// String storage for non-autoidx IDs
 	static std::vector<Storage> global_id_storage_;
+	// Lookup table for non-autoidx IDs
 	static std::unordered_map<std::string_view, int> global_id_index_;
+	// Shared prefix string storage for autoidx IDs, which have negative
+	// indices. Append the negated (i.e. positive) ID to this string to get
+	// the real string. The prefix strings must live forever.
+	static std::unordered_map<int, const std::string*> global_autoidx_id_prefix_storage_;
+	// Explicit string storage for autoidx IDs
+	static std::unordered_map<int, char*> global_autoidx_id_storage_;
 #ifndef YOSYS_NO_IDS_REFCNT
 	// All (index, refcount) pairs in this map have refcount > 0.
 	static std::unordered_map<int, int> global_refcount_storage_;
@@ -193,54 +200,15 @@ struct RTLIL::IdString
 	#endif
 			return it->second;
 		}
+		return really_insert(p, it);
+	}
 
-		ensure_prepopulated();
-
-		log_assert(p[0] == '$' || p[0] == '\\');
-		for (char ch : p)
-			if ((unsigned)ch <= (unsigned)' ')
-				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
-
-		if (p.substr(0, 6) == "$auto$") {
-			// Ensure new_id(_suffix) will not create collisions.
-			size_t autoidx_pos = p.find_last_of('$');
-			int p_autoidx;
-			std::string_view v = p.substr(autoidx_pos + 1);
-			if (std::from_chars(v.begin(), v.end(), p_autoidx).ec == std::errc()) {
-				autoidx = std::max(autoidx, p_autoidx + 1);
-			}
-		}
-
-	#ifndef YOSYS_NO_IDS_REFCNT
-		if (global_free_idx_list_.empty()) {
-			log_assert(global_id_storage_.size() < 0x40000000);
-			global_free_idx_list_.push_back(global_id_storage_.size());
-			global_id_storage_.push_back({nullptr, 0});
-		}
-
-		int idx = global_free_idx_list_.back();
-		global_free_idx_list_.pop_back();
-	#else
-		int idx = global_id_storage_.size();
-		global_id_storage_.push_back({nullptr, 0});
-	#endif
-		char* buf = static_cast<char*>(malloc(p.size() + 1));
-		memcpy(buf, p.data(), p.size());
-		buf[p.size()] = 0;
-		global_id_storage_.at(idx) = {buf, GetSize(p)};
-		global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
-
-		if (yosys_xtrace) {
-			log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx).buf, idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace)
-			log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, refcount(idx));
-	#endif
-
-		return idx;
+	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
+	// `prefix` must start with '$auto$', end with '$', and live forever.
+	static IdString new_autoidx_with_prefix(const std::string *prefix) {
+		int index = -(autoidx++);
+		global_autoidx_id_prefix_storage_.insert({index, prefix});
+		return from_index(index);
 	}
 
 	// the actual IdString object is just is a single int
@@ -270,17 +238,35 @@ struct RTLIL::IdString
 	constexpr inline const IdString &id_string() const { return *this; }
 
 	inline const char *c_str() const {
-		return global_id_storage_.at(index_).buf;
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).buf;
+		auto it = global_autoidx_id_storage_.find(index_);
+		if (it != global_autoidx_id_storage_.end())
+			return it->second;
+
+		const std::string &prefix = *global_autoidx_id_prefix_storage_.at(index_);
+		std::string suffix = std::to_string(-index_);
+		char *c = new char[prefix.size() + suffix.size() + 1];
+		memcpy(c, prefix.data(), prefix.size());
+		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
+		global_autoidx_id_storage_.insert(it, {index_, c});
+		return c;
 	}
 
 	inline std::string str() const {
-		const Storage &storage = global_id_storage_.at(index_);
-		return std::string(storage.buf, storage.size);
+		std::string result;
+		append_to(&result);
+		return result;
 	}
 
-	inline std::string_view str_view() const {
-		const Storage &storage = global_id_storage_.at(index_);
-		return std::string_view(storage.buf, storage.size);
+	inline void append_to(std::string *out) const {
+		if (index_ >= 0) {
+			const Storage &storage = global_id_storage_.at(index_);
+			*out += std::string_view(storage.buf, storage.size);
+			return;
+		}
+		*out += *global_autoidx_id_prefix_storage_.at(index_);
+		*out += std::to_string(-index_);
 	}
 
 	inline bool operator<(const IdString &rhs) const {
@@ -336,7 +322,9 @@ struct RTLIL::IdString
 	}
 
 	size_t size() const {
-		return global_id_storage_.at(index_).size;
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).size;
+		return strlen(c_str());
 	}
 
 	bool empty() const {
@@ -382,6 +370,14 @@ struct RTLIL::IdString
 
 private:
 	static void prepopulate();
+	static int really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it);
+
+protected:
+	static IdString from_index(int index) {
+		IdString result;
+		result.index_ = index;
+		return result;
+	}
 
 public:
 	static void ensure_prepopulated() {
@@ -450,7 +446,7 @@ private:
 	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
-			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, refcount(idx));
+			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
 	#endif
 	}
 
@@ -463,7 +459,7 @@ private:
 			return;
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace)
-			log("#X# PUT '%s' (index %d, refcount %u)\n", global_id_storage_.at(index_), index_, refcount(index_));
+			log("#X# PUT '%s' (index %d, refcount %u)\n", from_index(index_), index_, refcount(index_));
 	#endif
 		auto it = global_refcount_storage_.find(index_);
 		log_assert(it != global_refcount_storage_.end() && it->second >= 1);
