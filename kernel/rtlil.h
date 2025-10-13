@@ -23,6 +23,7 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include <charconv>
 #include <string_view>
 #include <unordered_map>
 
@@ -198,6 +199,16 @@ struct RTLIL::IdString
 		for (char ch : p)
 			if ((unsigned)ch <= (unsigned)' ')
 				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
+
+		if (p.substr(0, 6) == "$auto$") {
+			// Ensure new_id(_suffix) will not create collisions.
+			size_t autoidx_pos = p.find_last_of('$');
+			int p_autoidx;
+			std::string_view v = p.substr(autoidx_pos + 1);
+			if (std::from_chars(v.begin(), v.end(), p_autoidx).ec == std::errc()) {
+				autoidx = std::max(autoidx, p_autoidx + 1);
+			}
+		}
 
 	#ifndef YOSYS_NO_IDS_REFCNT
 		if (global_free_idx_list_.empty()) {
