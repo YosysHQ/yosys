@@ -271,8 +271,8 @@ extern int autoidx;
 extern int yosys_xtrace;
 extern bool yosys_write_versions;
 
-RTLIL::IdString new_id(std::string file, int line, std::string func);
-RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix);
+RTLIL::IdString new_id(std::string_view file, int line, std::string_view func);
+RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix);
 
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX new_id(__FILE__, __LINE__, __FUNCTION__)
