@@ -42,10 +42,6 @@ std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 #endif
 
-#define X(_id) const RTLIL::OwningIdString RTLIL::IDInternal::_id(RTLIL::StaticId::_id);
-#include "kernel/constids.inc"
-#undef X
-
 static void populate(std::string_view name)
 {
 	if (name[1] == '$') {
