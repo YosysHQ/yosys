@@ -845,7 +845,17 @@ check-git-abc:
 		exit 1; \
 	fi
 
-abc/abc$(EXE) abc/libabc.a: | check-git-abc
+.git-abc-submodule-hash: FORCE
+	@new=$$(cd abc 2>/dev/null && git rev-parse HEAD 2>/dev/null || echo none); \
+	old=$$(cat .git-abc-submodule-hash 2>/dev/null || echo none); \
+	if [ "$$new" != "$$old" ]; then \
+		echo "$$new" > .git-abc-submodule-hash; \
+	fi
+
+abc/abc$(EXE) abc/libabc.a: .git-abc-submodule-hash | check-git-abc
+	@if [ "$$(cd abc 2>/dev/null && git rev-parse HEAD 2>/dev/null)" != "$$(cat ../.git-abc-submodule-hash 2>/dev/null || echo none)" ]; then \
+		rm -f abc/abc$(EXE); \
+	fi
 	$(P)
 	$(Q) mkdir -p abc && $(MAKE) -C $(PROGRAM_PREFIX)abc -f "$(realpath $(YOSYS_SRC)/abc/Makefile)" ABCSRC="$(realpath $(YOSYS_SRC)/abc/)" $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
@@ -1147,7 +1157,7 @@ clean-py:
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
-	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a .git-abc-submodule-hash
 
 mrproper: clean
 	git clean -xdf
