@@ -370,7 +370,10 @@ from SystemVerilog:
 	- array literals are currently not supported
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
-  ports are inputs or outputs are supported.
+  ports are inputs or outputs are supported when used with named arguments, but
+  not positional arguments.  i.e. ``driver_mod d0(.intf(intf0),
+  .in(inputs[0]));`` is supported but ``driver_mod d0(intf0, inputs[0]);`` is
+  not.
 
 - Assignments within expressions are supported.
 
