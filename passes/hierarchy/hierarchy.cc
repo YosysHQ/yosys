@@ -302,7 +302,9 @@ struct IFExpander
 		const auto &bits = conn_signals;
 		if (
 			bits.size() != 1 ||
+			bits[0].wire == nullptr ||
 			!bits[0].wire->get_bool_attribute(ID::is_interface) ||
+			conn_signals[0].wire == nullptr ||
 			conn_signals[0].wire->name.str().find("$dummywireforinterface") != 0
 		)
 			return;
