@@ -1,0 +1,5 @@
+logger -expect error "ext_ramnet_err.sv:\d+.\d+-\d+.\d+: Memory net '\S+' missing, possibly no driver, use verific -flatten." 1
+verific -sv ext_ramnet_err.sv
+verific -import top
+logger -check-expected
+design -reset
