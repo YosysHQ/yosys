@@ -57,3 +57,5 @@ OBJS += passes/cmds/abstract.o
 OBJS += passes/cmds/test_select.o
 OBJS += passes/cmds/timeest.o
 OBJS += passes/cmds/linecoverage.o
+
+include $(YOSYS_SRC)/passes/cmds/sdc/Makefile.inc
