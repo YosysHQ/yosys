@@ -120,20 +120,9 @@ namespace RTLIL
 	struct Process;
 	struct Binding;
 	struct IdString;
-	struct StaticIdString;
 	struct OwningIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
-
-	struct StaticIdString {
-		constexpr StaticIdString(StaticId id, const OwningIdString &id_str) : id_str(id_str), id(id) {}
-		constexpr inline operator const OwningIdString &() const { return id_str; }
-		constexpr inline int index() const { return static_cast<short>(id); }
-		constexpr inline const OwningIdString &id_string() const { return id_str; }
-
-		const OwningIdString &id_str;
-		const StaticId id;
-	};
 };
 
 struct RTLIL::IdString
@@ -246,13 +235,13 @@ struct RTLIL::IdString
 
 	int index_;
 
-	inline IdString() : index_(0) { }
+	constexpr inline IdString() : index_(0) { }
 	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	inline IdString(const IdString &str) : index_(str.index_) { }
+	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
 	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
 	inline IdString(std::string_view str) : index_(insert(str)) { }
-	inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
+	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
 
 	IdString &operator=(const IdString &rhs) = default;
 
@@ -288,8 +277,6 @@ struct RTLIL::IdString
 
 	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
 	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
-	inline bool operator==(const StaticIdString &rhs) const;
-	inline bool operator!=(const StaticIdString &rhs) const;
 
 	// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -374,7 +361,6 @@ struct RTLIL::IdString
 	}
 
 	bool in(const IdString &rhs) const { return *this == rhs; }
-	bool in(const StaticIdString &rhs) const { return *this == rhs; }
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
@@ -394,7 +380,6 @@ public:
 
 struct RTLIL::OwningIdString : public RTLIL::IdString {
 	inline OwningIdString() { }
-	inline OwningIdString(const StaticIdString &str) : IdString(str) { }
 	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
 	inline OwningIdString(const char *str) : IdString(str) { get_reference(); }
 	inline OwningIdString(const IdString &str) : IdString(str) { get_reference(); }
@@ -502,21 +487,9 @@ inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.co
 [[deprecated]]
 inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
 
-inline bool RTLIL::IdString::operator==(const RTLIL::StaticIdString &rhs) const {
-	return index_ == rhs.index();
-}
-inline bool RTLIL::IdString::operator!=(const RTLIL::StaticIdString &rhs) const {
-	return index_ != rhs.index();
-}
-
 namespace RTLIL {
-	namespace IDInternal {
-#define X(_id) extern const OwningIdString _id;
-#include "kernel/constids.inc"
-#undef X
-	}
 	namespace ID {
-#define X(_id) constexpr StaticIdString _id(StaticId::_id, IDInternal::_id);
+#define X(_id) constexpr IdString _id(StaticId::_id);
 #include "kernel/constids.inc"
 #undef X
 	}
@@ -524,7 +497,7 @@ namespace RTLIL {
 
 struct IdTableEntry {
 	const std::string_view name;
-	const RTLIL::StaticIdString static_id;
+	const RTLIL::IdString static_id;
 };
 
 constexpr IdTableEntry IdTable[] = {
@@ -557,15 +530,15 @@ constexpr int lookup_well_known_id(std::string_view name)
 //
 //  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
 //
-typedef const RTLIL::IdString &IDMacroHelperFunc();
+typedef RTLIL::IdString IDMacroHelperFunc();
 
 template <int IdTableIndex> struct IDMacroHelper {
-	static constexpr RTLIL::StaticIdString eval(IDMacroHelperFunc) {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc) {
 		return IdTable[IdTableIndex].static_id;
 	}
 };
 template <> struct IDMacroHelper<-1> {
-	static constexpr const RTLIL::IdString &eval(IDMacroHelperFunc func) {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc func) {
 		return func();
 	}
 };
@@ -574,7 +547,7 @@ template <> struct IDMacroHelper<-1> {
 		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
 				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
 		>::eval([]() \
-		-> const YOSYS_NAMESPACE_PREFIX RTLIL::IdString & { \
+		-> YOSYS_NAMESPACE_PREFIX RTLIL::IdString { \
 			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
 			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
 				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
