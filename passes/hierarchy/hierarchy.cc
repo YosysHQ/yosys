@@ -299,12 +299,10 @@ struct IFExpander
 	                   const RTLIL::SigSpec &conn_signals)
 	{
 		// Does the connection look like an interface
-		const auto &bits = conn_signals;
 		if (
-			bits.size() != 1 ||
-			bits[0].wire == nullptr ||
-			!bits[0].wire->get_bool_attribute(ID::is_interface) ||
+			conn_signals.size() != 1 ||
 			conn_signals[0].wire == nullptr ||
+			conn_signals[0].wire->get_bool_attribute(ID::is_interface) == false ||
 			conn_signals[0].wire->name.str().find("$dummywireforinterface") != 0
 		)
 			return;
