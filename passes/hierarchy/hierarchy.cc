@@ -156,6 +156,21 @@ std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
 	return basicType;
 }
 
+// Try to read an IdString as a numbered connection name ("$123" or similar),
+// writing the result to dst. If the string isn't of the right format, ignore
+// dst and return false.
+bool read_id_num(RTLIL::IdString str, int *dst)
+{
+	log_assert(dst);
+
+	const char *c_str = str.c_str();
+	if (c_str[0] != '$' || !('0' <= c_str[1] && c_str[1] <= '9'))
+		return false;
+
+	*dst = atoi(c_str + 1);
+	return true;
+}
+
 // A helper struct for expanding a module's interface connections in expand_module
 struct IFExpander
 {
@@ -283,15 +298,42 @@ struct IFExpander
 	                   RTLIL::IdString       conn_name,
 	                   const RTLIL::SigSpec &conn_signals)
 	{
-		// Check if the connection is present as an interface in the sub-module's port list
-		const RTLIL::Wire *wire = submodule.wire(conn_name);
-		if (!wire || !wire->get_bool_attribute(ID::is_interface))
+		// Does the connection look like an interface
+		const auto &bits = conn_signals;
+		if (
+			bits.size() != 1 ||
+			!bits[0].wire->get_bool_attribute(ID::is_interface) ||
+			conn_signals[0].wire->name.str().find("$dummywireforinterface") != 0
+		)
 			return;
 
+		// Check if the connection is present as an interface in the sub-module's port list
+		int id;
+		if (read_id_num(conn_name, &id)) {
+			/* Interface expansion is incompatible with positional arguments
+			 * during expansion, the port list gets each interface signal
+			 * inserted after the interface itself which means that the argument
+			 * positions in the parent module no longer match.
+			 *
+			 * Supporting this would require expanding the interfaces in the
+			 * parent module, renumbering the arguments to match, and then
+			 * iterating over the ports list to find the matching interface
+			 * (refactoring on_interface to accept different conn_names on the
+			 * parent and child).
+			 */
+			log_error("Unable to connect `%s' to submodule `%s' with positional interface argument `%s'!\n",
+				module.name,
+				submodule.name,
+				conn_signals[0].wire->name.str().substr(23)
+			);
+		} else {
+			// Lookup connection by name
+			const RTLIL::Wire *wire = submodule.wire(conn_name);
+			if (!wire || !wire->get_bool_attribute(ID::is_interface))
+				return;
+			}
 		// If the connection looks like an interface, handle it.
-		const auto &bits = conn_signals;
-		if (bits.size() == 1 && bits[0].wire->get_bool_attribute(ID::is_interface))
-			on_interface(submodule, conn_name, conn_signals);
+		on_interface(submodule, conn_name, conn_signals);
 	}
 
 	// Iterate over the connections in a cell, tracking any interface
@@ -374,21 +416,6 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 		          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
 
 	return nullptr;
-}
-
-// Try to read an IdString as a numbered connection name ("$123" or similar),
-// writing the result to dst. If the string isn't of the right format, ignore
-// dst and return false.
-bool read_id_num(RTLIL::IdString str, int *dst)
-{
-	log_assert(dst);
-
-	const char *c_str = str.c_str();
-	if (c_str[0] != '$' || !('0' <= c_str[1] && c_str[1] <= '9'))
-		return false;
-
-	*dst = atoi(c_str + 1);
-	return true;
 }
 
 // Check that the connections on the cell match those that are defined
