@@ -2,6 +2,8 @@
 ifneq ($(SMALL),1)
 OBJS += techlibs/common/synth.o
 OBJS += techlibs/common/prep.o
+OBJS += techlibs/common/opensta.o
+OBJS += techlibs/common/sdc_expand.o
 endif
 
 GENFILES += techlibs/common/simlib_help.inc
