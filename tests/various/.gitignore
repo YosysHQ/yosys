@@ -2,6 +2,7 @@
 /write_gzip.v
 /write_gzip.v.gz
 /plugin.so
+/plugin_search
 /plugin.so.dSYM
 /temp
 /smtlib2_module.smt2

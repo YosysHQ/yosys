@@ -22,6 +22,8 @@
 
 #ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
+#  include <filesystem>
+namespace fs = std::filesystem;
 #endif
 
 #ifdef YOSYS_ENABLE_PYTHON
@@ -39,6 +41,23 @@ std::map<std::string, void*> loaded_python_plugins;
 std::map<std::string, std::string> loaded_plugin_aliases;
 
 #ifdef YOSYS_ENABLE_PLUGINS
+inline const std::vector<fs::path> get_plugin_search_paths() {
+	std::vector<fs::path> result;
+	const char *yosys_plugin_path = std::getenv("YOSYS_PLUGIN_PATH");
+	if (yosys_plugin_path != nullptr && strlen(yosys_plugin_path)) {
+		// make mutable. std::string also manages allocation as a bonus
+		// guaranteed contiguous in c++>=11
+		std::string copy{yosys_plugin_path};
+		char *token = nullptr;
+		char *rest = &copy[0];
+		while ((token = strtok_r(rest, ":", &rest))) {
+			result.push_back(fs::path(token));
+		}
+	}
+	result.push_back(fs::path(proc_share_dirname()) / "plugins"); // lowest priority
+	return result;
+}
+
 void load_plugin(std::string filename, std::vector<std::string> aliases)
 {
 	std::string orig_filename = filename;
@@ -55,17 +74,17 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 	const bool is_loaded = loaded_plugins.count(orig_filename);
 	#endif
 
+	fs::path full_path = fs::absolute(filename);
+
 	if (!is_loaded) {
 		// Check if we're loading a python script
-		if (filename.rfind(".py") != std::string::npos) {
+		if (full_path.extension() == ".py") {
 			#ifdef YOSYS_ENABLE_PYTHON
-				py::object Path = py::module_::import("pathlib").attr("Path");
-				py::object full_path = Path(py::cast(filename));
-				py::object plugin_python_path = full_path.attr("parent");
-				auto basename = py::cast<std::string>(full_path.attr("stem"));
+				fs::path plugin_python_path = full_path.parent_path();
+				fs::path basename = full_path.stem();
 
 				py::object sys = py::module_::import("sys");
-				sys.attr("path").attr("insert")(0, py::str(plugin_python_path));
+				sys.attr("path").attr("insert")(0, py::str(plugin_python_path.c_str()));
 
 				try {
 					auto module_container = py::module_::import(basename.c_str());
@@ -83,23 +102,25 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 			#endif
 		} else {
 			// Otherwise we assume it's a native plugin
-
 			void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
 
-			// We were unable to open the file, try to do so from the plugin directory
-			if (hdl == NULL && orig_filename.find('/') == std::string::npos) {
-				hdl = dlopen([orig_filename]() {
-					std::string new_path = proc_share_dirname() + "plugins/" + orig_filename;
-
-					// Check if we need to append .so
-					if (new_path.find(".so") == std::string::npos)
-						new_path.append(".so");
-
-					return new_path;
-				}().c_str(), RTLD_LAZY|RTLD_LOCAL);
+			// We were unable to open the file, try to do so from plugin search
+			// paths
+			if (hdl == nullptr && orig_filename.find('/') == std::string::npos) {
+				const std::vector<fs::path> search_paths = get_plugin_search_paths();
+				for (const auto &search_path: search_paths) {
+					fs::path potential_path = search_path / orig_filename;
+					if (potential_path.extension() != ".so") {
+						potential_path = search_path / (orig_filename + ".so");
+					}
+					hdl = dlopen(potential_path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+					if (hdl != nullptr) {
+						break;
+					}
+				}
 			}
 
-			if (hdl == NULL)
+			if (hdl == nullptr)
 				log_cmd_error("Can't load module `%s': %s\n", filename, dlerror());
 
 			loaded_plugins[orig_filename] = hdl;
@@ -116,7 +137,7 @@ void load_plugin(std::string, std::vector<std::string>)
 	log_error(
 		"\n  This version of Yosys cannot load plugins at runtime.\n"
 		"  Some plugins may have been included at build time.\n"
-		"  Use option `-H' to see the available built-in and plugin commands.\n"
+		"  Use `yosys -H' to see the available built-in and plugin commands.\n"
 	);
 }
 #endif
