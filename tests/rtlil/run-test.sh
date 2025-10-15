@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 source ../gen-tests-makefile.sh
-generate_mk --bash
+generate_mk --bash --yosys-scripts

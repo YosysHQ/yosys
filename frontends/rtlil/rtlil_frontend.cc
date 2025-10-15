@@ -324,29 +324,27 @@ struct RTLILFrontendWorker {
 
 	RTLIL::SigSpec parse_sigspec()
 	{
+		RTLIL::SigSpec sig;
+
 		if (try_parse_char('{')) {
 			std::vector<SigSpec> parts;
 			while (!try_parse_char('}'))
 				parts.push_back(parse_sigspec());
-			RTLIL::SigSpec sig;
 			for (auto it = parts.rbegin(); it != parts.rend(); ++it)
 				sig.append(std::move(*it));
-			return sig;
-		}
-
-		RTLIL::SigSpec sig;
-
-		// We could add a special path for parsing IdStrings that must already exist,
-		// as here.
-		// We don't need to addref/release in this case.
-		std::optional<RTLIL::IdString> id = try_parse_id();
-		if (id.has_value()) {
-			RTLIL::Wire *wire = current_module->wire(*id);
-			if (wire == nullptr)
-				error("Wire `%s' not found.", *id);
-			sig = RTLIL::SigSpec(wire);
 		} else {
-			sig = RTLIL::SigSpec(parse_const());
+			// We could add a special path for parsing IdStrings that must already exist,
+			// as here.
+			// We don't need to addref/release in this case.
+			std::optional<RTLIL::IdString> id = try_parse_id();
+			if (id.has_value()) {
+				RTLIL::Wire *wire = current_module->wire(*id);
+				if (wire == nullptr)
+					error("Wire `%s' not found.", *id);
+				sig = RTLIL::SigSpec(wire);
+			} else {
+				sig = RTLIL::SigSpec(parse_const());
+			}
 		}
 
 		while (try_parse_char('[')) {
