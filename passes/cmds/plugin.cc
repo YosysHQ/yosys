@@ -41,6 +41,9 @@ std::map<std::string, void*> loaded_python_plugins;
 std::map<std::string, std::string> loaded_plugin_aliases;
 
 #ifdef YOSYS_ENABLE_PLUGINS
+
+static constexpr const char *path_delimiters = fs::path::preferred_separator == '\\' ? ";" : ":" ;
+
 inline const std::vector<fs::path> get_plugin_search_paths() {
 	std::vector<fs::path> result;
 	const char *yosys_plugin_path = std::getenv("YOSYS_PLUGIN_PATH");
@@ -50,7 +53,7 @@ inline const std::vector<fs::path> get_plugin_search_paths() {
 		std::string copy{yosys_plugin_path};
 		char *token = nullptr;
 		char *rest = &copy[0];
-		while ((token = strtok_r(rest, ":", &rest))) {
+		while ((token = strtok_r(rest, path_delimiters, &rest))) {
 			result.push_back(fs::path(token));
 		}
 	}
