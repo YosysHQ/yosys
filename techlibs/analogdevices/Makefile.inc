@@ -3,7 +3,6 @@ OBJS += techlibs/analogdevices/synth_analogdevices.o
 
 $(eval $(call add_share_file,share/analogdevices,techlibs/analogdevices/cells_map.v))
 $(eval $(call add_share_file,share/analogdevices,techlibs/analogdevices/cells_sim.v))
-$(eval $(call add_share_file,share/analogdevices,techlibs/analogdevices/cells_xtra.v))
 
 $(eval $(call add_share_file,share/analogdevices,techlibs/analogdevices/lutrams.txt))
 $(eval $(call add_share_file,share/analogdevices,techlibs/analogdevices/lutrams_map.v))
