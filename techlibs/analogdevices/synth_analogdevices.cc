@@ -272,7 +272,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			run(stringf("read_verilog -lib -specify %s +/analogdevices/cells_sim.v", tech_param));
-			run("read_verilog -lib +/analogdevices/cells_xtra.v");
 			run(stringf("hierarchy -check %s", top_opt.c_str()));
 		}
 
