@@ -129,6 +129,11 @@ void Pass::post_execute(Pass::pre_post_exec_state_t state)
 	int64_t time_ns = PerformanceTimer::query() - state.begin_ns;
 	runtime_ns += time_ns;
 	current_pass = state.parent_pass;
+	subtract_from_current_runtime_ns(time_ns);
+}
+
+void Pass::subtract_from_current_runtime_ns(int64_t time_ns)
+{
 	if (current_pass)
 		current_pass->runtime_ns -= time_ns;
 }

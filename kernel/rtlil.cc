@@ -243,8 +243,12 @@ struct IdStringCollector {
 	std::unordered_set<int> live;
 };
 
+int64_t RTLIL::OwningIdString::gc_ns;
+int RTLIL::OwningIdString::gc_count;
+
 void RTLIL::OwningIdString::collect_garbage()
 {
+	int64_t start = PerformanceTimer::query();
 #ifndef YOSYS_NO_IDS_REFCNT
 	IdStringCollector collector;
 	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
@@ -288,6 +292,10 @@ void RTLIL::OwningIdString::collect_garbage()
 		it = global_autoidx_id_prefix_storage_.erase(it);
 	}
 #endif
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	gc_ns += time_ns;
+	++gc_count;
 }
 
 dict<std::string, std::string> RTLIL::constpad;

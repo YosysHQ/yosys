@@ -95,6 +95,8 @@ struct Pass
 	bool experimental_flag = false;
 	bool internal_flag = false;
 
+	static void subtract_from_current_runtime_ns(int64_t time_ns);
+
 	void experimental() {
 		experimental_flag = true;
 	}
