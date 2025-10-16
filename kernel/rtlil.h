@@ -578,6 +578,8 @@ struct RTLIL::OwningIdString : public RTLIL::IdString {
 
 	// Collect all non-owning references.
 	static void collect_garbage();
+	static int64_t garbage_collection_ns() { return gc_ns; }
+	static int garbage_collection_count() { return gc_count; }
 
 	// Used by the ID() macro to create an IdString with no destructor whose string will
 	// never be released. If ID() creates a closure-static `OwningIdString` then
@@ -589,6 +591,9 @@ struct RTLIL::OwningIdString : public RTLIL::IdString {
 		return result;
 	}
 private:
+	static int64_t gc_ns;
+	static int gc_count;
+
 	void get_reference()
 	{
 		get_reference(index_);
