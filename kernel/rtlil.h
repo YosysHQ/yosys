@@ -404,16 +404,15 @@ struct RTLIL::IdString
 		return strncmp(c_str()+pos, s, len);
 	}
 
-	bool begins_with(const char* prefix) const {
-		size_t len = strlen(prefix);
-		if (size() < len) return false;
-		return compare(0, len, prefix) == 0;
+	bool begins_with(std::string_view prefix) const {
+		if (size() < prefix.size()) return false;
+		return compare(0, prefix.size(), prefix.data()) == 0;
 	}
 
-	bool ends_with(const char* suffix) const {
-		size_t len = strlen(suffix);
-		if (size() < len) return false;
-		return compare(size()-len, len, suffix) == 0;
+	bool ends_with(std::string_view suffix) const {
+		size_t sz = size();
+		if (sz < suffix.size()) return false;
+		return compare(sz - suffix.size(), suffix.size(), suffix.data()) == 0;
 	}
 
 	bool contains(const char* str) const {
