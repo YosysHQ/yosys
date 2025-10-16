@@ -1,0 +1,16 @@
+#logger -expect warning "Identifier `\\genblk1[0].x' is implicitly declared." 1
+#logger -expect warning "Identifier `\\genblk1[1].x' is implicitly declared." 1
+read_verilog -sv genblk_wire.sv
+
+select -assert-count 1 gate/genblk1[0].x
+select -assert-count 1 gate/genblk1[1].x
+select -assert-count 0 gate/genblk1[2].x
+
+select -assert-count 1 gold/genblk1[0].x
+select -assert-count 1 gold/genblk1[1].x
+select -assert-count 0 gold/genblk1[2].x
+
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
