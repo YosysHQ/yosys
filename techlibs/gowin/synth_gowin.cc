@@ -94,13 +94,16 @@ struct SynthGowinPass : public ScriptPass
 		log("		  The following families are supported:\n");
 		log("        'gw1n', 'gw2a', 'gw5a'.\n");
 		log("\n");
+		log("    -setundef\n");
+		log("        run 'setundef' with '-undriven -params -zero' options\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, vout_file, json_file, family;
-	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check;
+	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef;
 
 	void clear_flags() override
 	{
@@ -119,6 +122,7 @@ struct SynthGowinPass : public ScriptPass
 		noiopads = false;
 		noalu = false;
 		no_rw_check = false;
+		setundef = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -199,6 +203,10 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-no-rw-check") {
 				no_rw_check = true;
+				continue;
+			}
+			if (args[argidx] == "-setundef") {
+				setundef = true;
 				continue;
 			}
 			break;
@@ -321,7 +329,8 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_lut_ins -tech gowin");
-			run("setundef -undriven -params -zero");
+			if (setundef || help_mode)
+				run("setundef -undriven -params -zero", "(only if -setundef used)");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			if (!vout_file.empty() || help_mode) // vendor output requires 1-bit wires
 				run("splitnets -ports", "(only if -vout used)");
