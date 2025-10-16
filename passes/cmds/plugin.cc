@@ -116,7 +116,7 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 					if (potential_path.extension() != ".so") {
 						potential_path = search_path / (orig_filename + ".so");
 					}
-					hdl = dlopen(potential_path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+					hdl = dlopen(potential_path.string().c_str(), RTLD_LAZY | RTLD_LOCAL);
 					if (hdl != nullptr) {
 						break;
 					}
