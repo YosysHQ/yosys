@@ -236,9 +236,6 @@ struct RTLIL::IdString
 
 		ensure_prepopulated();
 
-		if (p.empty())
-			return 0;
-
 		log_assert(p[0] == '$' || p[0] == '\\');
 		for (char ch : p)
 			if ((unsigned)ch <= (unsigned)' ')

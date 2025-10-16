@@ -64,9 +64,10 @@ void RTLIL::IdString::prepopulate()
 {
 	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
 	global_id_storage_.reserve(size);
-	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(""), 0});
 	global_id_index_.reserve(size);
 	global_refcount_storage_.resize(size, 1);
+	RTLIL::IdString::global_id_index_.insert({"", 0});
+	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(""), 0});
 #define X(N) populate("\\" #N);
 #include "kernel/constids.inc"
 #undef X
