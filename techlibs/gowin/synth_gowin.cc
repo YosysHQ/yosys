@@ -330,10 +330,10 @@ struct SynthGowinPass : public ScriptPass
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_lut_ins -tech gowin");
 			if (setundef || help_mode)
-				run("setundef -undriven -params -zero", "(only if -setundef used)");
+				run("setundef -undriven -params -zero", "(only if -setundef)");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			if (!vout_file.empty() || help_mode) // vendor output requires 1-bit wires
-				run("splitnets -ports", "(only if -vout used)");
+				run("splitnets -ports", "(only if -vout)");
 			run("clean");
 			run("autoname");
 		}
