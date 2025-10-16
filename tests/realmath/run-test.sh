@@ -21,7 +21,6 @@ python3 generate.py -c $count $seed
 cd temp
 echo "running tests.."
 for ((i = 0; i < $count; i++)); do
-	echo -n "[$i]"
 	idx=$( printf "%05d" $i )
 	../../../yosys -qq uut_${idx}.ys
 	iverilog -o uut_${idx}_tb uut_${idx}_tb.v uut_${idx}.v uut_${idx}_syn.v

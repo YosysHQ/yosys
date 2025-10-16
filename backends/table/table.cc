@@ -63,7 +63,6 @@ struct TableBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		design->sort();
 
 		for (auto module : design->modules())
 		{
