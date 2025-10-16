@@ -316,14 +316,14 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				// NB: Xilinx multipliers are signed only
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/analogdevices/{family}_dsp_map.v {options}");
-				run("techmap -map +/mul2dsp.v -map +/analogdevices/dsp_map.v -D DSP_A_MAXWIDTH=25 -D DSP_B_MAXWIDTH=18 "
+				run("techmap -map +/mul2dsp.v -map +/analogdevices/dsp_map.v -D DSP_A_MAXWIDTH=22 -D DSP_B_MAXWIDTH=22 "
 					"-D DSP_A_MAXWIDTH_PARTIAL=18 "	// Partial multipliers are intentionally
 									// limited to 18x18 in order to take
 									// advantage of the (PCOUT << 17) -> PCIN
 									// dedicated cascade chain capability
 					"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
 					"-D DSP_Y_MINWIDTH=9 " // UG901 suggests small multiplies are those 4x4 and smaller
-					"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL25X18");
+					"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL22X22");
 
 				run("select a:mul2dsp");
 				run("setattr -unset mul2dsp");
