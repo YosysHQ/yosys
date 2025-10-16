@@ -415,8 +415,8 @@ struct RTLIL::IdString
 		return compare(sz - suffix.size(), suffix.size(), suffix.data()) == 0;
 	}
 
-	bool contains(const char* str) const {
-		return strstr(c_str(), str);
+	bool contains(std::string_view s) const {
+		return std::string_view(c_str()).find(s) != std::string::npos;
 	}
 
 	size_t size() const {
