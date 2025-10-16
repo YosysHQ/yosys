@@ -95,7 +95,7 @@ struct SynthGowinPass : public ScriptPass
 		log("        'gw1n', 'gw2a', 'gw5a'.\n");
 		log("\n");
 		log("    -setundef\n");
-		log("        run 'setundef' with '-undriven -params -zero' options\n");
+		log("        set undriven wires and parameters to zero\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
