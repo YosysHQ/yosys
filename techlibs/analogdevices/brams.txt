@@ -1,56 +1,188 @@
-# family:        T16FFC            T40LP
-# BRAM:          RBRAM2            RBRAM
-# Supported:     SDP_8192x05       SDP_4096x05
-#                SDP_4096x10       SDP_2048x10
-#                SDP_2048x40       SDP_1024x40
-# Ignored:       SDP_4096x09       SDP_2048x09
-# Unimplemented: SP_2048x20        SP_1024x20
-#                TDP_4096x09
-#                TDP_8192x05
-#                TDP_2048x40
-#                SP2_2048x09       SP2_1024x09
-#                SP2_4096x05       SP2_2048x05
+ifdef IS_T16FFC {
+	ram block $__ANALOGDEVICES_BLOCKRAM_FULL_ {
+		option "ERR" "ECC" {
+			style "ECC";
+			option "SIZE" "2048x32" {
+				abits 11;
+				width 32;
+				byte 32;
+				option "MODE" "TDP" cost 2501;
+				option "MODE" "SDP" cost 2401;
+			}
+		}
+		option "ERR" "BP" {
+			style "BP";
+			option "SIZE" "2048x36" {
+				abits 11;
+				width 36;
+				byte 9;
+				option "MODE" "TDP" cost 2504;
+				option "MODE" "SDP" cost 2404;
+			}
+		}
+		option "ERR" "NONE" {
+			option "SIZE" "8192x05" {
+				abits 13;
+				width 5;
+				byte 1;
+				option "MODE" "TDP" cost 2505;
+				option "MODE" "SDP" cost 2405;
+			}
+			option "SIZE" "4096x09" {
+				abits 12;
+				width 9;
+				byte 1;
+				option "MODE" "TDP" cost 2509;
+				option "MODE" "SDP" cost 2409;
+			}
+			option "SIZE" "4096x10" {
+				abits 12;
+				width 10;
+				byte 1;
+				option "MODE" "TDP" forbid;
+				option "MODE" "SDP" cost 2410;
+			}
+			option "SIZE" "2048x40" {
+				abits 11;
+				width 40;
+				byte 8;
+				option "MODE" "TDP" cost 2505;
+				option "MODE" "SDP" cost 2405;
+			}
+		}
 
+		# supports any initialization value, but need to export memory files
+		init any;
 
-# Simple Dual Port
-
-ram block $__ANALOGDEVICES_BLOCKRAM_SDP_ {
-	option "ENABLE_WIDTH" "BIT" {
-		ifdef IS_T40LP {
-			abits 12;
+		option "MODE" "TDP" {
+			port srsw "A" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+			port srsw "B" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
 		}
-		ifdef IS_T16FFC {
-			abits 13;
+		option "MODE" "SDP" {
+			port sw "A" {
+				clock anyedge;
+				clken;
+			}
+			port sr "B" {
+				clock anyedge;
+				clken;
+			}
 		}
-		widths 5 10 global;
-		byte 1;
-		cost 1;
-	}
-	option "ENABLE_WIDTH" "BYTE" {
-		ifdef IS_T40LP {
-			abits 10;
-		}
-		ifdef IS_T16FFC {
-			abits 11;
-		}
-		width 40;
-		byte 8;
-		cost 4;
-	}
-	# Unclear if/how RBRAM is initialized, default SIM_INIT_BEHAVIOUR is UNINITIALIZED
-	init none;
-	port sr "R" {
-		clock anyedge;
-		clken;
-	}
-	port sw "W" {
-		clock anyedge;
-		clken;
 	}
 }
 
-# Single Port
+ram block $__ANALOGDEVICES_BLOCKRAM_HALF_ {
+	option "ERR" "ECC" {
+		style "ECC";
+		option "SIZE" "1024x32" {
+			abits 10;
+			width 32;
+			byte 32;
+			option "MODE" "SDP" cost 2401;
+			option "MODE" "SP" cost 2301;
+		}
+	}
+	option "ERR" "BP" {
+		style "BP";
+		option "SIZE" "1024x36" {
+			abits 10;
+			width 36;
+			byte 9;
+			option "MODE" "SDP" cost 2404;
+			option "MODE" "SP" cost 2304;
+		}
+	}
+	option "ERR" "NONE" {
+		option "SIZE" "4096x05" {
+			abits 12;
+			width 5;
+			byte 1;
+			option "MODE" "SDP" cost 2405;
+			option "MODE" "SP" cost 2305;
+		}
+		option "SIZE" "2048x09" {
+			abits 11;
+			width 9;
+			byte 1;
+			option "MODE" "SDP" cost 2409;
+			option "MODE" "SP" cost 2309;
+		}
+		option "SIZE" "2048x10" {
+			abits 11;
+			width 10;
+			byte 1;
+			option "MODE" "SDP" cost 2410;
+			option "MODE" "SP" cost 2310;
+		}
+		option "SIZE" "1024x40" {
+			abits 10;
+			width 40;
+			byte 8;
+			option "MODE" "SDP" cost 2405;
+			option "MODE" "SP" cost 2305;
+		}
+	}
 
-# True Dual Port
+	option "MODE" "SDP" {
+		ifdef IS_T16FFC forbid;
+		port sw "A" {
+			clock anyedge;
+			clken;
+		}
+		port sr "B" {
+			clock anyedge;
+			clken;
+		}
+	}
+	option "MODE" "SP" {
+		ifdef IS_T40LP forbid;
+		port srsw "A" {
+			clock anyedge;
+			clken;
+			rdwr no_change;
+		}
+	}
+}
 
-# Dual Single Port
+ifdef IS_T40LP {
+	ram block $__ANALOGDEVICES_BLOCKRAM_QUARTER_ {
+		option "ERR" "BP" {
+			style "BP";
+			option "SIZE" "512x18" {
+				abits 9;
+				width 18;
+				byte 9;
+				option "MODE" "SP" cost 2202;
+			}
+		}
+		option "ERR" "NONE" {
+			option "SIZE" "2048x05" {
+				abits 11;
+				width 5;
+				byte 1;
+				option "MODE" "SP" cost 2205;
+			}
+			option "SIZE" "1024x09" {
+				abits 10;
+				width 9;
+				byte 1;
+				option "MODE" "SP" cost 2209;
+			}
+		}
+		option "MODE" "SP" {
+			port srsw "A" {
+				clock anyedge;
+				clken;
+				rdwr no_change;
+			}
+		}
+	}
+}
