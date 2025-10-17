@@ -13,5 +13,5 @@ always_comb begin
 end
 endmodule
 EOF
-logger -expect error "^Latch inferred for signal `\\top\.\$unnamed_block\$3\.y' from always_comb process" 1
+logger -expect error '^Latch inferred for signal `\\top\.\$unnamed_block\$3\.y. from always_comb process' 1
 proc
