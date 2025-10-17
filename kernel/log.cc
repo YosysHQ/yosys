@@ -40,6 +40,7 @@ YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
+std::vector<LogSink*> log_sinks;
 std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -100,7 +101,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-static void logv_string(std::string_view format, std::string str) {
+static void logv_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
 		logv_string("\n", "\n");
@@ -164,6 +165,10 @@ static void logv_string(std::string_view format, std::string str) {
 	for (auto f : log_streams)
 		*f << str;
 
+	LogMessage log_msg(severity, str);
+	for (LogSink* sink : log_sinks)
+		sink->log(log_msg);
+
 	RTLIL::Design *design = yosys_get_design();
 	if (design != nullptr)
 		for (auto &scratchpad : log_scratchpads)
@@ -201,11 +206,11 @@ static void logv_string(std::string_view format, std::string str) {
 	}
 }
 
-void log_formatted_string(std::string_view format, std::string str)
+void log_formatted_string(std::string_view format, std::string str, LogSeverity severity)
 {
 	if (log_make_debug && !ys_debug(1))
 		return;
-	logv_string(format, std::move(str));
+	logv_string(format, std::move(str), severity);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
@@ -291,7 +296,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("%s%s", prefix, message);
+			log_formatted_string("%s", stringf("%s%s", prefix, message), LogSeverity::LOG_WARNING);
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -339,7 +344,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	}
 
 	log_last_error = std::move(str);
-	log("%s%s", prefix, log_last_error);
+	log_formatted_string("%s", stringf("%s%s", prefix, log_last_error), LogSeverity::LOG_ERROR);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -425,7 +430,7 @@ void log_formatted_cmd_error(std::string str)
 			pop_errfile = true;
 		}
 
-		log("ERROR: %s", log_last_error);
+		log_formatted_string("%s", stringf("ERROR: %s", log_last_error), LogSeverity::LOG_ERROR);
 		log_flush();
 
 		if (pop_errfile)
