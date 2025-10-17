@@ -355,10 +355,9 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				params = " [...]";
 			} else {
 				params += " -logic-cost-rom 0.015625";
+				params += " -force-params";
 				params += " -lib +/analogdevices/lutrams.txt";
-				lutrams_map = "+/analogdevices/lutrams_map.v";
 				params += " -lib +/analogdevices/brams.txt";
-				brams_map = "+/analogdevices/brams_map.v";
 				params += tech_param;
 				brams_map += tech_param;
 				if (nolutram)
