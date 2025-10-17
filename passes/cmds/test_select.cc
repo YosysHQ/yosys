@@ -144,10 +144,10 @@ struct TestSelectPass : public Pass {
 
 		for (auto *mod : sub_sel) {
 			if (mod->is_selected_whole()) {
-				log_debug("  Adding %s.\n", id2cstr(mod->name));
+				log_debug("  Adding %s.\n", log_id(mod->name));
 				selected_modules.insert(mod->name);
 			} else for (auto *memb : mod->selected_members()) {
-				log_debug("  Adding %s.%s.\n", id2cstr(mod->name), id2cstr(memb->name));
+				log_debug("  Adding %s.%s.\n", log_id(mod->name), log_id(memb->name));
 				selected_members[mod->name].insert(memb);
 			}
 		}
