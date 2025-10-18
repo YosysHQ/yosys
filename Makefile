@@ -885,6 +885,7 @@ endif
 
 # Tests that generate .mk with tests/gen-tests-makefile.sh
 MK_TEST_DIRS =
+MK_TEST_DIRS += tests/arch/analogdevices
 MK_TEST_DIRS += tests/arch/anlogic
 MK_TEST_DIRS += tests/arch/ecp5
 MK_TEST_DIRS += tests/arch/efinix
