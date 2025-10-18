@@ -22,6 +22,30 @@ module sync_ram_sp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 endmodule // sync_ram_sp
 
 
+module sync_ram_sp_nochange #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
+   (input  wire                      write_enable, clk,
+    input  wire  [DATA_WIDTH-1:0]    data_in,
+    input  wire  [ADDRESS_WIDTH-1:0] address_in,
+    output wire  [DATA_WIDTH-1:0]    data_out);
+
+  localparam WORD  = (DATA_WIDTH-1);
+  localparam DEPTH = (2**ADDRESS_WIDTH-1);
+
+  reg [WORD:0] data_out_r;
+  reg [WORD:0] memory [0:DEPTH];
+
+  always @(posedge clk) begin
+    if (write_enable)
+      memory[address_in] <= data_in;
+    else
+      data_out_r <= memory[address_in];
+  end
+
+  assign data_out = data_out_r;
+
+endmodule // sync_ram_sp_nochange
+
+
 module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
    (input  wire                      clk, write_enable,
     input  wire  [DATA_WIDTH-1:0]    data_in,
@@ -110,6 +134,62 @@ module sync_ram_sdp_wrr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10, SHIFT_VAL=1)
 	assign data_out = data_out_r;
 
 endmodule // sync_ram_sdp_wrr
+
+
+module double_sync_ram_sp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10, USE_TDP=0)
+(
+    input  wire                        write_enable_a, clk_a,
+    input  wire  [DATA_WIDTH-1:0]    data_in_a,
+    input  wire  [ADDRESS_WIDTH-1:0] address_in_a,
+    output wire  [DATA_WIDTH-1:0]    data_out_a,
+
+    input  wire                        write_enable_b, clk_b,
+    input  wire  [DATA_WIDTH-1:0]    data_in_b,
+    input  wire  [ADDRESS_WIDTH-1:0] address_in_b,
+    output wire  [DATA_WIDTH-1:0]    data_out_b
+);
+
+  generate
+    if (USE_TDP) begin
+
+      sync_ram_tdp #(
+          .DATA_WIDTH(DATA_WIDTH),
+          .ADDRESS_WIDTH(ADDRESS_WIDTH+1)
+      ) ram (
+      .clk_a(clk_a), .clk_b(clk_b),
+      .write_enable_a(write_enable_a), .write_enable_b(write_enable_b),
+      .write_data_a(data_in_a), .write_data_b(data_in_b),
+      .addr_a({1'b0, address_in_a}), .addr_b({1'b1, address_in_b}),
+      .read_data_a(data_out_a), .read_data_b(data_out_b)
+      );
+
+    end else begin
+
+      sync_ram_sp #(
+          .DATA_WIDTH(DATA_WIDTH),
+          .ADDRESS_WIDTH(ADDRESS_WIDTH)
+      ) a_ram (
+      .write_enable(write_enable_a),
+      .clk(clk_a),
+      .data_in(data_in_a),
+      .address_in(address_in_a),
+      .data_out(data_out_a)
+      );
+
+      sync_ram_sp #(
+          .DATA_WIDTH(DATA_WIDTH),
+          .ADDRESS_WIDTH(ADDRESS_WIDTH)
+      ) b_ram (
+      .write_enable(write_enable_b),
+      .clk(clk_b),
+      .data_in(data_in_b),
+      .address_in(address_in_b),
+      .data_out(data_out_b)
+      );
+    end
+  endgenerate
+
+endmodule // double_sync_ram_sp
 
 
 module double_sync_ram_sdp #(parameter DATA_WIDTH_A=8, ADDRESS_WIDTH_A=10, DATA_WIDTH_B=8, ADDRESS_WIDTH_B=10)
