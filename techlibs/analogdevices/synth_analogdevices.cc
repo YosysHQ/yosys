@@ -313,7 +313,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
 			if (!nodsp || help_mode) {
 				run("memory_dff"); // xilinx_dsp will merge registers, reserve memory port registers first
-				// NB: Xilinx multipliers are signed only
+				// NB: Analog Devices multipliers are signed only
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/analogdevices/{family}_dsp_map.v {options}");
 				run("techmap -map +/mul2dsp.v -map +/analogdevices/dsp_map.v -D DSP_A_MAXWIDTH=22 -D DSP_B_MAXWIDTH=22 "
