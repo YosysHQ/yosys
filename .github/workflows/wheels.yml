@@ -27,13 +27,13 @@ jobs:
             {
               name: "macOS 13",
               family: "macos",
-              runner: "macos-13",
+              runner: "macos-15-intel",
               archs: "x86_64",
             },
             {
               name: "macOS 14",
               family: "macos",
-              runner: "macos-14",
+              runner: "macos-15",
               archs: "arm64",
             },
             ## Windows is disabled because of an issue with compiling FFI as

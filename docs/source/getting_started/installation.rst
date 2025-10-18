@@ -99,8 +99,8 @@ Installing all prerequisites for Ubuntu 22.04:
 
    sudo apt-get install gperf build-essential clang lld bison flex libfl-dev \
       libreadline-dev gawk tcl-dev libffi-dev git \
-      graphviz xdot pkg-config python3 libboost-system-dev \
-      libboost-python-dev libboost-filesystem-dev zlib1g-dev
+      graphviz xdot pkg-config python3-dev zlib1g-dev
+   curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Installing all prerequisites for macOS 13 (with Homebrew):
 
@@ -141,7 +141,7 @@ For Cygwin use the following command to install all prerequisites, or select the
    missing `strdup` function when using gcc.  It is instead recommended to use
    Windows Subsystem for Linux (WSL) and follow the instructions for Ubuntu.
 
-.. 
+..
    For MSYS2 (MINGW64):
 
    .. code:: console
@@ -215,7 +215,7 @@ Running the build system
 From the root ``yosys`` directory, call the following commands:
 
 .. code:: console
-   
+
    make
    sudo make install
 
@@ -228,7 +228,7 @@ To use a separate (out-of-tree) build directory, provide a path to the Makefile.
 
 Out-of-tree builds require a clean source tree.
 
-.. seealso:: 
+.. seealso::
 
    Refer to :doc:`/yosys_internals/extending_yosys/test_suites` for details on
    testing Yosys once compiled.

@@ -85,8 +85,8 @@ prerequisites for building yosys:
 
 	$ sudo apt-get install build-essential clang lld bison flex libfl-dev \
 		libreadline-dev gawk tcl-dev libffi-dev git \
-		graphviz xdot pkg-config python3 libboost-system-dev \
-		libboost-python-dev libboost-filesystem-dev zlib1g-dev
+		graphviz xdot pkg-config python3-dev zlib1g-dev
+	$ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 The environment variable `CXX` can be used to control the C++ compiler used, or
 run one of the following to override it:
