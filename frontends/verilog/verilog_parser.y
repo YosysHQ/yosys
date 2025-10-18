@@ -98,6 +98,11 @@
 			bool isInLocalScope(const std::string *name);
 			void rewriteGenForDeclInit(AstNode *loop);
 			void ensureAsgnExprAllowed(const parser::location_type loc, bool sv_mode);
+
+			// for header port renames (.alias(real))
+			dict<std::string,std::string> port_rename_assigns;
+			std::vector<std::string> port_rename_wires;
+
 			const AstNode *addIncOrDecStmt(std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> stmt_attr,
 									std::unique_ptr<AstNode> lhs,
 									std::unique_ptr<dict<IdString, std::unique_ptr<AstNode>>> op_attr, AST::AstNodeType op,
@@ -700,12 +705,31 @@ module:
 		extra->current_ast_mod = mod;
 		extra->port_stubs.clear();
 		extra->port_counter = 0;
+		extra->port_rename_assigns.clear();
+		extra->port_rename_wires.clear();
 		mod->str = *$4;
 		append_attr(mod, std::move($1));
 	} module_para_opt module_args_opt TOK_SEMICOL module_body TOK_ENDMODULE opt_label {
 		if (extra->port_stubs.size() != 0)
-			err_at_loc(@7, "Missing details for module port `%s'.",
-					extra->port_stubs.begin()->first.c_str());
+			err_at_loc(@7, "Missing details for module port `%s'.", extra->port_stubs.begin()->first.c_str());
+
+		// inject alias wires and assignments for header renames
+		for (auto &alias : extra->port_rename_wires) {
+			auto w = std::make_unique<AstNode>(@7, AST_WIRE);
+			w->str = alias;
+			extra->ast_stack.back()->children.push_back(std::move(w));
+		}
+		for (auto &kv : extra->port_rename_assigns) {
+			const std::string &real = kv.first;
+			const std::string &alias = kv.second;
+			auto lhs = std::make_unique<AstNode>(@7, AST_IDENTIFIER);
+			auto rhs = std::make_unique<AstNode>(@7, AST_IDENTIFIER);
+			lhs->str = alias;
+			rhs->str = real;
+			auto asn = std::make_unique<AstNode>(@7, AST_ASSIGN, std::move(lhs), std::move(rhs));
+			extra->ast_stack.back()->children.push_back(std::move(asn));
+		}
+
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @$);
 		extra->ast_stack.pop_back();
 		log_assert(extra->ast_stack.size() == 1);
@@ -805,6 +829,13 @@ module_arg:
 	} module_arg_opt_assignment |
 	TOK_DOT TOK_DOT TOK_DOT {
 		extra->do_not_require_port_stubs = true;
+	} |
+	TOK_DOT TOK_ID TOK_LPAREN TOK_ID TOK_RPAREN {
+		// header‑side alias: .alias(real)
+		extra->port_rename_assigns[*$4] = *$2;
+		extra->port_rename_wires.push_back(*$4);
+		extra->port_stubs[*$2] = ++extra->port_counter;
+		extra->port_stubs[*$4] = extra->port_counter;
 	};
 
 package:
@@ -2186,7 +2217,22 @@ wire_name:
 					err_at_loc(@1, "Module port `%s' is neither input nor output.", *$1);
 				if (node->is_reg && node->is_input && !node->is_output && !mode->sv)
 					err_at_loc(@1, "Input port `%s' is declared as register.", *$1);
+
 				node->port_id = extra->port_stubs[*$1];
+				// check if there is an alias with same port_id
+				for (auto it = extra->port_stubs.begin(); it != extra->port_stubs.end(); ) {
+					if (it->second == node->port_id && it->first != *$1) {
+						node->str = it->first;
+						it = extra->port_stubs.erase(it);
+						// flip mapping for outputs
+						if (node->is_output) {
+							extra->port_rename_assigns[node->str] = *$1;
+						}
+						break;
+					} else {
+						++it;
+					}
+				}
 				extra->port_stubs.erase(*$1);
 			} else {
 				if (node->is_input || node->is_output)
