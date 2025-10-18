@@ -13,7 +13,7 @@ ram distributed $__ANALOGDEVICES_LUTRAM_SP_ {
 	init no_undef;
 	prune_rom;
 	port arsw "RW" {
-		clock anyedge;
+		clock posedge;
 	}
 }
 
