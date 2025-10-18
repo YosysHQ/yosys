@@ -61,6 +61,7 @@
 /venv
 /*.whl
 /*.egg-info
+/.tox
 
 # yosysjs dependency
 /viz.js
