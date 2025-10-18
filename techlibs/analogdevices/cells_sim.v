@@ -1014,6 +1014,7 @@ endmodule
 
 // DSP
 
+(* abc9_box *)
 module RBBDSP (
   output [21:0] AO_LOC,
   output [21:0] BO_LOC,
@@ -1025,9 +1026,9 @@ module RBBDSP (
   output [47:0] PO_LOC,
   output        RST_O,
 
-  input  [1:0] CI_LOC,
-  input  [1:0] OPCODE,
-  input  [1:0] OPCODE_I,
+  input  [1:0]  CI_LOC,
+  input  [1:0]  OPCODE,
+  input  [1:0]  OPCODE_I,
   input  [21:0] A,
   input  [21:0] AI_LOC,
   input  [21:0] B,
@@ -1086,6 +1087,12 @@ parameter REG_PADD = 1'b0;
 parameter REG_SFT = 1'b0;
 parameter RST_SEL = 1'b0;
 parameter FF_SYNC_RST = 1'b0;
+
+specify
+  if (!REG_A)    (A *> P) = 1000;
+  if (!REG_B)    (B *> P) = 1000;
+  if (!REG_D[0]) (D *> P) = 1000;
+endspecify
 
 // Much of this functionality is TODO.
 
