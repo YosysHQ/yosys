@@ -12,10 +12,9 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 
 design -load postopt
 cd lutram_1w1r
-select -assert-count 1 t:BUFG
 select -assert-count 8 t:FFRE
 select -assert-count 8 t:RAMS32X1
-select -assert-none t:BUFG t:FFRE t:RAMS32X1 %% t:* %D
+select -assert-none t:FFRE t:RAMS32X1 %% t:* %D
 
 
 design -reset
@@ -33,10 +32,9 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 design -load postopt
 cd lutram_1w1r
 dump
-select -assert-count 1 t:BUFG
 select -assert-count 8 t:FFRE
 select -assert-count 8 t:RAMS64X1
-select -assert-none t:BUFG t:FFRE t:RAMS64X1 %% t:* %D
+select -assert-none t:FFRE t:RAMS64X1 %% t:* %D
 
 
 design -reset
@@ -53,10 +51,9 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 
 design -load postopt
 cd lutram_1w3r
-select -assert-count 1 t:BUFG
 select -assert-count 24 t:FFRE
 select -assert-count 16 t:RAMD32X1
-select -assert-none t:BUFG t:FFRE t:RAMD32X1 %% t:* %D
+select -assert-none t:FFRE t:RAMD32X1 %% t:* %D
 
 
 design -reset
@@ -73,10 +70,9 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 
 design -load postopt
 cd lutram_1w3r
-select -assert-count 1 t:BUFG
 select -assert-count 24 t:FFRE
 select -assert-count 16 t:RAMD64X1
-select -assert-none t:BUFG t:FFRE t:RAMD64X1 %% t:* %D
+select -assert-none t:FFRE t:RAMD64X1 %% t:* %D
 
 
 design -reset
@@ -93,10 +89,9 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 
 design -load postopt
 cd lutram_1w1r
-select -assert-count 1 t:BUFG
 select -assert-count 6 t:FFRE
 select -assert-count 6 t:RAMS32X1
-select -assert-none t:BUFG t:FFRE t:RAMS32X1 %% t:* %D
+select -assert-none t:FFRE t:RAMS32X1 %% t:* %D
 
 
 design -reset
@@ -113,7 +108,6 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 
 design -load postopt
 cd lutram_1w1r
-select -assert-count 1 t:BUFG
 select -assert-count 6 t:FFRE
 select -assert-count 6 t:RAMS64X1
-select -assert-none t:BUFG t:FFRE t:RAMS64X1 %% t:* %D
+select -assert-none t:FFRE t:RAMS64X1 %% t:* %D
