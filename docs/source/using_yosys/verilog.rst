@@ -9,7 +9,7 @@ Yosys and there are currently no plans to add support
 for them:
 
 - Non-synthesizable language features as defined in
-	IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
+  IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002
 
 - The ``tri``, ``triand`` and ``trior`` net types
 
@@ -356,21 +356,29 @@ from SystemVerilog:
   files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
-	- type casts are currently not supported
+
+  - type casts are currently not supported
 
 - enums are supported (including inside packages)
-	- but are currently not strongly typed
+
+  - but are currently not strongly typed
 
 - packed structs and unions are supported
-	- arrays of packed structs/unions are currently not supported
-	- structure literals are currently not supported
+
+  - arrays of packed structs/unions are currently not supported
+  - structure literals are currently not supported
 
 - multidimensional arrays are supported
-	- array assignment of unpacked arrays is currently not supported
-	- array literals are currently not supported
 
-- SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
-  ports are inputs or outputs are supported.
+  - array assignment of unpacked arrays is currently not supported
+  - array literals are currently not supported
+
+- SystemVerilog interfaces (SVIs), including modports for specifying whether
+  ports are inputs or outputs, are partially supported.
+
+  - interfaces must be provided as *named* arguments, not positional arguments.
+    i.e. ``foo bar(.intf(intf0), .x(x));`` is supported but ``foo bar(intf0,
+    x);`` is not.
 
 - Assignments within expressions are supported.
 
