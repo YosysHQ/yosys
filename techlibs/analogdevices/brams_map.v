@@ -6,7 +6,7 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 	parameter OPTION_ERR = "NONE";
 	parameter PORT_A_WR_EN_WIDTH = 1;
 	parameter PORT_A_CLK_POL = 1;
-	parameter PORT_B_WR_EN_WIDTH = 1;
+	parameter PORT_B_WR_EN_WIDTH = PORT_A_WR_EN_WIDTH;
 	parameter PORT_B_CLK_POL = 1;
 
 	// needs -force-params
@@ -23,9 +23,7 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 	// localparam BRAM_MODE = "SDP_2048x36_BP";
 	localparam BRAM_MODE = (OPTION_ERR!="NONE") ? {OPTION_MODE, "_", OPTION_SIZE, "_", OPTION_ERR} :
 							{OPTION_MODE, "_", OPTION_SIZE};
-	localparam PBITS = 	(OPTION_ERR=="FP") ? 1 :
-						(OPTION_ERR=="BP") ? PORT_A_WR_EN_WIDTH :
-						0;
+	localparam PBITS = 	(OPTION_ERR=="BP") ? PORT_A_WR_EN_WIDTH : 1;
 
 	// libmap ports
 	input PORT_A_CLK;
@@ -51,8 +49,8 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 	#(
 		.TARGET_NODE(NODE),
 		.BRAM_MODE(BRAM_MODE),
-		.QA_REG(0),
-		.QB_REG(0),
+		.QA_REG((OPTION_ERR=="ECC") ? 1 : 0),
+		.QB_REG((OPTION_ERR=="ECC") ? 1 : 0),
 		.CLKA_INV(!PORT_A_CLK_POL),
 		.CLKB_INV(!PORT_B_CLK_POL),
 		.DATA_WIDTH(WIDTH),
@@ -78,6 +76,7 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 
 	// check config
 	generate
+		if (PORT_A_WR_EN_WIDTH == PORT_B_WR_EN_WIDTH)
 		case (BRAM_MODE)
 		`ifdef IS_T40LP
 			"SDP_1024x18_FP",
@@ -107,11 +106,12 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 			"TDP_2048x36_BP",
 			"SDP_2048x18_FP",
 			"SDP_2048x16_BP",
-			"SDP_4096x09",
-			"SDP_8192x05",
-			"SDP_2048x32_ECC",
-			"SDP_2048x40",
-			"SDP_2048x36_BP",
+			// The following are rejected in eXpreso
+			// "SDP_4096x09",
+			// "SDP_8192x05",
+			// "SDP_2048x32_ECC",
+			// "SDP_2048x40",
+			// "SDP_2048x36_BP",
 			"SDP_1024x32_ECC",
 			"SDP_1024x36_BP",
 			"SDP_4096x10",
@@ -124,6 +124,8 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 		`endif
 			default: wire _TECHMAP_FAIL_ = 1;
 		endcase
+		else
+			wire _TECHMAP_FAIL_ = 1;
 	endgenerate
 
 endmodule
@@ -136,7 +138,7 @@ module $__ANALOGDEVICES_BLOCKRAM_HALF_ (...);
 	parameter OPTION_ERR = "NONE";
 	parameter PORT_A_WR_EN_WIDTH = 1;
 	parameter PORT_A_CLK_POL = 1;
-	parameter PORT_B_WR_EN_WIDTH = 1;
+	parameter PORT_B_WR_EN_WIDTH = PORT_A_WR_EN_WIDTH;
 	parameter PORT_B_CLK_POL = 1;
 
 	// needs -force-params
@@ -163,6 +165,7 @@ module $__ANALOGDEVICES_BLOCKRAM_HALF_ (...);
 		.INIT(INIT),
 		.OPTION_MODE(OPTION_MODE),
 		.OPTION_SIZE(OPTION_SIZE),
+		.OPTION_ERR(OPTION_ERR),
 		.PORT_A_WR_EN_WIDTH(PORT_A_WR_EN_WIDTH),
 		.PORT_A_CLK_POL(PORT_A_CLK_POL),
 		.PORT_B_WR_EN_WIDTH(PORT_B_WR_EN_WIDTH),
@@ -195,7 +198,7 @@ module $__ANALOGDEVICES_BLOCKRAM_QUARTER_ (...);
 	parameter OPTION_ERR = "NONE";
 	parameter PORT_A_WR_EN_WIDTH = 1;
 	parameter PORT_A_CLK_POL = 1;
-	parameter PORT_B_WR_EN_WIDTH = 1;
+	parameter PORT_B_WR_EN_WIDTH = PORT_A_WR_EN_WIDTH;
 	parameter PORT_B_CLK_POL = 1;
 
 	// needs -force-params
@@ -215,6 +218,7 @@ module $__ANALOGDEVICES_BLOCKRAM_QUARTER_ (...);
 		.INIT(INIT),
 		.OPTION_MODE(OPTION_MODE),
 		.OPTION_SIZE(OPTION_SIZE),
+		.OPTION_ERR(OPTION_ERR),
 		.PORT_A_WR_EN_WIDTH(PORT_A_WR_EN_WIDTH),
 		.PORT_A_CLK_POL(PORT_A_CLK_POL),
 		.PORT_B_WR_EN_WIDTH(PORT_B_WR_EN_WIDTH),
