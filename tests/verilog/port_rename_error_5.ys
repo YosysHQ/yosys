@@ -1,0 +1,14 @@
+# ANSI-style renaming
+logger -expect error "syntax error" 1
+read_verilog << EOF
+module gate_ansi (
+    input  .alias_a(a),
+    output .alias_b(b)
+);
+    wire a;
+    wire b;
+    assign b = a;
+endmodule
+EOF
+logger -check-expected
+design -reset

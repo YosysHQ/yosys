@@ -1,0 +1,12 @@
+# Multiple names for the same input port
+logger -expect error "Missing details for module port" 1
+read_verilog << EOF
+module gate_multi_inout (
+    .i(a),
+    .j(a)
+);
+    input a;
+endmodule
+EOF
+logger -check-expected
+design -reset
