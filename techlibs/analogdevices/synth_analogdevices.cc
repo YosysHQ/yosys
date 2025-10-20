@@ -506,7 +506,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (check_label("edif")) {
 			if (!edif_file.empty() || help_mode) {
-				run("delete t:$scopeinfo");
+				run("delete t:$assert t:$scopeinfo");
 				run(stringf("write_edif %s", edif_file.c_str()));
 			}
 		}
