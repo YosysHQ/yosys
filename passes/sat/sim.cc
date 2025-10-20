@@ -2692,7 +2692,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
-		int cycle_width = 2;
+		int cycle_width = 10;
 		int append = 0;
 		bool start_set = false, stop_set = false, at_set = false;
 

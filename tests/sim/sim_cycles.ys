@@ -2,7 +2,7 @@ read_verilog dff.v
 prep
 
 # create fst with 20 clock cycles (41 samples, 202ns)
-sim -clock clk -fst sim_cycles.fst -n 20
+sim -clock clk -fst sim_cycles.fst -width 2 -n 20
 
 logger -expect-no-warnings
 
