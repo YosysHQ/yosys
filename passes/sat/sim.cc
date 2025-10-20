@@ -1392,7 +1392,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run(Module *topmod, int numcycles)
+	void run(Module *topmod, int cycle_width, int numcycles)
 	{
 		log_assert(top == nullptr);
 		top = new SimInstance(this, scope, topmod);
@@ -1418,20 +1418,20 @@ struct SimWorker : SimShared
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
 			if (debug)
-				log("\n===== %d =====\n", 10*cycle + 5);
+				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width/2));
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
 			update(true);
-			register_output_step(10*cycle + 5);
+			register_output_step(cycle_width*cycle + cycle_width/2);
 
 			if (cycle == 0)
 				top->set_initstate_outputs(State::S0);
 
 			if (debug)
-				log("\n===== %d =====\n", 10*cycle + 10);
+				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width));
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+2);
 
@@ -1444,10 +1444,10 @@ struct SimWorker : SimShared
 			}
 
 			update(true);
-			register_output_step(10*cycle + 10);
+			register_output_step(cycle_width*cycle + cycle_width);
 		}
 
-		register_output_step(10*numcycles + 2);
+		register_output_step(cycle_width*numcycles + 2);
 
 		write_output_files();
 	}
@@ -1582,7 +1582,7 @@ struct SimWorker : SimShared
 		return atoi(name.substr(pos+1).c_str());
 	}
 
-	void run_cosim_aiger_witness(Module *topmod)
+	void run_cosim_aiger_witness(Module *topmod, int cycle_width)
 	{
 		log_assert(top == nullptr);
 		if (!multiclock && (clock.size()+clockn.size())==0)
@@ -1691,18 +1691,18 @@ struct SimWorker : SimShared
 						set_inports(clockn, State::S1);
 					}
 					update(true);
-					register_output_step(10*cycle);
+					register_output_step(cycle_width*cycle);
 					if (!multiclock && cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update(true);
-						register_output_step(10*cycle + 5);
+						register_output_step(cycle_width*cycle + cycle_width/2);
 					}
 					cycle++;
 					break;
 			}
 		}
-		register_output_step(10*cycle);
+		register_output_step(cycle_width*cycle);
 		write_output_files();
 	}
 
@@ -1730,7 +1730,7 @@ struct SimWorker : SimShared
 		return name.substr(0, pos);
 	}
 
-	void run_cosim_btor2_witness(Module *topmod)
+	void run_cosim_btor2_witness(Module *topmod, int cycle_width)
 	{
 		log_assert(top == nullptr);
 		if (!multiclock && (clock.size()+clockn.size())==0)
@@ -1768,12 +1768,12 @@ struct SimWorker : SimShared
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
 					update(true);
-					register_output_step(10*cycle+0);
+					register_output_step(cycle_width*cycle + 0);
 					if (!multiclock) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update(true);
-						register_output_step(10*cycle+5);
+						register_output_step(cycle_width*cycle + cycle_width/2);
 					}
 					cycle++;
 					prev_cycle = curr_cycle;
@@ -1832,7 +1832,7 @@ struct SimWorker : SimShared
 					break;
 			}
 		}
-		register_output_step(10*cycle);
+		register_output_step(cycle_width*cycle);
 		write_output_files();
 	}
 
@@ -1983,7 +1983,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run_cosim_yw_witness(Module *topmod, int append)
+	void run_cosim_yw_witness(Module *topmod, int cycle_width, int append)
 	{
 		if (!clock.empty())
 			log_cmd_error("The -clock option is not required nor supported when reading a Yosys witness file.\n");
@@ -2013,7 +2013,7 @@ struct SimWorker : SimShared
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
 				update(false);
-				register_output_step(5);
+				register_output_step(cycle_width/2);
 			}
 			top->set_initstate_outputs(State::S0);
 		}
@@ -2026,18 +2026,18 @@ struct SimWorker : SimShared
 				set_yw_state(yw, hierarchy, cycle);
 			set_yw_clocks(yw, hierarchy, true);
 			update(true);
-			register_output_step(10 * cycle);
+			register_output_step(cycle_width*cycle);
 
 			if (!yw.clocks.empty()) {
 				if (debug)
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
 				update(false);
-				register_output_step(5 + 10 * cycle);
+				register_output_step(cycle_width*cycle + cycle_width/2);
 			}
 		}
 
-		register_output_step(10 * (GetSize(yw.steps) + append));
+		register_output_step(cycle_width * (GetSize(yw.steps) + append));
 		write_output_files();
 	}
 
@@ -2630,6 +2630,9 @@ struct SimPass : public Pass {
 		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
+		log("    -width <integer>\n");
+		log("        cycle width in generated simulation output (must be divisible by 2).\n");
+		log("\n");
 		log("    -append <integer>\n");
 		log("        number of extra clock cycles to simulate for a Yosys witness input\n");
 		log("\n");
@@ -2689,6 +2692,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
+		int cycle_width = 10;
 		int append = 0;
 		bool start_set = false, stop_set = false, at_set = false;
 
@@ -2779,6 +2783,12 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-append" && argidx+1 < args.size()) {
 				append = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-width" && argidx+1 < args.size()) {
+				cycle_width = atoi(args[++argidx].c_str());
+				if (cycle_width <= 0 || (cycle_width % 2))
+					log_cmd_error("Cycle width must be positive even number.\n");
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -2872,7 +2882,7 @@ struct SimPass : public Pass {
 		}
 
 		if (worker.sim_filename.empty())
-			worker.run(top_mod, numcycles);
+			worker.run(top_mod, cycle_width, numcycles);
 		else {
 			std::string filename_trim = file_base_name(worker.sim_filename);
 			if (filename_trim.size() > 4 && ((filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) ||
@@ -2881,11 +2891,11 @@ struct SimPass : public Pass {
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".aiw") == 0) {
 				if (worker.map_filename.empty())
 					log_cmd_error("For AIGER witness file map parameter is mandatory.\n");
-				worker.run_cosim_aiger_witness(top_mod);
+				worker.run_cosim_aiger_witness(top_mod, cycle_width);
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".wit") == 0) {
-				worker.run_cosim_btor2_witness(top_mod);
+				worker.run_cosim_btor2_witness(top_mod, cycle_width);
 			} else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".yw") == 0) {
-				worker.run_cosim_yw_witness(top_mod, append);
+				worker.run_cosim_yw_witness(top_mod, cycle_width, append);
 			} else {
 				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename);
 			}
