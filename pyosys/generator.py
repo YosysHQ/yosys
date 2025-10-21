@@ -56,6 +56,7 @@ from cxxheaderparser.types import (
     Variable,
     Array,
     FundamentalSpecifier,
+    FunctionType,
 )
 
 __file_dir__ = Path(__file__).absolute().parent
@@ -177,11 +178,11 @@ pyosys_headers = [
                 denylist=frozenset({"bits", "bitvectorize"}),
             ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("NamedObject", denylist=frozenset({"get_blackbox_attribute"})),
+            PyosysClass("NamedObject"),
             PyosysClass("Selection"),
             # PyosysClass("Monitor"), # Virtual methods, manually bridged
-            PyosysClass("CaseRule", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("SwitchRule", denylist=frozenset({"get_blackbox_attribute"})),
+            PyosysClass("CaseRule"),
+            PyosysClass("SwitchRule"),
             PyosysClass("SyncRule"),
             PyosysClass(
                 "Process",
@@ -219,7 +220,7 @@ pyosys_headers = [
             ),
             PyosysClass(
                 "Design",
-                string_expr="s.hashidx_",
+                string_expr="std::to_string(s.hashidx_)",
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
             ),
@@ -241,13 +242,17 @@ class PyosysType:
 
     @classmethod
     def from_type(Self, type_obj, drop_const=False) -> "PyosysType":
-        const = type_obj.const and not drop_const
+        const = hasattr(type_obj, "const") and type_obj.const and not drop_const
         if isinstance(type_obj, Pointer):
             ptr_to = Self.from_type(type_obj.ptr_to)
             return Self("ptr", (ptr_to,), const)
         elif isinstance(type_obj, Reference):
             ref_to = Self.from_type(type_obj.ref_to)
             return Self("ref", (ref_to,), const)
+        elif isinstance(type_obj, FunctionType):
+            ret_type = Self.from_type(type_obj.return_type)
+            param_types = (Self.from_type(p.type) for p in type_obj.parameters)
+            return Self("fn", (ret_type, *param_types), False)
         assert isinstance(
             type_obj, Type
         ), f"unexpected c++ type object of type {type(type_obj)}"
@@ -270,6 +275,16 @@ class PyosysType:
         if title == "Dict":
             key, value = self.specialization
             return f"{key.generate_identifier()}To{value.generate_identifier()}{title}"
+        elif title == "Fn":
+            identifier = self.specialization[0].generate_identifier()
+            if identifier == "Void":
+                identifier = ""
+            else:
+                identifier += "From"
+            identifier += "And".join(
+                p.generate_identifier() for p in self.specialization[1:]
+            )
+            return identifier
 
         return (
             "".join(spec.generate_identifier() for spec in self.specialization) + title
@@ -283,6 +298,9 @@ class PyosysType:
             return const_prefix + f"{self.specialization[0].generate_cpp_name()} *"
         elif self.base == "ref":
             return const_prefix + f"{self.specialization[0].generate_cpp_name()} &"
+        elif self.base == "fn":
+            param_cpp_names = (s.generate_cpp_name() for s in self.specialization[1:])
+            return f"{self.specialization[0].generate_cpp_name()}({','.join(param_cpp_names)})"
         else:
             return (
                 const_prefix
@@ -301,7 +319,7 @@ class PyosysWrapperGenerator(object):
         self.f = wrapper_stream
         self.f_inc = header_stream
         self.found_containers: Dict[PyosysType, Any] = {}
-        self.class_registry: Dict[str, ClassScope] = {}
+        self.class_registry: Dict[str, Tuple[ClassScope, PyosysClass]] = {}
 
     # entry point
     def generate(self):
@@ -380,7 +398,7 @@ class PyosysWrapperGenerator(object):
         if isinstance(type_info, Reference):
             return PyosysWrapperGenerator.find_containers(containers, type_info.ref_to)
         if not isinstance(type_info, Type):
-            return ()
+            return {}
         segments = type_info.typename.segments
         containers_found = {}
         for segment in segments:
@@ -411,19 +429,23 @@ class PyosysWrapperGenerator(object):
     def get_parameter_types(function: Function) -> str:
         return ", ".join(p.type.format() for p in function.parameters)
 
-    def register_containers(self, target: Union[Function, Field, Variable]):
+    def register_containers(self, target: Union[Function, Field, Variable]) -> bool:
         supported = ("dict", "idict", "pool", "set", "vector")
+        found = False
         if isinstance(target, Function):
-            self.found_containers.update(
-                self.find_containers(supported, target.return_type)
-            )
+            return_type_containers = self.find_containers(supported, target.return_type)
+            found = found or len(return_type_containers)
+            self.found_containers.update(return_type_containers)
 
             for parameter in target.parameters:
-                self.found_containers.update(
-                    self.find_containers(supported, parameter.type)
-                )
+                parameter_containers = self.find_containers(supported, parameter.type)
+                found = found or len(parameter_containers)
+                self.found_containers.update(parameter_containers)
         else:
-            self.found_containers.update(self.find_containers(supported, target.type))
+            variable_containers = self.find_containers(supported, target.type)
+            found = found or len(variable_containers)
+            self.found_containers.update(variable_containers)
+        return found
 
     # processors
     def get_overload_cast(
@@ -470,9 +492,9 @@ class PyosysWrapperGenerator(object):
 
         def_args = [f'"{python_function_basename}"']
         def_args.append(self.get_overload_cast(function, class_basename))
-        for parameter in function.parameters:
-            # ASSUMPTION: there are no unnamed parameters in the yosys codebase
-            parameter_arg = f'py::arg("{parameter.name}")'
+        for i, parameter in enumerate(function.parameters):
+            name = parameter.name or f"arg{i}"
+            parameter_arg = f'py::arg("{name}")'
             if parameter.default is not None:
                 parameter_arg += f" = {parameter.default.format()}"
             def_args.append(parameter_arg)
@@ -525,8 +547,12 @@ class PyosysWrapperGenerator(object):
         if function.static:
             definition_fn = "def_static"
 
+        definition_args = self.get_definition_args(
+            function, metadata.name, python_name_override
+        )
+
         print(
-            f"\t\t\t.{definition_fn}({', '.join(self.get_definition_args(function, metadata.name, python_name_override))})",
+            f"\t\t\t.{definition_fn}({', '.join(definition_args)})",
             file=self.f,
         )
 
@@ -565,7 +591,7 @@ class PyosysWrapperGenerator(object):
             # care
             return
 
-        self.register_containers(field)
+        has_containers = self.register_containers(field)
 
         definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
         if field.static:
@@ -573,8 +599,13 @@ class PyosysWrapperGenerator(object):
 
         field_python_basename = keyword_aliases.get(field.name, field.name)
 
+        def_args = [
+            f'"{field_python_basename}"',
+            f"&{metadata.name}::{field.name}",
+        ]
+        def_args.append("py::return_value_policy::copy")
         print(
-            f'\t\t\t.{definition_fn}("{field_python_basename}", &{metadata.name}::{field.name})',
+            f"\t\t\t.{definition_fn}({', '.join(def_args)})",
             file=self.f,
         )
 
@@ -603,16 +634,20 @@ class PyosysWrapperGenerator(object):
         )
 
     def process_class_members(
-        self, metadata: PyosysClass, cls: ClassScope, basename: str
+        self,
+        metadata: PyosysClass,
+        base_metadata: PyosysClass,
+        cls: ClassScope,
+        basename: str,
     ):
         for method in cls.methods:
-            if method.name.segments[-1].name in metadata.denylist:
+            if method.name.segments[-1].name in base_metadata.denylist:
                 continue
             self.process_method(metadata, method)
 
         visited_anonymous_unions = set()
         for field_ in cls.fields:
-            if field_.name in metadata.denylist:
+            if field_.name in base_metadata.denylist:
                 continue
             self.process_field(metadata, field_)
 
@@ -627,6 +662,16 @@ class PyosysWrapperGenerator(object):
                     for subfield in subclass.fields:
                         self.process_field(metadata, subfield)
 
+        for base in cls.class_decl.bases:
+            if base.access != "public":
+                continue
+            name = base.typename.segments[-1].format()
+            if processed := self.class_registry.get(name):
+                base_scope, base_metadata = processed
+                self.process_class_members(
+                    metadata, base_metadata, base_scope, basename
+                )
+
     def process_class(
         self,
         metadata: PyosysClass,
@@ -638,7 +683,7 @@ class PyosysWrapperGenerator(object):
             segment.format() for segment in pqname.segments
         ]
         basename = full_path.pop()
-        self.class_registry[basename] = cls
+        self.class_registry[basename] = (cls, metadata)
 
         declaration_namespace = "::".join(full_path)
         tpl_args = [basename]
@@ -649,17 +694,15 @@ class PyosysWrapperGenerator(object):
             file=self.f,
         )
 
-        self.process_class_members(metadata, cls, basename)
-        for base in cls.class_decl.bases:
-            if base.access != "public":
-                continue
-            name = base.typename.segments[-1].format()
-            if base_scope := self.class_registry.get(name):
-                self.process_class_members(metadata, base_scope, basename)
+        self.process_class_members(metadata, metadata, cls, basename)
 
         if expr := metadata.string_expr:
             print(
                 f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})',
+                file=self.f,
+            )
+            print(
+                f'\t\t.def("__repr__", [](const {basename} &s) {{ std::stringstream ss; ss << "<{basename} " << {expr} << ">"; return ss.str(); }})',
                 file=self.f,
             )
 
