@@ -8,12 +8,12 @@ ram distributed $__ANALOGDEVICES_LUTRAM_ {
 		clock posedge;
 	}
 	option "MODE" "SP" {
-		option "SIZE" 32 cost 1;
+		option "SIZE" 32 cost 2;
 		option "SIZE" 64 cost 2;
 	}
 	option "MODE" "DP" {
-		option "SIZE" 32 cost 2;
-		option "SIZE" 64 cost 4;
+		option "SIZE" 32 cost 4;
+		option "SIZE" 64 cost 8;
 		port ar "R" {
 		}
 	}
