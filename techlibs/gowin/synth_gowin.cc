@@ -263,7 +263,7 @@ struct SynthGowinPass : public ScriptPass
 				if (nolutram)
 					args += " -no-auto-distributed";
 			}
-			run("memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run(stringf("memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams%s.txt", family == "gw5a" ? "_gw5a" : "") + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
 			run(stringf("techmap -map +/gowin/lutrams_map.v -map +/gowin/brams_map%s.v", family == "gw5a" ? "_gw5a" : ""));
 		}
 
