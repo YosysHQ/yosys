@@ -1,0 +1,69 @@
+ram block $__GOWIN_SP_ {
+	abits 14;
+	widths 1 2 4 9 18 36 per_port;
+	cost 128;
+	init no_undef;
+	port srsw "A" {
+		clock posedge;
+		clken;
+		option "RESET_MODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		option "RESET_MODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+		portoption "WRITE_MODE" 0 {
+			rdwr no_change;
+		}
+		portoption "WRITE_MODE" 1 {
+			rdwr new;
+		}
+	}
+}
+
+ram block $__GOWIN_DP_ {
+	abits 14;
+	widths 1 2 4 9 18 per_port;
+	cost 128;
+	init no_undef;
+	port srsw "A" "B" {
+		clock posedge;
+		clken;
+		option "RESET_MODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		option "RESET_MODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+		portoption "WRITE_MODE" 0 {
+			rdwr no_change;
+		}
+		portoption "WRITE_MODE" 1 {
+			rdwr new;
+		}
+	}
+}
+
+ram block $__GOWIN_SDP_ {
+	abits 14;
+	widths 1 2 4 9 18 36 per_port;
+	cost 128;
+	init no_undef;
+	port sr "R" {
+		clock posedge;
+		clken;
+		option "RESET_MODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		option "RESET_MODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+	}
+	port sw "W" {
+		clock posedge;
+		clken;
+	}
+}
