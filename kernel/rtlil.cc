@@ -3088,6 +3088,14 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	return cell;
 }
 
+RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name)
+{
+	RTLIL::Memory *mem = new RTLIL::Memory;
+	mem->name = std::move(name);
+	memories[mem->name] = mem;
+	return mem;
+}
+
 RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
 {
 	RTLIL::Memory *mem = new RTLIL::Memory;
