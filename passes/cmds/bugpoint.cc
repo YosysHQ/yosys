@@ -28,6 +28,8 @@
 #  define WEXITSTATUS(x) ((x) & 0xff)
 #  define WTERMSIG(x) SIGTERM
 #  define WSTOPSIG(x) 0
+#else
+#include <sys/wait.h>
 #endif
 
 USING_YOSYS_NAMESPACE
