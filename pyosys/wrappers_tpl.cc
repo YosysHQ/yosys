@@ -24,7 +24,7 @@
 #include <pybind11/functional.h>
 
 // duplicates for LSPs
-#include <kernel/register.h>
+#include "kernel/register.h"
 #include "kernel/yosys_common.h"
 
 #include "pyosys/hashlib.h"
