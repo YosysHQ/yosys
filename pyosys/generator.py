@@ -551,6 +551,13 @@ class PyosysWrapperGenerator(object):
             function, metadata.name, python_name_override
         )
 
+        # HACK: Make ObjRange work until a proper one is implemented upstream
+        return_type = PyosysType.from_type(function.return_type)
+        if return_type.base == "ObjRange":
+            definition_args[1] = (
+                f"[]({metadata.name} &s) {{ return s.{function.name.segments[-1].format()}().to_vector(); }}"
+            )
+
         print(
             f"\t\t\t.{definition_fn}({', '.join(definition_args)})",
             file=self.f,

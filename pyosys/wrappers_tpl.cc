@@ -28,6 +28,7 @@
 #include "kernel/yosys_common.h"
 
 #include "pyosys/hashlib.h"
+#include "pyosys/ostream.h"
 
 namespace py = pybind11;
 
@@ -165,6 +166,14 @@ namespace pyosys {
 		}
 	};
 
+	// not upstreamed bec it leaks memory
+	void log_to_stream(py::object o)
+	{
+		auto output = new py::python_ostream(o);
+		Yosys::log_streams.clear();
+		Yosys::log_streams.push_back(output);
+	}
+
 	PYBIND11_MODULE(libyosys, m) {
 		// this code is run on import
 		m.doc() = "python access to libyosys";
@@ -189,6 +198,7 @@ namespace pyosys {
 		m.def("log_file_warning", [](std::string_view file, int line, std::string s) { log_formatted_file_warning(file, line, s); });
 		m.def("log_error", [](std::string s) { log_formatted_error(s); });
 		m.def("log_file_error", [](std::string_view file, int line, std::string s) { log_formatted_file_error(file, line, s); });
+		m.def("log_to_stream", &log_to_stream);
 
 		// Namespace to host global objects
 		auto global_variables = py::class_<Globals>(m, "Globals");
