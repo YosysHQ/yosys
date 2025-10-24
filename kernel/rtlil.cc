@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <charconv>
 #include <optional>
 #include <string_view>
 
@@ -35,20 +36,14 @@ YOSYS_NAMESPACE_BEGIN
 
 bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
-std::vector<char*> RTLIL::IdString::global_id_storage_;
+std::vector<RTLIL::IdString::Storage> RTLIL::IdString::global_id_storage_;
 std::unordered_map<std::string_view, int> RTLIL::IdString::global_id_index_;
+std::unordered_map<int, const std::string*> RTLIL::IdString::global_autoidx_id_prefix_storage_;
+std::unordered_map<int, char*> RTLIL::IdString::global_autoidx_id_storage_;
 #ifndef YOSYS_NO_IDS_REFCNT
-std::vector<uint32_t> RTLIL::IdString::global_refcount_storage_;
+std::unordered_map<int, int> RTLIL::IdString::global_refcount_storage_;
 std::vector<int> RTLIL::IdString::global_free_idx_list_;
 #endif
-#ifdef YOSYS_USE_STICKY_IDS
-int RTLIL::IdString::last_created_idx_[8];
-int RTLIL::IdString::last_created_idx_ptr_;
-#endif
-
-#define X(_id) const RTLIL::IdString RTLIL::IDInternal::_id(RTLIL::StaticId::_id);
-#include "kernel/constids.inc"
-#undef X
 
 static void populate(std::string_view name)
 {
@@ -57,19 +52,87 @@ static void populate(std::string_view name)
 		name = name.substr(1);
 	}
 	RTLIL::IdString::global_id_index_.insert({name, GetSize(RTLIL::IdString::global_id_storage_)});
-	RTLIL::IdString::global_id_storage_.push_back(const_cast<char*>(name.data()));
+	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(name.data()), GetSize(name)});
 }
 
 void RTLIL::IdString::prepopulate()
 {
 	int size = static_cast<short>(RTLIL::StaticId::STATIC_ID_END);
 	global_id_storage_.reserve(size);
-	RTLIL::IdString::global_id_storage_.push_back(const_cast<char*>(""));
 	global_id_index_.reserve(size);
-	global_refcount_storage_.resize(size, 1);
+	RTLIL::IdString::global_id_index_.insert({"", 0});
+	RTLIL::IdString::global_id_storage_.push_back({const_cast<char*>(""), 0});
 #define X(N) populate("\\" #N);
 #include "kernel/constids.inc"
 #undef X
+}
+
+static std::optional<int> parse_autoidx(std::string_view v)
+{
+	// autoidx values can never be <= 0, so there can never be a leading 0 digit.
+	if (v.empty() || v[0] == '0')
+		return std::nullopt;
+	for (char ch : v) {
+		if (ch < '0' || ch > '9')
+			return std::nullopt;
+	}
+	int p_autoidx;
+	if (std::from_chars(v.data(), v.data() + v.size(), p_autoidx).ec != std::errc())
+		return std::nullopt;
+	return p_autoidx;
+}
+
+int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it)
+{
+	ensure_prepopulated();
+
+	log_assert(p[0] == '$' || p[0] == '\\');
+	for (char ch : p)
+		if ((unsigned)ch <= (unsigned)' ')
+			log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
+
+	if (p.substr(0, 6) == "$auto$") {
+		size_t autoidx_pos = p.find_last_of('$') + 1;
+		std::optional<int> p_autoidx = parse_autoidx(p.substr(autoidx_pos));
+		if (p_autoidx.has_value()) {
+			auto prefix_it = global_autoidx_id_prefix_storage_.find(-*p_autoidx);
+			if (prefix_it != global_autoidx_id_prefix_storage_.end() && p.substr(0, autoidx_pos) == *prefix_it->second)
+				return -*p_autoidx;
+			// Ensure NEW_ID/NEW_ID_SUFFIX will not create collisions with the ID
+			// we're about to create.
+			autoidx = std::max(autoidx, *p_autoidx + 1);
+		}
+	}
+
+#ifndef YOSYS_NO_IDS_REFCNT
+	if (global_free_idx_list_.empty()) {
+		log_assert(global_id_storage_.size() < 0x40000000);
+		global_free_idx_list_.push_back(global_id_storage_.size());
+		global_id_storage_.push_back({nullptr, 0});
+	}
+
+	int idx = global_free_idx_list_.back();
+	global_free_idx_list_.pop_back();
+#else
+	int idx = global_id_storage_.size();
+	global_id_index_[global_id_storage_.back()] = idx;
+#endif
+	char* buf = static_cast<char*>(malloc(p.size() + 1));
+	memcpy(buf, p.data(), p.size());
+	buf[p.size()] = 0;
+	global_id_storage_.at(idx) = {buf, GetSize(p)};
+	global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
+
+	if (yosys_xtrace) {
+		log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx).buf, idx);
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+#ifdef YOSYS_XTRACE_GET_PUT
+	if (yosys_xtrace)
+		log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, refcount(idx));
+#endif
+	return idx;
 }
 
 static constexpr bool check_well_known_id_order()
@@ -84,6 +147,156 @@ static constexpr bool check_well_known_id_order()
 // Ensure the statically allocated IdStrings in kernel/constids.inc are unique
 // and in sorted ascii order, as required by the ID macro.
 static_assert(check_well_known_id_order());
+
+struct IdStringCollector {
+	void trace(IdString id) {
+		live.insert(id.index_);
+	}
+	template <typename T> void trace(const T* v) {
+		trace(*v);
+	}
+	template <typename V> void trace(const std::vector<V> &v) {
+		for (const auto &element : v)
+			trace(element);
+	}
+	template <typename K> void trace(const pool<K> &p) {
+		for (const auto &element : p)
+			trace(element);
+	}
+	template <typename K, typename V> void trace(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+			trace(value);
+		}
+	}
+	template <typename K, typename V> void trace_keys(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(key);
+		}
+	}
+	template <typename K, typename V> void trace_values(const dict<K, V> &d) {
+		for (const auto &[key, value] : d) {
+			trace(value);
+		}
+	}
+	template <typename K> void trace(const idict<K> &d) {
+		for (const auto &element : d)
+			trace(element);
+	}
+
+	void trace(const RTLIL::Design &design) {
+		trace_values(design.modules_);
+		trace(design.selection_vars);
+	}
+	void trace(const RTLIL::Selection &selection_var) {
+		trace(selection_var.selected_modules);
+		trace(selection_var.selected_members);
+	}
+	void trace_named(const RTLIL::NamedObject named) {
+		trace_keys(named.attributes);
+		trace(named.name);
+	}
+	void trace(const RTLIL::Module &module) {
+		trace_named(module);
+		trace_values(module.wires_);
+		trace_values(module.cells_);
+		trace(module.avail_parameters);
+		trace_keys(module.parameter_default_values);
+		trace_values(module.memories);
+		trace_values(module.processes);
+	}
+	void trace(const RTLIL::Wire &wire) {
+		trace_named(wire);
+		if (wire.known_driver())
+			trace(wire.driverPort());
+	}
+	void trace(const RTLIL::Cell &cell) {
+		trace_named(cell);
+		trace(cell.type);
+		trace_keys(cell.connections_);
+		trace_keys(cell.parameters);
+	}
+	void trace(const RTLIL::Memory &mem) {
+		trace_named(mem);
+	}
+	void trace(const RTLIL::Process &proc) {
+		trace_named(proc);
+		trace(proc.root_case);
+		trace(proc.syncs);
+	}
+	void trace(const RTLIL::CaseRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.switches);
+	}
+	void trace(const RTLIL::SwitchRule &rule) {
+		trace_keys(rule.attributes);
+		trace(rule.cases);
+	}
+	void trace(const RTLIL::SyncRule &rule) {
+		trace(rule.mem_write_actions);
+	}
+	void trace(const RTLIL::MemWriteAction &action) {
+		trace_keys(action.attributes);
+		trace(action.memid);
+	}
+
+	std::unordered_set<int> live;
+};
+
+int64_t RTLIL::OwningIdString::gc_ns;
+int RTLIL::OwningIdString::gc_count;
+
+void RTLIL::OwningIdString::collect_garbage()
+{
+	int64_t start = PerformanceTimer::query();
+#ifndef YOSYS_NO_IDS_REFCNT
+	IdStringCollector collector;
+	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+		collector.trace(*design);
+	}
+	int size = GetSize(global_id_storage_);
+	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
+		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
+		if (storage.buf == nullptr)
+			continue;
+		if (collector.live.find(i) != collector.live.end())
+			continue;
+		if (global_refcount_storage_.find(i) != global_refcount_storage_.end())
+			continue;
+
+		if (yosys_xtrace) {
+			log("#X# Removed IdString '%s' with index %d.\n", storage.buf, i);
+			log_backtrace("-X- ", yosys_xtrace-1);
+		}
+
+		global_id_index_.erase(std::string_view(storage.buf, storage.size));
+		free(storage.buf);
+		storage = {nullptr, 0};
+		global_free_idx_list_.push_back(i);
+	}
+
+	for (auto it = global_autoidx_id_prefix_storage_.begin(); it != global_autoidx_id_prefix_storage_.end();) {
+		if (collector.live.find(it->first) != collector.live.end()) {
+			++it;
+			continue;
+		}
+		if (global_refcount_storage_.find(it->first) != global_refcount_storage_.end()) {
+			++it;
+			continue;
+		}
+		auto str_it = global_autoidx_id_storage_.find(it->first);
+		if (str_it != global_autoidx_id_storage_.end()) {
+			delete[] str_it->second;
+			global_autoidx_id_storage_.erase(str_it);
+		}
+		it = global_autoidx_id_prefix_storage_.erase(it);
+	}
+#endif
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	gc_ns += time_ns;
+	++gc_count;
+}
 
 dict<std::string, std::string> RTLIL::constpad;
 
@@ -1083,9 +1296,7 @@ RTLIL::Design::Design()
 	refcount_modules_ = 0;
 	push_full_selection();
 
-#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Design::~Design()
@@ -1094,18 +1305,14 @@ RTLIL::Design::~Design()
 		delete pr.second;
 	for (auto n : bindings_)
 		delete n;
-#ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
-#endif
 }
 
-#ifdef YOSYS_ENABLE_PYTHON
 static std::map<unsigned int, RTLIL::Design*> all_designs;
 std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
 	return &all_designs;
 }
-#endif
 
 RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
 {

@@ -614,7 +614,7 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 			}
 		}
 	}
-	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
+	return stringf("$abc$%d$%s", map_autoidx, abc_name.substr(1));
 }
 
 void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
