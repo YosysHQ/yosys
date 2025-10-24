@@ -470,6 +470,8 @@ void remove_directory(std::string dirname);
 bool create_directory(const std::string& dirname);
 std::string escape_filename_spaces(const std::string& filename);
 void append_globbed(std::vector<std::string>& paths, std::string pattern);
+std::string name_from_file_path(std::string path);
+std::string parent_from_file_path(std::string path);
 
 YOSYS_NAMESPACE_END
 
