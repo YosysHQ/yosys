@@ -5,3 +5,4 @@
 
 ./run_simple.sh load_and_derive
 ./run_simple.sh resolve_types
+./run_simple.sh positional_args
