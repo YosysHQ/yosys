@@ -51,7 +51,7 @@ select -assert-count 1 t:RAMB36E1
 design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 12 -chparam DATA_WIDTH 1 
-setattr -set ram_style "block" m:memory
+setattr -setstr ram_style block m:memory
 synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
@@ -67,7 +67,7 @@ select -assert-count 0 t:RAMB18E1
 design -reset
 read_verilog ../common/blockram.v
 hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 8 -chparam DATA_WIDTH 1
-setattr -set ram_style "block" m:memory
+setattr -setstr ram_style block m:memory
 synth_xilinx -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:RAMB18E1
