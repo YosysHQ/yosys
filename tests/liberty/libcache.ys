@@ -1,5 +1,5 @@
 libcache -verbose
-libcache -enable busdef.lib
+libcache -enable bus*f.lib
 
 logger -expect log "Caching is disabled by default." 1
 logger -expect log "Caching is enabled for `busdef.lib'." 1

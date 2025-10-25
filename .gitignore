@@ -5,6 +5,7 @@
 /Brewfile.lock.json
 
 ## build artifacts
+/.git-abc-submodule-hash
 # compiler intermediate files
 *.o
 *.d

@@ -31,3 +31,19 @@ opt
 techmap -map %techmap
 
 select -assert-count 1 t:LCU_8
+
+design -reset
+read_verilog <<EOT
+module top(input A, input B, output Y);
+assign Y = A ^ B;
+endmodule
+EOT
+
+# We can only test that the option doesn't crash
+# See https://github.com/YosysHQ/yosys/issues/5414
+
+# select -assert-count 1 t:$xor
+# select -assert-count 0 t:\$xor
+chtype -publish_icells
+# select -assert-count 0 t:$xor
+# select -assert-count 1 t:\$xor

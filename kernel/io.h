@@ -469,6 +469,7 @@ bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
 bool create_directory(const std::string& dirname);
 std::string escape_filename_spaces(const std::string& filename);
+void append_globbed(std::vector<std::string>& paths, std::string pattern);
 
 YOSYS_NAMESPACE_END
 

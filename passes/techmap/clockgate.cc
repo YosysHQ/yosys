@@ -290,9 +290,7 @@ struct ClockgatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
-				std::string liberty_file = args[++argidx];
-				rewrite_filename(liberty_file);
-				liberty_files.push_back(liberty_file);
+				append_globbed(liberty_files, args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-dont_use" && argidx+1 < args.size()) {

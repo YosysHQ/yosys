@@ -1,0 +1,11 @@
+[build-system]
+requires = [
+	"setuptools>=42",
+	"pybind11>=3,<4",
+	"cxxheaderparser",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py38"
+lint.ignore = ["F541"]

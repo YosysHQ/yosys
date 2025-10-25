@@ -51,6 +51,9 @@ struct BoxDerivePass : Pass {
 		log("        replaces the internal Yosys naming scheme in which the names of derived\n");
 		log("        modules start with '$paramod$')\n");
 		log("\n");
+		log("    -apply_derived_type\n");
+		log("        use the derived modules\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
@@ -59,11 +62,14 @@ struct BoxDerivePass : Pass {
 		size_t argidx;
 		IdString naming_attr;
 		IdString base_name;
+		bool apply_mode = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-naming_attr" && argidx + 1 < args.size())
 				naming_attr = RTLIL::escape_id(args[++argidx]);
 			else if (args[argidx] == "-base" && argidx + 1 < args.size())
 				base_name = RTLIL::escape_id(args[++argidx]);
+			else if (args[argidx] == "-apply_derived_type")
+				apply_mode = true;
 			else
 				break;
 		}
@@ -90,24 +96,29 @@ struct BoxDerivePass : Pass {
 
 				auto index = std::make_pair(base->name, cell->parameters);
 
-				if (cell->parameters.empty() || done.count(index))
+				if (cell->parameters.empty())
 					continue;
 
-				IdString derived_type = base->derive(d, cell->parameters);
-				Module *derived = d->module(derived_type);
-				log_assert(derived && "Failed to derive module\n");
-				log_debug("derived %s\n", derived_type);
+				if (!done.count(index)) {
+					IdString derived_type = base->derive(d, cell->parameters);
+					Module *derived = d->module(derived_type);
+					log_assert(derived && "Failed to derive module\n");
+					log("derived %s\n", derived_type);
 
-				if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
-					IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
-					if (!new_name.isPublic())
-						log_error("Derived module %s cannot be renamed to private name %s.\n",
-								  log_id(derived), log_id(new_name));
-					derived->attributes.erase(naming_attr);
-					d->rename(derived, new_name);
+					if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
+						IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
+						if (!new_name.isPublic())
+							log_error("Derived module %s cannot be renamed to private name %s.\n",
+									  log_id(derived), log_id(new_name));
+						derived->attributes.erase(naming_attr);
+						d->rename(derived, new_name);
+					}
+
+					done[index] = derived;
 				}
 
-				done[index] = derived;
+				if (apply_mode)
+					cell->type = done[index]->name;
 			}
 		}
 	}

@@ -55,11 +55,6 @@ jobs:
           submodules: true
           persist-credentials: false
       - uses: actions/setup-python@v5
-      - name: Get Boost Source
-        shell: bash
-        run: |
-          mkdir -p boost
-          curl -L https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-b2-nodocs.tar.gz | tar --strip-components=1 -xzC boost
       - name: Get FFI
         shell: bash
         run: |
@@ -103,21 +98,16 @@ jobs:
           CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
           CIBW_ENVIRONMENT: >
             OPTFLAGS=-O3
-            CXXFLAGS=-I./boost/pfx/include
-            LINKFLAGS=-L./boost/pfx/lib
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
-            makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a'
             PATH="$PWD/bison/src:$PATH"
           CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
-            CXXFLAGS=-I./boost/pfx/include
-            LINKFLAGS=-L./boost/pfx/lib
             PKG_CONFIG_PATH=./ffi/pfx/lib/pkgconfig
             MACOSX_DEPLOYMENT_TARGET=11
-            makeFlags='BOOST_PYTHON_LIB=./boost/pfx/lib/libboost_python*.a CONFIG=clang'
+            makeFlags='CONFIG=clang'
             PATH="$PWD/bison/src:$PATH"
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
-          CIBW_TEST_COMMAND: python3 {project}/tests/arch/ecp5/add_sub.py
+          CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-wheels-${{ matrix.os.runner }}

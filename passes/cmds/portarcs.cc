@@ -125,7 +125,7 @@ struct PortarcsPass : Pass {
 
 				for (auto cell : m->cells())
 				// Ignore all bufnorm helper cells
-				if (!cell->type.in(ID($buf), ID($input_port), ID($connect))) {
+				if (!cell->type.in(ID($buf), ID($input_port), ID($connect), ID($tribuf))) {
 					auto tdata = tinfo.find(cell->type);
 					if (tdata == tinfo.end())
 						log_cmd_error("Missing timing data for module '%s'.\n", log_id(cell->type));

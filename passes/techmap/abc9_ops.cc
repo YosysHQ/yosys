@@ -1605,6 +1605,7 @@ static void replace_zbufs(Design *design)
 
 		mod->bufNormalize();
 	}
+	design->bufNormalize(false);
 }
 
 
@@ -1624,7 +1625,6 @@ static void restore_zbufs(Design *design)
 			mod->addBuf(NEW_ID, Const(State::Sz, GetSize(sig_y)), sig_y);
 			mod->remove(cell);
 		}
-		mod->bufNormalize();
 	}
 }
 
