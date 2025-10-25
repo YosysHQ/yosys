@@ -19,8 +19,10 @@ ram block $__GOWIN_SP_ {
 		portoption "WRITE_MODE" 1 {
 			rdwr new;
 		}
-		portoption "WRITE_MODE" 2 {
-			rdwr old;
+		ifndef gw5a {
+			portoption "WRITE_MODE" 2 {
+				rdwr old;
+			}
 		}
 	}
 }
@@ -46,8 +48,10 @@ ram block $__GOWIN_DP_ {
 		portoption "WRITE_MODE" 1 {
 			rdwr new;
 		}
-		portoption "WRITE_MODE" 2 {
-			rdwr old;
+		ifndef gw5a {
+			portoption "WRITE_MODE" 2 {
+				rdwr old;
+			}
 		}
 	}
 }
