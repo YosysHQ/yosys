@@ -384,6 +384,13 @@ std::string escape_filename_spaces(const std::string& filename)
 	return out;
 }
 
+void append_globbed(std::vector<std::string>& paths, std::string pattern)
+{
+	rewrite_filename(pattern);
+	std::vector<std::string> globbed = glob_filename(pattern);
+	copy(globbed.begin(), globbed.end(), back_inserter(paths));
+}
+
 void format_emit_unescaped(std::string &result, std::string_view fmt)
 {
 	result.reserve(result.size() + fmt.size());

@@ -2,8 +2,27 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.57 .. Yosys 0.58-dev
+Yosys 0.58 .. Yosys 0.59-dev
 --------------------------
+
+Yosys 0.57 .. Yosys 0.58
+--------------------------
+ * Various
+    - Run ABC passes in parallel.
+    - Extending support for buffer normalization.
+    - Overhaul of logging APIs.
+    - read_blif: Represent sequential elements with gate cells.
+    - Support multiple lib files in abc9_exe.
+
+ * New commands and options
+    - Added "-wireshape" option to "show" command to allow
+      control the shape of wire nodes.
+    - Added "-relativeshare" option to "read_verilog", "synth"
+      and "techmap" pass for synthesis reproducibility testing.
+    - "write_rtlil" pass no longer sorts design, added "-sort"
+      option to match old behavior
+    - Added "-sva-continue-on-err" to "verific" pass to allow
+      processing designs that includes unsupported SVA.
 
 Yosys 0.56 .. Yosys 0.57
 --------------------------

@@ -21,6 +21,7 @@
 #define YOSYS_COMMON_H
 
 #include <array>
+#include <atomic>
 #include <map>
 #include <set>
 #include <tuple>
@@ -52,10 +53,6 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <errno.h>
-
-#ifdef WITH_PYTHON
-#include <Python.h>
-#endif
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \

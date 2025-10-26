@@ -51,7 +51,7 @@ YOSYS_NAMESPACE_BEGIN
 
 void yosys_setup();
 
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 bool yosys_already_setup();
 #endif
 
@@ -89,7 +89,7 @@ extern std::vector<RTLIL::Design*> pushed_designs;
 
 // from passes/cmds/pluginc.cc
 extern std::map<std::string, void*> loaded_plugins;
-#ifdef WITH_PYTHON
+#ifdef YOSYS_ENABLE_PYTHON
 extern std::map<std::string, void*> loaded_python_plugins;
 #endif
 extern std::map<std::string, std::string> loaded_plugin_aliases;

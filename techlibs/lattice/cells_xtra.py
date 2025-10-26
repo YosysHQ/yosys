@@ -121,12 +121,7 @@ devices = [
         #Cell("XOR3"),
         #Cell("XOR4"),
         #Cell("XOR5"),
-        Cell("DP16KD", extra_params={
-            # Optional clock inverters, present in prjtrellis data but
-            # not in Diamond bb models.
-            "CLKAMUX": "CLKA",
-            "CLKBMUX": "CLKB",
-        }),
+        #Cell("DP16KD"),
         Cell("PDPW16KD", extra_params={
             # Optional clock inverters, present in prjtrellis data but
             # not in Diamond bb models.

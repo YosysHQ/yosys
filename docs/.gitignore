@@ -6,3 +6,4 @@
 /source/_images/**/*.svg
 /source/_images/**/*.dot
 /source/_images/code_examples
+/venv

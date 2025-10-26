@@ -1,0 +1,12 @@
+read_rtlil <<EOT
+module \meow
+	wire width 8 \nya
+	wire width 8 output 1 \mrrp
+	wire width 1 input 0 \purr
+	process $cat
+		assign \nya { \mrrp \purr } [7:0]
+	end
+end
+EOT
+
+select -assert-count 1 meow/$cat

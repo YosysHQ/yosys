@@ -57,6 +57,9 @@ struct SynthGowinPass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
+		log("    -strict-gw5a-dffs\n");
+		log("        use only DFFSE/DFFRE/DFFPE/DFFCE flipflops for the GW5A family\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use BRAM cells in output netlist\n");
 		log("\n");
@@ -91,13 +94,16 @@ struct SynthGowinPass : public ScriptPass
 		log("		  The following families are supported:\n");
 		log("        'gw1n', 'gw2a', 'gw5a'.\n");
 		log("\n");
+		log("    -setundef\n");
+		log("        set undriven wires and parameters to zero\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, vout_file, json_file, family;
-	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu, no_rw_check;
+	bool retime, nobram, nolutram, flatten, nodffe, strict_gw5a_dffs, nowidelut, abc9, noiopads, noalu, no_rw_check, setundef;
 
 	void clear_flags() override
 	{
@@ -109,12 +115,14 @@ struct SynthGowinPass : public ScriptPass
 		flatten = true;
 		nobram = false;
 		nodffe = false;
+		strict_gw5a_dffs = false;
 		nolutram = false;
 		nowidelut = false;
 		abc9 = true;
 		noiopads = false;
 		noalu = false;
 		no_rw_check = false;
+		setundef = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -165,6 +173,10 @@ struct SynthGowinPass : public ScriptPass
 				nodffe = true;
 				continue;
 			}
+			if (args[argidx] == "-strict-gw5a-dffs") {
+				strict_gw5a_dffs = true;
+				continue;
+			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
 				continue;
@@ -191,6 +203,10 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-no-rw-check") {
 				no_rw_check = true;
+				continue;
+			}
+			if (args[argidx] == "-setundef") {
+				setundef = true;
 				continue;
 			}
 			break;
@@ -248,7 +264,7 @@ struct SynthGowinPass : public ScriptPass
 					args += " -no-auto-distributed";
 			}
 			run("memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
-			run("techmap -map +/gowin/lutrams_map.v -map +/gowin/brams_map.v");
+			run(stringf("techmap -map +/gowin/lutrams_map.v -map +/gowin/brams_map%s.v", family == "gw5a" ? "_gw5a" : ""));
 		}
 
 		if (check_label("map_ffram"))
@@ -276,10 +292,18 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("opt_clean");
-			if (nodffe)
-				run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r");
-			else
-				run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r");
+			if (family == "gw5a") {
+				if (strict_gw5a_dffs) {
+					run("dfflegalize -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r");
+				} else {
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFFE_PP?P_ r -cell $_DFFE_PP?P_ r");
+				}
+			} else {
+				if (nodffe)
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r");
+				else
+					run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r");
+			}
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -305,10 +329,11 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_lut_ins -tech gowin");
-			run("setundef -undriven -params -zero");
+			if (setundef || help_mode)
+				run("setundef -undriven -params -zero", "(only if -setundef)");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			if (!vout_file.empty() || help_mode) // vendor output requires 1-bit wires
-				run("splitnets -ports", "(only if -vout used)");
+				run("splitnets -ports", "(only if -vout)");
 			run("clean");
 			run("autoname");
 		}
