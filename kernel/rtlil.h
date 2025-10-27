@@ -1252,10 +1252,6 @@ private:
 			unpack();
 	}
 
-	// Only used by Module::remove(const pool<Wire*> &wires)
-	// but cannot be more specific as it isn't yet declared
-	friend struct RTLIL::Module;
-
 public:
 	SigSpec() : width_(0), hash_(0) {}
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
@@ -1326,6 +1322,8 @@ public:
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
+
+	void rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite);
 
 	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
 	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };

@@ -2657,10 +2657,9 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		RTLIL::Module *mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
-			sig.pack();
-			for (auto &c : sig.chunks_)
-				if (c.wire != NULL)
-					c.wire = mod->wires_.at(c.wire->name);
+			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
+				wire = mod->wires_.at(wire->name);
+			});
 		}
 	};
 
@@ -2808,12 +2807,10 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		const pool<RTLIL::Wire*> *wires_p;
 
 		void operator()(RTLIL::SigSpec &sig) {
-			sig.pack();
-			for (auto &c : sig.chunks_)
-				if (c.wire != NULL && wires_p->count(c.wire)) {
-					c.wire = module->addWire(stringf("$delete_wire$%d", autoidx++), c.width);
-					c.offset = 0;
-				}
+			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
+				if (wires_p->count(wire))
+					wire = module->addWire(stringf("$delete_wire$%d", autoidx++), wire->width);
+			});
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
@@ -5157,6 +5154,14 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 	} else {
 		return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
 	}
+}
+
+void RTLIL::SigSpec::rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite)
+{
+	pack();
+	for (RTLIL::SigChunk &chunk : chunks_)
+		if (chunk.wire != nullptr)
+			rewrite(chunk.wire);
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
