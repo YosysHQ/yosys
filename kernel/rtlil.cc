@@ -4656,6 +4656,31 @@ RTLIL::SigSpec::SigSpec(bool bit)
 	check();
 }
 
+void RTLIL::SigSpec::Chunks::const_iterator::next_chunk_bits()
+{
+	int bits_size = GetSize(spec.bits_);
+	if (bit_index >= bits_size)
+		return;
+	int i = bit_index;
+	const SigBit &bit = spec.bits_[i++];
+	chunk.wire = bit.wire;
+	chunk.data.clear();
+	if (bit.is_wire()) {
+		chunk.offset = bit.offset;
+		while (i < bits_size && spec.bits_[i].wire == bit.wire &&
+			spec.bits_[i].offset == bit.offset + i - bit_index)
+			++i;
+	} else {
+		chunk.offset = 0;
+		chunk.data.push_back(bit.data);
+		while (i < bits_size && !spec.bits_[i].is_wire()) {
+			chunk.data.push_back(spec.bits_[i].data);
+			++i;
+		}
+	}
+	chunk.width = i - bit_index;
+}
+
 void RTLIL::SigSpec::pack() const
 {
 	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;

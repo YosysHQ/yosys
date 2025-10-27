@@ -1276,7 +1276,78 @@ public:
 	SigSpec &operator=(const SigSpec &rhs) = default;
 	SigSpec &operator=(SigSpec &&rhs) = default;
 
-	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
+	struct Chunks {
+		const SigSpec &spec;
+
+		struct const_iterator {
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = const SigChunk &;
+			using difference_type = std::ptrdiff_t;
+			using pointer = const SigChunk *;
+			using reference = const SigChunk &;
+
+			const SigSpec &spec;
+			int chunk_index;
+			int bit_index;
+			SigChunk chunk;
+
+			const_iterator(const SigSpec &spec) : spec(spec) {
+				chunk_index = 0;
+				bit_index = 0;
+				if (!spec.packed())
+					next_chunk_bits();
+			}
+			enum End { END };
+			const_iterator(const SigSpec &spec, End) : spec(spec) {
+				bit_index = spec.size();
+			}
+			void next_chunk_bits();
+
+			const SigChunk &operator*() {
+				if (spec.packed())
+					return spec.chunks_[chunk_index];
+				return chunk;
+			};
+			const SigChunk *operator->() { return &**this; }
+			const_iterator &operator++() {
+				bit_index += (**this).width;
+				++chunk_index;
+				if (!spec.packed())
+					next_chunk_bits();
+				return *this;
+			}
+			bool operator==(const const_iterator &rhs) const { return bit_index == rhs.bit_index; }
+			bool operator!=(const const_iterator &rhs) const { return !(*this == rhs); }
+		};
+		const_iterator begin() const { return const_iterator(spec); }
+		const_iterator end() const {
+			const_iterator it(spec, const_iterator::END);
+			return it;
+		}
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rbegin() const {
+			spec.pack();
+			return spec.chunks_.rbegin();
+		}
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rend() const {
+			spec.pack();
+			return spec.chunks_.rend();
+		}
+		int size() const {
+			spec.pack();
+			return spec.chunks_.size();
+		}
+		const SigChunk &at(int index) const {
+			spec.pack();
+			return spec.chunks_.at(index);
+		}
+		operator const std::vector<RTLIL::SigChunk>&() const {
+			spec.pack();
+			return spec.chunks_;
+		}
+	};
+	friend struct Chunks::const_iterator;
+
+	inline Chunks chunks() const { return {*this}; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
 	inline int size() const { return width_; }
@@ -1403,7 +1474,7 @@ public:
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
-	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
+	operator std::vector<RTLIL::SigChunk>() const { pack(); return chunks_; }
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 
@@ -2317,8 +2388,9 @@ inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
-	*this = SigBit(sig.chunks().front());
+	log_assert(sig.size() == 1);
+	auto it = sig.chunks().begin();
+	*this = SigBit(*it);
 }
 
 template<typename T>
