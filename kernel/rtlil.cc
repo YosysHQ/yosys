@@ -4744,10 +4744,9 @@ void RTLIL::SigSpec::updhash() const
 		return;
 
 	cover("kernel.rtlil.sigspec.hash");
-	that->pack();
 
 	Hasher h;
-	for (auto &c : that->chunks_)
+	for (auto &c : that->chunks())
 		if (c.wire == NULL) {
 			for (auto &v : c.data)
 				h.eat(v);
@@ -5201,13 +5200,8 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 
 	cover("kernel.rtlil.sigspec.append");
 
-	if (packed() != signal.packed()) {
-		pack();
-		signal.pack();
-	}
-
 	if (packed())
-		for (auto &other_c : signal.chunks_)
+		for (auto &other_c : signal.chunks())
 		{
 			auto &my_last_c = chunks_.back();
 			if (my_last_c.wire == NULL && other_c.wire == NULL) {
@@ -5221,8 +5215,10 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 			} else
 				chunks_.push_back(other_c);
 		}
-	else
+	else {
+		signal.unpack();
 		bits_.insert(bits_.end(), signal.bits_.begin(), signal.bits_.end());
+	}
 
 	width_ += signal.width_;
 	check();
