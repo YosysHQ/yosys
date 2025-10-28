@@ -5506,9 +5506,8 @@ bool RTLIL::SigSpec::has_const() const
 {
 	cover("kernel.rtlil.sigspec.has_const");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL)
 			return true;
 	return false;
 }
