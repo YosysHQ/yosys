@@ -1457,6 +1457,9 @@ public:
 	int as_int_saturating(bool is_signed = false) const;
 
 	std::string as_string() const;
+	// Returns std::nullopt if there are any non-constant bits. Returns an empty
+	// Const if this has zero width.
+	std::optional<RTLIL::Const> try_as_const() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
 	RTLIL::SigChunk as_chunk() const;

@@ -5629,33 +5629,48 @@ std::string RTLIL::SigSpec::as_string() const
 	return str;
 }
 
+std::optional<RTLIL::Const> RTLIL::SigSpec::try_as_const() const
+{
+	cover("kernel.rtlil.sigspec.as_const");
+
+	auto it = chunks().begin();
+	if (it == chunks().end())
+		return RTLIL::Const();
+	SigChunk chunk = *it;
+	if (chunk.wire != NULL || ++it != chunks().end())
+		return std::nullopt;
+	return RTLIL::Const(std::move(chunk.data));
+}
+
 RTLIL::Const RTLIL::SigSpec::as_const() const
 {
 	cover("kernel.rtlil.sigspec.as_const");
 
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return chunks_[0].data;
-	return RTLIL::Const();
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return *c;
 }
 
 RTLIL::Wire *RTLIL::SigSpec::as_wire() const
 {
 	cover("kernel.rtlil.sigspec.as_wire");
 
-	pack();
-	log_assert(is_wire());
-	return chunks_[0].wire;
+	auto it = chunks().begin();
+	log_assert(it != chunks().end());
+	RTLIL::SigChunk chunk = *it;
+	log_assert(++it == chunks().end() && chunk.wire && chunk.wire->width == width_);
+	return chunk.wire;
 }
 
 RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 {
 	cover("kernel.rtlil.sigspec.as_chunk");
 
-	pack();
-	log_assert(is_chunk());
-	return chunks_[0];
+	auto it = chunks().begin();
+	log_assert(it != chunks().end());
+	RTLIL::SigChunk chunk = *it;
+	log_assert(++it == chunks().end());
+	return chunk;
 }
 
 RTLIL::SigBit RTLIL::SigSpec::as_bit() const
