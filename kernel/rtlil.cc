@@ -5890,7 +5890,7 @@ bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, R
 		return true;
 	}
 
-	if (lhs.chunks_.size() == 1) {
+	if (lhs.is_chunk()) {
 		char *p = (char*)str.c_str(), *endptr;
 		long int val = strtol(p, &endptr, 10);
 		if (endptr && endptr != p && *endptr == 0) {
