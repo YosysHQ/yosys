@@ -5464,12 +5464,11 @@ bool RTLIL::SigSpec::is_fully_ones() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_ones");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::S1)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::S1)
 				return false;
 	}
 	return true;
