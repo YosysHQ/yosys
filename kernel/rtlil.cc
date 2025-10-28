@@ -5549,74 +5549,58 @@ bool RTLIL::SigSpec::as_bool() const
 {
 	cover("kernel.rtlil.sigspec.as_bool");
 
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).as_bool();
-	return false;
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_bool();
 }
 
 int RTLIL::SigSpec::as_int(bool is_signed) const
 {
 	cover("kernel.rtlil.sigspec.as_int");
 
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).as_int(is_signed);
-	return 0;
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_int(is_signed);
 }
 
 bool RTLIL::SigSpec::convertible_to_int(bool is_signed) const
 {
 	cover("kernel.rtlil.sigspec.convertible_to_int");
 
-	pack();
-	if (!is_fully_const())
+	std::optional<RTLIL::Const> c = try_as_const();
+	if (!c.has_value())
 		return false;
-
-	if (empty())
-		return true;
-
-	return RTLIL::Const(chunks_[0].data).convertible_to_int(is_signed);
+	return c->convertible_to_int(is_signed);
 }
 
 std::optional<int> RTLIL::SigSpec::try_as_int(bool is_signed) const
 {
 	cover("kernel.rtlil.sigspec.try_as_int");
 
-	pack();
-	if (!is_fully_const())
+	std::optional<RTLIL::Const> c = try_as_const();
+	if (!c.has_value())
 		return std::nullopt;
-
-	if (empty())
-		return 0;
-
-	return RTLIL::Const(chunks_[0].data).try_as_int(is_signed);
+	return c->try_as_int(is_signed);
 }
 
 int RTLIL::SigSpec::as_int_saturating(bool is_signed) const
 {
 	cover("kernel.rtlil.sigspec.try_as_int");
 
-	pack();
-	log_assert(is_fully_const() && GetSize(chunks_) <= 1);
-
-	if (empty())
-		return 0;
-
-	return RTLIL::Const(chunks_[0].data).as_int_saturating(is_signed);
+	std::optional<RTLIL::Const> c = try_as_const();
+	log_assert(c.has_value());
+	return c->as_int_saturating(is_signed);
 }
 
 std::string RTLIL::SigSpec::as_string() const
 {
 	cover("kernel.rtlil.sigspec.as_string");
 
-	pack();
 	std::string str;
 	str.reserve(size());
-	for (size_t i = chunks_.size(); i > 0; i--) {
-		const RTLIL::SigChunk &chunk = chunks_[i-1];
+	std::vector<RTLIL::SigChunk> chunks = *this;
+	for (size_t i = chunks.size(); i > 0; i--) {
+		const RTLIL::SigChunk &chunk = chunks[i-1];
 		if (chunk.wire != NULL)
 			str.append(chunk.width, '?');
 		else
