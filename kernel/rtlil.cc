@@ -5527,11 +5527,10 @@ bool RTLIL::SigSpec::has_marked_bits() const
 {
 	cover("kernel.rtlil.sigspec.has_marked_bits");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL) {
-			for (size_t i = 0; i < it->data.size(); i++)
-				if (it->data[i] == RTLIL::State::Sm)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL) {
+			for (RTLIL::State d : chunk.data)
+				if (d == RTLIL::State::Sm)
 					return true;
 		}
 	return false;
