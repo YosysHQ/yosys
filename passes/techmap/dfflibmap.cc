@@ -271,6 +271,13 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 			continue;
 		if (!parse_next_state(cell, ff->find("next_state"), cell_next_pin, cell_next_pol, cell_enable_pin, cell_enable_pol) || (has_enable && (cell_enable_pin.empty() || cell_enable_pol != enapol)))
 			continue;
+
+		if (has_reset && !cell_next_pol) {
+			// next_state is negated
+			// we later propagate this inversion to the output,
+			// which requires the negation of the reset value
+			rstval = !rstval;
+		}
 		if (has_reset && rstval == false) {
 			if (!parse_pin(cell, ff->find("clear"), cell_rst_pin, cell_rst_pol) || cell_rst_pol != rstpol)
 				continue;
