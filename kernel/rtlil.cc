@@ -5492,12 +5492,11 @@ bool RTLIL::SigSpec::is_fully_undef() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_undef");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++) {
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks()) {
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
-		for (size_t i = 0; i < it->data.size(); i++)
-			if (it->data[i] != RTLIL::State::Sx && it->data[i] != RTLIL::State::Sz)
+		for (RTLIL::State d : chunk.data)
+			if (d != RTLIL::State::Sx && d != RTLIL::State::Sz)
 				return false;
 	}
 	return true;
