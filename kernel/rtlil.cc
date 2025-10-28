@@ -5409,22 +5409,28 @@ bool RTLIL::SigSpec::is_wire() const
 {
 	cover("kernel.rtlil.sigspec.is_wire");
 
-	pack();
-	return GetSize(chunks_) == 1 && chunks_[0].wire && chunks_[0].wire->width == width_;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
+		return false;
+	const RTLIL::SigChunk &chunk = *it;
+	return chunk.wire && chunk.wire->width == width_ && ++it == cs.end();
 }
 
 bool RTLIL::SigSpec::is_chunk() const
 {
 	cover("kernel.rtlil.sigspec.is_chunk");
 
-	pack();
-	return GetSize(chunks_) == 1;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
+		return false;
+	return ++it == cs.end();
 }
 
 bool RTLIL::SigSpec::known_driver() const
 {
-	pack();
-	for (auto &chunk : chunks_)
+	for (auto &chunk : chunks())
 		if (chunk.is_wire() && !chunk.wire->known_driver())
 			return false;
 	return true;
