@@ -5711,10 +5711,9 @@ pool<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_pool() const
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_pool");
 
-	pack();
 	pool<RTLIL::SigBit> sigbits;
 	sigbits.reserve(size());
-	for (auto &c : chunks_)
+	for (auto &c : chunks())
 		for (int i = 0; i < c.width; i++)
 			sigbits.insert(RTLIL::SigBit(c, i));
 	return sigbits;
