@@ -5540,12 +5540,8 @@ bool RTLIL::SigSpec::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.sigspec.is_onehot");
 
-	pack();
-	if (!is_fully_const())
-		return false;
-	log_assert(GetSize(chunks_) <= 1);
-	if (width_)
-		return RTLIL::Const(chunks_[0].data).is_onehot(pos);
+	if (std::optional<RTLIL::Const> c = try_as_const())
+		return c->is_onehot(pos);
 	return false;
 }
 
