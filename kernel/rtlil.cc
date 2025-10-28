@@ -5440,9 +5440,8 @@ bool RTLIL::SigSpec::is_fully_const() const
 {
 	cover("kernel.rtlil.sigspec.is_fully_const");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire != NULL)
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire != NULL)
 			return false;
 	return true;
 }
