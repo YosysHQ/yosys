@@ -5516,9 +5516,8 @@ bool RTLIL::SigSpec::has_const(State state) const
 {
 	cover("kernel.rtlil.sigspec.has_const");
 
-	pack();
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL && std::find(it->data.begin(), it->data.end(), state) != it->data.end())
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL && std::find(chunk.data.begin(), chunk.data.end(), state) != chunk.data.end())
 			return true;
 	return false;
 }
