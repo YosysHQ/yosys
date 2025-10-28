@@ -5700,9 +5700,8 @@ std::set<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_set() const
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_set");
 
-	pack();
 	std::set<RTLIL::SigBit> sigbits;
-	for (auto &c : chunks_)
+	for (auto &c : chunks())
 		for (int i = 0; i < c.width; i++)
 			sigbits.insert(RTLIL::SigBit(c, i));
 	return sigbits;
