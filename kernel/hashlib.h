@@ -1022,7 +1022,7 @@ protected:
 		if (hashtable.empty()) {
 			entries.emplace_back(std::forward<K>(rvalue), -1);
 			do_rehash();
-			hash = do_hash(rvalue);
+			hash = do_hash(entries.back().udata);
 		} else {
 			entries.emplace_back(std::forward<K>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;

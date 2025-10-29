@@ -32,6 +32,8 @@ _skip = { # These are already described, no need to extract them from the vendor
           'DLNC', 'DLNCE', 'DLNP', 'DLNPE', 'rSDP', 'rSDPX9', 'rROM', 'rROMX9',
           'TLVDS_OEN_BK', 'DLL', 'DCC', 'I3C', 'IODELAYA', 'IODELAYC', 'IODELAYB',
           'SPMI', 'PLLO', 'DCCG', 'MIPI_DPHY_RX', 'CLKDIVG', 'PWRGRD', 'FLASH96KA',
+         # ADCs are in a separate file
+         'ADCLRC', 'ADCULC', 'ADC', 'ADC_SAR', 'ADCA',
         }
 def xtract_cells_decl(dir, fout):
     fname = os.path.join(dir, 'prim_sim.v')
@@ -94,3 +96,11 @@ if __name__ == '__main__':
                 fout.write('// Created by cells_xtra.py\n')
                 fout.write('\n')
                 xtract_cells_decl(dir, fout)
+                if family == 'gw5a':
+                    fout.write('\n')
+                    fout.write('// Added from adc.v\n')
+                    fout.write('\n')
+                    with open(f'adc.v', 'r') as fin:
+                        for l in fin:
+                            fout.write(l);
+
