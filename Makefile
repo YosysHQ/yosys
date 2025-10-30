@@ -282,12 +282,11 @@ ifeq ($(WASI_SDK),)
 CXX = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
-WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
+WASIFLAGS := -target wasm32-wasi $(WASIFLAGS)
 else
 CXX = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
-WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
 endif
 CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) $(OPT_LEVEL) -D_WASI_EMULATED_PROCESS_CLOCKS $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LINKFLAGS))
