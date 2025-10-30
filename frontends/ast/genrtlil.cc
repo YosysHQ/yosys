@@ -441,6 +441,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec lhs = init_lvalue_c;
 				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
 				remove_unwanted_lvalue_bits(lhs, rhs);
+				// TODO
 				sync->actions.push_back({lhs, rhs, Const("")});
 				offset += lhs.size();
 			}
