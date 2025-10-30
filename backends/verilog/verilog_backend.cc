@@ -382,8 +382,9 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 		dump_sigchunk(f, sig.as_chunk());
 	} else {
 		f << stringf("{ ");
-		for (auto it = sig.chunks().rbegin(); it != sig.chunks().rend(); ++it) {
-			if (it != sig.chunks().rbegin())
+		auto chunks = sig.chunks();
+		for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
+			if (it != chunks.rbegin())
 				f << stringf(", ");
 			dump_sigchunk(f, *it, true);
 		}

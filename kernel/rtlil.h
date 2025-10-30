@@ -1277,8 +1277,7 @@ public:
 	SigSpec &operator=(SigSpec &&rhs) = default;
 
 	struct Chunks {
-		const SigSpec &spec;
-
+		Chunks(const SigSpec &spec) : spec(spec) {}
 		struct const_iterator {
 			using iterator_category = std::forward_iterator_tag;
 			using value_type = const SigChunk &;
@@ -1324,26 +1323,43 @@ public:
 			const_iterator it(spec, const_iterator::END);
 			return it;
 		}
-		std::vector<RTLIL::SigChunk>::const_reverse_iterator rbegin() const {
-			spec.pack();
-			return spec.chunks_.rbegin();
+		// Later we should deprecate these and remove their in-tree calls,
+		// so we can eventually remove chunk_vector.
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rbegin() {
+			ensure_chunk_vector();
+			return chunk_vector.rbegin();
 		}
-		std::vector<RTLIL::SigChunk>::const_reverse_iterator rend() const {
-			spec.pack();
-			return spec.chunks_.rend();
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rend() {
+			ensure_chunk_vector();
+			return chunk_vector.rend();
+		}
+		int size() {
+			ensure_chunk_vector();
+			return chunk_vector.size();
 		}
 		int size() const {
-			spec.pack();
-			return spec.chunks_.size();
+			int result = 0;
+			for (const SigChunk &_: *this)
+				++result;
+			return result;
 		}
-		const SigChunk &at(int index) const {
-			spec.pack();
-			return spec.chunks_.at(index);
+		const SigChunk &at(int index) {
+			ensure_chunk_vector();
+			return chunk_vector.at(index);
 		}
-		operator const std::vector<RTLIL::SigChunk>&() const {
-			spec.pack();
-			return spec.chunks_;
+		operator const std::vector<RTLIL::SigChunk>&() {
+			ensure_chunk_vector();
+			return chunk_vector;
 		}
+	private:
+		void ensure_chunk_vector() {
+			if (spec.size() > 0 && chunk_vector.empty()) {
+				for (const RTLIL::SigChunk &c : *this)
+					chunk_vector.push_back(c);
+			}
+		}
+		const SigSpec &spec;
+		std::vector<RTLIL::SigChunk> chunk_vector;
 	};
 	friend struct Chunks::const_iterator;
 
