@@ -1369,7 +1369,7 @@ public:
 	inline int size() const { return width_; }
 	inline bool empty() const { return size() == 0; }
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_ = 0; return bits_.at(index); }
 	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
