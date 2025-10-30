@@ -343,7 +343,7 @@ struct AST_INTERNAL::ProcessGenerator
 	std::map<RTLIL::Wire*, int> new_temp_count;
 
 	// Buffer for generating the init action
-	RTLIL::SigSpec init_lvalue, init_rvalue;
+	std::vector<RTLIL::SyncAction> init_actions;
 
 	// The most recently assigned $print or $check cell \PRIORITY.
 	int last_effect_priority;
@@ -447,15 +447,17 @@ struct AST_INTERNAL::ProcessGenerator
 			sync->type = RTLIL::SyncType::STi;
 			proc->syncs.push_back(sync);
 
-			log_assert(init_lvalue.size() == init_rvalue.size());
+			for (auto &init : init_actions) {
+				log_assert(init.lhs.size() == init.rhs.size());
 
-			int offset = 0;
-			for (auto &init_lvalue_c : init_lvalue.chunks()) {
-				RTLIL::SigSpec lhs = init_lvalue_c;
-				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
-				remove_unwanted_lvalue_bits(lhs, rhs);
-				sync->actions.push_back({lhs, rhs, Const("")});
-				offset += lhs.size();
+				int offset = 0;
+				for (auto &init_lvalue_c : init.lhs.chunks()) {
+					RTLIL::SigSpec lhs = init_lvalue_c;
+					RTLIL::SigSpec rhs = init.rhs.extract(offset, init_lvalue_c.width);
+					remove_unwanted_lvalue_bits(lhs, rhs);
+					sync->actions.push_back({lhs, rhs, init.src});
+					offset += lhs.size();
+				}
 			}
 		}
 
@@ -601,8 +603,7 @@ struct AST_INTERNAL::ProcessGenerator
 	void addChunkActions(std::vector<RTLIL::SyncAction> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, AstNode* ast, bool inSyncRule = false)
 	{
 		if (inSyncRule && initSyncSignals.size() > 0) {
-			init_lvalue.append(lvalue.extract(initSyncSignals));
-			init_rvalue.append(lvalue.extract(initSyncSignals, &rvalue));
+			init_actions.push_back({lvalue.extract(initSyncSignals), lvalue.extract(initSyncSignals, &rvalue), ast->loc_string()});
 			lvalue.remove2(initSyncSignals, &rvalue);
 		}
 		log_assert(lvalue.size() == rvalue.size());
