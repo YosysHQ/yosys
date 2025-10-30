@@ -24,6 +24,6 @@ select -assert-mod-count 2 =*
 
 logger -check-expected
 
-logger -expect warning "Selection .wb. did not match any module\." 1
-logger -expect error "No top module found in source design\." 1
+logger -expect warning "Selection .wb. did not match any module." 1
+logger -expect error "No top module found in source design." 1
 design -import read -as new_wb wb

@@ -8,5 +8,5 @@ module top;
 endmodule
 EOF
 
-logger -expect error "Parameter `\\Y' has no default value and has not been overridden!" 1
+logger -expect error 'Parameter `\\Y. has no default value and has not been overridden!' 1
 hierarchy -top top

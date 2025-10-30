@@ -2,6 +2,7 @@
 #include "kernel/log.h"
 #include <iostream>
 #include <string>
+#include <iomanip>
 
 #if !defined(WIN32)
 #include <dirent.h>
@@ -37,15 +38,16 @@ std::string next_token(std::string &text, const char *sep, bool long_strings)
 	if (pos_begin == std::string::npos)
 		pos_begin = text.size();
 
-	if (long_strings && pos_begin != text.size() && text[pos_begin] == '"') {
+	if (long_strings && pos_begin != text.size() && (text[pos_begin] == '"' || text[pos_begin] == '\'')) {
 		std::string sep_string = sep;
 		for (size_t i = pos_begin+1; i < text.size(); i++) {
-			if (text[i] == '"' && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
+			bool close_quote = (text[i] == text[pos_begin]) && (text[i-1] != '\\' || text[pos_begin] == '\'');
+			if (close_quote && (i+1 == text.size() || sep_string.find(text[i+1]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+1);
 				return token;
 			}
-			if (i+1 < text.size() && text[i] == '"' && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
+			if (i+1 < text.size() && close_quote && text[i+1] == ';' && (i+2 == text.size() || sep_string.find(text[i+2]) != std::string::npos)) {
 				std::string token = text.substr(pos_begin, i-pos_begin+1);
 				text = text.substr(i+2);
 				return token + ";";
@@ -597,6 +599,36 @@ void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynam
 	DynamicIntCount num_dynamic_ints, const void *arg)
 {
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+}
+
+bool needs_quote(const std::string &s) {
+	for (auto c : {' ', '\\', '#', ';', '"', '\''}) {
+		if (s.find(c) != std::string::npos) return true;
+	}
+	return false;
+}
+
+std::string quote(const std::string &s) {
+	std::ostringstream ss;
+	if (s.find('\'') != std::string::npos)
+		ss << std::quoted(s);
+	else
+		ss << '\'' << s << '\'';
+	return ss.str();
+}
+
+std::string unquote(const std::string &s) {
+	if (s.length() >= 2) {
+		if (s.front() == '\'' && s.back() == '\'')
+			return s.substr(1, s.length()-2);
+		else if (s.front() == '"' && s.back() == '"') {
+			std::string result;
+			std::istringstream ss(s);
+			ss >> std::quoted(result);
+			return result;
+		}
+	}
+	return s;
 }
 
 YOSYS_NAMESPACE_END
