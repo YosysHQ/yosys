@@ -5345,23 +5345,12 @@ bool RTLIL::SigSpec::operator <(const RTLIL::SigSpec &other) const
 	if (width_ != other.width_)
 		return width_ < other.width_;
 
-	pack();
-	other.pack();
-
-	if (chunks_.size() != other.chunks_.size())
-		return chunks_.size() < other.chunks_.size();
-
-	updhash();
-	other.updhash();
-
-	if (hash_ != other.hash_)
-		return hash_ < other.hash_;
-
-	for (size_t i = 0; i < chunks_.size(); i++)
-		if (chunks_[i] != other.chunks_[i]) {
-			cover("kernel.rtlil.sigspec.comp_lt.hash_collision");
-			return chunks_[i] < other.chunks_[i];
-		}
+	auto other_it = other.chunks().begin();
+	for (const SigChunk &c : chunks()) {
+		if (c != *other_it)
+			return c < *other_it;
+		++other_it;
+	}
 
 	cover("kernel.rtlil.sigspec.comp_lt.equal");
 	return false;
@@ -5377,29 +5366,12 @@ bool RTLIL::SigSpec::operator ==(const RTLIL::SigSpec &other) const
 	if (width_ != other.width_)
 		return false;
 
-	// Without this, SigSpec() == SigSpec(State::S0, 0) will fail
-	//   since the RHS will contain one SigChunk of width 0 causing
-	//   the size check below to fail
-	if (width_ == 0)
-		return true;
-
-	pack();
-	other.pack();
-
-	if (chunks_.size() != other.chunks_.size())
-		return false;
-
-	updhash();
-	other.updhash();
-
-	if (hash_ != other.hash_)
-		return false;
-
-	for (size_t i = 0; i < chunks_.size(); i++)
-		if (chunks_[i] != other.chunks_[i]) {
-			cover("kernel.rtlil.sigspec.comp_eq.hash_collision");
+	auto other_it = other.chunks().begin();
+	for (const SigChunk &c : chunks()) {
+		if (c != *other_it)
 			return false;
-		}
+		++other_it;
+	}
 
 	cover("kernel.rtlil.sigspec.comp_eq.equal");
 	return true;
