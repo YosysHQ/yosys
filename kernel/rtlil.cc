@@ -5631,12 +5631,7 @@ RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 RTLIL::SigBit RTLIL::SigSpec::as_bit() const
 {
 	cover("kernel.rtlil.sigspec.as_bit");
-
-	log_assert(width_ == 1);
-	if (packed())
-		return RTLIL::SigBit(*chunks_.begin());
-	else
-		return bits_[0];
+	return RTLIL::SigBit(*this);
 }
 
 bool RTLIL::SigSpec::match(const char* pattern) const
