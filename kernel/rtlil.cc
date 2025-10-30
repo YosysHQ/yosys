@@ -5259,8 +5259,6 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 {
 	cover("kernel.rtlil.sigspec.extend_u0");
 
-	pack();
-
 	if (width_ > width)
 		remove(width, width_ - width);
 
