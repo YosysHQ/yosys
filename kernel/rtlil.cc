@@ -5174,33 +5174,27 @@ RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 
 	cover("kernel.rtlil.sigspec.extract_pos");
 
-	if (packed()) {
-		SigSpec extracted;
-		extracted.width_ = length;
-
-		auto it = chunks_.begin();
-		for (; offset; offset -= it->width, it++) {
-			if (offset < it->width) {
-				int chunk_length = min(it->width - offset, length);
-				extracted.chunks_.emplace_back(it->extract(offset, chunk_length));
-				length -= chunk_length;
-				it++;
-				break;
-			}
+	SigSpec extracted;
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	for (; offset; offset -= it->width, ++it) {
+		if (offset < it->width) {
+			int chunk_length = min(it->width - offset, length);
+			extracted.append(it->extract(offset, chunk_length));
+			length -= chunk_length;
+			++it;
+			break;
 		}
-		for (; length; length -= it->width, it++) {
-			if (length >= it->width) {
-				extracted.chunks_.emplace_back(*it);
-			} else {
-				extracted.chunks_.emplace_back(it->extract(0, length));
-				break;
-			}
-		}
-
-		return extracted;
-	} else {
-		return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
 	}
+	for (; length; length -= it->width, ++it) {
+		if (length >= it->width) {
+			extracted.append(*it);
+		} else {
+			extracted.append(it->extract(0, length));
+			break;
+		}
+	}
+	return extracted;
 }
 
 void RTLIL::SigSpec::rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite)
