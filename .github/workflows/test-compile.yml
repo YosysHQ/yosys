@@ -45,7 +45,7 @@ jobs:
           - 'gcc-14'
         include:
           # macOS x86
-          - os: macos-13
+          - os: macos-15-intel
             compiler: 'clang-19'
           # macOS arm
           - os: macos-latest
