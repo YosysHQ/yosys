@@ -1477,7 +1477,7 @@ public:
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
-	operator std::vector<RTLIL::SigChunk>() const { pack(); return chunks_; }
+	operator std::vector<RTLIL::SigChunk>() const;
 	operator std::vector<RTLIL::SigBit>() const { return bits(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
 

@@ -5907,6 +5907,14 @@ bool RTLIL::SigSpec::parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, R
 	return true;
 }
 
+RTLIL::SigSpec::operator std::vector<RTLIL::SigChunk>() const
+{
+	std::vector<RTLIL::SigChunk> result;
+	for (const RTLIL::SigChunk &c : chunks())
+		result.push_back(c);
+	return result;
+}
+
 RTLIL::CaseRule::~CaseRule()
 {
 	for (auto it = switches.begin(); it != switches.end(); it++)
