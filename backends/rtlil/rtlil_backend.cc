@@ -121,7 +121,8 @@ void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 		dump_sigchunk(f, sig.as_chunk(), autoint);
 	} else {
 		f << stringf("{ ");
-		for (const auto& chunk : reversed(sig.chunks())) {
+		auto chunks = sig.chunks();
+		for (const auto& chunk : reversed(chunks)) {
 			dump_sigchunk(f, chunk, false);
 			f << stringf(" ");
 		}
