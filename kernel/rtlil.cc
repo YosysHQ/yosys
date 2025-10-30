@@ -4725,7 +4725,6 @@ void RTLIL::SigSpec::unpack() const
 			that->bits_.emplace_back(c, i);
 
 	that->chunks_.clear();
-	that->hash_ = 0;
 }
 
 void RTLIL::SigSpec::updhash() const
@@ -4757,6 +4756,7 @@ void RTLIL::SigSpec::sort()
 	unpack();
 	cover("kernel.rtlil.sigspec.sort");
 	std::sort(bits_.begin(), bits_.end());
+	hash_ = 0;
 }
 
 void RTLIL::SigSpec::sort_and_unify()
@@ -4773,6 +4773,7 @@ void RTLIL::SigSpec::sort_and_unify()
 	unique_bits.erase(last, unique_bits.end());
 
 	*this = unique_bits;
+	hash_ = 0;
 }
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with)
@@ -4804,6 +4805,7 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 			other->bits_[j] = with.bits_[it->second];
 		}
 	}
+	other->hash_ = 0;
 
 	other->check();
 }
@@ -4829,6 +4831,7 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RT
 		if (it != rules.end())
 			other->bits_[i] = it->second;
 	}
+	other->hash_ = 0;
 
 	other->check();
 }
@@ -4854,6 +4857,7 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 		if (it != rules.end())
 			other->bits_[i] = it->second;
 	}
+	other->hash_ = 0;
 
 	other->check();
 }
@@ -4880,6 +4884,7 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
+		other->hash_ = 0;
 	}
 
 	for (int i = GetSize(bits_) - 1; i >= 0; i--)
@@ -4899,6 +4904,7 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 				break;
 			}
 	}
+	hash_ = 0;
 
 	check();
 }
@@ -4926,6 +4932,7 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
+		other->hash_ = 0;
 	}
 
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
@@ -4938,6 +4945,7 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 			}
 		}
 	}
+	hash_ = 0;
 
 	check();
 }
@@ -4954,6 +4962,7 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
+		other->hash_ = 0;
 	}
 
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
@@ -4966,6 +4975,7 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 			}
 		}
 	}
+	hash_ = 0;
 
 	check();
 }
@@ -4982,6 +4992,7 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
+		other->hash_ = 0;
 	}
 
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
@@ -4994,6 +5005,7 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *
 			}
 		}
 	}
+	hash_ = 0;
 
 	check();
 }
@@ -5081,6 +5093,7 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 		bits_.at(offset + i) = bit;
 		++i;
 	}
+	hash_ = 0;
 
 	check();
 }
@@ -5124,6 +5137,7 @@ void RTLIL::SigSpec::remove_const()
 		width_ = bits_.size();
 	}
 
+	hash_ = 0;
 	check();
 }
 
@@ -5140,6 +5154,7 @@ void RTLIL::SigSpec::remove(int offset, int length)
 	bits_.erase(bits_.begin() + offset, bits_.begin() + offset + length);
 	width_ = bits_.size();
 
+	hash_ = 0;
 	check();
 }
 
@@ -5186,6 +5201,7 @@ void RTLIL::SigSpec::rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewri
 	for (RTLIL::SigChunk &chunk : chunks_)
 		if (chunk.wire != nullptr)
 			rewrite(chunk.wire);
+	hash_ = 0;
 }
 
 void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
@@ -5221,6 +5237,7 @@ void RTLIL::SigSpec::append(const RTLIL::SigSpec &signal)
 	}
 
 	width_ += signal.size();
+	hash_ = 0;
 	check();
 }
 
@@ -5252,6 +5269,7 @@ void RTLIL::SigSpec::append(const RTLIL::SigBit &bit)
 	}
 
 	width_++;
+	hash_ = 0;
 	check();
 }
 
@@ -5269,7 +5287,6 @@ void RTLIL::SigSpec::extend_u0(int width, bool is_signed)
 		while (size() < width)
 			append(padding);
 	}
-
 }
 
 RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
