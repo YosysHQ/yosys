@@ -5633,11 +5633,12 @@ std::optional<RTLIL::Const> RTLIL::SigSpec::try_as_const() const
 {
 	cover("kernel.rtlil.sigspec.as_const");
 
-	auto it = chunks().begin();
-	if (it == chunks().end())
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	if (it == cs.end())
 		return RTLIL::Const();
 	SigChunk chunk = *it;
-	if (chunk.wire != NULL || ++it != chunks().end())
+	if (chunk.wire != NULL || ++it != cs.end())
 		return std::nullopt;
 	return RTLIL::Const(std::move(chunk.data));
 }
@@ -5655,10 +5656,11 @@ RTLIL::Wire *RTLIL::SigSpec::as_wire() const
 {
 	cover("kernel.rtlil.sigspec.as_wire");
 
-	auto it = chunks().begin();
-	log_assert(it != chunks().end());
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	log_assert(it != cs.end());
 	RTLIL::SigChunk chunk = *it;
-	log_assert(++it == chunks().end() && chunk.wire && chunk.wire->width == width_);
+	log_assert(++it == cs.end() && chunk.wire && chunk.wire->width == width_);
 	return chunk.wire;
 }
 
@@ -5666,10 +5668,11 @@ RTLIL::SigChunk RTLIL::SigSpec::as_chunk() const
 {
 	cover("kernel.rtlil.sigspec.as_chunk");
 
-	auto it = chunks().begin();
-	log_assert(it != chunks().end());
+	Chunks cs = chunks();
+	auto it = cs.begin();
+	log_assert(it != cs.end());
 	RTLIL::SigChunk chunk = *it;
-	log_assert(++it == chunks().end());
+	log_assert(++it == cs.end());
 	return chunk;
 }
 
