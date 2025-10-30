@@ -1234,29 +1234,53 @@ struct RTLIL::SigSpecConstIterator
 struct RTLIL::SigSpec
 {
 private:
-	int width_;
-	Hasher::hash_t hash_;
-	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
-	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	enum Representation : char {
+		CHUNK,
+		BITS,
+	};
 
-	void pack() const;
-	void unpack() const;
-	void updhash() const;
+	Representation rep_;
+	Hasher::hash_t hash_ = 0;
+	union {
+		RTLIL::SigChunk chunk_;
+		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	};
 
-	inline bool packed() const {
-		return bits_.empty();
+	void init_empty_bits() {
+		rep_ = BITS;
+		new (&bits_) std::vector<RTLIL::SigBit>;
 	}
 
+	void unpack() const;
 	inline void inline_unpack() const {
-		if (!chunks_.empty())
+		if (rep_ == CHUNK)
 			unpack();
 	}
 
+	void updhash() const;
+	void destroy() {
+		if (rep_ == CHUNK)
+			chunk_.~SigChunk();
+		else
+			bits_.~vector();
+	}
+	friend struct Chunks;
+
 public:
-	SigSpec() : width_(0), hash_(0) {}
+	SigSpec() { init_empty_bits(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	SigSpec(const SigSpec &value) = default;
-	SigSpec(SigSpec &&value) = default;
+	SigSpec(const SigSpec &value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(value.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(value.bits_);
+	}
+	SigSpec(SigSpec &&value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(value.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(value.bits_));
+	}
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -1272,9 +1296,30 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
+	~SigSpec() {
+		destroy();
+	}
 
-	SigSpec &operator=(const SigSpec &rhs) = default;
-	SigSpec &operator=(SigSpec &&rhs) = default;
+	SigSpec &operator=(const SigSpec &rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(rhs.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(rhs.bits_);
+		return *this;
+	}
+	SigSpec &operator=(SigSpec &&rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(rhs.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(rhs.bits_));
+		return *this;
+	}
 
 	struct Chunks {
 		Chunks(const SigSpec &spec) : spec(spec) {}
@@ -1286,14 +1331,12 @@ public:
 			using reference = const SigChunk &;
 
 			const SigSpec &spec;
-			int chunk_index;
 			int bit_index;
 			SigChunk chunk;
 
 			const_iterator(const SigSpec &spec) : spec(spec) {
-				chunk_index = 0;
 				bit_index = 0;
-				if (!spec.packed())
+				if (spec.rep_ == BITS)
 					next_chunk_bits();
 			}
 			enum End { END };
@@ -1303,15 +1346,14 @@ public:
 			void next_chunk_bits();
 
 			const SigChunk &operator*() {
-				if (spec.packed())
-					return spec.chunks_[chunk_index];
+				if (spec.rep_ == CHUNK)
+					return spec.chunk_;
 				return chunk;
 			};
 			const SigChunk *operator->() { return &**this; }
 			const_iterator &operator++() {
 				bit_index += (**this).width;
-				++chunk_index;
-				if (!spec.packed())
+				if (spec.rep_ == BITS)
 					next_chunk_bits();
 				return *this;
 			}
@@ -1366,7 +1408,7 @@ public:
 	inline Chunks chunks() const { return {*this}; }
 	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
 
-	inline int size() const { return width_; }
+	inline int size() const { return rep_ == CHUNK ? chunk_.width : GetSize(bits_); }
 	inline bool empty() const { return size() == 0; }
 
 	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_ = 0; return bits_.at(index); }
