@@ -109,48 +109,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           runs-on: ${{ matrix.os }}
-
-      - name: Get iverilog
-        id: get-iverilog
-        shell: bash
-        run: |
-          git clone https://github.com/steveicarus/iverilog.git
-          cd iverilog
-          echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Get vcd2fst
-        shell: bash
-        run: |
-          git clone https://github.com/mmicko/libwave.git
-          mkdir -p ${{ github.workspace }}/.local/
-          cd libwave
-          cmake . -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/.local
-          make -j$procs
-          make install
-
-      - name: Cache iverilog
-        id: cache-iverilog
-        uses: actions/cache@v4
-        with:
-          path: .local/
-          key: ${{ matrix.os }}-${{ steps.get-iverilog.outputs.IVERILOG_GIT }}
-
-      - name: iverilog macOS deps
-        if: steps.cache-iverilog.outputs.cache-hit != 'true' && runner.os == 'macOS'
-        shell: bash
-        run: |
-          brew install autoconf
-
-      - name: Build iverilog
-        if: steps.cache-iverilog.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          mkdir -p ${{ github.workspace }}/.local/
-          cd iverilog
-          autoconf
-          CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
-          make -j$procs
-          make install
+          setup-iverilog: true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
