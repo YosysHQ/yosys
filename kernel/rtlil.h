@@ -1239,9 +1239,39 @@ private:
 		CHUNK,
 		BITS,
 	};
+	// An AtomicHash is either clear or a nonzero integer.
+	struct AtomicHash {
+		// Create an initially clear value.
+		AtomicHash() : atomic_(0) {}
+		AtomicHash(const AtomicHash &rhs) : atomic_(rhs.load()) {}
+		AtomicHash &operator=(const AtomicHash &rhs) { store(rhs.load()); return *this; }
+		// Read the hash. Returns nullopt if the hash is clear.
+		std::optional<Hasher::hash_t> read() const {
+			Hasher::hash_t value = load();
+			if (value == 0)
+				return std::nullopt;
+			return value;
+		}
+		// Set the hash. If the value is already set, then the new value must
+		// equal the current value.
+		void set(Hasher::hash_t value) const {
+			log_assert(value != 0);
+			Hasher::hash_t old = const_cast<std::atomic<Hasher::hash_t>&>(atomic_)
+					.exchange(value, std::memory_order_relaxed);
+			log_assert(old == 0 || old == value);
+		}
+		void clear() { store(0); }
+	private:
+		int load() const { return atomic_.load(std::memory_order_relaxed); }
+		void store(Hasher::hash_t value) const {
+			const_cast<std::atomic<Hasher::hash_t>&>(atomic_).store(value, std::memory_order_relaxed);
+		}
+
+		std::atomic<Hasher::hash_t> atomic_;
+	};
 
 	Representation rep_;
-	Hasher::hash_t hash_ = 0;
+	AtomicHash hash_;
 	union {
 		RTLIL::SigChunk chunk_;
 		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
@@ -1258,7 +1288,7 @@ private:
 			unpack();
 	}
 
-	void updhash() const;
+	Hasher::hash_t updhash() const;
 	void destroy() {
 		if (rep_ == CHUNK)
 			chunk_.~SigChunk();
@@ -1410,9 +1440,9 @@ public:
 	inline const SigSpec &bits() const { return *this; }
 
 	inline int size() const { return rep_ == CHUNK ? chunk_.width : GetSize(bits_); }
-	inline bool empty() const { return size() == 0; }
+	inline bool empty() const { return size() == 0; };
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_ = 0; return bits_.at(index); }
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_.clear(); return bits_.at(index); }
 	inline RTLIL::SigBit operator[](int index) const {
 		if (rep_ == CHUNK) {
 			if (index < 0 || index >= chunk_.width)
@@ -1551,7 +1581,15 @@ public:
 	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < size() ? (*this)[offset] : defval; }
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		Hasher::hash_t val;
+		if (std::optional<Hasher::hash_t> current = hash_.read())
+			val = *current;
+		else
+			val = updhash();
+		h.eat(val);
+		return h;
+	}
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
