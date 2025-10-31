@@ -60,6 +60,8 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
 
       - name: Setup Cpp
         uses: aminya/setup-cpp@v1

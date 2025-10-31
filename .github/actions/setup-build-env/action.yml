@@ -1,15 +1,20 @@
 name: Build environment setup
 description: Configure build env for Yosys builds
+
+inputs:
+  runs-on:
+    required: true
+    type: string
+
 runs:
   using: composite
   steps:
     - name: Install Linux Dependencies
       if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install gperf build-essential bison flex libfl-dev libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3-dev zlib1g-dev libbz2-dev libgtest-dev
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: gperf build-essential bison flex libfl-dev libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev libbz2-dev libgtest-dev
+        version: ${{ inputs.runs-on }}-buildys
 
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'

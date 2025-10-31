@@ -44,6 +44,8 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup-build-env
+        with:
+          runs-on: ${{ matrix.os }}
 
       - name: Get iverilog
         id: get-iverilog
