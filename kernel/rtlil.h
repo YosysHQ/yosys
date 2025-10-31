@@ -1223,9 +1223,10 @@ struct RTLIL::SigSpecConstIterator
 	typedef RTLIL::SigBit& reference;
 
 	const RTLIL::SigSpec *sig_p;
+	RTLIL::SigBit bit;
 	int index;
 
-	inline const RTLIL::SigBit &operator*() const;
+	inline const RTLIL::SigBit &operator*();
 	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return index != other.index; }
 	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
 	inline void operator++() { index++; }
@@ -1251,8 +1252,8 @@ private:
 		new (&bits_) std::vector<RTLIL::SigBit>;
 	}
 
-	void unpack() const;
-	inline void inline_unpack() const {
+	void unpack();
+	inline void inline_unpack() {
 		if (rep_ == CHUNK)
 			unpack();
 	}
@@ -1406,13 +1407,22 @@ public:
 	friend struct Chunks::const_iterator;
 
 	inline Chunks chunks() const { return {*this}; }
-	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
+	inline const SigSpec &bits() const { return *this; }
 
 	inline int size() const { return rep_ == CHUNK ? chunk_.width : GetSize(bits_); }
 	inline bool empty() const { return size() == 0; }
 
 	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_ = 0; return bits_.at(index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
+	inline RTLIL::SigBit operator[](int index) const {
+		if (rep_ == CHUNK) {
+			if (index < 0 || index >= chunk_.width)
+				throw std::out_of_range("SigSpec::operator[]");
+			if (chunk_.wire)
+				return RTLIL::SigBit(chunk_.wire, chunk_.offset + index);
+			return RTLIL::SigBit(chunk_.data[index]);
+		}
+		return bits_.at(index);
+	}
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
 	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = size(); return it; }
@@ -1456,6 +1466,8 @@ public:
 
 	RTLIL::SigBit lsb() const { log_assert(size()); return (*this)[0]; };
 	RTLIL::SigBit msb() const { log_assert(size()); return (*this)[size() - 1]; };
+	RTLIL::SigBit front() const { return (*this)[0]; }
+	RTLIL::SigBit back() const { return (*this)[size() - 1]; }
 
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
@@ -1536,7 +1548,7 @@ public:
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
 	operator std::vector<RTLIL::SigChunk>() const;
-	operator std::vector<RTLIL::SigBit>() const { return bits(); }
+	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < size() ? (*this)[offset] : defval; }
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
@@ -2444,8 +2456,9 @@ inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
 	return (*sig_p)[index];
 }
 
-inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
-	return (*sig_p)[index];
+inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() {
+	bit = (*sig_p)[index];
+	return bit;
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {

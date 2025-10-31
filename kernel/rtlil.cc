@@ -4675,23 +4675,21 @@ void RTLIL::SigSpec::Chunks::const_iterator::next_chunk_bits()
 	chunk.width = i - bit_index;
 }
 
-void RTLIL::SigSpec::unpack() const
+void RTLIL::SigSpec::unpack()
 {
 	if (rep_ == BITS)
 		return;
 
-	RTLIL::SigSpec *that = (RTLIL::SigSpec*)this;
-
 	cover("kernel.rtlil.sigspec.convert.unpack");
 
 	std::vector<RTLIL::SigBit> bits;
-	bits.reserve(that->chunk_.width);
-	for (int i = 0; i < that->chunk_.width; i++)
-		bits.emplace_back(that->chunk_, i);
+	bits.reserve(chunk_.width);
+	for (int i = 0; i < chunk_.width; i++)
+		bits.emplace_back(chunk_, i);
 
-	that->chunk_.~SigChunk();
-	that->rep_ = BITS;
-	new (&that->bits_) std::vector<RTLIL::SigBit>(std::move(bits));
+	chunk_.~SigChunk();
+	rep_ = BITS;
+	new (&bits_) std::vector<RTLIL::SigBit>(std::move(bits));
 }
 
 void RTLIL::SigSpec::updhash() const
@@ -4754,25 +4752,22 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	log_assert(size() == other->size());
 	log_assert(pattern.size() == with.size());
 
-	pattern.unpack();
-	with.unpack();
-	unpack();
-	other->unpack();
-
 	dict<RTLIL::SigBit, int> pattern_to_with;
-	for (int i = 0; i < GetSize(pattern.bits_); i++) {
-		if (pattern.bits_[i].wire != NULL) {
-			pattern_to_with.emplace(pattern.bits_[i], i);
+	int pattern_size = pattern.size();
+	for (int i = 0; i < pattern_size; i++) {
+		SigBit pattern_bit = pattern[i];
+		if (pattern_bit.wire != NULL) {
+			pattern_to_with.emplace(pattern_bit, i);
 		}
 	}
 
-	for (int j = 0; j < GetSize(bits_); j++) {
-		auto it = pattern_to_with.find(bits_[j]);
+	int this_size = size();
+	for (int j = 0; j < this_size; j++) {
+		auto it = pattern_to_with.find((*this)[j]);
 		if (it != pattern_to_with.end()) {
-			other->bits_[j] = with.bits_[it->second];
+			(*other)[j] = with[it->second];
 		}
 	}
-	other->hash_ = 0;
 
 	other->check();
 }
@@ -4790,15 +4785,13 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RT
 	log_assert(size() == other->size());
 
 	if (rules.empty()) return;
-	unpack();
-	other->unpack();
 
-	for (int i = 0; i < GetSize(bits_); i++) {
-		auto it = rules.find(bits_[i]);
+	int this_size = size();
+	for (int i = 0; i < this_size; i++) {
+		auto it = rules.find((*this)[i]);
 		if (it != rules.end())
-			other->bits_[i] = it->second;
+			(*other)[i] = it->second;
 	}
-	other->hash_ = 0;
 
 	other->check();
 }
@@ -4816,15 +4809,13 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 	log_assert(size() == other->size());
 
 	if (rules.empty()) return;
-	unpack();
-	other->unpack();
 
-	for (int i = 0; i < GetSize(bits_); i++) {
-		auto it = rules.find(bits_[i]);
+	int this_size = size();
+	for (int i = 0; i < this_size; i++) {
+		auto it = rules.find((*this)[i]);
 		if (it != rules.end())
-			other->bits_[i] = it->second;
+			(*other)[i] = it->second;
 	}
-	other->hash_ = 0;
 
 	other->check();
 }
@@ -5578,23 +5569,25 @@ bool RTLIL::SigSpec::match(const char* pattern) const
 {
 	cover("kernel.rtlil.sigspec.match");
 
-	unpack();
-	log_assert(int(strlen(pattern)) == GetSize(bits_));
+	int pattern_len = strlen(pattern);
+	log_assert(pattern_len == size());
 
-	for (auto it = bits_.rbegin(); it != bits_.rend(); it++, pattern++) {
-		if (*pattern == ' ')
+	for (int i = 0; i < pattern_len; ++i) {
+		char ch = pattern[i];
+		if (ch == ' ')
 			continue;
-		if (*pattern == '*') {
-			if (*it != State::Sz && *it != State::Sx)
+		RTLIL::SigBit bit = (*this)[pattern_len - 1 - i];
+		if (ch == '*') {
+			if (bit != State::Sz && bit != State::Sx)
 				return false;
 			continue;
 		}
-		if (*pattern == '0') {
-			if (*it != State::S0)
+		if (ch == '0') {
+			if (bit != State::S0)
 				return false;
 		} else
-		if (*pattern == '1') {
-			if (*it != State::S1)
+		if (ch == '1') {
+			if (bit != State::S1)
 				return false;
 		} else
 			log_abort();
@@ -5630,22 +5623,23 @@ std::vector<RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_vector() const
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_vector");
 
-	unpack();
-	return bits_;
+	std::vector<RTLIL::SigBit> result;
+	result.reserve(size());
+	for (SigBit bit : *this)
+		result.push_back(bit);
+	return result;
 }
 
 std::map<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_map(const RTLIL::SigSpec &other) const
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_map");
 
-	unpack();
-	other.unpack();
-
-	log_assert(size() == other.size());
+	int this_size = size();
+	log_assert(this_size == other.size());
 
 	std::map<RTLIL::SigBit, RTLIL::SigBit> new_map;
-	for (int i = 0; i < GetSize(bits_); i++)
-		new_map[bits_[i]] = other.bits_[i];
+	for (int i = 0; i < this_size; i++)
+		new_map[(*this)[i]] = other[i];
 
 	return new_map;
 }
@@ -5654,15 +5648,13 @@ dict<RTLIL::SigBit, RTLIL::SigBit> RTLIL::SigSpec::to_sigbit_dict(const RTLIL::S
 {
 	cover("kernel.rtlil.sigspec.to_sigbit_dict");
 
-	unpack();
-	other.unpack();
-
-	log_assert(size() == other.size());
+	int this_size = size();
+	log_assert(this_size == other.size());
 
 	dict<RTLIL::SigBit, RTLIL::SigBit> new_map;
-	new_map.reserve(size());
-	for (int i = 0; i < GetSize(bits_); i++)
-		new_map[bits_[i]] = other.bits_[i];
+	new_map.reserve(this_size);
+	for (int i = 0; i < this_size; i++)
+		new_map[(*this)[i]] = other[i];
 
 	return new_map;
 }
