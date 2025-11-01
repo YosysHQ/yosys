@@ -29,6 +29,8 @@ inputs:
 runs:
   using: composite
   steps:
+    # if updating common/build/docs dependencies, make sure to update README.md
+    # and docs/source/getting_started/installation.rst to match.
     - name: Linux common dependencies
       if: runner.os == 'Linux'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
@@ -50,6 +52,8 @@ runs:
         packages: graphviz xdot
         version: ${{ inputs.runs-on }}-docsys
 
+    # if updating test dependencies, make sure to update
+    # docs/source/yosys_internals/extending_yosys/test_suites.rst to match.
     - name: Linux test dependencies
       if: runner.os == 'Linux' && inputs.get-test-deps == 'true'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
