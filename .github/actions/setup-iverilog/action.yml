@@ -27,21 +27,20 @@ runs:
         make -j$procs
         make install
 
-    - name: Cache iverilog
-      id: cache-iverilog
-      uses: actions/cache@v4
+    - uses: actions/cache/restore@v4
+      id: restore-iverilog
       with:
         path: .local/
         key: ${{ inputs.runs-on }}-${{ steps.get-iverilog.outputs.IVERILOG_GIT }}
 
     - name: iverilog macOS deps
-      if: steps.cache-iverilog.outputs.cache-hit != 'true' && runner.os == 'macOS'
+      if: steps.restore-iverilog.outputs.cache-hit != 'true' && runner.os == 'macOS'
       shell: bash
       run: |
         brew install autoconf
 
     - name: Build iverilog
-      if: steps.cache-iverilog.outputs.cache-hit != 'true'
+      if: steps.restore-iverilog.outputs.cache-hit != 'true'
       shell: bash
       run: |
         mkdir -p ${{ github.workspace }}/.local/
@@ -55,3 +54,10 @@ runs:
       shell: bash
       run: |
         iverilog -V
+
+    - uses: actions/cache/save@v4
+      id: save-iverilog
+      if: steps.restore-iverilog.outputs.cache-hit != 'true'
+      with:
+        path: .local/
+        key: ${{ steps.restore-iverilog.outputs.cache-primary-key }}
