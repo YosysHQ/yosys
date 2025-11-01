@@ -42,7 +42,7 @@ runs:
       if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
       with:
-        packages: bison clang flex libboost-filesystem-dev libboost-python-dev libboost-system-dev libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev
+        packages: bison clang flex libboost-filesystem-dev libboost-system-dev libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev
         version: ${{ inputs.runs-on }}-buildys
 
     - name: Linux docs dependencies
