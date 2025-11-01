@@ -50,7 +50,7 @@ rst_prolog = """
    :language: yoscrypt
 """
 
-extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
+extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex', 'sphinx_inline_tabs']
 
 if os.getenv("READTHEDOCS"):
     # Use rtds_action if we are building on read the docs and have a github token env var
