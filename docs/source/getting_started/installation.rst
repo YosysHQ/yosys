@@ -101,8 +101,8 @@ Installing all prerequisites:
 
       sudo apt-get install gawk git make python3 lld \
          bison clang flex libboost-filesystem-dev libboost-python-dev \
-         libboost-system-dev libbz2-dev libffi-dev libfl-dev \
-         libreadline-dev pkg-config tcl-dev zlib1g-dev \
+         libboost-system-dev libffi-dev libfl-dev libreadline-dev \
+         pkg-config tcl-dev zlib1g-dev \
          graphviz xdot
       curl -LsSf https://astral.sh/uv/install.sh | sh
 
