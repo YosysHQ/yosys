@@ -1428,13 +1428,13 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	// Copy connections (and rename) from mapped_mod to module
 	for (auto conn : mapped_mod->connections()) {
 		if (!conn.first.is_fully_const()) {
-			auto chunks = conn.first.chunks();
+			std::vector<RTLIL::SigChunk> chunks = conn.first.chunks();
 			for (auto &c : chunks)
 				c.wire = module->wires_.at(remap_name(c.wire->name));
 			conn.first = std::move(chunks);
 		}
 		if (!conn.second.is_fully_const()) {
-			auto chunks = conn.second.chunks();
+			std::vector<RTLIL::SigChunk> chunks = conn.second.chunks();
 			for (auto &c : chunks)
 				if (c.wire)
 					c.wire = module->wires_.at(remap_name(c.wire->name));
