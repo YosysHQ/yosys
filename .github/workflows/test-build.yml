@@ -62,6 +62,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           runs-on: ${{ matrix.os }}
+          get-build-deps: true
 
       - name: Build
         shell: bash
@@ -109,7 +110,8 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           runs-on: ${{ matrix.os }}
-          setup-iverilog: true
+          get-test-deps: true
+          get-iverilog: true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -196,6 +198,8 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           runs-on: ${{ matrix.os }}
+          get-build-deps: true
+          get-docs-deps: true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4

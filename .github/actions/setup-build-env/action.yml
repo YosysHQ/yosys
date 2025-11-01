@@ -5,6 +5,21 @@ inputs:
   runs-on:
     required: true
     type: string
+  get-build-deps:
+    description: 'Install Yosys build dependencies'
+    default: false
+    required: false
+    type: boolean
+  get-docs-deps:
+    description: 'Install Yosys docs dependencies'
+    default: false
+    required: false
+    type: boolean
+  get-test-deps:
+    description: 'Install Yosys test dependencies'
+    default: false
+    required: false
+    type: boolean
   get-iverilog:
     description: 'Install iverilog'
     default: false
@@ -14,12 +29,33 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Linux Dependencies
+    - name: Linux common dependencies
       if: runner.os == 'Linux'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
       with:
-        packages: gperf build-essential bison flex libfl-dev libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev libbz2-dev libgtest-dev
+        packages: autoconf git make python3
+        version: ${{ inputs.runs-on }}-commonys
+
+    - name: Linux build dependencies
+      if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: bison clang flex libboost-filesystem-dev libboost-python-dev libboost-system-dev libbz2-dev libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev
         version: ${{ inputs.runs-on }}-buildys
+
+    - name: Linux docs dependencies
+      if: runner.os == 'Linux' && inputs.get-docs-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: graphviz xdot
+        version: ${{ inputs.runs-on }}-docsys
+
+    - name: Linux test dependencies
+      if: runner.os == 'Linux' && inputs.get-test-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: gawk libgtest-dev
+        version: ${{ inputs.runs-on }}-testys
 
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'
