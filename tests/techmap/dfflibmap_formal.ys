@@ -114,3 +114,34 @@ opt_clean -purge
 equiv_make top top_unmapped equiv
 equiv_induct equiv
 equiv_status -assert equiv
+
+##################################################################
+
+design -reset
+read_verilog <<EOT
+
+module top(input C, D, R, output Q);
+  // DFF with preset
+  always @(posedge C or negedge R) begin
+    if (!R) Q <= 1'b1;
+    else Q <= D;
+  end
+endmodule
+
+EOT
+
+proc
+opt
+read_liberty dfflibmap_dffn_dffe.lib
+read_liberty dfflibmap_dff_not_next.lib
+
+copy top top_unmapped
+simplemap top
+dfflibmap -liberty dfflibmap_dffn_dffe.lib -liberty dfflibmap_dff_not_next.lib top
+
+async2sync
+flatten
+opt_clean -purge
+equiv_make top top_unmapped equiv
+equiv_induct equiv
+equiv_status -assert equiv
