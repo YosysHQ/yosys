@@ -93,56 +93,64 @@ tools: readline, libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
 `show` command to display schematics.
 
-Installing all prerequisites for Ubuntu 22.04:
+Installing all prerequisites:
 
-.. code:: console
+.. tab:: Ubuntu 22.04
 
-   sudo apt-get install gperf build-essential clang lld bison flex libfl-dev \
-      libreadline-dev gawk tcl-dev libffi-dev git \
-      graphviz xdot pkg-config python3-dev zlib1g-dev
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   .. code:: console
 
-Installing all prerequisites for macOS 13 (with Homebrew):
+      sudo apt-get install gawk git make python3 lld \
+         bison clang flex libboost-filesystem-dev libboost-python-dev \
+         libboost-system-dev libbz2-dev libffi-dev libfl-dev \
+         libreadline-dev pkg-config tcl-dev zlib1g-dev \
+         graphviz xdot
+      curl -LsSf https://astral.sh/uv/install.sh | sh
 
-.. code:: console
+.. tab:: macOS 13 (with Homebrew)
 
-   brew tap Homebrew/bundle && brew bundle
+   .. code:: console
 
-or MacPorts:
+      brew tap Homebrew/bundle && brew bundle
 
-.. code:: console
+.. tab:: MacPorts
 
-   sudo port install bison flex readline gawk libffi graphviz \
-      pkgconfig python311 boost zlib tcl
+   .. code:: console
 
-On FreeBSD use the following command to install all prerequisites:
+      sudo port install bison flex readline gawk libffi graphviz \
+         pkgconfig python311 boost zlib tcl
 
-.. code:: console
+.. tab:: FreeBSD
 
-   pkg install bison flex readline gawk libffi graphviz \
-      pkgconf python311 tcl-wrapper boost-libs
+   .. code:: console
 
-.. note:: On FreeBSD system use gmake instead of make. To run tests use:
-    ``MAKE=gmake CXX=cxx CC=cc gmake test``
+      pkg install bison flex readline gawk libffi graphviz \
+         pkgconf python311 tcl-wrapper boost-libs
 
-For Cygwin use the following command to install all prerequisites, or select these additional packages:
+   .. note:: On FreeBSD system use gmake instead of make. To run tests use:
+      ``MAKE=gmake CXX=cxx CC=cc gmake test``
 
-.. code:: console
+.. tab:: Cygwin
 
-   setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+   Use the following command to install all prerequisites, or select these
+   additional packages:
 
-.. warning::
+   .. code:: console
 
-   As of this writing, Cygwin only supports up to Python 3.9.16 while the
-   minimum required version of Python is 3.11.  This means that Cygwin is not
-   compatible with many of the Python-based frontends.  While this does not
-   currently prevent Yosys itself from working, no guarantees are made for
-   continued support.  You may also need to specify `CXXSTD=gnu++17` to resolve
-   missing `strdup` function when using gcc.  It is instead recommended to use
-   Windows Subsystem for Linux (WSL) and follow the instructions for Ubuntu.
+      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
 
-..
-   For MSYS2 (MINGW64):
+   .. warning::
+
+      As of this writing, Cygwin only supports up to Python 3.9.16 while the
+      minimum required version of Python is 3.11.  This means that Cygwin is not
+      compatible with many of the Python-based frontends.  While this does not
+      currently prevent Yosys itself from working, no guarantees are made for
+      continued support.  You may also need to specify ``CXXSTD=gnu++17`` to
+      resolve missing ``strdup`` function when using gcc.  It is instead
+      recommended to use Windows Subsystem for Linux (WSL) and follow the
+      instructions for Ubuntu.
+
+.. 
+   tab:: MSYS2 (MINGW64)
 
    .. code:: console
 
