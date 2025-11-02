@@ -363,7 +363,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), mod, PooledName(design_copy, pr.first).unescape());
+								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->lhs), log_signal(it->rhs), mod, PooledName(design_copy, pr.first).unescape());
 								cs->actions.erase(it);
 								return design_copy;
 							}
@@ -389,7 +389,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), mod, PooledName(design_copy, pr.first).unescape());
+								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->lhs), log_signal(it->rhs), mod, PooledName(design_copy, pr.first).unescape());
 								sy->actions.erase(it);
 								return design_copy;
 							}
