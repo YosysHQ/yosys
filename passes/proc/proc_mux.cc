@@ -32,7 +32,8 @@ using SnippetSourceMap = dict<std::pair<int, const RTLIL::CaseRule*>, TwineRef>;
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
 	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
-		map[std::make_pair(snippet, cs)] = action.src;
+		if (action.src != Twine::Null)
+			map[std::make_pair(snippet, cs)] = action.src;
 	}
 
 };
@@ -40,8 +41,13 @@ struct SnippetSourceMapper {
 	const SnippetSourceMap map;
 	void try_map_into(pool<TwineRef>& sources, int snippet, const RTLIL::CaseRule* cs) const {
 		auto src_it = map.find(std::make_pair(snippet, cs));
-		if (src_it != map.end() && src_it->second != Twine::Null) {
+		if (src_it != map.end()) {
 			sources.insert(src_it->second);
+		} else {
+			TwineRef cs_src = cs->src_id();
+			if (cs_src != Twine::Null) {
+				sources.insert(cs_src);
+			}
 		}
 	}
 
@@ -168,7 +174,7 @@ struct SnippetSwCache
 	}
 };
 
-void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
+void apply_attrs(RTLIL::Cell *cell, const RTLIL::CaseRule *cs)
 {
 	cell->attributes = cs->attributes;
 	cell->module->design->merge_src(cell, cs);
@@ -214,7 +220,7 @@ struct MuxGenCtx {
 			{
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(mod->design->twines.add(std::string{stringf("%s_CMP%d", sstr.str(), cmp_wire->width)}), ifxmode ? TW($eqx) : TW($eq));
-				apply_attrs(eq_cell, sw, cs);
+				apply_attrs(eq_cell, cs);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -240,7 +246,7 @@ struct MuxGenCtx {
 
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str() + "_ANY"}), TW($reduce_or));
-			apply_attrs(any_cell, sw, cs);
+			apply_attrs(any_cell, cs);
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
@@ -274,7 +280,6 @@ struct MuxGenCtx {
 
 		// create the multiplexer itself
 		RTLIL::Cell *mux_cell = mod->addCell(mod->design->twines.add(std::string{sstr.str()}), TW($mux));
-		apply_attrs(mux_cell, sw, cs);
 
 		mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());
 		mux_cell->setPort(TW::A, else_signal);
