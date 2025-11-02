@@ -37,7 +37,7 @@ struct SnippetSourceMapBuilder {
 
 };
 struct SnippetSourceMapper {
-	SnippetSourceMap map;
+	const SnippetSourceMap map;
 	void try_map_into(pool<std::string>& sources, int snippet, const RTLIL::CaseRule* cs) const {
 		auto src_it = map.find(std::make_pair(snippet, cs));
 		if (src_it != map.end()) {
@@ -298,8 +298,10 @@ struct MuxGenCtx {
 		log_assert(last_mux_cell != NULL);
 		log_assert(when_signal.size() == last_mux_cell->getPort(ID::A).size());
 
-		if (when_signal == last_mux_cell->getPort(ID::A))
+		if (when_signal == last_mux_cell->getPort(ID::A)) {
+			// when_signal already covered by the default value at port A
 			return;
+		}
 
 		RTLIL::SigSpec ctrl_sig = gen_cmp();
 		log_assert(ctrl_sig.size() == 1);
@@ -372,6 +374,31 @@ struct MuxTreeContext {
 	const bool ifxmode;
 };
 
+bool is_simple_parallel_case(RTLIL::SwitchRule* sw, dict<RTLIL::SwitchRule*, bool> &swpara)
+{
+	bool ret = true;
+	if (!sw->get_bool_attribute(ID::parallel_case)) {
+		if (!swpara.count(sw)) {
+			pool<Const> case_values;
+			for (size_t i = 0; i < sw->cases.size(); i++) {
+				RTLIL::CaseRule *cs2 = sw->cases[i];
+				for (auto pat : cs2->compare) {
+					if (!pat.is_fully_def())
+						return false;
+					Const cpat = pat.as_const();
+					if (case_values.count(cpat))
+						return false;
+					case_values.insert(cpat);
+				}
+			}
+			swpara[sw] = ret;
+		} else {
+			return swpara.at(sw);
+		}
+	}
+	return ret;
+}
+
 RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 {
 	RTLIL::SigSpec result = ctx.defval;
@@ -389,32 +416,8 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 		// detect groups of parallel cases
 		std::vector<int> pgroups(sw->cases.size());
 		pool<std::string> case_sources;
-		bool is_simple_parallel_case = true;
 
-		if (!sw->get_bool_attribute(ID::parallel_case)) {
-			if (!ctx.swpara.count(sw)) {
-				pool<Const> case_values;
-				for (size_t i = 0; i < sw->cases.size(); i++) {
-					RTLIL::CaseRule *cs2 = sw->cases[i];
-					for (auto pat : cs2->compare) {
-						if (!pat.is_fully_def())
-							goto not_simple_parallel_case;
-						Const cpat = pat.as_const();
-						if (case_values.count(cpat))
-							goto not_simple_parallel_case;
-						case_values.insert(cpat);
-					}
-				}
-				if (0)
-			not_simple_parallel_case:
-					is_simple_parallel_case = false;
-				ctx.swpara[sw] = is_simple_parallel_case;
-			} else {
-				is_simple_parallel_case = ctx.swpara.at(sw);
-			}
-		}
-
-		if (!is_simple_parallel_case) {
+		if (!is_simple_parallel_case(sw, ctx.swpara)) {
 			BitPatternPool pool(sw->signal.size());
 			bool extra_group_for_next_case = false;
 			for (size_t i = 0; i < sw->cases.size(); i++) {
