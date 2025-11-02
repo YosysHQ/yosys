@@ -53,13 +53,13 @@ struct ProcessDependencyWorker {
 	}
 
 	void add_syncrule(const RTLIL::SyncRule& sync) {
-		for (const auto& sigsig : sync.actions)
-			add_sigsig(sigsig);
+		for (const auto& action : sync.actions)
+			add_sigsig({action.lhs, action.rhs});
 	}
 
 	void add_caserule(const RTLIL::CaseRule& caserule) {
-		for (const auto& sigsig : caserule.actions)
-			add_sigsig(sigsig);
+		for (const auto& action : caserule.actions)
+			add_sigsig({action.lhs, action.rhs});
 
 		for (const auto* rule : caserule.switches)
 			add_switchrule(*rule);

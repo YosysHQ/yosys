@@ -91,8 +91,8 @@ struct proc_dlatch_db_t
 				all_processes_muxed = false;
 			for (auto sync : proc->syncs) {
 				count_extra_readers(sync->signal);
-				for (auto &[lhs, rhs] : sync->actions)
-					count_extra_readers(rhs);
+				for (auto &action : sync->actions)
+					count_extra_readers(action.rhs);
 				for (auto &mem_write : sync->mem_write_actions) {
 					count_extra_readers(mem_write.address);
 					count_extra_readers(mem_write.data);
@@ -104,8 +104,8 @@ struct proc_dlatch_db_t
 
 	static bool has_assignments(RTLIL::CaseRule *case_rule)
 	{
-		for (auto &[lhs, rhs] : case_rule->actions)
-			if (!lhs.empty())
+		for (auto &action : case_rule->actions)
+			if (!action.lhs.empty())
 				return true;
 		for (auto switch_rule : case_rule->switches)
 			for (auto sub_case : switch_rule->cases)
@@ -534,17 +534,17 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 
 		for (auto ss : sr->actions)
 		{
-			db.sigmap.apply(ss.first);
-			db.sigmap.apply(ss.second);
+			db.sigmap.apply(ss.lhs);
+			db.sigmap.apply(ss.rhs);
 
-			if (!db.quickcheck(ss.second, ss.first)) {
-				nolatches_bits.first.append(ss.first);
-				nolatches_bits.second.append(ss.second);
+			if (!db.quickcheck(ss.rhs, ss.lhs)) {
+				nolatches_bits.first.append(ss.lhs);
+				nolatches_bits.second.append(ss.rhs);
 				continue;
 			}
 
-			for (int i = 0; i < GetSize(ss.first); i++)
-				latches_out_in[ss.first[i]] = ss.second[i];
+			for (int i = 0; i < GetSize(ss.lhs); i++)
+				latches_out_in[ss.lhs[i]] = ss.rhs[i];
 		}
 		sr->actions.clear();
 	}
