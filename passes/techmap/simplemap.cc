@@ -27,10 +27,6 @@
 USING_YOSYS_NAMESPACE
 YOSYS_NAMESPACE_BEGIN
 
-static void transfer_src (Cell* to, const Cell* from) {
-	to->set_src_id(from->src_id());
-}
-
 void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
@@ -40,7 +36,7 @@ void simplemap_not(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_NOT_));
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a[i]);
 		gate->setPort(ID::Y, sig_y[i]);
 	}
@@ -100,7 +96,7 @@ void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a[i]);
 		gate->setPort(ID::B, sig_b[i]);
 		gate->setPort(ID::Y, sig_y[i]);
@@ -151,7 +147,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 			}
 
 			RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-			transfer_src(gate, cell);
+			gate->adopt_src_from(cell);
 			gate->setPort(ID::A, sig_a[i]);
 			gate->setPort(ID::B, sig_a[i+1]);
 			gate->setPort(ID::Y, sig_t[i/2]);
@@ -164,7 +160,7 @@ void simplemap_reduce(RTLIL::Module *module, RTLIL::Cell *cell)
 	if (cell->type == ID($reduce_xnor)) {
 		RTLIL::SigSpec sig_t = module->addWire(NEW_ID);
 		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_NOT_));
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a);
 		gate->setPort(ID::Y, sig_t);
 		last_output_cell = gate;
@@ -192,7 +188,7 @@ static void logic_reduce(RTLIL::Module *module, RTLIL::SigSpec &sig, RTLIL::Cell
 			}
 
 			RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_OR_));
-			transfer_src(gate, cell);
+			gate->adopt_src_from(cell);
 			gate->setPort(ID::A, sig[i]);
 			gate->setPort(ID::B, sig[i+1]);
 			gate->setPort(ID::Y, sig_t[i/2]);
@@ -221,7 +217,7 @@ void simplemap_lognot(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 
 	RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_NOT_));
-	transfer_src(gate, cell);
+	gate->adopt_src_from(cell);
 	gate->setPort(ID::A, sig_a);
 	gate->setPort(ID::Y, sig_y);
 }
@@ -250,7 +246,7 @@ void simplemap_logbin(RTLIL::Module *module, RTLIL::Cell *cell)
 	log_assert(!gate_type.empty());
 
 	RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-	transfer_src(gate, cell);
+	gate->adopt_src_from(cell);
 	gate->setPort(ID::A, sig_a);
 	gate->setPort(ID::B, sig_b);
 	gate->setPort(ID::Y, sig_y);
@@ -266,19 +262,19 @@ void simplemap_eqne(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	RTLIL::SigSpec xor_out = module->addWire(NEW_ID, max(GetSize(sig_a), GetSize(sig_b)));
 	RTLIL::Cell *xor_cell = module->addXor(NEW_ID, sig_a, sig_b, xor_out, is_signed);
-	transfer_src(xor_cell, cell);
+	xor_cell->adopt_src_from(cell);
 	simplemap_bitop(module, xor_cell);
 	module->remove(xor_cell);
 
 	RTLIL::SigSpec reduce_out = is_ne ? sig_y : module->addWire(NEW_ID);
 	RTLIL::Cell *reduce_cell = module->addReduceOr(NEW_ID, xor_out, reduce_out);
-	transfer_src(reduce_cell, cell);
+	reduce_cell->adopt_src_from(cell);
 	simplemap_reduce(module, reduce_cell);
 	module->remove(reduce_cell);
 
 	if (!is_ne) {
 		RTLIL::Cell *not_cell = module->addLogicNot(NEW_ID, reduce_out, sig_y);
-		transfer_src(not_cell, cell);
+		not_cell->adopt_src_from(cell);
 		simplemap_lognot(module, not_cell);
 		module->remove(not_cell);
 	}
@@ -292,7 +288,7 @@ void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a[i]);
 		gate->setPort(ID::B, sig_b[i]);
 		gate->setPort(ID::S, cell->getPort(ID::S));
@@ -309,7 +305,7 @@ void simplemap_bwmux(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a[i]);
 		gate->setPort(ID::B, sig_b[i]);
 		gate->setPort(ID::S, sig_s[i]);
@@ -325,7 +321,7 @@ void simplemap_tribuf(RTLIL::Module *module, RTLIL::Cell *cell)
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_TBUF_));
-		transfer_src(gate, cell);
+		gate->adopt_src_from(cell);
 		gate->setPort(ID::A, sig_a[i]);
 		gate->setPort(ID::E, sig_e);
 		gate->setPort(ID::Y, sig_y[i]);
@@ -343,7 +339,7 @@ void simplemap_bmux(RTLIL::Module *module, RTLIL::Cell *cell)
 		for (int i = 0; i < GetSize(new_data); i += width) {
 			for (int k = 0; k < width; k++) {
 				RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
-				transfer_src(gate, cell);
+				gate->adopt_src_from(cell);
 				gate->setPort(ID::A, data[i*2+k]);
 				gate->setPort(ID::B, data[i*2+width+k]);
 				gate->setPort(ID::S, sel[idx]);
@@ -366,7 +362,7 @@ void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell)
 		SigSpec new_lut_data = module->addWire(NEW_ID, GetSize(lut_data)/2);
 		for (int i = 0; i < GetSize(lut_data); i += 2) {
 			RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
-			transfer_src(gate, cell);
+			gate->adopt_src_from(cell);
 			gate->setPort(ID::A, lut_data[i]);
 			gate->setPort(ID::B, lut_data[i+1]);
 			gate->setPort(ID::S, lut_ctrl[idx]);
@@ -454,7 +450,7 @@ void simplemap_pmux(RTLIL::Module *module, RTLIL::Cell *cell)
 		// Implement: B_AND_BITS = B_AND_S[WIDTH*j+i]
 		for (int j = 0; j < s_width; j++) {
 			RTLIL::Cell *and_gate = module->addCell(NEW_ID, ID($_AND_));
-			transfer_src(and_gate, cell);
+			and_gate->adopt_src_from(cell);
 			and_gate->setPort(ID::A, sig_b[j * width + i]);
 			and_gate->setPort(ID::B, sig_s[j]);
 
@@ -468,7 +464,7 @@ void simplemap_pmux(RTLIL::Module *module, RTLIL::Cell *cell)
 
 		// Implement: Y[i] = |S ? Y_B[i] : A[i]
 		RTLIL::Cell *mux_gate = module->addCell(NEW_ID, ID($_MUX_));
-		transfer_src(mux_gate, cell);
+		mux_gate->adopt_src_from(cell);
 		mux_gate->setPort(ID::A, sig_a[i]);
 		mux_gate->setPort(ID::B, b_and_bits);
 		mux_gate->setPort(ID::S, any_s);

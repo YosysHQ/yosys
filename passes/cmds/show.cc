@@ -374,12 +374,12 @@ struct ShowWorker
 				signals.insert(it);
 	}
 
-	void collect_proc_signals(std::vector<RTLIL::SigSig> &obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
+	void collect_proc_signals(std::vector<RTLIL::SyncAction> &obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)
 	{
 		for (auto &it : obj) {
-			output_signals.insert(it.first);
-			if (!it.second.is_fully_const())
-				input_signals.insert(it.second);
+			output_signals.insert(it.lhs);
+			if (!it.rhs.is_fully_const())
+				input_signals.insert(it.rhs);
 		}
 	}
 
