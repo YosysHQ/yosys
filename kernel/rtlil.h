@@ -125,6 +125,7 @@ namespace RTLIL
 	struct CaseRule;
 	struct SwitchRule;
 	struct MemWriteAction;
+	struct SyncAction;
 	struct SyncRule;
 	struct Process;
 	struct Binding;
@@ -1346,6 +1347,10 @@ struct RTLIL::AttrObject
 	// void set_strpool_attribute(IdString id, const pool<string> &data);
 	// void add_strpool_attribute(IdString id, const pool<string> &data);
 	// pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+	void transfer_attribute(const AttrObject* from, const IdString& attr) {
+		if (from->has_attribute(attr))
+			attributes[attr] = from->attributes.at(attr);
+	}
 
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
@@ -2365,6 +2370,7 @@ public:
 	// Transfer src from `source` verbatim (same pool). Asserts attached
 	// to a design.
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void transfer_src_attribute(const RTLIL::AttrObject *source) { adopt_src_from(source); }
 	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	bool known_driver() const { return driverCell_ != nullptr; }
@@ -2471,6 +2477,7 @@ public:
 	void set_src_attribute(TwineRef src);
 	std::string get_src_attribute() const;
 	void adopt_src_from(const RTLIL::AttrObject *source);
+	void transfer_src_attribute(const RTLIL::AttrObject *source) { adopt_src_from(source); }
 	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 
 	// access cell ports
@@ -2523,7 +2530,7 @@ struct RTLIL::CaseRule : public RTLIL::AttrObject
 	RTLIL::Module *module = nullptr;
 
 	std::vector<RTLIL::SigSpec> compare;
-	std::vector<RTLIL::SigSig> actions;
+	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
 
 	~CaseRule();
@@ -2598,11 +2605,17 @@ struct RTLIL::MemWriteAction : RTLIL::AttrObject
 	void absorb_attrs(dict<RTLIL::IdString, RTLIL::Const> &&buf);
 };
 
+struct RTLIL::SyncAction
+{
+	RTLIL::SigSpec lhs;
+	RTLIL::SigSpec rhs;
+};
+
 struct RTLIL::SyncRule
 {
 	RTLIL::SyncType type;
 	RTLIL::SigSpec signal;
-	std::vector<RTLIL::SigSig> actions;
+	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::MemWriteAction> mem_write_actions;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -3266,8 +3279,8 @@ void RTLIL::CaseRule::rewrite_sigspecs(T &functor) {
 	for (auto &it : compare)
 		functor(it);
 	for (auto &it : actions) {
-		functor(it.first);
-		functor(it.second);
+		functor(it.lhs);
+		functor(it.rhs);
 	}
 	for (auto it : switches)
 		it->rewrite_sigspecs(functor);
@@ -3278,7 +3291,7 @@ void RTLIL::CaseRule::rewrite_sigspecs2(T &functor) {
 	for (auto &it : compare)
 		functor(it);
 	for (auto &it : actions) {
-		functor(it.first, it.second);
+		functor(it.lhs, it.rhs);
 	}
 	for (auto it : switches)
 		it->rewrite_sigspecs2(functor);
@@ -3305,8 +3318,8 @@ void RTLIL::SyncRule::rewrite_sigspecs(T &functor)
 {
 	functor(signal);
 	for (auto &it : actions) {
-		functor(it.first);
-		functor(it.second);
+		functor(it.lhs);
+		functor(it.rhs);
 	}
 	for (auto &it : mem_write_actions) {
 		functor(it.address);
@@ -3320,7 +3333,7 @@ void RTLIL::SyncRule::rewrite_sigspecs2(T &functor)
 {
 	functor(signal);
 	for (auto &it : actions) {
-		functor(it.first, it.second);
+		functor(it.lhs, it.rhs);
 	}
 	for (auto &it : mem_write_actions) {
 		functor(it.address);
