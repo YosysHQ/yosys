@@ -623,7 +623,7 @@ struct AST_INTERNAL::ProcessGenerator
 			if (inSyncRule && lvalue_c.wire && lvalue_c.wire->get_bool_attribute(ID::nosync))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.size());
 			remove_unwanted_lvalue_bits(lhs, rhs);
-			actions.push_back({lhs, rhs});
+			actions.push_back({lhs, rhs, ast ? src_ref(ast) : SrcRef::Null});
 			offset += lhs.size();
 		}
 	}
@@ -679,7 +679,7 @@ struct AST_INTERNAL::ProcessGenerator
 						current_case_assigned_bits.insert(bit);
 
 				remove_unwanted_lvalue_bits(lvalue, rvalue);
-				current_case->actions.push_back({lvalue, rvalue});
+				current_case->actions.push_back({lvalue, rvalue, src_ref(ast)});
 			}
 			break;
 
@@ -824,8 +824,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(TwineSpec::Suffix{name, "_EN"}, 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back({en, SigSpec(false)});
-				current_case->actions.push_back({en, SigSpec(true)});
+				proc->root_case.actions.push_back({en, SigSpec(false), src_ref(ast)});
+				current_case->actions.push_back({en, SigSpec(true), src_ref(ast)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;
@@ -923,8 +923,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(TwineSpec::Suffix{cellname, "_EN"}, 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back({en, SigSpec(false)});
-				current_case->actions.push_back({en, SigSpec(true)});
+				proc->root_case.actions.push_back({en, SigSpec(false), src_ref(ast)});
+				current_case->actions.push_back({en, SigSpec(true), src_ref(ast)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;

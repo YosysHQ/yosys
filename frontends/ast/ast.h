@@ -446,6 +446,7 @@ namespace AST
 			std::string_view kind, int idx);
 
 	// Helper for setting the src attribute.
+	SrcRef src_ref(const AstNode *ast);
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 
 	// generate standard $paramod... derived module name; parameters should be

@@ -1135,25 +1135,27 @@ IdString AST::intern_src_name(RTLIL::Design *design, const AstSrcLocType &locati
 			stringf("%s$%d", kind, idx)});
 }
 
+SrcRef AST::src_ref(const AstNode *ast)
+{
+	if (!current_module || !current_module->design)
+		return SrcRef::Null;
+	SrcPool &srcs = current_module->design->srcs;
+	auto it = ast->attributes.find(ID::src);
+	if (it != ast->attributes.end() && it->second->type == AST_CONSTANT)
+		return srcs.add(it->second->asAttrConst().decode_string());
+	const auto &loc = ast->location;
+	if (!loc.begin.filename || loc.begin.filename->empty())
+		return srcs.add(ast->loc_string());
+	return srcs.add(*loc.begin.filename,
+			stringf(":%d.%d-%d.%d", loc.begin.line, loc.begin.column,
+					loc.end.line, loc.end.column));
+}
+
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
 	if (!current_module || !current_module->design)
 		return;
-	auto it = ast->attributes.find(ID::src);
-	if (it != ast->attributes.end() && it->second->type == AST_CONSTANT) {
-		current_module->design->set_src_attribute(obj,
-				current_module->design->srcs.add(it->second->asAttrConst().decode_string()));
-		return;
-	}
-	const auto &loc = ast->location;
-	if (!loc.begin.filename || loc.begin.filename->empty()) {
-		current_module->design->set_src_attribute(obj, current_module->design->srcs.add(ast->loc_string()));
-		return;
-	}
-	current_module->design->obj_set_src_id(obj,
-			current_module->design->srcs.add(*loc.begin.filename,
-					stringf(":%d.%d-%d.%d", loc.begin.line, loc.begin.column,
-							loc.end.line, loc.end.column)));
+	current_module->design->obj_set_src_id(obj, src_ref(ast));
 }
 
 static bool param_has_no_default(const AstNode* param) {
