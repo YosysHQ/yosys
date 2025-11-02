@@ -197,16 +197,16 @@ struct RomWorker
 		if (abits == GetSize(sw->signal)) {
 			sw->signal = SigSpec();
 			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
-			cs->actions.push_back({lhs, rdata});
+			cs->actions.push_back({lhs, rdata, std::move(action_src)});
 			sw->cases.push_back(cs);
 		} else {
 			sw->signal = sw->signal.extract_end(abits);
 			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
 			cs->compare.push_back(Const(State::S0, GetSize(sw->signal)));
-			cs->actions.push_back({lhs, rdata});
+			cs->actions.push_back({lhs, rdata, action_src});
 			sw->cases.push_back(cs);
 			RTLIL::CaseRule *cs2 = new RTLIL::CaseRule;
-			cs2->actions.push_back({lhs, default_val});
+			cs2->actions.push_back({lhs, default_val, std::move(action_src)});
 			sw->cases.push_back(cs2);
 		}
 
