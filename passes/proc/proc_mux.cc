@@ -32,7 +32,8 @@ using SnippetSourceMap = dict<std::pair<int, const RTLIL::CaseRule*>, const Cons
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
 	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
-		map[std::make_pair(snippet, cs)] = &action.src;
+		if (action.src.size())
+			map[std::make_pair(snippet, cs)] = &action.src;
 	}
 
 };
@@ -42,6 +43,11 @@ struct SnippetSourceMapper {
 		auto src_it = map.find(std::make_pair(snippet, cs));
 		if (src_it != map.end()) {
 			sources.insert(src_it->second->decode_string());
+		} else {
+			auto cs_src = cs->get_src_attribute();
+			if (cs_src.size()) {
+				sources.insert(cs_src);
+			}
 		}
 	}
 
@@ -170,14 +176,8 @@ struct SnippetSwCache
 
 void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
 {
-	Const old_src;
-	if (cell->attributes.count(ID::src)) {
-		std::swap(old_src, cell->attributes[ID::src]);
-	}
-	cell->attributes = cs->attributes;
-	if (old_src.size()) {
-		std::swap(old_src, cell->attributes[ID::src]);
-	}
+	cell->attributes = sw->attributes;
+	cell->transfer_src_attribute(cs);
 }
 
 struct MuxGenCtx {
