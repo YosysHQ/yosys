@@ -193,23 +193,23 @@ struct RomWorker
 			delete cs;
 		sw->cases.clear();
 		sw->signal = sw->signal.extract(0, swsigbits);
-		Const action_src = mem.has_attribute(ID::src) ? mem.attributes[ID::src] : Const("");
+		TwineRef action_src = sw->src_id();
 		if (abits == GetSize(sw->signal)) {
 			sw->signal = SigSpec();
 			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
 			cs->module = module;
-			cs->actions.push_back({lhs, rdata});
+			cs->actions.push_back({lhs, rdata, action_src});
 			sw->cases.push_back(cs);
 		} else {
 			sw->signal = sw->signal.extract_end(abits);
 			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
 			cs->module = module;
 			cs->compare.push_back(Const(State::S0, GetSize(sw->signal)));
-			cs->actions.push_back({lhs, rdata});
+			cs->actions.push_back({lhs, rdata, action_src});
 			sw->cases.push_back(cs);
 			RTLIL::CaseRule *cs2 = new RTLIL::CaseRule;
 			cs2->module = module;
-			cs2->actions.push_back({lhs, default_val});
+			cs2->actions.push_back({lhs, default_val, action_src});
 			sw->cases.push_back(cs2);
 		}
 

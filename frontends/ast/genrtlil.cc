@@ -464,7 +464,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec lhs = init_lvalue_c;
 				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
 				remove_unwanted_lvalue_bits(lhs, rhs);
-				sync->actions.push_back({lhs, rhs});
+				sync->actions.push_back({lhs, rhs, Twine::Null});
 				offset += lhs.size();
 			}
 		}
@@ -624,7 +624,7 @@ struct AST_INTERNAL::ProcessGenerator
 			if (inSyncRule && lvalue_c.wire && lvalue_c.wire->get_bool_attribute(ID::nosync))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.size());
 			remove_unwanted_lvalue_bits(lhs, rhs);
-			actions.push_back({lhs, rhs});
+			actions.push_back({lhs, rhs, ast ? current_module->design->twines.add(std::string{ast->loc_string()}) : Twine::Null});
 			offset += lhs.size();
 		}
 	}
@@ -680,7 +680,7 @@ struct AST_INTERNAL::ProcessGenerator
 						current_case_assigned_bits.insert(bit);
 
 				remove_unwanted_lvalue_bits(lvalue, rvalue);
-				current_case->actions.push_back({lvalue, rvalue});
+				current_case->actions.push_back({lvalue, rvalue, current_module->design->twines.add(std::string{ast->loc_string()})});
 			}
 			break;
 
@@ -823,8 +823,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(current_module->design->twines.add(std::string{sstr.str() + "_EN"}), 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back({en, SigSpec(false)});
-				current_case->actions.push_back({en, SigSpec(true)});
+				proc->root_case.actions.push_back({en, SigSpec(false), current_module->design->twines.add(std::string{ast->loc_string()})});
+				current_case->actions.push_back({en, SigSpec(true), current_module->design->twines.add(std::string{ast->loc_string()})});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;
@@ -921,8 +921,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(current_module->design->twines.add(std::string{cellname.str() + "_EN"}), 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back({en, SigSpec(false)});
-				current_case->actions.push_back({en, SigSpec(true)});
+				proc->root_case.actions.push_back({en, SigSpec(false), current_module->design->twines.add(std::string{ast->loc_string()})});
+				current_case->actions.push_back({en, SigSpec(true), current_module->design->twines.add(std::string{ast->loc_string()})});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;

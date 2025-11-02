@@ -2603,6 +2603,7 @@ struct RTLIL::SyncAction
 {
 	RTLIL::SigSpec lhs;
 	RTLIL::SigSpec rhs;
+	TwineRef src = Twine::Null;
 };
 
 struct RTLIL::SyncRule
