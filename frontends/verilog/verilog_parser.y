@@ -3026,6 +3026,7 @@ case_item:
 		extra->case_type_stack.pop_back();
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @4, @4);
 		extra->ast_stack.pop_back();
+		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @2);
 		extra->ast_stack.pop_back();
 	};
 
