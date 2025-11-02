@@ -1,0 +1,33 @@
+read_verilog proc_mux_src.v
+proc -noopt
+check -assert
+# eq refer to the values compared against
+select -assert-count 2 tiny2/t:$eq
+select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:81.4-81.10 %i
+select -assert-count 1 tiny2/t:$eq a:src=proc_mux_src.v:84.4-84.10 %i
+# Flops cover the whole process
+select -assert-count 1 tiny2/t:$dff
+select -assert-count 1 tiny2/t:$dff a:src=proc_mux_src.v:78.2-91.5 %i
+# Muxes are marked to the exact assignment statements they represent including the explicit default case
+select -assert-count 1 tiny2/t:$pmux
+select -assert-count 1 tiny2/t:$pmux a:src=proc_mux_src.v:80.5-80.13|proc_mux_src.v:83.5-83.15|proc_mux_src.v:86.5-86.15
+select -assert-count 0 tiny/t:$reduce_or
+
+# Implicit default cases add src attributes to muxes that cover the whole switch
+select -assert-count 1 tiny/t:$mux
+select -assert-count 1 tiny/t:$mux a:proc_mux_src.v:65.5-65.13|proc_mux_src.v:63.3-67.10
+select -assert-count 0 tiny/t:$reduce_or
+
+dump nested
+#dump nested/t:$pmux
+# $reduce_or src covers the entire list of comparison RHSs
+# Each snippet is treated separately so it gets its own $eq and $reduce_or etc
+select -assert-count 3 nested/t:$reduce_or
+select -assert-count 3 nested/t:$reduce_or a:src=proc_mux_src.v:25.4-25.19 %i
+# When switches are nested, the top mux considers the inner switch the entire source
+# for one of its inputs. Here, that's proc_mux_src.v:32.5-45.12
+select -assert-count 5 nested/t:$pmux
+select -assert-count 1 nested/t:$pmux a:src=proc_mux_src.v:21.5-21.20|proc_mux_src.v:26.5-26.20|proc_mux_src.v:32.5-45.12|proc_mux_src.v:48.5-48.19 %i
+# No nesting for output reg arith
+select -assert-count 1 nested/t:$pmux a:src=proc_mux_src.v:23.5-23.18|proc_mux_src.v:28.5-28.18|proc_mux_src.v:31.5-31.18|proc_mux_src.v:50.5-50.18 %i
+dump nested/t:$pmux
