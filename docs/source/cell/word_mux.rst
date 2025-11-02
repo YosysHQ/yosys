@@ -16,7 +16,7 @@ value from the ``B`` input is sent to the output. So the `$mux` cell implements
 the function :verilog:`Y = S ? B : A`.
 
 The `$pmux` cell is used to multiplex between many inputs using a one-hot select
-signal. Cells of this type have a ``WIDTH`` and a ``S_WIDTH`` parameter and
+signal. Cells of this type have a ``WIDTH`` and an ``S_WIDTH`` parameter and
 inputs ``A``, ``B``, and ``S`` and an output ``Y``. The ``S`` input is
 ``S_WIDTH`` bits wide. The ``A`` input and the output are both ``WIDTH`` bits
 wide and the ``B`` input is ``WIDTH*S_WIDTH`` bits wide. When all bits of ``S``
