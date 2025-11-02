@@ -130,12 +130,12 @@ struct CheckPass : public Pass {
 				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
 				for (size_t i = 0; i < all_cases.size(); i++) {
 					for (auto action : all_cases[i]->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : sigmap(action.lhs))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+										log_signal(action.lhs), log_signal(action.rhs), log_id(proc_it.first)));
 
-						for (auto bit : sigmap(action.second))
+						for (auto bit : sigmap(action.rhs))
 							if (bit.wire) used_wires.insert(bit);
 					}
 					for (auto switch_ : all_cases[i]->switches) {
@@ -151,11 +151,11 @@ struct CheckPass : public Pass {
 					for (auto bit : sigmap(sync->signal))
 						if (bit.wire) used_wires.insert(bit);
 					for (auto action : sync->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : sigmap(action.lhs))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
-						for (auto bit : sigmap(action.second))
+										log_signal(action.lhs), log_signal(action.rhs), log_id(proc_it.first)));
+						for (auto bit : sigmap(action.rhs))
 							if (bit.wire) used_wires.insert(bit);
 					}
 					for (auto memwr : sync->mem_write_actions) {
