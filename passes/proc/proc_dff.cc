@@ -34,8 +34,8 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 
 	for (auto sync : proc->syncs)
 	for (auto &action : sync->actions)
-		if (action.first.size() > 0) {
-			lvalue = action.first;
+		if (action.lhs.size() > 0) {
+			lvalue = action.lhs;
 			lvalue.sort_and_unify();
 			break;
 		}
@@ -43,7 +43,7 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	for (auto sync : proc->syncs) {
 		RTLIL::SigSpec this_lvalue;
 		for (auto &action : sync->actions)
-			this_lvalue.append(action.first);
+			this_lvalue.append(action.lhs);
 		this_lvalue.sort_and_unify();
 		RTLIL::SigSpec common_sig = this_lvalue.extract(lvalue);
 		if (common_sig.size() > 0)
@@ -172,35 +172,35 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		for (auto sync : proc->syncs)
 		for (auto &action : sync->actions)
 		{
-			if (action.first.extract(sig).size() == 0)
+			if (action.lhs.extract(sig).size() == 0)
 				continue;
 
 			if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
 				RTLIL::SigSpec rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
-				sig.replace(action.first, action.second, &rstval);
+				sig.replace(action.lhs, action.rhs, &rstval);
 				async_rules.emplace_back(rstval, sync);
 			}
 			else if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
 				if (sync_edge != NULL && sync_edge != sync)
 					log_error("Multiple edge sensitive events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
+				sig.replace(action.lhs, action.rhs, &insig);
 				sync_edge = sync;
 			}
 			else if (sync->type == RTLIL::SyncType::STa) {
 				if (sync_always != NULL && sync_always != sync)
 					log_error("Multiple always events found for this signal!\n");
-				sig.replace(action.first, action.second, &insig);
+				sig.replace(action.lhs, action.rhs, &insig);
 				sync_always = sync;
 			}
 			else if (sync->type == RTLIL::SyncType::STg) {
-				sig.replace(action.first, action.second, &insig);
+				sig.replace(action.lhs, action.rhs, &insig);
 				global_clock = true;
 			}
 			else {
 				log_error("Event with any-edge sensitivity found for this signal!\n");
 			}
 
-			action.first.remove2(sig, &action.second);
+			action.lhs.remove2(sig, &action.rhs);
 		}
 
 		// If all async rules assign the same value, priority ordering between
@@ -223,7 +223,8 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			// as ones coming from the module
 			single_async_rule.type = RTLIL::SyncType::ST1;
 			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
-			single_async_rule.actions.push_back(RTLIL::SigSig(sig, rstval));
+			// TODO
+			single_async_rule.actions.push_back({sig, rstval});
 
 			// Replace existing rules with this new rule
 			async_rules.clear();

@@ -193,7 +193,7 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 
 void RTLIL_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs)
 {
-	for (const auto& [lhs, rhs] : cs->actions) {
+	for (const auto& [lhs, rhs, _] : cs->actions) {
 		f << stringf("%s" "assign ", indent);
 		dump_sigspec(f, lhs);
 		f << stringf(" ");
@@ -247,7 +247,7 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 
-	for (const auto& [lhs, rhs] : sy->actions) {
+	for (const auto& [lhs, rhs, _] : sy->actions) {
 		f << stringf("%s  update ", indent);
 		dump_sigspec(f, lhs);
 		f << stringf(" ");
@@ -379,8 +379,11 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		for (auto* module : design->modules()) {
 			if (design->selected_whole_module(module->name))
 				flag_m = true;
-			if (design->selected(module))
+			if (design->selected(module)) {
 				count_selected_mods++;
+				if (module->has_processes())
+					log_warning("Module %s contains processes. Case action sources attributes will be lost.\n", log_id(module));
+			}
 		}
 		if (count_selected_mods > 1)
 			flag_m = true;
