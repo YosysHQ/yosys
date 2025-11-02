@@ -2148,6 +2148,7 @@ struct RTLIL::SyncAction
 {
 	RTLIL::SigSpec lhs;
 	RTLIL::SigSpec rhs;
+	RTLIL::Const src;
 };
 
 struct RTLIL::SyncRule
