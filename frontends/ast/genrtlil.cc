@@ -382,7 +382,7 @@ struct AST_INTERNAL::ProcessGenerator
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
 				always->input_error("Found non-synthesizable event list!\n");
-			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string());
+			log("Note: Assuming pure combinatorial block at %s in\n", always->location.to_string());
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
 		}
@@ -402,14 +402,14 @@ struct AST_INTERNAL::ProcessGenerator
 				syncrule->signal = child->children[0]->genRTLIL();
 				if (GetSize(syncrule->signal) != 1)
 					always->input_error("Found posedge/negedge event on a signal that is not 1 bit wide!\n");
-				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
+				addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, child.get(), true);
 				proc->syncs.push_back(syncrule);
 			}
 		if (proc->syncs.empty()) {
 			RTLIL::SyncRule *syncrule = new RTLIL::SyncRule;
 			syncrule->type = found_global_syncs ? RTLIL::STg : RTLIL::STa;
 			syncrule->signal = RTLIL::SigSpec();
-			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, true);
+			addChunkActions(syncrule->actions, subst_lvalue_from, subst_lvalue_to, always.get(), true);
 			proc->syncs.push_back(syncrule);
 		}
 
@@ -417,7 +417,7 @@ struct AST_INTERNAL::ProcessGenerator
 		if ((flag_nolatches || always->get_bool_attribute(ID::nolatches) || current_module->get_bool_attribute(ID::nolatches)) && !found_clocked_sync) {
 			subst_rvalue_map = subst_lvalue_from.to_sigbit_dict(RTLIL::SigSpec(RTLIL::State::Sx, GetSize(subst_lvalue_from)));
 		} else {
-			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from);
+			addChunkActions(current_case->actions, subst_lvalue_to, subst_lvalue_from, always.get());
 		}
 
 		// process the AST
@@ -441,7 +441,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec lhs = init_lvalue_c;
 				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
 				remove_unwanted_lvalue_bits(lhs, rhs);
-				sync->actions.push_back(RTLIL::SigSig(lhs, rhs));
+				sync->actions.push_back({lhs, rhs});
 				offset += lhs.size();
 			}
 		}
@@ -548,7 +548,7 @@ struct AST_INTERNAL::ProcessGenerator
 	void removeSignalFromCaseTree(const RTLIL::SigSpec &pattern, RTLIL::CaseRule *cs)
 	{
 		for (auto it = cs->actions.begin(); it != cs->actions.end(); it++)
-			it->first.remove2(pattern, &it->second);
+			it->lhs.remove2(pattern, &it->rhs);
 
 		for (auto it = cs->switches.begin(); it != cs->switches.end(); it++)
 			for (auto it2 = (*it)->cases.begin(); it2 != (*it)->cases.end(); it2++)
@@ -557,7 +557,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
 	// are avoided and the generated $mux cells have a more "natural" size.
-	void addChunkActions(std::vector<RTLIL::SigSig> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, bool inSyncRule = false)
+	void addChunkActions(std::vector<RTLIL::SyncAction> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, AstNode* ast, bool inSyncRule = false)
 	{
 		if (inSyncRule && initSyncSignals.size() > 0) {
 			init_lvalue.append(lvalue.extract(initSyncSignals));
@@ -573,7 +573,7 @@ struct AST_INTERNAL::ProcessGenerator
 			if (inSyncRule && lvalue_c.wire && lvalue_c.wire->get_bool_attribute(ID::nosync))
 				rhs = RTLIL::SigSpec(RTLIL::State::Sx, rhs.size());
 			remove_unwanted_lvalue_bits(lhs, rhs);
-			actions.push_back(RTLIL::SigSig(lhs, rhs));
+			actions.push_back({lhs, rhs});
 			offset += lhs.size();
 		}
 	}
@@ -613,7 +613,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				removeSignalFromCaseTree(lvalue, current_case);
 				remove_unwanted_lvalue_bits(lvalue, rvalue);
-				current_case->actions.push_back(RTLIL::SigSig(lvalue, rvalue));
+				current_case->actions.push_back({lvalue, rvalue});
 			}
 			break;
 
@@ -657,10 +657,11 @@ struct AST_INTERNAL::ProcessGenerator
 						subst_lvalue_map.set(this_case_eq_lvalue[i], this_case_eq_ltemp[i]);
 
 					RTLIL::CaseRule *backup_case = current_case;
+					// here
 					current_case = new RTLIL::CaseRule;
 					set_src_attr(current_case, child.get());
 					last_generated_case = current_case;
-					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
+					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, child.get());
 					for (auto& node : child->children) {
 						if (node->type == AST_DEFAULT)
 							default_case = current_case;
@@ -687,13 +688,13 @@ struct AST_INTERNAL::ProcessGenerator
 					last_generated_case->compare.clear();
 			#else
 					default_case = new RTLIL::CaseRule;
-					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)));
+					addChunkActions(default_case->actions, this_case_eq_ltemp, SigSpec(State::Sx, GetSize(this_case_eq_rvalue)), ast);
 					sw->cases.push_back(default_case);
 			#endif
 				} else {
 					if (default_case == nullptr) {
 						default_case = new RTLIL::CaseRule;
-						addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
+						addChunkActions(default_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, ast);
 					}
 					sw->cases.push_back(default_case);
 				}
@@ -703,7 +704,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 				this_case_eq_lvalue.replace(subst_lvalue_map.stdmap());
 				removeSignalFromCaseTree(this_case_eq_lvalue, current_case);
-				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp);
+				addChunkActions(current_case->actions, this_case_eq_lvalue, this_case_eq_ltemp, ast);
 			}
 			break;
 
@@ -728,8 +729,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(sstr.str() + "_EN", 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back(SigSig(en, false));
-				current_case->actions.push_back(SigSig(en, true));
+				proc->root_case.actions.push_back({en, SigSpec(false)});
+				current_case->actions.push_back({en, SigSpec(true)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;
@@ -826,8 +827,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				Wire *en = current_module->addWire(cellname.str() + "_EN", 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back(SigSig(en, false));
-				current_case->actions.push_back(SigSig(en, true));
+				proc->root_case.actions.push_back({en, SigSpec(false)});
+				current_case->actions.push_back({en, SigSpec(true)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;

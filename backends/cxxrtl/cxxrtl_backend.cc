@@ -494,8 +494,8 @@ struct FlowGraph {
 	void add_case_rule_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
-			add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
-			add_uses(node, action.second);
+			add_defs(node, action.lhs, /*is_ff=*/false, /*inlinable=*/false);
+			add_uses(node, action.rhs);
 		}
 		for (auto sub_switch : case_->switches) {
 			add_uses(node, sub_switch->signal);
@@ -512,10 +512,10 @@ struct FlowGraph {
 		for (auto sync : process->syncs) {
 			for (auto &action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-					add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
+					add_defs(node, action.lhs, /*is_ff=*/true,  /*inlinable=*/false);
 				else
-					add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
-				add_uses(node, action.second);
+					add_defs(node, action.lhs, /*is_ff=*/false, /*inlinable=*/false);
+				add_uses(node, action.rhs);
 			}
 			for (auto &memwr : sync->mem_write_actions) {
 				add_uses(node, memwr.address);
@@ -1623,12 +1623,12 @@ struct CxxrtlWorker {
 				collect_sigspec_rhs(port.second, for_debug, cells);
 	}
 
-	void dump_assign(const RTLIL::SigSig &sigsig, bool for_debug = false)
+	void dump_assign(const RTLIL::SyncAction &action, bool for_debug = false)
 	{
 		f << indent;
-		dump_sigspec_lhs(sigsig.first, for_debug);
+		dump_sigspec_lhs(action.lhs, for_debug);
 		f << " = ";
-		dump_sigspec_rhs(sigsig.second, for_debug);
+		dump_sigspec_rhs(action.rhs, for_debug);
 		f << ";\n";
 	}
 
