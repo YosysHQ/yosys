@@ -311,7 +311,7 @@ struct ProcArstPass : public Pass {
 							if (arst_sig.size()) {
 								log("Added global reset to process %s: %s <- %s\n",
 										proc->name.c_str(), log_signal(arst_sig), log_signal(arst_val));
-								arst_actions.push_back({arst_sig, arst_val});
+								arst_actions.push_back({arst_sig, arst_val, act.src});
 							}
 						}
 				if (!arst_actions.empty()) {

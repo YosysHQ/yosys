@@ -224,7 +224,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			single_async_rule.type = RTLIL::SyncType::ST1;
 			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
 			// TODO
-			single_async_rule.actions.push_back({sig, rstval});
+			single_async_rule.actions.push_back({sig, rstval, Const("")});
 
 			// Replace existing rules with this new rule
 			async_rules.clear();
