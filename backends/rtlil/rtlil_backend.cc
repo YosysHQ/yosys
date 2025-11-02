@@ -447,8 +447,11 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		for (auto* module : design->modules()) {
 			if (design->selected_whole_module(module->meta_->name))
 				flag_m = true;
-			if (design->selected_module(module->meta_->name))
+			if (design->selected_module(module->meta_->name)) {
 				count_selected_mods++;
+				if (module->has_processes())
+					log_warning("Module %s contains processes. Case action sources attributes will be lost.\n", log_id(module));
+			}
 		}
 		if (count_selected_mods > 1)
 			flag_m = true;
