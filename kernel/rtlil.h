@@ -114,6 +114,7 @@ namespace RTLIL
 	struct CaseRule;
 	struct SwitchRule;
 	struct MemWriteAction;
+	struct SyncAction;
 	struct SyncRule;
 	struct Process;
 
@@ -656,6 +657,13 @@ struct RTLIL::AttrObject
 	}
 	std::string get_src_attribute() const {
 		return get_string_attribute(ID::src);
+	}
+	void transfer_attribute(const AttrObject* from, const IdString& attr) {
+		if (from->has_attribute(attr))
+			attributes[attr] = from->attributes.at(attr);
+	}
+	void transfer_src_attribute(const AttrObject* from) {
+		transfer_attribute(from, ID::src);
 	}
 
 	void set_hdlname_attribute(const vector<string> &hierarchy);
@@ -2092,7 +2100,7 @@ public:
 struct RTLIL::CaseRule : public RTLIL::AttrObject
 {
 	std::vector<RTLIL::SigSpec> compare;
-	std::vector<RTLIL::SigSig> actions;
+	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::SwitchRule*> switches;
 
 	~CaseRule();
@@ -2127,11 +2135,17 @@ struct RTLIL::MemWriteAction : RTLIL::AttrObject
 	RTLIL::Const priority_mask;
 };
 
+struct RTLIL::SyncAction
+{
+	RTLIL::SigSpec lhs;
+	RTLIL::SigSpec rhs;
+};
+
 struct RTLIL::SyncRule
 {
 	RTLIL::SyncType type;
 	RTLIL::SigSpec signal;
-	std::vector<RTLIL::SigSig> actions;
+	std::vector<RTLIL::SyncAction> actions;
 	std::vector<RTLIL::MemWriteAction> mem_write_actions;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
@@ -2270,8 +2284,8 @@ void RTLIL::CaseRule::rewrite_sigspecs(T &functor) {
 	for (auto &it : compare)
 		functor(it);
 	for (auto &it : actions) {
-		functor(it.first);
-		functor(it.second);
+		functor(it.lhs);
+		functor(it.rhs);
 	}
 	for (auto it : switches)
 		it->rewrite_sigspecs(functor);
@@ -2282,7 +2296,7 @@ void RTLIL::CaseRule::rewrite_sigspecs2(T &functor) {
 	for (auto &it : compare)
 		functor(it);
 	for (auto &it : actions) {
-		functor(it.first, it.second);
+		functor(it.lhs, it.rhs);
 	}
 	for (auto it : switches)
 		it->rewrite_sigspecs2(functor);
@@ -2309,8 +2323,8 @@ void RTLIL::SyncRule::rewrite_sigspecs(T &functor)
 {
 	functor(signal);
 	for (auto &it : actions) {
-		functor(it.first);
-		functor(it.second);
+		functor(it.lhs);
+		functor(it.rhs);
 	}
 	for (auto &it : mem_write_actions) {
 		functor(it.address);
@@ -2324,7 +2338,7 @@ void RTLIL::SyncRule::rewrite_sigspecs2(T &functor)
 {
 	functor(signal);
 	for (auto &it : actions) {
-		functor(it.first, it.second);
+		functor(it.lhs, it.rhs);
 	}
 	for (auto &it : mem_write_actions) {
 		functor(it.address);
