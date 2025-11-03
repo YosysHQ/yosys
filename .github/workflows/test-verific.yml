@@ -36,8 +36,7 @@ jobs:
           persist-credentials: false
           submodules: true
       - name: Runtime environment
-        run: |
-          echo "procs=$(nproc)" >> $GITHUB_ENV
+        uses: ./.github/actions/setup-build-env
 
       - name: Build Yosys
         run: |
