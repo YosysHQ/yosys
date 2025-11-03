@@ -1,4 +1,4 @@
-logger -expect error "Cannot declare module port `\\x' within a generate block\." 1
+logger -expect error 'Cannot declare module port `\\x. within a generate block\.' 1
 read_verilog <<EOT
 module top(x);
     generate

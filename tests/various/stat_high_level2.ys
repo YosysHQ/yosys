@@ -81,8 +81,8 @@ module \child
 end
 EOT
 
-logger -expect log "Chip area for top module '\\top': 80.000000" 1
-logger -expect log "1       12        1       12   \$bmux" 1
+logger -expect log 'Chip area for top module .\\top.: 80.000000' 1
+logger -expect log "1       12        1       12   \\$bmux" 1
 logger -expect log "3     37.5        3     37.5 cells" 1
 logger -expect log "8       80        2        5 cells" 2
 logger -expect-no-warnings

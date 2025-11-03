@@ -1,4 +1,4 @@
-logger -expect error "Cannot add interface port `\\i' because a signal with the same name was already created" 1
+logger -expect error 'Cannot add interface port `\\i. because a signal with the same name was already created' 1
 read_verilog -sv <<EOT
 interface intf;
     logic x;

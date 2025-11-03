@@ -222,7 +222,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			while (!tok.empty() && tok.back() == ';')
 				tok.resize(tok.size()-1), num_semikolon++;
 			if (!tok.empty())
-				args.push_back(tok);
+				args.push_back(unquote(tok));
 			call(design, args);
 			args.clear();
 			if (num_semikolon == 2)
@@ -230,7 +230,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 			if (num_semikolon == 3)
 				call(design, "clean -purge");
 		} else
-			args.push_back(tok);
+			args.push_back(unquote(tok));
 		bool found_nl = false;
 		for (auto c : cmd_buf) {
 			if (c == ' ' || c == '\t')
@@ -256,8 +256,10 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 	if (echo_mode) {
 		log("%s", create_prompt(design, 0));
-		for (size_t i = 0; i < args.size(); i++)
-			log("%s%s", i ? " " : "", args[i]);
+		for (size_t i = 0; i < args.size(); i++) {
+			auto maybe_quoted = needs_quote(args[i]) ? quote(args[i]) : args[i];
+			log("%s%s", i ? " " : "", maybe_quoted);
+		}
 		log("\n");
 	}
 

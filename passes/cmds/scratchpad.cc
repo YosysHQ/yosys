@@ -89,7 +89,6 @@ struct ScratchpadPass : public Pass {
 				if (RTLIL::constpad.count(identifier))
 					log_error("scratchpad entry \"%s\" is a global constant\n", identifier);
 				string value = args[++argidx];
-				if (value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
 				design->scratchpad_set_string(identifier, value);
 				continue;
 			}
@@ -116,7 +115,6 @@ struct ScratchpadPass : public Pass {
 			if (args[argidx] == "-assert" && argidx+2 < args.size()) {
 				string identifier = args[++argidx];
 				string expected = args[++argidx];
-				if (expected.front() == '\"' && expected.back() == '\"') expected = expected.substr(1, expected.size() - 2);
 				if (design->scratchpad.count(identifier) == 0)
 					log_error("scratchpad entry '%s' is not defined\n", identifier);
 				string value = design->scratchpad_get_string(identifier);

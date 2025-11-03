@@ -471,6 +471,10 @@ bool create_directory(const std::string& dirname);
 std::string escape_filename_spaces(const std::string& filename);
 void append_globbed(std::vector<std::string>& paths, std::string pattern);
 
+bool needs_quote(const std::string &s);
+std::string quote(const std::string &s);
+std::string unquote(const std::string &s);
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_IO_H

@@ -32,10 +32,10 @@ struct setunset_t
 
 	setunset_t(std::string unset_name) : name(RTLIL::escape_id(unset_name)), value(), unset(true) { }
 
-	setunset_t(std::string set_name, std::string set_value) : name(RTLIL::escape_id(set_name)), value(), unset(false)
+	setunset_t(std::string set_name, std::string set_value, bool is_str) : name(RTLIL::escape_id(set_name)), value(), unset(false)
 	{
-		if (set_value.compare(0, 1, "\"") == 0 && set_value.compare(GetSize(set_value)-1, std::string::npos, "\"") == 0) {
-			value = RTLIL::Const(set_value.substr(1, GetSize(set_value)-2));
+		if (is_str) {
+			value = RTLIL::Const(set_value);
 		} else {
 			RTLIL::SigSpec sig_value;
 			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
@@ -60,13 +60,22 @@ struct SetattrPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    setattr [ -mod ] [ -set name value | -unset name ]... [selection]\n");
+		log("    setattr [options] [selection]\n");
 		log("\n");
-		log("Set/unset the given attributes on the selected objects. String values must be\n");
-		log("passed in double quotes (\").\n");
+		log("Set/unset attributes on the selected objects.\n");
 		log("\n");
-		log("When called with -mod, this command will set and unset attributes on modules\n");
-		log("instead of objects within modules.\n");
+		log("    -mod\n");
+		log("        apply changes to modules instead of objects within modules\n");
+		log("\n");
+		log("    -set <name> <value>\n");
+		log("    -setstr <name> <strvalue>\n");
+		log("        set the named attribute to the given value, string values must use\n");
+		log("        the -setstr option\n");
+		log("\n");
+		log("    -unset <name>\n");
+		log("        unset the named attribute\n");
+		log("\n");
+		log("The options -setstr, -set, and -unset can be specified multiple times.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -78,10 +87,10 @@ struct SetattrPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-set" && argidx+2 < args.size()) {
+			if ((arg == "-set" || arg == "-setstr") && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, arg == "-setstr"));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -147,12 +156,22 @@ struct SetparamPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    setparam [ -type cell_type ] [ -set name value | -unset name ]... [selection]\n");
+		log("    setparam [options] [selection]\n");
 		log("\n");
-		log("Set/unset the given parameters on the selected cells. String values must be\n");
-		log("passed in double quotes (\").\n");
+		log("Set/unset parameters on the selected cells.\n");
 		log("\n");
-		log("The -type option can be used to change the cell type of the selected cells.\n");
+		log("    -type\n");
+		log("        change the cell type of the selected cells\n");
+		log("\n");
+		log("    -set <name> <value>\n");
+		log("    -setstr <name> <strvalue>\n");
+		log("        set the named parameter to the given value, string values must use\n");
+		log("        the -setstr option\n");
+		log("\n");
+		log("    -unset <name>\n");
+		log("        unset the named parameter\n");
+		log("\n");
+		log("The options -setstr, -set, and -unset can be specified multiple times.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -164,10 +183,10 @@ struct SetparamPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-set" && argidx+2 < args.size()) {
+			if ((arg == "-set" || arg == "-setstr") && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, arg == "-setstr"));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -199,10 +218,10 @@ struct ChparamPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    chparam [ -set name value ]... [selection]\n");
+		log("    chparam [ -set[str] name value ]... [selection]\n");
 		log("\n");
-		log("Re-evaluate the selected modules with new parameters. String values must be\n");
-		log("passed in double quotes (\").\n");
+		log("Re-evaluate the selected modules with new parameters. String values must use\n");
+		log("the -setstr option.\n");
 		log("\n");
 		log("\n");
 		log("    chparam -list [selection]\n");
@@ -220,10 +239,10 @@ struct ChparamPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-set" && argidx+2 < args.size()) {
+			if ((arg == "-set" || arg == "-setstr") && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, arg == "-setstr"));
 				continue;
 			}
 			if (arg == "-list") {

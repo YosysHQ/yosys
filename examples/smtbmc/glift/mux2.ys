@@ -1,9 +1,9 @@
 logger -expect log "SAT proof finished - no model found: SUCCESS!" 1
-logger -expect log "Number of cells:.*[\t ]12" 1
-logger -expect log "Number of cells:.*[\t ]20" 1
-logger -expect log "Problem is satisfiable with \\gate.__glift_weight = 11." 1
-logger -expect log "Problem is NOT satisfiable with \\gate.__glift_weight <= 10." 1
-logger -expect log "Wire \\gate.__glift_weight is minimized at 11." 1
+logger -expect log 'Number of cells:.*[\t ]12' 1
+logger -expect log 'Number of cells:.*[\t ]20' 1
+logger -expect log 'Problem is satisfiable with \\gate.__glift_weight = 11.' 1
+logger -expect log 'Problem is NOT satisfiable with \\gate.__glift_weight <= 10.' 1
+logger -expect log 'Wire \\gate.__glift_weight is minimized at 11.' 1
 logger -expect log "Specializing .* from file with .* = 1." 2
 logger -expect log "Specializing .* from file with .* = 0." 4
 read_verilog <<EOT

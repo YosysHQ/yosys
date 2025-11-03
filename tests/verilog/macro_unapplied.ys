@@ -8,7 +8,7 @@ EOT
 
 design -reset
 
-logger -expect error "Expected to find '\(' to begin macro arguments for 'MACRO', but instead found ';'" 1
+logger -expect error "Expected to find '\\(' to begin macro arguments for 'MACRO', but instead found ';'" 1
 read_verilog -sv <<EOT
 `define MACRO(a = 1, b = 2) initial $display("MACRO(a = %d, b = %d)", a, b)
 module top;

@@ -146,7 +146,7 @@ logger -check-expected
 design -reset
 
 # Test octal escape out of range.
-logger -expect warning "octal escape exceeds \\377" 1
+logger -expect warning 'octal escape exceeds \\377' 1
 read_verilog << EOF
 module top;
 	wire[7:0] x = "\400";
@@ -156,7 +156,7 @@ logger -check-expected
 design -reset
 
 # Test invalid octal digit.
-logger -expect warning "'\?' not a valid digit in octal escape sequence" 1
+logger -expect warning "'\\?' not a valid digit in octal escape sequence" 1
 read_verilog << EOF
 module top;
 	wire[7:0] x = "\0?";
