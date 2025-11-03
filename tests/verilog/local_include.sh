@@ -19,11 +19,11 @@ $yosys $test $source
 
 # include local to cwd
 mkdir -p $subdir
-cp -t $subdir $source
+cp $source $subdir
 $yosys $test $subdir/$source
 
 # include local to source
-mv -t $subdir $include
+mv $include $subdir
 $yosys $test $subdir/$source
 
 # include local to source, and source is given as an absolute path
