@@ -392,12 +392,6 @@ void append_globbed(std::vector<std::string>& paths, std::string pattern)
 	copy(globbed.begin(), globbed.end(), back_inserter(paths));
 }
 
-#ifdef _WIN32
-const char* const OS_PATH_SEP = "/\\";
-#else
-const char* const OS_PATH_SEP = "/";
-#endif
-
 std::string name_from_file_path(std::string path) {
 	return std::filesystem::path(path).filename().string();
 }
