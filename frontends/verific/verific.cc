@@ -1636,6 +1636,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		SetIter si ;
 		Port *port ;
 		FOREACH_PORT_OF_PORTBUS(portbus, si, port) {
+			wire->port_id = nl->IndexOf(port) + 1;
 			import_attributes(wire->attributes, port->GetNet(), nl, portbus->Size());
 			break;
 		}
