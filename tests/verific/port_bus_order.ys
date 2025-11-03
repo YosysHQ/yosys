@@ -1,0 +1,13 @@
+verific -sv <<EOT
+module simple (
+  input  [3:0] I2,
+  input  [3:0] I1,
+  output [3:0] result
+);
+  assign result = I2 & I1;
+endmodule
+EOT
+verific -import simple
+
+write_verilog verilog_port_bus_order.out
+!grep -qF 'simple(I2, I1, result)' verilog_port_bus_order.out
