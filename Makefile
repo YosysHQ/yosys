@@ -28,6 +28,7 @@ ENABLE_HELP_SOURCE := 0
 
 # python wrappers
 ENABLE_PYOSYS := 0
+PYOSYS_USE_UV := 1
 
 # other configuration flags
 ENABLE_GCOV := 0
@@ -352,16 +353,22 @@ PYTHON_OBJECTS = pyosys/wrappers.o kernel/drivers.o kernel/yosys.o passes/cmds/p
 
 ifeq ($(ENABLE_PYOSYS),1)
 # python-config --ldflags includes -l and -L, but LINKFLAGS is only -L
+
+UV_ENV :=
+ifeq ($(PYOSYS_USE_UV),1)
+UV_ENV := uv run  --no-project --with 'pybind11>3,<4' --with 'cxxheaderparser'
+endif
+
 LINKFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 LIBS += $(shell $(PYTHON_CONFIG) --libs)
 EXE_LIBS += $(filter-out $(LIBS),$(shell $(PYTHON_CONFIG_FOR_EXE) --libs))
-PYBIND11_INCLUDE ?= $(shell $(PYTHON_EXECUTABLE) -m pybind11 --includes)
+PYBIND11_INCLUDE ?= $(shell $(UV_ENV) $(PYTHON_EXECUTABLE) -m pybind11 --includes)
 CXXFLAGS += -I$(PYBIND11_INCLUDE) -DYOSYS_ENABLE_PYTHON
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DYOSYS_ENABLE_PYTHON
 
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT = pyosys/generator.py
-PY_WRAP_INCLUDES := $(shell $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
+PY_WRAP_INCLUDES := $(shell $(UV_ENV) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
 endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
@@ -777,7 +784,7 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: $(PY_GEN_SCRIPT) pyosys/wrappers_tpl.cc $(PY_WRAP_INCLUDES) pyosys/hashlib.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) $(PY_WRAPPER_FILE).cc
+	$(P) $(UV_ENV) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) $(PY_WRAPPER_FILE).cc
 endif
 
 %.o: %.cpp

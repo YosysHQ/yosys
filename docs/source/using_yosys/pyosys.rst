@@ -28,6 +28,14 @@ methods:
 
    ``yosys -y ./my_pyosys_script.py``
 
+   Do note this requires some build-time dependencies to be available to Python,
+   namely, ``pybind11`` and ``cxxheaderparser``. By default, the required
+   ``uv`` package will be used to create an ephemeral environment with the
+   correct versions of the tools installed.
+
+   You can force use of your current Python environment by passing the Makefile
+   flag ``PYOSYS_USE_UV=0``.
+
 2. Installing the Pyosys wheels
 
    On macOS and GNU/Linux you can install pre-built wheels of Yosys using
