@@ -25,13 +25,13 @@ jobs:
               archs: "aarch64",
             },
             {
-              name: "macOS 13",
+              name: "macOS 15 x64",
               family: "macos",
               runner: "macos-15-intel",
               archs: "x86_64",
             },
             {
-              name: "macOS 14",
+              name: "macOS 15 arm64",
               family: "macos",
               runner: "macos-15",
               archs: "arm64",
@@ -119,7 +119,7 @@ jobs:
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
-    if: github.repository == 'YosysHQ/Yosys'
+    if: (github.repository == 'YosysHQ/Yosys') && (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
