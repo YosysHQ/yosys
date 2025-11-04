@@ -51,6 +51,7 @@ class libyosys_so_ext(Extension):
             "ENABLE_TCL=0",
             "ENABLE_READLINE=0",
             "ENABLE_EDITLINE=0",
+            "PYOSYS_USE_UV=0", # + install requires takes its role when building wheels
             # Always compile and include ABC in wheel
             "ABCEXTERNAL=",
             # Show compile commands
