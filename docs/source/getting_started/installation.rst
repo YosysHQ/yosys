@@ -99,8 +99,7 @@ Installing all prerequisites:
 
    .. code:: console
 
-      sudo apt-get install gawk git make python3 lld \
-         bison clang flex libboost-filesystem-dev libboost-system-dev \
+      sudo apt-get install gawk git make python3 lld bison clang flex \
          libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
          graphviz xdot
       curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -116,14 +115,14 @@ Installing all prerequisites:
    .. code:: console
 
       sudo port install bison flex readline gawk libffi graphviz \
-         pkgconfig python311 boost zlib tcl
+         pkgconfig python311 zlib tcl
 
 .. tab:: FreeBSD
 
    .. code:: console
 
       pkg install bison flex readline gawk libffi graphviz \
-         pkgconf python311 tcl-wrapper boost-libs
+         pkgconf python311 tcl-wrapper
 
    .. note:: On FreeBSD system use gmake instead of make. To run tests use:
       ``MAKE=gmake CXX=cxx CC=cc gmake test``
@@ -135,7 +134,7 @@ Installing all prerequisites:
 
    .. code:: console
 
-      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,zlib-devel
 
    .. warning::
 
@@ -153,7 +152,7 @@ Installing all prerequisites:
 
    .. code:: console
 
-      pacman -S bison flex mingw-w64-x86_64-gcc git libffi-devel libreadline-devel make pkg-config python3 tcl-devel mingw-w64-x86_64-boost zlib-devel
+      pacman -S bison flex mingw-w64-x86_64-gcc git libffi-devel libreadline-devel make pkg-config python3 tcl-devel zlib-devel
 
    Not that I can get this to work; it's failing during ld with what looks like
    math library issues: ``multiple definition of `tanh'`` and

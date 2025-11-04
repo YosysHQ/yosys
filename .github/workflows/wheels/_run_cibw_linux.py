@@ -24,10 +24,10 @@ from pathlib import Path
 
 __yosys_root__ = Path(__file__).absolute().parents[3]
 
-for source in ["boost", "ffi", "bison"]:
+for source in ["ffi", "bison"]:
     if not (__yosys_root__ / source).is_dir():
         print(
-            "You need to download boost, ffi and bison in a similar manner to wheels.yml first."
+            "You need to download ffi and bison in a similar manner to wheels.yml first."
         )
         exit(-1)
 
