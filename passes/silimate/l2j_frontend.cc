@@ -35,7 +35,7 @@ inline const Json::object &get_object_attr(std::string_view description, const J
 		if (it->second.type() == Json::Type::OBJECT) {
 			result = &it->second.object_items();
 		} else {
-			log_error("%s attribute of %s is not a valid string\n", key, description);
+			log_error("%s attribute of %s is not a valid object\n", key, description);
 		}
 	}
 	return *result;
@@ -48,7 +48,7 @@ inline const Json::array &get_array_attr(std::string_view description, const Jso
 		if (it->second.type() == Json::Type::ARRAY) {
 			result = &it->second.array_items();
 		} else {
-			log_error("%s attribute of %s is not a valid string\n", key, description);
+			log_error("%s attribute of %s is not a valid array\n", key, description);
 		}
 	}
 	return *result;
@@ -290,16 +290,16 @@ struct L2JFrontend : public Frontend {
 			current_module->set_string_attribute(ID(LeakagePower), std::to_string(cell_leakage_power));
 			current_module->set_string_attribute(ID(leakage_power_unit), leakage_power_unit);
 
-			size_t group_idx = -1;
-			size_t pin_idx = -1;
-			size_t bus_idx = -1;
-			size_t bundle_idx = -1;
+			size_t group_idx = 0;
+			size_t pin_idx = 0;
+			size_t bus_idx = 0;
+			size_t bundle_idx = 0;
 			for_each_group(cell_desc, cell, [&](const Json::object &g) {
 				std::stringstream group_desc;
-				group_desc << cell_desc << " group " << ++group_idx;
+				group_desc << cell_desc << " group " << group_idx++;
 				if (g.count("pin")) {
 					std::stringstream pin_desc;
-					pin_desc << cell_desc << " pin " << ++pin_idx;
+					pin_desc << cell_desc << " pin " << pin_idx++;
 					auto &pin = get_object_attr(group_desc.str(), g, "pin", empty_obj);
 					std::string direction = get_string_attr(pin_desc.str(), pin, "direction", "input");
 					auto &pin_names = get_array_attr(pin_desc.str(), pin, "names", empty_arr);
@@ -311,7 +311,7 @@ struct L2JFrontend : public Frontend {
 					}
 				} else if (g.count("bus")) {
 					std::stringstream bus_desc;
-					bus_desc << cell_desc << " bus " << ++bus_idx;
+					bus_desc << cell_desc << " bus " << bus_idx++;
 					auto &bus = get_object_attr(group_desc.str(), g, "bus", empty_obj);
 
 					// Determine direction
@@ -362,7 +362,7 @@ struct L2JFrontend : public Frontend {
 					}
 				} else if (g.count("bundle")) {
 					std::stringstream bundle_desc;
-					bundle_desc << cell_desc << " bundle " << ++bundle_idx;
+					bundle_desc << cell_desc << " bundle " << bundle_idx++;
 					auto &bundle = get_object_attr(group_desc.str(), g, "bundle", empty_obj);
 
 					// Determine direction
