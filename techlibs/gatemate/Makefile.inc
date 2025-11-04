@@ -2,6 +2,9 @@
 OBJS += techlibs/gatemate/synth_gatemate.o
 OBJS += techlibs/gatemate/gatemate_foldinv.o
 
+GENFILES += techlibs/gatemate/lut_tree_cells.genlib
+GENFILES += techlibs/gatemate/lut_tree_map.v
+
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/reg_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/mux_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/lut_map.v))
@@ -28,3 +31,4 @@ techlibs/gatemate/lut_tree_map.v: techlibs/gatemate/lut_tree_lib.mk
 
 $(eval $(call add_gen_share_file,share/gatemate,techlibs/gatemate/lut_tree_cells.genlib))
 $(eval $(call add_gen_share_file,share/gatemate,techlibs/gatemate/lut_tree_map.v))
+
