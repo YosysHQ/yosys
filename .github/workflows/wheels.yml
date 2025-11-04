@@ -54,6 +54,11 @@ jobs:
           fetch-depth: 0
           submodules: true
           persist-credentials: false
+      - if: ${{ matrix.os.family == 'linux' }}
+        name: "[Linux] Install UV"
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
       - uses: actions/setup-python@v5
       - name: Get FFI
         shell: bash
