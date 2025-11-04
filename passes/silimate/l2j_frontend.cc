@@ -28,6 +28,15 @@ YOSYS_NAMESPACE_BEGIN
 using Json = json11:: Json;
 
 // Helpers
+/// @brief Gets an attribute as a reference to a Json::object, or if the key is
+///        undefined, returns a default value. If the attribute exists but is
+///        not an object, log_error is called, exiting the program
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param key The key used to access the attribute in question
+/// @param default_ The fallback default value
+/// @return reference to either the array attribute if found or the default
+///         otherwise
 inline const Json::object &get_object_attr(std::string_view description, const Json::object &o, std::string key, const Json::object &default_) {
 	const Json::object *result = &default_;
 	auto it = o.find(key);
@@ -41,6 +50,15 @@ inline const Json::object &get_object_attr(std::string_view description, const J
 	return *result;
 }
 
+/// @brief Gets an attribute as a reference to a Json::array, or if the key is
+///        undefined, returns a default value. If the attribute exists but is
+///        not an object, log_error is called, exiting the program
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param key The key used to access the attribute in question
+/// @param default_ The fallback default value
+/// @return reference to either the array attribute if found or the default
+///         otherwise
 inline const Json::array &get_array_attr(std::string_view description, const Json::object &o, std::string key, const Json::array &default_) {
 	const Json::array *result = &default_;
 	auto it = o.find(key);
@@ -54,6 +72,14 @@ inline const Json::array &get_array_attr(std::string_view description, const Jso
 	return *result;
 }
 
+/// @brief Gets an attribute as an string, or if the key is undefined,
+///        returns a default value. If the attribute exists but is not a string
+///        log_error is called, exiting the program
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param key The key used to access the attribute in question
+/// @param default_ The fallback default value
+/// @return the string attribute if found or the default otherwise
 inline std::string get_string_attr(std::string_view description, const Json::object &o, std::string key, std::string_view default_) {
 	std::string result{default_};
 	auto it = o.find(key);
@@ -67,6 +93,15 @@ inline std::string get_string_attr(std::string_view description, const Json::obj
 	return result;
 }
 
+/// @brief Gets an attribute as an boolean, or if the key is undefined,
+///        returns a default value. If the attribute exists but is not a
+///        boolean, numbers are converted into booleans as per C++ bool(float)
+///        rules and other types raise an error
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param key The key used to access the attribute in question
+/// @param default_ The fallback default value
+/// @return the boolean attribute if found or the default otherwise
 inline bool get_bool_attr(std::string_view description, const Json::object &o, std::string key, bool default_) {
 	bool result = default_;
 	auto it = o.find(key);
@@ -82,6 +117,16 @@ inline bool get_bool_attr(std::string_view description, const Json::object &o, s
 	return result;
 }
 
+/// @brief Gets an attribute as a double-width floating point number, or if the
+///        key is undefined, returns a default value. If the attribute exists
+///        but is not a number; strings are attempted to be parsed first and
+///        calls log_error to exit the program on failure. All other types cause
+///        log_error to be called unconditionally
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param key The key used to access the attribute in question
+/// @param default_ The fallback default value
+/// @return the numeric attribute if found or the default otherwise
 inline double get_numeric_attr(std::string_view description, const Json::object &o, std::string key, double default_) {
 	double result = default_;
 	auto it = o.find(key);
@@ -101,6 +146,16 @@ inline double get_numeric_attr(std::string_view description, const Json::object 
 	return result;
 }
 
+/// @brief Iterates over the .groups attribute of JSON objects.
+///        If the attribute doesn't exist, it iterates over nothing.
+///        If the attribute exists but is not an array, log_error is called,
+///        terminating the program
+///        If any of the elements of the array are not objects, log_error is
+///        also called, terminating the program
+/// @param description A description of the container object to use in error messages
+/// @param o The container object
+/// @param executor The lambda to execute that takes a constant reference to the
+///        JSON object representing the group.
 inline void for_each_group(std::string_view description, const Json::object &o, std::function<void(const Json::object &)> executor) {
 	Json::array empty_arr;
 	const Json::array &groups = get_array_attr(description, o, "groups", empty_arr);
@@ -113,6 +168,14 @@ inline void for_each_group(std::string_view description, const Json::object &o, 
 	}
 }
 
+/// @brief Returns the first object of the .names array attribute of a given
+///        string. If either the array or the name fail validation (i.e. they
+///        exist but are not the correct type,) the program will call log_error
+///        and terminate
+/// @param description A description of the container to use in error messages
+/// @param named_object The container in question
+/// @return The first name if both the .names array attribute and the name itself
+///         both exist, otherwise nullopt
 inline std::optional<std::string> single_name_of(std::string_view description, const Json::object &named_object) {
 	Json::array empty_arr;
 	const Json::array &names = get_array_attr(description, named_object, "names", empty_arr);
@@ -134,8 +197,13 @@ struct TypeWidth {
 	int bit_to;
 	int bit_width;
 
-	static TypeWidth from_json_object(Json::object type, std::string_view container_description) {
-		std::string type_group_desc = std::string(container_description) + " type group";
+	/// @brief Constructs a TypeWidth declaration object from its JSON equivalent
+	///        cell. May call log_error and terminate the program on typing errors
+	/// @param description A description of the container to use in error messages
+	/// @param type The type JSON object
+	/// @return newly constructed type-width object
+	static TypeWidth from_json_object(std::string_view description, const Json::object &type) {
+		std::string type_group_desc = std::string(description) + " type group";
 		bool downto = get_bool_attr(type_group_desc, type, "downto", false);
 		int bit_from = get_numeric_attr(type_group_desc, type, "bit_from", 0);
 		int bit_to = get_numeric_attr(type_group_desc, type, "bit_to", 0);
@@ -143,7 +211,14 @@ struct TypeWidth {
 		return TypeWidth { downto, bit_from, bit_to, bit_width};
 	}
 
-	static auto collect_types(std::string_view description, Json::object container) {
+	/// @brief Collects and constructs TypeWidth objects from a container, be it
+	///        either types declared in the top-level library or types local to a
+	///        cell. May call log_error and terminate the program on typing errors
+	/// @param description A description of the container to use in error messages
+	/// @param container The JSON object containing types
+	/// @return A mapping from the types' names to their newly constructed
+	///         TypeWidth objects.
+	static auto collect_types(std::string_view description, const Json::object &container) {
 		dict<std::string, TypeWidth> result;
 		for_each_group(description, container, [&](const Json::object &g){
 			Json::object empty_obj;
@@ -157,12 +232,24 @@ struct TypeWidth {
 				log_warning("Nameless type encountered\n");
 				return;
 			}
-			result[*type_name] = TypeWidth::from_json_object(type, std::string(description) + " '" + *type_name + "'");
+			result[*type_name] = TypeWidth::from_json_object(std::string(description) + " '" + *type_name + "'", type);
 		});
 		return result;
 	}
 };
 
+/// @brief Convenience method to add a port to an RTLIL\:\:Module from liberty
+///        information. Will terminate program by calling log_error iff
+///        - Direction is not "internal", "input", "output", or "inout"
+/// @param module_ The parent module
+/// @param pin_name The name of the new port to add
+/// @param width The width of the new port to add
+/// @param direction A valid liberty file pin direction
+/// @param upto If true, [from:to] else [to:from].
+/// @param offset The start bit index. The end bit index is thus offset+width
+/// @return A pointer to the newly created wire inside the RTLIL\:\:Module or
+///         nullptr iff the port is internal OR the module already has a wire by
+///         the same name (can happen with bus/bundle declarations.)
 RTLIL::Wire *add_port(RTLIL::Module *module_, std::string_view pin_name, int width, std::string_view direction, bool upto=false, int offset=0) {
 	if (direction == "internal") {
 		log("Skipping internal port %s/%s.\n", module_->name.c_str(), pin_name);
