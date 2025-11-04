@@ -14,7 +14,7 @@ class Monitor(ys.Monitor):
 		self.mods.append(mod.name.str())
 
 m = Monitor()
-d.monitors.add(m)
+d.monitors = [m]
 
 ys.run_pass(f"read_verilog {__file_dir__ / 'spm.cut.v.gz'}", d)
 ys.run_pass("hierarchy -top spm", d)

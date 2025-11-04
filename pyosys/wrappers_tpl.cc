@@ -21,6 +21,12 @@
 // <!-- generated includes -->
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
+#include <pybind11/functional.h>
+
+// duplicates for LSPs
+#include "kernel/register.h"
+#include "kernel/yosys_common.h"
+
 #include "pyosys/hashlib.h"
 
 namespace py = pybind11;
@@ -28,7 +34,7 @@ namespace py = pybind11;
 USING_YOSYS_NAMESPACE
 
 using std::set;
-using std::regex;
+using std::function;
 using std::ostream;
 using namespace RTLIL;
 

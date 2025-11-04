@@ -1828,6 +1828,7 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
+	RTLIL::Memory *addMemory(RTLIL::IdString name);
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
 	RTLIL::Process *addProcess(RTLIL::IdString name);
