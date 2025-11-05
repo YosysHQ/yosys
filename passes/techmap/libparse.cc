@@ -191,7 +191,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	char c = s.peek();
 	auto lhs = LibertyExpression{};
 
-	while (isspace(c)) {
+	while (isspace(c) || c == '"') {
 		if (s.empty())
 			return lhs;
 		s.next();
@@ -221,7 +221,6 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		warn(ss.str());
 		return lhs;
 	}
-
 	while (true) {
 		if (s.empty())
 			break;
@@ -264,9 +263,10 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 					s.next();
 					c = s.peek();
 				}
-				if (char_is_nice_binop(c)) {
+				if (char_is_nice_binop(c) || c == ')') {
 					// We found a real binop, so this space wasn't an AND
 					// and we just discard it as meaningless whitespace
+					// Closing paren is also always terminating here
 					continue;
 				}
 			} else {
