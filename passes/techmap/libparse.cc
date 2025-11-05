@@ -263,10 +263,10 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 					s.next();
 					c = s.peek();
 				}
-				if (char_is_nice_binop(c) || c == ')') {
+				if (char_is_nice_binop(c) || c == ')' || c == '\'' || c == '\"') {
 					// We found a real binop, so this space wasn't an AND
 					// and we just discard it as meaningless whitespace
-					// Closing paren is also always terminating here
+					// Tail operators also imply this isn't an AND
 					continue;
 				}
 			} else {
