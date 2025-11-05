@@ -49,7 +49,7 @@ runs:
       if: runner.os == 'Linux' && inputs.get-docs-deps == 'true'
       uses: awalsh128/cache-apt-pkgs-action@v1.6.0
       with:
-        packages: graphviz xdot
+        packages: graphviz xdot  bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev  libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache
         version: ${{ inputs.runs-on }}-docsys
 
     # if updating test dependencies, make sure to update
