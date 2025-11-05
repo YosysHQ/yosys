@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-    - name: Install deps
-      run: sudo apt-get install bison flex libfl-dev libreadline-dev tcl-dev libffi-dev
-
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -23,6 +20,12 @@ jobs:
 
     - name: Setup environment
       uses: ./.github/actions/setup-build-env
+
+    - name: Setup environment
+      uses: ./.github/actions/setup-build-env
+      with:
+        runs-on: ubuntu-latest
+        get-build-deps: true
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3

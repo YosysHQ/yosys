@@ -1,15 +1,65 @@
 name: Build environment setup
 description: Configure build env for Yosys builds
+
+inputs:
+  runs-on:
+    required: true
+    type: string
+  get-build-deps:
+    description: 'Install Yosys build dependencies'
+    default: false
+    required: false
+    type: boolean
+  get-docs-deps:
+    description: 'Install Yosys docs dependencies'
+    default: false
+    required: false
+    type: boolean
+  get-test-deps:
+    description: 'Install Yosys test dependencies'
+    default: false
+    required: false
+    type: boolean
+  get-iverilog:
+    description: 'Install iverilog'
+    default: false
+    required: false
+    type: boolean
+
 runs:
   using: composite
   steps:
-    - name: Install Linux Dependencies
+    # if updating common/build/docs dependencies, make sure to update README.md
+    # and docs/source/getting_started/installation.rst to match.
+    - name: Linux common dependencies
       if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache
-        sudo apt-get install gperf build-essential bison flex libfl-dev libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev libbz2-dev libgtest-dev
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: gawk git make python3
+        version: ${{ inputs.runs-on }}-commonys
+
+    - name: Linux build dependencies
+      if: runner.os == 'Linux' && inputs.get-build-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: bison clang flex libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev  libnsl-dev libdwarf-dev libelf-dev elfutils libdw-dev ccache
+        version: ${{ inputs.runs-on }}-buildys
+
+    - name: Linux docs dependencies
+      if: runner.os == 'Linux' && inputs.get-docs-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: graphviz xdot
+        version: ${{ inputs.runs-on }}-docsys
+
+    # if updating test dependencies, make sure to update
+    # docs/source/yosys_internals/extending_yosys/test_suites.rst to match.
+    - name: Linux test dependencies
+      if: runner.os == 'Linux' && inputs.get-test-deps == 'true'
+      uses: awalsh128/cache-apt-pkgs-action@v1.6.0
+      with:
+        packages: libgtest-dev
+        version: ${{ inputs.runs-on }}-testys
 
     - name: Install macOS Dependencies
       if: runner.os == 'macOS'
@@ -33,3 +83,9 @@ runs:
         echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
         echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
         echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+
+    - name: Setup iverilog
+      if: inputs.get-iverilog == 'true'
+      uses: ./.github/actions/setup-iverilog
+      with:
+        runs-on: ${{ inputs.runs-on }}

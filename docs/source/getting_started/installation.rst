@@ -93,60 +93,66 @@ tools: readline, libffi, Tcl and zlib; are optional but enabled by default (see
 :makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
 `show` command to display schematics.
 
-Installing all prerequisites for Ubuntu 22.04:
+Installing all prerequisites:
 
-.. code:: console
-
-   sudo apt-get install gperf build-essential clang lld bison flex libfl-dev \
-      libreadline-dev gawk tcl-dev libffi-dev git \
-      graphviz xdot pkg-config python3 libboost-system-dev \
-      libboost-python-dev libboost-filesystem-dev zlib1g-dev
-
-Installing all prerequisites for macOS 13 (with Homebrew):
-
-.. code:: console
-
-   brew tap Homebrew/bundle && brew bundle
-
-or MacPorts:
-
-.. code:: console
-
-   sudo port install bison flex readline gawk libffi graphviz \
-      pkgconfig python311 boost zlib tcl
-
-On FreeBSD use the following command to install all prerequisites:
-
-.. code:: console
-
-   pkg install bison flex readline gawk libffi graphviz \
-      pkgconf python311 tcl-wrapper boost-libs
-
-.. note:: On FreeBSD system use gmake instead of make. To run tests use:
-    ``MAKE=gmake CXX=cxx CC=cc gmake test``
-
-For Cygwin use the following command to install all prerequisites, or select these additional packages:
-
-.. code:: console
-
-   setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
-
-.. warning::
-
-   As of this writing, Cygwin only supports up to Python 3.9.16 while the
-   minimum required version of Python is 3.11.  This means that Cygwin is not
-   compatible with many of the Python-based frontends.  While this does not
-   currently prevent Yosys itself from working, no guarantees are made for
-   continued support.  You may also need to specify `CXXSTD=gnu++17` to resolve
-   missing `strdup` function when using gcc.  It is instead recommended to use
-   Windows Subsystem for Linux (WSL) and follow the instructions for Ubuntu.
-
-.. 
-   For MSYS2 (MINGW64):
+.. tab:: Ubuntu 22.04
 
    .. code:: console
 
-      pacman -S bison flex mingw-w64-x86_64-gcc git libffi-devel libreadline-devel make pkg-config python3 tcl-devel mingw-w64-x86_64-boost zlib-devel
+      sudo apt-get install gawk git make python3 lld bison clang flex \
+         libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
+         graphviz xdot
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+
+.. tab:: macOS 13 (with Homebrew)
+
+   .. code:: console
+
+      brew tap Homebrew/bundle && brew bundle
+
+.. tab:: MacPorts
+
+   .. code:: console
+
+      sudo port install bison flex readline gawk libffi graphviz \
+         pkgconfig python311 zlib tcl
+
+.. tab:: FreeBSD
+
+   .. code:: console
+
+      pkg install bison flex readline gawk libffi graphviz \
+         pkgconf python311 tcl-wrapper
+
+   .. note:: On FreeBSD system use gmake instead of make. To run tests use:
+      ``MAKE=gmake CXX=cxx CC=cc gmake test``
+
+.. tab:: Cygwin
+
+   Use the following command to install all prerequisites, or select these
+   additional packages:
+
+   .. code:: console
+
+      setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,zlib-devel
+
+   .. warning::
+
+      As of this writing, Cygwin only supports up to Python 3.9.16 while the
+      minimum required version of Python is 3.11.  This means that Cygwin is not
+      compatible with many of the Python-based frontends.  While this does not
+      currently prevent Yosys itself from working, no guarantees are made for
+      continued support.  You may also need to specify ``CXXSTD=gnu++17`` to
+      resolve missing ``strdup`` function when using gcc.  It is instead
+      recommended to use Windows Subsystem for Linux (WSL) and follow the
+      instructions for Ubuntu.
+
+.. 
+   tab:: MSYS2 (MINGW64)
+
+   .. code:: console
+
+      pacman -S bison flex mingw-w64-x86_64-gcc git libffi-devel libreadline-devel make pkg-config python3 tcl-devel zlib-devel
 
    Not that I can get this to work; it's failing during ld with what looks like
    math library issues: ``multiple definition of `tanh'`` and
@@ -215,7 +221,7 @@ Running the build system
 From the root ``yosys`` directory, call the following commands:
 
 .. code:: console
-   
+
    make
    sudo make install
 
@@ -228,7 +234,7 @@ To use a separate (out-of-tree) build directory, provide a path to the Makefile.
 
 Out-of-tree builds require a clean source tree.
 
-.. seealso:: 
+.. seealso::
 
    Refer to :doc:`/yosys_internals/extending_yosys/test_suites` for details on
    testing Yosys once compiled.

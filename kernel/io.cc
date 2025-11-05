@@ -2,6 +2,7 @@
 #include "kernel/log.h"
 #include <iostream>
 #include <string>
+#include <filesystem>
 
 #if !defined(WIN32)
 #include <dirent.h>
@@ -389,6 +390,24 @@ void append_globbed(std::vector<std::string>& paths, std::string pattern)
 	rewrite_filename(pattern);
 	std::vector<std::string> globbed = glob_filename(pattern);
 	copy(globbed.begin(), globbed.end(), back_inserter(paths));
+}
+
+std::string name_from_file_path(std::string path) {
+	return std::filesystem::path(path).filename().string();
+}
+
+// Includes OS_PATH_SEP at the end if present
+std::string parent_from_file_path(std::string path) {
+	auto parent = std::filesystem::path(path).parent_path();
+	if (parent.empty()) {
+		return "";
+	}
+	// Add trailing separator to match original behavior
+	std::string result = parent.string();
+	if (!result.empty() && result.back() != std::filesystem::path::preferred_separator) {
+		result += std::filesystem::path::preferred_separator;
+	}
+	return result;
 }
 
 void format_emit_unescaped(std::string &result, std::string_view fmt)

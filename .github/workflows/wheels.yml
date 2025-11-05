@@ -25,15 +25,15 @@ jobs:
               archs: "aarch64",
             },
             {
-              name: "macOS 13",
+              name: "macOS 15 x64",
               family: "macos",
-              runner: "macos-13",
+              runner: "macos-15-intel",
               archs: "x86_64",
             },
             {
-              name: "macOS 14",
+              name: "macOS 15 arm64",
               family: "macos",
-              runner: "macos-14",
+              runner: "macos-15",
               archs: "arm64",
             },
             ## Windows is disabled because of an issue with compiling FFI as
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ffi
-          curl -L https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz | tar --strip-components=1 -xzC ffi
+          curl -L https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz | tar --strip-components=1 -xzC ffi
       - if: ${{ matrix.os.family == 'linux' }}
         name: "[Linux] Bison 3.8.2"
         shell: bash
@@ -114,7 +114,7 @@ jobs:
           path: ./wheelhouse/*.whl
   upload_wheels:
     name: Upload Wheels
-    if: github.repository == 'YosysHQ/Yosys'
+    if: (github.repository == 'YosysHQ/Yosys') && (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
