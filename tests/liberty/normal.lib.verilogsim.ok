@@ -40,7 +40,7 @@ module imux2 (A, B, S, Y);
   assign Y = (~((A&S)|(B&(~S)))); // "( (A * S) + (B * S') )'"
 endmodule
 module dff (D, CLK, RESET, PRESET, Q, QN);
-  reg "IQ", "IQN";
+  reg IQ, IQN;
   input D;
   input CLK;
   input RESET;
@@ -51,26 +51,26 @@ module dff (D, CLK, RESET, PRESET, Q, QN);
   assign QN = IQN; // "IQN"
   always @(posedge CLK, posedge RESET, posedge PRESET) begin
     if ((RESET) && (PRESET)) begin
-      "IQ" <= 0;
-      "IQN" <= 0;
+      IQ <= 0;
+      IQN <= 0;
     end
     else if (RESET) begin
-      "IQ" <= 0;
-      "IQN" <= 1;
+      IQ <= 0;
+      IQN <= 1;
     end
     else if (PRESET) begin
-      "IQ" <= 1;
-      "IQN" <= 0;
+      IQ <= 1;
+      IQN <= 0;
     end
     else begin
       // "D"
-      "IQ" <= D;
-      "IQN" <= ~(D);
+      IQ <= D;
+      IQN <= ~(D);
     end
   end
 endmodule
 module latch (D, G, Q, QN);
-  reg "IQ", "IQN";
+  reg IQ, IQN;
   input D;
   input G;
   output Q;
@@ -79,8 +79,8 @@ module latch (D, G, Q, QN);
   assign QN = IQN; // "IQN"
   always @* begin
     if (G) begin
-      "IQ" <= D;
-      "IQN" <= ~(D);
+      IQ <= D;
+      IQN <= ~(D);
     end
   end
 endmodule

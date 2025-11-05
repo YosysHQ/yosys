@@ -25,6 +25,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 #ifdef FILTERLIB
 #undef log_assert
@@ -825,6 +826,12 @@ std::string func2vl(std::string str)
 	return LibertyExpression::parse(helper).vlog_str();
 }
 
+std::string vlog_identifier(std::string str)
+{
+	str.erase(std::remove(str.begin(), str.end(), '\"'), str.end());
+	return str;
+}
+
 void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 {
 	edge.clear();
@@ -867,13 +874,13 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		return;
 
 	CHECK_NV(ast->args.size(), == 1);
-	printf("module %s (", ast->args[0].c_str());
+	printf("module %s (", vlog_identifier(ast->args[0]).c_str());
 	bool first = true;
 	for (auto child : ast->children) {
 		if (child->id != "pin")
 			continue;
 		CHECK_NV(child->args.size(), == 1);
-		printf("%s%s", first ? "" : ", ", child->args[0].c_str());
+		printf("%s%s", first ? "" : ", ", vlog_identifier(child->args[0]).c_str());
 		first = false;
 	}
 	printf(");\n");
@@ -884,7 +891,7 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		printf("  reg ");
 		first = true;
 		for (auto arg : child->args) {
-			printf("%s%s", first ? "" : ", ", arg.c_str());
+			printf("%s%s", first ? "" : ", ", vlog_identifier(arg).c_str());
 			first = false;
 		}
 		printf(";\n");
@@ -896,9 +903,10 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		CHECK_NV(child->args.size(), == 1);
 		const LibertyAst *dir = find_non_null(child, "direction");
 		const LibertyAst *func = child->find("function");
-		printf("  %s %s;\n", dir->value.c_str(), child->args[0].c_str());
+		std::string var = vlog_identifier(child->args[0]);
+		printf("  %s %s;\n", dir->value.c_str(), var.c_str());
 		if (func != NULL)
-			printf("  assign %s = %s; // %s\n", child->args[0].c_str(), func2vl(func->value).c_str(), func->value.c_str());
+			printf("  assign %s = %s; // %s\n", var.c_str(), func2vl(func->value).c_str(), func->value.c_str());
 	}
 
 	for (auto child : ast->children)
@@ -906,8 +914,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		if (child->id != "ff" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		std::string iq_var = vlog_identifier(child->args[0]);
+		std::string iqn_var = vlog_identifier(child->args[1]);
 
 		std::string clock_edge, clock_expr;
 		event2vl(child->find("clocked_on"), clock_edge, clock_expr);
@@ -970,8 +978,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		if (child->id != "latch" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = child->args[0];
-		std::string iqn_var = child->args[1];
+		std::string iq_var = vlog_identifier(child->args[0]);
+		std::string iqn_var = vlog_identifier(child->args[1]);
 
 		std::string enable_edge, enable_expr;
 		event2vl(child->find("enable"), enable_edge, enable_expr);
