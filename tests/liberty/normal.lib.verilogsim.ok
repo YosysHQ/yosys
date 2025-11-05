@@ -1,13 +1,13 @@
 module inv (A, Y);
   input A;
   output Y;
-  assign Y = ~A; // "A'"
+  assign Y = (~A); // "A'"
 endmodule
 module tri_inv (A, S, Z);
   input A;
   input S;
   output Z;
-  assign Z = ~A; // "A'"
+  assign Z = (~A); // "A'"
 endmodule
 module buffer (A, Y);
   input A;
@@ -18,26 +18,26 @@ module nand2 (A, B, Y);
   input A;
   input B;
   output Y;
-  assign Y = ~(A&B); // "(A * B)'"
+  assign Y = (~(A&B)); // "(A * B)'"
 endmodule
 module nor2 (A, B, Y);
   input A;
   input B;
   output Y;
-  assign Y = ~(A|B); // "(A + B)'"
+  assign Y = (~(A|B)); // "(A + B)'"
 endmodule
 module xor2 (A, B, Y);
   input A;
   input B;
   output Y;
-  assign Y = (A&~B)|(~A&B); // "(A *B') + (A' * B)"
+  assign Y = ((A&(~B))|((~A)&B)); // "(A *B') + (A' * B)"
 endmodule
 module imux2 (A, B, S, Y);
   input A;
   input B;
   input S;
   output Y;
-  assign Y = ~(&(A&S)|(B&~S)&); // "( (A * S) + (B * S') )'"
+  assign Y = (~((A&S)|(B&(~S)))); // "( (A * S) + (B * S') )'"
 endmodule
 module dff (D, CLK, RESET, PRESET, Q, QN);
   reg "IQ", "IQN";
@@ -89,14 +89,14 @@ module aoi211 (A, B, C, Y);
   input B;
   input C;
   output Y;
-  assign Y = ~((A&B)|C); // "((A * B) + C)'"
+  assign Y = (~((A&B)|C)); // "((A * B) + C)'"
 endmodule
 module oai211 (A, B, C, Y);
   input A;
   input B;
   input C;
   output Y;
-  assign Y = ~((A|B)&C); // "((A + B) * C)'"
+  assign Y = (~((A|B)&C)); // "((A + B) * C)'"
 endmodule
 module halfadder (A, B, C, Y);
   input A;
@@ -104,7 +104,7 @@ module halfadder (A, B, C, Y);
   output C;
   assign C = (A&B); // "(A * B)"
   output Y;
-  assign Y = (A&~B)|(~A&B); // "(A *B') + (A' * B)"
+  assign Y = ((A&(~B))|((~A)&B)); // "(A *B') + (A' * B)"
 endmodule
 module fulladder (A, B, CI, CO, Y);
   input A;

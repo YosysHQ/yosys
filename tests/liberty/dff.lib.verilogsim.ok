@@ -3,10 +3,10 @@ module dff (D, CLK, Q);
   input D;
   input CLK;
   output Q;
-  assign Q = IQ; // "IQ"
+  assign Q = IQ; // IQ
   always @(posedge CLK) begin
       // "(D)"
-      "IQ" <= (D);
-      "IQN" <= ~((D));
+      "IQ" <= D;
+      "IQN" <= ~(D);
   end
 endmodule
