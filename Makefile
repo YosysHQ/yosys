@@ -382,7 +382,7 @@ CXXFLAGS += -I$(PYBIND11_INCLUDE) -DYOSYS_ENABLE_PYTHON
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DYOSYS_ENABLE_PYTHON
 
 OBJS += $(PY_WRAPPER_FILE).o
-PY_GEN_SCRIPT = pyosys/generator.py
+PY_GEN_SCRIPT = $(YOSYS_SRC)/pyosys/generator.py
 PY_WRAP_INCLUDES := $(shell $(UV_ENV) $(PYTHON_EXECUTABLE) $(PY_GEN_SCRIPT) --print-includes)
 endif # ENABLE_PYOSYS
 
