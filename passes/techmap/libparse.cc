@@ -26,8 +26,20 @@
 #include <iostream>
 #include <sstream>
 
-#ifndef FILTERLIB
+#ifdef FILTERLIB
+#undef log_assert
+void log_assert(bool cond) {
+	if (!cond)
+		fprintf(stderr, "Unspecified assertion failed\n");
+}
+void warn(std::string str) {
+	std::cerr << str;
+}
+#else
 #include "kernel/log.h"
+void warn(std::string str) {
+	Yosys::log_formatted_warning("", str);
+}
 #endif
 
 using namespace Yosys;
@@ -162,11 +174,13 @@ void LibertyAst::dump(FILE *f, sieve &blacklist, sieve &whitelist, std::string i
 		fprintf(f, " ;\n");
 }
 
-#ifndef FILTERLIB
-
 // binary operators excluding ' '
-bool LibertyExpression::is_nice_binop(char c) {
+bool LibertyExpression::char_is_nice_binop(char c) {
 	return c == '*' || c == '&' || c == '^' || c == '+' || c == '|';
+}
+
+bool LibertyExpression::is_binop() {
+	return kind == AND || kind == OR || kind == XOR;
 }
 
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
@@ -191,7 +205,9 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		s.next();
 		lhs = parse(s);
 		if (s.peek() != ')') {
-			log_warning("expected ')' instead of '%c' while parsing Liberty expression '%s'\n", s.peek(), s.full_expr());
+			std::stringstream ss;
+			ss << "expected ')' instead of " << s.peek() << " while parsing Liberty expression '" << s.full_expr() << "'\n";
+			warn(ss.str());
 			return lhs;
 		}
 		s.next();
@@ -200,7 +216,9 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 		lhs.kind = Kind::NOT;
 		lhs.children.push_back(parse(s, 7));
 	} else {
-		log_warning("unrecognised character '%c' while parsing Liberty expression '%s'\n", c, s.full_expr());
+		std::stringstream ss;
+		ss << "unrecognised character " << c << " while parsing Liberty expression " << s.full_expr() << "\n";
+		warn(ss.str());
 		return lhs;
 	}
 
@@ -246,7 +264,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 					s.next();
 					c = s.peek();
 				}
-				if (is_nice_binop(c)) {
+				if (char_is_nice_binop(c)) {
 					// We found a real binop, so this space wasn't an AND
 					// and we just discard it as meaningless whitespace
 					continue;
@@ -286,7 +304,7 @@ LibertyExpression LibertyExpression::parse(Lexer &s, int min_prio) {
 	return lhs;
 }
 
-void LibertyExpression::get_pin_names(pool<std::string>& names) {
+void LibertyExpression::get_pin_names(std::unordered_set<std::string>& names) {
 	if (kind == Kind::PIN) {
 		names.insert(name);
 	} else {
@@ -295,7 +313,7 @@ void LibertyExpression::get_pin_names(pool<std::string>& names) {
 	}
 }
 
-bool LibertyExpression::eval(dict<std::string, bool>& values) {
+bool LibertyExpression::eval(std::unordered_map<std::string, bool>& values) {
 	bool result = false;
 	switch (kind) {
 	case Kind::AND:
@@ -324,7 +342,7 @@ bool LibertyExpression::eval(dict<std::string, bool>& values) {
 	return false;
 }
 
-std::string LibertyExpression::str(int indent)
+std::string LibertyExpression::sexpr_str(int indent)
 {
 	std::string prefix;
 	switch (kind) {
@@ -355,14 +373,53 @@ std::string LibertyExpression::str(int indent)
 		if (!first) {
 			prefix += "\n" + std::string(indent + add_indent, ' ');
 		}
-		prefix += child.str(indent + add_indent);
+		prefix += child.sexpr_str(indent + add_indent);
 		first = false;
 	}
 	prefix += ")";
 	return prefix;
 }
 
-#endif
+std::string LibertyExpression::vlog_str()
+{
+	std::string prefix;
+	if (kind != PIN)
+		prefix += "(";
+	if (is_binop()) {
+		log_assert(children.size() == 2);
+		prefix += children[0].vlog_str();
+		switch (kind) {
+			case AND:
+				prefix += "&";
+				break;
+			case OR:
+				prefix += "|";
+				break;
+			case XOR:
+				prefix += "^";
+				break;
+			default:
+				log_assert(false);
+		}
+		prefix += children[1].vlog_str();
+	} else {
+		switch (kind) {
+			case NOT:
+				log_assert(children.size() == 1);
+				prefix += "~";
+				prefix += children[0].vlog_str();
+				break;
+			case PIN:
+				prefix += name;
+				break;
+			default:
+				log_assert(false);
+			}
+	}
+	if (kind != PIN)
+		prefix += ")";
+	return prefix;
+}
 
 int LibertyParser::lexer_inner(std::string &str)
 {
@@ -764,43 +821,8 @@ const LibertyAst *find_non_null(const LibertyAst *node, const char *name)
 
 std::string func2vl(std::string str)
 {
-	for (size_t pos = str.find_first_of("\" \t"); pos != std::string::npos; pos = str.find_first_of("\" \t")) {
-		char c_left = pos > 0 ? str[pos-1] : ' ';
-		char c_right = pos+1 < str.size() ? str[pos+1] : ' ';
-		if (std::string("\" \t*+").find(c_left) != std::string::npos)
-			str.erase(pos, 1);
-		else if (std::string("\" \t*+").find(c_right) != std::string::npos)
-			str.erase(pos, 1);
-		else
-			str[pos] = '*';
-	}
-
-	std::vector<size_t> group_start;
-	for (size_t pos = 0; pos < str.size(); pos++) {
-		if (str[pos] == '(')
-			group_start.push_back(pos);
-		if (str[pos] == ')' && group_start.size() > 0) {
-			if (pos+1 < str.size() && str[pos+1] == '\'') {
-				std::string group = str.substr(group_start.back(), pos-group_start.back()+1);
-				str[group_start.back()] = '~';
-				str.replace(group_start.back()+1, group.size(), group);
-				pos++;
-			}
-			group_start.pop_back();
-		}
-		if (str[pos] == '\'' && pos > 0) {
-			size_t start = str.find_last_of("()'*+^&| ", pos-1)+1;
-			std::string group = str.substr(start, pos-start);
-			str[start] = '~';
-			str.replace(start+1, group.size(), group);
-		}
-		if (str[pos] == '*')
-			str[pos] = '&';
-		if (str[pos] == '+')
-			str[pos] = '|';
-	}
-
-	return str;
+	auto helper = LibertyExpression::Lexer(str);
+	return LibertyExpression::parse(helper).vlog_str();
 }
 
 void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)

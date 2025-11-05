@@ -91,11 +91,13 @@ namespace Yosys
 		LibertyExpression() : kind(Kind::EMPTY) {}
 
 		static LibertyExpression parse(Lexer &s, int min_prio = 0);
-		void get_pin_names(pool<std::string>& names);
-		bool eval(dict<std::string, bool>& values);
-		std::string str(int indent = 0);
+		void get_pin_names(std::unordered_set<std::string>& names);
+		bool eval(std::unordered_map<std::string, bool>& values);
+		std::string sexpr_str(int indent = 0);
+		std::string vlog_str();
 	private:
-		static bool is_nice_binop(char c);
+		static bool char_is_nice_binop(char c);
+		bool is_binop();
 	};
 
 	class LibertyInputStream {
