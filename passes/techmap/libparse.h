@@ -170,10 +170,12 @@ namespace Yosys
 		   'n': newline
 		   anything else is a single character.
 		*/
+		int lexer_inner(std::string &str);
 		int lexer(std::string &str);
 
 		void report_unexpected_token(int tok);
 		void parse_vector_range(int tok);
+		int consume_wrecked_str(int tok, std::string& out_str);
 		LibertyAst *parse(bool top_level);
 		void error() const;
 		void error(const std::string &str) const;

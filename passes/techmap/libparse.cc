@@ -364,7 +364,7 @@ std::string LibertyExpression::str(int indent)
 
 #endif
 
-int LibertyParser::lexer(std::string &str)
+int LibertyParser::lexer_inner(std::string &str)
 {
 	int c;
 
@@ -390,11 +390,9 @@ int LibertyParser::lexer(std::string &str)
 
 		if (str == "+" || str == "-") {
 			/* Single operator is not an identifier */
-			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
 			return str[0];
 		}
 		else {
-			// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
 			return 'v';
 		}
 	}
@@ -402,24 +400,25 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
+		f.consume(1);
 		size_t i = 0;
 		while (true) {
 			c = f.peek(i);
 			line += (c == '\n');
-			if (c != '"')
+			if (c != '"' && c != EOF)
 				i += 1;
 			else
 				break;
 		}
 		str.clear();
-#ifdef FILTERLIB
 		f.unget();
-		str.append(f.buffered_data(), f.buffered_data() + i + 2);
-		f.consume(i + 2);
-#else
-		str.append(f.buffered_data(), f.buffered_data() + i);
-		f.consume(i + 1);
+		str.append(f.buffered_data(), f.buffered_data() + i + 1);
+		// Usage in filterlib is expected to retain quotes
+		// but yosys expects to get unquoted
+#ifdef FILTERLIB
+		str = "\"" + str + "\"";
 #endif
+		f.consume(i + 2);
 		return 'v';
 	}
 
@@ -442,13 +441,12 @@ int LibertyParser::lexer(std::string &str)
 			return lexer(str);
 		}
 		f.unget();
-		// fprintf(stderr, "LEX: char >>/<<\n");
 		return '/';             // a single '/' charater.
 	}
 
 	// check for a backslash
 	if (c == '\\') {
-		c = f.get();		
+		c = f.get();
 		if (c == '\r')
 			c = f.get();
 		if (c == '\n') {
@@ -467,12 +465,20 @@ int LibertyParser::lexer(std::string &str)
 
 	// anything else, such as ';' will get passed
 	// through as literal items.
-
-	// if (c >= 32 && c < 255)
-	// 	fprintf(stderr, "LEX: char >>%c<<\n", c);
-	// else
-	// 	fprintf(stderr, "LEX: char %d\n", c);
 	return c;
+}
+
+int LibertyParser::lexer(std::string &str)
+{
+	int ret = lexer_inner(str);
+	// if (ret >= 32 && ret < 255) {
+	// 	fprintf(stdout, "LEX: ret >>%c<<\n", ret);
+	// } else if (ret == 'v') {
+	// 	fprintf(stdout, "LEX: ret v str %s\n", str.c_str());
+	// } else {
+	// 	fprintf(stdout, "LEX: ret %d\n", ret);
+	// }
+	return ret;
 }
 
 void LibertyParser::report_unexpected_token(int tok)
@@ -545,6 +551,25 @@ void LibertyParser::parse_vector_range(int tok)
 	}
 }
 
+// Consume into out_str any string-ish tokens, seperated with spaces
+// to cope with abuse of the underdefined spec by real world PDKs
+// enabled by proprietary implementations.
+// Sorry.
+int LibertyParser::consume_wrecked_str(int tok, std::string& out_str) {
+	std::string str = "";
+	while (tok != ';' && tok != EOF && tok != 'n') {
+		out_str += " ";
+		if (tok == 'v')
+			out_str += str;
+		else
+			out_str += tok;
+		tok = lexer(str);
+	}
+	if (tok == EOF)
+		error("wrecked string EOF");
+	return tok;
+}
+
 LibertyAst *LibertyParser::parse(bool top_level)
 {
 	std::string str;
@@ -591,17 +616,29 @@ LibertyAst *LibertyParser::parse(bool top_level)
 				if (tok == '[') {
 					parse_vector_range(tok);
 					tok = lexer(str);
+				} else {
+					// Hack for when an expression string is unquoted
+					// std::cout << "consume_wrecked_str from :\n";
+					// std::cout << " weh " << str << "\n";
+					tok = consume_wrecked_str(tok, ast->value);
 				}
+			} else if (tok == '(') {
+				// Hack for when an expression string is unquoted and starts with
+				// parentheses
+				// tok = '';
+				// ast->value = "(";
+				// std::cout << "consume_wrecked_str from (\n";
+				tok = consume_wrecked_str(tok, ast->value);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
 				tok = lexer(str);
 				if (tok != 'v')
-					error();
+					error("one");
 				ast->value += str;
 				tok = lexer(str);
 			}
-			
+
 			// In a liberty file, all key : value pairs should end in ';'
 			// However, there are some liberty files in the wild that
 			// just have a newline. We'll be kind and accept a newline
@@ -609,7 +646,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 			if ((tok == ';') || (tok == 'n'))
 				break;
 			else
-				error();
+				error("two");
 			continue;
 		}
 
@@ -621,11 +658,11 @@ LibertyAst *LibertyParser::parse(bool top_level)
 					continue;
 				if (tok == ')')
 					break;
-				
+
 				if (tok == '[')
 				{
 					parse_vector_range(tok);
-					continue;           
+					continue;
 				}
 				if (tok == 'n')
 					continue;
