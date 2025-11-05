@@ -831,11 +831,13 @@ void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 	expr.clear();
 
 	if (ast != NULL) {
-		expr = func2vl(ast->value);
-		if (expr.size() > 0 && expr[0] == '~')
-			edge = "negedge " + expr.substr(1);
+		auto helper = LibertyExpression::Lexer(ast->value);
+		auto parsed = LibertyExpression::parse(helper);
+		expr = parsed.vlog_str();
+		if (parsed.kind == LibertyExpression::Kind::NOT)
+			edge = "negedge " + parsed.children[0].vlog_str();
 		else
-			edge = "posedge " + expr;
+			edge = "posedge " + parsed.vlog_str();
 	}
 }
 
