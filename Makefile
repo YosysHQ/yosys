@@ -33,7 +33,7 @@ VERIFIC_LINEFILE_INCLUDES_LOOPS := 1
 
 # python wrappers
 ENABLE_PYOSYS := 1
-PYOSYS_USE_UV := 1
+PYOSYS_USE_UV := 0
 
 # other configuration flags
 ENABLE_GCOV := 0
