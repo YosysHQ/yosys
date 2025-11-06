@@ -3,7 +3,7 @@ library(dff) {
     area : 1 ;
     ff("IQ", "IQN") {
       next_state : "(D)" ;
-      clocked_on : "CLK" ;
+      clocked_on :  ( CLK ) ;
     }
     pin(D) {
       direction : input ;
@@ -13,7 +13,7 @@ library(dff) {
     }
     pin(Q) {
       direction : output ;
-      function : "IQ" ;
+      function : IQ ;
     }
   }
 }
