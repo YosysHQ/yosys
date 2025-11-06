@@ -117,15 +117,6 @@ struct gate_t
 	std::string bit_str;
 };
 
-bool map_mux4;
-bool map_mux8;
-bool map_mux16;
-
-bool markgroups;
-
-pool<std::string> enabled_gates;
-bool cmos_cost;
-
 struct AbcConfig
 {
 	std::string global_tempdir_name;
@@ -146,6 +137,12 @@ struct AbcConfig
 	bool show_tempdir = false;
 	bool sop_mode = false;
 	bool abc_dress = false;
+	bool map_mux4 = false;
+	bool map_mux8 = false;
+	bool map_mux16 = false;
+	bool markgroups = false;
+	pool<std::string> enabled_gates;
+	bool cmos_cost = false;
 };
 
 struct AbcSigVal {
@@ -1382,7 +1379,7 @@ void emit_global_input_files(const AbcConfig &config)
 			fprintf(f, "%d %d.00 1.00\n", i+1, config.lut_costs.at(i));
 		fclose(f);
 	} else {
-		auto &cell_cost = cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
+		auto &cell_cost = config.cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
 
 		std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name.c_str());
 		FILE *f = fopen(buffer.c_str(), "wt");
@@ -1392,39 +1389,39 @@ void emit_global_input_files(const AbcConfig &config)
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));
 		fprintf(f, "GATE NOT    %d Y=!A;                 PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOT_)));
-		if (enabled_gates.count("AND"))
+		if (config.enabled_gates.count("AND"))
 			fprintf(f, "GATE AND    %d Y=A*B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_AND_)));
-		if (enabled_gates.count("NAND"))
+		if (config.enabled_gates.count("NAND"))
 			fprintf(f, "GATE NAND   %d Y=!(A*B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NAND_)));
-		if (enabled_gates.count("OR"))
+		if (config.enabled_gates.count("OR"))
 			fprintf(f, "GATE OR     %d Y=A+B;                PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_OR_)));
-		if (enabled_gates.count("NOR"))
+		if (config.enabled_gates.count("NOR"))
 			fprintf(f, "GATE NOR    %d Y=!(A+B);             PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_NOR_)));
-		if (enabled_gates.count("XOR"))
+		if (config.enabled_gates.count("XOR"))
 			fprintf(f, "GATE XOR    %d Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XOR_)));
-		if (enabled_gates.count("XNOR"))
+		if (config.enabled_gates.count("XNOR"))
 			fprintf(f, "GATE XNOR   %d Y=(A*B)+(!A*!B);      PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_XNOR_)));
-		if (enabled_gates.count("ANDNOT"))
+		if (config.enabled_gates.count("ANDNOT"))
 			fprintf(f, "GATE ANDNOT %d Y=A*!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ANDNOT_)));
-		if (enabled_gates.count("ORNOT"))
+		if (config.enabled_gates.count("ORNOT"))
 			fprintf(f, "GATE ORNOT  %d Y=A+!B;               PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_ORNOT_)));
-		if (enabled_gates.count("AOI3"))
+		if (config.enabled_gates.count("AOI3"))
 			fprintf(f, "GATE AOI3   %d Y=!((A*B)+C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI3_)));
-		if (enabled_gates.count("OAI3"))
+		if (config.enabled_gates.count("OAI3"))
 			fprintf(f, "GATE OAI3   %d Y=!((A+B)*C);         PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI3_)));
-		if (enabled_gates.count("AOI4"))
+		if (config.enabled_gates.count("AOI4"))
 			fprintf(f, "GATE AOI4   %d Y=!((A*B)+(C*D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_AOI4_)));
-		if (enabled_gates.count("OAI4"))
+		if (config.enabled_gates.count("OAI4"))
 			fprintf(f, "GATE OAI4   %d Y=!((A+B)*(C+D));     PIN * INV     1 999 1 0 1 0\n", cell_cost.at(ID($_OAI4_)));
-		if (enabled_gates.count("MUX"))
+		if (config.enabled_gates.count("MUX"))
 			fprintf(f, "GATE MUX    %d Y=(A*B)+(S*B)+(!S*A); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_MUX_)));
-		if (enabled_gates.count("NMUX"))
+		if (config.enabled_gates.count("NMUX"))
 			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_NMUX_)));
-		if (map_mux4)
+		if (config.map_mux4)
 			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
-		if (map_mux8)
+		if (config.map_mux8)
 			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
-		if (map_mux16)
+		if (config.map_mux16)
 			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
 		fclose(f);
 	}
@@ -1456,6 +1453,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
+	bool markgroups = run_abc.config.markgroups;
 	for (auto w : mapped_mod->wires()) {
 		RTLIL::Wire *orig_wire = nullptr;
 		RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
@@ -1998,9 +1996,9 @@ struct AbcPass : public Pass {
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
 		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
-		map_mux4 = design->scratchpad_get_bool("abc.mux4", map_mux4);
-		map_mux8 = design->scratchpad_get_bool("abc.mux8", map_mux8);
-		map_mux16 = design->scratchpad_get_bool("abc.mux16", map_mux16);
+		config.map_mux4 = design->scratchpad_get_bool("abc.mux4", false);
+		config.map_mux8 = design->scratchpad_get_bool("abc.mux8", false);
+		config.map_mux16 = design->scratchpad_get_bool("abc.mux16", false);
 		config.abc_dress = design->scratchpad_get_bool("abc.dress", false);
 		g_arg = design->scratchpad_get_string("abc.g", g_arg);
 
@@ -2014,7 +2012,7 @@ struct AbcPass : public Pass {
 		config.keepff = design->scratchpad_get_bool("abc.keepff", false);
 		config.cleanup = !design->scratchpad_get_bool("abc.nocleanup", false);
 		config.show_tempdir = design->scratchpad_get_bool("abc.showtmp", false);
-		markgroups = design->scratchpad_get_bool("abc.markgroups", markgroups);
+		config.markgroups = design->scratchpad_get_bool("abc.markgroups", false);
 
 		if (config.cleanup)
 			config.global_tempdir_name = get_base_tmpdir() + "/";
@@ -2094,15 +2092,15 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-mux4") {
-				map_mux4 = true;
+				config.map_mux4 = true;
 				continue;
 			}
 			if (arg == "-mux8") {
-				map_mux8 = true;
+				config.map_mux8 = true;
 				continue;
 			}
 			if (arg == "-mux16") {
-				map_mux16 = true;
+				config.map_mux16 = true;
 				continue;
 			}
 			if (arg == "-dress") {
@@ -2143,7 +2141,7 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-markgroups") {
-				markgroups = true;
+				config.markgroups = true;
 				continue;
 			}
 			break;
@@ -2236,14 +2234,14 @@ struct AbcPass : public Pass {
 				}
 				if (g == "cmos2") {
 					if (!remove_gates)
-						cmos_cost = true;
+						config.cmos_cost = true;
 					gate_list.push_back("NAND");
 					gate_list.push_back("NOR");
 					goto ok_alias;
 				}
 				if (g == "cmos3") {
 					if (!remove_gates)
-						cmos_cost = true;
+						config.cmos_cost = true;
 					gate_list.push_back("NAND");
 					gate_list.push_back("NOR");
 					gate_list.push_back("AOI3");
@@ -2252,7 +2250,7 @@ struct AbcPass : public Pass {
 				}
 				if (g == "cmos4") {
 					if (!remove_gates)
-						cmos_cost = true;
+						config.cmos_cost = true;
 					gate_list.push_back("NAND");
 					gate_list.push_back("NOR");
 					gate_list.push_back("AOI3");
@@ -2263,7 +2261,7 @@ struct AbcPass : public Pass {
 				}
 				if (g == "cmos") {
 					if (!remove_gates)
-						cmos_cost = true;
+						config.cmos_cost = true;
 					gate_list.push_back("NAND");
 					gate_list.push_back("NOR");
 					gate_list.push_back("AOI3");
@@ -2322,9 +2320,9 @@ struct AbcPass : public Pass {
 			ok_alias:
 				for (auto gate : gate_list) {
 					if (remove_gates)
-						enabled_gates.erase(gate);
+						config.enabled_gates.erase(gate);
 					else
-						enabled_gates.insert(gate);
+						config.enabled_gates.insert(gate);
 				}
 			}
 		}
@@ -2334,21 +2332,21 @@ struct AbcPass : public Pass {
 		if (!config.constr_file.empty() && (config.liberty_files.empty() && config.genlib_files.empty()))
 			log_cmd_error("Got -constr but no -liberty/-genlib!\n");
 
-		if (enabled_gates.empty()) {
-			enabled_gates.insert("AND");
-			enabled_gates.insert("NAND");
-			enabled_gates.insert("OR");
-			enabled_gates.insert("NOR");
-			enabled_gates.insert("XOR");
-			enabled_gates.insert("XNOR");
-			enabled_gates.insert("ANDNOT");
-			enabled_gates.insert("ORNOT");
-			// enabled_gates.insert("AOI3");
-			// enabled_gates.insert("OAI3");
-			// enabled_gates.insert("AOI4");
-			// enabled_gates.insert("OAI4");
-			enabled_gates.insert("MUX");
-			// enabled_gates.insert("NMUX");
+		if (config.enabled_gates.empty()) {
+			config.enabled_gates.insert("AND");
+			config.enabled_gates.insert("NAND");
+			config.enabled_gates.insert("OR");
+			config.enabled_gates.insert("NOR");
+			config.enabled_gates.insert("XOR");
+			config.enabled_gates.insert("XNOR");
+			config.enabled_gates.insert("ANDNOT");
+			config.enabled_gates.insert("ORNOT");
+			// config.enabled_gates.insert("AOI3");
+			// config.enabled_gates.insert("OAI3");
+			// config.enabled_gates.insert("AOI4");
+			// config.enabled_gates.insert("OAI4");
+			config.enabled_gates.insert("MUX");
+			// config.enabled_gates.insert("NMUX");
 		}
 
 		emit_global_input_files(config);
