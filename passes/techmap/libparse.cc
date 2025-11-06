@@ -676,23 +676,18 @@ LibertyAst *LibertyParser::parse(bool top_level)
 					tok = lexer(str);
 				} else {
 					// Hack for when an expression string is unquoted
-					// std::cout << "consume_wrecked_str from :\n";
-					// std::cout << " weh " << str << "\n";
 					tok = consume_wrecked_str(tok, ast->value);
 				}
 			} else if (tok == '(') {
 				// Hack for when an expression string is unquoted and starts with
 				// parentheses
-				// tok = '';
-				// ast->value = "(";
-				// std::cout << "consume_wrecked_str from (\n";
 				tok = consume_wrecked_str(tok, ast->value);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
 				tok = lexer(str);
 				if (tok != 'v')
-					error("one");
+					error();
 				ast->value += str;
 				tok = lexer(str);
 			}
@@ -704,7 +699,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 			if ((tok == ';') || (tok == 'n'))
 				break;
 			else
-				error("two");
+				error();
 			continue;
 		}
 
