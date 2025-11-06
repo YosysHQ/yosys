@@ -314,7 +314,7 @@ struct AbcModuleState {
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
 	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
+	void extract(AbcSigMap &assign_map, dict<SigSpec, std::string> &sig2src, SigMap &orig_sigmap, RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
 
@@ -1422,7 +1422,7 @@ void emit_global_input_files(const AbcConfig &config)
 	}
 }
 
-void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
+void AbcModuleState::extract(AbcSigMap &assign_map, dict<SigSpec, std::string> &sig2src, SigMap &orig_sigmap, RTLIL::Design *design, RTLIL::Module *module)
 {
 	log_push();
 	log_header(design, "Executed ABC.\n");
@@ -1448,22 +1448,39 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
+	SigMap mapped_sigmap(mapped_mod); // SILIMATE: Move mapped sigmap definition here
 	bool markgroups = run_abc.config.markgroups;
 	for (auto w : mapped_mod->wires()) {
 		RTLIL::Wire *orig_wire = nullptr;
 		RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
 		if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
 			wire->attributes[ID::src] = orig_wire->attributes[ID::src];
+
+		// SILIMATE: Apply src attribute to the wire from the original wire
+		if (orig_wire != nullptr) {
+			if (sig2src.count(orig_sigmap(orig_wire))) {
+				wire->set_src_attribute(sig2src[orig_sigmap(orig_wire)]);
+				sig2src[mapped_sigmap(wire)] = wire->get_src_attribute();
+				log_debug("Matched wire %s to driver attributes:\n", orig_wire->name.c_str());
+			} else {
+				log_debug("No driver attributes found for wire %s\n", orig_wire->name.c_str());
+			}
+		}
+
 		if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 		design->select(module, wire);
 	}
 
-	SigMap mapped_sigmap(mapped_mod);
 	FfInitVals mapped_initvals(&mapped_sigmap, mapped_mod);
 
 	dict<std::string, int> cell_stats;
 	for (auto c : mapped_mod->cells())
 	{
+		// SILIMATE: set output port to either Y or Q depending on the cell's ports and apply src attribute to the driver cell
+		Wire *out_wire = c->getPort((c->hasPort(ID::Y)) ? ID::Y : ID::Q).as_wire();
+		Wire *remapped_out_wire = module->wire(remap_name(out_wire->name));
+		std::string src_attribute = sig2src[remapped_out_wire];
+
 		if (builtin_lib)
 		{
 			cell_stats[RTLIL::unescape_id(c->type)]++;
@@ -1492,7 +1509,8 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
-				cell->fixup_parameters();
+				cell->set_src_attribute(src_attribute); // SILIMATE: set src attribute from wire
+				cell->fixup_parameters(); // SILIMATE: fix up parameters
 				design->select(module, cell);
 				continue;
 			}
@@ -1514,7 +1532,8 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
-				cell->fixup_parameters();
+				cell->set_src_attribute(src_attribute); // SILIMATE: set src attribute from wire
+				cell->fixup_parameters(); // SILIMATE: fix up parameters
 				design->select(module, cell);
 				continue;
 			}
@@ -1532,7 +1551,8 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
-				cell->fixup_parameters();
+				cell->set_src_attribute(src_attribute); // SILIMATE: set src attribute from wire
+				cell->fixup_parameters(); // SILIMATE: fix up parameters
 				design->select(module, cell);
 				continue;
 			}
@@ -2388,6 +2408,23 @@ struct AbcPass : public Pass {
 			FfInitVals initvals;
 			initvals.set(&assign_map, mod);
 
+			// SILIMATE: Create a map of all signals and their corresponding src attr
+			SigMap sigmap(mod);
+			dict<SigSpec, std::string> sig2src;
+			for (auto wire : mod->wires())
+				if (wire->port_input)
+					for (auto bit : sigmap(wire))
+						sig2src[bit] = wire->get_src_attribute();
+			for (auto cell : mod->cells())
+				for (auto &conn : cell->connections())
+					if (cell->output(conn.first))
+						for (auto bit : sigmap(conn.second)) {
+							if (GetSize(cell->attributes) > 0)
+								sig2src[bit] = cell->get_src_attribute();
+							else
+								sig2src[bit] = bit.wire->get_src_attribute();
+						}
+
 			for (auto wire : mod->wires())
 				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
 					assign_map.addVal(SigSpec(wire), AbcSigVal(true));
@@ -2400,7 +2437,7 @@ struct AbcPass : public Pass {
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				ConcurrentStack<AbcProcess> process_pool;
 				state.run_abc.run(process_pool);
-				state.extract(assign_map, design, mod);
+				state.extract(assign_map, sig2src, sigmap, design, mod);
 				continue;
 			}
 
@@ -2595,7 +2632,7 @@ struct AbcPass : public Pass {
 					++work_finished_count;
 				}
 				while (work_finished_by_index[next_state_index_to_process] != nullptr) {
-					work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+					work_finished_by_index[next_state_index_to_process]->extract(assign_map, sig2src, sigmap, design, mod);
 					work_finished_by_index[next_state_index_to_process] = nullptr;
 					++next_state_index_to_process;
 				}
@@ -2625,7 +2662,7 @@ struct AbcPass : public Pass {
 				++work_finished_count;
 			}
 			while (next_state_index_to_process < GetSize(work_finished_by_index)) {
-				work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+				work_finished_by_index[next_state_index_to_process]->extract(assign_map, sig2src, sigmap, design, mod);
 				work_finished_by_index[next_state_index_to_process] = nullptr;
 				++next_state_index_to_process;
 			}
