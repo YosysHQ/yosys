@@ -30,11 +30,11 @@ TESTS := $(addprefix $(BINTEST)/, $(basename $(ALLTESTFILE:%Test.cc=%Test.o)))
 
 all: prepare $(TESTS) run-tests
 
-$(BINTEST)/%: $(OBJTEST)/%.o
+$(BINTEST)/%: $(OBJTEST)/%.o | prepare
 	$(CXX) -L$(ROOTPATH) $(RPATH) $(LINKFLAGS) -o $@ $^ $(LIBS) \
 		$(GTEST_LDFLAGS) $(EXTRAFLAGS)
 
-$(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc
+$(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc | prepare
 	$(CXX) -o $@ -c -I$(ROOTPATH) $(CPPFLAGS) $(CXXFLAGS) $(GTEST_CXXFLAGS) $^
 
 .PHONY: prepare run-tests clean
