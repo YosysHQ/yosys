@@ -579,12 +579,8 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire)
 {
 	std::string abc_sname = abc_name.substr(1);
-	bool isnew = false;
-	if (abc_sname.compare(0, 4, "new_") == 0)
-	{
+	if (abc_sname.compare(0, 9, "new_ys__n") == 0)
 		abc_sname.erase(0, 4);
-		isnew = true;
-	}
 	if (abc_sname.compare(0, 5, "ys__n") == 0)
 	{
 		abc_sname.erase(0, 5);
@@ -599,11 +595,9 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 				const auto &bit = signal_bits.at(sid);
 				if (bit.wire != nullptr)
 				{
-					std::string s = stringf("$abc$%d$%s", map_autoidx, bit.wire->name.c_str()+1);
+					std::string s = stringf("\\%s_ix%d", bit.wire->name.c_str()+1, map_autoidx); // SILIMATE: Improve the naming
 					if (bit.wire->width != 1)
 						s += stringf("[%d]", bit.offset);
-					if (isnew)
-						s += "_new";
 					s += postfix;
 					if (orig_wire != nullptr)
 						*orig_wire = bit.wire;
@@ -612,7 +606,7 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 			}
 		}
 	}
-	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
+	return stringf("\\%s_ix%d", abc_sname.c_str(), map_autoidx); // SILIMATE: Improve the naming
 }
 
 void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
