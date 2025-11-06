@@ -1135,7 +1135,7 @@ DOC_TARGET ?= html
 docs: docs/prep
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
-clean: clean-py
+clean: clean-py clean-unit-test
 	rm -rf share
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS)
 	rm -f kernel/version_*.o kernel/version_*.cc
