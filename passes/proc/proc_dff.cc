@@ -53,6 +53,25 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
+void transfer_wire_sources(const SigSpec& sig, Cell* cell)
+{
+	std::vector<TwineRef> refs;
+	pool<TwineRef> seen;
+	TwineRef existing = cell->src_id();
+	if (existing != Twine::Null) {
+		refs.push_back(existing);
+		seen.insert(existing);
+	}
+	for (auto chunk : sig.chunks())
+		if (chunk.wire) {
+			TwineRef s = chunk.wire->src_id();
+			if (s != Twine::Null && seen.insert(s).second)
+				refs.push_back(s);
+		}
+	if (!refs.empty())
+		cell->set_src_attribute(cell->module->design->twines.concat(std::span<const TwineRef>{refs}));
+}
+
 void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
 		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
 {
@@ -83,6 +102,8 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 
 	RTLIL::Cell *cell = mod->addDffsr(Twine{sstr.str()}, clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_q, cell);
+	cell->module->design->merge_src(cell, proc);
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			log_id(cell->type), log_id(cell), clk_polarity ? "positive" : "negative");
@@ -96,6 +117,8 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 
 	RTLIL::Cell *cell = mod->addCell(mod->design->twines.add(std::string{sstr.str()}), TW($aldff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
+	cell->module->design->merge_src(cell, proc);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
@@ -118,6 +141,8 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 
 	RTLIL::Cell *cell = mod->addCell(mod->design->twines.add(std::string{sstr.str()}), clk.empty() ? TW($ff) : arst ? TW($adff) : TW($dff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
+	cell->module->design->merge_src(cell, proc);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	if (arst) {
