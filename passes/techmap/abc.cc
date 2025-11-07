@@ -2393,6 +2393,151 @@ struct AbcPass : public Pass {
 
 		emit_global_input_files(config);
 
+		// Process non-DFF/non-clock-domain mode in stages
+		if (!dff_mode || !clk_str.empty()) {
+			// Maps for collateral storage across stages
+			dict<RTLIL::Module*, AbcSigMap> module_assign_maps;
+			dict<RTLIL::Module*, SigMap> module_sigmaps;
+			dict<RTLIL::Module*, dict<SigSpec, std::string>> module_sig2srcs;
+			dict<RTLIL::Module*, FfInitVals> module_initvals;
+			dict<RTLIL::Module*, AbcModuleState*> module_states;
+
+			// STAGE 1: Compute assign_maps, sig2src maps, and initvals for all modules
+			// Then prepare for ABC runs (sequential)
+			for (auto mod : design->selected_modules())
+			{
+				// Do not allow modules with processes
+				if (mod->processes.size() > 0) {
+					log("Skipping module %s as it contains processes.\n", log_id(mod));
+					continue;
+				}
+
+				// Create an assign_map for the module
+				AbcSigMap assign_map;
+				assign_map.set(mod);
+
+				// Create an FfInitVals and use it for all ABC runs. FfInitVals only cares about
+				// wires with the ID::init attribute and we don't add or remove any such wires
+				// in this pass.
+				FfInitVals initvals;
+				initvals.set(&assign_map, mod);
+
+				// Populate assign_map
+				for (auto wire : mod->wires())
+					if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+						assign_map.addVal(SigSpec(wire), AbcSigVal(true));
+
+				// Populate assign_map with cell connections
+				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
+				assign_cell_connection_ports(mod, {&cells}, assign_map);
+
+				// Create a map of all signals and their corresponding src attrs
+				SigMap sigmap(mod);
+				dict<SigSpec, std::string> sig2src;
+				for (auto wire : mod->wires())
+					if (wire->port_input)
+						for (auto bit : sigmap(wire))
+							sig2src[bit] = wire->get_src_attribute();
+				for (auto cell : mod->cells())
+					for (auto &conn : cell->connections())
+						if (cell->output(conn.first))
+							for (auto bit : sigmap(conn.second)) {
+								if (GetSize(cell->attributes) > 0)
+									sig2src[bit] = cell->get_src_attribute();
+								else
+									sig2src[bit] = bit.wire->get_src_attribute();
+							}
+
+				// Prepare modules for ABC runs and set up process pool
+				AbcModuleState *state = new AbcModuleState(config, initvals, 0);
+				state->prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
+
+				// Store collateral for use in later stages
+				module_assign_maps[mod] = assign_map;
+				module_sigmaps[mod] = sigmap;
+				module_sig2srcs[mod] = sig2src;
+				module_initvals[mod] = initvals;
+				module_states[mod] = state;
+			}
+
+			// STAGE 2: Run ABC in parallel
+			// Reserve one core for our main thread, and don't create more worker threads
+			// than ABC runs.
+			int num_modules = GetSize(design->selected_modules());
+			int max_threads = num_modules;
+			if (max_threads <= 1) {
+				// Just do everything on the main thread.
+				max_threads = 0;
+			}
+#ifdef YOSYS_LINK_ABC
+			// ABC does't support multithreaded calls so don't call it off the main thread.
+			max_threads = 0;
+#endif
+			int num_worker_threads = ThreadPool::pool_size(1, max_threads);
+			ConcurrentQueue<AbcModuleState*> work_queue(num_worker_threads);
+			ConcurrentQueue<AbcModuleState*> work_finished_queue;
+			ConcurrentStack<AbcProcess> process_pool;
+			ThreadPool worker_threads(num_worker_threads, [&](int){
+					while (std::optional<AbcModuleState*> work = work_queue.pop_front()) {
+						// Only the `run_abc` component is safe to touch here!
+						(*work)->run_abc.run(process_pool);
+						work_finished_queue.push_back(*work);
+					}
+				});
+			int work_finished_count = 0;
+			for (auto mod : design->selected_modules()) {
+				// Do not allow modules with processes
+				if (mod->processes.size() > 0) continue;
+
+				// Log
+				log("Sending module %s to abc...\n", log_id(mod));
+				log_flush();
+
+				// Get the state for the module
+				AbcModuleState *state = module_states.at(mod);
+
+				// Make sure we process the results in the order we expect. When we can
+				// process results before the next ABC run, do so, to keep memory usage low(er).
+				while (std::optional<AbcModuleState*> work = work_finished_queue.try_pop_front()) {
+					++work_finished_count;
+				}
+				if (num_worker_threads > 0) {
+					work_queue.push_back(state);
+				} else {
+					// Just run everything on the main thread.
+					state->run_abc.run(process_pool);
+					work_finished_queue.push_back(state);
+				}
+			}
+			work_queue.close();
+			while (work_finished_count < num_modules) {
+				std::optional<AbcModuleState*> work = work_finished_queue.pop_front();
+				(*work)->run_abc.logs.flush();
+				log_flush();
+				++work_finished_count;
+				log("Completed abc on module %d/%d\n", work_finished_count, num_modules);
+				log_flush();
+			}
+
+			// STAGE 3: Extract results and replace original netlist (sequential)
+			for (auto mod : design->selected_modules())
+			{
+				// Do not allow modules with processes
+				if (mod->processes.size() > 0) continue;
+
+				// Extraction
+				AbcModuleState *state = module_states.at(mod);
+				SigMap sigmap = module_sigmaps.at(mod);
+				dict<SigSpec, std::string> sig2src = module_sig2srcs.at(mod);
+				AbcSigMap assign_map = module_assign_maps.at(mod);
+				state->extract(assign_map, sig2src, sigmap, design, mod);
+				delete state;
+			}
+
+			// STAGE 4: Cleanup
+			goto cleanup;
+		}
+
 		// DFF/clock-domain mode
 		for (auto mod : design->selected_modules())
 		{
