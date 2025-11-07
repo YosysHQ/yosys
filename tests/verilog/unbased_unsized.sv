@@ -5,6 +5,14 @@ module pass_through(
     assign out = inp;
 endmodule
 
+module set_param #(
+    parameter logic [63:0] VALUE
+) (
+    output logic [63:0] out
+);
+    assign out = VALUE;
+endmodule
+
 module top;
     localparam logic [63:0]
         l01 = '0,
@@ -28,6 +36,10 @@ module top;
     pass_through pt10('1, o10);
     pass_through pt11('x, o11);
     pass_through pt12('z, o12);
+    set_param #('0) sp13(o13);
+    set_param #('1) sp14(o14);
+    set_param #('x) sp15(o15);
+    set_param #('z) sp16(o16);
     always @* begin
         assert (o01 === {64 {1'b0}});
         assert (o02 === {64 {1'b1}});
@@ -45,5 +57,9 @@ module top;
         assert (l02 === {64 {1'b1}});
         assert (l03 === {64 {1'bx}});
         assert (l04 === {64 {1'bz}});
+        assert (o13 === {64 {1'b0}});
+        assert (o14 === {64 {1'b1}});
+        assert (o15 === {64 {1'bx}});
+        assert (o16 === {64 {1'bz}});
     end
 endmodule
