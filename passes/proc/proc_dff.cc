@@ -53,6 +53,16 @@ RTLIL::SigSpec find_any_lvalue(const RTLIL::Process *proc)
 	return lvalue;
 }
 
+void transfer_wire_sources(const SigSpec& sig, Cell* cell)
+{
+	pool<std::string> sources;
+	for (auto chunk : sig.chunks())
+		if (chunk.wire && chunk.wire->has_attribute(ID::src))
+			sources.insert(chunk.wire->attributes[ID::src].decode_string());
+	if (!sources.empty())
+		cell->add_strpool_attribute(ID::src, sources);
+}
+
 void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
 		std::vector<std::pair<RTLIL::SigSpec, RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
 {
@@ -83,6 +93,7 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 
 	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_q, cell);
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
@@ -96,6 +107,7 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
@@ -118,6 +130,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? ID($ff) : arst ? ID($adff) : ID($dff));
 	cell->attributes = proc->attributes;
+	transfer_wire_sources(sig_out, cell);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
 	if (arst) {
