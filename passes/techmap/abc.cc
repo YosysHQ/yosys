@@ -2429,18 +2429,6 @@ struct AbcPass : public Pass {
 								sig2src[bit] = bit.wire->get_src_attribute();
 						}
 
-			if (!dff_mode || !clk_str.empty()) {
-				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
-				assign_cell_connection_ports(mod, {&cells}, assign_map);
-
-				AbcModuleState state(config, initvals, 0);
-				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
-				ConcurrentStack<AbcProcess> process_pool;
-				state.run_abc.run(process_pool);
-				state.extract(assign_map, sig2src, sigmap, design, mod);
-				continue;
-			}
-
 			CellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
