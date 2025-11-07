@@ -304,6 +304,7 @@ struct AbcModuleState {
 
 	AbcModuleState(const AbcConfig &config, FfInitVals &initvals, int state_index)
 		: run_abc(config), state_index(state_index), initvals(initvals) {}
+	AbcModuleState(AbcModuleState&&) = delete;
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
