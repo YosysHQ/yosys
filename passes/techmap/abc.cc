@@ -304,7 +304,6 @@ struct AbcModuleState {
 
 	AbcModuleState(const AbcConfig &config, FfInitVals &initvals, int state_index)
 		: run_abc(config), state_index(state_index), initvals(initvals) {}
-	AbcModuleState(AbcModuleState&&) = delete;
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
@@ -2393,6 +2392,7 @@ struct AbcPass : public Pass {
 
 		emit_global_input_files(config);
 
+		// DFF/clock-domain mode
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->processes.size() > 0) {
@@ -2407,6 +2407,10 @@ struct AbcPass : public Pass {
 			// in this pass.
 			FfInitVals initvals;
 			initvals.set(&assign_map, mod);
+
+			for (auto wire : mod->wires())
+				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+					assign_map.addVal(SigSpec(wire), AbcSigVal(true));
 
 			// SILIMATE: Create a map of all signals and their corresponding src attr
 			SigMap sigmap(mod);
@@ -2424,10 +2428,6 @@ struct AbcPass : public Pass {
 							else
 								sig2src[bit] = bit.wire->get_src_attribute();
 						}
-
-			for (auto wire : mod->wires())
-				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
-					assign_map.addVal(SigSpec(wire), AbcSigVal(true));
 
 			if (!dff_mode || !clk_str.empty()) {
 				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
@@ -2668,6 +2668,7 @@ struct AbcPass : public Pass {
 			}
 		}
 
+		cleanup:
 		if (config.cleanup) {
 			log("Removing global temp directory.\n");
 			remove_directory(config.global_tempdir_name);
