@@ -1287,6 +1287,7 @@ private:
 		if (rep_ == CHUNK)
 			unpack();
 	}
+	void try_repack();
 
 	Hasher::hash_t updhash() const;
 	void destroy() {

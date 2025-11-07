@@ -4692,6 +4692,39 @@ void RTLIL::SigSpec::unpack()
 	new (&bits_) std::vector<RTLIL::SigBit>(std::move(bits));
 }
 
+void RTLIL::SigSpec::try_repack()
+{
+	if (rep_ != BITS)
+		return;
+
+	cover("kernel.rtlil.sigspec.convert.try_repack");
+
+	int bits_size = GetSize(bits_);
+	if (bits_size == 0)
+		return;
+	if (bits_[0].is_wire()) {
+		for (int i = 1; i < bits_size; i++)
+			if (bits_[0].wire != bits_[i].wire || bits_[0].offset + i != bits_[i].offset)
+				return;
+		SigChunk chunk(bits_[0].wire, bits_[0].offset, bits_size);
+		bits_.~vector();
+		rep_ = CHUNK;
+		new (&chunk_) SigChunk(std::move(chunk));
+		return;
+	}
+	std::vector<RTLIL::State> bits;
+	bits.reserve(bits_size);
+	bits.push_back(bits_[0].data);
+	for (int i = 1; i < bits_size; i++) {
+		if (bits_[i].is_wire())
+			return;
+		bits.push_back(bits_[i].data);
+	}
+	bits_.~vector();
+	rep_ = CHUNK;
+	new (&chunk_) SigChunk(std::move(bits));
+}
+
 Hasher::hash_t RTLIL::SigSpec::updhash() const
 {
 	cover("kernel.rtlil.sigspec.hash");
@@ -4719,6 +4752,7 @@ void RTLIL::SigSpec::sort()
 	cover("kernel.rtlil.sigspec.sort");
 	std::sort(bits_.begin(), bits_.end());
 	hash_.clear();
+	try_repack();
 }
 
 void RTLIL::SigSpec::sort_and_unify()
@@ -4736,6 +4770,7 @@ void RTLIL::SigSpec::sort_and_unify()
 
 	*this = unique_bits;
 	hash_.clear();
+	try_repack();
 }
 
 void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec &with)
@@ -4759,13 +4794,17 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	}
 
 	int this_size = size();
+	bool other_modified = false;
 	for (int j = 0; j < this_size; j++) {
 		auto it = pattern_to_with.find((*this)[j]);
 		if (it != pattern_to_with.end()) {
+			other_modified = true;
 			(*other)[j] = with[it->second];
 		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4784,12 +4823,17 @@ void RTLIL::SigSpec::replace(const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, RT
 	if (rules.empty()) return;
 
 	int this_size = size();
+	bool other_modified = false;
 	for (int i = 0; i < this_size; i++) {
 		auto it = rules.find((*this)[i]);
-		if (it != rules.end())
+		if (it != rules.end()) {
+			other_modified = true;
 			(*other)[i] = it->second;
+		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4808,12 +4852,17 @@ void RTLIL::SigSpec::replace(const std::map<RTLIL::SigBit, RTLIL::SigBit> &rules
 	if (rules.empty()) return;
 
 	int this_size = size();
+	bool other_modified = false;
 	for (int i = 0; i < this_size; i++) {
 		auto it = rules.find((*this)[i]);
-		if (it != rules.end())
+		if (it != rules.end()) {
+			other_modified = true;
 			(*other)[i] = it->second;
+		}
 	}
 
+	if (other_modified)
+		other->try_repack();
 	other->check();
 }
 
@@ -4839,9 +4888,10 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
-		other->hash_.clear();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--)
 	{
 		if (bits_[i].wire == NULL) continue;
@@ -4850,14 +4900,24 @@ void RTLIL::SigSpec::remove2(const RTLIL::SigSpec &pattern, RTLIL::SigSpec *othe
 			if (bits_[i].wire == pattern_chunk.wire &&
 				bits_[i].offset >= pattern_chunk.offset &&
 				bits_[i].offset < pattern_chunk.offset + pattern_chunk.width) {
+				modified = true;
 				bits_.erase(bits_.begin() + i);
-				if (other != NULL)
+				if (other != NULL) {
+					other_modified = true;
 					other->bits_.erase(other->bits_.begin() + i);
+				}
 				break;
 			}
 	}
-	hash_.clear();
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
@@ -4884,18 +4944,29 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::SigBit> &pattern, RTLIL::SigSpec 
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
-		other->hash_.clear();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			if (other != NULL)
+			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
+			}
 		}
 	}
-	hash_.clear();
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
@@ -4911,18 +4982,29 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
-		other->hash_.clear();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			if (other != NULL)
+			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
+			}
 		}
 	}
-	hash_.clear();
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
@@ -4938,18 +5020,29 @@ void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *
 	if (other != NULL) {
 		log_assert(size() == other->size());
 		other->unpack();
-		other->hash_.clear();
 	}
 
+	bool modified = false;
+	bool other_modified = false;
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i].wire)) {
+			modified = true;
 			bits_.erase(bits_.begin() + i);
-			if (other != NULL)
+			if (other != NULL) {
+				other_modified = true;
 				other->bits_.erase(other->bits_.begin() + i);
+			}
 		}
 	}
-	hash_.clear();
 
+	if (modified) {
+		hash_.clear();
+		try_repack();
+	}
+	if (other_modified) {
+		other->hash_.clear();
+		other->try_repack();
+	}
 	check();
 }
 
@@ -5025,6 +5118,9 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 {
 	cover("kernel.rtlil.sigspec.replace_pos");
 
+	if (with.size() == 0)
+		return;
+
 	unpack();
 
 	log_assert(offset >= 0);
@@ -5037,6 +5133,7 @@ void RTLIL::SigSpec::replace(int offset, const RTLIL::SigSpec &with)
 		++i;
 	}
 	hash_.clear();
+	try_repack();
 
 	check();
 }
@@ -5050,6 +5147,7 @@ void RTLIL::SigSpec::remove_const()
 		if (chunk_.wire == NULL) {
 			chunk_.~SigChunk();
 			init_empty_bits();
+			hash_.clear();
 		}
 	}
 	else
@@ -5058,21 +5156,25 @@ void RTLIL::SigSpec::remove_const()
 
 		std::vector<RTLIL::SigBit> new_bits;
 		new_bits.reserve(bits_.size());
-
 		for (auto &bit : bits_)
 			if (bit.wire != NULL)
 				new_bits.push_back(bit);
-
-		bits_.swap(new_bits);
+		if (GetSize(new_bits) != GetSize(bits_)) {
+			bits_.swap(new_bits);
+			hash_.clear();
+			try_repack();
+		}
 	}
 
-	hash_.clear();
 	check();
 }
 
 void RTLIL::SigSpec::remove(int offset, int length)
 {
 	cover("kernel.rtlil.sigspec.remove_pos");
+
+	if (length == 0)
+		return;
 
 	unpack();
 
@@ -5083,6 +5185,7 @@ void RTLIL::SigSpec::remove(int offset, int length)
 	bits_.erase(bits_.begin() + offset, bits_.begin() + offset + length);
 
 	hash_.clear();
+	try_repack();
 	check();
 }
 
