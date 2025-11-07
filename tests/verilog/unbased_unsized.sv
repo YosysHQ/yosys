@@ -6,6 +6,11 @@ module pass_through(
 endmodule
 
 module top;
+    localparam logic [63:0]
+        l01 = '0,
+        l02 = '1,
+        l03 = 'x,
+        l04 = 'z;
     logic [63:0]
         o01, o02, o03, o04,
         o05, o06, o07, o08,
@@ -36,5 +41,9 @@ module top;
         assert (o10 === {64 {1'b1}});
         assert (o11 === {64 {1'bx}});
         assert (o12 === {64 {1'bz}});
+        assert (l01 === {64 {1'b0}});
+        assert (l02 === {64 {1'b1}});
+        assert (l03 === {64 {1'bx}});
+        assert (l04 === {64 {1'bz}});
     end
 endmodule
