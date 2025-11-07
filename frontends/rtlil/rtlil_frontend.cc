@@ -567,10 +567,13 @@ struct RTLILFrontendWorker {
 			if (try_parse_keyword("parameter")) {
 				bool is_signed = false;
 				bool is_real = false;
+				bool is_unsized = false;
 				if (try_parse_keyword("signed")) {
 					is_signed = true;
 				} else if (try_parse_keyword("real")) {
 					is_real = true;
+				} else if (try_parse_keyword("unsized")) {
+					is_unsized = true;
 				}
 				RTLIL::IdString param_name = parse_id();
 				RTLIL::Const val = parse_const();
@@ -578,6 +581,8 @@ struct RTLILFrontendWorker {
 					val.flags |= RTLIL::CONST_FLAG_SIGNED;
 				if (is_real)
 					val.flags |= RTLIL::CONST_FLAG_REAL;
+				if (is_unsized)
+					val.flags |= RTLIL::CONST_FLAG_UNSIZED;
 				cell->parameters.insert({std::move(param_name), std::move(val)});
 				expect_eol();
 			} else if (try_parse_keyword("connect")) {

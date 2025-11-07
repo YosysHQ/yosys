@@ -53,10 +53,11 @@ namespace RTLIL
 	// Semantic metadata - how can this constant be interpreted?
 	// Values may be generally non-exclusive
 	enum ConstFlags : unsigned char {
-		CONST_FLAG_NONE   = 0,
-		CONST_FLAG_STRING = 1,
-		CONST_FLAG_SIGNED = 2,  // only used for parameters
-		CONST_FLAG_REAL   = 4   // only used for parameters
+		CONST_FLAG_NONE    = 0,
+		CONST_FLAG_STRING  = 1,
+		CONST_FLAG_SIGNED  = 2,  // only used for parameters
+		CONST_FLAG_REAL    = 4,  // only used for parameters
+		CONST_FLAG_UNSIZED = 8,  // only used for parameters
 	};
 
 	enum SelectPartials : unsigned char {

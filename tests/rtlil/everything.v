@@ -38,3 +38,20 @@ module foo(
     assign b = bb;
     assign y = a + bb;
 endmodule
+
+module set_param #(
+    parameter [3:0] VALUE = 1'bx
+) (
+    output logic [3:0] out
+);
+    assign out = VALUE;
+endmodule
+
+module use_param (
+    output logic [3:0] a, b, c, d
+);
+    set_param #($signed(1)) spa (a);
+    set_param #('1) spb (b);
+    set_param #(1.1) spc (c);
+    set_param #(1'b1) spd (d);
+endmodule
