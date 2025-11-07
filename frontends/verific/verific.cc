@@ -1269,12 +1269,15 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 		RTLIL::Process *proc = module->addProcess(new_verific_id(inst));
 		import_attributes(proc->attributes, inst);
+		RTLIL::Const src(proc->get_src_attribute());
 
 		RTLIL::CaseRule *current_case = &proc->root_case;
 		current_case = &proc->root_case;
 
 		RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
+		sw->transfer_src_attribute(proc);
 		sw->signal = sig_select;
+		sw->signal_src = src;
 		current_case->switches.push_back(sw);
 
 		unsigned select_width = inst->InputSize();
@@ -1286,7 +1289,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 		for (unsigned i = 0 ; i < selector->GetNumBranches() ; ++i) {
 
-			SigSig action(sig_out_val, sig_data_values.extract(offset_data, data_width));
+			RTLIL::SyncAction action{sig_out_val, sig_data_values.extract(offset_data, data_width), src};
 			offset_data += data_width;
 
 			for (unsigned j = 0 ; j < selector->GetNumConditions(i) ; ++j) {
@@ -1322,7 +1325,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 			}
 		}
 		RTLIL::CaseRule *cs_default = new RTLIL::CaseRule;
-		cs_default->actions.push_back(SigSig(sig_out_val, sig_data_default));
+		cs_default->actions.push_back({sig_out_val, sig_data_default, src});
 		sw->cases.push_back(cs_default);
 
 		return true;
