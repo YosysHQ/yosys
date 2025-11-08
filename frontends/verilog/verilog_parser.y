@@ -428,7 +428,6 @@
 	#include <map>
 	#include <string>
 	#include <memory>
-	#include <vector>
 	#include "frontends/verilog/verilog_frontend.h"
 
 	struct specify_target {
@@ -463,7 +462,6 @@
 
 	using string_t = std::unique_ptr<std::string>;
 	using ast_t = std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>;
-	using ast_list_t = std::vector<ast_t>;
 	using al_t = std::unique_ptr<YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, std::unique_ptr<YOSYS_NAMESPACE_PREFIX AST::AstNode>>>;
 	using specify_target_ptr_t = std::unique_ptr<struct specify_target>;
 	using specify_triple_ptr_t = std::unique_ptr<struct specify_triple>;
@@ -559,8 +557,6 @@
 %type <ast_t> struct_union
 %type <ast_node_type_t> asgn_binop inc_or_dec_op
 %type <ast_t> genvar_identifier
-%type <ast_list_t> import_item_list
-%type <ast_t> import_item
 
 %type <specify_target_ptr_t> specify_target
 %type <specify_triple_ptr_t> specify_triple specify_opt_triple
@@ -833,38 +829,31 @@ package_body_stmt:
 	typedef_decl | localparam_decl | param_decl | task_func_decl;
 
 import_stmt:
-	TOK_IMPORT hierarchical_id TOK_PACKAGESEP TOK_ASTER TOK_SEMICOL {
-		// Create an import node to track specific and wildcard package imports
+	TOK_IMPORT TOK_ID TOK_PACKAGESEP TOK_ASTER TOK_SEMICOL {
+		// Create an import node to track wildcard package imports
 		auto import_node = std::make_unique<AstNode>(@$, AST_IMPORT);
 		import_node->str = *$2;
 		extra->ast_stack.back()->children.push_back(std::move(import_node));
 	} |
-	TOK_IMPORT hierarchical_id TOK_PACKAGESEP import_item_list TOK_SEMICOL {
-		// Create an import node to track specific package imports
-		auto import_node = std::make_unique<AstNode>(@$, AST_IMPORT);
+	TOK_IMPORT TOK_ID TOK_PACKAGESEP {
+		// Start a specific import: create and push the AST_IMPORT node
+		AstNode* import_node = extra->pushChild(std::make_unique<AstNode>(@$, AST_IMPORT));
 		import_node->str = *$2;
-		// Move children from import_item_list to import_node
-		import_node->children = std::move($4);
-		extra->ast_stack.back()->children.push_back(std::move(import_node));
+	} import_item_list TOK_SEMICOL {
+		// Done collecting specific items, pop the AST_IMPORT node
+		extra->ast_stack.pop_back();
 	};
 
 import_item_list:
-	import_item {
-		ast_list_t list;
-		list.push_back(std::move($1));
-		$$ = std::move(list);
-	} |
-	import_item_list TOK_COMMA import_item {
-		$1.push_back(std::move($3));
-		$$ = std::move($1);
-	};
+	import_item |
+	import_item_list TOK_COMMA import_item ;
 
 import_item:
 	TOK_ID {
-		// Create a simple node to store the imported item name
+		// Append this specific import name under the current AST_IMPORT
 		auto item_node = std::make_unique<AstNode>(@$, AST_NONE);
 		item_node->str = *$1;
-		$$ = std::move(item_node);
+		extra->ast_stack.back()->children.push_back(std::move(item_node));
 	};
 
 interface:
