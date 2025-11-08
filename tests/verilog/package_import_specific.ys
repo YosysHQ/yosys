@@ -1,0 +1,5 @@
+read_verilog -sv package_import_specific.sv
+read_verilog -sv package_import_specific_module.sv
+hierarchy -check
+proc
+opt -full

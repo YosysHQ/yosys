@@ -1123,16 +1123,39 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 
 				if (package_node) {
-					// Import all names from the package into current scope
+					bool is_wildcard = child->children.empty();
+					std::set<std::string> import_items;
+					
+					// For specific imports, collect the list of items to import
+					if (!is_wildcard) {
+						for (auto& import_item : child->children) {
+							import_items.insert(import_item->str);
+						}
+					}
+					
+					// Import names from the package into current scope
 					for (auto& pkg_child : package_node->children) {
+						// Check if this is a specific import and if this item should be imported
+						if (!is_wildcard && import_items.count(pkg_child->str) == 0)
+							continue;
+						
 						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM ||
 							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION ||
 							pkg_child->type == AST_TASK || pkg_child->type == AST_ENUM) {
+							// For wildcard imports, check if item already exists (from specific import)
+							if (is_wildcard && current_scope.count(pkg_child->str) > 0)
+								continue;
 							current_scope[pkg_child->str] = pkg_child.get();
 						}
 						if (pkg_child->type == AST_ENUM) {
 							for (auto& enode : pkg_child->children) {
 								log_assert(enode->type==AST_ENUM_ITEM);
+								// Check if this enum item should be imported
+								if (!is_wildcard && import_items.count(enode->str) == 0)
+									continue;
+								// For wildcard imports, check if item already exists (from specific import)
+								if (is_wildcard && current_scope.count(enode->str) > 0)
+									continue;
 								if (current_scope.count(enode->str) == 0)
 									current_scope[enode->str] = enode.get();
 								else
