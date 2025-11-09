@@ -1360,7 +1360,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &process_pool)
 		did_run = true;
 		return;
 	}
-	log("Don't call ABC as there is nothing to map.\n");
+	logs.log("Don't call ABC as there is nothing to map.\n");
 }
 
 void emit_global_input_files(const AbcConfig &config)
