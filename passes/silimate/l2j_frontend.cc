@@ -95,8 +95,8 @@ inline std::string get_string_attr(std::string_view description, const Json::obj
 
 /// @brief Gets an attribute as an boolean, or if the key is undefined,
 ///        returns a default value. If the attribute exists but is not a
-///        boolean, numbers are converted into booleans as per C++ bool(float)
-///        rules and other types raise an error
+///        boolean, it emulates the behavior of the Python programming language
+///        as to "truthiness."
 /// @param description A description of the container object to use in error messages
 /// @param o The container object
 /// @param key The key used to access the attribute in question
@@ -105,14 +105,28 @@ inline std::string get_string_attr(std::string_view description, const Json::obj
 inline bool get_bool_attr(std::string_view description, const Json::object &o, std::string key, bool default_) {
 	bool result = default_;
 	auto it = o.find(key);
-	if (it != o.end()) {
-		if (it->second.type() == Json::Type::NUMBER) {
-			result = bool(it->second.number_value());
-		} else if (it->second.type() == Json::Type::BOOL) {
-			result = it->second.bool_value();
-		} else {
-			log_error("%s attribute of %s is not a valid boolean\n", key, description);
-		}
+	if (it == o.end()) {
+		return result;
+	}
+	switch (it->second.type()) {
+	case Json::Type::BOOL:
+		result = it->second.bool_value();
+		break;
+	case Json::Type::NUMBER:
+		result = bool(it->second.number_value());
+		break;
+	case Json::Type::STRING:
+		result = it->second.string_value().length() != 0;
+		break;
+	case Json::Type::ARRAY:
+		result = it->second.array_items().size() != 0;
+		break;
+	case Json::Type::OBJECT:
+		result = it->second.object_items().size() != 0;
+		break;
+	case Json::Type::NUL:
+		result = false;
+		break;
 	}
 	return result;
 }
