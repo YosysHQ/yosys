@@ -46,6 +46,7 @@ module asym_ram_sdp_read_wider (clkA, clkB, enaA, weA, enaB, addrA, addrB, diA, 
 	localparam RATIO = maxWIDTH / minWIDTH;
 	localparam log2RATIO = log2(RATIO);
 
+	(* ram_style="block" *)
 	reg [minWIDTH-1:0] RAM [0:maxSIZE-1];
 	reg [WIDTHB-1:0] readB;
 
