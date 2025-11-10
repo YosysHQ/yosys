@@ -1415,10 +1415,7 @@ public:
 			return chunk_vector.size();
 		}
 		int size() const {
-			int result = 0;
-			for (const SigChunk &_: *this)
-				++result;
-			return result;
+			return std::distance(begin(), end());
 		}
 		const SigChunk &at(int index) {
 			ensure_chunk_vector();
