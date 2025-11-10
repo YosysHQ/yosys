@@ -1,32 +1,35 @@
 ### TODO: Not running equivalence checking because BRAM models does not exists
 ###       currently. Checking instance counts instead.
-# Memory bits <= 18K; Data width <= 36; Address width <= 14: -> RAMB18E1
+# Memory bits <= 18K; Data width <= 36; Address width <= 14: -> RBRAM2
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 12 -set DATA_WIDTH 1 sync_ram_sdp
+setattr -set ram_style "block" sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set ram_style "block" sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 14 -set DATA_WIDTH 1 sync_ram_sdp
+setattr -set ram_style "block" sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2
 
 design -reset
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2
 
 # Anything memory bits < 1024 -> LUTRAM
 design -reset
@@ -34,8 +37,9 @@ read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 2 sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 0 t:RAMB18E1
-select -assert-count 4 t:RAM64M
+select -assert-count 0 t:RBRAM2
+select -assert-count 8 t:RAMD64X1
+select -assert-count 2 t:FFRE
 
 # More than 18K bits, data width <= 36 (TDP), and address width from 10 to 15b (non-cascaded) -> RAMB36E1
 design -reset
@@ -43,7 +47,7 @@ read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 36 sync_ram_sdp
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB36E1
+select -assert-count 1 t:RBRAM2
 
 
 ### With parameters
@@ -54,7 +58,7 @@ hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 12 -chparam DATA_WIDTH 1
 setattr -set ram_style "block" m:memory
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2
 
 design -reset
 read_verilog ../common/blockram.v
@@ -62,7 +66,7 @@ hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 12 -chparam DATA_WIDTH 1
 setattr -set logic_block 1 m:memory
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 0 t:RAMB18E1
+select -assert-count 0 t:RBRAM2
 
 design -reset
 read_verilog ../common/blockram.v
@@ -70,4 +74,4 @@ hierarchy -top sync_ram_sdp -chparam ADDRESS_WIDTH 8 -chparam DATA_WIDTH 1
 setattr -set ram_style "block" m:memory
 synth_analogdevices -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
-select -assert-count 1 t:RAMB18E1
+select -assert-count 1 t:RBRAM2

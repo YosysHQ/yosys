@@ -471,15 +471,15 @@ module FFRE (
   input R
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
     $setup(R , posedge C, 128);
-    if (R)        (posedge C => (Q : 1'b0)) = 280;
-    if (!R && CE) (posedge C => (Q : D)) = 280;
+    if (R)        (posedge C => (Q : 1'b0)) = 224;
+    if (!R && CE) (posedge C => (Q : D)) = 224;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -487,10 +487,8 @@ module FFRE (
     $setup(D , posedge C, 119);
     $setup(CE, posedge C, 385);
     $setup(R , posedge C, 565);
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (R)        (posedge C => (Q : 1'b0)) = 689;
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (!R && CE) (posedge C => (Q : D)) = 689;
+    if (R)        (posedge C => (Q : 1'b0)) = 672;
+    if (!R && CE) (posedge C => (Q : D)) = 672;
   endspecify
 `endif
 endmodule
@@ -505,15 +503,15 @@ module FFRE_N (
   input R
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
     $setup(R , negedge C, 128);
-    if (R)        (negedge C => (Q : 1'b0)) = 280;
-    if (!R && CE) (negedge C => (Q : D)) = 280;
+    if (R)        (negedge C => (Q : 1'b0)) = 224;
+    if (!R && CE) (negedge C => (Q : D)) = 224;
   endspecify
 `endif
 `ifdef IS_T40LP
@@ -521,14 +519,13 @@ module FFRE_N (
     $setup(D , negedge C, 119);
     $setup(CE, negedge C, 385);
     $setup(R , negedge C, 565);
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (R)        (negedge C => (Q : 1'b0)) = 689;
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (!R && CE) (negedge C => (Q : D)) = 689;
+    if (R)        (negedge C => (Q : 1'b0)) = 672;
+    if (!R && CE) (negedge C => (Q : D)) = 672;
   endspecify
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module FFSE (
   output reg Q,
   (* clkbuf_sink *)
@@ -538,30 +535,29 @@ module FFSE (
   input S
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
     $setup(S , posedge C, 128);
-    if (S)        (negedge C => (Q : 1'b1)) = 280;
-    if (!S && CE) (posedge C => (Q : D)) = 280;
+    if (S)        (posedge C => (Q : 1'b1)) = 224;
+    if (!S && CE) (posedge C => (Q : D)) = 224;
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
     $setup(D , posedge C, 119);
     $setup(CE, posedge C, 385);
-    $setup(S , posedge C, 584);
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (S)        (negedge C => (Q : 1'b1)) = 689;
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (!S && CE) (posedge C => (Q : D)) = 689;
+    $setup(S , posedge C, 565);
+    if (S)        (posedge C => (Q : 1'b1)) = 672;
+    if (!S && CE) (posedge C => (Q : D)) = 672;
   endspecify
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module FFSE_N (
   output reg Q,
   (* clkbuf_sink *)
@@ -571,30 +567,29 @@ module FFSE_N (
   input S
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 31);
     $setup(CE, negedge C, 122);
     $setup(S , negedge C, 128);
-    if (S)        (negedge C => (Q : 1'b1)) = 280;
-    if (!S && CE) (negedge C => (Q : D)) = 280;
+    if (S)        (negedge C => (Q : 1'b1)) = 224;
+    if (!S && CE) (negedge C => (Q : D)) = 224;
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
     $setup(D , negedge C, 119);
     $setup(CE, negedge C, 385);
-    $setup(S , negedge C, 584);
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (S)        (negedge C => (Q : 1'b1)) = 689;
-    // HACK: no clock-to-Q timings; using FFCE timing
-    if (!S && CE) (negedge C => (Q : D)) = 689;
+    $setup(S , negedge C, 565);
+    if (S)        (negedge C => (Q : 1'b1)) = 672;
+    if (!S && CE) (negedge C => (Q : D)) = 672;
   endspecify
 `endif
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module FFCE (
   output reg Q,
   (* clkbuf_sink *)
@@ -604,24 +599,33 @@ module FFCE (
   input D
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 31);
     $setup(CE, posedge C, 122);
+    $setup(CLR, posedge C, 0 /* missing? */);
     if (!CLR && CE) (posedge C => (Q : D)) = 280;
+`ifdef YOSYS
+    if (CLR) (CLR => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
     $setup(D , posedge C, 119);
     $setup(CE, posedge C, 385);
+    $setup(CLR, posedge C, 0 /* missing? */);
     if (!CLR && CE) (posedge C => (Q : D)) = 689;
+`ifdef YOSYS
+    if (CLR) (CLR => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module FFCE_N (
   output reg Q,
   (* clkbuf_sink *)
@@ -631,20 +635,28 @@ module FFCE_N (
   input D
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , negedge C, 31);
-    $setup(CE, negedge C, 122);
+    $setup(D,   negedge C, 31);
+    $setup(CE,  negedge C, 122);
+    $setup(CLR, negedge C, 0 /* missing? */);
     if (!CLR && CE) (negedge C => (Q : D)) = 280;
+`ifdef YOSYS
+    if (CLR) (CLR => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , negedge C, 119);
-    $setup(CE, negedge C, 385);
+    $setup(D,   negedge C, 119);
+    $setup(CE,  negedge C, 385);
+    $setup(CLR, negedge C, 0 /* missing? */);
     if (!CLR && CE) (negedge C => (Q : D)) = 689;
+`ifdef YOSYS
+    if (CLR) (CLR => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 endmodule
@@ -658,21 +670,28 @@ module FFPE (
   input D
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , posedge C, 31);
-    $setup(CE, posedge C, 122);
-    if (!PRE && CE) (posedge C => (Q : D)) = 291;
+    $setup(D,   posedge C, 31);
+    $setup(CE,  posedge C, 122);
+    $setup(PRE, posedge C, 0 /* missing? */);
+    if (!PRE && CE) (posedge C => (Q : D)) = 224;
+`ifdef YOSYS
+    if (PRE) (PRE => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
-    $setup(D , posedge C, 119);
-    $setup(CE, posedge C, 385);
-    // HACK: no clock-to-Q timings; using FFPE_N timing
-    if (!PRE && CE) (posedge C => (Q : D)) = 712;
+    $setup(D,   posedge C, 119);
+    $setup(CE,  posedge C, 385);
+    $setup(PRE, posedge C, 0 /* missing? */);
+    if (!PRE && CE) (posedge C => (Q : D)) = 672;
+`ifdef YOSYS
+    if (PRE) (PRE => Q) = 0 /* missing? */;
+`endif
   endspecify
 `endif
 endmodule
@@ -686,22 +705,28 @@ module FFPE_N (
   input D
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
 `ifdef IS_T16FFC
   specify
-    $setup(D , negedge C, 31);
-    $setup(CE , negedge C, 122);
+    $setup(D,   negedge C, 28);
+    $setup(CE,  negedge C, 28);
+    $setup(PRE, negedge C, 28);
     if (!PRE && CE) (negedge C => (Q : D)) = 291;
+`ifdef YOSYS
+    if (PRE) (PRE => Q) = 57;
+`endif
   endspecify
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: no D setup time; using FFPE timing
-    $setup(D , negedge C, 119);
-    // HACK: no CE setup time; using FFPE timing
-    $setup(CE, negedge C, 385);
+    $setup(D,   negedge C, 84);
+    $setup(CE,  negedge C, 84);
+    $setup(PRE, negedge C, 84);
     if (!PRE && CE) (negedge C => (Q : D)) = 712;
+`ifdef YOSYS
+    if (PRE) (PRE => Q) = 57;
+`endif
   endspecify
 `endif
 endmodule
@@ -726,14 +751,13 @@ module RAMS32X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(A0, posedge WCLK, 28);
+    $setup(A1, posedge WCLK, 28);
+    $setup(A2, posedge WCLK, 28);
+    $setup(A3, posedge WCLK, 28);
+    $setup(A4, posedge WCLK, 28);
+    $setup(D,  posedge WCLK, 28);
+    $setup(WE, posedge WCLK, 28);
     (A0 => O) = 63;
     (A1 => O) = 63;
     (A2 => O) = 63;
@@ -744,14 +768,13 @@ module RAMS32X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(A0, posedge WCLK, 84);
+    $setup(A1, posedge WCLK, 84);
+    $setup(A2, posedge WCLK, 84);
+    $setup(A3, posedge WCLK, 84);
+    $setup(A4, posedge WCLK, 84);
+    $setup(D,  posedge WCLK, 84);
+    $setup(WE, posedge WCLK, 84);
     (A0 => O) = 168;
     (A1 => O) = 168;
     (A2 => O) = 168;
@@ -778,15 +801,14 @@ module RAMS64X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(A5, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(A0, posedge WCLK, 28);
+    $setup(A1, posedge WCLK, 28);
+    $setup(A2, posedge WCLK, 28);
+    $setup(A3, posedge WCLK, 28);
+    $setup(A4, posedge WCLK, 28);
+    $setup(A5, posedge WCLK, 28);
+    $setup(D,  posedge WCLK, 28);
+    $setup(WE, posedge WCLK, 28);
     (A0 => O) = 161;
     (A1 => O) = 161;
     (A2 => O) = 161;
@@ -798,15 +820,14 @@ module RAMS64X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(A5, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(A0, posedge WCLK, 84);
+    $setup(A1, posedge WCLK, 84);
+    $setup(A2, posedge WCLK, 84);
+    $setup(A3, posedge WCLK, 84);
+    $setup(A4, posedge WCLK, 84);
+    $setup(A5, posedge WCLK, 84);
+    $setup(D,  posedge WCLK, 84);
+    $setup(WE, posedge WCLK, 84);
     (A0 => O) = 466;
     (A1 => O) = 466;
     (A2 => O) = 466;
@@ -832,26 +853,26 @@ module RAMD32X1 (
 );
   parameter INIT = 32'h0;
   wire [4:0] a = {A4, A3, A2, A1, A0};
-  wire [4:0] dpra = {DPRA5, DPRA4, DPRA3, DPRA2, DPRA1, DPRA0};
+  wire [4:0] dpra = {DPRA4, DPRA3, DPRA2, DPRA1, DPRA0};
   reg [31:0] mem = INIT;
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
+    // HACK: partial setup timing
+    $setup(A0, posedge WCLK, 28);
+    $setup(A1, posedge WCLK, 28);
+    $setup(A2, posedge WCLK, 28);
+    $setup(A3, posedge WCLK, 28);
+    $setup(A4, posedge WCLK, 28);
     $setup(DPRA0, posedge WCLK, 0);
     $setup(DPRA1, posedge WCLK, 0);
     $setup(DPRA2, posedge WCLK, 0);
     $setup(DPRA3, posedge WCLK, 0);
     $setup(DPRA4, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(D,  posedge WCLK, 28);
+    $setup(WE, posedge WCLK, 28);
     // HACK: No timing arcs for SPO; using ones for DPO
     // (are we meant to use the single-port timings here?)
     (A0 => SPO) = 66;
@@ -870,19 +891,19 @@ module RAMD32X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
+    // HACK: partial setup timing
+    $setup(A0, posedge WCLK, 84);
+    $setup(A1, posedge WCLK, 84);
+    $setup(A2, posedge WCLK, 84);
+    $setup(A3, posedge WCLK, 84);
+    $setup(A4, posedge WCLK, 84);
     $setup(DPRA0, posedge WCLK, 0);
     $setup(DPRA1, posedge WCLK, 0);
     $setup(DPRA2, posedge WCLK, 0);
     $setup(DPRA3, posedge WCLK, 0);
     $setup(DPRA4, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(D,  posedge WCLK, 84);
+    $setup(WE, posedge WCLK, 84);
     // HACK: No timing arcs for SPO; using ones for DPO
     // (are we meant to use the single-port timings here?)
     (A0 => SPO) = 142;
@@ -920,21 +941,21 @@ module RAMD64X1 (
   always @(posedge WCLK) if (WE) mem[a] <= D;
 `ifdef IS_T16FFC
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(A5, posedge WCLK, 0);
+    // HACK: partial setup timing
+    $setup(A0, posedge WCLK, 28);
+    $setup(A1, posedge WCLK, 28);
+    $setup(A2, posedge WCLK, 28);
+    $setup(A3, posedge WCLK, 28);
+    $setup(A4, posedge WCLK, 28);
+    $setup(A5, posedge WCLK, 28);
     $setup(DPRA0, posedge WCLK, 0);
     $setup(DPRA1, posedge WCLK, 0);
     $setup(DPRA2, posedge WCLK, 0);
     $setup(DPRA3, posedge WCLK, 0);
     $setup(DPRA4, posedge WCLK, 0);
     $setup(DPRA5, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(D,  posedge WCLK, 28);
+    $setup(WE, posedge WCLK, 28);
     (A0 => SPO) = 161;
     (A1 => SPO) = 161;
     (A2 => SPO) = 161;
@@ -953,21 +974,21 @@ module RAMD64X1 (
 `endif
 `ifdef IS_T40LP
   specify
-    // HACK: no setup timing
-    $setup(A0, posedge WCLK, 0);
-    $setup(A1, posedge WCLK, 0);
-    $setup(A2, posedge WCLK, 0);
-    $setup(A3, posedge WCLK, 0);
-    $setup(A4, posedge WCLK, 0);
-    $setup(A5, posedge WCLK, 0);
+    // HACK: partial setup timing
+    $setup(A0, posedge WCLK, 84);
+    $setup(A1, posedge WCLK, 84);
+    $setup(A2, posedge WCLK, 84);
+    $setup(A3, posedge WCLK, 84);
+    $setup(A4, posedge WCLK, 84);
+    $setup(A5, posedge WCLK, 84);
     $setup(DPRA0, posedge WCLK, 0);
     $setup(DPRA1, posedge WCLK, 0);
     $setup(DPRA2, posedge WCLK, 0);
     $setup(DPRA3, posedge WCLK, 0);
     $setup(DPRA4, posedge WCLK, 0);
     $setup(DPRA5, posedge WCLK, 0);
-    $setup(D,  posedge WCLK, 0);
-    $setup(WE, posedge WCLK, 0);
+    $setup(D,  posedge WCLK, 84);
+    $setup(WE, posedge WCLK, 84);
     (A0 => SPO) = 466;
     (A1 => SPO) = 466;
     (A2 => SPO) = 466;
@@ -1091,7 +1112,7 @@ parameter FF_SYNC_RST = 1'b0;
 specify
   if (!REG_A)    (A *> P) = 1000;
   if (!REG_B)    (B *> P) = 1000;
-  if (!REG_D[0]) (D *> P) = 1000;
+  if (!REG_D)    (D *> P) = 1000;
 endspecify
 
 // Much of this functionality is TODO.
@@ -1112,7 +1133,7 @@ module RBRAM #(
     parameter DATA_WIDTH = 40,
     parameter ADDR_WIDTH = 12,
     parameter WE_WIDTH = 20,
-    parameter PERR_WIDTH = 4,
+    parameter PERR_WIDTH = 4
 ) (
     output [DATA_WIDTH-1:0] QA,
     input [DATA_WIDTH-1:0] DA,
@@ -1137,7 +1158,7 @@ module RBRAM #(
     output MBEA,
     output MBEB,
     input SLP,
-    input PD,
+    input PD
 );
 
 endmodule
@@ -1152,7 +1173,7 @@ module RBRAM2 #(
     parameter DATA_WIDTH = 40,
     parameter ADDR_WIDTH = 13,
     parameter WE_WIDTH = 20,
-    parameter PERR_WIDTH = 4,
+    parameter PERR_WIDTH = 4
 ) (
     output [DATA_WIDTH-1:0] QA,
     input [DATA_WIDTH-1:0] DA,
@@ -1177,7 +1198,7 @@ module RBRAM2 #(
     output MBEA,
     output MBEB,
     input SLP,
-    input PD,
+    input PD
 );
 
 endmodule

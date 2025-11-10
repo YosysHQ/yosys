@@ -44,7 +44,7 @@ select -assert-max 2 t:LUT3
 select -assert-max 2 t:LUT4
 select -assert-min 4 t:LUT6
 select -assert-max 7 t:LUT6
-select -assert-max 2 t:MUXF7
+select -assert-max 2 t:LUTMUX7
 dump
 
-select -assert-none t:LUT6 t:LUT4 t:LUT3 t:MUXF7 %% t:* %D
+select -assert-none t:LUT6 t:LUT4 t:LUT3 t:LUTMUX7 %% t:* %D
