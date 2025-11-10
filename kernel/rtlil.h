@@ -1353,6 +1353,9 @@ public:
 		return *this;
 	}
 
+	// SigSpec::Chunks holds one reconstructed chunk at a time
+	// to provide the SigSpec::chunks() read-only chunks view
+	// since vector<SigChunk> SigSpec::chunks_ has been removed
 	struct Chunks {
 		Chunks(const SigSpec &spec) : spec(spec) {}
 		struct const_iterator {
