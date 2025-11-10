@@ -278,11 +278,12 @@ struct ShowWorker
 			std::vector<std::string> label_pieces;
 			int bitpos = sig.size()-1;
 
-			for (int rep, chunk_idx = ((int) sig.chunks().size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
-				const RTLIL::SigChunk &c = sig.chunks().at(chunk_idx);
+			RTLIL::SigSpec::Chunks sig_chunks = sig.chunks();
+			for (int rep, chunk_idx = ((int) sig_chunks.size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
+				const RTLIL::SigChunk &c = sig_chunks.at(chunk_idx);
 
 				// Find the number of times this chunk is repeating
-				for (rep = 1; chunk_idx - rep >= 0 && c == sig.chunks().at(chunk_idx - rep); rep++);
+				for (rep = 1; chunk_idx - rep >= 0 && c == sig_chunks.at(chunk_idx - rep); rep++);
 
 				int cl, cr;
 				cl = c.offset + c.width - 1;

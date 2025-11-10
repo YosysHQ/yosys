@@ -1223,9 +1223,10 @@ struct RTLIL::SigSpecConstIterator
 	typedef RTLIL::SigBit& reference;
 
 	const RTLIL::SigSpec *sig_p;
+	RTLIL::SigBit bit;
 	int index;
 
-	inline const RTLIL::SigBit &operator*() const;
+	inline const RTLIL::SigBit &operator*();
 	inline bool operator!=(const RTLIL::SigSpecConstIterator &other) const { return index != other.index; }
 	inline bool operator==(const RTLIL::SigSpecIterator &other) const { return index == other.index; }
 	inline void operator++() { index++; }
@@ -1234,33 +1235,84 @@ struct RTLIL::SigSpecConstIterator
 struct RTLIL::SigSpec
 {
 private:
-	int width_;
-	Hasher::hash_t hash_;
-	std::vector<RTLIL::SigChunk> chunks_; // LSB at index 0
-	std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	enum Representation : char {
+		CHUNK,
+		BITS,
+	};
+	// An AtomicHash is either clear or a nonzero integer.
+	struct AtomicHash {
+		// Create an initially clear value.
+		AtomicHash() : atomic_(0) {}
+		AtomicHash(const AtomicHash &rhs) : atomic_(rhs.load()) {}
+		AtomicHash &operator=(const AtomicHash &rhs) { store(rhs.load()); return *this; }
+		// Read the hash. Returns nullopt if the hash is clear.
+		std::optional<Hasher::hash_t> read() const {
+			Hasher::hash_t value = load();
+			if (value == 0)
+				return std::nullopt;
+			return value;
+		}
+		// Set the hash. If the value is already set, then the new value must
+		// equal the current value.
+		void set(Hasher::hash_t value) const {
+			log_assert(value != 0);
+			Hasher::hash_t old = const_cast<std::atomic<Hasher::hash_t>&>(atomic_)
+					.exchange(value, std::memory_order_relaxed);
+			log_assert(old == 0 || old == value);
+		}
+		void clear() { store(0); }
+	private:
+		int load() const { return atomic_.load(std::memory_order_relaxed); }
+		void store(Hasher::hash_t value) const {
+			const_cast<std::atomic<Hasher::hash_t>&>(atomic_).store(value, std::memory_order_relaxed);
+		}
 
-	void pack() const;
-	void unpack() const;
-	void updhash() const;
+		std::atomic<Hasher::hash_t> atomic_;
+	};
 
-	inline bool packed() const {
-		return bits_.empty();
+	Representation rep_;
+	AtomicHash hash_;
+	union {
+		RTLIL::SigChunk chunk_;
+		std::vector<RTLIL::SigBit> bits_; // LSB at index 0
+	};
+
+	void init_empty_bits() {
+		rep_ = BITS;
+		new (&bits_) std::vector<RTLIL::SigBit>;
 	}
 
-	inline void inline_unpack() const {
-		if (!chunks_.empty())
+	void unpack();
+	inline void inline_unpack() {
+		if (rep_ == CHUNK)
 			unpack();
 	}
+	void try_repack();
 
-	// Only used by Module::remove(const pool<Wire*> &wires)
-	// but cannot be more specific as it isn't yet declared
-	friend struct RTLIL::Module;
+	Hasher::hash_t updhash() const;
+	void destroy() {
+		if (rep_ == CHUNK)
+			chunk_.~SigChunk();
+		else
+			bits_.~vector();
+	}
+	friend struct Chunks;
 
 public:
-	SigSpec() : width_(0), hash_(0) {}
+	SigSpec() { init_empty_bits(); }
 	SigSpec(std::initializer_list<RTLIL::SigSpec> parts);
-	SigSpec(const SigSpec &value) = default;
-	SigSpec(SigSpec &&value) = default;
+	SigSpec(const SigSpec &value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(value.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(value.bits_);
+	}
+	SigSpec(SigSpec &&value) : rep_(value.rep_), hash_(value.hash_) {
+		if (value.rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(value.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(value.bits_));
+	}
 	SigSpec(const RTLIL::Const &value);
 	SigSpec(RTLIL::Const &&value);
 	SigSpec(const RTLIL::SigChunk &chunk);
@@ -1276,24 +1328,138 @@ public:
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
 	explicit SigSpec(bool bit);
+	~SigSpec() {
+		destroy();
+	}
 
-	SigSpec &operator=(const SigSpec &rhs) = default;
-	SigSpec &operator=(SigSpec &&rhs) = default;
+	SigSpec &operator=(const SigSpec &rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(rhs.chunk_);
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(rhs.bits_);
+		return *this;
+	}
+	SigSpec &operator=(SigSpec &&rhs) {
+		destroy();
+		rep_ = rhs.rep_;
+		hash_ = rhs.hash_;
+		if (rep_ == CHUNK)
+			new (&chunk_) RTLIL::SigChunk(std::move(rhs.chunk_));
+		else
+			new (&bits_) std::vector<RTLIL::SigBit>(std::move(rhs.bits_));
+		return *this;
+	}
 
-	inline const std::vector<RTLIL::SigChunk> &chunks() const { pack(); return chunks_; }
-	inline const std::vector<RTLIL::SigBit> &bits() const { inline_unpack(); return bits_; }
+	// SigSpec::Chunks holds one reconstructed chunk at a time
+	// to provide the SigSpec::chunks() read-only chunks view
+	// since vector<SigChunk> SigSpec::chunks_ has been removed
+	struct Chunks {
+		Chunks(const SigSpec &spec) : spec(spec) {}
+		struct const_iterator {
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = const SigChunk &;
+			using difference_type = std::ptrdiff_t;
+			using pointer = const SigChunk *;
+			using reference = const SigChunk &;
 
-	inline int size() const { return width_; }
-	inline bool empty() const { return width_ == 0; }
+			const SigSpec &spec;
+			int bit_index;
+			SigChunk chunk;
 
-	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); return bits_.at(index); }
-	inline const RTLIL::SigBit &operator[](int index) const { inline_unpack(); return bits_.at(index); }
+			const_iterator(const SigSpec &spec) : spec(spec) {
+				bit_index = 0;
+				if (spec.rep_ == BITS)
+					next_chunk_bits();
+			}
+			enum End { END };
+			const_iterator(const SigSpec &spec, End) : spec(spec) {
+				bit_index = spec.size();
+			}
+			void next_chunk_bits();
+
+			const SigChunk &operator*() {
+				if (spec.rep_ == CHUNK)
+					return spec.chunk_;
+				return chunk;
+			};
+			const SigChunk *operator->() { return &**this; }
+			const_iterator &operator++() {
+				bit_index += (**this).width;
+				if (spec.rep_ == BITS)
+					next_chunk_bits();
+				return *this;
+			}
+			bool operator==(const const_iterator &rhs) const { return bit_index == rhs.bit_index; }
+			bool operator!=(const const_iterator &rhs) const { return !(*this == rhs); }
+		};
+		const_iterator begin() const { return const_iterator(spec); }
+		const_iterator end() const {
+			const_iterator it(spec, const_iterator::END);
+			return it;
+		}
+		// Later we should deprecate these and remove their in-tree calls,
+		// so we can eventually remove chunk_vector.
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rbegin() {
+			ensure_chunk_vector();
+			return chunk_vector.rbegin();
+		}
+		std::vector<RTLIL::SigChunk>::const_reverse_iterator rend() {
+			ensure_chunk_vector();
+			return chunk_vector.rend();
+		}
+		int size() {
+			ensure_chunk_vector();
+			return chunk_vector.size();
+		}
+		int size() const {
+			return std::distance(begin(), end());
+		}
+		const SigChunk &at(int index) {
+			ensure_chunk_vector();
+			return chunk_vector.at(index);
+		}
+		operator const std::vector<RTLIL::SigChunk>&() {
+			ensure_chunk_vector();
+			return chunk_vector;
+		}
+	private:
+		void ensure_chunk_vector() {
+			if (spec.size() > 0 && chunk_vector.empty()) {
+				for (const RTLIL::SigChunk &c : *this)
+					chunk_vector.push_back(c);
+			}
+		}
+		const SigSpec &spec;
+		std::vector<RTLIL::SigChunk> chunk_vector;
+	};
+	friend struct Chunks::const_iterator;
+
+	inline Chunks chunks() const { return {*this}; }
+	inline const SigSpec &bits() const { return *this; }
+
+	inline int size() const { return rep_ == CHUNK ? chunk_.width : GetSize(bits_); }
+	inline bool empty() const { return size() == 0; };
+
+	inline RTLIL::SigBit &operator[](int index) { inline_unpack(); hash_.clear(); return bits_.at(index); }
+	inline RTLIL::SigBit operator[](int index) const {
+		if (rep_ == CHUNK) {
+			if (index < 0 || index >= chunk_.width)
+				throw std::out_of_range("SigSpec::operator[]");
+			if (chunk_.wire)
+				return RTLIL::SigBit(chunk_.wire, chunk_.offset + index);
+			return RTLIL::SigBit(chunk_.data[index]);
+		}
+		return bits_.at(index);
+	}
 
 	inline RTLIL::SigSpecIterator begin() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = width_; return it; }
+	inline RTLIL::SigSpecIterator end() { RTLIL::SigSpecIterator it; it.sig_p = this; it.index = size(); return it; }
 
 	inline RTLIL::SigSpecConstIterator begin() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = 0; return it; }
-	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = width_; return it; }
+	inline RTLIL::SigSpecConstIterator end() const { RTLIL::SigSpecConstIterator it; it.sig_p = this; it.index = size(); return it; }
 
 	void sort();
 	void sort_and_unify();
@@ -1325,10 +1491,14 @@ public:
 	RTLIL::SigSpec extract(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
-	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
+	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, size() - offset); }
 
-	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
-	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };
+	void rewrite_wires(std::function<void(RTLIL::Wire*& wire)> rewrite);
+
+	RTLIL::SigBit lsb() const { log_assert(size()); return (*this)[0]; };
+	RTLIL::SigBit msb() const { log_assert(size()); return (*this)[size() - 1]; };
+	RTLIL::SigBit front() const { return (*this)[0]; }
+	RTLIL::SigBit back() const { return (*this)[size() - 1]; }
 
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
@@ -1351,7 +1521,7 @@ public:
 
 	bool is_wire() const;
 	bool is_chunk() const;
-	inline bool is_bit() const { return width_ == 1; }
+	inline bool is_bit() const { return size() == 1; }
 
 	bool known_driver() const;
 
@@ -1388,6 +1558,9 @@ public:
 	int as_int_saturating(bool is_signed = false) const;
 
 	std::string as_string() const;
+	// Returns std::nullopt if there are any non-constant bits. Returns an empty
+	// Const if this has zero width.
+	std::optional<RTLIL::Const> try_as_const() const;
 	RTLIL::Const as_const() const;
 	RTLIL::Wire *as_wire() const;
 	RTLIL::SigChunk as_chunk() const;
@@ -1405,11 +1578,19 @@ public:
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
-	operator std::vector<RTLIL::SigChunk>() const { return chunks(); }
-	operator std::vector<RTLIL::SigBit>() const { return bits(); }
-	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < width_ ? (*this)[offset] : defval; }
+	operator std::vector<RTLIL::SigChunk>() const;
+	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
+	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < size() ? (*this)[offset] : defval; }
 
-	[[nodiscard]] Hasher hash_into(Hasher h) const { if (!hash_) updhash(); h.eat(hash_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const {
+		Hasher::hash_t val;
+		if (std::optional<Hasher::hash_t> current = hash_.read())
+			val = *current;
+		else
+			val = updhash();
+		h.eat(val);
+		return h;
+	}
 
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
@@ -2314,13 +2495,15 @@ inline RTLIL::SigBit &RTLIL::SigSpecIterator::operator*() const {
 	return (*sig_p)[index];
 }
 
-inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() const {
-	return (*sig_p)[index];
+inline const RTLIL::SigBit &RTLIL::SigSpecConstIterator::operator*() {
+	bit = (*sig_p)[index];
+	return bit;
 }
 
 inline RTLIL::SigBit::SigBit(const RTLIL::SigSpec &sig) {
-	log_assert(sig.size() == 1 && sig.chunks().size() == 1);
-	*this = SigBit(sig.chunks().front());
+	log_assert(sig.size() == 1);
+	auto it = sig.chunks().begin();
+	*this = SigBit(*it);
 }
 
 template<typename T>
