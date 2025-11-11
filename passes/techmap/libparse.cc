@@ -123,7 +123,9 @@ int LibertyInputStream::peek_cold(size_t offset)
 		if (!extend_buffer_at_least(offset + 1))
 			return EOF;
 	}
-
+#ifdef log_assert
+	log_assert(buf_pos + offset < buffer.size());
+#endif
 	return buffer[buf_pos + offset];
 }
 
@@ -458,7 +460,6 @@ int LibertyParser::lexer_inner(std::string &str)
 	// if it wasn't an identifer, number of array range,
 	// maybe it's a string?
 	if (c == '"') {
-		f.consume(1);
 		size_t i = 0;
 		while (true) {
 			c = f.peek(i);
@@ -469,14 +470,13 @@ int LibertyParser::lexer_inner(std::string &str)
 				break;
 		}
 		str.clear();
-		f.unget();
-		str.append(f.buffered_data(), f.buffered_data() + i + 1);
+		str.append(f.buffered_data(), f.buffered_data() + i);
 		// Usage in filterlib is expected to retain quotes
 		// but yosys expects to get unquoted
 #ifdef FILTERLIB
 		str = "\"" + str + "\"";
 #endif
-		f.consume(i + 2);
+		f.consume(i + 1);
 		return 'v';
 	}
 
