@@ -2,8 +2,23 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.58 .. Yosys 0.59-dev
+Yosys 0.58 .. Yosys 0.59
 --------------------------
+ * Various
+    - Pyosys is rewritten using pybind11.
+    - alumacc: merge independent of sign.
+    - write_btor: Include $assert and $assume cells in -ywmap output.
+    - RTLIL parser rewritten for efficiency.
+    - Wildcards enabled for Liberty file consuming.
+    - timeest: Add top ports launching/sampling.
+
+ * New commands and options
+    - Added "-apply_derived_type" option to "box_derive" pass.
+    - Added "-publish_icells" option to "chtype" pass.
+    - Added "-width" option to "sim" pass.
+    - Added "sort" pass for sorting the design objects.
+    - Merged "synth_ecp5" and "synth_nexus" into "synth_lattice" pass.
+    - Added "-strict-gw5a-dffs" and "-setundef" options to "synth_gowin" pass.
 
 Yosys 0.57 .. Yosys 0.58
 --------------------------
