@@ -993,6 +993,8 @@ RTLIL::Const AstNode::asParaConst() const
 	RTLIL::Const val = asAttrConst();
 	if (is_signed)
 		val.flags |= RTLIL::CONST_FLAG_SIGNED;
+	if (is_unsized)
+		val.flags |= RTLIL::CONST_FLAG_UNSIZED;
 	return val;
 }
 
@@ -1766,7 +1768,10 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 		res.push_back('s');
 	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_REAL)
 		res.push_back('r');
-	res += stringf("%d", GetSize(val));
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_UNSIZED)
+		res.push_back('u');
+	else
+		res += stringf("%d", GetSize(val));
 	res.push_back('\'');
 	res.append(val.as_string("?"));
 	return res;
@@ -1860,7 +1865,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		} else if ((it->second.flags & RTLIL::CONST_FLAG_STRING) != 0)
 			child->children[0] = AstNode::mkconst_str(loc, it->second.decode_string());
 		else
-			child->children[0] = AstNode::mkconst_bits(loc, it->second.to_bits(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0);
+			child->children[0] = AstNode::mkconst_bits(loc, it->second.to_bits(), (it->second.flags & RTLIL::CONST_FLAG_SIGNED) != 0, (it->second.flags & RTLIL::CONST_FLAG_UNSIZED) != 0);
 		rewritten.insert(it->first);
 	}
 

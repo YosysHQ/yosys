@@ -2265,9 +2265,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 			if (children[0]->type == AST_CONSTANT) {
 				if (width != int(children[0]->bits.size())) {
-					RTLIL::SigSpec sig(children[0]->bits);
-					sig.extend_u0(width, children[0]->is_signed);
-					children[0] = mkconst_bits(location, sig.as_const().to_bits(), is_signed);
+					RTLIL::Const val;
+					if (children[0]->is_unsized) {
+						val = children[0]->bitsAsUnsizedConst(width);
+					} else {
+						val = children[0]->bitsAsConst(width);
+					}
+					children[0] = mkconst_bits(location, val.to_bits(), is_signed);
 					fixup_hierarchy_flags();
 				}
 				children[0]->is_signed = is_signed;
