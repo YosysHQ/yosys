@@ -83,3 +83,42 @@ jobs:
         shell: bash
         run: |
           make -j$procs unit-test ENABLE_LTO=1 ENABLE_LIBYOSYS=1
+
+  test-pyosys:
+    needs: pre-job
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' && github.repository == 'YosysHQ/Yosys' }}
+    runs-on: [self-hosted, linux, x64, fast]
+    steps:
+      - name: Checkout Yosys
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Runtime environment
+        run: |
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+
+      - name: Build pyosys
+        run: |
+          make config-clang
+          echo "ENABLE_VERIFIC := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_EDIF := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_LIBERTY := 1" >> Makefile.conf
+          echo "ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 1" >> Makefile.conf
+          echo "ENABLE_CCACHE := 1" >> Makefile.conf
+          echo "ENABLE_PYOSYS := 1" >> Makefile.conf
+          echo "PYTHON_DESTDIR := /usr/lib/python3/site-packages" >> Makefile.conf
+          make -j$procs
+
+      - name: Install pyosys
+        run: |
+          make install DESTDIR=${GITHUB_WORKSPACE}/.local PREFIX=
+
+      - name: Run pyosys tests
+        run: |
+          export PYTHONPATH=${GITHUB_WORKSPACE}/.local/usr/lib/python3/site-packages:$PYTHONPATH
+          python3 tests/pyosys/run_tests.py
