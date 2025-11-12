@@ -829,11 +829,31 @@ package_body_stmt:
 	typedef_decl | localparam_decl | param_decl | task_func_decl;
 
 import_stmt:
-	TOK_IMPORT hierarchical_id TOK_PACKAGESEP TOK_ASTER TOK_SEMICOL {
-		// Create an import node to track package imports
+	TOK_IMPORT TOK_ID TOK_PACKAGESEP TOK_ASTER TOK_SEMICOL {
+		// Create an import node to track wildcard package imports
 		auto import_node = std::make_unique<AstNode>(@$, AST_IMPORT);
 		import_node->str = *$2;
 		extra->ast_stack.back()->children.push_back(std::move(import_node));
+	} |
+	TOK_IMPORT TOK_ID TOK_PACKAGESEP {
+		// Start a specific import: create and push the AST_IMPORT node
+		AstNode* import_node = extra->pushChild(std::make_unique<AstNode>(@$, AST_IMPORT));
+		import_node->str = *$2;
+	} import_item_list TOK_SEMICOL {
+		// Done collecting specific items, pop the AST_IMPORT node
+		extra->ast_stack.pop_back();
+	};
+
+import_item_list:
+	import_item |
+	import_item_list TOK_COMMA import_item ;
+
+import_item:
+	TOK_ID {
+		// Append this specific import name under the current AST_IMPORT
+		auto item_node = std::make_unique<AstNode>(@$, AST_NONE);
+		item_node->str = *$1;
+		extra->ast_stack.back()->children.push_back(std::move(item_node));
 	};
 
 interface:

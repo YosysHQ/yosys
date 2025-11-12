@@ -192,7 +192,7 @@ pyosys_headers = [
             ),
             PyosysClass("SigChunk"),
             PyosysClass("SigBit", hash_expr="s"),
-            PyosysClass("SigSpec", hash_expr="s"),
+            PyosysClass("SigSpec", hash_expr="s", denylist={"chunks"}),
             PyosysClass(
                 "Cell",
                 ref_only=True,

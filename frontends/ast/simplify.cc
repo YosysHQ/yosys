@@ -889,6 +889,52 @@ static void check_auto_nosync(AstNode *node)
 		check_auto_nosync(child.get());
 }
 
+class PackageImporter {
+	std::set<std::string> import_items;
+	bool is_wildcard;
+	const AstNode* node;
+public:
+	PackageImporter(const AstNode* n, const AstNode* child) : node(n) {
+		is_wildcard = child->children.empty();
+		// For specific imports, collect the list of items to import
+		if (!is_wildcard) {
+			for (auto& item : child->children) {
+				import_items.insert(item->str);
+			}
+		}
+	}
+
+	void import(std::map<std::string, AstNode*>& scope, AstNode* to_import) const {
+		// Check if this is a specific import and if this item should be imported
+		if (!is_wildcard && import_items.count(to_import->str) == 0)
+			return;
+
+		if (to_import->type == AST_PARAMETER || to_import->type == AST_LOCALPARAM ||
+			to_import->type == AST_TYPEDEF || to_import->type == AST_FUNCTION ||
+			to_import->type == AST_TASK || to_import->type == AST_ENUM) {
+			// For wildcard imports, check if item already exists (from specific import)
+			if (is_wildcard && scope.count(to_import->str) > 0)
+				return;
+			scope[to_import->str] = to_import;
+		}
+		if (to_import->type == AST_ENUM) {
+			for (auto& enode : to_import->children) {
+				log_assert(enode->type==AST_ENUM_ITEM);
+				// Check if this enum item should be imported
+				if (!is_wildcard && import_items.count(enode->str) == 0)
+					continue;
+				// For wildcard imports, check if item already exists (from specific import)
+				if (is_wildcard && scope.count(enode->str) > 0)
+					continue;
+				if (scope.count(enode->str) == 0)
+					scope[enode->str] = enode.get();
+				else
+					node->input_error("enum item %s already exists in current scope\n", enode->str);
+			}
+		}
+	}
+};
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -1123,22 +1169,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 
 				if (package_node) {
-					// Import all names from the package into current scope
+					PackageImporter importer(this, child);
+					// Import names from the package into current scope
 					for (auto& pkg_child : package_node->children) {
-						if (pkg_child->type == AST_PARAMETER || pkg_child->type == AST_LOCALPARAM ||
-							pkg_child->type == AST_TYPEDEF || pkg_child->type == AST_FUNCTION ||
-							pkg_child->type == AST_TASK || pkg_child->type == AST_ENUM) {
-							current_scope[pkg_child->str] = pkg_child.get();
-						}
-						if (pkg_child->type == AST_ENUM) {
-							for (auto& enode : pkg_child->children) {
-								log_assert(enode->type==AST_ENUM_ITEM);
-								if (current_scope.count(enode->str) == 0)
-									current_scope[enode->str] = enode.get();
-								else
-									input_error("enum item %s already exists in current scope\n", enode->str);
-							}
-						}
+						importer.import(current_scope, pkg_child.get());
 					}
 					// Remove the import node since it's been processed
 					children.erase(children.begin() + i);
@@ -2231,9 +2265,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 			if (children[0]->type == AST_CONSTANT) {
 				if (width != int(children[0]->bits.size())) {
-					RTLIL::SigSpec sig(children[0]->bits);
-					sig.extend_u0(width, children[0]->is_signed);
-					children[0] = mkconst_bits(location, sig.as_const().to_bits(), is_signed);
+					RTLIL::Const val;
+					if (children[0]->is_unsized) {
+						val = children[0]->bitsAsUnsizedConst(width);
+					} else {
+						val = children[0]->bitsAsConst(width);
+					}
+					children[0] = mkconst_bits(location, val.to_bits(), is_signed);
 					fixup_hierarchy_flags();
 				}
 				children[0]->is_signed = is_signed;

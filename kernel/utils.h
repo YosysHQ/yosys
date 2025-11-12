@@ -278,13 +278,25 @@ inline int ceil_log2(int x)
 }
 
 template <typename T>
+auto reversed(T& container) {
+	struct reverse_view {
+		reverse_view(T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		T& container;
+	};
+	return reverse_view{container};
+}
+
+template <typename T>
 auto reversed(const T& container) {
-    struct reverse_view {
-        const T& cont;
-        auto begin() const { return cont.rbegin(); }
-        auto end() const { return cont.rend(); }
-    };
-    return reverse_view{container};
+	struct reverse_view {
+		reverse_view(const T& container) : container(container) {}
+		auto begin() const { return container.rbegin(); }
+		auto end() const { return container.rend(); }
+		const T& container;
+	};
+	return reverse_view{container};
 }
 
 YOSYS_NAMESPACE_END

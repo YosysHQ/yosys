@@ -61,7 +61,9 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 				return;
 			}
 		}
-		f << stringf("%d'", width);
+		if ((data.flags & RTLIL::CONST_FLAG_UNSIZED) == 0) {
+			f << stringf("%d'", width);
+		}
 		if (data.flags & RTLIL::CONST_FLAG_SIGNED) {
 			f << stringf("s");
 		}
@@ -121,7 +123,8 @@ void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 		dump_sigchunk(f, sig.as_chunk(), autoint);
 	} else {
 		f << stringf("{ ");
-		for (const auto& chunk : reversed(sig.chunks())) {
+		auto chunks = sig.chunks();
+		for (const auto& chunk : reversed(chunks)) {
 			dump_sigchunk(f, chunk, false);
 			f << stringf(" ");
 		}
@@ -172,9 +175,10 @@ void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 	dump_attributes(f, indent, cell);
 	f << stringf("%s" "cell %s %s\n", indent, cell->type, cell->name);
 	for (const auto& [name, param] : reversed(cell->parameters)) {
-		f << stringf("%s  parameter%s%s %s ", indent,
+		f << stringf("%s  parameter%s%s%s %s ", indent,
 				(param.flags & RTLIL::CONST_FLAG_SIGNED) != 0 ? " signed" : "",
 				(param.flags & RTLIL::CONST_FLAG_REAL) != 0 ? " real" : "",
+				(param.flags & RTLIL::CONST_FLAG_UNSIZED) != 0 ? " unsized" : "",
 				name);
 		dump_const(f, param);
 		f << stringf("\n");

@@ -1,5 +1,5 @@
 read_verilog -sv unbased_unsized.sv
-hierarchy
+hierarchy -top top
 proc
 flatten
 opt -full
