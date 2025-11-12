@@ -121,26 +121,22 @@ namespace RTLIL
 	struct Process;
 	struct Binding;
 	struct IdString;
-	struct StaticIdString;
+	struct OwningIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
-
-	struct StaticIdString {
-		constexpr StaticIdString(StaticId id, const IdString &id_str) : id_str(id_str), id(id) {}
-		constexpr inline operator const IdString &() const { return id_str; }
-		constexpr inline int index() const { return static_cast<short>(id); }
-		constexpr inline const IdString &id_string() const { return id_str; }
-
-		const IdString &id_str;
-		const StaticId id;
-	};
 };
 
 struct RTLIL::IdString
 {
+	struct Storage {
+		char *buf;
+		int size;
+
+		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
+	};
+
 	#undef YOSYS_XTRACE_GET_PUT
 	#undef YOSYS_SORT_ID_FREE_LIST
-	#undef YOSYS_USE_STICKY_IDS
 	#undef YOSYS_NO_IDS_REFCNT
 
 	// the global id string cache
@@ -151,200 +147,85 @@ struct RTLIL::IdString
 		~destruct_guard_t() { destruct_guard_ok = false; }
 	} destruct_guard;
 
-	static std::vector<char*> global_id_storage_;
+	// String storage for non-autoidx IDs
+	static std::vector<Storage> global_id_storage_;
+	// Lookup table for non-autoidx IDs
 	static std::unordered_map<std::string_view, int> global_id_index_;
+	// Shared prefix string storage for autoidx IDs, which have negative
+	// indices. Append the negated (i.e. positive) ID to this string to get
+	// the real string. The prefix strings must live forever.
+	static std::unordered_map<int, const std::string*> global_autoidx_id_prefix_storage_;
+	// Explicit string storage for autoidx IDs
+	static std::unordered_map<int, char*> global_autoidx_id_storage_;
 #ifndef YOSYS_NO_IDS_REFCNT
-	// For prepopulated IdStrings, the refcount is meaningless since they
-	// are never freed even if the refcount is zero. For code efficiency
-	// we increment the refcount of prepopulated IdStrings like any other string,
-	// but we never decrement the refcount or check whether it's zero.
-	// So, make this unsigned because refcounts of preopulated IdStrings may overflow
-	// and overflow of signed integers is undefined behavior.
-	static std::vector<uint32_t> global_refcount_storage_;
+	// All (index, refcount) pairs in this map have refcount > 0.
+	static std::unordered_map<int, int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
 #endif
 
-#ifdef YOSYS_USE_STICKY_IDS
-	static int last_created_idx_ptr_;
-	static int last_created_idx_[8];
-#endif
+	static int refcount(int idx) {
+		auto it = global_refcount_storage_.find(idx);
+		if (it == global_refcount_storage_.end())
+			return 0;
+		return it->second;
+	}
 
 	static inline void xtrace_db_dump()
 	{
 	#ifdef YOSYS_XTRACE_GET_PUT
 		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
 		{
-			if (global_id_storage_.at(idx) == nullptr)
+			if (global_id_storage_.at(idx).buf == nullptr)
 				log("#X# DB-DUMP index %d: FREE\n", idx);
 			else
-				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, refcount(idx).buf, refcount);
 		}
 	#endif
 	}
 
 	static inline void checkpoint()
 	{
-	#ifdef YOSYS_USE_STICKY_IDS
-		last_created_idx_ptr_ = 0;
-		for (int i = 0; i < 8; i++) {
-			if (last_created_idx_[i])
-				put_reference(last_created_idx_[i]);
-			last_created_idx_[i] = 0;
-		}
-	#endif
 	#ifdef YOSYS_SORT_ID_FREE_LIST
 		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
 	#endif
 	}
 
-	static inline int get_reference(int idx)
-	{
-	#ifndef YOSYS_NO_IDS_REFCNT
-		global_refcount_storage_[idx]++;
-	#endif
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
-			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-	#endif
-		return idx;
-	}
-
-	static int get_reference(const char *p)
-	{
-		return get_reference(std::string_view(p));
-	}
-
-	static int get_reference(std::string_view p)
+	static int insert(std::string_view p)
 	{
 		log_assert(destruct_guard_ok);
 
 		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
-	#ifndef YOSYS_NO_IDS_REFCNT
-			global_refcount_storage_.at(it->second)++;
-	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second).buf, it->second, refcount(it->second));
 	#endif
 			return it->second;
 		}
-
-		ensure_prepopulated();
-
-		if (p.empty())
-			return 0;
-
-		log_assert(p[0] == '$' || p[0] == '\\');
-		for (char ch : p)
-			if ((unsigned)ch <= (unsigned)' ')
-				log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(p).c_str());
-
-	#ifndef YOSYS_NO_IDS_REFCNT
-		if (global_free_idx_list_.empty()) {
-			log_assert(global_id_storage_.size() < 0x40000000);
-			global_free_idx_list_.push_back(global_id_storage_.size());
-			global_id_storage_.push_back(nullptr);
-			global_refcount_storage_.push_back(0);
-		}
-
-		int idx = global_free_idx_list_.back();
-		global_free_idx_list_.pop_back();
-		char* buf = static_cast<char*>(malloc(p.size() + 1));
-		memcpy(buf, p.data(), p.size());
-		buf[p.size()] = 0;
-		global_id_storage_.at(idx) = buf;
-		global_id_index_.insert(it, {std::string_view(buf, p.size()), idx});
-		global_refcount_storage_.at(idx)++;
-	#else
-		int idx = global_id_storage_.size();
-		global_id_storage_.push_back(strdup(p));
-		global_id_index_[global_id_storage_.back()] = idx;
-	#endif
-
-		if (yosys_xtrace) {
-			log("#X# New IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace)
-			log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-	#endif
-
-	#ifdef YOSYS_USE_STICKY_IDS
-		// Avoid Create->Delete->Create pattern
-		if (last_created_idx_[last_created_idx_ptr_])
-			put_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_[last_created_idx_ptr_] = idx;
-		get_reference(last_created_idx_[last_created_idx_ptr_]);
-		last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-	#endif
-
-		return idx;
+		return really_insert(p, it);
 	}
 
-#ifndef YOSYS_NO_IDS_REFCNT
-	static inline void put_reference(int idx)
-	{
-		// put_reference() may be called from destructors after the destructor of
-		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (idx < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
-			return;
-
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace) {
-			log("#X# PUT '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		}
-	#endif
-
-		uint32_t &refcount = global_refcount_storage_[idx];
-
-		if (--refcount > 0)
-			return;
-
-		free_reference(idx);
+	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
+	// `prefix` must start with '$auto$', end with '$', and live forever.
+	static IdString new_autoidx_with_prefix(const std::string *prefix) {
+		int index = -(autoidx++);
+		global_autoidx_id_prefix_storage_.insert({index, prefix});
+		return from_index(index);
 	}
-	static inline void free_reference(int idx)
-	{
-		if (yosys_xtrace) {
-			log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-			log_backtrace("-X- ", yosys_xtrace-1);
-		}
-		log_assert(idx >= static_cast<short>(StaticId::STATIC_ID_END));
-
-		global_id_index_.erase(global_id_storage_.at(idx));
-		free(global_id_storage_.at(idx));
-		global_id_storage_.at(idx) = nullptr;
-		global_free_idx_list_.push_back(idx);
-	}
-#else
-	static inline void put_reference(int) { }
-#endif
 
 	// the actual IdString object is just is a single int
 
 	int index_;
 
-	inline IdString() : index_(0) { }
-	inline IdString(const char *str) : index_(get_reference(str)) { }
-	inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+	constexpr inline IdString() : index_(0) { }
+	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
+	constexpr inline IdString(const IdString &str) : index_(str.index_) { }
 	inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-	inline IdString(const std::string &str) : index_(get_reference(std::string_view(str))) { }
-	inline IdString(std::string_view str) : index_(get_reference(str)) { }
-	inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
-	inline ~IdString() { put_reference(index_); }
+	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
+	inline IdString(std::string_view str) : index_(insert(str)) { }
+	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
 
-	inline void operator=(const IdString &rhs) {
-		put_reference(index_);
-		index_ = get_reference(rhs.index_);
-	}
-
-	inline void operator=(IdString &&rhs) {
-		put_reference(index_);
-		index_ = rhs.index_;
-		rhs.index_ = 0;
-	}
+	IdString &operator=(const IdString &rhs) = default;
 
 	inline void operator=(const char *rhs) {
 		IdString id(rhs);
@@ -359,11 +240,156 @@ struct RTLIL::IdString
 	constexpr inline const IdString &id_string() const { return *this; }
 
 	inline const char *c_str() const {
-		return global_id_storage_.at(index_);
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).buf;
+		auto it = global_autoidx_id_storage_.find(index_);
+		if (it != global_autoidx_id_storage_.end())
+			return it->second;
+
+		const std::string &prefix = *global_autoidx_id_prefix_storage_.at(index_);
+		std::string suffix = std::to_string(-index_);
+		char *c = new char[prefix.size() + suffix.size() + 1];
+		memcpy(c, prefix.data(), prefix.size());
+		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
+		global_autoidx_id_storage_.insert(it, {index_, c});
+		return c;
 	}
 
 	inline std::string str() const {
-		return std::string(global_id_storage_.at(index_));
+		std::string result;
+		append_to(&result);
+		return result;
+	}
+
+	inline void append_to(std::string *out) const {
+		if (index_ >= 0) {
+			*out += global_id_storage_.at(index_).str_view();
+			return;
+		}
+		*out += *global_autoidx_id_prefix_storage_.at(index_);
+		*out += std::to_string(-index_);
+	}
+
+	class Substrings {
+		std::string_view first_;
+		int suffix_number;
+		char buf[10];
+	public:
+		Substrings(const Storage &storage) : first_(storage.str_view()), suffix_number(-1) {}
+		// suffix_number must be non-negative
+		Substrings(const std::string *prefix, int suffix_number)
+				: first_(*prefix), suffix_number(suffix_number) {}
+		std::string_view first() { return first_; }
+		std::optional<std::string_view> next() {
+			if (suffix_number < 0)
+				return std::nullopt;
+                       int i = sizeof(buf);
+			do {
+				--i;
+                               buf[i] = (suffix_number % 10) + '0';
+                               suffix_number /= 10;
+			} while (suffix_number > 0);
+			suffix_number = -1;
+			return std::string_view(buf + i, sizeof(buf) - i);
+		}
+	};
+
+	class const_iterator {
+		const std::string *prefix;
+		std::string suffix;
+		const char *c_str;
+		int c_str_len;
+		// When this is INT_MAX it's the generic "end" value.
+		int index;
+
+	public:
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = char;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const char*;
+		using reference = const char&;
+
+		const_iterator(const Storage &storage) : prefix(nullptr), c_str(storage.buf), c_str_len(storage.size), index(0) {}
+		const_iterator(const std::string *prefix, int number) :
+				prefix(prefix), suffix(std::to_string(number)), c_str(nullptr), c_str_len(0), index(0) {}
+		// Construct end-marker
+		const_iterator() : prefix(nullptr), c_str(nullptr), c_str_len(0), index(INT_MAX) {}
+
+		int size() const {
+			if (c_str != nullptr)
+				return c_str_len;
+			return GetSize(*prefix) + GetSize(suffix);
+		}
+
+		char operator*() const {
+			if (c_str != nullptr)
+				return c_str[index];
+			int prefix_size = GetSize(*prefix);
+			if (index < prefix_size)
+				return prefix->at(index);
+			return suffix[index - prefix_size];
+		}
+
+		const_iterator& operator++() { ++index; return *this; }
+		const_iterator operator++(int) { const_iterator result(*this); ++index; return result; }
+		const_iterator& operator+=(int i) { index += i; return *this; }
+
+		const_iterator operator+(int add) {
+			const_iterator result = *this;
+			result += add;
+			return result;
+		}
+
+		bool operator==(const const_iterator& other) const {
+			return index == other.index || (other.index == INT_MAX && index == size())
+				|| (index == INT_MAX && other.index == other.size());
+		}
+		bool operator!=(const const_iterator& other) const {
+			return !(*this == other);
+		}
+	};
+	const_iterator begin() const {
+		if (index_ >= 0) {
+			return const_iterator(global_id_storage_.at(index_));
+		}
+		return const_iterator(global_autoidx_id_prefix_storage_.at(index_), -index_);
+	}
+	const_iterator end() const {
+		return const_iterator();
+	}
+
+	Substrings substrings() const {
+		if (index_ >= 0) {
+			return Substrings(global_id_storage_.at(index_));
+		}
+		return Substrings(global_autoidx_id_prefix_storage_.at(index_), -index_);
+	}
+
+	inline bool lt_by_name(const IdString &rhs) const {
+		Substrings lhs_it = substrings();
+		Substrings rhs_it = rhs.substrings();
+		std::string_view lhs_substr = lhs_it.first();
+		std::string_view rhs_substr = rhs_it.first();
+		while (true) {
+			int min = std::min(GetSize(lhs_substr), GetSize(rhs_substr));
+			int diff = memcmp(lhs_substr.data(), rhs_substr.data(), min);
+			if (diff != 0)
+				return diff < 0;
+			lhs_substr = lhs_substr.substr(min);
+			rhs_substr = rhs_substr.substr(min);
+			if (rhs_substr.empty()) {
+				if (std::optional<std::string_view> s = rhs_it.next())
+					rhs_substr = *s;
+				else
+					return false;
+			}
+			if (lhs_substr.empty()) {
+				if (std::optional<std::string_view> s = lhs_it.next())
+					lhs_substr = *s;
+				else
+					return true;
+			}
+		}
 	}
 
 	inline bool operator<(const IdString &rhs) const {
@@ -372,8 +398,6 @@ struct RTLIL::IdString
 
 	inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
 	inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
-	inline bool operator==(const StaticIdString &rhs) const;
-	inline bool operator!=(const StaticIdString &rhs) const;
 
 	// The methods below are just convenience functions for better compatibility with std::string.
 
@@ -384,45 +408,84 @@ struct RTLIL::IdString
 	bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
 
 	char operator[](size_t i) const {
-					const char *p = c_str();
+		if (index_ >= 0) {
+			const Storage &storage = global_id_storage_.at(index_);
 #ifndef NDEBUG
-		for (; i != 0; i--, p++)
-			log_assert(*p != 0);
-		return *p;
-#else
-		return *(p + i);
+			log_assert(static_cast<int>(i) < storage.size);
 #endif
+			return *(storage.buf + i);
+		}
+		const std::string &id_start = *global_autoidx_id_prefix_storage_.at(index_);
+		if (i < id_start.size())
+			return id_start[i];
+		i -= id_start.size();
+		std::string suffix = std::to_string(-index_);
+#ifndef NDEBUG
+		// Allow indexing to access the trailing null.
+		log_assert(i <= suffix.size());
+#endif
+		return suffix[i];
 	}
 
 	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-		if (len == std::string::npos || len >= strlen(c_str() + pos))
-			return std::string(c_str() + pos);
-		else
-			return std::string(c_str() + pos, len);
+		std::string result;
+		const_iterator it = begin() + pos;
+		const_iterator end_it = end();
+		if (len != std::string::npos && len < it.size() - pos) {
+			end_it = it + len;
+		}
+		std::copy(it, end_it, std::back_inserter(result));
+		return result;
 	}
 
 	int compare(size_t pos, size_t len, const char* s) const {
-		return strncmp(c_str()+pos, s, len);
+		const_iterator it = begin() + pos;
+		const_iterator end_it = end();
+		while (len > 0 && *s != 0 && it != end_it) {
+			int diff = *it - *s;
+			if (diff != 0)
+				return diff;
+			++it;
+			++s;
+			--len;
+		}
+		return 0;
 	}
 
-	bool begins_with(const char* prefix) const {
-		size_t len = strlen(prefix);
-		if (size() < len) return false;
-		return compare(0, len, prefix) == 0;
+	bool begins_with(std::string_view prefix) const {
+		Substrings it = substrings();
+		std::string_view substr = it.first();
+		while (true) {
+			int min = std::min(GetSize(substr), GetSize(prefix));
+			if (memcmp(substr.data(), prefix.data(), min) != 0)
+				return false;
+			prefix = prefix.substr(min);
+			if (prefix.empty())
+				return true;
+			substr = substr.substr(min);
+			if (substr.empty()) {
+				if (std::optional<std::string_view> s = it.next())
+					substr = *s;
+				else
+					return false;
+			}
+		}
 	}
 
-	bool ends_with(const char* suffix) const {
-		size_t len = strlen(suffix);
-		if (size() < len) return false;
-		return compare(size()-len, len, suffix) == 0;
+	bool ends_with(std::string_view suffix) const {
+		size_t sz = size();
+		if (sz < suffix.size()) return false;
+		return compare(sz - suffix.size(), suffix.size(), suffix.data()) == 0;
 	}
 
-	bool contains(const char* str) const {
-		return strstr(c_str(), str);
+	bool contains(std::string_view s) const {
+		if (index_ >= 0)
+			return global_id_storage_.at(index_).str_view().find(s) != std::string::npos;
+		return str().find(s) != std::string::npos;
 	}
 
 	size_t size() const {
-		return strlen(c_str());
+		return begin().size();
 	}
 
 	bool empty() const {
@@ -459,7 +522,6 @@ struct RTLIL::IdString
 	}
 
 	bool in(const IdString &rhs) const { return *this == rhs; }
-	bool in(const StaticIdString &rhs) const { return *this == rhs; }
 	bool in(const char *rhs) const { return *this == rhs; }
 	bool in(const std::string &rhs) const { return *this == rhs; }
 	inline bool in(const pool<IdString> &rhs) const;
@@ -469,11 +531,108 @@ struct RTLIL::IdString
 
 private:
 	static void prepopulate();
+	static int really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it);
+
+protected:
+	static IdString from_index(int index) {
+		IdString result;
+		result.index_ = index;
+		return result;
+	}
 
 public:
 	static void ensure_prepopulated() {
 		if (global_id_index_.empty())
 			prepopulate();
+	}
+};
+
+struct RTLIL::OwningIdString : public RTLIL::IdString {
+	inline OwningIdString() { }
+	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const char *str) : IdString(str) { get_reference(); }
+	inline OwningIdString(const IdString &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(IdString &&str) : IdString(str) {	get_reference(); }
+	inline OwningIdString(const std::string &str) : IdString(str) { get_reference(); }
+	inline OwningIdString(std::string_view str) : IdString(str) { get_reference(); }
+	inline OwningIdString(StaticId id) : IdString(id) {}
+	inline ~OwningIdString() {
+		put_reference();
+	}
+
+	inline OwningIdString &operator=(const OwningIdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(const IdString &rhs) {
+		put_reference();
+		index_ = rhs.index_;
+		get_reference();
+		return *this;
+	}
+	inline OwningIdString &operator=(OwningIdString &&rhs) {
+		std::swap(index_, rhs.index_);
+		return *this;
+	}
+
+	// Collect all non-owning references.
+	static void collect_garbage();
+	static int64_t garbage_collection_ns() { return gc_ns; }
+	static int garbage_collection_count() { return gc_count; }
+
+	// Used by the ID() macro to create an IdString with no destructor whose string will
+	// never be released. If ID() creates a closure-static `OwningIdString` then
+	// initialization of the static registers its destructor to run at exit, which is
+	// wasteful.
+	static IdString immortal(const char* str) {
+		IdString result(str);
+		get_reference(result.index_);
+		return result;
+	}
+private:
+	static int64_t gc_ns;
+	static int gc_count;
+
+	void get_reference()
+	{
+		get_reference(index_);
+	}
+	static void get_reference(int idx)
+	{
+	#ifndef YOSYS_NO_IDS_REFCNT
+		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
+			return;
+		auto it = global_refcount_storage_.find(idx);
+		if (it == global_refcount_storage_.end())
+			global_refcount_storage_.insert(it, {idx, 1});
+		else
+			++it->second;
+	#endif
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
+			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
+	#endif
+	}
+
+	void put_reference()
+	{
+	#ifndef YOSYS_NO_IDS_REFCNT
+		// put_reference() may be called from destructors after the destructor of
+		// global_refcount_storage_ has been run. in this case we simply do nothing.
+		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
+			return;
+	#ifdef YOSYS_XTRACE_GET_PUT
+		if (yosys_xtrace)
+			log("#X# PUT '%s' (index %d, refcount %u)\n", from_index(index_), index_, refcount(index_));
+	#endif
+		auto it = global_refcount_storage_.find(index_);
+		log_assert(it != global_refcount_storage_.end() && it->second >= 1);
+		if (--it->second == 0) {
+			global_refcount_storage_.erase(it);
+		}
+	#endif
 	}
 };
 
@@ -502,21 +661,9 @@ inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.co
 [[deprecated]]
 inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
 
-inline bool RTLIL::IdString::operator==(const RTLIL::StaticIdString &rhs) const {
-	return index_ == rhs.index();
-}
-inline bool RTLIL::IdString::operator!=(const RTLIL::StaticIdString &rhs) const {
-	return index_ != rhs.index();
-}
-
 namespace RTLIL {
-	namespace IDInternal {
-#define X(_id) extern const IdString _id;
-#include "kernel/constids.inc"
-#undef X
-	}
 	namespace ID {
-#define X(_id) constexpr StaticIdString _id(StaticId::_id, IDInternal::_id);
+#define X(_id) constexpr IdString _id(StaticId::_id);
 #include "kernel/constids.inc"
 #undef X
 	}
@@ -524,7 +671,7 @@ namespace RTLIL {
 
 struct IdTableEntry {
 	const std::string_view name;
-	const RTLIL::StaticIdString static_id;
+	const RTLIL::IdString static_id;
 };
 
 constexpr IdTableEntry IdTable[] = {
@@ -557,15 +704,15 @@ constexpr int lookup_well_known_id(std::string_view name)
 //
 //  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
 //
-typedef const RTLIL::IdString &IDMacroHelperFunc();
+typedef RTLIL::IdString IDMacroHelperFunc();
 
 template <int IdTableIndex> struct IDMacroHelper {
-	static constexpr RTLIL::StaticIdString eval(IDMacroHelperFunc) {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc) {
 		return IdTable[IdTableIndex].static_id;
 	}
 };
 template <> struct IDMacroHelper<-1> {
-	static constexpr const RTLIL::IdString &eval(IDMacroHelperFunc func) {
+	static constexpr RTLIL::IdString eval(IDMacroHelperFunc func) {
 		return func();
 	}
 };
@@ -575,9 +722,10 @@ template <> struct IDMacroHelper<-1> {
 		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
 				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
 		>::eval([]() \
-		-> const YOSYS_NAMESPACE_PREFIX RTLIL::IdString & { \
+		-> YOSYS_NAMESPACE_PREFIX RTLIL::IdString { \
 			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
-			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id(q); \
+			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
+				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
 			return id; \
         })
 
@@ -621,13 +769,13 @@ namespace RTLIL {
 
 	template <typename T> struct sort_by_name_str {
 		bool operator()(T *a, T *b) const {
-			return strcmp(a->name.c_str(), b->name.c_str()) < 0;
+			return a->name.lt_by_name(b->name);
 		}
 	};
 
 	struct sort_by_id_str {
 		bool operator()(const RTLIL::IdString &a, const RTLIL::IdString &b) const {
-			return strcmp(a.c_str(), b.c_str()) < 0;
+			return a.lt_by_name(b);
 		}
 	};
 
@@ -1877,9 +2025,7 @@ struct RTLIL::Design
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
-#ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
-#endif
 };
 
 struct RTLIL::Module : public RTLIL::NamedObject

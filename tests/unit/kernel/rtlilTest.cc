@@ -361,6 +361,36 @@ namespace RTLIL {
 		EXPECT_FALSE(Const().is_onehot(&pos));
 	}
 
+	TEST_F(KernelRtlilTest, OwningIdString) {
+		OwningIdString own("\\figblortle");
+		OwningIdString::collect_garbage();
+		EXPECT_EQ(own.str(), "\\figblortle");
+	}
+
+	TEST_F(KernelRtlilTest, LookupAutoidxId) {
+		IdString id = NEW_ID;
+		IdString id2 = IdString(id.str());
+		EXPECT_EQ(id, id2);
+	}
+
+	TEST_F(KernelRtlilTest, NewIdBeginsWith) {
+		IdString id = NEW_ID;
+		EXPECT_TRUE(id.begins_with("$auto"));
+		EXPECT_FALSE(id.begins_with("xyz"));
+		EXPECT_TRUE(id.begins_with("$auto$"));
+		EXPECT_FALSE(id.begins_with("abcdefghijklmn"));
+		EXPECT_TRUE(id.begins_with("$auto$rtlilTest"));
+		EXPECT_FALSE(id.begins_with("$auto$rtlilX"));
+	}
+
+	TEST_F(KernelRtlilTest, NewIdIndexing) {
+		IdString id = NEW_ID;
+		std::string str = id.str();
+		for (int i = 0; i < GetSize(str) + 1; ++i) {
+			EXPECT_EQ(id[i], str.c_str()[i]);
+		}
+	}
+
 	class WireRtlVsHdlIndexConversionTest :
 		public KernelRtlilTest,
 		public testing::WithParamInterface<std::tuple<bool, int, int>>
