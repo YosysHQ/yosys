@@ -5492,12 +5492,11 @@ bool RTLIL::SigSpec::is_mostly_const() const
 {
 	cover("kernel.rtlil.sigspec.is_mostly_const");
 
-	pack();
 	int constbits = 0;
-	for (auto it = chunks_.begin(); it != chunks_.end(); it++)
-		if (it->width > 0 && it->wire == NULL)
-			constbits += it->width;
-	return (constbits > width_/2);
+	for (auto &chunk : chunks())
+		if (chunk.width > 0 && chunk.wire == NULL)
+			constbits += chunk.width;
+	return (constbits > size()/2);
 }
 
 bool RTLIL::SigSpec::known_driver() const

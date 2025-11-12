@@ -381,12 +381,13 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	if (sig.is_fully_const() && GetSize(sig) > 8192) {
 		f << stringf("{ ");
 		int i = 0;
-		for (auto it = sig.bits().rbegin(); it != sig.bits().rend(); ++it) {
+		auto chunks = sig.chunks();
+		for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
 			dump_const(f, it->data, 1, 0);
-			if (it != sig.bits().rend() - 1)
+			if (it != chunks.rbegin())
 				f << stringf(", ");
 			if (i++ % 20 == 19)
-				f << stringf("\n");
+				f << stringf("\n");	
 		}
 		f << stringf(" }");
 		return;
