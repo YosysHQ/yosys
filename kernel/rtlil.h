@@ -574,7 +574,7 @@ struct RTLIL::OwningIdString : public RTLIL::IdString {
 	}
 
 	// Collect all non-owning references.
-	static void collect_garbage();
+	static void collect_garbage(bool trace = true);
 	static int64_t garbage_collection_ns() { return gc_ns; }
 	static int garbage_collection_count() { return gc_count; }
 

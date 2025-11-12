@@ -246,14 +246,15 @@ struct IdStringCollector {
 int64_t RTLIL::OwningIdString::gc_ns;
 int RTLIL::OwningIdString::gc_count;
 
-void RTLIL::OwningIdString::collect_garbage()
+void RTLIL::OwningIdString::collect_garbage(bool trace)
 {
 	int64_t start = PerformanceTimer::query();
 #ifndef YOSYS_NO_IDS_REFCNT
 	IdStringCollector collector;
-	for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
-		collector.trace(*design);
-	}
+	if (trace)
+		for (auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+			collector.trace(*design);
+		}
 	int size = GetSize(global_id_storage_);
 	for (int i = static_cast<int>(StaticId::STATIC_ID_END); i < size; ++i) {
 		RTLIL::IdString::Storage &storage = global_id_storage_.at(i);
