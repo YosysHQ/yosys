@@ -203,14 +203,17 @@ struct bus_rebuild : public ScriptPass {
 			for (auto &conn : newConnections) {
 				RTLIL::SigSpec lhs = conn.first;
 				RTLIL::SigSpec rhs = conn.second;
-				auto lit = lhs.chunks().rbegin();
-				if (lit == lhs.chunks().rend())
+				auto lhs_chunks = lhs.chunks();
+				auto rhs_chunks = rhs.chunks();
+
+				auto lit = lhs_chunks.rbegin();
+				if (lit == lhs_chunks.rend())
 					continue;
-				auto rit = rhs.chunks().rbegin();
-				if (rit == rhs.chunks().rend())
+				auto rit = rhs_chunks.rbegin();
+				if (rit == rhs_chunks.rend())
 					continue;
 				RTLIL::SigChunk sub_rhs = *rit;
-				while (lit != lhs.chunks().rend()) {
+				while (lit != lhs_chunks.rend()) {
 					RTLIL::SigChunk sub_lhs = *lit;
 					std::string conn_lhs_s = sub_lhs.wire ? sub_lhs.wire->name.c_str() : "";
 					std::string conn_rhs_s = sub_rhs.wire ? sub_rhs.wire->name.c_str() : "";
