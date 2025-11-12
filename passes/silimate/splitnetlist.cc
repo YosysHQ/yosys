@@ -31,7 +31,8 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 
 				if (cell->input(portName)) {
 					if (!actual.is_chunk()) {
-						for (auto it = actual.chunks().rbegin(); it != actual.chunks().rend(); ++it) {
+						auto chunks = actual.chunks();
+						for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
 							RTLIL::SigSpec sub_actual = *it;
 							recordTransFanin(sub_actual, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 						}
@@ -62,7 +63,8 @@ void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>
 			std::set<Cell *> *newSet;
 			if (cell->output(portName)) {
 				if (!actual.is_chunk()) {
-					for (auto it = actual.chunks().rbegin(); it != actual.chunks().rend(); ++it) {
+					auto chunks = actual.chunks();
+					for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
 						RTLIL::SigSpec sub_actual = *it;
 						if (sig2CellsInFanin.count(sub_actual)) {
 							newSet = sig2CellsInFanin[sub_actual];
