@@ -130,7 +130,7 @@ int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::s
 
 #ifdef YOSYS_XTRACE_GET_PUT
 	if (yosys_xtrace)
-		log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx), idx, refcount(idx));
+		log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(idx).buf, idx, refcount(idx));
 #endif
 	return idx;
 }

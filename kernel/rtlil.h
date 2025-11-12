@@ -135,10 +135,6 @@ struct RTLIL::IdString
 		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
 	};
 
-	#undef YOSYS_XTRACE_GET_PUT
-	#undef YOSYS_SORT_ID_FREE_LIST
-	#undef YOSYS_NO_IDS_REFCNT
-
 	// the global id string cache
 
 	static bool destruct_guard_ok; // POD, will be initialized to zero
@@ -178,7 +174,7 @@ struct RTLIL::IdString
 			if (global_id_storage_.at(idx).buf == nullptr)
 				log("#X# DB-DUMP index %d: FREE\n", idx);
 			else
-				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, refcount(idx).buf, refcount);
+				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, global_id_storage_.at(idx).buf, refcount(idx));
 		}
 	#endif
 	}
