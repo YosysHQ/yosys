@@ -366,6 +366,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 					params += " -no-auto-block";
 			}
 			run("memory_libmap" + params);
+			run("dump_meminit t:$__ANALOGDEVICES_BLOCKRAM_*");
 			run("techmap -map " + lutrams_map);
 			run("techmap -map " + brams_map);
 		}

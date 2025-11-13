@@ -220,6 +220,9 @@ ram block $__ANALOGDEVICES_BLOCKRAM_HALF_ {
 		}
 	}
 
+	# supports any initialization value, but need to export memory files
+	init any;
+
 	option "MODE" "SDP" {
 		ifdef IS_T16FFC forbid;
 		port sw "A" {
@@ -274,6 +277,10 @@ ifdef IS_T40LP {
 				option "MODE" "SP2" cost 2209;
 			}
 		}
+
+		# supports any initialization value, but need to export memory files
+		init any;
+
 		option "MODE" "SP2" {
 			port srsw "A" {
 				clock anyedge;

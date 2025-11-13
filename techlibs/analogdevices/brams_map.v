@@ -20,10 +20,12 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 `ifdef IS_T16FFC
 	localparam NODE = "T16FFC_Gen2.4";
 `endif
-	// localparam BRAM_MODE = "SDP_2048x36_BP";
 	localparam BRAM_MODE = (OPTION_ERR!="NONE") ? {OPTION_MODE, "_", OPTION_SIZE, "_", OPTION_ERR} :
 							{OPTION_MODE, "_", OPTION_SIZE};
 	localparam PBITS = 	(OPTION_ERR=="BP") ? PORT_A_WR_EN_WIDTH : 1;
+	parameter INIT_FILE = "";
+	localparam INIT_BEHAVIOR = (INIT_FILE == "" || INIT_FILE == "X") ? "UNINITIALIZED" :
+								INIT_FILE == "0" ? "ALL_ZERO" : "INIT_FILE";
 
 	// libmap ports
 	input PORT_A_CLK;
@@ -49,10 +51,12 @@ module $__ANALOGDEVICES_BLOCKRAM_FULL_ (...);
 	#(
 		.TARGET_NODE(NODE),
 		.BRAM_MODE(BRAM_MODE),
+		.INIT_FILE_A(INIT_BEHAVIOR == "INIT_FILE" ? INIT_FILE : ""),
 		.QA_REG((OPTION_ERR=="ECC") ? 1 : 0),
 		.QB_REG((OPTION_ERR=="ECC") ? 1 : 0),
 		.CLKA_INV(!PORT_A_CLK_POL),
 		.CLKB_INV(!PORT_B_CLK_POL),
+		.SIM_INIT_BEHAVIOR(INIT_BEHAVIOR),
 		.DATA_WIDTH(WIDTH),
 		.ADDR_WIDTH(ABITS),
 		.WE_WIDTH(PORT_A_WR_EN_WIDTH),
@@ -145,6 +149,9 @@ module $__ANALOGDEVICES_BLOCKRAM_HALF_ (...);
 	parameter WIDTH = 40;
 	parameter ABITS = 13;
 
+	// non libmap params
+	parameter INIT_FILE = "";
+
 	// libmap ports
 	input PORT_A_CLK;
 	input PORT_A_CLK_EN;
@@ -204,6 +211,9 @@ module $__ANALOGDEVICES_BLOCKRAM_QUARTER_ (...);
 	// needs -force-params
 	parameter WIDTH = 40;
 	parameter ABITS = 13;
+
+	// non libmap params
+	parameter INIT_FILE = "";
 
 	// libmap ports
 	input PORT_A_CLK;
