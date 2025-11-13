@@ -165,6 +165,14 @@ ram block $__ANALOGDEVICES_BLOCKRAM_HALF_ {
 			option "MODE" "SP" cost 2304;
 			option "MODE" "SP2" forbid;
 		}
+		option "SIZE" "1024x18" {
+			abits 10;
+			width 18;
+			byte 9;
+			option "MODE" "SDP" forbid;
+			option "MODE" "SP" forbid;
+			option "MODE" "SP2" cost 2302;
+		}
 	}
 	option "ERR" "FP" {
 		style "FP";
@@ -172,9 +180,9 @@ ram block $__ANALOGDEVICES_BLOCKRAM_HALF_ {
 			abits 10;
 			width 18;
 			byte 18;
-			option "MODE" "SDP" forbid;
+			option "MODE" "SDP" cost 2401;
 			option "MODE" "SP" forbid;
-			option "MODE" "SP2" cost 2301;
+			option "MODE" "SP2" forbid;
 		}
 	}
 	option "ERR" "NONE" {
