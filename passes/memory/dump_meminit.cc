@@ -26,6 +26,11 @@ struct DumpMemInitPass : public Pass
             "undefined bits as 0."
         );
 
+        content_root->option("-prefix <prefix>",
+            "add <prefix> to beginning of the output file name.  Will output relative to the "
+            "current working directory unless an absolute directory is provided."
+        );
+
         content_root->option("-max_name_length <length>",
             "the written file normally uses the hierarchical name of the memory being written. "
             "If the length of the hierarchical name exceeds <length>, replace it with a SHA1 "
@@ -37,12 +42,17 @@ struct DumpMemInitPass : public Pass
 
     void execute(std::vector<std::string> args, RTLIL::Design *design) override
     {
+        std::string prefix = "";
         const int DIGEST_LENGTH = 40;
         int max_name_length = 60;
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
             std::string arg = args[argidx];
+            if (arg == "-prefix" && argidx+1 < args.size()) {
+                prefix = args[++argidx];
+                continue;
+            }
             if (arg == "-max_name_length" && argidx+1 < args.size()) {
                 max_name_length = stoi(args[++argidx]);
                 if (max_name_length < DIGEST_LENGTH)
@@ -59,6 +69,10 @@ struct DumpMemInitPass : public Pass
         for (auto *mod : design->selected_unboxed_modules())
         for (auto *cell : mod->selected_cells())
         {
+            // skip if cell has no INIT
+            if (!cell->hasParam(ID::INIT))
+                continue;
+
             // construct full hierarchical name
             auto full_name = stringf("%s.%s", RTLIL::unescape_id(mod->name), RTLIL::unescape_id(cell->name));
 
@@ -79,7 +93,7 @@ struct DumpMemInitPass : public Pass
             }
 
             // construct output file name
-            string filename;
+            string filename = prefix;
             if (GetSize(full_name) > max_name_length)
                 filename += sha1(full_name);
             else
