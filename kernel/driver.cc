@@ -707,11 +707,16 @@ int main(int argc, char **argv)
 
 		for (auto &it : pass_register)
 			if (it.second->call_counter) {
-				total_ns += it.second->runtime_ns + 1;
-				timedat.insert(make_tuple(it.second->runtime_ns + 1, it.second->call_counter, it.first));
+				auto pass_ns = it.second->runtime_ns + 1;
+				total_ns += pass_ns;
+				timedat.insert(make_tuple(pass_ns, it.second->call_counter, it.first));
 			}
-		timedat.insert(make_tuple(RTLIL::OwningIdString::garbage_collection_ns() + 1,
-				RTLIL::OwningIdString::garbage_collection_count(), "id_gc"));
+		{
+			auto gc_ns = RTLIL::OwningIdString::garbage_collection_ns() + 1;
+			total_ns += gc_ns;
+			timedat.insert(make_tuple(gc_ns,
+					RTLIL::OwningIdString::garbage_collection_count(), "id_gc"));
+		}
 
 		if (timing_details)
 		{
