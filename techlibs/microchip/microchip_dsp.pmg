@@ -268,7 +268,7 @@ endmatch
 code
 	if (postAdd)
 	{
-		if (postAdd->type.in(ID($sub)) && postAddAB == \A) {
+		if (postAdd->type.in($sub) && postAddAB == \A) {
 			// if $sub, the multiplier output must match to $sub.B, otherwise no match	
 		} else {
 			u_postAddAB = postAddAB;
