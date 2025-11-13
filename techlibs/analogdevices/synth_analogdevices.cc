@@ -42,8 +42,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("\n");
 		log("    synth_analogdevices [options]\n");
 		log("\n");
-		log("This command runs synthesis for Analog Devices FPGAs. This command does not operate on\n");
-		log("partly selected designs.\n");
+		log("This command runs synthesis for Analog Devices FPGAs. This command does not\n");
+		log("operate on partly selected designs.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -58,6 +58,13 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("    -edif <file>\n");
 		log("        write the design to the specified edif file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -memprefix <prefix>\n");
+		log("        any BRAMs that require initialization will automatically have their\n");
+		log("        contents dumped to file, with the filename derived from the hierarchical\n");
+		log("        name of the memory. This option adds the provided <prefix> to each output\n");
+		log("        filename. Files are relative to the current working directory unless an\n");
+		log("        absolute directory is provided.\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
@@ -114,7 +121,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("\n");
 	}
 
-	std::string top_opt, edif_file, json_file, tech, tech_param;
+	std::string top_opt, edif_file, mem_prefix, json_file, tech, tech_param;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -125,6 +132,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	{
 		top_opt = "-auto-top";
 		edif_file.clear();
+		mem_prefix.clear();
 		tech = "t16ffc";
 		tech_param = " -D IS_T16FFC";
 		flatten = true;
@@ -166,6 +174,10 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
 				edif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-memprefix" && argidx+1 < args.size()) {
+				mem_prefix = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -349,6 +361,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (check_label("map_memory")) {
 			std::string params = "";
+			std::string prefix_opt = "";
 			std::string lutrams_map = "+/analogdevices/lutrams_map.v";
 			std::string brams_map = "+/analogdevices/brams_map.v";
 			if (help_mode) {
@@ -364,9 +377,14 @@ struct SynthAnalogDevicesPass : public ScriptPass
 					params += " -no-auto-distributed";
 				if (nobram)
 					params += " -no-auto-block";
+				if (!mem_prefix.empty())
+					prefix_opt += " -prefix " + mem_prefix;
 			}
 			run("memory_libmap" + params);
-			run("dump_meminit t:$__ANALOGDEVICES_BLOCKRAM_*");
+			if (help_mode)
+				run("dump_meminit -prefix <memprefix>");
+			else
+				run("dump_meminit" + prefix_opt + " t:$__ANALOGDEVICES_BLOCKRAM_*");
 			run("techmap -map " + lutrams_map);
 			run("techmap -map " + brams_map);
 		}
