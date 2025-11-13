@@ -1,0 +1,62 @@
+# create sub dir
+!mkdir -p temp
+# remove output files
+!rm -f gold.m.mem
+!rm -f temp/gold.m.mem
+
+# load test design
+read_rtlil dump_gold.il
+design -save gold
+
+# dump_meminit sets INIT_FILE and unsets INIT
+select -assert-any t:$__MEMORY r:INIT %i
+select -assert-none t:$__MEMORY r:INIT_FILE %i
+dump_meminit
+select -assert-none t:$__MEMORY r:INIT %i
+select -assert-any t:$__MEMORY r:INIT_FILE %i
+# memory written to file
+!test -f gold.m.mem
+# file name in INIT_FILE
+select -assert-any t:$__MEMORY r:INIT_FILE=gold.m.mem %i
+
+design -load gold
+dump_meminit -prefix temp/
+# memory written to sub directory
+!test -f temp/gold.m.mem
+# sub directory in INIT_FILE
+select -assert-any t:$__MEMORY r:INIT_FILE=temp/gold.m.mem %i
+
+# dump_gate.v calls $readmemh with memory output from dump_gold.il
+design -reset
+read_verilog dump_gate.v
+proc
+design -save gate_proc
+
+# infer memory for gate
+memory -nomap
+select -assert-any t:$mem_v2
+design -save gate_memory
+
+# memory read from output of dump_meminit has the same value as the RTLIL
+select -assert-any t:$mem_v2 r:INIT=32'hdeadbeef %i
+
+design -load gold
+select -assert-any t:$__MEMORY r:INIT=32'hdeadbeef %i
+
+# dump_meminit does nothing if there are no cells with INIT
+design -load gate_proc
+select -assert-none r:INIT
+dump_meminit
+select -assert-none r:INIT_FILE
+
+# change cell type since INIT_FILE param is invalid on $mem_v2
+design -load gate_memory
+chtype -set $__MEMORY gate/m
+
+# dump_meminit on parsed memory
+select -assert-none r:INIT_FILE
+dump_meminit
+select -assert-any r:INIT_FILE=gate.m.mem
+
+# gold and gate dumps are identical
+!diff -s gate.m.mem gold.m.mem

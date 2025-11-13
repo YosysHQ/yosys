@@ -914,6 +914,7 @@ MK_TEST_DIRS += tests/verific
 endif
 endif
 MK_TEST_DIRS += tests/verilog
+MK_TEST_DIRS += tests/memfile
 
 # Tests that don't generate .mk
 SH_TEST_DIRS =
@@ -935,7 +936,6 @@ SH_TEST_DIRS += tests/proc
 SH_TEST_DIRS += tests/blif
 SH_TEST_DIRS += tests/arch
 SH_TEST_DIRS += tests/rpc
-SH_TEST_DIRS += tests/memfile
 SH_TEST_DIRS += tests/fmt
 SH_TEST_DIRS += tests/cxxrtl
 SH_TEST_DIRS += tests/liberty
