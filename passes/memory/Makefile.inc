@@ -13,3 +13,5 @@ OBJS += passes/memory/memory_libmap.o
 OBJS += passes/memory/memory_bmux2rom.o
 
 OBJS += passes/memory/memlib.o
+
+OBJS += passes/memory/dump_meminit.o
