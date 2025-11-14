@@ -32,12 +32,13 @@ struct SdcExpandPass : public ScriptPass
 	}
 
 	string opensta_exe, sdc_filename, sdc_expanded_filename;
-	bool cleanup = true;
+	bool cleanup;
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing SDC_EXPAND pass.\n");
 		string run_from, run_to;
-		opensta_exe = "sta";
+		opensta_exe = "";
+		cleanup = design->scratchpad_get_bool("sdc_expand.cleanup", true);
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -121,8 +122,11 @@ struct SdcExpandPass : public ScriptPass
 		std::string liberty_path = tempdir_name + "/yosys.lib";
 		run("icell_liberty " + liberty_path);
 
-		std::string opensta_pass_call = "opensta -exe ";
-		opensta_pass_call += help_mode ? "<exe>" : opensta_exe;
+		std::string opensta_pass_call = "opensta ";
+		if (opensta_exe.length()) {
+			opensta_pass_call += "-exe ";
+			opensta_pass_call += help_mode ? "<exe>" : opensta_exe;
+		}
 		opensta_pass_call += " -sdc-in ";
 		opensta_pass_call += help_mode ? "<sdc-in>" : sdc_filename;
 		opensta_pass_call += " -sdc-out ";

@@ -39,7 +39,7 @@ struct OpenstaPass : public Pass
 		string sdc_filename, sdc_expanded_filename;
 		string tempdir_name, script_filename;
 		string verilog_filename, liberty_filename;
-		bool cleanup = true;
+		bool cleanup = design->scratchpad_get_bool("opensta.cleanup", true);
 
 		log_header(design, "Executing OPENSTA pass.\n");
 		log_push();
