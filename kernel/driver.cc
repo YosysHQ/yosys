@@ -158,7 +158,6 @@ extern "C" {
 
 void yosys_atexit()
 {
-	RTLIL::OwningIdString::collect_garbage(false);
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	if (!yosys_history_file.empty()) {
 #if defined(YOSYS_ENABLE_READLINE)
