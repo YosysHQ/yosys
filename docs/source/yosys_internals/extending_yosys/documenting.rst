@@ -22,15 +22,16 @@ Command help
 ------------
 
 The first stop for command help text is the ``Pass::short_help``.  This is a
-short sentence describing the pass, and is set in the ``Pass`` constructor, as
-demonstrated here with `chformal`.
+short sentence describing the pass, and is set in the ``Pass`` constructor with
+the name of the pass, as demonstrated here with `chformal`.
 
 .. literalinclude:: /generated/chformal.cc
    :language: c++
    :start-at: public Pass {
-   :end-before: bool formatted_help()
+   :end-at: ChformalPass()
    :caption: ``ChformalPass()`` from :file:`passes/cmds/chformal.cc`
-   :append: // ...
+   :append: 
+              // ...
       } ChformalPass;
 
 All currently available commands are listed with their ``short_help`` string
@@ -41,12 +42,19 @@ like :ref:`chformal autocmd`.
 
 The next section shows the complete help text for the `chformal` command.  This
 can be displayed locally by using ``help <command>`` (or ``yosys -h <command>``
-from the command line).  The general format is to show each usage signature,
-followed by a paragraph describing what the pass does, and a list of options or
-flags available.  Additional arguments in the signature or option may use square
-brackets (``[]``) to indicate optional parts, and angle brackets (``<>``) for
-required parts.  The pipe character ``|`` may be used to indicate mutually
-exclusive arguments.
+from the command line).  The general format is to show each usage signature (how
+the command is called), followed by a paragraph describing what the pass does,
+and a list of options or flags available.  Additional arguments in the signature
+or option may use square brackets (``[]``) to indicate optional parts, and angle
+brackets (``<>``) for required parts.  The pipe character ``|`` may be used to
+indicate mutually exclusive arguments.
+
+.. note::
+
+   Remember that when using ``Frontend`` and ``Backend`` the pass name will be
+   be prefixed with ``read_`` or ``write_`` respectively.  Usage signatures must
+   match the pass name available in commands/scripts, which is available as
+   ``Pass::pass_name``.
 
 .. todo:: decide on a formatting style for pass options
 
@@ -75,54 +83,117 @@ typically start with lower case, and may forgo a trailing period (``.``). Where
 multiple options share a description the blank line between options should be
 omitted.
 
+
 The ``Pass::formatted_help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- ``PrettyHelp::get_current()``
-- ``PrettyHelp::set_group()``
+The ``formatted_help`` method serves two purposes in help generation, both of
+which are optional.  In both cases, any pass which uses the method should
+``#include "kernel/log_help.h"``, and begin the method by calling ``auto *help =
+PrettyHelp::get_current();``.  The method finishes by returning a boolean value.
+``true`` means help content has been added to the current ``PrettyHelp``, while
+``false`` indicates that ``Pass::help()`` should be called instead.
 
-  + used with ``.. autocmdgroup:: <group>``
-  + can assign group and return false
-  + if no group is set, will try to use ``source_location`` and assign group
-    from path to source file
+Setting a command group
+^^^^^^^^^^^^^^^^^^^^^^^
 
-- return value
+Command groups are used when `Dumping command help to json`_, so that related
+commands can be presented together in documentation.  For example, all of the
+formal commands (which `chformal` is one of) are listed under
+:doc:`/cmd/index_formal`, by using the ``autocmdgroup`` directive in
+:file:`docs/source/cmd/index_formal.rst`.  By default, commands are grouped by
+their source location, such that the group is the same as the path to the source
+file.  
 
-  + true means help content added to current ``PrettyHelp``
-  + false to use ``Pass::help()``
+.. note::
 
-- adding content
+   Source location tracking requires :makevar:`ENABLE_HELP_SOURCE` to be set in
+   the makefile.  Some passes, like the ``opt_*`` family, are able to be grouped
+   by the name of the pass; but most will be assigned the ``unknown`` group.
 
-  + help content is a list of ``ContentListing`` nodes, each one having a type,
-    body, and its own list of children ``ContentListing``\ s
-  + ``PrettyHelp::get_root()`` returns the root ``ContentListing`` (``type="root"``)
-  + ``ContentListing::{usage, option, codeblock, paragraph}`` each add a
-    ``ContentListing`` to the current node, with type the same as the method
+   For frontends and backends, source code is structured such that different
+   formats are located in different folders.  Default behavior is to instead
+   group all of these passes as :doc:`/cmd/index_frontends` and
+   :doc:`/cmd/index_backends` respectively.  Without location tracking, the
+   fallback is to look for passes that start with ``read_`` or ``write_``.
 
-    * the first argument is the body of the new node
-    * ``usage`` shows how to call the command (i.e. its "signature")
-    * ``paragraph`` content is formatted as a paragraph of text with line breaks
-      added automatically
-    * ``codeblock`` content is displayed verbatim, use line breaks as desired;
-      takes an optional ``language`` argument for assigning the language in RST
-      output for code syntax highlighting (use ``yoscrypt`` for yosys script
-      syntax highlighting)
-    * ``option`` lists a single option for the command, usually starting with a
-      dash (``-``); takes an optional second argument which adds a paragraph
-      node as a means of description
+It is possible to set the group of a command explicitly with the
+``PrettyHelp::set_group()`` method.  This allows grouping of commands which may
+not share a common source location, as well as ensuring that commands are still
+grouped when location tracking is disabled.  Because ``Pass::formatted_help()``
+returns if it produced help content, it is completely valid to override the
+method, get the current instance of ``PrettyHelp``, set the command group, and
+then return ``false``.
 
-  + ``ContentListing::open_usage`` creates and returns a new usage node, can be
-    used to e.g. add text/options specific to a given usage of the command
-  + ``ContentListing::open_option`` creates and returns a new option node, can
-    be used to e.g. add multiple paragraphs to an option's description
-  + paragraphs are treated as raw RST, allowing for inline formatting and
-    references as if it were written in the RST file itself
+.. warning::
+
+   There is currently no warning available for groups that do not have a
+   corresponding ``autocmdgroup``.  If you add a new command group, make sure
+   that it has a corresponding index page.
+
+
+Rich help text
+^^^^^^^^^^^^^^
+
+The second purpose of ``Pass::formatted_help`` is to provide richer help
+content which is able to take advantage of the reStructuredText formatting used
+here in the web docs.  It also provides a more fluid way of writing help text,
+without getting caught up in the terminal-first spacing requirements of writing
+for ``Pass::help()``.
+
+Help content is a list of ``ContentListing`` nodes on a root node, which can be
+found by calling ``PrettyHelp::get_root()``.  Each node has a type, a body, and
+its own list of children ``ContentListing``\ s.  Adding content is done with the
+``ContentListing::{usage, option, codeblock, paragraph}`` methods, which each
+add a new child node with a type set to the calling method.  Let's take a look
+at the source code for `chformal`.
 
 .. literalinclude:: /generated/chformal.cc
    :language: c++
    :start-at: bool formatted_help()
    :end-before: void execute
    :caption: ``ChformalPass::formatted_help()`` from :file:`passes/cmds/chformal.cc`
+
+We can see that each of the ``ContentListing`` methods have the body of the new
+node as the first argument.  For a ``usage`` node, this is how to call the
+command (i.e. its usage signature).  ``paragraph`` nodes contain a paragraph of
+text with line breaks added automatically; the argument itself should contain
+any line breaks, but the string can be broken across multiple lines as shown.
+The body of a ``paragraph`` node is treated as raw RST, allowing for inline
+formatting and references as if it were written in the RST file itself.  As
+shown in the example (and the :ref:`formatted output above <chformal autocmd>`),
+this includes using single backticks for linking to cells or commands, and
+double backticks for raw code.
+
+The ``option`` method lists a single option for the command, usually starting
+with a dash (``-``).  An optional second argument can be provided with adds a
+paragraph node as a child of the option, and is used for describing the option.
+Where multiple options share a description, it should be added to the last
+option.  
+
+.. note::
+
+   To add multiple paragraphs to an option's description,
+   ``ContentListing::open_option()`` should be used instead.  This method
+   returns the option node, which can then be used to call
+   ``ContentList::paragraph()`` multiple times.
+
+``codeblock`` content is displayed verbatim, and content should include line
+breaks as desired.  No extra formatting will be applied to the text, and it will
+be rendered with a monospace font; making it perfect for code sections or ASCII
+art diagrams which render the same on the web as they do in the terminal.  An
+optional second argument is available for specifying the language in RST output
+for code syntax highlighting (use ``yoscrypt`` for yosys script syntax
+highlighting).
+
+..
+   not recommended since it (currently) doesn't render in the terminal
+
+   The final method available is ``ContentListing::open_usage``.  As with
+   ``open_option`` creates and returns a new node which can have additional content
+   added to it directly.  For the usage node, this can be used for example to add
+   text/options specific to a given usage of the command.  In the web documentation
+   any content added in this way will be indented under the usage signature.
 
 
 Dumping command help to json
