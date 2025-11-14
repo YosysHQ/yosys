@@ -44,7 +44,7 @@ void ContentListing::usage(const string &text,
 void ContentListing::option(const string &text, const string &description,
 	const source_location location)
 {
-	auto option = open_option(text);
+	auto option = open_option(text, location);
 	if (description.length())
 		option->add_content("text", description, location);
 }
