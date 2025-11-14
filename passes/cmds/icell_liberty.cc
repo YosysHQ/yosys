@@ -185,8 +185,7 @@ struct IcellLiberty : Pass {
 		pool<RTLIL::IdString> done;
 		LibertyStubber stubber = {};
 
-		if (liberty_file)
-			stubber.liberty_prefix(*liberty_file);
+		stubber.liberty_prefix(*liberty_file);
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {
@@ -201,9 +200,7 @@ struct IcellLiberty : Pass {
 			}
 		}
 
-		if (liberty_file) {
-			stubber.liberty_suffix(*liberty_file);
-		}
+		stubber.liberty_suffix(*liberty_file);
 	}
 } IcellLiberty;
 
