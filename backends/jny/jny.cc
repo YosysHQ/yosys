@@ -121,7 +121,6 @@ struct JnyWriter
     {
         log_assert(design != nullptr);
 
-        design->sort();
 
         f << "{\n";
         f << "  \"$schema\": \"https://raw.githubusercontent.com/YosysHQ/yosys/main/misc/jny.schema.json\",\n";
