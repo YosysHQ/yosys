@@ -16,7 +16,9 @@ struct OpenstaPass : public Pass
 		log("\n");
 		log("    opensta [options]\n");
 		log("\n");
-		// TOOD
+		log("Expand SDC file with OpenSTA.\n");
+		log("Internal command like abc. Requires a well-formed design.\n");
+		log("For general SDC expansion with OpenSTA, use the sdc_expand command.\n");
 		log("\n");
 		log("    -exe <command>\n");
 		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_opensta_cmd);
