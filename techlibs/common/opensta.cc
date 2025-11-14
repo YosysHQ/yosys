@@ -35,7 +35,7 @@ struct OpenstaPass : public Pass
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
-		string opensta_exe = "sta";
+		string opensta_exe = design->scratchpad_get_string("opensta.exe", "sta");
 		string sdc_filename, sdc_expanded_filename;
 		string tempdir_name, script_filename;
 		string verilog_filename, liberty_filename;
