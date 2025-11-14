@@ -109,7 +109,7 @@ struct OpenstaPass : public Pass
 		};
 		int ret = run_command(command, process_line);
 		if (ret)
-			log_error("OpenSTA return %d (error)\n", ret);
+			log_error("OpenSTA returned %d (error)\n", ret);
 		else
 			log("sdc_expanded_filename: %s\n", sdc_expanded_filename.c_str());
 

@@ -4,10 +4,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SdcexpandPass : public ScriptPass
+struct SdcExpandPass : public ScriptPass
 {
 	const char* default_sta_cmd = "sta";
-	SdcexpandPass() : ScriptPass("sdc_expand", "run OpenSTA") { }
+	SdcExpandPass() : ScriptPass("sdc_expand", "run OpenSTA") { }
 
 	void help() override
 	{
@@ -145,6 +145,6 @@ struct SdcexpandPass : public ScriptPass
 		}
 		run("design -load pre_expand");
 	}
-} SdcexpandPass;
+} SdcExpandPass;
 
 PRIVATE_NAMESPACE_END
