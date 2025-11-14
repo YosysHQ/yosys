@@ -81,7 +81,7 @@ module self_rs_fsm (
     localparam [7:0] S2 = 8'b11000111;
 
     reg [7:0] next_state;
-    wire reset = (reset_reg || next_state == S1);
+    wire reset = next_state == S1;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
