@@ -153,11 +153,9 @@ struct RTLIL::IdString
 	static std::unordered_map<int, const std::string*> global_autoidx_id_prefix_storage_;
 	// Explicit string storage for autoidx IDs
 	static std::unordered_map<int, char*> global_autoidx_id_storage_;
-#ifndef YOSYS_NO_IDS_REFCNT
 	// All (index, refcount) pairs in this map have refcount > 0.
 	static std::unordered_map<int, int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
-#endif
 
 	static int refcount(int idx) {
 		auto it = global_refcount_storage_.find(idx);
@@ -597,7 +595,6 @@ private:
 	}
 	static void get_reference(int idx)
 	{
-	#ifndef YOSYS_NO_IDS_REFCNT
 		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
 			return;
 		auto it = global_refcount_storage_.find(idx);
@@ -605,7 +602,6 @@ private:
 			global_refcount_storage_.insert(it, {idx, 1});
 		else
 			++it->second;
-	#endif
 	#ifdef YOSYS_XTRACE_GET_PUT
 		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
 			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
@@ -614,7 +610,6 @@ private:
 
 	void put_reference()
 	{
-	#ifndef YOSYS_NO_IDS_REFCNT
 		// put_reference() may be called from destructors after the destructor of
 		// global_refcount_storage_ has been run. in this case we simply do nothing.
 		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
@@ -628,7 +623,6 @@ private:
 		if (--it->second == 0) {
 			global_refcount_storage_.erase(it);
 		}
-	#endif
 	}
 };
 
