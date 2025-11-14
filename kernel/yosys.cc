@@ -260,6 +260,7 @@ void yosys_shutdown()
 
 	delete yosys_design;
 	yosys_design = NULL;
+	RTLIL::OwningIdString::collect_garbage();
 
 	for (auto f : log_files)
 		if (f != stderr)
