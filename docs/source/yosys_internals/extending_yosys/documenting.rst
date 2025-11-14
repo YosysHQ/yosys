@@ -1,24 +1,54 @@
 Generated help messages and documentation
 =========================================
 
-- (virtually) all Yosys commands and built-in cell types have help text
-- see `help` (or call ``yosys -h help``)
-- this help text is also used to generate the :doc:`/cmd_ref` and
-  :doc:`/cell_index` documentation, available online via `ReadtheDocs`_
+All Yosys commands and built-in cell types should include help text, documenting
+their functionality for users.  This help text is made available through the
+`help` command, and online via `ReadtheDocs`_ as part of the :doc:`/cmd_ref` and
+:doc:`/cell_index` documentation.  When running locally, any commands provided
+by loaded plugins (either from the command line when calling ``yosys``, or
+dynamically with the `plugin` command) will also be available to the `help`
+command.
 
 .. _ReadtheDocs: https://about.readthedocs.com/
+
+.. note::
+
+   Since help text for commands is generated from compiled code, the online help
+   may differ from that produced by `help`.  Some commands, like `abc`, may be
+   completely unavailable depending on compile flags; while others may limit
+   specific features, such as whether the `synth` script pass uses ABC.
 
 Command help
 ------------
 
-- `help` without arguments
+The first stop for command help text is the ``Pass::short_help``.  This is a
+short sentence describing the pass, and is set in the ``Pass`` constructor, as
+demonstrated here with `chformal`.
 
-  - lists all commands with their ``Pass::short_help``
+.. literalinclude:: /generated/chformal.cc
+   :language: c++
+   :start-at: public Pass {
+   :end-before: bool formatted_help()
+   :caption: ``ChformalPass()`` from :file:`passes/cmds/chformal.cc`
+   :append: // ...
+      } ChformalPass;
 
-- ``help <command>``
+All currently available commands are listed with their ``short_help`` string
+when calling `help` without arguments, and is more or less the same as the
+unlisted :ref:`command index <commandindex>`.  The string is also used when
+hovering over links to commands in the documentation, and in section headings
+like :ref:`chformal autocmd`.
 
-  - provides command specific help content
-  - as an example, the help content for `chformal` is shown below
+The next section shows the complete help text for the `chformal` command.  This
+can be displayed locally by using ``help <command>`` (or ``yosys -h <command>``
+from the command line).  The general format is to show each usage signature,
+followed by a paragraph describing what the pass does, and a list of options or
+flags available.  Additional arguments in the signature or option may use square
+brackets (``[]``) to indicate optional parts, and angle brackets (``<>``) for
+required parts.  The pipe character ``|`` may be used to indicate mutually
+exclusive arguments.
+
+.. todo:: decide on a formatting style for pass options
 
 .. _chformal autocmd:
 
@@ -28,11 +58,22 @@ Command help
 The ``Pass::help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- call ``log()`` directly to print and format help text
-- arbitrary formatting is possible, though some recommendations for consistency
-  and correct parsing during RST generation
+This is the original way to provide help text, and as of this writing is still
+the most common.  The ``log()`` function should be called directly to print and
+format the help text, and each line should be limited to 80 (printed)
+characters.  While it is possible to provide arbitrary formatting, it is
+preferred to follow the guidelines here to maintain consistency with other
+passes and to assist in correct parsing and formatting during RST generation
+(i.e. these docs).
 
-  + see `Dumping command help to json`_ for details
+The first line should always be a blank line, followed by the primary usage
+signature for the command.  Each usage signature should be indented with 4
+spaces, and followed by a blank line.  Each option or flag should start on a new
+line indented with 4 spaces, followed by a description of the option which is
+indented by a further 4 spaces, and then a blank line.  Option descriptions
+typically start with lower case, and may forgo a trailing period (``.``). Where
+multiple options share a description the blank line between options should be
+omitted.
 
 The ``Pass::formatted_help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -121,8 +162,8 @@ Dumping command help to json
 
 .. note:: Synthesis command scripts are special cased
 
-   If the final block of help output starts with the string `"The following
-   commands are executed by this synthesis command:\n"`, then the rest of the
+   If the final block of help output starts with the string ``"The following
+   commands are executed by this synthesis command:\n"``, then the rest of the
    code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
    here is that if the ``script()`` calls ``run()`` on any commands *prior* to
    the first ``check_label`` then the auto detection will break and revert to
@@ -181,7 +222,7 @@ Cell help
 - parsed by :file:`techlibs/common/cellhelp.py`
 - comments preceding cell type converted to a ``SimHelper`` struct, defined in
   :file:`kernel/register.cc`
-- ``#include``d in :file:`kernel/register.cc`, creating a map of cell types to
+- ``#include``\ d in :file:`kernel/register.cc`, creating a map of cell types to
   their ``SimHelper`` struct.
 
 - ``help -cells``
