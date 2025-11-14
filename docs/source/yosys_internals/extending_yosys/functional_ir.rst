@@ -181,7 +181,7 @@ pointer ``f`` to the output file, or stdout if none is given.
 
 For this minimal example all we are doing is printing out each node.  The
 ``node.name()`` method returns an ``RTLIL::IdString``, which we convert for
-printing with ``id2cstr()``.  Then, to print the function of the node, we use
+printing with ``log_id()``.  Then, to print the function of the node, we use
 ``node.to_string()`` which gives us a string of the form ``function(args)``. The
 ``function`` part is the result of ``Functional::IR::fn_to_string(node.fn())``;
 while ``args`` is the zero or more arguments passed to the function, most
