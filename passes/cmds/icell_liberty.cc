@@ -112,12 +112,6 @@ struct LibertyStubber {
 		auto next_state = ffType.has_ce ? "D & EN" : "D";
 		i.item("next_state", next_state);
 		f << "\t\t}\n";
-
-
-		// bool has_aload;
-		// bool has_srst;
-		// bool has_arst;
-		// bool has_sr;
 		f << "\t}\n";
 	}
 	void liberty_cell(Module* base, Module* derived, std::ostream& f)
@@ -157,8 +151,11 @@ struct IcellLiberty : Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    icell_liberty <liberty_file>\n"); // TODO
+		log("    icell_liberty <liberty_file>\n");
 		log("\n");
+		log("Write Liberty files modeling the interfaces of used internal cells.\n");
+		log("\n");
+		log("Models are not guaranteed to be logically sound.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
@@ -168,7 +165,7 @@ struct IcellLiberty : Pass {
 		size_t argidx;
 		IdString naming_attr;
 		std::string liberty_filename;
-		std::ofstream* liberty_file = new std::ofstream;
+		auto liberty_file = std::make_unique<std::ofstream>();
 
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			break;
@@ -176,15 +173,12 @@ struct IcellLiberty : Pass {
 		if (argidx < args.size())
 			liberty_filename = args[argidx++];
 		else
-			log_error("no Liberty filename specified\n");
-
-		// extra_args(args, argidx, d);
+			log_cmd_error("no Liberty filename specified\n");
 
 		if (liberty_filename.size()) {
 			liberty_file->open(liberty_filename.c_str());
 			if (liberty_file->fail()) {
-				delete liberty_file;
-				log_error("Can't open file `%s' for writing: %s\n", liberty_filename.c_str(), strerror(errno));
+				log_cmd_error("Can't open file `%s' for writing: %s\n", liberty_filename.c_str(), strerror(errno));
 			}
 		}
 
@@ -209,7 +203,6 @@ struct IcellLiberty : Pass {
 
 		if (liberty_file) {
 			stubber.liberty_suffix(*liberty_file);
-			delete liberty_file;
 		}
 	}
 } IcellLiberty;
