@@ -7,7 +7,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SdcExpandPass : public ScriptPass
 {
-	SdcExpandPass() : ScriptPass("sdc_expand", "run OpenSTA") { }
+	SdcExpandPass() : ScriptPass("sdc_expand", "expand SDC design with opensta") { }
 
 	void help() override
 	{
@@ -15,7 +15,8 @@ struct SdcExpandPass : public ScriptPass
 		log("\n");
 		log("    sdc_expand [options]\n");
 		log("\n");
-		// TODO
+		log("Expand SDC file with opensta based on arbitrary current design.\n");
+		log("Changes the design but only temporarily.\n");
 		log("\n");
 		log("    -exe <command>\n");
 		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_opensta_cmd);
