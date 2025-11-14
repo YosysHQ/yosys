@@ -276,7 +276,7 @@ RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view 
 
 #define NEW_ID \
 	YOSYS_NAMESPACE_PREFIX RTLIL::IdString::new_autoidx_with_prefix([](std::string_view func) -> const std::string * { \
-		static const std::string *prefix = create_id_prefix(__FILE__, __LINE__, func); \
+		static const std::string *prefix = YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func); \
 		return prefix; \
 	}(__FUNCTION__))
 #define NEW_ID_SUFFIX(suffix) \
