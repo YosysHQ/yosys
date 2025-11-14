@@ -1,5 +1,6 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "techlibs/common/opensta.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -7,7 +8,6 @@ PRIVATE_NAMESPACE_BEGIN
 #if !defined(YOSYS_DISABLE_SPAWN)
 struct OpenstaPass : public Pass
 {
-	const char* default_sta_cmd = "sta";
 	OpenstaPass() : Pass("opensta", "run OpenSTA") { }
 
 	void help() override
@@ -19,7 +19,7 @@ struct OpenstaPass : public Pass
 		// TOOD
 		log("\n");
 		log("    -exe <command>\n");
-		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_sta_cmd);
+		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_opensta_cmd);
 		log("\n");
 		log("    -sdc-in <filename>\n");
 		log("        expand SDC input file <filename>\n");
@@ -35,7 +35,7 @@ struct OpenstaPass : public Pass
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
-		string opensta_exe = design->scratchpad_get_string("opensta.exe", "sta");
+		string opensta_exe = design->scratchpad_get_string("opensta.exe", default_opensta_cmd);
 		string sdc_filename, sdc_expanded_filename;
 		string tempdir_name, script_filename;
 		string verilog_filename, liberty_filename;

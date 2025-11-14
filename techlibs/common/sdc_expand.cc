@@ -1,12 +1,12 @@
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "techlibs/common/opensta.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct SdcExpandPass : public ScriptPass
 {
-	const char* default_sta_cmd = "sta";
 	SdcExpandPass() : ScriptPass("sdc_expand", "run OpenSTA") { }
 
 	void help() override
@@ -18,7 +18,7 @@ struct SdcExpandPass : public ScriptPass
 		// TODO
 		log("\n");
 		log("    -exe <command>\n");
-		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_sta_cmd);
+		log("        use <command> to run OpenSTA instead of \"%s\"\n", default_opensta_cmd);
 		log("\n");
 		log("    -sdc-in <filename>\n");
 		log("        expand SDC file <filename>\n");
