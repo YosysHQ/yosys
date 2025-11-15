@@ -18,6 +18,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -89,9 +90,9 @@ void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::SigSpec 
 {
 	for (auto &action : cs->actions) {
 		if (unknown)
-			rspec.replace(action.first, RTLIL::SigSpec(RTLIL::State::Sm, action.second.size()), &rval);
+			rspec.replace(action.lhs, RTLIL::SigSpec(RTLIL::State::Sm, action.rhs.size()), &rval);
 		else
-			rspec.replace(action.first, action.second, &rval);
+			rspec.replace(action.lhs, action.rhs, &rval);
 	}
 
 	for (auto sw : cs->switches) {
@@ -209,7 +210,7 @@ void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 					arst_syncs.push_back(sync);
 					edge_syncs.erase(it);
 					for (auto &action : sync->actions) {
-						action.second = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, action.second, action.first);
+						action.rhs = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, action.rhs, action.lhs);
 					}
 					for (auto &memwr : sync->mem_write_actions) {
 						RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
@@ -294,12 +295,12 @@ struct ProcArstPass : public Pass {
 				proc_arst(mod, proc, assign_map);
 				if (global_arst.empty() || mod->wire(global_arst) == nullptr)
 					continue;
-				std::vector<RTLIL::SigSig> arst_actions;
+				std::vector<RTLIL::SyncAction> arst_actions;
 				for (auto sync : proc->syncs)
 					if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn)
 						for (auto &act : sync->actions) {
 							RTLIL::SigSpec arst_sig, arst_val;
-							for (auto &chunk : act.first.chunks())
+							for (auto &chunk : act.lhs.chunks())
 								if (chunk.wire && chunk.wire->attributes.count(ID::init)) {
 									RTLIL::SigSpec value = chunk.wire->attributes.at(ID::init);
 									value.extend_u0(chunk.wire->width, false);
@@ -310,7 +311,7 @@ struct ProcArstPass : public Pass {
 							if (arst_sig.size()) {
 								log("Added global reset to process %s: %s <- %s\n",
 										proc->name.c_str(), log_signal(arst_sig), log_signal(arst_val));
-								arst_actions.push_back(RTLIL::SigSig(arst_sig, arst_val));
+								arst_actions.push_back({arst_sig, arst_val, act.src});
 							}
 						}
 				if (!arst_actions.empty()) {
