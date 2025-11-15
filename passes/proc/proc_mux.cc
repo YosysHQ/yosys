@@ -28,26 +28,30 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using SnippetSourceMap = dict<std::pair<int, const RTLIL::CaseRule*>, const Const*>;
+using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, const Const*>>;
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
 	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
+		map.resize(std::max(map.size(), (size_t)snippet + 1));
 		if (action.src.size())
-			map[std::make_pair(snippet, cs)] = &action.src;
+			map[snippet][cs] = &action.src;
 	}
 
 };
 struct SnippetSourceMapper {
-	const SnippetSourceMap map;
+	const SnippetSourceMap &map;
 	void try_map_into(pool<std::string>& sources, int snippet, const RTLIL::CaseRule* cs) const {
-		auto src_it = map.find(std::make_pair(snippet, cs));
-		if (src_it != map.end()) {
-			sources.insert(src_it->second->decode_string());
-		} else {
-			auto cs_src = cs->get_src_attribute();
-			if (cs_src.size()) {
-				sources.insert(cs_src);
+		if ((size_t)snippet < map.size()) {
+			const auto& snippet_map = map[snippet];
+			auto src_it = snippet_map.find(cs);
+			if (src_it != snippet_map.end()) {
+				sources.insert(src_it->second->decode_string());
+				return;
 			}
+		}
+		auto cs_src = cs->get_src_attribute();
+		if (cs_src.size()) {
+			sources.insert(cs_src);
 		}
 	}
 
@@ -124,15 +128,30 @@ struct SigSnippets
 
 	void insert(const RTLIL::CaseRule *cs)
 	{
-		for (auto &action : cs->actions) {
+		for (auto &action : cs->actions)
 			insert(action.lhs);
-			int idx = sigidx(action.lhs);
-			source_builder.insert(idx, cs, action);
-		}
 
 		for (auto sw : cs->switches)
 		for (auto cs2 : sw->cases)
 			insert(cs2);
+	}
+
+	void map_sources(const RTLIL::CaseRule *cs)
+	{
+		for (auto &action : cs->actions) {
+			int last_snippet = -1;
+			for (auto bit : action.lhs) {
+				int snippet = bit2snippet.at(bit, -1);
+				if (snippet < 0 || snippet == last_snippet)
+					continue;
+				source_builder.insert(snippet, cs, action);
+				last_snippet = snippet;
+			}
+		}
+
+		for (auto sw : cs->switches)
+		for (auto cs2 : sw->cases)
+			map_sources(cs2);
 	}
 };
 
@@ -497,12 +516,14 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 	SigSnippets sigsnip;
 	sigsnip.insert(&proc->root_case);
+	sigsnip.map_sources(&proc->root_case);
 
 	SnippetSwCache swcache;
 	swcache.snippets = &sigsnip;
 	swcache.insert(&proc->root_case);
 
 	dict<RTLIL::SwitchRule*, bool> swpara;
+	const SnippetSourceMapper mapper{sigsnip.source_builder.map};
 
 	int cnt = 0;
 	for (int idx : sigsnip.snippets)
@@ -512,7 +533,6 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 		log_debug("%6d/%d: %s\n", ++cnt, GetSize(sigsnip.snippets), log_signal(sig));
 
-		const SnippetSourceMapper mapper{sigsnip.source_builder.map};
 		RTLIL::SigSpec value = signal_to_mux_tree({
 			mod,
 			swcache,
