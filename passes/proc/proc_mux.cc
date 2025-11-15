@@ -28,26 +28,30 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using SnippetSourceMap = dict<std::pair<int, const RTLIL::CaseRule*>, const Const*>;
+using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, const Const*>>;
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
 	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
+		map.resize(snippet + 1);
 		if (action.src.size())
-			map[std::make_pair(snippet, cs)] = &action.src;
+			map[snippet][cs] = &action.src;
 	}
 
 };
 struct SnippetSourceMapper {
 	const SnippetSourceMap map;
 	void try_map_into(pool<std::string>& sources, int snippet, const RTLIL::CaseRule* cs) const {
-		auto src_it = map.find(std::make_pair(snippet, cs));
-		if (src_it != map.end()) {
-			sources.insert(src_it->second->decode_string());
-		} else {
-			auto cs_src = cs->get_src_attribute();
-			if (cs_src.size()) {
-				sources.insert(cs_src);
+		if ((size_t)snippet < map.size()) {
+			const auto& snippet_map = map[snippet];
+			auto src_it = snippet_map.find(cs);
+			if (src_it != snippet_map.end()) {
+				sources.insert(src_it->second->decode_string());
+				return;
 			}
+		}
+		auto cs_src = cs->get_src_attribute();
+		if (cs_src.size()) {
+			sources.insert(cs_src);
 		}
 	}
 
