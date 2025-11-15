@@ -28,26 +28,30 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using SnippetSourceMap = dict<std::pair<int, const RTLIL::CaseRule*>, TwineRef>;
+using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, TwineRef>>;
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
 	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
+		map.resize(std::max(map.size(), (size_t)snippet + 1));
 		if (action.src != Twine::Null)
-			map[std::make_pair(snippet, cs)] = action.src;
+			map[snippet][cs] = action.src;
 	}
 
 };
 struct SnippetSourceMapper {
 	const SnippetSourceMap map;
 	void try_map_into(pool<TwineRef>& sources, int snippet, const RTLIL::CaseRule* cs) const {
-		auto src_it = map.find(std::make_pair(snippet, cs));
-		if (src_it != map.end()) {
-			sources.insert(src_it->second);
-		} else {
-			TwineRef cs_src = cs->src_id();
-			if (cs_src != Twine::Null) {
-				sources.insert(cs_src);
+		if ((size_t)snippet < map.size()) {
+			const auto& snippet_map = map[snippet];
+			auto src_it = snippet_map.find(cs);
+			if (src_it != snippet_map.end()) {
+				sources.insert(src_it->second);
+				return;
 			}
+		}
+		TwineRef cs_src = cs->src_id();
+		if (cs_src != Twine::Null) {
+			sources.insert(cs_src);
 		}
 	}
 
