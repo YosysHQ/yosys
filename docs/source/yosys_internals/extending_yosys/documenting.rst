@@ -83,6 +83,10 @@ typically start with lower case, and may forgo a trailing period (``.``). Where
 multiple options share a description the blank line between options should be
 omitted.
 
+.. note::
+
+   `Dumping to json`_ has more on how formatting in ``help()`` gets parsed.
+
 
 The ``Pass::formatted_help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,7 +101,7 @@ PrettyHelp::get_current();``.  The method finishes by returning a boolean value.
 Setting a command group
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Command groups are used when `Dumping command help to json`_, so that related
+Command groups are used when `Dumping to json`_, so that related
 commands can be presented together in documentation.  For example, all of the
 formal commands (which `chformal` is one of) are listed under
 :doc:`/cmd/index_formal`, by using the ``autocmdgroup`` directive in
@@ -196,51 +200,6 @@ highlighting).
    any content added in this way will be indented under the usage signature.
 
 
-Dumping command help to json
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- `help -dump-cmds-json cmds.json`
-
-  + generates a ``ContentListing`` for each command registered in Yosys
-  + tries to parse unformatted ``Pass::help()`` output if
-    ``Pass::formatted_help()`` is unimplemented or returns false
-
-    * if a line starts with four spaces followed by the name of the command then
-      a space, it is parsed as a signature (usage node)
-    * if a line is indented and starts with a dash (``-``), it is parsed as an
-      option
-    * anything else is parsed as a codeblock and added to either the root node
-      or the current option depending on the indentation
-
-  + dictionary of command name to ``ContentListing``
-
-    * uses ``ContentListing::to_json()`` recursively for each node in root
-    * root node used for source location of class definition
-    * includes flags set during pass constructor (e.g. ``experimental_flag`` set
-      by ``Pass::experimental()``)
-    * also title (``short_help`` argument in ``Pass::Pass``), group, and class
-      name
-   
-  + dictionary of group name to list of commands in that group
-
-- used by sphinx autodoc to generate help content
-
-.. literalinclude:: /generated/cmds.json
-   :language: json
-   :start-at: "chformal": {
-   :end-before: "chparam": {
-   :caption: `chformal` in generated :file:`cmds.json`
-
-.. note:: Synthesis command scripts are special cased
-
-   If the final block of help output starts with the string ``"The following
-   commands are executed by this synthesis command:\n"``, then the rest of the
-   code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
-   here is that if the ``script()`` calls ``run()`` on any commands *prior* to
-   the first ``check_label`` then the auto detection will break and revert to
-   unformatted code (e.g. `synth_fabulous`). 
-
-
 Command line rendering
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -264,33 +223,16 @@ Command line rendering
    :lines: 2-
 
 
-RST generated from autocmd
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- below is the raw RST output from ``autocmd`` (``YosysCmdDocumenter`` class in
-  :file:`docs/util/cmd_documenter.py`) for `chformal` command
-- heading will be rendered as a subheading of the most recent heading (see
-  `chformal autocmd`_ above rendered under `Command help`_)
-- ``.. cmd:def:: <cmd>`` line is indexed for cross references with ``:cmd:ref:``
-  directive (`chformal autocmd`_ above uses ``:noindex:`` option so that
-  `chformal` still links to the correct location)
-
-  + ``:title:`` option controls text that appears when hovering over the
-    `chformal` link
-
-- commands with warning flags (experimental or internal) add a ``.. warning``
-  block before any of the help content
-- if a command has no ``source_location`` the ``.. note`` at the bottom will
-  instead link to :doc:`/cmd/index_other`
-
-.. autocmd_rst:: chformal
-
-
 Cell help
 ---------
 
 - :file:`techlibs/common/simcells.v` and :file:`techlibs/common/simlib.v`
 - parsed by :file:`techlibs/common/cellhelp.py`
+
+  + unlike commands, cell help text is generated at compile time
+  + only formatting occurs at run time
+  + no support for custom cells in plugins
+
 - comments preceding cell type converted to a ``SimHelper`` struct, defined in
   :file:`kernel/register.cc`
 - ``#include``\ d in :file:`kernel/register.cc`, creating a map of cell types to
@@ -299,6 +241,7 @@ Cell help
 - ``help -cells``
 
   - lists all cells with their input/output ports
+  - again an unlisted :ref:`cell index <cellindex>`
 
 - ``help <celltype>``
 
@@ -424,3 +367,138 @@ v2 (more expressive)
          indentation and line length will be preserved, giving a scroll bar if necessary for the browser window
 
    more text
+
+
+Dumping to json
+---------------
+
+- `help -dump-cmds-json cmds.json`
+
+  + generates a ``ContentListing`` for each command registered in Yosys
+  + tries to parse unformatted ``Pass::help()`` output if
+    ``Pass::formatted_help()`` is unimplemented or returns false
+
+    * if a line starts with four spaces followed by the name of the command then
+      a space, it is parsed as a signature (usage node)
+    * if a line is indented and starts with a dash (``-``), it is parsed as an
+      option
+    * anything else is parsed as a codeblock and added to either the root node
+      or the current option depending on the indentation
+
+  + dictionary of command name to ``ContentListing``
+
+    * uses ``ContentListing::to_json()`` recursively for each node in root
+    * root node used for source location of class definition
+    * includes flags set during pass constructor (e.g. ``experimental_flag`` set
+      by ``Pass::experimental()``)
+    * also title (``short_help`` argument in ``Pass::Pass``), group, and class
+      name
+   
+  + dictionary of group name to list of commands in that group
+
+- used by sphinx autodoc to generate help content
+
+.. literalinclude:: /generated/cmds.json
+   :language: json
+   :start-at: "chformal": {
+   :end-before: "chparam": {
+   :caption: `chformal` in generated :file:`cmds.json`
+
+.. note:: Synthesis command scripts are special cased
+
+   If the final block of help output starts with the string ``"The following
+   commands are executed by this synthesis command:\n"``, then the rest of the
+   code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
+   here is that if the ``script()`` calls ``run()`` on any commands *prior* to
+   the first ``check_label`` then the auto detection will break and revert to
+   unformatted code (e.g. `synth_fabulous`).
+
+
+Cells and commands in Sphinx
+----------------------------
+
+To support the rich documentation of commands and cells in Yosys, we use two
+custom `Sphinx Domains`_.  
+
+.. _Sphinx Domains: https://www.sphinx-doc.org/en/master/usage/domains/index.html
+
+- ``yoscrypt`` role allows inline code to have yosys script syntax highlighting
+- default role of ``autoref``
+
+  + any text in single backticks without an explicit role will be assigned this one
+  + will convert to ``cell:ref`` if it begins with ``$``, otherwise ``cmd:ref``
+  + to attempt linking there must be no spaces, and it must not begin with a
+    dash (``-``)
+  + ```chformal``` (or ``:autoref:`chformal```) -> ``:cmd:ref:`chformal``` -> `chformal`
+  + also works with two words, if the first one is ``help``
+  + ```help $add``` -> ``:cell:ref:`help $add <$add>``` -> `help $add`
+  + fallback to formatting as inline yoscrypt
+  + ```-remove``` -> `-remove`
+  + ```chformal -remove``` -> ``:yoscrypt:`chformal -remove``` -> `chformal -remove`
+
+Using autodoc
+~~~~~~~~~~~~~
+
+- below is the raw RST output from ``autocmd`` (``YosysCmdDocumenter`` class in
+  :file:`docs/util/cmd_documenter.py`) for `chformal` command
+- heading will be rendered as a subheading of the most recent heading (see
+  `chformal autocmd`_ above rendered under `Command help`_)
+- ``.. cmd:def:: <cmd>`` line is indexed for cross references with ``:cmd:ref:``
+  directive (`chformal autocmd`_ above uses ``:noindex:`` option so that
+  `chformal` still links to the correct location)
+
+  + ``:title:`` option controls text that appears when hovering over the
+    `chformal` link
+
+- commands with warning flags (experimental or internal) add a ``.. warning``
+  block before any of the help content
+- if a command has no ``source_location`` the ``.. note`` at the bottom will
+  instead link to :doc:`/cmd/index_other`
+
+.. _showing autocmd generated rst:
+
+.. autocmd_rst:: chformal
+
+- command groups documented with ``autocmdgroup <group>``
+
+  + with ``:members:`` option this is the same as calling ``autocmd`` for each
+    member of the group
+
+- ``autocell`` and ``autocellgroup``
+
+  + very similar to ``autocmd`` and ``autocmdgroup`` but for cells instead of
+    commands (``YosysCellDocumenter`` in :file:`docs/util/cell_documenter.py`)
+  + optionally includes verilog source for cell(s) with ``:source:`` option
+    (plus ``:linenos:``)
+  + cell definitions do not include titles
+  + cells can have properties (:ref:`propindex`)
+
+- bonus ``autocmd_rst``, used exclusively on this page for `showing autocmd
+  generated rst`_
+
+Our custom Sphinx domains
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``cmd`` and ``cell``
+- Directives
+
+  + ``cmd:def`` provide command definition
+  + ``cmd:usage`` used by ``autocmd`` for command usage signatures
+  + ``cell:def`` provide cell definition
+  + ``cell:defprop`` provide cell property definition (used in
+    :doc:`/cell/properties`)
+  + ``cell:source`` used by ``autocell`` for simulation models
+
+- Roles
+
+  + ``cmd:ref`` link to a ``cmd:def`` with the same name
+  + ``cmd:title`` same as ``cmd:ref``, but includes the short help in the text
+
+    - ``:cmd:title:`chformal``` -> :cmd:title:`chformal`
+
+  + ``cell:ref`` link to a ``cell:def`` with the same name
+  + ``cell:title``
+
+    - ``:cell:title:`$nex``` -> :cell:title:`$nex`
+
+  + ``cell:prop`` link to a ``cell:defprop`` of the same name
