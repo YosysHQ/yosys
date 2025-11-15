@@ -28,6 +28,21 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+/**
+ * Actions are assignments in cases of switches.
+ * Snippets are non-overlapping slices of signals on the left-hand side
+ * of actions. For example, if you have these two actions for r[7:0]:
+ *   r = a; r[1:2] = 2'b0;
+ * you will arrive at three snippets:
+ *   r[0], r[2:1], r[7:3]
+ * For each snippet, multiplexers ($mux or $pmux) are emitted
+ * based on the full switch.
+ * $pmux are only emitted when legal based on whether the cases can be
+ * evaluated in parallel.
+ * In that case, instead of a $pmux, you get a chain of $mux.
+ * Nested switches build branching trees of muxes.
+ */
+
 using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, const Const*>>;
 struct SnippetSourceMapBuilder {
 	SnippetSourceMap map;
@@ -202,6 +217,7 @@ struct MuxGenCtx {
 	int current_snippet;
 	pool<std::string>& snippet_sources;
 
+	// Returns signal for the select input of a mux
 	RTLIL::SigSpec gen_cmp() {
 		std::stringstream sstr;
 		sstr << "$procmux$" << (autoidx++);
@@ -408,6 +424,38 @@ bool is_simple_parallel_case(RTLIL::SwitchRule* sw, dict<RTLIL::SwitchRule*, boo
 	return ret;
 }
 
+std::vector<int> parallel_groups(MuxTreeContext ctx, RTLIL::SwitchRule* sw)
+{
+	std::vector<int> pgroups(sw->cases.size());
+	if (!is_simple_parallel_case(sw, ctx.swpara)) {
+		BitPatternPool pool(sw->signal.size());
+		bool extra_group_for_next_case = false;
+		for (size_t i = 0; i < sw->cases.size(); i++) {
+			RTLIL::CaseRule *cs2 = sw->cases[i];
+			if (i != 0) {
+				pgroups[i] = pgroups[i-1];
+				if (extra_group_for_next_case) {
+					pgroups[i] = pgroups[i-1]+1;
+					extra_group_for_next_case = false;
+				}
+				for (auto pat : cs2->compare)
+					if (!pat.is_fully_const() || !pool.has_all(pat))
+						pgroups[i] = pgroups[i-1]+1;
+				if (cs2->compare.empty())
+					pgroups[i] = pgroups[i-1]+1;
+				if (pgroups[i] != pgroups[i-1])
+					pool = BitPatternPool(sw->signal.size());
+			}
+			for (auto pat : cs2->compare)
+				if (!pat.is_fully_const())
+					extra_group_for_next_case = true;
+				else if (!ctx.ifxmode)
+					pool.take(pat);
+		}
+	}
+	return pgroups;
+}
+
 RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 {
 	RTLIL::SigSpec result = ctx.defval;
@@ -422,36 +470,9 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 		if (!ctx.swcache.check(sw))
 			continue;
 
-		// detect groups of parallel cases
-		std::vector<int> pgroups(sw->cases.size());
+		// Detect groups of parallel cases
+		std::vector<int> pgroups = parallel_groups(ctx, sw);
 		pool<std::string> case_sources;
-
-		if (!is_simple_parallel_case(sw, ctx.swpara)) {
-			BitPatternPool pool(sw->signal.size());
-			bool extra_group_for_next_case = false;
-			for (size_t i = 0; i < sw->cases.size(); i++) {
-				RTLIL::CaseRule *cs2 = sw->cases[i];
-				if (i != 0) {
-					pgroups[i] = pgroups[i-1];
-					if (extra_group_for_next_case) {
-						pgroups[i] = pgroups[i-1]+1;
-						extra_group_for_next_case = false;
-					}
-					for (auto pat : cs2->compare)
-						if (!pat.is_fully_const() || !pool.has_all(pat))
-							pgroups[i] = pgroups[i-1]+1;
-					if (cs2->compare.empty())
-						pgroups[i] = pgroups[i-1]+1;
-					if (pgroups[i] != pgroups[i-1])
-						pool = BitPatternPool(sw->signal.size());
-				}
-				for (auto pat : cs2->compare)
-					if (!pat.is_fully_const())
-						extra_group_for_next_case = true;
-					else if (!ctx.ifxmode)
-						pool.take(pat);
-			}
-		}
 		// Create sources for default cases
 		for (auto cs2 : sw -> cases) {
 			if (cs2->compare.empty()) {
@@ -466,7 +487,8 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 				result[i] = State::Sx;
 
 		RTLIL::SigSpec initial_val = result;
-		MuxGenCtx mux_gen_ctx {ctx.mod,
+		MuxGenCtx mux_gen_ctx {
+			ctx.mod,
 			sw->signal,
 			nullptr,
 			nullptr,
@@ -477,7 +499,7 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 			ctx.swcache.current_snippet,
 			case_sources
 		};
-		// evaluate in reverse order to give the first entry the top priority
+		// Evaluate in reverse order to give the first entry the top priority
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			MuxTreeContext new_ctx = ctx;
