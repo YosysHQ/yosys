@@ -66,22 +66,22 @@ indicate mutually exclusive arguments.
 The ``Pass::help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This is the original way to provide help text, and as of this writing is still
-the most common.  The ``log()`` function should be called directly to print and
-format the help text, and each line should be limited to 80 (printed)
-characters.  While it is possible to provide arbitrary formatting, it is
-preferred to follow the guidelines here to maintain consistency with other
+Overriding this method is the original way to provide help text, and as of this
+writing is still the most common.  The ``log()`` function should be called
+directly to print and format the help text, and each line should be limited to
+80 (printed) characters.  While it is possible to provide arbitrary formatting,
+it is preferred to follow the guidelines here to maintain consistency with other
 passes and to assist in correct parsing and formatting during RST generation
 (i.e. these docs).
 
-The first line should always be a blank line, followed by the primary usage
-signature for the command.  Each usage signature should be indented with 4
-spaces, and followed by a blank line.  Each option or flag should start on a new
-line indented with 4 spaces, followed by a description of the option which is
-indented by a further 4 spaces, and then a blank line.  Option descriptions
-typically start with lower case, and may forgo a trailing period (``.``). Where
-multiple options share a description the blank line between options should be
-omitted.
+The first and last lines should always be blank (usually ``log("\n");``),
+followed by the primary usage signature for the command.  Each usage signature
+should be indented with 4 spaces, and followed by a blank line.  Each option or
+flag should start on a new line indented with 4 spaces, followed by a
+description of the option which is indented by a further 4 spaces, and then a
+blank line. Option descriptions typically start with lower case, and may forgo a
+trailing period (``.``). Where multiple options share a description the blank
+line between options should be omitted.
 
 .. note::
 
@@ -203,24 +203,34 @@ highlighting).
 Command line rendering
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- if ``Pass::formatted_help()`` returns true, will call
-  ``PrettyHelp::log_help()``
+Rendering text for the command line is done by the ``Pass::help`` method.  When
+this method is not overridden, the default behavior is to call
+``Pass::formatted_help()``.  If this method is also left unimplemented, or the
+return value is explicitly false, then a default message about missing help text
+for the command is displayed.  Returning true, however, will then call
+``PrettyHelp::log_help()`` to convert the formatted help content into plain
+text.
 
-  + traverse over the children of the root node and render as plain text 
-  + effectively the reverse of converting unformatted ``Pass::help()`` text
-  + lines are broken at 80 characters while maintaining indentation (controlled
-    by ``MAX_LINE_LEN`` in :file:`kernel/log_help.cc`)
-  + each line is broken into words separated by spaces, if a given word starts
-    and ends with backticks they will be stripped
+Rendering rich help text as plain text is done by traversing over all the
+``ContentListing`` nodes and printing the body text.  ``usage`` nodes are
+preceded by an empty line and indented one level (4 spaces).  ``option`` nodes
+are also indented one level, while their children are indented an extra level (8
+spaces).  Each section of body text is broken into words separated by spaces.
+If a word would cause the line to exceed 80 characters (controlled by
+``MAX_LINE_LEN`` in :file:`kernel/log_help.cc`), then the word will instead be
+placed on a new line, with the same level of indentation.
 
-- if it returns false it will call ``Pass::help()`` which should call ``log()``
-  directly to print and format help text
+Special handling is included for words that begin and end with a backtick
+(`````) so that these are stripped when printing to the command line.  Compare
+:ref:`chformal_help` below with the :ref:`chformal autocmd` above.  The content
+is still the same, but for the command line it uses a fixed width.
 
-  + if ``Pass::help()`` is not overridden then a default message about missing
-    help will be displayed
+.. todo:: spaces in backticks (``assert(...)`` vs ````assert(s_eventually ...)````)
 
 .. literalinclude:: /generated/chformal.log
    :lines: 2-
+   :name: chformal_help
+   :caption: Command line output for `help chformal`
 
 
 Cell help
