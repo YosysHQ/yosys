@@ -46,7 +46,7 @@ from the command line).  The general format is to show each usage signature (how
 the command is called), followed by a paragraph describing what the pass does,
 and a list of options or flags available.  Additional arguments in the signature
 or option may use square brackets (``[]``) to indicate optional parts, and angle
-brackets (``<>``) for required parts.  The pipe character ``|`` may be used to
+brackets (``<>``) for required parts.  The pipe character (``|``) may be used to
 indicate mutually exclusive arguments.
 
 .. note::
@@ -63,6 +63,19 @@ indicate mutually exclusive arguments.
 .. autocmd:: chformal
    :noindex:
 
+Warning flags
+~~~~~~~~~~~~~
+
+- flags set during pass constructor
+- adds warnings to end of help output
+- usually used by commands not intended for general use
+- ``Pass::experimental()`` for experimental commands that may not be stable or
+  reliable
+- ``Pass::internal()`` for commands aimed at developers rather than users
+
+  + most of which end up in :doc:`/cmd/index_internal`
+  + these are often commands used for testing Yosys
+
 The ``Pass::help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -74,18 +87,24 @@ it is preferred to follow the guidelines here to maintain consistency with other
 passes and to assist in correct parsing and formatting during RST generation
 (i.e. these docs).
 
-The first and last lines should always be blank (usually ``log("\n");``),
-followed by the primary usage signature for the command.  Each usage signature
-should be indented with 4 spaces, and followed by a blank line.  Each option or
-flag should start on a new line indented with 4 spaces, followed by a
-description of the option which is indented by a further 4 spaces, and then a
-blank line. Option descriptions typically start with lower case, and may forgo a
-trailing period (``.``). Where multiple options share a description the blank
-line between options should be omitted.
+.. note::
+
+  It is good practice in the ``Pass::help`` method for each call to ``log()`` to
+  correspond to a single line, containing exactly one ``\n`` (at the end).  This
+  allows the appearance in source to match the appearance in the terminal.
+
+The first and last lines should always be empty, followed by the primary usage
+signature for the command.  Each usage signature should be indented with 4
+spaces, and followed by an empty line.  Each option or flag should start on a
+new line indented with 4 spaces, followed by a description of the option which
+is indented by a further 4 spaces, and then an empty line. Option descriptions
+typically start with lower case, and may forgo a trailing period (``.``). Where
+multiple options share a description the empty line between options should be
+omitted.
 
 .. note::
 
-   `Dumping to json`_ has more on how formatting in ``help()`` gets parsed.
+   `Commands JSON`_ has more on how formatting in ``help()`` gets parsed.
 
 
 The ``Pass::formatted_help()`` method
@@ -101,7 +120,7 @@ PrettyHelp::get_current();``.  The method finishes by returning a boolean value.
 Setting a command group
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Command groups are used when `Dumping to json`_, so that related
+Command groups are used when `dumping to JSON`_, so that related
 commands can be presented together in documentation.  For example, all of the
 formal commands (which `chformal` is one of) are listed under
 :doc:`/cmd/index_formal`, by using the ``autocmdgroup`` directive in
@@ -157,6 +176,7 @@ at the source code for `chformal`.
    :start-at: bool formatted_help()
    :end-before: void execute
    :caption: ``ChformalPass::formatted_help()`` from :file:`passes/cmds/chformal.cc`
+   :name: chformal_source
 
 We can see that each of the ``ContentListing`` methods have the body of the new
 node as the first argument.  For a ``usage`` node, this is how to call the
@@ -199,6 +219,10 @@ highlighting).
    text/options specific to a given usage of the command.  In the web documentation
    any content added in this way will be indented under the usage signature.
 
+..
+   When :makevar:`ENABLE_HELP_SOURCE` is set, each ``ContentListing`` node also
+   stores file path and line number of its source location.  But I think this might
+   only be used when raising errors/warnings during ``autocmd``.
 
 Command line rendering
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -379,49 +403,96 @@ v2 (more expressive)
    more text
 
 
-Dumping to json
+Dumping to JSON
 ---------------
 
-- `help -dump-cmds-json cmds.json`
+Once compiled, Yosys is able to dump both the internal command and cell
+libraries to a machine-readable JSON file.  Primarily intended for building this
+documentation (more on that in the next section), this feature is not advertised
+within Yosys itself, and can be done with `help -dump-cmds-json <cmds.json>` and
+`help -dump-cells-json <cells.json>` respectively.
 
-  + generates a ``ContentListing`` for each command registered in Yosys
-  + tries to parse unformatted ``Pass::help()`` output if
-    ``Pass::formatted_help()`` is unimplemented or returns false
+Both JSON files are formatted very similarly, containing a single object.  The
+object has a ``version`` field which disambiguates between the two, a
+``generator`` field which contains the Yosys version string used, a ``groups``
+object which maps each group to the list of commands/cells in that group, and
+finally a ``cmds`` or ``cells`` object which maps each command/cell to its help
+content.
 
-    * if a line starts with four spaces followed by the name of the command then
-      a space, it is parsed as a signature (usage node)
-    * if a line is indented and starts with a dash (``-``), it is parsed as an
-      option
-    * anything else is parsed as a codeblock and added to either the root node
-      or the current option depending on the indentation
+Commands JSON
+~~~~~~~~~~~~~
 
-  + dictionary of command name to ``ContentListing``
-
-    * uses ``ContentListing::to_json()`` recursively for each node in root
-    * root node used for source location of class definition
-    * includes flags set during pass constructor (e.g. ``experimental_flag`` set
-      by ``Pass::experimental()``)
-    * also title (``short_help`` argument in ``Pass::Pass``), group, and class
-      name
-   
-  + dictionary of group name to list of commands in that group
-
-- used by sphinx autodoc to generate help content
+Lets take a look at :ref:`chformal_json` as an example.  We can see the bulk of
+the object is taken up by the ``content`` field, which contains all the
+``ContentListing`` nodes we added in :ref:`the formatted_help method for
+chformal <chformal_source>`, maintaining the structure of those nodes.  The
+command's ``short_help`` is given in the ``title`` field, with other fields for
+the `Warning flags`_, source location, source function, and corresponding group
+(either implicit or explicit).
 
 .. literalinclude:: /generated/cmds.json
    :language: json
    :start-at: "chformal": {
    :end-before: "chparam": {
    :caption: `chformal` in generated :file:`cmds.json`
+   :name: chformal_json
 
-.. note:: Synthesis command scripts are special cased
+Every command registered in Yosys (including those from currently installed
+plugins) has a corresponding object in the JSON dump.  For commands where
+``Pass::formatted_help()`` is unimplemented or returns false, ``ContentListing``
+nodes will be generated by parsing the unformatted ``Pass::help()`` output. This
+is largely the same as `Command line rendering`_ but in reverse, with a few
+simple rules to try convert between raw text and the different node types.
 
-   If the final block of help output starts with the string ``"The following
-   commands are executed by this synthesis command:\n"``, then the rest of the
-   code block is formatted as ``yoscrypt`` (e.g. `synth_ice40`).  The caveat
-   here is that if the ``script()`` calls ``run()`` on any commands *prior* to
-   the first ``check_label`` then the auto detection will break and revert to
-   unformatted code (e.g. `synth_fabulous`).
+To be parsed as a ``usage`` node, the current line:
+  + must start with the name of the command (case sensitive), followed by a
+    space or a new line;
+  + may have up to four characters of whitespace as indentation;
+  + must be the first non-empty line, preceded by two empty lines, or
+    immediately following another usage signature with the same indentation.
+
+Any lines immediately after a usage signature which is indented more than the
+signature will be appended to the usage signature.  This allows for breaking
+arguments across lines in the terminal output while still producing a single
+``usage`` node.
+
+.. code-block:: cpp
+  :caption: Example code for a command with multiple usage signatures
+
+  log("\n");
+  log("    command\n");
+  log("    command -argument\n");
+  log("            -another argument\n");
+  log("\n");
+  log("\n");
+  log("command description.\n"); // not a signature because it is dedented
+  log("\n");
+  log("\n");
+  log("    command -different argument\n");
+  log("\n");
+
+If a line is indented and starts with a dash (``-``), and does not immediately
+follow a usage signature, it is parsed as an ``option`` node.  Anything else is
+parsed as a ``codeblock`` and added to either the root node or the current
+option depending on the indentation.  This allows yosys script syntax
+highlighting for (most) options, while still respecting help content which
+relies on the fixed-width rendering.
+
+To enable syntax highlighting in synthesis command scripts, if the final block
+of help output starts with the string ``"The following commands are executed by
+this synthesis command:\n"``, then the rest of the code block is formatted as
+``yoscrypt`` (e.g. `synth_ice40`).  The caveat here is that if the ``script()``
+calls ``run()`` on any commands *prior* to the first ``check_label`` then the
+auto detection will break and revert to unformatted code (e.g.
+`synth_fabulous`).
+
+
+Cells JSON
+~~~~~~~~~~
+
+- effectively (if not literally) the ``SimHelper`` struct formatted as JSON
+
+.. todo:: get an example here (`$nex`\ ?)
 
 
 Cells and commands in Sphinx
