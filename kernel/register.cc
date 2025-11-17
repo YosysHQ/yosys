@@ -739,16 +739,14 @@ struct HelpPass : public Pass {
 		// init json
 		json.begin_object();
 		json.entry("version", "Yosys command reference");
-		json.entry("generator", yosys_version_str);
+		json.entry("generator", yosys_maybe_version());
 
 		bool raise_error = false;
 		std::map<string, vector<string>> groups;
 
 		json.name("cmds"); json.begin_object();
 		// iterate over commands
-		for (auto &it : pass_register) {
-			auto name = it.first;
-			auto pass = it.second;
+		for (auto &[name, pass] : pass_register) {
 			auto title = pass->short_help;
 
 			auto cmd_help = PrettyHelp();
@@ -863,7 +861,7 @@ struct HelpPass : public Pass {
 						if (current_buffer.empty())
 							current_buffer = stripped_line;
 						else if (current_state == PUState_signature && IsIndent)
-							current_buffer += stripped_line;
+							current_buffer += " " + stripped_line;
 						else if (current_state == PUState_none) {
 							current_buffer += (blank_lines > 0 ? "\n\n" : "\n") + line;
 						} else
