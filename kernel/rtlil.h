@@ -1726,6 +1726,8 @@ public:
 	operator std::vector<RTLIL::SigChunk>() const;
 	operator std::vector<RTLIL::SigBit>() const { return to_sigbit_vector(); }
 	const RTLIL::SigBit &at(int offset, const RTLIL::SigBit &defval) { return offset < size() ? (*this)[offset] : defval; }
+	RTLIL::SigBit& at(int offset) { return (*this)[offset]; }
+	RTLIL::SigBit at(int offset) const { return (*this)[offset]; }
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const {
 		Hasher::hash_t val;
