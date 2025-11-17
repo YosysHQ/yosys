@@ -239,13 +239,17 @@ Rendering rich help text as plain text is done by traversing over all the
 ``ContentListing`` nodes and printing the body text.  ``usage`` nodes are
 preceded by an empty line and indented one level (4 spaces).  ``option`` nodes
 are also indented one level, while their children are indented an extra level (8
-spaces).  Each section of body text is broken into words separated by spaces.
-If a word would cause the line to exceed 80 characters (controlled by
-``MAX_LINE_LEN`` in :file:`kernel/log_help.cc`), then the word will instead be
-placed on a new line, with the same level of indentation.
+spaces).  Any ``codeblock`` nodes are rendered as-is at the current indentation,
+with no further formatting applied.
 
-Special handling is included for words that begin and end with a backtick
-(`````) so that these are stripped when printing to the command line.  Compare
+.. TODO:: are codeblocks actually rendered as-is?  They definitely should be
+
+``paragraph`` nodes are broken into words separated by spaces, and each word is
+printed.  If a word would cause the current line to exceed 80 characters
+(controlled by ``MAX_LINE_LEN`` in :file:`kernel/log_help.cc`), then the word
+will instead be placed on a new line with the same level of indentation. Special
+handling is included for words that begin and end with a backtick (`````) so
+that these are stripped when printing to the command line.  Compare
 :ref:`chformal_help` below with the :ref:`chformal autocmd` above.  The content
 is still the same, but for the command line it uses a fixed width.
 
@@ -330,19 +334,11 @@ v1 (default)
   code block
 - e.g. `$_NOT_`:
 
-.. code-block:: verilog
+.. literalinclude:: /generated/simcells._NOT_.v
+   :language: verilog
+   :start-at: //-
+   :end-at: module \$_NOT_
 
-   //-
-   //-     $_NOT_ (A, Y)
-   //* group comb_simple
-   //-
-   //- An inverter gate.
-   //-
-   //- Truth table:    A | Y
-   //-                ---+---
-   //-                 0 | 1
-   //-                 1 | 0
-   //-
 
 v2 (more expressive)
 ~~~~~~~~~~~~~~~~~~~~
@@ -364,16 +360,8 @@ v2 (more expressive)
 - can link to commands or passes using backticks (`````)
 - e.g. `$nex`:
 
-.. code-block:: verilog
-
-   //* ver 2
-   //* title Case inequality
-   //* group binary
-   //* tags x-aware
-   //- This corresponds to the Verilog '!==' operator.
-   //-
-   //- Refer to `$eqx` for more details.
-   //-
+.. literalinclude:: /generated/simlib.nex.v
+   :language: verilog
 
 - code blocks can be included as following:
 
@@ -490,9 +478,18 @@ auto detection will break and revert to unformatted code (e.g.
 Cells JSON
 ~~~~~~~~~~
 
-- effectively (if not literally) the ``SimHelper`` struct formatted as JSON
+- effectively the ``SimHelper`` struct formatted as JSON (drops ``ver``, copies
+  tags to ``properties``)
+- plus additional fields from the ``CellType``
 
-.. todo:: get an example here (`$nex`\ ?)
+  + inputs, outputs, property flags
+
+.. literalinclude:: /generated/cells.json
+   :language: json
+   :start-at: "$nex": {
+   :end-at: },
+   :caption: `$nex` in generated :file:`cells.json`
+   :name: nex_json
 
 
 Cells and commands in Sphinx

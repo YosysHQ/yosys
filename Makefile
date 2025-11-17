@@ -1082,7 +1082,7 @@ docs/source/generated/functional/rosette.diff: backends/functional/smtlib.cc bac
 	$(Q) mkdir -p $(@D)
 	$(Q) diff -U 20 $^ > $@ || exit 0
 
-PHONY: docs/gen/functional_ir
+.PHONY: docs/gen/functional_ir
 docs/gen/functional_ir: docs/source/generated/functional/smtlib.cc docs/source/generated/functional/rosette.diff
 
 docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
@@ -1091,10 +1091,24 @@ docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
 	$(Q) cp $< $@
 
-PHONY: docs/gen/chformal
+.PHONY: docs/gen/chformal
 docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
 
-PHONY: docs/gen docs/usage docs/reqs
+# e.g. simlib.nex.v -> extract $nex from simlib.v
+# sed command adds all non-empty lines to the hold space
+#  when an empty line is reached, the hold space is moved to the pattern space
+#  if it includes the desired module, print it
+#  this gives us the raw comment block immediately before the cell
+docs/source/generated/%.v: $(addprefix techlibs/common/,simlib.v simcells.v)
+	$(Q) mkdir -p $(@D)
+	$(Q) sed --posix -n -e '/./{H;d} ; x' \
+		-e "/module .\$$$(lastword $(subst ., ,$*))/p" \
+		techlibs/common/$(basename $*).v >> $@
+
+.PHONY: docs/gen/raw_cells
+docs/gen/raw_cells: $(addprefix docs/source/generated/,simlib.nex.v  simcells._NOT_.v)
+
+.PHONY: docs/gen docs/usage docs/reqs
 docs/gen: $(TARGETS)
 	$(Q) $(MAKE) -C docs gen
 
@@ -1129,7 +1143,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal docs/gen/raw_cells
 
 DOC_TARGET ?= html
 docs: docs/prep
