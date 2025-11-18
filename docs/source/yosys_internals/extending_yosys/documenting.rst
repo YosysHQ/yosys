@@ -66,15 +66,43 @@ indicate mutually exclusive arguments.
 Warning flags
 ~~~~~~~~~~~~~
 
-- flags set during pass constructor
-- adds warnings to end of help output
-- usually used by commands not intended for general use
-- ``Pass::experimental()`` for experimental commands that may not be stable or
-  reliable
-- ``Pass::internal()`` for commands aimed at developers rather than users
+In order to support commands which are not intended for general use, a number of
+warning flags are provided to the ``Pass`` class.  Take the
+:ref:`internal_flag_example` as an example.  In the body of the constructor, we
+call ``Pass::internal()`` to set the warning flag that this is an internal; i.e.
+one aimed at Yosys *developers* rather than users.  Commands with the
+``internal`` flag are often used for testing Yosys, and expose functionality
+that would normally be abstracted.  Setting this flag also ensures that commands
+will be included in :doc:`/cmd/index_internal`.
 
-  + most of which end up in :doc:`/cmd/index_internal`
-  + these are often commands used for testing Yosys
+.. literalinclude:: /generated/functional/test_generic.cc
+   :language: cpp
+   :start-at: FunctionalTestGeneric()
+   :end-at: }
+   :dedent:
+   :caption: `test_generic` pass constructor
+   :name: internal_flag_example
+
+The other warning flag available is ``Pass::experimental()``, also to be called
+during the constructor. This should used for experimental commands that may be
+unstable, unreliable, incomplete, and/or subject to change.  Experimental passes
+also typically have the text ``(experimental)`` at the start of their
+``short_help``, but this is not always the case.
+
+.. todo:: should the experimental flag add ``(experimental)`` automatically?
+
+In both cases, commands with these flags set will print additional warning text
+in the help output.  Calling commands with the ``experimental`` flag set, will
+also call ``log_experimental()`` with the name of the pass, providing an
+additional warning any time the pass is used.
+
+.. note::
+
+   When testing the handling of expected error/warning messages with e.g.
+   `logger`, it is possible to disable the warnings for a given experimental
+   feature.  This can be done by calling Yosys with ``--experimental
+   <feature>``, where ``<feature>`` is the name of the experimental pass.
+
 
 The ``Pass::help()`` method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -235,14 +263,19 @@ for the command is displayed.  Returning true, however, will then call
 ``PrettyHelp::log_help()`` to convert the formatted help content into plain
 text.
 
+.. note::
+
+   Regardless of which help method is used, any `warning flags`_ set on the pass
+   will display a message to warn the user.  These are regular messages, using
+   ``log()`` rather than ``log_warning()``, meaning (for example) they will
+   be suppressed by the ``-q`` command line option.
+
 Rendering rich help text as plain text is done by traversing over all the
 ``ContentListing`` nodes and printing the body text.  ``usage`` nodes are
 preceded by an empty line and indented one level (4 spaces).  ``option`` nodes
 are also indented one level, while their children are indented an extra level (8
 spaces).  Any ``codeblock`` nodes are rendered as-is at the current indentation,
 with no further formatting applied.
-
-.. TODO:: are codeblocks actually rendered as-is?  They definitely should be
 
 ``paragraph`` nodes are broken into words separated by spaces, and each word is
 printed.  If a word would cause the current line to exceed 80 characters

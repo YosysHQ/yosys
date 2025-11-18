@@ -1091,8 +1091,8 @@ docs/source/generated/%.log: docs/source/generated $(TARGETS) $(EXTRA_TARGETS)
 docs/source/generated/chformal.cc: passes/cmds/chformal.cc docs/source/generated
 	$(Q) cp $< $@
 
-.PHONY: docs/gen/chformal
-docs/gen/chformal: docs/source/generated/chformal.log docs/source/generated/chformal.cc
+.PHONY: docs/gen/raw_commands
+docs/gen/raw_commands: docs/source/generated/chformal.log docs/source/generated/chformal.cc docs/source/generated/functional/test_generic.cc
 
 # e.g. simlib.nex.v -> extract $nex from simlib.v
 # sed command adds all non-empty lines to the hold space
@@ -1143,7 +1143,7 @@ docs/reqs:
 	$(Q) $(MAKE) -C docs reqs
 
 .PHONY: docs/prep
-docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/chformal docs/gen/raw_cells
+docs/prep: docs/source/generated/cells.json docs/source/generated/cmds.json docs/gen docs/usage docs/gen/functional_ir docs/gen/raw_commands docs/gen/raw_cells
 
 DOC_TARGET ?= html
 docs: docs/prep
