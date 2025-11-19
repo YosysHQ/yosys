@@ -693,8 +693,8 @@ class CellDomain(CommandDomain):
 
 def autoref(name, rawtext: str, text: str, lineno, inliner: Inliner,
             options=None, content=None):
-    words = text.split(' ')
-    if len(words) == 2 and words[0] == "help":
+    words = text.split()
+    if len(words) == 2 and words[0] == "help" and words[1][0] not in ['<', '-']:
         IsLinkable = True
         thing = words[1]
     else:

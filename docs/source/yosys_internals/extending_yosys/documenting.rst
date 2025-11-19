@@ -41,7 +41,7 @@ hovering over links to commands in the documentation, and in section headings
 like :ref:`chformal autocmd`.
 
 The next section shows the complete help text for the `chformal` command.  This
-can be displayed locally by using ``help <command>`` (or ``yosys -h <command>``
+can be displayed locally by using `help <command>` (or ``yosys -h <command>``
 from the command line).  The general format is to show each usage signature (how
 the command is called), followed by a paragraph describing what the pass does,
 and a list of options or flags available.  Additional arguments in the signature
@@ -297,31 +297,35 @@ is still the same, but for the command line it uses a fixed width.
 Cell help
 ---------
 
-- :file:`techlibs/common/simcells.v` and :file:`techlibs/common/simlib.v`
-- parsed by :file:`techlibs/common/cellhelp.py`
+Unlike commands, cell help text is generated at compile time, and is not
+affected by platform or compile flags.  This also means that it is not possible
+to provide help content for custom cell types in plugins or technology
+libraries.
 
-  + unlike commands, cell help text is generated at compile time
-  + only formatting occurs at run time
-  + no support for custom cells in plugins
+Two verilog simulation libraries provide models for all built-in cell types.
+These are defined in :file:`techlibs/common/simcells.v` (for
+:doc:`/cell/index_gate`) and :file:`techlibs/common/simlib.v` (for
+:doc:`/cell/index_word`).  Each model is preceded by a structured comment block,
+formatted as either :ref:`v1` or :ref:`v2`.  These comment blocks are processed
+by a python script, :file:`techlibs/common/cellhelp.py`, to generate the help
+content used in :file:`kernel/register.cc`.
 
-- comments preceding cell type converted to a ``SimHelper`` struct, defined in
-  :file:`kernel/register.cc`
-- ``#include``\ d in :file:`kernel/register.cc`, creating a map of cell types to
-  their ``SimHelper`` struct.
+.. note::
 
-- ``help -cells``
+  Each verilog module (and its comment block) is parsed into a C++ ``dict``,
+  mapping the cell type (the name of the verilog module) to a ``SimHelper``
+  struct in :file:`kernel/register.cc` with ``#include``\ s. Calling `help
+  <celltype>` then retrieves the corresponding ``SimHelper`` and displays the
+  help text contained.
 
-  - lists all cells with their input/output ports
-  - again an unlisted :ref:`cell index <cellindex>`
+Calling `help -cells` will list all built-in cell types with their input/output
+ports.  There is again an unlisted :ref:`cell index <cellindex>` which shows all
+cell types with their title.  Unlike commands, providing a title is optional, so
+most just use the name of the cell (qualified with the containing group).  It is
+also possible to display the verilog simulation model by calling `help
+<celltype>+`.
 
-- ``help <celltype>``
-
-  - prints help message for ``<celltype>``
-  - constructed from ``SimHelper`` content depending on version
-
-- ``help <celltype>+``
-
-  - prints verilog code for ``<celltype>``
+.. _v1:
 
 v1 (default)
 ~~~~~~~~~~~~
@@ -359,8 +363,9 @@ v1 (default)
   and a space
 
   - description should have a trailing empty line
-  - line breaks are preserved in `help` calls but will be rendered as text in
-    sphinx docs, with empty lines being required between paragraphs
+  - lines should be limited to 80 characters (84 including ``//-``), and are
+    rendered to the terminal as-is
+  - web docs will render as text, with empty lines used to separate paragraphs
 
 - cells in :file:`techlibs/common/simcells.v` can have optional truth table at
   the end of the cell description which is rendered in sphinx docs as a literal
@@ -372,6 +377,7 @@ v1 (default)
    :start-at: //-
    :end-at: module \$_NOT_
 
+.. _v2:
 
 v2 (more expressive)
 ~~~~~~~~~~~~~~~~~~~~
