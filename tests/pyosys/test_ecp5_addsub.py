@@ -1,8 +1,8 @@
-import os
+from pathlib import Path
 from pyosys import libyosys as ys
 
-__dir__ = os.path.dirname(os.path.abspath(__file__))
-add_sub = os.path.join(__dir__, "..", "common", "add_sub.v")
+__file_dir__ = Path(__file__).absolute().parent
+add_sub = __file_dir__.parent / "arch" / "common" / "add_sub.v"
 
 base = ys.Design()
 ys.run_pass(f"read_verilog {add_sub}", base)
