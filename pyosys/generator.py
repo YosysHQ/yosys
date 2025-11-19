@@ -193,7 +193,7 @@ pyosys_headers = [
             ),
             PyosysClass("SigChunk"),
             PyosysClass("SigBit", hash_expr="s"),
-            PyosysClass("SigSpec", hash_expr="s", denylist={"chunks"}),
+            PyosysClass("SigSpec", hash_expr="s", denylist=frozenset({"chunks"})),
             PyosysClass(
                 "Cell",
                 ref_only=True,
@@ -539,6 +539,8 @@ class PyosysWrapperGenerator(object):
                 python_name_override = "__ne__"
             elif function.operator == "<":
                 python_name_override = "__lt__"
+            elif function.operator == "[]" and function.const:
+                python_name_override = "__getitem__"
             else:
                 return
 
@@ -592,7 +594,10 @@ class PyosysWrapperGenerator(object):
             # care
             return
 
-        has_containers = self.register_containers(field)
+        self.register_containers(field)
+        rvp = "py::return_value_policy::copy"
+        if isinstance(field.type, Pointer):
+            rvp = "py::return_value_policy::reference_internal"
 
         definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
         if field.static:
@@ -604,7 +609,7 @@ class PyosysWrapperGenerator(object):
             f'"{field_python_basename}"',
             f"&{metadata.name}::{field.name}",
         ]
-        def_args.append("py::return_value_policy::copy")
+        def_args.append(rvp)
         print(
             f"\t\t\t.{definition_fn}({', '.join(def_args)})",
             file=self.f,
