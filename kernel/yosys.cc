@@ -95,6 +95,7 @@ CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
+Tcl_Interp *yosys_sdc_interp = NULL;
 #endif
 
 std::set<std::string> yosys_input_files, yosys_output_files;
@@ -393,17 +394,18 @@ void rewrite_filename(std::string &filename)
 #ifdef YOSYS_ENABLE_TCL
 
 // defined in tclapi.cc
-extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
+extern int yosys_tcl_interp_init(Tcl_Interp *interp);
 
 extern Tcl_Interp *yosys_get_tcl_interp()
 {
 	if (yosys_tcl_interp == NULL) {
 		yosys_tcl_interp = Tcl_CreateInterp();
-		yosys_tcl_iterp_init(yosys_tcl_interp);
+		yosys_tcl_interp_init(yosys_tcl_interp);
 	}
 	return yosys_tcl_interp;
 }
 
+// Also see SdcPass
 struct TclPass : public Pass {
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
 	void help() override {
@@ -446,6 +448,7 @@ struct TclPass : public Pass {
 		Tcl_Release(interp);
 	}
 } TclPass;
+
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
