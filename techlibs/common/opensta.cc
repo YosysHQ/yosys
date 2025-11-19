@@ -44,6 +44,7 @@ struct OpenstaPass : public Pass
 		bool cleanup = design->scratchpad_get_bool("opensta.cleanup", true);
 
 		log_header(design, "Executing OPENSTA pass.\n");
+		log_experimental("opensta");
 		log_push();
 
 		size_t argidx;
