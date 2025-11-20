@@ -58,7 +58,6 @@ module dff (D, CLK, RESET, PRESET, Q, QN);
       IQ <= 1;
     end
     else begin
-      // D
       IQ <= D;
     end
   end
@@ -70,7 +69,6 @@ module dff (D, CLK, RESET, PRESET, Q, QN);
       IQN <= 1;
     end
     else begin
-      // ~(D)
       IQN <= ~(D);
     end
   end

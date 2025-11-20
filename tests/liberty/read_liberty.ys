@@ -1,0 +1,9 @@
+read_liberty retention.lib
+rename retention_cell retention_cell_lib
+read_verilog retention.lib.verilogsim
+proc
+rename retention_cell retention_cell_vlog
+async2sync
+equiv_make retention_cell_lib retention_cell_vlog equiv
+equiv_induct equiv
+equiv_status -assert equiv
