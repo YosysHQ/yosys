@@ -191,11 +191,23 @@ static RTLIL::SigSpec create_tristate(RTLIL::Module *module, RTLIL::SigSpec func
 	return cell->getPort(ID::Y);
 }
 
+static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
+{
+	module->addWire(RTLIL::escape_id(node->args.at(0)));
+	module->addWire(RTLIL::escape_id(node->args.at(1)));
+}
+
+static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
+{
+	auto* iq_wire = module->wire(RTLIL::escape_id(node->args.at(0)));
+	auto* iqn_wire = module->wire(RTLIL::escape_id(node->args.at(1)));
+	log_assert(iq_wire && iqn_wire);
+	return std::make_pair(iq_wire, iqn_wire);
+}
+
 static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 {
-	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
-
+	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec clk_sig, data_sig, clear_sig, preset_sig;
 	bool clk_polarity = true, clear_polarity = true, preset_polarity = true;
 
@@ -270,9 +282,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 
 static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool flag_ignore_miss_data_latch)
 {
-	RTLIL::SigSpec iq_sig(module->addWire(RTLIL::escape_id(node->args.at(0))));
-	RTLIL::SigSpec iqn_sig(module->addWire(RTLIL::escape_id(node->args.at(1))));
-
+	auto [iq_sig, iqn_sig] = find_latch_ff_wires(module, node);
 	RTLIL::SigSpec enable_sig, data_sig, clear_sig, preset_sig;
 	bool enable_polarity = true, clear_polarity = true, preset_polarity = true;
 
@@ -646,6 +656,13 @@ struct LibertyFrontend : public Frontend {
 			{
 				// some liberty files do not put ff/latch at the beginning of a cell
 				// try to find "ff" or "latch" and create FF/latch _before_ processing all other nodes
+				// but first, in case of balloon retention cells, we need all ff/latch output wires
+				// defined before we add ff/latch cells
+				for (auto node : cell->children)
+				{
+					if ((node->id == "ff" && node->args.size() == 2) || (node->id == "latch" && node->args.size() == 2))
+						create_latch_ff_wires(module, node);
+				}
 				for (auto node : cell->children)
 				{
 					if (node->id == "ff" && node->args.size() == 2)
