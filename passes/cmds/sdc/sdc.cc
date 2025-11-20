@@ -349,20 +349,20 @@ static int getter_graph_node(TclCall call) {
 	// to distinguish resolved and unknown getters.
 	// For example, if call is ["get_foo", "-bar"]
 	// then newCall is ["get_foo", "-getter-validated", "-bar"]
-    Tcl_Obj* validity_tag = Tcl_NewStringObj("-getter-validated", -1);
-    Tcl_IncrRefCount(validity_tag);
+	Tcl_Obj* validity_tag = Tcl_NewStringObj("-getter-validated", -1);
+	Tcl_IncrRefCount(validity_tag);
 	std::vector<Tcl_Obj*> newObjv(call.objc + 1);
-    log_assert(call.objc > 0);
+	log_assert(call.objc > 0);
 	newObjv[0] = call.objv[0];
-    newObjv[1] = validity_tag;
-    for (int i = 1; i < call.objc; ++i) {
-        newObjv[i + 1] = call.objv[i];
-    }
+	newObjv[1] = validity_tag;
+	for (int i = 1; i < call.objc; ++i) {
+		newObjv[i + 1] = call.objv[i];
+	}
 	// Send the vector to the Tcl land
-    Tcl_Obj** allocatedObjv = new Tcl_Obj*[call.objc + 1];
-    for (int i = 0; i < call.objc + 1; ++i) {
-        allocatedObjv[i] = newObjv[i];
-    }
+	Tcl_Obj** allocatedObjv = (Tcl_Obj**)Tcl_Alloc((call.objc + 1) * sizeof(Tcl_Obj*));
+	for (int i = 0; i < call.objc + 1; ++i) {
+		allocatedObjv[i] = newObjv[i];
+	}
 	TclCall newCall {
 		.interp = call.interp,
 		.objc = call.objc + 1,
@@ -376,14 +376,14 @@ static int redirect_unknown(TclCall call) {
 	// TODO redirect to different command
 	Tcl_Obj *newCmd = Tcl_NewStringObj("unknown", -1);
 	auto newObjc = call.objc + 1;
-	Tcl_Obj **newObjv = new Tcl_Obj*[newObjc];
+	Tcl_Obj** newObjv = (Tcl_Obj**)Tcl_Alloc(newObjc * sizeof(Tcl_Obj*));
 	newObjv[0] = newCmd;
 	for (int i = 1; i < newObjc; i++) {
 		newObjv[i] = call.objv[i - 1];
 	}
 	int result = Tcl_EvalObjv(call.interp, newObjc, newObjv, 0);
 	Tcl_DecrRefCount(newCmd);
-	delete[] newObjv;
+	Tcl_Free((char*) newObjv);
 	return result;
 }
 
@@ -551,7 +551,7 @@ struct TclOpts {
 		std::string expected = std::string("-") + opt_name;
 		if (expected == arg) {
 			if (!std::find_if(legals.begin(), legals.end(),
-					   [&opt_name](const char* str) { return opt_name == str; }))
+					[&opt_name](const char* str) { return opt_name == str; }))
 				log_cmd_error("Illegal argument %s for %s.\n", expected.c_str(), name);
 			return true;
 		}
