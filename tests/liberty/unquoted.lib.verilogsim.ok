@@ -5,8 +5,11 @@ module dff1 (D, CLK, Q);
   output Q;
   assign Q = IQ; // IQ
   always @(posedge CLK) begin
-      // !D
+      // (~D)
       IQ <= (~D);
+  end
+  always @(posedge CLK) begin
+      // ~((~D))
       IQN <= ~((~D));
   end
 endmodule
@@ -17,8 +20,11 @@ module dff2 (D, CLK, Q);
   output Q;
   assign Q = IQ; // "IQ"
   always @(posedge CLK) begin
-      // D '
+      // (~D)
       IQ <= (~D);
+  end
+  always @(posedge CLK) begin
+      // ~((~D))
       IQN <= ~((~D));
   end
 endmodule
@@ -32,8 +38,11 @@ module dffe (D, EN, CLK, Q, QN);
   output QN;
   assign QN = IQN; // "IQN"
   always @(negedge CLK) begin
-      //  ( D & EN ) | ( IQ & ! EN )
+      // ((D&EN)|(IQ&(~EN)))
       IQ <= ((D&EN)|(IQ&(~EN)));
+  end
+  always @(negedge CLK) begin
+      // ~(((D&EN)|(IQ&(~EN))))
       IQN <= ~(((D&EN)|(IQ&(~EN))));
   end
 endmodule
