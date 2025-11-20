@@ -320,89 +320,104 @@ content used in :file:`kernel/register.cc`.
 
 Calling `help -cells` will list all built-in cell types with their input/output
 ports.  There is again an unlisted :ref:`cell index <cellindex>` which shows all
-cell types with their title.  Unlike commands, providing a title is optional, so
-most just use the name of the cell (qualified with the containing group).  It is
-also possible to display the verilog simulation model by calling `help
-<celltype>+`.
+cell types with their title.  Unlike commands, providing a title is optional,
+and only available with `v2`_ formatting, so most just use the name of the cell
+(qualified with the containing group).  It is also possible to display the
+verilog simulation model by calling `help <celltype>+`.
 
 .. _v1:
 
 v1 (default)
 ~~~~~~~~~~~~
 
-- Legacy format
-- Expects formatting as follows:
+As mentioned previously, the verilog simulation models are preceded by a
+structured comment block.  Each line starting with ``//-`` is added to the
+description of the next verilog module.  Non-empty lines must have a space after
+the dash before text, and should be limited to 80 characters (84 including the
+``//-``).  The description is rendered to the terminal as-is when calling `help
+<celltype>`, while the web docs will render it as text, with empty lines being
+used to separate paragraphs.
 
-.. code-block:: verilog
+..
+   Descriptions can extend into the verilog module itself, including *all* comment
+   lines that start with a dash prior to the ``endmodule``.  However, everything in
+   the ``module .. endmodule`` block is considered source code, so this is not
+   recommended.
 
-   //-
-   //-    $<celltype> (<ports>)
-   //* group <cellgroup>
-   //-
-   //- <cell description>
-   //-
-   module \$<celltype> (<ports>);
-   // ...
-   endmodule
+.. note::
 
-- ``//* group`` line is generally after the cell signature, but can appear
-  anywhere in the comment block
+   Most of the legacy cell descriptions include a signature line (``//-
+   $<celltype> (<ports>)``).  More recent versions of the help generation will
+   automatically produce this signature from the verilog declaration, making
+   this an optional inclusion.  Note that if a signature line *is* included, it
+   *must* start with at least 4 spaces (not tabs), and include one empty line
+   (``//-``) before and after.
 
-  - determines where the cell is included in sphinx
-  - check :file:`docs/source/cell` for current groups
-  - a missing group will raise an error
-  - assigning an unused group will result in the cell not being included in the
-    sphinx docs
+Each cell type must also be assigned a group, failing to do so will produce an
+error.  This can be done by adding ``//* group <cellgroup>`` anywhere in the
+comment block.  As with commands, the group determines where the cell appears in
+the Sphinx documentation, but does not otherwise impact the output of `help`. As
+with commands, there is no warning produced if cells are assigned a group which
+is not used in the documentation.  Make sure to check :file:`docs/source/cell`
+for the groups currently available.
 
-- the port signature line (``//-    $<celltype> (<ports>)``) must start with (at
-  least) 4 spaces (not tabs)
-
-  - the empty lines (``//-``) before/after the signature are required
-
-- cell description can be multiple lines, but each line must start with ``//-``
-  and a space
-
-  - description should have a trailing empty line
-  - lines should be limited to 80 characters (84 including ``//-``), and are
-    rendered to the terminal as-is
-  - web docs will render as text, with empty lines used to separate paragraphs
-
-- cells in :file:`techlibs/common/simcells.v` can have optional truth table at
-  the end of the cell description which is rendered in sphinx docs as a literal
-  code block
-- e.g. `$_NOT_`:
+For the cell models in :file:`techlibs/common/simcells.v`, it is possible to
+provide a truth table at the end of the cell description which is rendered in
+sphinx docs as a literal code block.  We can look at the :ref:`NOT_module` to
+see this in action.
 
 .. literalinclude:: /generated/simcells._NOT_.v
    :language: verilog
    :start-at: //-
    :end-at: module \$_NOT_
+   :name: NOT_module
+   :caption: `$_NOT_` cell comment block from :file:`techlibs/common/simcells.v`
+
+..
+   v1 descriptions in :file:`techlibs/common/simcells.v` have their version
+   unconditionally changed to ``2a`` to facilitate the truth table rendering,
+   making use of the v2 handling of codeblocks with ``::``.  This also means A.
+   using ``::`` on its own in a v1 (gate-level) description should be avoided, and
+   B. *all* text after the ``"Truth table:"`` line is included in the codeblock.
+
 
 .. _v2:
 
 v2 (more expressive)
 ~~~~~~~~~~~~~~~~~~~~
 
-- each field of the ``SimHelper`` struct can be assigned with:
+Fields can be directly assigned with a ``//* <name> <value>`` comment line.  We
+saw this in the `v1`_ format with the group, but this is actually possible with
+*all* fields of the ``SimHelper`` struct.  In order to use the extra fields,
+``ver`` must be explicitly set as ``2``.  The extra fields available are as
+follows, with an example provided by the :ref:`nex_module`.
 
-.. code-block:: verilog
+- title
+   A short title for the cell, equivalent to ``short_help`` in commands.
+   Rendered before the description and when hovering over links in
+   documentation.
 
-   //* <name> <value>
-
-- ``ver`` must be explicitly set as ``2``
-- optional fields ``title`` and ``tags``
-
-  - title used for better displaying of cell
-  - tags is a space-separated list of :doc:`/cell/properties`
-
-- the port signature is automatically generated from the ``module`` definition
-- cell description is the same as v1
-- can link to commands or passes using backticks (`````)
-- e.g. `$nex`:
+- tags
+   A space-separated list of :doc:`/cell/properties`.  Not used in `help`
+   output, but provided when dumping to JSON and in the Sphinx docs.
 
 .. literalinclude:: /generated/simlib.nex.v
    :language: verilog
+   :name: nex_module
+   :caption: `$nex` cell comment block from :file:`techlibs/common/simlib.v`
 
-- code blocks can be included as following:
+.. warning::
+
+   While it is possible to assign values to any of the ``SimHelper`` fields,
+   some fields are automatically assigned and explicitly setting them may result
+   in errors, or discarding of the assigned value.  These fields are the name,
+   ports, code, source, and desc.
+
+The cell description is provided in the same way as in `v1`_, with each line
+starting with a ``//-``.  When generating the Sphinx documentation, the cell
+description is interpreted as raw RST.  This allows both in-line formatting like
+linking to commands or passes using backticks (`````), and literal code blocks
+with the ``::`` marker as in the following example:
 
 .. code-block:: verilog
 
@@ -415,10 +430,10 @@ v2 (more expressive)
    //-
    //- more text
 
-- the empty line after the ``::`` and before the text continues are required
-- the ``::`` line will be ignored in the `help` call while sphinx docs will
-  treat everything that follows as a literal block until the next unindented
-  line:
+Note that the empty line after the ``::`` and before the text continues are
+required, as is the indentation before the literal contents.  When rendering to
+the terminal with `help <celltype>`, the ``::`` line will be ignored, while
+Sphinx displays the section verbatim like so:
 
    text
    ::
@@ -428,6 +443,11 @@ v2 (more expressive)
          indentation and line length will be preserved, giving a scroll bar if necessary for the browser window
 
    more text
+
+.. todo:: in line formatting for web docs isn't exclusive to v2,
+
+   but it does raise the question of if we should be doing something to prevent
+   v1 descriptions being treated as raw RST.
 
 
 Dumping to JSON
