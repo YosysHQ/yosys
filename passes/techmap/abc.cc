@@ -1064,7 +1064,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	abc_script += stringf("; write_blif %s/output.blif", run_abc.tempdir_name);
 	abc_script = add_echos_to_abc_cmd(abc_script);
 #if defined(__linux__) && !defined(YOSYS_DISABLE_SPAWN)
-	abc_script += "; echo \"YOSYS_ABC_DONE\"\n";
+	abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
 #endif
 
 	for (size_t i = 0; i+1 < abc_script.size(); i++)
