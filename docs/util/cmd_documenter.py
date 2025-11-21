@@ -394,7 +394,7 @@ class YosysCmdDocumenter(YosysCmdGroupDocumenter):
 
         if self.get_sourcename() != 'unknown':
             self.add_line('\n', source_name)
-            self.add_line(f'.. note:: Help text automatically generated from :file:`{source_name}:{source_line}`', source_name)
+            self.add_line(f'.. seealso:: Help text automatically generated from :file:`{source_name}:{source_line}`', source_name)
 
         # add additional content (e.g. from document), if present
         if more_content:

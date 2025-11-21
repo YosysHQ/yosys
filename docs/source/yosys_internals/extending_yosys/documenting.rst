@@ -30,7 +30,8 @@ the name of the pass, as demonstrated here with `chformal`.
    :start-at: public Pass {
    :end-at: ChformalPass()
    :caption: ``ChformalPass()`` from :file:`passes/cmds/chformal.cc`
-   :append: 
+   :name: chformal_pass
+   :append:
               // ...
       } ChformalPass;
 
@@ -484,7 +485,9 @@ the `Warning flags`_, source location, source function, and corresponding group
 .. literalinclude:: /generated/cmds.json
    :language: json
    :start-at: "chformal": {
-   :end-before: "chparam": {
+   :end-at: "internal_flag": false
+   :append: }
+   :dedent:
    :caption: `chformal` in generated :file:`cmds.json`
    :name: chformal_json
 
@@ -635,51 +638,83 @@ will fallback to formatting as inline yoscrypt.
    .. literalinclude:: formatting_sample.txt
       :language: reStructuredText
       :start-after: .. 3
+      :end-before: .. 4
 
 .. tab:: formatted output
 
    .. include:: formatting_sample.txt
       :start-after: .. 3
+      :end-before: .. 4
 
 Using autodoc
 ~~~~~~~~~~~~~
 
-- below is the raw RST output from ``autocmd`` (``YosysCmdDocumenter`` class in
-  :file:`docs/util/cmd_documenter.py`) for `chformal` command
-- heading will be rendered as a subheading of the most recent heading (see
-  `chformal autocmd`_ above rendered under `Command help`_)
-- ``.. cmd:def:: <cmd>`` line is indexed for cross references with ``:cmd:ref:``
-  directive (`chformal autocmd`_ above uses ``:noindex:`` option so that
-  `chformal` still links to the correct location)
+The vast majority of command and cell help content in these docs is done with
+the the `autodoc extension`_.  By generating Sphinx documentation from our JSON
+dumps of commands and cells, not only are we able to write the help content once
+and have it available both in Yosys itself and online, we also ensure that any
+code changes or additions are automatically propagated to the web docs.
 
-  + ``:title:`` option controls text that appears when hovering over the
-    `chformal` link
+.. note::
 
-- commands with warning flags (experimental or internal) add a ``.. warning``
-  block before any of the help content
-- if a command has no ``source_location`` the ``.. note`` at the bottom will
-  instead link to :doc:`/cmd/index_other`
+   We are focusing on the ``autocmd`` directive here because it is easier to
+   demonstrate.  In practice we don't really use it directly outside of this
+   page, and instead make use of the ``autocmdgroup`` directive.  By providing
+   the ``:members:`` option, this is the same as calling ``autocmd`` for each
+   command in the group and means that any new commands are added automatically.
 
-.. _showing autocmd generated rst:
+Now let's take a look at the :ref:`chformal_rst` behind :ref:`chformal autocmd`.
+This conversion is done by the ``YosysCmdDocumenter`` class in
+:file:`docs/util/cmd_documenter.py`.  We can see all of our ``paragraph`` and
+``option`` nodes from :ref:`ChformalPass::formatted_help() <chformal_source>`
+have made it through, as has the ``short_help`` from our :ref:`ChformalPass()
+constructor <chformal_pass>`.  The heading will be rendered as a subheading of
+the most recent heading (notice how the `chformal` help content above is listed
+under `Command help`_ in the table of contents).
+
+.. _chformal_rst:
 
 .. autocmd_rst:: chformal
 
-- command groups documented with ``autocmdgroup <group>``
+To support cross references with the ``cmd:ref`` role, we see everything is
+under the ``cmd:def`` directive.  The ``:title:`` option is what controls the
+text that appears when hovering over the `chformal` link, and when using the
+``cmd:title`` role.  For commands with `warning flags`_, a ``.. warning`` block
+is added to the generated RST before any of the help content.  This is the same
+`warning admonition`_ that we've seen elsewhere on this page.  For commands with
+no ``source_location``, the ``.. seealso`` block at the bottom will instead link
+to :doc:`/cmd/index_other`.
 
-  + with ``:members:`` option this is the same as calling ``autocmd`` for each
-    member of the group
+.. _warning admonition: https://pradyunsg.me/furo/reference/admonitions/#warning
 
-- ``autocell`` and ``autocellgroup``
+.. hint::
 
-  + very similar to ``autocmd`` and ``autocmdgroup`` but for cells instead of
-    commands (``YosysCellDocumenter`` in :file:`docs/util/cell_documenter.py`)
-  + optionally includes verilog source for cell(s) with ``:source:`` option
-    (plus ``:linenos:``)
-  + cell definitions do not include titles
-  + cells can have properties (:ref:`propindex`)
+   The :ref:`chformal autocmd` on this page uses the ``:noindex:`` option so
+   that references to `chformal` link to the :doc:`/cmd_ref` instead of this
+   page.
 
-- bonus ``autocmd_rst``, used exclusively on this page for `showing autocmd
-  generated rst`_
+For documenting cells we have ``autocell`` and ``autocellgroup``, which function
+pretty similarly to their command-based counter parts, ``autocmd`` and
+``autocmdgroup``.  These directives are provided by the ``YosysCellDocumenter``
+in :file:`docs/util/cell_documenter.py`.  Like with `help <celltype>+`, we are
+able to include verilog simulation models in our ``autodoc`` with the
+``:source:`` option.  We can then also include line numbers by adding
+``:linenos:``, which is very useful when trying to find the source code being
+referenced.
+
+.. todo:: would be nice to get a ``.. autocell:: $nex``
+
+   like we did with `chformal autocmd`_, but it doesn't seem to like the
+   `:noindex:` option, or using `:source:` without it being ``binary::$nex``.
+
+.. todo:: cells can have properties (:ref:`propindex`)
+
+.. note::
+
+   For :ref:`showing autocmd generated rst <chformal_rst>` on this page, we also
+   have the ``autocmd_rst`` directive.  This is not used anywhere else in the
+   documentation, but it's mentioned here since we're already deep in the weeds
+   of how these docs are made.
 
 Our custom Sphinx domains
 ~~~~~~~~~~~~~~~~~~~~~~~~~
