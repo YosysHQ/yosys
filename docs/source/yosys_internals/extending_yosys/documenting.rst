@@ -419,21 +419,20 @@ description is interpreted as raw RST.  This allows both in-line formatting like
 linking to commands or passes using backticks (`````), and literal code blocks
 with the ``::`` marker as in the following example:
 
-.. code-block:: verilog
+.. tab:: Verilog comment
 
-   //- text
-   //- ::
-   //-
-   //-    monospaced text
-   //-
-   //-        indentation and line length will be preserved, giving a scroll bar if necessary for the browser window
-   //-
-   //- more text
+   .. code-block:: verilog
 
-Note that the empty line after the ``::`` and before the text continues are
-required, as is the indentation before the literal contents.  When rendering to
-the terminal with `help <celltype>`, the ``::`` line will be ignored, while
-Sphinx displays the section verbatim like so:
+      //- text
+      //- ::
+      //-
+      //-    monospaced text
+      //-
+      //-        indentation and line length will be preserved, giving a scroll bar if necessary for the browser window
+      //-
+      //- more text
+
+.. tab:: formatted output
 
    text
    ::
@@ -443,6 +442,11 @@ Sphinx displays the section verbatim like so:
          indentation and line length will be preserved, giving a scroll bar if necessary for the browser window
 
    more text
+
+Note that the empty line after the ``::`` and before the text continues are
+required, as is the indentation before the literal contents.  When rendering to
+the terminal with `help <celltype>`, the ``::`` line will be ignored, while
+Sphinx displays the section verbatim like shown.
 
 .. todo:: in line formatting for web docs isn't exclusive to v2,
 
@@ -537,11 +541,14 @@ auto detection will break and revert to unformatted code (e.g.
 Cells JSON
 ~~~~~~~~~~
 
-- effectively the ``SimHelper`` struct formatted as JSON (drops ``ver``, copies
-  tags to ``properties``)
-- plus additional fields from the ``CellType``
-
-  + inputs, outputs, property flags
+Dumping the cell help contents to JSON follows a very similar format as the
+``SimHelper`` struct.  The main difference is that there is no ``ver`` or
+``group`` field, and the ``tags`` have become ``properties``.  Each cell type
+also has a corresponding ``CellType`` struct defined in
+:file:`kernel/celltypes.h` which we now have access to.  This allows us to
+distinguish which ports are inputs and which are outputs, as well as some extra
+property flags.  The :ref:`nex_json` is reproduced here to show this
+transformation.
 
 .. literalinclude:: /generated/cells.json
    :language: json
@@ -551,27 +558,88 @@ Cells JSON
    :name: nex_json
 
 
-Cells and commands in Sphinx
-----------------------------
+Working with Sphinx
+-------------------
 
-To support the rich documentation of commands and cells in Yosys, we use two
-custom `Sphinx Domains`_.  
+This documentation is built on Sphinx using `reStructuredText`_.  To support the
+rich documentation of commands and cells in Yosys, as well as the Yosys
+scripting language and RTLIL, we use some custom extensions and will touch on
+those here.
+
+.. _reStructuredText: https://docutils.sourceforge.io/rst.html
+
+Sphinx uses `Pygments`_ for syntax highlighting code blocks, for which we
+provide to additional lexers. The first of these is ``RTLIL`` for the
+:doc:`/yosys_internals/formats/rtlil_rep`, and is exclusive to the Yosys docs.
+The second lexer, ``yoscrypt``, is for :doc:`/getting_started/scripting_intro`
+and is available across all of the YosysHQ docs through `furo-ys`_, our custom
+fork of the `furo`_ theme for Sphinx.  These languages are automatically
+associated with the ``.il`` and ``.ys`` file extensions respectively, and can be
+selected for use in any ``literalinclude`` or ``code-block`` segments.
+
+.. _Pygments: https://pygments.org/
+.. _furo-ys: https://github.com/YosysHQ/furo-ys/
+.. _furo: https://github.com/pradyunsg/furo
+
+To simplify inline Yosys script syntax highlighting, these docs provide the
+``yoscrypt`` role.  This role renders (e.g.) ``:yoscrypt:`chformal -remove```
+into :yoscrypt:`chformal -remove`.  For linking to command and cell
+documentation, we also use a default role of ``autoref``.  Any text in single
+backticks without an explicit role will be assigned this one.  We've already
+seen this being used above in the help text for `chformal` and `$nex` (which
+were themselves written as ```chformal``` and ```$nex``` respectively).  
+
+By using the `autodoc extension`_ and two custom `Sphinx Domains`_ (more on them
+later), ``autoref`` is able to produce links to any commands or cells available
+in Yosys.  So long as there are no spaces in the text, and it doesn't begin with
+a dash (``-``), it will try to convert it to a link.  If the text begins with
+``$`` then it will use the ``cell:ref`` role, otherwise it will use ``cmd:ref``.
+Let's take a look at some examples:
 
 .. _Sphinx Domains: https://www.sphinx-doc.org/en/master/usage/domains/index.html
+.. _autodoc extension: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html
 
-- ``yoscrypt`` role allows inline code to have yosys script syntax highlighting
-- default role of ``autoref``
+.. tab:: reStructuredText
 
-  + any text in single backticks without an explicit role will be assigned this one
-  + will convert to ``cell:ref`` if it begins with ``$``, otherwise ``cmd:ref``
-  + to attempt linking there must be no spaces, and it must not begin with a
-    dash (``-``)
-  + ```chformal``` (or ``:autoref:`chformal```) -> ``:cmd:ref:`chformal``` -> `chformal`
-  + also works with two words, if the first one is ``help``
-  + ```help $add``` -> ``:cell:ref:`help $add <$add>``` -> `help $add`
-  + fallback to formatting as inline yoscrypt
-  + ```-remove``` -> `-remove`
-  + ```chformal -remove``` -> ``:yoscrypt:`chformal -remove``` -> `chformal -remove`
+   .. literalinclude:: formatting_sample.txt
+      :language: reStructuredText
+      :start-after: .. 1
+      :end-before: .. 2
+
+.. tab:: formatted output
+
+   .. include:: formatting_sample.txt
+      :start-after: .. 1
+      :end-before: .. 2
+
+The ``autoref`` role also works with two words, if the first one is "help":
+
+.. tab:: reStructuredText
+
+   .. literalinclude:: formatting_sample.txt
+      :language: reStructuredText
+      :start-after: .. 2
+      :end-before: .. 3
+
+.. tab:: formatted output
+
+   .. include:: formatting_sample.txt
+      :start-after: .. 2
+      :end-before: .. 3
+
+And if the text begins with a dash, or doesn't match the "help" formatting, it
+will fallback to formatting as inline yoscrypt.
+
+.. tab:: reStructuredText
+
+   .. literalinclude:: formatting_sample.txt
+      :language: reStructuredText
+      :start-after: .. 3
+
+.. tab:: formatted output
+
+   .. include:: formatting_sample.txt
+      :start-after: .. 3
 
 Using autodoc
 ~~~~~~~~~~~~~
