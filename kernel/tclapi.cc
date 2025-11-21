@@ -533,7 +533,7 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	return TCL_OK;
 }
 
-int yosys_tcl_iterp_init(Tcl_Interp *interp)
+int yosys_tcl_interp_init(Tcl_Interp *interp)
 {
 	if (Tcl_Init(interp)!=TCL_OK)
 		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
