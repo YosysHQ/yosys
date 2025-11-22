@@ -146,6 +146,9 @@ static bool match_type_prop(RTLIL::IdString type, const std::string &property)
 	if (ct == nullptr) {
 		return false;
 	} else
+	if (property.compare("internal") == 0) {
+		return ct->is_internal;
+	} else
 	if (property.compare("evaluable") == 0) {
 		return ct->is_evaluable;
 	} else
@@ -160,6 +163,12 @@ static bool match_type_prop(RTLIL::IdString type, const std::string &property)
 	} else
 	if (property.compare("formal") == 0) {
 		return ct->is_formal;
+	} else
+	if (property.compare("metainfo") == 0) {
+		return ct->is_metainfo;
+	} else
+	if (property.compare("effects") == 0) {
+		return ct->has_effects;
 	} else
 		log_cmd_error("Unsupported type property '%s'!\n", property.c_str());
 }
