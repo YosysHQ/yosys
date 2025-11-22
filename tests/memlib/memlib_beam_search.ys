@@ -1,0 +1,4 @@
+read_verilog memlib_beam_search.v
+hierarchy -top memlib_beam_search
+synth_xilinx -family xc7 -top memlib_beam_search
+stat

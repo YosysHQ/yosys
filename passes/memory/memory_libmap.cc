@@ -31,6 +31,10 @@ PRIVATE_NAMESPACE_BEGIN
 
 using namespace MemLibrary;
 
+// Beam search parameters for many-port memories
+#define BEAM_SEARCH_THRESHOLD 8    // Use beam search for >8 read ports
+#define BEAM_WIDTH 16              // Keep top 16 configurations at each step
+
 #define FACTOR_MUX 0.5
 #define FACTOR_DEMUX 0.5
 #define FACTOR_EMU 2
@@ -304,6 +308,9 @@ struct MemMapping {
 	bool check_init(const Ram &ram);
 	void assign_wr_ports();
 	void assign_rd_ports();
+	void assign_rd_ports_standard();
+	void assign_rd_ports_beam(int beam_width);
+	double estimate_config_cost(const MemConfig &cfg);
 	void handle_trans();
 	void handle_priority();
 	void handle_rd_rst();
@@ -737,9 +744,158 @@ void MemMapping::assign_wr_ports() {
 	}
 }
 
-// Perform read port assignment, validating clock and rden options as we go.
+// Estimate cost of a configuration (for beam search pruning)
+double MemMapping::estimate_config_cost(const MemConfig &cfg) {
+	double cost = cfg.def->cost;
+
+	// Track port group usage separately for write and non-shared read ports
+	std::map<int, int> port_usage_wr;
+	std::map<int, int> port_usage_rd;
+
+	for (const auto &pcfg : cfg.wr_ports) {
+		port_usage_wr[pcfg.port_group]++;
+	}
+	for (const auto &pcfg : cfg.rd_ports) {
+		// Only non-shared read ports need their own slot
+		if (pcfg.wr_port == -1) {
+			port_usage_rd[pcfg.port_group]++;
+		}
+	}
+
+	// Calculate replication factor based on port constraints
+	int repl_port = 1;
+	for (int i = 0; i < GetSize(cfg.def->port_groups); i++) {
+		int capacity = GetSize(cfg.def->port_groups[i].names);
+		int space = capacity - port_usage_wr[i];
+
+		// Invalid: write ports exceed capacity
+		if (space < 0) {
+			return 1e30;  // Very high cost for invalid config
+		}
+
+		// Calculate replication needed for this group
+		if (port_usage_rd[i] > 0) {
+			if (space == 0) {
+				// No space for standalone reads - invalid config
+				return 1e30;
+			}
+			int cur = (port_usage_rd[i] + space - 1) / space;
+			if (cur > repl_port)
+				repl_port = cur;
+		}
+	}
+
+	cost *= repl_port;
+	return cost;
+}
+
+// Beam search read port assignment (for many ports)
+void MemMapping::assign_rd_ports_beam(int beam_width) {
+	log("Using beam search (width %d) for %d read ports on memory %s.%s\n",
+	    beam_width, GetSize(mem.rd_ports),
+	    log_id(mem.module->name), log_id(mem.memid));
+
+	for (int pidx = 0; pidx < GetSize(mem.rd_ports); pidx++) {
+		auto &port = mem.rd_ports[pidx];
+		MemConfigs new_cfgs;
+
+		for (auto &cfg : cfgs) {
+			for (int pgi = 0; pgi < GetSize(cfg.def->port_groups); pgi++) {
+				auto &pg = cfg.def->port_groups[pgi];
+				for (int pvi = 0; pvi < GetSize(pg.variants); pvi++) {
+					auto &def = pg.variants[pvi];
+					if (def.kind == PortKind::Sw)
+						continue;
+					if (!port.clk_enable &&
+					    (def.kind == PortKind::Sr || def.kind == PortKind::Srsw))
+						continue;
+
+					MemConfig new_cfg = cfg;
+					RdPortConfig pcfg;
+					pcfg.wr_port = -1;
+					pcfg.port_group = pgi;
+					pcfg.port_variant = pvi;
+					pcfg.def = &def;
+
+					if (def.kind == PortKind::Sr || def.kind == PortKind::Srsw) {
+						pcfg.emu_sync = false;
+						if (!apply_clock(new_cfg, def, port.clk, port.clk_polarity))
+							continue;
+						if (port.en != State::S1) {
+							if (def.clk_en)
+								pcfg.rd_en_to_clk_en = true;
+							else
+								pcfg.emu_en = !def.rd_en;
+						}
+					} else {
+						pcfg.emu_sync = port.clk_enable;
+					}
+
+					new_cfg.rd_ports.push_back(pcfg);
+					new_cfgs.push_back(new_cfg);
+				}
+			}
+
+			for (int wpidx = 0; wpidx < GetSize(mem.wr_ports); wpidx++) {
+				auto &wpcfg = cfg.wr_ports[wpidx];
+				if (wpcfg.rd_port != -1)
+					continue;
+				if (wpcfg.def->kind == PortKind::Sw)
+					continue;
+				if (!addr_compatible(wpidx, pidx))
+					continue;
+
+				MemConfig new_cfg = cfg;
+				new_cfg.wr_ports[wpidx].rd_port = pidx;
+				RdPortConfig pcfg;
+				pcfg.wr_port = wpidx;
+				pcfg.port_group = wpcfg.port_group;
+				pcfg.port_variant = wpcfg.port_variant;
+				pcfg.def = wpcfg.def;
+				pcfg.emu_sync = port.clk_enable && wpcfg.def->kind == PortKind::Arsw;
+				new_cfg.rd_ports.push_back(pcfg);
+				new_cfgs.push_back(new_cfg);
+			}
+		}
+
+		if (GetSize(new_cfgs) > beam_width) {
+			std::vector<std::pair<double, int>> scored;
+			for (int i = 0; i < GetSize(new_cfgs); i++)
+				scored.push_back({estimate_config_cost(new_cfgs[i]), i});
+			std::sort(scored.begin(), scored.end());
+
+			MemConfigs pruned;
+			for (int i = 0; i < GetSize(scored); i++) {
+				// Skip invalid configs (cost >= 1e29)
+				if (scored[i].first >= 1e29)
+					continue;
+				pruned.push_back(new_cfgs[scored[i].second]);
+				// Stop once we have enough valid configs
+				if (GetSize(pruned) >= beam_width)
+					break;
+			}
+			// Use pruned configs (may be empty if all invalid - triggers LUT fallback)
+			new_cfgs = pruned;
+		}
+
+		cfgs = new_cfgs;
+	}
+}
+
+// Main read port assignment - chooses algorithm based on port count
 void MemMapping::assign_rd_ports() {
-	log_reject(stringf("Assigning read ports... (candidate configs: %zu)", (size_t) cfgs.size()));
+	int num_rd_ports = GetSize(mem.rd_ports);
+
+	if (num_rd_ports > BEAM_SEARCH_THRESHOLD) {
+		assign_rd_ports_beam(BEAM_WIDTH);
+	} else {
+		assign_rd_ports_standard();
+	}
+}
+
+// Perform read port assignment using standard Cartesian product (for few ports)
+void MemMapping::assign_rd_ports_standard() {
+	log_reject(stringf("Assigning read ports (standard)... (candidate configs: %zu)", (size_t) cfgs.size()));
 	for (int pidx = 0; pidx < GetSize(mem.rd_ports); pidx++) {
 		auto &port = mem.rd_ports[pidx];
 		MemConfigs new_cfgs;
