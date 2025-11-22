@@ -37,9 +37,9 @@ the name of the pass, as demonstrated here with `chformal`.
 
 All currently available commands are listed with their ``short_help`` string
 when calling `help` without arguments, and is more or less the same as the
-unlisted :ref:`command index <commandindex>`.  The string is also used when
-hovering over links to commands in the documentation, and in section headings
-like :ref:`chformal autocmd`.
+:ref:`command index <commandindex>`.  The string is also used when hovering over
+links to commands in the documentation, and in section headings like
+:ref:`chformal autocmd`.
 
 The next section shows the complete help text for the `chformal` command.  This
 can be displayed locally by using `help <command>` (or ``yosys -h <command>``
@@ -471,6 +471,19 @@ object which maps each group to the list of commands/cells in that group, and
 finally a ``cmds`` or ``cells`` object which maps each command/cell to its help
 content.
 
+.. TODO:: Document how things get to Read the Docs
+
+   - :file:`.github/workflows/prepare-docs.yml`
+   - github job compiles Yosys (with Verific)
+   - dumps JSON
+   - dumps program usage output for :doc:`/cmd_ref` and
+     :doc:`/appendix/auxprogs`
+   - runs examples, producing logs and images
+   - copies (some) source files for inclusion
+   - compresses and uploads artifact
+   - conditionally triggers RTDs to build
+   - ``rtds_action`` extension
+
 Commands JSON
 ~~~~~~~~~~~~~
 
@@ -615,7 +628,10 @@ Let's take a look at some examples:
       :start-after: .. 1
       :end-before: .. 2
 
-The ``autoref`` role also works with two words, if the first one is "help":
+Notice how referencing `chformal` also puts the command name in an inline code
+block.  This is automatically done thanks to the use of `Sphinx Domains`_ and
+helps to distinguish commands (and cells) from other types of links.  The
+``autoref`` role also works with two words, if the first one is "help":
 
 .. tab:: reStructuredText
 
@@ -705,7 +721,8 @@ referenced.
 .. todo:: would be nice to get a ``.. autocell:: $nex``
 
    like we did with `chformal autocmd`_, but it doesn't seem to like the
-   `:noindex:` option, or using `:source:` without it being ``binary::$nex``.
+   ``:noindex:`` option, or using ``:source:`` without it being
+   ``binary::$nex``.
 
 .. todo:: cells can have properties (:ref:`propindex`)
 
@@ -719,26 +736,64 @@ referenced.
 Our custom Sphinx domains
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- ``cmd`` and ``cell``
-- Directives
+To round out this document about documentation, let's take a brief look at our
+custom Sphinx domains and what they provide.  As you might expect from `Using
+autodoc`_, these docs come with a domain for Yosys commands (``cmd``), and a
+domain for built-in cells (``cell``).  These are both provided in
+:file:`docs/util/custom_directives.py`.  From these domains we have the
+following directives (``.. <directive>::`` in RST):
 
-  + ``cmd:def`` provide command definition
-  + ``cmd:usage`` used by ``autocmd`` for command usage signatures
-  + ``cell:def`` provide cell definition
-  + ``cell:defprop`` provide cell property definition (used in
-    :doc:`/cell/properties`)
-  + ``cell:source`` used by ``autocell`` for simulation models
+- ``cmd:def`` provide command definition,
+- ``cmd:usage`` used by ``autocmd`` for command usage signatures,
+- ``cell:def`` provide cell definition,
+- ``cell:defprop`` provide cell property definition (used in
+  :doc:`/cell/properties`), and
+- ``cell:source`` used by ``autocell`` for simulation models.
 
-- Roles
+For general documentation, it should not be necessary to interact with any of
+these directives.  Rather, everything should be accomplished through the use of
+``autocmdgroup`` and ``autocellgroup``.  We also have a few roles provided
+(``:<role>:`<command or cell>``` in RST):
 
-  + ``cmd:ref`` link to a ``cmd:def`` with the same name
-  + ``cmd:title`` same as ``cmd:ref``, but includes the short help in the text
+- ``cmd:ref`` link to a ``cmd:def`` with the same name
+- ``cmd:title`` same as ``cmd:ref``, but includes the short help in the text
+- ``cell:ref`` link to a ``cell:def`` with the same name
+- ``cell:title`` same as ``cell:ref``, but includes the title in the text
+- ``cell:prop`` link to a ``cell:defprop`` of the same name
 
-    - ``:cmd:title:`chformal``` -> :cmd:title:`chformal`
+For the ``<domain>:ref`` roles it's almost always easier to just not specify the
+role; that's why ``autoref`` is there.  And since all of the built-in cell types
+start with ``$``, it's very easy to distinguish between a ``cmd:ref`` and a
+``cell:ref``.  When introducing a command it can be useful to quickly insert a
+short description of it, so ``cmd:title`` sees a fair bit of use across the
+documentation; particularly when it comes to the user-facing sections:
 
-  + ``cell:ref`` link to a ``cell:def`` with the same name
-  + ``cell:title``
+.. TODO:: is this the first time we mention the user/developer split?
 
-    - ``:cell:title:`$nex``` -> :cell:title:`$nex`
+.. tab:: reStructuredText
 
-  + ``cell:prop`` link to a ``cell:defprop`` of the same name
+   .. literalinclude:: formatting_sample.txt
+      :language: reStructuredText
+      :start-after: .. 4
+      :end-before: .. 5
+
+.. tab:: formatted output
+
+   .. include:: formatting_sample.txt
+      :start-after: .. 4
+      :end-before: .. 5
+
+Since only a small subset of cells provide titles (at the time of writing),
+``cell:title`` is much less reliable, and more likely to give something that
+isn't intended for the reader to see (like with `$_NOT_` in the above example).
+The existence of ``cell:title`` is mostly an artifact of the ``CellDomain``
+being a subclass of the ``CommandDomain``.
+
+.. warning::
+
+   Because of how Sphinx caches domains (and/or because of how the
+   ``CommandDomain`` is setup), rebuilding pages with ``autocmdgroup`` or
+   ``autocellgroup`` directives can result in duplicate definitions on the
+   :ref:`command <commandindex>` and :ref:`cell <cellindex>` indices.  A ``make
+   clean`` or ``rm -rf docs/build`` will resolve this.  The online documentation
+   is not affected by this, since it always performs a clean build.

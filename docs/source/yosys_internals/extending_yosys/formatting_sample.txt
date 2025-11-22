@@ -16,3 +16,9 @@
 - `chformal -remove`
 
 .. 4
+
+- :cmd:title:`chformal`
+- :cell:title:`$nex`
+- :cell:title:`$_NOT_`
+
+.. 5
