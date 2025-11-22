@@ -245,12 +245,13 @@ class CellNode(TocNode):
     """A custom node that describes an internal cell."""
 
     name = 'cell'
-
-    option_spec = {
+    
+    option_spec = TocNode.option_spec.copy()
+    option_spec.update({
         'title': directives.unchanged,
         'ports': directives.unchanged,
         'properties': directives.unchanged,
-    }
+    })
 
     doc_field_types = [
         CellGroupedField('props', label='Properties', rolename='prop',
