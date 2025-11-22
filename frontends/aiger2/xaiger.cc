@@ -110,7 +110,8 @@ struct Xaiger2Frontend : public Frontend {
 		for (int i = 0; i < (int) O; i++) {
 			int po;
 			*f >> po;
-			log_assert(f->get() == '\n');
+			int c = f->get();
+			log_assert(c == '\n');
 			outputs.push_back(po);
 		}
 
