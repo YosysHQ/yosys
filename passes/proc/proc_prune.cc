@@ -66,8 +66,8 @@ struct PruneWorker
 			assigned.insert(sw_assigned.begin(), sw_assigned.end());
 		}
 		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ) {
-			RTLIL::SigSpec lhs = sigmap(it->first);
-			RTLIL::SigSpec rhs = sigmap(it->second);
+			RTLIL::SigSpec lhs = sigmap(it->lhs);
+			RTLIL::SigSpec rhs = sigmap(it->rhs);
 			SigSpec new_lhs, new_rhs;
 			SigSpec conn_lhs, conn_rhs;
 			for (int i = 0; i < GetSize(lhs); i++) {
@@ -93,8 +93,8 @@ struct PruneWorker
 					removed_count++;
 				it = decltype(cs->actions)::reverse_iterator(cs->actions.erase(it.base() - 1));
 			} else {
-				it->first = new_lhs;
-				it->second = new_rhs;
+				it->lhs = new_lhs;
+				it->rhs = new_rhs;
 				it++;
 			}
 		}
