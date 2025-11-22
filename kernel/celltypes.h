@@ -334,6 +334,15 @@ struct CellTypes
 		cell_types.clear();
 	}
 
+	const CellType* get_cell(const RTLIL::IdString &type) const
+	{
+		auto it = cell_types.find(type);
+		if (it == cell_types.end())
+			return nullptr;
+		else
+			return &(it->second);
+	}
+
 	bool cell_known(const RTLIL::IdString &type) const
 	{
 		return cell_types.count(type) != 0;
