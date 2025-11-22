@@ -31,6 +31,8 @@ struct CellType
 	bool is_evaluable;
 	bool is_combinatorial;
 	bool is_synthesizable;
+	bool is_builtin_ff;
+	bool is_formal;
 };
 
 struct CellTypes
@@ -58,9 +60,11 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false,
+			bool is_builtin_ff = false, bool is_formal = false)
 	{
-		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
+		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable, is_builtin_ff, is_formal};
 		cell_types[ct.type] = ct;
 	}
 
