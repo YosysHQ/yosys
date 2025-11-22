@@ -28,11 +28,25 @@ struct CellType
 {
 	RTLIL::IdString type;
 	pool<RTLIL::IdString> inputs, outputs;
-	bool is_evaluable;
-	bool is_combinatorial;
-	bool is_synthesizable;
-	bool is_builtin_ff;
-	bool is_formal;
+	// Cell is defined in celltypes.h, as opposed to design-specific
+	bool is_internal;
+	// Cell can be handled by CellTypes::eval()
+	bool is_evaluable = false;
+	// Cell has no state; outputs are determined solely by inputs
+	bool is_combinatorial = false;
+	// Cell is able to be fully represented in the synthesizable subset of verilog
+	bool is_synthesizable = false;
+	// Cell is built-in memory logic, includes flip-flops and latches, but not complex
+	// cells like $mem
+	bool is_builtin_ff = false;
+	// Cell is non-synthesizable, but used for formal verification
+	bool is_formal = false;
+	// Cell is intended for internal Yosys use, containing informational metadata and
+	// shouldn't be automatically cleaned; currently only used for $scopeinfo
+	bool is_metainfo = false;
+	// Non-synthesizable cell with effects that mean it shouldn't be automatically
+	// cleaned, e.g. $print
+	bool has_effects = false;
 };
 
 struct CellTypes
@@ -60,30 +74,102 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
-			bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false,
-			bool is_builtin_ff = false, bool is_formal = false)
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		CellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable, is_builtin_ff, is_formal};
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = false
+		};
 		cell_types[ct.type] = ct;
 	}
 
-	// Setup combinational cell type which is evaluable and synthesizable
-	void setup_comb_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
+	// Setup internal cell type with no other default properties
+	void setup_internal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_combinatorial = false)
 	{
-		setup_type(type, inputs, outputs, true, true, true, false, false);
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_combinatorial = is_combinatorial,
+		};
+		cell_types[ct.type] = ct;
+	}
+
+	// Setup combinatorial cell type which is synthesizable and evaluable (by default)
+	void setup_comb_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_evaluable = true)
+	{
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_evaluable = is_evaluable,
+			.is_combinatorial = true,
+			.is_synthesizable = true,
+		};
+		cell_types[ct.type] = ct;
 	}
 
 	// Setup builtin ff cell type which is synthesizable
 	void setup_ff_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		setup_type(type, inputs, outputs, false, false, true, true, false);
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_synthesizable = true,
+			.is_builtin_ff = true,
+		};
+		cell_types[ct.type] = ct;
 	}
 
-	// Setup formal cell type which may be evaluable
-	void setup_formal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false)
+	// Setup formal cell type which may be combinatorial, and may have effects
+	void setup_formal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_combinatorial = false)
 	{
-		setup_type(type, inputs, outputs, is_evaluable, false, false, false, true);
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_combinatorial = is_combinatorial,
+			.is_formal = true,
+		};
+		cell_types[ct.type] = ct;
+	}
+
+	// Setup cell type which has effects, and may be formal
+	void setup_effects_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
+			bool is_formal = false)
+	{
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_formal = is_formal,
+			.has_effects = true,
+		};
+		cell_types[ct.type] = ct;
+	}
+
+	// Setup meta-info cell type
+	void setup_metainfo_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
+	{
+		CellType ct = {
+			.type = type,
+			.inputs = inputs,
+			.outputs = outputs,
+			.is_internal = true,
+			.is_metainfo = true,
+		};
+		cell_types[ct.type] = ct;
 	}
 
 	void setup_module(RTLIL::Module *module)
@@ -109,9 +195,10 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
-		setup_comb_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y});
+		// synthesizable
+		setup_comb_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, false);
 
-		// evaluable formal
+		// combinatorial formal
 		setup_formal_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
 		setup_formal_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
 		setup_formal_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
@@ -124,24 +211,28 @@ struct CellTypes
 		setup_formal_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y}, true);
 		setup_formal_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, true);
 
-		// evaluable non-formal
-		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
+		// combinatorial non-synthesizable
+		setup_internal_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
+		setup_internal_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>(), true);
+		setup_internal_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
 
-		// non-evaluable formal
-		setup_formal_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
+		// non-combinatorial formal
 		setup_formal_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
 		setup_formal_type(ID($get_tag), {ID::A}, {ID::Y});
 		setup_formal_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, pool<RTLIL::IdString>());
 		setup_formal_type(ID($original_tag), {ID::A}, {ID::Y});
 		setup_formal_type(ID($future_ff), {ID::A}, {ID::Y});
 
-		// non-evaluable non-formal
-		setup_type(ID($scopeinfo), {}, {});
-		setup_type(ID($input_port), {}, {ID::Y});
-		setup_type(ID($connect), {ID::A, ID::B}, {});
+		// has effects
+		setup_effects_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
+		setup_effects_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>(), true);
+
+		// meta-info
+		setup_metainfo_type(ID($scopeinfo), {}, {});
+
+		// temporary helper cells
+		setup_internal_type(ID($input_port), {}, {ID::Y});
+		setup_internal_type(ID($connect), {ID::A, ID::B}, {});
 	}
 
 	void setup_internals_eval()
@@ -208,23 +299,23 @@ struct CellTypes
 	{
 		setup_internals_ff();
 
-		setup_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
-		setup_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit), {ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
-		setup_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, pool<RTLIL::IdString>());
-		setup_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
-		setup_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+		setup_internal_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
+		setup_internal_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
+		setup_internal_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($meminit), {ID::ADDR, ID::DATA}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, pool<RTLIL::IdString>());
+		setup_internal_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+		setup_internal_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
 
-		setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT});
+		setup_internal_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT});
 	}
 
 	void setup_stdcells()
 	{
 		setup_stdcells_eval();
 
-		setup_comb_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y});
+		setup_comb_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, false);
 	}
 
 	void setup_stdcells_eval()
