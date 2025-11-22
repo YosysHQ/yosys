@@ -474,6 +474,9 @@ else
 ifeq ($(ABCEXTERNAL),)
 TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
 endif
+ifeq ($(DISABLE_SPAWN),1)
+$(error ENABLE_ABC=1 requires either LINK_ABC=1 or DISABLE_SPAWN=0)
+endif
 endif
 endif
 
