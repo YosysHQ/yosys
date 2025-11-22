@@ -34,7 +34,7 @@ struct CellType
 	bool is_evaluable = false;
 	// Cell has no state; outputs are determined solely by inputs
 	bool is_combinatorial = false;
-	// Cell is able to be fully represented in the synthesizable subset of verilog
+	// Cell is able to be synthesized
 	bool is_synthesizable = false;
 	// Cell is built-in memory logic, includes flip-flops and latches, but not complex
 	// cells like $mem
