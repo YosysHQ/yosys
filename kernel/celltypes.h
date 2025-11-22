@@ -76,25 +76,21 @@ struct CellTypes
 
 	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = false
-		};
+		CellType ct = { type, inputs, outputs, false };
 		cell_types[ct.type] = ct;
 	}
 
 	// Setup internal cell type with no other default properties
 	void setup_internal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
-			bool is_combinatorial = false)
+			bool is_combinatorial = false, bool is_evaluable = false,
+			bool is_synthesizable = false, bool is_builtin_ff = false, bool is_formal = false,
+			bool is_metainfo = false, bool has_effects = false)
 	{
 		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_combinatorial = is_combinatorial,
+			type, inputs, outputs, true,
+			is_evaluable, is_combinatorial,
+			is_synthesizable, is_builtin_ff, is_formal,
+			is_metainfo, has_effects,
 		};
 		cell_types[ct.type] = ct;
 	}
@@ -103,73 +99,33 @@ struct CellTypes
 	void setup_comb_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
 			bool is_evaluable = true)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_evaluable = is_evaluable,
-			.is_combinatorial = true,
-			.is_synthesizable = true,
-		};
-		cell_types[ct.type] = ct;
+		setup_internal_type(type, inputs, outputs, true, is_evaluable, true);
 	}
 
 	// Setup builtin ff cell type which is synthesizable
 	void setup_ff_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_synthesizable = true,
-			.is_builtin_ff = true,
-		};
-		cell_types[ct.type] = ct;
+		setup_internal_type(type, inputs, outputs, false, false, true, true);
 	}
 
 	// Setup formal cell type which may be combinatorial, and may have effects
 	void setup_formal_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
 			bool is_combinatorial = false)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_combinatorial = is_combinatorial,
-			.is_formal = true,
-		};
-		cell_types[ct.type] = ct;
+		setup_internal_type(type, inputs, outputs, is_combinatorial, false, false, false, true);
 	}
 
 	// Setup cell type which has effects, and may be formal
 	void setup_effects_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs,
 			bool is_formal = false)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_formal = is_formal,
-			.has_effects = true,
-		};
-		cell_types[ct.type] = ct;
+		setup_internal_type(type, inputs, outputs, false, false, false, false, is_formal, false, true);
 	}
 
 	// Setup meta-info cell type
 	void setup_metainfo_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs)
 	{
-		CellType ct = {
-			.type = type,
-			.inputs = inputs,
-			.outputs = outputs,
-			.is_internal = true,
-			.is_metainfo = true,
-		};
-		cell_types[ct.type] = ct;
+		setup_internal_type(type, inputs, outputs, false, false, false, false, false, true);
 	}
 
 	void setup_module(RTLIL::Module *module)
