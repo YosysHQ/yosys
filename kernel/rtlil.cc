@@ -98,7 +98,7 @@ int RTLIL::IdString::really_insert(std::string_view p, std::unordered_map<std::s
 				return -*p_autoidx;
 			// Ensure NEW_ID/NEW_ID_SUFFIX will not create collisions with the ID
 			// we're about to create.
-			autoidx = std::max(autoidx, *p_autoidx + 1);
+			autoidx.ensure_at_least(*p_autoidx + 1);
 		}
 	}
 

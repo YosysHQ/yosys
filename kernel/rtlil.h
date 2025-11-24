@@ -187,6 +187,7 @@ struct RTLIL::IdString
 	static int insert(std::string_view p)
 	{
 		log_assert(destruct_guard_ok);
+		log_assert(!Multithreading::active());
 
 		auto it = global_id_index_.find(p);
 		if (it != global_id_index_.end()) {
@@ -202,6 +203,7 @@ struct RTLIL::IdString
 	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
 	// `prefix` must start with '$auto$', end with '$', and live forever.
 	static IdString new_autoidx_with_prefix(const std::string *prefix) {
+		log_assert(!Multithreading::active());
 		int index = -(autoidx++);
 		global_autoidx_id_prefix_storage_.insert({index, prefix});
 		return from_index(index);
@@ -595,6 +597,8 @@ private:
 	}
 	static void get_reference(int idx)
 	{
+		log_assert(!Multithreading::active());
+
 		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
 			return;
 		auto it = global_refcount_storage_.find(idx);
@@ -610,6 +614,8 @@ private:
 
 	void put_reference()
 	{
+		log_assert(!Multithreading::active());
+
 		// put_reference() may be called from destructors after the destructor of
 		// global_refcount_storage_ has been run. in this case we simply do nothing.
 		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
