@@ -177,7 +177,7 @@ ifeq ($(OS), Haiku)
 CXXFLAGS += -D_DEFAULT_SOURCE
 endif
 
-YOSYS_VER := 0.59+110
+YOSYS_VER := 0.59+117
 YOSYS_MAJOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f1)
 YOSYS_MINOR := $(shell echo $(YOSYS_VER) | cut -d'.' -f2)
 YOSYS_COMMIT := $(shell echo $(YOSYS_VER) | cut -d'.' -f3)
@@ -496,6 +496,9 @@ endif
 else
 ifeq ($(ABCEXTERNAL),)
 TARGETS := $(PROGRAM_PREFIX)yosys-abc$(EXE) $(TARGETS)
+endif
+ifeq ($(DISABLE_SPAWN),1)
+$(error ENABLE_ABC=1 requires either LINK_ABC=1 or DISABLE_SPAWN=0)
 endif
 endif
 endif

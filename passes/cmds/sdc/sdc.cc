@@ -8,6 +8,11 @@
 #include <optional>
 #include <iostream>
 
+#if TCL_MAJOR_VERSION < 9
+typedef int YS_Tcl_Size;
+#else
+typedef Tcl_Size YS_Tcl_Size;
+#endif
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -432,7 +437,7 @@ static size_t get_node_count(Tcl_Interp* interp) {
 std::vector<std::vector<std::string>> gather_nested_calls(Tcl_Interp* interp) {
 
 	Tcl_Obj* listObj = Tcl_GetVar2Ex(interp, "sdc_calls", nullptr, TCL_GLOBAL_ONLY);
-	int listLength;
+	YS_Tcl_Size listLength;
 
 	std::vector<std::vector<std::string>> sdc_calls;
 	if (Tcl_ListObjLength(interp, listObj, &listLength) == TCL_OK) {
@@ -442,7 +447,7 @@ std::vector<std::vector<std::string>> gather_nested_calls(Tcl_Interp* interp) {
 			if (Tcl_ListObjIndex(interp, listObj, i, &subListObj) != TCL_OK) {
 				log_error("broken list of lists\n");
 			}
-			int subListLength;
+			YS_Tcl_Size subListLength;
 			if (Tcl_ListObjLength(interp, subListObj, &subListLength) == TCL_OK) {
 				// Valid list - extract elements
 				for (int j = 0; j < subListLength; j++) {
