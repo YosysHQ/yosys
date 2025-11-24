@@ -1,0 +1,21 @@
+read_verilog << EOF
+module mod_and_or (
+    input a,
+    input b,
+    input c,
+    input d,
+    output reg y
+);
+
+always @(a,b,c,d) begin
+    y <= (a&b)|(c&d);
+end
+endmodule
+EOF
+hierarchy -top mod_and_or
+proc
+opt
+techmap -map ./bug3515.v
+proc
+extract -map ./bug3515.v -verbose
+proc
