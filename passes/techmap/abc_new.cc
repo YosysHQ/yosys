@@ -38,8 +38,8 @@ std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules
 				sort.edge(submodule, m);
 		}
 	}
-	bool sorted = sort.sort();
-	log_assert(sorted);
+	bool is_sorted = sort.sort();
+	log_assert(is_sorted);
 	return sort.sorted;
 }
 
