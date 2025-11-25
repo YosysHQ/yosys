@@ -548,9 +548,6 @@ struct CellTypes
 	}
 };
 
-// initialized by yosys_setup()
-extern CellTypes yosys_celltypes;
-
 YOSYS_NAMESPACE_END
 
 #endif
