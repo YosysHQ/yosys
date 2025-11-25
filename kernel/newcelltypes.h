@@ -410,7 +410,10 @@ struct Categories {
 	struct Category {
 		std::array<bool, MAX_CELLS> data{};
 		constexpr bool operator()(IdString type) const {
-			return data[type.index_];
+			size_t idx = type.index_;
+			if (idx >= MAX_CELLS)
+				return false;
+			return data[idx];
 		}
 		constexpr bool& operator[](size_t idx) {
 			return data[idx];
@@ -496,12 +499,14 @@ struct NewCellType {
 
 struct NewCellTypes {
 	StaticCellTypes::Categories::Category static_cell_types = StaticCellTypes::categories.empty;
-	dict<RTLIL::IdString, NewCellType> custom_cell_types;
+	dict<RTLIL::IdString, NewCellType> custom_cell_types = {};
 
 	NewCellTypes() {
+		static_cell_types = StaticCellTypes::categories.empty;
 	}
 
 	NewCellTypes(RTLIL::Design *design) {
+		static_cell_types = StaticCellTypes::categories.empty;
 		setup(design);
 	}
 	void setup(RTLIL::Design *design = NULL) {
