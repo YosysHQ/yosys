@@ -5,7 +5,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-namespace TurboCellTypes {
+namespace StaticCellTypes {
 
 constexpr int MAX_CELLS = 300;
 constexpr int MAX_PORTS = 10;

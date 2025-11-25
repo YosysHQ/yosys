@@ -102,9 +102,9 @@ struct keep_cache_t
 };
 
 keep_cache_t keep_cache;
-static constexpr auto ct_reg = TurboCellTypes::Categories::join(
-	TurboCellTypes::Compat::internals_mem_ff,
-	TurboCellTypes::categories.is_anyinit);
+static constexpr auto ct_reg = StaticCellTypes::Categories::join(
+	StaticCellTypes::Compat::internals_mem_ff,
+	StaticCellTypes::categories.is_anyinit);
 CellTypes ct_all;
 int count_rm_cells, count_rm_wires;
 
@@ -525,7 +525,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 	dict<SigBit, State> qbits;
 
 	for (auto cell : module->cells())
-		if (TurboCellTypes::Compat::internals_mem_ff(cell->type) && cell->hasPort(ID::Q))
+		if (StaticCellTypes::Compat::internals_mem_ff(cell->type) && cell->hasPort(ID::Q))
 		{
 			SigSpec sig = cell->getPort(ID::Q);
 

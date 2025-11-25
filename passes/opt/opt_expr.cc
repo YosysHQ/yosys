@@ -433,7 +433,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in(ID($dffe), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr)))
 			handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map, invert_map);
 
-		if (!TurboCellTypes::Compat::stdcells_mem(cell->type))
+		if (!StaticCellTypes::Compat::stdcells_mem(cell->type))
 			continue;
 
 		handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map, invert_map);
