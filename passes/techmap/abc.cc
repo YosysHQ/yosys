@@ -43,7 +43,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
 #include "kernel/cost.h"
@@ -2382,7 +2382,7 @@ struct AbcPass : public Pass {
 				continue;
 			}
 
-			CellTypes ct(design);
+			NewCellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
 			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
