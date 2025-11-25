@@ -203,6 +203,8 @@ static void logv_string(std::string_view format, std::string str) {
 
 void log_formatted_string(std::string_view format, std::string str)
 {
+	log_assert(!Multithreading::active());
+
 	if (log_make_debug && !ys_debug(1))
 		return;
 	logv_string(format, std::move(str));
@@ -210,6 +212,8 @@ void log_formatted_string(std::string_view format, std::string str)
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
+	log_assert(!Multithreading::active());
+
 	bool pop_errfile = false;
 
 	log_spacer();
@@ -249,6 +253,8 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 
 void log_formatted_warning(std::string_view prefix, std::string message)
 {
+	log_assert(!Multithreading::active());
+
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
