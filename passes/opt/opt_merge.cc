@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
+#include "kernel/threading.h"
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,16 +38,72 @@ PRIVATE_NAMESPACE_BEGIN
 template <typename T, typename U>
 inline Hasher hash_pair(const T &t, const U &u) { return hash_ops<std::pair<T, U>>::hash(t, u); }
 
-struct OptMergeWorker
+// Some cell and its hash value.
+struct CellHash
 {
-	RTLIL::Design *design;
-	RTLIL::Module *module;
-	SigMap assign_map;
-	FfInitVals initvals;
-	bool mode_share_all;
+	// Index of a cell in the module
+	int cell_index;
+	Hasher::hash_t hash_value;
+};
 
-	CellTypes ct;
-	int total_count;
+// The algorithm:
+// 1) Compute and store the hashes of all relevant cells, in parallel.
+// 2) Given N = the number of threads, partition the cells into N buckets by hash value:
+// bucket k contains the cells whose hash value mod N = k.
+// 3) For each bucket in parallel, build a hashtable of that bucket’s cells (using the
+// precomputed hashes) and record the duplicates found.
+// 4) On the main thread, process the list of duplicates to remove cells.
+// For efficiency we fuse the second step into the first step by having the parallel
+// threads write the cells into buckets directly.
+// To avoid synchronization overhead, we divide each bucket into N shards. Each
+// thread j adds a cell to bucket k by writing to shard j of bucket k —
+// no synchronization required. In the next phase, thread k builds the hashtable for
+// bucket k by iterating over all shards of the bucket.
+
+// The input to each thread in the "compute cell hashes" phase.
+struct ComputeCellHashes
+{
+	int cell_index_begin;
+	int cell_index_end;
+};
+
+// The output from each thread in the "compute cell hashes" phase.
+struct ComputeCellHashesOut
+{
+	// Entry i contains the hashes where hash_value % bucketed_cell_hashes.size() == i
+	std::vector<std::vector<CellHash>> bucketed_cell_hashes;
+};
+
+// A duplicate cell that has been found.
+struct DuplicateCell
+{
+	// Remove this cell from the design
+	int remove_cell;
+	// ... and use this cell instead.
+	int keep_cell;
+};
+
+// The input to each thread in the "find duplicate cells" phase.
+struct FindDuplicateCells
+{
+	std::vector<std::vector<std::vector<CellHash>>> &bucketed_cell_hashes;
+};
+
+// The oputut from each thread in the "find duplicate cells" phase.
+struct FindDuplicateCellsOut
+{
+	std::vector<DuplicateCell> duplicates;
+};
+
+struct OptMergeThreadWorker
+{
+	const RTLIL::Module *module;
+	const SigMap &assign_map;
+	const FfInitVals &initvals;
+	const CellTypes &ct;
+	int workers;
+	bool mode_share_all;
+	bool mode_keepdc;
 
 	static Hasher hash_pmux_in(const SigSpec& sig_s, const SigSpec& sig_b, Hasher h)
 	{
@@ -62,8 +119,8 @@ struct OptMergeWorker
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
 	{
-		SigSpec sig_s = conn.at(ID::S);
-		SigSpec sig_b = conn.at(ID::B);
+		const SigSpec &sig_s = conn.at(ID::S);
+		const SigSpec &sig_b = conn.at(ID::B);
 
 		int s_width = GetSize(sig_s);
 		int width = GetSize(sig_b) / s_width;
@@ -144,7 +201,6 @@ struct OptMergeWorker
 
 		if (cell1->parameters != cell2->parameters)
 			return false;
-
 		if (cell1->connections_.size() != cell2->connections_.size())
 			return false;
 		for (const auto &it : cell1->connections_)
@@ -199,7 +255,7 @@ struct OptMergeWorker
 		return conn1 == conn2;
 	}
 
-	bool has_dont_care_initval(const RTLIL::Cell *cell)
+	bool has_dont_care_initval(const RTLIL::Cell *cell) const
 	{
 		if (!cell->is_builtin_ff())
 			return false;
@@ -207,31 +263,133 @@ struct OptMergeWorker
 		return !initvals(cell->getPort(ID::Q)).is_fully_def();
 	}
 
-	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
-		design(design), module(module), mode_share_all(mode_share_all)
+	OptMergeThreadWorker(const RTLIL::Module *module, const FfInitVals &initvals,
+			const SigMap &assign_map, const CellTypes &ct, int workers,
+			bool mode_share_all, bool mode_keepdc) :
+		module(module), assign_map(assign_map), initvals(initvals), ct(ct),
+		workers(workers), mode_share_all(mode_share_all), mode_keepdc(mode_keepdc)
 	{
-		total_count = 0;
-		ct.setup_internals();
-		ct.setup_internals_mem();
-		ct.setup_stdcells();
-		ct.setup_stdcells_mem();
+	}
 
-		if (mode_nomux) {
-			ct.cell_types.erase(ID($mux));
-			ct.cell_types.erase(ID($pmux));
+	ComputeCellHashesOut compute_cell_hashes(const ComputeCellHashes &in) const
+	{
+		std::vector<std::vector<CellHash>> bucketed_cell_hashes(workers);
+		for (int cell_index = in.cell_index_begin; cell_index < in.cell_index_end; ++cell_index) {
+			const RTLIL::Cell *cell = module->cell_at(cell_index);
+			if (!module->selected(cell))
+				continue;
+			if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+				// Ignore those for performance: meminit can have an excessively large port,
+				// mem can have an excessively large parameter holding the init data
+				continue;
+			}
+			if (cell->type == ID($scopeinfo))
+				continue;
+			if (mode_keepdc && has_dont_care_initval(cell))
+				continue;
+			if (!cell->known())
+				continue;
+			if (!mode_share_all && !ct.cell_known(cell->type))
+				continue;
+
+			Hasher::hash_t h = hash_cell_function(cell, Hasher()).yield();
+			int bucket_index = h % workers;
+			bucketed_cell_hashes[bucket_index].push_back({cell_index, h});
 		}
+		return {std::move(bucketed_cell_hashes)};
+	}
 
-		ct.cell_types.erase(ID($tribuf));
-		ct.cell_types.erase(ID($_TBUF_));
-		ct.cell_types.erase(ID($anyseq));
-		ct.cell_types.erase(ID($anyconst));
-		ct.cell_types.erase(ID($allseq));
-		ct.cell_types.erase(ID($allconst));
+	FindDuplicateCellsOut find_duplicate_cells(int index, const FindDuplicateCells &in) const
+	{
+		// We keep a set of known cells. They're hashed with our hash_cell_function
+		// and compared with our compare_cell_parameters_and_connections.
+		struct CellHashOp {
+			std::size_t operator()(const CellHash &c) const {
+				return (std::size_t)c.hash_value;
+			}
+		};
+		struct CellEqualOp {
+			const OptMergeThreadWorker& worker;
+			CellEqualOp(const OptMergeThreadWorker& w) : worker(w) {}
+			bool operator()(const CellHash &lhs, const CellHash &rhs) const {
+				return worker.compare_cell_parameters_and_connections(
+						worker.module->cell_at(lhs.cell_index),
+						worker.module->cell_at(rhs.cell_index));
+			}
+		};
+		std::unordered_set<
+			CellHash,
+			CellHashOp,
+			CellEqualOp> known_cells(0, CellHashOp(), CellEqualOp(*this));
+
+		std::vector<DuplicateCell> duplicates;
+		for (const std::vector<std::vector<CellHash>> &buckets : in.bucketed_cell_hashes) {
+			// Clear out our buckets as we go. This keeps the work of deallocation
+			// off the main thread.
+			std::vector<CellHash> bucket = std::move(buckets[index]);
+			for (CellHash c : bucket) {
+				auto [cell_in_map, inserted] = known_cells.insert(c);
+				if (inserted)
+					continue;
+				CellHash map_c = *cell_in_map;
+				if (module->cell_at(c.cell_index)->has_keep_attr()) {
+					if (module->cell_at(map_c.cell_index)->has_keep_attr())
+						continue;
+					known_cells.erase(map_c);
+					known_cells.insert(c);
+					std::swap(c, map_c);
+				}
+				duplicates.push_back({c.cell_index, map_c.cell_index});
+			}
+		}
+		return {duplicates};
+	}
+};
+
+template <typename T>
+void initialize_queues(std::vector<ConcurrentQueue<T>> &queues, int size) {
+	queues.reserve(size);
+	for (int i = 0; i < size; ++i)
+		queues.emplace_back(1);
+}
+
+struct OptMergeWorker
+{
+	int total_count;
+
+	OptMergeWorker(RTLIL::Module *module, const CellTypes &ct, bool mode_share_all, bool mode_keepdc) :
+		total_count(0)
+	{
+		SigMap assign_map(module);
+		FfInitVals initvals;
+		initvals.set(&assign_map, module);
 
 		log("Finding identical cells in module `%s'.\n", module->name);
-		assign_map.set(module);
 
-		initvals.set(&assign_map, module);
+		// Use no more than one worker per thousand cells, rounded down, so
+		// we only start multithreading with at least 2000 cells.
+		int num_worker_threads = ThreadPool::pool_size(0, module->cells_size()/1000);
+		int workers = std::max(1, num_worker_threads);
+		// The main thread doesn't do any work, so if there is only one worker thread,
+		// just run everything on the main thread instead.
+		// This avoids creating and waiting on a thread, which is pretty high overhead
+		// for very small modules.
+		if (num_worker_threads == 1)
+			num_worker_threads = 0;
+		OptMergeThreadWorker thread_worker(module, initvals, assign_map, ct, workers, mode_share_all, mode_keepdc);
+
+		std::vector<ConcurrentQueue<ComputeCellHashes>> compute_cell_hashes(num_worker_threads);
+		std::vector<ConcurrentQueue<ComputeCellHashesOut>> compute_cell_hashes_out(num_worker_threads);
+		std::vector<ConcurrentQueue<FindDuplicateCells>> find_duplicate_cells(num_worker_threads);
+		std::vector<ConcurrentQueue<FindDuplicateCellsOut>> find_duplicate_cells_out(num_worker_threads);
+
+		ThreadPool thread_pool(num_worker_threads, [&](int i) {
+			while (std::optional<ComputeCellHashes> c = compute_cell_hashes[i].pop_front()) {
+				compute_cell_hashes_out[i].push_back(thread_worker.compute_cell_hashes(*c));
+				std::optional<FindDuplicateCells> f = find_duplicate_cells[i].pop_front();
+				find_duplicate_cells_out[i].push_back(thread_worker.find_duplicate_cells(i, *f));
+			}
+		});
 
 		bool did_something = true;
 		// A cell may have to go through a lot of collisions if the hash
@@ -239,86 +397,92 @@ struct OptMergeWorker
 		// beyond the user's control.
 		while (did_something)
 		{
-			std::vector<RTLIL::Cell*> cells;
-			cells.reserve(module->cells().size());
-			for (auto cell : module->cells()) {
-				if (!design->selected(module, cell))
-					continue;
-				if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
-					// Ignore those for performance: meminit can have an excessively large port,
-					// mem can have an excessively large parameter holding the init data
-					continue;
-				}
-				if (cell->type == ID($scopeinfo))
-					continue;
-				if (mode_keepdc && has_dont_care_initval(cell))
-					continue;
-				if (!cell->known())
-					continue;
-				if (!mode_share_all && !ct.cell_known(cell->type))
-					continue;
-				cells.push_back(cell);
-			}
+			int cells_size = module->cells_size();
+			log("Computing hashes of %d cells of `%s'.\n", cells_size, module->name);
+			std::vector<std::vector<std::vector<CellHash>>> bucketed_cell_hashes(workers);
 
-			did_something = false;
-
-			// We keep a set of known cells. They're hashed with our hash_cell_function
-			// and compared with our compare_cell_parameters_and_connections.
-			// Both need to capture OptMergeWorker to access initvals
-			struct CellPtrHash {
-				const OptMergeWorker& worker;
-				CellPtrHash(const OptMergeWorker& w) : worker(w) {}
-				std::size_t operator()(const Cell* c) const {
-					return (std::size_t)worker.hash_cell_function(c, Hasher()).yield();
-				}
-			};
-			struct CellPtrEqual {
-				const OptMergeWorker& worker;
-				CellPtrEqual(const OptMergeWorker& w) : worker(w) {}
-				bool operator()(const Cell* lhs, const Cell* rhs) const {
-					return worker.compare_cell_parameters_and_connections(lhs, rhs);
-				}
-			};
-			std::unordered_set<
-				RTLIL::Cell*,
-				CellPtrHash,
-				CellPtrEqual> known_cells (0, CellPtrHash(*this), CellPtrEqual(*this));
-
-			for (auto cell : cells)
+			int cell_index = 0;
+			int cells_size_mod_workers = cells_size % workers;
 			{
-				auto [cell_in_map, inserted] = known_cells.insert(cell);
-				if (!inserted) {
-					// We've failed to insert since we already have an equivalent cell
-					Cell* other_cell = *cell_in_map;
-					if (cell->has_keep_attr()) {
-						if (other_cell->has_keep_attr())
-							continue;
-						known_cells.erase(other_cell);
-						known_cells.insert(cell);
-						std::swap(other_cell, cell);
-					}
-
-					did_something = true;
-					log_debug("  Cell `%s' is identical to cell `%s'.\n", cell->name, other_cell->name);
-					for (auto &it : cell->connections()) {
-						if (cell->output(it.first)) {
-							RTLIL::SigSpec other_sig = other_cell->getPort(it.first);
-							log_debug("    Redirecting output %s: %s = %s\n", it.first,
-									log_signal(it.second), log_signal(other_sig));
-							Const init = initvals(other_sig);
-							initvals.remove_init(it.second);
-							initvals.remove_init(other_sig);
-							module->connect(RTLIL::SigSig(it.second, other_sig));
-							assign_map.add(it.second, other_sig);
-							initvals.set_init(other_sig, init);
-						}
-					}
-					log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type, cell->name, module->name);
-					module->remove(cell);
-					total_count++;
+				Multithreading multithreading;
+				for (int i = 0; i < workers; ++i) {
+					int num_cells = cells_size/workers + ((i < cells_size_mod_workers) ? 1 : 0);
+					ComputeCellHashes c = { cell_index, cell_index + num_cells };
+					cell_index += num_cells;
+					if (num_worker_threads > 0)
+						compute_cell_hashes[i].push_back(c);
+					else
+						bucketed_cell_hashes[i] = std::move(thread_worker.compute_cell_hashes(c).bucketed_cell_hashes);
 				}
+				log_assert(cell_index == cells_size);
+				if (num_worker_threads > 0)
+					for (int i = 0; i < workers; ++i)
+						bucketed_cell_hashes[i] = std::move(compute_cell_hashes_out[i].pop_front()->bucketed_cell_hashes);
 			}
+
+			log("Finding duplicate cells in `%s'.\n", module->name);
+			std::vector<DuplicateCell> duplicates;
+			{
+				Multithreading multithreading;
+				for (int i = 0; i < workers; ++i) {
+					FindDuplicateCells f = { bucketed_cell_hashes };
+					if (num_worker_threads > 0)
+						find_duplicate_cells[i].push_back(f);
+					else {
+						std::vector<DuplicateCell> d = std::move(thread_worker.find_duplicate_cells(i, f).duplicates);
+						duplicates.insert(duplicates.end(), d.begin(), d.end());
+					}
+				}
+				if (num_worker_threads > 0)
+					for (int i = 0; i < workers; ++i) {
+						std::vector<DuplicateCell> d = std::move(find_duplicate_cells_out[i].pop_front()->duplicates);
+						duplicates.insert(duplicates.end(), d.begin(), d.end());
+					}
+			}
+			std::sort(duplicates.begin(), duplicates.end(), [](const DuplicateCell &lhs, const DuplicateCell &rhs) {
+				// Sort them by the order in which duplicates would have been detected in a single-threaded
+				// run. The cell at which the duplicate would have been detected is the later of the two
+				// cells involved.
+				return std::max(lhs.remove_cell, lhs.keep_cell) < std::max(rhs.remove_cell, rhs.keep_cell);
+			});
+
+			// Convert to cell pointers because removing cells will invalidate the indices.
+			std::vector<std::pair<RTLIL::Cell*, RTLIL::Cell*>> cell_ptrs;
+			for (DuplicateCell dup : duplicates)
+				cell_ptrs.push_back({module->cell_at(dup.remove_cell), module->cell_at(dup.keep_cell)});
+
+			for (auto [remove_cell, keep_cell] : cell_ptrs)
+			{
+				log_debug("  Cell `%s' is identical to cell `%s'.\n", remove_cell->name, keep_cell->name);
+				for (auto &it : remove_cell->connections()) {
+					if (remove_cell->output(it.first)) {
+						RTLIL::SigSpec keep_sig = keep_cell->getPort(it.first);
+						log_debug("    Redirecting output %s: %s = %s\n", it.first,
+								log_signal(it.second), log_signal(keep_sig));
+						Const init = initvals(keep_sig);
+						initvals.remove_init(it.second);
+						initvals.remove_init(keep_sig);
+						module->connect(RTLIL::SigSig(it.second, keep_sig));
+						auto keep_sig_it = keep_sig.begin();
+						for (SigBit remove_sig_bit : it.second) {
+							assign_map.add(remove_sig_bit, *keep_sig_it);
+							++keep_sig_it;
+						}
+						initvals.set_init(keep_sig, init);
+					}
+				}
+				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, remove_cell->name, module->name);
+				module->remove(remove_cell);
+				total_count++;
+			}
+			did_something = !duplicates.empty();
 		}
+
+		for (ConcurrentQueue<ComputeCellHashes> &q : compute_cell_hashes)
+			q.close();
+
+		for (ConcurrentQueue<FindDuplicateCells> &q : find_duplicate_cells)
+			q.close();
 
 		log_suppressed();
 	}
@@ -372,9 +536,25 @@ struct OptMergePass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		CellTypes ct;
+		ct.setup_internals();
+		ct.setup_internals_mem();
+		ct.setup_stdcells();
+		ct.setup_stdcells_mem();
+		if (mode_nomux) {
+			ct.cell_types.erase(ID($mux));
+			ct.cell_types.erase(ID($pmux));
+		}
+		ct.cell_types.erase(ID($tribuf));
+		ct.cell_types.erase(ID($_TBUF_));
+		ct.cell_types.erase(ID($anyseq));
+		ct.cell_types.erase(ID($anyconst));
+		ct.cell_types.erase(ID($allseq));
+		ct.cell_types.erase(ID($allconst));
+
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptMergeWorker worker(design, module, mode_nomux, mode_share_all, mode_keepdc);
+			OptMergeWorker worker(module, ct, mode_share_all, mode_keepdc);
 			total_count += worker.total_count;
 		}
 
