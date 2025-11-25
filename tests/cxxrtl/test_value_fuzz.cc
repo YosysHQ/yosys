@@ -39,7 +39,7 @@ struct BinaryOperationBase
 template<size_t Bits, typename Operation>
 void test_binary_operation_for_bitsize(Operation &op)
 {
-	constexpr int iteration_count = 10000000;
+	constexpr int iteration_count = 10'000'000;
 
 	constexpr uint64_t mask = std::numeric_limits<uint64_t>::max() >> (64 - Bits);
 
