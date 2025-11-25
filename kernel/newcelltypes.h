@@ -554,6 +554,8 @@ namespace Compat {
 	static constexpr auto internals_mem_ff = Categories::meet(internals_all, mem_ff);
 	// old setup_internals
 	static constexpr auto internals_nomem_noff = Categories::meet(internals_all, nomem_noff);
+	// old setup_stdcells
+	static constexpr auto stdcells_nomem_noff = Categories::meet(categories.is_stdcell, nomem_noff);
 	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
 };
 
