@@ -5,6 +5,7 @@
 #include "kernel/yosys_common.h"
 #include "kernel/sigtools.h"
 #include "kernel/satgen.h"
+#include "kernel/newcelltypes.h"
 
 YOSYS_NAMESPACE_BEGIN
 

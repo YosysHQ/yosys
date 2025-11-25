@@ -19,7 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/binding.h"
 #include "kernel/sigtools.h"
 #include "frontends/verilog/verilog_frontend.h"
