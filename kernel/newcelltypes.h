@@ -419,32 +419,7 @@ struct CellTableBuilder {
 
 };
 
-
-constexpr CellTableBuilder turbo_builder{};
-
-// template<typename T>
-// struct Worlds {
-// 	struct World {
-// 		std::array<T, MAX_CELLS> data{};
-// 		constexpr T operator()(IdString type) const {
-// 			return data[type.index_];
-// 		}
-// 		constexpr T& operator[](size_t idx) {
-// 			return data[idx];
-// 		}
-// 		constexpr size_t size() const { return data.size(); }
-// 	};
-// 	World is_known {};
-// 	World is_evaluable {};
-// 	World is_combinatorial {};
-// 	World is_synthesizable {};
-// 	World is_stdcell {};
-// 	World is_ff {};
-// 	World is_mem_noff {};
-// 	World is_anyinit {};
-// 	World is_tristate {};
-// 	virtual constexpr Categories();
-// };
+constexpr CellTableBuilder builder{};
 
 struct PortInfo {
 	struct PortLists {
@@ -460,8 +435,8 @@ struct PortInfo {
 	PortLists inputs {};
 	PortLists outputs {};
 	constexpr PortInfo() {
-		for (size_t i = 0; i < turbo_builder.count; ++i) {
-			auto& cell = turbo_builder.cells[i];
+		for (size_t i = 0; i < builder.count; ++i) {
+			auto& cell = builder.cells[i];
 			size_t idx = cell.type.index_;
 			inputs[idx] = cell.inputs;
 			outputs[idx] = cell.outputs;
@@ -503,8 +478,8 @@ struct Categories {
 	Category is_anyinit {};
 	Category is_tristate {};
 	constexpr Categories() {
-		for (size_t i = 0; i < turbo_builder.count; ++i) {
-			auto& cell = turbo_builder.cells[i];
+		for (size_t i = 0; i < builder.count; ++i) {
+			auto& cell = builder.cells[i];
 			size_t idx = cell.type.index_;
 			is_known.set(idx);
 			is_evaluable.set(idx, cell.features.is_evaluable);
@@ -558,6 +533,8 @@ namespace Compat {
 	// old setup_stdcells
 	static constexpr auto stdcells_nomem_noff = Categories::meet(categories.is_stdcell, nomem_noff);
 	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
+	// old setup_internals_eval
+	// static constexpr auto internals_eval = Categories::meet(internals_all, categories.is_evaluable);
 };
 
 namespace {
@@ -664,6 +641,8 @@ struct NewCellTypes {
 		return static_cell_types(type) && StaticCellTypes::categories.is_evaluable(type);
 	}
 };
+
+extern NewCellTypes yosys_celltypes;
 
 YOSYS_NAMESPACE_END
 
