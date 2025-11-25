@@ -139,7 +139,11 @@ struct RTLIL::IdString
 		// the real string. The prefix strings must live forever.
 		const std::string *prefix;
 		// Cache of the full string, or nullptr if not cached yet.
-		char *full_str;
+		std::atomic<char *> full_str;
+
+		AutoidxStorage(const std::string *prefix) : prefix(prefix), full_str(nullptr) {}
+		AutoidxStorage(AutoidxStorage&& other) : prefix(other.prefix), full_str(other.full_str.exchange(nullptr, std::memory_order_relaxed)) {}
+		~AutoidxStorage() { delete[] full_str.load(std::memory_order_acquire); }
 	};
 
 	// the global id string cache
@@ -209,7 +213,7 @@ struct RTLIL::IdString
 	static IdString new_autoidx_with_prefix(const std::string *prefix) {
 		log_assert(!Multithreading::active());
 		int index = -(autoidx++);
-		global_autoidx_id_storage_.insert({index, {prefix, nullptr}});
+		global_autoidx_id_storage_.insert({index, prefix});
 		return from_index(index);
 	}
 
@@ -244,15 +248,18 @@ struct RTLIL::IdString
 			return global_id_storage_.at(index_).buf;
 
 		AutoidxStorage &s = global_autoidx_id_storage_.at(index_);
-		if (s.full_str != nullptr)
-			return s.full_str;
+		char *full_str = s.full_str.load(std::memory_order_acquire);
+		if (full_str != nullptr)
+			return full_str;
 		const std::string &prefix = *s.prefix;
 		std::string suffix = std::to_string(-index_);
 		char *c = new char[prefix.size() + suffix.size() + 1];
 		memcpy(c, prefix.data(), prefix.size());
 		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
-		s.full_str = c;
-		return c;
+		if (s.full_str.compare_exchange_strong(full_str, c, std::memory_order_acq_rel))
+			return c;
+		delete[] c;
+		return full_str;
 	}
 
 	inline std::string str() const {

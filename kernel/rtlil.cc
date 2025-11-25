@@ -276,7 +276,6 @@ void RTLIL::OwningIdString::collect_garbage()
 			++it;
 			continue;
 		}
-		delete[] it->second.full_str;
 		it = global_autoidx_id_storage_.erase(it);
 	}
 

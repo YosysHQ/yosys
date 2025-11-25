@@ -164,8 +164,7 @@ pyosys_headers = [
                     {
                         "global_id_storage_",
                         "global_id_index_",
-                        "global_negative_id_storage_",
-                        "global_negative_id_prefix_storage_",
+                        "global_autoidx_id_storage_",
                         "global_refcount_storage_",
                         "global_free_idx_list_",
                         "builtin_ff_cell_types",
