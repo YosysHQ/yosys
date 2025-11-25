@@ -415,7 +415,7 @@ static constexpr Categories categories;
 namespace Compat {
 	static constexpr auto internals_all = Categories::complement(categories.is_stdcell);
 	static constexpr auto internals_mem_ff = Categories::meet(categories.is_ff, categories.is_mem_noff);
-	// auto stdcells_mem = Categories::meet(internals_all, categories.is_mem_noff);
+	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
 };
 
 namespace {
