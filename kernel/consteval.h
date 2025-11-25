@@ -42,7 +42,7 @@ struct ConstEval
 	ConstEval(RTLIL::Module *module, RTLIL::State defaultval = RTLIL::State::Sm) : module(module), assign_map(module), defaultval(defaultval)
 	{
 		auto ct = NewCellTypes();
-		ct.static_cell_types = StaticCellTypes::Compat::stdcells_nomem_noff;
+		ct.static_cell_types = StaticCellTypes::Compat::nomem_noff;
 
 		for (auto &it : module->cells_) {
 			if (!ct.cell_known(it.second->type))
