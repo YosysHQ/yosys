@@ -478,7 +478,7 @@ struct Categories {
 				return false;
 			return data[idx];
 		}
-		constexpr bool& operator[](size_t idx) {
+		constexpr bool operator[](size_t idx) {
 			return data[idx];
 		}
 		constexpr void set_id(IdString type, bool val = true) {
@@ -506,35 +506,35 @@ struct Categories {
 		for (size_t i = 0; i < turbo_builder.count; ++i) {
 			auto& cell = turbo_builder.cells[i];
 			size_t idx = cell.type.index_;
-			is_known[idx] = true;
-			is_evaluable[idx] = cell.features.is_evaluable;
-			is_combinatorial[idx] = cell.features.is_combinatorial;
-			is_synthesizable[idx] = cell.features.is_synthesizable;
-			is_stdcell[idx] = cell.features.is_stdcell;
-			is_ff[idx] = cell.features.is_ff;
-			is_mem_noff[idx] = cell.features.is_mem_noff;
-			is_anyinit[idx] = cell.features.is_anyinit;
-			is_tristate[idx] = cell.features.is_tristate;
+			is_known.set(idx);
+			is_evaluable.set(idx, cell.features.is_evaluable);
+			is_combinatorial.set(idx, cell.features.is_combinatorial);
+			is_synthesizable.set(idx, cell.features.is_synthesizable);
+			is_stdcell.set(idx, cell.features.is_stdcell);
+			is_ff.set(idx, cell.features.is_ff);
+			is_mem_noff.set(idx, cell.features.is_mem_noff);
+			is_anyinit.set(idx, cell.features.is_anyinit);
+			is_tristate.set(idx, cell.features.is_tristate);
 		}
 	}
 	constexpr static Category join(Category left, Category right) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c[i] = left[i] || right[i];
+			c.set(i, left[i] || right[i]);
 		}
 		return c;
 	}
 	constexpr static Category meet(Category left, Category right) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c[i] = left[i] && right[i];
+			c.set(i, left[i] && right[i]);
 		}
 		return c;
 	}
-	constexpr static Category complement(Category old) {
+	constexpr static Category complement(Category arg) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c[i] = !old[i];
+			c.set(i, !arg[i]);
 		}
 		return c;
 	}
