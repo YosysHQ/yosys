@@ -531,6 +531,8 @@ struct Categories {
 		}
 		return c;
 	}
+	// Sketchy! Make sure to always meet with only the known universe.
+	// In other words, no modus tollens allowed
 	constexpr static Category complement(Category arg) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
@@ -546,8 +548,12 @@ static constexpr Categories categories;
 
 // Legacy
 namespace Compat {
-	static constexpr auto internals_all = Categories::complement(categories.is_stdcell);
-	static constexpr auto internals_mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
+	static constexpr auto internals_all = Categories::meet(categories.is_known, Categories::complement(categories.is_stdcell));
+	static constexpr auto mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
+	static constexpr auto nomem_noff = Categories::meet(categories.is_known, Categories::complement(mem_ff));
+	static constexpr auto internals_mem_ff = Categories::meet(internals_all, mem_ff);
+	// old setup_internals
+	static constexpr auto internals_nomem_noff = Categories::meet(internals_all, nomem_noff);
 	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
 };
 
