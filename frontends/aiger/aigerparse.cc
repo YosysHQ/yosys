@@ -37,7 +37,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "aigerparse.h"
 
 YOSYS_NAMESPACE_BEGIN

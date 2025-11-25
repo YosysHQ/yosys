@@ -21,7 +21,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/timinginfo.h"
 
 USING_YOSYS_NAMESPACE
