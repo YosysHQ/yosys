@@ -481,6 +481,15 @@ struct Categories {
 		constexpr bool& operator[](size_t idx) {
 			return data[idx];
 		}
+		constexpr void set_id(IdString type, bool val = true) {
+			size_t idx = type.index_;
+			if (idx >= MAX_CELLS)
+				return; // TODO should be an assert but then it's not constexpr
+			data[idx] = val;
+		}
+		constexpr void set(size_t idx, bool val = true) {
+			data[idx] = val;
+		}
 		constexpr size_t size() const { return data.size(); }
 	};
 	Category empty {};
