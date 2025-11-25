@@ -1,6 +1,7 @@
 #ifndef NEWCELLTYPES_H
 #define NEWCELLTYPES_H
 
+#include "kernel/rtlil.h"
 #include "kernel/yosys.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -9,7 +10,6 @@ namespace StaticCellTypes {
 
 constexpr int MAX_CELLS = 300;
 constexpr int MAX_PORTS = 10;
-template<size_t N>
 struct CellTableBuilder {
 	struct PortList {
 		std::array<RTLIL::IdString, MAX_PORTS> ports{};
@@ -22,6 +22,14 @@ struct CellTableBuilder {
 		}
 		constexpr auto begin() const { return ports.begin(); }
 		constexpr auto end() const { return ports.begin() + count; }
+		constexpr bool contains(RTLIL::IdString port) const {
+			for (size_t i = 0; i < count; i++) {
+				if (port == ports[i])
+					return true;
+			}
+
+			return false;
+		}
 		constexpr size_t size() const { return count; }
 	};
 	struct Features {
@@ -349,7 +357,54 @@ struct CellTableBuilder {
 };
 
 
-constexpr CellTableBuilder<MAX_CELLS> turbo_builder{};
+constexpr CellTableBuilder turbo_builder{};
+
+// template<typename T>
+// struct Worlds {
+// 	struct World {
+// 		std::array<T, MAX_CELLS> data{};
+// 		constexpr T operator()(IdString type) const {
+// 			return data[type.index_];
+// 		}
+// 		constexpr T& operator[](size_t idx) {
+// 			return data[idx];
+// 		}
+// 		constexpr size_t size() const { return data.size(); }
+// 	};
+// 	World is_known {};
+// 	World is_evaluable {};
+// 	World is_combinatorial {};
+// 	World is_synthesizable {};
+// 	World is_stdcell {};
+// 	World is_ff {};
+// 	World is_mem_noff {};
+// 	World is_anyinit {};
+// 	World is_tristate {};
+// 	virtual constexpr Categories();
+// };
+
+struct PortInfo {
+	struct PortLists {
+		std::array<CellTableBuilder::PortList, MAX_CELLS> data{};
+		constexpr CellTableBuilder::PortList operator()(IdString type) const {
+			return data[type.index_];
+		}
+		constexpr CellTableBuilder::PortList& operator[](size_t idx) {
+			return data[idx];
+		}
+		constexpr size_t size() const { return data.size(); }
+	};
+	PortLists inputs {};
+	PortLists outputs {};
+	constexpr PortInfo() {
+		for (size_t i = 0; i < turbo_builder.count; ++i) {
+			auto& cell = turbo_builder.cells[i];
+			size_t idx = cell.type.index_;
+			inputs[idx] = cell.inputs;
+			outputs[idx] = cell.outputs;
+		}
+	}
+};
 
 struct Categories {
 	struct Category {
@@ -360,9 +415,10 @@ struct Categories {
 		constexpr bool& operator[](size_t idx) {
 			return data[idx];
 		}
-		// Optional: Helper to expose size
 		constexpr size_t size() const { return data.size(); }
 	};
+	Category empty {};
+	Category is_known {};
 	Category is_evaluable {};
 	Category is_combinatorial {};
 	Category is_synthesizable {};
@@ -373,16 +429,17 @@ struct Categories {
 	Category is_tristate {};
 	constexpr Categories() {
 		for (size_t i = 0; i < turbo_builder.count; ++i) {
-			auto& c = turbo_builder.cells[i];
-			size_t idx = c.type.index_;
-			is_evaluable[idx] = c.features.is_evaluable;
-			is_combinatorial[idx] = c.features.is_combinatorial;
-			is_synthesizable[idx] = c.features.is_synthesizable;
-			is_stdcell[idx] = c.features.is_stdcell;
-			is_ff[idx] = c.features.is_ff;
-			is_mem_noff[idx] = c.features.is_mem_noff;
-			is_anyinit[idx] = c.features.is_anyinit;
-			is_tristate[idx] = c.features.is_tristate;
+			auto& cell = turbo_builder.cells[i];
+			size_t idx = cell.type.index_;
+			is_known[idx] = true;
+			is_evaluable[idx] = cell.features.is_evaluable;
+			is_combinatorial[idx] = cell.features.is_combinatorial;
+			is_synthesizable[idx] = cell.features.is_synthesizable;
+			is_stdcell[idx] = cell.features.is_stdcell;
+			is_ff[idx] = cell.features.is_ff;
+			is_mem_noff[idx] = cell.features.is_mem_noff;
+			is_anyinit[idx] = cell.features.is_anyinit;
+			is_tristate[idx] = cell.features.is_tristate;
 		}
 	}
 	constexpr static Category join(Category left, Category right) {
@@ -409,12 +466,13 @@ struct Categories {
 };
 
 // Pure
+static constexpr PortInfo port_info;
 static constexpr Categories categories;
 
 // Legacy
 namespace Compat {
 	static constexpr auto internals_all = Categories::complement(categories.is_stdcell);
-	static constexpr auto internals_mem_ff = Categories::meet(categories.is_ff, categories.is_mem_noff);
+	static constexpr auto internals_mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
 	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
 };
 
@@ -424,12 +482,104 @@ namespace {
 	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($and)));
 	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($dffsr)));
 	static_assert(!Categories::join(categories.is_evaluable, categories.is_ff)(ID($anyinit)));
-
 }
 
-
-
 };
+
+struct NewCellType {
+	RTLIL::IdString type;
+	pool<RTLIL::IdString> inputs, outputs;
+	bool is_evaluable;
+	bool is_combinatorial;
+	bool is_synthesizable;
+};
+
+struct NewCellTypes {
+	StaticCellTypes::Categories::Category static_cell_types = StaticCellTypes::categories.empty;
+	dict<RTLIL::IdString, NewCellType> custom_cell_types;
+
+	NewCellTypes() {
+	}
+
+	NewCellTypes(RTLIL::Design *design) {
+		setup(design);
+	}
+	void setup(RTLIL::Design *design = NULL) {
+		if (design)
+			setup_design(design);
+
+	}
+	void setup_design(RTLIL::Design *design) {
+		for (auto module : design->modules())
+			setup_module(module);
+		static_cell_types = StaticCellTypes::categories.is_known;
+	}
+
+	void setup_module(RTLIL::Module *module) {
+		pool<RTLIL::IdString> inputs, outputs;
+		for (RTLIL::IdString wire_name : module->ports) {
+			RTLIL::Wire *wire = module->wire(wire_name);
+			if (wire->port_input)
+				inputs.insert(wire->name);
+			if (wire->port_output)
+				outputs.insert(wire->name);
+		}
+		setup_type(module->name, inputs, outputs);
+	}
+
+	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false) {
+		NewCellType ct = {type, inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable};
+		custom_cell_types[ct.type] = ct;
+	}
+
+	void clear() {
+		custom_cell_types.clear();
+		static_cell_types = StaticCellTypes::categories.empty;
+	}
+
+	bool cell_known(const RTLIL::IdString &type) const {
+		return static_cell_types(type) || custom_cell_types.count(type) != 0;
+	}
+
+	bool cell_output(const RTLIL::IdString &type, const RTLIL::IdString &port) const
+	{
+		if (static_cell_types(type) && StaticCellTypes::port_info.outputs(type).contains(port)) {
+			return true;
+		}
+		auto it = custom_cell_types.find(type);
+		return it != custom_cell_types.end() && it->second.outputs.count(port) != 0;
+	}
+
+	bool cell_input(const RTLIL::IdString &type, const RTLIL::IdString &port) const
+	{
+		if (static_cell_types(type) && StaticCellTypes::port_info.inputs(type).contains(port)) {
+			return true;
+		}
+		auto it = custom_cell_types.find(type);
+		return it != custom_cell_types.end() && it->second.inputs.count(port) != 0;
+	}
+
+	RTLIL::PortDir cell_port_dir(RTLIL::IdString type, RTLIL::IdString port) const
+	{
+		bool is_input, is_output;
+		if (static_cell_types(type)) {
+			is_input = StaticCellTypes::port_info.inputs(type).contains(port);
+			is_output = StaticCellTypes::port_info.outputs(type).contains(port);
+		} else {
+			auto it = custom_cell_types.find(type);
+			if (it == custom_cell_types.end())
+				return RTLIL::PD_UNKNOWN;
+			is_input = it->second.inputs.count(port);
+			is_output = it->second.outputs.count(port);
+		}
+		return RTLIL::PortDir(is_input + is_output * 2);
+	}
+	bool cell_evaluable(const RTLIL::IdString &type) const
+	{
+		return static_cell_types(type) && StaticCellTypes::categories.is_evaluable(type);
+	}
+};
+
 YOSYS_NAMESPACE_END
 
 #endif
