@@ -24,7 +24,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/log.h"
 #include <string>
 
@@ -60,7 +60,7 @@ struct BlifDumper
 	RTLIL::Module *module;
 	RTLIL::Design *design;
 	BlifDumperConfig *config;
-	CellTypes ct;
+	NewCellTypes ct;
 
 	SigMap sigmap;
 	dict<SigBit, int> init_bits;

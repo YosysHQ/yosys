@@ -20,7 +20,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/log.h"
 #include "kernel/mem.h"
 #include "libs/json11/json11.hpp"
@@ -32,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Smt2Worker
 {
-	CellTypes ct;
+	NewCellTypes ct;
 	SigMap sigmap;
 	RTLIL::Module *module;
 	bool bvmode, memmode, wiresmode, verbose, statebv, statedt, forallmode;
