@@ -134,6 +134,13 @@ struct RTLIL::IdString
 
 		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
 	};
+	struct AutoidxStorage {
+		// Append the negated (i.e. positive) ID to this string to get
+		// the real string. The prefix strings must live forever.
+		const std::string *prefix;
+		// Cache of the full string, or nullptr if not cached yet.
+		char *full_str;
+	};
 
 	// the global id string cache
 
@@ -147,12 +154,9 @@ struct RTLIL::IdString
 	static std::vector<Storage> global_id_storage_;
 	// Lookup table for non-autoidx IDs
 	static std::unordered_map<std::string_view, int> global_id_index_;
-	// Shared prefix string storage for autoidx IDs, which have negative
-	// indices. Append the negated (i.e. positive) ID to this string to get
-	// the real string. The prefix strings must live forever.
-	static std::unordered_map<int, const std::string*> global_autoidx_id_prefix_storage_;
-	// Explicit string storage for autoidx IDs
-	static std::unordered_map<int, char*> global_autoidx_id_storage_;
+	// Storage for autoidx IDs, which have negative indices, i.e. all entries in this
+	// map have negative keys.
+	static std::unordered_map<int, AutoidxStorage> global_autoidx_id_storage_;
 	// All (index, refcount) pairs in this map have refcount > 0.
 	static std::unordered_map<int, int> global_refcount_storage_;
 	static std::vector<int> global_free_idx_list_;
@@ -205,7 +209,7 @@ struct RTLIL::IdString
 	static IdString new_autoidx_with_prefix(const std::string *prefix) {
 		log_assert(!Multithreading::active());
 		int index = -(autoidx++);
-		global_autoidx_id_prefix_storage_.insert({index, prefix});
+		global_autoidx_id_storage_.insert({index, {prefix, nullptr}});
 		return from_index(index);
 	}
 
@@ -238,16 +242,16 @@ struct RTLIL::IdString
 	inline const char *c_str() const {
 		if (index_ >= 0)
 			return global_id_storage_.at(index_).buf;
-		auto it = global_autoidx_id_storage_.find(index_);
-		if (it != global_autoidx_id_storage_.end())
-			return it->second;
 
-		const std::string &prefix = *global_autoidx_id_prefix_storage_.at(index_);
+		AutoidxStorage &s = global_autoidx_id_storage_.at(index_);
+		if (s.full_str != nullptr)
+			return s.full_str;
+		const std::string &prefix = *s.prefix;
 		std::string suffix = std::to_string(-index_);
 		char *c = new char[prefix.size() + suffix.size() + 1];
 		memcpy(c, prefix.data(), prefix.size());
 		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
-		global_autoidx_id_storage_.insert(it, {index_, c});
+		s.full_str = c;
 		return c;
 	}
 
@@ -262,7 +266,7 @@ struct RTLIL::IdString
 			*out += global_id_storage_.at(index_).str_view();
 			return;
 		}
-		*out += *global_autoidx_id_prefix_storage_.at(index_);
+		*out += *global_autoidx_id_storage_.at(index_).prefix;
 		*out += std::to_string(-index_);
 	}
 
@@ -348,7 +352,7 @@ struct RTLIL::IdString
 		if (index_ >= 0) {
 			return const_iterator(global_id_storage_.at(index_));
 		}
-		return const_iterator(global_autoidx_id_prefix_storage_.at(index_), -index_);
+		return const_iterator(global_autoidx_id_storage_.at(index_).prefix, -index_);
 	}
 	const_iterator end() const {
 		return const_iterator();
@@ -358,7 +362,7 @@ struct RTLIL::IdString
 		if (index_ >= 0) {
 			return Substrings(global_id_storage_.at(index_));
 		}
-		return Substrings(global_autoidx_id_prefix_storage_.at(index_), -index_);
+		return Substrings(global_autoidx_id_storage_.at(index_).prefix, -index_);
 	}
 
 	inline bool lt_by_name(const IdString &rhs) const {
@@ -411,7 +415,7 @@ struct RTLIL::IdString
 #endif
 			return *(storage.buf + i);
 		}
-		const std::string &id_start = *global_autoidx_id_prefix_storage_.at(index_);
+		const std::string &id_start = *global_autoidx_id_storage_.at(index_).prefix;
 		if (i < id_start.size())
 			return id_start[i];
 		i -= id_start.size();
