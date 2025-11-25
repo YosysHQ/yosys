@@ -30,6 +30,9 @@ TEST(CellTypesTest, basic)
 			std::cout << i << " " << type.str() << "\n";
 		EXPECT_EQ(older.cell_known(type), newer.cell_known(type));
 
+		if (RTLIL::builtin_ff_cell_types().count(type) != StaticCellTypes::categories.is_ff(type))
+			std::cout << i << " " << type.str() << "\n";
+		EXPECT_EQ(RTLIL::builtin_ff_cell_types().count(type), StaticCellTypes::categories.is_ff(type));
 	}
 	yosys_shutdown();
 }
