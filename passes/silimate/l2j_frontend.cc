@@ -391,6 +391,11 @@ struct L2JFrontend : public Frontend {
 			current_module->set_string_attribute(ID(LeakagePower), std::to_string(cell_leakage_power));
 			current_module->set_string_attribute(ID(leakage_power_unit), leakage_power_unit);
 
+			if (cell.count("src")) {
+				auto src_attr = get_string_attr(cell_desc + " src attribute", cell, "src", "");
+				current_module->set_src_attribute(src_attr);
+			}
+
 			size_t group_idx = 0;
 			size_t pin_idx = 0;
 			size_t bus_idx = 0;
