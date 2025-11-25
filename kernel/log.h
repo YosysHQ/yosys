@@ -24,6 +24,7 @@
 
 #include <time.h>
 
+#include <atomic>
 #include <regex>
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
@@ -298,13 +299,14 @@ void log_abort_internal(const char *file, int line);
 
 #define cover(_id) do { \
     static CoverData __d __attribute__((section("yosys_cover_list"), aligned(1), used)) = { __FILE__, __FUNCTION__, _id, __LINE__, 0 }; \
-    __d.counter++; \
+    __d.counter.fetch_add(1, std::memory_order_relaxed); \
 } while (0)
 
 struct CoverData {
 	const char *file, *func, *id;
-	int line, counter;
-} YS_ATTRIBUTE(packed);
+	int line;
+	std::atomic<int> counter;
+};
 
 // this two symbols are created by the linker for the "yosys_cover_list" ELF section
 extern "C" struct CoverData __start_yosys_cover_list[];
