@@ -105,7 +105,7 @@ keep_cache_t keep_cache;
 static constexpr auto ct_reg = StaticCellTypes::Categories::join(
 	StaticCellTypes::Compat::internals_mem_ff,
 	StaticCellTypes::categories.is_anyinit);
-CellTypes ct_all;
+NewCellTypes ct_all;
 int count_rm_cells, count_rm_wires;
 
 void rmunused_module_cells(Module *module, bool verbose)
