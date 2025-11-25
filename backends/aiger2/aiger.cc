@@ -44,6 +44,8 @@ PRIVATE_NAMESPACE_BEGIN
 // TODO
 //#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
+// TODO convert to newcelltypes
+
 #define KNOWN_OPS BITWISE_OPS, REDUCE_OPS, LOGIC_OPS, GATE_OPS, ID($pos), CMP_OPS, \
 				  ID($pmux), ID($bmux) /*, ARITH_OPS*/
 
