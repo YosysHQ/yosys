@@ -8,8 +8,10 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace StaticCellTypes {
 
+// Given by last internal cell type IdString constids.inc, compilation error if too low
 constexpr int MAX_CELLS = 300;
-constexpr int MAX_PORTS = 10;
+// Currently given by _MUX16_, compilation error if too low
+constexpr int MAX_PORTS = 20;
 struct CellTableBuilder {
 	struct PortList {
 		std::array<RTLIL::IdString, MAX_PORTS> ports{};
@@ -52,6 +54,39 @@ struct CellTableBuilder {
 
 	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features) {
 		cells[count++] = {type, PortList(inputs), PortList(outputs), features};
+	}
+	constexpr void setup_internals_other()
+	{
+		Features features {
+			.is_tristate = true,
+		};
+		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
+
+		features = {};
+		setup_type(ID($assert), {ID::A, ID::EN}, {}, features);
+		setup_type(ID($assume), {ID::A, ID::EN}, {}, features);
+		setup_type(ID($live), {ID::A, ID::EN}, {}, features);
+		setup_type(ID($fair), {ID::A, ID::EN}, {}, features);
+		setup_type(ID($cover), {ID::A, ID::EN}, {}, features);
+		setup_type(ID($initstate), {}, {ID::Y}, features);
+		setup_type(ID($anyconst), {}, {ID::Y}, features);
+		setup_type(ID($anyseq), {}, {ID::Y}, features);
+		setup_type(ID($allconst), {}, {ID::Y}, features);
+		setup_type(ID($allseq), {}, {ID::Y}, features);
+		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
+		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
+		setup_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, {}, features);
+		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {}, features);
+		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {}, features);
+		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y}, features);
+		setup_type(ID($get_tag), {ID::A}, {ID::Y}, features);
+		setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, {}, features);
+		setup_type(ID($original_tag), {ID::A}, {ID::Y}, features);
+		setup_type(ID($future_ff), {ID::A}, {ID::Y}, features);
+		setup_type(ID($scopeinfo), {}, {}, features);
+		setup_type(ID($input_port), {}, {ID::Y}, features);
+		setup_type(ID($connect), {ID::A, ID::B}, {}, features);
 	}
 	constexpr void setup_internals_eval()
 	{
@@ -146,7 +181,34 @@ struct CellTableBuilder {
 		};
 		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, features);
 	}
-	// TODO check correctness in unit test
+
+	constexpr void setup_stdcells_eval()
+	{
+		Features features {
+			.is_evaluable = true,
+			.is_stdcell = true,
+		};
+		setup_type(ID($_BUF_), {ID::A}, {ID::Y}, features);
+		setup_type(ID($_NOT_), {ID::A}, {ID::Y}, features);
+		setup_type(ID($_AND_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_NAND_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_OR_),  {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_NOR_),  {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_XOR_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_XNOR_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_ANDNOT_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_ORNOT_), {ID::A, ID::B}, {ID::Y}, features);
+		setup_type(ID($_MUX_), {ID::A, ID::B, ID::S}, {ID::Y}, features);
+		setup_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, features);
+		setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, features);
+		setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, features);
+		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, features);
+		setup_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, features);
+		setup_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, features);
+		setup_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, features);
+		setup_type(ID($_OAI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, features);
+	}
+
 	constexpr void setup_stdcells_ff() {
 		Features features {
 			.is_stdcell = true,
@@ -156,10 +218,10 @@ struct CellTableBuilder {
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_SR_") + c1 + c2 + "_", {ID::S, ID::R}, {ID::Q}, features);
-		setup_type(ID::$_SR_NN_, {ID::S, ID::R}, {ID::Q}, features);
-		setup_type(ID::$_SR_NP_, {ID::S, ID::R}, {ID::Q}, features);
-		setup_type(ID::$_SR_PN_, {ID::S, ID::R}, {ID::Q}, features);
-		setup_type(ID::$_SR_PP_, {ID::S, ID::R}, {ID::Q}, features);
+		setup_type(ID($_SR_NN_), {ID::S, ID::R}, {ID::Q}, features);
+		setup_type(ID($_SR_NP_), {ID::S, ID::R}, {ID::Q}, features);
+		setup_type(ID($_SR_PN_), {ID::S, ID::R}, {ID::Q}, features);
+		setup_type(ID($_SR_PP_), {ID::S, ID::R}, {ID::Q}, features);
 
 		setup_type(ID($_FF_), {ID::D}, {ID::Q}, features);
 
@@ -179,179 +241,180 @@ struct CellTableBuilder {
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_DFF_") + c1 + c2 + c3 + "_", {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_NN0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_NN1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_NP0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_NP1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_PN0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_PN1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_PP0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_PP1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_NN0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_NN1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_NP0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_NP1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_PN0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_PN1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_PP0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_PP1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_DFFE_") + c1 + c2 + c3 + c4 + "_", {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_ALDFF_") + c1 + c2 + "_", {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_ALDFF_NN_, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_ALDFF_NP_, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_ALDFF_PN_, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_ALDFF_PP_, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
+		setup_type(ID($_ALDFF_NN_), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
+		setup_type(ID($_ALDFF_NP_), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
+		setup_type(ID($_ALDFF_PN_), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
+		setup_type(ID($_ALDFF_PP_), {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_ALDFFE_") + c1 + c2 + c3 + "_", {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_NNN_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_NNP_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_NPN_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_NPP_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_PNN_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_PNP_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_PPN_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_ALDFFE_PPP_, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_NNN_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_NNP_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_NPN_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_NPP_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_PNN_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_PNP_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_PPN_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_ALDFFE_PPP_), {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_DFFSR_") + c1 + c2 + c3 + "_", {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_NNN_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_NNP_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_NPN_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_NPP_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_PNN_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_PNP_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_PPN_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFFSR_PPP_, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_NNN_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_NNP_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_NPN_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_NPP_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_PNN_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_PNP_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_PPN_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFFSR_PPP_), {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_DFFSRE_") + c1 + c2 + c3 + c4 + "_", {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NNNN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NNNP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NNPN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NNPP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NPNN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NPNP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NPPN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_NPPP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PNNN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PNNP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PNPN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PNPP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PPNN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PPNP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PPPN_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFSRE_PPPP_, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NNNN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NNNP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NNPN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NNPP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NPNN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NPNP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NPPN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_NPPP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PNNN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PNNP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PNPN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PNPP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PPNN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PPNP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PPPN_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFSRE_PPPP_), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_SDFF_") + c1 + c2 + c3 + "_", {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_NN0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_NN1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_NP0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_NP1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_PN0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_PN1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_PP0_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_SDFF_PP1_, {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_NN0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_NN1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_NP0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_NP1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_PN0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_PN1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_PP0_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_SDFF_PP1_), {ID::C, ID::R, ID::D}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_SDFFE_") + c1 + c2 + c3 + c4 + "_", {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_NP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFE_PP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_NP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFE_PP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// for (auto c4 : list_np)
 		// 	setup_type(std::string("$_SDFFCE_") + c1 + c2 + c3 + c4 + "_", {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_NP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PN0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PN0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PN1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PN1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PP0N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PP0P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PP1N_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_SDFFCE_PP1P_, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_NP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PN0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PN0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PN1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PN1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PP0N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PP0P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PP1N_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_SDFFCE_PP1P_), {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// 	setup_type(std::string("$_DLATCH_") + c1 + "_", {ID::E, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_N_, {ID::E, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_P_, {ID::E, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_N_), {ID::E, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_P_), {ID::E, ID::D}, {ID::Q}, features);
 
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
 		// 	setup_type(std::string("$_DLATCH_") + c1 + c2 + c3 + "_", {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_NN0_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_NN1_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_NP0_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_NP1_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_PN0_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_PN1_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_PP0_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCH_PP1_, {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_NN0_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_NN1_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_NP0_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_NP1_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_PN0_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_PN1_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_PP0_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCH_PP1_), {ID::E, ID::R, ID::D}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_np)
 		// 	setup_type(std::string("$_DLATCHSR_") + c1 + c2 + c3 + "_", {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_NNN_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_NNP_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_NPN_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_NPP_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_PNN_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_PNP_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_PPN_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DLATCHSR_PPP_, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_NNN_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_NNP_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_NPN_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_NPP_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_PNN_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_PNP_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_PPN_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DLATCHSR_PPP_), {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
 	}
 	constexpr CellTableBuilder() {
+		setup_internals_other();
 		setup_internals_eval();
 		setup_internals_ff();
 		setup_internals_anyinit();
 		setup_internals_mem_noff();
 		setup_stdcells_tristate();
+		setup_stdcells_eval();
 		setup_stdcells_ff();
-		// TODO
 	}
 
 };
@@ -512,12 +575,11 @@ struct NewCellTypes {
 	void setup(RTLIL::Design *design = NULL) {
 		if (design)
 			setup_design(design);
-
+		static_cell_types = StaticCellTypes::categories.is_known;
 	}
 	void setup_design(RTLIL::Design *design) {
 		for (auto module : design->modules())
 			setup_module(module);
-		static_cell_types = StaticCellTypes::categories.is_known;
 	}
 
 	void setup_module(RTLIL::Module *module) {
