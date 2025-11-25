@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/utils.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -31,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
 
-void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
+void replace_undriven(RTLIL::Module *module, const NewCellTypes &ct)
 {
 	SigMap sigmap(module);
 	SigPool driven_signals;
@@ -409,9 +410,6 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		}
 	}
 
-	CellTypes ct_memcells;
-	ct_memcells.setup_stdcells_mem();
-
 	if (!noclkinv)
 	for (auto cell : module->cells())
 	if (design->selected(module, cell)) {
@@ -435,7 +433,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (cell->type.in(ID($dffe), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr)))
 			handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map, invert_map);
 
-		if (!ct_memcells.cell_known(cell->type))
+		if (!TurboCellTypes::Compat::stdcells_mem(cell->type))
 			continue;
 
 		handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map, invert_map);
@@ -2358,7 +2356,7 @@ struct OptExprPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		CellTypes ct(design);
+		NewCellTypes ct(design);
 		for (auto module : design->selected_modules())
 		{
 			log("Optimizing module %s.\n", log_id(module));
