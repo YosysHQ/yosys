@@ -22,6 +22,7 @@
 #include "kernel/json.h"
 #include "kernel/gzip.h"
 #include "kernel/log_help.h"
+#include "kernel/newcelltypes.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -975,16 +976,16 @@ struct HelpPass : public Pass {
 		json.entry("generator", yosys_maybe_version());
 
 		dict<string, vector<string>> groups;
-		dict<string, pair<SimHelper, CellType>> cells;
+		dict<string, pair<SimHelper, StaticCellTypes::CellTableBuilder::CellInfo>> cells;
 
 		// iterate over cells
 		bool raise_error = false;
-		for (auto &it : yosys_celltypes.cell_types) {
-			auto name = it.first.str();
+		for (auto it : StaticCellTypes::builder.cells) {
+			auto name = it.type.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
 				groups[cell_help.group].emplace_back(name);
-				auto cell_pair = pair<SimHelper, CellType>(cell_help, it.second);
+				auto cell_pair = pair<SimHelper, StaticCellTypes::CellTableBuilder::CellInfo>(cell_help, it);
 				cells.emplace(name, cell_pair);
 			} else {
 				log("ERROR: Missing cell help for cell '%s'.\n", name);
@@ -1025,9 +1026,9 @@ struct HelpPass : public Pass {
 			json.name("outputs"); json.value(outputs);
 			vector<string> properties;
 			// CellType properties
-			if (ct.is_evaluable) properties.push_back("is_evaluable");
-			if (ct.is_combinatorial) properties.push_back("is_combinatorial");
-			if (ct.is_synthesizable) properties.push_back("is_synthesizable");
+			if (ct.features.is_evaluable) properties.push_back("is_evaluable");
+			if (ct.features.is_combinatorial) properties.push_back("is_combinatorial");
+			if (ct.features.is_synthesizable) properties.push_back("is_synthesizable");
 			// SimHelper properties
 			size_t last = 0; size_t next = 0;
 			while ((next = ch.tags.find(", ", last)) != string::npos) {
