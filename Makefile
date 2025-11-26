@@ -21,7 +21,6 @@ ENABLE_VERIFIC_HIER_TREE := 1
 ENABLE_VERIFIC_YOSYSHQ_EXTENSIONS := 0
 ENABLE_VERIFIC_EDIF := 0
 ENABLE_VERIFIC_LIBERTY := 0
-ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
 ENABLE_HELP_SOURCE := 0
@@ -248,9 +247,6 @@ ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LINKFLAGS += -g -fsanitize=$(SANITIZER)
-ifneq ($(findstring address,$(SANITIZER)),)
-ENABLE_COVER := 0
-endif
 ifneq ($(findstring memory,$(SANITIZER)),)
 CXXFLAGS += -fPIE -fsanitize-memory-track-origins
 LINKFLAGS += -fPIE -fsanitize-memory-track-origins
@@ -544,10 +540,6 @@ LIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VE
 endif
 endif
 
-ifeq ($(ENABLE_COVER),1)
-CXXFLAGS += -DYOSYS_ENABLE_COVER
-endif
-
 ifeq ($(ENABLE_CCACHE),1)
 CXX := ccache $(CXX)
 else
@@ -725,7 +717,6 @@ OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
 OBJS += passes/cmds/show.o
 OBJS += passes/cmds/stat.o
-OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 

@@ -27,7 +27,6 @@ OBJS += passes/cmds/logcmd.o
 OBJS += passes/cmds/tee.o
 OBJS += passes/cmds/write_file.o
 OBJS += passes/cmds/connwrappers.o
-OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/trace.o
 OBJS += passes/cmds/plugin.o
 OBJS += passes/cmds/check.o
