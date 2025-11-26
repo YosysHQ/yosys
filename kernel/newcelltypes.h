@@ -57,9 +57,8 @@ struct CellTableBuilder {
 	}
 	constexpr void setup_internals_other()
 	{
-		Features features {
-			.is_tristate = true,
-		};
+		Features features {};
+		features.is_tristate = true;
 		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
 
 		features = {};
@@ -90,9 +89,8 @@ struct CellTableBuilder {
 	}
 	constexpr void setup_internals_eval()
 	{
-		Features features {
-			.is_evaluable = true,
-		};
+		Features features {};
+		features.is_evaluable = true;
 		std::initializer_list<RTLIL::IdString> unary_ops = {
 			ID($not), ID($pos), ID($buf), ID($neg),
 			ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
@@ -127,9 +125,8 @@ struct CellTableBuilder {
 	}
 	constexpr void setup_internals_ff()
 	{
-		Features features {
-			.is_ff = true,
-		};
+		Features features {};
+		features.is_ff = true;
 		setup_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q}, features);
 		setup_type(ID($ff), {ID::D}, {ID::Q}, features);
 		setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q}, features);
@@ -149,16 +146,14 @@ struct CellTableBuilder {
 	}
 	constexpr void setup_internals_anyinit()
 	{
-		Features features {
-			.is_anyinit = true,
-		};
+		Features features {};
+		features.is_anyinit = true;
 		setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
 	}
 	constexpr void setup_internals_mem_noff()
 	{
-		Features features {
-			.is_mem_noff = true,
-		};
+		Features features {};
+		features.is_mem_noff = true;
 		// NOT setup_internals_ff()
 
 		setup_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA}, features);
@@ -175,19 +170,17 @@ struct CellTableBuilder {
 	}
 	constexpr void setup_stdcells_tristate()
 	{
-		Features features {
-			.is_stdcell = true,
-			.is_tristate = true,
-		};
+		Features features {};
+		features.is_stdcell = true;
+		features.is_tristate = true;
 		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, features);
 	}
 
 	constexpr void setup_stdcells_eval()
 	{
-		Features features {
-			.is_evaluable = true,
-			.is_stdcell = true,
-		};
+		Features features {};
+		features.is_stdcell = true;
+		features.is_evaluable = true;
 		setup_type(ID($_BUF_), {ID::A}, {ID::Y}, features);
 		setup_type(ID($_NOT_), {ID::A}, {ID::Y}, features);
 		setup_type(ID($_AND_), {ID::A, ID::B}, {ID::Y}, features);
@@ -210,10 +203,9 @@ struct CellTableBuilder {
 	}
 
 	constexpr void setup_stdcells_ff() {
-		Features features {
-			.is_stdcell = true,
-			.is_ff = true,
-		};
+		Features features {};
+		features.is_stdcell = true;
+		features.is_ff = true;
 
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
