@@ -23,7 +23,7 @@ TEST(CellTypesTest, basic)
 
 	EXPECT_EQ(older.cell_known(ID(aaaaa)), newer.cell_known(ID(aaaaa)));
 	EXPECT_EQ(older.cell_known(ID($and)), newer.cell_known(ID($and)));
-	for (size_t i = 0; i < 1000; i++) {
+	for (size_t i = 0; i < static_cast<size_t>(RTLIL::StaticId::STATIC_ID_END); i++) {
 		IdString type;
 		type.index_ = i;
 		if (older.cell_known(type) != newer.cell_known(type))
