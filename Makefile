@@ -780,7 +780,7 @@ else
 endif
 
 libyosys.a: $(filter-out kernel/driver.o,$(OBJS))
-	$(P) ar rcs $@ $^
+	$(P) $(AR) rcs $@ $^
 
 %.o: %.cc
 	$(Q) mkdir -p $(dir $@)
