@@ -87,22 +87,22 @@ struct CellTypes
 	{
 		setup_internals_eval();
 
-		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, true);
+		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y});
 
-		setup_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($fair), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($cover), {ID::A, ID::EN}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($initstate), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($anyconst), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($anyseq), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($allconst), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y}, true);
-		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, true);
-		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>(), true);
-		setup_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>(), true);
+		setup_type(ID($assert), {ID::A, ID::EN}, pool<RTLIL::IdString>());
+		setup_type(ID($assume), {ID::A, ID::EN}, pool<RTLIL::IdString>());
+		setup_type(ID($live), {ID::A, ID::EN}, pool<RTLIL::IdString>());
+		setup_type(ID($fair), {ID::A, ID::EN}, pool<RTLIL::IdString>());
+		setup_type(ID($cover), {ID::A, ID::EN}, pool<RTLIL::IdString>());
+		setup_type(ID($initstate), pool<RTLIL::IdString>(), {ID::Y});
+		setup_type(ID($anyconst), pool<RTLIL::IdString>(), {ID::Y});
+		setup_type(ID($anyseq), pool<RTLIL::IdString>(), {ID::Y});
+		setup_type(ID($allconst), pool<RTLIL::IdString>(), {ID::Y});
+		setup_type(ID($allseq), pool<RTLIL::IdString>(), {ID::Y});
+		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y});
+		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, pool<RTLIL::IdString>());
+		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, pool<RTLIL::IdString>());
+		setup_type(ID($specrule), {ID::EN_SRC, ID::EN_DST, ID::SRC, ID::DST}, pool<RTLIL::IdString>());
 		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
 		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, pool<RTLIL::IdString>());
 		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
@@ -195,7 +195,7 @@ struct CellTypes
 	{
 		setup_stdcells_eval();
 
-		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, true);
+		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y});
 	}
 
 	void setup_stdcells_eval()
