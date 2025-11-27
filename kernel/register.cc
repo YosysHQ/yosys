@@ -981,6 +981,8 @@ struct HelpPass : public Pass {
 		// iterate over cells
 		bool raise_error = false;
 		for (auto it : StaticCellTypes::builder.cells) {
+			if (!StaticCellTypes::categories.is_known(it.type))
+				continue;
 			auto name = it.type.str();
 			if (cell_help_messages.contains(name)) {
 				auto cell_help = cell_help_messages.get(name);
