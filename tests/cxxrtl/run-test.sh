@@ -1,4 +1,5 @@
 #!/bin/bash
+source ../common-env.sh
 
 set -ex
 

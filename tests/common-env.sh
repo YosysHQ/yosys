@@ -1,0 +1,1 @@
+export YOSYS_MAX_THREADS=4
