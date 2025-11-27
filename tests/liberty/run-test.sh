@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source ../common-env.sh
 set -eo pipefail
 
 for x in *.lib; do
