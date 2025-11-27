@@ -23,7 +23,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/log.h"
 #include <string>
 
@@ -138,7 +138,7 @@ struct EdifBackend : public Backend {
 		bool lsbidx = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
 		bool nogndvcc = false, gndvccy = false, keepmode = false;
-		CellTypes ct(design);
+		NewCellTypes ct(design);
 		EdifNames edif_names;
 
 		size_t argidx;

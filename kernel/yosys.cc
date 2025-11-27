@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 
 #ifdef YOSYS_ENABLE_READLINE
 #  include <readline/readline.h>
@@ -91,7 +91,7 @@ const char* yosys_maybe_version() {
 }
 
 RTLIL::Design *yosys_design = NULL;
-CellTypes yosys_celltypes;
+NewCellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
@@ -240,7 +240,7 @@ void yosys_setup()
 
 	Pass::init_register();
 	yosys_design = new RTLIL::Design;
-	yosys_celltypes.setup();
+	yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
 	log_push();
 }
 
@@ -268,8 +268,6 @@ void yosys_shutdown()
 			fclose(f);
 	log_errfile = NULL;
 	log_files.clear();
-
-	yosys_celltypes.clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {

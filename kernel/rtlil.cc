@@ -19,7 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
-#include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/binding.h"
 #include "kernel/sigtools.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -300,6 +300,7 @@ void RTLIL::OwningIdString::collect_garbage()
 
 dict<std::string, std::string> RTLIL::constpad;
 
+// TODO take a look
 static const pool<IdString> &builtin_ff_cell_types_internal() {
 	static const pool<IdString> res = {
 		ID($sr),

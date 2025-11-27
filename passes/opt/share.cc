@@ -23,6 +23,7 @@
 #include "kernel/modtools.h"
 #include "kernel/utils.h"
 #include "kernel/macc.h"
+#include "kernel/newcelltypes.h"
 #include <iterator>
 
 USING_YOSYS_NAMESPACE
@@ -38,19 +39,18 @@ struct ShareWorkerConfig
 	bool opt_force;
 	bool opt_aggressive;
 	bool opt_fast;
-	pool<RTLIL::IdString> generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
+	StaticCellTypes::Categories::Category generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
 };
 
 struct ShareWorker
 {
 	const ShareWorkerConfig config;
 	int limit;
-	pool<RTLIL::IdString> generic_ops;
+	StaticCellTypes::Categories::Category generic_ops;
 
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
-	CellTypes fwd_ct, cone_ct;
 	ModWalker modwalker;
 
 	pool<RTLIL::Cell*> cells_to_remove;
@@ -75,7 +75,7 @@ struct ShareWorker
 		queue_bits.insert(modwalker.signal_outputs.begin(), modwalker.signal_outputs.end());
 
 		for (auto &it : module->cells_)
-			if (!fwd_ct.cell_known(it.second->type)) {
+			if (!StaticCellTypes::Compat::internals_nomem_noff(it.second->type)) {
 				pool<RTLIL::SigBit> &bits = modwalker.cell_inputs[it.second];
 				queue_bits.insert(bits.begin(), bits.end());
 			}
@@ -95,7 +95,7 @@ struct ShareWorker
 					queue_bits.insert(bits.begin(), bits.end());
 					visited_cells.insert(pbit.cell);
 				}
-				if (fwd_ct.cell_known(pbit.cell->type) && visited_cells.count(pbit.cell) == 0) {
+				if (StaticCellTypes::Compat::internals_nomem_noff(pbit.cell->type) && visited_cells.count(pbit.cell) == 0) {
 					pool<RTLIL::SigBit> &bits = modwalker.cell_inputs[pbit.cell];
 					terminal_bits.insert(bits.begin(), bits.end());
 					queue_bits.insert(bits.begin(), bits.end());
@@ -388,7 +388,7 @@ struct ShareWorker
 				continue;
 			}
 
-			if (generic_ops.count(cell->type)) {
+			if (generic_ops(cell->type)) {
 				if (config.opt_aggressive)
 					shareable_cells.insert(cell);
 				continue;
@@ -412,7 +412,7 @@ struct ShareWorker
 			return true;
 		}
 
-		if (config.generic_uni_ops.count(c1->type))
+		if (config.generic_uni_ops(c1->type))
 		{
 			if (!config.opt_aggressive)
 			{
@@ -429,7 +429,7 @@ struct ShareWorker
 			return true;
 		}
 
-		if (config.generic_bin_ops.count(c1->type) || c1->type == ID($alu))
+		if (config.generic_bin_ops(c1->type) || c1->type == ID($alu))
 		{
 			if (!config.opt_aggressive)
 			{
@@ -449,7 +449,7 @@ struct ShareWorker
 			return true;
 		}
 
-		if (config.generic_cbin_ops.count(c1->type))
+		if (config.generic_cbin_ops(c1->type))
 		{
 			if (!config.opt_aggressive)
 			{
@@ -511,7 +511,7 @@ struct ShareWorker
 	{
 		log_assert(c1->type == c2->type);
 
-		if (config.generic_uni_ops.count(c1->type))
+		if (config.generic_uni_ops(c1->type))
 		{
 			if (c1->parameters.at(ID::A_SIGNED).as_bool() != c2->parameters.at(ID::A_SIGNED).as_bool())
 			{
@@ -560,11 +560,11 @@ struct ShareWorker
 			return supercell;
 		}
 
-		if (config.generic_bin_ops.count(c1->type) || config.generic_cbin_ops.count(c1->type) || c1->type == ID($alu))
+		if (config.generic_bin_ops(c1->type) || config.generic_cbin_ops(c1->type) || c1->type == ID($alu))
 		{
 			bool modified_src_cells = false;
 
-			if (config.generic_cbin_ops.count(c1->type))
+			if (config.generic_cbin_ops(c1->type))
 			{
 				int score_unflipped = max(c1->parameters.at(ID::A_WIDTH).as_int(), c2->parameters.at(ID::A_WIDTH).as_int()) +
 						max(c1->parameters.at(ID::B_WIDTH).as_int(), c2->parameters.at(ID::B_WIDTH).as_int());
@@ -758,7 +758,7 @@ struct ShareWorker
 		recursion_state.insert(cell);
 
 		for (auto c : consumer_cells)
-			if (fwd_ct.cell_known(c->type)) {
+			if (StaticCellTypes::Compat::internals_nomem_noff(c->type)) {
 				const pool<RTLIL::SigBit> &bits = find_forbidden_controls(c);
 				forbidden_controls_cache[cell].insert(bits.begin(), bits.end());
 			}
@@ -897,7 +897,7 @@ struct ShareWorker
 				return activation_patterns_cache.at(cell);
 			}
 			for (auto &pbit : modwalker.signal_consumers[bit]) {
-				log_assert(fwd_ct.cell_known(pbit.cell->type));
+				log_assert(StaticCellTypes::Compat::internals_nomem_noff(pbit.cell->type));
 				if ((pbit.cell->type == ID($mux) || pbit.cell->type == ID($pmux)) && (pbit.port == ID::A || pbit.port == ID::B))
 					driven_data_muxes.insert(pbit.cell);
 				else
@@ -1214,24 +1214,10 @@ struct ShareWorker
 	ShareWorker(ShareWorkerConfig config, RTLIL::Design* design) :
 			config(config), design(design), modwalker(design)
 	{
-		generic_ops.insert(config.generic_uni_ops.begin(), config.generic_uni_ops.end());
-		generic_ops.insert(config.generic_bin_ops.begin(), config.generic_bin_ops.end());
-		generic_ops.insert(config.generic_cbin_ops.begin(), config.generic_cbin_ops.end());
-		generic_ops.insert(config.generic_other_ops.begin(), config.generic_other_ops.end());
-
-		fwd_ct.setup_internals();
-
-		cone_ct.setup_internals();
-		cone_ct.cell_types.erase(ID($mul));
-		cone_ct.cell_types.erase(ID($mod));
-		cone_ct.cell_types.erase(ID($div));
-		cone_ct.cell_types.erase(ID($modfloor));
-		cone_ct.cell_types.erase(ID($divfloor));
-		cone_ct.cell_types.erase(ID($pow));
-		cone_ct.cell_types.erase(ID($shl));
-		cone_ct.cell_types.erase(ID($shr));
-		cone_ct.cell_types.erase(ID($sshl));
-		cone_ct.cell_types.erase(ID($sshr));
+		generic_ops = StaticCellTypes::Categories::join(generic_ops, config.generic_uni_ops);
+		generic_ops = StaticCellTypes::Categories::join(generic_ops, config.generic_bin_ops);
+		generic_ops = StaticCellTypes::Categories::join(generic_ops, config.generic_cbin_ops);
+		generic_ops = StaticCellTypes::Categories::join(generic_ops, config.generic_other_ops);
 	}
 
 	void operator()(RTLIL::Module *module) {
@@ -1561,45 +1547,45 @@ struct SharePass : public Pass {
 		config.opt_aggressive = false;
 		config.opt_fast = false;
 
-		config.generic_uni_ops.insert(ID($not));
-		// config.generic_uni_ops.insert(ID($pos));
-		config.generic_uni_ops.insert(ID($neg));
+		config.generic_uni_ops.set_id(ID($not));
+		// config.generic_uni_ops.set_id(ID($pos));
+		config.generic_uni_ops.set_id(ID($neg));
 
-		config.generic_cbin_ops.insert(ID($and));
-		config.generic_cbin_ops.insert(ID($or));
-		config.generic_cbin_ops.insert(ID($xor));
-		config.generic_cbin_ops.insert(ID($xnor));
+		config.generic_cbin_ops.set_id(ID($and));
+		config.generic_cbin_ops.set_id(ID($or));
+		config.generic_cbin_ops.set_id(ID($xor));
+		config.generic_cbin_ops.set_id(ID($xnor));
 
-		config.generic_bin_ops.insert(ID($shl));
-		config.generic_bin_ops.insert(ID($shr));
-		config.generic_bin_ops.insert(ID($sshl));
-		config.generic_bin_ops.insert(ID($sshr));
+		config.generic_bin_ops.set_id(ID($shl));
+		config.generic_bin_ops.set_id(ID($shr));
+		config.generic_bin_ops.set_id(ID($sshl));
+		config.generic_bin_ops.set_id(ID($sshr));
 
-		config.generic_bin_ops.insert(ID($lt));
-		config.generic_bin_ops.insert(ID($le));
-		config.generic_bin_ops.insert(ID($eq));
-		config.generic_bin_ops.insert(ID($ne));
-		config.generic_bin_ops.insert(ID($eqx));
-		config.generic_bin_ops.insert(ID($nex));
-		config.generic_bin_ops.insert(ID($ge));
-		config.generic_bin_ops.insert(ID($gt));
+		config.generic_bin_ops.set_id(ID($lt));
+		config.generic_bin_ops.set_id(ID($le));
+		config.generic_bin_ops.set_id(ID($eq));
+		config.generic_bin_ops.set_id(ID($ne));
+		config.generic_bin_ops.set_id(ID($eqx));
+		config.generic_bin_ops.set_id(ID($nex));
+		config.generic_bin_ops.set_id(ID($ge));
+		config.generic_bin_ops.set_id(ID($gt));
 
-		config.generic_cbin_ops.insert(ID($add));
-		config.generic_cbin_ops.insert(ID($mul));
+		config.generic_cbin_ops.set_id(ID($add));
+		config.generic_cbin_ops.set_id(ID($mul));
 
-		config.generic_bin_ops.insert(ID($sub));
-		config.generic_bin_ops.insert(ID($div));
-		config.generic_bin_ops.insert(ID($mod));
-		config.generic_bin_ops.insert(ID($divfloor));
-		config.generic_bin_ops.insert(ID($modfloor));
-		// config.generic_bin_ops.insert(ID($pow));
+		config.generic_bin_ops.set_id(ID($sub));
+		config.generic_bin_ops.set_id(ID($div));
+		config.generic_bin_ops.set_id(ID($mod));
+		config.generic_bin_ops.set_id(ID($divfloor));
+		config.generic_bin_ops.set_id(ID($modfloor));
+		// config.generic_bin_ops.set_id(ID($pow));
 
-		config.generic_uni_ops.insert(ID($logic_not));
-		config.generic_cbin_ops.insert(ID($logic_and));
-		config.generic_cbin_ops.insert(ID($logic_or));
+		config.generic_uni_ops.set_id(ID($logic_not));
+		config.generic_cbin_ops.set_id(ID($logic_and));
+		config.generic_cbin_ops.set_id(ID($logic_or));
 
-		config.generic_other_ops.insert(ID($alu));
-		config.generic_other_ops.insert(ID($macc));
+		config.generic_other_ops.set_id(ID($alu));
+		config.generic_other_ops.set_id(ID($macc));
 
 		log_header(design, "Executing SHARE pass (SAT-based resource sharing).\n");
 

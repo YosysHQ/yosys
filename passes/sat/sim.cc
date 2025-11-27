@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/mem.h"
 #include "kernel/fstdata.h"
 #include "kernel/ff.h"
