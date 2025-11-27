@@ -548,8 +548,13 @@ struct NewCellType {
 };
 
 struct NewCellTypes {
+	struct IdStringHash {
+		std::size_t operator()(const IdString id) const {
+			return static_cast<size_t>(id.hash_top().yield());
+		}
+	};
 	StaticCellTypes::Categories::Category static_cell_types = StaticCellTypes::categories.empty;
-	dict<RTLIL::IdString, NewCellType> custom_cell_types = {};
+	std::unordered_map<RTLIL::IdString, NewCellType, IdStringHash> custom_cell_types {};
 
 	NewCellTypes() {
 		static_cell_types = StaticCellTypes::categories.empty;
