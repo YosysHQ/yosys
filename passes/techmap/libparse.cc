@@ -827,6 +827,17 @@ std::string vlog_identifier(std::string str)
 	return str;
 }
 
+void event2vl_wire(std::string &edge, LibertyExpression& parsed, const std::string& wire)
+{
+	edge.clear();
+	if (parsed.kind == LibertyExpression::Kind::NOT) {
+		edge = "negedge " + wire;
+		// parsed = parsed.children[0];
+	} else {
+		edge = "posedge " + wire;
+	}
+}
+
 void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 {
 	edge.clear();
@@ -843,25 +854,151 @@ void event2vl(const LibertyAst *ast, std::string &edge, std::string &expr)
 	}
 }
 
-void clear_preset_var(std::string var, std::string type)
+enum ClearPresetVar {
+	Error,
+	L,
+	H,
+	T,
+	X,
+};
+
+ClearPresetVar clear_preset_var(std::string type)
 {
 	if (type.find('L') != std::string::npos) {
+		return ClearPresetVar::L;
+	}
+	if (type.find('H') != std::string::npos) {
+		return ClearPresetVar::H;
+	}
+	if (type.find('T') != std::string::npos) {
+		return ClearPresetVar::T;
+	}
+	if (type.find('X') != std::string::npos) {
+		return ClearPresetVar::X;
+	}
+	return ClearPresetVar::X;
+}
+
+void print_clear_preset_var(std::string var, ClearPresetVar type)
+{
+	if (type == ClearPresetVar::L) {
 		printf("      %s <= 0;\n", var.c_str());
 		return;
 	}
-	if (type.find('H') != std::string::npos) {
+	if (type == ClearPresetVar::H) {
 		printf("      %s <= 1;\n", var.c_str());
 		return;
 	}
-	if (type.find('T') != std::string::npos) {
+	if (type == ClearPresetVar::T) {
 		printf("      %s <= ~%s;\n", var.c_str(), var.c_str());
 		return;
 	}
-	if (type.find('X') != std::string::npos) {
+	if (type == ClearPresetVar::X) {
 		printf("      %s <= 'bx;\n", var.c_str());
 		return;
 	}
 }
+
+struct FfEdge {
+	std::string edge;
+	std::string expr;
+};
+struct FfEdges {
+	FfEdge clock;
+	FfEdge clear;
+	FfEdge preset;
+	std::string edge;
+	void wired(FfEdge& edge, const LibertyAst* ast, const std::string& wire, const char* tag) {
+		auto* found = ast->find(tag);
+		if (!found)
+			return;
+		auto lexer = LibertyExpression::Lexer(found->value);
+		auto expr = LibertyExpression::parse(lexer);
+		event2vl_wire(edge.edge, expr, wire);
+		edge.expr = expr.vlog_str();
+	}
+	FfEdges(LibertyAst* child, const std::string& clear_wire, const std::string& preset_wire) {
+		wired(clear, child, clear_wire, "clear");
+		wired(preset, child, preset_wire, "preset");
+		event2vl(child->find("clocked_on"), clock.edge, clock.expr);
+		edge = "";
+		if (!clock.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + clock.edge;
+		if (!clear.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + clear.edge;
+		if (!preset.edge.empty())
+			edge += (edge.empty() ? "" : ", ") + preset.edge;
+	}
+};
+
+struct FfVar {
+	std::string var;
+	std::string edge;
+	FfEdge clear;
+	FfEdge preset;
+	// Value for both asserted
+	const char* clear_preset_var_name;
+	std::string next_state;
+	const char* else_prefix = "";
+public:
+	void proc_header() {
+		printf("  always @(%s) begin\n", edge.c_str());
+	}
+	void proc_footer() {
+		if (*else_prefix)
+			printf("    end\n");
+
+		printf("  end\n");
+	}
+	void proc_cond(FfEdge& edge, const char* value) {
+		printf("    %sif (%s) begin\n", else_prefix, edge.expr.c_str());
+		printf("      %s <= %s;\n", var.c_str(), value);
+		printf("    end\n");
+		else_prefix = "else ";
+	}
+	void proc_cond_clear() { proc_cond(clear, "0"); }
+	void proc_cond_preset() { proc_cond(preset, "1"); }
+	void proc_next_state() {
+		if (*else_prefix)
+			printf("    %sbegin\n", else_prefix);
+		printf("      %s <= %s;\n", var.c_str(), next_state.c_str());
+	}
+	void proc(LibertyAst* child) {
+		else_prefix = "";
+		proc_header();
+		if (!clear.expr.empty() && !preset.expr.empty()) {
+			ClearPresetVar clear_preset = clear_preset_var(find_non_null(child, clear_preset_var_name)->value);
+			if (clear_preset == ClearPresetVar::L) {
+				proc_cond_clear();
+				proc_cond_preset();
+				proc_next_state();
+				proc_footer();
+				return;
+			} else if (clear_preset == ClearPresetVar::H) {
+				// Notice that preset and clear are swapped
+				proc_cond_preset();
+				proc_cond_clear();
+				proc_next_state();
+				proc_footer();
+				return;
+			} else {
+				// Boo, we have to emit non-synthesizable verilog
+				printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear.expr.c_str(), preset.expr.c_str());
+				print_clear_preset_var(var, clear_preset);
+				printf("    end\n");
+				else_prefix = "else ";
+			}
+		}
+		if (!clear.expr.empty()) {
+			proc_cond_clear();
+		}
+		if (!preset.expr.empty()) {
+			proc_cond_preset();
+		}
+		proc_next_state();
+		proc_footer();
+	}
+};
 
 void gen_verilogsim_cell(const LibertyAst *ast)
 {
@@ -869,7 +1006,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		return;
 
 	CHECK_NV(ast->args.size(), == 1);
-	printf("module %s (", vlog_identifier(ast->args[0]).c_str());
+	auto module_name = vlog_identifier(ast->args[0]);
+	printf("module %s (", module_name.c_str());
 	bool first = true;
 	for (auto child : ast->children) {
 		if (child->id != "pin")
@@ -883,13 +1021,29 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 	for (auto child : ast->children) {
 		if (child->id != "ff" && child->id != "latch")
 			continue;
-		printf("  reg ");
 		first = true;
+		std::string iq = "";
 		for (auto arg : child->args) {
+			if (first)
+				printf("  reg ");
 			printf("%s%s", first ? "" : ", ", vlog_identifier(arg).c_str());
+			if (first)
+				iq = vlog_identifier(arg);
 			first = false;
 		}
-		printf(";\n");
+		if (!first)
+			printf(";\n");
+		first = true;
+		for (auto gchild : child->children) {
+			if (gchild->id == "clear" || gchild->id == "preset") {
+				if (first)
+					printf("  wire ");
+				printf("%s%s_%s", first ? "" : ", ", iq.c_str(), gchild->id.c_str());
+				first = false;
+			}
+		}
+		if (!first)
+			printf(";\n");
 	}
 
 	for (auto child : ast->children) {
@@ -909,63 +1063,45 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		if (child->id != "ff" || child->args.size() != 2)
 			continue;
 
-		std::string iq_var = vlog_identifier(child->args[0]);
-		std::string iqn_var = vlog_identifier(child->args[1]);
+		auto iq_name = vlog_identifier(child->args[0]);
+		auto clear_wire = iq_name + "_clear";
+		auto preset_wire = iq_name + "_preset";
+		FfEdges edges(child, clear_wire, preset_wire);
 
-		std::string clock_edge, clock_expr;
-		event2vl(child->find("clocked_on"), clock_edge, clock_expr);
-
-		std::string clear_edge, clear_expr;
-		event2vl(child->find("clear"), clear_edge, clear_expr);
-
-		std::string preset_edge, preset_expr;
-		event2vl(child->find("preset"), preset_edge, preset_expr);
-
-		std::string edge = "";
-		if (!clock_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + clock_edge;
-		if (!clear_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + clear_edge;
-		if (!preset_edge.empty())
-			edge += (edge.empty() ? "" : ", ") + preset_edge;
-
-		if (edge.empty())
+		if (edges.edge.empty())
 			continue;
 
-		printf("  always @(%s) begin\n", edge.c_str());
+		std::string next_state = func2vl(find_non_null(child, "next_state")->value);
+		std::string not_next_state = std::string("~(") + next_state + ")";
 
-		const char *else_prefix = "";
-		if (!clear_expr.empty() && !preset_expr.empty()) {
-			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
-			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (!clear_expr.empty()) {
-			printf("    %sif (%s) begin\n", else_prefix, clear_expr.c_str());
-			printf("      %s <= 0;\n", iq_var.c_str());
-			printf("      %s <= 1;\n", iqn_var.c_str());
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (!preset_expr.empty()) {
-			printf("    %sif (%s) begin\n", else_prefix, preset_expr.c_str());
-			printf("      %s <= 1;\n", iq_var.c_str());
-			printf("      %s <= 0;\n", iqn_var.c_str());
-			printf("    end\n");
-			else_prefix = "else ";
-		}
-		if (*else_prefix)
-			printf("    %sbegin\n", else_prefix);
-		std::string expr = find_non_null(child, "next_state")->value;
-		printf("      // %s\n", expr.c_str());
-		printf("      %s <= %s;\n", iq_var.c_str(), func2vl(expr).c_str());
-		printf("      %s <= ~(%s);\n", iqn_var.c_str(), func2vl(expr).c_str());
-		if (*else_prefix)
-			printf("    end\n");
 
-		printf("  end\n");
+		if (edges.clear.expr.length())
+			std::swap(clear_wire, edges.clear.expr);
+		if (edges.preset.expr.length())
+			std::swap(preset_wire, edges.preset.expr);
+		auto iq = FfVar {
+			.var = vlog_identifier(child->args[0]),
+			.edge = edges.edge,
+			.clear = edges.clear,
+			.preset = edges.preset,
+			.clear_preset_var_name = "clear_preset_var1",
+			.next_state = next_state,
+		};
+		auto iqn = FfVar {
+			.var = vlog_identifier(child->args[1]),
+			.edge = edges.edge,
+			// Swapped clear and preset
+			.clear = edges.preset,
+			.preset = edges.clear,
+			.clear_preset_var_name = "clear_preset_var2",
+			.next_state = not_next_state,
+		};
+		iq.proc(child);
+		iqn.proc(child);
+		if (edges.clear.expr.length())
+			printf("  assign %s = %s;\n", edges.clear.expr.c_str(), clear_wire.c_str());
+		if (edges.preset.expr.length())
+			printf("  assign %s = %s;\n", edges.preset.expr.c_str(), preset_wire.c_str());
 	}
 
 	for (auto child : ast->children)
@@ -990,8 +1126,8 @@ void gen_verilogsim_cell(const LibertyAst *ast)
 		const char *else_prefix = "";
 		if (!clear_expr.empty() && !preset_expr.empty()) {
 			printf("    %sif ((%s) && (%s)) begin\n", else_prefix, clear_expr.c_str(), preset_expr.c_str());
-			clear_preset_var(iq_var, find_non_null(child, "clear_preset_var1")->value);
-			clear_preset_var(iqn_var, find_non_null(child, "clear_preset_var2")->value);
+			print_clear_preset_var(iq_var, clear_preset_var(find_non_null(child, "clear_preset_var1")->value));
+			print_clear_preset_var(iqn_var, clear_preset_var(find_non_null(child, "clear_preset_var2")->value));
 			printf("    end\n");
 			else_prefix = "else ";
 		}
