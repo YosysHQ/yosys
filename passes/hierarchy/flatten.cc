@@ -105,7 +105,8 @@ struct FlattenWorker
 					new_hdlname += orig_object_name.c_str() + 1;
 				}
 				object->set_string_attribute(ID(hdlname), new_hdlname);
-			} else if (object->has_attribute(ID(scopename))) {
+			}
+			if (object->has_attribute(ID(scopename))) {
 				std::string new_scopename;
 
 				if (cell->has_attribute(ID::hdlname)) {
