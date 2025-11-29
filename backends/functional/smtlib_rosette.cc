@@ -19,8 +19,8 @@
  */
 
 #include "kernel/functional.h"
-#include "kernel/sexpr.h"
 #include "kernel/yosys.h"
+#include "kernel/sexpr.h"
 #include <ctype.h>
 
 USING_YOSYS_NAMESPACE
@@ -29,24 +29,26 @@ PRIVATE_NAMESPACE_BEGIN
 using SExprUtil::list;
 
 const char *reserved_keywords[] = {
-  // reserved keywords from the racket spec
-  "struct", "lambda", "values", "extract", "concat", "bv", "let", "define", "cons", "list", "read", "write", "stream", "error", "raise", "exit",
-  "for", "begin", "when", "unless", "module", "require", "provide", "apply", "if", "cond", "even", "odd", "any", "and", "or", "match", "command-line",
-  "ffi-lib", "thread", "kill", "sync", "future", "touch", "subprocess", "make-custodian", "custodian-shutdown-all", "current-custodian", "make",
-  "tcp", "connect", "prepare", "malloc", "free", "_fun", "_cprocedure", "build", "path", "file", "peek", "bytes", "flush", "with", "lexer", "parser",
-  "syntax", "interface", "send", "make-object", "new", "instantiate", "define-generics", "set",
+	// reserved keywords from the racket spec
+	"struct", "lambda", "values", "extract", "concat", "bv", "let", "define", "cons", "list", "read", "write",
+	"stream", "error", "raise", "exit", "for", "begin", "when", "unless", "module", "require", "provide", "apply",
+	"if", "cond", "even", "odd", "any", "and", "or", "match", "command-line", "ffi-lib", "thread", "kill", "sync",
+	"future", "touch", "subprocess", "make-custodian", "custodian-shutdown-all", "current-custodian", "make", "tcp",
+	"connect", "prepare", "malloc", "free", "_fun", "_cprocedure", "build", "path", "file", "peek", "bytes",
+	"flush", "with", "lexer", "parser", "syntax", "interface", "send", "make-object", "new", "instantiate",
+	"define-generics", "set",
 
-  // reserved for our own purposes
-  "inputs", "state", "name", nullptr};
+	// reserved for our own purposes
+	"inputs", "state", "name",
+	nullptr
+};
 
 struct SmtrScope : public Functional::Scope<int> {
-	SmtrScope()
-	{
-		for (const char **p = reserved_keywords; *p != nullptr; p++)
+	SmtrScope() {
+		for(const char **p = reserved_keywords; *p != nullptr; p++)
 			reserve(*p);
 	}
-	bool is_character_legal(char c, int index) override
-	{
+	bool is_character_legal(char c, int index) override {
 		return isascii(c) && (isalpha(c) || (isdigit(c) && index > 0) || strchr("@$%^&_+=.", c));
 	}
 };
@@ -54,11 +56,10 @@ struct SmtrScope : public Functional::Scope<int> {
 struct SmtrSort {
 	Functional::Sort sort;
 	SmtrSort(Functional::Sort sort) : sort(sort) {}
-	SExpr to_sexpr() const
-	{
-		if (sort.is_memory()) {
+	SExpr to_sexpr() const {
+		if(sort.is_memory()) {
 			return list("list", list("bitvector", sort.addr_width()), list("bitvector", sort.data_width()));
-		} else if (sort.is_signal()) {
+		} else if(sort.is_signal()) {
 			return list("bitvector", sort.width());
 		} else {
 			log_error("unknown sort");
@@ -66,8 +67,7 @@ struct SmtrSort {
 	}
 };
 
-class SmtrStruct
-{
+class SmtrStruct {
 	struct Field {
 		SmtrSort sort;
 		std::string accessor;
@@ -77,22 +77,19 @@ class SmtrStruct
 	vector<Field> fields;
 	SmtrScope &global_scope;
 	SmtrScope local_scope;
-
-      public:
+public:
 	std::string name;
 	SmtrStruct(std::string name, SmtrScope &scope) : global_scope(scope), local_scope(), name(name) {}
-	void insert(IdString field_name, SmtrSort sort)
-	{
+	void insert(IdString field_name, SmtrSort sort) {
 		field_names(field_name);
 		auto base_name = local_scope.unique_name(field_name);
 		auto accessor = name + "-" + base_name;
 		global_scope.reserve(accessor);
 		fields.emplace_back(Field{sort, accessor, base_name});
 	}
-	void write_definition(SExprWriter &w)
-	{
+	void write_definition(SExprWriter &w) {
 		vector<SExpr> field_list;
-		for (const auto &field : fields) {
+		for(const auto &field : fields) {
 			field_list.emplace_back(field.name);
 		}
 		w.push();
@@ -105,26 +102,23 @@ class SmtrStruct
 		}
 		w.pop();
 	}
-	template <typename Fn> void write_value(SExprWriter &w, Fn fn)
-	{
+	template<typename Fn> void write_value(SExprWriter &w, Fn fn) {
 		w.open(list(name));
-		for (auto field_name : field_names) {
+		for(auto field_name : field_names) {
 			w << fn(field_name);
 			w.comment(RTLIL::unescape_id(field_name), true);
 		}
 		w.close();
 	}
-	SExpr access(SExpr record, IdString name)
-	{
+	SExpr access(SExpr record, IdString name) {
 		size_t i = field_names.at(name);
 		return list(fields[i].accessor, std::move(record));
 	}
 };
 
-std::string smt_const(RTLIL::Const const &c)
-{
+std::string smt_const(RTLIL::Const const &c) {
 	std::string s = "#b";
-	for (int i = c.size(); i-- > 0;)
+	for(int i = c.size(); i-- > 0; )
 		s += c[i] == State::S1 ? '1' : '0';
 	return s;
 }
@@ -137,9 +131,15 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 
 	SmtrPrintVisitor(SmtrStruct &input_struct, SmtrStruct &state_struct) : input_struct(input_struct), state_struct(state_struct) {}
 
-	SExpr from_bool(SExpr &&arg) { return list("bool->bitvector", std::move(arg)); }
-	SExpr to_bool(SExpr &&arg) { return list("bitvector->bool", std::move(arg)); }
-	SExpr to_list(SExpr &&arg) { return list("bitvector->bits", std::move(arg)); }
+	SExpr from_bool(SExpr &&arg) {
+		return list("bool->bitvector", std::move(arg));
+	}
+	SExpr to_bool(SExpr &&arg) {
+		return list("bitvector->bool", std::move(arg));
+	}
+	SExpr to_list(SExpr &&arg) {
+		return list("bitvector->bits", std::move(arg));
+	}
 
 	SExpr buf(Node, Node a) override { return n(a); }
 	SExpr slice(Node, Node a, int offset, int out_width) override { return list("extract", offset + out_width - 1, offset, n(a)); }
@@ -166,9 +166,8 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr unsigned_greater_than(Node, Node a, Node b) override { return from_bool(list("bvugt", n(a), n(b))); }
 	SExpr unsigned_greater_equal(Node, Node a, Node b) override { return from_bool(list("bvuge", n(a), n(b))); }
 
-	SExpr extend(SExpr &&a, int in_width, int out_width)
-	{
-		if (in_width < out_width)
+	SExpr extend(SExpr &&a, int in_width, int out_width) {
+		if(in_width < out_width)
 			return list("zero-extend", std::move(a), list("bitvector", out_width));
 		else
 			return std::move(a);
@@ -177,20 +176,12 @@ struct SmtrPrintVisitor : public Functional::AbstractVisitor<SExpr> {
 	SExpr logical_shift_right(Node, Node a, Node b) override { return list("bvlshr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr arithmetic_shift_right(Node, Node a, Node b) override { return list("bvashr", n(a), extend(n(b), b.width(), a.width())); }
 	SExpr mux(Node, Node a, Node b, Node s) override { return list("if", to_bool(n(s)), n(b), n(a)); }
-	SExpr constant(Node, RTLIL::Const const &value) override { return list("bv", smt_const(value), value.size()); }
+	SExpr constant(Node, RTLIL::Const const& value) override { return list("bv", smt_const(value), value.size()); }
 	SExpr memory_read(Node, Node mem, Node addr) override { return list("list-ref-bv", n(mem), n(addr)); }
 	SExpr memory_write(Node, Node mem, Node addr, Node data) override { return list("list-set-bv", n(mem), n(addr), n(data)); }
 
-	SExpr input(Node, IdString name, IdString kind) override
-	{
-		log_assert(kind == ID($input));
-		return input_struct.access("inputs", name);
-	}
-	SExpr state(Node, IdString name, IdString kind) override
-	{
-		log_assert(kind == ID($state));
-		return state_struct.access("state", name);
-	}
+	SExpr input(Node, IdString name, IdString kind) override { log_assert(kind == ID($input)); return input_struct.access("inputs", name); }
+	SExpr state(Node, IdString name, IdString kind) override { log_assert(kind == ID($state)); return state_struct.access("state", name); }
 };
 
 struct SmtrModule {
@@ -229,17 +220,19 @@ struct SmtrModule {
 	{
 		w.push();
 		w.open(list("define", list(name, "inputs", "state")));
-		auto inlined = [&](Functional::Node n) { return n.fn() == Functional::Fn::constant; };
+		auto inlined = [&](Functional::Node n) {
+			return n.fn() == Functional::Fn::constant;
+		};
 		SmtrPrintVisitor visitor(input_struct, state_struct);
 		auto node_to_sexpr = [&](Functional::Node n) -> SExpr {
-			if (inlined(n))
+			if(inlined(n))
 				return n.visit(visitor);
 			else
 				return scope(n.id(), n.name());
 		};
 		visitor.n = node_to_sexpr;
-		for (auto n : ir)
-			if (!inlined(n)) {
+		for(auto n : ir)
+			if(!inlined(n)) {
 				w.open(list("let", list(list(node_to_sexpr(n), n.visit(visitor)))), false);
 				w.comment(SmtrSort(n.sort()).to_sexpr().to_string(), true);
 			}
@@ -261,7 +254,7 @@ struct SmtrModule {
 			else if (state->sort.is_memory()) {
 				const auto &contents = state->initial_value_memory();
 				w.open(list("list"));
-				for (int i = 0; i < 1 << state->sort.addr_width(); i++) {
+				for(int i = 0; i < 1<<state->sort.addr_width(); i++) {
 					w << list("bv", smt_const(contents[i]), state->sort.data_width());
 				}
 				w.close();
@@ -353,7 +346,8 @@ struct FunctionalSmtrBackend : public Backend {
 		log_header(design, "Executing Functional Rosette Backend.\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
 			if (args[argidx] == "-provides")
 				provides = true;
 			else if (args[argidx] == "-assoc-list-helpers")
