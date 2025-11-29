@@ -62,18 +62,15 @@ def simulate_rosette(
     outputs: SignalWidthMap = {}
 
     current_struct_name: str = ""
-    with open(rkt_file_path, "r") as rkt_file:
+    with open(rkt_file_path, 'r') as rkt_file:
         for line in rkt_file:
-            m = re.search(r"gold_(Inputs|Outputs|State)", line)
+            m = re.search(r'gold_(Inputs|Outputs|State)', line)
             if m:
                 current_struct_name = m.group(1)
-                if current_struct_name == "State":
-                    break
-            elif not current_struct_name:
-                continue  # skip lines before structs
-            m = re.search(r"; (.+?)\b \(bitvector (\d+)\)", line)
-            if not m:
-                continue  # skip non matching lines (probably closing the struct)
+                if current_struct_name == "State": break
+            elif not current_struct_name: continue # skip lines before structs
+            m = re.search(r'; (.+?)\b \(bitvector (\d+)\)', line)
+            if not m: continue # skip non matching lines (probably closing the struct)
             signal = m.group(1)
             width = int(m.group(2))
             if current_struct_name == "Inputs":
@@ -85,18 +82,16 @@ def simulate_rosette(
         step_list: list[int] = []
         for step in range(num_steps):
             value = rnd.getrandbits(width)
-            binary_string = format(value, "0{}b".format(width))
+            binary_string = format(value, '0{}b'.format(width))
             step_list.append(binary_string)
         signals[signal] = step_list
 
-    test_rkt_file_path = rkt_file_path.with_suffix(".tst.rkt")
-    with open(test_rkt_file_path, "w") as test_rkt_file:
-        test_rkt_file.writelines(
-            [
-                "#lang rosette\n",
-                f'(require "{rkt_file_path.name}")\n',
-            ]
-        )
+    test_rkt_file_path = rkt_file_path.with_suffix('.tst.rkt')
+    with open(test_rkt_file_path, 'w') as test_rkt_file:
+        test_rkt_file.writelines([
+            '#lang rosette\n',
+            f'(require "{rkt_file_path.name}")\n',
+        ])
 
         for step in range(num_steps):
             this_step = f"step_{step}"
