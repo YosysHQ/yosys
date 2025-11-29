@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source ../common-env.sh
 
 set -e
 

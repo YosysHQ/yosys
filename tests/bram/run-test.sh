@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source ../common-env.sh
 
 # run this test many times:
 # MAKE="make -j8" time bash -c 'for ((i=0; i<100; i++)); do echo "-- $i --"; bash run-test.sh || exit 1; done'
